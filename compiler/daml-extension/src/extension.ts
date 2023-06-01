@@ -96,7 +96,6 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   let d2 = vscode.commands.registerCommand("daml.openDamlDocs", openDamlDocs);
-  let d5 = vscode.commands.registerCommand("daml.visualize", visualize);
 
   let highlight = vscode.window.createTextEditorDecorationType({
     backgroundColor: "rgba(200,200,200,.35)",
@@ -135,7 +134,7 @@ export async function activate(context: vscode.ExtensionContext) {
     resetTelemetryConsent(context),
   );
 
-  context.subscriptions.push(d1, d2, d3, d4, d5);
+  context.subscriptions.push(d1, d2, d3, d4);
 }
 
 // Compare the extension version with the one stored in the global state.
@@ -204,34 +203,6 @@ function getViewColumnForShowResource(): ViewColumn {
       return ViewColumn.Three;
     default:
       return active.viewColumn;
-  }
-}
-
-function visualize() {
-  if (vscode.window.activeTextEditor) {
-    let currentFile = vscode.window.activeTextEditor.document.fileName;
-    if (vscode.window.activeTextEditor.document.languageId != "daml") {
-      vscode.window.showInformationMessage("Open the daml file to visualize");
-    } else {
-      damlLanguageClient
-        .sendRequest(ExecuteCommandRequest.type, {
-          command: "daml/damlVisualize",
-          arguments: [currentFile],
-        })
-        .then(dotFileContents => {
-          vscode.workspace
-            .openTextDocument({ content: dotFileContents, language: "dot" })
-            .then(doc =>
-              vscode.window
-                .showTextDocument(doc, vscode.ViewColumn.One, true)
-                .then(_ => loadPreviewIfAvailable()),
-            );
-        });
-    }
-  } else {
-    vscode.window.showInformationMessage(
-      "Please open a Daml module to be visualized and then run the command",
-    );
   }
 }
 

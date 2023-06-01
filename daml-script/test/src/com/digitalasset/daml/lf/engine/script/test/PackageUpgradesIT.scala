@@ -23,21 +23,29 @@ final class PackageUpgradesIT
 
   val coinV1DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v1.dar"))
   val coinV2DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v2.dar"))
+  val coinV2NewFieldDarPath =
+    BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v2-new-field.dar"))
   val coinV3DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v3.dar"))
   val coinUpgradeV1V2DarPath =
     BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-upgrade-v1-v2.dar"))
+  val coinUpgradeV1V2NewFieldDarPath =
+    BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-upgrade-v1-v2-new-field.dar"))
   val coinUpgradeV1V3DarPath =
     BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-upgrade-v1-v3.dar"))
   val coinUpgradeV1V2Dar: CompiledDar =
     CompiledDar.read(coinUpgradeV1V2DarPath, Runner.compilerConfig)
+  val coinUpgradeV1V2NewFieldDar: CompiledDar =
+    CompiledDar.read(coinUpgradeV1V2NewFieldDarPath, Runner.compilerConfig)
   val coinUpgradeV1V3Dar: CompiledDar =
     CompiledDar.read(coinUpgradeV1V3DarPath, Runner.compilerConfig)
 
   override protected lazy val darFiles = List(
     coinV1DarPath,
     coinV2DarPath,
+    coinV2NewFieldDarPath,
     coinV3DarPath,
     coinUpgradeV1V2DarPath,
+    coinUpgradeV1V2NewFieldDarPath,
     coinUpgradeV1V3DarPath,
   )
 
@@ -78,6 +86,18 @@ final class PackageUpgradesIT
       } yield r shouldBe SUnit
     }
 
+    "succeed when given a contract id of a predecessor type of Coin V2 (with a new field), Coin V1" in {
+      for {
+        clients <- scriptClients()
+        r <-
+          run(
+            clients,
+            QualifiedName.assertFromString("CoinUpgrade:create_v1_softFetch_v2"),
+            dar = coinUpgradeV1V2NewFieldDar,
+          )
+      } yield r shouldBe SUnit
+    }
+
     "fail when given a contract id of a non-predecessor type of Coin V1, Coin V2" in {
       for {
         clients <- scriptClients()
@@ -86,6 +106,30 @@ final class PackageUpgradesIT
             clients,
             QualifiedName.assertFromString("CoinUpgrade:create_v2_softFetch_v1"),
             dar = coinUpgradeV1V2Dar,
+          )
+      } yield r shouldBe SUnit
+    }
+
+    "fail when given a contract id of a non-predecessor type of Coin V1, Coin V2 (with new field = None)" in {
+      for {
+        clients <- scriptClients()
+        r <-
+          run(
+            clients,
+            QualifiedName.assertFromString("CoinUpgrade:create_v2_none_softFetch_v1"),
+            dar = coinUpgradeV1V2NewFieldDar,
+          )
+      } yield r shouldBe SUnit
+    }
+
+    "fail when given a contract id of a non-predecessor type of Coin V1, Coin V2 (with new field = Some _)" in {
+      for {
+        clients <- scriptClients()
+        r <-
+          run(
+            clients,
+            QualifiedName.assertFromString("CoinUpgrade:create_v2_some_softFetch_v1"),
+            dar = coinUpgradeV1V2NewFieldDar,
           )
       } yield r shouldBe SUnit
     }
@@ -110,6 +154,31 @@ final class PackageUpgradesIT
             clients,
             QualifiedName.assertFromString("CoinUpgrade:create_v3_softFetch_v1"),
             dar = coinUpgradeV1V3Dar,
+          )
+      } yield r shouldBe SUnit
+    }
+  }
+
+  "softExercise" should {
+    "succeed when given a contract id of the same type Coin V2" in {
+      for {
+        clients <- scriptClients()
+        r <-
+          run(
+            clients,
+            QualifiedName.assertFromString("CoinUpgrade:create_v2_softExercise_v2"),
+            dar = coinUpgradeV1V2Dar,
+          )
+      } yield r shouldBe SUnit
+    }
+    "succeed when given a contract id of a predecessor type of Coin V2, Coin V1" in {
+      for {
+        clients <- scriptClients()
+        r <-
+          run(
+            clients,
+            QualifiedName.assertFromString("CoinUpgrade:create_v1_softExercise_v2"),
+            dar = coinUpgradeV1V2Dar,
           )
       } yield r shouldBe SUnit
     }

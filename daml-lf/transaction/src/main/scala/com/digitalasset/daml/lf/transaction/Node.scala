@@ -25,7 +25,7 @@ sealed abstract class Node extends Product with Serializable with CidContainer[N
 object Node {
 
   /** action nodes parametrized over identifier type */
-  sealed abstract class Action extends Node with ActionNodeInfo with CidContainer[Action] {
+  sealed abstract class Action extends Node with CidContainer[Action] {
 
     def version: TransactionVersion
 
@@ -45,6 +45,12 @@ object Node {
       keyOpt.map(Versioned(version, _))
 
     final override protected def self: this.type = this
+
+    /** Compute the informees of a node based on the ledger model definition.
+      *
+      * Refer to https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#projections
+      */
+    def informeesOfNode: Set[Party]
 
     /** Required authorizers (see ledger model); UNSAFE TO USE on fetch nodes of transaction with versions < 5
       *
@@ -78,8 +84,7 @@ object Node {
       keyOpt: Option[GlobalKeyWithMaintainers],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyAction
-      with ActionNodeInfo.Create {
+  ) extends LeafOnlyAction {
 
     @deprecated("use keyOpt", since = "2.6.0")
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
@@ -102,6 +107,9 @@ object Node {
     def versionedCoinst: Value.VersionedContractInstance = versioned(coinst)
 
     def versionedKey: Option[Versioned[GlobalKeyWithMaintainers]] = keyOpt.map(versioned(_))
+
+    override def informeesOfNode: Set[Party] = stakeholders
+    override def requiredAuthorizers: Set[Party] = signatories
   }
 
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
@@ -115,9 +123,7 @@ object Node {
       override val byKey: Boolean,
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyAction
-      with ActionNodeInfo.Fetch {
-
+  ) extends LeafOnlyAction {
     @deprecated("use keyOpt", since = "2.6.0")
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
 
@@ -128,6 +134,9 @@ object Node {
       copy(coid = f(coid))
 
     override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
+
+    override def informeesOfNode: Set[Party] = signatories | actingParties
+    override def requiredAuthorizers: Set[Party] = actingParties
   }
 
   /** Denotes a transaction node for an exercise.
@@ -153,8 +162,7 @@ object Node {
       override val byKey: Boolean,
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends Action
-      with ActionNodeInfo.Exercise {
+  ) extends Action {
 
     def qualifiedChoiceName = QualifiedChoiceName(interfaceId, choiceId)
 
@@ -184,6 +192,12 @@ object Node {
 
     def versionedKey: Option[Versioned[GlobalKeyWithMaintainers]] = keyOpt.map(versioned)
 
+    override def informeesOfNode: Set[Party] =
+      if (consuming)
+        stakeholders | actingParties | choiceObservers | choiceAuthorizers.getOrElse(Set.empty)
+      else
+        signatories | actingParties | choiceObservers | choiceAuthorizers.getOrElse(Set.empty)
+    override def requiredAuthorizers: Set[Party] = actingParties
   }
 
   final case class LookupByKey(
@@ -192,8 +206,7 @@ object Node {
       result: Option[ContractId],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyAction
-      with ActionNodeInfo.LookupByKey {
+  ) extends LeafOnlyAction {
 
     override def keyOpt: Some[GlobalKeyWithMaintainers] = Some(key)
 
@@ -202,14 +215,22 @@ object Node {
     override def mapCid(f: ContractId => ContractId): Node.LookupByKey =
       copy(result = result.map(f))
 
-    override def keyMaintainers: Set[Party] = key.maintainers
-    override def hasResult: Boolean = result.isDefined
+    def keyMaintainers: Set[Party] = key.maintainers
+
     override def byKey: Boolean = true
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.LookupByKey =
       copy(version = version)
 
     override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
+
+    final def informeesOfNode: Set[Party] =
+      // TODO(JM): In the successful case the informees should be the
+      // signatories of the fetch contract. The signatories should be
+      // added to the LookupByKey node, or a successful lookup should
+      // become a Fetch.
+      keyMaintainers
+    def requiredAuthorizers: Set[Party] = keyMaintainers
   }
 
   @deprecated("use GlobalKey", since = "2.6.0")

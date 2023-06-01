@@ -4,8 +4,10 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
+import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey.NoKey
 import com.daml.lf.transaction.TransactionNodeStatistics.Actions
-import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
+import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestIdFactory, TestNodeBuilder}
 import com.daml.lf.value.Value
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -16,7 +18,10 @@ class TransactionNodeStatisticsSpec
     extends AnyWordSpec
     with Inside
     with Matchers
-    with TableDrivenPropertyChecks {
+    with TableDrivenPropertyChecks
+    with TestIdFactory {
+
+  import TransactionNodeStatisticsSpec.TxBuilder
 
   "TransactionNodeStatistics.Actions#+" should {
 
@@ -55,12 +60,11 @@ class TransactionNodeStatisticsSpec
       val parties = Set(b.newParty)
       b.create(
         id = b.newCid,
-        templateId = b.newIdenfier,
+        templateId = b.newIdentifier,
         argument = Value.ValueUnit,
         signatories = parties,
         observers = Set.empty,
-        keyOpt = if (withKey) Some(Value.ValueUnit) else None,
-        maintainers = if (withKey) parties else Set.empty,
+        key = if (withKey) CreateKey.SignatoryMaintainerKey(Value.ValueUnit) else NoKey,
       )
     }
 
@@ -118,8 +122,7 @@ class TransactionNodeStatisticsSpec
 
     "count each type of committed nodes properly" in {
       forEvery(testCases) { (makeNode, getter) =>
-        val builder = TxBuilder()
-
+        val builder = new TxBuilder()
         for (i <- 1 to testIterations) {
           builder.add(makeNode(builder))
           inside(TransactionNodeStatistics(builder.build())) {
@@ -134,7 +137,7 @@ class TransactionNodeStatisticsSpec
 
     "count each type of rolled back nodes properly" in {
       forEvery(testCases) { case (makeNode, getter) =>
-        val builder = TxBuilder()
+        val builder = new TxBuilder()
         val rollbackId = builder.add(builder.rollback())
 
         for (i <- 1 to testIterations) {
@@ -150,8 +153,8 @@ class TransactionNodeStatisticsSpec
     }
 
     "count all committed nodes properly" in {
-      val b = TxBuilder()
-      var exeId = b.add(exe(false, false)(b)) // one nonconsumming exercises
+      val b = new TxBuilder()
+      var exeId = b.add(exe(consuming = false, byKey = false)(b)) // one nonconsumming exercises
 
       for (i <- 1 to testIterations) {
         addAllNodes(b, exeId) // one additional nodes of each types
@@ -162,12 +165,13 @@ class TransactionNodeStatisticsSpec
             committed shouldBe Actions(i, i, 2 * i, i, i, i, i, i)
             rolledBack shouldBe TransactionNodeStatistics.EmptyActions
         }
-        exeId = b.add(exe(false, false)(b), exeId) // one nonconsumming exercises
+        exeId =
+          b.add(exe(consuming = false, byKey = false)(b), exeId) // one nonconsumming exercises
       }
     }
 
     "count all rolled back nodes properly" in {
-      val b = TxBuilder()
+      val b = new TxBuilder()
       var rbId = b.add(rollback(b)) // a committed rollback node
 
       for (i <- 1 to testIterations) {
@@ -185,7 +189,7 @@ class TransactionNodeStatisticsSpec
 
     "exclude infrastructure transactions" in {
       forEvery(testCases) { (makeNode, _) =>
-        val builder = TxBuilder()
+        val builder = new TxBuilder()
         val node = makeNode(builder)
         val excludedPackageIds = Set(node).collect({ case a: Node.Action => a.packageIds }).flatten
         builder.add(node)
@@ -198,7 +202,7 @@ class TransactionNodeStatisticsSpec
 
     "only exclude transaction if all packages are infrastructure" in {
       forEvery(testCases) { (makeNode, _) =>
-        val builder = TxBuilder()
+        val builder = new TxBuilder()
         val nonExcludedNode = makeNode(builder)
         val excludedNode = makeNode(builder)
         val excludedPackageIds =
@@ -213,4 +217,8 @@ class TransactionNodeStatisticsSpec
     }
   }
 
+}
+
+object TransactionNodeStatisticsSpec {
+  class TxBuilder extends NodeIdTransactionBuilder with TestNodeBuilder
 }

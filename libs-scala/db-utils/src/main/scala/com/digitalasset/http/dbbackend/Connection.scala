@@ -4,6 +4,7 @@
 package com.daml.dbutils
 
 import cats.effect.{Blocker, ContextShift, IO}
+import com.codahale.metrics.MetricRegistry
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import doobie._
 
@@ -37,12 +38,13 @@ object ConnectionPool {
   type T = Transactor.Aux[IO, _ <: DataSource with Closeable]
 
   def connect(
-      c: JdbcConfig
+      c: JdbcConfig,
+      metricRegistry: Option[MetricRegistry] = None,
   )(implicit
       ec: ExecutionContext,
       cs: ContextShift[IO],
   ): (DataSource with Closeable, T) = {
-    val ds = dataSource(c)
+    val ds = dataSource(c, metricRegistry)
     (
       ds,
       Transactor
@@ -55,7 +57,8 @@ object ConnectionPool {
   }
 
   private[this] def dataSource(
-      jc: JdbcConfig
+      jc: JdbcConfig,
+      metricRegistry: Option[MetricRegistry],
   ) = {
     import jc._
     val c = new HikariConfig
@@ -66,6 +69,10 @@ object ConnectionPool {
     c.setConnectionTimeout(jc.connectionTimeout.toMillis)
     c.setMaximumPoolSize(poolSize)
     c.setIdleTimeout(jc.idleTimeout.toMillis)
+    metricRegistry match {
+      case Some(mr) => c.setMetricRegistry(mr)
+      case None =>
+    }
     new HikariDataSource(c)
   }
 }

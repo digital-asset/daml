@@ -4,16 +4,16 @@
 Simulation Use Case Example: Impact of Uncontrolled ACS Growth
 ==============================================================
 
-As triggers maintain an in-memory copy of the Ledger's active contract store (ACS), it is important that this data structure respects the triggers finite resource limits.
+As triggers maintain an in-memory copy of the Ledger's active contract store (ACS), it is important that this data structure respects the triggers finite resource limits and it contents remain *relevant*.
 
-In the following use-case simulation, we shall:
+In the following use-case simulations, we shall:
 
 - explore some impacts in allowing the trigger ACS to have uncontrolled growth
 - and demonstrate how ACS growth may be controlled by configuring hard limits.
 
-This use-case assumes that the :doc:`development instructions <development.rst>` have been followed to setup your development/simulation environment.
+This use-case assumes that the :doc:`development instructions <development.rst>` have been followed to setup your development and simulation environment.
 
-For this simulation use-case, we will use the Daml ``Cat`` contract:
+Our simulation use-cases will use the Daml ``Cat`` contract:
 
 .. code-block:: unused
   template Cat
@@ -23,17 +23,17 @@ For this simulation use-case, we will use the Daml ``Cat`` contract:
     where
       signatory owner
 
-and, at some configurable rate, have a Daml trigger create instances of this contract every second. Clearly, the rate at which this trigger creates ``Cat`` contracts will determine the rate at which the trigger's ACS grows and so consumes resources.
+and, at some configurable creation rate, we will Daml triggers to create multiple instances of this contract every second.
 
-For this simulation, we will use the Scala simulation code defined in :doc:`ACSGrowth.scala <scala/ACSGrowth.scala>`.
+The Scala simulation code is defined in :doc:`ACSGrowth.scala <scala/ACSGrowth.scala>`.
 
 Impact of Uncontrolled ACS Growth
 ---------------------------------
 
 At runtime, triggers process two types of workload:
 
-- they evaluate user defined Daml code - we will refer to this as user processing
-- and they process completion and transaction events - we will refer to this as internal processing
+- they evaluate user defined Daml code - we will refer to this as user processing or the user workload
+- and they process completion and transaction events - we will refer to this as internal processing or the internal workload
 
   - completion events are processed as part of managing asynchronous ledger API command submissions
   - and transaction events (i.e. ledger contract create and archive events) are processed to ensure that the internal trigger ACS view remains in-sync with the ledger ACS view.
@@ -44,200 +44,159 @@ Querying the trigger ACS data structure has O(n) complexity - i.e. it is linear 
 - delaying when user processing occurs, as internal processing starts to become the dominant workload
 - and increasing trigger ACS update latency.
 
-Using a series of trigger simulations, we show how each of these performance issues might manifest.
+Using a series of trigger simulations, we will show how each of these performance issues might manifest.
 
-Slow ACS Growth
-^^^^^^^^^^^^^^^
+Running Trigger Simulations and Analysing Data
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Let us start by running the ``SlowACSGrowth`` simulation for 30 seconds using:
-
-.. code-block:: bash
-  bazel test \
-    --test_env=DAR=$(pwd)/daml/.daml/dist/trigger-simulations-0.0.1.dar \
-    --test_output=streamed \
-    --cache_test_results=no \
-    --test_tmpdir=/tmp/ \
-    --test_filter=com.daml.lf.engine.trigger.SlowACSGrowth \
-    //triggers/simulations:trigger-simulation-test-launcher_test_suite_scala_ACSGrowth.scala
-
-Here, we ensure that simulation CSV data is saved/persisted in the ``/tmp`` directory. After approximately 30 seconds (this is configured within the Scala simulation code), the ``SlowACSGrowth`` simulation should have completed successfully - i.e. you should observe that the Scalatest was green and there is a report that all tests passed.
-
-On the console, we should see trigger logging from this simulation. For the moment, we shall not worry about this logging and will simply focus on the simulation CSV data saved under ``/tmp``. The saved CSV data consists of 2 files:
-
-- one file (``trigger-simulation-metrics-data.csv``) containing trigger metric data
-- and one file (``trigger-simulation-acs-data.csv``) containing information about how the trigger ACS view differs from the ledger ACS view.
-
-This CSV data may be visualised with `Plotly <https://plotly.com>`_ using:
+In order to explore the impact that unconstrained ACS growth has upon a trigger, we shall run and analyse the data from 3 trigger simulations as follows:
 
 .. code-block:: bash
-  python3 ./data/analysis/graph-simulation-data.py --title "Slow ACS Growth - 25 contracts per second" /tmp/_tmp/*/TriggerSimulation*/
+  for SIMULATION in "SlowACSGrowth MediumACSGrowth FastACSGrowth"; do
+    TITLE=$(echo $SIMULATION | sed 's/\([^[:blank:]]\)\([[:upper:]]\)/\1 \2/g')
+    bazel test \
+      --test_env=DAR=$(pwd)/daml/.daml/dist/trigger-simulations-0.0.1.dar \
+      --test_output=streamed \
+      --cache_test_results=no \
+      --test_tmpdir=/tmp/ \
+      --test_filter=com.daml.lf.engine.trigger.$SIMULATION \
+      //triggers/simulations:trigger-simulation-test-launcher_test_suite_scala_ACSGrowth.scala
+    python3 ./data/analysis/graph-simulation-data.py --title $TITLE /tmp/_tmp/*/TriggerSimulation*/
+  done
+
+This code runs individual Scalatests in the file ``ACSGrowth.scala``. Each of these Scalatests describe a simulation where a trigger creates a fixed number of ``Cat`` contracts every second:
+
+- the ``SlowACSGrowth`` simulation creates 25 contracts every second
+- the ``MediumACSGrowth`` simulation creates 50 contracts every second
+- and the ``FastACSGrowth`` simulation creates 100 contracts every second.
+
+The generated simulation CSV data is then visualised using some Plotly code. Logging data from these simulations will not be required in our analysis of these use cases.
+
+Analysing ACS Growth
+^^^^^^^^^^^^^^^^^^^^
+
+Active Contracts
+~~~~~~~~~~~~~~~~
+
+.. figure:: data/img/slow-acs-growth-active.png
+  Slow ACS Growth: Active Contracts
+
+.. figure:: data/img/medium-acs-growth-active.png
+  Medium ACS Growth: Active Contracts
+
+.. figure:: data/img/fast-acs-growth-active.png
+  Fast ACS Growth: Active Contracts
+
+In all 3 graphs, the number of active contracts grows incrementally as the simulation runs, and this is to be expected. Notice though, that:
+
+- for the ``SlowACSGrowth`` simulation, around 700 contracts are actually created, with a theoretical maximum of 750 contracts (= 25 * 30) being possible
+
+  - i.e. 93.3% (= 100 * 700 / 750) of possible contracts are actually created
+
+- for the ``MediumACSGrowth`` simulation, around 1100 contracts are actually created, with a theoretical maximum of 1500 contracts (= 50 * 30) being possible
+
+  - i.e. 73.3% (= 100 * 1100 / 1500) of possible contracts are actually created
+
+- and for the ``FastACSGrowth`` simulation, around 635 contracts are actually created, with a theoretical maximum of 3000 contracts (= 100 * 30) being possible
+
+  - i.e. 21.2% (= 100 * 635 / 3000) of possible contracts are actually created.
+
+So, as the rate at which we create contracts increases, the triggers ability to create contracts (c.f. its efficiency) is dropping.
 
 .. note::
-  - If our simulation had contained multiple triggers, then we would observe a column per trigger.
-  - If our ACS had utilised multiple templates, then the ACS difference graphs would be broken down by template.
+  Triggers have a configurable **hard limit** (``maximumActiveContracts``) on the number of active contracts that they may store. If this hard limit is exceeded by a trigger, then it will be stopped with a ``ACSOverflowException`` exception.
+
+Pending Contracts and Submissions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. figure:: data/img/slow-acs-growth.png
-
-  ..
-
-|
-
-Analysing the "ACS" Graph
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-As we might expect, the number of active contracts grows linearly as the trigger simulation proceeds.
-
-Also, as we might expect, the number of pending contracts drops from 25 contracts to 0 every second during its steady state. At all times, within the simulation, the number of pending contracts is bounded.
-
-As the triggers have been configured to only produce command submissions on heartbeats, and these occur once every second, then non-zero submission plots indicate where trigger user code is running.
-
-In between the processing of heartbeat messages, triggers spend their time (internally) processing ledger completion and transaction events. If triggers spend too much time processing these events, then processing of user code may be delayed.
-
-For this simulation, we can observe that submissions (of 25 contracts) are occurring once every second, with little observable delay due to internal trigger processing. This is a preferred outcome.
-
-.. note::
-  Submissions are drawn using line and point markers to aid visualising their frequency.
-
-Analysing the "ACS Diff with Ledger" Graph
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-ACS diffs measure (on a per template basis):
-
-- the number of contracts that need to be added to the trigger ACS
-- and the number of contracts that need to be deleted from the trigger ACS
-
-in order to match the current ledger ACS view.
-
-Graphing this data allows engineers to determine the degree to which the triggers view of the ACS is deviating from the ledgers view of the ACS over time. As triggers issue command submissions to the ledger by querying their ACS, then when the trigger ACS deviates from the ledger ACS then there is a high risk that stale or invalid command submissions will be made.
-
-As the breeding triggers only create contracts, the only potential deviations from the ledger ACS view are due to contracts the ledger knows about, but the trigger has yet to learn - hence the contract additions are the signal we need to analyse here.
-
-Notice that when running user code (i.e. processing contract submissions), we have a bounded divergence. Between processing user code, we have a growth of unknown trigger contracts that then drops back down to zero, producing a stable raster type pattern.
-
-Simulation Conclusions
-~~~~~~~~~~~~~~~~~~~~~~
-
-The trigger is able to manage processing ledger updates without impacting the processing of trigger user code - this is generally a desired goal.
-
-The trigger ACS grows linearly over time and so risks exhausting the available trigger resources. Ultimately, this type of trend needs to be managed by the user.
-
-Medium ACS Growth
-^^^^^^^^^^^^^^^^^
-
-Run the ``MediumACSGrowth`` simulation (under the bazel target ``trigger-simulation-test-launcher_test_suite_scala_ACSGrowth.scala``) using:
-
-.. code-block:: bash
-  bazel test \
-    --test_env=DAR=$(pwd)/daml/.daml/dist/trigger-simulations-0.0.1.dar \
-    --test_output=streamed \
-    --cache_test_results=no \
-    --test_tmpdir=/tmp/ \
-    --test_filter=com.daml.lf.engine.trigger.MediumACSGrowth \
-    //triggers/simulations:trigger-simulation-test-launcher_test_suite_scala_ACSGrowth.scala
-
-Graph the results using:
-
-.. code-block:: bash
-  python3 ./data/analysis/graph-simulation-data.py --title "Medium ACS Growth - 50 contracts per second" /tmp/_tmp/*/TriggerSimulation*/
+  Slow ACS Growth: Pending Contracts and Ledger Diff
 
 .. figure:: data/img/medium-acs-growth.png
+  Medium ACS Growth: Pending Contracts and Ledger Diff
 
-  ..
+.. figure:: data/img/fast-acs-growth.png
+  Fast ACS Growth: Pending Contracts and Ledger Diff
 
-|
+For each ACS graph, filter out the the active contracts and the completion status, then examine the relationship between the pending contracts and the number of command submissions.
 
-Analysing the "ACS" Graph
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Pending contracts represent submission requests (to create a ``Cat`` contract) that have been issued to the ledger. As the ledger creates these contracts, it will then issue create contract events, and these in turn will cause contracts to move from a pending state into an active state.
 
-TODO:
+The breeding triggers have been defined so that they:
 
-Analysing the "ACS Diff with Ledger" Graph
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- only perform the user workload whenever a heartbeat message is received
 
-TODO:
+  - as the user workload always produces command submissions, and so non-zero submission counts indicate that the user workload has completed
 
-Simulation Conclusions
-~~~~~~~~~~~~~~~~~~~~~~
+- and for all zero submission plots, the internal workload is running
 
-TODO:
+  - this relationship can be clearly seen on these graphs as the pending counts drop between non-zero submission plots
+  - and completion failures are all processed between non-zero submission plots.
 
-Fast ACS Growth
-^^^^^^^^^^^^^^^
+Notice that the time between processing user workloads (i.e. between non-zero submission plots) is dependent on the time spent processing the internal workload (i.e. the number of pending contracts that are processed). Specifically, we have that:
 
-Run the ``FastACSGrowth`` simulation (under the bazel target ``trigger-simulation-test-launcher_test_suite_scala_ACSGrowth.scala``) using:
+- for the ``SlowACSGrowth`` simulation, user workloads are actually ran every second and there is no detectable delay in processing internal workloads
+- for the ``MediumACSGrowth`` simulation, some internal workloads are delayed when user workloads run
+- and for the ``FastACSGrowth`` simulation, internal workloads are dominating the triggers processing time with user workloads often delayed.
 
-.. code-block:: bash
-  bazel test \
-    --test_env=DAR=$(pwd)/daml/.daml/dist/trigger-simulations-0.0.1.dar \
-    --test_output=streamed \
-    --cache_test_results=no \
-    --test_tmpdir=/tmp/ \
-    --test_filter=com.daml.lf.engine.trigger.FastACSGrowth \
-    //triggers/simulations:trigger-simulation-test-launcher_test_suite_scala_ACSGrowth.scala
+When we look at how pending contract counts trend:
 
-Graph the results using:
+- for the ``SlowACSGrowth`` simulation, pending contract counts are bounded
+- for the ``MediumACSGrowth`` simulation, there is some small growth in pending counts for the latter half of the simulation
 
-.. code-block:: bash
-  python3 ./data/analysis/graph-simulation-data.py --title "Fast ACS Growth - 100 contracts per second" /tmp/_tmp/*/TriggerSimulation*/
+  - the expectation is that if we run the trigger simulation for longer than 30 seconds, then this growth should continue
 
-Analysing the "ACS" Graph
-~~~~~~~~~~~~~~~~~~~~~~~~~
+- and for the ``FastACSGrowth`` simulation, pending counts are growing as the simulation proceeds.
 
-TODO:
+.. note::
+  In order to ensure that triggers can scale (as the number of contracts they need to process increases), we need to ensure that user and internal workloads are *balanced*.
 
-Analysing the "ACS Diff with Ledger" Graph
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  Triggers have a configurable **hard limit** (``inFlightCommandOverflowCount``) on the number of on-flight commands that they can have. If this hard limit is exceeded by a trigger, then it will be stopped with a ``InFlightCommandOverflowException`` exception.
 
-TODO:
+Analysing ACS Relevance
+^^^^^^^^^^^^^^^^^^^^^^^
 
-Simulation Conclusions
-~~~~~~~~~~~~~~~~~~~~~~
+If a triggers ACS view deviates too far from the ledgers ACS view, then triggers will use stale or invalid contract data during user processing. So, an important trigger design goal is to ensure that its ACS remains *relevant*.
 
-TODO:
+Trigger ACS *relevancy* can be measured by comparing the contracts that the trigger knows about to the contracts that the ledger knows about. Trigger simulations perform such a difference at the end of each rule evaluation cycle. This information is plotted on the *ACS Diff with Ledger* graphs:
 
-Final Conclusions
-^^^^^^^^^^^^^^^^^
+- with contract additions measuring how many active contracts the ledger has created, but the trigger has yet to observe the creation event
+- and with contract deletions measuring how many active contracts the ledger has archived, but the trigger has yet to observe the archive event.
 
-TODO:
+As our ACS growth simulations are only creating contracts, filter out the diff contract deletions for each of our graphs.
 
-Controlling ACS Growth using Hard Limits
-----------------------------------------
+Now, as we examine our ACS difference graphs, notice that:
 
-Controlling Number of In-flight Commands or Pending Contracts
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+- for the ``SlowACSGrowth`` simulation, contract additions are bounded and display a clear *raster* pattern
+- and for the ``MediumACSGrowth`` and ``FastACSGrowth`` simulations, contract additions start to increase in the latter stages of the simulation run
 
-Run the ``InFlightHardLimit`` simulation (under the bazel target ``trigger-simulation-test-launcher_test_suite_scala_ACSGrowth.scala``) using:
+  - also notice that as the trigger ACS view diverges from the ledger ACS view, the number of pending contracts also starts to grow.
 
-.. code-block:: bash
-  bazel test \
-    --test_env=DAR=$(pwd)/daml/.daml/dist/trigger-simulations-0.0.1.dar \
-    --test_output=streamed \
-    --cache_test_results=no \
-    --test_tmpdir=/tmp/ \
-    --test_filter=com.daml.lf.engine.trigger.InFlightHardLimit \
-    //triggers/simulations:trigger-simulation-test-launcher_test_suite_scala_ACSGrowth.scala
+.. note::
+  In order to ensure that triggers can scale (as the number of contracts they need to process increases), we need to ensure that the trigger ACS remains *relevant* (i.e. divergence of the trigger ACS view from the ledger ACS view is **bounded**).
 
-Graph the results using:
+Analysing Completion Failures
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block:: bash
-  python3 ./data/analysis/graph-simulation-data.py --title "In-flight Hard Limit of 500 Pending Contracts" /tmp/_tmp/*/TriggerSimulation*/
+.. figure:: data/img/fast-acs-growth-failures.png
+  Fast ACS Growth: Pending Contracts, Ledger Diff and Completion Failures
 
-Controlling Number of Active Contracts
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+As the ``SlowACSGrowth`` simulation handles no completion failures, we drop this simulation from our analysis in this section.
 
-Run the ``ACSHardLimit`` simulation (under the bazel target ``trigger-simulation-test-launcher_test_suite_scala_ACSGrowth.scala``) using:
+Triggers typically manage completion failures as part of their internal workload. As a result, high rates of completion failures can contribute to delays in user workload processing.
 
-.. code-block:: bash
-  bazel test \
-    --test_env=DAR=$(pwd)/daml/.daml/dist/trigger-simulations-0.0.1.dar \
-    --test_output=streamed \
-    --cache_test_results=no \
-    --test_tmpdir=/tmp/ \
-    --test_filter=com.daml.lf.engine.trigger.ACSHardLimit \
-    //triggers/simulations:trigger-simulation-test-launcher_test_suite_scala_ACSGrowth.scala
+When the ledger API receives too many submissions from a ledger client, it will immediately fail ledger API requests with a ``PARTICIPANT_BACKPRESSURE`` completion failure. For our simulations, the Canton participant is configured to back pressure when it receives more than 100 submissions within a 1 second time window.
 
-Graph the results using:
+.. figure:: data/img/medium-acs-growth-failures.png
+  Medium ACS Growth: Pending Contracts, Ledger Diff and Completion Failures
 
-.. code-block:: bash
-  python3 ./data/analysis/graph-simulation-data.py --title "ACS Hard Limit of 1000 Active Contracts" /tmp/_tmp/*/TriggerSimulation*/
+Notice that for the ``MediumACSGrowth`` simulation, completion failures briefly occur at the simulations start. This is because at the start of this simulation, internal workloads incur little to no overhead, and so there is little delay to when user workloads run. Hence, there is a greater probability that subsequent user workloads (which each generate 50 command submissions) will both occur within a 1 second time window and so trip the participant back pressure alarms. Once the ledger is regularly processing contract creations, the internal workloads increase in duration reducing the probability of back pressure alarms being tripped.
 
+For the ``FastACSGrowth`` simulation, each user workload will generate 100 distinct command submissions and so there is a high probability that user workloads will trip the Participant back pressure alarms. Each submission failure results in a completion failure that is processed sometime after the initial ledger client request has failed.
+
+TODO: complete this section - may need to analyse logging for command submissions and their failures here?
+
+.. note::
+  Trigger simulations use a ledger API client that does not perform any retries of submissions when client requests **immediately** fail (e.g. due to back pressure). Actual trigger implementations will typically retry such failing requests up to 6 times (with exponential backoff, but **no** jitter). This is a known limitation of trigger simulations.
+
+  Triggers use ``maxSubmissionRequests`` and ``maxSubmissionDuration`` to control the rate at which they submit commands to the ledger API. Triggers will internally back pressure (i.e. user and internal workloads will be delayed) when submission rates are exceeded.

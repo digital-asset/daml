@@ -7,8 +7,10 @@ template Coin
   with
     issuer : Party
     owner : Party
+    obs : [Party]
   where
     signatory issuer, owner
+    observer obs
 
     nonconsuming choice V2Choice : ()
       controller owner

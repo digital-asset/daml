@@ -245,6 +245,7 @@ object Profile {
       implicit val interfaceInstanceMethodDefRef: Allowed[InterfaceInstanceMethodDefRef] = allowAll
       implicit val interfaceInstanceViewDefRef: Allowed[InterfaceInstanceViewDefRef] = allowAll
       implicit val templateChoiceDefRef: Allowed[TemplateChoiceDefRef] = allowAll
+      implicit val softTemplateChoiceDefRef: Allowed[SoftTemplateChoiceDefRef] = allowAll
       implicit val interfaceChoiceDefRef: Allowed[InterfaceChoiceDefRef] = allowAll
       implicit val choiceControllerDefRef: Allowed[ChoiceControllerDefRef] = allowAll
       implicit val choiceObserverDefRef: Allowed[ChoiceObserverDefRef] = allowAll

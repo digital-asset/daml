@@ -17,7 +17,6 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   Normalization,
-  ProcessedDisclosedContract,
   ReplayMismatch,
   SubmittedTransaction,
   Validation,
@@ -745,11 +744,7 @@ class EngineTest
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        ContractMetadata(
-          now,
-          Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
-          Bytes.Empty,
-        ),
+        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -759,11 +754,7 @@ class EngineTest
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
-        ContractMetadata(
-          now,
-          Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
-          Bytes.Empty,
-        ),
+        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
       )
       val fetchByKeyCommand = speedy.Command.FetchByKey(
         templateId = templateId,
@@ -771,12 +762,10 @@ class EngineTest
       )
 
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
-      val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
+      val expectedProcessedDisclosedContract = Node.Create(
+        coid = usedDisclosedContract.contractId,
         templateId = usedDisclosedContract.templateId,
-        usedDisclosedContract.contractId,
-        usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
-        createdAt = usedDisclosedContract.metadata.createdAt,
-        driverMetadata = usedDisclosedContract.metadata.driverMetadata,
+        arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = Some(
@@ -1635,11 +1624,7 @@ class EngineTest
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        ContractMetadata(
-          now,
-          Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
-          Bytes.Empty,
-        ),
+        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -1649,11 +1634,7 @@ class EngineTest
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
-        ContractMetadata(
-          now,
-          Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
-          Bytes.Empty,
-        ),
+        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
       )
       val lookupByKeyCommand = speedy.Command.LookupByKey(
         templateId = templateId,
@@ -1661,12 +1642,10 @@ class EngineTest
       )
 
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
-      val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
+      val expectedDisclosedEvent = Node.Create(
+        coid = usedDisclosedContract.contractId,
         templateId = usedDisclosedContract.templateId,
-        contractId = usedDisclosedContract.contractId,
-        argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
-        createdAt = usedDisclosedContract.metadata.createdAt,
-        driverMetadata = usedDisclosedContract.metadata.driverMetadata,
+        arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt =
@@ -1679,7 +1658,7 @@ class EngineTest
         lookupByKeyCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
-        expectedProcessedDisclosedContract,
+        expectedDisclosedEvent,
       )
     }
   }
@@ -1694,7 +1673,7 @@ class EngineTest
         ImmArray(Ref.Name.assertFromString("p")),
         ArrayList(SValue.SParty(alice)),
       ),
-      ContractMetadata(Time.Timestamp.now(), None, Bytes.Empty),
+      None,
     )
     val unusedDisclosedContract = DisclosedContract(
       templateId,
@@ -1704,7 +1683,7 @@ class EngineTest
         ImmArray(Ref.Name.assertFromString("p")),
         ArrayList(SValue.SParty(alice)),
       ),
-      ContractMetadata(Time.Timestamp.now(), None, Bytes.Empty),
+      None,
     )
 
     "unused disclosed contracts not saved to ledger" in {
@@ -1714,12 +1693,10 @@ class EngineTest
       )
 
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
-      val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
+      val expectedDisclosedEvent = Node.Create(
+        coid = usedDisclosedContract.contractId,
         templateId = usedDisclosedContract.templateId,
-        contractId = usedDisclosedContract.contractId,
-        argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
-        createdAt = usedDisclosedContract.metadata.createdAt,
-        driverMetadata = usedDisclosedContract.metadata.driverMetadata,
+        arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = None,
@@ -1731,7 +1708,7 @@ class EngineTest
         fetchTemplateCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
-        expectedProcessedDisclosedContract,
+        expectedDisclosedEvent,
       )
     }
   }
@@ -2691,7 +2668,7 @@ object EngineTest {
           dependsOnTime = state.dependsOnTime,
           nodeSeeds = state.nodeSeeds.toImmArray,
           globalKeyMapping = Map.empty,
-          processedDisclosedContracts = ImmArray.empty,
+          disclosedEvents = ImmArray.empty,
         ),
       )
     )
@@ -2702,7 +2679,7 @@ object EngineTest {
         cmd: speedy.Command,
         unusedDisclosedContract: DisclosedContract,
         usedDisclosedContract: DisclosedContract,
-        expectedProcessedDisclosedContract: ProcessedDisclosedContract,
+        expectedDisclosedEvent: Node.Create,
     ): Assertion = {
       val result = suffixLenientEngine
         .interpretCommands(
@@ -2719,7 +2696,7 @@ object EngineTest {
 
       inside(result) { case Right((transaction, metadata)) =>
         transaction should haveDisclosedInputContracts(usedDisclosedContract)
-        metadata should haveProcessedDisclosedContracts(expectedProcessedDisclosedContract)
+        metadata should haveDisclosedEvents(expectedDisclosedEvent)
       }
     }
 
@@ -2730,16 +2707,16 @@ object EngineTest {
         "org.wartremover.warts.Serializable",
       )
     )
-    def haveProcessedDisclosedContracts(
-        expectedProcessedDisclosedContracts: ProcessedDisclosedContract*
+    def haveDisclosedEvents(
+        expectedProcessedDisclosedContracts: Node.Create*
     ): Matcher[Tx.Metadata] =
       Matcher { metadata =>
         val expectedResult = ImmArray(expectedProcessedDisclosedContracts: _*)
-        val actualResult = metadata.processedDisclosedContracts
+        val actualResult = metadata.disclosedEvents
 
         val debugMessage = Seq(
-          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId)}",
-          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.contractId)}",
+          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.coid)}",
+          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.coid)}",
         ).mkString("\n  ", "\n  ", "")
 
         MatchResult(

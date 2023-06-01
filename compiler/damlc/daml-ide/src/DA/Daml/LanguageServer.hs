@@ -27,7 +27,6 @@ import Development.IDE.Core.Service.Daml
 import Development.IDE.Plugin
 
 import qualified DA.Daml.SessionTelemetry as SessionTelemetry
-import qualified DA.Daml.LanguageServer.Visualize as Visualize
 import qualified DA.Service.Logger as Lgr
 import qualified Network.URI                               as URI
 
@@ -88,7 +87,7 @@ runLanguageServer
     -> (LSP.LanguageContextEnv c -> VFSHandle -> Maybe FilePath -> IO IdeState)
     -> IO ()
 runLanguageServer lgr plugins conf getIdeState = SessionTelemetry.withPlugin lgr $ \sessionHandlerPlugin -> do
-    let allPlugins = plugins <> setHandlersKeepAlive <> setHandlersVirtualResource <> VirtualResource.plugin <> Visualize.plugin <> sessionHandlerPlugin
+    let allPlugins = plugins <> setHandlersKeepAlive <> setHandlersVirtualResource <> VirtualResource.plugin <> sessionHandlerPlugin
     let onConfigurationChange c _ = Right c
     let options = def { LSP.executeCommandCommands = Just (commandIds allPlugins) }
     LS.runLanguageServer options conf onConfigurationChange allPlugins getIdeState
