@@ -48,13 +48,14 @@ class HttpJsonApiMetrics(
     val fetchByKeyQuery: Timer = defaultMetricsFactory.timer(prefix :+ "fetch_by_key_query")
     val searchFetch: Timer = defaultMetricsFactory.timer(prefix :+ "search_fetch")
     val searchQuery: Timer = defaultMetricsFactory.timer(prefix :+ "search_query")
-    val updateCache: Timer = defaultMetricsFactory.timer(prefix :+ "update_cache")
-    val queryResponseFailureCounter: Counter =
-      defaultMetricsFactory.counter(prefix :+ "failure_response_query_count")
-    val startedUpdateCacheCounter: Counter =
-      defaultMetricsFactory.counter(prefix :+ "started_updating_cache_count")
-    val failUpdateCacheCounter: Counter =
-      defaultMetricsFactory.counter(prefix :+ "failed_updating_cache_count")
+    val cacheUpdate: Timer = defaultMetricsFactory.timer(prefix :+ "cache_update")
+    val searchStarted: Counter = defaultMetricsFactory.counter(prefix :+ "search_started_count")
+    val searchFailed: Counter =
+      defaultMetricsFactory.counter(prefix :+ "search_failed_count")
+    val cacheUpdateStarted: Counter =
+      defaultMetricsFactory.counter(prefix :+ "cache_update_started_count")
+    val cacheUpdateFailed: Counter =
+      defaultMetricsFactory.counter(prefix :+ "cache_update_failed_count")
   }
 
   val surrogateTemplateIdCache =

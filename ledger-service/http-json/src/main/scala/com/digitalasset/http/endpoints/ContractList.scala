@@ -126,6 +126,7 @@ private[http] final class ContractList(
           "cmd" -> cmd.toString,
         ).run { implicit lc =>
           logger.debug(s"Processing a query request: $req")
+          metrics.Db.searchStarted.inc()
           contractsService
             .search(jwt, jwtPayload, cmd)
             .map(
@@ -134,7 +135,7 @@ private[http] final class ContractList(
                   .map {
                     case x @ -\/(error) =>
                       logger.error(s"Error processing query for request: $req with error: $error")
-                      metrics.Db.queryResponseFailureCounter.inc()
+                      metrics.Db.searchFailed.inc()
                       x
                     case x @ \/-(_) =>
                       logger.debug(s"Successfully query processed for request: $req")

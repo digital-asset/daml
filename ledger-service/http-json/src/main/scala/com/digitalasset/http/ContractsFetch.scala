@@ -315,9 +315,9 @@ private class ContractsFetch(
     } else
       debugLogActionWithMetrics(
         s"cache refresh for templateId: $templateId",
-        metrics.Db.updateCache,
-        metrics.Db.startedUpdateCacheCounter,
-        metrics.Db.failUpdateCacheCounter,
+        metrics.Db.cacheUpdate,
+        metrics.Db.cacheUpdateStarted,
+        metrics.Db.cacheUpdateFailed,
       ) {
         val graph = RunnableGraph.fromGraph(
           GraphDSL.createGraph(
