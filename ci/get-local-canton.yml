@@ -10,9 +10,9 @@ steps:
     downloadPath: $(Build.StagingDirectory)/canton_lib
 - bash: |
     set -euo pipefail
-    if [ -f "$(Build.StagingDirectory)/canton_lib/canton_jar/local-canton.jar" ]; then
-      mkdir -p canton/lib
-      cp "$(Build.StagingDirectory)/canton_lib/canton_jar/local-canton.jar" canton/lib/
+    if [ -f "$(Build.StagingDirectory)/canton_lib/local-canton.jar" ]; then
+      mkdir -p canton/local_build
+      cp "$(Build.StagingDirectory)/canton_lib/local-canton.jar" canton/local_build/
     else
       find "$(Build.StagingDirectory)"
       exit 1

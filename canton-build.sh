@@ -1,11 +1,12 @@
-#!/usr/bin/env bash
 # Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+
+#!/usr/bin/env bash
 
 set -euo pipefail
 
 root=$PWD
-stagingDir=${1:-${root}/canton}
+stagingDir=${1:-${root}/canton/local_build}
 url=${2:-"git@github.com:DACH-NY/canton.git"}
 
 deps="${root}/arbitrary_canton_sha
@@ -18,12 +19,12 @@ deps="${root}/arbitrary_canton_sha
 "
 
 set -euo pipefail
-mkdir -p "${stagingDir}/local_canton_build"
+mkdir -p ${stagingDir}
 if [ -f arbitrary_canton_sha ]; then
   sha=$(find $deps -type f | xargs sha256sum  | sha256sum | cut -b -64)
   if [[ ! -f "${stagingDir}/lib/${sha}.jar" ]]; then
     commit=$(cat arbitrary_canton_sha)
-    cd "${stagingDir}/local_canton_build"
+    cd ${stagingDir}
     if [[ ! -d canton ]]; then
       git clone $url canton
     fi
@@ -39,9 +40,9 @@ if [ -f arbitrary_canton_sha ]; then
 
     nix-shell --max-jobs 2 --run "sbt community-app/assembly"
     mkdir -p ${root}/canton/lib
-    cp community/app/target/scala-*/canton-open-source-*.jar "${stagingDir}/lib/${sha}.jar"
+    cp community/app/target/scala-*/canton-open-source-*.jar ${sha}.jar
+    rm -r local-canton.jar
+    ln -s ${sha}.jar local-canton.jar
   fi
-  rm -f "${stagingDir}/lib/local-canton.jar"
-  ln -s "${stagingDir}/lib/${sha}.jar" "${stagingDir}/lib/local-canton.jar"
 fi
 
