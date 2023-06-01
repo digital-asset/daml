@@ -88,10 +88,6 @@ message UnassignedEvent {
   // The parties that are notified of this event.
   // Required
   repeated string witness_parties = 9;
-
-  // The parties which are able to submit the corresponding assign command on this participant.
-  // Required
-  repeated string reassigning_parties = 10;
 }
 
 // Records that a contract has been assigned, and it becomes usable on the target domain.
@@ -127,9 +123,5 @@ message AssignedEvent {
 
   // Required
   com.daml.ledger.api.v1.CreatedEvent created_event = 6;
-
-  // The parties which are able to submit the corresponding assign command on this participant.
-  // Required
-  repeated string reassigning_parties = 7;
 }
 
