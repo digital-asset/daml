@@ -57,19 +57,3 @@ class SlowACSGrowth extends GenericACSGrowth("slowBreedingTrigger")
 class MediumACSGrowth extends GenericACSGrowth("mediumBreedingTrigger")
 
 class FastACSGrowth extends GenericACSGrowth("fastBreedingTrigger")
-
-class InFlightHardLimit extends GenericACSGrowth("mediumBreedingTrigger") {
-  override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
-    super.triggerRunnerConfiguration.copy(hardLimit =
-      super.triggerRunnerConfiguration.hardLimit
-        .copy(inFlightCommandOverflowCount = 200)
-    )
-}
-
-class ACSHardLimit extends GenericACSGrowth("mediumBreedingTrigger") {
-  override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
-    super.triggerRunnerConfiguration.copy(hardLimit =
-      super.triggerRunnerConfiguration.hardLimit
-        .copy(maximumActiveContracts = 1000)
-    )
-}
