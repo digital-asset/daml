@@ -16,10 +16,8 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2.Testing";
 // Optional service, exposed for testing static time scenarios.
 service TimeService {
 
-  // Returns a stream of time updates.
-  // Always returns at least one response, where the first one is the current time.
-  // Subsequent responses are emitted whenever the ledger server's time is updated.
-  rpc GetTime (GetTimeRequest) returns (stream GetTimeResponse);
+  // Returns the current time according to the ledger server.
+  rpc GetTime (GetTimeRequest) returns (GetTimeResponse);
 
   // Allows clients to change the ledger's clock in an atomic get-and-set operation.
   rpc SetTime (SetTimeRequest) returns (google.protobuf.Empty);
