@@ -25,23 +25,22 @@ if [ -f arbitrary_canton_sha ]; then
   if [[ ! -f "${stagingDir}/lib/${sha}.jar" ]]; then
     commit=$(cat arbitrary_canton_sha)
     cd ${stagingDir}
-    if [[ ! -d canton ]]; then
-      git clone $url canton
-    fi
-    cd canton
-    git fetch
-    git reset --hard ${commit}
-    sed -i 's|git@github.com:|https://github.com/|' .gitmodules
-    for submodule in 3rdparty/fuzzdb; do
-      git submodule init ${submodule}
-      git submodule update ${submodule}
-    done
-    rsync -avh --delete ${deps} daml/
-
-    nix-shell --max-jobs 2 --run "sbt community-app/assembly"
-    mkdir -p ${root}/canton/lib
-    cp community/app/target/scala-*/canton-open-source-*.jar ${sha}.jar
-    rm -r local-canton.jar
+      if [[ ! -d canton ]]; then
+        git clone $url canton
+      fi
+      cd canton
+      git fetch
+      git reset --hard ${commit}
+      sed -i 's|git@github.com:|https://github.com/|' .gitmodules
+      for submodule in 3rdparty/fuzzdb; do
+        git submodule init ${submodule}
+        git submodule update ${submodule}
+      done
+      rsync -ah --delete ${deps} daml/
+      nix-shell --max-jobs 2 --run "sbt community-app/assembly"
+    cd ..
+    cp canton/community/app/target/scala-*/canton-open-source-*.jar ${sha}.jar
+    rm -f local-canton.jar
     ln -s ${sha}.jar local-canton.jar
   fi
 fi
