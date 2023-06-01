@@ -20,17 +20,18 @@ deps="${root}/arbitrary_canton_sha
 "
 
 set -euo pipefail
-mkdir -p ${stagingDir}
+mkdir -p ${builingDir} ${stagingDir}
 if [ -f arbitrary_canton_sha ]; then
   sha=$(find $deps -type f | xargs sha256sum  | sha256sum | cut -b -64)
   if [[ ! -f "${stagingDir}/lib/${sha}.jar" ]]; then
     commit=$(cat arbitrary_canton_sha)
-    cd ${stagingDir}
-      if [[ ! -d canton ]]; then
-        git clone $url canton
-      fi
-      cd canton
-      git fetch
+    cd ${builingDir}
+    if [[ ! -d canton ]]; then
+        mkdir canton
+        (cd canton && git init && git remote add origin $url)
+    fi
+    cd canton
+      git fetch --depth 1 origin ${commit}
       git reset --hard ${commit}
       sed -i 's|git@github.com:|https://github.com/|' .gitmodules
       for submodule in 3rdparty/fuzzdb; do
