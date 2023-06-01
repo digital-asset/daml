@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 set -euo pipefail
 
 where=${1:-${PWD}}
@@ -38,3 +41,4 @@ if [ -f arbitrary_canton_sha ]; then
   fi
   ln -sn "${where}/canton_lib/${sha}.jar" "${where}/canton_lib/canton.jar"
 fi
+
