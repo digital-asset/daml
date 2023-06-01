@@ -376,6 +376,7 @@ jobs:
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
                 git add canton_dep.bzl $bad_file build.sh build.ps1
+                git rm arbitrary_canton_sha || true
                 [ -f arbitrary_canton_sha ] && git rm -f arbitrary_canton_sha
                 open_pr "$branch" "bump canton to $canton_version"
                 az extension add --name azure-devops
