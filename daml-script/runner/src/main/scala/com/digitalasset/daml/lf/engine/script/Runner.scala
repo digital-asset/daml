@@ -542,7 +542,7 @@ private[lf] class Runner(
       case "daml-script" =>
         new v1.Runner(this).runWithClients(initialClients, traceLog, warningLog, canceled)
       case "daml-script2" =>
-        new v2.Runner(this).runWithClients(initialClients, traceLog, warningLog, canceled)
+        new v2.Runner(this, initialClients, traceLog, warningLog, canceled).getResult()
       case pkgName =>
         throw new IllegalArgumentException(
           "Invalid daml script package name. Expected daml-script or daml-script2, got " + pkgName

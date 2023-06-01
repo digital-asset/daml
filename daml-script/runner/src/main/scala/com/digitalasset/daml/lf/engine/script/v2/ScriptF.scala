@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package engine.script
+package engine
+package script
 package v2
 
 import java.time.Clock
@@ -11,13 +12,15 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.FrontStack
 import com.daml.lf.{CompiledPackages, command}
-import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, UserId}
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.preprocessing.ValueTranslator
+import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SExpr.{SEAppAtomic, SEValue}
+import com.daml.lf.language.StablePackage
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
-import com.daml.lf.speedy.SExpr.SExpr
+import com.daml.lf.speedy.SBuiltin.SBVariantCon
+import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy.PureMachine
 import com.daml.lf.value.Value
@@ -29,16 +32,21 @@ import scalaz.std.list._
 import scalaz.std.option._
 import com.daml.script.converter.Converter.{toContractId, toText}
 
-import scala.concurrent.{ExecutionContext, Future}
+import com.daml.lf.interpretation.{Error => IE}
+import com.daml.lf.speedy.SBuiltin.SBToAny
 
-sealed trait ScriptF
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 object ScriptF {
-  final case class Catch(act: SValue, handle: SValue, continue: SValue) extends ScriptF
-  final case class Throw(exc: SAny) extends ScriptF
+  sealed trait Cmd extends Script.FailableCmd {
+    private[lf] def executeWithRunner(env: Env, @annotation.unused runner: v2.Runner)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = execute(env)
 
-  sealed trait Cmd extends ScriptF with Script.FailableCmd {
-    def execute(env: Env)(implicit
+    private[lf] def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -48,7 +56,7 @@ object ScriptF {
   final class Env(
       val scriptIds: ScriptIds,
       val timeMode: ScriptTimeMode,
-      private var _clients: Participants[v2.ledgerinteraction.ScriptLedgerClient],
+      private var _clients: Participants[ScriptLedgerClient],
       machine: PureMachine,
   ) {
     def clients = _clients
@@ -85,6 +93,71 @@ object ScriptF {
       valueTranslator.translateValue(ty, value).left.map(_.toString)
 
   }
+
+  final case class Throw(exc: SAny, stackTrace: StackTrace) extends Cmd {
+    override def description = "throw"
+
+    override def execute(
+        env: Env
+    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
+      Future.failed(
+        script.Runner.InterpretationError(
+          SError
+            .SErrorDamlException(IE.UnhandledException(exc.ty, exc.value.toUnnormalizedValue))
+        )
+      )
+  }
+
+  final case class Catch(act: SValue, continue: SValue, stackTrace: StackTrace) extends Cmd {
+    override def description = "catch"
+
+    val left = SEBuiltin(
+      SBVariantCon(StablePackage.DA.Types.Either, Name.assertFromString("Left"), 0)
+    )
+    val right = SEBuiltin(
+      SBVariantCon(StablePackage.DA.Types.Either, Name.assertFromString("Right"), 1)
+    )
+
+    override def executeWithRunner(env: Env, runner: v2.Runner)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      runner.runExpr(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
+        case Success(v) =>
+          Future.successful(
+            SELet1(
+              SEAppAtomic(right, Array(SEValue(v))),
+              SEAppAtomic(SEValue(continue), Array(SELocS(1))),
+            )
+          )
+        case Failure(
+              script.Runner.InterpretationError(
+                SError.SErrorDamlException(IE.UnhandledException(typ, value))
+              )
+            ) =>
+          Future.successful(
+            SELet1(
+              SEImportValue(typ, value),
+              SELet1(
+                SEAppAtomic(SEBuiltin(SBToAny(typ)), Array(SELocS(1))),
+                SELet1(
+                  SEAppAtomic(left, Array(SELocS(1))),
+                  SEAppAtomic(SEValue(continue), Array(SELocS(1))),
+                ),
+              ),
+            )
+          )
+        case Failure(e) => Future.failed(e)
+      }
+
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = Future.failed(new NotImplementedError)
+  }
+
   final case class Submit(data: SubmitData) extends Cmd {
     override def stackTrace = data.stackTrace
 
@@ -116,25 +189,7 @@ object ScriptF {
                   results,
                 )
             )
-          case Left(statusEx) =>
-            // This branch is superseded by SubmitMustFail below,
-            // however, it is maintained for backwards
-            // compatibility with Daml script DARs generated by
-            // older SDK versions that didn't distinguish Submit
-            // and SubmitMustFail.
-            data.continue match {
-              // Separated submit and submitMustFail, fail in Scala land
-              // instead of going back to Daml.
-              case SUnit => Future.failed(statusEx)
-              // Fail in Daml land
-              case _ =>
-                for {
-                  res <- Converter.toFuture(
-                    Converter
-                      .fromStatusException(env.scriptIds, statusEx)
-                  )
-                } yield SEAppAtomic(SEValue(data.continue), Array(SEValue(res)))
-            }
+          case Left(statusEx) => Future.failed(statusEx)
         }
       } yield v
   }
@@ -933,19 +988,23 @@ object ScriptF {
 
   }
 
-  private def parseCatch(v: SValue): Either[String, Catch] = {
+  private def parseCatch(ctx: Ctx, v: SValue): Either[String, Catch] = {
     v match {
-      case SRecord(_, _, ArrayList(act, handle, continue)) =>
-        Right(Catch(act, handle, continue))
+      case SRecord(_, _, ArrayList(act, continue, stackTrace)) =>
+        for {
+          stackTrace <- toStackTrace(ctx, Some(stackTrace))
+        } yield Catch(act, continue, stackTrace)
       case _ => Left(s"Expected Catch payload but got $v")
     }
 
   }
 
-  private def parseThrow(v: SValue): Either[String, Throw] = {
+  private def parseThrow(ctx: Ctx, v: SValue): Either[String, Throw] = {
     v match {
-      case SRecord(_, _, ArrayList(exc: SAny)) =>
-        Right(Throw(exc))
+      case SRecord(_, _, ArrayList(exc: SAny, stackTrace)) =>
+        for {
+          stackTrace <- toStackTrace(ctx, Some(stackTrace))
+        } yield Throw(exc, stackTrace)
       case _ => Left(s"Expected Throw payload but got $v")
     }
 
@@ -1040,7 +1099,7 @@ object ScriptF {
       case _ => Left(s"Expected ListUserRights payload but got $v")
     }
 
-  def parse(ctx: Ctx, constr: Ast.VariantConName, v: SValue): Either[String, ScriptF] =
+  def parse(ctx: Ctx, constr: Ast.VariantConName, v: SValue): Either[String, Cmd] =
     constr match {
       case "Submit" => parseSubmit(ctx, v).map(Submit(_))
       case "SubmitMustFail" => parseSubmit(ctx, v).map(SubmitMustFail(_))
@@ -1055,8 +1114,8 @@ object ScriptF {
       case "GetTime" => parseGetTime(ctx, v)
       case "SetTime" => parseSetTime(ctx, v)
       case "Sleep" => parseSleep(ctx, v)
-      case "Catch" => parseCatch(v)
-      case "Throw" => parseThrow(v)
+      case "Catch" => parseCatch(ctx, v)
+      case "Throw" => parseThrow(ctx, v)
       case "ValidateUserId" => parseValidateUserId(ctx, v)
       case "CreateUser" => parseCreateUser(ctx, v)
       case "GetUser" => parseGetUser(ctx, v)

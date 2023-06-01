@@ -82,7 +82,6 @@ module Daml.Script
   ) where
 
 #ifdef DAML_EXCEPTIONS
-import DA.Bifunctor
 import DA.Exception
 #endif
 import DA.Functor
@@ -92,6 +91,7 @@ import DA.Optional
 import DA.Stack
 import DA.Time
 import Daml.Script.Free (Free(..))
+import qualified Daml.Script.Free as Free
 
 -- | A free applicative, since we don’t have existentials we have to use the weird RankNTypes encoding, this is isomorphic to
 -- forall b. Ap (f b) (Ap f (b -> a))
@@ -153,17 +153,11 @@ data ScriptF a
   | Throw ThrowPayload
   deriving Functor
 
--- `(try x catch f) >>= g` roughly translates to
--- CatchPayload with
---   act = \() -> x
---   handle = f
---   continue = g
 data CatchPayload x a = CatchPayload
   with
-    -- TODO(MA): simplify to `act : () -> Free ScriptF x`
-    act : () -> Free ScriptF (Free ScriptF x, ())
-    handle : AnyException -> Optional (Free ScriptF x)
-    continue : Free ScriptF x -> a
+    act : () -> Free ScriptF (x, ())
+    continue : Either AnyException x -> a
+    locations : [(Text, SrcLoc)]
   deriving Functor
 
 -- This wraps a `CatchPayload` whose inner action returns an `x` into an
@@ -174,19 +168,32 @@ castCatchPayload = error "foobar" -- gets replaced by the identity-function in s
 data ThrowPayload = ThrowPayload
   with
     exc: AnyException
+    locations : [(Text, SrcLoc)]
 
 instance ActionThrow Script where
-  throw e = lift (Free (Throw (ThrowPayload (toAnyException e))))
+  throw e = throwAnyException $ toAnyException e
+
+throwAnyException : AnyException -> Script t
+throwAnyException e = lift $ Free $ Throw ThrowPayload with
+    exc = e
+    locations = getCallStack callStack
 
 instance ActionCatch Script where
   _tryCatch : forall t. (() -> Script t) -> (AnyException -> Optional (Script t)) -> Script t
-  _tryCatch act handle = lift $ Free $ Catch $ castCatchPayload payload
-    where
-      payload : CatchPayload t (Free ScriptF t)
-      payload = CatchPayload with
-        act = \() -> fmap (first pure) $ runScript (act ()) ()
-        handle = \e -> fmap (\s -> fmap fst $ runScript s ()) (handle e)
-        continue = identity
+  _tryCatch act handle = do
+    res <- tryToEither act
+    case res of
+      Right t -> pure t
+      Left e -> fromOptional (throwAnyException e) $ handle e
+
+tryToEither : forall t. (() -> Script t) -> Script (Either AnyException t)
+tryToEither act = lift $ Free.lift $ Catch $ castCatchPayload payload
+  where
+    payload : CatchPayload t (Either AnyException t)
+    payload = CatchPayload with
+      act = \() -> runScript (act ()) ()
+      continue = identity
+      locations = getCallStack callStack
 #endif
 
 data QueryACS a = QueryACS
