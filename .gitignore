@@ -70,3 +70,5 @@ out
 # Visual Studio Code
 .vscode/*
 !.vscode/settings.json.default
+canton/build/
+canton/lib/

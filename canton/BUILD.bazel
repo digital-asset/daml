@@ -12,7 +12,7 @@ java_binary(
     name = "canton",
     main_class = "com.digitalasset.canton.CantonCommunityApp",
     visibility = ["//visibility:public"],
-    runtime_deps = ["@canton//:jar"],
+    runtime_deps = [":lib"],
 )
 
 # We replace engine and archive classes in canton
@@ -21,29 +21,26 @@ java_binary(
     name = "canton-patched",
     main_class = "com.digitalasset.canton.CantonCommunityApp",
     visibility = ["//visibility:public"],
-    runtime_deps = [
-        # The following prevents buildifier from sorting the deps
-        # Do not sort
-        "//daml-lf/engine",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//canton:lib",
-    ],
-)
-
-genrule(
-    name = "canton-lib",
-    srcs = [":lib/canton.jar"] if canton["local"] else ["@canton//:jar"],
-    outs = ["canton-lib.jar"],
-    cmd = """
-    set -euo pipefail
-
-    cp $(location {src}) $@
-    """.format(src = ":lib/canton.jar" if canton["local"] else "@canton//:jar"),
-    visibility = ["//visibility:public"],
+    runtime_deps =
+        [":local-lib"] if canton["local"] else [
+            # The following comment prevents buildifier from sorting the deps
+            # Do not sort
+            "//daml-lf/engine",
+            "//daml-lf/archive:daml_lf_archive_reader",
+            ":lib",
+        ],
 )
 
 java_import(
     name = "lib",
-    jars = [":canton-lib.jar"],
-    visibility = ["//visibility:public"],
+    jars = ["@canton//:jar"],
+    deps = [],
 )
+
+[
+    java_import(
+        name = "local-lib",
+        jars = [":lib/local-canton.jar"],
+        visibility = ["//visibility:public"],
+    ) if canton["local"] else [],
+]
