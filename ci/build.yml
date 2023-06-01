@@ -44,21 +44,7 @@ jobs:
       path: $(Build.StagingDirectory)/canton_lib
   - bash: |
       set -euo pipefail
-      mkdir -p "$(Build.StagingDirectory)/canton_lib"
-      if [ -f arbitrary_canton_sha ] && ! [ -f "$(Build.StagingDirectory)/canton_lib/canton.jar" ]; then
-        sha=$(cat arbitrary_canton_sha)
-        cd $(mktemp -d)
-        git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton --shallow-submodules --depth=1
-        rsync -avh --delete lib-scala daml-lf ledger canton/daml/
-        cd canton
-        sed -i 's|git@github.com:|https://github.com/|' .gitmodules
-        for submodule in 3rdparty/fuzzdb; do
-          git submodule init $(submodule)
-          git submodule update $(submodule)
-        done
-        nix-shell --max-jobs 2 --run "sbt community-app/assembly"
-        cp community/app/target/scala-*/canton-open-source-*.jar "$(Build.StagingDirectory)/canton_lib/canton.jar"
-      fi
+      bash canton-build.sh "$(Build.StagingDirectory)" "https://$GITHUB_TOKEN@github.com/DACH-NY/canton"
     env:
       GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
   - task: PublishBuildArtifacts@1
