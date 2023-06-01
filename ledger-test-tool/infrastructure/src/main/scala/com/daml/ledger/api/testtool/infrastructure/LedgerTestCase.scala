@@ -73,12 +73,23 @@ sealed class LedgerTestCase(
   ): Future[Unit] = {
     lazy val deleteCreatedUsersF =
       Future.sequence(context.configuredParticipants.map(_.deleteCreatedUsers()))
+    lazy val deleteIdentityProvidersUsersF =
+      Future.sequence(context.configuredParticipants.map(_.deleteCreateIdentityProviders()))
     testCaseRunResult match {
-      case Success(v) => deleteCreatedUsersF.map(_ => v)
+      case Success(v) =>
+        for {
+          _ <- deleteCreatedUsersF
+          _ <- deleteIdentityProvidersUsersF
+        } yield v
       case Failure(exception) =>
         // Prioritizing a failure of users' clean-up over the original failure of the test case
         // since clean-up failures can affect other test cases.
-        deleteCreatedUsersF.flatMap(_ => Future.failed(exception))
+        {
+          for {
+            _ <- deleteCreatedUsersF
+            _ <- deleteIdentityProvidersUsersF
+          } yield ()
+        }.flatMap(_ => Future.failed(exception))
     }
   }
 

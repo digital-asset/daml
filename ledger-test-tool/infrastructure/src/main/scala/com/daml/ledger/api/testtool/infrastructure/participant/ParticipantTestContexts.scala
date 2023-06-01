@@ -4,8 +4,8 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.error.ErrorCode
-
 import java.time.Instant
+
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.{
@@ -35,6 +35,8 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   PartyDetails,
   UpdatePartyDetailsRequest,
   UpdatePartyDetailsResponse,
+  UpdatePartyIdentityProviderRequest,
+  UpdatePartyIdentityProviderResponse,
 }
 import com.daml.ledger.api.v1.command_completion_service.{
   Checkpoint,
@@ -98,6 +100,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
   def referenceOffset: LedgerOffset
   def nextKeyId: () => String
   def nextUserId: () => String
+  def nextIdentityProviderId: () => String
   def nextPartyId: () => String
   def delayMechanism: DelayMechanism
 
@@ -151,6 +154,9 @@ trait ParticipantTestContext extends UserManagementTestContext {
 
   def allocateParty(req: AllocatePartyRequest): Future[AllocatePartyResponse]
   def updatePartyDetails(req: UpdatePartyDetailsRequest): Future[UpdatePartyDetailsResponse]
+  def updatePartyIdentityProviderId(
+      request: UpdatePartyIdentityProviderRequest
+  ): Future[UpdatePartyIdentityProviderResponse]
   def allocateParties(n: Int): Future[Vector[Primitive.Party]]
   def getParties(req: GetPartiesRequest): Future[GetPartiesResponse]
   def getParties(parties: Seq[Primitive.Party]): Future[Seq[PartyDetails]]

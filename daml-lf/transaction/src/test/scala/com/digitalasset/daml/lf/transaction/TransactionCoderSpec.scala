@@ -71,11 +71,6 @@ class TransactionCoderSpec
             txVersion,
             encodedNode,
           ) shouldBe Right((NodeId(0), normalizeCreate(versionedNode)))
-
-          Right(createNode.informeesOfNode) shouldEqual
-            TransactionCoder
-              .protoActionNodeInfo(txVersion, encodedNode)
-              .map(_.informeesOfNode)
       }
     }
 
@@ -101,10 +96,6 @@ class TransactionCoderSpec
               txVersion,
               encodedNode,
             ) shouldBe Right((NodeId(0), normalizeFetch(versionedNode)))
-          Right(fetchNode.informeesOfNode) shouldEqual
-            TransactionCoder
-              .protoActionNodeInfo(txVersion, encodedNode)
-              .map(_.informeesOfNode)
       }
     }
 
@@ -128,11 +119,6 @@ class TransactionCoderSpec
               txVersion,
               encodedNode,
             ) shouldBe Right((NodeId(0), normalizedNode))
-
-          Right(normalizedNode.informeesOfNode) shouldEqual
-            TransactionCoder
-              .protoActionNodeInfo(txVersion, encodedNode)
-              .map(_.informeesOfNode)
       }
     }
 

@@ -438,6 +438,7 @@ private[speedy] case class PartialTransaction(
     * Must be closed by a `endExercises` or an `abortExercise`.
     */
   def beginExercises(
+      templateId: TypeConName,
       targetId: Value.ContractId,
       contract: CachedContract,
       interfaceId: Option[TypeConName],
@@ -456,7 +457,7 @@ private[speedy] case class PartialTransaction(
     val ec =
       ExercisesContextInfo(
         targetId = targetId,
-        templateId = contract.templateId,
+        templateId = templateId, // may differ from contract.templateId during soft-exercise
         interfaceId = interfaceId,
         contractKey =
           // We need to renormalize the key

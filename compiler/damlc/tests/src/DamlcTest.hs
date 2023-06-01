@@ -625,6 +625,232 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
               , "  0 (100.0%) exercised"
               ] `isInfixOf` stdout)
           exitCode @?= ExitSuccess
+    , testCase "Serialized results aggregate correctly" $ withTempDir $ \projDir -> do
+          createDirectoryIfMissing True (projDir </> "a")
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+            ]
+          writeFileUTF8 (projDir </> "Main.daml") $ unlines
+            [ "module Main where"
+            , ""
+            , "import Daml.Script"
+            , ""
+            , "template T1 with"
+            , "    party: Party"
+            , "  where"
+            , "    signatory party"
+            , "    nonconsuming choice T1C1 : ()"
+            , "      controller party"
+            , "      do pure ()"
+            , "    nonconsuming choice T1C2 : ()"
+            , "      controller party"
+            , "      do pure ()"
+            , ""
+            , "template T2 with"
+            , "    party: Party"
+            , "  where"
+            , "    signatory party"
+            , "    nonconsuming choice T2C1 : ()"
+            , "      controller party"
+            , "      do pure ()"
+            , "    nonconsuming choice T2C2 : ()"
+            , "      controller party"
+            , "      do pure ()"
+            , ""
+            , "testT1 : Script ()"
+            , "testT1 = do"
+            , "  alice <- allocateParty \"Alice\""
+            , "  t1 <- alice `submit` createCmd (T1 alice)"
+            , "  alice `submit` exerciseCmd t1 T1C1"
+            , "  alice `submit` exerciseCmd t1 Archive"
+            , "  pure ()"
+            , ""
+            , "testBoth : Script ()"
+            , "testBoth = do"
+            , "  alice <- allocateParty \"Alice\""
+            , "  t1 <- alice `submit` createCmd (T1 alice)"
+            , "  t2 <- alice `submit` createCmd (T2 alice)"
+            , "  alice `submit` exerciseCmd t1 Archive"
+            , "  alice `submit` exerciseCmd t2 Archive"
+            , "  pure ()"
+            ]
+          callProcessSilent
+            damlc
+            [ "build"
+            , "--project-root"
+            , projDir
+            ]
+          (exitCode, stdoutTestT1Run, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--project-root", projDir
+                , "-p", "testT1"
+                , "--save-coverage", projDir </> "testT1-results"
+                ]
+                ""
+          stderr @?= ""
+          exitCode @?= ExitSuccess
+
+          (exitCode, stdoutTestBothRun, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--project-root", projDir
+                , "-p", "testBoth"
+                , "--save-coverage", projDir </> "testBoth-results"
+                ]
+                ""
+          stderr @?= ""
+          exitCode @?= ExitSuccess
+
+          (exitCode, stdoutTestAllRun, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--project-root", projDir
+                , "--save-coverage", projDir </> "test-all-results"
+                ]
+                ""
+          stderr @?= ""
+          exitCode @?= ExitSuccess
+
+          (exitCode, stdoutEmptyAggregate, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--project-root", projDir
+                , "--load-coverage-only"
+                ]
+                ""
+          stderr @?= ""
+          exitCode @?= ExitSuccess
+
+          assertBool ("Coverage with only aggregation and no load-coverage is empty: " <> stdoutEmptyAggregate)
+            (unlines
+              [ "Modules internal to this package:"
+              , "- Internal templates"
+              , "  0 defined"
+              , "  0 (100.0%) created"
+              , "- Internal template choices"
+              , "  0 defined"
+              , "  0 (100.0%) exercised"
+              ] `isInfixOf` stdoutEmptyAggregate)
+
+          (exitCode, stdoutAggregateTestT1, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--project-root", projDir
+                , "--load-coverage-only"
+                , "--load-coverage", projDir </> "testT1-results"
+                ]
+                ""
+          stderr @?= ""
+          exitCode @?= ExitSuccess
+
+          assertBool ("Coverage with only aggregation of testT1 results is correct: " <> stdoutAggregateTestT1)
+            (unlines
+              [ "Modules internal to this package:"
+              , "- Internal templates"
+              , "  2 defined"
+              , "  1 ( 50.0%) created"
+              , "- Internal template choices"
+              , "  6 defined"
+              , "  2 ( 33.3%) exercised"
+              ] `isInfixOf` stdoutAggregateTestT1)
+
+          assertBool ("Coverage with only aggregation of testT1 results is equivalent to original testT1 output: " <> stdoutAggregateTestT1 <> stdoutTestT1Run)
+            (stdoutAggregateTestT1 `isInfixOf` stdoutTestT1Run)
+
+          (exitCode, stdoutAggregateTestBoth, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--project-root", projDir
+                , "--load-coverage-only"
+                , "--load-coverage", projDir </> "testBoth-results"
+                ]
+                ""
+          stderr @?= ""
+          exitCode @?= ExitSuccess
+
+          assertBool ("Coverage with only aggregation of testBoth results is correct: " <> stdoutAggregateTestBoth)
+            (unlines
+              [ "Modules internal to this package:"
+              , "- Internal templates"
+              , "  2 defined"
+              , "  2 (100.0%) created"
+              , "- Internal template choices"
+              , "  6 defined"
+              , "  2 ( 33.3%) exercised"
+              ] `isInfixOf` stdoutAggregateTestBoth)
+
+          assertBool ("Coverage with only aggregation of testBoth results is equivalent to original testBoth output: " <> stdoutAggregateTestBoth <> stdoutTestBothRun)
+            (stdoutAggregateTestBoth `isInfixOf` stdoutTestBothRun)
+
+          (exitCode, stdoutAggregateTestT1AndTestBoth, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--project-root", projDir
+                , "--load-coverage-only"
+                , "--load-coverage", projDir </> "testT1-results"
+                , "--load-coverage", projDir </> "testBoth-results"
+                ]
+                ""
+          stderr @?= ""
+          exitCode @?= ExitSuccess
+
+          assertBool ("Coverage with aggregation of independent results from testT1 and testBoth is correct: " <> stdoutAggregateTestT1AndTestBoth)
+            (unlines
+              [ "Modules internal to this package:"
+              , "- Internal templates"
+              , "  2 defined"
+              , "  2 (100.0%) created"
+              , "- Internal template choices"
+              , "  6 defined"
+              , "  3 ( 50.0%) exercised"
+              ] `isInfixOf` stdoutAggregateTestT1AndTestBoth)
+
+          assertBool ("Coverage with aggregation of independent results from testT1 and testBoth is equivalent to running both tests: " <> stdoutAggregateTestT1AndTestBoth <> stdoutTestAllRun)
+            (stdoutAggregateTestT1AndTestBoth `isInfixOf` stdoutTestAllRun)
+
+          (exitCode, stdoutAggregateTestT1AndTestBothReordered, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--project-root", projDir
+                , "--load-coverage-only"
+                , "--load-coverage", projDir </> "testBoth-results" -- reorder the way in which we read the results, should be identical
+                , "--load-coverage", projDir </> "testT1-results"
+                ]
+                ""
+          stderr @?= ""
+          exitCode @?= ExitSuccess
+
+          assertBool ("Coverage with aggregation of independent results from testT1 and testBoth is order invariant: " <> stdoutAggregateTestT1AndTestBoth <> stdoutAggregateTestT1AndTestBothReordered)
+            (stdoutAggregateTestT1AndTestBothReordered == stdoutAggregateTestT1AndTestBoth)
+
+          (exitCode, stdoutAggregateTestT1WithRunTestBoth, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--project-root", projDir
+                , "--load-coverage", projDir </> "testT1-results"
+                , "-p", "testBoth"
+                ]
+                ""
+          stderr @?= ""
+          exitCode @?= ExitSuccess
+
+          assertBool ("Coverage with reading results from testT1 and running testBoth is equivalent to running both tests: " <> stdoutAggregateTestT1WithRunTestBoth <> stdoutAggregateTestT1AndTestBoth)
+            (stdoutAggregateTestT1AndTestBoth `isInfixOf` stdoutAggregateTestT1WithRunTestBoth)
+
     , testCase "Full test coverage report without --all set (but imports)" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
           writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines

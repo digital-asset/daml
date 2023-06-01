@@ -13,33 +13,33 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-final class PackageUpgradesIT
-    extends AsyncWordSpec
-    with AbstractScriptTest
-    with Inside
-    with Matchers {
+final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
   final override protected lazy val devMode = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
-  val coinV1DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v1.dar"))
-  val coinV2DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v2.dar"))
-  val coinV2NewFieldDarPath =
+  lazy val devDarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/script-test-1.dev.dar"))
+  lazy val devDar = CompiledDar.read(devDarPath, Runner.compilerConfig)
+
+  lazy val coinV1DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v1.dar"))
+  lazy val coinV2DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v2.dar"))
+  lazy val coinV2NewFieldDarPath =
     BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v2-new-field.dar"))
-  val coinV3DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v3.dar"))
-  val coinUpgradeV1V2DarPath =
+  lazy val coinV3DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v3.dar"))
+  lazy val coinUpgradeV1V2DarPath =
     BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-upgrade-v1-v2.dar"))
-  val coinUpgradeV1V2NewFieldDarPath =
+  lazy val coinUpgradeV1V2NewFieldDarPath =
     BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-upgrade-v1-v2-new-field.dar"))
-  val coinUpgradeV1V3DarPath =
+  lazy val coinUpgradeV1V3DarPath =
     BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-upgrade-v1-v3.dar"))
-  val coinUpgradeV1V2Dar: CompiledDar =
+  lazy val coinUpgradeV1V2Dar: CompiledDar =
     CompiledDar.read(coinUpgradeV1V2DarPath, Runner.compilerConfig)
-  val coinUpgradeV1V2NewFieldDar: CompiledDar =
+  lazy val coinUpgradeV1V2NewFieldDar: CompiledDar =
     CompiledDar.read(coinUpgradeV1V2NewFieldDarPath, Runner.compilerConfig)
-  val coinUpgradeV1V3Dar: CompiledDar =
+  lazy val coinUpgradeV1V3Dar: CompiledDar =
     CompiledDar.read(coinUpgradeV1V3DarPath, Runner.compilerConfig)
 
   override protected lazy val darFiles = List(
+    devDarPath,
     coinV1DarPath,
     coinV2DarPath,
     coinV2NewFieldDarPath,
@@ -48,6 +48,23 @@ final class PackageUpgradesIT
     coinUpgradeV1V2NewFieldDarPath,
     coinUpgradeV1V3DarPath,
   )
+
+  // TODO: https://github.com/digital-asset/daml/issues/15882
+  // -- Enable this test when canton supports choice observers
+  "ChoiceAuthority:test" should {
+    "succeed" ignore {
+      for {
+        clients <- scriptClients()
+        v <- run(
+          clients,
+          QualifiedName.assertFromString("TestChoiceAuthority:test"),
+          dar = devDar,
+        )
+      } yield {
+        v shouldBe (SUnit)
+      }
+    }
+  }
 
   "softFetch" should {
     "succeed when given a contract id of the same type Coin V1" in {
@@ -158,4 +175,30 @@ final class PackageUpgradesIT
       } yield r shouldBe SUnit
     }
   }
+
+  "softExercise" should {
+    "succeed when given a contract id of the same type Coin V2" in {
+      for {
+        clients <- scriptClients()
+        r <-
+          run(
+            clients,
+            QualifiedName.assertFromString("CoinUpgrade:create_v2_softExercise_v2"),
+            dar = coinUpgradeV1V2Dar,
+          )
+      } yield r shouldBe SUnit
+    }
+    "succeed when given a contract id of a predecessor type of Coin V2, Coin V1" in {
+      for {
+        clients <- scriptClients()
+        r <-
+          run(
+            clients,
+            QualifiedName.assertFromString("CoinUpgrade:create_v1_softExercise_v2"),
+            dar = coinUpgradeV1V2Dar,
+          )
+      } yield r shouldBe SUnit
+    }
+  }
+
 }

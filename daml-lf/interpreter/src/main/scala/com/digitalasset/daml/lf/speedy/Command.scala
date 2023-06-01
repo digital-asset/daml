@@ -1,11 +1,11 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 import com.daml.lf.data.Ref.{Identifier, ChoiceName}
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.command.ContractMetadata
 import com.daml.lf.value.Value.ContractId
 
 // ---------------------
@@ -81,7 +81,7 @@ final case class DisclosedContract(
     templateId: Identifier,
     contractId: ContractId,
     argument: SValue,
-    metadata: ContractMetadata,
+    keyHash: Option[crypto.Hash],
 )
 
 final case class InterfaceView(

@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.util.UUID
+
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.utils.ErrorDetails
@@ -26,6 +27,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   ListUsersResponse,
   RevokeUserRightsRequest,
   RevokeUserRightsResponse,
+  UpdateUserIdentityProviderRequest,
   User,
   Right => Permission,
 }
@@ -46,6 +48,254 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     Permission(Permission.Kind.CanReadAs(Permission.CanReadAs(party)))
 
   private val AdminUserId = "participant_admin"
+
+  test(
+    "UserManagementUpdateUserIdpWithNonDefaultIdps",
+    "Test reassigning user to a different idp using non default idps",
+    allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val userId1 = ledger.nextUserId()
+    val idpId1 = ledger.nextIdentityProviderId()
+    val idpId2 = ledger.nextIdentityProviderId()
+    for {
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId1)
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId2)
+      _ <- ledger.createUser(
+        CreateUserRequest(Some(User(userId1, identityProviderId = idpId1)), Nil)
+      )
+      _ <- ledger.userManagement.updateUserIdentityProviderId(
+        UpdateUserIdentityProviderRequest(
+          userId1,
+          sourceIdentityProviderId = idpId1,
+          targetIdentityProviderId = idpId2,
+        )
+      )
+      get1 <- ledger.userManagement.getUser(
+        GetUserRequest(userId = userId1, identityProviderId = idpId2)
+      )
+      _ <- ledger.userManagement.updateUserIdentityProviderId(
+        UpdateUserIdentityProviderRequest(
+          userId1,
+          sourceIdentityProviderId = idpId2,
+          targetIdentityProviderId = idpId1,
+        )
+      )
+      get2 <- ledger.userManagement.getUser(
+        GetUserRequest(userId = userId1, identityProviderId = idpId1)
+      )
+      error <- ledger.userManagement
+        .getUser(
+          GetUserRequest(userId = userId1, identityProviderId = idpId2)
+        )
+        .mustFail("requesting with wrong idp")
+      // cleanup
+      _ <- ledger.userManagement.updateUserIdentityProviderId(
+        UpdateUserIdentityProviderRequest(
+          userId1,
+          sourceIdentityProviderId = idpId1,
+          targetIdentityProviderId = "",
+        )
+      )
+    } yield {
+      assertEquals(get1.user.get.identityProviderId, idpId2)
+      assertEquals(get2.user.get.identityProviderId, idpId1)
+      assert(
+        error.getMessage.startsWith("PERMISSION_DENIED"),
+        s"Actual message: ${error.getMessage}",
+      )
+
+    }
+  })
+
+  test(
+    "UserManagementUpdateUserIdpWithDefaultIdp",
+    "Test reassigning user to a different idp using the default idp",
+    allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val userId1 = ledger.nextUserId()
+    val idpId = ledger.nextIdentityProviderId()
+    for {
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId)
+      _ <- ledger.createUser(CreateUserRequest(Some(User(userId1, identityProviderId = "")), Nil))
+      _ <- ledger.userManagement.updateUserIdentityProviderId(
+        UpdateUserIdentityProviderRequest(
+          userId1,
+          sourceIdentityProviderId = "",
+          targetIdentityProviderId = idpId,
+        )
+      )
+      get1 <- ledger.userManagement.getUser(
+        GetUserRequest(userId = userId1, identityProviderId = idpId)
+      )
+      _ <- ledger.userManagement.updateUserIdentityProviderId(
+        UpdateUserIdentityProviderRequest(
+          userId1,
+          sourceIdentityProviderId = idpId,
+          targetIdentityProviderId = "",
+        )
+      )
+      get2 <- ledger.userManagement.getUser(
+        GetUserRequest(userId = userId1, identityProviderId = "")
+      )
+    } yield {
+      assertEquals(get1.user.get.identityProviderId, idpId)
+      assertEquals(get2.user.get.identityProviderId, "")
+    }
+  })
+
+  test(
+    "UserManagementUpdateUserIdpNonExistentIdps",
+    "Test reassigning user to a different idp when source or target idp doesn't exist",
+    allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val userId = ledger.nextUserId()
+    val idpNonExistent = ledger.nextIdentityProviderId()
+    for {
+      _ <- ledger.createUser(CreateUserRequest(Some(User(userId, identityProviderId = "")), Nil))
+      _ <- ledger.userManagement
+        .updateUserIdentityProviderId(
+          UpdateUserIdentityProviderRequest(
+            userId,
+            sourceIdentityProviderId = idpNonExistent,
+            targetIdentityProviderId = "",
+          )
+        )
+        .mustFailWith(
+          "non existent source idp",
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+        )
+      _ <- ledger.userManagement
+        .updateUserIdentityProviderId(
+          UpdateUserIdentityProviderRequest(
+            userId,
+            sourceIdentityProviderId = "",
+            targetIdentityProviderId = idpNonExistent,
+          )
+        )
+        .mustFailWith(
+          "non existent target idp",
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+        )
+    } yield ()
+  })
+
+  test(
+    "UserManagementUpdateUserIdpMismatchedSourceIdp",
+    "Test reassigning user to a different idp using mismatched source idp",
+    allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val userIdDefault = ledger.nextUserId()
+    val userIdNonDefault = ledger.nextUserId()
+    val idpIdNonDefault = ledger.nextIdentityProviderId()
+    val idpIdTarget = ledger.nextIdentityProviderId()
+    val idpIdMismatched = ledger.nextIdentityProviderId()
+    for {
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpIdMismatched)
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpIdNonDefault)
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpIdTarget)
+      _ <- ledger.createUser(
+        CreateUserRequest(Some(User(userIdDefault, identityProviderId = "")), Nil)
+      )
+      _ <- ledger.createUser(
+        CreateUserRequest(Some(User(userIdNonDefault, identityProviderId = idpIdNonDefault)), Nil)
+      )
+      error1 <- ledger.userManagement
+        .updateUserIdentityProviderId(
+          UpdateUserIdentityProviderRequest(
+            userIdDefault,
+            sourceIdentityProviderId = idpIdMismatched,
+            targetIdentityProviderId = idpIdTarget,
+          )
+        )
+        .mustFail("mismatched source idp id")
+      error2 <- ledger.userManagement
+        .updateUserIdentityProviderId(
+          UpdateUserIdentityProviderRequest(
+            userIdNonDefault,
+            sourceIdentityProviderId = idpIdMismatched,
+            targetIdentityProviderId = idpIdTarget,
+          )
+        )
+        .mustFail("mismatched source idp id")
+      // cleanup
+      _ <- ledger.userManagement.updateUserIdentityProviderId(
+        UpdateUserIdentityProviderRequest(
+          userIdNonDefault,
+          sourceIdentityProviderId = idpIdNonDefault,
+          targetIdentityProviderId = "",
+        )
+      )
+    } yield {
+      assert(
+        error1.getMessage.startsWith("PERMISSION_DENIED"),
+        s"Actual message: ${error1.getMessage}",
+      )
+      assert(
+        error2.getMessage.startsWith("PERMISSION_DENIED"),
+        s"Actual message: ${error2.getMessage}",
+      )
+    }
+  })
+
+  test(
+    "UserManagementUpdateUserIdpSourceAndTargetIdpTheSame",
+    "Test reassigning user to a different idp but source and target idps are the same",
+    allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val userIdDefault = ledger.nextUserId()
+    val userIdNonDefault = ledger.nextUserId()
+    val idpId1 = ledger.nextIdentityProviderId()
+    for {
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId1)
+      _ <- ledger.createUser(
+        CreateUserRequest(Some(User(userIdDefault, identityProviderId = "")), Nil)
+      )
+      _ <- ledger.createUser(
+        CreateUserRequest(Some(User(userIdNonDefault, identityProviderId = idpId1)), Nil)
+      )
+      _ <- ledger.userManagement.updateUserIdentityProviderId(
+        UpdateUserIdentityProviderRequest(
+          userIdDefault,
+          sourceIdentityProviderId = "",
+          targetIdentityProviderId = "",
+        )
+      )
+      get1 <- ledger.userManagement.getUser(
+        GetUserRequest(userId = userIdDefault, identityProviderId = "")
+      )
+      _ <- ledger.userManagement.updateUserIdentityProviderId(
+        UpdateUserIdentityProviderRequest(
+          userIdNonDefault,
+          sourceIdentityProviderId = idpId1,
+          targetIdentityProviderId = idpId1,
+        )
+      )
+      get2 <- ledger.userManagement.getUser(
+        GetUserRequest(userId = userIdNonDefault, identityProviderId = idpId1)
+      )
+      // cleanup
+      _ <- ledger.userManagement.updateUserIdentityProviderId(
+        UpdateUserIdentityProviderRequest(
+          userIdNonDefault,
+          sourceIdentityProviderId = idpId1,
+          targetIdentityProviderId = "",
+        )
+      )
+    } yield {
+      assertEquals("default idp", get1.user.get.identityProviderId, "")
+      assertEquals("non default idp", get2.user.get.identityProviderId, idpId1)
+    }
+  })
 
   test(
     "UserManagementUserRightsLimit",

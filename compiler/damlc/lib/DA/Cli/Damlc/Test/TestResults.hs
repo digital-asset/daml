@@ -43,6 +43,21 @@ data TestResults = TestResults
     }
     deriving Show
 
+instance Monoid TestResults where
+    mempty = TestResults mempty mempty mempty mempty mempty
+
+instance Semigroup TestResults where
+    (<>) tr1 tr2 =
+        TestResults
+            { templates = templates `combineUsing` M.unionWith S.union
+            , interfaces = interfaces `combineUsing` M.unionWith S.union
+            , interfaceInstances = interfaceInstances `combineUsing` S.union
+            , created = created `combineUsing` M.unionWith S.union
+            , exercised = exercised `combineUsing` M.unionWith (M.unionWith S.union)
+            }
+      where
+        combineUsing field combine = field tr1 `combine` field tr2
+
 vecToSet :: (Ord b, Protobuf a b) => V.Vector a -> Maybe (S.Set b)
 vecToSet = fmap S.fromList . traverse decode . V.toList
 

@@ -43,6 +43,7 @@ trait UserManagementTestContext {
   /** Users created during execution of the test case on this participant.
     */
   private val createdUsersById = new ConcurrentHashMap[String, User]
+  private val createdIdentityProvidersById = new ConcurrentHashMap[String, IdentityProviderConfig]
 
   def userManagement: UserManagementService =
     services.userManagement // TODO (i12059) perhaps remove and create granular accessors
@@ -68,6 +69,29 @@ trait UserManagementTestContext {
       response <- services.userManagement.deleteUser(request)
       _ = createdUsersById.remove(request.userId)
     } yield response
+  }
+
+  def deleteCreateIdentityProviders(): Future[Unit] = {
+    import scala.jdk.CollectionConverters._
+    val deletions = createdIdentityProvidersById
+      .keys()
+      .asScala
+      .map(idpId =>
+        services.identityProviderConfig
+          .deleteIdentityProviderConfig(
+            DeleteIdentityProviderConfigRequest(idpId)
+          )
+          .map(_ => ())
+          .recover {
+            case e
+                if ErrorDetails.matches(
+                  e,
+                  LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound,
+                ) =>
+              ()
+          }
+      )
+    Future.sequence(deletions).map(_ => ())
   }
 
   /** Intended to be called by the infrastructure code after a test case's execution has ended.
@@ -97,18 +121,22 @@ trait UserManagementTestContext {
       issuer: String = UUID.randomUUID().toString,
       jwksUrl: String = "http://daml.com/jwks.json",
   ): Future[CreateIdentityProviderConfigResponse] =
-    services.identityProviderConfig.createIdentityProviderConfig(
-      CreateIdentityProviderConfigRequest(
-        Some(
-          IdentityProviderConfig(
-            identityProviderId = identityProviderId,
-            isDeactivated = isDeactivated,
-            issuer = issuer,
-            jwksUrl = jwksUrl,
+    for {
+      response <- services.identityProviderConfig.createIdentityProviderConfig(
+        CreateIdentityProviderConfigRequest(
+          Some(
+            IdentityProviderConfig(
+              identityProviderId = identityProviderId,
+              isDeactivated = isDeactivated,
+              issuer = issuer,
+              jwksUrl = jwksUrl,
+            )
           )
         )
       )
-    )
+      idp = response.identityProviderConfig.get
+      _ = createdIdentityProvidersById.put(idp.identityProviderId, idp)
+    } yield response
 
   def updateIdentityProviderConfig(
       identityProviderId: String = UUID.randomUUID().toString,
@@ -149,7 +177,10 @@ trait UserManagementTestContext {
   def deleteIdentityProviderConfig(
       request: DeleteIdentityProviderConfigRequest
   ): Future[DeleteIdentityProviderConfigResponse] =
-    services.identityProviderConfig.deleteIdentityProviderConfig(request)
+    for {
+      resp <- services.identityProviderConfig.deleteIdentityProviderConfig(request)
+      _ = createdIdentityProvidersById.remove(request.identityProviderId)
+    } yield resp
 
   def listIdentityProviderConfig(): Future[ListIdentityProviderConfigsResponse] =
     services.identityProviderConfig.listIdentityProviderConfigs(

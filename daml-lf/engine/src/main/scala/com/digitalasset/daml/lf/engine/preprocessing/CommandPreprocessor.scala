@@ -28,7 +28,7 @@ private[lf] final class CommandPreprocessor(
       disc: command.DisclosedContract
   ): speedy.DisclosedContract = {
     val tmpl = handleLookup(pkgInterface.lookupTemplate(disc.templateId))
-    (tmpl.key, disc.metadata.keyHash) match {
+    (tmpl.key, disc.keyHash) match {
       case (Some(_), None) =>
         throw Error.Preprocessing.MissingDisclosedContractKeyHash(
           disc.contractId,
@@ -48,7 +48,7 @@ private[lf] final class CommandPreprocessor(
       templateId = disc.templateId,
       contractId = disc.contractId,
       argument = arg,
-      metadata = disc.metadata,
+      keyHash = disc.keyHash,
     )
   }
 
@@ -235,7 +235,7 @@ private[lf] final class CommandPreprocessor(
       if (contractIds.contains(disclosedContract.contractId))
         throw Error.Preprocessing.DuplicateDisclosedContractId(disclosedContract.contractId)
       contractIds += disclosedContract.contractId
-      disclosedContract.metadata.keyHash.foreach { hash =>
+      disclosedContract.keyHash.foreach { hash =>
         if (contractKeys.contains(hash))
           throw Error.Preprocessing.DuplicateDisclosedContractKey(hash)
         contractKeys += hash

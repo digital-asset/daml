@@ -583,6 +583,12 @@ object Ast {
       cidE: Expr,
       argE: Expr,
   ) extends Update
+  final case class UpdateSoftExercise(
+      templateId: TypeConName,
+      choice: ChoiceName,
+      cidE: Expr,
+      argE: Expr,
+  ) extends Update
   final case class UpdateDynamicExercise(
       templateId: TypeConName,
       choice: ChoiceName,

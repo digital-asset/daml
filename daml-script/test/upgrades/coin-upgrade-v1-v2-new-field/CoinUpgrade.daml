@@ -41,6 +41,7 @@ create_v1_softFetch_v2 = do
   cid <- alice `submit` createCmd Coin_1.Coin.Coin with
     issuer = alice
     owner = alice
+    obs = []
   (_, coin) <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_2 with
     cid = coerceContractId cid
   -- the new field is empty
@@ -55,6 +56,7 @@ create_v2_none_softFetch_v1 = do
   cid <- alice `submit` createCmd Coin_2.Coin.Coin with
     issuer = alice
     owner = alice
+    obs = []
     ccy = None
   _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1 with
     cid = coerceContractId cid
@@ -66,6 +68,7 @@ create_v2_some_softFetch_v1 = do
   cid <- alice `submit` createCmd Coin_2.Coin.Coin with
     issuer = alice
     owner = alice
+    obs = []
     ccy = Some "CHF"
   _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1 with
     cid = coerceContractId cid

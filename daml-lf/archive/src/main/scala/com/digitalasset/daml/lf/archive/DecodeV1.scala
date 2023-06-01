@@ -1680,6 +1680,26 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             }
           }
 
+        case PLF.Update.SumCase.SOFT_EXERCISE =>
+          assertSince(LV.Features.packageUpgrades, "softExercise")
+          val exercise = lfUpdate.getSoftExercise
+          val templateId = decodeTypeConName(exercise.getTemplate)
+          val choice = handleInternedName(
+            exercise.getChoiceCase,
+            PLF.Update.SoftExercise.ChoiceCase.CHOICE_STR,
+            exercise.getChoiceStr,
+            PLF.Update.SoftExercise.ChoiceCase.CHOICE_INTERNED_STR,
+            exercise.getChoiceInternedStr,
+            "Update.SoftExercise.choice.choice",
+          )
+          decodeExpr(exercise.getCid, definition) { cidE =>
+            decodeExpr(exercise.getArg, definition) { argE =>
+              Ret(
+                UpdateSoftExercise(templateId, choice, cidE, argE)
+              )
+            }
+          }
+
         case PLF.Update.SumCase.DYNAMIC_EXERCISE =>
           val exercise = lfUpdate.getDynamicExercise
           val templateId = decodeTypeConName(exercise.getTemplate)

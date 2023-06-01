@@ -64,6 +64,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     def beginExercises_ : PartialTransaction =
       ptx
         .beginExercises(
+          templateId = contract.templateId,
           targetId = cid,
           contract = contract,
           interfaceId = None,

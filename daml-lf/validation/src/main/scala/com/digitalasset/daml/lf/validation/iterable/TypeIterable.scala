@@ -143,6 +143,10 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(templateId)) ++
           iterator(cid) ++
           iterator(arg)
+      case UpdateSoftExercise(templateId, choice @ _, cid, arg) =>
+        Iterator(TTyCon(templateId)) ++
+          iterator(cid) ++
+          iterator(arg)
       case UpdateDynamicExercise(templateId, choice @ _, cid, arg) =>
         Iterator(TTyCon(templateId)) ++
           iterator(cid) ++

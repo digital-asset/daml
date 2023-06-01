@@ -20,7 +20,7 @@ final class FuncWallClockIT extends AbstractFuncIT {
         SRecord(_, _, vals) <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:sleepTest"),
-          dar = stableDar,
+          dar = dar,
         )
       } yield {
         assert(vals.size == 3)
