@@ -6,8 +6,9 @@
 set -euo pipefail
 
 root=$PWD
-stagingDir=${1:-${root}/canton/local_build}
-url=${2:-"git@github.com:DACH-NY/canton.git"}
+builingDir=${1:-${root}/canton/local_build}
+stagingDir=${2:-${builingDir}}
+url=${3:-"git@github.com:DACH-NY/canton.git"}
 
 deps="${root}/arbitrary_canton_sha
  ${root}/maven_install_2.13.json
@@ -40,8 +41,8 @@ if [ -f arbitrary_canton_sha ]; then
       nix-shell --max-jobs 2 --run "sbt community-app/assembly"
     cd ..
     cp canton/community/app/target/scala-*/canton-open-source-*.jar ${sha}.jar
-    rm -f local-canton.jar
-    ln -s ${sha}.jar local-canton.jar
+    rm -f ${stagingDir}/canton.jar
+    ln -s ${sha}.jar ${stagingDir}/canton.jar
   fi
 fi
 

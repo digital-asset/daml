@@ -40,7 +40,7 @@ java_import(
 [
     java_import(
         name = "local-lib",
-        jars = [":local_build/local-canton.jar"],
+        jars = [":local_build/canton.jar"],
         visibility = ["//visibility:public"],
     ) if canton["local"] else [],
 ]
