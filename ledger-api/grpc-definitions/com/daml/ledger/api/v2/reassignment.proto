@@ -124,4 +124,3 @@ message AssignedEvent {
   // Required
   com.daml.ledger.api.v1.CreatedEvent created_event = 6;
 }
-
