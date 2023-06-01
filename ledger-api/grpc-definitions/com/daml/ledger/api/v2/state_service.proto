@@ -68,9 +68,8 @@ message ContractStateComponent {
     // The contract is active on the given domain, meaning: there was an activation event on the given domain (
     // created, assigned), which is not followed by a deactivation event (archived, unassigned) on the same
     // domain - until the active_at_offset.
-    // Since activeness is defined as a per domain concept, it is possible, that a contract:
-    //   - becomes active/inactive multiple times on a given domain (multiple reassignments)
-    //   - is active on one domain, but already archived on another
+    // Since activeness is defined as a per domain concept, it is possible, that a contract is active on one
+    // domain, but already archived on another.
     // There will be one such message for each domain the contract is active on.
     ActiveContract active_contract = 1;
 
