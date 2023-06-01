@@ -51,6 +51,7 @@ jobs:
         cd $(mktemp -d)
         git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton
         cd canton
+        git reset --hard ${sha}
         sed -i 's|git@github.com:|https://github.com/|' .gitmodules
         git submodule init
         git submodule update
