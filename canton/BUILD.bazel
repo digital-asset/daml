@@ -12,10 +12,7 @@ java_binary(
     name = "canton",
     main_class = "com.digitalasset.canton.CantonCommunityApp",
     visibility = ["//visibility:public"],
-    runtime_deps = [
-        # Do not sort
-        "//canton:lib",
-    ],
+    runtime_deps = ["@canton//:jar"],
 )
 
 # We replace engine and archive classes in canton
