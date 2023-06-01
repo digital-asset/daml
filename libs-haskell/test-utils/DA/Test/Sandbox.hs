@@ -212,7 +212,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
             [ "client-auth" Aeson..= Aeson.object (["type" Aeson..= show auth] <> adminClient auth certs)
             | Just auth <- [mbClientAuth]
             ] )
-    adminClient Require certs = 
+    adminClient Require certs =
       [ "admin-client" Aeson..= Aeson.object
         [ "cert-chain-file" Aeson..= clientCrt certs
         , "private-key-file" Aeson..= clientPem certs
@@ -223,7 +223,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
 
 getCantonSandboxProc :: FilePath -> FilePath -> IO CreateProcess
 getCantonSandboxProc configPath bootstrapPath = do
-    canton <- locateRunfiles $ mainWorkspace </> "external" </> "canton" </> "lib" </> "canton-open-source-2.7.0-SNAPSHOT.jar"
+    canton <- locateRunfiles $ mainWorkspace </> "canton" </> "canton-lib.jar"
     java <- getJava
     pure $ proc java $ concat
       [ ["-jar", canton]
