@@ -44,7 +44,7 @@ jobs:
       path: $(Build.StagingDirectory)/canton_lib
   - bash: |
       set -euo pipefail
-      bash canton-build.sh "$(Build.StagingDirectory)" "https://$GITHUB_TOKEN@github.com/DACH-NY/canton"
+      bash canton-build.sh "$(Build.StagingDirectory)/canton_lib" "https://$GITHUB_TOKEN@github.com/DACH-NY/canton"
     env:
       GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
   - task: PublishBuildArtifacts@1

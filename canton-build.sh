@@ -4,25 +4,26 @@
 
 set -euo pipefail
 
-where=${1:-${PWD}}
+root=$PWD
+stagingDir=${1:-${root}/canton}
 url=${2:-"git@github.com:DACH-NY/canton.git"}
 
-deps="${where}/arbitrary_canton_sha
- ${where}/maven_install_2.13.json
- ${where}/observability
- ${where}/daml-lf
- ${where}/libs-scala
- ${where}/ledger-api
- ${where}/language-support
+deps="${root}/arbitrary_canton_sha
+ ${root}/maven_install_2.13.json
+ ${root}/observability
+ ${root}/daml-lf
+ ${root}/libs-scala
+ ${root}/ledger-api
+ ${root}/language-support
 "
 
 set -euo pipefail
-mkdir -p "${where}/canton/build"
+mkdir -p "${stagingDir}/local_canton_build"
 if [ -f arbitrary_canton_sha ]; then
   sha=$(find $deps -type f | xargs sha256sum  | sha256sum | cut -b -64)
-  if [[ ! -f "${where}/canton/lib/${sha}.jar" ]]; then
+  if [[ ! -f "${stagingDir}/lib/${sha}.jar" ]]; then
     commit=$(cat arbitrary_canton_sha)
-    cd "${where}/canton/build"
+    cd "${stagingDir}/local_canton_build"
     if [[ ! -d canton ]]; then
       git clone $url canton
     fi
@@ -37,10 +38,10 @@ if [ -f arbitrary_canton_sha ]; then
     rsync -avh --delete ${deps} daml/
 
     nix-shell --max-jobs 2 --run "sbt community-app/assembly"
-    mkdir -p ${where}/canton/lib
-    cp community/app/target/scala-*/canton-open-source-*.jar "${where}/canton/lib/${sha}.jar"
+    mkdir -p ${root}/canton/lib
+    cp community/app/target/scala-*/canton-open-source-*.jar "${stagingDir}/lib/${sha}.jar"
   fi
-  rm -f "${where}/canton/lib/local-canton.jar"
-  ln -s "${where}/canton/lib/${sha}.jar" "${where}/canton/lib/local-canton.jar"
+  rm -f "${stagingDir}/lib/local-canton.jar"
+  ln -s "${stagingDir}/lib/${sha}.jar" "${stagingDir}/lib/local-canton.jar"
 fi
 
