@@ -125,13 +125,21 @@ private[http] final class ContractList(
           LoggingContextOf.label[domain.GetActiveContractsRequest],
           "cmd" -> cmd.toString,
         ).run { implicit lc =>
-          logger.debug("Processing a query request")
+          logger.debug(s"Processing a query request: $req")
           contractsService
             .search(jwt, jwtPayload, cmd)
             .map(
               domain.SyncResponse.covariant.map(_)(
                 _.via(handleSourceFailure)
-                  .map(_.flatMap(toJsValue[domain.ActiveContract.ResolvedCtTyId[JsValue]](_)))
+                  .map {
+                    case x @ -\/(error) =>
+                      logger.error(s"Error processing query for request: $req with error: $error")
+                      metrics.Db.queryResponseFailureCounter.inc()
+                      x
+                    case x @ \/-(_) =>
+                      logger.debug(s"Successfully query processed for request: $req")
+                      x.flatMap(toJsValue[domain.ActiveContract.ResolvedCtTyId[JsValue]](_))
+                  }
               )
             )
         }

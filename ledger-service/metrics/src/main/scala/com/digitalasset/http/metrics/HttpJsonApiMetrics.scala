@@ -49,6 +49,8 @@ class HttpJsonApiMetrics(
     val searchFetch: Timer = defaultMetricsFactory.timer(prefix :+ "search_fetch")
     val searchQuery: Timer = defaultMetricsFactory.timer(prefix :+ "search_query")
     val updateCache: Timer = defaultMetricsFactory.timer(prefix :+ "update_cache")
+    val queryResponseFailureCounter: Counter =
+      defaultMetricsFactory.counter(prefix :+ "failure_response_query_count")
     val startedUpdateCacheCounter: Counter =
       defaultMetricsFactory.counter(prefix :+ "started_updating_cache_count")
     val failUpdateCacheCounter: Counter =
