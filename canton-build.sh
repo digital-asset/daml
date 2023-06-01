@@ -43,7 +43,7 @@ if [ -f arbitrary_canton_sha ]; then
     cd ..
     cp canton/community/app/target/scala-*/canton-open-source-*.jar ${sha}.jar
     rm -f ${stagingDir}/canton.jar
-    ln -s ${sha}.jar ${stagingDir}/canton.jar
+    ln -s ${PWD}/${sha}.jar ${stagingDir}/canton.jar
   fi
 fi
 
