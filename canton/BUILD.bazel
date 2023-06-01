@@ -6,6 +6,7 @@ load(
     "da_scala_library",
     "lf_scalacopts_stricter",
 )
+load("//:canton_dep.bzl", "canton")
 
 java_binary(
     name = "canton",
@@ -13,7 +14,7 @@ java_binary(
     visibility = ["//visibility:public"],
     runtime_deps = [
         # Do not sort
-        "@canton//:lib",
+        "//canton:lib",
     ],
 )
 
@@ -28,6 +29,24 @@ java_binary(
         # Do not sort
         "//daml-lf/engine",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "@canton//:lib",
+        "//canton:lib",
     ],
+)
+
+genrule(
+    name = "canton-lib",
+    srcs = [":lib/canton.jar"] if canton["local"] else ["@canton//:jar"],
+    outs = ["canton-lib.jar"],
+    cmd = """
+    set -euo pipefail
+
+    cp $(location {src}) $@
+    """.format(src = ":lib/canton.jar" if canton["local"] else "@canton//:jar"),
+    visibility = ["//visibility:public"],
+)
+
+java_import(
+    name = "lib",
+    jars = [":canton-lib.jar"],
+    visibility = ["//visibility:public"],
 )
