@@ -18,11 +18,8 @@ import com.daml.ledger.client.services.commands.CompletionStreamElement.Completi
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.engine.trigger.simulation.ReportingProcess
-import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.{
-  TriggerSimulationConfig,
-  TriggerSimulationFailure,
-}
-import com.daml.lf.engine.trigger.simulation.process.report.ACSReporting
+import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.{TriggerSimulationConfig, TriggerSimulationFailure}
+import com.daml.lf.engine.trigger.simulation.process.report.{ACSReporting, SubmissionReporting}
 import com.daml.lf.engine.trigger.{Converter, TriggerMsg}
 import scalaz.syntax.tag._
 
@@ -50,7 +47,7 @@ final class LedgerRegistration(client: LedgerClient)(implicit
       val ledgerACSView: TrieMap[UUID, TrieMap[String, Identifier]] = TrieMap.empty
 
       Behaviors.receiveMessage {
-        case Registration(triggerId, trigger, actAs, filter, replyTo)
+        case Registration(triggerId, triggerDefRef, trigger, actAs, filter, replyTo)
             if !ledgerACSView.contains(triggerId) =>
           val offset =
             Await.result(getLedgerOffset(client, filter), config.simulationSetupTimeout)
@@ -88,7 +85,9 @@ final class LedgerRegistration(client: LedgerClient)(implicit
           client.commandClient
             .completionSource(Seq(actAs.unwrap), offset)
             .collect { case CompletionElement(completion, _) =>
+              val timestamp = System.currentTimeMillis()
               trigger ! TriggerProcess.MessageWrapper(TriggerMsg.Completion(completion))
+              report ! ReportingProcess.SubmissionUpdate(SubmissionReporting.CompletionUpdate(timestamp, completion.commandId, triggerId, triggerDefRef, completion))
             }
             .run()
             .onComplete {
@@ -157,6 +156,7 @@ object LedgerRegistration {
   // Used by TriggerProcess (via LedgerProcess)
   private[process] final case class Registration(
       triggerId: UUID,
+      triggerDefRef: Ref.DefinitionRef,
       trigger: ActorRef[TriggerProcess.Message],
       actAs: Party,
       filter: TransactionFilter,

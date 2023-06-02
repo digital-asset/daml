@@ -56,12 +56,15 @@ In order to explore the impact that unconstrained ACS growth has upon a trigger,
     TITLE=$(echo $SIMULATION | sed 's/\([^[:blank:]]\)\([[:upper:]]\)/\1 \2/g')
     bazel test \
       --test_env=DAR=$(pwd)/daml/.daml/dist/trigger-simulations-0.0.1.dar \
+      --test_env=LOG_LEVEL_ROOT=OFF \
+      --test_env=LOG_FORMAT_JSON=True \
       --test_output=streamed \
       --cache_test_results=no \
       --test_tmpdir=/tmp/ \
       --test_filter=com.daml.lf.engine.trigger.$SIMULATION \
-      //triggers/simulations:trigger-simulation-test-launcher_test_suite_scala_ACSGrowth.scala
-    python3 ./data/analysis/graph-simulation-data.py --title $TITLE /tmp/_tmp/*/TriggerSimulation*/
+      //triggers/simulations:trigger-simulation-test-launcher_test_suite_scala_ACSGrowth.scala \
+      > /tmp/$SIMULATION.log
+    python3 ./data/analysis/graph-simulation-data.py --title "$TITLE" /tmp/_tmp/*/TriggerSimulation*/
   done
 
 This code runs individual Scalatests in the file ``ACSGrowth.scala``. Each of these Scalatests describe a simulation where a trigger creates a fixed number of ``Cat`` contracts every second:
@@ -70,7 +73,7 @@ This code runs individual Scalatests in the file ``ACSGrowth.scala``. Each of th
 - the ``MediumACSGrowth`` simulation creates 50 contracts every second
 - and the ``FastACSGrowth`` simulation creates 100 contracts every second.
 
-The generated simulation CSV data is then visualised using some Plotly code. Logging data from these simulations will not be required in our analysis of these use cases.
+The generated simulation CSV data is then visualised using some Plotly code. Logging data from these simulations will generally not be required in our analysis of these use cases.
 
 Analysing ACS Growth
 ^^^^^^^^^^^^^^^^^^^^
@@ -194,7 +197,7 @@ Notice that for the ``MediumACSGrowth`` simulation, completion failures briefly 
 
 For the ``FastACSGrowth`` simulation, each user workload will generate 100 distinct command submissions and so there is a high probability that user workloads will trip the Participant back pressure alarms. Each submission failure results in a completion failure that is processed sometime after the initial ledger client request has failed.
 
-TODO: complete this section - may need to analyse logging for command submissions and their failures here?
+TODO: from logging data: for each group of submissions: plot bar graph with break down of completion status; annotate each bar graph with stats describing request/response times (i.e. max/min/mean/std dev/P_s/etc)
 
 .. note::
   Trigger simulations use a ledger API client that does not perform any retries of submissions when client requests **immediately** fail (e.g. due to back pressure). Actual trigger implementations will typically retry such failing requests up to 6 times (with exponential backoff, but **no** jitter). This is a known limitation of trigger simulations.

@@ -192,7 +192,7 @@ final class TriggerProcessFactory private[simulation] (
         val reportId = UUID.randomUUID()
 
         submissions.foreach { request =>
-          ledgerApi ! LedgerApiClient.CommandSubmission(request, context.self)
+          ledgerApi ! LedgerApiClient.CommandSubmission(request, context.self, triggerId, triggerDefRef)
         }
         report ! ReportingProcess.MetricsUpdate(
           MetricsReporting.TriggerMetricsUpdate(

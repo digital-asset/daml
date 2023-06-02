@@ -13,7 +13,7 @@ def strip_package_id(identifier):
 
 
 def subplot_titles(trigger):
-    return [f'{trigger} ACS', f'{trigger} ACS Diff with Ledger', f'{trigger} Resource Usage']
+    return [f'{trigger} ACS', f'{trigger} ACS Diff with Ledger', f'{trigger} Submission Results', f'{trigger} Resource Usage']
 
 
 def trigger_labels(triggers, subplots, data):
@@ -25,14 +25,23 @@ def elapsed_time(data):
     return (data['timestamp'] - min(data['timestamp'])) / 1000
 
 
+def completion_labels(completions):
+    def convert_to_ok(code):
+        if code == 0 or code == '0':
+            return 'OK'
+        else:
+            return code
+
+    return [ convert_to_ok(code) for code in completions ]
+
+
 def plot_acs_data(data, triggers, fig, line):
     for index, trigger in enumerate(triggers):
         trigger_data = data.loc[lambda row: row['trigger-id'] == trigger, :]
         fig.update_yaxes(title_text="Number of Contracts", row=line, col=index+1, secondary_y=False)
-        fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=trigger_data['completion-status-code'], mode="lines+markers", marker=dict(color='olive'), name="Completion Status", opacity=0.5, legendgroup='completion-group', showlegend=index == 0), secondary_y=True, col=index+1, row=line)
-        fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=trigger_data['submissions'], mode="lines+markers", marker=dict(color='purple'), name="Submissions", opacity=0.5, legendgroup='submission-group', showlegend=index == 0), secondary_y=False, col=index+1, row=line)
-        fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=trigger_data['active-contracts'], mode="markers", marker=dict(color='blue'), name="Active", legendgroup='active-contract-group', showlegend=index == 0, legendgrouptitle_text="Trigger ACS"), secondary_y=False, col=index+1, row=line)
-        fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=trigger_data['pending-contracts'], mode="markers", marker=dict(color='red'), name="Pending", legendgroup='pending-contract-group', showlegend=index == 0), secondary_y=False, col=index+1, row=line)
+        fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=trigger_data['active-contracts'], mode="markers", marker=dict(color='blue'), name="Active", legendgroup='active-contract-group', showlegend=index == 0, legendgrouptitle_text="Trigger ACS", legendrank=3), secondary_y=False, col=index+1, row=line)
+        fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=trigger_data['pending-contracts'], mode="markers", marker=dict(color='red'), name="Pending", legendgroup='pending-contract-group', showlegend=index == 0, legendrank=4), secondary_y=False, col=index+1, row=line)
+        fig.add_trace(go.Bar(x=elapsed_time(trigger_data), y=trigger_data['submissions'], width=[ 0.1 for _ in trigger_data['submissions'] ], marker=dict(color='purple'), name="Submissions", opacity=0.3, legendgroup='submission-group', showlegend=index == 0, legendrank=2), secondary_y=False, col=index+1, row=line)
 
 
 def plot_diff_data(data, diff_data, triggers, fig, line):
@@ -45,8 +54,16 @@ def plot_diff_data(data, diff_data, triggers, fig, line):
             template_data = trigger_diff_data.loc[lambda row: row['template-id'] == template, :]
             fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=template_data['contract-additions'], mode="markers", marker=dict(color='blue'), name="Additions", legendgroup=f'{template}-contract-additions-group', legendgrouptitle_text=f"{strip_package_id(template)} Diff", showlegend=index == 0), secondary_y=False, col=index+1, row=line)
             fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=template_data['contract-deletions'], mode="markers", marker=dict(color='red'), name="Deletions", legendgroup=f'{template}-contract-deletions-group', showlegend=index == 0), secondary_y=False, col=index+1, row=line)
-        fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=trigger_data['completion-status-code'], mode="lines+markers", marker=dict(color='olive'), name="Completion Status", opacity=0.5, legendgroup='completion-group', showlegend=False), secondary_y=True, col=index+1, row=line)
-        fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=trigger_data['submissions'], mode="lines+markers", marker=dict(color='purple'), name="Submissions", opacity=0.5, legendgroup='submission-group', showlegend=False), secondary_y=False, col=index+1, row=line)
+        fig.add_trace(go.Bar(x=elapsed_time(trigger_data), y=trigger_data['submissions'], width=[ 0.1 for _ in trigger_data['submissions'] ], marker=dict(color='purple'), name="Submissions", opacity=0.3, legendgroup='submission-group', showlegend=False, legendrank=2), secondary_y=False, col=index+1, row=line)
+
+
+def plot_submission_data(data, submission_data, triggers, fig, line):
+    # TODO: use submission_data and complete this function!
+    for index, trigger in enumerate(triggers):
+        trigger_data = data.loc[lambda row: row['trigger-id'] == trigger, :]
+        fig.update_yaxes(title_text="Number of Contracts", row=line, col=index+1, secondary_y=False)
+        fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=completion_labels(trigger_data['completion-status-code']), mode="markers", marker=dict(color='olive'), name="Completion Status", opacity=0.5, legendgroup='completion-group', legendgrouptitle_text='Completion Status', showlegend=True), secondary_y=True, col=index+1, row=line)
+        fig.add_trace(go.Bar(x=elapsed_time(trigger_data), y=trigger_data['submissions'], width=[ 0.1 for _ in trigger_data['submissions'] ], marker=dict(color='purple'), name="Submissions", opacity=0.3, legendgroup='submission-group', showlegend=False, legendrank=2), secondary_y=False, col=index+1, row=line)
 
 
 def plot_resource_data(data, triggers, fig, line):
@@ -55,18 +72,18 @@ def plot_resource_data(data, triggers, fig, line):
         fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=trigger_data['rule-evaluation-time']/1000000, mode="markers", marker=dict(color='blue'), name="Rule Eval Time (ms)", legendgroup='rule-eval-time', legendgrouptitle_text='Resource Usage', showlegend=index == 0), secondary_y=False, col=index+1, row=line)
         fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=trigger_data['percentage-heap-used']*100, mode="markers", marker=dict(color='blue'), name="JVM Heap Used (%)", legendgroup='heap-used-group', showlegend=index == 0, visible='legendonly'), secondary_y=False, col=index+1, row=line)
         fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=trigger_data['gc-time'], mode="markers", marker=dict(color='blue'), name="JVM GC Time (ms)", legendgroup='gc-time-group', showlegend=index == 0, visible='legendonly'), secondary_y=False, col=index+1, row=line)
-        fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=trigger_data['completion-status-code'], mode="lines+markers", marker=dict(color='olive'), name="Completion Status", opacity=0.5, legendgroup='completion-group', showlegend=False), secondary_y=True, col=index+1, row=line)
-        fig.add_trace(go.Scatter(x=elapsed_time(trigger_data), y=trigger_data['submissions'], mode="lines+markers", marker=dict(color='purple'), name="Submissions", opacity=0.5, legendgroup='submission-group', showlegend=False), secondary_y=False, col=index+1, row=line)
+        fig.add_trace(go.Bar(x=elapsed_time(trigger_data), y=trigger_data['submissions'], width=[ 0.1 for _ in trigger_data['submissions'] ], marker=dict(color='purple'), name="Submissions", opacity=0.3, legendgroup='submission-group', showlegend=False, legendrank=2), secondary_y=False, col=index+1, row=line)
 
 
-def plot_data(data, diff_data, title):
+def plot_data(data, diff_data, submission_data, title):
     subplots = list(range(1, len(subplot_titles(''))+1))
     triggers = set(data['trigger-id'])
     fig = make_subplots(cols=len(triggers), rows=len(subplots), specs=[[{"secondary_y": True} for _ in triggers] for _ in subplots], subplot_titles=trigger_labels(triggers, subplots, data), shared_xaxes=True)
     fig.update_layout(title_text=title)
     plot_acs_data(data, triggers, fig, subplots[0])
     plot_diff_data(data, diff_data, triggers, fig, subplots[1])
-    plot_resource_data(data, triggers, fig, subplots[2])
+    plot_submission_data(data, submission_data, triggers, fig, subplots[2])
+    plot_resource_data(data, triggers, fig, subplots[3])
     for index, _ in enumerate(triggers):
         fig.update_xaxes(title_text='Simulation Time (s)', row=3, col=index+1)
     fig.show()
@@ -77,14 +94,18 @@ if __name__ == '__main__':
     parser.add_argument("data", metavar="DIR", help="Directory containing saved trigger simulation data (i.e. CSV files)")
     parser.add_argument("--title", dest="title", metavar="TITLE", help="Title for trigger simulation graph", default="Trigger Simulation Performance Data")
     parser.add_argument("--metric-csv-file", dest="metric_csv_file", metavar="CSV", help="Base file name for trigger simulation CSV metric data", default="trigger-simulation-metrics-data.csv")
-    parser.add_argument("--acs-csv-file", dest="acs_csv_file", metavar="CSV", help="Base file name for trigger simulation CSV ACS data", default="trigger-simulation-metrics-acs.csv")
+    parser.add_argument("--acs-csv-file", dest="acs_csv_file", metavar="CSV", help="Base file name for trigger simulation CSV ACS data", default="trigger-simulation-acs=data.csv")
+    parser.add_argument("--submission-csv-file", dest="submission_csv_file", metavar="CSV", help="Base file name for trigger simulation CSV subnmission data", default="trigger-simulation-submission-data.csv")
     args = parser.parse_args()
     if not os.path.isdir(args.data):
         parser.error(f"{args.data} directory does not exist!")
-    if not os.path.exists(f"{args.data}/trigger-simulation-metrics-data.csv"):
+    if not os.path.exists(f"{args.data}/{args.metric_csv_file}"):
         parser.error(f"{args.data} directory does not contain the expected CSV file {args.metric_csv_file}")
-    if not os.path.exists(f"{args.data}/trigger-simulation-acs-data.csv"):
+    if not os.path.exists(f"{args.data}/{args.acs_csv_file}"):
         parser.error(f"{args.data} directory does not contain the expected CSV file {args.acs_csv_file}")
-    data = pd.read_csv(f"{args.data}/trigger-simulation-metrics-data.csv")
-    diff_data = pd.read_csv(f"{args.data}/trigger-simulation-acs-data.csv")
-    plot_data(data, diff_data, args.title)
+    if not os.path.exists(f"{args.data}/{args.submission_csv_file}"):
+        parser.error(f"{args.data} directory does not contain the expected CSV file {args.submission_csv_file}")
+    data = pd.read_csv(f"{args.data}/{args.metric_csv_file}")
+    diff_data = pd.read_csv(f"{args.data}/{args.acs_csv_file}")
+    submission_data = pd.read_csv(f"{args.data}/{args.submission_csv_file}")
+    plot_data(data, diff_data, submission_data, args.title)
