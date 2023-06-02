@@ -392,10 +392,10 @@ private class ContractsFetch(
   private def debugLogActionWithMetrics[T, C](
       actionDescription: String,
       timer: Timer,
-      startingCounter: Counter,
-      failCounter: Counter,
+      startedCounter: Counter,
+      failedCounter: Counter,
   )(block: => T)(implicit lc: LoggingContextOf[C]): T = {
-    startingCounter.inc()
+    startedCounter.inc()
     val timerHandler = timer.startAsync()
     val startTime = System.nanoTime()
     logger.debug(s"Starting $actionDescription")
@@ -404,7 +404,7 @@ private class ContractsFetch(
         block
       } catch {
         case e: Exception =>
-          failCounter.inc()
+          failedCounter.inc()
           logger.error(
             s"Failed $actionDescription after ${(System.nanoTime() - startTime) / 1000000L}ms because: $e"
           )
