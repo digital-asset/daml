@@ -1,0 +1,101 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module Daml.Script.Internal where
+
+import Daml.Script.Free (Free(..))
+import qualified Daml.Script.Free as Free
+import DA.Stack
+
+-- Everything is a question, which has a continuation, as well as input/putput types and callstack
+-- Note that res and a are _NOT_ the same, as this must be a functor, and res is contravariant
+data Question req res a = Question
+  { payload : req
+  , locations : [(Text, SrcLoc)]
+  , continue : res -> a
+  }
+  deriving Functor
+
+-- We relate question requests to replies with this class, and build using the method.
+class IsQuestion req res where
+  makeQuestion : HasCallStack => req -> Question req res res
+  makeQuestion req = Question req (getCallStack callStack) identity -- callstack blank for now, in real haskell add HasCallStack
+
+-- We don't care about the type information once its a full ScriptF, as scala side will work that out.
+-- So, we use our danger cast to turn the req and res into LedgerValues
+castQuestion : Question req res a -> Question LedgerValue LedgerValue a
+castQuestion = dangerCast
+
+-- Our entire scriptF type now is just a question from LedgerValue to LedgerValue, returning a
+data ScriptF a = ScriptF (Question LedgerValue LedgerValue a) deriving Functor
+
+-- Build our question and cast to a ScriptF
+makeScriptF : (HasCallStack, IsQuestion req res) => req -> ScriptF res
+makeScriptF = ScriptF . castQuestion . makeQuestion
+
+-- | This is the type of A Daml script. `Script` is an instance of `Action`,
+-- so you can use `do` notation.
+data Script a = Script with
+    runScript : () -> Free ScriptF (a, ())
+    -- We use an inlined StateT () to separate evaluation of
+    -- something of type Script from execution and to ensure
+    -- proper sequencing of evaluation. This is mainly so that `debug` does something
+    -- slightly more sensible.
+    dummy : ()
+    -- Dummy field to make sure damlc does not consider this an old-style
+    -- typeclass.
+  deriving Functor
+
+instance CanAbort Script where
+  abort s = Script (\_ -> error s) ()
+
+instance ActionFail Script where
+  fail = abort
+
+instance Applicative Script where
+    pure a = Script (\s -> return (a, s)) ()
+
+    Script mf _ <*> Script mx _ = Script with
+      runScript = \ s -> do
+        (f, s') <- mf s
+        (x, s'') <- mx s'
+        return (f x, s'')
+      dummy = ()
+
+instance Action Script where
+    m >>= k  = Script with
+      runScript = \ s -> do
+        (a, s') <- runScript m s
+        runScript (k a) s'
+      dummy = ()
+
+liftScript : Free ScriptF a -> Script a
+liftScript m = Script with
+  runScript = \s -> do
+    a <- m
+    pure (a, s)
+  dummy = ()
+
+lift : (HasCallStack, IsQuestion req res) => req -> Script res
+lift = liftScript . Free.lift . makeScriptF
+
+-- | Convenience helper to declare you are writing a Script.
+--
+-- This is only useful for readability and to improve type inference.
+-- Any expression of type `Script a` is a valid script regardless of whether
+-- it is implemented using `script` or not.
+script : Script a -> Script a
+script = identity
+
+dangerCast : a -> b
+dangerCast = error "foobar" -- gets replaced by the identity-function in script/Runner.scala
+
+data LedgerValue = LedgerValue {}
+
+fromLedgerValue : LedgerValue -> a
+fromLedgerValue = dangerCast
+
+toLedgerValue : a -> LedgerValue
+toLedgerValue = dangerCast
