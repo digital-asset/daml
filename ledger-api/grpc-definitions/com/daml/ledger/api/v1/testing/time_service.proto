@@ -14,7 +14,6 @@ option java_package = "com.daml.ledger.api.v1.testing";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Testing";
 
 // Optional service, exposed for testing static time scenarios.
-// In V2 Ledger API this service is not available anymore. Use v2.testing.TimeService instead.
 service TimeService {
 
   // Returns a stream of time updates.

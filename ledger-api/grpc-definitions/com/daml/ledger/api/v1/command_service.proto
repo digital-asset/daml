@@ -18,7 +18,6 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 //
 // Note that submitted commands generally produce completion events as well, even in case a command gets rejected.
 // For example, the participant MAY choose to produce a completion event for a rejection of a duplicate command.
-// In V2 Ledger API this service is not available anymore. Use v2.CommandService instead.
 service CommandService {
   // Submits a single composite command and waits for its result.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.

@@ -89,7 +89,7 @@ message CreatedEvent {
   // be limited to all parties specified in the ``TransactionFilter`` that
   // are stakeholders of the contract (i.e. either signatories or observers).
   // In case of v2 API:
-  //   If the ``CreatedEvent`` is returned as part of a AssignedEvent,
+  //   If the ``CreatedEvent`` is returned as part of an AssignedEvent,
   //   ActiveContract or IncompleteUnassigned (so the event is related to
   //   an assignment or unassignment): this will include all parties of the
   //   ``TransactionFilter`` that are stakeholders of the contract.

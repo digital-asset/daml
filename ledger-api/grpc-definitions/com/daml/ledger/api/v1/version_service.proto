@@ -12,7 +12,6 @@ option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // Allows clients to retrieve information about the ledger API version
-// In V2 Ledger API this service is not available anymore. Use v2.VersionService instead.
 service VersionService {
 
   // Read the Ledger API version

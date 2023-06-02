@@ -13,7 +13,6 @@ option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // Query events by contract id or key.
-// In V2 Ledger API this service is not available anymore. Use v2.EventQueryService instead.
 service EventQueryService {
 
   // Get the create and the consuming exercise event for the contract with the provided ID.

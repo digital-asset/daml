@@ -90,7 +90,7 @@ message UnassignedEvent {
   repeated string witness_parties = 9;
 }
 
-// Records that a contract has been assigned, and it becomes usable on the target domain.
+// Records that a contract has been assigned, and it can be used on the target domain.
 message AssignedEvent {
 
   // The ID of the source domain.

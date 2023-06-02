@@ -26,7 +26,6 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 //
 // Clients that do not receive a successful completion about their submission MUST NOT assume that it was successful.
 // Clients SHOULD subscribe to the CompletionStream before starting to submit commands to prevent race conditions.
-// In V2 Ledger API this service is not available anymore. Use v2.CommandSubmissionService instead.
 service CommandSubmissionService {
 
   // Submit a single composite command.

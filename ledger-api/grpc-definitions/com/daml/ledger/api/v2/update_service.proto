@@ -21,15 +21,15 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 // offsets, which are strictly increasing.
 // The virtual shared ledger consist of changes happening on multiple domains which are
 // connected to the serving participant. Each update belongs to one domain, this is
-// provided in the result (domain_id in ``Transaction``, ``TransactionTree`` for transactions,
-// source_domain for ``UnassignedEvent`` and target_domain for ``AssignedEvent``).
-// Consumers can relay on strong causal guarantees on the virtual shared ledger for a single
+// provided in the result (the ``domain_id`` field in ``Transaction`` and ``TransactionTree``
+// for transactions, the ``source`` field in ``UnassignedEvent`` and the ``target`` field in ``AssignedEvent``).
+// Consumers can rely on strong causal guarantees on the virtual shared ledger for a single
 // domain: updates which have greater offsets are happened after than updates with smaller
 // offsets for the same domain. Across different domains this is not guaranteed.
 service UpdateService {
 
   // Read the ledger's filtered transaction stream and related reassignments for a set of parties.
-  // For transactions it lists only creates and archives, but not other events.
+  // For transactions it lists only creates and archives, but no other events.
   // Omits all events on transient contracts, i.e., contracts that were both created and archived in the same transaction.
   rpc GetUpdates (GetUpdatesRequest) returns (stream GetUpdatesResponse);
 
@@ -39,11 +39,11 @@ service UpdateService {
   rpc GetUpdateTrees (GetUpdatesRequest) returns (stream GetUpdateTreesResponse);
 
   // Lookup a transaction tree by the ID of an event that appears within it.
-  // For looking up a transaction instead of a transaction tree, please see GetFlatTransactionByEventId
+  // For looking up a transaction instead of a transaction tree, please see GetTransactionByEventId
   rpc GetTransactionTreeByEventId (GetTransactionByEventIdRequest) returns (GetTransactionTreeResponse);
 
   // Lookup a transaction tree by its ID.
-  // For looking up a transaction instead of a transaction tree, please see GetFlatTransactionById
+  // For looking up a transaction instead of a transaction tree, please see GetTransactionById
   rpc GetTransactionTreeById (GetTransactionByIdRequest) returns (GetTransactionTreeResponse);
 
   // Lookup a transaction by the ID of an event that appears within it.
