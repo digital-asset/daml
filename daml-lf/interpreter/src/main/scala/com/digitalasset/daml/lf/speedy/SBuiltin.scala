@@ -10,6 +10,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
+import com.daml.lf.language.Util.TOptional
 import com.daml.lf.speedy.ArrayList.Implicits._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -1022,6 +1023,7 @@ private[lf] object SBuiltin {
       def doExe(choiceAuthorizers: Option[Set[Party]]): Control[Nothing] = {
         machine.ptx
           .beginExercises(
+            templateId = templateId,
             targetId = coid,
             contract = contract,
             interfaceId = interfaceId,
@@ -1094,20 +1096,57 @@ private[lf] object SBuiltin {
   // Fails unless actualTemplateId is a predecessor of templateId.
   final case class SBPromoteAnyContract(
       templateId: TypeConName,
+      fields: ImmArray[(Ast.FieldName, Ast.Type)],
       acceptedTemplateIds: List[TypeConName],
   ) extends SBuiltin(2) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
+
+      // TODO https://github.com/digital-asset/daml/issues/16151
+      // debug calls to SBPromoteAnyContract
+      // println(s"**SBPromoteAnyContract: \n- templateId=${templateId}\n- acceptedTemplateIds=${acceptedTemplateIds}");
+
+      // TODO https://github.com/digital-asset/daml/issues/16151
+      // perhaps compute `acceptedTemplateIds` here, dynamically when execute is called
+      // And then be can be more confident that all relavant package have been compiled.
+
       def coid = getSContractId(args, 0)
       val (actualTemplateId, record) = getSAnyContract(args, 1)
 
       if ((templateId +: acceptedTemplateIds).contains(actualTemplateId)) {
+        // Here we extend values of predecessor template types by adding the
+        // right number of 'None's for missing 'Optional' fields
         // TODO: https://github.com/digital-asset/daml/issues/16151
-        // Later, this will need to extend values of predecessor template
-        // types (e.g. by adding the right number of 'None's for missing 'Optional' fields)
-        Control.Value(record.copy(id = templateId))
+        // For the PoC, this assumes field order is preserved by later versions
+        // and that new fields are only added at the end.
+        val newFields = fields.iterator.drop(record.values.size)
+        val badNewFields = newFields.filter {
+          case (name @ _, TOptional(_)) => false
+          case _ => true
+        }
+        if (badNewFields.isEmpty) {
+          Control.Value(
+            SRecord(
+              id = templateId,
+              fields = fields.map(_._1),
+              values = record.values.asScala.padTo(fields.length, SOptional(None)).to(ArrayList),
+            )
+          )
+        } else {
+          // For the PoC, it is fine to crash here since we assume all new
+          // fields will be of type Optional(_). After the PoC, this will
+          // be checked at daml-compile and package-upload times.
+          crash(
+            s"SBPromoteAnyContract[bad new fields]:\n" +
+              s"  contractId = ${coid}" +
+              s"  expectedTemplateId = ${templateId}" +
+              s"  acceptedTemplateIds = ${acceptedTemplateIds}" +
+              s"  actualTemplateId = ${actualTemplateId}" +
+              s"  badNewFields = ${badNewFields}"
+          )
+        }
       } else {
         Control.Error(
           IE.Dev(

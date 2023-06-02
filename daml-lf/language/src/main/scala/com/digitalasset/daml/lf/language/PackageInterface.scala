@@ -364,6 +364,10 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   val packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
     signatures andThen (_.languageVersion)
 
+  // TODO https://github.com/digital-asset/daml/issues/16151
+  // Do some println debugging here to understand when lookupPackage fails,
+  // exploring test failures which show up when using "-z" flag to restrict bazel test run, i.e.
+  //    bazel run //daml-script/test:test_test_suite_src_com_digitalasset_daml_lf_engine_script_test_PackageUpgradesIT.scala -- -z softEx
   private[this] def lookupPredecessors(
       pkgId: PackageId,
       context: => Reference,

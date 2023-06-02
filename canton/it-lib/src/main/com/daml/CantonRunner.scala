@@ -172,6 +172,8 @@ object CantonRunner {
               config.adminToken,
               ApiTypes.ApplicationId("CantonRunner"),
             )
+            // TODO https://github.com/digital-asset/daml/issues/16151
+            // better to sequence the dar-loading in case of dependencies
             _ <- Future.traverse(darFiles) { file =>
               client.packageManagementClient.uploadDarFile(
                 ByteString.copyFrom(Files.readAllBytes(file))

@@ -222,7 +222,6 @@ da_haskell_library(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-package-config",
         "//compiler/damlc/daml-rule-types",
-        "//compiler/damlc/daml-visual",
         "//compiler/repl-service/client",
         "//compiler/scenario-service/client",
         "//compiler/scenario-service/protos:scenario_service_haskell_proto",

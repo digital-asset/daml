@@ -4,9 +4,9 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.error.ErrorCode
-
 import java.time.Instant
 import java.util.concurrent.TimeoutException
+
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.IncludeInterfaceView
@@ -33,6 +33,8 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   PartyDetails,
   UpdatePartyDetailsRequest,
   UpdatePartyDetailsResponse,
+  UpdatePartyIdentityProviderRequest,
+  UpdatePartyIdentityProviderResponse,
 }
 import com.daml.ledger.api.v1.command_completion_service.{
   Checkpoint,
@@ -95,6 +97,8 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   override def nextKeyId: () => String = delegate.nextKeyId
   override def nextUserId: () => String = delegate.nextUserId
   override def nextPartyId: () => String = delegate.nextUserId
+  override def nextIdentityProviderId: () => String = delegate.nextIdentityProviderId
+
   override def delayMechanism: DelayMechanism = delegate.delayMechanism
 
   override def currentEnd(): Future[LedgerOffset] =
@@ -144,6 +148,14 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       req: UpdatePartyDetailsRequest
   ): Future[UpdatePartyDetailsResponse] =
     withTimeout("Update party details", delegate.updatePartyDetails(req))
+
+  override def updatePartyIdentityProviderId(
+      request: UpdatePartyIdentityProviderRequest
+  ): Future[UpdatePartyIdentityProviderResponse] =
+    withTimeout(
+      "Update party identity provider id",
+      delegate.updatePartyIdentityProviderId(request),
+    )
 
   override def allocateParty(
       partyIdHint: Option[String] = None,

@@ -470,7 +470,7 @@ decodeBuiltinFunction = \case
   LF1.BuiltinFunctionMUL_NUMERIC_LEGACY   -> pure BEMulNumericLegacy
   LF1.BuiltinFunctionMUL_NUMERIC   -> pure  BEMulNumeric
   LF1.BuiltinFunctionDIV_NUMERIC_LEGACY   -> pure BEDivNumericLegacy
-  LF1.BuiltinFunctionDIV_NUMERIC   -> pure BEDivNumericLegacy
+  LF1.BuiltinFunctionDIV_NUMERIC   -> pure BEDivNumeric
   LF1.BuiltinFunctionROUND_NUMERIC -> pure BERoundNumeric
   LF1.BuiltinFunctionCAST_NUMERIC_LEGACY  -> pure BECastNumericLegacy
   LF1.BuiltinFunctionCAST_NUMERIC  -> pure BECastNumeric
@@ -752,6 +752,12 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> decodeName ChoiceName update_ExerciseChoice
       <*> mayDecode "update_ExerciseCid" update_ExerciseCid decodeExpr
       <*> mayDecode "update_ExerciseArg" update_ExerciseArg decodeExpr
+  LF1.UpdateSumSoftExercise LF1.Update_SoftExercise{..} ->
+    fmap EUpdate $ USoftExercise
+      <$> mayDecode "update_SoftExerciseTemplate" update_SoftExerciseTemplate decodeTypeConName
+      <*> decodeName ChoiceName update_SoftExerciseChoice
+      <*> mayDecode "update_SoftExerciseCid" update_SoftExerciseCid decodeExpr
+      <*> mayDecode "update_SoftExerciseArg" update_SoftExerciseArg decodeExpr
   LF1.UpdateSumDynamicExercise LF1.Update_DynamicExercise{..} ->
     fmap EUpdate $ UDynamicExercise
       <$> mayDecode "update_DynamicExerciseTemplate" update_DynamicExerciseTemplate decodeTypeConName

@@ -565,6 +565,27 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": "2.7.0-snapshot.20230529.11827.1",
+        "platform_ranges": [
+            {
+                "end": "2.7.0-snapshot.20230529.11827.0.v3fbe7d01",
+                "exclusions": [
+                    "PartyManagementServiceIT:PMUpdatingPartyIdentityProviderNonDefaultIdps",
+                    "PartyManagementServiceIT:PMUpdatingPartyIdentityProviderWithDefaultIdp",
+                    "PartyManagementServiceIT:PMUpdatingPartyIdentityProviderNonExistentIdps",
+                    "PartyManagementServiceIT:PMUpdatingPartyIdentityProviderMismatchedSourceIdp",
+                    "PartyManagementServiceIT:PMUpdatingPartyIdentityProviderSourceAndTargetIdpTheSame",
+                    "PartyManagementServiceIT:PMGetPartiesUsingDifferentIdps",
+                    "UserManagementServiceIT:UserManagementUpdateUserIdpWithNonDefaultIdps",
+                    "UserManagementServiceIT:UserManagementUpdateUserIdpWithDefaultIdp",
+                    "UserManagementServiceIT:UserManagementUpdateUserIdpNonExistentIdps",
+                    "UserManagementServiceIT:UserManagementUpdateUserIdpMismatchedSourceIdp",
+                    "UserManagementServiceIT:UserManagementUpdateUserIdpSourceAndTargetIdpTheSame",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

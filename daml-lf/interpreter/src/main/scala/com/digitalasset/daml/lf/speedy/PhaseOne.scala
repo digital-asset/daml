@@ -741,6 +741,12 @@ private[lf] final class PhaseOne(
             Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
           }
         }
+      case UpdateSoftExercise(tmplId, chId, cid, arg) =>
+        compileExp(env, cid) { cid =>
+          compileExp(env, arg) { arg =>
+            Return(t.SoftTemplateChoiceDefRef(tmplId, chId)(cid, arg))
+          }
+        }
       case UpdateDynamicExercise(tmplId, chId, cid, arg) =>
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>
