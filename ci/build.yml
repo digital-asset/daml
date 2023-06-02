@@ -40,7 +40,7 @@ jobs:
       fi
   - task: Cache@2
     inputs:
-      key: '"canton-" | ./canton_sha'
+      key: '"canton-v2-" | ./canton_sha'
       path: $(Build.StagingDirectory)/canton_lib
   - bash: |
       set -euo pipefail
@@ -51,6 +51,7 @@ jobs:
         cd $(mktemp -d)
         git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton
         cd canton
+        git checkout $sha
         sed -i 's|git@github.com:|https://github.com/|' .gitmodules
         git submodule init
         git submodule update
