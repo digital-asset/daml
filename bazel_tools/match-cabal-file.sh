@@ -17,7 +17,7 @@ DIFF=$3
 ACCEPT=${4:-}
 
 case "$ACCEPT" in
-  -a)
+  -a | --accept)
       echo Accepting changes, copying "$GENERATED" to "$2"
       cp "$GENERATED" "$2"
       ;;
@@ -25,4 +25,3 @@ case "$ACCEPT" in
       $DIFF $GENERATED $GOLDEN
       ;;
 esac
-

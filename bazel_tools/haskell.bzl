@@ -309,8 +309,8 @@ def c2hs_suite(name, hackage_deps, deps = [], srcs = [], c2hs_srcs = [], c2hs_sr
     )
 
 # Check is disabled on windows
-def generate_and_track_cabal(name, exe_name = None):
-    generate_cabal(name, exe_name)
+def generate_and_track_cabal(name, exe_name = None, src_dir = None, exclude_deps = [], exclude_exports = []):
+    generate_cabal(name, exe_name, src_dir, exclude_deps, exclude_exports)
 
     native.filegroup(
         name = name + "-golden-cabal",
@@ -338,9 +338,10 @@ def generate_and_track_cabal(name, exe_name = None):
         ],
     ) if not is_windows else None
 
-def generate_cabal(name, exe_name = None):
+def generate_cabal(name, exe_name = None, src_dir = None, exclude_deps = [], exclude_exports = []):
     full_path = "//%s:%s" % (native.package_name(), name)
-    source_dir = "src" if exe_name == None else "lib"
+    src_dir = "src" if src_dir == None else src_dir
+    source_dir = src_dir if exe_name == None else "lib"
 
     native.genquery(
         name = name + "-deps",
@@ -399,7 +400,7 @@ s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:daml_lf_dev_archive_haskell_proto)
 s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:([A-Za-z0-9/_\\-]+))$$#\\2 \\1#g
 s#^alias rule (@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
 T;p
-        ''' | sort -f | awk '{{print "      -- " $$2; print "      " $$1 ","}}' >> $@
+        ''' | sort -f {dependency_filter} | awk '{{print "      -- " $$2; print "      " $$1 ","}}' >> $@
 
          cat << EOF >> $@
     default-language: Haskell2010
@@ -424,13 +425,13 @@ s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:daml_lf_dev_archive_haskell_proto)
 s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:([A-Za-z0-9/_\\-]+))$$#\\2 \\1#g
 s#^alias rule (@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
 T;p
-        ''' | sort -f | awk '{{print "      -- " $$2; print "      " $$1 ","}}' >> $@
+        ''' | sort -f {dependency_filter} | awk '{{print "      -- " $$2; print "      " $$1 ","}}'  >> $@
 
     echo '    exposed-modules:' >> $@
 
     grep -v "\\-\\-" $(SRCS) | \
        sed -nE 's#^source file //[A-Za-z0-9/_\\-]+:{source_dir}/([A-Za-z0-9/_\\-]+)\\.hs$$#      \\1#g;T;p' | \
-       sed 's#/#\\.#g' | sort -f >> $@
+       sed 's#/#\\.#g' | sort -f {export_filter} >> $@
 
     echo -ne '    default-extensions:\n      ' >> $@
 
@@ -443,5 +444,7 @@ T;p
             has_exe = "false" if exe_name == None else "true",
             source_dir = source_dir,
             extensions = "\n      ".join(common_haskell_exts),
+            dependency_filter = "| grep -v " + " ".join(["-e " + e for e in exclude_deps]) if exclude_deps else "",
+            export_filter = "| grep -v " + " ".join(["-e " + e for e in exclude_exports]) if exclude_exports else "",
         ),
     )
