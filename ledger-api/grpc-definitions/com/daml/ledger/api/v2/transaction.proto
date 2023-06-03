@@ -35,7 +35,7 @@ message TransactionTree {
   // Required
   google.protobuf.Timestamp effective_at = 4;
 
-  // The absolute offset. The format of this field is described in ``ledger_offset.proto``.
+  // The absolute offset. The format of this field is described in ``participant_offset.proto``.
   // Required
   string offset = 5;
 
@@ -86,7 +86,7 @@ message Transaction {
   // Required
   repeated com.daml.ledger.api.v1.Event events = 5;
 
-  // The absolute offset. The format of this field is described in ``ledger_offset.proto``.
+  // The absolute offset. The format of this field is described in ``participant_offset.proto``.
   // Required
   string offset = 6;
 

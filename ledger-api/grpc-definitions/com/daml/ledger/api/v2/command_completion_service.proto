@@ -5,9 +5,9 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v1/ledger_offset.proto";
 import "com/daml/ledger/api/v1/command_completion_service.proto";
 import "com/daml/ledger/api/v2/completion.proto";
+import "com/daml/ledger/api/v2/participant_offset.proto";
 
 option java_outer_classname = "CommandCompletionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
@@ -50,7 +50,7 @@ message CompletionStreamRequest {
 
   // This field indicates the minimum offset for completions. This can be used to resume an earlier completion stream.
   // Optional, if not set the ledger uses the current ledger end offset instead.
-  com.daml.ledger.api.v1.LedgerOffset begin_exclusive = 3;
+  ParticipantOffset begin_exclusive = 3;
 }
 
 message CompletionStreamResponse {

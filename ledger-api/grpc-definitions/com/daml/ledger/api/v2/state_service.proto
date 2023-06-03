@@ -6,7 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v1/event.proto";
-import "com/daml/ledger/api/v1/ledger_offset.proto";
+import "com/daml/ledger/api/v2/participant_offset.proto";
 import "com/daml/ledger/api/v2/reassignment.proto";
 import "com/daml/ledger/api/v2/transaction_filter.proto";
 
@@ -57,7 +57,7 @@ message GetActiveContractsResponse {
 
   // Included only in the last message.
   // The client should start consuming the transactions endpoint with this offset.
-  // The format of this field is described in ``ledger_offset.proto``.
+  // The format of this field is described in ``participant_offset.proto``.
   string offset = 1;
 
   // The workflow ID used in command submission which corresponds to the contract_entry. Only set if
@@ -170,7 +170,7 @@ message GetLedgerEndRequest {
 message GetLedgerEndResponse {
 
   // The absolute offset of the current ledger end.
-  com.daml.ledger.api.v1.LedgerOffset offset = 1;
+  ParticipantOffset offset = 1;
 }
 
 message GetLatestPrunedOffsetsRequest {
@@ -179,11 +179,11 @@ message GetLatestPrunedOffsetsRequest {
 
 message GetLatestPrunedOffsetsResponse {
   // The offset up to which the ledger has been pruned, disregarding the state of all divulged contracts pruning.
-  com.daml.ledger.api.v1.LedgerOffset participant_pruned_up_to_inclusive = 1;
+  ParticipantOffset participant_pruned_up_to_inclusive = 1;
 
   // The offset up to which all divulged events have been pruned on the ledger. It can be at or before the
   // ``participant_pruned_up_to_inclusive`` offset.
   // For more details about all divulged events pruning,
   // see ``PruneRequest.prune_all_divulged_contracts`` in ``participant_pruning_service.proto``.
-  com.daml.ledger.api.v1.LedgerOffset all_divulged_contracts_pruned_up_to_inclusive = 2;
+  ParticipantOffset all_divulged_contracts_pruned_up_to_inclusive = 2;
 }
