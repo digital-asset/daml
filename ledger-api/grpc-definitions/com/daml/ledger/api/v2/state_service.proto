@@ -69,7 +69,7 @@ message GetActiveContractsResponse {
   // For a contract there could be multiple contract_entry-s in the entire snapshot. These together define
   // the state of one contract in the snapshot.
   // A contract_entry is included in the result, if and only if there is at least one stakeholder party of the contract
-  // that is hosted on the synchronizing domain at the time of the event was emitted on that domain and the party satisfies the
+  // that is hosted on the synchronizing domain at the time of the event and the party satisfies the
   // ``TransactionFilter`` in the query.
   oneof contract_entry {
     // The contract is active on the given domain, meaning: there was an activation event on the given domain (
