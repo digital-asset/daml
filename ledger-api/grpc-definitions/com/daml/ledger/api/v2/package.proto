@@ -155,3 +155,6 @@ package com.daml.ledger.api.v2;
 //  9 - Completing the API for reassignments: Currently the CommandService offers submit-and-wait endpoints for
 //      transactions and Update service offers point-wise lookup endpoints for transactions only. This is about to
 //      extend these features naturally for reassignments.
+// 10 - Improving party and package management admin endpoints: add streaming capabilities, and streamline capabilities
+//      considering improved topology information and Canton admin API features.
+
