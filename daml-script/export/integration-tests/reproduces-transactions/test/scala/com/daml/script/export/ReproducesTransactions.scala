@@ -289,11 +289,11 @@ final class ReproducesTransactions
 
   "Generated export for IOU transfer compiles" - {
 
-    s"offset 0 - empty ACS" ignore { testOffset(2, 0)(testIou) }
+    s"offset 0 - empty ACS" in { testOffset(2, 0)(testIou) }
 
-    s"offset 2 - skip split" ignore { testOffset(2, 2)(testIou) }
+    s"offset 2 - skip split" in { testOffset(2, 2)(testIou) }
 
-    s"offset 4 - no trees" ignore { testOffset(2, 4)(testIou) }
+    s"offset 4 - no trees" in { testOffset(2, 4)(testIou) }
 
   }
 
