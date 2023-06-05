@@ -21,7 +21,7 @@ import com.daml.fetchcontracts.util.{
   InsertDeleteStep,
   LedgerBegin,
 }
-import util.{ApiValueToLfValueConverter, toLedgerId}
+import util.{ApiValueToLfValueConverter, Logging, toLedgerId}
 import com.daml.fetchcontracts.AcsTxStreams.transactionFilter
 import com.daml.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
 import com.daml.fetchcontracts.util.GraphExtensions._
@@ -45,7 +45,6 @@ import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
-import com.daml.logging.entries.LoggingValue
 import scalaz.std.scalaFuture._
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
@@ -418,13 +417,7 @@ class ContractsService(
 
         private[this] def unsafeRunAsync[A](cio: doobie.ConnectionIO[A])(implicit
             lc: LoggingContextOf[InstanceUUID with RequestID]
-        ) = {
-          val optRequestId = lc.entries.contents.get("request_id").flatMap {
-            case LoggingValue.OfString(value) => Some(value)
-            case _ => None
-          }
-          dao.transact(cio, optRequestId).unsafeToFuture()
-        }
+        ) = dao.transact(cio, Logging.getRequestId(lc)).unsafeToFuture()
 
         private[this] def timed[A](
             timer: Timer,

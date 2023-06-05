@@ -19,7 +19,7 @@ import com.daml.logging.LoggingContextOf
 import com.daml.nonempty.{+-:, NonEmpty, NonEmptyF}
 import domain.Offset.`Offset ordering`
 import doobie.LogHandler
-import doobie.free.connection.{ConnectionIO, setClientInfo}
+import doobie.free.connection.ConnectionIO
 import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
@@ -38,17 +38,14 @@ import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
 import scala.language.existentials
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 import scala.annotation.nowarn
 
 class ContractDao private (
     ds: DataSource with Closeable,
     xa: ConnectionPool.T,
     dbAccessPool: ExecutorService,
-    @nowarn diagnosticSetup: Option[
-      (DataSource with Closeable, ConnectionPool.T, ExecutorService)
-    ] = None,
-    @nowarn diagnosticConfig: Option[DiagnosticConfig] = None,
+    @nowarn diagnostics: Option[Diagnostics] = None,
 )(implicit
     val jdbcDriver: SupportedJdbcDriver.TC
 ) extends Closeable {
@@ -57,50 +54,21 @@ class ContractDao private (
   implicit val logHandler: log.LogHandler = Slf4jLogHandler(logger)
 
   def transact[A](query: ConnectionIO[A], clientInfo: Option[String] = None): IO[A] = {
-    val xa0 = (diagnosticConfig.flatMap(_.clientInfo), clientInfo) match {
-      case (Some(identifier), Some(info)) =>
-        Transactor.strategy.modify(
-          xa,
-          s => s.copy(before = s.before.flatMap(_ => setClientInfo(identifier, info))),
-        )
-      case _ => xa
-    }
-    diagnosticSetup match {
-      case Some((_, dxa, _)) =>
+    diagnostics match {
+      case Some(diagnostics) =>
+        val xa0 = (diagnostics.clientInfoName, clientInfo) match {
+          case (Some(identifier), Some(info)) =>
+            Transactor.before.modify(xa, _ *> fconn.setClientInfo(identifier, info))
+          case _ => xa
+        }
         query.transact(xa0).handleErrorWith {
           case e: SQLTransientConnectionException
-              if e.getMessage.contains("Connection is not available") =>
-            runDiagnostic(diagnosticConfig, dxa)
+              if Diagnostics.isDiagnosticTrigger(e.getMessage) =>
+            diagnostics.run()
             IO.raiseError(e)
           case e => IO.raiseError(e)
         }
-      case _ => query.transact(xa0)
-    }
-  }
-
-  private def runDiagnostic(diagnosticConfig: Option[DiagnosticConfig], dxa: ConnectionPool.T) = {
-    try {
-      diagnosticConfig.foreach { cfg =>
-        val source = scala.io.Source.fromFile(cfg.query)
-        val diagnosticQuery0 =
-          try source.mkString
-          finally source.close()
-        runQuery(diagnosticQuery0)(dxa) match {
-          case Success(rs) =>
-            val allRows = rs.columnNames :: rs.rows
-            val sizes = allRows.foldLeft[List[Int]](List.fill(rs.columnNames.length)(0)) {
-              case (sizes, row) =>
-                sizes.zip(row.map(_.length)).map(x => Math.max(x._1, x._2))
-            }
-            val format = sizes.map(l => s"%-${l}s").mkString("| ", " | ", " |")
-            val connectionsInfo = allRows.map(row => format.format(row: _*)).mkString("\n")
-            logger.debug(s"Connection pool exhausted:\n$connectionsInfo")
-          case Failure(exception) => throw exception
-        }
-      }
-    } catch {
-      case e: Exception =>
-        logger.debug(s"Connection pool diagnostic failed:\n $e")
+      case None => query.transact(xa)
     }
   }
 
@@ -116,8 +84,8 @@ class ContractDao private (
     }
     Try {
       shutdown(ds, dbAccessPool)
-      diagnosticSetup.foreach { case (ds, _, es) =>
-        shutdown(ds, es)
+      diagnostics.foreach { diagnostics =>
+        shutdown(diagnostics.dataSource, diagnostics.executorService)
       }
     }
   }
@@ -152,7 +120,7 @@ object ContractDao {
   def apply(
       cfg: JdbcConfig,
       tpIdCacheMaxEntries: Option[Long] = None,
-      diagnostic: Option[DiagnosticConfig] = None,
+      diagnosticConfig: Option[DiagnosticConfig] = None,
   )(implicit
       ec: ExecutionContext,
       metrics: HttpJsonApiMetrics,
@@ -177,14 +145,16 @@ object ContractDao {
           s"JDBC driver ${cfg.baseConfig.driver} is not one of ${supportedJdbcDrivers.keySet}"
         )
       sjdc <- configureJdbc(cfg, sjda, tpIdCacheMaxEntries.getOrElse(MaxEntries))
+      query <- Diagnostics.loadQuery(diagnosticConfig.map(_.query))
     } yield {
       implicit val sjd: SupportedJdbcDriver.TC = sjdc
       val (ds, conn, es) =
         makeDatasourceConPoolAndExecutorService(cfg.baseConfig, metrics.getMetricRegistry)
-      val diagnosticDSPoolEs = diagnostic.map { cfg =>
-        makeDatasourceConPoolAndExecutorService(cfg.baseConfig)
+      val diagnostics = diagnosticConfig.map { cfg =>
+        val (ds, conn, es) = makeDatasourceConPoolAndExecutorService(cfg.baseConfig)
+        Diagnostics(ds, conn, es, cfg.clientInfoName, query.get, cfg.minDelay)
       }
-      new ContractDao(ds, conn, es, diagnosticDSPoolEs, diagnostic)
+      new ContractDao(ds, conn, es, diagnostics)
     }
     setup.fold(msg => throw new IllegalArgumentException(msg), identity)
   }

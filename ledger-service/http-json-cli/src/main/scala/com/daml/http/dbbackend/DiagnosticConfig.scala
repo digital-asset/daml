@@ -5,11 +5,14 @@ package com.daml.http
 package dbbackend
 
 import com.daml.dbutils
+import scala.concurrent.duration._
 
 import java.io.File
+import scala.concurrent.duration.FiniteDuration
 
 private[http] final case class DiagnosticConfig(
     baseConfig: dbutils.JdbcConfig,
-    clientInfo: Option[String],
     query: File,
+    minDelay: FiniteDuration = 60.seconds,
+    clientInfoName: Option[String] = None,
 )

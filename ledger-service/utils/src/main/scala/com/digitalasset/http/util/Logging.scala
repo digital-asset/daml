@@ -5,10 +5,13 @@ package com.daml.http.util
 
 import com.daml.logging.LoggingContextOf
 import com.daml.logging.LoggingContextOf.{label, newLoggingContext, withEnrichedLoggingContext}
+import com.daml.logging.entries.LoggingValue
 
 import java.util.UUID
 
 object Logging {
+
+  final val REQUEST_ID = "request_id"
 
   /**  The [[InstanceUUID]] is just a tag for [[LoggingContextOf]]
     *  to signal, that we request to include an UUID/ID
@@ -36,7 +39,12 @@ object Logging {
   def extendWithRequestIdLogCtx[Z](
       fn: LoggingContextOf[InstanceUUID with RequestID] => Z
   )(implicit lc: LoggingContextOf[InstanceUUID]): Z =
-    withEnrichedLoggingContext(label[RequestID], "request_id" -> UUID.randomUUID().toString)
+    withEnrichedLoggingContext(label[RequestID], REQUEST_ID -> UUID.randomUUID().toString)
       .run(fn)
 
+  def getRequestId(lc: LoggingContextOf[Any]) =
+    lc.entries.contents.get(REQUEST_ID).flatMap {
+      case LoggingValue.OfString(value) => Some(value)
+      case _ => None
+    }
 }
