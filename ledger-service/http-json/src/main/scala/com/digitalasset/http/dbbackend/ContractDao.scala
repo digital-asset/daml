@@ -5,7 +5,6 @@ package com.daml.http.dbbackend
 
 import cats.effect._
 import cats.syntax.apply._
-import com.codahale.metrics.MetricRegistry
 import com.daml.dbutils
 import com.daml.dbutils.ConnectionPool
 import com.daml.doobie.logging.Slf4jLogHandler
@@ -62,8 +61,7 @@ class ContractDao private (
           case _ => xa
         }
         query.transact(xa0).handleErrorWith {
-          case e: SQLTransientConnectionException
-              if Diagnostics.isDiagnosticTrigger(e.getMessage) =>
+          case e: SQLTransientConnectionException if Diagnostics.isDiagnosticTrigger(e) =>
             diagnostics.run()
             IO.raiseError(e)
           case e => IO.raiseError(e)
@@ -125,18 +123,15 @@ object ContractDao {
       ec: ExecutionContext,
       metrics: HttpJsonApiMetrics,
   ): ContractDao = {
-    val cs: ContextShift[IO] = IO.contextShift(ec)
-    def makeDatasourceConPoolAndExecutorService(
+
+    def makeDatasourceAndConPool(
         cfg: dbutils.JdbcConfig,
-        metricRegistry: Option[MetricRegistry] = None,
-    ) = {
-      // pool for connections awaiting database access
-      val es = Executors.newWorkStealingPool(cfg.poolSize)
-      val (ds, conn) = {
-        ConnectionPool.connect(cfg, metricRegistry)(ExecutionContext.fromExecutor(es), cs)
-      }
-      (ds, conn, es)
-    }
+        es: ExecutorService,
+    ) =
+      ConnectionPool.connect(cfg, metrics.getMetricRegistry)(
+        ExecutionContext.fromExecutor(es),
+        IO.contextShift(ec),
+      )
 
     val setup = for {
       sjda <- supportedJdbcDrivers
@@ -148,10 +143,13 @@ object ContractDao {
       query <- Diagnostics.loadQuery(diagnosticConfig.map(_.query))
     } yield {
       implicit val sjd: SupportedJdbcDriver.TC = sjdc
-      val (ds, conn, es) =
-        makeDatasourceConPoolAndExecutorService(cfg.baseConfig, metrics.getMetricRegistry)
+      // pool for connections awaiting database access
+      val es = Executors.newWorkStealingPool(cfg.baseConfig.poolSize)
+      val (ds, conn) = makeDatasourceAndConPool(cfg.baseConfig, es)
+
       val diagnostics = diagnosticConfig.map { cfg =>
-        val (ds, conn, es) = makeDatasourceConPoolAndExecutorService(cfg.baseConfig)
+        val es = Executors.newSingleThreadExecutor()
+        val (ds, conn) = makeDatasourceAndConPool(cfg.baseConfig, es)
         Diagnostics(ds, conn, es, cfg.clientInfoName, query.get, cfg.minDelay)
       }
       new ContractDao(ds, conn, es, diagnostics)

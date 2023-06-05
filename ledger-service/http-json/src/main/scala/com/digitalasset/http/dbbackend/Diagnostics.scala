@@ -7,6 +7,7 @@ import com.daml.dbutils.ConnectionPool
 import org.slf4j.LoggerFactory
 
 import java.io.Closeable
+import java.sql.SQLTransientConnectionException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicReference
 import javax.sql.DataSource
@@ -59,8 +60,8 @@ case class Diagnostics(
 }
 
 object Diagnostics {
-  def isDiagnosticTrigger(message: String): Boolean =
-    message.contains("Connection is not available")
+  def isDiagnosticTrigger(exception: SQLTransientConnectionException): Boolean =
+    exception.getMessage.contains("Connection is not available")
   def loadQuery(query: Option[java.io.File]): Either[String, Option[String]] = {
     query
       .map { query =>

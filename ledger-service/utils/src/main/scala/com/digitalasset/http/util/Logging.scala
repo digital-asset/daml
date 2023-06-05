@@ -42,7 +42,7 @@ object Logging {
     withEnrichedLoggingContext(label[RequestID], REQUEST_ID -> UUID.randomUUID().toString)
       .run(fn)
 
-  def getRequestId(lc: LoggingContextOf[Any]) =
+  def getRequestId(lc: LoggingContextOf[Any]): Option[String] =
     lc.entries.contents.get(REQUEST_ID).flatMap {
       case LoggingValue.OfString(value) => Some(value)
       case _ => None
