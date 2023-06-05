@@ -16,7 +16,6 @@ import DA.Daml.Doc.Extract.Util
 import DA.Daml.Doc.Extract.TypeExpr
 
 import Control.Applicative ((<|>))
-import Data.List (intercalate)
 import qualified Data.Map.Strict as MS
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Tuple.Extra (second)
@@ -29,7 +28,8 @@ import "ghc-lib-parser" CoreSyn (isOrphan)
 import "ghc-lib-parser" Id
 import "ghc-lib-parser" InstEnv
 import "ghc-lib-parser" Name
-import "ghc-lib-parser" Outputable (ppr, showSDocUnsafe)
+import "ghc-lib-parser" DynFlags (unsafeGlobalDynFlags)
+import "ghc-lib-parser" Outputable (ppr, showSDocOneLine)
 import "ghc-lib-parser" Var (varType)
 
 -- import Debug.Trace
@@ -80,7 +80,7 @@ getInterfaceDocs DocCtx{..} typeMap interfaceInstanceMap templateMaps =
     -- Otherwise it is always `GHC.Types.primitive @"ESignatoryInterface"` and will
     -- be used for the Archive controller
     updatedTemplateMaps :: Typename -> TemplateMaps
-    updatedTemplateMaps name = templateMaps {signatoryMap = MS.singleton name "Signatories of implementing template"}
+    updatedTemplateMaps name = templateMaps {signatoryMap = MS.singleton name ["Signatories of implementing template"]}
     -- The following functions use the type map and choice map in scope, so
     -- defined internally, and not expected to fail on consistent arguments.
     mkInterfaceDoc :: Typename -> InterfaceDoc
@@ -168,9 +168,9 @@ isChoiceTy ty
 data TemplateMaps = TemplateMaps
   { choiceTypeMap :: MS.Map Typename DDoc.Type
   -- ^ maps choice names to their return types
-  , signatoryMap :: MS.Map Typename String
+  , signatoryMap :: MS.Map Typename [String]
   -- ^ maps template names to their signatory body stringified
-  , choiceControllerMap :: MS.Map (Typename, Typename) String
+  , choiceControllerMap :: MS.Map (Typename, Typename) [String]
   -- ^ maps choice names to their controller body stringified (excluding Archive)
   }
 
@@ -200,8 +200,8 @@ isChoiceInst ctx inst
 
   | otherwise = Nothing
 
-hsExprsToString :: [HsExpr GhcPs] -> String
-hsExprsToString = intercalate ", " . fmap (showSDocUnsafe . ppr)
+hsExprToString :: HsExpr GhcPs -> String
+hsExprToString = showSDocOneLine unsafeGlobalDynFlags . ppr
 
 isSignatoryTy :: HsType GhcPs -> Maybe Typename
 isSignatoryTy ty
@@ -215,20 +215,20 @@ isSignatoryTy ty
 
   | otherwise = Nothing
 
-getSignatoriesBody :: DeclData -> Maybe (Typename, String)
+getSignatoriesBody :: DeclData -> Maybe (Typename, [String])
 getSignatoriesBody decl
   | DeclData (L _ (InstD _ (ClsInstD _ inst))) _ <- decl
   , HsIB _ (L _ t) <- cid_poly_ty inst
   , Just templateName <- isSignatoryTy t
   , [L _ (FunBind _ _ matchGroup _ _)] <- bagToList $ cid_binds inst
   , Just (body, _) <- unMatchGroup matchGroup
-  , bodyStr <- hsExprsToString $ reverse (unParties body)
+  , bodyStr <- hsExprToString <$> reverse (unParties body)
   = Just (templateName, bodyStr)
 
   | otherwise = Nothing
 
 -- | Extracts the template name and signature implementation for `DA.Internal.Desugar.HasSignatory` instances
-getSignatoryMap :: [DeclData] -> MS.Map Typename String
+getSignatoryMap :: [DeclData] -> MS.Map Typename [String]
 getSignatoryMap = MS.fromList . mapMaybe getSignatoriesBody
 
 stripDesugarApplication :: String -> HsExpr GhcPs -> Maybe (HsExpr GhcPs)
@@ -267,10 +267,10 @@ dropBrackets (HsPar _ (L _ body)) = body
 dropBrackets e = e
 
 -- | Mapping from template and choice type to controller stringified
-getChoiceControllerMap :: [DeclData] -> MS.Map (Typename, Typename) String
+getChoiceControllerMap :: [DeclData] -> MS.Map (Typename, Typename) [String]
 getChoiceControllerMap = MS.fromList . mapMaybe getChoiceControllerData
 
-getChoiceControllerData :: DeclData -> Maybe ((Typename, Typename), String)
+getChoiceControllerData :: DeclData -> Maybe ((Typename, Typename), [String])
 getChoiceControllerData decl
   | DeclData (L _ (ValD _ (FunBind _ (L _ name) matchGroup _ _))) _ <- decl
   -- Check the name of the def starts with _choice$_
@@ -280,7 +280,7 @@ getChoiceControllerData decl
   , Just (body, _) <- unMatchGroup matchGroup
   , ExplicitTuple _ [_, L _ (Present _ (L _ controllerExpr)), _, _, _] _ <- body
   , Just controllers <- unControllerExpr controllerExpr
-  , controllersStr <- hsExprsToString $ reverse (unParties controllers)
+  , controllersStr <- hsExprToString <$> reverse (unParties controllers)
   = Just ((templateName, choiceName), controllersStr)
 
   | otherwise = Nothing
