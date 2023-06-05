@@ -73,7 +73,6 @@ com/daml/ledger/api/v2/command_submission_service.proto
 com/daml/ledger/api/v2/commands.proto
 com/daml/ledger/api/v2/completion.proto
 com/daml/ledger/api/v2/event_query_service.proto
-com/daml/ledger/api/v2/package.proto
 com/daml/ledger/api/v2/package_service.proto
 com/daml/ledger/api/v2/participant_offset.proto
 com/daml/ledger/api/v2/reassignment.proto
