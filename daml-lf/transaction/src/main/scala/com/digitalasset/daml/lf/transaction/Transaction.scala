@@ -646,6 +646,12 @@ sealed abstract class HasTxNodes {
         Right(head.head)
     }
 
+  /** The union of the informees of all the action nodes. */
+  lazy val informees: Set[Ref.Party] =
+    nodes.values.foldLeft(Set.empty[Ref.Party]) {
+      case (acc, node: Node.Action) => acc | node.informeesOfNode
+      case (acc, _: Node.Rollback) => acc
+    }
 }
 
 object Transaction {
