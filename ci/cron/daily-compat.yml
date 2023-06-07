@@ -341,20 +341,14 @@ jobs:
                          | grep -P '^\d+\.\d+\.\d+' \
                          | sort -V \
                          | tail -1)
-        dir=$(pwd)
-        cd $(mktemp -d)
-        curl -u $AUTH \
-             --fail \
-             --location \
-             --silent \
-             https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-open-source-$canton_version.tar.gz \
-             > tarball.tar.gz
-        canton_sha=$(sha256sum tarball.tar.gz | awk '{print $1}')
-        tar xzf tarball.tar.gz
-        rm tarball.tar.gz
-        canton_prefix=$(ls)
-        mv $canton_prefix canton
-        cd $dir
+        canton_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-open-source-$canton_version.tar.gz"
+        canton_sha=$(curl -u $AUTH \
+                          --fail \
+                          --location \
+                          --silent \
+                          "$canton_url" \
+                     | sha256sum \
+                     | awk '{print $1}')
 
         sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
         sed -e 's/^/# /' COPY > canton_dep.bzl
@@ -362,21 +356,21 @@ jobs:
 
         canton = {
             "sha": "$canton_sha",
-            "prefix": "$canton_prefix",
             "url": "https://www.canton.io/releases/canton-open-source-$canton_version.tar.gz",
             "local": False,
         }
         EOF
 
+        rm -f arbitrary_canton_sha
+
         branch="canton-update-$canton_version"
 
-        if git diff --exit-code -- canton_dep.bzl $bad_file; then
+        if git diff --exit-code -- canton_dep.bzl build.sh arbitrary_canton_sha; then
             echo "Already up-to-date with latest Canton snapshot."
-            setvar need_to_build false
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
-                git add canton_dep.bzl $bad_file build.sh build.ps1
-                [ -f arbitrary_canton_sha ] && git rm -f arbitrary_canton_sha
+                git add canton_dep.bzl build.sh
+                git ls-files | grep arbitrary_canton_sha >&2 && git rm -f arbitrary_canton_sha
                 open_pr "$branch" "bump canton to $canton_version"
                 az extension add --name azure-devops
                 trap "az devops logout" EXIT
