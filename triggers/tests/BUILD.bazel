@@ -231,6 +231,7 @@ da_scala_library(
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/ledger/LedgerRegistration.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/report/ACSReporting.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/report/MetricsReporting.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/report/SubmissionReporting.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/wrapper/TriggerFilter.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/wrapper/TriggerInitialize.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/wrapper/TriggerTimer.scala",

@@ -30,6 +30,8 @@ object LedgerApiClient {
   private[process] final case class CommandSubmission(
       request: SubmitRequest,
       replyTo: ActorRef[TriggerProcess.Message],
+      timestamp: Long,
+      reportId: UUID,
       triggerId: UUID,
       triggerDefRef: Ref.DefinitionRef,
   ) extends Message
@@ -38,56 +40,99 @@ object LedgerApiClient {
       client: LedgerClient,
       report: ActorRef[ReportingProcess.Message],
   )(implicit config: TriggerSimulationConfig): Behavior[Message] = {
-    Behaviors.receive { case (context, CommandSubmission(request, replyTo, triggerId, triggerDefRef)) =>
-      val commandId = request.getCommands.commandId
-      val submissionTimestamp = System.currentTimeMillis()
-      report ! ReportingProcess.SubmissionUpdate(SubmissionReporting.SubmissionUpdate(submissionTimestamp, commandId, triggerId, triggerDefRef, request))
-      try {
-        discard(
-          Await.result(
-            client.commandClient.submitSingleCommand(request),
-            config.ledgerSubmissionTimeout,
+    Behaviors.receive {
+      case (
+            context,
+            CommandSubmission(
+              request,
+              replyTo,
+              submissionTimestamp,
+              reportId,
+              triggerId,
+              triggerDefRef,
+            ),
+          ) =>
+        val commandId = request.getCommands.commandId
+        report ! ReportingProcess.SubmissionUpdate(
+          SubmissionReporting.SubmissionUpdate(
+            submissionTimestamp,
+            commandId,
+            reportId,
+            triggerId,
+            triggerDefRef,
+            request,
           )
         )
-      } catch {
-        case cause: StatusRuntimeException if cause.getStatus.getCode != Code.UNAUTHENTICATED =>
-          context.log.info(
-            s"Ledger API encountered a command submission failure for $request - sending completion failure to $replyTo",
-            cause,
+        try {
+          discard(
+            Await.result(
+              client.commandClient.submitSingleCommand(request),
+              config.ledgerSubmissionTimeout,
+            )
           )
-          val completionTimestamp = System.currentTimeMillis()
-          val completion = Completion(
-            request.getCommands.commandId,
-            Some(Status(cause.getStatus.getCode.value(), cause.getStatus.getDescription)),
-          )
-          replyTo ! TriggerProcess.MessageWrapper(TriggerMsg.Completion(completion))
-          report ! ReportingProcess.SubmissionUpdate(SubmissionReporting.CompletionUpdate(completionTimestamp, commandId, triggerId, triggerDefRef, completion))
+        } catch {
+          case cause: StatusRuntimeException if cause.getStatus.getCode != Code.UNAUTHENTICATED =>
+            context.log.info(
+              s"Ledger API encountered a command submission failure for $request - sending completion failure to $replyTo",
+              cause,
+            )
+            val completionTimestamp = System.currentTimeMillis()
+            val completion = Completion(
+              request.getCommands.commandId,
+              Some(Status(cause.getStatus.getCode.value(), cause.getStatus.getDescription)),
+            )
+            replyTo ! TriggerProcess.MessageWrapper(TriggerMsg.Completion(completion))
+            report ! ReportingProcess.SubmissionUpdate(
+              SubmissionReporting.CompletionUpdate(
+                completionTimestamp,
+                commandId,
+                triggerId,
+                triggerDefRef,
+                completion,
+              )
+            )
 
-        case cause: StatusRuntimeException =>
-          context.log.warn(
-            s"Ledger API encountered a command submission failure for $request - ignoring this failure",
-            cause,
-          )
-          val completionTimestamp = System.currentTimeMillis()
-          val completion = Completion(
-            request.getCommands.commandId,
-            Some(Status(cause.getStatus.getCode.value(), cause.getStatus.getDescription)),
-          )
-          report ! ReportingProcess.SubmissionUpdate(SubmissionReporting.CompletionUpdate(completionTimestamp, commandId, triggerId, triggerDefRef, completion))
+          case cause: StatusRuntimeException =>
+            context.log.warn(
+              s"Ledger API encountered a command submission failure for $request - ignoring this failure",
+              cause,
+            )
+            val completionTimestamp = System.currentTimeMillis()
+            val completion = Completion(
+              request.getCommands.commandId,
+              Some(Status(cause.getStatus.getCode.value(), cause.getStatus.getDescription)),
+            )
+            report ! ReportingProcess.SubmissionUpdate(
+              SubmissionReporting.CompletionUpdate(
+                completionTimestamp,
+                commandId,
+                triggerId,
+                triggerDefRef,
+                completion,
+              )
+            )
 
-        case NonFatal(reason) =>
-          context.log.warn(
-            s"Ledger API encountered a command submission failure for $request - ignoring this failure",
-            reason,
-          )
-          val completionTimestamp = System.currentTimeMillis()
-          val completion = Completion(
-            request.getCommands.commandId,
-            Some(Status(UNKNOWN.value, reason.getMessage)),
-          )
-          report ! ReportingProcess.SubmissionUpdate(SubmissionReporting.CompletionUpdate(completionTimestamp, commandId, triggerId, triggerDefRef, completion))
-      }
-      Behaviors.same
+          case NonFatal(reason) =>
+            context.log.warn(
+              s"Ledger API encountered a command submission failure for $request - ignoring this failure",
+              reason,
+            )
+            val completionTimestamp = System.currentTimeMillis()
+            val completion = Completion(
+              request.getCommands.commandId,
+              Some(Status(UNKNOWN.value, reason.getMessage)),
+            )
+            report ! ReportingProcess.SubmissionUpdate(
+              SubmissionReporting.CompletionUpdate(
+                completionTimestamp,
+                commandId,
+                triggerId,
+                triggerDefRef,
+                completion,
+              )
+            )
+        }
+        Behaviors.same
     }
   }
 }

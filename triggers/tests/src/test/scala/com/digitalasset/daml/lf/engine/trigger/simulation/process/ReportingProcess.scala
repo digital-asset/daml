@@ -7,7 +7,11 @@ import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
 import com.daml.lf.engine.trigger.simulation.process.ledger.LedgerProcess
-import com.daml.lf.engine.trigger.simulation.process.report.{ACSReporting, MetricsReporting, SubmissionReporting}
+import com.daml.lf.engine.trigger.simulation.process.report.{
+  ACSReporting,
+  MetricsReporting,
+  SubmissionReporting,
+}
 
 private[simulation] final case class ReportingProcess private (
     metrics: ActorRef[MetricsReporting.Message],

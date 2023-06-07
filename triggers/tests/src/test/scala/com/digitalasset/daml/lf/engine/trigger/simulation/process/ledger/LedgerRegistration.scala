@@ -18,7 +18,10 @@ import com.daml.ledger.client.services.commands.CompletionStreamElement.Completi
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.engine.trigger.simulation.ReportingProcess
-import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.{TriggerSimulationConfig, TriggerSimulationFailure}
+import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.{
+  TriggerSimulationConfig,
+  TriggerSimulationFailure,
+}
 import com.daml.lf.engine.trigger.simulation.process.report.{ACSReporting, SubmissionReporting}
 import com.daml.lf.engine.trigger.{Converter, TriggerMsg}
 import scalaz.syntax.tag._
@@ -87,7 +90,15 @@ final class LedgerRegistration(client: LedgerClient)(implicit
             .collect { case CompletionElement(completion, _) =>
               val timestamp = System.currentTimeMillis()
               trigger ! TriggerProcess.MessageWrapper(TriggerMsg.Completion(completion))
-              report ! ReportingProcess.SubmissionUpdate(SubmissionReporting.CompletionUpdate(timestamp, completion.commandId, triggerId, triggerDefRef, completion))
+              report ! ReportingProcess.SubmissionUpdate(
+                SubmissionReporting.CompletionUpdate(
+                  timestamp,
+                  completion.commandId,
+                  triggerId,
+                  triggerDefRef,
+                  completion,
+                )
+              )
             }
             .run()
             .onComplete {

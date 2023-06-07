@@ -130,7 +130,7 @@ final class TriggerProcessFactory private[simulation] (
           (ref: ActorRef[LedgerRegistration.LedgerApi]) =>
             LedgerProcess.TriggerRegistration(
               LedgerRegistration
-                .Registration(triggerId, context.self, actAs, transactionFilter, ref)
+                .Registration(triggerId, triggerDefRef, context.self, actAs, transactionFilter, ref)
             ),
         ) {
           case Success(LedgerRegistration.LedgerApi(api, report)) =>
@@ -192,7 +192,14 @@ final class TriggerProcessFactory private[simulation] (
         val reportId = UUID.randomUUID()
 
         submissions.foreach { request =>
-          ledgerApi ! LedgerApiClient.CommandSubmission(request, context.self, triggerId, triggerDefRef)
+          ledgerApi ! LedgerApiClient.CommandSubmission(
+            request,
+            context.self,
+            timestamp,
+            reportId,
+            triggerId,
+            triggerDefRef,
+          )
         }
         report ! ReportingProcess.MetricsUpdate(
           MetricsReporting.TriggerMetricsUpdate(

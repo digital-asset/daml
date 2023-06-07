@@ -22,22 +22,24 @@ private[simulation] object SubmissionReporting {
   private[process] final case class SubmissionUpdate(
       timestamp: Long,
       commandId: String,
+      reportId: UUID,
       triggerId: UUID,
       triggerDefRef: Ref.DefinitionRef,
       request: SubmitRequest,
   ) extends Message
   // Used by LedgerProcess
   private[process] final case class CompletionUpdate(
-     timestamp: Long,
-     commandId: String,
-     triggerId: UUID,
-     triggerDefRef: Ref.DefinitionRef,
-     completion: Completion,
- ) extends Message
+      timestamp: Long,
+      commandId: String,
+      triggerId: UUID,
+      triggerDefRef: Ref.DefinitionRef,
+      completion: Completion,
+  ) extends Message
   private final case class ReportCompletedSubmission(
       submissionTimestamp: Long,
       completionTimestamp: Long,
       commandId: String,
+      reportId: UUID,
       triggerId: UUID,
       triggerDefRef: Ref.DefinitionRef,
       completionStatus: GrpcStatus,
@@ -51,6 +53,7 @@ private[simulation] object SubmissionReporting {
       val submissionDataFileCsvHeader = Seq(
         "timestamp",
         "command-id",
+        "report-id",
         "trigger-id",
         "trigger-def-ref",
         "submission-duration",
@@ -60,7 +63,7 @@ private[simulation] object SubmissionReporting {
 
       Behaviors
         .receiveMessage[Message] {
-          case update @ SubmissionUpdate(_, commandId, triggerId, triggerDefRef, _) =>
+          case update @ SubmissionUpdate(_, commandId, reportId, triggerId, triggerDefRef, _) =>
             if (receivedSubmissions.contains(commandId)) {
               context.log.warn(s"Dropping duplicate submission update for command ID $commandId")
             } else {
@@ -69,7 +72,15 @@ private[simulation] object SubmissionReporting {
             if (receivedCompletions.contains(commandId)) {
               val submission = receivedSubmissions.remove(commandId).get
               val completion = receivedCompletions.remove(commandId).get
-              context.self ! ReportCompletedSubmission(submission.timestamp, completion.timestamp, commandId, triggerId, triggerDefRef, completion.completion.getStatus)
+              context.self ! ReportCompletedSubmission(
+                submission.timestamp,
+                completion.timestamp,
+                commandId,
+                reportId,
+                triggerId,
+                triggerDefRef,
+                completion.completion.getStatus,
+              )
             }
             Behaviors.same
 
@@ -82,14 +93,31 @@ private[simulation] object SubmissionReporting {
             if (receivedSubmissions.contains(commandId)) {
               val submission = receivedSubmissions.remove(commandId).get
               val completion = receivedCompletions.remove(commandId).get
-              context.self ! ReportCompletedSubmission(submission.timestamp, completion.timestamp, commandId, triggerId, triggerDefRef, completion.completion.getStatus)
+              context.self ! ReportCompletedSubmission(
+                submission.timestamp,
+                completion.timestamp,
+                commandId,
+                submission.reportId,
+                triggerId,
+                triggerDefRef,
+                completion.completion.getStatus,
+              )
             }
             Behaviors.same
 
-          case ReportCompletedSubmission(submissionTimestamp, completionTimestamp, commandId, triggerId, triggerDefRef, completionStatus) =>
+          case ReportCompletedSubmission(
+                submissionTimestamp,
+                completionTimestamp,
+                commandId,
+                reportId,
+                triggerId,
+                triggerDefRef,
+                completionStatus,
+              ) =>
             val csvData: String = Seq[Any](
               submissionTimestamp,
               commandId,
+              reportId,
               triggerId,
               triggerDefRef,
               completionTimestamp - submissionTimestamp,
@@ -99,15 +127,16 @@ private[simulation] object SubmissionReporting {
             Behaviors.same
         }
         .receiveSignal { case (_, PostStop) =>
-          // Ensure all open submissions are saved
+          // Ensure all incomplete submissions are saved
           for ((commandId, submission) <- receivedSubmissions) {
             val csvData: String = Seq[Any](
               submission.timestamp,
               commandId,
+              submission.reportId,
               submission.triggerId,
               submission.triggerDefRef,
-              None,
-              None,
+              "INCOMPLETE",
+              "INCOMPLETE",
             ).mkString("", ",", "\n")
             submissionDataFile.write(csvData.getBytes)
           }
