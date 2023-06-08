@@ -123,13 +123,11 @@ private[lf] object Compiler {
     final case class Soft(
         tmplId: TypeConName,
         fields: ImmArray[(FieldName, Type)],
-        predPids: List[PackageId],
     ) extends Casting {
       def cast: SBuiltin = {
         SBPromoteAnyContract(
           tmplId,
           fields,
-          predPids.map(Identifier(_, tmplId.qualifiedName)),
         )
       }
     }
@@ -177,8 +175,7 @@ private[lf] final class Compiler(
       pkgId: PackageId,
       module: Module,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
-    val predPids = pkgInterface.lookupPredecessors(pkgId).getOrElse(List.empty)
-    compileModule(pkgId, module, predPids)
+    compileModule(pkgId, module)
   }
 
   @throws[PackageNotFound]
@@ -372,7 +369,6 @@ private[lf] final class Compiler(
   private[this] def compileModule(
       pkgId: PackageId,
       module: Module,
-      predPids: List[PackageId],
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(t.SDefinitionRef, SDefinition)]
     def addDef(binding: (t.SDefinitionRef, SDefinition)): Unit = discard(builder += binding)
@@ -402,7 +398,7 @@ private[lf] final class Compiler(
 
       addDef(compileCreate(tmplId, tmpl))
       addDef(compileFetchTemplate(tmplId, tmpl))
-      addDef(compileSoftFetchTemplate(tmplId, tmpl, fields, predPids))
+      addDef(compileSoftFetchTemplate(tmplId, tmpl, fields))
       addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileAgreementText(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
@@ -420,7 +416,7 @@ private[lf] final class Compiler(
 
       tmpl.choices.values.foreach { choice =>
         addDef(compileTemplateChoice(tmplId, tmpl, choice))
-        addDef(compileSoftTemplateChoice(tmplId, tmpl, fields, predPids, choice))
+        addDef(compileSoftTemplateChoice(tmplId, tmpl, fields, choice))
         addDef(compileChoiceController(tmplId, tmpl.param, choice))
         addDef(compileChoiceObserver(tmplId, tmpl.param, choice))
       }
@@ -488,11 +484,7 @@ private[lf] final class Compiler(
 
     val t1 = Time.Timestamp.now()
 
-    // TODO https://github.com/digital-asset/daml/issues/16151
-    // getOrElse will mask package load errors in lookupPredecessors
-    val preds = pkgInterface.lookupPredecessors(pkgId).getOrElse(List.empty)
-
-    val result = pkg.modules.values.flatMap(compileModule(pkgId, _, preds))
+    val result = pkg.modules.values.flatMap(compileModule(pkgId, _))
 
     val t2 = Time.Timestamp.now()
     logger.trace(
@@ -675,12 +667,11 @@ private[lf] final class Compiler(
       tmplId: TypeConName,
       tmpl: Template,
       fields: ImmArray[(FieldName, Type)],
-      predPids: List[PackageId],
       choice: TemplateChoice,
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction3(t.SoftTemplateChoiceDefRef(tmplId, choice.name)) {
       (cidPos, choiceArgPos, tokenPos, env) =>
-        val casting = Casting.Soft(tmplId, fields, predPids)
+        val casting = Casting.Soft(tmplId, fields)
         translateChoiceBody(env, tmplId, casting, tmpl, choice)(
           choiceArgPos,
           cidPos,
@@ -806,7 +797,6 @@ private[lf] final class Compiler(
       tmplId: Identifier,
       tmpl: Template,
       fields: ImmArray[(FieldName, Type)],
-      predPids: List[PackageId],
   ): (t.SDefinitionRef, SDefinition) =
     // compile a template to
     // SoftFetchTemplateDefRef(tmplId) = \ <coid> <token> ->
@@ -815,7 +805,7 @@ private[lf] final class Compiler(
     //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] []
     //   in <softTmplArg>
     topLevelFunction2(t.SoftFetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
-      val casting = Casting.Soft(tmplId, fields, predPids)
+      val casting = Casting.Soft(tmplId, fields)
       translateFetchTemplateBody(env, tmplId, tmpl, casting)(cidPos, None, tokenPos)
     }
 

@@ -73,7 +73,7 @@ create_v2_softFetch_v1 = do
     issuer = alice
     owner = alice
     obs = []
-  _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1_0_0 with
+  _ <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1_0_0 with
     cid = coerceContractId cid
   pure ()
 

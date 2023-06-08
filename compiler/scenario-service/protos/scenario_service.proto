@@ -235,7 +235,6 @@ message ScenarioError {
   message WronglyTypedContractSoft {
     ContractRef contract_ref = 1;
     Identifier expected = 2;
-    repeated Identifier accepted = 3;
   }
 
   message ContractIdInContractKey {

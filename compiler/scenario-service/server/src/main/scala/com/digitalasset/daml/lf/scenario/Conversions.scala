@@ -259,12 +259,11 @@ final class Conversions(
                       cgfBuilder.setByInterface(convertIdentifier(ifaceId))
                     )
                     builder.setChoiceGuardFailed(cgfBuilder.build)
-                  case Dev.WronglyTypedContractSoft(coid, expected, accepted, actual) =>
+                  case Dev.WronglyTypedContractSoft(coid, expected, actual) =>
                     builder.setWronglyTypedContractSoft(
                       proto.ScenarioError.WronglyTypedContractSoft.newBuilder
                         .setContractRef(mkContractRef(coid, actual))
                         .setExpected(convertIdentifier(expected))
-                        .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
                     )
                 }
               case err @ Dev(_, _) =>

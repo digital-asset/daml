@@ -58,8 +58,12 @@ create_v2_none_softFetch_v1 = do
     owner = alice
     obs = []
     ccy = None
-  _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1 with
+  (_, coin) <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1 with
     cid = coerceContractId cid
+  coin === Coin_1.Coin.Coin with
+    issuer = alice
+    owner = alice
+    obs = []
   pure ()
 
 create_v2_some_softFetch_v1 : Script ()
@@ -70,6 +74,11 @@ create_v2_some_softFetch_v1 = do
     owner = alice
     obs = []
     ccy = Some "CHF"
-  _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1 with
+  (_, coin) <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1 with
     cid = coerceContractId cid
+  -- Note: lost currency information!
+  coin === Coin_1.Coin.Coin with
+    issuer = alice
+    owner = alice
+    obs = []
   pure ()

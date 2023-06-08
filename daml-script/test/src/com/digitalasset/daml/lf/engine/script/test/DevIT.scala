@@ -115,7 +115,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
       } yield r shouldBe SUnit
     }
 
-    "fail when given a contract id of a non-predecessor type of Coin V1, Coin V2" in {
+    "succeed when given a contract id of a non-predecessor type of Coin V1, Coin V2" in {
       for {
         clients <- scriptClients()
         r <-
@@ -127,7 +127,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
       } yield r shouldBe SUnit
     }
 
-    "fail when given a contract id of a non-predecessor type of Coin V1, Coin V2 (with new field = None)" in {
+    "succeed when given a contract id of a non-predecessor type of Coin V1, Coin V2 (with new field = None)" in {
       for {
         clients <- scriptClients()
         r <-
@@ -139,7 +139,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
       } yield r shouldBe SUnit
     }
 
-    "fail when given a contract id of a non-predecessor type of Coin V1, Coin V2 (with new field = Some _)" in {
+    "succeed when given a contract id of a non-predecessor type of Coin V1, Coin V2 (with new field = Some _)" in {
       for {
         clients <- scriptClients()
         r <-
@@ -163,7 +163,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
       } yield r shouldBe SUnit
     }
 
-    "fail when given a contract id of a non-predecessor type of Coin V1, Coin V3" in {
+    "succeed when given a contract id of a non-predecessor type of Coin V1, Coin V3" in {
       for {
         clients <- scriptClients()
         r <-

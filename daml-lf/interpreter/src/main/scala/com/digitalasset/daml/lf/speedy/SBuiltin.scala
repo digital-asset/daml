@@ -1097,7 +1097,6 @@ private[lf] object SBuiltin {
   final case class SBPromoteAnyContract(
       templateId: TypeConName,
       fields: ImmArray[(Ast.FieldName, Ast.Type)],
-      acceptedTemplateIds: List[TypeConName],
   ) extends SBuiltin(2) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1115,9 +1114,10 @@ private[lf] object SBuiltin {
       def coid = getSContractId(args, 0)
       val (actualTemplateId, record) = getSAnyContract(args, 1)
 
-      if ((templateId +: acceptedTemplateIds).contains(actualTemplateId)) {
-        // Here we extend values of predecessor template types by adding the
-        // right number of 'None's for missing 'Optional' fields
+      if (templateId.qualifiedName == actualTemplateId.qualifiedName) {
+        // Here we extend/trim values of predecessor/successor template types by
+        // adding the right number of 'None's for missing 'Optional'
+        // fields/dropping the right number of new fields
         // TODO: https://github.com/digital-asset/daml/issues/16151
         // For the PoC, this assumes field order is preserved by later versions
         // and that new fields are only added at the end.
@@ -1131,7 +1131,10 @@ private[lf] object SBuiltin {
             SRecord(
               id = templateId,
               fields = fields.map(_._1),
-              values = record.values.asScala.padTo(fields.length, SOptional(None)).to(ArrayList),
+              values = record.values.asScala
+                .padTo(fields.length, SOptional(None))
+                .take(fields.length)
+                .to(ArrayList),
             )
           )
         } else {
@@ -1142,7 +1145,6 @@ private[lf] object SBuiltin {
             s"SBPromoteAnyContract[bad new fields]:\n" +
               s"  contractId = ${coid}" +
               s"  expectedTemplateId = ${templateId}" +
-              s"  acceptedTemplateIds = ${acceptedTemplateIds}" +
               s"  actualTemplateId = ${actualTemplateId}" +
               s"  badNewFields = ${badNewFields}"
           )
@@ -1151,7 +1153,7 @@ private[lf] object SBuiltin {
         Control.Error(
           IE.Dev(
             NameOf.qualifiedNameOfCurrentFunc,
-            IE.Dev.WronglyTypedContractSoft(coid, templateId, acceptedTemplateIds, actualTemplateId),
+            IE.Dev.WronglyTypedContractSoft(coid, templateId, actualTemplateId),
           )
         )
       }

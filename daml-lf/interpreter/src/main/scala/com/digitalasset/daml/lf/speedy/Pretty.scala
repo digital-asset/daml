@@ -200,15 +200,10 @@ private[lf] object Pretty {
                 case None => text("by template")
                 case Some(interfaceId) => text("by interface") & prettyTypeConName(interfaceId)
               })
-          case Dev.WronglyTypedContractSoft(coid, expected, accepted, actual) =>
+          case Dev.WronglyTypedContractSoft(coid, expected, actual) =>
             text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
-              text("Expected contract of type") & prettyTypeConName(expected) & (
-                if (accepted.nonEmpty)
-                  intercalate(comma + lineOrSpace, accepted.map(prettyTypeConName))
-                    .tightBracketBy(text("or one of its ancestors: ("), char(')'))
-                else
-                  Doc.empty
-              ) & text(
+              text("Expected contract of type") & prettyTypeConName(expected) &
+              text(
                 "but got"
               ) & prettyTypeConName(
                 actual
