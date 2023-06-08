@@ -473,7 +473,7 @@ FILES=($$(
     fi
   done
 ))
-echo "I'm HERE!!" > &2
+echo "I'm HERE!!" >&2
 $$DAMLC doctest {flags} --script-lib $$SCRIPT_DAR --cpp $$CPP --package-name {package_name}-{version} "$${{FILES[@]}}"
 """.format(
             cpp = cpp,
