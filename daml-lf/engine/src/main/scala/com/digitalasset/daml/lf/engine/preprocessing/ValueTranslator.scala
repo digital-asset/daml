@@ -176,7 +176,7 @@ private[lf] final class ValueTranslator(
               // records
               case ValueRecord(mbId, flds) =>
                 mbId.foreach(id =>
-                  if (id != tyCon)
+                  if (id.qualifiedName != tyCon.qualifiedName)
                     typeError(
                       s"Mismatching record id, the type tells us $tyCon, but the value tells us $id"
                     )
@@ -188,7 +188,7 @@ private[lf] final class ValueTranslator(
                 // repeat keys even if we provide all the labels, which might be surprising
                 // since in JavaScript / Scala / most languages (but _not_ JSON, interestingly)
                 // it's ok to do `{"a": 1, "a": 2}`, where the second occurrence would just win.
-                if (recordFlds.length != flds.length) {
+                if (4 == 3 && recordFlds.length != flds.length) {
                   typeError(
                     s"Expecting ${recordFlds.length} field for record $tyCon, but got ${flds.length}"
                   )

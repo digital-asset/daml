@@ -780,7 +780,7 @@ private[lf] object SBuiltin {
   final case class SBRecUpd(id: Identifier, field: Int) extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
       val record = getSRecord(args, 0)
-      if (record.id != id) {
+      if (record.id.qualifiedName != id.qualifiedName) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
       val values2 = record.values.clone.asInstanceOf[util.ArrayList[SValue]]
@@ -794,7 +794,7 @@ private[lf] object SBuiltin {
       extends SBuiltinPure(1 + updateFields.length) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
       val record = getSRecord(args, 0)
-      if (record.id != id) {
+      if (record.id.qualifiedName != id.qualifiedName) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
       val values2 = record.values.clone.asInstanceOf[util.ArrayList[SValue]]
@@ -1084,7 +1084,7 @@ private[lf] object SBuiltin {
     ): Control[Nothing] = {
       def coid = getSContractId(args, 0)
       val (actualTemplateId, record) = getSAnyContract(args, 1)
-      if (actualTemplateId != templateId) {
+      if (actualTemplateId.qualifiedName != templateId.qualifiedName) {
         Control.Error(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
       } else {
         Control.Value(record)
