@@ -4,8 +4,9 @@
 package com.daml.http.json
 
 import akka.NotUsed
-import akka.http.scaladsl.model.{StatusCode, StatusCodes}
-import akka.stream.scaladsl.Source
+import akka.http.scaladsl.model.StatusCode
+import akka.http.scaladsl.model.StatusCodes.{InternalServerError, OK}
+import akka.stream.scaladsl.{Concat, Source}
 import akka.util.ByteString
 import scalaz.syntax.show._
 import scalaz.{Show, -\/, \/, \/-}
@@ -15,7 +16,7 @@ import spray.json._
 private[http] object ResponseFormats {
   def errorsJsObject(status: StatusCode, es: String*): JsObject = {
     val errors = es.toJson
-    JsObject(statusField(status), ("errors", errors))
+    JsObject(("status", JsNumber(status.intValue)), ("errors", errors))
   }
 
   def resultJsObject[A: JsonWriter](a: A): JsObject = {
@@ -23,7 +24,7 @@ private[http] object ResponseFormats {
   }
 
   def resultJsObject(a: JsValue): JsObject = {
-    JsObject(statusField(StatusCodes.OK), ("result", a))
+    JsObject(("status", JsNumber(OK.intValue)), ("result", a))
   }
 
   def resultJsObject[E: Show](
@@ -38,31 +39,44 @@ private[http] object ResponseFormats {
         case ((errors, _), \/-(_)) => (errors, Vector.empty)
         case ((errors, _), -\/(e)) => (errors :+ e, Vector.empty)
       }
-      // Convert that into the appropriate JSON response object
-      .map {
+      // Convert that into a stream containing the appropriate JSON response object
+      .flatMapConcat {
         case (errors, results) => {
-          val response = JsObject(
-            (
-              if (errors.isEmpty)
-                Map[String, JsValue](
-                  "result" -> JsArray(results),
-                  statusField(StatusCodes.OK),
-                )
+          val comma = single(",")
+          val (payload, status) = {
+            val (name, vals, statusCode): (String, Iterator[JsValue], StatusCode) =
+              if (errors.nonEmpty)
+                ("errors", errors.iterator.map(e => JsString(e.shows)), InternalServerError)
               else
-                Map[String, JsValue](
-                  "errors" -> JsArray(errors.map(e => JsString(e.shows))),
-                  statusField(StatusCodes.InternalServerError),
-                )
-            )
-              ++
-                warnings.toList.map("warnings" -> _).toMap
-          )
+                ("result", results.iterator, OK)
 
-          ByteString(response.compactPrint)
+            (arrayField(name, vals), scalarField("status", JsNumber(statusCode.intValue)))
+          }
+          Source.combine(
+            single("{"),
+            warnings.fold(Source.empty[ByteString])(scalarField("warnings", _) ++ comma),
+            payload,
+            comma,
+            status,
+            single("}"),
+          )(Concat(_))
         }
       }
   }
 
-  def statusField(status: StatusCode): (String, JsNumber) =
-    ("status", JsNumber(status.intValue()))
+  private def single(value: String): Source[ByteString, NotUsed] =
+    Source.single(ByteString(value))
+
+  private def scalarField(name: String, value: JsValue): Source[ByteString, NotUsed] =
+    single(s""""${name}":${value.compactPrint}""")
+
+  private def arrayField(name: String, items: Iterator[JsValue]): Source[ByteString, NotUsed] = {
+    val csv = Source.fromIterator(() =>
+      items.zipWithIndex.map { case (r, i) =>
+        val str = r.compactPrint
+        ByteString(if (i == 0) str else "," + str)
+      }
+    )
+    single(s""""${name}":[""") ++ csv ++ single("]")
+  }
 }
