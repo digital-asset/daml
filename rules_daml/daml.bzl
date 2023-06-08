@@ -497,7 +497,7 @@ echo "I'm THERE!!" >&2
 echo "---" >&2
 $$DAMLC doctest --help
 echo "---" >&2
-$$DAMLC doctest {flags} --script-lib $$SCRIPT_DAR --cpp $$CPP --package-name {package_name}-{version} "$${{FILES[@]}}"
+$$DAMLC doctest {flags} --script-lib $$SCRIPT_DAR --cpp $$CPP --package-name {package_name}-{version} "$${{FILES[@]}} >&2"
 """.format(
             cpp = cpp,
             damlc = damlc,
