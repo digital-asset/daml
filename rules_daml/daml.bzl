@@ -474,6 +474,7 @@ FILES=($$(
   done
 ))
 echo "I'm HERE!!" >&2
+ls .daml/package-database/1.15/daml-script-0.0.0-fdf7b73f5428a5bd7c07fcbf4c5fc95ea902b51fdbc198c3f524dd7791c07018/Daml
 $$DAMLC doctest {flags} --script-lib $$SCRIPT_DAR --cpp $$CPP --package-name {package_name}-{version} "$${{FILES[@]}}"
 """.format(
             cpp = cpp,
