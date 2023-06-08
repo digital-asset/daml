@@ -5,6 +5,7 @@ import argparse
 import os.path
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.express as px
 from plotly.subplots import make_subplots
 
 
@@ -51,6 +52,9 @@ def plot_diff_data(data, diff_data, triggers, fig, line):
 
 
 def plot_submission_data(data, triggers, fig, line):
+    status_codes = sorted(list(set(data['completion-status-code'])))
+    status_codes.reverse()
+    colours = px.colors.sample_colorscale(px.colors.diverging.RdYlGn, [n/(len(status_codes) - 1) for n in range(len(status_codes))])
     for index, trigger in enumerate(triggers):
         trigger_submission_data = data.loc[lambda row: row['trigger-id'] == trigger, :]
         submission_data = []
@@ -60,9 +64,15 @@ def plot_submission_data(data, triggers, fig, line):
                 submission_data.append({'timestamp': timestamp, 'completion-status-code': completion_labels(status), 'submissions': len(status_data.index)})
         fig.update_yaxes(title_text="Number of Contracts", row=line, col=index+1, secondary_y=False)
         fig.update_layout(barmode="stack")
-        for status in set(data['completion-status-code']):
+        for status_index, status in enumerate(status_codes):
             df = pd.DataFrame([ d for d in submission_data if d['completion-status-code'] == completion_labels(status)])
-            fig.add_trace(go.Bar(x=df['timestamp'], y=df['submissions'], width=[ 0.1 for _ in df['timestamp'] ], name=df['completion-status-code'].iloc[0], legendgroup='completion-status', legendgrouptitle_text='Completion Status', showlegend=index==0), secondary_y=False, col=index+1, row=line)
+            if not df.empty:
+                # FIXME: need to manage scenario where some completion codes are not observed by a trigger
+                print(f"DEBUGGY: {status_codes}")
+                if status_index == 0:
+                    fig.add_trace(go.Bar(x=df['timestamp'], y=df['submissions'], width=[ 0.1 for _ in df['timestamp'] ], marker=dict(color=colours[status_index]), name=completion_labels(status), legendgroup=f'{completion_labels(status)}-group', legendgrouptitle_text='Completion Status', showlegend=index==0), secondary_y=False, col=index+1, row=line)
+                else:
+                    fig.add_trace(go.Bar(x=df['timestamp'], y=df['submissions'], width=[ 0.1 for _ in df['timestamp'] ], marker=dict(color=colours[status_index]), name=completion_labels(status), legendgroup=f'{completion_labels(status)}-group', showlegend=index==0), secondary_y=False, col=index+1, row=line)
 
 
 def plot_resource_data(data, triggers, fig, line):
@@ -76,7 +86,7 @@ def plot_resource_data(data, triggers, fig, line):
 
 def plot_data(data, diff_data, submission_data, title):
     subplots = list(range(1, len(subplot_titles(''))+1))
-    triggers = set(data['trigger-id'])
+    triggers = list(sorted(set(data['trigger-id'])))
     fig = make_subplots(cols=len(triggers), rows=len(subplots), specs=[[{"secondary_y": True} for _ in triggers] for _ in subplots], subplot_titles=trigger_labels(triggers, subplots, data), shared_xaxes=True)
     fig.update_layout(title_text=title)
     plot_acs_data(data, triggers, fig, subplots[0])

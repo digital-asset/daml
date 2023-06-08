@@ -47,8 +47,8 @@ private[simulation] object SubmissionReporting {
 
   def create()(implicit config: TriggerSimulationConfig): Behavior[Message] = {
     Behaviors.setup { context =>
-      val receivedSubmissions = mutable.Map.empty[String, SubmissionUpdate]
-      val receivedCompletions = mutable.Map.empty[String, CompletionUpdate]
+      val receivedSubmissions = mutable.Map.empty[UUID, mutable.Map[String, SubmissionUpdate]]
+      val receivedCompletions = mutable.Map.empty[UUID, mutable.Map[String, CompletionUpdate]]
       val submissionDataFile = Files.newOutputStream(config.submissionDataFile)
       val submissionDataFileCsvHeader = Seq(
         "timestamp",
@@ -64,14 +64,20 @@ private[simulation] object SubmissionReporting {
       Behaviors
         .receiveMessage[Message] {
           case update @ SubmissionUpdate(_, commandId, reportId, triggerId, triggerDefRef, _) =>
-            if (receivedSubmissions.contains(commandId)) {
+            if (!receivedSubmissions.contains(triggerId)) {
+              receivedSubmissions.update(triggerId, mutable.Map.empty[String, SubmissionUpdate])
+            }
+            if (!receivedCompletions.contains(triggerId)) {
+              receivedCompletions.update(triggerId, mutable.Map.empty[String, CompletionUpdate])
+            }
+            if (receivedSubmissions(triggerId).contains(commandId)) {
               context.log.warn(s"Dropping duplicate submission update for command ID $commandId")
             } else {
-              receivedSubmissions.update(commandId, update)
+              receivedSubmissions(triggerId).update(commandId, update)
             }
-            if (receivedCompletions.contains(commandId)) {
-              val submission = receivedSubmissions.remove(commandId).get
-              val completion = receivedCompletions.remove(commandId).get
+            if (receivedCompletions(triggerId).contains(commandId)) {
+              val submission = receivedSubmissions(triggerId).remove(commandId).get
+              val completion = receivedCompletions(triggerId).remove(commandId).get
               context.self ! ReportCompletedSubmission(
                 submission.timestamp,
                 completion.timestamp,
@@ -85,14 +91,20 @@ private[simulation] object SubmissionReporting {
             Behaviors.same
 
           case update @ CompletionUpdate(_, commandId, triggerId, triggerDefRef, _) =>
-            if (receivedCompletions.contains(commandId)) {
+            if (!receivedSubmissions.contains(triggerId)) {
+              receivedSubmissions.update(triggerId, mutable.Map.empty[String, SubmissionUpdate])
+            }
+            if (!receivedCompletions.contains(triggerId)) {
+              receivedCompletions.update(triggerId, mutable.Map.empty[String, CompletionUpdate])
+            }
+            if (receivedCompletions(triggerId).contains(commandId)) {
               context.log.warn(s"Dropping duplicate completion update for command ID $commandId")
             } else {
-              receivedCompletions.update(commandId, update)
+              receivedCompletions(triggerId).update(commandId, update)
             }
-            if (receivedSubmissions.contains(commandId)) {
-              val submission = receivedSubmissions.remove(commandId).get
-              val completion = receivedCompletions.remove(commandId).get
+            if (receivedSubmissions(triggerId).contains(commandId)) {
+              val submission = receivedSubmissions(triggerId).remove(commandId).get
+              val completion = receivedCompletions(triggerId).remove(commandId).get
               context.self ! ReportCompletedSubmission(
                 submission.timestamp,
                 completion.timestamp,
@@ -128,7 +140,10 @@ private[simulation] object SubmissionReporting {
         }
         .receiveSignal { case (_, PostStop) =>
           // Ensure all incomplete submissions are saved
-          for ((commandId, submission) <- receivedSubmissions) {
+          for {
+            (triggerId, triggerSubmissions) <- receivedSubmissions
+            (commandId, submission) <- triggerSubmissions
+          } yield {
             val csvData: String = Seq[Any](
               submission.timestamp,
               commandId,

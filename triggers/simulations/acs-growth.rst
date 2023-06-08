@@ -52,18 +52,17 @@ Running Trigger Simulations and Analysing Data
 In order to explore the impact that unconstrained ACS growth has upon a trigger, we shall run and analyse the data from 3 trigger simulations as follows:
 
 .. code-block:: bash
-  for SIMULATION in "SlowACSGrowth MediumACSGrowth FastACSGrowth"; do
-    TITLE=$(echo $SIMULATION | sed 's/\([^[:blank:]]\)\([[:upper:]]\)/\1 \2/g')
+  set -e
+  for NAME in Slow Medium Fast; do
+    SIMULATION="${NAME}ACSGrowth"
+    TITLE="${NAME} ACS Growth"
     bazel test \
-      --test_env=DAR=$(pwd)/daml/.daml/dist/trigger-simulations-0.0.1.dar \
-      --test_env=LOG_LEVEL_ROOT=OFF \
-      --test_env=LOG_FORMAT_JSON=True \
+      --test_env=DAR="$(pwd)/daml/.daml/dist/trigger-simulations-0.0.1.dar" \
       --test_output=streamed \
       --cache_test_results=no \
       --test_tmpdir=/tmp/ \
-      --test_filter=com.daml.lf.engine.trigger.$SIMULATION \
-      //triggers/simulations:trigger-simulation-test-launcher_test_suite_scala_ACSGrowth.scala \
-      > /tmp/$SIMULATION.log
+      --test_filter="com.daml.lf.engine.trigger.$SIMULATION" \
+      //triggers/simulations:trigger-simulation-test-launcher_test_suite_scala_ACSGrowth.scala
     python3 ./data/analysis/graph-simulation-data.py --title "$TITLE" /tmp/_tmp/*/TriggerSimulation*/
   done
 

@@ -5,7 +5,7 @@ module Cats where
 
 import Daml.Trigger
 import DA.Foldable (forA_)
-import DA.Time (seconds)
+import DA.Time (seconds, milliseconds)
 import DA.Functor (void)
 import qualified DA.List as List
 
@@ -30,10 +30,10 @@ pettingPeriod : RelTime
 pettingPeriod = seconds 1
 
 cullingRate : Int
-cullingRate = 17
+cullingRate = 60
 
 cullingPeriod : RelTime
-cullingPeriod = seconds 1
+cullingPeriod = milliseconds 500
 
 
 template Cat
@@ -96,7 +96,9 @@ pettingTrigger = Trigger
         (cats, _) <- get
         let clowder = List.take pettingRate cats
         put ((List.drop pettingRate cats) ++ clowder, Some clowder)
-      _ -> pure ()
+      _ -> do
+        (cats, _) <- get
+        put (cats, None)
   , rule = \party -> do
       (cats, action) <- get
       case action of
@@ -120,7 +122,9 @@ cullingTrigger = Trigger
       MHeartbeat -> do
         (cats, _) <- get
         put (List.drop cullingRate cats, Some(List.take cullingRate cats))
-      _ -> pure ()
+      _ -> do
+        (cats, _) <- get
+        put (cats, None)
   , rule = \party -> do
       (cats, action) <- get
       case action of
