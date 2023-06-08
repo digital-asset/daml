@@ -1,13 +1,23 @@
 # 1. Gatling Scenarios
 
 ## 1.1. Prerequisites
-All current Gatling scenarios require `quickstart-model.dar` with IOU example. You can build one using:
+
+All current Gatling scenarios require the `quickstart-model.dar` with IOU example. You can build one using:
 ```
 bazel build //docs:quickstart-model
 ls "${PWD}/bazel-bin/docs/quickstart-model.dar"
 ```
+The particular dar is generated from several .daml files but the most relevant is:
+`docs/source/app-dev/bindings-java/quickstart/template-root/daml/Iou.daml`
+for full information regarding the generation of the testing dar please see [BUILD.bazel](../../docs/BUILD.bazel) and
+refer to the `quickstart-model` rule.
+
+The MultiUserQueryScenario use the LargeAcs.dar target which is the build from the daml source file on the following path:
+`ledger-service/http-json-perf/daml/LargeAcs.daml`, the build can be found here [BUILD.bazel](BUILD.bazel) over
+`daml_compile` rule.
 
 ## 1.2. List of Scenarios
+
 Gatling scenarios extend from `io.gatling.core.scenario.Simulation`:
 - `com.daml.http.perf.scenario.CreateCommand`
 - `com.daml.http.perf.scenario.ExerciseCommand`
@@ -16,28 +26,82 @@ Gatling scenarios extend from `io.gatling.core.scenario.Simulation`:
 - `com.daml.http.perf.scenario.SyncQueryConstantAcs`
 - `com.daml.http.perf.scenario.SyncQueryNewAcs`
 - `com.daml.http.perf.scenario.SyncQueryVariableAcs`
-- `com.daml.http.perf.scenario.OracleMultiUserQueryScenario`
+- `com.daml.http.perf.scenario.MultiUserQueryScenario`
 
 # 2. Running Gatling Scenarios from Bazel
 
+The solution maintain 2 edition flavours which are configurable with the suffix `ce` and `ee`, the latter is the one that can be set to run oracle DB.
+
 ## 2.1. Help
+
+There are several configurations that the scenarios accepts, please refer to the help entry as follows:
 ```
-$ bazel run //ledger-service/http-json-perf:http-json-perf-binary -- --help
+$ bazel run //ledger-service/http-json-perf:http-json-perf-binary-ce -- --help
+      or
+$ bazel run //ledger-service/http-json-perf:http-json-perf-binary-ee -- --help
+```
+## 2.2 query-storage-index
+By default, the solution will use in memory DB for the query-storage, however, it can utilise oracle and postgres.
+
+To use oracle, set the arguement `--query-store-index="oracle"`, keep in mind that the flavour has to be set to ee suffix.
+When running oracle the project use a custom oracle docker image, version can be look over here [oracle_image](../../ci/oracle_image),
+please log in into your docker account using your credentials and pull the image beforehand.
+
+There are a couple of environment variables that need to be set in order to connect properly the solution to the DB,
+more information can be found here [BAZEL-oracle.md](../../BAZEL-oracle.md). Particularly see `ORACLE_PWD=hunter2`.
+
+To run this image you may use the following instruction:
+- On Mac
+```
+$ docker run -d --rm --name oracle -p 1521:1521 -e ORACLE_PWD=$ORACLE_PWD $IMAGE
+```
+- On Linux
+```
+$ docker run -d --rm --name oracle --network host -e ORACLE_PWD=$ORACLE_PWD $IMAGE
 ```
 
-## 2.2. Example
+To use postgres you can do so in any flavour (ce/ee), just set the parameter as --query-store-index="postgres"
+and the solution will spin up a postgres vm on demand.
+
+## 2.3.Example
+
 ```
 $ bazel run //ledger-service/http-json-perf:http-json-perf-binary-ce -- \
 --scenario=com.daml.http.perf.scenario.CreateCommand \
 --dars="${PWD}/bazel-bin/docs/quickstart-model.dar" \
---reports-dir=/home/leos/tmp/results/
+--query-store-index="postgres" \
+--reports-dir=/tmp/daml/ \
+--max-duration=10min
+```
+Note: the path for the `reports-dir` argument has to be created beforehand and this is where the reports will be
+generated, if missing there will not be any report generated.
+
+## 2.4 Running on Intellij IDE
+
+To run the implementation directly from Intellij to get access to debug tools or just simple for convenience,
+follow the steps to export the project into the IDE described [here](../../BAZEL.md).
+
+Then you will get access to bazel run configurations option. Open the `run/debug configuration` window and add new
+configuration as Bazel Command, on the new configuration at in the target section
+`//ledger-service/http-json-perf:http-json-perf-binary-ce` or `//ledger-service/http-json-perf:http-json-perf-binary-ee`
+depending on the flavour of your choice. For the `Bazel command`  select 'run' on the dropdown. In the `Executable flags`
+add all the arguments you want to run e.g.
+```
+--scenario=com.daml.http.perf.scenario.CreateCommand
+--dars="<Path to quickstart-model.dar>"
+--reports-dir="<Path to the report generation>"
 ```
 
-## 2.3 Running MultiUserQueryScenario
+Then just apply the changes and use the IDE tools to run or debug the solution.
+
+## 2.5 Running MultiUserQueryScenario
+
+As mentioned before this is scenario is the only one that at the moment is based in different dar than the other scenarios,
+please be aware of that.
 
 For oracle *Query Store* since we use an external docker oracle vm, we might
 want to retain the data between runs to specifically focus on testing query performance.
-To achieve this use `RETAIN_DATA` and `USE_DEFAULT_USER` env vars to use a static 
+To achieve this use `RETAIN_DATA` and `USE_DEFAULT_USER` env vars to use a static
 user(`ORACLE_USER`) and preserve data.
 
 This scenario uses a single template `KeyedIou` defined in `LargeAcs.daml`
