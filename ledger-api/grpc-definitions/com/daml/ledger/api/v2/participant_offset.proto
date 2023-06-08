@@ -7,8 +7,8 @@ package com.daml.ledger.api.v2;
 
 
 option java_outer_classname = "ParticipantOffsetOuterClass";
-option java_package = "com.daml.ledger.api.v1";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Describes a specific point on the participant. This is a participant local value:
 // changes synchronized via a specific domain should have different participant offsets
