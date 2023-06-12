@@ -1082,10 +1082,25 @@ private[lf] object SBuiltin {
     ): Control[Nothing] = {
       def coid = getSContractId(args, 0)
       val (actualTemplateId, record) = getSAnyContract(args, 1)
-      if (actualTemplateId != templateId) {
-        Control.Error(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
-      } else {
+
+      if (actualTemplateId == templateId) { // NICK: optimization. for dev, can avoid to stress the upgrade code
+        // types match -- no upgrade or downgrade is necessary
         Control.Value(record)
+      } else {
+
+        def lookup(id: TypeConName): Ast.Type = ??? // NICK: todo
+
+        CheckUpgrade.tryUpgradeOrDowngrade(
+          from = actualTemplateId,
+          into = templateId,
+          lookup,
+          record,
+        ) match {
+          case None =>
+            Control.Error(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
+          case Some(upgraded) =>
+            Control.Value(upgraded)
+        }
       }
     }
   }

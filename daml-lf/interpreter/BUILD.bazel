@@ -94,6 +94,7 @@ da_scala_test_suite(
         "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
+        "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
