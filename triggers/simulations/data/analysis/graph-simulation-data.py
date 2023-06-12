@@ -9,6 +9,9 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 
 
+bar_width = 0.3
+
+
 def strip_package_id(identifier):
     return ':'.join(identifier.split(':')[1:])
 
@@ -35,7 +38,7 @@ def plot_acs_data(data, triggers, fig, line):
         fig.update_yaxes(title_text="Number of Contracts", row=line, col=index+1, secondary_y=False)
         fig.add_trace(go.Scatter(x=trigger_data['timestamp'], y=trigger_data['active-contracts'], mode="markers", marker=dict(color='blue'), name="Active", legendgroup='active-contract-group', showlegend=index == 0, legendgrouptitle_text="Trigger ACS", legendrank=3), secondary_y=False, col=index+1, row=line)
         fig.add_trace(go.Scatter(x=trigger_data['timestamp'], y=trigger_data['pending-contracts'], mode="markers", marker=dict(color='red'), name="Pending", legendgroup='pending-contract-group', showlegend=index == 0, legendrank=4), secondary_y=False, col=index+1, row=line)
-        fig.add_trace(go.Bar(x=trigger_data['timestamp'], y=trigger_data['submissions'], width=[ 0.1 for _ in trigger_data['submissions'] ], marker=dict(color='purple'), name="Submissions", opacity=0.3, legendgroup='submission-group', showlegend=index == 0, legendrank=2), secondary_y=False, col=index+1, row=line)
+        fig.add_trace(go.Bar(x=trigger_data['timestamp'], y=trigger_data['submissions'], width=[ bar_width for _ in trigger_data['submissions'] ], marker=dict(color='purple'), hovertemplate="%{y}", name="Submissions", opacity=0.3, legendgroup='submission-group', showlegend=index == 0, legendrank=2), secondary_y=False, col=index+1, row=line)
 
 
 def plot_diff_data(data, diff_data, triggers, fig, line):
@@ -48,7 +51,7 @@ def plot_diff_data(data, diff_data, triggers, fig, line):
             template_data = trigger_diff_data.loc[lambda row: row['template-id'] == template, :]
             fig.add_trace(go.Scatter(x=trigger_data['timestamp'], y=template_data['contract-additions'], mode="markers", marker=dict(color='blue'), name="Additions", legendgroup=f'{template}-contract-additions-group', legendgrouptitle_text=f"{strip_package_id(template)} Diff", showlegend=index == 0), secondary_y=False, col=index+1, row=line)
             fig.add_trace(go.Scatter(x=trigger_data['timestamp'], y=template_data['contract-deletions'], mode="markers", marker=dict(color='red'), name="Deletions", legendgroup=f'{template}-contract-deletions-group', showlegend=index == 0), secondary_y=False, col=index+1, row=line)
-        fig.add_trace(go.Bar(x=trigger_data['timestamp'], y=trigger_data['submissions'], width=[ 0.1 for _ in trigger_data['submissions'] ], marker=dict(color='purple'), name="Submissions", opacity=0.3, legendgroup='submission-group', showlegend=False, legendrank=2), secondary_y=False, col=index+1, row=line)
+        fig.add_trace(go.Bar(x=trigger_data['timestamp'], y=trigger_data['submissions'], width=[ bar_width for _ in trigger_data['submissions'] ], marker=dict(color='purple'), hovertemplate="%{y}", name="Submissions", opacity=0.3, legendgroup='submission-group', showlegend=False, legendrank=2), secondary_y=False, col=index+1, row=line)
 
 
 def plot_submission_data(data, triggers, fig, line):
@@ -61,18 +64,21 @@ def plot_submission_data(data, triggers, fig, line):
         for timestamp in set(trigger_submission_data['timestamp']):
             for status in set(trigger_submission_data['completion-status-code']):
                 status_data = trigger_submission_data.loc[lambda row: row['timestamp'] == timestamp, :].loc[lambda row: row['completion-status-code'] == status, :]
-                submission_data.append({'timestamp': timestamp, 'completion-status-code': completion_labels(status), 'submissions': len(status_data.index)})
+                if status == 'INCOMPLETE' or len(status_data['submission-duration'].index) == 0:
+                    submission_data.append({'timestamp': timestamp, 'completion-status-code': completion_labels(status), 'submissions': len(status_data.index), 'label': 'count 0'})
+                else:
+                    status_data['submission-duration'] = status_data['submission-duration'].astype(float) / 1000.0
+                    submission_data.append({'timestamp': timestamp, 'completion-status-code': completion_labels(status), 'submissions': len(status_data.index), 'label': status_data['submission-duration'].describe(percentiles=[0.25, 0.5, 0.75, 0.9, 0.95]).to_string().replace("\n", "<br>")})
         fig.update_yaxes(title_text="Number of Contracts", row=line, col=index+1, secondary_y=False)
         fig.update_layout(barmode="stack")
         for status_index, status in enumerate(status_codes):
             df = pd.DataFrame([ d for d in submission_data if d['completion-status-code'] == completion_labels(status)])
             if not df.empty:
                 # FIXME: need to manage scenario where some completion codes are not observed by a trigger
-                print(f"DEBUGGY: {status_codes}")
                 if status_index == 0:
-                    fig.add_trace(go.Bar(x=df['timestamp'], y=df['submissions'], width=[ 0.1 for _ in df['timestamp'] ], marker=dict(color=colours[status_index]), name=completion_labels(status), legendgroup=f'{completion_labels(status)}-group', legendgrouptitle_text='Completion Status', showlegend=index==0), secondary_y=False, col=index+1, row=line)
+                    fig.add_trace(go.Bar(x=df['timestamp'], y=df['submissions'], customdata=df['label'], width=[ bar_width for _ in df['timestamp'] ], marker=dict(color=colours[status_index]), name=completion_labels(status), hovertemplate="<br>Submission/Completion times (s):<br>%{customdata}", legendgroup=f'{completion_labels(status)}-group', legendgrouptitle_text='Completion Status', showlegend=index==0), secondary_y=False, col=index+1, row=line)
                 else:
-                    fig.add_trace(go.Bar(x=df['timestamp'], y=df['submissions'], width=[ 0.1 for _ in df['timestamp'] ], marker=dict(color=colours[status_index]), name=completion_labels(status), legendgroup=f'{completion_labels(status)}-group', showlegend=index==0), secondary_y=False, col=index+1, row=line)
+                    fig.add_trace(go.Bar(x=df['timestamp'], y=df['submissions'], customdata=df['label'], width=[ bar_width for _ in df['timestamp'] ], marker=dict(color=colours[status_index]), name=completion_labels(status), hovertemplate="<br>Submission/Completion times (s):<br>%{customdata}", legendgroup=f'{completion_labels(status)}-group', legendgrouptitle_text='Completion Status', showlegend=index==0), secondary_y=False, col=index+1, row=line)
 
 
 def plot_resource_data(data, triggers, fig, line):
@@ -81,7 +87,7 @@ def plot_resource_data(data, triggers, fig, line):
         fig.add_trace(go.Scatter(x=trigger_data['timestamp'], y=trigger_data['rule-evaluation-time']/1000000, mode="markers", marker=dict(color='blue'), name="Rule Eval Time (ms)", legendgroup='rule-eval-time', legendgrouptitle_text='Resource Usage', showlegend=index == 0), secondary_y=False, col=index+1, row=line)
         fig.add_trace(go.Scatter(x=trigger_data['timestamp'], y=trigger_data['percentage-heap-used']*100, mode="markers", marker=dict(color='blue'), name="JVM Heap Used (%)", legendgroup='heap-used-group', showlegend=index == 0, visible='legendonly'), secondary_y=False, col=index+1, row=line)
         fig.add_trace(go.Scatter(x=trigger_data['timestamp'], y=trigger_data['gc-time'], mode="markers", marker=dict(color='blue'), name="JVM GC Time (ms)", legendgroup='gc-time-group', showlegend=index == 0, visible='legendonly'), secondary_y=False, col=index+1, row=line)
-        fig.add_trace(go.Bar(x=trigger_data['timestamp'], y=trigger_data['submissions'], width=[ 0.1 for _ in trigger_data['submissions'] ], marker=dict(color='purple'), name="Submissions", opacity=0.3, legendgroup='submission-group', showlegend=False, legendrank=2), secondary_y=False, col=index+1, row=line)
+        fig.add_trace(go.Bar(x=trigger_data['timestamp'], y=trigger_data['submissions'], width=[ bar_width for _ in trigger_data['submissions'] ], marker=dict(color='purple'), hovertemplate="%{y}", name="Submissions", opacity=0.3, legendgroup='submission-group', showlegend=False, legendrank=2), secondary_y=False, col=index+1, row=line)
 
 
 def plot_data(data, diff_data, submission_data, title):

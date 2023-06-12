@@ -5,7 +5,7 @@ module Cats where
 
 import Daml.Trigger
 import DA.Foldable (forA_)
-import DA.Time (seconds, milliseconds)
+import DA.Time (seconds)
 import DA.Functor (void)
 import qualified DA.List as List
 
@@ -30,10 +30,10 @@ pettingPeriod : RelTime
 pettingPeriod = seconds 1
 
 cullingRate : Int
-cullingRate = 60
+cullingRate = 25
 
 cullingPeriod : RelTime
-cullingPeriod = milliseconds 500
+cullingPeriod = seconds 1
 
 
 template Cat

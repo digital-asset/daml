@@ -13,6 +13,9 @@ In the following use-case simulations, we shall:
 
 This use-case assumes that the :doc:`development instructions <development.rst>` have been followed to setup your development and simulation environment.
 
+.. note::
+  By default, we use the open source version of Canton in our Scalatest based simulations. This version of Canton is single threaded and so has different performance characteristics to the enterprise version of Canton.
+
 Our simulation use-cases will use the Daml ``Cat`` contract:
 
 .. code-block:: unused
