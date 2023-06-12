@@ -141,7 +141,7 @@ private[simulation] object SubmissionReporting {
         .receiveSignal { case (_, PostStop) =>
           // Ensure all incomplete submissions are saved
           for {
-            (triggerId, triggerSubmissions) <- receivedSubmissions
+            (_, triggerSubmissions) <- receivedSubmissions
             (commandId, submission) <- triggerSubmissions
           } yield {
             val csvData: String = Seq[Any](
