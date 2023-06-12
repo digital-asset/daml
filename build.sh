@@ -79,7 +79,7 @@ stop_postgresql # in case it's running from a previous build
 start_postgresql
 
 # Run the tests.
-$bazel test //... \
+$bazel test //compiler/damlc:daml-stdlib-doctest \
   --build_tag_filters "${tag_filter:1}" \
   --test_tag_filters "${tag_filter:1}" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \

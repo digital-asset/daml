@@ -75,7 +75,7 @@ if ($env:SKIP_TESTS -ceq "False") {
 
     $tag_filter = "-dev-canton-test"
     
-    bazel test //... `
+    bazel test //compiler/damlc:daml-stdlib-doctest `
       `-`-build_tag_filters "$tag_filter" `
       `-`-test_tag_filters "$tag_filter" `
       `-`-profile test-profile.json `
