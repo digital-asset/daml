@@ -20,16 +20,16 @@ These separate contract stores need to be kept in sync. This is accomplished usi
 - the ledger publishes transaction create and archive events as its contract store is updated (i.e. written to)
 - and the trigger registers to receive these events - so that its contract store may be updated.
 
-Trigger Daml code queries the in-memory contract store without modifying that store. Triggers issue contract create and exercise commands to the ledger API - these commands are then queued by Canton network participants for asynchronous processing.
+Trigger Daml code queries the in-memory contract store without modifying that store. Triggers issue create and exercise commands to the ledger API - these commands are then queued by Canton network participants for asynchronous processing.
 
 .. note::
-  If transaction create or archive events are not processed in a timely manner (e.g. due to high load) or are lost (e.g. due to network issues), then the trigger's view of the ledger contact store may lose coherence with the ledger's view of the contract store and so lead to stale or invalid data being used in ledger interactions.
+  If create or archive events are not processed in a timely manner (e.g. due to high load) or are lost (e.g. due to network issues), then the trigger's view of the ledger contact store may lose coherence with the ledger's view of the contract store and so lead to stale or invalid data being used in ledger interactions.
 
   If the trigger's ACS becomes too large, then storing and querying the ACS may consume unnecessary system resources.
 
   Excessive command submissions to the ledger may result in back pressure being applied and so trigger command submissions will fail. These failures are automatically retried (for a fixed number of times with backoff), but they should generally be avoided (e.g. by controlling the number of command submissions) as they can be expensive for both the ledger and triggers.
 
-When writing trigger Daml code, it is the responsibility of the user to ensure that all potential ledger contention is managed. 
+When writing trigger Daml code, **it is the responsibility of the user to ensure that all potential ledger contention is managed.**
 
 .. note::
   Ledger contention will lead to command submission failures (these are presented to the trigger as submission completion failures), which the trigger Daml code is responsible for retrying. Excessive numbers of ledger command failures can lead to the trigger ACS view being out of sync with the ledger ACS view and this in turn can result in stale or invalid data being used in ledger interactions.
@@ -65,7 +65,7 @@ Trigger simulations are `Scalatests <https://www.scalatest.org>`_ that extend th
 .. code-block:: scala
   protected def triggerMultiProcessSimulation: Behavior[Unit]
 
-This method is used to define all the components that a given simulation is to take into account. So, to define a simulation with no trigger components and no external components, one could write:
+This method is used to define all the components that a given simulation is to take into account - and each component is defined as an Akka `Behavior <https://doc.akka.io/api/akka/current/akka/actor/typed/Behavior.html>`_. So, to define a simulation with no trigger components and no external components, one could write:
 
 .. code-block:: scala
   class ExampleSimulation extends TriggerMultiProcessSimulation {
@@ -73,14 +73,7 @@ This method is used to define all the components that a given simulation is to t
       implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
 
       Behaviors.setup { context =>
-        val setup = for {
-          client <- defaultLedgerClient()
-          party <- allocateParty(client)
-        } yield (client, party)
-        val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
-        val ledger = context.spawn(LedgerProcess.create(client), "ledger")
-
-        // Trigger and external components could be defined here
+        // Ledger client, trigger and external components could be defined here
 
         Behaviors.empty
       }
@@ -97,8 +90,6 @@ So, to have a simulation run for 42 seconds, one would override with:
 .. code-block:: scala
   override protected implicit lazy val simulationConfig: TriggerSimulationConfig =
     TriggerSimulationConfig(simulationDuration = 42.seconds)
-
-Because trigger simulations are defined as Scalatests, they may be ran using a variant of ``bazel test`` (assuming the relevant ``BUILD.bazel`` files are also defined to allow the simulation code to build).
 
 Under the hood, each simulation component is implemented in Scala code as an `Akka typed actor <https://doc.akka.io/docs/akka/current/typed/index.html>`_.
 
