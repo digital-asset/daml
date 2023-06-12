@@ -23,7 +23,7 @@ These separate contract stores need to be kept in sync. This is accomplished usi
 Trigger Daml code queries the in-memory contract store without modifying that store. Triggers issue create and exercise commands to the ledger API - these commands are then queued by Canton network participants for asynchronous processing.
 
 .. note::
-  If create or archive events are not processed in a timely manner (e.g. due to high load) or are lost (e.g. due to network issues), then the trigger's view of the ledger contact store may lose coherence with the ledger's view of the contract store and so lead to stale or invalid data being used in ledger interactions.
+  If create or archive events are not processed in a timely manner (e.g. due to high load) or are lost (e.g. due to Akka streaming `delivery failures <https://doc.akka.io/docs/akka/current/stream/stream-refs.html#delivery-guarantees>`_), then the trigger's view of the ledger contact store may lose coherence with the ledger's view of the contract store and so lead to stale or invalid data being used in ledger interactions.
 
   If the trigger's ACS becomes too large, then storing and querying the ACS may consume unnecessary system resources.
 
