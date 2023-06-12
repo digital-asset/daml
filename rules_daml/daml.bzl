@@ -475,9 +475,9 @@ FILES=($$(
 ))
 echo "I'm HERE!!" >&2
 echo "---" >&2
-ls .daml/package-database/1.15/daml-script-0.0.0-fdf7b73f5428a5bd7c07fcbf4c5fc95ea902b51fdbc198c3f524dd7791c07018/ >&2
+echo ls .daml/package-database/1.15/daml-script-0.0.0-fdf7b73f5428a5bd7c07fcbf4c5fc95ea902b51fdbc198c3f524dd7791c07018/ >&2
 echo "---" >&2
-ls -l .daml/package-database/1.15/daml-script-0.0.0-fdf7b73f5428a5bd7c07fcbf4c5fc95ea902b51fdbc198c3f524dd7791c07018/Daml >&2
+echo ls -l .daml/package-database/1.15/daml-script-0.0.0-fdf7b73f5428a5bd7c07fcbf4c5fc95ea902b51fdbc198c3f524dd7791c07018/Daml >&2
 echo "---" >&2
 ls -l $$DAMLC >&2
 echo "---" >&2
