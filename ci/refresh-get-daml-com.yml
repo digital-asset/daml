@@ -29,7 +29,6 @@ jobs:
           echo "Telling Slack..."
           tell_slack "Change detected in get.daml.com:\`\`\`$(diff daml-assistant/get-daml.sh $tmp)\`\`\`"
         fi
-        git checkout $(release_sha)
       name: push_if_needed
       env:
         AWS_ACCESS_KEY_ID: $(AWS_CLIENT_ID)
