@@ -27,3 +27,6 @@ and compile the example trigger simulation Daml project using:
 
 .. code-block:: bash
   daml damlc build --project-root ./daml
+
+.. note::
+  Please remember to recompile your Daml project everytime you make changes to it!

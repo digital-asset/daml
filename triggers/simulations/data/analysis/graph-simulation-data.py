@@ -65,7 +65,7 @@ def plot_submission_data(data, triggers, fig, line):
             for status in set(trigger_submission_data['completion-status-code']):
                 status_data = trigger_submission_data.loc[lambda row: row['timestamp'] == timestamp, :].loc[lambda row: row['completion-status-code'] == status, :]
                 if status == 'INCOMPLETE' or len(status_data['submission-duration'].index) == 0:
-                    submission_data.append({'timestamp': timestamp, 'completion-status-code': completion_labels(status), 'submissions': len(status_data.index), 'label': 'count 0'})
+                    submission_data.append({'timestamp': timestamp, 'completion-status-code': completion_labels(status), 'submissions': len(status_data.index), 'label': f"count {len(status_data['submission-duration'].index)}"})
                 else:
                     status_data['submission-duration'] = status_data['submission-duration'].astype(float) / 1000.0
                     submission_data.append({'timestamp': timestamp, 'completion-status-code': completion_labels(status), 'submissions': len(status_data.index), 'label': status_data['submission-duration'].describe(percentiles=[0.25, 0.5, 0.75, 0.9, 0.95]).to_string().replace("\n", "<br>")})

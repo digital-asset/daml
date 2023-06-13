@@ -4,7 +4,7 @@
 Simulation Use Case Example: Impact of Uncontrolled ACS Growth
 ==============================================================
 
-As triggers maintain an in-memory copy of the Ledger's active contract store (ACS), it is important that this data structure respects the triggers finite resource limits and it contents remain *relevant*.
+As triggers maintain an in-memory copy of the Ledger's active contract store (ACS), it is important that this data structure respects the triggers finite resource limits and its contents remain *relevant*.
 
 In the following use-case simulations, we shall:
 
@@ -16,7 +16,7 @@ This use-case assumes that the :doc:`development instructions <development.rst>`
 .. note::
   By default, we use the open source version of Canton in our Scalatest based simulations. This version of Canton is single threaded and so has different performance characteristics to the enterprise version of Canton.
 
-Our simulation use-cases will use the Daml ``Cat`` contract:
+Our simulation use-cases will use the Daml ``Cat`` template:
 
 .. code-block:: unused
   template Cat
@@ -26,7 +26,14 @@ Our simulation use-cases will use the Daml ``Cat`` contract:
     where
       signatory owner
 
-and, at some configurable creation rate, we will Daml triggers to create multiple instances of this contract every second.
+and, at some configurable creation rate, we will use Daml triggers to create multiple instances of this contract every second.
+
+.. note::
+  We can view ledger API command submissions (arriving at some pre-configured rate) as being queued and Canton as servicing those messages (at some pre-configured service rate).
+
+  If service capacity is larger than the expected rate of message arrivals, then we can expect this *queuing system* to reach a steady state. However, if this is not the case, then we can expect this *queuing system* to keep growing (i.e. to eventually crash due to unbounded resource growth).
+
+  Hence, it is important to ensure that Canton provisioning is able to cope with the expected trigger load.
 
 The Scala simulation code is defined in :doc:`ACSGrowth.scala <scala/ACSGrowth.scala>`.
 
@@ -47,7 +54,7 @@ Querying the trigger ACS data structure has O(n) complexity - i.e. it is linear 
 - delaying when user processing occurs, as internal processing starts to become the dominant workload
 - and increasing trigger ACS update latency.
 
-Using a series of trigger simulations, we will show how each of these performance issues might manifest.
+Using a series of trigger simulations, we will show how these performance issues might manifest.
 
 Running Trigger Simulations and Analysing Data
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -92,7 +99,7 @@ Active Contracts
 .. figure:: data/img/fast-acs-growth-active.png
   Fast ACS Growth: Active Contracts
 
-In all 3 graphs, the number of active contracts grows incrementally as the simulation runs, and this is to be expected. Notice though, that:
+In all 3 graphs, the number of active contracts (in blue) grows incrementally as the simulation runs, and this is to be expected. Notice though, that:
 
 - for the ``SlowACSGrowth`` simulation, around 700 contracts are actually created, with a theoretical maximum of 750 contracts (= 25 * 30) being possible
 
@@ -123,7 +130,7 @@ Pending Contracts and Submissions
 .. figure:: data/img/fast-acs-growth.png
   Fast ACS Growth: Pending Contracts and Ledger Diff
 
-For each ACS graph, filter out the the active contracts and the completion status, then examine the relationship between the pending contracts and the number of command submissions.
+For each ACS graph, we filter out the the active contracts and the completion status, then examine the relationship between the pending contracts (in red) and the number of command submissions (in purple/lavender).
 
 Pending contracts represent submission requests (to create a ``Cat`` contract) that have been issued to the ledger. As the ledger creates these contracts, it will then issue create contract events, and these in turn will cause contracts to move from a pending state into an active state.
 
@@ -142,7 +149,7 @@ Notice that the time between processing user workloads (i.e. between non-zero su
 
 - for the ``SlowACSGrowth`` simulation, user workloads are actually ran every second and there is no detectable delay in processing internal workloads
 - for the ``MediumACSGrowth`` simulation, some internal workloads are delayed when user workloads run
-- and for the ``FastACSGrowth`` simulation, internal workloads are dominating the triggers processing time with user workloads often delayed.
+- and for the ``FastACSGrowth`` simulation, internal workloads are starting to dominate the triggers processing time with user workloads often delayed.
 
 When we look at how pending contract counts trend:
 
@@ -165,17 +172,21 @@ If a triggers ACS view deviates too far from the ledgers ACS view, then triggers
 
 Trigger ACS *relevancy* can be measured by comparing the contracts that the trigger knows about to the contracts that the ledger knows about. Trigger simulations perform such a difference at the end of each rule evaluation cycle. This information is plotted on the *ACS Diff with Ledger* graphs:
 
-- with contract additions measuring how many active contracts the ledger has created, but the trigger has yet to observe the creation event
-- and with contract deletions measuring how many active contracts the ledger has archived, but the trigger has yet to observe the archive event.
+- with contract additions (in blue) measuring how many active contracts the ledger has created, but the trigger has yet to observe the creation event
+- and with contract deletions (in red) measuring how many active contracts the ledger has archived, but the trigger has yet to observe the archive event.
 
-As our ACS growth simulations are only creating contracts, filter out the diff contract deletions for each of our graphs.
+As our ACS growth simulations are only creating contracts, we can filter out the contract deletions for each of our diff graphs.
 
 Now, as we examine our ACS difference graphs, notice that:
 
 - for the ``SlowACSGrowth`` simulation, contract additions are bounded and display a clear *raster* pattern
+
+  - in other words, Canton service provisioning is able to manage the workload that our triggers generate
+
 - and for the ``MediumACSGrowth`` and ``FastACSGrowth`` simulations, contract additions start to increase in the latter stages of the simulation run
 
-  - also notice that as the trigger ACS view diverges from the ledger ACS view, the number of pending contracts also starts to grow.
+  - also notice that as the trigger ACS view diverges from the ledger ACS view, the number of pending contracts also starts to grow
+  - or, in other words, Canton service provisioning is unable to manage the workload that our triggers generate.
 
 .. note::
   In order to ensure that triggers can scale (as the number of contracts they need to process increases), we need to ensure that the trigger ACS remains *relevant* (i.e. divergence of the trigger ACS view from the ledger ACS view is **bounded**).
@@ -198,8 +209,6 @@ When the ledger API receives too many submissions from a ledger client, it will 
 Notice that for the ``MediumACSGrowth`` simulation, completion failures briefly occur at the simulations start. This is because at the start of this simulation, internal workloads incur little to no overhead, and so there is little delay to when user workloads run. Hence, there is a greater probability that subsequent user workloads (which each generate 50 command submissions) will both occur within a 1 second time window and so trip the participant back pressure alarms. Once the ledger is regularly processing contract creations, the internal workloads increase in duration reducing the probability of back pressure alarms being tripped.
 
 For the ``FastACSGrowth`` simulation, each user workload will generate 100 distinct command submissions and so there is a high probability that user workloads will trip the Participant back pressure alarms. Each submission failure results in a completion failure that is processed sometime after the initial ledger client request has failed.
-
-TODO: from logging data: for each group of submissions: plot bar graph with break down of completion status; annotate each bar graph with stats describing request/response times (i.e. max/min/mean/std dev/P_s/etc)
 
 .. note::
   Trigger simulations use a ledger API client that does not perform any retries of submissions when client requests **immediately** fail (e.g. due to back pressure). Actual trigger implementations will typically retry such failing requests up to 6 times (with exponential backoff, but **no** jitter). This is a known limitation of trigger simulations.

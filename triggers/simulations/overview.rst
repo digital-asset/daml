@@ -316,6 +316,23 @@ Initializing trigger processes is a common use case, so an additional helper met
     }
   }  
 
+If a trigger fails at runtime, and we require the simulation to fail, then it is important to `watch <https://doc.akka.io/docs/akka/current/typed/actor-lifecycle.html#watching-actors>`_ the created trigger actor. This may be done using code such as:
+
+.. code-block:: scala
+  override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
+    implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
+
+    withLedger { (client, ledger, actAs, controllerContext) =>
+      // Initialize the user state to be 0 (coded as an SValue) for the breeding trigger at create time
+      val breedingTrigger: Behavior[TriggerProcess.Message] = breedingFactory.create(unsafeSValueFromLf("0"), Seq.empty)
+
+      // Spawn the trigger actor and ensure the current (parent) actor watches it
+      controllerContext.watch(controllerContext.spawn(breedingTrigger, "breedingTrigger"))
+
+      Behaviors.empty
+    }
+  }
+
 .. note::
   Currently, there is no support for extracting and using the Daml trigger ``initialize`` expression when initializing trigger processes. This is a known limitation.
 
