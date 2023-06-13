@@ -1081,9 +1081,10 @@ cliArgsFromDamlYaml mbProjectOpts = do
 
 main :: IO ()
 main = do
-    putStrLn "IN HASKELL FOR REALZ"
+    putStrLn "BISECT START"
     -- We need this to ensure that logs are flushed on SIGTERM.
     installSignalHandlers
+    putStrLn "BISECT MIDDLE"
     -- Save the runfiles environment to work around
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
     setRunfilesEnv

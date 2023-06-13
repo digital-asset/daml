@@ -25,7 +25,7 @@ import System.FilePath
 
 docTest :: IdeState -> [NormalizedFilePath] -> IO ()
 docTest ideState files = do
-    putStrLn "IN HASKELL"
+    putStrLn "BISECT END"
     ms <- runActionSync ideState (uses_ GenerateDocTestModule files)
     let docTestFile m = toNormalizedFilePath' $
             genDir </>
