@@ -209,3 +209,5 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - template: ci/tell-slack-failed.yml
+
+  - template: ci/split-release-job.yml

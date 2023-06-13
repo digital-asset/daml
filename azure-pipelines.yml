@@ -160,3 +160,4 @@ jobs:
     - template: ci/report-end.yml
 
 - template: ci/split-release-job.yml
+- template: ci/refresh-get-daml-com.yml
