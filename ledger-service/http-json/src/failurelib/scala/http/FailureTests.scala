@@ -188,7 +188,7 @@ abstract class FailureTests
       )
       _ <- inside(output) { case JsObject(fields) =>
         inside(fields.get("status")) { case Some(JsNumber(code)) =>
-          code shouldBe 501
+          code shouldBe 500
         }
       }
       // TODO Document this properly or adjust it
@@ -235,7 +235,7 @@ abstract class FailureTests
       )
       _ <- inside(output) { case JsObject(fields) =>
         inside(fields.get("status")) { case Some(JsNumber(code)) =>
-          code shouldBe 501
+          code shouldBe 500
         }
       }
       // TODO Document this properly or adjust it
@@ -299,7 +299,7 @@ abstract class FailureTests
         )
         _ <- inside(output) { case JsObject(fields) =>
           inside(fields.get("status")) { case Some(JsNumber(code)) =>
-            code shouldBe 501
+            code shouldBe 500
           }
         }
         // TODO Document this properly or adjust it

@@ -11,15 +11,19 @@ option java_package = "com.daml.ledger.api.v2";
 option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Describes a specific point on the participant. This is a participant local value:
-// changes synchronized via a specific domain should have different participant offsets
-// on different participants.
+// a participant offset is meaningful only in the context of its participant. Different
+// participants may associate different offsets to the same change synchronized over a domain,
+// and conversely, the same literal participant offset may refer to different changes on
+// different participants.
 //
-// This is also as a unique index of the changes which happened on the virtual shared ledger.
+// This is also a unique index of the changes which happened on the virtual shared ledger.
 // Participant offset define an order, which is the same in which order the updates are
 // visible as subscribing to the ``UpdateService``. This ordering is also a fully causal
 // ordering for one specific domain: for two updates synchronized by the same domain, the
 // one with a bigger participant offset happened after than the one with a smaller participant
 // offset. Please note this is not true for updates synchronized by a different domain.
+// Accordingly, the participant offset order may deviate from the order of the changes
+// on the virtual shared ledger.
 //
 // The Ledger API endpoints that take offsets allow to specify portions
 // of the participant that are relevant for the client to read.
