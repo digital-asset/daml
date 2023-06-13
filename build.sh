@@ -40,7 +40,7 @@ else
 fi
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
-$bazel build //... \
+$bazel build //compiler/... \
   --build_tag_filters "${tag_filter:1}" \
   --profile build-profile.json \
   --experimental_profile_include_target_label \
