@@ -84,7 +84,6 @@ private class ContractsFetch(
         absEnd: Terminates.AtAbsolute,
     ): ConnectionIO[A] = for {
       bb <- tickFetch(fetchToAbsEnd(fetchContext, fetchTemplateIds, absEnd))
-      a <- within(bb)
       // fetchTemplateIds can be a subset of templateIds (or even empty),
       // but we only get away with that by checking _all_ of templateIds,
       // which can then indicate that a larger set than fetchTemplateIds
@@ -109,7 +108,7 @@ private class ContractsFetch(
               )
             )
         },
-        fconn.pure(a),
+        within(bb),
       )
     } yield retriedA
 
@@ -252,6 +251,70 @@ private class ContractsFetch(
     }
   }
 
+  def fetchAndRefreshCache(
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+      ledgerEnd: Terminates.AtAbsolute,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: HttpJsonApiMetrics,
+  ): ConnectionIO[List[BeginBookmark[domain.Offset]]] = {
+    import domain.Offset._
+    import sjd.q.queries
+    import cats.syntax.traverse._
+
+    val ledgerOffset = ledgerEnd.toDomain
+    debugLogActionWithMetrics(
+      s"cache refresh until ledger offset: $ledgerOffset",
+      metrics.Db.warmCache,
+    ) {
+      for {
+        allOffsets <- queries.allOffsetsInformation
+        filteredTemplateInfoAndOffset <-
+          allOffsets
+            .map { case (templateId, partyOffsetNonEmpty) =>
+              (
+                templateId,
+                partyOffsetNonEmpty.map { tuple =>
+                  type L[a] = (a, domain.Offset)
+                  domain.Party.subst[L, String](domain.Offset.tag.subst(tuple))
+                },
+              )
+            }
+            .collect {
+              case (templateId, partyOffsetNonEmpty) if {
+                    val startOffset = partyOffsetNonEmpty.view.toMap.values.toList.minimum
+                      .cata(AbsoluteBookmark(_), LedgerBegin)
+                    startOffset != AbsoluteBookmark(ledgerOffset)
+                  } =>
+                queries
+                  .getTemplateInfoBySurrogateTpId(templateId)
+                  .map { case (packageId, moduleName, entityName) =>
+                    (
+                      ContractTypeId.Template(packageId, moduleName, entityName),
+                      partyOffsetNonEmpty,
+                    )
+                  }
+            }
+            .toList
+            .sequence
+        result <- filteredTemplateInfoAndOffset.map { case (templateId, partyOffsetNonEmpty) =>
+          val parties: domain.PartySet = partyOffsetNonEmpty.toSet.map(_._1)
+          val fetchContext = FetchContext(jwt, ledgerId, parties)
+          contractsFromOffsetIo(
+            fetchContext,
+            templateId,
+            partyOffsetNonEmpty.view.toMap,
+            true,
+            ledgerEnd,
+          )
+        }.sequence
+      } yield result
+    }
+  }
+
   private def prepareCreatedEventStorage(
       ce: lav1.event.CreatedEvent,
       d: ContractTypeId.Resolved,
@@ -316,8 +379,8 @@ private class ContractsFetch(
       debugLogActionWithMetrics(
         s"cache refresh for templateId: $templateId",
         metrics.Db.cacheUpdate,
-        metrics.Db.cacheUpdateStarted,
-        metrics.Db.cacheUpdateFailed,
+        Some(metrics.Db.cacheUpdateStarted),
+        Some(metrics.Db.cacheUpdateFailed),
       ) {
         val graph = RunnableGraph.fromGraph(
           GraphDSL.createGraph(
@@ -392,10 +455,10 @@ private class ContractsFetch(
   private def debugLogActionWithMetrics[T, C](
       actionDescription: String,
       timer: Timer,
-      startedCounter: Counter,
-      failedCounter: Counter,
+      optStartedCounter: Option[Counter] = None,
+      optFailedCounter: Option[Counter] = None,
   )(block: => T)(implicit lc: LoggingContextOf[C]): T = {
-    startedCounter.inc()
+    optStartedCounter.foreach(_.inc())
     val timerHandler = timer.startAsync()
     val startTime = System.nanoTime()
     logger.debug(s"Starting $actionDescription")
@@ -404,7 +467,7 @@ private class ContractsFetch(
         block
       } catch {
         case e: Exception =>
-          failedCounter.inc()
+          optFailedCounter.foreach(_.inc())
           logger.error(
             s"Failed $actionDescription after ${(System.nanoTime() - startTime) / 1000000L}ms because: $e"
           )

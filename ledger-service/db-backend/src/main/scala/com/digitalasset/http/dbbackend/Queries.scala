@@ -5,14 +5,13 @@ package com.daml.http.dbbackend
 
 import com.daml.lf.data.Ref
 import com.daml.nonempty
-import nonempty.{NonEmpty, +-:}
+import nonempty.{+-:, NonEmpty}
 import nonempty.NonEmptyReturningOps._
-
 import doobie._
 import doobie.implicits._
 import scala.annotation.nowarn
-import scala.collection.immutable.{Seq => ISeq, SortedMap}
-import scalaz.{@@, Cord, Functor, OneAnd, Tag, \/, -\/, \/-}
+import scala.collection.immutable.{SortedMap, Seq => ISeq}
+import scalaz.{-\/, @@, Cord, Functor, OneAnd, Tag, \/, \/-}
 import scalaz.Digit._0
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
@@ -193,8 +192,38 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     tpid <- sql"""SELECT tpid FROM $templateIdTableName
                   WHERE (package_id = $packageId AND template_module_name = $moduleName
                       AND template_entity_name = $entityName)""".query[SurrogateTpId].unique
-
   } yield tpid
+
+  final def allOffsetsInformation(implicit
+      log: LogHandler
+  ): ConnectionIO[Map[SurrogateTpId, NonEmpty[Vector[(String, String)]]]] = {
+
+    val allOffsetsQuery = sql"""
+        SELECT tpid, party, last_offset
+            FROM $ledgerOffsetTableName
+        """
+    allOffsetsQuery
+      .query[(SurrogateTpId, String, String)]
+      .to[Vector]
+      .map {
+        _.groupBy1(_._1)
+          .transform((_, tpos) => tpos.map(x => (x._2, x._3)))
+//          .transform((_, tpos) => tpos.view.map(x => (x._2, x._3)).toMap)
+      }
+  }
+
+  final def getTemplateInfoBySurrogateTpId(surrogateTpId: SurrogateTpId)(implicit
+      log: LogHandler
+  ): ConnectionIO[(String, String, String)] = {
+    val getTemplateInfoQuery = sql"""
+        SELECT package_id, template_module_name, template_entity_name
+            FROM $templateIdTableName
+            WHERE tpid = $surrogateTpId
+        """
+    getTemplateInfoQuery
+      .query[(String, String, String)]
+      .unique
+  }
 
   protected def insertTemplateIdIfNotExists(
       packageId: String,

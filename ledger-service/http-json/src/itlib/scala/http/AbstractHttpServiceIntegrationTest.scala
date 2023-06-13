@@ -1770,6 +1770,85 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         _ <- queryUsers(alice)
       } yield succeed
   }
+
+
+  "refresh cache endpoint" - {
+    "should return latest offset when the cache is outdated" in withHttpService { fixture =>
+      import fixture.encoder
+      for {
+        res1 <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (alice, aliceHeaders) = res1
+        searchDataSet = genSearchDataSet(alice)
+        contractIds <- searchExpectOk(
+          searchDataSet,
+          jsObject(
+            """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""
+          ),
+          fixture,
+          aliceHeaders,
+        ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
+          acl.size shouldBe 1
+          acl.map(a => objectField(a.payload, "currency")) shouldBe List(Some(JsString("EUR")))
+          acl.map(a => objectField(a.payload, "amount")) shouldBe List(Some(JsString("111.11")))
+          acl.map(_.contractId)
+        }
+
+        _ <- contractIds.traverse { contractId =>
+          val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId)
+          val exercise = archiveCommand(reference)
+          val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
+          fixture
+            .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, aliceHeaders)
+            .parseResponse[domain.ExerciseResponse[JsValue]]
+            .flatMap(inside(_) { case domain.OkResponse(exercisedResponse, _, StatusCodes.OK) =>
+              assertExerciseResponseArchivedContract(exercisedResponse, exercise)
+            })
+        }
+
+        res <-
+          fixture
+            .postJsonRequest(Uri.Path("/v1/refresh/cache"), jsObject("{}"), aliceHeaders)
+            .parseResponse[JsValue]
+
+      } yield {
+        inside(res) { case domain.OkResponse(s, _, StatusCodes.OK) =>
+          s.toString shouldBe """["00000000000000000c"]"""
+        }
+      }
+    }
+
+    "should return empty offset when the cache was up to date" in withHttpService { fixture =>
+      for {
+        res1 <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (alice, aliceHeaders) = res1
+        searchDataSet = genSearchDataSet(alice)
+        _ <- searchExpectOk(
+          searchDataSet,
+          jsObject(
+            """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""
+          ),
+          fixture,
+          aliceHeaders,
+        ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
+          acl.size shouldBe 1
+          acl.map(a => objectField(a.payload, "currency")) shouldBe List(Some(JsString("EUR")))
+          acl.map(a => objectField(a.payload, "amount")) shouldBe List(Some(JsString("111.11")))
+          acl.map(_.contractId)
+        }
+        res <-
+          fixture
+            .postJsonRequest(Uri.Path("/v1/refresh/cache"), jsObject("{}"), aliceHeaders)
+            .parseResponse[JsValue]
+
+      } yield {
+        inside(res) { case domain.OkResponse(s, _, StatusCodes.OK) =>
+          s.toString shouldBe "[]"
+        }
+      }
+    }
+
+  }
+
 }
 
 /** Tests that don't exercise the query store at all, but exercise different

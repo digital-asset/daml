@@ -58,6 +58,7 @@ class HttpJsonApiMetrics(
 
     /** * cache metrics **
       */
+    val warmCache: Timer = defaultMetricsFactory.timer(prefix :+ "warm_cache")
     val cacheUpdate: Timer = defaultMetricsFactory.timer(prefix :+ "cache_update")
     // The cache update completed count can be derived from the count of the `cacheUpdate` timer
     val cacheUpdateStarted: Counter =

@@ -17,6 +17,7 @@ import com.daml.http.query.ValuePredicate
 import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.fetchcontracts.util.{
   AbsoluteBookmark,
+  BeginBookmark,
   ContractStreamStep,
   InsertDeleteStep,
   LedgerBegin,
@@ -303,6 +304,37 @@ class ContractsService(
             domain.OkResponse(source, warnings)
           }
           .merge
+    }
+  }
+
+  def refreshCache(
+      jwt: Jwt,
+      jwtPayload: JwtPayload,
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: HttpJsonApiMetrics,
+  ): Future[SearchResult[Error \/ BeginBookmark[domain.Offset]]] = {
+    val ledgerId = toLedgerId(jwtPayload.ledgerId)
+    getTermination(jwt, ledgerId)(lc).map { optLedgerEnd =>
+      optLedgerEnd.cata(
+        { ledgerEnd =>
+          daoAndFetch.cata(
+            { case (dao, fetchService) =>
+              val response: Source[Error \/ BeginBookmark[domain.Offset], NotUsed] = {
+                val futureValue =
+                  dao
+                    .transact(fetchService.fetchAndRefreshCache(jwt, ledgerId, ledgerEnd))
+                    .unsafeToFuture()
+                Source.future(futureValue).mapConcat(identity).map(\/.right)
+              }
+              domain.OkResponse(response)
+            },
+            mkErrorResponse("No query-storage is set to update cache", None),
+          )
+        }, {
+          mkErrorResponse("Ledger is at the beginning, cache do not have anything to update", None)
+        },
+      )
     }
   }
 

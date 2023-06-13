@@ -173,6 +173,10 @@ package domain {
       readAs: Option[NonEmptyList[Party]],
   )
 
+  final case class RefreshCacheRequest(
+      offset: Option[domain.Offset]
+  )
+
   final case class SearchForeverRequest(
       queriesWithPos: NonEmptyList[(SearchForeverQuery, Int)]
   )
