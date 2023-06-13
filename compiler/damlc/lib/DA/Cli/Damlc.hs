@@ -1081,6 +1081,7 @@ cliArgsFromDamlYaml mbProjectOpts = do
 
 main :: IO ()
 main = do
+    putStrLn "IN HASKELL FOR REALZ"
     -- We need this to ensure that logs are flushed on SIGTERM.
     installSignalHandlers
     -- Save the runfiles environment to work around
