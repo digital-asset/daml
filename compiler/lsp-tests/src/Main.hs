@@ -665,7 +665,7 @@ scriptTests runScripts = testGroup "scripts"
           closeDoc main'
     -- TODO https://github.com/digital-asset/daml/issues/16772
     , localOption (mkTimeout 30000000) $ -- 30s timeout
-        testCaseSteps "scenario service interrupts on non-script messages" $ \step -> runScripts $ \_stderr -> do
+        testCaseSteps "scenario service does not interrupt on non-script messages" $ \step -> runScripts $ \_stderr -> do
           -- open document with long-running script
           main' <- openDoc' "Main.daml" damlId $
               T.unlines
@@ -705,14 +705,10 @@ scriptTests runScripts = testGroup "scripts"
           _ <- sendRequest STextDocumentHover (HoverParams main' (Position 4 3) Nothing)
           liftIO $ step "Hover sent..."
 
-          -- check that new script is started
-          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script started."
-          liftIO $ step "New script started."
-
-          -- check that previous script is cancelled
-          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script cancelling."
-          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script cancelled."
-          liftIO $ step "Previous script cancelled."
+          -- Check that script did return and that log does not show any cancellations
+          _changeResult <- waitForScriptDidChange
+          _scriptFinishedMessage <- liftIO $ assertUntilWithout _stderr "SCENARIO SERVICE STDOUT: Script finished." "SCENARIO SERVICE STDOUT: Script cancelled."
+          liftIO $ step "Script returned without cancellation."
 
           closeDoc script
           closeDoc main'
@@ -730,9 +726,26 @@ hTakeUntil handle regex = go
           line <- hGetLine handle
           if pred line then pure (Just line) else go
 
+assertUntilWithout :: Handle -> T.Text -> T.Text -> IO (Maybe String)
+assertUntilWithout handle until without = go
+  where
+    untilP = matchTest (makeRegex until :: Regex)
+    withoutP = matchTest (makeRegex without :: Regex)
+    go = do
+      closed <- hIsClosed handle
+      if closed
+        then pure Nothing
+        else do
+          line <- hGetLine handle
+          if withoutP line then
+            assertFailure $ "Source line: `" <> line <> "` shouldn't match regular expression `" <> T.unpack without <> "`, but it does."
+          else if untilP line then
+            pure (Just line)
+          else go
+
 assertRegex :: T.Text -> T.Text -> Assertion
 assertRegex source regex =
-    let errMsg = "Source text: `" <> T.unpack source <> "` does not match regular expression `" <> T.unpack regex <> "`."
+    let errMsg = "Source text: `" <> T.unpack source <> "` should match regular expression `" <> T.unpack regex <> "`, but it doesn't."
     in
     assertBool
         errMsg
