@@ -20,16 +20,16 @@ These separate contract stores need to be kept in sync. This is accomplished usi
 - the ledger publishes transaction create and archive events as its contract store is updated (i.e. written to)
 - and the trigger registers to receive these events - so that its contract store may be updated.
 
-Trigger Daml code queries the in-memory contract store without modifying that store. Triggers issue contract create and exercise commands to the ledger API - these commands are then queued by Canton network participants for asynchronous processing.
+Trigger Daml code queries the in-memory contract store without modifying that store. Triggers issue create and exercise commands to the ledger API - these commands are then queued by Canton network participants for asynchronous processing.
 
 .. note::
-  If transaction create or archive events are not processed in a timely manner (e.g. due to high load) or are lost (e.g. due to network issues), then the trigger's view of the ledger contact store may lose coherence with the ledger's view of the contract store and so lead to stale or invalid data being used in ledger interactions.
+  If create or archive events are not processed in a timely manner (e.g. due to high load) or are lost (e.g. due to Akka streaming `delivery failures <https://doc.akka.io/docs/akka/current/stream/stream-refs.html#delivery-guarantees>`_), then the trigger's view of the ledger contact store may lose coherence with the ledger's view of the contract store and so lead to stale or invalid data being used in ledger interactions.
 
   If the trigger's ACS becomes too large, then storing and querying the ACS may consume unnecessary system resources.
 
   Excessive command submissions to the ledger may result in back pressure being applied and so trigger command submissions will fail. These failures are automatically retried (for a fixed number of times with backoff), but they should generally be avoided (e.g. by controlling the number of command submissions) as they can be expensive for both the ledger and triggers.
 
-When writing trigger Daml code, it is the responsibility of the user to ensure that all potential ledger contention is managed. 
+When writing trigger Daml code, **it is the responsibility of the user to ensure that all potential ledger contention is managed.**
 
 .. note::
   Ledger contention will lead to command submission failures (these are presented to the trigger as submission completion failures), which the trigger Daml code is responsible for retrying. Excessive numbers of ledger command failures can lead to the trigger ACS view being out of sync with the ledger ACS view and this in turn can result in stale or invalid data being used in ledger interactions.
@@ -65,21 +65,14 @@ Trigger simulations are `Scalatests <https://www.scalatest.org>`_ that extend th
 .. code-block:: scala
   protected def triggerMultiProcessSimulation: Behavior[Unit]
 
-This method is used to define all the components that a given simulation is to take into account. So, to define a simulation with no trigger components and no external components, one could write:
+This method is used to define all the components that a given simulation is to take into account - and each component is defined as an Akka `Behavior <https://doc.akka.io/api/akka/current/akka/actor/typed/Behavior.html>`_. So, to define a simulation with no trigger components and no external components, one could write:
 
 .. code-block:: scala
   class ExampleSimulation extends TriggerMultiProcessSimulation {
     override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
       implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
 
-      Behaviors.setup { context =>
-        val setup = for {
-          client <- defaultLedgerClient()
-          party <- allocateParty(client)
-        } yield (client, party)
-        val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
-        val ledger = context.spawn(LedgerProcess.create(client), "ledger")
-
+      withLedger { (client, ledger, actAs, controllerContext) =>
         // Trigger and external components could be defined here
 
         Behaviors.empty
@@ -97,8 +90,6 @@ So, to have a simulation run for 42 seconds, one would override with:
 .. code-block:: scala
   override protected implicit lazy val simulationConfig: TriggerSimulationConfig =
     TriggerSimulationConfig(simulationDuration = 42.seconds)
-
-Because trigger simulations are defined as Scalatests, they may be ran using a variant of ``bazel test`` (assuming the relevant ``BUILD.bazel`` files are also defined to allow the simulation code to build).
 
 Under the hood, each simulation component is implemented in Scala code as an `Akka typed actor <https://doc.akka.io/docs/akka/current/typed/index.html>`_.
 
@@ -118,27 +109,7 @@ A ledger process provides trigger components with a strongly consistent data vie
 
   Ledger processes make no attempt at retrying failed command submissions. This is a known limitation.
 
-Each trigger simulation needs to define a single ledger process as follows:
-
-.. code-block:: scala
-  override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
-    implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
-    
-    Behaviors.setup { context =>
-      val setup = for {
-        client <- defaultLedgerClient()
-        party <- allocateParty(client)
-      } yield (client, party)
-      val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
-      // Ledger process (as an Akka typed actor) being defined
-      val ledger: ActorRef[LedgerProcess.Message] =
-        context.spawn(LedgerProcess.create(client), "ledger")
-
-      // Trigger and external components could be defined here
-
-      Behaviors.empty
-    }
-  }
+Each trigger simulation can access the single ledger process using the inherited ``withLedger`` method.
 
 Simulating External Ledger Interactions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -159,14 +130,8 @@ For example, to model an external component that randomly creates instances of a
         val randomCat =
           CreatedEvent(
             templateId = Some("Cats:Cat"),
-            createArguments = Some(SValue.SRecord(
-              "Cats:Cat",
-              fields = ImmArray("owner", "name"),
-              values = ArrayList(
-                SValue.SParty(actAs),
-                SValue.SInt64(Random.nextLong()),
-              ),
-            )),
+            createArguments =
+              Some(unsafeSValueFromLf(s"Cats:Cat { owner = ${actAs}, name = ${Random.nextLong()} }")),
         )
         val createEvent = LedgerProcess.ExternalAction(CreateContract(randomCat, actAs))
 
@@ -188,7 +153,7 @@ where a ``Cat`` template might be defined as:
 .. note::
   Currently, it is not possible to model external components that exercise choices on a contract. This is a known limitation.
 
-  Currently, a good of understanding of the low level Speedy machine ``SValue`` is required when defining create or archive events. This is a known limitation.
+  Currently, a good of understanding of `Daml-LF <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>`_ (which parses to a ``Value``) is required when defining create or archive events. This is a known limitation.
 
 Trigger Process Component
 -------------------------
@@ -324,18 +289,12 @@ So, in order to initialize a trigger process, we simply need to send it an initi
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
     implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
 
-    Behaviors.setup { context =>
-      val setup = for {
-        client <- defaultLedgerClient()
-        party <- allocateParty(client)
-      } yield (client, party)
-      val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
-      val ledger = context.spawn(LedgerProcess.create(client), "ledger")
+    withLedger { (client, ledger, actAs, controllerContext) =>
       val breedingTrigger: Behavior[TriggerProcess.Message] = breedingFactory.create(Seq.empty)
-      val breedingProcess: ActorRef[TriggerProcess.Message] = context.spawn(breedingTrigger, "breedingTrigger")
+      val breedingProcess: ActorRef[TriggerProcess.Message] = controllerContext.spawn(breedingTrigger, "breedingTrigger")
 
       // Initialize the user state to be 0 (coded as an SValue) for the breeding trigger using a message
-      breedingProcess ! TriggerProcess.Initialize(SValue.SInt64(0))
+      breedingProcess ! TriggerProcess.Initialize(unsafeSValueFromLf("0"))
 
       Behaviors.empty
     }
@@ -347,17 +306,11 @@ Initializing trigger processes is a common use case, so an additional helper met
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
     implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
 
-    Behaviors.setup { context =>
-      val setup = for {
-        client <- defaultLedgerClient()
-        party <- allocateParty(client)
-      } yield (client, party)
-      val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
-      val ledger = context.spawn(LedgerProcess.create(client), "ledger")
+    withLedger { (client, ledger, actAs, controllerContext) =>
       // Initialize the user state to be 0 (coded as an SValue) for the breeding trigger at create time
-      val breedingTrigger: Behavior[TriggerProcess.Message] = breedingFactory.create(SValue.SInt64(0), Seq.empty)
+      val breedingTrigger: Behavior[TriggerProcess.Message] = breedingFactory.create(unsafeSValueFromLf("0"), Seq.empty)
       
-      context.spawn(breedingTrigger, "breedingTrigger")
+      controllerContext.spawn(breedingTrigger, "breedingTrigger")
 
       Behaviors.empty
     }
@@ -366,7 +319,7 @@ Initializing trigger processes is a common use case, so an additional helper met
 .. note::
   Currently, there is no support for extracting and using the Daml trigger ``initialize`` expression when initializing trigger processes. This is a known limitation.
 
-  Currently, a good of understanding of the low level Speedy machine ``SValue`` is required when initializing triggers. This is a known limitation.
+  Currently, a good of understanding of `Daml-LF <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>`_ (which parses to a ``Value``) is required when initializing triggers. This is a known limitation.
 
 Scheduling Heartbeat Messages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -385,7 +338,7 @@ or to have a trigger process receive heartbeat messages every 2 seconds (after a
 
 .. code-block:: scala
   val breedingTrigger: ActorRef[TriggerProcess.Message] =
-    context.spawn(breedingFactory.create(SValue.SInt64(0), Seq.empty), "breedingTrigger")
+    context.spawn(breedingFactory.create(unsafeSValueFromLf("0"), Seq.empty), "breedingTrigger")
   val delayedRegularTrigger: Behavior[TriggerProcess.Message] =
     TriggerTimer.singleMessage(5.seconds, 2.seconds)(breedingTrigger)
 

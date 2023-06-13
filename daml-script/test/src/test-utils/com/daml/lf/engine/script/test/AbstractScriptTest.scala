@@ -33,10 +33,8 @@ object AbstractScriptTest {
       values = ArrayList(a, b),
     )
 
-  val stableDarPath: Path = rlocation(Paths.get("daml-script/test/script-test.dar"))
-  val devDarPath: Path = rlocation(Paths.get("daml-script/test/script-test-1.dev.dar"))
-  val stableDar: CompiledDar = CompiledDar.read(stableDarPath, Runner.compilerConfig)
-  val devDar: CompiledDar = CompiledDar.read(devDarPath, Runner.compilerConfig)
+  lazy val darPath: Path = rlocation(Paths.get("daml-script/test/script-test.dar"))
+  lazy val dar: CompiledDar = CompiledDar.read(darPath, Runner.compilerConfig)
 }
 
 // Fixture for a set of participants used in Daml Script tests
@@ -44,6 +42,7 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
   self: Suite =>
 
   protected def timeMode: ScriptTimeMode
+  override protected lazy val darFiles = List(AbstractScriptTest.darPath)
 
   final override protected lazy val timeProviderType = timeMode match {
     case ScriptTimeMode.Static => TimeProviderType.Static

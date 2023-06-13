@@ -1,7 +1,7 @@
 # Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "generate_and_track_cabal")
 
 da_haskell_library(
     name = "stable-packages-lib",
@@ -16,7 +16,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto:daml-lf-proto-encode",
+        "//compiler/daml-lf-proto-encode",
         "//compiler/damlc/daml-lf-util",
         "//libs-haskell/da-hs-base",
     ],
@@ -32,13 +32,12 @@ da_haskell_binary(
         "optparse-applicative",
         "text",
     ],
-    main_function = "GenerateStablePackage.main",
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        ":stable-packages-lib",
+        "stable-packages-lib",
         "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto:daml-lf-proto-encode",
+        "//compiler/daml-lf-proto-encode",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -166,3 +165,5 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
     ],
 )
+
+generate_and_track_cabal("stable-packages-lib", "generate-stable-package")

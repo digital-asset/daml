@@ -58,6 +58,14 @@ class DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
           |ScriptTest:traceOrder SUCCESS
           |ScriptTest:tree SUCCESS
           |ScriptTest:tupleKey SUCCESS
+          |TestContractId:testContractId SUCCESS
+          |TestExceptions:test SUCCESS
+          |TestExceptions:try_catch_recover SUCCESS
+          |TestExceptions:try_catch_then_abort FAILURE (com.daml.lf.engine.script.Runner$InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "expected exception" })
+          |TestExceptions:try_catch_then_error FAILURE (com.daml.lf.engine.script.Runner$InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "expected exception" })
+          |TestExceptions:try_catch_then_fail FAILURE (com.daml.lf.engine.script.Runner$InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "expected exception" })
+          |TestInterfaces:test SUCCESS
+          |TestInterfaces:test_queryInterface SUCCESS
           |""".stripMargin
 
       val port = ports.head.value
@@ -92,6 +100,10 @@ class DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
         .replaceAll(
           """DAML_INTERPRETATION_ERROR\((\d+),\w{8}\)""",
           "DAML_INTERPRETATION_ERROR($1,XXXXXXXX)",
+        )
+        .replaceAll(
+          """DA.Exception.GeneralError:GeneralError@\w{8}""",
+          "DA.Exception.GeneralError:GeneralError@XXXXXXXX",
         )
 
       if (cantonFixtureDebugMode) {

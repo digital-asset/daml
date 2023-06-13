@@ -20,7 +20,7 @@ final class FuncStaticTimeIT extends AbstractFuncIT {
         SRecord(_, _, vals) <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:testSetTime"),
-          dar = stableDar,
+          dar = dar,
         )
       } yield {
         assert(vals.size == 2)

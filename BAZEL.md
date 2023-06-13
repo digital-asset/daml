@@ -134,7 +134,7 @@ proceed to the IntelliJ integration.
 ### Setup
 
 If you use the IntelliJ IDE you should install the [Bazel integration plugin
-provided by Google][intellij_plugin]. 
+provided by Google][intellij_plugin].
 
 Not every version of Intellij works with the Bazel plugin. Intellij IDEA 2021.2.4 has been verified to work correctly with the Bazel plugin.
 It is advisable to use the JetBrains Toolbox to manage installations of Intellij IDEA.
@@ -378,7 +378,7 @@ error: attribute 'dade-exec-nix-tool' in selection path 'tools.dade-exec-nix-too
 in the bazel console during project import, make sure that
 _Preferences_ → _Bazel Settings_ → _Bazel binary location_
 points to `./dev-env/bin/bazel`
-rather than to  `./dev-env/lib/dade-exec-nix-tool` (as Intellij might have expanded the former to the latter).  
+rather than to  `./dev-env/lib/dade-exec-nix-tool` (as Intellij might have expanded the former to the latter).
 If that doesn't help try starting IntelliJ from the root
 of the `daml` repository by calling `idea .`.
 
@@ -609,7 +609,7 @@ For Haskell, most `BUILD.bazel` files begin with a variation on the
 following:
 ```
 load( "//bazel_tools:haskell.bzl",
-      "da_haskell_library", "da_haskell_executable","da_haskell_test" )
+      "da_haskell_library", "da_haskell_binary","da_haskell_test" )
 ```
 This directive loads from the `//bazel_tools` package, the rules
 [`da_haskell_library`](https://api.haskell.build/haskell/haskell.html#haskell_library)
@@ -1099,14 +1099,14 @@ poisoned Nix cache. To clear that run through the following steps:
     nix-build nix -A tools -A cached --no-out-link # Build the nix derivations (they should be fetched from the cache)
     bazel build //... # You should now see things being fetched from the cache
 
-    
-NOTE: If you have re-installed nix, you might have removed or lost settings in `/etc/nix/nix.conf`. 
+
+NOTE: If you have re-installed nix, you might have removed or lost settings in `/etc/nix/nix.conf`.
 You might run into this warning:
 
     warning: ignoring untrusted substituter 'https://nix-cache.da-ext.net'
 
 Please follow the instructions for installing nix in your development environment [here](README.md#mac), notably when using macOS:
-    
+
 1. Add yourself as a nix trusted user by running `echo "extra-trusted-users = $USER" | sudo tee -a /etc/nix/nix.conf`
 2. Restart the `nix-daemon` by running `sudo launchctl stop org.nixos.nix-daemon && sudo launchctl start org.nixos.nix-daemon`
 

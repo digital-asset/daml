@@ -18,6 +18,7 @@ import "google/protobuf/timestamp.proto";
 // The ledger configuration management service provides methods for the ledger administrator
 // to change the current ledger configuration. The services provides methods to modify
 // different aspects of the configuration.
+// In V2 Ledger API this service is not available anymore.
 service ConfigManagementService {
 
   // Return the currently active time model and the current configuration generation.
