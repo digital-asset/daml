@@ -1115,7 +1115,6 @@ trait AbstractTriggerServiceTestAuthMiddleware
       }
       _ <- submitCmd(client, aliceExp.unwrap, createACommand(7))
       // Query ACS until we see a B contract
-      _ = println("DEBUGGY: fake change to force test to run!")
       _ <- RetryStrategy.constant(5, 2.seconds) { (_, _) =>
         getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
           .map(_.length shouldBe 1)
