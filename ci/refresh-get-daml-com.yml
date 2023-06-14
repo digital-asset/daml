@@ -29,7 +29,7 @@ jobs:
           aws s3 cp daml-assistant/get-daml.sh s3://get-daml-com/get-daml.sh --acl public-read --region us-east-1
           aws cloudfront create-invalidation --distribution-id EXTKHQ2MNSNU4 --paths "/*"
           echo "Telling Slack..."
-          tell_slack "$(echo -e "Change detected in get.daml.com:\n\`\`\`\n$(diff daml-assistant/get-daml.sh $tmp)\`\`\`")"
+          tell_slack "$(echo -e "Change detected in https://get.daml.com (\`<\` is added):\n\`\`\`\n$(diff daml-assistant/get-daml.sh $tmp)\`\`\`")"
         fi
       name: push_if_needed
       env:
