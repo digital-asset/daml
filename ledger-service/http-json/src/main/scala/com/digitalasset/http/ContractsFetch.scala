@@ -256,7 +256,7 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       ledgerEnd: Terminates.AtAbsolute,
-      optOffsetToUpdate: Option[domain.Offset]
+      optOffsetToUpdate: Option[domain.Offset],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,

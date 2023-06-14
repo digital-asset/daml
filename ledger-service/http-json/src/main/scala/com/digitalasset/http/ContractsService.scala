@@ -10,7 +10,12 @@ import akka.stream.Materializer
 import com.daml.lf
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.dbbackend.ContractDao
-import com.daml.http.domain.{ContractTypeId, GetActiveContractsRequest, JwtPayload, RefreshCacheRequest}
+import com.daml.http.domain.{
+  ContractTypeId,
+  GetActiveContractsRequest,
+  JwtPayload,
+  RefreshCacheRequest,
+}
 import ContractTypeId.toLedgerApiValue
 import com.daml.http.json.JsonProtocol.LfValueCodec
 import com.daml.http.query.ValuePredicate
@@ -325,7 +330,9 @@ class ContractsService(
               val response: Source[Error \/ BeginBookmark[domain.Offset], NotUsed] = {
                 val futureValue =
                   dao
-                    .transact(fetchService.fetchAndRefreshCache(jwt, ledgerId, ledgerEnd, optOffsetToUpdate))
+                    .transact(
+                      fetchService.fetchAndRefreshCache(jwt, ledgerId, ledgerEnd, optOffsetToUpdate)
+                    )
                     .unsafeToFuture()
                 Source.future(futureValue).mapConcat(identity).map(\/.right)
               }
