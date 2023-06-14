@@ -84,6 +84,7 @@ private class ContractsFetch(
         absEnd: Terminates.AtAbsolute,
     ): ConnectionIO[A] = for {
       bb <- tickFetch(fetchToAbsEnd(fetchContext, fetchTemplateIds, absEnd))
+      a <- within(bb)
       // fetchTemplateIds can be a subset of templateIds (or even empty),
       // but we only get away with that by checking _all_ of templateIds,
       // which can then indicate that a larger set than fetchTemplateIds
@@ -108,7 +109,7 @@ private class ContractsFetch(
               )
             )
         },
-        within(bb),
+        fconn.pure(a),
       )
     } yield retriedA
 
