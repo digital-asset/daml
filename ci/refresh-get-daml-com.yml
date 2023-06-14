@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 jobs:
-- job: get-daml-com
+- job: get_daml_com
   condition: eq(variables['Build.SourceBranchName'], 'main')
   pool:
     name: 'ubuntu_20_04'
