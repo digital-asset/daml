@@ -167,7 +167,7 @@ private[http] final class ContractList(
         ).run { implicit lc =>
           logger.debug("Starting refresh cache to the latest offset")
           contractsService
-            .refreshCache(jwt, jwtPayload)
+            .refreshCache(jwt, jwtPayload, cmd)
             .map(
               domain.SyncResponse.covariant.map(_)(
                 _.via(handleSourceFailure)

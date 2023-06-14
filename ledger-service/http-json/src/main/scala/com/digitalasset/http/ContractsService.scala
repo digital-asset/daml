@@ -10,7 +10,7 @@ import akka.stream.Materializer
 import com.daml.lf
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.dbbackend.ContractDao
-import com.daml.http.domain.{ContractTypeId, GetActiveContractsRequest, JwtPayload}
+import com.daml.http.domain.{ContractTypeId, GetActiveContractsRequest, JwtPayload, RefreshCacheRequest}
 import ContractTypeId.toLedgerApiValue
 import com.daml.http.json.JsonProtocol.LfValueCodec
 import com.daml.http.query.ValuePredicate
@@ -310,11 +310,13 @@ class ContractsService(
   def refreshCache(
       jwt: Jwt,
       jwtPayload: JwtPayload,
+      refreshCacheRequest: RefreshCacheRequest,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpJsonApiMetrics,
   ): Future[SearchResult[Error \/ BeginBookmark[domain.Offset]]] = {
     val ledgerId = toLedgerId(jwtPayload.ledgerId)
+    val optOffsetToUpdate = refreshCacheRequest.offset
     getTermination(jwt, ledgerId)(lc).map { optLedgerEnd =>
       optLedgerEnd.cata(
         { ledgerEnd =>
@@ -323,7 +325,7 @@ class ContractsService(
               val response: Source[Error \/ BeginBookmark[domain.Offset], NotUsed] = {
                 val futureValue =
                   dao
-                    .transact(fetchService.fetchAndRefreshCache(jwt, ledgerId, ledgerEnd))
+                    .transact(fetchService.fetchAndRefreshCache(jwt, ledgerId, ledgerEnd, optOffsetToUpdate))
                     .unsafeToFuture()
                 Source.future(futureValue).mapConcat(identity).map(\/.right)
               }

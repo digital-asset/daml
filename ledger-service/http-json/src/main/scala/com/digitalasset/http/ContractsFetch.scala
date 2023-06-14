@@ -256,6 +256,7 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       ledgerEnd: Terminates.AtAbsolute,
+      optOffsetToUpdate: Option[domain.Offset]
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -272,7 +273,7 @@ private class ContractsFetch(
       metrics.Db.warmCache,
     ) {
       for {
-        allOffsets <- queries.allOffsetsInformation
+        allOffsets <- queries.allOffsetsInformation(optOffsetToUpdate.map(_.unwrap))
         filteredTemplateInfoAndOffset <-
           allOffsets
             .map { case (templateId, partyOffsetNonEmpty) =>

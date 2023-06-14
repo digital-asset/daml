@@ -194,13 +194,14 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
                       AND template_entity_name = $entityName)""".query[SurrogateTpId].unique
   } yield tpid
 
-  final def allOffsetsInformation(implicit
+  final def allOffsetsInformation(optOffsetToUpdate: Option[String])(implicit
       log: LogHandler
   ): ConnectionIO[Map[SurrogateTpId, NonEmpty[Vector[(String, String)]]]] = {
-
+    val optionalFilterOffset = optOffsetToUpdate.map(offset => fr"last_offset < $offset")
     val allOffsetsQuery = sql"""
         SELECT tpid, party, last_offset
             FROM $ledgerOffsetTableName
+            ${Fragments.whereAndOpt(optionalFilterOffset)}
         """
     allOffsetsQuery
       .query[(SurrogateTpId, String, String)]
