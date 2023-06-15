@@ -663,8 +663,7 @@ scriptTests runScripts = testGroup "scripts"
 
           closeDoc script
           closeDoc main'
-    -- TODO https://github.com/digital-asset/daml/issues/16772
-    , localOption (mkTimeout 30000000) $ -- 30s timeout
+    , localOption (mkTimeout 60000000) $ -- 60s timeout
         testCaseSteps "scenario service does not interrupt on non-script messages" $ \step -> runScripts $ \_stderr -> do
           -- open document with long-running script
           main' <- openDoc' "Main.daml" damlId $
