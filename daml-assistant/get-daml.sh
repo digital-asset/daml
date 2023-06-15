@@ -9,7 +9,6 @@
 # This will overwrite any existing installation in ~/.daml
 # For more information please visit https://daml.com/ and https://docs.daml.com/
 #
-# Testing update.
 
 #
 # USAGE:
