@@ -1104,6 +1104,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
   Command DocTest Nothing effect
   where
     effect = do
+      putStrLn "BISECT START"
       let files' = map toNormalizedFilePath' files
           packageFlag =
             ExposePackage
@@ -1128,6 +1129,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
         , optMbPackageVersion = Nothing
         }
 
+      putStrLn "BISECT MIDDLE"
       -- We don’t add a logger here since we will otherwise emit logging messages twice.
       importPaths <-
         if importSource
@@ -1144,7 +1146,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
         { optImportPath = importPaths <> optImportPath opts
         , optHaddock = Haddock True
         }
-
+      putStrLn "BISECT END"
       withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
           docTest ideState files'
 
@@ -1223,12 +1225,9 @@ main = do
     let args = cliArgs ++ damlYamlArgs
         (errMsgs, parseResult) = parse args
     Command _ _ io <- handleParseResult parseResult
-    putStrLn "BISECT START"
     forM_ errMsgs $ \msg -> do
         hPutStrLn stderr msg
-    putStrLn "BISECT MIDDLE"
     withProgName "damlc" io
-    putStrLn "BISECT END"
 
 -- | Commands for which we add the args from daml.yaml build-options.
 cmdUseDamlYamlArgs :: CommandName -> Bool
