@@ -83,6 +83,7 @@ import SdkVersion
 createProjectPackageDb :: NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
 createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefixes
   = do
+    putStrLn "BISECT START"
     (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot depsDir
     loggerH <- getLogger opts "package-db"
     when needsReinitalization $ do
@@ -136,6 +137,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
       Logger.logDebug loggerH "Building dependency package graph"
 
+      putStrLn "BISECT MIDDLE"
       let
         (depGraph, vertexToNode) = buildLfPackageGraph BuildLfPackageGraphArgs
           { builtinDeps = builtinDependenciesIds
@@ -216,6 +218,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
         -- issues during SDk upgrades. Once we have a more clever mechanism than
         -- reinitializing everything, we probably want to change this.
         removePathForcibly dbPath
+        putStrLn "BISECT END"
         createDirectoryIfMissing True $ dbPath </> "package.conf.d"
 
 -- | Compute the hash over all dependencies and compare it to the one stored in the metadata file in
