@@ -1104,13 +1104,13 @@ execDocTest opts scriptDar (ImportSource importSource) files =
   Command DocTest Nothing effect
   where
     effect = do
-      putStrLn "BISECT START"
       let files' = map toNormalizedFilePath' files
           packageFlag =
             ExposePackage
               ("--package daml-script-" <> SdkVersion.sdkPackageVersion)
               (UnitIdArg $ stringToUnitId $ "daml-script-" <> SdkVersion.sdkPackageVersion)
               (ModRenaming True [])
+      putStrLn "BISECT START"
 
       logger <- getLogger opts "doctest"
 
@@ -1120,8 +1120,10 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       -- but the effort to build this, combined with the low number of users of this feature, as well as most projects
       -- already using daml-script has led us to leave this as is. We'll fix this if someone is affected and notifies us.
       installDependencies "." opts (PackageSdkVersion SdkVersion.sdkVersion) [scriptDar] []
+      putStrLn "BISECT MIDDLE"
       createProjectPackageDb "." opts mempty
 
+      putStrLn "BISECT END"
       opts <- pure opts
         { optPackageDbs = projectPackageDatabase : optPackageDbs opts
         , optPackageImports = packageFlag : optPackageImports opts
@@ -1129,7 +1131,6 @@ execDocTest opts scriptDar (ImportSource importSource) files =
         , optMbPackageVersion = Nothing
         }
 
-      putStrLn "BISECT MIDDLE"
       -- We don’t add a logger here since we will otherwise emit logging messages twice.
       importPaths <-
         if importSource
@@ -1146,7 +1147,6 @@ execDocTest opts scriptDar (ImportSource importSource) files =
         { optImportPath = importPaths <> optImportPath opts
         , optHaddock = Haddock True
         }
-      putStrLn "BISECT END"
       withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
           docTest ideState files'
 
