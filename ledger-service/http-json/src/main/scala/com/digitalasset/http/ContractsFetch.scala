@@ -272,19 +272,20 @@ private class ContractsFetch(
       metrics.Db.warmCache,
     ) {
       for {
-        allOffsets <- queries.allOffsetsInformation(ledgerOffset.unwrap, optOffsetToUpdate.map(_.unwrap))
+        allOffsets <- queries.allOffsetsInformation(
+          ledgerOffset.unwrap,
+          optOffsetToUpdate.map(_.unwrap),
+        )
         filteredTemplateInfoAndOffset =
-          allOffsets
-            .map { case (_, partyOffsetNonEmpty) =>
-                partyOffsetNonEmpty.map { case (partyId, offset, packageId, moduleName, entityName) =>
-                  type L[a] = (a, domain.Offset)
-                  (
-                    ContractTypeId.Template(packageId, moduleName, entityName),
-                    domain.Party.subst[L, String](domain.Offset.tag.subst((partyId, offset)))
-                  )
-                }
+          allOffsets.map { case (_, partyOffsetNonEmpty) =>
+            partyOffsetNonEmpty.map { case (partyId, offset, packageId, moduleName, entityName) =>
+              type L[a] = (a, domain.Offset)
+              (
+                ContractTypeId.Template(packageId, moduleName, entityName),
+                domain.Party.subst[L, String](domain.Offset.tag.subst((partyId, offset))),
+              )
             }
-            .toList
+          }.toList
         partiesOffsets = filteredTemplateInfoAndOffset.map(_.toSet.map(_._2))
         templateIds = filteredTemplateInfoAndOffset.flatMap(_.toSet.map(_._1))
 
@@ -300,7 +301,9 @@ private class ContractsFetch(
           )
         }.sequence
       } yield {
-        logger.debug(s"updated the cache for the follow templates: ${templateIds.mkString("",", ", "]")}")
+        logger.debug(
+          s"updated the cache for the follow templates: ${templateIds.mkString("", ", ", "]")}"
+        )
         result
       }
     }

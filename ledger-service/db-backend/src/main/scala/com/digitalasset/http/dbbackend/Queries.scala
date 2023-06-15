@@ -195,8 +195,10 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   } yield tpid
 
   final def allOffsetsInformation(ledgerOffset: String, optOffsetToUpdate: Option[String])(implicit
-                                                                                           log: LogHandler
-  ): ConnectionIO[Map[SurrogateTpId, NonEmpty[Vector[(String, String, String, String, String)]]]] = {
+      log: LogHandler
+  ): ConnectionIO[
+    Map[SurrogateTpId, NonEmpty[Vector[(String, String, String, String, String)]]]
+  ] = {
     val optionalFilterOffset = optOffsetToUpdate.map(offset => fr"t.last_offset < $offset")
     val allOffsetsQuery =
       sql"""

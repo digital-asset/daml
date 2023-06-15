@@ -333,7 +333,8 @@ class ContractsService(
                       fetchService.fetchAndRefreshCache(jwt, ledgerId, ledgerEnd, optOffsetToUpdate)
                     )
                     .unsafeToFuture()
-                Source.future(futureValue)
+                Source
+                  .future(futureValue)
                   .mapConcat(identity)
                   .map(x => \/.right(domain.RefreshCacheResult(x.toOption)))
               }
