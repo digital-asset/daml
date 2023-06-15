@@ -1082,29 +1082,29 @@ cliArgsFromDamlYaml mbProjectOpts = do
 main :: IO ()
 main = do
     -- We need this to ensure that logs are flushed on SIGTERM.
-    putStrLn "BISECT START"
     installSignalHandlers
     -- Save the runfiles environment to work around
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
     setRunfilesEnv
     numProcessors <- getNumProcessors
-    putStrLn "BISECT MIDDLE"
     let parse = ParseArgs.lax (parserInfo numProcessors)
     cliArgs <- getArgs
     let (_, tempParseResult) = parse cliArgs
     -- Note: need to parse given args first to decide whether we need to add
     -- args from daml.yaml.
     Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
-    putStrLn "BISECT END"
+    putStrLn "BISECT START"
     damlYamlArgs <- if cmdUseDamlYamlArgs cmd
       then cliArgsFromDamlYaml mbProjectOpts
       else pure []
     let args = cliArgs ++ damlYamlArgs
         (errMsgs, parseResult) = parse args
+    putStrLn "BISECT MIDDLE"
     Command _ _ io <- handleParseResult parseResult
     forM_ errMsgs $ \msg -> do
         hPutStrLn stderr msg
     withProgName "damlc" io
+    putStrLn "BISECT END"
 
 -- | Commands for which we add the args from daml.yaml build-options.
 cmdUseDamlYamlArgs :: CommandName -> Bool
