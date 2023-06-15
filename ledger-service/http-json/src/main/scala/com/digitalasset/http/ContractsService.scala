@@ -22,7 +22,6 @@ import com.daml.http.query.ValuePredicate
 import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.fetchcontracts.util.{
   AbsoluteBookmark,
-  BeginBookmark,
   ContractStreamStep,
   InsertDeleteStep,
   LedgerBegin,
@@ -319,7 +318,7 @@ class ContractsService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpJsonApiMetrics,
-  ): Future[SearchResult[Error \/ BeginBookmark[domain.Offset]]] = {
+  ): Future[SearchResult[Error \/ domain.RefreshCacheResult]] = {
     val ledgerId = toLedgerId(jwtPayload.ledgerId)
     val optOffsetToUpdate = refreshCacheRequest.offset
     getTermination(jwt, ledgerId)(lc).map { optLedgerEnd =>
@@ -327,14 +326,16 @@ class ContractsService(
         { ledgerEnd =>
           daoAndFetch.cata(
             { case (dao, fetchService) =>
-              val response: Source[Error \/ BeginBookmark[domain.Offset], NotUsed] = {
+              val response: Source[Error \/ domain.RefreshCacheResult, NotUsed] = {
                 val futureValue =
                   dao
                     .transact(
                       fetchService.fetchAndRefreshCache(jwt, ledgerId, ledgerEnd, optOffsetToUpdate)
                     )
                     .unsafeToFuture()
-                Source.future(futureValue).mapConcat(identity).map(\/.right)
+                Source.future(futureValue)
+                  .mapConcat(identity)
+                  .map(x => \/.right(domain.RefreshCacheResult(x.toOption)))
               }
               domain.OkResponse(response)
             },

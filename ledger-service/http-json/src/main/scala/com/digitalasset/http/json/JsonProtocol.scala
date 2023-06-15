@@ -575,6 +575,9 @@ object JsonProtocol extends JsonProtocolLow {
   implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
     jsonFormat3(domain.ExerciseResponse[JsValue])
 
+  implicit val RefreshCacheResultFormat: RootJsonFormat[domain.RefreshCacheResult] =
+    jsonFormat1(domain.RefreshCacheResult)
+
   implicit val CreateCommandResponseFormat: RootJsonFormat[domain.CreateCommandResponse[JsValue]] =
     jsonFormat8(domain.CreateCommandResponse[JsValue])
 

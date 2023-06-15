@@ -1774,9 +1774,19 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   "refresh cache endpoint" - {
     "should return latest offset when the cache is outdated" in withHttpService { fixture =>
       import fixture.encoder
+      def archiveIou(headers: List[HttpHeader], contractId: domain.ContractId) = {
+        val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId)
+        val exercise = archiveCommand(reference)
+        val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
+        fixture
+          .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
+          .parseResponse[domain.ExerciseResponse[JsValue]]
+          .flatMap(inside(_) { case domain.OkResponse(exercisedResponse, _, StatusCodes.OK) =>
+            assertExerciseResponseArchivedContract(exercisedResponse, exercise)
+          })
+      }
       for {
-        res1 <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        (alice, aliceHeaders) = res1
+        (alice, aliceHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
         searchDataSet = genSearchDataSet(alice)
         contractIds <- searchExpectOk(
           searchDataSet,
@@ -1792,17 +1802,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           acl.map(_.contractId)
         }
 
-        _ <- contractIds.traverse { contractId =>
-          val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId)
-          val exercise = archiveCommand(reference)
-          val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
-          fixture
-            .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, aliceHeaders)
-            .parseResponse[domain.ExerciseResponse[JsValue]]
-            .flatMap(inside(_) { case domain.OkResponse(exercisedResponse, _, StatusCodes.OK) =>
-              assertExerciseResponseArchivedContract(exercisedResponse, exercise)
-            })
-        }
+        _ <- contractIds.traverse(archiveIou(aliceHeaders, _))
 
         res <-
           fixture
@@ -1811,7 +1811,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
       } yield {
         inside(res) { case domain.OkResponse(s, _, StatusCodes.OK) =>
-          s.toString shouldBe """["00000000000000000c"]"""
+          assert(s.toString.matches("""\[\{\"refreshedAt\":\"[0-9a-f]*\"\}\]"""))
         }
       }
     }

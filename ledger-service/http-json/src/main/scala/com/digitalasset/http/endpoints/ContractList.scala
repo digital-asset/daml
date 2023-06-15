@@ -178,7 +178,7 @@ private[http] final class ContractList(
                     case x @ \/-(_) =>
                       logger.debug(s"Successfully refreshed cache")
                       x.flatMap(
-                        toJsValue[com.daml.fetchcontracts.util.BeginBookmark[domain.Offset]](_)
+                        toJsValue[domain.RefreshCacheResult](_)
                       )
                   }
               )

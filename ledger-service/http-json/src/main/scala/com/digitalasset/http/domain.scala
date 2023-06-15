@@ -457,6 +457,8 @@ package domain {
       completionOffset: CompletionOffset,
   )
 
+  final case class RefreshCacheResult(refreshedAt: Option[Offset])
+
   object PartyDetails {
     def fromLedgerApi(p: com.daml.ledger.api.domain.PartyDetails): PartyDetails =
       PartyDetails(Party(p.party), p.displayName, p.isLocal)

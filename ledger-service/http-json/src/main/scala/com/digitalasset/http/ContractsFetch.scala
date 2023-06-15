@@ -263,46 +263,32 @@ private class ContractsFetch(
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpJsonApiMetrics,
   ): ConnectionIO[List[BeginBookmark[domain.Offset]]] = {
-    import domain.Offset._
     import sjd.q.queries
     import cats.syntax.traverse._
 
     val ledgerOffset = ledgerEnd.toDomain
     debugLogActionWithMetrics(
-      s"cache refresh until ledger offset: $ledgerOffset",
+      s"cache refresh for templates older than ledger offset: $ledgerOffset",
       metrics.Db.warmCache,
     ) {
       for {
-        allOffsets <- queries.allOffsetsInformation(optOffsetToUpdate.map(_.unwrap))
-        filteredTemplateInfoAndOffset <-
+        allOffsets <- queries.allOffsetsInformation(ledgerOffset.unwrap, optOffsetToUpdate.map(_.unwrap))
+        filteredTemplateInfoAndOffset =
           allOffsets
-            .map { case (templateId, partyOffsetNonEmpty) =>
-              (
-                templateId,
-                partyOffsetNonEmpty.map { tuple =>
+            .map { case (_, partyOffsetNonEmpty) =>
+                partyOffsetNonEmpty.map { case (partyId, offset, packageId, moduleName, entityName) =>
                   type L[a] = (a, domain.Offset)
-                  domain.Party.subst[L, String](domain.Offset.tag.subst(tuple))
-                },
-              )
-            }
-            .collect {
-              case (templateId, partyOffsetNonEmpty) if {
-                    val startOffset = partyOffsetNonEmpty.view.toMap.values.toList.minimum
-                      .cata(AbsoluteBookmark(_), LedgerBegin)
-                    startOffset != AbsoluteBookmark(ledgerOffset)
-                  } =>
-                queries
-                  .getTemplateInfoBySurrogateTpId(templateId)
-                  .map { case (packageId, moduleName, entityName) =>
-                    (
-                      ContractTypeId.Template(packageId, moduleName, entityName),
-                      partyOffsetNonEmpty,
-                    )
-                  }
+                  (
+                    ContractTypeId.Template(packageId, moduleName, entityName),
+                    domain.Party.subst[L, String](domain.Offset.tag.subst((partyId, offset)))
+                  )
+                }
             }
             .toList
-            .sequence
-        result <- filteredTemplateInfoAndOffset.map { case (templateId, partyOffsetNonEmpty) =>
+        partiesOffsets = filteredTemplateInfoAndOffset.map(_.toSet.map(_._2))
+        templateIds = filteredTemplateInfoAndOffset.flatMap(_.toSet.map(_._1))
+
+        result <- (templateIds zip partiesOffsets).map { case (templateId, partyOffsetNonEmpty) =>
           val parties: domain.PartySet = partyOffsetNonEmpty.toSet.map(_._1)
           val fetchContext = FetchContext(jwt, ledgerId, parties)
           contractsFromOffsetIo(
@@ -313,7 +299,10 @@ private class ContractsFetch(
             ledgerEnd,
           )
         }.sequence
-      } yield result
+      } yield {
+        logger.debug(s"updated the cache for the follow templates: ${templateIds.mkString("",", ", "]")}")
+        result
+      }
     }
   }
 

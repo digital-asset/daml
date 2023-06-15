@@ -194,36 +194,25 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
                       AND template_entity_name = $entityName)""".query[SurrogateTpId].unique
   } yield tpid
 
-  final def allOffsetsInformation(optOffsetToUpdate: Option[String])(implicit
-      log: LogHandler
-  ): ConnectionIO[Map[SurrogateTpId, NonEmpty[Vector[(String, String)]]]] = {
-    val optionalFilterOffset = optOffsetToUpdate.map(offset => fr"last_offset < $offset")
-    val allOffsetsQuery = sql"""
-        SELECT tpid, party, last_offset
-            FROM $ledgerOffsetTableName
-            ${Fragments.whereAndOpt(optionalFilterOffset)}
+  final def allOffsetsInformation(ledgerOffset: String, optOffsetToUpdate: Option[String])(implicit
+                                                                                           log: LogHandler
+  ): ConnectionIO[Map[SurrogateTpId, NonEmpty[Vector[(String, String, String, String, String)]]]] = {
+    val optionalFilterOffset = optOffsetToUpdate.map(offset => fr"t.last_offset < $offset")
+    val allOffsetsQuery =
+      sql"""
+        SELECT t.tpid, t.party, t.last_offset, o.package_id, o.template_module_name, o.template_entity_name
+            FROM $ledgerOffsetTableName t
+            JOIN $templateIdTableName o
+            ON t.tpid = o.tpid
+            ${Fragments.whereAndOpt(optionalFilterOffset, Some(fr"t.last_offset != $ledgerOffset"))}
         """
     allOffsetsQuery
-      .query[(SurrogateTpId, String, String)]
+      .query[(SurrogateTpId, String, String, String, String, String)]
       .to[Vector]
       .map {
         _.groupBy1(_._1)
-          .transform((_, tpos) => tpos.map(x => (x._2, x._3)))
-//          .transform((_, tpos) => tpos.view.map(x => (x._2, x._3)).toMap)
+          .transform((_, tpos) => tpos.map(x => (x._2, x._3, x._4, x._5, x._6)))
       }
-  }
-
-  final def getTemplateInfoBySurrogateTpId(surrogateTpId: SurrogateTpId)(implicit
-      log: LogHandler
-  ): ConnectionIO[(String, String, String)] = {
-    val getTemplateInfoQuery = sql"""
-        SELECT package_id, template_module_name, template_entity_name
-            FROM $templateIdTableName
-            WHERE tpid = $surrogateTpId
-        """
-    getTemplateInfoQuery
-      .query[(String, String, String)]
-      .unique
   }
 
   protected def insertTemplateIdIfNotExists(
