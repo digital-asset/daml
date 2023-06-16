@@ -197,23 +197,23 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   final def allOffsetsInformation(ledgerOffset: String, optOffsetToUpdate: Option[String])(implicit
       log: LogHandler
   ): ConnectionIO[
-    Map[SurrogateTpId, NonEmpty[Vector[(String, String, String, String, String)]]]
+    Map[(String, String, String), NonEmpty[Vector[(String, String)]]]
   ] = {
-    val optionalFilterOffset = optOffsetToUpdate.map(offset => fr"t.last_offset < $offset")
+    val optionalFilterOffset = optOffsetToUpdate.map(offset => fr"o.last_offset < $offset")
     val allOffsetsQuery =
       sql"""
-        SELECT t.tpid, t.party, t.last_offset, o.package_id, o.template_module_name, o.template_entity_name
-            FROM $ledgerOffsetTableName t
-            JOIN $templateIdTableName o
+        SELECT o.party, o.last_offset, t.package_id, t.template_module_name, t.template_entity_name
+            FROM $ledgerOffsetTableName o
+            JOIN $templateIdTableName t
             ON t.tpid = o.tpid
-            ${Fragments.whereAndOpt(optionalFilterOffset, Some(fr"t.last_offset != $ledgerOffset"))}
+            ${Fragments.whereAndOpt(optionalFilterOffset, Some(fr"o.last_offset != $ledgerOffset"))}
         """
     allOffsetsQuery
-      .query[(SurrogateTpId, String, String, String, String, String)]
+      .query[(String, String, String, String, String)]
       .to[Vector]
       .map {
-        _.groupBy1(_._1)
-          .transform((_, tpos) => tpos.map(x => (x._2, x._3, x._4, x._5, x._6)))
+        _.groupBy1(x => (x._3, x._4, x._5))
+          .transform((_, tpos) => tpos.map(x => (x._1, x._2)))
       }
   }
 
