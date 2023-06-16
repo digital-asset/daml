@@ -17,3 +17,6 @@ breaking:
     #
     # We rely in particular on fields not getting renamed in `UpdateXXX` calls that use a `FieldMask`
     # to select the fields to update, see https://github.com/protocolbuffers/protobuf/blob/main/src/google/protobuf/field_mask.proto
+
+  ignore:
+    - com/daml/ledger/api/v2/reassignment.proto
