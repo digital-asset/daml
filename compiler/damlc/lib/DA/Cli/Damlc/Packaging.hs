@@ -434,17 +434,17 @@ settings =
 -- Register a single dar dependency in the package database
 registerDepInPkgDb :: FilePath -> FilePath -> FilePath -> IO ()
 registerDepInPkgDb dalfPath depsPath dbPath = do
-  putStrLn "BISECT START"
   let dir = takeDirectory dalfPath
+  putStrLn "BISECT START"
   files <- listFilesRecursive dir
-  copyFiles dir [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ] dbPath
   putStrLn "BISECT MIDDLE"
+  copyFiles dir [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ] dbPath
+  putStrLn "BISECT END"
   copyFiles dir [f | f <- files, "conf" `isExtensionOf` f] (dbPath </> "package.conf.d")
   copyFiles depsPath [dalfPath] dbPath
   -- TODO: is it possible to register a package individually instead of recaching the entire ghc-pkg db?
   -- https://github.com/digital-asset/daml/issues/13320
   res <- recachePkgDb dbPath
-  putStrLn "BISECT END"
   return res
 
 copyFiles :: FilePath -> [FilePath] -> FilePath -> IO ()
