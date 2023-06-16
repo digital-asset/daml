@@ -6,11 +6,11 @@
     "architecture": {
         "64bit": {
             "url": "https://download.sourceforge.net/project/sevenzip/7-Zip/19.00/7z1900-x64.msi",
-            "hash": "a7803233eedb6a4b59b3024ccf9292a6fffb94507dc998aa67c5b745d197a5dc"
+            "hash": "07803233eedb6a4b59b3024ccf9292a6fffb94507dc998aa67c5b745d197a5dc"
         },
         "32bit": {
             "url": "https://download.sourceforge.net/project/sevenzip/7-Zip/19.00/7z1900.msi",
-            "hash": "b49d55a52bc0eab14947c8982c413d9be141c337da1368a24aa0484cbb5e89cd"
+            "hash": "049d55a52bc0eab14947c8982c413d9be141c337da1368a24aa0484cbb5e89cd"
         }
     },
     "extract_dir": "Files\\7-Zip",
