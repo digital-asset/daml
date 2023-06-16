@@ -435,11 +435,10 @@ settings =
 registerDepInPkgDb :: FilePath -> FilePath -> FilePath -> IO ()
 registerDepInPkgDb dalfPath depsPath dbPath = do
   let dir = takeDirectory dalfPath
-  putStrLn "BISECT START"
   files <- listFilesRecursive dir
-  putStrLn "BISECT MIDDLE"
+  putStrLn $ "BISECT into copyFiles -- " <> dir <> " -- " <> (show [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ]) <> " -- " <> dbPath
   copyFiles dir [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ] dbPath
-  putStrLn "BISECT END"
+  putStrLn $ "BISECT out of copyFiles -- " <> dir <> " -- " <> (show [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ]) <> " -- " <> dbPath
   copyFiles dir [f | f <- files, "conf" `isExtensionOf` f] (dbPath </> "package.conf.d")
   copyFiles depsPath [dalfPath] dbPath
   -- TODO: is it possible to register a package individually instead of recaching the entire ghc-pkg db?
@@ -448,10 +447,14 @@ registerDepInPkgDb dalfPath depsPath dbPath = do
 
 copyFiles :: FilePath -> [FilePath] -> FilePath -> IO ()
 copyFiles from srcs to = do
+      putStrLn "BISECT START"
       forM_ srcs $ \src -> do
+        putStrLn $ "BISECT MIDDLE -- " <> src
         let fp = to </> makeRelative from src
         createDirectoryIfMissing True (takeDirectory fp)
-        copyFile src fp
+        res <- copyFile src fp
+        putStrLn "BISECT END"
+        return res
 
 recachePkgDb :: FilePath -> IO ()
 recachePkgDb dbPath = do
