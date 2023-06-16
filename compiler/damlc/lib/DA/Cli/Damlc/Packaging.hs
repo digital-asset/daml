@@ -451,7 +451,9 @@ copyFiles from srcs to = do
       forM_ srcs $ \src -> do
         putStrLn $ "BISECT MIDDLE -- " <> src
         let fp = to </> makeRelative from src
+        putStrLn $ "ploup -- " <> to
         createDirectoryIfMissing True (takeDirectory fp)
+        putStrLn $ "created dir -- " <> (takeDirectory fp)
         res <- copyFile src fp
         putStrLn "BISECT END"
         return res
