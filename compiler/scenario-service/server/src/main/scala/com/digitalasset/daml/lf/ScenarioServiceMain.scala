@@ -143,6 +143,7 @@ object ScriptStream {
         }
         internal.onNext(message)
         internal.onCompleted()
+        println(f"Script finished.")
       }
 
     override def sendStatus(status: ScenarioStatus): Unit = {}
@@ -166,6 +167,7 @@ object ScriptStream {
         }
         internal.onNext(message)
         internal.onCompleted()
+        println(f"Script finished.")
       }
 
     override def sendStatus(status: ScenarioStatus): Unit = internal.synchronized {
@@ -268,9 +270,7 @@ class ScenarioService(
         println(f"Received error $t")
       }
 
-      override def onCompleted(): Unit = {
-        println("Completed.")
-      }
+      override def onCompleted(): Unit = {}
     }
   }
 
