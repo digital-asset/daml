@@ -14,7 +14,12 @@ In the following use-case simulations, we shall:
 This use-case assumes that the :doc:`development instructions <development.rst>` have been followed to setup your development and simulation environment.
 
 .. note::
-  By default, we use the open source version of Canton in our Scalatest based simulations. This version of Canton is single threaded and so has different performance characteristics to the enterprise version of Canton.
+  By default, we use the open source version of Canton in our Scalatest based simulations. This version of Canton performs:
+
+  - sequential transaction processing
+  - and, due to some hard coded resource limits, is more likely to rate limit ledger command submissions.
+
+  The enterprise version of Canton does not have these limitations.
 
 Our simulation use-cases will use the Daml ``Cat`` template:
 
@@ -48,6 +53,9 @@ At runtime, triggers process two types of workload:
   - completion events are processed as part of managing asynchronous ledger API command submissions
   - and transaction events (i.e. ledger contract create and archive events) are processed to ensure that the internal trigger ACS view remains in-sync with the ledger ACS view.
 
+.. note::
+  To aid debugging trigger code, it is often helpful to ensure that these 2 types of workloads (i.e. user and internal) are separated - that way a developer may better detect issues with user vs internal trigger processing. For this use case we achieve this by ensuring that all user processing occurs only as a result of ``Heartbeat`` messages.
+
 Querying the trigger ACS data structure has O(n) complexity - i.e. it is linear in the size of the trigger ACS. So, allowing the trigger ACS to become large risks:
 
 - increasing the time to perform user processing, as user code might query the ACS
@@ -62,7 +70,6 @@ Running Trigger Simulations and Analysing Data
 In order to explore the impact that unconstrained ACS growth has upon a trigger, we shall run and analyse the data from 3 trigger simulations as follows:
 
 .. code-block:: bash
-  set -e
   for NAME in Slow Medium Fast; do
     SIMULATION="${NAME}ACSGrowth"
     TITLE="${NAME} ACS Growth"

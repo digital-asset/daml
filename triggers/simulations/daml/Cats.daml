@@ -24,13 +24,13 @@ breedingPeriod : RelTime
 breedingPeriod = seconds 1
 
 pettingRate : Int
-pettingRate = 17
+pettingRate = 10
 
 pettingPeriod : RelTime
 pettingPeriod = seconds 1
 
 cullingRate : Int
-cullingRate = 25
+cullingRate = 10
 
 cullingPeriod : RelTime
 cullingPeriod = seconds 1

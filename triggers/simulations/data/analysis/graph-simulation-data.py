@@ -73,12 +73,16 @@ def plot_submission_data(data, triggers, fig, line):
         fig.update_layout(barmode="stack")
         for status_index, status in enumerate(status_codes):
             df = pd.DataFrame([ d for d in submission_data if d['completion-status-code'] == completion_labels(status)])
-            if not df.empty:
-                # FIXME: need to manage scenario where some completion codes are not observed by a trigger
-                if status_index == 0:
-                    fig.add_trace(go.Bar(x=df['timestamp'], y=df['submissions'], customdata=df['label'], width=[ bar_width for _ in df['timestamp'] ], marker=dict(color=colours[status_index]), name=completion_labels(status), hovertemplate="<br>Submission/Completion times (s):<br>%{customdata}", legendgroup=f'{completion_labels(status)}-group', legendgrouptitle_text='Completion Status', showlegend=index==0), secondary_y=False, col=index+1, row=line)
+            if status_index == 0:
+                if df.empty:
+                    fig.add_trace(go.Bar(x=[0], y=[0], marker=dict(color=colours[status_index]), name=completion_labels(status), hovertemplate="<br>Submission/Completion times (s):<br>count 0", legendgroup=f'{completion_labels(status)}-group', legendgrouptitle_text='Completion Status', showlegend=index==0), secondary_y=False, col=index+1, row=line)
                 else:
                     fig.add_trace(go.Bar(x=df['timestamp'], y=df['submissions'], customdata=df['label'], width=[ bar_width for _ in df['timestamp'] ], marker=dict(color=colours[status_index]), name=completion_labels(status), hovertemplate="<br>Submission/Completion times (s):<br>%{customdata}", legendgroup=f'{completion_labels(status)}-group', legendgrouptitle_text='Completion Status', showlegend=index==0), secondary_y=False, col=index+1, row=line)
+            else:
+                if df.empty:
+                    fig.add_trace(go.Bar(x=[0], y=[0], marker=dict(color=colours[status_index]), name=completion_labels(status), hovertemplate="<br>Submission/Completion times (s):<br>count 0", legendgroup=f'{completion_labels(status)}-group', showlegend=index==0), secondary_y=False, col=index+1, row=line)
+                else:
+                    fig.add_trace(go.Bar(x=df['timestamp'], y=df['submissions'], customdata=df['label'], width=[ bar_width for _ in df['timestamp'] ], marker=dict(color=colours[status_index]), name=completion_labels(status), hovertemplate="<br>Submission/Completion times (s):<br>%{customdata}", legendgroup=f'{completion_labels(status)}-group', showlegend=index==0), secondary_y=False, col=index+1, row=line)
 
 
 def plot_resource_data(data, triggers, fig, line):
