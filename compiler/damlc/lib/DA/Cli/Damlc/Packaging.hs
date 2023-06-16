@@ -454,6 +454,7 @@ copyFiles from srcs to = do
         putStrLn $ "ploup -- " <> to
         createDirectoryIfMissing True (takeDirectory fp)
         putStrLn $ "created dir -- " <> takeDirectory fp
+        putStrLn $ "copyFile " <> src <> " " <> fp
         res <- copyFile src fp
         putStrLn "BISECT END"
         return res
