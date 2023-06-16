@@ -95,7 +95,7 @@ main = do
         , regressionTests run
         , includePathTests damlcPath scriptDarPath
         , multiPackageTests damlcPath scriptDarPath
-        , completionTests run
+        , completionTests run runScripts
         , raceTests runScripts
         ]
 
@@ -904,8 +904,9 @@ symbolsTests run =
 
 completionTests
     :: (Session () -> IO ())
+    -> ((Handle -> Session ()) -> IO ())
     -> TestTree
-completionTests run = testGroup "completion"
+completionTests run runScripts = testGroup "completion"
     [ testCase "type signature" $ run $ do
           foo <- openDoc' "Foo.daml" damlId $ T.unlines
               [ "module Foo where"
@@ -947,6 +948,43 @@ completionTests run = testGroup "completion"
             -- crash (before lsp 0.21 it did crash).
             liftIO $ assertBool "Expected completions to be non-empty"
                 (not $ null completions)
+    , testCaseSteps "infix operator has code action and lint" $ \step -> runScripts $ \_stderr -> do
+            foo <- openDoc' "Foo.daml" damlId $ T.unlines
+                [ "module Foo where"
+                , ""
+                , "import Daml.Script"
+                -- , "import DA.Assert ((=/=))"
+                , ""
+                , "main : Script ()"
+                , "main = do"
+                , "  1 =/= 2"
+                , "  assert (1 /= 2)"
+                , "  pure ()"
+                ]
+
+            -- Need to wait for diagnostics twice, as diagnostics get updated in two messages
+            _ <- waitForDiagnostics
+            expectDiagnostics
+                [("Foo.daml", [(DsError, (6, 4), "Variable not in scope: (=/=)")])
+                ,("Foo.daml", [(DsInfo, (7, 2), "Use === for better error messages")])
+                ]
+            liftIO $ step "Got expected diagnostics"
+
+            codeActions <- getAllCodeActions foo
+            liftIO $ do
+                {- HLINT ignore "Use nubOrd" -}
+                case nub codeActions of
+                  [InR uniqueCodeAction]
+                    | uniqueCodeAction ^. title == "import DA.Assert ((=/=))" -> pure ()
+                    | otherwise ->
+                        assertFailure ("Expected code action `import DA.Assert ((=/=))`, instead got " ++ show uniqueCodeAction)
+                  [InL command] ->
+                    assertFailure ("Expected a code action, instead got a command " ++ show command)
+                  [] ->
+                    assertFailure "Expected one unique code action, got no code actions instead."
+                  otherActions ->
+                    assertFailure ("Expected only one unique code action, instead got " ++ show otherActions)
+                step "Got expected single code action, `import DA.Assert ((=/=))`"
     ]
 
 defaultCompletion :: T.Text -> CompletionItem
