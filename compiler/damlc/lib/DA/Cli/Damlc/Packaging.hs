@@ -18,14 +18,14 @@ import Control.Exception.Safe (tryAny)
 import Control.Lens (none, toListOf)
 import Control.Monad.Extra (forM_, fromMaybeM, when)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Maybe (runMaybeT)
 import qualified Control.Monad.Trans.State.Strict as State
 import qualified Data.ByteString as BS
-import Data.Either.Combinators
-import Data.Graph
-import Data.List.Extra
+import Data.Either.Combinators (whenLeft)
+import Data.Graph (Graph, Vertex, graphFromEdges, reachable, topSort, transposeG, vertices)
+import Data.List.Extra ((\\), intercalate, nubSortOn)
 import qualified Data.Map.Strict as MS
-import Data.Maybe
+import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.NameMap as NM
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -34,9 +34,9 @@ import Data.Tuple.Extra (fst3)
 import Development.IDE.Core.Rules (useE, useNoFileE)
 import Development.IDE.Core.Service (runActionSync)
 import Development.IDE.GHC.Util (hscEnv)
-import Development.IDE.Types.Location
+import Development.IDE.Types.Location (NormalizedFilePath, fromNormalizedFilePath, toNormalizedFilePath')
 import "ghc-lib-parser" DynFlags (DynFlags)
-import GHC.Fingerprint
+import GHC.Fingerprint (Fingerprint, fingerprintFingerprints, getFileHash)
 import "ghc-lib-parser" HscTypes as GHC
 import "ghc-lib-parser" Module (UnitId, unitIdString)
 import qualified Module as GHC
@@ -159,7 +159,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       Logger.logDebug loggerH "Registering dependency graph"
 
       putStrLn "BISECT START"
-      putStrLn "BISECT MIDDLE"
       flip State.evalStateT builtinDependencies $ do
         let
           insert unitId dalfPackage = State.modify $ MS.insert unitId dalfPackage
@@ -167,16 +166,20 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
         forM_ (topSort $ transposeG depGraph) $ \vertex -> do
           let (pkgNode, pkgId) = vertexToNode vertex
           case pkgNode of
-            MkStableDependencyPackageNode ->
+            MkStableDependencyPackageNode -> do
+              liftIO $ putStrLn "BISECT MIDDLE1"
               -- stable packages are mapped to the current version of daml-prim/daml-stdlib
               -- so we don’t need to generate interface files for them.
               pure ()
-            MkBuiltinDependencyPackageNode {} ->
+            MkBuiltinDependencyPackageNode {} -> do
+              liftIO $ putStrLn "BISECT MIDDLE2"
               pure ()
             MkDependencyPackageNode DependencyPackageNode {dalf, unitId, dalfPackage} -> do
+              liftIO $ putStrLn "BISECT MIDDLE3"
               liftIO $ registerDepInPkgDb dalf depsDir dbPath
               insert unitId dalfPackage
             MkDataDependencyPackageNode DataDependencyPackageNode {unitId, dalfPackage} -> do
+              liftIO $ putStrLn "BISECT MIDDLE4"
               dependenciesSoFar <- State.get
               let
                 depUnitIds :: [UnitId]
