@@ -445,7 +445,7 @@ registerDepInPkgDb dalfPath depsPath dbPath = do
   -- https://github.com/digital-asset/daml/issues/13320
   res <- recachePkgDb dbPath
   putStrLn "BISECT END"
-  res
+  return res
 
 copyFiles :: FilePath -> [FilePath] -> FilePath -> IO ()
 copyFiles from srcs to = do
