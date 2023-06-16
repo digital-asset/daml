@@ -444,8 +444,7 @@ registerDepInPkgDb dalfPath depsPath dbPath = do
   copyFiles depsPath [dalfPath] dbPath
   -- TODO: is it possible to register a package individually instead of recaching the entire ghc-pkg db?
   -- https://github.com/digital-asset/daml/issues/13320
-  res <- recachePkgDb dbPath
-  return res
+  recachePkgDb dbPath
 
 copyFiles :: FilePath -> [FilePath] -> FilePath -> IO ()
 copyFiles from srcs to = do
