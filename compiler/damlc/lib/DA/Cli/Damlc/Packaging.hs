@@ -158,13 +158,13 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       -- never process a package without first having processed its dependencies.
 
       Logger.logDebug loggerH "Registering dependency graph"
+      putStrLn "BISECT MIDDLE"
 
       flip State.evalStateT builtinDependencies $ do
         let
           insert unitId dalfPackage = State.modify $ MS.insert unitId dalfPackage
 
         forM_ (topSort $ transposeG depGraph) $ \vertex -> do
-          putStrLn "BISECT MIDDLE"
           let (pkgNode, pkgId) = vertexToNode vertex
           case pkgNode of
             MkStableDependencyPackageNode ->
