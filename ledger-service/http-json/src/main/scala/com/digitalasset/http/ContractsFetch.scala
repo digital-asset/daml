@@ -282,7 +282,7 @@ private class ContractsFetch(
               type L[a] = (a, domain.Offset)
               domain.Party.subst[L, String](domain.Offset.tag.subst((partyId, offset)))
             }
-            (ContractTypeId.Template(packageId, moduleName, entityName),a )
+            (ContractTypeId.Template(packageId, moduleName, entityName), a)
           }.toList
 
         result <- filteredTemplateInfoAndOffset.map { case (templateId, partyOffsetNonEmpty) =>
