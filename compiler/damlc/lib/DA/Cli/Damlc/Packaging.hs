@@ -83,7 +83,6 @@ import SdkVersion
 createProjectPackageDb :: NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
 createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefixes
   = do
-    putStrLn "BISECT START"
     (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot depsDir
     loggerH <- getLogger opts "package-db"
     when needsReinitalization $ do
@@ -137,7 +136,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
       Logger.logDebug loggerH "Building dependency package graph"
 
-      putStrLn "BISECT MIDDLE"
       let
         (depGraph, vertexToNode) = buildLfPackageGraph BuildLfPackageGraphArgs
           { builtinDeps = builtinDependenciesIds
@@ -151,6 +149,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
           , Just dalfPkg <- [packageNodeDecodedDalf node]
           ]
 
+      putStrLn "BISECT START"
       validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes dalfsFromAllDependencies)
 
       -- Iterate over the dependency graph in topological order.
@@ -165,6 +164,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
           insert unitId dalfPackage = State.modify $ MS.insert unitId dalfPackage
 
         forM_ (topSort $ transposeG depGraph) $ \vertex -> do
+          putStrLn "BISECT MIDDLE"
           let (pkgNode, pkgId) = vertexToNode vertex
           case pkgNode of
             MkStableDependencyPackageNode ->
@@ -206,6 +206,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
               insert unitId dalfPackage
 
+      putStrLn "BISECT END"
       writeMetadata
           projectRoot
           (PackageDbMetadata mainUnitIds validatedModulePrefixes depsFingerprint)
@@ -218,7 +219,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
         -- issues during SDk upgrades. Once we have a more clever mechanism than
         -- reinitializing everything, we probably want to change this.
         removePathForcibly dbPath
-        putStrLn "BISECT END"
         createDirectoryIfMissing True $ dbPath </> "package.conf.d"
 
 -- | Compute the hash over all dependencies and compare it to the one stored in the metadata file in
