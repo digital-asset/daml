@@ -725,6 +725,12 @@ hTakeUntil handle regex = go
           line <- hGetLine handle
           if pred line then pure (Just line) else go
 
+-- Takes lines from the handle until matching the first pattern `until`. If any
+-- of the lines before the matching line match the second pattern `without`
+-- then fail the test
+-- Useful for cases where we want to assert that some message has been emitted
+-- without a different message being emitted in the interim, e.g. a script
+-- finished without restarts in between.
 assertUntilWithout :: Handle -> T.Text -> T.Text -> IO (Maybe String)
 assertUntilWithout handle until without = go
   where

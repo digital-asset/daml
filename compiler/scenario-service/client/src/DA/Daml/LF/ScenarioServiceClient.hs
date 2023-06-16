@@ -88,7 +88,26 @@ data Handle = Handle
   , hContextId :: IORef LowLevel.ContextId
   -- ^ The root context id, this is mutable so that rather than mutating the context
   -- we can clone it and update the clone which allows us to safely interrupt a context update.
-  , hRunningHandlers :: MVar (MS.Map RunOptions (ThreadId, LowLevel.ContextId, MVar Bool, Barrier (Either LowLevel.Error LowLevel.ScenarioResult)))
+  , hRunningHandlers :: MVar (MS.Map RunOptions RunInfo)
+  -- ^ Track running scripts as a map between the RunOptions that triggered
+  -- them and all information required to cancel them or to resume from them
+  -- ContextId for determining ThreadId for cancelling via asynchronous exception
+  }
+
+-- RunInfo stores information required for cancelling and resuming from script runs
+data RunInfo = RunInfo
+  { threadId :: ThreadId
+  , context :: LowLevel.ContextId
+  -- ^ If a new prospective script run has a newer context id, then threads
+  -- with older contexts should be cancelled
+  , stop :: MVar Bool
+  -- ^ To cancel a thread, put True into this semaphore, which triggers
+  -- cancellation in the corresponding lowlevel script run
+  , result :: Barrier (Either LowLevel.Error LowLevel.ScenarioResult)
+  -- ^ To obtain the result of a script run, listen to this barrier, which will
+  -- be filled by the lowlevel script run when the script run terminates
+  -- Must be a barrier so that both this run and future runs can subscribe to
+  -- the same value.
   }
 
 withSem :: QSemN -> IO a -> IO a
@@ -269,22 +288,26 @@ runWithOptions options Handle{..} ctxId logger = do
   modifyMVar_ hRunningHandlers $ \runningHandlers -> do
     -- If there was an old thread handling the same scenario in the same
     -- way, under a different context, send a cancellation to its semaphore
-    let mbOldThread = MS.lookup options runningHandlers
-    case mbOldThread of
-      Just (_, oldCtxId, oldThreadSemaphore, _)
-        | oldCtxId == ctxId -> pure ()
+    let mbOldRunInfo = MS.lookup options runningHandlers
+    case mbOldRunInfo of
+      Just oldRunInfo
+        | context oldRunInfo == ctxId -> pure ()
         | otherwise -> do
-          _ <- tryPutMVar oldThreadSemaphore True
+          _ <- tryPutMVar (stop oldRunInfo) True
           pure ()
       Nothing -> pure ()
 
     -- If there was an old thread handling the same scenario in the same
     -- way, under a different context, or if there was no old thread, start a
     -- new thread to replace it.
-    case mbOldThread of
-      Just (_, oldCtxId, _, oldBarrier)
-        | oldCtxId == ctxId -> do
-          _ <- forkIO $ waitBarrier oldBarrier >>= signalBarrier resBarrier
+    -- Otherwise (when there is an old thread with the same context id) listen
+    -- to that thread's result via its result barrier
+    case mbOldRunInfo of
+      Just oldRunInfo
+        | context oldRunInfo == ctxId -> do
+          _ <- forkIO $ do
+            oldResult <- waitBarrier (result oldRunInfo)
+            signalBarrier resBarrier oldResult
           pure runningHandlers
       _ -> do
         handlerThread <- forkIO $ withSem hConcurrencySem $ do
@@ -294,11 +317,14 @@ runWithOptions options Handle{..} ctxId logger = do
               Left ex -> Left $ LowLevel.ExceptionError ex
               Right r -> r
 
-        let newRunningHandlers =
-              MS.insert
-                options
-                (handlerThread, ctxId, stopSemaphore, resBarrier)
-                runningHandlers
+        let selfInfo =
+              RunInfo
+                { threadId = handlerThread
+                , context = ctxId
+                , stop = stopSemaphore
+                , result = resBarrier
+                }
+        let newRunningHandlers = MS.insert options selfInfo runningHandlers
         pure newRunningHandlers
   waitBarrier resBarrier
 
