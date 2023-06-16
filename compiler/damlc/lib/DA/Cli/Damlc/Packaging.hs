@@ -158,7 +158,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
       Logger.logDebug loggerH "Registering dependency graph"
 
-      putStrLn "BISECT START"
       flip State.evalStateT builtinDependencies $ do
         let
           insert unitId dalfPackage = State.modify $ MS.insert unitId dalfPackage
@@ -167,20 +166,17 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
           let (pkgNode, pkgId) = vertexToNode vertex
           case pkgNode of
             MkStableDependencyPackageNode -> do
-              liftIO $ putStrLn "BISECT MIDDLE1"
               -- stable packages are mapped to the current version of daml-prim/daml-stdlib
               -- so we don’t need to generate interface files for them.
               pure ()
             MkBuiltinDependencyPackageNode {} -> do
-              liftIO $ putStrLn "BISECT MIDDLE2"
               pure ()
             MkDependencyPackageNode DependencyPackageNode {dalf, unitId, dalfPackage} -> do
-              liftIO $ putStrLn "BISECT MIDDLE3"
+              liftIO $ putStrLn $ "BISECT INTO registerDepInPkgDb -- " <> dalf <> " -- " <> depsDir <> " -- " <> dbPath
               liftIO $ registerDepInPkgDb dalf depsDir dbPath
-              liftIO $ putStrLn "BISECT END3"
+              liftIO $ putStrLn $ "BISECT OUT OF registerDepInPkgDb -- " <> dalf <> " -- " <> depsDir <> " -- " <> dbPath
               insert unitId dalfPackage
             MkDataDependencyPackageNode DataDependencyPackageNode {unitId, dalfPackage} -> do
-              liftIO $ putStrLn "BISECT MIDDLE4"
               dependenciesSoFar <- State.get
               let
                 depUnitIds :: [UnitId]
@@ -210,7 +206,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
               insert unitId dalfPackage
 
-      putStrLn "BISECT END"
       writeMetadata
           projectRoot
           (PackageDbMetadata mainUnitIds validatedModulePrefixes depsFingerprint)
@@ -439,14 +434,18 @@ settings =
 -- Register a single dar dependency in the package database
 registerDepInPkgDb :: FilePath -> FilePath -> FilePath -> IO ()
 registerDepInPkgDb dalfPath depsPath dbPath = do
+  putStrLn "BISECT START"
   let dir = takeDirectory dalfPath
   files <- listFilesRecursive dir
   copyFiles dir [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ] dbPath
+  putStrLn "BISECT MIDDLE"
   copyFiles dir [f | f <- files, "conf" `isExtensionOf` f] (dbPath </> "package.conf.d")
   copyFiles depsPath [dalfPath] dbPath
   -- TODO: is it possible to register a package individually instead of recaching the entire ghc-pkg db?
   -- https://github.com/digital-asset/daml/issues/13320
-  recachePkgDb dbPath
+  res <- recachePkgDb dbPath
+  putStrLn "BISECT END"
+  res
 
 copyFiles :: FilePath -> [FilePath] -> FilePath -> IO ()
 copyFiles from srcs to = do
