@@ -177,6 +177,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
             MkDependencyPackageNode DependencyPackageNode {dalf, unitId, dalfPackage} -> do
               liftIO $ putStrLn "BISECT MIDDLE3"
               liftIO $ registerDepInPkgDb dalf depsDir dbPath
+              liftIO $ putStrLn "BISECT END3"
               insert unitId dalfPackage
             MkDataDependencyPackageNode DataDependencyPackageNode {unitId, dalfPackage} -> do
               liftIO $ putStrLn "BISECT MIDDLE4"
