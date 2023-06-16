@@ -41,7 +41,7 @@ import "ghc-lib-parser" HscTypes as GHC
 import "ghc-lib-parser" Module (UnitId, unitIdString)
 import qualified Module as GHC
 import qualified "ghc-lib-parser" Packages as GHC
-import System.Directory.Extra
+import System.Directory.Extra (copyFile, createDirectoryIfMissing, listFilesRecursive, removePathForcibly)
 import System.Exit
 import System.FilePath
 import System.IO.Extra
