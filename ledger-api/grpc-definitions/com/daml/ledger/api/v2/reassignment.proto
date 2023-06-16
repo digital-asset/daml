@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v1/event.proto";
+import "com/daml/ledger/api/v1/value.proto";
 import "google/protobuf/timestamp.proto";
 
 option java_outer_classname = "ReassignmentOuterClass";
@@ -56,7 +57,7 @@ message UnassignedEvent {
 
   //  The template of the reassigned contract.
   //  Required
-  string template_id = 3;
+  com.daml.ledger.api.v1.Identifier template_id = 3;
 
   // The ID of the source domain
   // Must be a valid domain ID
