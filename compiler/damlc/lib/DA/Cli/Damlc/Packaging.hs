@@ -16,7 +16,7 @@ module DA.Cli.Damlc.Packaging
 
 import Control.Exception.Safe (tryAny)
 import Control.Lens (none, toListOf)
-import Control.Monad.Extra
+import Control.Monad.Extra (forM_, fromMaybeM, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe
 import qualified Control.Monad.Trans.State.Strict as State
@@ -149,7 +149,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
           , Just dalfPkg <- [packageNodeDecodedDalf node]
           ]
 
-      putStrLn "BISECT START"
       validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes dalfsFromAllDependencies)
 
       -- Iterate over the dependency graph in topological order.
@@ -158,8 +157,9 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       -- never process a package without first having processed its dependencies.
 
       Logger.logDebug loggerH "Registering dependency graph"
-      putStrLn "BISECT MIDDLE"
 
+      putStrLn "BISECT START"
+      putStrLn "BISECT MIDDLE"
       flip State.evalStateT builtinDependencies $ do
         let
           insert unitId dalfPackage = State.modify $ MS.insert unitId dalfPackage
