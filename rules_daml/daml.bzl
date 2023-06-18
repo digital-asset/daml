@@ -500,7 +500,7 @@ echo "---" >&2
 find .daml || true
 echo "---" >&2
 trap "find .daml" EXIT
-$$DAMLC doctest {flags} --script-lib $$SCRIPT_DAR --cpp $$CPP --package-name {package_name}-{version} "$${{FILES[@]}}" >&2
+DIE_AFTER=1 $$DAMLC doctest {flags} --script-lib $$SCRIPT_DAR --cpp $$CPP --package-name {package_name}-{version} "$${{FILES[@]}}" >&2
 """.format(
             cpp = cpp,
             damlc = damlc,

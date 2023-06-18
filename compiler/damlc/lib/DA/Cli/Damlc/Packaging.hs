@@ -46,6 +46,7 @@ import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Info.Extra
+import System.Environment (lookupEnv)
 import System.Process (callProcess)
 import "ghc-lib-parser" UniqSet
 
@@ -441,6 +442,10 @@ registerDepInPkgDb dalfPath depsPath dbPath = do
   putStrLn $ "BISECT out of copyFiles -- " <> dir <> " -- " <> (show [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ]) <> " -- " <> dbPath
   copyFiles dir [f | f <- files, "conf" `isExtensionOf` f] (dbPath </> "package.conf.d")
   copyFiles depsPath [dalfPath] dbPath
+  die <- lookupEnv "DIE_AFTER"
+  case die of
+    Just _ -> System.Exit.exitWith $ ExitFailure 3
+    _ -> pure ()
   -- TODO: is it possible to register a package individually instead of recaching the entire ghc-pkg db?
   -- https://github.com/digital-asset/daml/issues/13320
   recachePkgDb dbPath
