@@ -41,10 +41,10 @@ import "ghc-lib-parser" HscTypes as GHC
 import "ghc-lib-parser" Module (UnitId, unitIdString)
 import qualified Module as GHC
 import qualified "ghc-lib-parser" Packages as GHC
-import System.Directory.Extra (copyFile, createDirectoryIfMissing, listFilesRecursive, removePathForcibly)
+import System.Directory.Extra (createDirectoryIfMissing, listFilesRecursive, removePathForcibly)
 import System.Exit
 import System.FilePath
-import System.IO.Extra
+import System.IO.Extra (Handle, hClose, hFlush, hPutStrLn, openBinaryTempFile, stderr, writeFileUTF8)
 import System.Info.Extra
 import System.Environment (lookupEnv)
 import System.Process (callProcess)
@@ -66,6 +66,13 @@ import qualified DA.Service.Logger as Logger
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
 import SdkVersion
+
+-- DEBUG imports for inlined library functions
+import System.Directory.Internal (ioeAddLocation, ignoreIOExceptions, copyFileToHandle)
+import System.Directory.Internal.Prelude (onException, mask)
+import System.Directory(copyPermissions, renameFile, removeFile)
+import System.IO.Error (modifyIOError)
+-- DEBUG end
 
 -- | Create the project package database containing the given dar packages.
 --
@@ -463,6 +470,41 @@ copyFiles from srcs to = do
         res <- copyFile src fp
         putStrLn "BISECT END"
         return res
+
+-- DEBUG inline library functions so I can instrument them
+copyFile :: FilePath -> FilePath -> IO ()
+copyFile fromFPath toFPath =
+  (`ioeAddLocation` "copyFile") `modifyIOError` do
+    atomicCopyFileContents fromFPath toFPath
+      (ignoreIOExceptions . copyPermissions fromFPath)
+atomicCopyFileContents :: FilePath            -- ^ Source filename
+                       -> FilePath            -- ^ Destination filename
+                       -> (FilePath -> IO ()) -- ^ Post-action
+                       -> IO ()
+atomicCopyFileContents fromFPath toFPath postAction =
+  (`ioeAddLocation` "atomicCopyFileContents") `modifyIOError` do
+    withReplacementFile toFPath postAction $ \ hTo -> do
+      copyFileToHandle fromFPath hTo
+withReplacementFile :: FilePath            -- ^ Destination file
+                    -> (FilePath -> IO ()) -- ^ Post-action
+                    -> (Handle -> IO a)    -- ^ Main action
+                    -> IO a
+withReplacementFile path postAction action =
+  (`ioeAddLocation` "withReplacementFile") `modifyIOError` do
+    mask $ \ restore -> do
+      putStrLn "BISECT LIB START"
+      putStrLn $ "openBinaryTempFile " <> (takeDirectory path)
+      (tmpFPath, hTmp) <- openBinaryTempFile (takeDirectory path)
+                                             ".copyFile.tmp"
+      putStrLn "BISECT LIB END"
+      (`onException` ignoreIOExceptions (removeFile tmpFPath)) $ do
+        r <- (`onException` ignoreIOExceptions (hClose hTmp)) $ do
+          restore (action hTmp)
+        hClose hTmp
+        restore (postAction tmpFPath)
+        renameFile tmpFPath path
+        return r
+-- DEBUG end
 
 recachePkgDb :: FilePath -> IO ()
 recachePkgDb dbPath = do
