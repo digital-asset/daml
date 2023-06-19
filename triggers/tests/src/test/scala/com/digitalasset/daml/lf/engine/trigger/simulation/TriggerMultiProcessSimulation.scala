@@ -126,6 +126,7 @@ object TriggerMultiProcessSimulation {
       ledgerWorkloadTimeout: FiniteDuration = 5.seconds,
       triggerDataFile: Path = tmpDir.resolve("trigger-simulation-metrics-data.csv"),
       acsDataFile: Path = tmpDir.resolve("trigger-simulation-acs-data.csv"),
+      submissionDataFile: Path = tmpDir.resolve("trigger-simulation-submission-data.csv"),
   )
 
   final case class TriggerSimulationFailure(cause: Throwable) extends Exception
