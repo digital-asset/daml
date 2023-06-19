@@ -193,6 +193,7 @@ EOF
                 "//daml-lf/engine",
                 "//daml-lf/interpreter",
                 "//daml-lf/language",
+                "//daml-lf/transaction",
                 "//language-support/scala/bindings",
                 "//language-support/scala/bindings-akka",
                 "//ledger-api/rs-grpc-bridge",
