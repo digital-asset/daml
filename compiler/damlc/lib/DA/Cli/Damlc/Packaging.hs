@@ -493,7 +493,7 @@ withReplacementFile path postAction action =
   (`ioeAddLocation` "withReplacementFile") `modifyIOError` do
     mask $ \ restore -> do
       putStrLn "BISECT LIB START"
-      putStrLn $ "openBinaryTempFile " <> (takeDirectory path)
+      putStrLn $ "openBinaryTempFile " <> takeDirectory path
       (tmpFPath, hTmp) <- openBinaryTempFile (takeDirectory path)
                                              ".copyFile.tmp"
       putStrLn "BISECT LIB END"
