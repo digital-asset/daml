@@ -32,7 +32,7 @@ object LedgerProcess {
   ): Behavior[Message] = {
     Behaviors.setup { context =>
       val report = context.spawn(ReportingProcess.create(context.self), "reporting")
-      val ledgerApi = context.spawn(LedgerApiClient.create(client), "ledger-api")
+      val ledgerApi = context.spawn(LedgerApiClient.create(client, report), "ledger-api")
       val ledgerExternal =
         context.spawn(new LedgerExternalAction(client).create(), "ledger-external-action")
       val triggerRegistration =
