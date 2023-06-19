@@ -503,7 +503,7 @@ trap "find .daml" EXIT
 echo "---" >&2
 pwd >&2
 echo "---" >&2
-echo MAX_PATH=$${MAX_PATH:-not set}
+echo MAX_PATH=$${{MAX_PATH:-not set}}
 echo "---" >&2
 for file in find $$(pwd) -type f; do echo "$$file: $$(echo $$file | wc -c)"; done
 echo "---" >&2
