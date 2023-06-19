@@ -503,7 +503,9 @@ trap "find .daml" EXIT
 echo "---" >&2
 pwd >&2
 echo "---" >&2
-echo MAX_PATH=${MAX_PATH:-not set}
+echo MAX_PATH=$${MAX_PATH:-not set}
+echo "---" >&2
+for file in find $$(pwd) -type f; do echo "$$file: $$(echo $$file | wc -c)"; done
 echo "---" >&2
 DIE_AFTER=1 $$DAMLC doctest {flags} --script-lib $$SCRIPT_DAR --cpp $$CPP --package-name {package_name}-{version} "$${{FILES[@]}}" >&2
 """.format(
