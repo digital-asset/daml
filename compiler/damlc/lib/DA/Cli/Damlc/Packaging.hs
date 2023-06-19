@@ -495,7 +495,7 @@ withReplacementFile path postAction action =
       putStrLn "BISECT LIB START"
       putStrLn $ "openBinaryTempFile " <> takeDirectory path
       (tmpFPath, hTmp) <- openBinaryTempFile (takeDirectory path)
-                                             ".copyFile.tmp"
+                                             "x.y"
       putStrLn "BISECT LIB END"
       (`onException` ignoreIOExceptions (removeFile tmpFPath)) $ do
         r <- (`onException` ignoreIOExceptions (hClose hTmp)) $ do
