@@ -237,7 +237,10 @@ Each pending ACS contract means there is an outstanding (i.e. uncompleted) comma
 ACS Relevance
 ~~~~~~~~~~~~~
 
-Comparing the petting trigger ACS view against the ledger ACS view, we notice that for both the ``MediumContention`` and ``FastContention`` simulations, the number of ledger contracts unknown to the trigger is increasing. This increasing ledger divergence is consistent with the observation of lending ACS counts and is likely caused by an increasing rate of exercise commands by the petting trigger?
+Comparing the petting trigger ACS view against the ledger ACS view, we notice that for both the ``MediumContention`` and ``FastContention`` simulations, the number of ledger contracts unknown to the trigger is increasing. This increasing ledger divergence is consistent with the view that the petting trigger is not managing to process contract create events from the ledger. This could be due to the petting trigger user workload dominating its internal workload? This view is supported by:
+
+- the increasing time gaps between submission cycles (i.e. the purple/lavender bars) as the ledger ACS view deviates from the trigger ACS view
+- and the linearly increasing number number of pending command submissions (with the context that there is a linear trend in contracts known to the ledger that are unknown to the trigger).
 
 Analysing Completion Failures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
