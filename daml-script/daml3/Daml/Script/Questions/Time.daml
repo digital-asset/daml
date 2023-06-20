@@ -21,7 +21,7 @@ instance IsQuestion SetTime ()
 setTime : HasCallStack => Time -> Script ()
 setTime = lift . SetTime
 
-data GetTime = GetTime
+data GetTime = GetTime {}
 instance IsQuestion GetTime Time
 
 -- | In wallclock mode, this is the current UTC time both over gRPC and over the JSON API.

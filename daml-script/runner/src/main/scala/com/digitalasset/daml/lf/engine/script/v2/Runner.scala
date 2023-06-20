@@ -18,7 +18,6 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{ArrayList, SValue, Speedy, TraceLog, WarningLog}
-import com.daml.script.converter.Converter.unrollFree
 import com.daml.script.converter.ConverterException
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -71,6 +70,32 @@ private[lf] class Runner(
       machine,
     )
 
+  private val ctx =
+    ScriptF.Ctx(
+      unversionedRunner.knownPackages,
+      unversionedRunner.extendedCompiledPackages,
+    )
+
+  // Wraps the result of executing a command in a call to continue, using the following form
+  // let compute = \() -> resultExpr in let result = compute () in continue result
+  // Note we defer to a lambda in order to maintain ANF
+  private def runCmdQuestion(
+      q: Converter.Question[ScriptF.Cmd]
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[SExpr] =
+    for {
+      resultExpr <- q.payload.executeWithRunner(env, this)
+    } yield SELet1(
+      SEMakeClo(Array(), 1, resultExpr),
+      SELet1(
+        SEAppAtomic(SELocS(1), Array(SEValue(SUnit))),
+        SEAppAtomic(SEValue(q.continue), Array(SELocS(1))),
+      ),
+    )
+
   private[lf] def runExpr(
       expr: SExpr
   )(implicit
@@ -81,27 +106,25 @@ private[lf] class Runner(
     machine.setExpressionToEvaluate(expr)
     stepToValue()
       .fold(Future.failed, Future.successful)
-      .flatMap(fsu => Converter toFuture unrollFree(fsu))
+      .flatMap(fsu => Converter.toFuture(Converter.unrollFree(ctx, fsu)))
       .flatMap {
-        case Right((vv, v)) =>
+        case Right(question) =>
           Converter
             .toFuture(
               ScriptF.parse(
-                ScriptF.Ctx(
-                  unversionedRunner.knownPackages,
-                  unversionedRunner.extendedCompiledPackages,
-                ),
-                vv,
-                v,
+                question.name,
+                question.payload,
+                question.stackTrace,
               )
             )
-            .flatMap { cmd =>
-              cmd.executeWithRunner(env, this).transform {
+            .map(cmd => question.copy(payload = cmd))
+            .flatMap { cmdQuestion =>
+              runCmdQuestion(cmdQuestion).transform {
                 case f @ Failure(script.Runner.CanceledByRequest) => f
                 case f @ Failure(script.Runner.TimedOut) => f
                 case f @ Failure(script.Runner.InterpretationError(_)) => f
                 case Failure(exception) =>
-                  Failure(new Script.FailedCmd(cmd, exception))
+                  Failure(new Script.FailedCmd(cmdQuestion, exception))
                 case Success(value) =>
                   Success(value)
               }
@@ -109,9 +132,9 @@ private[lf] class Runner(
             .flatMap(runExpr(_))
         case Left(v) =>
           v match {
-            case SRecord(_, _, ArrayList(newState, _)) => {
+            case SRecord(_, _, ArrayList(result, _)) => {
               // Unwrap the Tuple2 we get from the inlined StateT.
-              Future { newState }
+              Future { result }
             }
             case _ => Future.failed(new ConverterException(s"Expected Tuple2 but got $v"))
           }

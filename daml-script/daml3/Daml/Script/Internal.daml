@@ -29,7 +29,7 @@ castQuestion : Question req res a -> Question LedgerValue LedgerValue a
 castQuestion = dangerCast
 
 -- Our entire scriptF type now is just a question from LedgerValue to LedgerValue, returning a
-data ScriptF a = ScriptF (Question LedgerValue LedgerValue a) deriving Functor
+newtype ScriptF a = ScriptF (Question LedgerValue LedgerValue a) deriving Functor
 
 -- Build our question and cast to a ScriptF
 makeScriptF : (HasCallStack, IsQuestion req res) => req -> ScriptF res

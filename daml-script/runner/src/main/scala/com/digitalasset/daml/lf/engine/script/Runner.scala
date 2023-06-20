@@ -494,6 +494,11 @@ private[lf] class Runner(
   // lack of existential types.
   val extendedCompiledPackages = {
     val damlScriptDefs: PartialFunction[SDefinitionRef, SDefinition] = {
+      // Daml3 script
+      case LfDefRef(id)
+          if id == script.scriptIds.damlScriptModule("Daml.Script.Internal", "dangerCast") =>
+        SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
+      // Daml script legacy
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
         SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
       case LfDefRef(id) if id == script.scriptIds.damlScript("castCatchPayload") =>

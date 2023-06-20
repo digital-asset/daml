@@ -23,11 +23,10 @@ data Command
       tplArgCE : AnyTemplate
       choiceArgCE : AnyChoice
 
+-- The ledger api can only return create and exercise results, therefore `Exercise`, `ExerciseByKey` and `CreateByExercise` all return `ExerciseResult`s
 data CommandResult
   = CreateResult (ContractId ())
   | ExerciseResult LedgerValue
-  | ExerciseByKeyResult LedgerValue
-  | CreateAndExerciseResult LedgerValue
 
 -- | This is used to build up the commands send as part of `submit`.
 -- If you enable the `ApplicativeDo` extension by adding
@@ -40,6 +39,15 @@ data Commands a = Commands with
     continue : [CommandResult] -> a
   deriving Functor
 
+-- Create and exercise gives 2 results, so we account for that here
+expectedCommandResults : Command -> Int
+expectedCommandResults CreateAndExercise {} = 2
+expectedCommandResults _ = 1
+
+-- Expected number of command results for a list of commands
+expectedCommandsResults : [Command] -> Int
+expectedCommandsResults = sum . fmap expectedCommandResults
+
 instance Applicative Commands where
   pure : a -> Commands a
   pure x = Commands [] (const x)
@@ -48,7 +56,7 @@ instance Applicative Commands where
   liftA2 f a b = Commands
     { commands = a.commands <> b.commands
     , continue = \results -> 
-        let (aResults, bResults) = splitAt (length a.commands) results
+        let (aResults, bResults) = splitAt (expectedCommandsResults a.commands) results
         in f (a.continue aResults) (b.continue bResults)
     }
 
@@ -62,11 +70,12 @@ internalExerciseCmd tplTypeRep cId arg = Commands [Exercise tplTypeRep cId arg] 
 
 -- | HIDE A version of 'exerciseByKeyCmd' without constraints.
 internalExerciseByKeyCmd : TemplateTypeRep -> AnyContractKey -> AnyChoice -> Commands LedgerValue
-internalExerciseByKeyCmd tplTypeRep key arg = Commands [ExerciseByKey tplTypeRep key arg] $ \[ExerciseByKeyResult res] -> res
+internalExerciseByKeyCmd tplTypeRep key arg = Commands [ExerciseByKey tplTypeRep key arg] $ \[ExerciseResult res] -> res
 
 -- | HIDE A version of 'createAndExerciseCmd' without constraints.
+-- Create and exercise gives a create result and exercise result. Currently we throw away the contract Id of the created contract, as it is consumed atomically
 internalCreateAndExerciseCmd : AnyTemplate -> AnyChoice -> Commands LedgerValue
-internalCreateAndExerciseCmd tplArg choiceArg = Commands [CreateAndExercise tplArg choiceArg] $ \[CreateAndExerciseResult res] -> res
+internalCreateAndExerciseCmd tplArg choiceArg = Commands [CreateAndExercise tplArg choiceArg] $ \[CreateResult _, ExerciseResult res] -> res
 
 -- | Create a contract of the given template.
 createCmd : (Template t, HasAgreement t) => t -> Commands (ContractId t)
