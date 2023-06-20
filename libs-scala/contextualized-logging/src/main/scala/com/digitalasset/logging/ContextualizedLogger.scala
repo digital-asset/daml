@@ -5,14 +5,9 @@ package com.daml.logging
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import com.daml.grpc.GrpcException
-import com.daml.logging.entries.LoggingEntries
-import io.grpc.Status
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.concurrent.TrieMap
-import scala.util.{Failure, Try}
-import scala.util.control.NonFatal
 
 object ContextualizedLogger {
 
@@ -44,52 +39,12 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
   val warn = new LeveledLogger.Warn(withoutContext)
   val error = new LeveledLogger.Error(withoutContext)
 
-  private def internalOrUnknown(code: Status.Code): Boolean =
-    code == Status.Code.INTERNAL || code == Status.Code.UNKNOWN
-
-  private def logError(t: Throwable)(implicit loggingContext: LoggingContext): Unit =
-    error("Unhandled internal error", t)
-
-  def logErrorsOnCall[Out](implicit
-      loggingContext: LoggingContext
-  ): PartialFunction[Try[Out], Unit] = {
-    case Failure(e @ GrpcException(s, _)) =>
-      if (internalOrUnknown(s.getCode)) {
-        logError(e)
-      }
-    case Failure(NonFatal(e)) =>
-      logError(e)
-  }
-
-  def logErrorsOnStream[Out](implicit loggingContext: LoggingContext): Flow[Out, Out, NotUsed] =
-    Flow[Out].mapError {
-      case e @ GrpcException(s, _) =>
-        if (internalOrUnknown(s.getCode)) {
-          logError(e)
-        }
-        e
-      case NonFatal(e) =>
-        logError(e)
-        e
-    }
-
   def debugStream[Out](
       toLoggable: Out => String
   )(implicit loggingContext: LoggingContext): Flow[Out, Out, NotUsed] =
     Flow[Out].map { item =>
       debug(toLoggable(item))
       item
-    }
-
-  def enrichedDebugStream[Out](
-      msg: String,
-      withContext: Out => LoggingEntries,
-  )(implicit loggingContext: LoggingContext): Flow[Out, Out, NotUsed] =
-    Flow[Out].map { item =>
-      LoggingContext.withEnrichedLoggingContextFrom(withContext(item)) { implicit loggingContext =>
-        debug(msg)
-        item
-      }
     }
 
 }

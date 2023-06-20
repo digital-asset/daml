@@ -374,14 +374,12 @@ genrule(
             name = "canton",
             build_file_content = """
 package(default_visibility = ["//visibility:public"])
-
-java_import(
-    name = "lib",
-    jars = glob(["lib/**/*.jar"]),
+filegroup(
+  name = "jar",
+  srcs = glob(["*/lib/**/*.jar"]),
 )
         """,
             sha256 = canton["sha"],
-            strip_prefix = canton["prefix"],
             urls = [canton["url"]],
         )
 

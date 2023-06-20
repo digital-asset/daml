@@ -17,10 +17,10 @@ import spray.json._
 trait QueryPayloadBenchmark extends ContractDaoBenchmark {
   self: BenchmarkDbConnection =>
 
-  @Param(Array("1", "10", "100"))
+  @Param(Array("1", "10"))
   var extraParties: Int = _
 
-  @Param(Array("1", "100", "100"))
+  @Param(Array("1", "10"))
   var extraPayloadValues: Int = _
 
   private val tpid = ContractTypeId.Template("-pkg-", "M", "T")
@@ -54,9 +54,7 @@ trait QueryPayloadBenchmark extends ContractDaoBenchmark {
 
   def whereClause = predicate.toSqlWhereClause(dao.jdbcDriver)
 
-  @Setup(Level.Trial)
-  override def setup(): Unit = {
-    super.setup()
+  override def trialSetupPostInitialize(): Unit = {
     surrogateTpid = insertTemplate(tpid)
 
     val parties: List[String] = party :: (0 until extraParties).map(i => s"p$i").toList
@@ -71,6 +69,9 @@ trait QueryPayloadBenchmark extends ContractDaoBenchmark {
   }
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime))
+  @Fork(1)
+  @Warmup(iterations = 3)
+  @Measurement(iterations = 10)
   def run(): Unit = {
     implicit val sjd: SupportedJdbcDriver.TC = dao.jdbcDriver
     val result = instanceUUIDLogCtx(implicit lc =>

@@ -4,6 +4,8 @@
 package com.daml.fetchcontracts
 
 import com.daml.lf
+import com.google.rpc.Code
+import com.google.rpc.status.Status
 import util.ClientUtil.boxedRecord
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -13,7 +15,7 @@ import scalaz.std.option._
 import scalaz.std.string._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{@@, Applicative, Order, Semigroup, Show, Tag, Tags, Traverse, \/}
+import scalaz.{@@, Applicative, Order, Semigroup, Show, Tag, Tags, Traverse, \/, -\/}
 
 package object domain {
   type LfValue = lf.value.Value
@@ -116,15 +118,26 @@ package domain {
         (id, in.contractKey, in.createArguments required "createArguments")
       }
 
+      def viewError(view: lav1.event.InterfaceView): Option[Status] = {
+        view.viewStatus.filter(_.code != Code.OK_VALUE)
+      }
+
       val (getId, key, getPayload): IdKeyPayload = RQ match {
         case ForQuery.Resolved =>
           resolvedQuery match {
             case ResolvedQuery.ByInterfaceId(interfaceId) =>
               import util.IdentifierConverters.apiIdentifier
               val id = apiIdentifier(interfaceId)
-              val payload = in.interfaceViews
-                .find(_.interfaceId.exists(_ == id))
-                .flatMap(_.viewValue) required "interfaceView"
+              val view = in.interfaceViews.find(_.interfaceId.exists(_ == id))
+              val payload = view match {
+                case None =>
+                  -\/(Error(Symbol("ErrorOps_view_missing"), s"Missing view with id $id in $in"))
+                case Some(v) =>
+                  viewError(v) match {
+                    case Some(s) => -\/(Error(Symbol("ErrorOps_view_eval"), s.toString))
+                    case None => v.viewValue required "interviewView"
+                  }
+              }
               (\/-(interfaceId: CtTyId), None, payload)
             case ResolvedQuery.ByTemplateId(_) | ResolvedQuery.ByTemplateIds(_) => templateFallback
           }

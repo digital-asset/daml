@@ -1,0 +1,136 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+import "com/daml/ledger/api/v2/participant_offset.proto";
+import "com/daml/ledger/api/v2/reassignment.proto";
+import "com/daml/ledger/api/v2/transaction.proto";
+import "com/daml/ledger/api/v2/transaction_filter.proto";
+
+option java_outer_classname = "UpdateServiceOuterClass";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+
+// Allows clients to read updates (transactions and reassignments) from the ledger.
+//
+// ``GetUpdates`` and ``GetUpdateTrees`` provide a comprehensive stream of updates/changes
+// which happened on the virtual shared ledger. These streams are indexed with ledger
+// offsets, which are strictly increasing.
+// The virtual shared ledger consist of changes happening on multiple domains which are
+// connected to the serving participant. Each update belongs to one domain, this is
+// provided in the result (the ``domain_id`` field in ``Transaction`` and ``TransactionTree``
+// for transactions, the ``source`` field in ``UnassignedEvent`` and the ``target`` field in ``AssignedEvent``).
+// Consumers can rely on strong causal guarantees on the virtual shared ledger for a single
+// domain: updates which have greater offsets are happened after than updates with smaller
+// offsets for the same domain. Across different domains this is not guaranteed.
+service UpdateService {
+
+  // Read the ledger's filtered transaction stream and related reassignments for a set of parties.
+  // For transactions it lists only creates and archives, but no other events.
+  // Omits all events on transient contracts, i.e., contracts that were both created and archived in the same transaction.
+  rpc GetUpdates (GetUpdatesRequest) returns (stream GetUpdatesResponse);
+
+  // Read the ledger's complete transaction tree stream and related reassignments for a set of parties.
+  // The stream will be filtered only by the parties as wildcard parties.
+  // The template/interface filters describe the respective fields in the ``CreatedEvent`` results.
+  rpc GetUpdateTrees (GetUpdatesRequest) returns (stream GetUpdateTreesResponse);
+
+  // Lookup a transaction tree by the ID of an event that appears within it.
+  // For looking up a transaction instead of a transaction tree, please see GetTransactionByEventId
+  rpc GetTransactionTreeByEventId (GetTransactionByEventIdRequest) returns (GetTransactionTreeResponse);
+
+  // Lookup a transaction tree by its ID.
+  // For looking up a transaction instead of a transaction tree, please see GetTransactionById
+  rpc GetTransactionTreeById (GetTransactionByIdRequest) returns (GetTransactionTreeResponse);
+
+  // Lookup a transaction by the ID of an event that appears within it.
+  rpc GetTransactionByEventId (GetTransactionByEventIdRequest) returns (GetTransactionResponse);
+
+  // Lookup a transaction by its ID.
+  rpc GetTransactionById (GetTransactionByIdRequest) returns (GetTransactionResponse);
+}
+
+message GetUpdatesRequest {
+
+  // Beginning of the requested ledger section.
+  // The response will only contain transactions whose offset is strictly greater than this.
+  // Required
+  ParticipantOffset begin_exclusive = 1;
+
+  // End of the requested ledger section.
+  // The response will only contain transactions whose offset is less than or equal to this.
+  // Optional, if not set, the stream will not terminate.
+  ParticipantOffset end_inclusive = 2;
+
+  // Requesting parties with template filters.
+  // Template filters must be empty for GetUpdateTrees requests.
+  // Required
+  TransactionFilter filter = 3;
+
+  // If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
+  // In particular, setting the verbose flag to true triggers the ledger to include labels, record and variant type ids
+  // for record fields.
+  // Optional
+  bool verbose = 4;
+}
+
+message GetUpdatesResponse {
+
+  // The update that matches the filter in the request.
+  oneof update {
+    Transaction transaction = 1;
+    Reassignment reassignment = 2;
+  }
+}
+
+message GetUpdateTreesResponse {
+
+  // The update that matches the filter in the request.
+  oneof update {
+    TransactionTree transaction_tree = 1;
+    Reassignment reassignment = 2;
+  }
+}
+
+message GetTransactionByEventIdRequest {
+
+  // The ID of a particular event.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string event_id = 1;
+
+  // The parties whose events the client expects to see.
+  // Events that are not visible for the parties in this collection will not be present in the response.
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
+  // Required
+  repeated string requesting_parties = 2;
+}
+
+message GetTransactionByIdRequest {
+
+  // The ID of a particular transaction.
+  // Must be a valid LedgerString (as describe in ``value.proto``).
+  // Required
+  string update_id = 1;
+
+  // The parties whose events the client expects to see.
+  // Events that are not visible for the parties in this collection will not be present in the response.
+  // Each element be a valid PartyIdString (as describe in ``value.proto``).
+  // Required
+  repeated string requesting_parties = 2;
+}
+
+message GetTransactionTreeResponse {
+
+  // Required
+  TransactionTree transaction = 1;
+}
+
+message GetTransactionResponse {
+
+  // Required
+  Transaction transaction = 1;
+}

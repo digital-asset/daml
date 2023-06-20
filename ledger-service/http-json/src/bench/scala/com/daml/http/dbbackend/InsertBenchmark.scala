@@ -14,7 +14,7 @@ import spray.json.DefaultJsonProtocol._
 trait InsertBenchmark extends ContractDaoBenchmark {
   self: BenchmarkDbConnection =>
 
-  @Param(Array("1", "3", "5", "7", "9"))
+  @Param(Array("1", "100"))
   var batches: Int = _
 
   @Param(Array("1000"))
@@ -26,9 +26,7 @@ trait InsertBenchmark extends ContractDaoBenchmark {
 
   private var tpid: SurrogateTpId = _
 
-  @Setup(Level.Trial)
-  override def setup(): Unit = {
-    super.setup()
+  override def trialSetupPostInitialize(): Unit = {
     tpid = insertTemplate(ContractTypeId.Template("-pkg-", "M", "T"))
     contracts = (1 until numContracts + 1).map { i =>
       // Use negative cids to avoid collisions with other contracts
@@ -50,6 +48,9 @@ trait InsertBenchmark extends ContractDaoBenchmark {
   }
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime))
+  @Fork(1)
+  @Warmup(iterations = 1)
+  @Measurement(iterations = 1)
   def run(): Unit = {
     val inserted = dao.transact(queries.insertContracts(contracts)).unsafeRunSync()
     assert(inserted == numContracts)

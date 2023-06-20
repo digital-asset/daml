@@ -132,7 +132,7 @@ class ContractKeySpec
         None
     }
 
-  private[this] val suffixLenientEngine = newEngine()
+  private[this] val suffixLenientEngine = Engine.DevEngine()
   private[this] val preprocessor =
     new preprocessing.Preprocessor(
       ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
@@ -258,7 +258,6 @@ class ContractKeySpec
         EngineConfig(
           allowedLanguageVersions = LV.DevVersions,
           contractKeyUniqueness = ContractKeyUniquenessMode.Off,
-          forbidV0ContractId = true,
           requireSuffixedGlobalContractId = true,
         )
       )
@@ -266,7 +265,6 @@ class ContractKeySpec
         EngineConfig(
           allowedLanguageVersions = LV.DevVersions,
           contractKeyUniqueness = ContractKeyUniquenessMode.Strict,
-          forbidV0ContractId = true,
           requireSuffixedGlobalContractId = true,
         )
       )
@@ -439,15 +437,6 @@ object ContractKeySpec {
   private val party = Party.assertFromString("Party")
   private val alice = Party.assertFromString("Alice")
   private val bob = Party.assertFromString("Bob")
-
-  private def newEngine(requireCidSuffixes: Boolean = false) =
-    new Engine(
-      EngineConfig(
-        allowedLanguageVersions = language.LanguageVersion.DevVersions,
-        forbidV0ContractId = true,
-        requireSuffixedGlobalContractId = requireCidSuffixes,
-      )
-    )
 
   private implicit def qualifiedNameStr(s: String): QualifiedName =
     QualifiedName.assertFromString(s)

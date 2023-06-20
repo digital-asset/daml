@@ -21,10 +21,8 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//libs-scala/grpc-utils",
         "//libs-scala/logging-entries",
         "@maven//:com_fasterxml_jackson_core_jackson_core",
-        "@maven//:io_grpc_grpc_api",
         "@maven//:net_logstash_logback_logstash_logback_encoder",
         "@maven//:org_slf4j_slf4j_api",
     ],

@@ -13,19 +13,17 @@ import org.openjdk.jmh.annotations._
 trait QueryBenchmark extends ContractDaoBenchmark {
   self: BenchmarkDbConnection =>
 
-  @Param(Array("1", "5", "9"))
+  @Param(Array("1", "10"))
   var extraParties: Int = _
 
-  @Param(Array("1", "5", "9"))
+  @Param(Array("1", "10"))
   var extraTemplates: Int = _
 
   private val tpid = ContractTypeId.Template("-pkg-", "M", "T")
   private var surrogateTpid: SurrogateTpId = _
   val party = "Alice"
 
-  @Setup(Level.Trial)
-  override def setup(): Unit = {
-    super.setup()
+  override def trialSetupPostInitialize(): Unit = {
     surrogateTpid = insertTemplate(tpid)
 
     val surrogateTpids = surrogateTpid :: (0 until extraTemplates)
@@ -44,6 +42,9 @@ trait QueryBenchmark extends ContractDaoBenchmark {
   }
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime))
+  @Fork(1)
+  @Warmup(iterations = 3)
+  @Measurement(iterations = 10)
   def run(): Unit = {
     implicit val driver: SupportedJdbcDriver.TC = dao.jdbcDriver
     val result = instanceUUIDLogCtx(implicit lc =>

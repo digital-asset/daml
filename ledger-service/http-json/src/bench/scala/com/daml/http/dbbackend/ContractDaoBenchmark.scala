@@ -38,7 +38,7 @@ abstract class ContractDaoBenchmark {
   var batchSize: Int = _
 
   @Setup(Level.Trial)
-  def setup(): Unit = {
+  def trialSetup(): Unit = {
     connectToDb()
     val cfg = createDbJdbcConfig
     val cDao = ContractDao(cfg)
@@ -47,10 +47,14 @@ abstract class ContractDaoBenchmark {
     import cDao.jdbcDriver
 
     dao.transact(ContractDao.initialize).unsafeRunSync()
+
+    trialSetupPostInitialize()
   }
 
+  def trialSetupPostInitialize(): Unit
+
   @TearDown(Level.Trial)
-  def teardown(): Unit = {
+  def trialTearDown(): Unit = {
     dao.close()
     cleanup()
   }

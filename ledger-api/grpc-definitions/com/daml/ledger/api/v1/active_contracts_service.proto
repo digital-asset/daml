@@ -13,6 +13,7 @@ option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // Allows clients to initialize themselves according to a fairly recent state of the ledger without reading through all transactions that were committed since the ledger's creation.
+// In V2 Ledger API this service is not available anymore. Use v2.StateService instead.
 service ActiveContractsService {
 
   // Returns a stream of the snapshot of the active contracts at a ledger offset.

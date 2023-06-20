@@ -2,7 +2,8 @@
     "homepage": "http://nsis.sourceforge.net/",
     "license": "Zlib",
     "version": "3.04",
-    "url": "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.04/nsis-3.04.zip",
+    "_url": "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.04/nsis-3.04.zip",
+    "url": "https://storage.googleapis.com/daml-binaries/dev-env/windows/2023-06-16/nsis-3.04.zip",
     "bin": [
         "makensis.exe"
     ],

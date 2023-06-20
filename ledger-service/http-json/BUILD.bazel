@@ -670,6 +670,9 @@ exports_files(["src/main/resources/logback.xml"])
 da_scala_benchmark_jmh(
     name = "contractdao-bench",
     srcs = glob(["src/bench/scala/**/*.scala"]),
+    resources = [
+        ":src/main/resources/logback.xml",
+    ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:io_spray_spray_json",
