@@ -11,7 +11,8 @@ load(
 load("@build_environment//:configuration.bzl", "sdk_version")
 
 DAML_LF_VERSIONS = [
-    "1.dev",
+    # disable dev tests as trigger currently does not use any dev feature.
+    #    "1.dev",
     "",  # SDK default
 ]
 
@@ -149,7 +150,6 @@ EOF
                 "//daml-lf/engine",
                 "//daml-lf/interpreter",
                 "//daml-lf/language",
-                "//daml-lf/transaction",
                 "//language-support/scala/bindings",
                 "//language-support/scala/bindings-akka",
                 "//ledger-api/rs-grpc-bridge",
@@ -220,22 +220,9 @@ EOF
 da_scala_library(
     name = "trigger-simulation-lib",
     srcs = [
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/CatGenerators.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/TriggerMultiProcessSimulation.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/TriggerRuleSimulationLib.scala",
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/LedgerProcess.scala",
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/ReportingProcess.scala",
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/TriggerProcess.scala",
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/ledger/LedgerACSDiff.scala",
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/ledger/LedgerApiClient.scala",
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/ledger/LedgerExternalAction.scala",
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/ledger/LedgerRegistration.scala",
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/report/ACSReporting.scala",
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/report/MetricsReporting.scala",
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/wrapper/TriggerFilter.scala",
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/wrapper/TriggerInitialize.scala",
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/wrapper/TriggerTimer.scala",
-    ],
+    ] + glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/**/*.scala"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_akka_akka_actor_typed",
@@ -273,7 +260,9 @@ da_scala_library(
 da_scala_test_suite(
     name = "trigger-simulation-lib-tests",
     timeout = "long",
-    srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/*Test.scala"]),
+    srcs = ["src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/CatGenerators.scala"] + glob([
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/*Test.scala",
+    ]),
     data = [
         ":acs.dar",
     ],
