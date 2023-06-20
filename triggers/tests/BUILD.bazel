@@ -220,6 +220,7 @@ EOF
 da_scala_library(
     name = "trigger-simulation-lib",
     srcs = [
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/CatGenerators.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/TriggerMultiProcessSimulation.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/TriggerRuleSimulationLib.scala",
     ] + glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/**/*.scala"]),
@@ -260,9 +261,7 @@ da_scala_library(
 da_scala_test_suite(
     name = "trigger-simulation-lib-tests",
     timeout = "long",
-    srcs = ["src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/CatGenerators.scala"] + glob([
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/*Test.scala",
-    ]),
+    srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/*Test.scala"]),
     data = [
         ":acs.dar",
     ],
