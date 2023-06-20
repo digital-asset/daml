@@ -10,23 +10,66 @@
 module DA.Cli.Damlc (main) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception
+import Control.Exception (catch, handle)
 import Control.Exception.Safe (catchIO)
-import Control.Monad.Except
+import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
 import Control.Monad.Extra (whenM, whenJust)
-import DA.Bazel.Runfiles
+import DA.Bazel.Runfiles (Resource(..),
+                          locateResource,
+                          mainWorkspace,
+                          resourcesPath,
+                          runfilesPathPrefix,
+                          setRunfilesEnv)
 import qualified DA.Cli.Args as ParseArgs
-import DA.Cli.Options
-import DA.Cli.Damlc.BuildInfo
+import DA.Cli.Options (Debug(..),
+                       InitPkgDb(..),
+                       ProjectOpts(..),
+                       Style(..),
+                       Telemetry(..),
+                       debugOpt,
+                       disabledDlintUsageParser,
+                       enabledDlintUsageParser,
+                       enableScenarioServiceOpt,
+                       incrementalBuildOpt,
+                       initPkgDbOpt,
+                       inputDarOpt,
+                       inputFileOpt,
+                       inputFileOptWithExt,
+                       optionalDlintUsageParser,
+                       optionalOutputFileOpt,
+                       optionsParser,
+                       optPackageName,
+                       outputFileOpt,
+                       packageNameOpt,
+                       projectOpts,
+                       render,
+                       studioAutorunAllScenariosOpt,
+                       targetFileNameOpt,
+                       telemetryOpt)
+import DA.Cli.Damlc.BuildInfo (buildInfo)
 import qualified DA.Daml.Dar.Reader as InspectDar
 import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
-import DA.Cli.Damlc.Packaging
-import DA.Cli.Damlc.DependencyDb
-import DA.Cli.Damlc.Test
-import DA.Daml.Compiler.Dar
-import DA.Daml.Compiler.Output
+import DA.Cli.Damlc.Packaging (createProjectPackageDb, mbErr)
+import DA.Cli.Damlc.DependencyDb (installDependencies)
+import DA.Cli.Damlc.Test (CoveragePaths(..),
+                          LoadCoverageOnly(..),
+                          RunAllTests(..),
+                          ShowCoverage(..),
+                          TableOutputPath(..),
+                          TransactionsOutputPath(..),
+                          UseColor(..),
+                          execTest,
+                          getRunAllTests,
+                          loadAggregatePrintResults)
+import DA.Daml.Compiler.Dar (FromDalf(..),
+                             breakAt72Bytes,
+                             buildDar,
+                             createDarFile,
+                             getDamlRootFiles,
+                             writeIfacesAndHie)
+import DA.Daml.Compiler.Output (diagnosticsLogger, writeOutput, writeOutputBSL)
 import qualified DA.Daml.Compiler.Repl as Repl
-import DA.Daml.Compiler.DocTest
+import DA.Daml.Compiler.DocTest (docTest)
 import DA.Daml.Desugar (desugar)
 import DA.Daml.LF.ScenarioServiceClient (readScenarioServiceConfig, withScenarioService')
 import qualified DA.Daml.LF.ReplClient as ReplClient
@@ -34,18 +77,60 @@ import DA.Daml.Compiler.Validate (validateDar)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Util (splitUnitId)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
-import DA.Daml.LF.Reader
-import DA.Daml.LanguageServer
-import DA.Daml.Options.Types
-import DA.Daml.Package.Config
-import DA.Daml.Project.Config
-import DA.Daml.Project.Consts
+import DA.Daml.LF.Reader (dalfPaths,
+                          mainDalf,
+                          mainDalfPath,
+                          manifestPath,
+                          readDalfManifest,
+                          readDalfs,
+                          readManifest)
+import DA.Daml.LanguageServer (runLanguageServer)
+import DA.Daml.Options.Types (EnableScenarioService(..),
+                              Haddock(..),
+                              IncrementalBuild,
+                              Options,
+                              SkipScenarioValidation(..),
+                              StudioAutorunAllScenarios,
+                              damlArtifactDir,
+                              distDir,
+                              getLogger,
+                              ifaceDir,
+                              optDamlLfVersion,
+                              optEnableOfInterestRule,
+                              optEnableScenarios,
+                              optHaddock,
+                              optIfaceDir,
+                              optImportPath,
+                              optIncrementalBuild,
+                              optMbPackageName,
+                              optMbPackageVersion,
+                              optPackageDbs,
+                              optPackageImports,
+                              optScenarioService,
+                              optSkipScenarioValidation,
+                              optThreads,
+                              pkgNameVersion,
+                              projectPackageDatabase)
+import DA.Daml.Package.Config (PackageConfigFields(..),
+                               PackageSdkVersion(..),
+                               checkPkgConfig,
+                               withPackageConfig)
+import DA.Daml.Project.Config (queryProjectConfigRequired, readProjectConfig)
+import DA.Daml.Project.Consts (ProjectCheck(..),
+                               damlCacheEnvVar,
+                               damlPathEnvVar,
+                               getProjectPath,
+                               getSdkVersion,
+                               projectConfigName,
+                               sdkVersionEnvVar,
+                               withExpectProjectRoot,
+                               withProjectRoot)
 import DA.Daml.Project.Types (ConfigError(..), ProjectPath(..))
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
 import qualified DA.Service.Logger.Impl.IO as Logger.IO
-import DA.Signals
+import DA.Signals (installSignalHandlers)
 import qualified Com.Daml.DamlLfDev.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.Aeson.Text as Aeson
@@ -56,27 +141,66 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.FileEmbed (embedFile)
 import qualified Data.HashSet as HashSet
-import Data.List.Extra
+import Data.List.Extra (nubOrd, nubSort, nubSortOn)
 import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as Map
-import Data.Maybe
+import Data.Maybe (catMaybes, fromMaybe, mapMaybe)
 import qualified Data.Text.Extended as T
 import qualified Data.Text.Lazy.IO as TL
 import qualified Data.Text.IO as T
-import Development.IDE.Core.API
-import Development.IDE.Core.Debouncer
-import Development.IDE.Core.IdeState.Daml
-import Development.IDE.Core.Rules
+import Development.IDE.Core.API (getDalf, runActionSync, setFilesOfInterest)
+import Development.IDE.Core.Debouncer (newAsyncDebouncer)
+import Development.IDE.Core.IdeState.Daml (getDamlIdeState,
+                                           enabledPlugins,
+                                           withDamlIdeState)
+import Development.IDE.Core.Rules (transitiveModuleDeps)
 import Development.IDE.Core.Rules.Daml (getDlintIdeas, getSpanInfo)
-import Development.IDE.Core.Shake
+import Development.IDE.Core.Shake (Config(..),
+                                   NotificationHandler(..),
+                                   ShakeLspEnv(..),
+                                   getDiagnostics,
+                                   use,
+                                   use_,
+                                   uses)
 import Development.IDE.GHC.Util (hscEnv, moduleImportPath)
-import Development.IDE.Types.Location
-import "ghc-lib-parser" DynFlags
-import GHC.Conc
+import Development.IDE.Types.Location (toNormalizedFilePath')
+import "ghc-lib-parser" DynFlags (DumpFlag(..),
+                                  ModRenaming(..),
+                                  PackageArg(..),
+                                  PackageFlag(..))
+import GHC.Conc (getNumProcessors)
 import "ghc-lib-parser" Module (unitIdString, stringToUnitId)
 import qualified Network.Socket as NS
-import Options.Applicative.Extended
-import Options.Applicative hiding (option, strOption)
+import Options.Applicative.Extended (flagYesNoAuto, optionOnce, strOptionOnce)
+import Options.Applicative ((<|>),
+                            CommandFields,
+                            Mod,
+                            Parser,
+                            ParserInfo,
+                            auto,
+                            command,
+                            eitherReader,
+                            flag,
+                            flag',
+                            fullDesc,
+                            handleParseResult,
+                            headerDoc,
+                            help,
+                            helper,
+                            info,
+                            internal,
+                            liftA2,
+                            long,
+                            many,
+                            metavar,
+                            optional,
+                            progDesc,
+                            short,
+                            str,
+                            strArgument,
+                            subparser,
+                            switch,
+                            value)
 import qualified Options.Applicative (option, strOption)
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
@@ -1020,7 +1144,6 @@ execDocTest opts scriptDar (ImportSource importSource) files =
         { optImportPath = importPaths <> optImportPath opts
         , optHaddock = Haddock True
         }
-
       withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
           docTest ideState files'
 
