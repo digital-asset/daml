@@ -41,12 +41,11 @@ import "ghc-lib-parser" HscTypes as GHC
 import "ghc-lib-parser" Module (UnitId, unitIdString)
 import qualified Module as GHC
 import qualified "ghc-lib-parser" Packages as GHC
-import System.Directory.Extra (createDirectoryIfMissing, listFilesRecursive, removePathForcibly)
+import System.Directory.Extra (copyFile, createDirectoryIfMissing, listFilesRecursive, removePathForcibly)
 import System.Exit
 import System.FilePath
-import System.IO.Extra (Handle, hClose, hFlush, hPutStrLn, openBinaryTempFile, stderr, writeFileUTF8)
+import System.IO.Extra (hFlush, hPutStrLn, stderr, writeFileUTF8)
 import System.Info.Extra
-import System.Environment (lookupEnv)
 import System.Process (callProcess)
 import "ghc-lib-parser" UniqSet
 
@@ -66,13 +65,6 @@ import qualified DA.Service.Logger as Logger
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
 import SdkVersion
-
--- DEBUG imports for inlined library functions
-import System.Directory.Internal (ioeAddLocation, ignoreIOExceptions, copyFileToHandle)
-import System.Directory.Internal.Prelude (onException, mask)
-import System.Directory(copyPermissions, renameFile, removeFile)
-import System.IO.Error (modifyIOError)
--- DEBUG end
 
 -- | Create the project package database containing the given dar packages.
 --
@@ -180,9 +172,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
             MkBuiltinDependencyPackageNode {} -> do
               pure ()
             MkDependencyPackageNode DependencyPackageNode {dalf, unitId, dalfPackage} -> do
-              liftIO $ putStrLn $ "BISECT INTO registerDepInPkgDb -- " <> dalf <> " -- " <> depsDir <> " -- " <> dbPath
               liftIO $ registerDepInPkgDb dalf depsDir dbPath
-              liftIO $ putStrLn $ "BISECT OUT OF registerDepInPkgDb -- " <> dalf <> " -- " <> depsDir <> " -- " <> dbPath
               insert unitId dalfPackage
             MkDataDependencyPackageNode DataDependencyPackageNode {unitId, dalfPackage} -> do
               dependenciesSoFar <- State.get
@@ -444,67 +434,20 @@ registerDepInPkgDb :: FilePath -> FilePath -> FilePath -> IO ()
 registerDepInPkgDb dalfPath depsPath dbPath = do
   let dir = takeDirectory dalfPath
   files <- listFilesRecursive dir
-  putStrLn $ "BISECT into copyFiles -- " <> dir <> " -- " <> (show [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ]) <> " -- " <> dbPath
   copyFiles dir [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ] dbPath
-  putStrLn $ "BISECT out of copyFiles -- " <> dir <> " -- " <> (show [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ]) <> " -- " <> dbPath
   copyFiles dir [f | f <- files, "conf" `isExtensionOf` f] (dbPath </> "package.conf.d")
   copyFiles depsPath [dalfPath] dbPath
-  die <- lookupEnv "DIE_AFTER"
-  case die of
-    Just _ -> System.Exit.exitWith $ ExitFailure 3
-    _ -> pure ()
   -- TODO: is it possible to register a package individually instead of recaching the entire ghc-pkg db?
   -- https://github.com/digital-asset/daml/issues/13320
   recachePkgDb dbPath
 
 copyFiles :: FilePath -> [FilePath] -> FilePath -> IO ()
 copyFiles from srcs to = do
-      putStrLn "BISECT START"
       forM_ srcs $ \src -> do
-        putStrLn $ "BISECT MIDDLE -- " <> src
         let fp = to </> makeRelative from src
-        putStrLn $ "ploup -- " <> to
         createDirectoryIfMissing True (takeDirectory fp)
-        putStrLn $ "created dir -- " <> takeDirectory fp
-        putStrLn $ "copyFile " <> src <> " " <> fp
         res <- copyFile src fp
-        putStrLn "BISECT END"
         return res
-
--- DEBUG inline library functions so I can instrument them
-copyFile :: FilePath -> FilePath -> IO ()
-copyFile fromFPath toFPath =
-  (`ioeAddLocation` "copyFile") `modifyIOError` do
-    atomicCopyFileContents fromFPath toFPath
-      (ignoreIOExceptions . copyPermissions fromFPath)
-atomicCopyFileContents :: FilePath            -- ^ Source filename
-                       -> FilePath            -- ^ Destination filename
-                       -> (FilePath -> IO ()) -- ^ Post-action
-                       -> IO ()
-atomicCopyFileContents fromFPath toFPath postAction =
-  (`ioeAddLocation` "atomicCopyFileContents") `modifyIOError` do
-    withReplacementFile toFPath postAction $ \ hTo -> do
-      copyFileToHandle fromFPath hTo
-withReplacementFile :: FilePath            -- ^ Destination file
-                    -> (FilePath -> IO ()) -- ^ Post-action
-                    -> (Handle -> IO a)    -- ^ Main action
-                    -> IO a
-withReplacementFile path postAction action =
-  (`ioeAddLocation` "withReplacementFile") `modifyIOError` do
-    mask $ \ restore -> do
-      putStrLn "BISECT LIB START"
-      putStrLn $ "openBinaryTempFile " <> takeDirectory path
-      (tmpFPath, hTmp) <- openBinaryTempFile (takeDirectory path)
-                                             "x.y"
-      putStrLn "BISECT LIB END"
-      (`onException` ignoreIOExceptions (removeFile tmpFPath)) $ do
-        r <- (`onException` ignoreIOExceptions (hClose hTmp)) $ do
-          restore (action hTmp)
-        hClose hTmp
-        restore (postAction tmpFPath)
-        renameFile tmpFPath path
-        return r
--- DEBUG end
 
 recachePkgDb :: FilePath -> IO ()
 recachePkgDb dbPath = do
