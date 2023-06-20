@@ -21,8 +21,8 @@ import com.daml.ledger.testing.utils.TransactionEq
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTimeMode}
-import com.daml.lf.engine.script.{Participants, Runner}
+import com.daml.lf.engine.script.ledgerinteraction.GrpcLedgerClient
+import com.daml.lf.engine.script.{Participants, Runner, ScriptTimeMode}
 import com.daml.lf.language.Ast.Package
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest._
