@@ -15,6 +15,8 @@ module DA.Daml.Assistant.Version
     , getAvailableSdkSnapshotVersions
     , getLatestSdkSnapshotVersion
     , getLatestReleaseVersion
+    , distinguishBy
+    , isSnapshotOfInterest
     ) where
 
 import DA.Daml.Assistant.Types
@@ -28,9 +30,10 @@ import System.Environment.Blank
 import Control.Exception.Safe
 import Control.Monad.Extra
 import Data.Maybe
-import Data.List
 import Data.Either.Extra
-import Data.Aeson (eitherDecodeStrict')
+import Data.Aeson (eitherDecode)
+import Data.Aeson.Types (parseEither, listParser, withObject, (.:), Value, Parser)
+import qualified Data.Text as T
 import Data.Text.Encoding
 import Safe
 import Network.HTTP.Simple
@@ -44,7 +47,15 @@ import qualified Network.HTTP.Client as Http
 import Network.HTTP.Types (ok200)
 import Network.HTTP.Client.TLS (newTlsManager)
 
-import qualified Data.HashMap.Strict as M
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Char8 as BSC
+import qualified Data.ByteString.UTF8 as BSU
+import qualified Data.SemVer as V
+import Control.Lens (view)
+
+import qualified Data.Map.Strict as M
+import qualified Data.List.NonEmpty as NonEmpty
 
 -- | Determine SDK version of running daml assistant. Fails with an
 -- AssistantError exception if the version cannot be determined.
@@ -121,47 +132,91 @@ getDefaultSdkVersion damlPath = do
     required "There are no installed SDK versions." $
         maximumMay installedVersions
 
+distinguishBy :: Ord k => (a -> k) -> [a] -> M.Map k (NonEmpty.NonEmpty a)
+distinguishBy f as = M.fromListWith (<>) [(f a, pure a) | a <- as]
+
+isSnapshotOfInterest :: SdkVersion -> Bool
+isSnapshotOfInterest sdkVersion =
+    let v = unwrapSdkVersion sdkVersion
+    in
+    null (view V.release v) && null (view V.metadata v) && view V.major v > 0
+
 -- | Get the list of available versions afresh. This will fetch
 -- https://docs.daml.com/versions.json and parse the obtained list
 -- of versions.
 getAvailableSdkVersions :: IO [SdkVersion]
 getAvailableSdkVersions = wrapErr "Fetching list of available SDK versions" $ do
-    response <- requiredAny "HTTP connection to docs.daml.com failed" $ do
-        request <- parseRequest "GET http://docs.daml.com/versions.json"
-        httpBS request { responseTimeout = responseTimeoutMicro 2000000 }
+    snapshots <- getAvailableSdkSnapshotVersions
+    -- Adapted from daml-docker-images/blob/master/make.sh
+    let majorMap :: M.Map Int (NonEmpty.NonEmpty SdkVersion)
+        majorMap = distinguishBy (view V.major . unwrapSdkVersion) (filter isSnapshotOfInterest snapshots)
 
-    when (getResponseStatusCode response /= 200) $ do
-        throwIO $ assistantErrorBecause
-            "Fetching list of available SDK versions from docs.daml.com failed"
-            (pack . show $ getResponseStatus response)
+    case M.maxView majorMap of
+      Just (latestMajorVersions, withoutLatestMajor) ->
+        let -- For old majors, only the latest stable patch
+            oldMajors :: [SdkVersion]
+            oldMajors = map maximum (M.elems withoutLatestMajor)
 
-    versionsMap :: M.HashMap Text Text <-
-        fromRightM
-            (throwIO . assistantErrorBecause "Versions list from docs.daml.com does not contain valid JSON" . pack)
-            (eitherDecodeStrict' (getResponseBody response))
+            latestMajorMinorVersions :: M.Map Int (NonEmpty.NonEmpty SdkVersion)
+            latestMajorMinorVersions = distinguishBy (view V.minor . unwrapSdkVersion) (NonEmpty.toList latestMajorVersions)
 
-    pure . sort $ mapMaybe (eitherToMaybe . parseVersion) (M.keys versionsMap)
+            -- For the most recent major version, output the latest minor version
+            latestMajorLatestMinorVersions :: [SdkVersion]
+            latestMajorLatestMinorVersions = map maximum (M.elems latestMajorMinorVersions)
+        in
+        pure $ oldMajors ++ latestMajorLatestMinorVersions
+      Nothing -> pure []
 
 -- | Get the list of available snapshot versions. This will fetch
--- https://docs.daml.com/snapshots.json and parse the obtained list
--- of versions.
+-- https://api.github.com/repos/digital-asset/daml/releases and parse the
+-- obtained list of versions.
 getAvailableSdkSnapshotVersions :: IO [SdkVersion]
-getAvailableSdkSnapshotVersions = wrapErr "Fetching list of available SDK snapshot versions" $ do
-    response <- requiredAny "HTTP connection to docs.daml.com failed" $ do
-        request <- parseRequest "GET http://docs.daml.com/snapshots.json"
-        httpBS request { responseTimeout = responseTimeoutMicro 2000000 }
+getAvailableSdkSnapshotVersions = do
+  releasesPages <- requestReleasesPaged "https://api.github.com/repos/digital-asset/daml/releases"
+  versionss <- forM releasesPages $ \(url, body) ->
+    fromRightM
+      (throwIO . assistantErrorBecause ("Snapshot versions list from " <> pack url <> " does not contain valid JSON") . pack)
+      (extractVersions body)
+  let versions = concat versionss
+  pure versions
+  where
+  requestReleasesPaged :: String -> IO [(String, ByteString)]
+  requestReleasesPaged url = do
+    (versions, mNext) <- requestReleasesSinglePage url
+    rest <- case mNext of
+              Nothing -> pure []
+              Just url -> requestReleasesPaged url
+    pure ((url, versions) : rest)
 
-    when (getResponseStatusCode response /= 200) $ do
-        throwIO $ assistantErrorBecause
-            "Fetching list of available SDK snapshot versions from docs.daml.com failed"
-            (pack . show $ getResponseStatus response)
+  requestReleasesSinglePage :: String -> IO (ByteString, Maybe String)
+  requestReleasesSinglePage url =
+    requiredAny "HTTP connection to docs.daml.com failed" $ do
+        request <- parseRequest url
+        let request' = addRequestHeader "User-Agent" "Daml-Assistant/0.0" request
+        res <- httpBS request' { responseTimeout = responseTimeoutMicro 2000000 }
+        pure (getResponseBody res, nextPage res)
 
-    versionsMap :: M.HashMap Text Text <-
-        fromRightM
-            (throwIO . assistantErrorBecause "Snapshot versions list from docs.daml.com does not contain valid JSON" . pack)
-            (eitherDecodeStrict' (getResponseBody response))
+  nextPage :: Response a -> Maybe String
+  nextPage res = go (concatMap BSC.words (getResponseHeader "Link" res))
+    where
+      go ws =
+        case ws of
+          (link:rel:rest)
+            | rel == "rel=\"next\"," -> Just (takeWhile (/= '>') (tail (BSU.toString link)))
+            | otherwise -> go rest
+          _ -> Nothing
 
-    pure . sort $ mapMaybe (eitherToMaybe . parseVersion) (M.keys versionsMap)
+  extractVersions :: ByteString -> Either String [SdkVersion]
+  extractVersions bs = do
+      value <- eitherDecode (BSL.fromStrict bs)
+      let parseTagNameToVersion :: Value -> Parser [SdkVersion]
+          parseTagNameToVersion =
+            listParser $ withObject "Version" $ \v -> do
+              rawTagName <- (v .: "tag_name" :: Parser T.Text)
+              case parseVersion (T.dropWhile ('v' ==) rawTagName) of
+                Left (InvalidVersion src msg) -> fail $ "Invalid version string `" <> unpack src <> "` for reason: " <> msg
+                Right sdkVersion -> pure sdkVersion
+      parseEither parseTagNameToVersion value
 
 -- | Same as getAvailableSdkVersions, but writes result to cache.
 refreshAvailableSdkVersions :: CachePath -> IO [SdkVersion]
