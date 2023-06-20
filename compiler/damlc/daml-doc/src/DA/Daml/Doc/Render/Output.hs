@@ -62,6 +62,9 @@ maybeAnchorLink = maybe RenderPlain (RenderLink . Reference Nothing)
 maybeReferenceLink :: Maybe Reference -> T.Text -> RenderText
 maybeReferenceLink = maybe RenderPlain RenderLink
 
+strsWithCommas :: [String] -> RenderText
+strsWithCommas = renderIntercalate ", " . fmap (RenderPlain . T.pack)
+
 instance RenderDoc TemplateDoc where
     renderDoc TemplateDoc{..} = mconcat
         [ renderDoc td_anchor
@@ -71,7 +74,7 @@ instance RenderDoc TemplateDoc where
             ]
         , RenderBlock $ mconcat
             [ renderDoc td_descr
-            , maybe mempty (RenderParagraph . RenderPlain . ("Signatory: " <>) . T.pack) td_signatory
+            , maybe mempty (\sig -> RenderParagraph $ RenderPlain "Signatory: " <> strsWithCommas sig) td_signatory
             , fieldTable td_payload
             , RenderList (map renderDoc td_choices)
             ]
@@ -133,7 +136,7 @@ instance RenderDoc ChoiceDoc where
             , [maybeAnchorLink cd_anchor (unTypename cd_name)]
             ]
         , renderDoc cd_descr
-        , maybe mempty (RenderParagraph . RenderPlain . ("Controller: " <>) . T.pack) cd_controller
+        , maybe mempty (\ctr -> RenderParagraph $ RenderPlain "Controller: " <> strsWithCommas ctr) cd_controller
         , RenderParagraph $ renderUnwords [RenderPlain "Returns:", renderType cd_type]
         , fieldTable cd_fields
         ]

@@ -27,7 +27,6 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.auth.TokenHolder
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.data.NoCopy
-import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 
 import java.io.File
@@ -73,14 +72,7 @@ object RunnerMain {
             Runner.connect(participantParams, config.tlsConfig, config.maxInboundMessageSize)
           }
         case None =>
-          Future.successful(
-            Participants(
-              default_participant =
-                Some(new IdeLedgerClient(compiledPackages, traceLog, warningLog, () => false)),
-              participants = Map.empty,
-              party_participants = Map.empty,
-            )
-          )
+          Runner.ideLedgerClient(compiledPackages, traceLog, warningLog)
       }
       result <- Runner
         .run(

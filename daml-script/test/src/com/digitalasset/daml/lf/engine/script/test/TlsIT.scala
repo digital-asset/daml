@@ -5,7 +5,7 @@ package com.daml.lf.engine.script
 package test
 
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+import com.daml.lf.engine.script.ScriptTimeMode
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 

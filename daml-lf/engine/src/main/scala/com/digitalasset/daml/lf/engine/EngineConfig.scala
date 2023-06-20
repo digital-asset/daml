@@ -42,7 +42,6 @@ final case class EngineConfig(
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,
     contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
-    forbidV0ContractId: Boolean = false,
     requireSuffixedGlobalContractId: Boolean = false,
     limits: interpretation.Limits = interpretation.Limits.Lenient,
     checkAuthorization: Boolean = true,
