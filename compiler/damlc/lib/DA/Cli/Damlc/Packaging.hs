@@ -446,8 +446,7 @@ copyFiles from srcs to = do
       forM_ srcs $ \src -> do
         let fp = to </> makeRelative from src
         createDirectoryIfMissing True (takeDirectory fp)
-        res <- copyFile src fp
-        return res
+        copyFile src fp
 
 recachePkgDb :: FilePath -> IO ()
 recachePkgDb dbPath = do
