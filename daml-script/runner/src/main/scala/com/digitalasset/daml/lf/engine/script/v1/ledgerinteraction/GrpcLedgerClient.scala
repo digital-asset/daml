@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script.ledgerinteraction
+package com.daml.lf.engine.script.v1.ledgerinteraction
 
 import java.util.UUID
 
@@ -30,7 +30,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
-import com.daml.lf.engine.script.Converter
+import com.daml.lf.engine.script.v1.Converter
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.{SValue, svalue}
 import com.daml.lf.value.Value

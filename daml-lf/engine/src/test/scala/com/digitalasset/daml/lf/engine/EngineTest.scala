@@ -2369,7 +2369,6 @@ class EngineTest
       new Engine(
         EngineConfig(
           allowedLanguageVersions = VersionRange(min, max),
-          forbidV0ContractId = true,
           requireSuffixedGlobalContractId = true,
         )
       )
@@ -2560,7 +2559,6 @@ object EngineTest {
     new Engine(
       EngineConfig(
         allowedLanguageVersions = language.LanguageVersion.DevVersions,
-        forbidV0ContractId = true,
         requireSuffixedGlobalContractId = requireCidSuffixes,
       )
     )
