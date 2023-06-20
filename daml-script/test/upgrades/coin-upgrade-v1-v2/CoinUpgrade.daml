@@ -7,7 +7,7 @@ import Daml.Script
 import Coin_1_0_0.Coin qualified
 import Coin_2_0_0.Coin qualified
 
-template Aux
+template Aux -- for softFetch
   with
     party : Party
   where
@@ -39,6 +39,7 @@ create_v1_softFetch_v1 = do
   cid <- alice `submit` createCmd Coin_1_0_0.Coin.Coin with
     issuer = alice
     owner = alice
+    obs = []
   _ <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1_0_0 with
     cid = cid
   pure ()
@@ -49,6 +50,7 @@ create_v2_softFetch_v2 = do
   cid <- alice `submit` createCmd Coin_2_0_0.Coin.Coin with
     issuer = alice
     owner = alice
+    obs = []
   _ <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_2_0_0 with
     cid = cid
   pure ()
@@ -59,6 +61,7 @@ create_v1_softFetch_v2 = do
   cid <- alice `submit` createCmd Coin_1_0_0.Coin.Coin with
     issuer = alice
     owner = alice
+    obs = []
   _ <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_2_0_0 with
     cid = coerceContractId cid
   pure ()
@@ -69,6 +72,59 @@ create_v2_softFetch_v1 = do
   cid <- alice `submit` createCmd Coin_2_0_0.Coin.Coin with
     issuer = alice
     owner = alice
+    obs = []
   _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1_0_0 with
     cid = coerceContractId cid
+  pure ()
+
+
+template Aux2 -- for softExercise
+  with
+    party : Party
+  where
+    signatory party
+
+    choice SoftExercise_Steal_1_0_0 : (Text, ContractId Coin_2_0_0.Coin.Coin)
+      with cid : ContractId Coin_1_0_0.Coin.Coin
+      controller party
+      do
+        let cid1 = coerceContractId @_ @Coin_2_0_0.Coin.Coin cid
+        cid2 <- softExercise cid1 (Coin_2_0_0.Coin.V2Steal party)
+        pure $
+          ( "soft exercise v1\n"
+          , cid2
+          )
+
+    choice SoftExercise_Steal_2_0_0 : (Text, ContractId Coin_2_0_0.Coin.Coin)
+      with cid : ContractId Coin_2_0_0.Coin.Coin
+      controller party
+      do
+        cid2 <- softExercise cid (Coin_2_0_0.Coin.V2Steal party)
+        pure $
+          ( "soft exercise v2\n"
+          , cid2
+          )
+
+create_v2_softExercise_v2 : Script ()
+create_v2_softExercise_v2 = do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  cid <- alice `submit` createCmd Coin_2_0_0.Coin.Coin with
+    issuer = alice
+    owner = alice
+    obs = [bob]
+  _ <- bob `submit` createAndExerciseCmd (Aux2 bob) SoftExercise_Steal_2_0_0 with
+    cid = cid
+  pure ()
+
+create_v1_softExercise_v2 : Script ()
+create_v1_softExercise_v2 = do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  cid <- alice `submit` createCmd Coin_1_0_0.Coin.Coin with
+    issuer = alice
+    owner = alice
+    obs = [bob]
+  _ <- bob `submit` createAndExerciseCmd (Aux2 bob) SoftExercise_Steal_1_0_0 with
+    cid = cid
   pure ()

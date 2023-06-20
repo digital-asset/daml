@@ -63,11 +63,17 @@ class HasSoftFetch t where
   -- | HIDE
   _softFetch : ContractId t -> Update t
 
+class HasSoftExercise t c r | t c -> r where
+  -- | HIDE
+  _softExercise : ContractId t -> c -> Update r
+
 #ifdef DAML_PACKAGE_UPGRADES
 
--- | TODO
 softFetch : HasSoftFetch t => ContractId t -> Update t
 softFetch = _softFetch
+
+softExercise : HasSoftExercise t c r => ContractId t -> c -> Update r
+softExercise = _softExercise
 
 #endif -- DAML_PACKAGE_UPGRADES
 

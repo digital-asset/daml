@@ -30,6 +30,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//:canton_dep.bzl", "canton")
+load("//:daml_finance_dep.bzl", "quickstart")
 
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "6899cddf7407d09266dddcf6faf9f2a8b414de5e2b35ef8b294418f559172f28"
@@ -373,14 +374,12 @@ genrule(
             name = "canton",
             build_file_content = """
 package(default_visibility = ["//visibility:public"])
-
-java_import(
-    name = "lib",
-    jars = glob(["lib/**/*.jar"]),
+filegroup(
+  name = "jar",
+  srcs = glob(["*/lib/**/*.jar"]),
 )
         """,
             sha256 = canton["sha"],
-            strip_prefix = canton["prefix"],
             urls = [canton["url"]],
         )
 
@@ -396,4 +395,33 @@ filegroup(
             sha256 = "3a6c51868c71b006c33c4bcde63d90927e6fcca8f51c965b8ad62d021614a860",
             strip_prefix = "freefont-20120503",
             urls = ["http://ftp.gnu.org/gnu/freefont/freefont-otf-20120503.tar.gz"],
+        )
+
+    if "daml-finance" not in native.existing_rules():
+        http_archive(
+            name = "daml-finance",
+            strip_prefix = "daml-finance-{}".format(quickstart["version"]),
+            urls = ["https://github.com/digital-asset/daml-finance/archive/{}.tar.gz".format(quickstart["version"])],
+            sha256 = quickstart["sha256"],
+            build_file_content = """
+package(default_visibility = ["//visibility:public"])
+genrule(
+    name = "quickstart",
+    srcs = glob(["docs/code-samples/getting-started/**/*"]
+            , exclude = ["docs/code-samples/getting-started/daml.yaml", "docs/code-samples/getting-started/NO_AUTO_COPYRIGHT"]),
+    outs = ["daml-finance-quickstart.tar.gz"],
+    cmd = '''
+        tar czhf $(OUTS) \\\\
+            --transform 's|^.*docs/code-samples/getting-started/||' \\\\
+            --owner=1000 \\\\
+            --group=1000 \\\\
+            --mtime=2000-01-01\\\\ 00:00Z \\\\
+            --no-acls \\\\
+            --no-xattrs \\\\
+            --no-selinux \\\\
+            --sort=name \\\\
+            $(SRCS)
+    ''',
+)
+            """,
         )

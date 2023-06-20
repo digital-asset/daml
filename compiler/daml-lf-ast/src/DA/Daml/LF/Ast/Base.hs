@@ -712,6 +712,19 @@ data Update
     , exeArg        :: !Expr
       -- ^ Argument for the choice.
     }
+
+  -- | (Soft) Exercise choice on a contract given a contract ID.
+  | USoftExercise
+    { exeTemplate   :: !(Qualified TypeConName)
+      -- ^ Qualified type constructor corresponding to the contract template.
+    , exeChoice     :: !ChoiceName
+      -- ^ Choice to exercise.
+    , exeContractId :: !Expr
+      -- ^ Contract id of the contract template instance to exercise choice on.
+    , exeArg        :: !Expr
+      -- ^ Argument for the choice.
+    }
+
   -- | Exercise choice on a contract given a contract ID, dynamically.
   | UDynamicExercise
     { exeTemplate   :: !(Qualified TypeConName)

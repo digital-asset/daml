@@ -71,6 +71,7 @@ trait PostgresAround {
       logger.info(s"PostgreSQL has started on port $port.")
     } catch {
       case NonFatal(e) =>
+        logger.error(s"Error while starting postgres: $e")
         lockedPort.unlock()
         stopPostgresql(dataDir)
         deleteRecursively(root)

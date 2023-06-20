@@ -7,13 +7,23 @@ template Coin
   with
     issuer : Party
     owner : Party
+    obs : [Party]
   where
     signatory issuer, owner
+    observer obs
 
     nonconsuming choice V2Choice : ()
       controller owner
       do pure ()
 
+    choice V2Steal : ContractId Coin
+      with newOwner : Party
+      controller newOwner
+      do create this with owner = newOwner
+
 -- TODO https://github.com/digital-asset/daml/issues/16151
 instance HasSoftFetch Coin where
   _softFetch = GHC.Types.primitive @"USoftFetch"
+
+instance HasSoftExercise Coin V2Steal (ContractId Coin) where
+  _softExercise = GHC.Types.primitive @"USoftExercise"

@@ -13,7 +13,6 @@ final class TlsIT extends AsyncWordSpec with AbstractScriptTest with Matchers {
 
   import AbstractScriptTest._
 
-  final override protected lazy val darFiles = List(stableDarPath)
   final override protected lazy val tlsEnable = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
@@ -25,7 +24,7 @@ final class TlsIT extends AsyncWordSpec with AbstractScriptTest with Matchers {
           _ <- run(
             clients,
             Ref.QualifiedName.assertFromString("ScriptTest:test0"),
-            dar = stableDar,
+            dar = dar,
           )
         } yield
         // No assertion, we just want to see that it succeeds

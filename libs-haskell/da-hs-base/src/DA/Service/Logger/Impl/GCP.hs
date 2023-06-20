@@ -4,6 +4,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE NondecreasingIndentation #-}
 {-|
 This uses the Google Cloud Platform (GCP) Stackdriver logging service to store
 log information. It builds up a queue of messages and attempts to send those

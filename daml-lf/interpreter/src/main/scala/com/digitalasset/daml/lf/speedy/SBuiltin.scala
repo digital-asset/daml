@@ -1023,6 +1023,7 @@ private[lf] object SBuiltin {
       def doExe(choiceAuthorizers: Option[Set[Party]]): Control[Nothing] = {
         machine.ptx
           .beginExercises(
+            templateId = templateId,
             targetId = coid,
             contract = contract,
             interfaceId = interfaceId,
@@ -1102,6 +1103,15 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
+
+      // TODO https://github.com/digital-asset/daml/issues/16151
+      // debug calls to SBPromoteAnyContract
+      // println(s"**SBPromoteAnyContract: \n- templateId=${templateId}\n- acceptedTemplateIds=${acceptedTemplateIds}");
+
+      // TODO https://github.com/digital-asset/daml/issues/16151
+      // perhaps compute `acceptedTemplateIds` here, dynamically when execute is called
+      // And then be can be more confident that all relavant package have been compiled.
+
       def coid = getSContractId(args, 0)
       val (actualTemplateId, record) = getSAnyContract(args, 1)
 

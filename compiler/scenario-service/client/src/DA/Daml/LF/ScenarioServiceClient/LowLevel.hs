@@ -483,6 +483,7 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name logger stopSemaphore status
           NoResultUpdate -> loop
           _ -> pure ()
         pure ()
+  _ <- tryPutMVar stopSemaphore False -- once we exit, stop the semaphore checking thread
   case response of
     ClientBiDiResponse _ StatusOk _ -> getFinalResponse
     ClientBiDiResponse _ status _ -> pure (Left (BackendError (BErrorFail status)))

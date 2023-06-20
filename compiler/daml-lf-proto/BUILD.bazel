@@ -1,89 +1,7 @@
 # Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library")
-
-da_haskell_library(
-    name = "daml-lf-util",
-    srcs =
-        [
-            "src/DA/Daml/LF/Mangling.hs",
-            "src/DA/Daml/LF/Proto3/Error.hs",
-            "src/DA/Daml/LF/Proto3/Util.hs",
-        ],
-    hackage_deps = [
-        "base",
-        "bytestring",
-        "either",
-        "text",
-    ],
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
-    deps = [
-        "//compiler/daml-lf-ast",
-        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
-    ],
-)
-
-da_haskell_library(
-    name = "daml-lf-proto-decode",
-    srcs = [
-        "src/DA/Daml/LF/Proto3/Archive/Decode.hs",
-        "src/DA/Daml/LF/Proto3/Decode.hs",
-        "src/DA/Daml/LF/Proto3/DecodeV1.hs",
-    ],
-    hackage_deps = [
-        "base",
-        "containers",
-        "lens",
-        "cryptonite",
-        "memory",
-        "bytestring",
-        "mtl",
-        "proto3-suite",
-        "text",
-        "vector",
-    ],
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":daml-lf-util",
-        "//compiler/daml-lf-ast",
-        "//compiler/damlc/stable-packages:stable-packages-list",
-        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
-        "//libs-haskell/da-hs-base",
-    ],
-)
-
-da_haskell_library(
-    name = "daml-lf-proto-encode",
-    srcs = [
-        "src/DA/Daml/LF/Proto3/Archive/Encode.hs",
-        "src/DA/Daml/LF/Proto3/Encode.hs",
-        "src/DA/Daml/LF/Proto3/EncodeV1.hs",
-    ],
-    hackage_deps = [
-        "base",
-        "bytestring",
-        "cryptonite",
-        "memory",
-        "containers",
-        "mtl",
-        "lens",
-        "text",
-        "vector",
-        "proto3-suite",
-        "unordered-containers",
-    ],
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":daml-lf-util",
-        "//compiler/daml-lf-ast",
-        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
-        "//libs-haskell/da-hs-base",
-    ],
-)
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "generate_and_track_cabal")
 
 da_haskell_library(
     name = "daml-lf-proto",
@@ -105,11 +23,12 @@ da_haskell_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        ":daml-lf-proto-decode",
-        ":daml-lf-proto-encode",
-        ":daml-lf-util",
         "//compiler/daml-lf-ast",
-        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
+        "//compiler/daml-lf-proto-decode",
+        "//compiler/daml-lf-proto-encode",
+        "//compiler/daml-lf-proto-util",
         "//libs-haskell/da-hs-base",
     ],
 )
+
+generate_and_track_cabal("daml-lf-proto")

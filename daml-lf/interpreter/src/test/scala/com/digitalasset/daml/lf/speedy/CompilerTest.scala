@@ -4,7 +4,6 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.command.ContractMetadata
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.interpretation.Error.TemplatePreconditionViolated
@@ -570,7 +569,7 @@ object CompilerTest {
       templateId,
       contractId,
       key,
-      ContractMetadata(Time.Timestamp.now(), keyHash, Bytes.Empty),
+      keyHash,
     )
 
     disclosedContract
@@ -585,7 +584,7 @@ object CompilerTest {
       templateId,
       contractId,
       preCondContract(precondition = precondition),
-      ContractMetadata(Time.Timestamp.now(), None, Bytes.Empty),
+      None,
     )
   }
 }
