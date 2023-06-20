@@ -4,8 +4,6 @@
 
 set -euo pipefail
 
-exit 0
-
 eval "$("$(dirname "$0")/dev-env/bin/dade-assist")"
 
 execution_log_postfix=${1:-}
@@ -42,7 +40,7 @@ else
 fi
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
-$bazel build //compiler/... \
+$bazel build //... \
   --build_tag_filters "${tag_filter:1}" \
   --profile build-profile.json \
   --experimental_profile_include_target_label \
@@ -81,7 +79,7 @@ stop_postgresql # in case it's running from a previous build
 start_postgresql
 
 # Run the tests.
-$bazel test //compiler/damlc:daml-stdlib-doctest \
+$bazel test //... \
   --build_tag_filters "${tag_filter:1}" \
   --test_tag_filters "${tag_filter:1}" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \

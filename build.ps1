@@ -59,7 +59,7 @@ bazel shutdown
 # It isn’t clear where exactly those errors are coming from.
 bazel fetch @nodejs_dev_env//...
 
-bazel build //compiler/... `
+bazel build //... `
   `-`-profile build-profile.json `
   `-`-experimental_profile_include_target_label `
   `-`-build_event_json_file build-events.json `
@@ -74,8 +74,8 @@ if ($env:SKIP_TESTS -ceq "False") {
       | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
 
     $tag_filter = "-dev-canton-test"
-
-    bazel test //compiler/damlc:daml-stdlib-doctest `
+    
+    bazel test //... `
       `-`-build_tag_filters "$tag_filter" `
       `-`-test_tag_filters "$tag_filter" `
       `-`-profile test-profile.json `
