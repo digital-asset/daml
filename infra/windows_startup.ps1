@@ -23,6 +23,7 @@ New-ItemProperty -Path HKLM:Software\Microsoft\Windows\CurrentVersion\policies\s
 ${gcp_logging}
 # Install chocolatey
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$env:chocolateyVersion = '1.4.0'
 iex (New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')
 
 # Install git, bash
