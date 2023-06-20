@@ -280,7 +280,7 @@ getChoiceControllerData decl
   , Just (body, _) <- unMatchGroup matchGroup
   , ExplicitTuple _ [_, L _ (Present _ (L _ controllerExpr)), _, _, _] _ <- body
   , Just controllers <- unControllerExpr controllerExpr
-  , controllersStr <- hsExprToString <$> reverse (unParties controllers)
+  , controllersStr <- hsExprToString <$> unParties controllers
   = Just ((templateName, choiceName), controllersStr)
 
   | otherwise = Nothing

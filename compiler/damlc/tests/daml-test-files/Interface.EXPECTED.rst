@@ -121,7 +121,7 @@ Interfaces
 
     **Choice** `Transfer <type-interface-transfer-15068_>`_
 
-    Controller\: newOwner, getOwner this
+    Controller\: getOwner this, newOwner
 
     Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-interface-token-10651_>`_
 
