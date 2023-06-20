@@ -206,7 +206,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
             FROM $ledgerOffsetTableName o
             JOIN $templateIdTableName t
             ON t.tpid = o.tpid
-            ${Fragments.whereAndOpt(optionalFilterOffset, Some(fr"o.last_offset != $ledgerOffset"))}
+            ${Fragments.whereAndOpt(optionalFilterOffset, Some(fr"o.last_offset < $ledgerOffset"))}
         """
     allOffsetsQuery
       .query[(String, String, String, String, String)]

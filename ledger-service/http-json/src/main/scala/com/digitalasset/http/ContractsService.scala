@@ -335,8 +335,9 @@ class ContractsService(
                     .unsafeToFuture()
                 Source
                   .future(futureValue)
-                  .mapConcat(identity)
-                  .map(x => \/.right(domain.RefreshCacheResult(x.toOption)))
+                  .map { _ =>
+                    \/.right(domain.RefreshCacheResult(ledgerEnd.toDomain, optOffsetToUpdate))
+                  }
               }
               domain.OkResponse(response)
             },

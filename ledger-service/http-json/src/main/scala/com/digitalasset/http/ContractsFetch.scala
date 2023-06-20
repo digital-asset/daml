@@ -262,7 +262,7 @@ private class ContractsFetch(
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpJsonApiMetrics,
-  ): ConnectionIO[List[BeginBookmark[domain.Offset]]] = {
+  ): ConnectionIO[Unit] = {
     import sjd.q.queries
     import cats.syntax.traverse._
 
@@ -278,14 +278,14 @@ private class ContractsFetch(
         )
         filteredTemplateInfoAndOffset =
           allOffsets.map { case ((packageId, moduleName, entityName), partyOffsetNonEmpty) =>
-            val a = partyOffsetNonEmpty.map { case (partyId, offset) =>
+            val partyOffset = partyOffsetNonEmpty.map { case (partyId, offset) =>
               type L[a] = (a, domain.Offset)
               domain.Party.subst[L, String](domain.Offset.tag.subst((partyId, offset)))
             }
-            (ContractTypeId.Template(packageId, moduleName, entityName), a)
+            (ContractTypeId.Template(packageId, moduleName, entityName), partyOffset)
           }.toList
 
-        result <- filteredTemplateInfoAndOffset.map { case (templateId, partyOffsetNonEmpty) =>
+        _ <- filteredTemplateInfoAndOffset.map { case (templateId, partyOffsetNonEmpty) =>
           val parties: domain.PartySet = partyOffsetNonEmpty.toSet.map(_._1)
           val fetchContext = FetchContext(jwt, ledgerId, parties)
           contractsFromOffsetIo(
@@ -301,7 +301,6 @@ private class ContractsFetch(
         logger.debug(
           s"updated the cache for the follow templates: ${templateIds.mkString("[", ", ", "]")}"
         )
-        result
       }
     }
   }

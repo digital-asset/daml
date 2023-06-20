@@ -1811,12 +1811,12 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
       } yield {
         inside(res) { case domain.OkResponse(s, _, StatusCodes.OK) =>
-          assert(s.toString.matches("""\[\{\"refreshedAt\":\"[0-9a-f]*\"\}\]"""))
+          assert(s.toString.matches("""\[\{\"refreshedTo\":\"[0-9a-f]*\"\}\]"""))
         }
       }
     }
 
-    "should return empty offset when the cache was up to date" in withHttpService { fixture =>
+    "should return latest offset when the cache was up to date" in withHttpService { fixture =>
       for {
         res1 <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, aliceHeaders) = res1
@@ -1841,7 +1841,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
       } yield {
         inside(res) { case domain.OkResponse(s, _, StatusCodes.OK) =>
-          s.toString shouldBe "[]"
+          assert(s.toString.matches("""\[\{\"refreshedTo\":\"[0-9a-f]*\"\}\]"""))
         }
       }
     }
