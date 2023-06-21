@@ -275,8 +275,7 @@ private class ContractsFetch(
         filteredTemplateInfoAndOffset =
           allOffsets.map { case ((packageId, moduleName, entityName), partyOffsetNonEmpty) =>
             val partyOffset = partyOffsetNonEmpty.map { case (partyId, offset) =>
-              type L[a] = (a, domain.Offset)
-              domain.Party.subst[L, String](domain.Offset.tag.subst((partyId, offset)))
+              (domain.Party(partyId), domain.Offset(offset))
             }
             (ContractTypeId.Template(packageId, moduleName, entityName), partyOffset)
           }.toList
