@@ -1,0 +1,19 @@
+module DamlDocFormatting where
+
+data ReceiverAmount = ReceiverAmount
+  with
+    receiver : Party
+    amount : Decimal
+  deriving (Show, Eq, Ord)
+
+template Payment
+  with 
+    sender: Party
+    receiverAmounts: [ReceiverAmount]
+  where
+    signatory sender, map (\r -> r.receiver) receiverAmounts
+
+    choice AddReceiver : ContractId Payment with
+        receiver : ReceiverAmount
+      controller undefined: Party
+      do create this with receiverAmounts = receiver :: receiverAmounts

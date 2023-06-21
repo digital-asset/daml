@@ -349,4 +349,4 @@ daml_doc_test(
         "DA/Time/Types.daml",
         "DA/Action/State/Type.daml",
     ],
-) if not is_windows else None
+)

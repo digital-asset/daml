@@ -48,7 +48,7 @@
 >
 > * <a name="type-retroactiveinterfaceinstance-transfer-79282"></a>**Choice** [Transfer](#type-retroactiveinterfaceinstance-transfer-79282)
 >
->   Controller: newOwner, (DA.Internal.Record.getField @"owner" (view this))
+>   Controller: (DA.Internal.Record.getField @"owner" (view this)), newOwner
 >
 >   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-retroactiveinterfaceinstance-token-49693)
 >
