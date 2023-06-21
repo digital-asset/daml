@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import com.daml.bazeltools.BazelRunfiles
+import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.integrationtest.CantonFixtureWithResource
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -16,7 +16,7 @@ import org.scalatest.OptionValues._
 
 import java.io.File
 import java.net.InetAddress
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.sys.process.Process
@@ -28,6 +28,7 @@ trait ToxicSandboxFixture
   self: Suite =>
 
   override lazy protected val darFiles: List[Path] = packageFiles.map(_.toPath)
+  override lazy protected val cantonJar = Paths.get(rlocation("canton/canton-ee_deploy.jar"))
 
   protected def packageFiles: List[File]
 
@@ -51,9 +52,9 @@ trait ToxicSandboxFixture
         def start(): Future[(Port, ToxiproxyClient, Proxy, Process)] = {
           val toxiproxyExe =
             if (!isWindows)
-              BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-server")
+              rlocation("external/toxiproxy_dev_env/bin/toxiproxy-server")
             else
-              BazelRunfiles.rlocation(
+              rlocation(
                 "external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe"
               )
           for {

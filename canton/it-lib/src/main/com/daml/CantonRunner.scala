@@ -31,9 +31,9 @@ object CantonRunner {
   private[integrationtest] def toJson(s: String): String = JsString(s).toString()
   private[integrationtest] def toJson(path: Path): String = toJson(path.toString)
 
-  private lazy val cantonPath =
+  lazy val cantonPath =
     Paths.get(rlocation("canton/canton_deploy.jar"))
-  private lazy val cantonPatchPath =
+  lazy val cantonPatchPath =
     Paths.get(rlocation("canton/canton-patched_deploy.jar"))
 
   case class CantonFiles(
@@ -64,7 +64,6 @@ object CantonRunner {
       Vector.fill(config.nParticipants)(LockedFreePort.find() -> LockedFreePort.find())
     val domainPublicApi = LockedFreePort.find()
     val domainAdminApi = LockedFreePort.find()
-    val jarPath = if (config.devMode) cantonPatchPath else cantonPath
     val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
     val java = s"${System.getenv("JAVA_HOME")}/bin/java${exe}"
     val (timeType, clockType) = config.timeProviderType match {
@@ -144,7 +143,7 @@ object CantonRunner {
         Process(
           java ::
             "-jar" ::
-            jarPath.toString ::
+            config.jarPath.toString ::
             "daemon" ::
             "--auto-connect-local" ::
             "-c" ::

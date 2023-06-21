@@ -53,13 +53,6 @@ java_import(
     visibility = ["//visibility:public"],
 )
 
-java_import(
-    name = "lib-ee",
-    jars = [":canton-lib-ee.jar"],
-    tags = ["canton-ee"],
-    visibility = ["//visibility:public"],
-)
-
 genrule(
     name = "canton-lib-ee",
     # We don't use the else branch but we need a resolvable value
@@ -112,4 +105,17 @@ cp **/lib/*.jar $@
         "@curl_dev_env//:bin/curl" if not is_windows else "@curl_dev_env//:bin/curl.exe",
     ],
     visibility = ["//visibility:public"],
+)
+
+java_import(
+    name = "lib-ee",
+    jars = [":canton-lib-ee.jar"],
+    tags = ["canton-ee"],
+)
+
+java_binary(
+    name = "canton-ee",
+    main_class = "com.digitalasset.canton.CantonEnterpriseApp",
+    visibility = ["//ledger-service:__subpackages__"],
+    runtime_deps = ["//canton:lib-ee"],
 )

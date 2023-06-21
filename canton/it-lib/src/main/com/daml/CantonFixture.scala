@@ -59,6 +59,8 @@ trait CantonFixtureWithResource[A]
   protected lazy val tlsEnable: Boolean = false
   protected lazy val enableDisclosedContracts: Boolean = false
   protected lazy val applicationId: ApplicationId = ApplicationId(getClass.getName)
+  protected lazy val cantonJar: Path =
+    if (devMode) CantonRunner.cantonPath else CantonRunner.cantonPatchPath
 
   // This flag setup some behavior to ease debugging tests.
   //  If `true`
@@ -94,6 +96,7 @@ trait CantonFixtureWithResource[A]
   }
 
   lazy val config = CantonConfig(
+    jarPath = cantonJar,
     authSecret = authSecret,
     devMode = devMode,
     nParticipants = nParticipants,
