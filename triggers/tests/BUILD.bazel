@@ -128,7 +128,8 @@ EOF
                     "RunnerSpec",
                     "UnfoldStateSpec",
                     "ConfigSpec",
-                ] + (["DevOnly"] if lf_version else [])
+                    "InterfaceSpec",
+                ]
             ],
             data = [
                 ":acs%s.dar" % suffix,

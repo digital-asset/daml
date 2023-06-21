@@ -20,7 +20,7 @@ import scalaz.syntax.tag._
 
 import scala.collection.concurrent.TrieMap
 
-class DevOnly
+class InterfaceSpec
     extends AsyncWordSpec
     with AbstractTriggerTest
     with Matchers
@@ -28,7 +28,7 @@ class DevOnly
     with TryValues {
 
   import AbstractTriggerTest._
-  import DevOnly._
+  import InterfaceSpec._
 
   this.getClass.getSimpleName can {
     "InterfaceTest" should {
@@ -302,7 +302,7 @@ class DevOnly
   }
 }
 
-object DevOnly extends Matchers with Inside {
+object InterfaceSpec extends Matchers with Inside {
 
   implicit class TransactionEventsHelper(events: TrieMap[String, Seq[Event]]) {
     def transactionIdFor(templateId: Identifier): String = {
