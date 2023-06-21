@@ -15,8 +15,8 @@ module DA.Daml.Assistant.Version
     , getAvailableSdkSnapshotVersions
     , getLatestSdkSnapshotVersion
     , getLatestReleaseVersion
-    , distinguishBy
     , isSnapshotOfInterest
+    , extractVersionsFromSnapshots
     ) where
 
 import DA.Daml.Assistant.Types
@@ -52,6 +52,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.UTF8 as BSU
 import qualified Data.SemVer as V
+import Data.Function ((&))
 import Control.Lens (view)
 
 import qualified Data.Map.Strict as M
@@ -132,25 +133,29 @@ getDefaultSdkVersion damlPath = do
     required "There are no installed SDK versions." $
         maximumMay installedVersions
 
-distinguishBy :: Ord k => (a -> k) -> [a] -> M.Map k (NonEmpty.NonEmpty a)
-distinguishBy f as = M.fromListWith (<>) [(f a, pure a) | a <- as]
-
 isSnapshotOfInterest :: SdkVersion -> Bool
 isSnapshotOfInterest sdkVersion =
     let v = unwrapSdkVersion sdkVersion
     in
     null (view V.release v) && null (view V.metadata v) && view V.major v > 0
 
--- | Get the list of available versions afresh. This will fetch
--- https://docs.daml.com/versions.json and parse the obtained list
--- of versions.
+-- | Get the list of available snapshot versions. This will fetch all snapshot
+-- versions and then prune them into releases
 getAvailableSdkVersions :: IO [SdkVersion]
-getAvailableSdkVersions = wrapErr "Fetching list of available SDK versions" $ do
-    snapshots <- getAvailableSdkSnapshotVersions
-    -- Adapted from daml-docker-images/blob/master/make.sh
-    let majorMap :: M.Map Int (NonEmpty.NonEmpty SdkVersion)
-        majorMap = distinguishBy (view V.major . unwrapSdkVersion) (filter isSnapshotOfInterest snapshots)
+getAvailableSdkVersions =
+    wrapErr "Fetching list of available SDK versions" $
+        extractVersionsFromSnapshots <$> getAvailableSdkSnapshotVersions
 
+extractVersionsFromSnapshots :: [SdkVersion] -> [SdkVersion]
+extractVersionsFromSnapshots snapshots =
+    let -- For grouping things by their major or minor version
+        distinguishBy :: Ord k => (a -> k) -> [a] -> M.Map k (NonEmpty.NonEmpty a)
+        distinguishBy f as = M.fromListWith (<>) [(f a, pure a) | a <- as]
+
+        -- Group versions by their major version number, filtering out snapshots
+        majorMap :: M.Map Int (NonEmpty.NonEmpty SdkVersion)
+        majorMap = distinguishBy (view V.major . unwrapSdkVersion) (filter isSnapshotOfInterest snapshots)
+    in
     case M.maxView majorMap of
       Just (latestMajorVersions, withoutLatestMajor) ->
         let -- For old majors, only the latest stable patch
@@ -158,14 +163,16 @@ getAvailableSdkVersions = wrapErr "Fetching list of available SDK versions" $ do
             oldMajors = map maximum (M.elems withoutLatestMajor)
 
             latestMajorMinorVersions :: M.Map Int (NonEmpty.NonEmpty SdkVersion)
-            latestMajorMinorVersions = distinguishBy (view V.minor . unwrapSdkVersion) (NonEmpty.toList latestMajorVersions)
+            latestMajorMinorVersions =
+                distinguishBy (view V.minor . unwrapSdkVersion) (NonEmpty.toList latestMajorVersions)
 
             -- For the most recent major version, output the latest minor version
             latestMajorLatestMinorVersions :: [SdkVersion]
             latestMajorLatestMinorVersions = map maximum (M.elems latestMajorMinorVersions)
         in
-        pure $ oldMajors ++ latestMajorLatestMinorVersions
-      Nothing -> pure []
+        oldMajors ++ latestMajorLatestMinorVersions
+      -- If the map is empty, there are no versions to return and we return an empty list.
+      Nothing -> []
 
 -- | Get the list of available snapshot versions. This will fetch
 -- https://api.github.com/repos/digital-asset/daml/releases and parse the
@@ -191,9 +198,13 @@ getAvailableSdkSnapshotVersions = do
   requestReleasesSinglePage :: String -> IO (ByteString, Maybe String)
   requestReleasesSinglePage url =
     requiredAny "HTTP connection to docs.daml.com failed" $ do
-        request <- parseRequest url
-        let request' = addRequestHeader "User-Agent" "Daml-Assistant/0.0" request
-        res <- httpBS request' { responseTimeout = responseTimeoutMicro 2000000 }
+        urlRequest <- parseRequest url
+        let request =
+                urlRequest
+                    & addRequestHeader "User-Agent" "Daml-Assistant/0.0"
+                    & addRequestHeader "Accept" "application/vnd.github+json"
+                    & addToRequestQueryString [("per_page", Just "100")]
+        res <- httpBS request { responseTimeout = responseTimeoutMicro 10000000 }
         pure (getResponseBody res, nextPage res)
 
   nextPage :: Response a -> Maybe String
