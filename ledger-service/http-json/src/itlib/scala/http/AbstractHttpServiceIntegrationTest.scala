@@ -127,6 +127,7 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
 trait WithQueryStoreSetTest extends QueryStoreAndAuthDependentIntegrationTest {
   import HttpServiceTestFixture.archiveCommand
   import json.JsonProtocol._
+
   "refresh cache endpoint" - {
     "should return latest offset when the cache is outdated" in withHttpService { fixture =>
       import fixture.encoder

@@ -330,7 +330,8 @@ class ContractsService(
                 val futureValue =
                   dao
                     .transact(
-                      fetchService.fetchAndRefreshCache(jwt, ledgerId, ledgerEnd, offsetLimitToRefresh)
+                      fetchService
+                        .fetchAndRefreshCache(jwt, ledgerId, ledgerEnd, offsetLimitToRefresh)
                     )
                     .unsafeToFuture()
                 Source
