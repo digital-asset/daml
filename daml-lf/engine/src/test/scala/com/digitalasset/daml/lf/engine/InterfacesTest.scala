@@ -49,7 +49,7 @@ class InterfacesTest
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
-  private[this] val engine = newEngine()
+  private[this] val engine = Engine.DevEngine()
   private[this] val preprocessor =
     new preprocessing.Preprocessor(
       ConcurrentCompiledPackages(engine.config.getCompilerConfig)
@@ -204,15 +204,6 @@ object InterfacesTest {
   private def participant = Ref.ParticipantId.assertFromString("participant")
 
   private val party = Party.assertFromString("Party")
-
-  private def newEngine(requireCidSuffixes: Boolean = false) =
-    new Engine(
-      EngineConfig(
-        allowedLanguageVersions = language.LanguageVersion.DevVersions,
-        forbidV0ContractId = true,
-        requireSuffixedGlobalContractId = requireCidSuffixes,
-      )
-    )
 
   private implicit def qualifiedNameStr(s: String): QualifiedName =
     QualifiedName.assertFromString(s)
