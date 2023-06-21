@@ -5,7 +5,7 @@ package com.daml.lf.engine.script
 
 import java.io.File
 
-import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+import com.daml.lf.engine.script.ScriptTimeMode
 
 case class TestConfig(
     darPath: File,

@@ -9,14 +9,15 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.data.{ImmArray, assertRight}
 import com.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
-import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
+import com.daml.lf.engine.script.ScriptTimeMode
+import com.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
 import com.daml.lf.speedy.{Compiler, SDefinition, Speedy}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
-import com.daml.lf.engine.script.{Participants, Runner, ScriptF}
+import com.daml.lf.engine.script.{Runner, Script}
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.ExecutionContext
@@ -181,14 +182,13 @@ class Context(
     val timeBomb = TimeBomb(timeout.toMillis)
     val isOverdue = timeBomb.hasExploded
     val ledgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog, isOverdue)
-    val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
     val timeBombCanceller = timeBomb.start()
-    val (clientMachine, resultF) = Runner.run(
+    val (clientMachine, resultF, ideLedgerContext) = Runner.runIdeLedgerClient(
       compiledPackages = compiledPackages,
       scriptId = scriptId,
       convertInputValue = None,
       inputValue = None,
-      initialClients = participants,
+      initialClient = ledgerClient,
       timeMode = ScriptTimeMode.Static,
       traceLog = traceLog,
       warningLog = warningLog,
@@ -205,10 +205,10 @@ class Context(
       Success(
         Some(
           ScenarioRunner.ScenarioError(
-            ledgerClient.ledger,
+            ideLedgerContext.ledger,
             clientMachine.traceLog,
             clientMachine.warningLog,
-            ledgerClient.currentSubmission,
+            ideLedgerContext.currentSubmission,
             // TODO (MK) https://github.com/digital-asset/daml/issues/7276
             ImmArray.Empty,
             e,
@@ -224,7 +224,7 @@ class Context(
         Success(
           Some(
             ScenarioRunner.ScenarioSuccess(
-              ledgerClient.ledger,
+              ideLedgerContext.ledger,
               clientMachine.traceLog,
               clientMachine.warningLog,
               clientMachine.profile,
@@ -240,14 +240,14 @@ class Context(
         handleFailure(Error.CanceledByRequest())
       case Failure(Runner.TimedOut) =>
         handleFailure(Error.Timeout(timeout))
-      case Failure(e: ScriptF.FailedCmd) =>
+      case Failure(e: Script.FailedCmd) =>
         e.cause match {
           case e: Error => handleFailure(e)
           case e: speedy.SError.SError => handleFailure(Error.RunnerException(e))
           case e => {
             // We can't send _everything_ over without changing internal, nicer to put a print here.
             e.printStackTrace
-            handleFailure(Error.Internal("ScriptF.FailedCmd unexpected cause: " + e.getMessage))
+            handleFailure(Error.Internal("Script.FailedCmd unexpected cause: " + e.getMessage))
           }
         }
       case Failure(e) => {

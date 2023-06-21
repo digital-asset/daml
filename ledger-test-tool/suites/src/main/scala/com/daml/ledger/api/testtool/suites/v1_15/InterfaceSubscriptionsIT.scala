@@ -482,14 +482,18 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       assertEquals(
         "1 and 3 produce the same views (but not the same create arguments)",
         // do not check on details since tid is contained and it is expected to be different
-        transactions1.map(updateTransaction(emptyDetails = true)),
-        transactions3.map(
-          updateTransaction(
-            emptyContractKey = true,
-            emptyCreateArguments = true,
-            emptyDetails = true,
+        transactions1
+          .map(updateTransaction(emptyDetails = true))
+          .map(hideTraceIdFromStatusMessages),
+        transactions3
+          .map(
+            updateTransaction(
+              emptyContractKey = true,
+              emptyCreateArguments = true,
+              emptyDetails = true,
+            )
           )
-        ),
+          .map(hideTraceIdFromStatusMessages),
       )
     }
   })
@@ -708,6 +712,36 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
                   else created.value.interfaceViews,
                 contractKey = if (emptyContractKey) None else created.value.contractKey,
                 createArguments = if (emptyCreateArguments) None else created.value.createArguments,
+              )
+            )
+          case other => other
+        })
+      },
+      commandId = "",
+    )
+  }
+
+  private def hideTraceIdFromStatusMessages(
+      tx: com.daml.ledger.api.v1.transaction.Transaction
+  ): Transaction = {
+    tx.copy(
+      events = tx.events.map { event =>
+        event.copy(event = event.event match {
+          case created: Event.Created =>
+            created.copy(value =
+              created.value.copy(
+                interfaceViews = created.value.interfaceViews.map(view =>
+                  view.copy(
+                    viewStatus = view.viewStatus.map(status =>
+                      status.copy(message =
+                        status.message.replaceFirst(
+                          """DAML_INTERPRETATION_ERROR\(9,.{8}\)""",
+                          "DAML_INTERPRETATION_ERROR(9,0)",
+                        )
+                      )
+                    )
+                  )
+                )
               )
             )
           case other => other
