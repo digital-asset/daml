@@ -34,18 +34,12 @@ import Data.Either.Extra
 import Data.Aeson (FromJSON(..), eitherDecodeStrict')
 import Data.Aeson.Types (listParser, withObject, (.:), Value, Parser)
 import qualified Data.Text as T
-import Data.Text.Encoding
 import Safe
 import Network.HTTP.Simple
 import Network.HTTP.Client
     ( Request(responseTimeout)
-    , responseBody
-    , responseStatus
     , responseTimeoutMicro
     )
-import qualified Network.HTTP.Client as Http
-import Network.HTTP.Types (ok200)
-import Network.HTTP.Client.TLS (newTlsManager)
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BSC
