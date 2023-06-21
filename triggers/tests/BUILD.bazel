@@ -54,18 +54,32 @@ da_scala_library(
     ],
 )
 
+TRIGGER_INTEGRATION_TESTS = [
+    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsStaticTime.scala",
+    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsWallClock.scala",
+    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Jwt.scala",
+    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Tls.scala",
+    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/RunnerSpec.scala",
+    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/UnfoldStateSpec.scala",
+]
+
+TRIGGER_CANTON_INTEGRATION_TESTS = [
+    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/ConfigSpec.scala",
+    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/InterfaceSpec.scala",
+]
+
 [
     [
         genrule(
-            name = "acs" + suffix,
+            name = "acs" + version_suffix,
             srcs =
                 glob(["**/*.daml"]) + [
-                    "//triggers/daml:daml-trigger%s.dar" % suffix,
-                    "//daml-script/daml:daml-script%s.dar" % suffix,
+                    "//triggers/daml:daml-trigger%s.dar" % version_suffix,
+                    "//daml-script/daml:daml-script%s.dar" % version_suffix,
                 ] + [
                     "//templates:copy-trigger/src/CopyTrigger.daml",
                 ],
-            outs = ["acs%s.dar" % suffix],
+            outs = ["acs%s.dar" % version_suffix],
             cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
@@ -87,8 +101,8 @@ da_scala_library(
       cp -L $(location :daml/Cats.daml) $$TMP_DIR/daml
       cp -L $(location :daml/BatchTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //templates:copy-trigger/src/CopyTrigger.daml) $$TMP_DIR/daml
-      cp -L $(location //triggers/daml:daml-trigger{suffix}.dar) $$TMP_DIR/daml-trigger.dar
-      cp -L $(location //daml-script/daml:daml-script{suffix}.dar) $$TMP_DIR/daml-script.dar
+      cp -L $(location //triggers/daml:daml-trigger{version_suffix}.dar) $$TMP_DIR/daml-trigger.dar
+      cp -L $(location //daml-script/daml:daml-script{version_suffix}.dar) $$TMP_DIR/daml-script.dar
       cp -L $(location :daml/Interface.daml) $$TMP_DIR/daml
       cp -L $(location :daml/InterfaceTriggers.daml) $$TMP_DIR/daml
       cat << EOF > $$TMP_DIR/daml.yaml
@@ -103,116 +117,115 @@ dependencies:
   - daml-script.dar
 EOF
       test -z "{lf_version}" || echo "build-options: [--target={lf_version}]" >> $$TMP_DIR/daml.yaml
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location acs{suffix}.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location acs{version_suffix}.dar)
       rm -rf $$TMP_DIR
     """.format(
                 lf_version = lf_version,
                 sdk = sdk_version,
-                suffix = suffix,
+                version_suffix = version_suffix,
             ),
             tools = ["//compiler/damlc"],
             visibility = ["//visibility:public"],
         ),
-        da_scala_test_suite(
-            name = "trigger-integration-tests" + suffix,
-            srcs = [
-                "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/%s.scala" % f
-                for f in [
-                    "FuncTestsStaticTime",
-                    "FuncTestsWallClock",
-                    "Jwt",
-                    "Tls",
-                    "RunnerSpec",
-                    "UnfoldStateSpec",
-                    "ConfigSpec",
-                    "InterfaceSpec",
-                ]
-            ],
-            data = [
-                ":acs%s.dar" % suffix,
-            ],
-            resources = ["//triggers/runner:src/main/resources/logback.xml"],
-            scala_deps = [
-                "@maven//:com_typesafe_akka_akka_stream",
-                "@maven//:org_scalacheck_scalacheck",
-                "@maven//:org_scalatestplus_scalacheck_1_15",
-                "@maven//:org_scalaz_scalaz_core",
-            ],
-            tags = ["cpu:4"] + (["dev-canton-test"] if lf_version else []),
-            deps = [
-                ":test-utils",
-                "//bazel_tools/runfiles:scala_runfiles",
-                "//canton/it-lib",
-                "//daml-lf/archive:daml_lf_archive_reader",
-                "//daml-lf/data",
-                "//daml-lf/engine",
-                "//daml-lf/interpreter",
-                "//daml-lf/language",
-                "//language-support/scala/bindings",
-                "//language-support/scala/bindings-akka",
-                "//ledger-api/rs-grpc-bridge",
-                "//ledger-api/testing-utils",
-                "//ledger/ledger-api-auth",
-                "//ledger/ledger-api-common",
-                "//libs-scala/caching",
-                "//libs-scala/contextualized-logging",
-                "//libs-scala/ledger-resources",
-                "//libs-scala/logging-entries",
-                "//libs-scala/ports",
-                "//libs-scala/resources",
-                "//libs-scala/scalatest-utils",
-                "//observability/tracing",
-                "//test-common",
-                "//triggers/runner:trigger-runner-lib",
-            ],
-        ),
-        da_scala_test_suite(
-            name = "trigger-failure-integration-tests" + suffix,
-            timeout = "long",
-            srcs = [
-                "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/LoadTesting.scala",
-            ],
-            data = [
-                ":acs%s.dar" % suffix,
-            ],
-            resources = ["//triggers/runner:src/main/resources/logback.xml"],
-            scala_deps = [
-                "@maven//:com_typesafe_akka_akka_stream",
-                "@maven//:org_scalacheck_scalacheck",
-                "@maven//:org_scalatestplus_scalacheck_1_15",
-                "@maven//:org_scalaz_scalaz_core",
-            ],
-            tags = ["exclusive"],
-            deps = [
-                ":test-utils",
-                "//bazel_tools/runfiles:scala_runfiles",
-                "//canton/it-lib",
-                "//daml-lf/archive:daml_lf_archive_reader",
-                "//daml-lf/data",
-                "//daml-lf/engine",
-                "//daml-lf/interpreter",
-                "//daml-lf/language",
-                "//language-support/scala/bindings",
-                "//language-support/scala/bindings-akka",
-                "//ledger-api/rs-grpc-bridge",
-                "//ledger-api/testing-utils",
-                "//ledger/ledger-api-auth",
-                "//ledger/ledger-api-common",
-                "//libs-scala/caching",
-                "//libs-scala/contextualized-logging",
-                "//libs-scala/ledger-resources",
-                "//libs-scala/logging-entries",
-                "//libs-scala/ports",
-                "//libs-scala/resources",
-                "//libs-scala/scalatest-utils",
-                "//observability/tracing",
-                "//test-common",
-                "//triggers/runner:trigger-runner-lib",
-            ],
-        ),
+    ] + [
+        [
+            da_scala_test_suite(
+                name = "trigger-integration-tests" + test_suffix + version_suffix,
+                srcs = test_suite,
+                data = [
+                    ":acs%s.dar" % version_suffix,
+                ],
+                resources = ["//triggers/runner:src/main/resources/logback.xml"],
+                scala_deps = [
+                    "@maven//:com_typesafe_akka_akka_stream",
+                    "@maven//:org_scalacheck_scalacheck",
+                    "@maven//:org_scalatestplus_scalacheck_1_15",
+                    "@maven//:org_scalaz_scalaz_core",
+                ],
+                tags = ["cpu:4"] + test_tag,
+                deps = [
+                    ":test-utils",
+                    "//bazel_tools/runfiles:scala_runfiles",
+                    "//canton/it-lib",
+                    "//daml-lf/archive:daml_lf_archive_reader",
+                    "//daml-lf/data",
+                    "//daml-lf/engine",
+                    "//daml-lf/interpreter",
+                    "//daml-lf/language",
+                    "//language-support/scala/bindings",
+                    "//language-support/scala/bindings-akka",
+                    "//ledger-api/rs-grpc-bridge",
+                    "//ledger-api/testing-utils",
+                    "//ledger/ledger-api-auth",
+                    "//ledger/ledger-api-common",
+                    "//libs-scala/caching",
+                    "//libs-scala/contextualized-logging",
+                    "//libs-scala/ledger-resources",
+                    "//libs-scala/logging-entries",
+                    "//libs-scala/ports",
+                    "//libs-scala/resources",
+                    "//libs-scala/scalatest-utils",
+                    "//observability/tracing",
+                    "//test-common",
+                    "//triggers/runner:trigger-runner-lib",
+                ],
+            ),
+            da_scala_test_suite(
+                name = "trigger-failure-integration-tests" + test_suffix + version_suffix,
+                timeout = "long",
+                srcs = [
+                    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/LoadTesting.scala",
+                ],
+                data = [
+                    ":acs%s.dar" % version_suffix,
+                ],
+                resources = ["//triggers/runner:src/main/resources/logback.xml"],
+                scala_deps = [
+                    "@maven//:com_typesafe_akka_akka_stream",
+                    "@maven//:org_scalacheck_scalacheck",
+                    "@maven//:org_scalatestplus_scalacheck_1_15",
+                    "@maven//:org_scalaz_scalaz_core",
+                ],
+                tags = ["exclusive"],
+                deps = [
+                    ":test-utils",
+                    "//bazel_tools/runfiles:scala_runfiles",
+                    "//canton/it-lib",
+                    "//daml-lf/archive:daml_lf_archive_reader",
+                    "//daml-lf/data",
+                    "//daml-lf/engine",
+                    "//daml-lf/interpreter",
+                    "//daml-lf/language",
+                    "//language-support/scala/bindings",
+                    "//language-support/scala/bindings-akka",
+                    "//ledger-api/rs-grpc-bridge",
+                    "//ledger-api/testing-utils",
+                    "//ledger/ledger-api-auth",
+                    "//ledger/ledger-api-common",
+                    "//libs-scala/caching",
+                    "//libs-scala/contextualized-logging",
+                    "//libs-scala/ledger-resources",
+                    "//libs-scala/logging-entries",
+                    "//libs-scala/ports",
+                    "//libs-scala/resources",
+                    "//libs-scala/scalatest-utils",
+                    "//observability/tracing",
+                    "//test-common",
+                    "//triggers/runner:trigger-runner-lib",
+                ],
+            ),
+        ]
+        for (test_suite, test_tag, test_suffix) in [
+            (TRIGGER_INTEGRATION_TESTS, [], ""),
+            (
+                TRIGGER_CANTON_INTEGRATION_TESTS,
+                ["dev-canton-test"],
+                "-canton",
+            ),
+        ]
     ]
     for lf_version in DAML_LF_VERSIONS
-    for suffix in [("-" + lf_version) if lf_version else ""]
+    for version_suffix in [("-" + lf_version) if lf_version else ""]
 ]
 
 da_scala_library(
