@@ -138,7 +138,7 @@ unitTests =
                    ("Expected template and a field in doc, got " <> show md)
                    (isJust $ do t  <- getSingle $ md_templates md
                                 check $ Just "Template doc" == td_descr t
-                                check $ Just "field1" == td_signatory t
+                                check $ Just ["field1"] == td_signatory t
                                 f1 <- getSingle $ td_payload t
                                 check $ fd_descr f1 == Just "Field1"))
 
@@ -165,7 +165,7 @@ unitTests =
                                 f2 <- getSingle $ cd_fields ch
                                 check $ Just "field" == fd_descr f2
                                 check $ TypeTuple [] == cd_type ch
-                                check $ Just "field1" == cd_controller ch))
+                                check $ Just ["field1"] == cd_controller ch))
 
          , damldocExpect
            Nothing
@@ -331,7 +331,7 @@ unitTests =
                    (isJust $ do interface <- getSingle $ md_interfaces md
                                 ch <- getSingle $ if_choices interface
                                 check $ "Archive" == cd_name ch
-                                check $ Just "Signatories of implementing template" == cd_controller ch))
+                                check $ Just ["Signatories of implementing template"] == cd_controller ch))
 
          , damldocExpect
            Nothing

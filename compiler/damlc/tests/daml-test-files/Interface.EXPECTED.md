@@ -72,7 +72,7 @@
 >
 > * <a name="type-interface-transfer-15068"></a>**Choice** [Transfer](#type-interface-transfer-15068)
 >
->   Controller: newOwner, getOwner this
+>   Controller: getOwner this, newOwner
 >
 >   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651)
 >

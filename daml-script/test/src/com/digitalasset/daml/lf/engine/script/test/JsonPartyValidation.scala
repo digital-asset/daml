@@ -11,7 +11,7 @@ import scalaz.OneAnd
 
 final class JsonPartyValidation extends AnyWordSpec with Matchers {
 
-  import com.daml.lf.engine.script.ledgerinteraction.JsonLedgerClient._
+  import com.daml.lf.engine.script.v1.ledgerinteraction.JsonLedgerClient._
 
   private def token(actAs: List[String], readAs: List[String]): CustomDamlJWTPayload =
     CustomDamlJWTPayload(

@@ -40,7 +40,7 @@ EOF
   source_image_reference {
     publisher = "MicrosoftWindowsServer"
     offer     = "WindowsServer"
-    sku       = "2022-datacenter"
+    sku       = "2016-datacenter"
     version   = "latest"
   }
 

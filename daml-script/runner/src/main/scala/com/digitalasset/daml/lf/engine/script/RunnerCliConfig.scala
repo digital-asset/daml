@@ -8,7 +8,15 @@ import java.io.File
 
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+
+// We have our own type for time modes since TimeProviderType
+// allows for more stuff that doesn’t make sense in Daml Script.
+sealed trait ScriptTimeMode
+
+object ScriptTimeMode {
+  final case object Static extends ScriptTimeMode
+  final case object WallClock extends ScriptTimeMode
+}
 
 case class RunnerCliConfig(
     darPath: File,
