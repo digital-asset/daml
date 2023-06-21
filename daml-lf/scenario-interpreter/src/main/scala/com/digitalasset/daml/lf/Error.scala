@@ -4,7 +4,7 @@
 package com.daml.lf
 package scenario
 
-import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.lf.data.Ref.{Identifier, Party, TypeConName, PackageId}
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
 import com.daml.lf.speedy.SError.SError
@@ -82,4 +82,7 @@ object Error {
 
   /** Submitted commands for parties that have not been allocated. */
   final case class PartiesNotAllocated(parties: Set[Party]) extends Error
+
+  /** Tried to act on a template that doesn't exist. */
+  final case class NoSuchTemplate(template: TypeConName, packageId: PackageId) extends Error
 }

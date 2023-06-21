@@ -34,6 +34,13 @@ private[lf] final class PureCompiledPackages(
     compilerConfig: Compiler.Config,
 ) extends CompiledPackages(compilerConfig) {
   override def getDefinition(dref: SDefinitionRef): Option[SDefinition] = defns.get(dref)
+
+  def copy(
+      packageIds: Set[PackageId] = packageIds,
+      pkgInterface: PackageInterface = pkgInterface,
+      defns: Map[SDefinitionRef, SDefinition] = defns,
+      compilerConfig: Compiler.Config = compilerConfig,
+  ) = new PureCompiledPackages(packageIds, pkgInterface, defns, compilerConfig)
 }
 
 private[lf] object PureCompiledPackages {

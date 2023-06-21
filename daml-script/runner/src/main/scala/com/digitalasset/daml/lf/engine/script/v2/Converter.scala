@@ -292,4 +292,17 @@ object Converter extends script.ConverterMethods {
         )
       case _ => Left(s"Expected command but got $v")
     }
+
+  // Encodes as Daml.Script.Questions.Packages.PackageName
+  def fromReadablePackageId(
+      scriptIds: ScriptIds,
+      packageName: ScriptLedgerClient.ReadablePackageId,
+  ): SValue = {
+    val packageNameTy = scriptIds.damlScriptModule("Daml.Script.Questions.Packages", "PackageName")
+    record(
+      packageNameTy,
+      ("name", SText(packageName.name.toString)),
+      ("version", SText(packageName.version.toString)),
+    )
+  }
 }

@@ -21,6 +21,7 @@ genrule(
       cp -L $(location Daml/Script/Questions.daml) $$TMP_DIR/daml/Daml/Script/
       cp -L $(location Daml/Script/Questions/Commands.daml) $$TMP_DIR/daml/Daml/Script/Questions/
       cp -L $(location Daml/Script/Questions/Exceptions.daml) $$TMP_DIR/daml/Daml/Script/Questions/
+      cp -L $(location Daml/Script/Questions/Packages.daml) $$TMP_DIR/daml/Daml/Script/Questions/
       cp -L $(location Daml/Script/Questions/PartyManagement.daml) $$TMP_DIR/daml/Daml/Script/Questions/
       cp -L $(location Daml/Script/Questions/Query.daml) $$TMP_DIR/daml/Daml/Script/Questions/
       cp -L $(location Daml/Script/Questions/Submit.daml) $$TMP_DIR/daml/Daml/Script/Questions/

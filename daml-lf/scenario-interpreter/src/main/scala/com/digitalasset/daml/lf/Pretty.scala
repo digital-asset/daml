@@ -80,6 +80,11 @@ private[lf] object Pretty {
 
       case Error.CanceledByRequest() =>
         text("Evaluation was cancelled because the test was changed and rerun in a new thread.")
+
+      case Error.NoSuchTemplate(templateId, packageId) =>
+        text(
+          s"Error: Could not find template $templateId from package $packageId to use in create/exercise." // TODO: Consider nicer printing of ids to names
+        )
     }
 
 }
