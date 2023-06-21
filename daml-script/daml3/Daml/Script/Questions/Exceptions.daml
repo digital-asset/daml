@@ -15,10 +15,11 @@ import Daml.Script.Free (Free (..))
 
 data Catch = Catch with
   act : () -> Free ScriptF (LedgerValue, ())
+  dummy : ()
 instance IsQuestion Catch (Either AnyException x)
 
 tryToEither : forall t. (() -> Script t) -> Script (Either AnyException t)
-tryToEither act = lift Catch with act = \() -> fmap (first toLedgerValue) $ runScript (act ()) ()
+tryToEither act = lift Catch with act = \() -> fmap (first toLedgerValue) $ runScript (act ()) (), dummy = ()
 
 instance ActionCatch Script where
   _tryCatch : forall t. (() -> Script t) -> (AnyException -> Optional (Script t)) -> Script t
