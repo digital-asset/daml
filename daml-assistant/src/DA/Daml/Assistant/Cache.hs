@@ -4,8 +4,14 @@
 
 module DA.Daml.Assistant.Cache
     ( cacheAvailableSdkVersions
-    , saveAvailableSdkVersions
     , CacheAge (..)
+    , UseCache (..)
+    , cacheWith
+    , loadFromCacheWith
+    , saveToCacheWith
+    , CacheTimeout (..)
+    , serializeVersions
+    , deserializeVersions
     ) where
 
 import DA.Daml.Assistant.Types
@@ -43,23 +49,27 @@ type Deserialize t = String -> Maybe t
 versionsKey :: CacheKey
 versionsKey = "versions.txt"
 
-saveAvailableSdkVersions
-    :: CachePath
-    -> [SdkVersion]
-    -> IO ()
-saveAvailableSdkVersions cachePath =
-    saveToCacheWith cachePath versionsKey serializeVersions
+data UseCache
+  = UseCache
+      { forceReload :: Bool
+      , cachePath :: CachePath
+      , damlPath :: DamlPath
+      }
+  | DontUseCache
+  deriving (Show, Eq)
 
 cacheAvailableSdkVersions
-    :: DamlPath
-    -> CachePath
+    :: UseCache
     -> IO [SdkVersion]
     -> IO ([SdkVersion], CacheAge)
-cacheAvailableSdkVersions damlPath cachePath getVersions = do
+cacheAvailableSdkVersions DontUseCache getVersions = (, Fresh) <$> getVersions
+cacheAvailableSdkVersions UseCache { forceReload, cachePath, damlPath } getVersions = do
     damlConfigE <- tryConfig $ readDamlConfig damlPath
-    let updateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
-        defaultUpdateCheck = UpdateCheckEvery (CacheTimeout 86400)
-    case fromMaybe defaultUpdateCheck updateCheckM of
+    let configUpdateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
+        updateCheck | forceReload = UpdateCheckEvery (CacheTimeout 1)
+                    | Just updateCheck <- configUpdateCheckM = updateCheck
+                    | otherwise = UpdateCheckEvery (CacheTimeout 86400)
+    case updateCheck of
         UpdateCheckNever -> do
             valueAgeM <- loadFromCacheWith cachePath versionsKey (CacheTimeout 0) deserializeVersions
             pure $ fromMaybe ([], Stale) valueAgeM
@@ -108,6 +118,7 @@ cacheWith cachePath key timeout serialize deserialize getFresh = do
 data CacheAge
     = Stale
     | Fresh
+    deriving (Show, Eq, Ord)
 
 -- | Save value to cache. Never raises an exception.
 saveToCache :: CachePath -> CacheKey -> String -> IO ()
@@ -131,7 +142,7 @@ loadFromCache cachePath key (CacheTimeout timeout) = do
     let isStaleE = liftM2 (\mt ct -> diffUTCTime ct mt >= timeout) modTimeE curTimeE
         isStale  = fromRight True isStaleE
         age  = if isStale then Stale else Fresh
-    valueM <- eitherToMaybe <$> tryIO (readFileUTF8 path)
+    valueM <- eitherToMaybe <$> tryIO (readFileUTF8' path)
     pure $ fmap (, age) valueM
 
 -- | Read value from cache, including its age, with deserialization function.

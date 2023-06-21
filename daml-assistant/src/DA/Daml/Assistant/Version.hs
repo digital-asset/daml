@@ -9,14 +9,14 @@ module DA.Daml.Assistant.Version
     , getAssistantSdkVersion
     , getDefaultSdkVersion
     , getAvailableSdkVersions
-    , getAvailableSdkVersionsCached
-    , refreshAvailableSdkVersions
-    , getLatestSdkVersionCached
+    , getLatestSdkVersion
     , getAvailableSdkSnapshotVersions
+    , getAvailableSdkSnapshotVersionsUncached
     , getLatestSdkSnapshotVersion
     , getLatestReleaseVersion
     , isSnapshotOfInterest
     , extractVersionsFromSnapshots
+    , UseCache (..)
     ) where
 
 import DA.Daml.Assistant.Types
@@ -31,8 +31,8 @@ import Control.Exception.Safe
 import Control.Monad.Extra
 import Data.Maybe
 import Data.Either.Extra
-import Data.Aeson (eitherDecode)
-import Data.Aeson.Types (parseEither, listParser, withObject, (.:), Value, Parser)
+import Data.Aeson (FromJSON(..), eitherDecodeStrict')
+import Data.Aeson.Types (listParser, withObject, (.:), Value, Parser)
 import qualified Data.Text as T
 import Data.Text.Encoding
 import Safe
@@ -48,7 +48,6 @@ import Network.HTTP.Types (ok200)
 import Network.HTTP.Client.TLS (newTlsManager)
 
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.UTF8 as BSU
 import qualified Data.SemVer as V
@@ -141,10 +140,10 @@ isSnapshotOfInterest sdkVersion =
 
 -- | Get the list of available snapshot versions. This will fetch all snapshot
 -- versions and then prune them into releases
-getAvailableSdkVersions :: IO [SdkVersion]
-getAvailableSdkVersions =
-    wrapErr "Fetching list of available SDK versions" $
-        extractVersionsFromSnapshots <$> getAvailableSdkSnapshotVersions
+getAvailableSdkVersions :: UseCache -> IO ([SdkVersion], CacheAge)
+getAvailableSdkVersions useCache = do
+    (versions, cacheAge) <- wrapErr "Fetching list of available SDK versions" $ getAvailableSdkSnapshotVersions useCache
+    pure (extractVersionsFromSnapshots versions, cacheAge)
 
 extractVersionsFromSnapshots :: [SdkVersion] -> [SdkVersion]
 extractVersionsFromSnapshots snapshots =
@@ -174,11 +173,17 @@ extractVersionsFromSnapshots snapshots =
       -- If the map is empty, there are no versions to return and we return an empty list.
       Nothing -> []
 
+-- | Get the list of available snapshot versions, deferring to cache if
+-- possible
+getAvailableSdkSnapshotVersions :: UseCache -> IO ([SdkVersion], CacheAge)
+getAvailableSdkSnapshotVersions useCache =
+  cacheAvailableSdkVersions useCache getAvailableSdkSnapshotVersionsUncached
+
 -- | Get the list of available snapshot versions. This will fetch
 -- https://api.github.com/repos/digital-asset/daml/releases and parse the
 -- obtained list of versions.
-getAvailableSdkSnapshotVersions :: IO [SdkVersion]
-getAvailableSdkSnapshotVersions = do
+getAvailableSdkSnapshotVersionsUncached :: IO [SdkVersion]
+getAvailableSdkSnapshotVersionsUncached = do
   releasesPages <- requestReleasesPaged "https://api.github.com/repos/digital-asset/daml/releases"
   versionss <- forM releasesPages $ \(url, body) ->
     fromRightM
@@ -197,7 +202,7 @@ getAvailableSdkSnapshotVersions = do
 
   requestReleasesSinglePage :: String -> IO (ByteString, Maybe String)
   requestReleasesSinglePage url =
-    requiredAny "HTTP connection to docs.daml.com failed" $ do
+    requiredAny "HTTP connection to github.com failed" $ do
         urlRequest <- parseRequest url
         let request =
                 urlRequest
@@ -218,34 +223,26 @@ getAvailableSdkSnapshotVersions = do
           _ -> Nothing
 
   extractVersions :: ByteString -> Either String [SdkVersion]
-  extractVersions bs = do
-      value <- eitherDecode (BSL.fromStrict bs)
-      let parseTagNameToVersion :: Value -> Parser [SdkVersion]
-          parseTagNameToVersion =
-            listParser $ withObject "Version" $ \v -> do
-              rawTagName <- (v .: "tag_name" :: Parser T.Text)
-              case parseVersion (T.dropWhile ('v' ==) rawTagName) of
-                Left (InvalidVersion src msg) -> fail $ "Invalid version string `" <> unpack src <> "` for reason: " <> msg
-                Right sdkVersion -> pure sdkVersion
-      parseEither parseTagNameToVersion value
+  extractVersions bs = unParsedSdkVersions <$> eitherDecodeStrict' bs
 
--- | Same as getAvailableSdkVersions, but writes result to cache.
-refreshAvailableSdkVersions :: CachePath -> IO [SdkVersion]
-refreshAvailableSdkVersions cachePath = do
-    versions <- getAvailableSdkVersions
-    saveAvailableSdkVersions cachePath versions
-    pure versions
+newtype ParsedSdkVersions = ParsedSdkVersions { unParsedSdkVersions :: [SdkVersion] }
+  deriving (Show, Eq, Ord)
 
--- | Same as getAvailableSdkVersions, but result is cached based on the duration
--- of the update-check value in daml-config.yaml (defaults to 1 day).
-getAvailableSdkVersionsCached :: DamlPath -> CachePath -> IO ([SdkVersion], CacheAge)
-getAvailableSdkVersionsCached damlPath cachePath =
-    cacheAvailableSdkVersions damlPath cachePath getAvailableSdkVersions
+instance FromJSON ParsedSdkVersions where
+  parseJSON v = ParsedSdkVersions <$> listParser parseSingleVersion v
+    where
+      parseSingleVersion :: Value -> Parser SdkVersion
+      parseSingleVersion =
+        withObject "Version" $ \v -> do
+          rawTagName <- (v .: "tag_name" :: Parser T.Text)
+          case parseVersion (T.dropWhile ('v' ==) rawTagName) of
+            Left (InvalidVersion src msg) -> fail $ "Invalid version string `" <> unpack src <> "` for reason: " <> msg
+            Right sdkVersion -> pure sdkVersion
 
--- | Get the latest released SDK version, cached as above.
-getLatestSdkVersionCached :: DamlPath -> CachePath -> IO (Maybe SdkVersion)
-getLatestSdkVersionCached damlPath cachePath = do
-    versionsE <- tryAssistant $ getAvailableSdkVersionsCached damlPath cachePath
+-- | Get the latest released SDK version
+getLatestSdkVersion :: UseCache -> IO (Maybe SdkVersion)
+getLatestSdkVersion useCache = do
+    versionsE <- tryAssistant $ getAvailableSdkVersions useCache
     pure $ do
         (versions, age) <- eitherToMaybe versionsE
         case age of
@@ -255,10 +252,10 @@ getLatestSdkVersionCached damlPath cachePath = do
 -- | Get the latest snapshot SDK version.
 getLatestSdkSnapshotVersion :: IO (Maybe SdkVersion)
 getLatestSdkSnapshotVersion = do
-    versionsE <- tryAssistant getAvailableSdkSnapshotVersions
+    versionsE <- tryAssistant (getAvailableSdkSnapshotVersions DontUseCache)
     pure $ do
         versions <- eitherToMaybe versionsE
-        maximumMay versions
+        maximumMay (fst versions)
 
 latestReleaseVersionUrl :: String
 latestReleaseVersionUrl = "https://docs.daml.com/latest"

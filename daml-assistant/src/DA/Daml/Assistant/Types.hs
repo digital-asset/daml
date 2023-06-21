@@ -83,6 +83,7 @@ data VersionOptions = VersionOptions
     { vAll :: Bool -- ^ show all versions (stable + snapshot)
     , vSnapshots :: Bool -- ^ show all snapshot versions
     , vAssistant :: Bool -- ^ show assistant version
+    , vForceRefresh :: Bool -- ^ force refresh available versions, don't use 1-day cache
     } deriving (Eq, Show)
 
 -- | Command-line options for daml install command.

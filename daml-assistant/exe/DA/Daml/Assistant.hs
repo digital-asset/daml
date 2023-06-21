@@ -190,15 +190,19 @@ handleCommand env@Env{..} logger command = do
 runCommand :: Env -> Command -> IO ()
 runCommand env@Env{..} = \case
     Builtin (Version VersionOptions{..}) -> do
+        let useCache =
+              UseCache
+                { cachePath = envCachePath
+                , damlPath = envDamlPath
+                , forceReload = vForceRefresh
+                }
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
-        availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envCachePath
+        snapshotVersionsEUnfiltered <- tryAssistant $ fst <$> getAvailableSdkSnapshotVersions useCache
+        let snapshotVersionsE = if vSnapshots then snapshotVersionsEUnfiltered else pure []
+            availableVersionsE = extractVersionsFromSnapshots <$> snapshotVersionsEUnfiltered
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
         projectVersionM <- mapM getSdkVersionFromProjectPath envProjectPath
         envSelectedVersionM <- lookupEnv sdkVersionEnvVar
-        snapshotVersionsE <- tryAssistant $
-            if vSnapshots
-                then getAvailableSdkSnapshotVersions
-                else pure []
 
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
             envVersions = catMaybes

@@ -76,7 +76,7 @@ overrideWithEnvVarMaybe envVar normalize parse calculate = do
 getLatestStableSdkVersion :: DamlPath -> CachePath -> IO (Maybe SdkVersion)
 getLatestStableSdkVersion damlPath cachePath =
     overrideWithEnvVarMaybe sdkVersionLatestEnvVar pure (parseVersion . pack) $
-        getLatestSdkVersionCached damlPath cachePath
+        getLatestSdkVersion (UseCache { damlPath, cachePath, forceReload = False })
 
 -- | Determine the viability of running sdk commands in the environment.
 -- Returns the first failing test's error message.
