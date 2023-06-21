@@ -31,13 +31,9 @@ substUnit :: TyVar -> Type -> Type
 substUnit tyVar ty = TyCoRep.substTy (setTvSubstEnv emptyTCvSubst $ mkVarEnv [(tyVar, TyConApp unitTyCon [])]) ty
 
 isDamlScriptType :: TyCon -> Bool
-isDamlScriptType ty 
-  | NameIn DamlScriptModule "Script" <- ty
-  = True
-  | NameIn Daml3ScriptInternalModule "Script" <- ty
-  = True
-  | otherwise
-  = False
+isDamlScriptType (NameIn DamlScriptModule "Script") = True
+isDamlScriptType (NameIn Daml3ScriptInternalModule "Script") = True
+isDamlScriptType _ = False
 
 topLevelWarnings :: (Var, Expr Var) -> ConvertM ()
 topLevelWarnings (name, _x)

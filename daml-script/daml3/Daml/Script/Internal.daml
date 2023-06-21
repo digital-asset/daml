@@ -12,11 +12,10 @@ import DA.Text (isPrefixOf)
 
 -- Everything is a question, which has a continuation, as well as input/putput types and callstack
 -- Note that res and a are _NOT_ the same, as this must be a functor, and res is contravariant
-data Question req res a = Question
-  { payload : req
-  , locations : [(Text, SrcLoc)]
-  , continue : res -> a
-  }
+data Question req res a = Question with
+    payload : req
+    locations : [(Text, SrcLoc)]
+    continue : res -> a
   deriving Functor
 
 -- We relate question requests to replies with this class, and build using the method.

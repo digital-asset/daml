@@ -30,8 +30,7 @@ private[lf] class Runner(
     warningLog: WarningLog = Speedy.Machine.newWarningLog,
     canceled: () => Option[RuntimeException] = () => None,
 ) {
-  // TODO make private after converting to either
-  val machine =
+  private val machine =
     Speedy.Machine.fromPureSExpr(
       unversionedRunner.extendedCompiledPackages,
       unversionedRunner.script.expr,
@@ -41,7 +40,6 @@ private[lf] class Runner(
     )(Script.DummyLoggingContext)
 
   @scala.annotation.tailrec
-  // TODO make private after converting to either
   final def stepToValue(): Either[RuntimeException, SValue] = {
     val result = machine.run()
     canceled() match {

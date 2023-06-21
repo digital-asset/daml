@@ -746,10 +746,10 @@ object ScriptF {
       case _ => Left(s"Expected ListKnownParties payload but got $v")
     }
 
-  // TODO Consider matching on whatever the `data GetTime = GetTime` becomes
   private def parseGetTime(v: SValue): Either[String, GetTime] =
     v match {
-      case _ => Right(GetTime())
+      case SRecord(_, _, ArrayList()) => Right(GetTime())
+      case _ => Left(s"Expected GetTime payload but got $v")
     }
 
   private def parseSetTime(v: SValue): Either[String, SetTime] =
