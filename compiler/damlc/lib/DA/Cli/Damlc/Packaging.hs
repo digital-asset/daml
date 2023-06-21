@@ -16,16 +16,16 @@ module DA.Cli.Damlc.Packaging
 
 import Control.Exception.Safe (tryAny)
 import Control.Lens (none, toListOf)
-import Control.Monad.Extra
+import Control.Monad.Extra (forM_, fromMaybeM, when)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Maybe (runMaybeT)
 import qualified Control.Monad.Trans.State.Strict as State
 import qualified Data.ByteString as BS
-import Data.Either.Combinators
-import Data.Graph
-import Data.List.Extra
+import Data.Either.Combinators (whenLeft)
+import Data.Graph (Graph, Vertex, graphFromEdges, reachable, topSort, transposeG, vertices)
+import Data.List.Extra ((\\), intercalate, nubSortOn)
 import qualified Data.Map.Strict as MS
-import Data.Maybe
+import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.NameMap as NM
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -34,17 +34,17 @@ import Data.Tuple.Extra (fst3)
 import Development.IDE.Core.Rules (useE, useNoFileE)
 import Development.IDE.Core.Service (runActionSync)
 import Development.IDE.GHC.Util (hscEnv)
-import Development.IDE.Types.Location
+import Development.IDE.Types.Location (NormalizedFilePath, fromNormalizedFilePath, toNormalizedFilePath')
 import "ghc-lib-parser" DynFlags (DynFlags)
-import GHC.Fingerprint
+import GHC.Fingerprint (Fingerprint, fingerprintFingerprints, getFileHash)
 import "ghc-lib-parser" HscTypes as GHC
 import "ghc-lib-parser" Module (UnitId, unitIdString)
 import qualified Module as GHC
 import qualified "ghc-lib-parser" Packages as GHC
-import System.Directory.Extra
+import System.Directory.Extra (copyFile, createDirectoryIfMissing, listFilesRecursive, removePathForcibly)
 import System.Exit
 import System.FilePath
-import System.IO.Extra
+import System.IO.Extra (hFlush, hPutStrLn, stderr, writeFileUTF8)
 import System.Info.Extra
 import System.Process (callProcess)
 import "ghc-lib-parser" UniqSet
@@ -165,11 +165,11 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
         forM_ (topSort $ transposeG depGraph) $ \vertex -> do
           let (pkgNode, pkgId) = vertexToNode vertex
           case pkgNode of
-            MkStableDependencyPackageNode ->
+            MkStableDependencyPackageNode -> do
               -- stable packages are mapped to the current version of daml-prim/daml-stdlib
               -- so we don’t need to generate interface files for them.
               pure ()
-            MkBuiltinDependencyPackageNode {} ->
+            MkBuiltinDependencyPackageNode {} -> do
               pure ()
             MkDependencyPackageNode DependencyPackageNode {dalf, unitId, dalfPackage} -> do
               liftIO $ registerDepInPkgDb dalf depsDir dbPath

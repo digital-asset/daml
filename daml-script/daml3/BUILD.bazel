@@ -9,8 +9,8 @@ load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 genrule(
     name = "daml-script",
     srcs = glob(["**/*.daml"]),
-    # TODO How on earth do you get the location of the daml directory for a cp -r
     outs = ["daml3-script.dar"],
+    # TODO How on earth do you get the location of the daml directory for a cp -r
     cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
