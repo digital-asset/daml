@@ -14,7 +14,7 @@ module DA.Daml.Assistant.Version
     , getAvailableSdkSnapshotVersionsUncached
     , getLatestSdkSnapshotVersion
     , getLatestReleaseVersion
-    , isSnapshotOfInterest
+    , isReleaseVersion
     , extractVersionsFromSnapshots
     , UseCache (..)
     ) where
@@ -132,8 +132,8 @@ getDefaultSdkVersion damlPath = do
     required "There are no installed SDK versions." $
         maximumMay installedVersions
 
-isSnapshotOfInterest :: SdkVersion -> Bool
-isSnapshotOfInterest sdkVersion =
+isReleaseVersion :: SdkVersion -> Bool
+isReleaseVersion sdkVersion =
     let v = unwrapSdkVersion sdkVersion
     in
     null (view V.release v) && null (view V.metadata v) && view V.major v > 0
@@ -153,7 +153,7 @@ extractVersionsFromSnapshots snapshots =
 
         -- Group versions by their major version number, filtering out snapshots
         majorMap :: M.Map Int (NonEmpty.NonEmpty SdkVersion)
-        majorMap = distinguishBy (view V.major . unwrapSdkVersion) (filter isSnapshotOfInterest snapshots)
+        majorMap = distinguishBy (view V.major . unwrapSdkVersion) (filter isReleaseVersion snapshots)
     in
     case M.maxView majorMap of
       Just (latestMajorVersions, withoutLatestMajor) ->
@@ -177,28 +177,51 @@ extractVersionsFromSnapshots snapshots =
 -- possible
 getAvailableSdkSnapshotVersions :: UseCache -> IO ([SdkVersion], CacheAge)
 getAvailableSdkSnapshotVersions useCache =
-  cacheAvailableSdkVersions useCache getAvailableSdkSnapshotVersionsUncached
+  cacheAvailableSdkVersions useCache (getAvailableSdkSnapshotVersionsUncached >>= flattenSnapshotsList)
 
--- | Get the list of available snapshot versions. This will fetch
--- https://api.github.com/repos/digital-asset/daml/releases and parse the
--- obtained list of versions.
-getAvailableSdkSnapshotVersionsUncached :: IO [SdkVersion]
+findFirstSdkSnapshotVersionUncached :: (SdkVersion -> Bool) -> IO (Maybe SdkVersion)
+findFirstSdkSnapshotVersionUncached pred =
+  getAvailableSdkSnapshotVersionsUncached >>= searchSnapshotsUntil pred
+
+data SnapshotsList = SnapshotsList
+  { versions :: IO [SdkVersion]
+  , next :: Maybe (IO SnapshotsList)
+  }
+
+flattenSnapshotsList :: SnapshotsList -> IO [SdkVersion]
+flattenSnapshotsList SnapshotsList { versions, next } = do
+  versions <- versions
+  rest <- case next of
+            Nothing -> pure []
+            Just io -> io >>= flattenSnapshotsList
+  return (versions ++ rest)
+
+searchSnapshotsUntil :: (SdkVersion -> Bool) -> SnapshotsList -> IO (Maybe SdkVersion)
+searchSnapshotsUntil pred SnapshotsList { versions, next } = do
+  versions <- versions
+  case filter pred versions of
+    (v:_) -> pure (Just v)
+    _ -> case next of
+      Nothing -> pure Nothing
+      Just io -> io >>= searchSnapshotsUntil pred
+
+-- | Get the list of available snapshot versions, until finding a version of
+-- interest. This will fetch https://api.github.com/repos/digital-asset/daml/releases
+-- and parse the obtained JSON.
+getAvailableSdkSnapshotVersionsUncached :: IO SnapshotsList
 getAvailableSdkSnapshotVersionsUncached = do
-  releasesPages <- requestReleasesPaged "https://api.github.com/repos/digital-asset/daml/releases"
-  versionss <- forM releasesPages $ \(url, body) ->
-    fromRightM
-      (throwIO . assistantErrorBecause ("Snapshot versions list from " <> pack url <> " does not contain valid JSON") . pack)
-      (extractVersions body)
-  let versions = concat versionss
-  pure versions
+  requestReleasesSnapshotsList "https://api.github.com/repos/digital-asset/daml/releases"
   where
-  requestReleasesPaged :: String -> IO [(String, ByteString)]
-  requestReleasesPaged url = do
-    (versions, mNext) <- requestReleasesSinglePage url
-    rest <- case mNext of
-              Nothing -> pure []
-              Just url -> requestReleasesPaged url
-    pure ((url, versions) : rest)
+  requestReleasesSnapshotsList :: String -> IO SnapshotsList
+  requestReleasesSnapshotsList url = do
+    (raw, mNext) <- requestReleasesSinglePage url
+    pure SnapshotsList
+      { versions =
+        fromRightM
+          (throwIO . assistantErrorBecause ("Snapshot versions list from " <> pack url <> " does not contain valid JSON") . pack)
+          (extractVersions raw)
+      , next = fmap requestReleasesSnapshotsList mNext
+      }
 
   requestReleasesSinglePage :: String -> IO (ByteString, Maybe String)
   requestReleasesSinglePage url =
@@ -240,44 +263,20 @@ instance FromJSON ParsedSdkVersions where
             Right sdkVersion -> pure sdkVersion
 
 -- | Get the latest released SDK version
-getLatestSdkVersion :: UseCache -> IO (Maybe SdkVersion)
-getLatestSdkVersion useCache = do
-    versionsE <- tryAssistant $ getAvailableSdkVersions useCache
-    pure $ do
-        (versions, age) <- eitherToMaybe versionsE
-        case age of
-            Stale -> Nothing
-            Fresh -> maximumMay versions
+getLatestSdkVersion :: IO (Maybe SdkVersion)
+getLatestSdkVersion = do
+    versionE <- tryAssistant $ findFirstSdkSnapshotVersionUncached isReleaseVersion
+    pure $ join $ eitherToMaybe versionE
 
 -- | Get the latest snapshot SDK version.
 getLatestSdkSnapshotVersion :: IO (Maybe SdkVersion)
 getLatestSdkSnapshotVersion = do
-    versionsE <- tryAssistant (getAvailableSdkSnapshotVersions DontUseCache)
-    pure $ do
-        versions <- eitherToMaybe versionsE
-        maximumMay (fst versions)
-
-latestReleaseVersionUrl :: String
-latestReleaseVersionUrl = "https://docs.daml.com/latest"
+    versionE <- tryAssistant $ findFirstSdkSnapshotVersionUncached (const True)
+    pure $ join $ eitherToMaybe versionE
 
 getLatestReleaseVersion :: IO SdkVersion
 getLatestReleaseVersion = do
-    manager <- newTlsManager
-    request <- parseRequest latestReleaseVersionUrl
-    Http.withResponse request manager $ \resp -> do
-        case responseStatus resp of
-            s | s == ok200 -> do
-                    body <- responseBody resp
-                    case parseVersion $ decodeUtf8 body of
-                        Right v -> pure v
-                        Left invalidVersion ->
-                            throwIO $
-                            assistantErrorBecause
-                                (pack $
-                                 "Failed to parse SDK version from " <> latestReleaseVersionUrl)
-                                (pack $ ivMessage invalidVersion)
-            otherStatus ->
-                throwIO $
-                assistantErrorBecause
-                    (pack $ "Bad response status code when requesting " <> latestReleaseVersionUrl)
-                    (pack $ show otherStatus)
+    mbReleaseVersion <- getLatestSdkVersion
+    case mbReleaseVersion of
+      Nothing -> throwIO $ assistantError (pack "Failed to get latest release version from github.com")
+      Just rv -> pure rv
