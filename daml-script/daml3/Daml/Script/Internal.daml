@@ -8,6 +8,7 @@ module Daml.Script.Internal where
 import Daml.Script.Free (Free(..))
 import qualified Daml.Script.Free as Free
 import DA.Stack
+import DA.Text (isPrefixOf)
 
 -- Everything is a question, which has a continuation, as well as input/putput types and callstack
 -- Note that res and a are _NOT_ the same, as this must be a functor, and res is contravariant
@@ -21,7 +22,15 @@ data Question req res a = Question
 -- We relate question requests to replies with this class, and build using the method.
 class IsQuestion req res where
   makeQuestion : HasCallStack => req -> Question req res res
-  makeQuestion req = Question req (getCallStack callStack) identity -- callstack blank for now, in real haskell add HasCallStack
+  makeQuestion req = Question req (dropInternalFrames $ getCallStack callStack) identity
+
+-- Drop any stack frames that reference Daml Script internals
+dropInternalFrames : [(Text, SrcLoc)] -> [(Text, SrcLoc)]
+dropInternalFrames = dropWhile $ isInternalSrcLoc . snd
+
+isInternalSrcLoc : SrcLoc -> Bool
+isInternalSrcLoc SrcLoc {srcLocPackage, srcLocModule} =
+  "daml3-script-" `isPrefixOf` srcLocPackage && "Daml.Script" `isPrefixOf` srcLocModule
 
 -- We don't care about the type information once its a full ScriptF, as scala side will work that out.
 -- So, we use our danger cast to turn the req and res into LedgerValues

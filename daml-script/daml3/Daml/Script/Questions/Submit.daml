@@ -21,7 +21,7 @@ actAsNonEmpty ps = case toParties ps of
   [] -> error "actAs must be non-empty"
   p :: ps -> NonEmpty p ps
 
-submitInternal : [Party] -> [Party] -> Commands a -> Script a
+submitInternal : HasCallStack => [Party] -> [Party] -> Commands a -> Script a
 submitInternal actAs readAs cmds =
   fmap cmds.continue $ lift $ Submit with
     actAs = actAsNonEmpty actAs
@@ -35,7 +35,7 @@ data SubmitMustFail = SubmitMustFail with
   commands : [Command]
 instance IsQuestion SubmitMustFail ()
 
-submitMustFailInternal : [Party] -> [Party] -> Commands a -> Script ()
+submitMustFailInternal : HasCallStack => [Party] -> [Party] -> Commands a -> Script ()
 submitMustFailInternal actAs readAs cmds =
   lift $ SubmitMustFail with
     actAs = actAsNonEmpty actAs
