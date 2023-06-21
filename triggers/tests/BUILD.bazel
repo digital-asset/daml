@@ -11,7 +11,7 @@ load(
 load("@build_environment//:configuration.bzl", "sdk_version")
 
 DAML_LF_VERSIONS = [
-    # disable dev tests as trigger currently does not use any dev feature.
+    # disable dev tests as trigger currently does not use any dev features.
     #    "1.dev",
     "",  # SDK default
 ]
