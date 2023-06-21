@@ -256,7 +256,7 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       ledgerEnd: Terminates.AtAbsolute,
-      optOffsetToUpdate: Option[domain.Offset],
+      offsetLimitToRefresh: domain.Offset,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -266,16 +266,12 @@ private class ContractsFetch(
     import sjd.q.queries
     import cats.syntax.traverse._
 
-    val ledgerOffset = ledgerEnd.toDomain
     debugLogActionWithMetrics(
-      s"cache refresh for templates older than ledger offset: $ledgerOffset",
+      s"cache refresh for templates older than offset: $offsetLimitToRefresh",
       metrics.Db.warmCache,
     ) {
       for {
-        allOffsets <- queries.allOffsetsInformation(
-          ledgerOffset.unwrap,
-          optOffsetToUpdate.map(_.unwrap),
-        )
+        allOffsets <- queries.templateOffsetsOlderThan(offsetLimitToRefresh.unwrap)
         filteredTemplateInfoAndOffset =
           allOffsets.map { case ((packageId, moduleName, entityName), partyOffsetNonEmpty) =>
             val partyOffset = partyOffsetNonEmpty.map { case (partyId, offset) =>

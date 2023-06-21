@@ -194,26 +194,25 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
                       AND template_entity_name = $entityName)""".query[SurrogateTpId].unique
   } yield tpid
 
-  final def allOffsetsInformation(ledgerOffset: String, optOffsetToUpdate: Option[String])(implicit
+  final def templateOffsetsOlderThan(offsetLimitToRefresh: String)(implicit
       log: LogHandler
   ): ConnectionIO[
-    Map[(String, String, String), NonEmpty[Vector[(String, String)]]]
+    Map[(String, String, String), NonEmpty[Map[String, String]]]
   ] = {
-    val optionalFilterOffset = optOffsetToUpdate.map(offset => fr"o.last_offset < $offset")
     val allOffsetsQuery =
       sql"""
         SELECT o.party, o.last_offset, t.package_id, t.template_module_name, t.template_entity_name
             FROM $ledgerOffsetTableName o
             JOIN $templateIdTableName t
             ON t.tpid = o.tpid
-            ${Fragments.whereAndOpt(optionalFilterOffset, Some(fr"o.last_offset < $ledgerOffset"))}
+            WHERE o.last_offset < $offsetLimitToRefresh
         """
     allOffsetsQuery
       .query[(String, String, String, String, String)]
       .to[Vector]
       .map {
         _.groupBy1(x => (x._3, x._4, x._5))
-          .transform((_, tpos) => tpos.map(x => (x._1, x._2)))
+          .transform((_, tpos) => tpos.map(x => (x._1, x._2)).toMap)
       }
   }
 

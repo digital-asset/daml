@@ -318,25 +318,25 @@ class ContractsService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpJsonApiMetrics,
-  ): Future[SearchResult[Error \/ domain.RefreshCacheResult]] = {
+  ): Future[domain.SyncResponse[Source[Error \/ domain.RefreshCacheResult, NotUsed]]] = {
     val ledgerId = toLedgerId(jwtPayload.ledgerId)
-    val optOffsetToUpdate = refreshCacheRequest.offset
     getTermination(jwt, ledgerId)(lc).map { optLedgerEnd =>
       optLedgerEnd.cata(
         { ledgerEnd =>
           daoAndFetch.cata(
             { case (dao, fetchService) =>
               val response: Source[Error \/ domain.RefreshCacheResult, NotUsed] = {
+                val offsetLimitToRefresh = refreshCacheRequest.offset.getOrElse(ledgerEnd.toDomain)
                 val futureValue =
                   dao
                     .transact(
-                      fetchService.fetchAndRefreshCache(jwt, ledgerId, ledgerEnd, optOffsetToUpdate)
+                      fetchService.fetchAndRefreshCache(jwt, ledgerId, ledgerEnd, offsetLimitToRefresh)
                     )
                     .unsafeToFuture()
                 Source
                   .future(futureValue)
                   .map { _ =>
-                    \/.right(domain.RefreshCacheResult(ledgerEnd.toDomain, optOffsetToUpdate))
+                    \/.right(domain.RefreshCacheResult(offsetLimitToRefresh))
                   }
               }
               domain.OkResponse(response)

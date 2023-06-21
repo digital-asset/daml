@@ -124,6 +124,87 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
 
 }
 
+trait WithQueryStoreSetTest extends QueryStoreAndAuthDependentIntegrationTest {
+  import HttpServiceTestFixture.archiveCommand
+  import json.JsonProtocol._
+  "refresh cache endpoint" - {
+    "should return latest offset when the cache is outdated" in withHttpService { fixture =>
+      import fixture.encoder
+      def archiveIou(headers: List[HttpHeader], contractId: domain.ContractId) = {
+        val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId)
+        val exercise = archiveCommand(reference)
+        val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
+        fixture
+          .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
+          .parseResponse[domain.ExerciseResponse[JsValue]]
+          .flatMap(inside(_) { case domain.OkResponse(exercisedResponse, _, StatusCodes.OK) =>
+            assertExerciseResponseArchivedContract(exercisedResponse, exercise)
+          })
+      }
+
+      for {
+        (alice, aliceHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        searchDataSet = genSearchDataSet(alice)
+        contractIds <- searchExpectOk(
+          searchDataSet,
+          jsObject(
+            """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""
+          ),
+          fixture,
+          aliceHeaders,
+        ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
+          acl.size shouldBe 1
+          acl.map(a => objectField(a.payload, "currency")) shouldBe List(Some(JsString("EUR")))
+          acl.map(a => objectField(a.payload, "amount")) shouldBe List(Some(JsString("111.11")))
+          acl.map(_.contractId)
+        }
+
+        _ <- contractIds.traverse(archiveIou(aliceHeaders, _))
+
+        res <-
+          fixture
+            .postJsonRequest(Uri.Path("/v1/refresh/cache"), jsObject("{}"), aliceHeaders)
+            .parseResponse[JsValue]
+
+      } yield {
+        inside(res) { case domain.OkResponse(s, _, StatusCodes.OK) =>
+          assert(s.toString.matches("""\[\{\"refreshedAt\":\"[0-9a-f]*\"\}\]"""))
+        }
+      }
+    }
+
+    "should return latest offset when the cache was up to date" in withHttpService { fixture =>
+      for {
+        res1 <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (alice, aliceHeaders) = res1
+        searchDataSet = genSearchDataSet(alice)
+        _ <- searchExpectOk(
+          searchDataSet,
+          jsObject(
+            """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""
+          ),
+          fixture,
+          aliceHeaders,
+        ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
+          acl.size shouldBe 1
+          acl.map(a => objectField(a.payload, "currency")) shouldBe List(Some(JsString("EUR")))
+          acl.map(a => objectField(a.payload, "amount")) shouldBe List(Some(JsString("111.11")))
+          acl.map(_.contractId)
+        }
+        res <-
+          fixture
+            .postJsonRequest(Uri.Path("/v1/refresh/cache"), jsObject("{}"), aliceHeaders)
+            .parseResponse[JsValue]
+
+      } yield {
+        inside(res) { case domain.OkResponse(s, _, StatusCodes.OK) =>
+          assert(s.toString.matches("""\[\{\"refreshedAt\":\"[0-9a-f]*\"\}\]"""))
+        }
+      }
+    }
+  }
+}
+
 /** Tests that may behave differently depending on
   *
   * 1. whether custom or user tokens are used, ''and''
@@ -1363,7 +1444,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     } yield succeed
   }
 
-  private def assertExerciseResponseArchivedContract(
+  protected def assertExerciseResponseArchivedContract(
       exerciseResponse: domain.ExerciseResponse[JsValue],
       exercise: domain.ExerciseCommand.OptionalPkg[v.Value, domain.EnrichedContractId],
   ): Assertion =
@@ -1769,83 +1850,6 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         _ <- followUser(bobUserId, bob, alice)
         _ <- queryUsers(alice)
       } yield succeed
-  }
-
-  "refresh cache endpoint" - {
-    "should return latest offset when the cache is outdated" in withHttpService { fixture =>
-      import fixture.encoder
-      def archiveIou(headers: List[HttpHeader], contractId: domain.ContractId) = {
-        val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId)
-        val exercise = archiveCommand(reference)
-        val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
-        fixture
-          .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
-          .parseResponse[domain.ExerciseResponse[JsValue]]
-          .flatMap(inside(_) { case domain.OkResponse(exercisedResponse, _, StatusCodes.OK) =>
-            assertExerciseResponseArchivedContract(exercisedResponse, exercise)
-          })
-      }
-      for {
-        (alice, aliceHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        searchDataSet = genSearchDataSet(alice)
-        contractIds <- searchExpectOk(
-          searchDataSet,
-          jsObject(
-            """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""
-          ),
-          fixture,
-          aliceHeaders,
-        ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
-          acl.size shouldBe 1
-          acl.map(a => objectField(a.payload, "currency")) shouldBe List(Some(JsString("EUR")))
-          acl.map(a => objectField(a.payload, "amount")) shouldBe List(Some(JsString("111.11")))
-          acl.map(_.contractId)
-        }
-
-        _ <- contractIds.traverse(archiveIou(aliceHeaders, _))
-
-        res <-
-          fixture
-            .postJsonRequest(Uri.Path("/v1/refresh/cache"), jsObject("{}"), aliceHeaders)
-            .parseResponse[JsValue]
-
-      } yield {
-        inside(res) { case domain.OkResponse(s, _, StatusCodes.OK) =>
-          assert(s.toString.matches("""\[\{\"refreshedTo\":\"[0-9a-f]*\"\}\]"""))
-        }
-      }
-    }
-
-    "should return latest offset when the cache was up to date" in withHttpService { fixture =>
-      for {
-        res1 <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        (alice, aliceHeaders) = res1
-        searchDataSet = genSearchDataSet(alice)
-        _ <- searchExpectOk(
-          searchDataSet,
-          jsObject(
-            """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""
-          ),
-          fixture,
-          aliceHeaders,
-        ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
-          acl.size shouldBe 1
-          acl.map(a => objectField(a.payload, "currency")) shouldBe List(Some(JsString("EUR")))
-          acl.map(a => objectField(a.payload, "amount")) shouldBe List(Some(JsString("111.11")))
-          acl.map(_.contractId)
-        }
-        res <-
-          fixture
-            .postJsonRequest(Uri.Path("/v1/refresh/cache"), jsObject("{}"), aliceHeaders)
-            .parseResponse[JsValue]
-
-      } yield {
-        inside(res) { case domain.OkResponse(s, _, StatusCodes.OK) =>
-          assert(s.toString.matches("""\[\{\"refreshedTo\":\"[0-9a-f]*\"\}\]"""))
-        }
-      }
-    }
-
   }
 
 }
