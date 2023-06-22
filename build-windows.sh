@@ -23,7 +23,7 @@ Write-Output $env:PATH
 EOF
 
 echo ">>> PS"
-powershell $tmp
+powershell -File $tmp
 echo "<<< PS"
 
 export PATH="$DIR/dev-env/windows/bin:$HOME/dadew/scoop/shims:$PATH"
