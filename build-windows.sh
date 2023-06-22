@@ -28,10 +28,11 @@ ps_path=$(cat $tmp/path.out \
     | tail -1 \
     | sed 's|C:|/c|g' \
     | sed 's|D:|/d|g' \
-    | sed "s:\\:/:g" \
-    | sed 's/;/:/g')
+    | sed 's|\\|/|g' \
+    | sed 's|;|:|g')
 
 export PATH="$ps_path:$PATH"
+echo $ps_path
 
 if ! [ -f $DIR/.bazelrc.local ]; then
     echo "build --config windows" > $DIR/.bazelrc.local
