@@ -4,7 +4,7 @@
 Simulation Use Case Example: Impact of Uncontrolled Contention
 ==============================================================
 
-As triggers interact with the ledger asynchronously and the ledger *may* also process transactions concurrently, there is a high risk that multiple changes (e.g. exercises, archives, etc.) to the same contract might overlap each other. When this happens, contention is said to occur.
+Triggers, like any other code that uses a ledger API client, interact with the ledger asynchronously and the ledger *may* also process transactions concurrently, hence there is a high risk that multiple changes (e.g. exercises, archives, etc.) to the same contract might overlap each other. When this happens, contention is said to occur.
 
 In the following use-case simulations we explore some of the consequences in not controlling contention.
 
@@ -49,11 +49,14 @@ Impact of Uncontrolled Contention
 As the ledger processes command submissions, it will potentially *lock* the contracts it is about to interact with. This allows triggers to detect `contention <https://docs.daml.com/canton/usermanual/troubleshooting_guide.html#contention>`_ as one of the following completion failure signals:
 
 - LOCAL_VERDICT_LOCKED_CONTRACTS
-- LOCAL_VERDICT_LOCKED_KEYS
-- LOCAL_VERDICT_INCONSISTENT_KEY
 - LOCAL_VERDICT_INACTIVE_CONTRACTS
-- LOCAL_VERDICT_DUPLICATE_KEY
 - CONTRACT_NOT_FOUND
+
+In addition, whenever ledger process command submissions use contract keys (which will reference contracts *indirectly*), then contract keys can also be potentially *locked*. Triggers can detect this type of contention as one of the following completion failure signals:
+
+- LOCAL_VERDICT_LOCKED_KEYS
+- LOCAL_VERDICT_DUPLICATE_KEY
+- LOCAL_VERDICT_INCONSISTENT_KEY
 - DUPLICATE_CONTRACT_KEY
 
 If contention issues are not managed by your trigger definitions, then this can lead to:
@@ -62,7 +65,12 @@ If contention issues are not managed by your trigger definitions, then this can 
 - contracts having longer than expected lifetimes (as archive commands might be delayed)
 - and the triggers ACS becoming larger than expected over time.
 
-When writing trigger Daml code, **it is the responsibility of the user to ensure that all potential ledger contention is managed**.
+When writing trigger Daml code, **it is the responsibility of the user to ensure that all potential ledger contention is avoided**.
+
+.. note::
+  Avoiding ledger contention means that we need to ensure that multiple contract interactions (e.g. creates, exercises, etc.) do not occur within overlapping time windows.
+
+  A good source of strategies to achieve this is `Reducing Contention <https://docs.daml.com/2.7.0/daml/resource-management/contention-reducing.html>`_.
 
 Running Trigger Simulations and Analysing Data
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
