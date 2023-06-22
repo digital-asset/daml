@@ -8,7 +8,6 @@ DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 tmp=$(mktemp -d)
 cat <<'EOF' >$tmp/path.ps1
-Write-Output "PS1"
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
 
@@ -24,24 +23,19 @@ EOF
 
 powershell -File $tmp/path.ps1 | tee $tmp/path.out
 
-ps_path=$(cat $tmp/path.out | sed '/^$/d' | tail -1)
-echo PATH
-echo $ps_path
-echo PATH
+ps_path=$(cat $tmp/path.out \
+    | sed '/^$/d' \
+    | tail -1 \
+    | sed 's|C:|/c|g' \
+    | sed 's|D:|/d|g' \
+    | sed "s:\\:/:g" \
+    | sed 's/;/:/g')
 
-
-
-export PATH="$DIR/dev-env/windows/bin:$HOME/dadew/scoop/shims:$PATH"
-echo $PATH
-
-find $HOME/dadew/scoop/shims
-echo --
-find $HOME/dadew/scoop/apps
+export PATH="$ps_path:$PATH"
 
 if ! [ -f $DIR/.bazelrc.local ]; then
     echo "build --config windows" > $DIR/.bazelrc.local
 fi
-cat $DIR/.bazelrc.local
 
 ARTIFACTS_DIRS=${BUILD_ARTIFACTSTAGINGDIRECTORY:-$DIR}
 
