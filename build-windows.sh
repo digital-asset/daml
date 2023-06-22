@@ -18,23 +18,30 @@ Set-StrictMode -Version latest
 .\dev-env\windows\bin\dadew.ps1 sync
 .\dev-env\windows\bin\dadew.ps1 enable
 
-Write-Output $env:JAVA_HOME
-Write-Output $env:PATH
+Write-Output JAVA_HOME::$env:JAVA_HOME
+Write-Output PATH::$env:PATH
 EOF
 
 powershell -File $tmp/path.ps1 | tee $tmp/path.out
 
+to_bash_paths() (
+    sed 's|C:|/c|g' | sed 's|D:|/d|g' | sed 's|\\|/|g' \
+)
+
 ps_path=$(cat $tmp/path.out \
-    | sed '/^$/d' \
-    | tail -1 \
-    | sed 's|C:|/c|g' \
-    | sed 's|D:|/d|g' \
-    | sed 's|\\|/|g' \
+    | grep '^PATH::' \
+    | sed 's|PATH::||' \
+    | to_bash_paths \
     | sed 's|;|:|g')
 
 export PATH="$ps_path:$PATH"
-echo $ps_path
-echo JAVA_HOME: $JAVA_HOME
+export JAVA_HOME=$(cat $tmp/path.out \
+    | grep '^JAVA_HOME::' \
+    | sed 's|JAVA_HOME::||' \
+    | to_bash_paths)
+
+echo $PATH
+echo $JAVA_HOME
 
 if ! [ -f $DIR/.bazelrc.local ]; then
     echo "build --config windows" > $DIR/.bazelrc.local
