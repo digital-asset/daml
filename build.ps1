@@ -36,9 +36,10 @@ if (Test-Path -Path $env:appdata\stack\pantry\hackage\hackage-security-lock) {
     Remove-Item -ErrorAction Continue -Force -Recurse -Path $env:appdata\stack
 }
 
+$env:ARTIFACTORY_AUTH = [Convert]::ToBase64String("$env:ARTIFACTORY_USERNAME":"$env:ARTIFACTORY_PASSWORD")
+
 function bazel() {
     Write-Output ">> bazel $args"
-    Write-Output "+>> PATH: $env:PATH"
     $global:lastexitcode = 0
     $backupErrorActionPreference = $script:ErrorActionPreference
     $script:ErrorActionPreference = "Continue"
