@@ -15,7 +15,9 @@ dev-env/windows/bin/dadew.ps1 enable
 Write-Output $env:PATH
 EOF
 
-powershell $tmp | tail -1
+echo ">>> PS"
+powershell $tmp
+echo "<<< PS"
 
 export PATH="$DIR/dev-env/windows/bin:$HOME/dadew/scoop/shims:$PATH"
 echo $PATH
