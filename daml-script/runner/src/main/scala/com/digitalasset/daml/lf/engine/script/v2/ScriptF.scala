@@ -770,7 +770,8 @@ object ScriptF {
 
   private def parseCatch(v: SValue): Either[String, Catch] =
     v match {
-      case SRecord(_, _, ArrayList(act)) => Right(Catch(act))
+      // Catch includes a dummy field for old style typeclass LF encoding, we ignore it here.
+      case SRecord(_, _, ArrayList(act, _)) => Right(Catch(act))
       case _ => Left(s"Expected Catch payload but got $v")
     }
 
