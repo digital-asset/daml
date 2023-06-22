@@ -55,15 +55,16 @@ da_scala_library(
 )
 
 TRIGGER_INTEGRATION_TESTS = [
-    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsStaticTime.scala",
-    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsWallClock.scala",
-    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Jwt.scala",
-    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Tls.scala",
     "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/RunnerSpec.scala",
     "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/UnfoldStateSpec.scala",
 ]
 
+# Trigger tests that require Canton
 TRIGGER_CANTON_INTEGRATION_TESTS = [
+    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsStaticTime.scala",
+    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsWallClock.scala",
+    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Jwt.scala",
+    "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Tls.scala",
     "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/ConfigSpec.scala",
     "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/InterfaceSpec.scala",
 ]
