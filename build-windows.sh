@@ -6,8 +6,8 @@ set -euo pipefail
 
 DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-tmp=$(mktemp)
-cat <<'EOF' >$tmp
+tmp=$(mktemp -d)
+cat <<'EOF' >$tmp/path.ps1
 Write-Output "PS1"
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
@@ -23,7 +23,7 @@ Write-Output $env:PATH
 EOF
 
 echo ">>> PS"
-powershell -File $tmp
+powershell -File $tmp/path.ps1
 echo "<<< PS"
 
 export PATH="$DIR/dev-env/windows/bin:$HOME/dadew/scoop/shims:$PATH"
