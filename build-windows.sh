@@ -33,6 +33,9 @@ ps_path=$(cat $tmp/path.out \
     | sed 's|PATH::||' \
     | to_bash_paths \
     | sed 's|;|:|g')
+w_path=$(cat $tmp/path.out \
+    | grep '^PATH::' \
+    | sed 's|PATH::||')
 
 export PATH="$ps_path:$PATH"
 export JAVA_HOME=$(cat $tmp/path.out \
@@ -77,7 +80,7 @@ fi
 bazel() (
     set -euo pipefail
     echo ">> bazel $@"
-    if bazel.exe "$@" 2>&1; then
+    if (PATH="$w_path" bazel.exe "$@") 2>&1; then
         echo "<< bazel $1 (ok)"
     else
         exit_code=$?
