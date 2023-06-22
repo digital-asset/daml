@@ -40,19 +40,17 @@ export JAVA_HOME=$(cat $tmp/path.out \
     | sed 's|JAVA_HOME::||' \
     | to_bash_paths)
 
-echo $PATH
-echo $JAVA_HOME
-
 if ! [ -f $DIR/.bazelrc.local ]; then
     echo "build --config windows" > $DIR/.bazelrc.local
 fi
 
 ARTIFACTS_DIRS=${BUILD_ARTIFACTSTAGINGDIRECTORY:-$DIR}
+logs_dir=$ARTIFACTS_DIRS/logs
 
-if ! [ -e $ARTIFACTS_DIRS/log ]; then
-    mkdir -p $ARTIFACTS_DIRS/log
-elif [ -f $ARTIFACTS_DIRS/log ]; then
-    echo "Cannot create '$ARTIFACTS_DIRS/log': conflicting file."
+if ! [ -e $logs_dir ]; then
+    mkdir -p $logs_dir
+elif [ -f $logs_dir ]; then
+    echo "Cannot create '$logs_dir': conflicting file."
     exit 1
 fi
 
@@ -102,7 +100,7 @@ bazel build ///... \
   --experimental_profile_include_target_label \
   --build_event_json_file build-events.json \
   --build_event_publish_all_actions \
-  --experimental_execution_log_file ${ARTIFACTS_DIRS}/logs/build_execution_windows.log
+  --experimental_execution_log_file $logs_dir/build_execution_windows.log
 
 bazel shutdown
 
@@ -119,5 +117,5 @@ if [ "${SKIP_TESTS:-}" = "False" ]; then
       --experimental_profile_include_target_label \
       --build_event_json_file test-events.json \
       --build_event_publish_all_actions \
-      --experimental_execution_log_file ${ARTIFACTS_DIRS}/logs/test_execution_windows.log
+      --experimental_execution_log_file $logs_dir/test_execution_windows.log
 fi
