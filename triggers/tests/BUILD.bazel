@@ -219,7 +219,7 @@ EOF
             (TRIGGER_INTEGRATION_TESTS, [], ""),
             (
                 TRIGGER_CANTON_INTEGRATION_TESTS,
-                ["dev-canton-test"],
+                ["dev-canton-test"] if lf_version == "1.dev" else [],
                 "-canton",
             ),
         ]
