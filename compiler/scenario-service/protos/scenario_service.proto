@@ -170,6 +170,11 @@ message ContractRef {
   Identifier template_id = 3;
 }
 
+message PackageMetadata {
+  string package_name = 1;
+  string package_version = 2;
+}
+
 message ScenarioError {
   message TemplatePreconditionViolated {
     Identifier template_id = 1;
@@ -263,6 +268,11 @@ message ScenarioError {
     Identifier required_interface_id = 3;
   }
 
+  message TemplateDoesNotExist {
+    Identifier template_id = 1;
+    PackageMetadata package_metadata = 2; // optional
+  }
+
   // The state of the ledger at the time of the error
   repeated ScenarioStep scenario_steps = 1;
   repeated Node nodes = 2;
@@ -337,7 +347,8 @@ message ScenarioError {
     DisclosedContractKeyHashingError disclosed_contract_key_hashing_error = 39;
     int64 evaluationTimeout = 40;
     Empty cancelledByRequest = 41;
-    // next is 43;
+    TemplateDoesNotExist template_does_not_exist = 43;
+    // next is 44;
   }
 }
 

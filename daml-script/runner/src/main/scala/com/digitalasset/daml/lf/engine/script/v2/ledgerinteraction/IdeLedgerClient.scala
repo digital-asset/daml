@@ -292,10 +292,14 @@ class IdeLedgerClient(
     )
 
   private def makeNoSuchTemplateError(
-      templateId: TypeConName,
-      pkgId: PackageId,
-  ): ScenarioRunner.SubmissionError =
-    makeEmptySubmissionError(scenario.Error.NoSuchTemplate(templateId, pkgId))
+      templateId: TypeConName
+  ): ScenarioRunner.SubmissionError = {
+    val packageMetadata = getPackageIdReverseMap().lift(templateId.packageId).map {
+      case ScriptLedgerClient.ReadablePackageId(packageName, packageVersion) =>
+        PackageMetadata(packageName, packageVersion, None)
+    }
+    makeEmptySubmissionError(scenario.Error.NoSuchTemplate(templateId, packageMetadata))
+  }
 
   private def makePartiesNotAllocatedError(
       unallocatedSubmitters: Set[Party]
@@ -353,9 +357,9 @@ class IdeLedgerClient(
           Right(preprocessor.unsafePreprocessApiCommands(commands.to(ImmArray)))
         } catch {
           case Error.Preprocessing.Lookup(
-                LookupError.NotFound(Reference.Package(pkgId), Reference.Template(templateId))
+                LookupError.NotFound(Reference.Package(_), Reference.Template(templateId))
               ) =>
-            Left(makeNoSuchTemplateError(templateId, pkgId))
+            Left(makeNoSuchTemplateError(templateId))
         }
 
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
@@ -605,7 +609,12 @@ class IdeLedgerClient(
       .listUserRights(id, IdentityProviderId.Default)(LoggingContext.empty)
       .map(_.toOption.map(_.toList))
 
-  def getPackageMetadataMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] = {
+  def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
+    getPackageIdPairs().toMap
+  def getPackageIdReverseMap(): Map[PackageId, ScriptLedgerClient.ReadablePackageId] =
+    getPackageIdPairs().map(_.swap).toMap
+
+  def getPackageIdPairs(): Set[(ScriptLedgerClient.ReadablePackageId, PackageId)] = {
     originalCompiledPackages.packageIds
       .collect(
         Function.unlift(pkgId =>
@@ -619,7 +628,6 @@ class IdeLedgerClient(
           } yield (readablePackageId, pkgId)
         )
       )
-      .toMap
   }
 
   override def vetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
@@ -627,7 +635,7 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = {
-    val packageMap = getPackageMetadataMap()
+    val packageMap = getPackageIdMap()
     val pkgIdsToVet = packages.map(pkg =>
       packageMap.getOrElse(pkg, throw new IllegalArgumentException(s"Unknown package $pkg"))
     )
@@ -642,7 +650,7 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = {
-    val packageMap = getPackageMetadataMap()
+    val packageMap = getPackageIdMap()
     val pkgIdsToUnvet = packages.map(pkg =>
       packageMap.getOrElse(pkg, throw new IllegalArgumentException(s"Unknown package $pkg"))
     )
@@ -657,12 +665,12 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
-    Future.successful(getPackageMetadataMap().filter(kv => !unvettedPackages(kv._2)).keys.toList)
+    Future.successful(getPackageIdMap().filter(kv => !unvettedPackages(kv._2)).keys.toList)
 
   override def listAllPackages()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
-    Future.successful(getPackageMetadataMap().keys.toList)
+    Future.successful(getPackageIdMap().keys.toList)
 }

@@ -4,8 +4,9 @@
 package com.daml.lf
 package scenario
 
-import com.daml.lf.data.Ref.{Identifier, Party, TypeConName, PackageId}
+import com.daml.lf.data.Ref.{Identifier, Party, TypeConName}
 import com.daml.lf.data.Time
+import com.daml.lf.language.Ast.PackageMetadata
 import com.daml.lf.ledger.EventId
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.transaction.{GlobalKey, VersionedTransaction}
@@ -84,5 +85,6 @@ object Error {
   final case class PartiesNotAllocated(parties: Set[Party]) extends Error
 
   /** Tried to act on a template that doesn't exist. */
-  final case class NoSuchTemplate(template: TypeConName, packageId: PackageId) extends Error
+  final case class NoSuchTemplate(template: TypeConName, packageMeta: Option[PackageMetadata])
+      extends Error
 }

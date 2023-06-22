@@ -509,6 +509,18 @@ prettyScenarioErrorError (Just err) =  do
       pure $ text $ T.pack $ "Evaluation timed out after " <> show timeout <> " seconds"
     ScenarioErrorErrorCancelledByRequest _ ->
       pure $ text $ T.pack "Evaluation was cancelled because the test was changed and rerun in a new thread."
+    ScenarioErrorErrorTemplateDoesNotExist ScenarioError_TemplateDoesNotExist {..} ->
+      pure $ vcat
+        [ "Attempted to use a template that does not exist on the IDE ledger."
+        , label_ "Template name: " $
+            prettyMay "<missing template>"
+              (prettyDefName world)
+              scenarioError_TemplateDoesNotExistTemplateId
+        , label_ "Package name: " $
+            prettyMay "<missing package name>"
+              prettyPackageMetadata
+              scenarioError_TemplateDoesNotExistPackageMetadata
+        ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
@@ -991,6 +1003,9 @@ prettyDefName world (Identifier mbPkgId (UnmangledQualifiedName modName defName)
     name = LF.moduleNameString modName <> ":" <> defName
     ppName = text name <> ppPkgId
     ppPkgId = maybe mempty prettyPackageIdentifier mbPkgId
+
+prettyPackageMetadata :: PackageMetadata -> Doc SyntaxClass
+prettyPackageMetadata (PackageMetadata name version) = text $ TL.toStrict $ name <> "-" <> version
 
 prettyChoiceId
   :: LF.World -> Maybe Identifier -> TL.Text

@@ -5,6 +5,7 @@ package com.daml.lf
 package scenario
 
 import com.daml.lf.data.{ImmArray, Numeric, Ref}
+import com.daml.lf.language.Ast.PackageMetadata
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
 import com.daml.lf.speedy.{SError, SValue, TraceLog, Warning, WarningLog}
@@ -330,8 +331,15 @@ final class Conversions(
         builder.setEvaluationTimeout(timeout.toSeconds)
       case Error.CanceledByRequest() =>
         builder.setCancelledByRequest(empty)
-      case e @ Error.NoSuchTemplate(_, _) =>
-        builder.setCrash(Pretty.prettyError(e).render(80)) // TODO: Temporary, replace with protobuf
+      case Error.NoSuchTemplate(templateId, oPackageMeta) => {
+        val nstBuilder =
+          proto.ScenarioError.TemplateDoesNotExist.newBuilder
+            .setTemplateId(convertIdentifier(templateId))
+        oPackageMeta.foreach(packageMeta =>
+          nstBuilder.setPackageMetadata(mkPackageMetadata(packageMeta))
+        )
+        builder.setTemplateDoesNotExist(nstBuilder.build)
+      }
     }
     builder.build
   }
@@ -486,6 +494,12 @@ final class Conversions(
     proto.ContractRef.newBuilder
       .setContractId(coidToEventId(coid).toLedgerString)
       .setTemplateId(convertIdentifier(templateId))
+      .build
+
+  def mkPackageMetadata(packageMetadata: PackageMetadata): proto.PackageMetadata =
+    proto.PackageMetadata.newBuilder
+      .setPackageName(packageMetadata.name.toString)
+      .setPackageVersion(packageMetadata.version.toString)
       .build
 
   def convertScenarioStep(

@@ -4,6 +4,7 @@
 package com.daml.lf
 package scenario
 
+import com.daml.lf.language.Ast.PackageMetadata
 import org.typelevel.paiges.Doc
 import org.typelevel.paiges.Doc._
 
@@ -81,10 +82,14 @@ private[lf] object Pretty {
       case Error.CanceledByRequest() =>
         text("Evaluation was cancelled because the test was changed and rerun in a new thread.")
 
-      case Error.NoSuchTemplate(templateId, packageId) =>
+      case Error.NoSuchTemplate(templateId, packageMetadata) => {
+        val packageName = packageMetadata.fold(templateId.packageId.toString)({
+          case PackageMetadata(name, version, _) => s"$name-$version"
+        })
         text(
-          s"Error: Could not find template $templateId from package $packageId to use in create/exercise." // TODO: Consider nicer printing of ids to names
+          s"Error: Could not find template ${templateId.qualifiedName} from package $packageName to use in create/exercise." // TODO: Consider nicer printing of ids to names
         )
+      }
     }
 
 }
