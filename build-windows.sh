@@ -11,6 +11,11 @@ powershell $DIR/dev-env/windows/bin/dadew.ps1 sync
 powershell $DIR/dev-env/windows/bin/dadew.ps1 enable
 
 export PATH="$DIR/dev-env/windows/bin:$HOME/dadew/scoop/shims:$PATH"
+echo $PATH
+
+find $HOME/dadew/scoop/shims
+echo --
+find $HOME/dadew/scoop/apps
 
 if ! [ -f $DIR/.bazelrc.local ]; then
     echo "build --config windows" > $DIR/.bazelrc.local

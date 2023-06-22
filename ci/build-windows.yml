@@ -18,7 +18,7 @@ steps:
   - powershell: '.\ci\windows-diagnostics.ps1'
     displayName: 'Agent diagnostics'
 
-  - powershell: '.\build.ps1'
+  - bash: ./build-windows.sh
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
