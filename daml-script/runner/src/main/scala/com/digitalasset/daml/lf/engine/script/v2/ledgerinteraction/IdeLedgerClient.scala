@@ -78,6 +78,8 @@ class IdeLedgerClient(
   }
 
   // Given a set of disabled packages, filter out all definitions from those packages from the original compiled packages
+  // Similar logic to Scenario-services' Context.scala, however here we make no changes on the module level, and never directly add new packages
+  // We only maintain a subset of an original known package set.
   private[this] def updateCompiledPackages() = {
     compiledPackages =
       if (!unvettedPackages.isEmpty)(
@@ -91,9 +93,9 @@ class IdeLedgerClient(
             ) andThen originalCompiledPackages.pkgInterface.signatures
           ),
           // Filter out any defs in a disabled package
-          defns = originalCompiledPackages.defns.filter { case (sDefRef, _) =>
-            !unvettedPackages(sDefRef.packageId)
-          },
+          defns = originalCompiledPackages.defns.view
+            .filterKeys(sDefRef => !unvettedPackages(sDefRef.packageId))
+            .toMap,
         ),
       )
       else originalCompiledPackages
