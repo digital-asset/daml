@@ -8,9 +8,16 @@ DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 tmp=$(mktemp)
 cat <<'EOF' >$tmp
-dev-env/windows/bin/dadew.ps1 install
-dev-env/windows/bin/dadew.ps1 sync
-dev-env/windows/bin/dadew.ps1 enable
+Write-Output "PS1"
+Set-StrictMode -Version latest
+$ErrorActionPreference = 'Stop'
+
+# See https://github.com/lukesampson/scoop/issues/3859
+Set-Strictmode -Off
+.\dev-env\windows\bin\dadew.ps1 install
+Set-StrictMode -Version latest
+.\dev-env\windows\bin\dadew.ps1 sync
+.\dev-env\windows\bin\dadew.ps1 enable
 
 Write-Output $env:PATH
 EOF
