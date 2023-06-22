@@ -55,8 +55,8 @@ java_import(
 java_import(
     name = "lib-ee",
     jars = [":canton-lib-ee.jar"],
-    visibility = ["//visibility:public"],
     tags = ["canton-ee"],
+    visibility = ["//visibility:public"],
 )
 
 genrule(
