@@ -10,25 +10,11 @@ genrule(
     name = "daml-script",
     srcs = glob(["**/*.daml"]),
     outs = ["daml3-script.dar"],
-    # TODO How on earth do you get the location of the daml directory for a cp -r
     cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
-      mkdir -p $$TMP_DIR/daml/Daml/Script/Questions
-      cp -L $(location Daml/Script.daml) $$TMP_DIR/daml/Daml/
-      cp -L $(location Daml/Script/Free.daml) $$TMP_DIR/daml/Daml/Script/
-      cp -L $(location Daml/Script/Internal.daml) $$TMP_DIR/daml/Daml/Script/
-      cp -L $(location Daml/Script/Questions.daml) $$TMP_DIR/daml/Daml/Script/
-      cp -L $(location Daml/Script/Questions/Commands.daml) $$TMP_DIR/daml/Daml/Script/Questions/
-      cp -L $(location Daml/Script/Questions/Exceptions.daml) $$TMP_DIR/daml/Daml/Script/Questions/
-      cp -L $(location Daml/Script/Questions/Packages.daml) $$TMP_DIR/daml/Daml/Script/Questions/
-      cp -L $(location Daml/Script/Questions/PartyManagement.daml) $$TMP_DIR/daml/Daml/Script/Questions/
-      cp -L $(location Daml/Script/Questions/Query.daml) $$TMP_DIR/daml/Daml/Script/Questions/
-      cp -L $(location Daml/Script/Questions/Submit.daml) $$TMP_DIR/daml/Daml/Script/Questions/
-      cp -L $(location Daml/Script/Questions/Time.daml) $$TMP_DIR/daml/Daml/Script/Questions/
-      cp -L $(location Daml/Script/Questions/TransactionTree.daml) $$TMP_DIR/daml/Daml/Script/Questions/
-      cp -L $(location Daml/Script/Questions/UserManagement.daml) $$TMP_DIR/daml/Daml/Script/Questions/
-      cp -L $(location Daml/Script/Questions/Util.daml) $$TMP_DIR/daml/Daml/Script/Questions/
+      mkdir -p $$TMP_DIR/daml/Daml
+      cp -rL $$(dirname $(location Daml/Script.daml)) $$TMP_DIR/daml/Daml
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: daml3-script
