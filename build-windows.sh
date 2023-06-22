@@ -6,9 +6,16 @@ set -euo pipefail
 
 DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-powershell $DIR/dev-env/windows/bin/dadew.ps1 install
-powershell $DIR/dev-env/windows/bin/dadew.ps1 sync
-powershell $DIR/dev-env/windows/bin/dadew.ps1 enable
+tmp=$(mktemp)
+cat <<EOF >$tmp
+dev-env/windows/bin/dadew.ps1 install
+dev-env/windows/bin/dadew.ps1 sync
+dev-env/windows/bin/dadew.ps1 enable
+
+Write-Output $env:PATH
+EOF
+
+powershell $tmp | tail -1
 
 export PATH="$DIR/dev-env/windows/bin:$HOME/dadew/scoop/shims:$PATH"
 echo $PATH
