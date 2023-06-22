@@ -18,6 +18,7 @@ Set-StrictMode -Version latest
 .\dev-env\windows\bin\dadew.ps1 sync
 .\dev-env\windows\bin\dadew.ps1 enable
 
+Write-Output $env:JAVA_HOME
 Write-Output $env:PATH
 EOF
 
@@ -33,6 +34,7 @@ ps_path=$(cat $tmp/path.out \
 
 export PATH="$ps_path:$PATH"
 echo $ps_path
+echo JAVA_HOME: $JAVA_HOME
 
 if ! [ -f $DIR/.bazelrc.local ]; then
     echo "build --config windows" > $DIR/.bazelrc.local
@@ -70,7 +72,6 @@ fi
 bazel() (
     set -euo pipefail
     echo ">> bazel $@"
-    set -x
     if bazel.exe "$@" 2>&1; then
         echo "<< bazel $1 (ok)"
     else
