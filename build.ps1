@@ -38,6 +38,7 @@ if (Test-Path -Path $env:appdata\stack\pantry\hackage\hackage-security-lock) {
 
 function bazel() {
     Write-Output ">> bazel $args"
+    Write-Output "+>> PATH: $env:PATH"
     $global:lastexitcode = 0
     $backupErrorActionPreference = $script:ErrorActionPreference
     $script:ErrorActionPreference = "Continue"
