@@ -5,17 +5,22 @@ package com.daml.lf.engine.trigger
 package simulation
 
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, ChildFailed, SupervisorStrategy}
-import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.engine.trigger.simulation.process.TriggerProcessFactory
 import com.daml.lf.engine.trigger.simulation.process.ledger.LedgerProcess
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
+import com.daml.lf.engine.trigger.test.AbstractTriggerTest.allocateParty
+import com.daml.lf.speedy.{SValue, Speedy}
+import com.daml.lf.testing.parser
+import com.daml.lf.testing.parser.{defaultLanguageVersion, parseExpr}
+import com.daml.logging.LoggingContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.nio.file.{Files, Path}
 import scala.concurrent.duration._
-import scala.concurrent.Promise
+import scala.concurrent.{Await, Promise}
 
 abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with AbstractTriggerTest {
 
@@ -107,6 +112,47 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
       triggerRunnerConfiguration,
       actAs,
     )
+  }
+
+  protected def withLedger(
+      spawnTriggers: (
+          LedgerClient,
+          ActorRef[LedgerProcess.Message],
+          ApiTypes.Party,
+          ActorContext[Unit],
+      ) => Behavior[Unit]
+  )(implicit applicationId: ApiTypes.ApplicationId): Behavior[Unit] = {
+    Behaviors.setup { controllerContext =>
+      val setup = for {
+        client <- defaultLedgerClient()
+        party <- allocateParty(client)
+      } yield (client, party)
+      val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
+      val ledger = controllerContext.spawn(LedgerProcess.create(client), "ledger")
+
+      controllerContext.watch(ledger)
+
+      spawnTriggers(client, ledger, actAs, controllerContext)
+    }
+  }
+
+  protected def safeSValueFromLf(lfValue: String): Either[String, SValue] = {
+    val parserParameters: parser.ParserParameters[this.type] =
+      parser.ParserParameters(
+        defaultPackageId = packageId,
+        languageVersion = defaultLanguageVersion,
+      )
+
+    parseExpr(lfValue)(parserParameters).flatMap(expr =>
+      Speedy.Machine
+        .runPureExpr(expr, compiledPackages)(LoggingContext.ForTesting)
+        .left
+        .map(_.toString)
+    )
+  }
+
+  protected def unsafeSValueFromLf(lfValue: String): SValue = {
+    safeSValueFromLf(lfValue).left.map(cause => throw new RuntimeException(cause)).toOption.get
   }
 }
 
