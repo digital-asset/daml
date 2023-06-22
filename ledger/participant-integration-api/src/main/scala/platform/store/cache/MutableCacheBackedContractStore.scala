@@ -7,6 +7,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.ContractKeyStateValue._
@@ -49,6 +50,33 @@ private[platform] class MutableCacheBackedContractStore(
         case _: Archived => v2.ContractState.Archived
         case NotFound => v2.ContractState.NotFound
       }
+
+  def prefetchContracts(
+      contractIds: Seq[ContractId]
+  )(implicit loggingContext: LoggingContext): Future[Unit] = {
+    val needsFetch = contractIds.filterNot(contractStateCaches.contractState.isCached)
+    // we don't prefetch if we just have 1 contract
+    if (needsFetch.length < 2)
+      Future.unit
+    else {
+      val readThroughRequest =
+        (validAt: Offset) => {
+          contractsReader
+            .lookupContractStates(needsFetch, validAt)
+            .map(_.map { case (k, v) => (k, toContractCacheValueDefined(v)) })
+            .map { res =>
+              logger.debug(s"Prefetched ${res.size} out of ${needsFetch.length} contracts")
+              res
+            }
+        }
+      contractStateCaches.contractState
+        .putAsyncMany(
+          needsFetch,
+          readThroughRequest,
+          cid => Future.failed(ContractReadThroughNotFound(cid)),
+        )
+    }
+  }
 
   private def lookupContractStateValue(
       contractId: ContractId
@@ -146,11 +174,15 @@ private[platform] class MutableCacheBackedContractStore(
         )
     }
 
-  private val toContractCacheValue: Option[ContractState] => ContractStateValue = {
-    case Some(ActiveContract(contract, stakeholders, ledgerEffectiveTime)) =>
+  private val toContractCacheValueDefined: ContractState => ContractStateValue = {
+    case ActiveContract(contract, stakeholders, ledgerEffectiveTime) =>
       ContractStateValue.Active(contract, stakeholders, ledgerEffectiveTime)
-    case Some(ArchivedContract(stakeholders)) =>
+    case ArchivedContract(stakeholders) =>
       ContractStateValue.Archived(stakeholders)
+  }
+
+  private val toContractCacheValue: Option[ContractState] => ContractStateValue = {
+    case Some(value) => toContractCacheValueDefined(value)
     case None => ContractStateValue.NotFound
   }
 

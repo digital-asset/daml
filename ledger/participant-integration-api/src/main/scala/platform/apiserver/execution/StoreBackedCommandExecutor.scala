@@ -22,6 +22,7 @@ import com.daml.lf.engine.{
   Error => DamlLfError,
 }
 import com.daml.lf.transaction.{Node, SubmittedTransaction, Transaction}
+import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed, Tracked}
 import com.daml.platform.apiserver.services.ErrorCause
@@ -56,7 +57,13 @@ private[apiserver] final class StoreBackedCommandExecutor(
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     val interpretationTimeNanos = new AtomicLong(0L)
     val start = System.nanoTime()
+    val coids = commands.commands.commands.toSeq.foldLeft(Set.empty[Value.ContractId]) {
+      case (acc, com.daml.lf.command.ApiCommand.Exercise(_, coid, _, argument)) =>
+        argument.collectCids(acc) + coid
+      case (acc, _) => acc
+    }
     for {
+      _ <- contractStore.prefetchContracts(coids.toSeq)
       submissionResult <- submitToEngine(commands, submissionSeed, interpretationTimeNanos)
       submission <- consume(
         commands.actAs,

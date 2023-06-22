@@ -4,7 +4,7 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
-import anorm.SqlParser.{array, byteArray, int, long}
+import anorm.SqlParser.{array, byteArray, int, long, str}
 import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
 import com.daml.platform.{ContractId, Key, Party}
 import com.daml.platform.store.backend.Conversions.{contractId, offset, timestampFromMicros}
@@ -59,16 +59,18 @@ class ContractStorageBackendTemplate(
       .getOrElse(KeyUnassigned)
   }
 
-  private val fullDetailsContractRowParser: RowParser[ContractStorageBackend.RawContractState] =
-    (int("template_id").?
+  private val fullDetailsContractRowParser
+      : RowParser[(Option[ContractId], ContractStorageBackend.RawContractState)] =
+    (str("contract_id").? ~ int("template_id").?
       ~ array[Int]("flat_event_witnesses")
       ~ byteArray("create_argument").?
       ~ int("create_argument_compression").?
       ~ int("event_kind")
       ~ timestampFromMicros("ledger_effective_time").?)
       .map {
-        case internalTemplateId ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ eventKind ~ ledgerEffectiveTime =>
-          RawContractState(
+        case coid ~ internalTemplateId ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ eventKind ~ ledgerEffectiveTime =>
+          val cid = coid.toRight("No contract id found").flatMap(ContractId.fromString).toOption
+          cid -> RawContractState(
             templateId = internalTemplateId.map(stringInterning.templateId.unsafe.externalize),
             flatEventWitnesses = flatEventWitnesses.view
               .map(stringInterning.party.externalize)
@@ -87,6 +89,7 @@ class ContractStorageBackendTemplate(
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
            (SELECT
+             contract_id,
              event_sequential_id,
              template_id,
              flat_event_witnesses,
@@ -100,6 +103,7 @@ class ContractStorageBackendTemplate(
              AND event_offset <= $before)
            UNION ALL
            (SELECT
+             contract_id,
              event_sequential_id,
              template_id,
              flat_event_witnesses,
@@ -114,6 +118,46 @@ class ContractStorageBackendTemplate(
            ORDER BY event_sequential_id DESC
            FETCH NEXT 1 ROW ONLY"""
       .as(fullDetailsContractRowParser.singleOpt)(connection)
+      .map(_._2)
+  }
+
+  override def contractStates(contractIds: Seq[ContractId], before: Offset)(
+      connection: Connection
+  ): Map[ContractId, ContractStorageBackend.RawContractState] = if (contractIds.isEmpty) Map.empty
+  else {
+    // note, below query uses indexes, but the join is run in a loop (using indexes)
+    // potential optimization would be to first collect the archivals and then join on the in-memory results
+    import com.daml.platform.store.backend.Conversions.ContractIdToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""WITH joined_rows (contract_id, create_event, archive_event, template_id, create_witness, archive_witness,
+            create_argument, create_argument_compression, create_ledger_effective_time, archive_ledger_effective_time) AS (SELECT
+             c.contract_id,
+             c.event_sequential_id,
+             a.event_sequential_id,
+             c.template_id,
+             c.flat_event_witnesses,
+             a.flat_event_witnesses,
+             c.create_argument,
+             c.create_argument_compression,
+             c.ledger_effective_time,
+             a.ledger_effective_time
+           FROM ledger_api.participant_events_create c LEFT JOIN ledger_api.participant_events_consuming_exercise a ON (
+            c.contract_id = a.contract_id AND a.event_offset < $before
+           )
+           WHERE
+             c.contract_id IN ($contractIds) AND c.event_offset < $before
+           )
+           SELECT contract_id, create_event as event_sequential_id, template_id, create_witness as flat_event_witnesses,
+                              create_argument, create_argument_compression, 10 as event_kind, create_ledger_effective_time as ledger_effective_time FROM joined_rows where archive_event is NULL
+           UNION ALL
+           SELECT contract_id, archive_event as event_sequential_id, template_id, archive_witness as flat_event_witnesses,
+                     NULL AS create_argument, NULL AS create_argument_compression, 20 as event_kind, archive_ledger_effective_time as ledger_effective_time FROM joined_rows where archive_event is NOT NULL
+    """
+      .as(fullDetailsContractRowParser.*)(connection)
+      .foldLeft(Map.empty[ContractId, ContractStorageBackend.RawContractState]) {
+        case (acc, (Some(key), res)) => acc + (key -> res)
+        case (acc, _) => acc
+      }
   }
 
   private val contractStateRowParser: RowParser[ContractStorageBackend.RawContractStateEvent] =
