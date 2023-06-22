@@ -283,6 +283,10 @@ private[index] class IndexServiceImpl(
   ): Future[Option[VersionedContractInstance]] =
     contractStore.lookupActiveContract(forParties, contractId)
 
+  override def prefetchContracts(contractIds: Seq[ContractId])(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] = contractStore.prefetchContracts(contractIds)
+
   override def getTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],

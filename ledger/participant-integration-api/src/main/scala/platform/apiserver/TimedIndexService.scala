@@ -147,6 +147,10 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       delegate.lookupActiveContract(readers, contractId),
     )
 
+  override def prefetchContracts(contractIds: Seq[ContractId])(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] = delegate.prefetchContracts(contractIds)
+
   override def lookupContractKey(
       readers: Set[Ref.Party],
       key: GlobalKey,

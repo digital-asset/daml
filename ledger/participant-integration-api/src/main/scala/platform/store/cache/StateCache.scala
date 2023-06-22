@@ -8,12 +8,14 @@ import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
+import com.daml.platform.store.cache.ContractStateValue.NotFound
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.ContractReadThroughNotFound
 import com.daml.platform.store.cache.StateCache.PendingUpdatesState
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** This class is a wrapper around a Caffeine cache designed to handle correct resolution of
   * concurrent updates for the same key.
@@ -47,6 +49,11 @@ private[platform] case class StateCache[K, V](
         logger.debug(s"Cache miss for $key ")
         None
     }
+
+  /** Check if the key is present in the cache (used for prefetching) */
+  def isCached(key: K): Boolean = {
+    cache.getIfPresent(key).nonEmpty
+  }
 
   /** Synchronous cache updates evolve the cache ahead with the most recent Index DB entries.
     * This method increases the `cacheIndex` monotonically.
@@ -98,16 +105,58 @@ private[platform] case class StateCache[K, V](
     registerUpdateTimer,
     pendingUpdates.synchronized {
       val validAt = cacheIndex
-      val eventualValue = Future.delegate(fetchAsync(validAt))
-      val pendingUpdatesForKey = pendingUpdates.getOrElseUpdate(key, PendingUpdatesState.empty)
-      if (pendingUpdatesForKey.latestValidAt < validAt) {
-        pendingUpdatesForKey.latestValidAt = validAt
-        pendingUpdatesForKey.pendingCount += 1
-        registerEventualCacheUpdate(key, eventualValue, validAt)
-          .flatMap(_ => eventualValue)
-      } else eventualValue
+      putPendingForKey(key, validAt, Future.delegate(fetchAsync(validAt)))
     },
   )
+
+  private def putPendingForKey(key: K, validAt: Offset, eventualValue: Future[V])(implicit
+      loggingContext: LoggingContext
+  ): Future[V] = {
+    val pendingUpdatesForKey = pendingUpdates.getOrElseUpdate(key, PendingUpdatesState.empty)
+    if (pendingUpdatesForKey.latestValidAt < validAt) {
+      pendingUpdatesForKey.latestValidAt = validAt
+      pendingUpdatesForKey.pendingCount += 1
+      registerEventualCacheUpdate(key, eventualValue, validAt)
+        .flatMap(_ => eventualValue)
+    } else eventualValue
+  }
+
+  /** Batch fetches many contracts at once to avoid incremental fetches to database */
+  def putAsyncMany(keys: Seq[K], fetchAsync: Offset => Future[Map[K, V]], empty: K => Future[V])(
+      implicit loggingContext: LoggingContext
+  ): Future[Unit] =
+    Future
+      .sequence(
+        Timed.value(
+          registerUpdateTimer,
+          pendingUpdates.synchronized {
+            val validAt = cacheIndex
+            val eventualValue = Future.delegate(fetchAsync(validAt))
+            keys.map { key =>
+              putPendingForKey(
+                key,
+                validAt,
+                eventualValue.map(_.get(key)).transformWith {
+                  case Success(Some(value)) => Future.successful(value)
+                  // the state cache expects the loader to be Future[V] instead of Future[Option[V]]
+                  // missing contracts are signalled via an exception which is semi ideal
+                  case Success(None) => empty(key)
+                  case Failure(exception) => Future.failed(exception)
+                },
+              ).map(_ => ())
+                .transformWith {
+                  // as the preloading shares 1:1 the code with the single contract loading,
+                  // we need to catch contract not found errors here and just ignore them as
+                  // otherwise we'll abort the interpretation prematurely
+                  case Failure(_: ContractReadThroughNotFound) => Future.unit
+                  case other => Future.fromTry(other)
+                }
+                .map(_ => ())
+            }
+          },
+        )
+      )
+      .map(_ => ())
 
   /** Resets the cache and cancels are pending asynchronous updates.
     *

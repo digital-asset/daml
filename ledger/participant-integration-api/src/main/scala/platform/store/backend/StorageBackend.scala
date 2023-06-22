@@ -215,6 +215,9 @@ trait ContractStorageBackend {
   def contractState(contractId: ContractId, before: Offset)(
       connection: Connection
   ): Option[ContractStorageBackend.RawContractState]
+  def contractStates(contractIds: Seq[ContractId], before: Offset)(
+      connection: Connection
+  ): Map[ContractId, ContractStorageBackend.RawContractState]
   def activeContractWithArgument(readers: Set[Party], contractId: ContractId)(
       connection: Connection
   ): Option[ContractStorageBackend.RawContract]
