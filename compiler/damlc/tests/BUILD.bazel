@@ -227,6 +227,8 @@ da_haskell_test(
         ":bond-trading",
         ":cant-skip-preprocessor",
         ":daml-test-files",
+        ":package-vetting-package-a.dar",
+        ":package-vetting-package-b.dar",
         ":query-lf-lib",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
@@ -1161,4 +1163,20 @@ da_haskell_test(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
+)
+
+daml_compile(
+    name = "package-vetting-package-a",
+    srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageAModule.daml"],
+    project_name = "package-vetting-package-a",
+    target = "1.dev",
+    version = "1.0.0",
+)
+
+daml_compile(
+    name = "package-vetting-package-b",
+    srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageBModule.daml"],
+    project_name = "package-vetting-package-b",
+    target = "1.dev",
+    version = "1.0.0",
 )

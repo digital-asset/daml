@@ -436,7 +436,7 @@ runDamldocMany' testfiles importPathM mScriptPackageData = do
         , optScenarioService = EnableScenarioService False
         , optImportPath = maybeToList importPathM
         , optPackageDbs = maybeToList $ fst <$> mScriptPackageData
-        , optPackageImports = maybeToList $ snd <$> mScriptPackageData
+        , optPackageImports = maybe [] snd mScriptPackageData
         }
 
   -- run the doc generator on that file
