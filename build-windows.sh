@@ -7,7 +7,7 @@ set -euo pipefail
 DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 tmp=$(mktemp)
-cat <<EOF >$tmp
+cat <<'EOF' >$tmp
 dev-env/windows/bin/dadew.ps1 install
 dev-env/windows/bin/dadew.ps1 sync
 dev-env/windows/bin/dadew.ps1 enable
