@@ -1,6 +1,13 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+# See https://github.com/lukesampson/scoop/issues/3859
+Set-Strictmode -Off
+.\dev-env\windows\bin\dadew.ps1 install
+Set-StrictMode -Version latest
+.\dev-env\windows\bin\dadew.ps1 sync
+.\dev-env\windows\bin\dadew.ps1 enable
+
 # $ErrorActionPreference = 'Stop' causes the script to fail because Bazel writes to stderr.
 $ErrorActionPreference = 'Continue'
 
