@@ -123,6 +123,17 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
+dev_env_tool(
+    name = "curl_dev_env",
+    nix_include = ["bin/curl"],
+    nix_label = "@curl_nix",
+    nix_paths = ["bin/curl"],
+    tools = ["curl"],
+    win_include = ["bin/curl.exe"],
+    win_paths = ["bin/curl.exe"],
+    win_tool = "curl",
+)
+
 # Sysctl system dependency
 nixpkgs_package(
     name = "sysctl_nix",

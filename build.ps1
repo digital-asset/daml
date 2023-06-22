@@ -74,7 +74,7 @@ if ($env:SKIP_TESTS -ceq "False") {
       | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
 
     $tag_filter = "-dev-canton-test"
-    
+
     bazel test //... `
       `-`-build_tag_filters "$tag_filter" `
       `-`-test_tag_filters "$tag_filter" `

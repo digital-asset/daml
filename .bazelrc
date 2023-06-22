@@ -137,3 +137,4 @@ test:windows --test_env=ComSpec
 build -c opt
 
 try-import %workspace%/.bazelrc.local
+build --build_tag_filters=-canton-ee
