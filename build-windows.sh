@@ -22,9 +22,14 @@ Set-StrictMode -Version latest
 Write-Output $env:PATH
 EOF
 
-echo ">>> PS"
-powershell -File $tmp/path.ps1
-echo "<<< PS"
+powershell -File $tmp/path.ps1 | tee $tmp/path.out
+
+ps_path=$(cat $tmp/path.out | sed '/^$/d' | tail -1)
+echo PATH
+echo $ps_path
+echo PATH
+
+
 
 export PATH="$DIR/dev-env/windows/bin:$HOME/dadew/scoop/shims:$PATH"
 echo $PATH
