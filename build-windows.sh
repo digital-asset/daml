@@ -80,7 +80,8 @@ fi
 bazel() (
     set -euo pipefail
     echo ">> bazel $@"
-    if (PATH="$w_path" bazel.exe "$@") 2>&1; then
+    $bazel=$(which bazel.exe)
+    if (PATH="$w_path" $bazel "$@") 2>&1; then
         echo "<< bazel $1 (ok)"
     else
         exit_code=$?
