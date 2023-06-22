@@ -14,7 +14,7 @@ genrule(
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml/Daml
-      cp -rL $$(dirname $(location Daml/Script.daml)) $$TMP_DIR/daml/Daml
+      cp -rL $$(dirname $(location Daml/Script.daml)) $$TMP_DIR/daml
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: daml3-script
