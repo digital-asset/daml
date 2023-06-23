@@ -333,6 +333,7 @@ class Endpoints(
           path("create-and-exercise") apply toRoute(
             createAndExercise(req)
           ),
+          path("refresh" / "cache") apply toRoute(refreshCache(req)),
           path("query") apply toRoute(query(req)),
           path("fetch") apply toRoute(fetch(req)),
           path("user") apply toPostRoute(req, getUser),
