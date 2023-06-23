@@ -194,6 +194,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
                       AND template_entity_name = $entityName)""".query[SurrogateTpId].unique
   } yield tpid
 
+  // Returns a map from templates to the latest seen offset per party
   final def templateOffsetsOlderThan(offsetLimitToRefresh: String)(implicit
       log: LogHandler
   ): ConnectionIO[

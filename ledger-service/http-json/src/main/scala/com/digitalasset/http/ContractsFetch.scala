@@ -270,33 +270,28 @@ private class ContractsFetch(
       s"cache refresh for templates older than offset: $offsetLimitToRefresh",
       metrics.Db.warmCache,
     ) {
-      for {
-        allOffsets <- queries.templateOffsetsOlderThan(offsetLimitToRefresh.unwrap)
-        filteredTemplateInfoAndOffset =
-          allOffsets.map { case ((packageId, moduleName, entityName), partyOffsetNonEmpty) =>
-            val partyOffset = partyOffsetNonEmpty.map { case (partyId, offset) =>
-              (domain.Party(partyId), domain.Offset(offset))
-            }
-            (ContractTypeId.Template(packageId, moduleName, entityName), partyOffset)
-          }.toList
 
-        _ <- filteredTemplateInfoAndOffset.map { case (templateId, partyOffsetNonEmpty) =>
-          val parties: domain.PartySet = partyOffsetNonEmpty.toSet.map(_._1)
-          val fetchContext = FetchContext(jwt, ledgerId, parties)
-          contractsFromOffsetIo(
-            fetchContext,
-            templateId,
-            partyOffsetNonEmpty.view.toMap,
-            true,
-            ledgerEnd,
-          )
-        }.sequence
-      } yield {
-        val templateIds = filteredTemplateInfoAndOffset.map(_._1)
-        logger.debug(
-          s"updated the cache for the follow templates: ${templateIds.mkString("[", ", ", "]")}"
-        )
-      }
+      for {
+        oldTemplates <- queries.templateOffsetsOlderThan(offsetLimitToRefresh.unwrap)
+        _ = logger.debug(s"refreshing the cache for ${oldTemplates.size} templates")
+        _ <- oldTemplates
+          .map { case ((packageId, moduleName, entityName), partyOffsetsRaw) =>
+            val templateId = ContractTypeId.Template(packageId, moduleName, entityName)
+            val partyOffsets = partyOffsetsRaw.map { case (p, o) =>
+              (domain.Party(p), domain.Offset(o))
+            }.toMap
+            val fetchContext = FetchContext(jwt, ledgerId, partyOffsets.keySet)
+            contractsFromOffsetIo(
+              fetchContext,
+              templateId,
+              partyOffsets,
+              true,
+              ledgerEnd,
+            )
+          }
+          .toList
+          .sequence
+      } yield {}
     }
   }
 
