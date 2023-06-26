@@ -8,14 +8,14 @@ module DA.Daml.Assistant.Version
     , getSdkVersionFromProjectPath
     , getAssistantSdkVersion
     , getDefaultSdkVersion
-    , getAvailableSdkVersions
+    , getAvailableReleaseVersions
     , getLatestSdkVersion
     , getAvailableSdkSnapshotVersions
     , getAvailableSdkSnapshotVersionsUncached
     , getLatestSdkSnapshotVersion
     , getLatestReleaseVersion
     , isReleaseVersion
-    , extractVersionsFromSnapshots
+    , extractReleasesFromSnapshots
     , UseCache (..)
     ) where
 
@@ -32,7 +32,7 @@ import Control.Monad.Extra
 import Data.Maybe
 import Data.Either.Extra
 import Data.Aeson (FromJSON(..), eitherDecodeStrict')
-import Data.Aeson.Types (listParser, withObject, (.:), Value, Parser)
+import Data.Aeson.Types (listParser, withObject, (.:), Parser)
 import qualified Data.Text as T
 import Safe
 import Network.HTTP.Simple
@@ -132,15 +132,15 @@ isReleaseVersion sdkVersion =
     in
     null (view V.release v) && null (view V.metadata v) && view V.major v > 0
 
--- | Get the list of available snapshot versions. This will fetch all snapshot
+-- | Get the list of available release versions. This will fetch all snapshot
 -- versions and then prune them into releases
-getAvailableSdkVersions :: UseCache -> IO ([SdkVersion], CacheAge)
-getAvailableSdkVersions useCache = do
+getAvailableReleaseVersions :: UseCache -> IO ([SdkVersion], CacheAge)
+getAvailableReleaseVersions useCache = do
     (versions, cacheAge) <- wrapErr "Fetching list of available SDK versions" $ getAvailableSdkSnapshotVersions useCache
-    pure (extractVersionsFromSnapshots versions, cacheAge)
+    pure (extractReleasesFromSnapshots versions, cacheAge)
 
-extractVersionsFromSnapshots :: [SdkVersion] -> [SdkVersion]
-extractVersionsFromSnapshots snapshots =
+extractReleasesFromSnapshots :: [SdkVersion] -> [SdkVersion]
+extractReleasesFromSnapshots snapshots =
     let -- For grouping things by their major or minor version
         distinguishBy :: Ord k => (a -> k) -> [a] -> M.Map k (NonEmpty.NonEmpty a)
         distinguishBy f as = M.fromListWith (<>) [(f a, pure a) | a <- as]
@@ -240,21 +240,30 @@ getAvailableSdkSnapshotVersionsUncached = do
           _ -> Nothing
 
   extractVersions :: ByteString -> Either String [SdkVersion]
-  extractVersions bs = unParsedSdkVersions <$> eitherDecodeStrict' bs
+  extractVersions bs = filterPrereleases <$> eitherDecodeStrict' bs
 
-newtype ParsedSdkVersions = ParsedSdkVersions { unParsedSdkVersions :: [SdkVersion] }
+  filterPrereleases :: ParsedSdkVersions -> [SdkVersion]
+  filterPrereleases parsedVersions =
+    [ unParsedSdkVersion
+    | ParsedSdkVersion {..} <- unParsedSdkVersions parsedVersions
+    , isPrerelease
+    ]
+
+newtype ParsedSdkVersions = ParsedSdkVersions { unParsedSdkVersions :: [ParsedSdkVersion] }
+data ParsedSdkVersion = ParsedSdkVersion { unParsedSdkVersion :: SdkVersion, isPrerelease :: Bool }
   deriving (Show, Eq, Ord)
 
 instance FromJSON ParsedSdkVersions where
-  parseJSON v = ParsedSdkVersions <$> listParser parseSingleVersion v
-    where
-      parseSingleVersion :: Value -> Parser SdkVersion
-      parseSingleVersion =
-        withObject "Version" $ \v -> do
-          rawTagName <- (v .: "tag_name" :: Parser T.Text)
-          case parseVersion (T.dropWhile ('v' ==) rawTagName) of
-            Left (InvalidVersion src msg) -> fail $ "Invalid version string `" <> unpack src <> "` for reason: " <> msg
-            Right sdkVersion -> pure sdkVersion
+  parseJSON v = ParsedSdkVersions <$> listParser parseJSON v
+
+instance FromJSON ParsedSdkVersion where
+  parseJSON =
+    withObject "Version" $ \v -> do
+      rawTagName <- (v .: "tag_name" :: Parser T.Text)
+      isPrerelease <- (v .: "prerelease" :: Parser Bool)
+      case parseVersion (T.dropWhile ('v' ==) rawTagName) of
+        Left (InvalidVersion src msg) -> fail $ "Invalid version string `" <> unpack src <> "` for reason: " <> msg
+        Right sdkVersion -> pure ParsedSdkVersion { unParsedSdkVersion = sdkVersion, isPrerelease }
 
 -- | Get the latest released SDK version
 getLatestSdkVersion :: IO (Maybe SdkVersion)

@@ -68,7 +68,7 @@ cacheAvailableSdkVersions UseCache { forceReload, cachePath, damlPath } getVersi
     let configUpdateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
         updateCheck | forceReload = UpdateCheckEvery (CacheTimeout 1)
                     | Just updateCheck <- configUpdateCheckM = updateCheck
-                    | otherwise = UpdateCheckEvery (CacheTimeout 86400)
+                    | otherwise = UpdateCheckEvery (CacheTimeout 86400) -- One day, in seconds
     case updateCheck of
         UpdateCheckNever -> do
             valueAgeM <- loadFromCacheWith cachePath versionsKey (CacheTimeout 0) deserializeVersions
