@@ -72,7 +72,7 @@ CANTON_ENTERPRISE_SHA=6a62452cb78b37a4b7c37efe22839ab8b19963e90ad71be6a7a2cfdbe0
 
 url=https://digitalasset.jfrog.io/artifactory/canton-enterprise/canton-enterprise-$$CANTON_ENTERPRISE_VERSION.tar.gz
 
-curl=$(location @curl_dev_env//:bin/curl)
+curl=$(location {curl})
 
 tmp=$$(mktemp)
 $$curl --location \
@@ -95,7 +95,10 @@ fi
 tar xzf $$tmp
 
 cp **/lib/*.jar $@
-""".format(auth = artif_auth),
+""".format(
+        auth = artif_auth,
+        curl = "@curl_dev_env//:bin/curl" if not is_windows else "@curl_dev_env//:bin/curl.exe",
+    ),
     tags = ["canton-ee"],
     tools = [
         "@curl_dev_env//:bin/curl" if not is_windows else "@curl_dev_env//:bin/curl.exe",
