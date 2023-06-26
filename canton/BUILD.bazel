@@ -62,6 +62,7 @@ java_import(
 
 genrule(
     name = "canton-lib-ee",
+    # We don't use the else branch but we need a resolvable value
     srcs = [":lib/canton.jar"] if canton["local"] else ["@canton//:jar"],
     outs = ["canton-lib-ee.jar"],
     cmd = """
