@@ -118,6 +118,7 @@ nixpkgs_python_configure(repository = "@nixpkgs") if not is_windows else None
 nixpkgs_package(
     name = "curl_nix",
     attribute_path = "curl",
+    fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
