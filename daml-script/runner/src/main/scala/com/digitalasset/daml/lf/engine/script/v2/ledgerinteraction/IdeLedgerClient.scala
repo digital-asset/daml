@@ -246,6 +246,28 @@ class IdeLedgerClient(
       }
   }
 
+  // Projects the scenario submission error down to the script submission error
+  private def fromScenarioError(err: scenario.Error): SubmitError = err match {
+    case scenario.Error.RunnerException(err) => SubmitError.RunnerException(err)
+    case scenario.Error.Internal(reason) => SubmitError.Internal(reason)
+    case scenario.Error.Timeout(timeout) => SubmitError.Timeout(timeout)
+    case scenario.Error.ContractNotEffective(coid, templateId, effectiveAt) =>
+      SubmitError.ContractNotEffective(coid, templateId, effectiveAt)
+    case scenario.Error.ContractNotActive(coid, templateId, consumedBy) =>
+      SubmitError.ContractNotActive(coid, templateId, consumedBy)
+    case scenario.Error.ContractNotVisible(coid, templateId, actAs, readAs, observers) =>
+      SubmitError.ContractNotVisible(coid, templateId, actAs, readAs, observers)
+    case scenario.Error.ContractKeyNotVisible(coid, key, actAs, readAs, observers) =>
+      SubmitError.ContractKeyNotVisible(coid, key, actAs, readAs, observers)
+    case scenario.Error.CommitError(
+          ScenarioLedger.CommitError.UniqueKeyViolation(ScenarioLedger.UniqueKeyViolation(gk))
+        ) =>
+      SubmitError.UniqueKeyViolation(gk)
+    case scenario.Error.PartiesNotAllocated(parties) => SubmitError.PartiesNotAllocated(parties)
+    // This covers MustFailSucceeded, InvalidPartyName, PartyAlreadyExists which should not be throwable by a command submission
+    case err => SubmitError.Internal("Unexpected error type: " + err.toString)
+  }
+
   // unsafe version of submit that does not clear the commit.
   private def unsafeSubmit(
       actAs: OneAnd[Set, Ref.Party],
@@ -545,4 +567,42 @@ class IdeLedgerClient(
     userManagementStore
       .listUserRights(id, IdentityProviderId.Default)(LoggingContext.empty)
       .map(_.toOption.map(_.toList))
+
+  override def trySubmit(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commands: List[command.ApiCommand],
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]] =
+    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+      case Right(ScenarioRunner.Commit(result, _, _)) =>
+        _currentSubmission = None
+        _ledger = result.newLedger
+        val transaction = result.richTransaction.transaction
+        def convRootEvent(id: NodeId): ScriptLedgerClient.CommandResult = {
+          val node = transaction.nodes.getOrElse(
+            id,
+            throw new IllegalArgumentException(s"Unknown root node id $id"),
+          )
+          node match {
+            case create: Node.Create => ScriptLedgerClient.CreateResult(create.coid)
+            case exercise: Node.Exercise =>
+              ScriptLedgerClient.ExerciseResult(
+                exercise.templateId,
+                exercise.interfaceId,
+                exercise.choiceId,
+                exercise.exerciseResult.get,
+              )
+            case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback =>
+              throw new IllegalArgumentException(s"Invalid root node: $node")
+          }
+        }
+        Right(transaction.roots.toSeq.map(convRootEvent))
+      case Left(ScenarioRunner.SubmissionError(err, tx)) =>
+        _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
+        Left(fromScenarioError(err))
+    }
 }

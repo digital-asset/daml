@@ -8,6 +8,12 @@ module Daml.Script
   , submitMultiMustFail
   , submitTree
   , submitTreeMulti
+  , trySubmit
+  , SubmitError (..)
+  , RunnerException (..)
+  , FailedAuthorization (..)
+  , Limit (..)
+
   , query
   , queryInterface
   , queryContractId

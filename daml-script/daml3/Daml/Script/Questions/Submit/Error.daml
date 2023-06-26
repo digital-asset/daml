@@ -1,0 +1,74 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Questions.Submit.Error where
+
+import DA.Stack
+
+-- TODO: Use Ledger api error codes for this. extend the ledger api's error structure.
+data SubmitError
+  = SERunnerException { unSERunnerException : RunnerException }
+  | SEInternal
+  | SETimeout
+  | SECanceledByRequest
+  | SEContractNotEffective -- Duplicated by RunnerException
+  | SEContractNotActive
+  | SEContractNotVisible
+  | SEContractKeyNotVisible -- Duplicated by RunnerException
+  | SEUniqueKeyViolation
+  | SEPartiesNotAllocated
+  deriving Show
+
+data RunnerException
+  = REUnhandledException
+  | REUserError
+  | REContractNotFound
+  | RERejectedAuthorityRequest
+  | RETemplatePreconditionViolated
+  | REContractNotActive
+  | REDisclosedContractKeyHashingError
+  | REContractKeyNotVisible
+  | REContractKeyNotFound
+  | REDuplicateContractKey
+  | REInconsistentContractKey
+  | RECreateEmptyContractKeyMaintainers
+  | REFetchEmptyContractKeyMaintainers
+  | REWronglyTypedContract
+  | REWronglyTypedContractSoft
+  | REContractDoesNotImplementInterface
+  | REContractDoesNotImplementRequiringInterface
+  | REFailedAuthorization { unREFailedAuthorization : FailedAuthorization }
+  | RENonComparableValues
+  | REContractIdComparability
+  | REContractIdInContractKey
+  | REChoiceGuardFailed
+  | RELimit { unRELimit : Limit }
+  deriving Show
+
+deriving instance Show SrcLoc
+
+data FailedAuthorization
+  = FACreateMissingAuthorization
+      { templateId : Text -- Convert to some kind of TypeRep
+      , optLocation : Optional SrcLoc
+      , authorizingParties : [Party]
+      , requiredParties : [Party]
+      }
+  | FAMaintainersNotSubsetOfSignatories
+  | FAFetchMissingAuthorization
+  | FAExerciseMissingAuthorization
+  | FANoSignatories
+  | FANoControllers
+  | FANoAuthorizers
+  | FALookupByKeyMissingAuthorization
+  deriving Show
+
+data Limit
+  = LEValueNesting
+  | LEContractSignatories
+  | LEContractObservers
+  | LEChoiceControllers
+  | LEChoiceObservers
+  | LEChoiceAuthorizers
+  | LETransactionInputContracts
+  deriving Show

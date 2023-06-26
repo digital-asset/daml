@@ -39,6 +39,13 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object ScriptF {
+  val left = SEBuiltin(
+    SBVariantCon(StablePackage.DA.Types.Either, Name.assertFromString("Left"), 0)
+  )
+  val right = SEBuiltin(
+    SBVariantCon(StablePackage.DA.Types.Either, Name.assertFromString("Right"), 1)
+  )
+
   sealed trait Cmd {
     private[lf] def executeWithRunner(env: Env, @annotation.unused runner: v2.Runner)(implicit
         ec: ExecutionContext,
@@ -107,14 +114,6 @@ object ScriptF {
   }
 
   final case class Catch(act: SValue) extends Cmd {
-
-    val left = SEBuiltin(
-      SBVariantCon(StablePackage.DA.Types.Either, Name.assertFromString("Left"), 0)
-    )
-    val right = SEBuiltin(
-      SBVariantCon(StablePackage.DA.Types.Either, Name.assertFromString("Right"), 1)
-    )
-
     override def executeWithRunner(env: Env, runner: v2.Runner)(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -145,6 +144,48 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = Future.failed(new NotImplementedError)
+  }
+
+  final case class TrySubmit(data: SubmitData) extends Cmd {
+
+    override def execute(
+        env: Env
+    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
+      for {
+        client <- Converter.toFuture(
+          env.clients
+            .getPartiesParticipant(data.actAs)
+        )
+        submitRes <- client.trySubmit(
+          data.actAs,
+          data.readAs,
+          data.cmds,
+          data.stackTrace.topFrame,
+        )
+        res <- submitRes match {
+          case Right(results) =>
+            Converter.toFuture(
+              results
+                .to(FrontStack)
+                .traverse(
+                  Converter
+                    .fromCommandResult(env.lookupChoice, env.valueTranslator, env.scriptIds, _)
+                )
+                .map(results => SEAppAtomic(right, Array(SEValue(SList(results)))))
+            )
+          case Left(submitError) =>
+            Future.successful(
+              SEAppAtomic(
+                left,
+                Array(
+                  SEValue(
+                    Converter.fromSubmitError(env.scriptIds, submitError)
+                  )
+                ),
+              )
+            )
+        }
+      } yield res
   }
 
   final case class Submit(data: SubmitData) extends Cmd {
@@ -867,6 +908,7 @@ object ScriptF {
       case "Submit" => parseSubmit(v, stackTrace).map(Submit(_))
       case "SubmitMustFail" => parseSubmit(v, stackTrace).map(SubmitMustFail(_))
       case "SubmitTree" => parseSubmit(v, stackTrace).map(SubmitTree(_))
+      case "TrySubmit" => parseSubmit(v, stackTrace).map(TrySubmit(_))
       case "Query" => parseQuery(v)
       case "QueryContractId" => parseQueryContractId(v)
       case "QueryInterface" => parseQueryInterface(v)

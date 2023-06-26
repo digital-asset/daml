@@ -1,0 +1,35 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @ SCRIPT-V2
+
+module TrySubmit where
+
+import Daml.Script
+
+import DA.Assert
+import DA.Either
+import DA.Optional
+
+template T with
+    p : Party
+  where
+  signatory p
+  
+
+main : Script ()
+main = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  -- Ensure it succeeds when it should
+  res1 <- trySubmit [alice] [alice] $ createCmd T with p = alice
+  assert $ isRight res1
+  -- Ensure it fails when it should with authorization
+  res2 <- trySubmit [alice] [alice] $ createCmd T with p = bob
+  case res2 of
+    Left (SERunnerException (REFailedAuthorization (FACreateMissingAuthorization {..}))) -> do
+      templateId === "-homePackageId-:TrySubmit:T"
+      assert (isNone optLocation) -- Can't use `===` as no Eq for SrcLoc
+      authorizingParties === [alice]
+      requiredParties === [bob]
+    _ -> error "Incorrect error"
