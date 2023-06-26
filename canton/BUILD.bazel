@@ -8,6 +8,7 @@ load(
 )
 load("//:canton_dep.bzl", "canton")
 load("@build_environment//:configuration.bzl", "artif_auth")
+load("@os_info//:os_info.bzl", "is_windows")
 
 java_binary(
     name = "canton",
@@ -97,7 +98,7 @@ cp **/lib/*.jar $@
 """.format(auth = artif_auth),
     tags = ["canton-ee"],
     tools = [
-        "@curl_dev_env//:bin/curl",
+        "@curl_dev_env//:bin/curl" if not is_windows else "@curl_dev_env//:bin/curl.exe",
     ],
     visibility = ["//visibility:public"],
 )
