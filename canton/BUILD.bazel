@@ -62,8 +62,8 @@ java_import(
 
 genrule(
     name = "canton-lib-ee",
+    srcs = [":lib/canton.jar"] if canton["local"] else ["@canton//:jar"],
     outs = ["canton-lib-ee.jar"],
-    srcs = [":lib/canton.jar"] if canton["local"] else [],
     cmd = """
 set -euo pipefail
 
@@ -104,7 +104,7 @@ cp **/lib/*.jar $@
         auth = artif_auth,
         curl = "@curl_dev_env//:bin/curl" if not is_windows else "@curl_dev_env//:bin/curl.exe",
         local = "true" if canton["local"] else "",
-        src = ":lib/canton.jar" if canton["local"] else "@canton//:jar", # not used in else case but still must resolve
+        src = ":lib/canton.jar" if canton["local"] else "@canton//:jar",  # not used in else case but still must resolve
     ),
     tags = ["canton-ee"],
     tools = [
