@@ -3,7 +3,17 @@
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
-module Daml.Script.Internal where
+module Daml.Script.Internal
+  ( Question (..)
+  , IsQuestion (..)
+  , Script (..)
+  , LedgerValue
+  , ScriptF (..)
+  , lift
+  , script
+  , fromLedgerValue
+  , toLedgerValue
+  ) where
 
 import Daml.Script.Free (Free(..))
 import qualified Daml.Script.Free as Free
@@ -34,7 +44,7 @@ isInternalSrcLoc SrcLoc {srcLocPackage, srcLocModule} =
 -- We don't care about the type information once its a full ScriptF, as scala side will work that out.
 -- So, we use our danger cast to turn the req and res into LedgerValues
 castQuestion : Question req res a -> Question LedgerValue LedgerValue a
-castQuestion = dangerCast
+castQuestion = dangerousCast
 
 -- Our entire scriptF type now is just a question from LedgerValue to LedgerValue, returning a
 newtype ScriptF a = ScriptF (Question LedgerValue LedgerValue a) deriving Functor
@@ -97,13 +107,13 @@ lift = liftScript . Free.lift . makeScriptF
 script : Script a -> Script a
 script = identity
 
-dangerCast : a -> b
-dangerCast = error "foobar" -- gets replaced by the identity-function in script/Runner.scala
+dangerousCast : a -> b
+dangerousCast = error "Non-replaced call to internal-only dangerousCast. Are you using the Script runner? " -- gets replaced by the identity-function in script/Runner.scala
 
 data LedgerValue = LedgerValue {}
 
 fromLedgerValue : LedgerValue -> a
-fromLedgerValue = dangerCast
+fromLedgerValue = dangerousCast
 
 toLedgerValue : a -> LedgerValue
-toLedgerValue = dangerCast
+toLedgerValue = dangerousCast

@@ -39,14 +39,12 @@ data Commands a = Commands with
     continue : [CommandResult] -> a
   deriving Functor
 
--- Create and exercise gives 2 results, so we account for that here
-expectedCommandResults : Command -> Int
-expectedCommandResults CreateAndExercise {} = 2
-expectedCommandResults _ = 1
-
 -- Expected number of command results for a list of commands
 expectedCommandsResults : [Command] -> Int
-expectedCommandsResults = sum . fmap expectedCommandResults
+expectedCommandsResults [] = 0
+-- Create and exercise gives 2 results, so we account for that here
+expectedCommandsResults ((CreateAndExercise {})::cmds) = 2 + expectedCommandsResults cmds
+expectedCommandsResults (_::cmds) = 1 + expectedCommandsResults cmds
 
 instance Applicative Commands where
   pure : a -> Commands a
