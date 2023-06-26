@@ -586,6 +586,17 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "end": "2.7.0-snapshot.20230619.11890.0.vedd1a5f6",
+        "platform_ranges": [
+            {
+                "start": "2.7.0-snapshot.20230619.11890.0.vedd1a5f6.1",
+                "exclusions": [
+                    "InterfaceSubscriptionsIT:ISTransactionsEquivalentFilters",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
