@@ -13,7 +13,7 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
     da_scala_library(
         name = "{}".format(edition),
         srcs = glob(["src/main/scala/**/*.scala"]),
-        data = ["//canton:canton-ee_deploy.jar"],
+        data = ["//canton:canton-ee_deploy.jar"] if edition == "ee" else [],
         plugins = [
             kind_projector_plugin,
         ],

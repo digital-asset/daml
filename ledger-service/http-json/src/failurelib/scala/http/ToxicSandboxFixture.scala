@@ -4,7 +4,7 @@
 package com.daml.http
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.integrationtest.CantonFixtureWithResource
+import com.daml.integrationtest.{CantonFixtureWithResource, CantonRunner}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ports.{LockedFreePort, Port}
@@ -16,7 +16,7 @@ import org.scalatest.OptionValues._
 
 import java.io.File
 import java.net.InetAddress
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.sys.process.Process
@@ -28,7 +28,10 @@ trait ToxicSandboxFixture
   self: Suite =>
 
   override lazy protected val darFiles: List[Path] = packageFiles.map(_.toPath)
-  override lazy protected val cantonJar = Paths.get(rlocation("canton/canton-ee_deploy.jar"))
+  override lazy protected val cantonJar = {
+    val eePath = Paths.get(rlocation("canton/canton-ee_deploy.jar"))
+    if (Files.exists(eePath)) eePath else CantonRunner.cantonPath
+  }
 
   protected def packageFiles: List[File]
 
