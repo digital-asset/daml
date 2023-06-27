@@ -99,7 +99,8 @@ commandWantsProjectPath cmd = LookForProjectPath $
 -- | Perform version checks, i.e. warn user if project SDK version or assistant SDK
 -- versions are out of date with the latest known release.
 versionChecks :: Env -> IO ()
-versionChecks Env{..} =
+versionChecks env@Env{..} = do
+    envLatestStableSdkVersion <- getEnvLatestStableSdkVersion env
     whenJust envLatestStableSdkVersion $ \latestVersion -> do
         let isHead = maybe False isHeadVersion envSdkVersion
             projectSdkVersionIsOld = isJust envProjectPath && envSdkVersion < Just latestVersion

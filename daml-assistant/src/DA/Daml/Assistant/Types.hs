@@ -56,7 +56,6 @@ data Env = Env
     , envProjectPath   :: Maybe ProjectPath
     , envSdkPath       :: Maybe SdkPath
     , envSdkVersion    :: Maybe SdkVersion
-    , envLatestStableSdkVersion :: Maybe SdkVersion
     } deriving (Eq, Show)
 
 data BuiltinCommand
