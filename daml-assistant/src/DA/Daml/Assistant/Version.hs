@@ -12,6 +12,7 @@ module DA.Daml.Assistant.Version
     , getLatestSdkVersion
     , getAvailableSdkSnapshotVersions
     , getAvailableSdkSnapshotVersionsUncached
+    , findAvailableSdkSnapshotVersion
     , getLatestSdkSnapshotVersion
     , getLatestReleaseVersion
     , isReleaseVersion
@@ -173,8 +174,10 @@ getAvailableSdkSnapshotVersions :: UseCache -> IO ([SdkVersion], CacheAge)
 getAvailableSdkSnapshotVersions useCache =
   cacheAvailableSdkVersions useCache (getAvailableSdkSnapshotVersionsUncached >>= flattenSnapshotsList)
 
-findFirstSdkSnapshotVersionUncached :: (SdkVersion -> Bool) -> IO (Maybe SdkVersion)
-findFirstSdkSnapshotVersionUncached pred =
+-- | Find the first occurence of a version on Github, without the cache. Keep in
+  -- mind that versions are not sorted.
+findAvailableSdkSnapshotVersion :: (SdkVersion -> Bool) -> IO (Maybe SdkVersion)
+findAvailableSdkSnapshotVersion pred =
   getAvailableSdkSnapshotVersionsUncached >>= searchSnapshotsUntil pred
 
 data SnapshotsList = SnapshotsList
@@ -268,14 +271,18 @@ instance FromJSON ParsedSdkVersion where
 -- | Get the latest released SDK version
 getLatestSdkVersion :: IO (Maybe SdkVersion)
 getLatestSdkVersion = do
-    versionE <- tryAssistant $ findFirstSdkSnapshotVersionUncached isReleaseVersion
-    pure $ join $ eitherToMaybe versionE
+    versionE <- tryAssistant (getAvailableReleaseVersions DontUseCache)
+    pure $ do
+      (versions, _cacheAge) <- eitherToMaybe versionE
+      maximumMay versions
 
 -- | Get the latest snapshot SDK version.
 getLatestSdkSnapshotVersion :: IO (Maybe SdkVersion)
 getLatestSdkSnapshotVersion = do
-    versionE <- tryAssistant $ findFirstSdkSnapshotVersionUncached (const True)
-    pure $ join $ eitherToMaybe versionE
+    versionE <- tryAssistant (getAvailableSdkSnapshotVersions DontUseCache)
+    pure $ do
+      (versions, _cacheAge) <- eitherToMaybe versionE
+      maximumMay versions
 
 getLatestReleaseVersion :: IO SdkVersion
 getLatestReleaseVersion = do
