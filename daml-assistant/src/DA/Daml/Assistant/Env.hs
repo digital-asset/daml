@@ -3,7 +3,7 @@
 
 
 module DA.Daml.Assistant.Env
-    ( Env (..)
+    ( EnvF (..)
     , DamlPath (..)
     , ProjectPath (..)
     , SdkPath (..)
@@ -16,7 +16,7 @@ module DA.Daml.Assistant.Env
     , getSdk
     , getDispatchEnv
     , envUseCache
-    , getEnvLatestStableSdkVersion
+    , forceEnv
     ) where
 
 import DA.Daml.Assistant.Types
@@ -39,18 +39,16 @@ getDamlEnv envDamlPath lookForProjectPath = do
     envProjectPath <- getProjectPath lookForProjectPath
     (envSdkVersion, envSdkPath) <- getSdk envDamlPath envProjectPath
     envCachePath <- getCachePath
+    let envLatestStableSdkVersion = getLatestStableSdkVersion (mkUseCache envCachePath envDamlPath)
     pure Env {..}
 
 envUseCache :: Env -> UseCache
 envUseCache Env {..} =
-  UseCache
-    { cachePath = envCachePath
-    , damlPath = envDamlPath
-    , forceReload = False
-    }
+  mkUseCache envCachePath envDamlPath
 
-getEnvLatestStableSdkVersion :: Env -> IO (Maybe SdkVersion)
-getEnvLatestStableSdkVersion env = getLatestStableSdkVersion (envUseCache env)
+mkUseCache :: CachePath -> DamlPath -> UseCache
+mkUseCache cachePath damlPath =
+  UseCache { cachePath, damlPath, forceReload = False }
 
 -- | (internal) Override function with environment variable
 -- if it is available.
@@ -225,9 +223,9 @@ getSdk damlPath projectPathM =
 -- | Calculate the environment for dispatched commands (i.e. the environment
 -- with updated DAML_HOME, DAML_PROJECT, DAML_SDK, etc).
 getDispatchEnv :: Env -> IO [(String, String)]
-getDispatchEnv env@Env{..} = do
+getDispatchEnv Env{..} = do
     originalEnv <- getEnvironment
-    envLatestStableSdkVersion <- getEnvLatestStableSdkVersion env
+    envLatestStableSdkVersion <- envLatestStableSdkVersion
     pure $ filter ((`notElem` damlEnvVars) . fst) originalEnv
         ++ [ (damlPathEnvVar, unwrapDamlPath envDamlPath)
            , (damlCacheEnvVar, unwrapCachePath envCachePath)
