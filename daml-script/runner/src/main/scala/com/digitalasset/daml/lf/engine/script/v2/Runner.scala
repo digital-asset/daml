@@ -140,9 +140,9 @@ private[lf] class Runner(
   }
 
   private val ideLedgerContext: Option[IdeLedgerContext] =
-    initialClientsV1.default_participant.collect{
-      ledgerClient: ledgerinteraction.IdeLedgerClient =>
-        Some(new IdeLedgerContext {
+    initialClientsV1.default_participant.collect {
+      case ledgerClient: ledgerinteraction.IdeLedgerClient =>
+        new IdeLedgerContext {
           override def currentSubmission: Option[ScenarioRunner.CurrentSubmission] =
             ledgerClient.currentSubmission
           override def ledger: ScenarioLedger = ledgerClient.ledger
