@@ -155,6 +155,7 @@ autoInstall env@Env{..} = do
             installEnv = InstallEnv
                 { options = options
                 , damlPath = envDamlPath
+                , useCache = envUseCache env
                 , targetVersionM = Just sdkVersion
                 , missingAssistant = False
                 , installingFromOutside = False
@@ -266,7 +267,7 @@ runCommand env@Env{..} = \case
         putStr . unpack $ T.unlines ("SDK versions:" : versionLines)
 
     Builtin (Install options) -> wrapErr "Installing the SDK." $ do
-        install options envDamlPath envProjectPath envDamlAssistantSdkVersion
+        install options envDamlPath (envUseCache env) envProjectPath envDamlAssistantSdkVersion
 
     Builtin (Uninstall version) -> do
         uninstallVersion env version

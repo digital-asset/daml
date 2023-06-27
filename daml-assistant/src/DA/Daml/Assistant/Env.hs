@@ -15,6 +15,8 @@ module DA.Daml.Assistant.Env
     , getProjectPath
     , getSdk
     , getDispatchEnv
+    , envUseCache
+    , mkUseCache
     ) where
 
 import DA.Daml.Assistant.Types
@@ -37,8 +39,15 @@ getDamlEnv envDamlPath lookForProjectPath = do
     envProjectPath <- getProjectPath lookForProjectPath
     (envSdkVersion, envSdkPath) <- getSdk envDamlPath envProjectPath
     envCachePath <- getCachePath
-    envLatestStableSdkVersion <- getLatestStableSdkVersion
+    envLatestStableSdkVersion <- getLatestStableSdkVersion (mkUseCache envCachePath envDamlPath)
     pure Env {..}
+
+envUseCache :: Env -> UseCache
+envUseCache Env {..} = mkUseCache envCachePath envDamlPath
+
+mkUseCache :: CachePath -> DamlPath -> UseCache
+mkUseCache cachePath damlPath =
+  UseCache { cachePath, damlPath, forceReload = False }
 
 -- | (internal) Override function with environment variable
 -- if it is available.
@@ -73,8 +82,8 @@ overrideWithEnvVarMaybe envVar normalize parse calculate = do
 
 -- | Get the latest stable SDK version. Can be overriden with
 -- DAML_SDK_LATEST_VERSION environment variable.
-getLatestStableSdkVersion :: IO (Maybe SdkVersion)
-getLatestStableSdkVersion = overrideWithEnvVarMaybe sdkVersionLatestEnvVar pure (parseVersion . pack) getLatestSdkVersion
+getLatestStableSdkVersion :: UseCache -> IO (Maybe SdkVersion)
+getLatestStableSdkVersion useCache = overrideWithEnvVarMaybe sdkVersionLatestEnvVar pure (parseVersion . pack) (getLatestSdkVersion useCache)
 
 -- | Determine the viability of running sdk commands in the environment.
 -- Returns the first failing test's error message.

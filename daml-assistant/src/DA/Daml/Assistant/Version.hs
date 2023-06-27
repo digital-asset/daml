@@ -269,24 +269,24 @@ instance FromJSON ParsedSdkVersion where
         Right sdkVersion -> pure ParsedSdkVersion { unParsedSdkVersion = sdkVersion, isPrerelease }
 
 -- | Get the latest released SDK version
-getLatestSdkVersion :: IO (Maybe SdkVersion)
-getLatestSdkVersion = do
-    versionE <- tryAssistant (getAvailableReleaseVersions DontUseCache)
+getLatestSdkVersion :: UseCache -> IO (Maybe SdkVersion)
+getLatestSdkVersion useCache = do
+    versionE <- tryAssistant (getAvailableReleaseVersions useCache)
     pure $ do
       (versions, _cacheAge) <- eitherToMaybe versionE
       maximumMay versions
 
 -- | Get the latest snapshot SDK version.
-getLatestSdkSnapshotVersion :: IO (Maybe SdkVersion)
-getLatestSdkSnapshotVersion = do
-    versionE <- tryAssistant (getAvailableSdkSnapshotVersions DontUseCache)
+getLatestSdkSnapshotVersion :: UseCache -> IO (Maybe SdkVersion)
+getLatestSdkSnapshotVersion useCache = do
+    versionE <- tryAssistant (getAvailableSdkSnapshotVersions useCache)
     pure $ do
       (versions, _cacheAge) <- eitherToMaybe versionE
       maximumMay versions
 
-getLatestReleaseVersion :: IO SdkVersion
-getLatestReleaseVersion = do
-    mbReleaseVersion <- getLatestSdkVersion
+getLatestReleaseVersion :: UseCache -> IO SdkVersion
+getLatestReleaseVersion useCache = do
+    mbReleaseVersion <- getLatestSdkVersion useCache
     case mbReleaseVersion of
       Nothing -> throwIO $ assistantError (pack "Failed to get latest release version from github.com")
       Just rv -> pure rv
