@@ -199,7 +199,7 @@ runCommand env@Env{..} = \case
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
         snapshotVersionsEUnfiltered <- tryAssistant $ fst <$> getAvailableSdkSnapshotVersions useCache
         let snapshotVersionsE = if vSnapshots then snapshotVersionsEUnfiltered else pure []
-            availableVersionsE = extractVersionsFromSnapshots <$> snapshotVersionsEUnfiltered
+            availableVersionsE = extractReleasesFromSnapshots <$> snapshotVersionsEUnfiltered
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
         projectVersionM <- mapM getSdkVersionFromProjectPath envProjectPath
         envSelectedVersionM <- lookupEnv sdkVersionEnvVar
