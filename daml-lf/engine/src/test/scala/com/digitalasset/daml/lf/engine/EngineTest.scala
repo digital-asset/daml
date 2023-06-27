@@ -557,7 +557,7 @@ class EngineTest
         speedy.Command.CreateAndExercise(
           templateId = tmplId,
           createArgument =
-            SRecord(tmplId, ImmArray(Ref.Name.assertFromString("name")), ArrayList(SParty(alice))),
+            SRecord(tmplId, ImmArray(Ref.Name.assertFromString("p")), ArrayList(SParty(alice))),
           choiceId = ChoiceName.assertFromString("Exercise"),
           choiceArgument = SUnit,
         )
@@ -635,7 +635,7 @@ class EngineTest
           templateId = templateId,
           key = SRecord(
             BasicTests_WithKey,
-            ImmArray("p", "k"),
+            ImmArray("_1", "_2"),
             ArrayList(SParty(alice), SInt64(43)),
           ),
         )
@@ -682,9 +682,9 @@ class EngineTest
       val cmds = ImmArray(
         speedy.Command.CreateAndExercise(
           templateId = templateId,
-          SRecord(templateId, ImmArray.Empty, ArrayList(SParty(alice))),
+          SRecord(templateId, ImmArray("p"), ArrayList(SParty(alice))),
           "FetchAfterLookup",
-          SRecord(templateId, ImmArray.Empty, ArrayList(SInt64(43))),
+          SRecord(templateId, ImmArray("n"), ArrayList(SInt64(43))),
         )
       )
 
@@ -2052,7 +2052,14 @@ class EngineTest
       cid -> assertAsVersionedContract(
         ContractInstance(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
-          ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
+          ValueRecord(
+            None,
+            ImmArray(
+              (None, ValueParty(party)),
+              (None, ValueInt64(666)),
+              (None, ValueText("text666")),
+            ),
+          ),
         )
       )
     )
@@ -2203,7 +2210,14 @@ class EngineTest
       cid -> assertAsVersionedContract(
         ContractInstance(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
-          ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
+          ValueRecord(
+            None,
+            ImmArray(
+              (None, ValueParty(party)),
+              (None, ValueInt64(777)),
+              (None, ValueText("text777")),
+            ),
+          ),
         )
       )
     )
@@ -2282,7 +2296,14 @@ class EngineTest
       cid -> assertAsVersionedContract(
         ContractInstance(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
-          ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
+          ValueRecord(
+            None,
+            ImmArray(
+              (None, ValueParty(party)),
+              (None, ValueInt64(0)), // matches 0 in the daml code
+              (None, ValueText("text0")),
+            ),
+          ),
         )
       )
     )

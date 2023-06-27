@@ -290,7 +290,7 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
             SELet1General(
               SEVal(LfDefRef(qualify("M:origin"))),
               SEAppAtomicSaturatedBuiltin(
-                SBRecUpd(qualify("M:Point"), 0),
+                SBRecUpd(qualify("M:Point"), Name.assertFromString("x")),
                 Array(SELocS(1), SEValue(SInt64(1))),
               ),
             )
@@ -318,7 +318,10 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
             SELet1General(
               SEVal(LfDefRef(qualify("M:origin"))),
               SEAppAtomicSaturatedBuiltin(
-                SBRecUpdMulti(qualify("M:Point"), ImmArray(0, 1)),
+                SBRecUpdMulti(
+                  qualify("M:Point"),
+                  List(Name.assertFromString("x"), Name.assertFromString("y")),
+                ),
                 Array(
                   SELocS(1),
                   SEValue(SInt64(1)),
@@ -359,7 +362,10 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
               SELocation(
                 mkLocation(0),
                 SEAppAtomicSaturatedBuiltin(
-                  SBRecUpdMulti(qualify("M:Point"), ImmArray(0, 1)),
+                  SBRecUpdMulti(
+                    qualify("M:Point"),
+                    List(Name.assertFromString("x"), Name.assertFromString("y")),
+                  ),
                   Array(
                     SELocS(1),
                     SEValue(SInt64(3)),
@@ -398,7 +404,10 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
                     SELet1General(
                       SEAppAtomicGeneral(SELocS(1), Array(SEValue(SInt64(4)))),
                       SEAppAtomicSaturatedBuiltin(
-                        SBRecUpdMulti(qualify("M:Point"), ImmArray(0, 1)),
+                        SBRecUpdMulti(
+                          qualify("M:Point"),
+                          List(Name.assertFromString("x"), Name.assertFromString("y")),
+                        ),
                         Array(
                           SELocS(5),
                           SELocS(3),
@@ -432,7 +441,14 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
             SELet1General(
               SEVal(LfDefRef(qualify("M:origin"))),
               SEAppAtomicSaturatedBuiltin(
-                SBRecUpdMulti(qualify("M:Point"), ImmArray(0, 1, 0)),
+                SBRecUpdMulti(
+                  qualify("M:Point"),
+                  List(
+                    Name.assertFromString("x"),
+                    Name.assertFromString("y"),
+                    Name.assertFromString("x"),
+                  ),
+                ),
                 Array(
                   SELocS(1),
                   SEValue(SInt64(1)),
