@@ -682,7 +682,7 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit] = {
+  ): Future[Unit] = Future {
     val packageMap = getPackageIdMap()
     val pkgIdsToUnvet = packages.map(pkg =>
       packageMap.getOrElse(pkg, throw new IllegalArgumentException(s"Unknown package $pkg"))
@@ -690,7 +690,6 @@ class IdeLedgerClient(
 
     unvettedPackages = unvettedPackages ++ pkgIdsToUnvet.toSet
     updateCompiledPackages()
-    Future.unit
   }
 
   override def listVettedPackages()(implicit
