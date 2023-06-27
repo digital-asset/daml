@@ -92,10 +92,10 @@ private[services] final class QueueBackedTracker(
   override def close(): Unit = {
     logger.debug("Shutting down tracking component.")
     if (done.isCompleted)
-      logger.info("Tracker already complete")
+      logger.info("Tracker already completed")
     else {
       queue.complete()
-      Await.result(done, 30.seconds).discard
+      Await.result(done, 30.seconds)
       ()
     }
   }
