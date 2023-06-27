@@ -331,14 +331,28 @@ final class Conversions(
         builder.setEvaluationTimeout(timeout.toSeconds)
       case Error.CanceledByRequest() =>
         builder.setCancelledByRequest(empty)
-      case Error.NoSuchTemplate(templateId, oPackageMeta) => 
+      case Error.LookupError(err, oPackageMeta, packageId) =>
         val nstBuilder =
-          proto.ScenarioError.TemplateDoesNotExist.newBuilder
-            .setTemplateId(convertIdentifier(templateId))
+          proto.ScenarioError.LookupError.newBuilder
+            .setPackageId(packageId)
+        err match {
+          case language.LookupError.NotFound(notFound, context) =>
+            nstBuilder.setNotFound(
+              proto.ScenarioError.LookupError.NotFound.newBuilder
+                .setNotFound(notFound.pretty)
+                .setContext(context.pretty)
+            )
+          case language.LookupError.AmbiguousInterfaceInstance(instance, context) =>
+            nstBuilder.setAmbiguousInterfaceInstance(
+              proto.ScenarioError.LookupError.AmbiguousInterfaceInstance.newBuilder
+                .setInstance(instance.pretty)
+                .setContext(context.pretty)
+            )
+        }
         oPackageMeta.foreach(packageMeta =>
           nstBuilder.setPackageMetadata(mkPackageMetadata(packageMeta))
         )
-        builder.setTemplateDoesNotExist(nstBuilder.build)
+        builder.setLookupError(nstBuilder.build)
     }
     builder.build
   }

@@ -82,12 +82,12 @@ private[lf] object Pretty {
       case Error.CanceledByRequest() =>
         text("Evaluation was cancelled because the test was changed and rerun in a new thread.")
 
-      case Error.NoSuchTemplate(templateId, packageMetadata) => {
-        val packageName = packageMetadata.fold(templateId.packageId.toString)({
+      case Error.LookupError(err, packageMetadata, packageId) => {
+        val packageName = packageMetadata.fold(packageId.toString)({
           case PackageMetadata(name, version, _) => s"$name-$version"
         })
         text(
-          s"Error: Could not find template ${templateId.qualifiedName} from package $packageName to use in create/exercise." // TODO: Consider nicer printing of ids to names
+          s"Error: ${err.pretty}\nin package ${packageName}"
         )
       }
     }

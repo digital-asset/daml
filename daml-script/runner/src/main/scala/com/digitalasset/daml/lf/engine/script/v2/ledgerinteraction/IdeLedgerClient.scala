@@ -293,14 +293,49 @@ class IdeLedgerClient(
       ),
     )
 
-  private def makeNoSuchTemplateError(
-      templateId: TypeConName
+  private def getReferencePackageId(ref: Reference): PackageId =
+    ref match {
+      case Reference.Package(packageId) => packageId
+      case Reference.Module(packageId, _) => packageId
+      case Reference.Definition(name) => name.packageId
+      case Reference.TypeSyn(name) => name.packageId
+      case Reference.DataType(name) => name.packageId
+      case Reference.DataRecord(name) => name.packageId
+      case Reference.DataRecordField(name, _) => name.packageId
+      case Reference.DataVariant(name) => name.packageId
+      case Reference.DataVariantConstructor(name, _) => name.packageId
+      case Reference.DataEnum(name) => name.packageId
+      case Reference.DataEnumConstructor(name, _) => name.packageId
+      case Reference.Value(name) => name.packageId
+      case Reference.Template(name) => name.packageId
+      case Reference.Interface(name) => name.packageId
+      case Reference.TemplateKey(name) => name.packageId
+      case Reference.InterfaceInstance(_, name) => name.packageId
+      case Reference.ConcreteInterfaceInstance(_, ref) => getReferencePackageId(ref)
+      case Reference.TemplateChoice(name, _) => name.packageId
+      case Reference.InterfaceChoice(name, _) => name.packageId
+      case Reference.InheritedChoice(name, _, _) => name.packageId
+      case Reference.TemplateOrInterface(name) => name.packageId
+      case Reference.Choice(name, _) => name.packageId
+      case Reference.Method(name, _) => name.packageId
+      case Reference.Exception(name) => name.packageId
+    }
+
+  private def getLookupErrorPackageId(err: LookupError): PackageId =
+    err match {
+      case LookupError.NotFound(notFound, _) => getReferencePackageId(notFound)
+      case LookupError.AmbiguousInterfaceInstance(instance, _) => getReferencePackageId(instance)
+    }
+
+  private def makeLookupError(
+      err: LookupError
   ): ScenarioRunner.SubmissionError = {
-    val packageMetadata = getPackageIdReverseMap().lift(templateId.packageId).map {
+    val packageId = getLookupErrorPackageId(err)
+    val packageMetadata = getPackageIdReverseMap().lift(packageId).map {
       case ScriptLedgerClient.ReadablePackageId(packageName, packageVersion) =>
         PackageMetadata(packageName, packageVersion, None)
     }
-    makeEmptySubmissionError(scenario.Error.NoSuchTemplate(templateId, packageMetadata))
+    makeEmptySubmissionError(scenario.Error.LookupError(err, packageMetadata, packageId))
   }
 
   private def makePartiesNotAllocatedError(
@@ -358,10 +393,7 @@ class IdeLedgerClient(
         try {
           Right(preprocessor.unsafePreprocessApiCommands(commands.to(ImmArray)))
         } catch {
-          case Error.Preprocessing.Lookup(
-                LookupError.NotFound(Reference.Package(_), Reference.Template(templateId))
-              ) =>
-            Left(makeNoSuchTemplateError(templateId))
+          case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
         }
 
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
@@ -636,7 +668,7 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit] = Future{
+  ): Future[Unit] = Future {
     val packageMap = getPackageIdMap()
     val pkgIdsToVet = packages.map(pkg =>
       packageMap.getOrElse(pkg, throw new IllegalArgumentException(s"Unknown package $pkg"))

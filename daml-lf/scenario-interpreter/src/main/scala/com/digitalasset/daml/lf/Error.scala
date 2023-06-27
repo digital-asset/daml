@@ -4,7 +4,7 @@
 package com.daml.lf
 package scenario
 
-import com.daml.lf.data.Ref.{Identifier, Party, TypeConName}
+import com.daml.lf.data.Ref.{Identifier, Party, PackageId}
 import com.daml.lf.data.Time
 import com.daml.lf.language.Ast.PackageMetadata
 import com.daml.lf.ledger.EventId
@@ -84,7 +84,10 @@ object Error {
   /** Submitted commands for parties that have not been allocated. */
   final case class PartiesNotAllocated(parties: Set[Party]) extends Error
 
-  /** Tried to act on a template that doesn't exist. */
-  final case class NoSuchTemplate(template: TypeConName, packageMeta: Option[PackageMetadata])
-      extends Error
+  /** Lookup error from the engine */
+  final case class LookupError(
+      err: language.LookupError,
+      packageMeta: Option[PackageMetadata],
+      packageId: PackageId,
+  ) extends Error
 }

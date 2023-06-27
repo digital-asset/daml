@@ -268,9 +268,23 @@ message ScenarioError {
     Identifier required_interface_id = 3;
   }
 
-  message TemplateDoesNotExist {
-    Identifier template_id = 1;
-    PackageMetadata package_metadata = 2; // optional
+  message LookupError {
+    message NotFound {
+      string not_found = 1;
+      string context = 2;
+    }
+
+    message AmbiguousInterfaceInstance {
+      string instance = 1;
+      string context = 2;
+    }
+    
+    oneof error {
+      NotFound not_found = 1;
+      AmbiguousInterfaceInstance ambiguous_interface_instance = 2;
+    }
+    PackageMetadata package_metadata = 3; // optional
+    string package_id = 4;
   }
 
   // The state of the ledger at the time of the error
@@ -347,7 +361,7 @@ message ScenarioError {
     DisclosedContractKeyHashingError disclosed_contract_key_hashing_error = 39;
     int64 evaluationTimeout = 40;
     Empty cancelledByRequest = 41;
-    TemplateDoesNotExist template_does_not_exist = 43;
+    LookupError lookup_error = 43;
     // next is 44;
   }
 }
