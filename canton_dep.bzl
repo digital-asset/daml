@@ -4,5 +4,6 @@
 canton = {
     "sha": "9b3fd9c83ff4b8814d34608e71a1c97561b2bea8365bd1bd30295bf73070cbb7",
     "url": "https://www.canton.io/releases/canton-open-source-2.7.0-snapshot.20230714.10801.0.vd4b47756.tar.gz",
-    "local": False,
+    "local": True,
+    "enterprise": True,
 }

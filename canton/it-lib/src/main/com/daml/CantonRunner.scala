@@ -87,6 +87,7 @@ object CantonRunner {
       s"""${participantId} {
          |      admin-api.port = ${adminPort.port}
          |      ledger-api{
+         |        max-deduplication-duration = 0s
          |        port = ${ledgerApiPort.port}
          |        explicit-disclosure-unsafe = ${config.enableDisclosedContracts}
          |        ${authConfig}

@@ -1147,7 +1147,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
 
   // Following #16782, we use canton community edition over sandbox-on-x.
   // Pruning is only enabled on enterprise edition, TODO: #16832
-  "fail reading from a pruned offset" ignore withHttpService { fixture =>
+  "fail reading from a pruned offset" in withHttpService { fixture =>
     import fixture.{uri, client}
     for {
       aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
@@ -1239,7 +1239,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
 
     val query = """[{"templateIds": ["Iou:Iou"]}]"""
     for {
-      jwt <- jwtForParties(uri)(List(party), List(), testId)
+      jwt <- jwtForParties(uri)(List(party), List(), "participant0")
       (kill, source) =
         singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)

@@ -12,7 +12,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 java_binary(
     name = "canton",
-    main_class = "com.digitalasset.canton.CantonCommunityApp",
+    main_class = "com.digitalasset.canton.CantonEnterpriseApp" if canton["enterprise"] else "com.digitalasset.canton.CantonCommunityApp",
     visibility = ["//visibility:public"],
     runtime_deps = [
         # Do not sort
