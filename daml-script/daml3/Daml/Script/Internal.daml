@@ -20,6 +20,44 @@ import qualified Daml.Script.Free as Free
 import DA.Stack
 import DA.Text (isPrefixOf)
 
+{-
+  Writing your own Questions
+
+  Time.daml is an excellent example, be sure to check that.
+  The generic structure is as follows:
+  You define a data type with a unique name across the scripts library.
+    IMPORTANT: This type must be a record in LF, so either give it fields, or use the `data MyRecord = MyRecord {}` syntax.
+    Note that if all the fields in your record are of the form `() -> ...`, you'll need to add a `dummy : ()` field
+      due to old-style typeclasses, if you want daml3-script to be usable as a data dependency.
+      `Catch` is a good example of this.
+  e.g.
+  ```
+    data MyQuestion = MyQuestion with
+      someData : Int
+  ```
+  The above data type will be your payload, the input to the question.
+  Next you define an IsQuestion instance, giving the expected return type. This class has no body.
+  e.g.
+  ```
+    instance IsQuestion MyQuestion Int
+  ```
+  Here we're saying that MyQuestion will return an Int.
+
+  Lastly, you can use `lift` on that data type to bring it up to a Script of the return type
+  e.g.
+  ```
+    myQuestion : Int -> Script Int
+    myQuestion = lift . MyQuestion
+  ```
+  If you're unable to return the exact data type you want from the engine, you can fmap your conversion functions onto the result of lift.
+  
+  Note: `lift` will take a stack trace for the question from its call site, removing any script frames.
+  
+  Finally, go to `daml-script/runner/src/main/scala/com/digitalasset/daml/lf/engine/script/v2/ScriptF.scala`
+    and add a command and parse command definition for your question data type. Again see GetTime and SetTime for examples.
+    You'll also need to include a case in the final `parse` definition to call to your commands parser
+-}
+
 -- Everything is a question, which has a continuation, as well as input/putput types and callstack
 -- Note that res and a are _NOT_ the same, as this must be a functor, and res is contravariant
 data Question req res a = Question with
