@@ -74,7 +74,7 @@ genrule(
 )
 
 genrule(
-    name = "webview-stylesheet.css",
+    name = "webview-stylesheet",
     srcs = ["src/webview.css"],
     outs = ["webview-stylesheet.css"],
     cmd = """

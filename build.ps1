@@ -36,6 +36,8 @@ if (Test-Path -Path $env:appdata\stack\pantry\hackage\hackage-security-lock) {
     Remove-Item -ErrorAction Continue -Force -Recurse -Path $env:appdata\stack
 }
 
+$env:ARTIFACTORY_AUTH = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("$env:ARTIFACTORY_USERNAME" + ":" + "$env:ARTIFACTORY_PASSWORD"))
+
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0
@@ -74,7 +76,7 @@ if ($env:SKIP_TESTS -ceq "False") {
       | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
 
     $tag_filter = "-dev-canton-test"
-    
+
     bazel test //... `
       `-`-build_tag_filters "$tag_filter" `
       `-`-test_tag_filters "$tag_filter" `
