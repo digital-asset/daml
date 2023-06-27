@@ -331,7 +331,7 @@ final class Conversions(
         builder.setEvaluationTimeout(timeout.toSeconds)
       case Error.CanceledByRequest() =>
         builder.setCancelledByRequest(empty)
-      case Error.NoSuchTemplate(templateId, oPackageMeta) => {
+      case Error.NoSuchTemplate(templateId, oPackageMeta) => 
         val nstBuilder =
           proto.ScenarioError.TemplateDoesNotExist.newBuilder
             .setTemplateId(convertIdentifier(templateId))
@@ -339,7 +339,6 @@ final class Conversions(
           nstBuilder.setPackageMetadata(mkPackageMetadata(packageMeta))
         )
         builder.setTemplateDoesNotExist(nstBuilder.build)
-      }
     }
     builder.build
   }

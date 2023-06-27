@@ -621,7 +621,7 @@ class IdeLedgerClient(
       .collect(
         Function.unlift(pkgId =>
           for {
-            pkgSig <- originalCompiledPackages.pkgInterface.signatures.lift(pkgId)
+            pkgSig <- originalCompiledPackages.pkgInterface.lookupPackage(pkgId).toOption
             meta <- pkgSig.metadata
             readablePackageId = meta match {
               case PackageMetadata(name, version, _) =>
@@ -636,7 +636,7 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit] = {
+  ): Future[Unit] = Future{
     val packageMap = getPackageIdMap()
     val pkgIdsToVet = packages.map(pkg =>
       packageMap.getOrElse(pkg, throw new IllegalArgumentException(s"Unknown package $pkg"))
@@ -644,7 +644,6 @@ class IdeLedgerClient(
 
     unvettedPackages = unvettedPackages -- pkgIdsToVet.toSet
     updateCompiledPackages()
-    Future.unit
   }
 
   override def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
