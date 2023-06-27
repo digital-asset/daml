@@ -116,6 +116,7 @@ java_import(
 java_binary(
     name = "canton-ee",
     main_class = "com.digitalasset.canton.CantonEnterpriseApp",
+    tags = ["canton-ee"],
     visibility = ["//ledger-service:__subpackages__"],
     runtime_deps = ["//canton:lib-ee"],
 )

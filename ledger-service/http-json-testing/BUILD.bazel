@@ -29,7 +29,7 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             "@maven//:org_typelevel_cats_effect",
         ],
         scalacopts = hj_scalacopts,
-        tags = ["maven_coordinates=com.daml:http-json-testing:__VERSION__"],
+        tags = ["maven_coordinates=com.daml:http-json-testing:__VERSION__"] + (["canton-ee"] if edition == "ee" else []),
         visibility = ["//visibility:public"],
         runtime_deps = [
             "@maven//:ch_qos_logback_logback_classic",
