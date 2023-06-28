@@ -27,13 +27,15 @@ object Time {
         case _ => false
       }
 
-    override def hashCode(): Int = days + Date.hashCode()
+    override def hashCode(): Int = days + Date.seed
 
     override def compare(that: Date): Int =
       days.compareTo(that.days)
   }
 
   object Date {
+
+    private val seed: Int = getClass.getName.hashCode
 
     private val formatter: DateTimeFormatter =
       DateTimeFormatter.ISO_DATE.withZone(ZoneId.of("Z"))
@@ -95,7 +97,7 @@ object Time {
         case _ => false
       }
 
-    override def hashCode(): Int = micros.hashCode() + Timestamp.hashCode()
+    override def hashCode(): Int = micros.hashCode() + Timestamp.seed
 
     def compare(that: Timestamp): Int =
       micros.compareTo(that.micros)
@@ -123,6 +125,8 @@ object Time {
   }
 
   object Timestamp {
+
+    private val seed: Int = getClass.getName.hashCode
 
     private lazy val formatter: DateTimeFormatter =
       DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.of("Z"))
