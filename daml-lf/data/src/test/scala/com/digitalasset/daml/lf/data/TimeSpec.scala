@@ -5,7 +5,7 @@ package com.daml.lf.data
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoField
-import java.time.{Instant, Duration, LocalDate}
+import java.time.{Duration, Instant, LocalDate}
 import java.util.concurrent.TimeUnit
 import com.daml.lf.data.Time._
 import org.scalatest.Inside
