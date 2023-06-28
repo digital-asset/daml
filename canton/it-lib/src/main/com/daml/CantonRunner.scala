@@ -37,6 +37,7 @@ object CantonRunner {
     Paths.get(rlocation("canton/canton-patched_deploy.jar"))
 
   case class CantonFiles(
+      bootstrapFile: Path,
       configFile: Path,
       cantonLogFile: Path,
       portsFile: Path,
@@ -44,6 +45,7 @@ object CantonRunner {
 
   object CantonFiles {
     def apply(dir: Path): CantonFiles = CantonFiles(
+      bootstrapFile = dir.resolve("participant.bootstrap"),
       configFile = dir.resolve("participant.config"),
       cantonLogFile = dir.resolve("canton.log"),
       portsFile = dir.resolve("portsfile"),
@@ -127,6 +129,13 @@ object CantonRunner {
          |}
           """.stripMargin
     discard(Files.write(files.configFile, cantonConfig.getBytes(StandardCharsets.UTF_8)))
+    discard {
+      Files.write(
+        files.bootstrapFile,
+        "local.service.set_reconciliation_interval(1.seconds)".getBytes(StandardCharsets.UTF_8),
+      )
+    }
+
     val debugOptions =
       if (config.debug) List("--log-file-name", files.cantonLogFile.toString, "--verbose")
       else List.empty
@@ -150,6 +159,7 @@ object CantonRunner {
             "--auto-connect-local" ::
             "-c" ::
             files.configFile.toString ::
+            "--bootstrap" :: files.bootstrapFile.toString ::
             debugOptions
         ).run(ProcessLogger { str =>
           if (config.debug) println(str)

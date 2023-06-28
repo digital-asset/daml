@@ -1147,11 +1147,17 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
 
   // Following #16782, we use canton community edition over sandbox-on-x.
   // Pruning is only enabled on enterprise edition, TODO: #16832
-  "fail reading from a pruned offset" in withHttpService { fixture =>
+  s"$integration - fail reading from a pruned offset" in withHttpService { fixture =>
     import fixture.{uri, client}
     for {
       aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, aliceHeaders) = aliceH
+
+      // Unfortunately the set_reconciliation_interval that we call in the canton bootstrap script
+      // is not applied until about 8s or so after startup, so we have to wait for that before proceeding
+      // TODO: it would be nice to be able to read the last safe prune offset from the pruning service
+      _ <- Future { Thread.sleep(16_000) }
+
       offsets <- offsetBeforeAfterArchival(alice, fixture, aliceHeaders)
       (offsetBeforeArchive, offsetAfterArchive) = offsets
 
@@ -1166,7 +1172,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
       _ = pruned should ===(PruneGrpc.PruneResponse())
 
       // now query again with a pruned offset
-      jwt <- jwtForParties(uri)(List(alice), List(), testId)
+      jwt <- jwtForParties(uri)(List(alice), List(), "participant0")
       query = s"""[{"templateIds": ["Iou:Iou"]}]"""
       streamError <- singleClientQueryStream(jwt, uri, query, Some(offsetBeforeArchive))
         .runWith(Sink.seq)
