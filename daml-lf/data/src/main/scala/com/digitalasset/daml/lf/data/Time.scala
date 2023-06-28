@@ -27,6 +27,8 @@ object Time {
         case _ => false
       }
 
+    override def hashCode(): Int = days + Date.hashCode()
+
     override def compare(that: Date): Int =
       days.compareTo(that.days)
   }
@@ -92,6 +94,8 @@ object Time {
         case that: Timestamp => this.micros == that.micros
         case _ => false
       }
+
+    override def hashCode(): Int = micros.hashCode() + Timestamp.hashCode()
 
     def compare(that: Timestamp): Int =
       micros.compareTo(that.micros)
