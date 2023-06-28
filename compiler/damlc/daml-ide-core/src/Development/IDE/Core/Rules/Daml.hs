@@ -1421,13 +1421,18 @@ scenariosInModule m =
     [ (LF.Qualified LF.PRSelf (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
     | val <- NM.toList (LF.moduleValues m), LF.getIsTest (LF.dvalIsTest val)]
 
+isDamlScriptModule :: LF.ModuleName -> Bool
+isDamlScriptModule (LF.ModuleName ["Daml", "Script"]) = True
+isDamlScriptModule (LF.ModuleName ["Daml", "Script", "Internal"]) = True
+isDamlScriptModule _ = False
 
 scriptsInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
 scriptsInModule m =
     [ (LF.Qualified LF.PRSelf (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
     | val <- NM.toList (LF.moduleValues m)
     , T.head (LF.unExprValName (LF.dvalName val)) /= '$'
-    , LF.TConApp (LF.Qualified _ (LF.ModuleName ["Daml", "Script"]) (LF.TypeConName ["Script"])) _ <-  [LF.dvalType val]
+    , LF.TConApp (LF.Qualified _ damlScriptModule (LF.TypeConName ["Script"])) _ <-  [LF.dvalType val]
+    , isDamlScriptModule damlScriptModule
     ]
 
 getDamlLfVersion :: Action LF.Version
