@@ -253,7 +253,7 @@ class TimeSpec extends AnyFreeSpec with Inside with Matchers with TableDrivenPro
       )
     }
 
-    "fromString function reject non UTC ISO 8601 compliant time strings" in {
+    "fromString functions reject non UTC ISO 8601 compliant time strings" in {
       val testCases = Table(
         "withNanos",
         "001-01-01Z",
@@ -275,7 +275,7 @@ class TimeSpec extends AnyFreeSpec with Inside with Matchers with TableDrivenPro
       forEvery(fromStringFunctions)(f => forEvery(testCases)(str => f(str) shouldBe a[Left[_, _]]))
     }
 
-    "fromString function fail in case of overflows" in {
+    "fromString functions fail in case of overflows" in {
       val max = Timestamp.MaxValue.toString
       val min = Timestamp.MinValue.toString
       forEvery(fromStringFunctions) { f =>
