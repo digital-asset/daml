@@ -38,6 +38,7 @@ da_haskell_library(
         "bytestring",
         "conduit",
         "conduit-extra",
+        "containers",
         "unordered-containers",
         "directory",
         "extra",

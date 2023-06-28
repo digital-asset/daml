@@ -1,6 +1,7 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE UndecidableInstances #-}
 
 module DA.Daml.Assistant.Types
     ( module DA.Daml.Assistant.Types
@@ -16,6 +17,7 @@ import Data.Maybe
 import Network.HTTP.Types.Header
 import Options.Applicative.Extended (YesNoAuto (..))
 import Control.Exception.Safe
+import Data.Functor.Identity
 
 data AssistantError = AssistantError
     { errContext  :: Maybe Text -- ^ Context in which error occurs.
@@ -48,7 +50,7 @@ assistantErrorDetails msg details =
     assistantErrorBecause (pack msg) . pack . concat $
         ["\n    " <> k <> ": " <> v | (k,v) <- details]
 
-data Env = Env
+data EnvF f = Env
     { envDamlPath      :: DamlPath
     , envCachePath :: CachePath
     , envDamlAssistantPath :: DamlAssistantPath
@@ -56,8 +58,18 @@ data Env = Env
     , envProjectPath   :: Maybe ProjectPath
     , envSdkPath       :: Maybe SdkPath
     , envSdkVersion    :: Maybe SdkVersion
-    , envLatestStableSdkVersion :: Maybe SdkVersion
-    } deriving (Eq, Show)
+    , envLatestStableSdkVersion :: f (Maybe SdkVersion)
+    }
+
+deriving instance Eq (f (Maybe SdkVersion)) => Eq (EnvF f)
+deriving instance Show (f (Maybe SdkVersion)) => Show (EnvF f)
+
+type Env = EnvF IO
+
+forceEnv :: Monad m => EnvF m -> m (EnvF Identity)
+forceEnv Env{..} = do
+  envLatestStableSdkVersion <- fmap Identity envLatestStableSdkVersion
+  pure Env{..}
 
 data BuiltinCommand
     = Version VersionOptions
@@ -83,6 +95,7 @@ data VersionOptions = VersionOptions
     { vAll :: Bool -- ^ show all versions (stable + snapshot)
     , vSnapshots :: Bool -- ^ show all snapshot versions
     , vAssistant :: Bool -- ^ show assistant version
+    , vForceRefresh :: Bool -- ^ force refresh available versions, don't use 1-day cache
     } deriving (Eq, Show)
 
 -- | Command-line options for daml install command.
