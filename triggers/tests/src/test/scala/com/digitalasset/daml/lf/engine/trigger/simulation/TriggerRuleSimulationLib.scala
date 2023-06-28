@@ -780,7 +780,7 @@ final class TriggerRuleSimulationLib private[simulation] (
           import GraphDSL.Implicits._
 
           val clientTime: Timestamp =
-            Timestamp.assertFromInstant(
+            Timestamp.assertLenientFromInstant(
               Runner.getTimeProvider(RunnerConfig.DefaultTimeProviderType).getCurrentTime
             )
           val killSwitch = KillSwitches.shared("init-state-simulation")

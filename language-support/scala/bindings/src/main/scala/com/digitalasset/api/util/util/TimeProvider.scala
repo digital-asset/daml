@@ -12,7 +12,7 @@ trait TimeProvider { self =>
 
   def getCurrentTime: Instant
 
-  def getCurrentTimestamp: Timestamp = Timestamp.assertFromInstant(getCurrentTime)
+  def getCurrentTimestamp: Timestamp = Timestamp.assertLenientFromInstant(getCurrentTime)
 
   def map(transform: Instant => Instant): TimeProvider = MappedTimeProvider(this, transform)
 }

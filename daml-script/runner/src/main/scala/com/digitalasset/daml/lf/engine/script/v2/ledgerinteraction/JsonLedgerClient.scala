@@ -383,7 +383,7 @@ class JsonLedgerClient(
       mat: Materializer,
   ): Future[Time.Timestamp] = {
     // There is no time service in the JSON API so we default to the Unix epoch.
-    Future { Time.Timestamp.assertFromInstant(Instant.EPOCH) }
+    Future { Time.Timestamp.Epoch }
   }
 
   override def setStaticTime(time: Time.Timestamp)(implicit

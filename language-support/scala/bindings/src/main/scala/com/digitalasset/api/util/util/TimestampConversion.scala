@@ -47,7 +47,7 @@ object TimestampConversion {
 
   def toLf(protoTimestamp: ProtoTimestamp, mode: ConversionMode): LfTimestamp = {
     val instant = roundToMicros(toInstant(protoTimestamp), mode)
-    LfTimestamp.assertFromInstant(instant)
+    LfTimestamp.assertStrictFromInstant(instant)
   }
 
   def fromLf(timestamp: LfTimestamp): ProtoTimestamp = {

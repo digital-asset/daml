@@ -424,7 +424,7 @@ object ScriptF {
           }
           case ScriptTimeMode.WallClock =>
             Future {
-              Timestamp.assertFromInstant(env.utcClock.instant())
+              Timestamp.assertLenientFromInstant(env.utcClock.instant())
             }
         }
       } yield SEAppAtomic(SEValue(continue), Array(SEValue(STimestamp(time))))
