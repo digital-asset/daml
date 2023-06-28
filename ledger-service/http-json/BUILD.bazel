@@ -541,7 +541,10 @@ test_suite(
 [
     da_scala_library(
         name = "failure-tests-lib-{}".format(edition),
-        srcs = glob(["src/failurelib/scala/**/*.scala"]),
+        srcs = glob(
+            ["src/failurelib/scala/**/*.scala"],
+            exclude = ["src/failurelib/scala/**/CE.scala"] if edition == "ee" else ["src/failurelib/scala/**/EE.scala"],
+        ),
         data = ["//canton:canton-ee_deploy.jar"] if edition == "ee" else [],
         plugins = [
             kind_projector_plugin,

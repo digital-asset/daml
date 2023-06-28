@@ -25,7 +25,7 @@ import org.scalatest.OptionValues._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class AuthorizationTest
+class AuthorizationTest
     extends AsyncFlatSpec
     with BeforeAndAfterAll
     with Matchers

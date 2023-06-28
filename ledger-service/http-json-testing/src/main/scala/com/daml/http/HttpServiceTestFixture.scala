@@ -51,7 +51,7 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 import java.io.File
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
 import java.time.Instant
 
 import scala.annotation.nowarn
@@ -144,11 +144,6 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     }: @nowarn("cat=lint-infer-any")
   }
 
-  private lazy val cantonJar = {
-    val eePath = Paths.get(rlocation("canton/canton-ee_deploy.jar"))
-    if (Files.exists(eePath)) eePath else CantonRunner.cantonPath
-  }
-
   def withLedger[A](
       dars: List[File]
   )(testFn: (Port, DamlLedgerClient, LedgerId) => Future[A])(implicit
@@ -158,7 +153,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
     val cantonTmpDir = Files.createTempDirectory("CantonFixture")
     val config = CantonConfig(
-      jarPath = cantonJar,
+      jarPath = Edition.cantonJar,
       authSecret = None,
       devMode = false,
       nParticipants = 1,

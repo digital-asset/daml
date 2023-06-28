@@ -44,6 +44,7 @@ abstract class FailureTests
   import HttpServiceTestFixture.{jwtForParties => _, _}
   import WebsocketTestFixture._
 
+  final override protected lazy val cantonJar = Edition.cantonJar
   protected override final def testId = getClass.getSimpleName
 
   private def headersWithParties(actAs: List[domain.Party]) =
