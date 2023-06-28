@@ -50,6 +50,71 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
   private val AdminUserId = "participant_admin"
 
   test(
+    "UserManagementParticipantAdminAllowedOnlyInDefaultIdp",
+    "Test that participant admin is allowed only in the default identity provider configuration",
+    allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val userId1 = ledger.nextUserId()
+    val userId2 = ledger.nextUserId()
+    val userId3 = ledger.nextUserId()
+    val idpId1 = ledger.nextIdentityProviderId()
+    for {
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId1)
+      // create admin in the non-default idp
+      _ <- ledger
+        .createUser(
+          CreateUserRequest(Some(User(userId1, identityProviderId = idpId1)), List(adminPermission))
+        )
+        .mustFailWith(
+          "create participant admin in a non-default idp",
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+        )
+      // update admin's idp to a non-default one
+      _ <- ledger.createUser(
+        CreateUserRequest(Some(User(userId2, identityProviderId = "")), List(adminPermission))
+      )
+      _ <- ledger.userManagement
+        .updateUserIdentityProviderId(
+          UpdateUserIdentityProviderRequest(
+            userId2,
+            sourceIdentityProviderId = "",
+            targetIdentityProviderId = idpId1,
+          )
+        )
+        .mustFailWith(
+          "update participant admin idp to a non-default one",
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+        )
+      // grant admin right to a user from a non-default idp
+      _ <- ledger.createUser(
+        CreateUserRequest(Some(User(userId3, identityProviderId = idpId1)), Nil)
+      )
+      _ <- ledger.userManagement
+        .grantUserRights(
+          GrantUserRightsRequest(
+            userId = userId3,
+            rights = List(adminPermission),
+            identityProviderId = idpId1,
+          )
+        )
+        .mustFailWith(
+          "grant admin right to a user from a non-default idp",
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+        )
+      // cleanup
+      _ <- ledger.userManagement.updateUserIdentityProviderId(
+        UpdateUserIdentityProviderRequest(
+          userId3,
+          sourceIdentityProviderId = idpId1,
+          targetIdentityProviderId = "",
+        )
+      )
+    } yield ()
+  })
+
+  test(
     "UserManagementUpdateUserIdpWithNonDefaultIdps",
     "Test reassigning user to a different idp using non default idps",
     allocate(NoParties),
