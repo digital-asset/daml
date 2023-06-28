@@ -99,6 +99,8 @@ private[services] final class QueueBackedTracker(
       ()
     }
   }
+
+  override def isCompleted: Boolean = done.isCompleted
 }
 
 private[services] object QueueBackedTracker {

@@ -21,4 +21,6 @@ trait Tracker extends AutoCloseable {
       loggingContext: LoggingContext,
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]]
 
+  def isCompleted: Boolean
+
 }
