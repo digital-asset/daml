@@ -37,6 +37,8 @@ steps:
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
       DAML_SCALA_VERSION: ${{parameters.scala_version}}
+      ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
+      ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
 
   - template: publish-platform-independence-dar.yml
     parameters:

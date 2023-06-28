@@ -24,11 +24,13 @@ npm_version = "{NPM_VERSION}"
 mvn_version = "{MVN_VERSION}"
 ghc_version = "{GHC_VERSION}"
 sdk_version = "{SDK_VERSION}"
+artif_auth  = "{artif_auth}"
 """.format(
                 SDK_VERSION = semver,
                 NPM_VERSION = semver,
                 MVN_VERSION = semver,
                 GHC_VERSION = ghc,
+                artif_auth = ctx.os.environ.get("ARTIFACTORY_AUTH", default = ""),
             ),
         executable = False,
     )
@@ -36,7 +38,7 @@ sdk_version = "{SDK_VERSION}"
 build_environment = repository_rule(
     # Tell Bazel that this rule will produce different results if any of the
     # env vars in the list has changed.
-    environ = ["DAML_SDK_RELEASE_VERSION"],
+    environ = ["DAML_SDK_RELEASE_VERSION", "ARTIFACTORY_AUTH"],
     implementation = _impl,
     attrs = {},
 )

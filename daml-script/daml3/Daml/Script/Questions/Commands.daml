@@ -28,6 +28,10 @@ data CommandResult
   = CreateResult (ContractId ())
   | ExerciseResult LedgerValue
 
+instance Show CommandResult where
+  show CreateResult {} = "CreateResult"
+  show ExerciseResult {} = "ExerciseResult"
+
 -- | This is used to build up the commands send as part of `submit`.
 -- If you enable the `ApplicativeDo` extension by adding
 -- `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can
@@ -39,14 +43,17 @@ data Commands a = Commands with
     continue : [CommandResult] -> a
   deriving Functor
 
--- Create and exercise gives 2 results, so we account for that here
+-- Expected number of command results for a given command
 expectedCommandResults : Command -> Int
+expectedCommandResults Create {} = 1
+expectedCommandResults Exercise {} = 1
+expectedCommandResults ExerciseByKey {} = 1
+-- Create and exercise gives 2 results, so we account for that here
 expectedCommandResults CreateAndExercise {} = 2
-expectedCommandResults _ = 1
 
 -- Expected number of command results for a list of commands
 expectedCommandsResults : [Command] -> Int
-expectedCommandsResults = sum . fmap expectedCommandResults
+expectedCommandsResults = foldr ((+) . expectedCommandResults) 0
 
 instance Applicative Commands where
   pure : a -> Commands a
@@ -62,20 +69,28 @@ instance Applicative Commands where
 
 -- | HIDE A version of 'createCmd' without constraints.
 internalCreateCmd : AnyTemplate -> Commands (ContractId ())
-internalCreateCmd arg = Commands [Create arg] $ \[CreateResult res] -> res
+internalCreateCmd arg = Commands [Create arg] $ \case
+  [CreateResult res] -> res
+  res -> error $ "Expected [CreateResult], got " <> show res
 
 -- | HIDE A version of 'exerciseCmd' without constraints.
 internalExerciseCmd : TemplateTypeRep -> ContractId () -> AnyChoice -> Commands LedgerValue
-internalExerciseCmd tplTypeRep cId arg = Commands [Exercise tplTypeRep cId arg] $ \[ExerciseResult res] -> res
+internalExerciseCmd tplTypeRep cId arg = Commands [Exercise tplTypeRep cId arg] $ \case
+  [ExerciseResult res] -> res
+  res -> error $ "Expected [ExerciseResult], got " <> show res
 
 -- | HIDE A version of 'exerciseByKeyCmd' without constraints.
 internalExerciseByKeyCmd : TemplateTypeRep -> AnyContractKey -> AnyChoice -> Commands LedgerValue
-internalExerciseByKeyCmd tplTypeRep key arg = Commands [ExerciseByKey tplTypeRep key arg] $ \[ExerciseResult res] -> res
+internalExerciseByKeyCmd tplTypeRep key arg = Commands [ExerciseByKey tplTypeRep key arg] $ \case
+  [ExerciseResult res] -> res
+  res -> error $ "Expected [ExerciseResult], got " <> show res
 
 -- | HIDE A version of 'createAndExerciseCmd' without constraints.
 -- Create and exercise gives a create result and exercise result. Currently we throw away the contract Id of the created contract, as it is consumed atomically
 internalCreateAndExerciseCmd : AnyTemplate -> AnyChoice -> Commands LedgerValue
-internalCreateAndExerciseCmd tplArg choiceArg = Commands [CreateAndExercise tplArg choiceArg] $ \[CreateResult _, ExerciseResult res] -> res
+internalCreateAndExerciseCmd tplArg choiceArg = Commands [CreateAndExercise tplArg choiceArg] $ \case
+  [CreateResult _, ExerciseResult res] -> res
+  res -> error $ "Expected [CreateResult, ExerciseResult], got " <> show res
 
 -- | Create a contract of the given template.
 createCmd : (Template t, HasAgreement t) => t -> Commands (ContractId t)

@@ -37,7 +37,7 @@ cannotUseUnvettedPackage = script do
   alice `submit` createCmd PackageATemplate with p = alice
   pure ()
 
---- @ ERROR range=42:1-42:30; Failed to find package
+-- @ ERROR range=42:1-42:30; Failed to find package
 cannotExerciseUnvettedPackage : Script ()
 cannotExerciseUnvettedPackage = script do
   alice <- allocateParty "Alice"

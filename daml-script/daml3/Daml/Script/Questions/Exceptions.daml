@@ -29,6 +29,8 @@ instance ActionCatch Script where
       Right t -> pure t
       Left e -> fromOptional (throwAnyException e) $ handle e
 
+-- TODO: Throw discards the stacktrace, such that it can't be passed back to `tryToEither` and provided when it rethrows
+-- Consider reworking how the ghc stack traces are passed around in this file
 data Throw = Throw with
   exc: AnyException
 instance IsQuestion Throw t

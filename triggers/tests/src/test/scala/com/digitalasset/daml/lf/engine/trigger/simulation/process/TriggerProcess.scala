@@ -130,7 +130,7 @@ final class TriggerProcessFactory private[simulation] (
           (ref: ActorRef[LedgerRegistration.LedgerApi]) =>
             LedgerProcess.TriggerRegistration(
               LedgerRegistration
-                .Registration(triggerId, context.self, actAs, transactionFilter, ref)
+                .Registration(triggerId, triggerDefRef, context.self, actAs, transactionFilter, ref)
             ),
         ) {
           case Success(LedgerRegistration.LedgerApi(api, report)) =>
@@ -162,6 +162,7 @@ final class TriggerProcessFactory private[simulation] (
   )(implicit config: TriggerSimulationConfig): Behavior[Message] = {
     Behaviors.receive {
       case (context, MessageWrapper(msg)) =>
+        val timestamp = System.currentTimeMillis()
         val (submissions, metrics, nextState) = Await.result(
           simulator.updateStateLambda(state, msg),
           triggerConfig.hardLimit.ruleEvaluationTimeout,
@@ -191,10 +192,18 @@ final class TriggerProcessFactory private[simulation] (
         val reportId = UUID.randomUUID()
 
         submissions.foreach { request =>
-          ledgerApi ! LedgerApiClient.CommandSubmission(request, context.self)
+          ledgerApi ! LedgerApiClient.CommandSubmission(
+            request,
+            context.self,
+            timestamp,
+            reportId,
+            triggerId,
+            triggerDefRef,
+          )
         }
         report ! ReportingProcess.MetricsUpdate(
           MetricsReporting.TriggerMetricsUpdate(
+            timestamp,
             reportId,
             triggerId,
             triggerDefRef,
@@ -207,7 +216,13 @@ final class TriggerProcessFactory private[simulation] (
           )
         )
         report ! ReportingProcess.ACSUpdate(
-          ACSReporting.TriggerACSUpdate(reportId, triggerId, triggerACSView)
+          ACSReporting.TriggerACSUpdate(
+            timestamp,
+            reportId,
+            triggerId,
+            triggerDefRef,
+            triggerACSView,
+          )
         )
 
         run(triggerId, ledgerApi, report, state = nextState)
