@@ -3,7 +3,6 @@
 
 package com.daml.lf.engine.script.v2.ledgerinteraction
 
-import java.time.Instant
 import akka.util.ByteString
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http

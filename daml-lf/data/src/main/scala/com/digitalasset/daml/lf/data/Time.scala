@@ -167,6 +167,10 @@ object Time {
       else
         Left(s"cannot interpret $i as Timestamp")
 
+    @throws[IllegalArgumentException]
+    def assertStrictFromInstant(i: Instant): Timestamp =
+      assertRight(strictFromInstant(i))
+
     @deprecated(
       "use lenientFromInstant or strictFromInstant, legacy behavior is lenient, preferred is strict",
       since = " 2.7.0",
@@ -178,10 +182,6 @@ object Time {
       since = " 2.7.0",
     )
     def assertFromInstant(i: Instant): Timestamp = assertLenientFromInstant(i)
-
-    @throws[IllegalArgumentException]
-    def assertStrictFromInstant(i: Instant): Timestamp =
-      assertRight(strictFromInstant(i))
 
     private def instantFromString(str: String): Either[String, Instant] =
       try {
