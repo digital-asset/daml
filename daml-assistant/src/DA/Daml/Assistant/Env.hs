@@ -39,7 +39,7 @@ getDamlEnv envDamlPath lookForProjectPath = do
     envProjectPath <- getProjectPath lookForProjectPath
     (envSdkVersion, envSdkPath) <- getSdk envDamlPath envProjectPath
     envCachePath <- getCachePath
-    let envLatestStableSdkVersion = getLatestStableSdkVersion (mkUseCache envCachePath envDamlPath)
+    envLatestStableSdkVersion <- getLatestStableSdkVersion (mkUseCache envCachePath envDamlPath)
     pure Env {..}
 
 envUseCache :: Env -> UseCache
@@ -83,8 +83,17 @@ overrideWithEnvVarMaybe envVar normalize parse calculate = do
 
 -- | Get the latest stable SDK version. Can be overriden with
 -- DAML_SDK_LATEST_VERSION environment variable.
-getLatestStableSdkVersion :: UseCache -> IO (Maybe SdkVersion)
-getLatestStableSdkVersion useCache = overrideWithEnvVarMaybe sdkVersionLatestEnvVar pure (parseVersion . pack) (getLatestSdkVersion useCache)
+getLatestStableSdkVersion :: UseCache -> IO (IO (Maybe SdkVersion))
+getLatestStableSdkVersion useCache = do
+  val <- getEnv sdkVersionLatestEnvVar
+  case val of
+    Nothing -> pure (getLatestSdkVersion useCache)
+    Just "" -> pure (pure Nothing)
+    Just value -> do
+      parsed <- requiredE
+        ("Invalid value for environment variable " <> pack sdkVersionLatestEnvVar <> ".")
+        (parseVersion (pack value))
+      pure (pure (Just parsed))
 
 -- | Determine the viability of running sdk commands in the environment.
 -- Returns the first failing test's error message.
