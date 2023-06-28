@@ -218,7 +218,7 @@ class TimeSpec extends AnyFreeSpec with Inside with Matchers with TableDrivenPro
       forEvery(testCases)(str => Timestamp.strictFromString(str) shouldBe a[Left[_, _]])
     }
 
-    "strict FromString ignore non significant zeros" in {
+    "FromString functions ignore non significant zeros" in {
       val testCases = Table(
         ("normal form", "not normal form"),
         "0001-01-01T00:00:00Z" ->
