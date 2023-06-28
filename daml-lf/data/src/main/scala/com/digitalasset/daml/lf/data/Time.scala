@@ -177,13 +177,13 @@ object Time {
 
     @deprecated(
       "use lenientFromInstant or strictFromInstant, legacy behavior is lenient, preferred is strict",
-      since = " 2.7.0",
+      since = "2.7.0",
     )
     def fromInstant(i: Instant): Either[String, Timestamp] = lenientFromInstant(i)
 
     @deprecated(
       "use lenientFromInstant or strictFromInstant, legacy behavior is lenient, preferred is strict",
-      since = " 2.7.0",
+      since = "2.7.0",
     )
     def assertFromInstant(i: Instant): Timestamp = assertLenientFromInstant(i)
 
@@ -210,13 +210,13 @@ object Time {
 
     @deprecated(
       "use lenientFromString or strictFromString, legacy behavior is lenient, preferred is strict",
-      since = " 2.7.0",
+      since = "2.7.0",
     )
     def fromString(str: String): Either[String, Timestamp] = lenientFromString(str)
 
     @deprecated(
       "use lenientFromString or strictFromString, legacy behavior is lenient, preferred is strict",
-      since = " 2.7.0",
+      since = "2.7.0",
     )
     def assertFromString(str: String): Timestamp = assertLenientFromString(str)
 
