@@ -193,7 +193,7 @@ object Time {
 
     private def instantFromString(str: String): Either[String, Instant] =
       try {
-        Right(Instant.parse(str))
+        Right(Instant.from(formatter.parse(str)))
       } catch {
         case scala.util.control.NonFatal(_) => Left(s"cannot interpret $str as Timestamp")
       }
