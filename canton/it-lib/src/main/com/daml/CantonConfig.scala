@@ -44,6 +44,7 @@ object CantonConfig {
 }
 
 final case class CantonConfig(
+    jarPath: Path = CantonRunner.cantonPath,
     authSecret: Option[String] = None,
     devMode: Boolean = false,
     nParticipants: Int = 1,

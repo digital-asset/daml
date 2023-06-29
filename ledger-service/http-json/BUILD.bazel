@@ -258,6 +258,7 @@ daml_compile(
             "@maven//:org_typelevel_cats_kernel",
         ],
         scalacopts = hj_scalacopts,
+        tags = ["cpu:6"] + (["canton-ee"] if edition == "ee" else []),
         visibility = ["//test-evidence:__pkg__"] if edition == "ce" else None,
         deps = [
             ":http-json-{}".format(edition),
@@ -326,6 +327,7 @@ alias(
             "@maven//:org_typelevel_cats_free",
             "@maven//:org_typelevel_cats_kernel",
         ],
+        tags = ["canton-ee"] if edition == "ee" else [],
         visibility = ["//ledger-service:__subpackages__"],
         deps = [
             ":http-json-{}".format(edition),
@@ -405,6 +407,7 @@ alias(
             "@maven//:org_scalaz_scalaz_core",
         ],
         scalacopts = hj_scalacopts,
+        tags = ["canton-ee"] if edition == "ee" else [],
         visibility = ["//test-evidence:__pkg__"] if edition == "ce" else None,
         deps = [
             ":http-json-{}".format(edition),
@@ -484,6 +487,7 @@ alias(
             "@maven//:org_typelevel_cats_kernel",
         ],
         scalacopts = hj_scalacopts,
+        tags = ["cpu:6"] + (["canton-ee"] if edition == "ee" else []),
         visibility = ["//test-evidence:__pkg__"] if edition == "ce" else None,
         deps = [
             ":http-json-{}".format(edition),
@@ -537,7 +541,11 @@ test_suite(
 [
     da_scala_library(
         name = "failure-tests-lib-{}".format(edition),
-        srcs = glob(["src/failurelib/scala/**/*.scala"]),
+        srcs = glob(
+            ["src/failurelib/scala/**/*.scala"],
+            exclude = ["src/failurelib/scala/**/CE.scala"] if edition == "ee" else ["src/failurelib/scala/**/EE.scala"],
+        ),
+        data = ["//canton:canton-ee_deploy.jar"] if edition == "ee" else [],
         plugins = [
             kind_projector_plugin,
         ],
@@ -556,6 +564,7 @@ test_suite(
             "@maven//:org_typelevel_cats_effect",
         ],
         scalacopts = hj_scalacopts,
+        tags = ["canton-ee"] if edition == "ee" else [],
         visibility = ["//test-evidence:__pkg__"] if edition == "ce" else None,
         deps = [
             ":http-json-{}".format(edition),
@@ -622,6 +631,7 @@ test_suite(
             "@maven//:org_scalaz_scalaz_core",
         ],
         scalacopts = hj_scalacopts,
+        tags = ["cpu:6"] + (["canton-ee"] if edition == "ee" else []),
         visibility = ["//test-evidence:__pkg__"] if edition == "ce" else None,
         deps = [
             ":http-json-{}".format(edition),

@@ -46,7 +46,7 @@ perf_runtime_deps = {
             "@maven//:org_scalaz_scalaz_core",
         ],
         scalacopts = hj_scalacopts,
-        tags = ["maven_coordinates=com.daml:http-json-perf-{}:__VERSION__".format(edition)],
+        tags = ["maven_coordinates=com.daml:http-json-perf-{}:__VERSION__".format(edition)] + (["canton-ee"] if edition == "ee" else []),
         visibility = ["//visibility:public"],
         runtime_deps = [
             "@maven//:ch_qos_logback_logback_classic",
@@ -117,6 +117,7 @@ daml_compile(
             "@maven//:org_scalaz_scalaz_core",
         ],
         scalacopts = hj_scalacopts,
+        tags = ["canton-ee"] if edition == "ee" else [],
         visibility = ["//visibility:public"],
         runtime_deps = [
             "@maven//:ch_qos_logback_logback_classic",
