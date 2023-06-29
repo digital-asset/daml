@@ -210,6 +210,7 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
                 closedTrackerCount.incrementAndGet()
                 ()
               }
+              override def isCompleted: Boolean = false
             }
           },
       )
@@ -260,6 +261,7 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
                 closedTracker.set(true)
                 ()
               }
+              override def isCompleted: Boolean = false
             }
           },
       )
@@ -297,5 +299,6 @@ object TrackerMapSpec {
       )
 
     override def close(): Unit = ()
+    override def isCompleted: Boolean = false
   }
 }
