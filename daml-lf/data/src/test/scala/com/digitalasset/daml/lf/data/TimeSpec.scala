@@ -148,6 +148,7 @@ class TimeSpec extends AnyFreeSpec with Inside with Matchers with TableDrivenPro
         "1970-01-01T01:00:00Z",
         "2023-06-28T07:19:12Z",
         "1969-07-20T20:17:00Z",
+        "1969-07-20T20:17:00z",
         "1969-07-20T20:17:00.100Z",
         "1969-07-20T20:17:00.120Z",
         "1969-07-20T20:17:00.123Z",
@@ -159,7 +160,7 @@ class TimeSpec extends AnyFreeSpec with Inside with Matchers with TableDrivenPro
       forEvery(fromStringFunctions)(f =>
         forEvery(testCases)(str =>
           inside(f(str)) { case Right(timestamp) =>
-            timestamp.toString shouldBe str
+            timestamp.toString shouldBe str.toUpperCase
           }
         )
       )
@@ -200,7 +201,7 @@ class TimeSpec extends AnyFreeSpec with Inside with Matchers with TableDrivenPro
       )
     }
 
-    "strictFromString reject a UTC ISO 8601 compliant string with singificant nanos" in {
+    "strictFromString reject a UTC ISO 8601 compliant string with significant nanos" in {
       val testCases = Table(
         "withNanos",
         "0001-01-01T00:00:00.000000009Z",
@@ -255,21 +256,27 @@ class TimeSpec extends AnyFreeSpec with Inside with Matchers with TableDrivenPro
 
     "fromString functions reject non UTC ISO 8601 compliant time strings" in {
       val testCases = Table(
-        "withNanos",
+        "string",
+        "",
         "001-01-01Z",
         "0001-01-01Z",
         "1970-01-01T01",
         "2023-06-28T07:19",
         "1969-07-20T20:17:00.0000000000Z",
         "01969-07-20T20:17:00.0000000000Z",
+        "1969-13-20T20:17:00",
+        "1969-07-20T20:17:00Z ",
+        " 1969-07-20T20:17:00Z",
         "1969-13-20T20:17:00Z",
         "1969-07-32T20:17:00Z",
-        "1969-07-32T20:17:00Z−07:01",
-        "1969-07-32T20:17:00Z−0700",
-        "1969-07-32T20:17:00Z−07",
-        "1969-07-32T20:17:00Z+07:00",
-        "1969-07-32T20:17:00Z+0701",
-        "1969-07-32T20:17:00Z+07",
+        "1969-07-20T20:17:00+00:00",
+        "1969-07-20T20:17:00-00:00",
+        "1969-07-20T20:17:00−07:01",
+        "1969-07-20T20:17:00−0700",
+        "1969-07-20T20:17:00−07",
+        "1969-07-20T20:17:00+07:00",
+        "1969-07-20T20:17:00+0701",
+        "1969-07-20T20:17:00+07",
         "Last friday",
       )
       forEvery(fromStringFunctions)(f => forEvery(testCases)(str => f(str) shouldBe a[Left[_, _]]))

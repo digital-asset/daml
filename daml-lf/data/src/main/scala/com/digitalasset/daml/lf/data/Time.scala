@@ -12,8 +12,6 @@ import scalaz.std.anyVal._
 import scalaz.syntax.order._
 import scalaz.{Order, Ordering}
 
-import scala.util.Try
-
 object Time {
 
   class Date private (val days: Int) extends Ordered[Date] {
@@ -40,23 +38,15 @@ object Time {
     private val formatter: DateTimeFormatter =
       DateTimeFormatter.ISO_DATE.withZone(ZoneId.of("Z"))
 
-    private def assertDaysFromString(str: String) =
-      asInt(formatter.parse(str).getLong(ChronoField.EPOCH_DAY)).fold(sys.error, identity)
+    // throws if cannot parse
+    private[this] def assertDaysFromString(str: String) =
+      Math.toIntExact(formatter.parse(str).getLong(ChronoField.EPOCH_DAY))
 
-    private[lf] def asInt(days: Long): Either[String, Int] = {
-      val daysI = days.toInt
-      if (daysI.toLong == days) Right(daysI)
-      else Left(s"out of bound Date $days")
-    }
+    val MinValue: Date = new Date(assertDaysFromString("0001-01-01"))
 
-    val MinValue: Date =
-      new Date(assertDaysFromString("0001-01-01"))
+    val MaxValue: Date = new Date(assertDaysFromString("9999-12-31"))
 
-    val MaxValue: Date =
-      new Date(assertDaysFromString("9999-12-31"))
-
-    val Epoch: Date =
-      assertFromDaysSinceEpoch(0)
+    val Epoch: Date = assertFromDaysSinceEpoch(0)
 
     def fromDaysSinceEpoch(days: Int): Either[String, Date] =
       if (MinValue.days <= days && days <= MaxValue.days)
@@ -65,9 +55,11 @@ object Time {
         Left(s"out of bound Date $days")
 
     def fromString(str: String): Either[String, Date] =
-      Try(assertDaysFromString(str)).toEither.left
-        .map(_ => s"cannot interpret $str as Date")
-        .flatMap(fromDaysSinceEpoch)
+      try {
+        fromDaysSinceEpoch(assertDaysFromString(str))
+      } catch {
+        case scala.util.control.NonFatal(_) => Left(s"cannot interpret $str as Date")
+      }
 
     @throws[IllegalArgumentException]
     final def assertFromString(s: String): Date =
@@ -131,21 +123,28 @@ object Time {
     private lazy val formatter: DateTimeFormatter =
       DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.of("Z"))
 
+    // throws if cannot parse
+    private[this] def parseToInstant(str: String): Instant = {
+      // The following enforces constituency of parsing between java 8 and java 11
+      // See https://bugs.openjdk.org/browse/JDK-8166138
+      if (str.last.toUpper != 'Z') throw new IllegalArgumentException
+      Instant.from(formatter.parse(str))
+    }
+
     private def microsOfInstant(i: Instant): Long =
       TimeUnit.SECONDS.toMicros(i.getEpochSecond) + TimeUnit.NANOSECONDS.toMicros(i.getNano.toLong)
 
     val MinValue: Timestamp =
-      new Timestamp(microsOfInstant(Instant.parse("0001-01-01T00:00:00.000000Z")))
+      new Timestamp(microsOfInstant(parseToInstant("0001-01-01T00:00:00.000000Z")))
 
     val MaxValue: Timestamp =
-      new Timestamp(microsOfInstant(Instant.parse("9999-12-31T23:59:59.999999Z")))
+      new Timestamp(microsOfInstant(parseToInstant("9999-12-31T23:59:59.999999Z")))
 
     val Resolution: Duration = Duration.of(1L, ChronoUnit.MICROS)
 
     val Epoch: Timestamp = assertFromLong(0)
 
-    def now(): Timestamp =
-      assertLenientFromInstant(Instant.now())
+    def now(): Timestamp = assertLenientFromInstant(Instant.now())
 
     def fromLong(micros: Long): Either[String, Timestamp] =
       if (MinValue.micros <= micros && micros <= MaxValue.micros)
@@ -154,16 +153,14 @@ object Time {
         Left(s"out of bound Timestamp $micros")
 
     @throws[IllegalArgumentException]
-    def assertFromLong(micros: Long): Timestamp =
-      assertRight(fromLong(micros))
+    def assertFromLong(micros: Long): Timestamp = assertRight(fromLong(micros))
 
-    // Drop nanoseconds
+    // Truncate nanoseconds
     def lenientFromInstant(i: Instant): Either[String, Timestamp] =
       fromLong(microsOfInstant(i))
 
     @throws[IllegalArgumentException]
-    def assertLenientFromInstant(i: Instant): Timestamp =
-      assertRight(lenientFromInstant(i))
+    def assertLenientFromInstant(i: Instant): Timestamp = assertRight(lenientFromInstant(i))
 
     private val nanosInOneMicros: Long =
       TimeUnit.MICROSECONDS.toNanos(1)
@@ -193,7 +190,7 @@ object Time {
 
     private def instantFromString(str: String): Either[String, Instant] =
       try {
-        Right(Instant.from(formatter.parse(str)))
+        Right(parseToInstant(str))
       } catch {
         case scala.util.control.NonFatal(_) => Left(s"cannot interpret $str as Timestamp")
       }
