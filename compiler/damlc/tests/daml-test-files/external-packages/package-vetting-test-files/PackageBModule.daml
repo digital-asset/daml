@@ -1,0 +1,6 @@
+module PackageBModule where
+
+template PackageBTemplate with
+    p : Party
+  where
+  signatory p

@@ -61,7 +61,7 @@ final case class JsonLedgerClient(
 }
 
 final case class IdeLedgerClient(
-    compiledPackages: CompiledPackages,
+    compiledPackages: PureCompiledPackages,
     traceLog: TraceLog,
     warningLog: WarningLog,
     canceled: () => Boolean,

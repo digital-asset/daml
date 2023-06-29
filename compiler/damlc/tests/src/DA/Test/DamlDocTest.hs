@@ -94,7 +94,7 @@ generateTests scriptPackageData = testGroup "generate doctest module"
                     { optHaddock = Haddock True
                     , optScenarioService = EnableScenarioService False
                     , optPackageDbs = [fst scriptPackageData]
-                    , optPackageImports = [snd scriptPackageData]
+                    , optPackageImports = snd scriptPackageData
                     }
             withDamlIdeState opts Logger.makeNopHandle (NotificationHandler $ \_ _ -> pure ()) $ \ideState -> do
                 Just pm <- runActionSync ideState $ use GetParsedModule $ toNormalizedFilePath' tmpFile

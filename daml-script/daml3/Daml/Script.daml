@@ -75,6 +75,12 @@ module Daml.Script
   , listUserRightsOn
   , submitUser
   , submitUserOn
+
+  , PackageName (..)
+  , vetPackages
+  , unvetPackages
+  , listVettedPackages
+  , listAllPackages
   ) where
 
 import Daml.Script.Internal

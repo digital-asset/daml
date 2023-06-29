@@ -4,6 +4,7 @@
 package com.daml.lf
 package scenario
 
+import com.daml.lf.language.Ast.PackageMetadata
 import org.typelevel.paiges.Doc
 import org.typelevel.paiges.Doc._
 
@@ -80,6 +81,15 @@ private[lf] object Pretty {
 
       case Error.CanceledByRequest() =>
         text("Evaluation was cancelled because the test was changed and rerun in a new thread.")
+
+      case Error.LookupError(err, packageMetadata, packageId) => {
+        val packageName = packageMetadata.fold(packageId.toString)({
+          case PackageMetadata(name, version, _) => s"$name-$version"
+        })
+        text(
+          s"Error: ${err.pretty}\nin package ${packageName}"
+        )
+      }
     }
 
 }
