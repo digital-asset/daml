@@ -339,7 +339,7 @@ jobs:
                --silent \
                "$url" \
            | sha256sum \
-           | awk '{print $1}')
+           | awk '{print $1}'
         )
 
         canton_version=$(curl -u $AUTH \
@@ -370,7 +370,7 @@ jobs:
         ee_canton_sha=$(url_sha "$ee_canton_url")
 
         sed -i "s|CANTON_ENTERPRISE_VERSION=.*|CANTON_ENTERPRISE_VERSION=$canton_version|" canton/BUILD.bazel
-        sed -i "s|CANTON_ENTERPRISE_SHA=.*|CANTON_ENTERPRISE_SHA=$ee_canton|" canton/BUILD.bazel
+        sed -i "s|CANTON_ENTERPRISE_SHA=.*|CANTON_ENTERPRISE_SHA=$ee_canton_sha|" canton/BUILD.bazel
 
         rm -f arbitrary_canton_sha
 
