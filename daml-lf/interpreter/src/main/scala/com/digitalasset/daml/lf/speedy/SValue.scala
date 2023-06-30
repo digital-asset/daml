@@ -216,12 +216,7 @@ object SValue {
     }
 
     def values: util.ArrayList[SValue] = {
-      val res = new util.ArrayList[SValue]()
-      fields.foreach { case field =>
-        val value = this.lookupField(field)
-        discard[Boolean](res.add(value))
-      }
-      res
+      fields.toList.map(this.lookupField).to(ArrayList)
     }
   }
 
