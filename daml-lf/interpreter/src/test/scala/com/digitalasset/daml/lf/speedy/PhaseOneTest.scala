@@ -5,7 +5,6 @@ package com.daml.lf.speedy
 
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 
@@ -24,8 +23,7 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   "compilation (stack-safety)" - {
 
     val phase1 = {
-      def signatures: PartialFunction[PackageId, PackageSignature] = Map.empty
-      def interface = new PackageInterface(signatures)
+      def interface = PackageInterface.Empty
       def config =
         PhaseOne.Config(
           profiling = Compiler.NoProfile,

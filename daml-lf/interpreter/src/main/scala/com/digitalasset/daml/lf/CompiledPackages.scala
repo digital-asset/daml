@@ -46,7 +46,12 @@ private[lf] object PureCompiledPackages {
       defns: Map[SDefinitionRef, SDefinition],
       compilerConfig: Compiler.Config,
   ): PureCompiledPackages =
-    new PureCompiledPackages(packages.keySet, new PackageInterface(packages), defns, compilerConfig)
+    new PureCompiledPackages(
+      packages.keySet,
+      new PackageInterface(packages.view),
+      defns,
+      compilerConfig,
+    )
 
   def build(
       packages: Map[PackageId, Package],

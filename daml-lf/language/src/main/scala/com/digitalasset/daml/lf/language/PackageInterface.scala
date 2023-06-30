@@ -8,7 +8,7 @@ import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 
-private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, PackageSignature]) {
+private[lf] class PackageInterface(val signatures: collection.MapView[PackageId, PackageSignature]) {
 
   import PackageInterface._
 
@@ -16,7 +16,7 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
       pkgId: PackageId,
       context: => Reference,
   ): Either[LookupError, PackageSignature] =
-    signatures.lift(pkgId).toRight(LookupError.NotFound(Reference.Package(pkgId), context))
+    signatures.get(pkgId).toRight(LookupError.NotFound(Reference.Package(pkgId), context))
 
   def lookupPackage(pkgId: PackageId): Either[LookupError, PackageSignature] =
     lookupPackage(pkgId, Reference.Package(pkgId))
@@ -366,10 +366,10 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
 
 object PackageInterface {
 
-  val Empty = new PackageInterface(PartialFunction.empty)
+  val Empty = new PackageInterface(collection.MapView.empty)
 
   def apply(packages: Map[PackageId, Package]): PackageInterface =
-    new PackageInterface(Util.toSignatures(packages))
+    new PackageInterface(Util.toSignatures(packages).view)
 
   case class DataRecordInfo(
       dataType: DDataType,

@@ -4,8 +4,9 @@
 package com.daml.lf
 package engine
 
-import java.util.concurrent.ConcurrentHashMap
+import com.daml.lf.data.MapViewConcat
 
+import java.util.concurrent.ConcurrentHashMap
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.daml.lf.language.Ast.{Package, PackageSignature}
@@ -14,6 +15,7 @@ import com.daml.lf.speedy.Compiler
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
+import scala.collection.MapView
 import scala.jdk.CollectionConverters._
 import scala.collection.concurrent.{Map => ConcurrentMap}
 import scala.util.control.NonFatal
@@ -32,7 +34,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
     new ConcurrentHashMap()
 
   override def packageIds: scala.collection.Set[PackageId] = signatures.keySet
-  override def pkgInterface: PackageInterface = new PackageInterface(signatures)
+  override def pkgInterface: PackageInterface = new PackageInterface(signatures.view)
   override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SDefinition] =
     Option(definitionsByReference.get(dref))
 
@@ -103,7 +105,9 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
           if (!signatures.contains(pkgId)) {
             val pkgSignature = AstUtil.toSignature(pkg)
             val extendedSignatures =
-              new language.PackageInterface(Map(pkgId -> pkgSignature) orElse signatures)
+              new language.PackageInterface(
+                new MapViewConcat(MapView(pkgId -> pkgSignature), signatures.view)
+              )
 
             // Compile the speedy definitions for this package.
             val defns =
