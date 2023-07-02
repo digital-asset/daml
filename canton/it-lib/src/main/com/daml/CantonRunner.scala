@@ -21,7 +21,7 @@ import spray.json.JsString
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.Future
-import scala.sys.process.Process
+import scala.sys.process.{Process, ProcessLogger}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Path, Paths, Files}
 import scala.concurrent.ExecutionContext
@@ -138,6 +138,7 @@ object CantonRunner {
          |  tlsEnable = ${config.tlsConfig.isDefined}
          |""".stripMargin
     )
+    var outputBuffer = ""
     for {
       proc <- Future(
         Process(
@@ -149,7 +150,7 @@ object CantonRunner {
             "-c" ::
             files.configFile.toString ::
             debugOptions
-        ).run()
+        ).run(ProcessLogger(str => outputBuffer += str))
       )
       size <- RetryStrategy.constant(attempts = 240, waitTime = 1.seconds) { (_, _) =>
         info("waiting for Canton to start")
@@ -162,7 +163,7 @@ object CantonRunner {
         if (size > 0)
           Future.successful(info("Canton started"))
         else
-          Future.failed(new Error("canton unexpectedly dies"))
+          Future.failed(new Error("Canton failed expectedly with logs:\n" + outputBuffer))
       _ <-
         Future.traverse(ports) { case (_, ledgerPort) =>
           for {
