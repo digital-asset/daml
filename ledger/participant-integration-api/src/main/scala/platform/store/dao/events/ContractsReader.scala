@@ -24,6 +24,7 @@ private[dao] sealed class ContractsReader(
     storageBackend: ContractStorageBackend,
     dispatcher: DbDispatcher,
     metrics: Metrics,
+    contractLoader: Option[ContractLoader],
 )(implicit ec: ExecutionContext)
     extends LedgerDaoContractsReader {
   private val logger = ContextualizedLogger.get(getClass)
@@ -59,9 +60,13 @@ private[dao] sealed class ContractsReader(
   ): Future[Option[ContractState]] = {
     Timed.future(
       metrics.daml.index.db.lookupActiveContract,
-      dispatcher
-        .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
-          storageBackend.contractState(contractId, before)
+      contractLoader
+        .map(_.load(contractId -> before))
+        .getOrElse(
+          dispatcher
+            .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
+              storageBackend.contractState(contractId, before)
+            )
         )
         .map(_.map(rawToContractState(contractId))),
     )
@@ -163,11 +168,13 @@ private[dao] object ContractsReader {
       dispatcher: DbDispatcher,
       metrics: Metrics,
       storageBackend: ContractStorageBackend,
+      contractLoader: Option[ContractLoader],
   )(implicit ec: ExecutionContext): ContractsReader = {
     new ContractsReader(
       storageBackend = storageBackend,
       dispatcher = dispatcher,
       metrics = metrics,
+      contractLoader = contractLoader,
     )
   }
 

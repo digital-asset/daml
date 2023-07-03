@@ -57,6 +57,7 @@ private class JdbcLedgerDao(
     transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
     globalMaxEventIdQueries: Int,
     globalMaxEventPayloadQueries: Int,
+    contractLoader: Option[ContractLoader],
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -539,7 +540,12 @@ private class JdbcLedgerDao(
     )
 
   override val contractsReader: ContractsReader =
-    ContractsReader(dbDispatcher, metrics, readStorageBackend.contractStorageBackend)(
+    ContractsReader(
+      dbDispatcher,
+      metrics,
+      readStorageBackend.contractStorageBackend,
+      contractLoader,
+    )(
       servicesExecutionContext
     )
 
@@ -645,6 +651,7 @@ private[platform] object JdbcLedgerDao {
       transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
+      contractLoader: Option[ContractLoader] = None,
   ): LedgerReadDao =
     new JdbcLedgerDao(
       dbDispatcher = dbSupport.dbDispatcher,
@@ -663,6 +670,7 @@ private[platform] object JdbcLedgerDao {
       transactionTreeStreamsConfig = transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
+      contractLoader = contractLoader,
     )
 
   def write(
@@ -680,6 +688,7 @@ private[platform] object JdbcLedgerDao {
       transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
+      contractLoader: Option[ContractLoader] = None,
   ): LedgerDao =
     new JdbcLedgerDao(
       dbDispatcher = dbSupport.dbDispatcher,
@@ -698,6 +707,7 @@ private[platform] object JdbcLedgerDao {
       transactionTreeStreamsConfig = transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
+      contractLoader = contractLoader,
     )
 
   val acceptType = "accept"

@@ -18,7 +18,11 @@ import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.cache._
-import com.daml.platform.store.dao.events.{BufferedTransactionsReader, LfValueTranslation}
+import com.daml.platform.store.dao.events.{
+  BufferedTransactionsReader,
+  ContractLoader,
+  LfValueTranslation,
+}
 import com.daml.platform.store.dao.{BufferedCommandCompletionsReader, JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.interning.StringInterning
 import com.daml.resources.ProgramResource.StartupException
@@ -37,6 +41,7 @@ final class IndexServiceOwner(
     engine: Engine,
     participantId: Ref.ParticipantId,
     inMemoryState: InMemoryState,
+    contractLoader: Option[ContractLoader],
 )(implicit
     loggingContext: LoggingContext
 ) extends ResourceOwner[IndexService] {
@@ -49,6 +54,7 @@ final class IndexServiceOwner(
     val ledgerDao = createLedgerReadDao(
       ledgerEndCache = inMemoryState.ledgerEndCache,
       stringInterning = inMemoryState.stringInterningView,
+      contractLoader = contractLoader,
     )
 
     for {
@@ -161,6 +167,7 @@ final class IndexServiceOwner(
   private def createLedgerReadDao(
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      contractLoader: Option[ContractLoader],
   ): LedgerReadDao =
     JdbcLedgerDao.read(
       dbSupport = dbSupport,
@@ -176,6 +183,7 @@ final class IndexServiceOwner(
       transactionTreeStreamsConfig = config.transactionTreeStreams,
       globalMaxEventIdQueries = config.globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = config.globalMaxEventPayloadQueries,
+      contractLoader = contractLoader,
     )
 
   private def buildInMemoryFanOutExecutionContext(

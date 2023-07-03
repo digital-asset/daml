@@ -63,7 +63,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       case (acc, _) => acc
     }
     for {
-      _ <- contractStore.prefetchContracts(coids.toSeq)
+      _ <- Future.sequence(coids.map(contractStore.lookupContractStateWithoutDivulgence))
       submissionResult <- submitToEngine(commands, submissionSeed, interpretationTimeNanos)
       submission <- consume(
         commands.actAs,
