@@ -333,6 +333,8 @@ object MutableCacheBackedContractStoreSpec {
         case (`cId_2`, parties) if parties.contains(charlie) => Future.successful(Some(contract2))
         case _ => Future.successful(Option.empty)
       }
+
+    override def lookupContractStates(contractIds: Seq[ContractId], validAt: Offset)(implicit loggingContext: LoggingContext): Future[Map[ContractId, LedgerDaoContractsReader.ContractState]] = ???
   }
 
   private def activeContract(
