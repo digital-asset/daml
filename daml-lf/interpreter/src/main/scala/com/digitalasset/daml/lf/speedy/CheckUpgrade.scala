@@ -43,10 +43,10 @@ object CheckUpgrade {
     if (mayUpgrade(from, into)) {
 
       record match {
-        case SRecord(_, b, c) =>
+        case SRecordRep(_, fields, dict) =>
           // NICK: TODO: adapt the record here: manufacturing new optional fields; removing old fields; updating the type
           // first step: match the tycon name match. use "into"
-          Some(SRecord(into, b, c))
+          Some(SRecordRep(into, fields, dict))
       }
     } else {
       None
