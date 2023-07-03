@@ -144,7 +144,8 @@ class ContractStorageBackendTemplate(
             c.contract_id = a.contract_id AND a.event_offset <= $before
            )
            WHERE
-             c.contract_id ${queryStrategy.anyOfString(contractIds.map(_.coid))} AND c.event_offset <= $before
+             c.contract_id ${queryStrategy.anyOfString(contractIds.map(_.coid))}
+             AND c.event_offset <= $before
            )
            SELECT contract_id, create_event as event_sequential_id, template_id, create_witness as flat_event_witnesses,
                               create_argument, create_argument_compression, 10 as event_kind, create_ledger_effective_time as ledger_effective_time FROM joined_rows where archive_event is NULL

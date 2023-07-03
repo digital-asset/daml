@@ -456,7 +456,9 @@ private object MutableCacheBackedContractStoreRaceTests {
       Future.successful(None)
     }
 
-    override def lookupContractStates(contractIds: Seq[ContractId], validAt: CreatedAt)(implicit loggingContext: LoggingContext): Future[Map[ContractId, ContractState]] = ???
+    override def lookupContractStates(contractIds: Seq[ContractId], validAt: CreatedAt)(implicit
+        loggingContext: LoggingContext
+    ): Future[Map[ContractId, ContractState]] = ???
   }
 
   private def offset(idx: Long) = {
