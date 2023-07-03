@@ -61,16 +61,36 @@ private[services] final class TrackerMap[Key](
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
+
+    def cleanClosed(
+        submitter: Key,
+        trackerResource: AsyncResource[TrackerWithLastSubmission],
+    ): Option[AsyncResource[TrackerWithLastSubmission]] = {
+      trackerResource.currentState match {
+        case Ready(tracker) if tracker.isCompleted =>
+          logger.info(
+            s"Removing completed tracker for $submitter"
+          )(trackerResource.loggingContext)
+          tracker.close()
+          trackerBySubmitter -= submitter
+          None
+        case Failed(_) | Closed =>
+          // simply forget already-failed or closed trackers
+          trackerBySubmitter -= submitter
+          None
+        case _ =>
+          Some(trackerResource)
+      }
+    }
+
     val key = getKey(submission.commands)
-    // double-checked locking
-    trackerBySubmitter
-      .getOrElse(
-        key,
-        lock.synchronized {
-          trackerBySubmitter.getOrElse(key, registerNewTracker(key))
-        },
-      )
-      .withResource(_.track(submission))
+    lock.synchronized {
+      trackerBySubmitter
+        .get(key)
+        .flatMap(cleanClosed(key, _))
+        .getOrElse(registerNewTracker(key))
+        .withResource(_.track(submission))
+    }
   }
 
   private def registerNewTracker(
@@ -95,6 +115,12 @@ private[services] final class TrackerMap[Key](
     trackerBySubmitter.foreach { case (submitter, trackerResource) =>
       trackerResource.currentState match {
         case Waiting => // there is nothing to clean up
+        case Ready(tracker) if tracker.isCompleted =>
+          logger.info(
+            s"Removing completed tracker for $submitter"
+          )(trackerResource.loggingContext)
+          tracker.close()
+          trackerBySubmitter -= submitter
         case Ready(tracker) =>
           // close and forget expired trackers
           if (currentTime - tracker.getLastSubmission > retentionNanos) {
@@ -116,6 +142,8 @@ private[services] final class TrackerMap[Key](
     trackerBySubmitter.values.foreach(_.close())
     trackerBySubmitter = HashMap.empty
   }
+
+  override def isCompleted: Boolean = false
 }
 
 private[services] object TrackerMap {
@@ -145,6 +173,8 @@ private[services] object TrackerMap {
       trackerCleanupJob.cancel()
       delegate.close()
     }
+
+    override def isCompleted: Boolean = false
   }
 
   private sealed trait AsyncResourceState[+T <: AutoCloseable]
@@ -221,5 +251,7 @@ private[services] object TrackerMap {
     }
 
     override def close(): Unit = delegate.close()
+
+    override def isCompleted: Boolean = delegate.isCompleted
   }
 }
