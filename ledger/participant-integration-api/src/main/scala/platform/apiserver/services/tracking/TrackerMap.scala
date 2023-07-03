@@ -115,6 +115,12 @@ private[services] final class TrackerMap[Key](
     trackerBySubmitter.foreach { case (submitter, trackerResource) =>
       trackerResource.currentState match {
         case Waiting => // there is nothing to clean up
+        case Ready(tracker) if tracker.isCompleted =>
+          logger.info(
+            s"Removing completed tracker for $submitter"
+          )(trackerResource.loggingContext)
+          tracker.close()
+          trackerBySubmitter -= submitter
         case Ready(tracker) =>
           // close and forget expired trackers
           if (currentTime - tracker.getLastSubmission > retentionNanos) {
