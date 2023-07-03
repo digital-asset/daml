@@ -39,12 +39,6 @@ trait ContractStore {
   )(implicit
       loggingContext: LoggingContext
   ): Future[ContractState]
-
-  /** Eagerly load contracts using a batch query into the store */
-  def prefetchContracts(contractIds: Seq[ContractId])(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit]
-
 }
 
 sealed trait ContractState

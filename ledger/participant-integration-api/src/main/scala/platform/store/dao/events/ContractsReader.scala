@@ -45,16 +45,6 @@ private[dao] sealed class ContractsReader(
       ),
     )
 
-  override def lookupContractStates(contractIds: Seq[ContractId], before: Offset)(implicit
-      loggingContext: LoggingContext
-  ): Future[Map[ContractId, ContractState]] = {
-    dispatcher
-      .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
-        storageBackend.contractStates(contractIds, before)
-      )
-      .map(_.map { case (k, v) => (k, rawToContractState(k)(v)) })
-  }
-
   override def lookupContractState(contractId: ContractId, before: Offset)(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractState]] = {

@@ -50,11 +50,6 @@ private[platform] trait LedgerDaoContractsReader {
       loggingContext: LoggingContext
   ): Future[Option[ContractState]]
 
-  /** Batching variant of above */
-  def lookupContractStates(contractIds: Seq[ContractId], validAt: Offset)(implicit
-      loggingContext: LoggingContext
-  ): Future[Map[ContractId, ContractState]]
-
   /** Looks up the state of a contract key at a specific event sequential id.
     *
     * @param key the contract key to query

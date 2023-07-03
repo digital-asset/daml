@@ -255,10 +255,6 @@ class ContractStoreBasedMaximumLedgerTimeServiceSpec extends AsyncFlatSpec with 
           loggingContext: LoggingContext
       ): Future[ContractState] =
         Future.successful(fixtureMap(contractId))
-
-      override def prefetchContracts(contractIds: Seq[ContractId])(implicit
-          loggingContext: LoggingContext
-      ): Future[Unit] = ???
     })
   }
 }
