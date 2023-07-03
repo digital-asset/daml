@@ -127,7 +127,6 @@ class ContractStorageBackendTemplate(
   else {
     // note, below query uses indexes, but the join is run in a loop (using indexes)
     // potential optimization would be to first collect the archivals and then join on the in-memory results
-    import com.daml.platform.store.backend.Conversions.ContractIdToStatement
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""WITH joined_rows (contract_id, create_event, archive_event, template_id, create_witness, archive_witness,
             create_argument, create_argument_compression, create_ledger_effective_time, archive_ledger_effective_time) AS (SELECT
@@ -141,11 +140,11 @@ class ContractStorageBackendTemplate(
              c.create_argument_compression,
              c.ledger_effective_time,
              a.ledger_effective_time
-           FROM ledger_api.participant_events_create c LEFT JOIN ledger_api.participant_events_consuming_exercise a ON (
-            c.contract_id = a.contract_id AND a.event_offset < $before
+           FROM participant_events_create c LEFT JOIN participant_events_consuming_exercise a ON (
+            c.contract_id = a.contract_id AND a.event_offset <= $before
            )
            WHERE
-             c.contract_id IN ($contractIds) AND c.event_offset < $before
+             c.contract_id ${queryStrategy.anyOfString(contractIds.map(_.coid))} AND c.event_offset <= $before
            )
            SELECT contract_id, create_event as event_sequential_id, template_id, create_witness as flat_event_witnesses,
                               create_argument, create_argument_compression, 10 as event_kind, create_ledger_effective_time as ledger_effective_time FROM joined_rows where archive_event is NULL

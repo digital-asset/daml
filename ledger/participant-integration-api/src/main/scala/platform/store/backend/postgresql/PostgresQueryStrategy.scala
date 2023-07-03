@@ -33,4 +33,9 @@ object PostgresQueryStrategy extends QueryStrategy {
       longs.view.map(Long.box).toArray
     cSQL"= ANY($longArray::bigint[])"
   }
+
+  override def anyOfString(longs: Iterable[String]): CompositeSql = {
+    val stringArray: Array[String] = longs.toArray
+    cSQL"= ANY($stringArray::text[])"
+  }
 }

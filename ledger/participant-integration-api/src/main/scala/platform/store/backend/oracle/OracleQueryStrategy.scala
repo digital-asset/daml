@@ -36,4 +36,9 @@ object OracleQueryStrategy extends QueryStrategy {
       longs.view.map(Long.box).toVector
     cSQL"= ANY($longArray)"
   }
+
+  override def anyOfString(longs: Iterable[String]): CompositeSql = {
+    val stringVector: Vector[String] = longs.toVector
+    cSQL"= ANY($stringVector)"
+  }
 }
