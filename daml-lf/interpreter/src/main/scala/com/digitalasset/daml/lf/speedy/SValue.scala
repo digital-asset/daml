@@ -187,8 +187,13 @@ object SValue {
 
   object SRecord {
     def apply(id: Identifier, fields: ImmArray[Name], values: util.ArrayList[SValue]): SRecord = {
-      assert(fields.length == values.size)
-      val zipped = (fields.toSeq zip values.asScala).toList.reverse
+      if (fields.length != values.size) {
+        throw SError.SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"SRecord.apply(#fields=${fields.length}; #values=${values.size}: mismatch!\n- fields=${fields}\n- values=${values}",
+        )
+      }
+      val zipped = (fields.toSeq zip values.asScala).toList
       SRecordRep(id, fields, zipped.toMap)
     }
     def unapply(x: SRecord): Option[(Identifier, ImmArray[Name], util.ArrayList[SValue])] = {
