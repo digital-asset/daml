@@ -130,9 +130,10 @@ object CantonRunner {
           """.stripMargin
     discard(Files.write(files.configFile, cantonConfig.getBytes(StandardCharsets.UTF_8)))
 
-    val bootstrapScript = "local.service.set_reconciliation_interval(1.seconds)"
-    discard(Files.write(files.bootstrapFile, bootstrapScript.getBytes(StandardCharsets.UTF_8)))
-
+    val bootstrapOptions = config.bootstrapScript.fold(List.empty[String]) { case script =>
+      discard { Files.write(files.bootstrapFile, script.getBytes(StandardCharsets.UTF_8)) }
+      List("--bootstrap", files.bootstrapFile.toString)
+    }
     val debugOptions =
       if (config.debug) List("--log-file-name", files.cantonLogFile.toString, "--verbose")
       else List.empty
@@ -156,7 +157,7 @@ object CantonRunner {
             "--auto-connect-local" ::
             "-c" ::
             files.configFile.toString ::
-            "--bootstrap" :: files.bootstrapFile.toString ::
+            bootstrapOptions :::
             debugOptions
         ).run(ProcessLogger { str =>
           if (config.debug) println(str)
