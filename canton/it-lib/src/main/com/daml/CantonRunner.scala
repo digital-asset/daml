@@ -129,12 +129,9 @@ object CantonRunner {
          |}
           """.stripMargin
     discard(Files.write(files.configFile, cantonConfig.getBytes(StandardCharsets.UTF_8)))
-    discard {
-      Files.write(
-        files.bootstrapFile,
-        "local.service.set_reconciliation_interval(1.seconds)".getBytes(StandardCharsets.UTF_8),
-      )
-    }
+
+    val bootstrapScript = "local.service.set_reconciliation_interval(1.seconds)"
+    discard(Files.write(files.bootstrapFile, bootstrapScript.getBytes(StandardCharsets.UTF_8)))
 
     val debugOptions =
       if (config.debug) List("--log-file-name", files.cantonLogFile.toString, "--verbose")
