@@ -3,72 +3,128 @@
 
 module Daml.Script.Questions.Submit.Error where
 
-import DA.Stack
+import Daml.Script.Questions.Util
 
--- TODO: Use Ledger api error codes for this. extend the ledger api's error structure.
+-- | Errors that will be promoted to SubmitError once stable
+data DevErrorType
+  = ChoiceGuardFailed
+  | WronglyTypedContractSoft
+  | Limit
+  | UnknownNewFeature -- ^ This should never happen - Update Scripts when you see this!
+  deriving Show
+
+-- | Errors that can be thrown by a command submission
 data SubmitError
-  = SERunnerException { unSERunnerException : RunnerException }
-  | SEInternal
-  | SETimeout
-  | SECanceledByRequest
-  | SEContractNotEffective -- Duplicated by RunnerException
-  | SEContractNotActive
-  | SEContractNotVisible
-  | SEContractKeyNotVisible -- Duplicated by RunnerException
-  | SEUniqueKeyViolation
-  | SEPartiesNotAllocated
-  deriving Show
+  = -- | Contract with given contract ID could not be found, and has never existed on this participant
+    ContractNotFound with
+      unknownContractId : Text
+        -- ^ Provided as text, as we do not know the template id of a contract if the lookup fails
+  | -- | Contract with given contract key could not be found
+    ContractKeyNotFound with
+      -- TODO: this (and any other errors with ContractKey) may lose other fields if contract key is too big.
+      -- Consider making it Optional and ensuring its always the last resource on status, so only it is lost
+      contractKey : AnyContractKey
+  | -- | Generic authorization failure, included missing party authority, invalid signatories, etc.
+    AuthorizationError with
+      authorizationErrorMessage : Text -- We can't pass over the data at the moment, so we just give the full string error here, for anyone that wants to check it
+  | -- | Contract with given contract ID could not be found, as it has already been archived
+    ContractNotActive with 
+      contractId : AnyContractId
+  | -- | Given disclosed contract key does not match the contract key of the contract on ledger.
+    DisclosedContractKeyHashingError with
+      contractId : AnyContractId
+      expectedKey : AnyContractKey
+      givenKeyHash : Text
+  | -- | Contract with given contract key is not visible to the given stakeholders. TODO: Leaking this over ContractNotActive/ContractNotFound may be a security issue
+    ContractKeyNotVisible with
+      contractId : AnyContractId
+      contractKey : AnyContractKey
+      actAs : [Party]
+      readAs : [Party]
+      stakeholders : [Party]
+  | -- | Attempted to create a contract with a contract key that already exists
+    DuplicateContractKey with
+      contractKey : AnyContractKey
+  | -- | Contract key lookup yielded different results
+    InconsistentContractKey with
+      contractKey : AnyContractKey
+  | -- | Unhandled user thrown exception
+    UnhandledException with
+      exc : Optional AnyException
+        -- ^ Errors more complex than simple records cannot currently be encoded over the grpc status. Such errors will be missing here.
+  | -- | Transaction failure due to abort/assert calls pre-exceptions
+    UserError with
+      userErrorMessage : Text -- Not possible currently with LF >=1.14, maybe remove?
+  | -- | Failure due to false result from `ensure`, strictly pre-exception.
+    TemplatePreconditionViolated -- According to docs, not throwable with LF >= 1.14, unsure what replaces it
+  | -- | Attempted to create a contract with empty contract key maintainers
+    CreateEmptyContractKeyMaintainers with
+      invalidTemplate : AnyTemplate
+  | -- | Attempted to fetch a contract with empty contract key maintainers
+    FetchEmptyContractKeyMaintainers with
+      failedTemplateKey : AnyContractKey
+  | -- | Attempted to exercise/fetch a contract with the wrong template type
+    WronglyTypedContract with
+      contractId : AnyContractId -- ^ Any contract Id of the actual contract
+      expectedTemplateId : TemplateTypeRep
+      actualTemplateId : TemplateTypeRep
+  | -- | Attempted to use a contract as an interface that it does not implement
+    ContractDoesNotImplementInterface with
+      contractId : AnyContractId
+      templateId : TemplateTypeRep
+      interfaceId : TemplateTypeRep -- Consider InterfaceTypeRep from DA.Internal.Interface.AnyView.Types (so exposing it in stdlib)
+  | -- | Attempted to use a contract as a required interface that it does not implement
+    ContractDoesNotImplementRequiringInterface with
+      contractId : AnyContractId
+      templateId : TemplateTypeRep
+      requiredInterfaceId : TemplateTypeRep
+      requiringInterfaceId : TemplateTypeRep
+  | -- | Attempted to compare values that are not comparable
+    NonComparableValues
+  | -- | Illegal Contract ID found in Contract Key
+    ContractIdInContractKey with
+      -- TODO: Update the ContractIdInContractKey scala error to include a TemplateId (which it does have when thrown) in separate PR
+      -- Then we can uncomment this and add the plumbing
+      -- contractKey : AnyContractKey
+  | -- | Attempted to compare a local and global contract ID with the same discriminator. You're doing something very wrong
+    ContractIdComparability with
+      globalExistingContractId : Text
+        -- ^ We do not know the template id at time of comparison. TODO: Consider changing this
+  | -- | Development feature exceptions
+    DevError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
+      devErrorType : DevErrorType
+      devErrorMessage : Text
+  | -- | Generic catch-all for missing errors.
+    UnknownError with
+      unknownErrorMessage : Text
+  | -- | One of the above error types where the full exception body did not fit into the response, and was incomplete.
+    -- TODO: Should we expose this at all?
+    TruncatedError with
+      truncatedErrorType : Text
+        -- ^ One of the contructor names of SubmitFailure except DevError, UnknownError, TruncatedError
+      truncatedErrorMessage : Text
 
-data RunnerException
-  = REUnhandledException
-  | REUserError
-  | REContractNotFound
-  | RERejectedAuthorityRequest
-  | RETemplatePreconditionViolated
-  | REContractNotActive
-  | REDisclosedContractKeyHashingError
-  | REContractKeyNotVisible
-  | REContractKeyNotFound
-  | REDuplicateContractKey
-  | REInconsistentContractKey
-  | RECreateEmptyContractKeyMaintainers
-  | REFetchEmptyContractKeyMaintainers
-  | REWronglyTypedContract
-  | REWronglyTypedContractSoft
-  | REContractDoesNotImplementInterface
-  | REContractDoesNotImplementRequiringInterface
-  | REFailedAuthorization { unREFailedAuthorization : FailedAuthorization }
-  | RENonComparableValues
-  | REContractIdComparability
-  | REContractIdInContractKey
-  | REChoiceGuardFailed
-  | RELimit { unRELimit : Limit }
-  deriving Show
-
-deriving instance Show SrcLoc
-
-data FailedAuthorization
-  = FACreateMissingAuthorization
-      { templateId : Text -- Convert to some kind of TypeRep
-      , optLocation : Optional SrcLoc
-      , authorizingParties : [Party]
-      , requiredParties : [Party]
-      }
-  | FAMaintainersNotSubsetOfSignatories
-  | FAFetchMissingAuthorization
-  | FAExerciseMissingAuthorization
-  | FANoSignatories
-  | FANoControllers
-  | FANoAuthorizers
-  | FALookupByKeyMissingAuthorization
-  deriving Show
-
-data Limit
-  = LEValueNesting
-  | LEContractSignatories
-  | LEContractObservers
-  | LEChoiceControllers
-  | LEChoiceObservers
-  | LEChoiceAuthorizers
-  | LETransactionInputContracts
-  deriving Show
+instance Show SubmitError where
+  show err = case err of
+    ContractNotFound {} -> "ContractNotFound"
+    ContractKeyNotFound {} -> "ContractKeyNotFound"
+    AuthorizationError {} -> "AuthorizationError"
+    ContractNotActive {} -> "ContractNotActive"
+    DisclosedContractKeyHashingError {} -> "DisclosedContractKeyHashingError"
+    ContractKeyNotVisible {} -> "ContractKeyNotVisible"
+    DuplicateContractKey {} -> "DuplicateContractKey"
+    InconsistentContractKey {} -> "InconsistentContractKey"
+    UnhandledException {} -> "UnhandledException"
+    UserError {} -> "UserError"
+    TemplatePreconditionViolated {} -> "TemplatePreconditionViolated"
+    CreateEmptyContractKeyMaintainers {} -> "CreateEmptyContractKeyMaintainers"
+    FetchEmptyContractKeyMaintainers {} -> "FetchEmptyContractKeyMaintainers"
+    WronglyTypedContract {} -> "WronglyTypedContract"
+    ContractDoesNotImplementInterface {} -> "ContractDoesNotImplementInterface"
+    ContractDoesNotImplementRequiringInterface {} -> "ContractDoesNotImplementRequiringInterface"
+    NonComparableValues {} -> "NonComparableValues"
+    ContractIdInContractKey {} -> "ContractIdInContractKey"
+    ContractIdComparability {} -> "ContractIdComparability"
+    DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
+    UnknownError msg -> "Unknown error: " <> msg
+    TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""

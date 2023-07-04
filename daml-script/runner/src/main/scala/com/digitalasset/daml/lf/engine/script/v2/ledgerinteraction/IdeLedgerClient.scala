@@ -246,27 +246,27 @@ class IdeLedgerClient(
       }
   }
 
-  // Projects the scenario submission error down to the script submission error
-  private def fromScenarioError(err: scenario.Error): SubmitError = err match {
-    case scenario.Error.RunnerException(err) => SubmitError.RunnerException(err)
-    case scenario.Error.Internal(reason) => SubmitError.Internal(reason)
-    case scenario.Error.Timeout(timeout) => SubmitError.Timeout(timeout)
-    case scenario.Error.ContractNotEffective(coid, templateId, effectiveAt) =>
-      SubmitError.ContractNotEffective(coid, templateId, effectiveAt)
-    case scenario.Error.ContractNotActive(coid, templateId, consumedBy) =>
-      SubmitError.ContractNotActive(coid, templateId, consumedBy)
-    case scenario.Error.ContractNotVisible(coid, templateId, actAs, readAs, observers) =>
-      SubmitError.ContractNotVisible(coid, templateId, actAs, readAs, observers)
-    case scenario.Error.ContractKeyNotVisible(coid, key, actAs, readAs, observers) =>
-      SubmitError.ContractKeyNotVisible(coid, key, actAs, readAs, observers)
-    case scenario.Error.CommitError(
-          ScenarioLedger.CommitError.UniqueKeyViolation(ScenarioLedger.UniqueKeyViolation(gk))
-        ) =>
-      SubmitError.UniqueKeyViolation(gk)
-    case scenario.Error.PartiesNotAllocated(parties) => SubmitError.PartiesNotAllocated(parties)
-    // This covers MustFailSucceeded, InvalidPartyName, PartyAlreadyExists which should not be throwable by a command submission
-    case err => SubmitError.Internal("Unexpected error type: " + err.toString)
-  }
+  // // Projects the scenario submission error down to the script submission error
+  // private def fromScenarioError(err: scenario.Error): SubmitError = err match {
+  //   case scenario.Error.RunnerException(err) => SubmitError.RunnerException(err)
+  //   case scenario.Error.Internal(reason) => SubmitError.Internal(reason)
+  //   case scenario.Error.Timeout(timeout) => SubmitError.Timeout(timeout)
+  //   case scenario.Error.ContractNotEffective(coid, templateId, effectiveAt) =>
+  //     SubmitError.ContractNotEffective(coid, templateId, effectiveAt)
+  //   case scenario.Error.ContractNotActive(coid, templateId, consumedBy) =>
+  //     SubmitError.ContractNotActive(coid, templateId, consumedBy)
+  //   case scenario.Error.ContractNotVisible(coid, templateId, actAs, readAs, observers) =>
+  //     SubmitError.ContractNotVisible(coid, templateId, actAs, readAs, observers)
+  //   case scenario.Error.ContractKeyNotVisible(coid, key, actAs, readAs, observers) =>
+  //     SubmitError.ContractKeyNotVisible(coid, key, actAs, readAs, observers)
+  //   case scenario.Error.CommitError(
+  //         ScenarioLedger.CommitError.UniqueKeyViolation(ScenarioLedger.UniqueKeyViolation(gk))
+  //       ) =>
+  //     SubmitError.UniqueKeyViolation(gk)
+  //   case scenario.Error.PartiesNotAllocated(parties) => SubmitError.PartiesNotAllocated(parties)
+  //   // This covers MustFailSucceeded, InvalidPartyName, PartyAlreadyExists which should not be throwable by a command submission
+  //   case err => SubmitError.Internal("Unexpected error type: " + err.toString)
+  // }
 
   // unsafe version of submit that does not clear the commit.
   private def unsafeSubmit(
@@ -601,8 +601,8 @@ class IdeLedgerClient(
           }
         }
         Right(transaction.roots.toSeq.map(convRootEvent))
-      case Left(ScenarioRunner.SubmissionError(err, tx)) =>
+      case Left(ScenarioRunner.SubmissionError(_, tx)) =>
         _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
-        Left(fromScenarioError(err))
+        Left(SubmitError.TruncatedError("haha", "bad"))
     }
 }

@@ -129,7 +129,10 @@ object ScriptF {
             ) =>
           Future.successful(
             SELet1(
-              SEImportValue(typ, value),
+              SEImportValue(
+                typ,
+                value,
+              ), // Consider using env.translateValue to reduce what we're building here
               SELet1(
                 SEAppAtomic(SEBuiltin(SBToAny(typ)), Array(SELocS(1))),
                 SEAppAtomic(left, Array(SELocS(1))),
@@ -179,7 +182,7 @@ object ScriptF {
                 left,
                 Array(
                   SEValue(
-                    Converter.fromSubmitError(env.scriptIds, submitError)
+                    submitError.toDamlSubmitError(env)
                   )
                 ),
               )

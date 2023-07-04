@@ -90,6 +90,7 @@ private[daml] object StablePackage {
             v1_7,
           ) {
         val AnyChoice: Ref.TypeConName = assertIdentifier("AnyChoice")
+        val AnyContractKey: Ref.TypeConName = assertIdentifier("AnyContractKey")
         val AnyTemplate: Ref.TypeConName = assertIdentifier("AnyTemplate")
         val TemplateTypeRep: Ref.TypeConName = assertIdentifier("TemplateTypeRep")
       }

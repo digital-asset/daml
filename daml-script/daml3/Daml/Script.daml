@@ -10,9 +10,7 @@ module Daml.Script
   , submitTreeMulti
   , trySubmit
   , SubmitError (..)
-  , RunnerException (..)
-  , FailedAuthorization (..)
-  , Limit (..)
+  , DevErrorType (..)
 
   , query
   , queryInterface

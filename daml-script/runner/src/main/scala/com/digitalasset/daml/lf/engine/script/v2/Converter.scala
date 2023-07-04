@@ -11,12 +11,9 @@ import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.daml.lf.engine.script.v2.ledgerinteraction.SubmitError
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.StablePackage.DA
-import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.speedy.{ArrayList, SValue}
-import com.daml.lf.speedy.SError
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
@@ -27,52 +24,6 @@ import scalaz.syntax.traverse._
 
 object Converter extends script.ConverterMethods {
   import com.daml.script.converter.Converter._
-
-  final class SubmitErrorConverters(scriptIds: ScriptIds) {
-    def damlScriptError(s: String) =
-      scriptIds.damlScriptModule("Daml.Script.Questions.Submit.Error", s)
-    object SubmitError {
-      val SubmitError = damlScriptError("SubmitError")
-      def RunnerException(re: SValue): SVariant =
-        SVariant(
-          SubmitError,
-          Name.assertFromString("SERunnerException"),
-          0,
-          record(
-            damlScriptError("SubmitError.SERunnerException"),
-            ("unSERunnerException", re),
-          ),
-        )
-    }
-
-    object RunnerException {
-      val RunnerException = damlScriptError("RunnerException")
-      def FailedAuthorization(fa: SValue): SVariant =
-        SVariant(
-          RunnerException,
-          Name.assertFromString("REFailedAuthorization"),
-          17,
-          record(
-            damlScriptError("RunnerException.REFailedAuthorization"),
-            ("unREFailedAuthorization", fa),
-          ),
-        )
-    }
-
-    object FailedAuthorization {
-      val FailedAuthorization = damlScriptError("FailedAuthorization")
-      def CreateMissingAuthorization(fields: (String, SValue)*): SVariant =
-        SVariant(
-          FailedAuthorization,
-          Name.assertFromString("FACreateMissingAuthorization"),
-          0,
-          record(
-            damlScriptError("FailedAuthorization.FACreateMissingAuthorization"),
-            fields: _*
-          ),
-        )
-    }
-  }
 
   def translateExerciseResult(
       lookupChoice: (
@@ -114,7 +65,7 @@ object Converter extends script.ConverterMethods {
           0,
           record(
             damlTree("Created"),
-            ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId.coid)),
+            ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId)),
             ("argument", anyTemplate),
           ),
         )
@@ -135,7 +86,7 @@ object Converter extends script.ConverterMethods {
           1,
           record(
             damlTree("Exercised"),
-            ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId.coid)),
+            ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId)),
             ("choice", SText(choiceName)),
             ("argument", anyChoice),
             ("childEvents", SList(evs.to(FrontStack))),
@@ -180,40 +131,6 @@ object Converter extends script.ConverterMethods {
           1,
           translated,
         )
-    }
-  }
-
-  // TODO: Perhaps move to SubmitError.scala, fill in rest of errors. Perhaps each SubmitError can have a `toDaml` method
-  def fromSubmitError(
-      scriptIds: ScriptIds,
-      err: SubmitError,
-  ): SValue = {
-    val submitErrorConverter = new SubmitErrorConverters(scriptIds)
-    err match {
-      case SubmitError.RunnerException(SError.SErrorDamlException(err)) =>
-        submitErrorConverter.SubmitError.RunnerException(err match {
-          case interpretation.Error.FailedAuthorization(_, failedAuth) =>
-            submitErrorConverter.RunnerException.FailedAuthorization(failedAuth match {
-              case FailedAuthorization.CreateMissingAuthorization(
-                    templateId,
-                    optLocation @ _,
-                    authorizingParties,
-                    requiredParties,
-                  ) =>
-                submitErrorConverter.FailedAuthorization.CreateMissingAuthorization(
-                  (
-                    "templateId",
-                    SText(templateId.toString),
-                  ), // TODO[SW]: Check if toString is reasonable here
-                  ("optLocation", SOptional(None)), // TODO[SW]: optLocation, translate to a SrcLoc
-                  ("authorizingParties", SList(FrontStack.from(authorizingParties.map(SParty(_))))),
-                  ("requiredParties", SList(FrontStack.from(requiredParties.map(SParty(_))))),
-                )
-              case _ => throw new IllegalArgumentException("unknown failed auth")
-            })
-          case _ => throw new IllegalArgumentException("unknown serror")
-        })
-      case _ => throw new IllegalArgumentException("unknown error")
     }
   }
 
