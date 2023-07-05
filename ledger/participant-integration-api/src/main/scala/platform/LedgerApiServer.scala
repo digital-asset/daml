@@ -103,7 +103,8 @@ class LedgerApiServer(
           ),
           dbDispatcher = readDbSupport.dbDispatcher,
           metrics = metrics,
-          maxQueueSize = 100000, // TODO move to config params, add feature flag
+          // not making these configuration is only needed in canton. here we populating with sensible defaults
+          maxQueueSize = 100000,
           maxBatchSize = 50,
           parallelism = 10,
         )(materializer, servicesExecutionContext)

@@ -47,10 +47,13 @@ class AkkaStreamParallelBatchedLoader[KEY, VALUE](
       )
     )
     .mapAsyncUnordered(parallelism) { batch =>
-      Future.delegate(
-        batchLoad(
-          batch.view.map { case (key, loggingContext, _) => key -> loggingContext }.toSeq
-        ).transform {
+      Future
+        .delegate(
+          batchLoad(
+            batch.view.map { case (key, loggingContext, _) => key -> loggingContext }.toSeq
+          )
+        )
+        .transform {
           case Success(resultMap) =>
             batch.view.foreach { case (key, _, promise) =>
               promise.success(resultMap.get(key))
@@ -74,7 +77,6 @@ class AkkaStreamParallelBatchedLoader[KEY, VALUE](
             }
             Success(())
         }
-      )
     }
     .toMat(Sink.ignore)(Keep.both)
     .run()
