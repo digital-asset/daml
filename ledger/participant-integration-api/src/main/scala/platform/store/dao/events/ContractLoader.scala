@@ -16,6 +16,7 @@ import com.daml.metrics.{InstrumentedGraph, Metrics}
 import com.daml.platform.indexer.parallel.BatchN
 import com.daml.platform.store.backend.ContractStorageBackend
 import com.daml.platform.store.dao.DbDispatcher
+import io.grpc.{Metadata, StatusRuntimeException}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
@@ -38,7 +39,7 @@ class AkkaStreamParallelBatchedLoader[KEY, VALUE](
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     DamlContextualizedErrorLogger.forClass(this.getClass)
 
-  private val (queue, done) = createQueue() // TODO maybe set up autorestart?
+  private val (queue, done) = createQueue()
     .via(
       BatchN(
         maxBatchSize = maxBatchSize,
@@ -46,27 +47,34 @@ class AkkaStreamParallelBatchedLoader[KEY, VALUE](
       )
     )
     .mapAsyncUnordered(parallelism) { batch =>
-      batchLoad(
-        batch.view.map { case (key, loggingContext, _) => key -> loggingContext }.toSeq
-      ).transform {
-        case Success(resultMap) =>
-          batch.view.foreach { case (key, _, promise) =>
-            promise.success(resultMap.get(key))
-            ()
-          }
-          Success(())
+      Future.delegate(
+        batchLoad(
+          batch.view.map { case (key, loggingContext, _) => key -> loggingContext }.toSeq
+        ).transform {
+          case Success(resultMap) =>
+            batch.view.foreach { case (key, _, promise) =>
+              promise.success(resultMap.get(key))
+              ()
+            }
+            Success(())
 
-        case Failure(t) =>
-          batch.view.foreach { case (_, _, promise) =>
-            promise.failure(
-              LedgerApiErrors.InternalError
-                .Generic("Contract lookup failed", Some(t))
-                .asGrpcError
-            )
-            ()
-          }
-          Success(())
-      }
+          case Failure(t) =>
+            batch.view.foreach { case (_, _, promise) =>
+              promise.failure(
+                t match {
+                  case s: StatusRuntimeException =>
+                    // creates a new array under the hood, which prevents un-synchronized concurrent changes in the gRPC serving layer
+                    val newMetadata = new Metadata()
+                    newMetadata.merge(s.getTrailers)
+                    new StatusRuntimeException(s.getStatus, newMetadata)
+                  case other => other
+                }
+              )
+              ()
+            }
+            Success(())
+        }
+      )
     }
     .toMat(Sink.ignore)(Keep.both)
     .run()
