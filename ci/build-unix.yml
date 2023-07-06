@@ -35,10 +35,11 @@ steps:
   - bash: |
       set -euo pipefail
       p="_${{parameters.name}}"
+      a="_$(System.JobAttempt)"
       if [ "$p" == "_m1" ]; then
-          ./build.sh $p || ./build.sh $p || ./build.sh $p || ./build.sh $p
+          ./build.sh $p $a || ./build.sh $p $a || ./build.sh $p $a || ./build.sh $p $a
       else
-          ./build.sh $p
+          ./build.sh $p $a
       fi
     displayName: 'Build'
     env:
