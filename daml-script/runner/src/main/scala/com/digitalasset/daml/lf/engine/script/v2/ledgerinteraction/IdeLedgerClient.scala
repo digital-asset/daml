@@ -246,27 +246,80 @@ class IdeLedgerClient(
       }
   }
 
-  // // Projects the scenario submission error down to the script submission error
-  // private def fromScenarioError(err: scenario.Error): SubmitError = err match {
-  //   case scenario.Error.RunnerException(err) => SubmitError.RunnerException(err)
-  //   case scenario.Error.Internal(reason) => SubmitError.Internal(reason)
-  //   case scenario.Error.Timeout(timeout) => SubmitError.Timeout(timeout)
-  //   case scenario.Error.ContractNotEffective(coid, templateId, effectiveAt) =>
-  //     SubmitError.ContractNotEffective(coid, templateId, effectiveAt)
-  //   case scenario.Error.ContractNotActive(coid, templateId, consumedBy) =>
-  //     SubmitError.ContractNotActive(coid, templateId, consumedBy)
-  //   case scenario.Error.ContractNotVisible(coid, templateId, actAs, readAs, observers) =>
-  //     SubmitError.ContractNotVisible(coid, templateId, actAs, readAs, observers)
-  //   case scenario.Error.ContractKeyNotVisible(coid, key, actAs, readAs, observers) =>
-  //     SubmitError.ContractKeyNotVisible(coid, key, actAs, readAs, observers)
-  //   case scenario.Error.CommitError(
-  //         ScenarioLedger.CommitError.UniqueKeyViolation(ScenarioLedger.UniqueKeyViolation(gk))
-  //       ) =>
-  //     SubmitError.UniqueKeyViolation(gk)
-  //   case scenario.Error.PartiesNotAllocated(parties) => SubmitError.PartiesNotAllocated(parties)
-  //   // This covers MustFailSucceeded, InvalidPartyName, PartyAlreadyExists which should not be throwable by a command submission
-  //   case err => SubmitError.Internal("Unexpected error type: " + err.toString)
-  // }
+  private def getTypeIdentifier(t: Ast.Type): Option[Identifier] =
+    t match {
+      case Ast.TTyCon(ty) => Some(ty)
+      case _ => None
+    }
+
+  private def fromInterpretationError(err: interpretation.Error): SubmitError = {
+    import interpretation.Error._
+    err match {
+      case e: RejectedAuthorityRequest => SubmitError.UnknownError(e.toString)
+      case ContractNotFound(cid) => SubmitError.ContractNotFound(cid)
+      case ContractKeyNotFound(key) => SubmitError.ContractKeyNotFound(key)
+      case e: FailedAuthorization => SubmitError.AuthorizationError(e.toString)
+      case ContractNotActive(cid, tid, _) => SubmitError.ContractNotActive(tid, cid)
+      case DisclosedContractKeyHashingError(cid, key, hash) =>
+        SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString)
+      case ContractKeyNotVisible(cid, key, actAs, readAs, stakeholders) =>
+        SubmitError.ContractKeyNotVisible(cid, key, actAs.toSeq, readAs.toSeq, stakeholders.toSeq)
+      case DuplicateContractKey(key) => SubmitError.DuplicateContractKey(key)
+      case InconsistentContractKey(key) => SubmitError.InconsistentContractKey(key)
+      // Only pass on the error if the type is a TTyCon
+      case UnhandledException(ty, v) =>
+        SubmitError.UnhandledException(getTypeIdentifier(ty).map(tyId => (tyId, v)))
+      case UserError(msg) => SubmitError.UserError(msg)
+      case _: TemplatePreconditionViolated => SubmitError.TemplatePreconditionViolated()
+      case CreateEmptyContractKeyMaintainers(tid, arg, _) =>
+        SubmitError.CreateEmptyContractKeyMaintainers(tid, arg)
+      case FetchEmptyContractKeyMaintainers(tid, keyValue) =>
+        SubmitError.FetchEmptyContractKeyMaintainers(GlobalKey.assertBuild(tid, keyValue))
+      case WronglyTypedContract(cid, exp, act) => SubmitError.WronglyTypedContract(cid, exp, act)
+      case ContractDoesNotImplementInterface(iid, cid, tid) =>
+        SubmitError.ContractDoesNotImplementInterface(cid, tid, iid)
+      case ContractDoesNotImplementRequiringInterface(requiringIid, requiredIid, cid, tid) =>
+        SubmitError.ContractDoesNotImplementRequiringInterface(cid, tid, requiredIid, requiringIid)
+      case NonComparableValues => SubmitError.NonComparableValues()
+      case ContractIdInContractKey(_) => SubmitError.ContractIdInContractKey()
+      case ContractIdComparability(cid) => SubmitError.ContractIdComparability(cid.toString)
+      case Dev(_, e) => SubmitError.DevError(e.getClass.getSimpleName, e.toString)
+    }
+  }
+
+  // Projects the scenario submission error down to the script submission error
+  private def fromScenarioError(err: scenario.Error): SubmitError = err match {
+    case scenario.Error.RunnerException(e: SError.SErrorCrash) =>
+      SubmitError.UnknownError(e.toString)
+    case scenario.Error.RunnerException(SError.SErrorDamlException(err)) =>
+      fromInterpretationError(err)
+
+    case scenario.Error.Internal(reason) => SubmitError.UnknownError(reason)
+    case scenario.Error.Timeout(timeout) => SubmitError.UnknownError("Timeout: " + timeout)
+
+    // We treat ineffective contracts (ie, ones that don't exist yet) as being not found
+    case scenario.Error.ContractNotEffective(coid, _, _) =>
+      SubmitError.ContractNotFound(coid)
+
+    case scenario.Error.ContractNotActive(coid, templateId, _) =>
+      SubmitError.ContractNotActive(templateId, coid)
+
+    // Similarly, we treat contracts that we can't see as not being found
+    case scenario.Error.ContractNotVisible(coid, _, _, _, _) =>
+      SubmitError.ContractNotFound(coid)
+
+    case scenario.Error.ContractKeyNotVisible(coid, key, actAs, readAs, observers) =>
+      SubmitError.ContractKeyNotVisible(coid, key, actAs.toSeq, readAs.toSeq, observers.toSeq)
+
+    case scenario.Error.CommitError(
+          ScenarioLedger.CommitError.UniqueKeyViolation(ScenarioLedger.UniqueKeyViolation(gk))
+        ) =>
+      SubmitError.DuplicateContractKey(gk)
+
+    // This covers MustFailSucceeded, InvalidPartyName, PartyAlreadyExists which should not be throwable by a command submission
+    // It also covers PartiesNotAllocated.
+    case err => SubmitError.UnknownError("Unexpected error type: " + err.toString)
+  }
 
   // unsafe version of submit that does not clear the commit.
   private def unsafeSubmit(
@@ -601,8 +654,8 @@ class IdeLedgerClient(
           }
         }
         Right(transaction.roots.toSeq.map(convRootEvent))
-      case Left(ScenarioRunner.SubmissionError(_, tx)) =>
+      case Left(ScenarioRunner.SubmissionError(err, tx)) =>
         _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
-        Left(SubmitError.TruncatedError("haha", "bad"))
+        Left(fromScenarioError(err))
     }
 }
