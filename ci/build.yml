@@ -178,6 +178,10 @@ jobs:
         is_release: variables.is_release
         is_split_release: $(is_split_release)
     - template: upload-bazel-metrics.yml
+    - bash: |
+        set -euo pipefail
+        cd '$(Build.StagingDirectory)/logs'
+        gzip -9 *
     - task: PublishBuildArtifacts@1
       condition: succeededOrFailed()
       inputs:

@@ -45,6 +45,13 @@ steps:
       platform: '${{parameters.name}}'
       is_release: '${{parameters.is_release}}'
 
+  - bash: |
+      set -euo pipefail
+      cd '$(Build.StagingDirectory)/logs'
+      gzip -9 *
+
+    displayName: compress logs
+
   - task: PublishBuildArtifacts@1
     condition: succeededOrFailed()
     continueOnError: true
