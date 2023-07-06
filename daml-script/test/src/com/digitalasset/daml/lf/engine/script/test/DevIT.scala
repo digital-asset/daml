@@ -190,7 +190,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
           )
       } yield r shouldBe SUnit
     }
-    "succeed when given a contract id of a predecessor type of Coin V2, Coin V1" in {
+    "NICK succeed when given a contract id of a predecessor type of Coin V2, Coin V1" in {
       for {
         clients <- scriptClients()
         r <-

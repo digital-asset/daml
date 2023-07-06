@@ -189,11 +189,18 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
   final protected def getSAnyContract(
       args: util.ArrayList[SValue],
       i: Int,
-  ): (TypeConName, SRecord) =
-    args.get(i) match {
-      case SAnyContract(tyCon, value) => (tyCon, value)
-      case otherwise => unexpectedType(i, "AnyContract", otherwise)
+  ): (TypeConName, SRecord) = {
+    val v = args.get(i)
+    // println(s"**getSAnyContract: v=$v") // NICK
+    v match {
+      case SAnyContract(tyCon, value) =>
+        // println(s"**HAPPY") // NICK
+        (tyCon, value)
+      case otherwise =>
+        // println(s"**SAD")
+        unexpectedType(i, "AnyContract", otherwise)
     }
+  }
 
   final protected def checkToken(args: util.ArrayList[SValue], i: Int): Unit =
     args.get(i) match {
@@ -1092,6 +1099,7 @@ private[lf] object SBuiltin {
     ): Control[Nothing] = {
       val (actualTemplateId, record) = getSAnyContract(args, 1)
       if (actualTemplateId == templateId) {
+        // println("SBCastAnyContract: No upgrade or downgrade required") // NICK
         // No upgrade or downgrade required
         Control.Value(record)
       } else {
@@ -1102,6 +1110,12 @@ private[lf] object SBuiltin {
           Control.Error(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
         } else {
           assert(allowUpgradesAndDowngrades)
+
+          println("SBCastAnyContract: up/down-grade required") // NICK
+
+          def xxx: Int = ??? // NICK - prove this path is not used
+          val _ = xxx
+
           // TODO: https://github.com/digital-asset/daml/issues/17082
           // This code which implements the compatibility relation (i.e drop/make-None) must
           // move to be within importValue/translateValue
@@ -1129,6 +1143,9 @@ private[lf] object SBuiltin {
               values = patchedValues,
             )
           }
+          // println(s"**SBCastAnyContract: record=$record") // NICK
+          // println(s"**SBCastAnyContract: patched=$patched")
+
           Control.Value(patched)
         }
       }
@@ -1176,7 +1193,8 @@ private[lf] object SBuiltin {
     *    -> Optional {key: key, maintainers: List Party} (template key, if present)
     *    -> a
     */
-  final case object SBFetchAny extends UpdateBuiltin(2) {
+  final case class SBFetchAny(optTargetTemplateId: Option[TypeConName] = None)
+      extends UpdateBuiltin(2) { // NICK: default value
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
@@ -1211,7 +1229,7 @@ private[lf] object SBuiltin {
                       // of actualTmplId if not known.
                       SEVal(ToCachedContractDefRef(actualTmplId)),
                       SELet1(
-                        SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                        SEImportValue(Ast.TTyCon(actualTmplId), arg, optTargetTemplateId),
                         SEAppAtomic(SELocS(2), Array(SELocS(1), SEValue(args.get(1)))),
                       ),
                     )
@@ -1246,7 +1264,7 @@ private[lf] object SBuiltin {
       val (templateId, record) = getSAnyContract(args, 1)
       val coid = getSContractId(args, 2)
 
-      val e = SEAppAtomic(SEValue(guard), Array(SEValue(SAnyContract(templateId, record))))
+      val e = SEAppAtomic(SEValue(guard), Array(SEValue(SAnyContract.x_apply(templateId, record))))
       machine.pushKont(KCheckChoiceGuard(coid, templateId, choiceName, byInterface))
       Control.Expression(e)
     }
@@ -1364,7 +1382,7 @@ private[lf] object SBuiltin {
       tplId: TypeConName
   ) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
-      SAnyContract(tplId, getSRecord(args, 0))
+      SAnyContract.x_apply(tplId, getSRecord(args, 0))
     }
   }
 
@@ -1417,7 +1435,7 @@ private[lf] object SBuiltin {
       val (actualTemplateId, record) = getSAnyContract(args, 0)
       val v =
         if (interfaceInstanceExists(machine, requiringIfaceId, actualTemplateId))
-          SOptional(Some(SAnyContract(actualTemplateId, record)))
+          SOptional(Some(SAnyContract.x_apply(actualTemplateId, record)))
         else
           SOptional(None)
       Control.Value(v)
@@ -1448,7 +1466,7 @@ private[lf] object SBuiltin {
           )
         )
       } else {
-        Control.Value(SAnyContract(actualTmplId, record))
+        Control.Value(SAnyContract.x_apply(actualTmplId, record))
       }
     }
   }
@@ -1651,7 +1669,7 @@ private[lf] object SBuiltin {
                   } else {
                     // SBFetchAny will populate machine.cachedContracts with the contract pointed by coid
                     val e = SEAppAtomic(
-                      SEBuiltin(SBFetchAny),
+                      SEBuiltin(SBFetchAny(None)), // NICK: do we have a Some here?
                       Array(SEValue(SContractId(coid)), SEValue(SOptional(Some(svalue)))),
                     )
                     (Control.Expression(e), true)

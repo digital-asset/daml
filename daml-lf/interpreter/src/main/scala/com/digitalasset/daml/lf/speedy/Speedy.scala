@@ -131,7 +131,10 @@ private[lf] object Speedy {
       keyOpt: Option[CachedKey],
   ) {
     val stakeholders: Set[Party] = signatories union observers
-    private[speedy] val any = SValue.SAny(TTyCon(templateId), value)
+    // private[speedy] val any = SValue.SAny(TTyCon(templateId), value) // NICK : AHA, is this my culprit?
+
+    private[speedy] val any =
+      SValue.SAnyContract.x_apply(templateId, value) // NICK : go via the apply!
     private[speedy] def arg = value.toNormalizedValue(version)
     private[speedy] def gkeyOpt: Option[GlobalKey] = keyOpt.map(_.globalKey)
     private[speedy] def toCreateNode(coid: V.ContractId) =
@@ -1014,7 +1017,11 @@ private[lf] object Speedy {
     // com.daml.lf.engine.preprocessing.ValueTranslator.translateValue.
     // All the contract IDs contained in the value are considered global.
     // Raises an exception if missing a package.
-    private[speedy] final def importValue(typ0: Type, value0: V): Control.Value = {
+    private[speedy] final def importValue(
+        typ0: Type,
+        value0: V,
+        optTargetTemplateId: Option[TypeConName],
+    ): Control.Value = {
 
       def assertRight[X](x: Either[LookupError, X]): X =
         x match {
@@ -1128,7 +1135,41 @@ private[lf] object Speedy {
         }
       }
 
-      Control.Value(go(typ0, value0))
+      // NICK: where does typ0 come from?
+      // do I just use optTargetTemplateId instead, if I have it?
+      // In the end we want to make the source-type optional...
+      // give the source type-con, we might nit have the package ID and so cant get the source type
+
+      // Ok. first step.
+      // assert that (if) we are passed an optTargetTemplateId - it matches the soucrce
+      // and check all ENgineTest example are good.
+      // but we want to see fails insoft tests
+
+      optTargetTemplateId match {
+        case None => // interfaces // NICK: OR upgrades disabled?
+          // println(s"**importValue (NO targetTemplateId)") // NICK
+          Control.Value(go(typ0, value0))
+        case Some(targetTemplateId) =>
+          val targetType: Type = TTyCon(targetTemplateId)
+          val diff = (typ0 != targetType)
+          val diffMessage = if (diff) "(**DIFF**)" else ""
+          if (!diff) {
+            Control.Value(go(typ0, value0)) // no up/down-grade required
+          } else {
+            println(
+              s"**importValue${diffMessage}:\n- (src) typ0=${typ0}\n- targetType=${targetType}"
+            )
+            // val s = Control.Value(go(typ0, value0)) // NICK: use source
+            val t = Control.Value(go(targetType, value0)) // NICK: use target
+            // val _ = (s,t)
+            // println(s"**importValue->SV:\n- s=$s\n- t=$t") // NICK
+
+            // def xxx: Int = ???
+            // val _ = xxx
+            t
+
+          }
+      }
     }
 
   }

@@ -320,9 +320,14 @@ private[lf] object SExpr {
     * Assumes the packages needed to import value of type `typ` is already
     * loaded in `machine`.
     */
-  final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr {
+  final case class SEImportValue(
+      typ: Ast.Type,
+      value: V,
+      optTargetTemplateId: Option[TypeConName] = None,
+  ) // NICK: default yuck
+      extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control.Value = {
-      machine.importValue(typ, value)
+      machine.importValue(typ, value, optTargetTemplateId)
     }
   }
 

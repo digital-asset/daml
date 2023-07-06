@@ -112,6 +112,7 @@ private[lf] object Compiler {
   }
 
   sealed abstract class Casting {
+    def isHard: Boolean // NICK: feature flag ish
     def cast: SBuiltin
   }
   object Casting {
@@ -119,6 +120,7 @@ private[lf] object Compiler {
         tmplId: TypeConName,
         fields: ImmArray[(FieldName, Type)],
     ) extends Casting {
+      def isHard: Boolean = true
       def cast: SBuiltin = {
         SBCastAnyContract(tmplId, fields, allowUpgradesAndDowngrades = false)
       }
@@ -131,6 +133,7 @@ private[lf] object Compiler {
         // - might be useful in following milestones
         predPids: List[PackageId],
     ) extends Casting {
+      def isHard: Boolean = false
       def cast: SBuiltin = {
         SBCastAnyContract(tmplId, fields, allowUpgradesAndDowngrades = true)
       }
@@ -534,6 +537,9 @@ private[lf] final class Compiler(
       casting.cast(
         env.toSEVar(cidPos),
         SBFetchAny(
+          optTargetTemplateId =
+            if (casting.isHard) None else Some(tmplId) // NICK: case(1) we are exploring
+        )(
           env.toSEVar(cidPos),
           mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
         ),
@@ -589,7 +595,12 @@ private[lf] final class Compiler(
       env,
       SBCastAnyInterface(ifaceId)(
         env.toSEVar(cidPos),
-        SBFetchAny(env.toSEVar(cidPos), s.SEValue.None),
+        SBFetchAny(
+          optTargetTemplateId = None // NICK: interface case; dont think we have a Some here!
+        )(
+          env.toSEVar(cidPos),
+          s.SEValue.None,
+        ),
       ),
     ) { (payloadPos, env) =>
       let(
@@ -778,6 +789,9 @@ private[lf] final class Compiler(
       casting.cast(
         env.toSEVar(cidPos),
         SBFetchAny(
+          optTargetTemplateId =
+            if (casting.isHard) None else Some(tmplId) // NICK: case(2) we are exploring
+        )(
           env.toSEVar(cidPos),
           mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
         ),
@@ -830,7 +844,12 @@ private[lf] final class Compiler(
         env,
         SBCastAnyInterface(ifaceId)(
           env.toSEVar(cidPos),
-          SBFetchAny(env.toSEVar(cidPos), s.SEValue.None),
+          SBFetchAny(
+            optTargetTemplateId = None // NICK: None for interface
+          )(
+            env.toSEVar(cidPos),
+            s.SEValue.None,
+          ),
         ),
       ) { (payloadPos, env) =>
         let(

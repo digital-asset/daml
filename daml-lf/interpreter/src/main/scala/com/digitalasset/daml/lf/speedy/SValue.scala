@@ -349,13 +349,26 @@ object SValue {
   }
 
   object SAnyContract {
-    def apply(tyCon: Ref.TypeConName, record: SRecord): SAny = SAny(TTyCon(tyCon), record)
+    def x_apply(tyCon: Ref.TypeConName, record: SValue): SAny = { // NICK eas SRecord
+      // println(s"**SAnyContract, apply:\n- have: ${record}\n- wrap: ${tyCon}")
+      SAny(TTyCon(tyCon), record)
+    }
 
-    def unapply(any: SAny): Option[(TypeConName, SRecord)] =
+    def unapply(any: SAny): Option[(TypeConName, SRecord)] = // NICK: agghh!
       any match {
         case SAny(TTyCon(tyCon0), record: SRecord) if record.id == tyCon0 =>
+          // println(s"**SAnyContract, unapply -- match -- HAPPY")
           Some((tyCon0, record))
+
+        case SAny(TTyCon(tyCon0), record: SRecord) =>
+          // println(s"**SAnyContract, unapply -- match -- SAD(ignore!)\n- have: ${record.id}\n- want: ${tyCon0}") // NICK
+          // Some((tyCon0, record)) // NICK -- just ignore the wraping
+          val _ = tyCon0
+          Some((record.id, record)) // NICK  - and return what we have
+        // None
+
         case _ =>
+          // println(s"**SAnyContract, unapply -- final case -- SAD")
           None
       }
   }

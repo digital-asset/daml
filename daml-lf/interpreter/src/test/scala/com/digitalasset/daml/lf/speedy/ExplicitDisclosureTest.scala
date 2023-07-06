@@ -36,7 +36,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
 
       "ledger queried when contract ID is not disclosed" in {
         ledgerQueriedWhenContractNotDisclosed(
-          SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
+          SBFetchAny()(SEValue(SContractId(contractId)), SEValue.None),
           getContract = Map(contractId -> ledgerCaveContract),
         )(result =>
           inside(result) {
@@ -49,7 +49,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
       "disclosure table queried when contract ID is disclosed" - {
         "contract ID in disclosure table only" in {
           disclosureTableQueriedWhenContractDisclosed(
-            SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
+            SBFetchAny()(SEValue(SContractId(contractId)), SEValue.None),
             disclosedCaveContract,
             disclosures = List(disclosedCaveContract),
           )(result =>
@@ -62,7 +62,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
 
         "contract ID in ledger and disclosure table" in {
           disclosureTableQueriedWhenContractDisclosed(
-            SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
+            SBFetchAny()(SEValue(SContractId(contractId)), SEValue.None),
             disclosedCaveContract,
             getContract = Map(contractId -> ledgerCaveContract),
             disclosures = List(disclosedCaveContract),
@@ -78,7 +78,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
       "contract IDs that are inactive" - {
         "ledger query fails when contract ID is not disclosed" in {
           ledgerQueryFailsWhenContractNotDisclosed(
-            SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
+            SBFetchAny()(SEValue(SContractId(contractId)), SEValue.None),
             contractId,
             "TestMod:destroyCave",
             committers = Set(ledgerParty),
@@ -96,7 +96,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         "disclosure table query fails when contract ID is disclosed" - {
           "contract ID in disclosure table only" in {
             disclosureTableQueryFailsWhenContractDisclosed(
-              SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
+              SBFetchAny()(SEValue(SContractId(contractId)), SEValue.None),
               disclosedCaveContract,
               contractId,
               "TestMod:destroyCave",
@@ -116,7 +116,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
 
           "contract ID in ledger and disclosure table" in {
             disclosureTableQueryFailsWhenContractDisclosed(
-              SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
+              SBFetchAny()(SEValue(SContractId(contractId)), SEValue.None),
               disclosedCaveContract,
               contractId,
               "TestMod:destroyCave",
