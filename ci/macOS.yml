@@ -11,7 +11,7 @@ jobs:
   dependsOn:
     - check_for_release
     - build_canton
-  timeoutInMinutes: 180
+  timeoutInMinutes: 360
   pool:
     name: macOS-pool
     demands: assignment -equals ${{parameters.assignment}}
@@ -28,9 +28,7 @@ jobs:
       value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     - template: job-variables.yml
   steps:
-    # Do not record start/end times for m1
-    - ${{ if eq(parameters.name, 'macos') }}:
-      - template: report-start.yml
+    - template: report-start.yml
     - template: clear-shared-segments-macos.yml
     - checkout: self
     - bash: |
@@ -40,19 +38,13 @@ jobs:
       condition: and(succeeded(), eq(variables.is_release, 'true'))
     - template: get-local-canton.yml
     - template: clean-up.yml
-    # Do not build m1 on releases
-    - ${{ if or(eq(parameters.name, 'macos'), eq(variables.is_release, 'false')) }}:
-      - template: build-unix.yml
-        parameters:
-          release_tag: $(release_tag)
-          name: ${{parameters.name}}
-          is_release: variables.is_release
-    # Do not upload metrics for m1
-    - ${{ if eq(parameters.name, 'macos') }}:
-      - template: upload-bazel-metrics.yml
+    - template: build-unix.yml
+      parameters:
+        release_tag: $(release_tag)
+        name: ${{parameters.name}}
+        is_release: variables.is_release
+    - template: upload-bazel-metrics.yml
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
-    # Do not record start/end times for m1
-    - ${{ if eq(parameters.name, 'macos') }}:
-      - template: report-end.yml
+    - template: report-end.yml
