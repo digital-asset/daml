@@ -29,6 +29,7 @@ import com.daml.platform.indexer.IndexerServiceOwner
 import com.daml.platform.localstore._
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.daml.platform.store.dao.events.ContractLoader
 import com.daml.tracing.Telemetry
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
@@ -95,6 +96,19 @@ class LedgerApiServer(
             ),
           )
 
+        contractLoader <- ContractLoader.create(
+          contractStorageBackend = readDbSupport.storageBackendFactory.createContractStorageBackend(
+            inMemoryState.ledgerEndCache,
+            inMemoryState.stringInterningView,
+          ),
+          dbDispatcher = readDbSupport.dbDispatcher,
+          metrics = metrics,
+          // not making these configuration is only needed in canton. here we populating with sensible defaults
+          maxQueueSize = 100000,
+          maxBatchSize = 50,
+          parallelism = 10,
+        )(materializer, servicesExecutionContext)
+
         // TODO: Add test asserting that the indexService retries until IndexDB persistence comes up
         indexService <- new IndexServiceOwner(
           config = participantConfig.indexService,
@@ -105,6 +119,7 @@ class LedgerApiServer(
           servicesExecutionContext = servicesExecutionContext,
           participantId = participantId,
           inMemoryState = inMemoryState,
+          contractLoader = Some(contractLoader),
         )(loggingContext)
 
         writeService <- buildWriteService(indexService)

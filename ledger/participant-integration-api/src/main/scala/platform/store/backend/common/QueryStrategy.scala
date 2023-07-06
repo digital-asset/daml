@@ -74,6 +74,13 @@ trait QueryStrategy {
     cSQL"= ANY($longArray)"
   }
 
+  /** ANY SQL clause generation for a number of String values
+    */
+  def anyOfString(longs: Iterable[String]): CompositeSql = {
+    val stringArray: Array[String] = longs.toArray
+    cSQL"= ANY($stringArray)"
+  }
+
   /** Expression for `(offset <= endInclusive)`
     *
     *  The offset column must only contain valid offsets (no NULL, no Offset.beforeBegin)

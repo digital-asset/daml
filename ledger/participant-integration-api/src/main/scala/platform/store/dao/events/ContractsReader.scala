@@ -24,6 +24,7 @@ private[dao] sealed class ContractsReader(
     storageBackend: ContractStorageBackend,
     dispatcher: DbDispatcher,
     metrics: Metrics,
+    contractLoader: Option[ContractLoader],
 )(implicit ec: ExecutionContext)
     extends LedgerDaoContractsReader {
   private val logger = ContextualizedLogger.get(getClass)
@@ -47,44 +48,55 @@ private[dao] sealed class ContractsReader(
   override def lookupContractState(contractId: ContractId, before: Offset)(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractState]] = {
-    implicit val errorLogger: ContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
     Timed.future(
       metrics.daml.index.db.lookupActiveContract,
-      dispatcher
-        .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
-          storageBackend.contractState(contractId, before)
+      contractLoader
+        .map(_.load(contractId -> before))
+        .getOrElse(
+          dispatcher
+            .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
+              storageBackend.contractState(contractId, before)
+            )
         )
-        .map(_.map {
-          case raw if raw.eventKind == 10 =>
-            val contract = toContract(
-              contractId = contractId,
-              templateId =
-                assertPresent(raw.templateId)("template_id must be present for a create event"),
-              createArgument = assertPresent(raw.createArgument)(
-                "create_argument must be present for a create event"
-              ),
-              createArgumentCompression =
-                Compression.Algorithm.assertLookup(raw.createArgumentCompression),
-              decompressionTimer =
-                metrics.daml.index.db.lookupActiveContractDbMetrics.compressionTimer,
-              deserializationTimer =
-                metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
-            )
-            ActiveContract(
-              contract,
-              raw.flatEventWitnesses,
-              assertPresent(raw.ledgerEffectiveTime)(
-                "ledger_effective_time must be present for a create event"
-              ),
-            )
-          case raw if raw.eventKind == 20 => ArchivedContract(raw.flatEventWitnesses)
-          case raw =>
-            throw throw IndexErrors.DatabaseErrors.ResultSetError
-              .Reject(s"Unexpected event kind ${raw.eventKind}")
-              .asGrpcError
-        }),
+        .map(_.map(rawToContractState(contractId))),
     )
+  }
+
+  private def rawToContractState(
+      contractId: ContractId
+  )(raw: ContractStorageBackend.RawContractState)(implicit
+      loggingContext: LoggingContext
+  ): ContractState = {
+    implicit val errorLogger: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+    raw match {
+      case raw if raw.eventKind == 10 =>
+        val contract = toContract(
+          contractId = contractId,
+          templateId =
+            assertPresent(raw.templateId)("template_id must be present for a create event"),
+          createArgument = assertPresent(raw.createArgument)(
+            "create_argument must be present for a create event"
+          ),
+          createArgumentCompression =
+            Compression.Algorithm.assertLookup(raw.createArgumentCompression),
+          decompressionTimer = metrics.daml.index.db.lookupActiveContractDbMetrics.compressionTimer,
+          deserializationTimer =
+            metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
+        )
+        ActiveContract(
+          contract,
+          raw.flatEventWitnesses,
+          assertPresent(raw.ledgerEffectiveTime)(
+            "ledger_effective_time must be present for a create event"
+          ),
+        )
+      case raw if raw.eventKind == 20 => ArchivedContract(raw.flatEventWitnesses)
+      case raw =>
+        throw throw IndexErrors.DatabaseErrors.ResultSetError
+          .Reject(s"Unexpected event kind ${raw.eventKind}")
+          .asGrpcError
+    }
   }
 
   /** Lookup of a contract in the case the contract value is not already known */
@@ -146,11 +158,13 @@ private[dao] object ContractsReader {
       dispatcher: DbDispatcher,
       metrics: Metrics,
       storageBackend: ContractStorageBackend,
+      contractLoader: Option[ContractLoader],
   )(implicit ec: ExecutionContext): ContractsReader = {
     new ContractsReader(
       storageBackend = storageBackend,
       dispatcher = dispatcher,
       metrics = metrics,
+      contractLoader = contractLoader,
     )
   }
 

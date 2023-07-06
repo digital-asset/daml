@@ -4,7 +4,7 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{MetricsFactory, Histogram, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, Histogram, MetricsFactory, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class IndexDBMetrics(val prefix: MetricName, val factory: MetricsFactory)
@@ -111,6 +111,43 @@ class MainIndexDBMetrics(prefix: MetricName, factory: MetricsFactory)
   )
   val lookupActiveContract: Timer = factory.timer(prefix :+ "lookup_active_contract")
 
+  @MetricDoc.Tag(
+    summary = "The number of the currently pending active contract lookups.",
+    description =
+      "The number of the currently pending active contract lookups in the batch-loading queue of the Contract Service.",
+    qualification = Debug,
+  )
+  val activeContractLookupBufferLength: Counter =
+    factory.counter(prefix :+ "active_contract_lookup_buffer_length")
+
+  @MetricDoc.Tag(
+    summary = "The capacity of the active contract lookup queue.",
+    description =
+      """The maximum number of elements that can be kept in the queue of active contract lookups
+        |in the batch-loading queue of the Contract Service.""",
+    qualification = Debug,
+  )
+  val activeContractLookupBufferCapacity: Counter =
+    factory.counter(prefix :+ "active_contract_lookup_buffer_capacity")
+
+  @MetricDoc.Tag(
+    summary = "The queuing delay for the active contract lookup queue.",
+    description =
+      "The queuing delay for the pending active contract lookups in the batch-loading queue of the Contract Service.",
+    qualification = Debug,
+  )
+  val activeContractLookupBufferDelay: Timer =
+    factory.timer(prefix :+ "active_contract_lookup_buffer_delay")
+
+  @MetricDoc.Tag(
+    summary = "The batch sizes in the active contract lookup batch-loading Contract Service.",
+    description =
+      """The number of active contract lookups contained in a batch, used in the batch-loading Contract Service.""",
+    qualification = Debug,
+  )
+  val activeContractLookupBatchSize: Histogram =
+    factory.histogram(prefix :+ "active_contract_lookup_batch_size")
+
   private val overall = createDbMetrics("all")
   val waitAll: Timer = overall.waitTimer
   val execAll: Timer = overall.executionTimer
@@ -148,6 +185,7 @@ class MainIndexDBMetrics(prefix: MetricName, factory: MetricsFactory)
   val pruneDbMetrics: DatabaseMetrics = createDbMetrics("prune")
   val fetchPruningOffsetsMetrics: DatabaseMetrics = createDbMetrics("fetch_pruning_offsets")
   val lookupActiveContractDbMetrics: DatabaseMetrics = createDbMetrics("lookup_active_contract")
+  val lookupActiveContractsDbMetrics: DatabaseMetrics = createDbMetrics("lookup_active_contracts")
   val lookupContractByKeyDbMetrics: DatabaseMetrics = createDbMetrics(
     "lookup_contract_by_key"
   )
