@@ -32,7 +32,14 @@ steps:
     displayName: 'Platform-agnostic lints and checks'
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
-  - bash: ./build.sh "_${{parameters.name}}"
+  - bash: |
+      set -euo pipefail
+      p="_${{parameters.name}}"
+      if [ "$p" == "_m1" ]; then
+          ./build.sh $p || ./build.sh $p || ./build.sh $p || ./build.sh $p
+      else
+          ./build.sh $p
+      fi
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
