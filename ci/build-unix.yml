@@ -47,10 +47,12 @@ steps:
       ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
       ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
 
-  - template: publish-platform-independence-dar.yml
-    parameters:
-      platform: '${{parameters.name}}'
-      is_release: '${{parameters.is_release}}'
+  # Do not publish dar from m1
+  - ${{ if ne(parameters.name, 'm1') }}:
+    - template: publish-platform-independence-dar.yml
+      parameters:
+        platform: '${{parameters.name}}'
+        is_release: '${{parameters.is_release}}'
 
   - bash: |
       set -euo pipefail
@@ -102,6 +104,9 @@ steps:
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     name: publish
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'main'))
   - task: PublishPipelineArtifact@0
     inputs:
       targetPath: $(Build.StagingDirectory)/release
