@@ -535,7 +535,7 @@ final class ContractKeysIT extends LedgerTestSuite {
     } yield {
       List(failure1, failure2).foreach { failure =>
         val results = LazyList(
-          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError ->
+          LedgerApiErrors.CommandExecution.Interpreter.ContractKeyNotVisible ->
             "key of contract not visible",
           LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound ->
             "couldn't find key",

@@ -3,13 +3,12 @@
 
 package com.daml.error.definitions.groups
 
-import java.time.Instant
-
 import com.daml.error.definitions.{ChangeId, DamlErrorWithDefiniteAnswer, LedgerApiErrors}
 import com.daml.error.{
   ContextualizedErrorLogger,
   ErrorCategory,
   ErrorCode,
+  ErrorGroup,
   ErrorResource,
   Explanation,
   Resolution,
@@ -17,10 +16,12 @@ import com.daml.error.{
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 
+import java.time.Instant
+
 @Explanation(
   "Potential consistency errors raised due to race conditions during command submission or returned as submission rejections by the backing ledger."
 )
-object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
+object ConsistencyErrors extends ErrorGroup()(LedgerApiErrors.errorClass) {
 
   @Explanation("A command with the given command id has already been successfully processed.")
   @Resolution(
@@ -35,7 +36,7 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
       ) {
 
-    case class Reject(
+    final case class Reject(
         override val definiteAnswer: Boolean = false,
         existingCommandSubmissionId: Option[String],
         changeId: Option[ChangeId] = None,
@@ -65,7 +66,7 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
 
-    case class Reject(override val cause: String)(implicit
+    final case class Reject(override val cause: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(cause = cause)
 
@@ -83,7 +84,7 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
 
-    case class Reject(
+    final case class Reject(
         details: String
     )(implicit loggingContext: ContextualizedErrorLogger)
         extends DamlErrorWithDefiniteAnswer(
@@ -104,17 +105,17 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
 
-    case class MultipleContractsNotFound(notFoundContractIds: Set[String])(implicit
+    final case class MultipleContractsNotFound(notFoundContractIds: Set[String])(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"Unknown contracts: ${notFoundContractIds.mkString("[", ", ", "]")}"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
-        (ErrorResource.ContractId, notFoundContractIds.mkString("[", ", ", "]"))
+        (ErrorResource.ContractIds, notFoundContractIds.mkString("[", ", ", "]"))
       )
     }
 
-    case class Reject(
+    final case class Reject(
         override val cause: String,
         cid: Value.ContractId,
     )(implicit
@@ -139,7 +140,7 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
 
-    case class RejectWithContractKeyArg(
+    final case class RejectWithContractKeyArg(
         override val cause: String,
         key: GlobalKey,
     )(implicit
@@ -148,13 +149,14 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
           cause = cause
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
-        // TODO error codes: Reconsider the transport format for the contract key.
+        // TODO(i12763): Reconsider the transport format for the contract key.
         //                   If the key is big, it can force chunking other resources.
-        (ErrorResource.ContractKey, key.toString())
+        (ErrorResource.TemplateId, key.templateId.toString),
+        (ErrorResource.ContractKey, CommandExecution.encodeValue(key.key)),
       )
     }
 
-    case class Reject(reason: String)(implicit
+    final case class Reject(reason: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(cause = reason)
 
@@ -171,7 +173,7 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
 
-    case class Reject(cid: Value.ContractId)(implicit
+    final case class Reject(cid: Value.ContractId)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"Invalid disclosed contract: ${cid.coid}"
@@ -192,7 +194,7 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
       ) {
 
-    case class RejectWithContractKeyArg(
+    final case class RejectWithContractKeyArg(
         override val cause: String,
         key: GlobalKey,
     )(implicit
@@ -201,13 +203,14 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
           cause = cause
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
-        // TODO error codes: Reconsider the transport format for the contract key.
+        // TODO(i12763): Reconsider the transport format for the contract key.
         //                   If the key is big, it can force chunking other resources.
-        (ErrorResource.ContractKey, key.toString())
+        (ErrorResource.TemplateId, key.templateId.toString),
+        (ErrorResource.ContractKey, CommandExecution.encodeValue(key.key)),
       )
     }
 
-    case class Reject(override val cause: String)(implicit
+    final case class Reject(override val cause: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(cause = cause)
 
@@ -223,7 +226,7 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
         ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
       ) {
 
-    case class RejectEnriched(
+    final case class RejectEnriched(
         override val cause: String,
         ledgerTime: Instant,
         ledgerTimeLowerBound: Instant,
@@ -237,7 +240,7 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
       )
     }
 
-    case class RejectSimple(
+    final case class RejectSimple(
         override val cause: String
     )(implicit loggingContext: ContextualizedErrorLogger)
         extends DamlErrorWithDefiniteAnswer(cause = cause)

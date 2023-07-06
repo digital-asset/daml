@@ -130,7 +130,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
     } yield {
       assertGrpcError(
         failure,
-        LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
+        LedgerApiErrors.CommandExecution.Interpreter.UnhandledException,
         Some("Assertion failed"),
         checkDefiniteAnswerMetadata = true,
       )
