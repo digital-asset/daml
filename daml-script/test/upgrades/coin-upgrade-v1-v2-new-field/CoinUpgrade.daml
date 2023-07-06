@@ -58,7 +58,7 @@ create_v2_none_softFetch_v1 = do
     owner = alice
     obs = []
     ccy = None
-  _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1 with
+  _ <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1 with -- Downgrade/drop-None
     cid = coerceContractId cid
   pure ()
 
@@ -70,6 +70,6 @@ create_v2_some_softFetch_v1 = do
     owner = alice
     obs = []
     ccy = Some "CHF"
-  _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1 with
+  _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1 with -- refuse Downgrade/drop-Some
     cid = coerceContractId cid
   pure ()
