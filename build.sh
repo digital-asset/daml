@@ -6,7 +6,7 @@ set -euo pipefail
 
 eval "$("$(dirname "$0")/dev-env/bin/dade-assist")"
 
-execution_log_postfix=${1:-}
+execution_log_postfix=${1:-}${2:-}
 
 export LC_ALL=en_US.UTF-8
 
