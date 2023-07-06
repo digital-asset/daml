@@ -57,7 +57,9 @@ final class LedgerServices(val ledgerId: String) {
       ec = executionContext,
       userRightsCheckIntervalInSeconds = 1,
       akkaScheduler = akkaSystem.scheduler,
-    )(LoggingContext.ForTesting)
+    )(
+      LoggingContext.ForTesting
+    )
 
   def newServerBuilder(): NettyServerBuilder = NettyServerBuilder.forAddress(nextAddress())
 

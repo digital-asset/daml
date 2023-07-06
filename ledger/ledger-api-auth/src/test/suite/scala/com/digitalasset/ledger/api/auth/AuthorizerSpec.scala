@@ -77,5 +77,7 @@ class AuthorizerSpec
     mock[ExecutionContext],
     userRightsCheckIntervalInSeconds = 1,
     akkaScheduler = system.scheduler,
-  )(LoggingContext.ForTesting)
+  )(
+    LoggingContext.ForTesting
+  )
 }

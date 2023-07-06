@@ -46,7 +46,7 @@ private[validation] object Recursion {
           acc + valRef.qualifiedName.module
         case EAbs(binder @ _, body, ref) =>
           ref.iterator.toSet.filter(_.packageId == pkgId).map(_.qualifiedName.module) |
-            (ExprIterable(body) foldLeft acc)(modRefsInVal)
+            (ExprIterable(body) foldLeft acc) (modRefsInVal)
         case otherwise =>
           (ExprIterable(otherwise) foldLeft acc)(modRefsInVal)
       }

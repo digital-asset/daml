@@ -39,7 +39,9 @@ package object rxjava {
       ExecutionContext.parasitic,
       userRightsCheckIntervalInSeconds = 1,
       akkaScheduler = akkaSystem.scheduler,
-    )(LoggingContext.ForTesting)
+    )(
+      LoggingContext.ForTesting
+    )
 
   private[rxjava] val emptyToken = "empty"
   private[rxjava] val publicToken = "public"
