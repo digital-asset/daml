@@ -3,7 +3,7 @@
 
 
 module DA.Daml.Assistant.Env
-    ( Env (..)
+    ( EnvF (..)
     , DamlPath (..)
     , ProjectPath (..)
     , SdkPath (..)
@@ -15,6 +15,8 @@ module DA.Daml.Assistant.Env
     , getProjectPath
     , getSdk
     , getDispatchEnv
+    , envUseCache
+    , forceEnv
     ) where
 
 import DA.Daml.Assistant.Types
@@ -37,8 +39,16 @@ getDamlEnv envDamlPath lookForProjectPath = do
     envProjectPath <- getProjectPath lookForProjectPath
     (envSdkVersion, envSdkPath) <- getSdk envDamlPath envProjectPath
     envCachePath <- getCachePath
-    envLatestStableSdkVersion <- getLatestStableSdkVersion envDamlPath envCachePath
+    envLatestStableSdkVersion <- getLatestStableSdkVersion (mkUseCache envCachePath envDamlPath)
     pure Env {..}
+
+envUseCache :: Env -> UseCache
+envUseCache Env {..} =
+  mkUseCache envCachePath envDamlPath
+
+mkUseCache :: CachePath -> DamlPath -> UseCache
+mkUseCache cachePath damlPath =
+  UseCache { cachePath, damlPath, forceReload = False }
 
 -- | (internal) Override function with environment variable
 -- if it is available.
@@ -73,10 +83,17 @@ overrideWithEnvVarMaybe envVar normalize parse calculate = do
 
 -- | Get the latest stable SDK version. Can be overriden with
 -- DAML_SDK_LATEST_VERSION environment variable.
-getLatestStableSdkVersion :: DamlPath -> CachePath -> IO (Maybe SdkVersion)
-getLatestStableSdkVersion damlPath cachePath =
-    overrideWithEnvVarMaybe sdkVersionLatestEnvVar pure (parseVersion . pack) $
-        getLatestSdkVersionCached damlPath cachePath
+getLatestStableSdkVersion :: UseCache -> IO (IO (Maybe SdkVersion))
+getLatestStableSdkVersion useCache = do
+  val <- getEnv sdkVersionLatestEnvVar
+  case val of
+    Nothing -> pure (getLatestSdkVersion useCache)
+    Just "" -> pure (pure Nothing)
+    Just value -> do
+      parsed <- requiredE
+        ("Invalid value for environment variable " <> pack sdkVersionLatestEnvVar <> ".")
+        (parseVersion (pack value))
+      pure (pure (Just parsed))
 
 -- | Determine the viability of running sdk commands in the environment.
 -- Returns the first failing test's error message.
@@ -217,6 +234,7 @@ getSdk damlPath projectPathM =
 getDispatchEnv :: Env -> IO [(String, String)]
 getDispatchEnv Env{..} = do
     originalEnv <- getEnvironment
+    envLatestStableSdkVersion <- envLatestStableSdkVersion
     pure $ filter ((`notElem` damlEnvVars) . fst) originalEnv
         ++ [ (damlPathEnvVar, unwrapDamlPath envDamlPath)
            , (damlCacheEnvVar, unwrapCachePath envCachePath)

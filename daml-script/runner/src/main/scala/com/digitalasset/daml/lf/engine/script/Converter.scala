@@ -414,7 +414,7 @@ trait ConverterMethods {
     Right(
       record(
         scriptIds.damlScript("User"),
-        ("id", fromUserId(scriptIds, user.id)),
+        ("userId", fromUserId(scriptIds, user.id)),
         ("primaryParty", SOptional(user.primaryParty.map(SParty(_)))),
       )
     )
@@ -422,7 +422,7 @@ trait ConverterMethods {
   def fromUserId(scriptIds: ScriptIds, userId: UserId): SValue =
     record(
       scriptIds.damlScript("UserId"),
-      ("userName", SText(userId)),
+      ("unpack", SText(userId)),
     )
 
   def toUser(v: SValue): Either[String, User] =

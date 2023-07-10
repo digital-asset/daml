@@ -12,7 +12,11 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
 [
     da_scala_library(
         name = "{}".format(edition),
-        srcs = glob(["src/main/scala/**/*.scala"]),
+        srcs = glob(
+            ["src/main/scala/**/*.scala"],
+            exclude = ["src/main/scala/**/CE.scala"] if edition == "ee" else ["src/main/scala/**/EE.scala"],
+        ),
+        data = ["//canton:canton-ee_deploy.jar"] if edition == "ee" else [],
         plugins = [
             kind_projector_plugin,
         ],
@@ -28,7 +32,7 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             "@maven//:org_typelevel_cats_effect",
         ],
         scalacopts = hj_scalacopts,
-        tags = ["maven_coordinates=com.daml:http-json-testing:__VERSION__"],
+        tags = ["maven_coordinates=com.daml:http-json-testing:__VERSION__"] + (["canton-ee"] if edition == "ee" else []),
         visibility = ["//visibility:public"],
         runtime_deps = [
             "@maven//:ch_qos_logback_logback_classic",

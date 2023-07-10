@@ -12,7 +12,15 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.FrontStack
 import com.daml.lf.{CompiledPackages, command}
-import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, UserId}
+import com.daml.lf.data.Ref.{
+  Identifier,
+  Name,
+  PackageId,
+  PackageName,
+  PackageVersion,
+  Party,
+  UserId,
+}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
@@ -129,10 +137,8 @@ object ScriptF {
             ) =>
           Future.successful(
             SELet1(
-              SEImportValue(
-                typ,
-                value,
-              ), // Consider using env.translateValue to reduce what we're building here
+              // Consider using env.translateValue to reduce what we're building here
+              SEImportValue(typ, value),
               SELet1(
                 SEAppAtomic(SEBuiltin(SBToAny(typ)), Array(SELocS(1))),
                 SEAppAtomic(left, Array(SELocS(1))),
@@ -682,6 +688,62 @@ object ScriptF {
       } yield SEValue(rights)
   }
 
+  final case class VetPackages(
+      packages: List[ScriptLedgerClient.ReadablePackageId]
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- Converter.toFuture(env.clients.getParticipant(None))
+        _ <- client.vetPackages(packages)
+      } yield SEValue(SUnit)
+  }
+
+  final case class UnvetPackages(
+      packages: List[ScriptLedgerClient.ReadablePackageId]
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- Converter.toFuture(env.clients.getParticipant(None))
+        _ <- client.unvetPackages(packages)
+      } yield SEValue(SUnit)
+  }
+
+  final case class ListVettedPackages() extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- Converter.toFuture(env.clients.getParticipant(None))
+        packages <- client.listVettedPackages()
+      } yield SEValue(
+        SList(packages.to(FrontStack).map(Converter.fromReadablePackageId(env.scriptIds, _)))
+      )
+  }
+
+  final case class ListAllPackages() extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- Converter.toFuture(env.clients.getParticipant(None))
+        packages <- client.listAllPackages()
+      } yield SEValue(
+        SList(packages.to(FrontStack).map(Converter.fromReadablePackageId(env.scriptIds, _)))
+      )
+  }
+
   // Shared between Submit, SubmitMustFail and SubmitTree
   final case class SubmitData(
       actAs: OneAnd[Set, Party],
@@ -790,10 +852,10 @@ object ScriptF {
       case _ => Left(s"Expected ListKnownParties payload but got $v")
     }
 
-  private def parseGetTime(v: SValue): Either[String, GetTime] =
+  private def parseEmpty[A](result: A)(v: SValue): Either[String, A] =
     v match {
-      case SRecord(_, _, ArrayList()) => Right(GetTime())
-      case _ => Left(s"Expected GetTime payload but got $v")
+      case SRecord(_, _, ArrayList()) => Right(result)
+      case _ => Left(s"Expected ${result.getClass.getSimpleName} payload but got $v")
     }
 
   private def parseSetTime(v: SValue): Either[String, SetTime] =
@@ -906,6 +968,25 @@ object ScriptF {
       case _ => Left(s"Expected ListUserRights payload but got $v")
     }
 
+  private def parseChangePackages(
+      v: SValue
+  ): Either[String, List[ScriptLedgerClient.ReadablePackageId]] = {
+    def toReadablePackageId(s: SValue): Either[String, ScriptLedgerClient.ReadablePackageId] =
+      s match {
+        case SRecord(_, _, ArrayList(SText(name), SText(version))) =>
+          for {
+            pname <- PackageName.fromString(name)
+            pversion <- PackageVersion.fromString(version)
+          } yield ScriptLedgerClient.ReadablePackageId(pname, pversion)
+        case _ => Left(s"Expected PackageName but got $s")
+      }
+    v match {
+      case SRecord(_, _, ArrayList(packages)) =>
+        Converter.toList(packages, toReadablePackageId)
+      case _ => Left(s"Expected Packages payload but got $v")
+    }
+  }
+
   def parse(constr: Ast.VariantConName, v: SValue, stackTrace: StackTrace): Either[String, Cmd] =
     constr match {
       case "Submit" => parseSubmit(v, stackTrace).map(Submit(_))
@@ -919,7 +1000,7 @@ object ScriptF {
       case "QueryContractKey" => parseQueryContractKey(v)
       case "AllocateParty" => parseAllocParty(v)
       case "ListKnownParties" => parseListKnownParties(v)
-      case "GetTime" => parseGetTime(v)
+      case "GetTime" => parseEmpty(GetTime())(v)
       case "SetTime" => parseSetTime(v)
       case "Sleep" => parseSleep(v)
       case "Catch" => parseCatch(v)
@@ -932,6 +1013,10 @@ object ScriptF {
       case "GrantUserRights" => parseGrantUserRights(v)
       case "RevokeUserRights" => parseRevokeUserRights(v)
       case "ListUserRights" => parseListUserRights(v)
+      case "VetPackages" => parseChangePackages(v).map(VetPackages)
+      case "UnvetPackages" => parseChangePackages(v).map(UnvetPackages)
+      case "ListVettedPackages" => parseEmpty(ListVettedPackages())(v)
+      case "ListAllPackages" => parseEmpty(ListAllPackages())(v)
       case _ => Left(s"Unknown constructor $constr")
     }
 

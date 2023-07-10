@@ -72,12 +72,14 @@ sealed abstract class SValue {
         case SBool(x) => V.ValueBool(x)
         case SUnit => V.ValueUnit
         case SDate(x) => V.ValueDate(x)
-
-        case SRecord(id, fields, svalues) =>
+        case r: SRecord =>
           V.ValueRecord(
-            maybeEraseTypeInfo(id),
-            (fields.toSeq zip svalues.asScala)
-              .map { case (fld, sv) => (maybeEraseTypeInfo(fld), go(sv, nextMaxNesting)) }
+            maybeEraseTypeInfo(r.id),
+            r.fields.toList
+              .map { case field =>
+                val sv = r.lookupField(field)
+                (maybeEraseTypeInfo(field), go(sv, nextMaxNesting))
+              }
               .to(ImmArray),
           )
         case SVariant(id, variant, _, sv) =>
@@ -151,9 +153,77 @@ object SValue {
       s"SPAP($prim, ${actuals.asScala.mkString("[", ",", "]")}, $arity)"
   }
 
+  /** We split SRecord (interface) from SRecordRep (implementation/representation)
+    *
+    * The interface supports creation from separate arrays of fields and values
+    * This is used throughout test code.
+    *
+    * The interface also supports (via unapply) the (legacy) reverse deconstruction.
+    * This is used by daml-script.
+    *
+    * The implementation/representation is via a scala Map.
+    * This representation is simple to manipulate (lookupField/updateField).
+    *
+    * This representation makes illegal cases unrepresentable -- i.e.
+    * - mismatched counts of fields/values
+    * - repeated field names
+    * And prevent brittle access to element values via indexing.
+    *
+    * Also note updateField has logarithmic complexity (where N is the number of fields)
+    * rather than the linear complexity that an array of element values would entail.
+    *
+    * The representation also includes an ordered field list.
+    * This is needed to support the legacy interface used by daml-script.
+    * And is also used when we convert the svalue back to a normalised LF value.
+    */
+
+  sealed abstract class SRecord extends SValue {
+    def id: Identifier
+    def fields: ImmArray[Name]
+    def values: util.ArrayList[SValue]
+    def lookupField(field: Name): SValue
+    def updateField(field: Name, value: SValue): SRecord
+  }
+
+  object SRecord {
+    def apply(id: Identifier, fields: ImmArray[Name], values: util.ArrayList[SValue]): SRecord = {
+      if (fields.length != values.size) {
+        throw SError.SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"SRecord.apply(#fields=${fields.length}; #values=${values.size}: mismatch!\n- fields=${fields}\n- values=${values}",
+        )
+      }
+      val zipped = (fields.toSeq zip values.asScala).toList
+      SRecordRep(id, fields, zipped.toMap)
+    }
+    def unapply(x: SRecord): Option[(Identifier, ImmArray[Name], util.ArrayList[SValue])] = {
+      Some((x.id, x.fields, x.values))
+    }
+  }
+
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  final case class SRecord(id: Identifier, fields: ImmArray[Name], values: util.ArrayList[SValue])
-      extends SValue
+  final case class SRecordRep(id: Identifier, fields: ImmArray[Name], dict: Map[Name, SValue])
+      extends SRecord {
+
+    def lookupField(field: Name): SValue = {
+      dict.get(field) match {
+        case Some(v) => v
+        case None =>
+          throw SError.SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"SRecord.lookupField($field) : no such field, have:[$fields]",
+          )
+      }
+    }
+
+    def updateField(field: Name, value: SValue): SRecord = {
+      this.copy(dict = dict + (field -> value))
+    }
+
+    def values: util.ArrayList[SValue] = {
+      fields.toList.map(this.lookupField).to(ArrayList)
+    }
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
   // values must be ordered according fieldNames
@@ -298,12 +368,6 @@ object SValue {
       )
       SAny(ValueArithmeticError.typ, SRecord(ValueArithmeticError.tyCon, fields, array))
     }
-    // Assumes excep is properly typed
-    def unapply(excep: SAny): Option[SValue] =
-      excep match {
-        case SAnyException(SRecord(ValueArithmeticError.tyCon, _, args)) => Some(args.get(0))
-        case _ => None
-      }
   }
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified

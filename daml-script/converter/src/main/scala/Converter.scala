@@ -32,7 +32,7 @@ private[daml] object Converter {
     val fieldNames = fields.view.map { case (n, _) => Name.assertFromString(n) }.to(ImmArray)
     val args =
       new util.ArrayList[SValue](fields.map({ case (_, v) => v }).asJava)
-    SRecord(ty, fieldNames, args)
+    SRecord(ty, fieldNames, args) // TODO: construct SRecord directly from Map
   }
 
   /** Unpack one step of a Pure/Roll-style free monad representation,
@@ -61,8 +61,8 @@ private[daml] object Converter {
 
   object DamlAnyModuleRecord {
     def unapplySeq(v: SRecord): Some[(String, collection.Seq[SValue])] = {
-      val SRecord(Identifier(_, QualifiedName(_, name)), _, values) = v
-      Some((name.dottedName, values.asScala))
+      val Identifier(_, QualifiedName(_, name)) = v.id
+      Some((name.dottedName, v.values.asScala))
     }
   }
 

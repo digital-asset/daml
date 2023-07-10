@@ -24,6 +24,12 @@ object TriggerTimer {
     }
   }
 
+  def regularMessage(
+      interval: FiniteDuration
+  )(consumer: ActorRef[TriggerProcess.Message]): Behavior[TriggerProcess.Message] = {
+    messageWithFixedDelay(interval, interval)(consumer)
+  }
+
   def messageWithFixedDelay(
       initialDelay: FiniteDuration,
       interval: FiniteDuration,

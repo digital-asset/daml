@@ -13,8 +13,8 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.StablePackage.DA
-import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import scalaz.std.list._
@@ -292,4 +292,17 @@ object Converter extends script.ConverterMethods {
         )
       case _ => Left(s"Expected command but got $v")
     }
+
+  // Encodes as Daml.Script.Questions.Packages.PackageName
+  def fromReadablePackageId(
+      scriptIds: ScriptIds,
+      packageName: ScriptLedgerClient.ReadablePackageId,
+  ): SValue = {
+    val packageNameTy = scriptIds.damlScriptModule("Daml.Script.Questions.Packages", "PackageName")
+    record(
+      packageNameTy,
+      ("name", SText(packageName.name.toString)),
+      ("version", SText(packageName.version.toString)),
+    )
+  }
 }

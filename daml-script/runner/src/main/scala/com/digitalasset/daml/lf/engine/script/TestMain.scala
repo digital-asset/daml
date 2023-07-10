@@ -9,7 +9,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref
@@ -22,6 +21,7 @@ import spray.json._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success}
+import com.daml.auth.TokenHolder
 import com.daml.lf.speedy.{Speedy, TraceLog, WarningLog}
 import com.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
 import com.daml.lf.engine.script.ledgerinteraction.GrpcLedgerClient
@@ -52,7 +52,7 @@ object TestMain extends StrictLogging {
     for {
       clients <- Runner.connect(
         participantParams,
-        TlsConfiguration(false, None, None, None),
+        config.tlsConfig,
         config.maxInboundMessageSize,
       )
       _ <- clients.getParticipant(None) match {
@@ -79,16 +79,27 @@ object TestMain extends StrictLogging {
     val traceLog: TraceLog = Speedy.Machine.newTraceLog
     val warningLog: WarningLog = Speedy.Machine.newWarningLog
 
+    val token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token)
+
     val eParticipantParams: Either[Participants[ApiParameters], Participants[IdeLedgerClient]] =
       config.participantMode match {
         case ParticipantMode.RemoteParticipantConfig(file) =>
           val jsVal = java.nio.file.Files.readString(file.toPath).parseJson
           import ParticipantsJsonProtocol._
-          Left(jsVal.convertTo[Participants[ApiParameters]])
+          Left(
+            jsVal
+              .convertTo[Participants[ApiParameters]]
+              .map(params =>
+                params.copy(
+                  access_token = params.access_token.orElse(token),
+                  application_id = params.application_id.orElse(config.applicationId),
+                )
+              )
+          )
         case ParticipantMode.RemoteParticipantHost(host, port) =>
           Left(
             Participants(
-              default_participant = Some(ApiParameters(host, port, None, None)),
+              default_participant = Some(ApiParameters(host, port, token, config.applicationId)),
               participants = Map.empty,
               party_participants = Map.empty,
             )

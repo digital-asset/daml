@@ -173,6 +173,10 @@ package domain {
       readAs: Option[NonEmptyList[Party]],
   )
 
+  final case class RefreshCacheRequest(
+      offset: Option[domain.Offset]
+  )
+
   final case class SearchForeverRequest(
       queriesWithPos: NonEmptyList[(SearchForeverQuery, Int)]
   )
@@ -452,6 +456,8 @@ package domain {
       events: List[Contract[LfV]],
       completionOffset: CompletionOffset,
   )
+
+  final case class RefreshCacheResult(refreshedAt: Offset)
 
   object PartyDetails {
     def fromLedgerApi(p: com.daml.ledger.api.domain.PartyDetails): PartyDetails =

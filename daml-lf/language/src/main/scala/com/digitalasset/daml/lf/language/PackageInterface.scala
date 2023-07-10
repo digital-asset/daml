@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import scala.annotation.tailrec
 
-private[lf] class PackageInterface(signatures: PartialFunction[PackageId, PackageSignature]) {
+private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, PackageSignature]) {
 
   import PackageInterface._
 

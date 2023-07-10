@@ -7,20 +7,21 @@
 module DA.Daml.LFConversion.ExternalWarnings.Script (topLevelWarnings) where
 
 import qualified Data.Text as T
-import Data.List.Extra (firstJust)
 import DA.Daml.UtilGHC
 import DA.Daml.LFConversion.ConvertM
 import DA.Daml.LFConversion.Utils
 import "ghc-lib" GhcPlugins as GHC hiding ((<>))
 import "ghc-lib" TyCoRep
 
-stripPrefixes :: [T.Text] -> T.Text -> Maybe T.Text
-stripPrefixes prefixes t = firstJust (flip T.stripPrefix t) prefixes
+pattern Daml2ScriptPackage :: GHC.UnitId
+pattern Daml2ScriptPackage <- (T.stripPrefix "daml-script-" . fsToText . unitIdFS -> Just _)
+pattern Daml2ScriptModule :: GHC.Module
+pattern Daml2ScriptModule <- ModuleIn Daml2ScriptPackage "Daml.Script"
 
-pattern DamlScriptPackage :: GHC.UnitId
-pattern DamlScriptPackage <- (stripPrefixes ["daml-script-", "daml3-script-"] . fsToText . unitIdFS -> Just _)
-pattern DamlScriptModule :: GHC.Module
-pattern DamlScriptModule <- ModuleIn DamlScriptPackage "Daml.Script"
+pattern Daml3ScriptPackage :: GHC.UnitId
+pattern Daml3ScriptPackage <- (T.stripPrefix "daml3-script-" . fsToText . unitIdFS -> Just _)
+pattern Daml3ScriptInternalModule :: GHC.Module
+pattern Daml3ScriptInternalModule <- ModuleIn Daml3ScriptPackage "Daml.Script.Internal"
 
 pattern Daml3ScriptPackage :: GHC.UnitId
 pattern Daml3ScriptPackage <- (T.stripPrefix "daml3-script-" . fsToText . unitIdFS -> Just _)
@@ -31,7 +32,7 @@ substUnit :: TyVar -> Type -> Type
 substUnit tyVar ty = TyCoRep.substTy (setTvSubstEnv emptyTCvSubst $ mkVarEnv [(tyVar, TyConApp unitTyCon [])]) ty
 
 isDamlScriptType :: TyCon -> Bool
-isDamlScriptType (NameIn DamlScriptModule "Script") = True
+isDamlScriptType (NameIn Daml2ScriptModule "Script") = True
 isDamlScriptType (NameIn Daml3ScriptInternalModule "Script") = True
 isDamlScriptType _ = False
 

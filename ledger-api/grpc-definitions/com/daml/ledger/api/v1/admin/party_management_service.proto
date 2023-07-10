@@ -20,6 +20,8 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // (1) ``HasRight(r)`` denoting whether the authenticated user has right ``r`` and
 // (2) ``IsAuthenticatedIdentityProviderAdmin(idp)`` denoting whether ``idp`` is equal to the ``identity_provider_id``
 // of the authenticated user and the user has an IdentityProviderAdmin right.
+// If `identity_provider_id` is set to an empty string, then it's effectively set to the value of access token's 'iss' field if that is provided.
+// If `identity_provider_id` remains an empty string, the default identity provider will be assumed.
 //
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
 // (1) ``Optional`` denoting the client may leave the field unset when sending a request.

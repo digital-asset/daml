@@ -40,7 +40,7 @@ create_v1_softFetch_v3 = do
     issuer = alice
     owner = alice
     obs = []
-  _ <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_3_0_0 with
+  _ <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_3_0_0 with -- Upgrade
     cid = coerceContractId cid
   pure ()
 
@@ -51,6 +51,6 @@ create_v3_softFetch_v1 = do
     issuer = alice
     owner = alice
     obs = []
-  _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1_0_0 with
+  _ <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1_0_0 with -- Downgrade
     cid = coerceContractId cid
   pure ()

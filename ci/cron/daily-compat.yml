@@ -331,6 +331,17 @@ jobs:
         git fetch
         git checkout origin/main
 
+        url_sha() (
+          url="$1"
+          curl -u $AUTH \
+               --fail \
+               --location \
+               --silent \
+               "$url" \
+           | sha256sum \
+           | awk '{print $1}'
+        )
+
         canton_version=$(curl -u $AUTH \
                               --fail \
                               --location \
@@ -342,13 +353,7 @@ jobs:
                          | sort -V \
                          | tail -1)
         canton_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-open-source-$canton_version.tar.gz"
-        canton_sha=$(curl -u $AUTH \
-                          --fail \
-                          --location \
-                          --silent \
-                          "$canton_url" \
-                     | sha256sum \
-                     | awk '{print $1}')
+        canton_sha=$(url_sha "$canton_url")
 
         sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
         sed -e 's/^/# /' COPY > canton_dep.bzl
@@ -361,15 +366,21 @@ jobs:
         }
         EOF
 
+        ee_canton_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-enterprise-$canton_version.tar.gz"
+        ee_canton_sha=$(url_sha "$ee_canton_url")
+
+        sed -i "s|CANTON_ENTERPRISE_VERSION=.*|CANTON_ENTERPRISE_VERSION=$canton_version|" canton/BUILD.bazel
+        sed -i "s|CANTON_ENTERPRISE_SHA=.*|CANTON_ENTERPRISE_SHA=$ee_canton_sha|" canton/BUILD.bazel
+
         rm -f arbitrary_canton_sha
 
         branch="canton-update-$canton_version"
 
-        if git diff --exit-code -- canton_dep.bzl build.sh arbitrary_canton_sha; then
+        if git diff --exit-code -- canton_dep.bzl build.sh arbitrary_canton_sha canton/BUILD.bazel; then
             echo "Already up-to-date with latest Canton snapshot."
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
-                git add canton_dep.bzl build.sh
+                git add canton_dep.bzl build.sh canton/BUILD.bazel
                 git ls-files | grep arbitrary_canton_sha >&2 && git rm -f arbitrary_canton_sha
                 open_pr "$branch" "bump canton to $canton_version"
                 az extension add --name azure-devops

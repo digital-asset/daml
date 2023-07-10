@@ -149,6 +149,46 @@ private[http] final class ContractList(
     } yield res
   }.run
 
+  def refreshCache(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: HttpJsonApiMetrics,
+  ): Future[Error \/ SearchResult[Error \/ JsValue]] = {
+    for {
+      it <- inputAndJwtPayload[JwtPayload](req).leftMap(identity[Error])
+      (jwt, jwtPayload, reqBody) = it
+      response <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
+        val result = for {
+          cmd <- SprayJson
+            .decode[domain.RefreshCacheRequest](reqBody)
+            .liftErr[Error](InvalidUserInput)
+        } yield withEnrichedLoggingContext(
+          LoggingContextOf.label[domain.RefreshCacheRequest],
+          "cmd" -> cmd.toString,
+        ).run { implicit lc =>
+          logger.debug("Starting refresh cache to the latest offset")
+          contractsService
+            .refreshCache(jwt, jwtPayload, cmd)
+            .map(
+              domain.SyncResponse.covariant.map(_)(
+                _.via(handleSourceFailure)
+                  .map {
+                    case x @ -\/(error) =>
+                      logger.error(s"Error refreshing the cache with error: $error")
+                      x
+                    case x @ \/-(_) =>
+                      logger.debug(s"Successfully refreshed cache")
+                      x.flatMap(
+                        toJsValue[domain.RefreshCacheResult](_)
+                      )
+                  }
+              )
+            )
+        }
+        eitherT(result.sequence)
+      }
+    } yield response
+  }.run
+
   private def handleSourceFailure[E, A](implicit
       E: IntoEndpointsError[E]
   ): Flow[E \/ A, Error \/ A, NotUsed] =

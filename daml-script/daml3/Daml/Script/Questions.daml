@@ -4,6 +4,7 @@
 module Daml.Script.Questions
   ( module Daml.Script.Questions.Commands
   , module Daml.Script.Questions.Exceptions
+  , module Daml.Script.Questions.Packages
   , module Daml.Script.Questions.PartyManagement
   , module Daml.Script.Questions.Query
   , module Daml.Script.Questions.Submit
@@ -15,6 +16,7 @@ module Daml.Script.Questions
 
 import Daml.Script.Questions.Commands
 import Daml.Script.Questions.Exceptions
+import Daml.Script.Questions.Packages
 import Daml.Script.Questions.PartyManagement
 import Daml.Script.Questions.Query
 import Daml.Script.Questions.Submit

@@ -6,7 +6,7 @@ set -euo pipefail
 
 eval "$("$(dirname "$0")/dev-env/bin/dade-assist")"
 
-execution_log_postfix=${1:-}
+execution_log_postfix=${1:-}${2:-}
 
 export LC_ALL=en_US.UTF-8
 
@@ -37,6 +37,10 @@ if [ "${1:-}" = "_m1" ]; then
     bazel="arch -arm64 bazel"
 else
     bazel=bazel
+fi
+
+if [ -n "${ARTIFACTORY_USERNAME:-}" ] && [ -n "${ARTIFACTORY_PASSWORD:-}" ]; then
+    export ARTIFACTORY_AUTH=$(echo -n "$ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD" | base64 -w0)
 fi
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
