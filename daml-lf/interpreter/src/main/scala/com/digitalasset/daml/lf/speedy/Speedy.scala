@@ -1015,16 +1015,7 @@ private[lf] object Speedy {
     // com.daml.lf.engine.preprocessing.ValueTranslator.translateValue.
     // All the contract IDs contained in the value are considered global.
     // Raises an exception if missing a package.
-    private[speedy] final def importValue(
-        typ0: Type,
-        value0: V,
-        optTargetTemplateId: Option[TypeConName],
-    ): Control.Value = {
-
-      // NICK: where does typ0 come from?
-      // We need to be able to import a value even when the source type is not available.
-      // Since optTargetTemplateId is always used in preference to typ0
-      // perhaps the caller can combine into a single parameter.
+    private[speedy] final def importValue(typ0: Type, value0: V): Control.Value = {
 
       def assertRight[X](x: Either[LookupError, X]): X =
         x match {
@@ -1108,7 +1099,7 @@ private[lf] object Speedy {
           case TTyCon(tyCon) =>
             value match {
               case V.ValueRecord(_, fields) =>
-                val lookupResult = // NICK: may fail for upgrade/downgrade -- not if we use target type
+                val lookupResult =
                   assertRight(compiledPackages.pkgInterface.lookupDataRecord(tyCon))
                 lazy val subst = lookupResult.subst(argTypes)
 
@@ -1162,18 +1153,7 @@ private[lf] object Speedy {
         }
       }
 
-      optTargetTemplateId match {
-        case None => // interfaces OR upgrades disabled?
-          Control.Value(go(typ0, value0))
-        case Some(targetTemplateId) =>
-          val targetType: Type = TTyCon(targetTemplateId)
-          val diff = (typ0 != targetType)
-          if (!diff) {
-            Control.Value(go(typ0, value0)) // no up/down-grade required
-          } else {
-            Control.Value(go(targetType, value0))
-          }
-      }
+      Control.Value(go(typ0, value0))
     }
 
   }

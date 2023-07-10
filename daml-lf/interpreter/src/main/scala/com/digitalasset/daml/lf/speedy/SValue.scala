@@ -349,7 +349,7 @@ object SValue {
   }
 
   object SAnyContract {
-    def apply(tyCon: Ref.TypeConName, value: SValue): SAny = {
+    def apply(tyCon: Ref.TypeConName, value: SValue): SAny = { // NICK: take record.
       val _ = tyCon // NICK: avoid passsing since we ignore it anyway
       value match {
         case record: SRecord => SAny(TTyCon(record.id), record)
@@ -360,14 +360,6 @@ object SValue {
           )
       }
     }
-
-    def unapply(any: SAny): Option[(TypeConName, SRecord)] =
-      any match {
-        case SAny(TTyCon(tyCon), record: SRecord) =>
-          Some((tyCon, record))
-        case _ =>
-          None
-      }
   }
 
   object SArithmeticError {

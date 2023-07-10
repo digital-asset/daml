@@ -138,7 +138,7 @@ object ScriptF {
             ) =>
           Future.successful(
             SELet1(
-              SEImportValue(typ, value, optTargetTemplateId = None),
+              SEImportValue(typ, value),
               SELet1(
                 SEAppAtomic(SEBuiltin(SBToAny(typ)), Array(SELocS(1))),
                 SEAppAtomic(left, Array(SELocS(1))),

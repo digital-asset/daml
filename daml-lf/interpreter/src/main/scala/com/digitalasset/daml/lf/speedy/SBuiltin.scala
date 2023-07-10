@@ -191,7 +191,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
       i: Int,
   ): (TypeConName, SRecord) =
     args.get(i) match {
-      case SAnyContract(tyCon, value) => (tyCon, value)
+      case SAny(_, record: SRecord) => (record.id, record)
       case otherwise => unexpectedType(i, "AnyContract", otherwise)
     }
 
@@ -1081,7 +1081,7 @@ private[lf] object SBuiltin {
 
     // TODO: https://github.com/digital-asset/daml/issues/17082
     // - we currently make no use of the types
-    val targetFields = targetFieldsAndTypes.map(_._1) // NICK: so dont pass them!
+    val targetFields = targetFieldsAndTypes.map(_._1)
 
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1139,10 +1139,7 @@ private[lf] object SBuiltin {
     *    -> Optional {key: key, maintainers: List Party} (template key, if present)
     *    -> a
     */
-  final case class SBFetchAny(
-      optTargetTemplateId: Option[TypeConName]
-  ) // = None) // NICK: avoid default value
-      extends UpdateBuiltin(2) {
+  final case class SBFetchAny(optTargetTemplateId: Option[TypeConName]) extends UpdateBuiltin(2) {
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
@@ -1172,12 +1169,16 @@ private[lf] object SBuiltin {
                 machine.pushKont(KCacheContract(coid))
                 val e = coinst match {
                   case V.ContractInstance(actualTmplId, arg) =>
+                    val templateId = optTargetTemplateId match {
+                      case Some(tycon) => tycon
+                      case None => actualTmplId
+                    }
                     SELet1(
                       // The call to ToCachedContractDefRef(actualTmplId) will query package
                       // of actualTmplId if not known.
-                      SEVal(ToCachedContractDefRef(actualTmplId)),
+                      SEVal(ToCachedContractDefRef(templateId)),
                       SELet1(
-                        SEImportValue(Ast.TTyCon(actualTmplId), arg, optTargetTemplateId),
+                        SEImportValue(Ast.TTyCon(templateId), arg),
                         SEAppAtomic(SELocS(2), Array(SELocS(1), SEValue(args.get(1)))),
                       ),
                     )

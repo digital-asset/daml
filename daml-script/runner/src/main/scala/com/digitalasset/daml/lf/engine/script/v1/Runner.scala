@@ -109,7 +109,7 @@ private[lf] class Runner(
                           ) =>
                         val e =
                           SELet1(
-                            SEImportValue(typ, value, optTargetTemplateId = None),
+                            SEImportValue(typ, value),
                             SELet1(
                               SEAppAtomic(SEBuiltin(SBToAny(typ)), Array(SELocS(1))),
                               SEAppAtomic(SEValue(handle), Array(SELocS(1))),
