@@ -295,7 +295,8 @@ class IdeLedgerClient(
       case e: RejectedAuthorityRequest => SubmitError.UnknownError(e.toString)
       case ContractNotFound(cid) => SubmitError.ContractNotFound(cid)
       case ContractKeyNotFound(key) => SubmitError.ContractKeyNotFound(key)
-      case e: FailedAuthorization => SubmitError.AuthorizationError(Pretty.prettyDamlException(e).renderWideStream.mkString)
+      case e: FailedAuthorization =>
+        SubmitError.AuthorizationError(Pretty.prettyDamlException(e).renderWideStream.mkString)
       case ContractNotActive(cid, tid, _) => SubmitError.ContractNotActive(tid, cid)
       case DisclosedContractKeyHashingError(cid, key, hash) =>
         SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString)
@@ -320,7 +321,11 @@ class IdeLedgerClient(
       case NonComparableValues => SubmitError.NonComparableValues()
       case ContractIdInContractKey(_) => SubmitError.ContractIdInContractKey()
       case ContractIdComparability(cid) => SubmitError.ContractIdComparability(cid.toString)
-      case Dev(_, e) => SubmitError.DevError(e.getClass.getSimpleName, e.toString)
+      case e @ Dev(_, innerError) =>
+        SubmitError.DevError(
+          innerError.getClass.getSimpleName,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
     }
   }
 
