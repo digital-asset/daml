@@ -238,7 +238,7 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
       """This error occurs if a user attempts to provide a key hash for a disclosed contract which we have already cached to be different."""
     )
     @Resolution(
-      "You have most likely provided an incorrect contract payload or key for a disclosed contract."
+      "Ensure the contract ID and contract payload you have provided in your disclosed contract is correct."
     )
     object DisclosedContractKeyHashingError
         extends ErrorCode(

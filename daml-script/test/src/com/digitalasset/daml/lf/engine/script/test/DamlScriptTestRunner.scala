@@ -33,12 +33,12 @@ class DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
           |ScriptExample:initializeUser SUCCESS
           |ScriptExample:test SUCCESS
           |ScriptTest:clearUsers SUCCESS
-          |ScriptTest:failingTest FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: FAILED_PRECONDITION: DAML_INTERPRETATION_ERROR(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:168], partial transaction: ...
+          |ScriptTest:failingTest FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: INVALID_ARGUMENT: UNHANDLED_EXCEPTION(8,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:168], partial transaction: ...
           |ScriptTest:listKnownPartiesTest SUCCESS
           |ScriptTest:multiPartySubmission SUCCESS
           |ScriptTest:partyIdHintTest SUCCESS
           |ScriptTest:sleepTest SUCCESS
-          |ScriptTest:stackTrace FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: FAILED_PRECONDITION: DAML_INTERPRETATION_ERROR(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:168], partial transaction: ...
+          |ScriptTest:stackTrace FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: INVALID_ARGUMENT: UNHANDLED_EXCEPTION(8,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:168], partial transaction: ...
           |ScriptTest:test0 SUCCESS
           |ScriptTest:test1 SUCCESS
           |ScriptTest:test3 SUCCESS
@@ -98,8 +98,8 @@ class DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
         // ignore partial transactions as parties, cids, and package Ids are pretty unpredictable
         .replaceAll("partial transaction: .*", "partial transaction: ...")
         .replaceAll(
-          """DAML_INTERPRETATION_ERROR\((\d+),\w{8}\)""",
-          "DAML_INTERPRETATION_ERROR($1,XXXXXXXX)",
+          """UNHANDLED_EXCEPTION\((\d+),\w{8}\)""",
+          "UNHANDLED_EXCEPTION($1,XXXXXXXX)",
         )
         .replaceAll(
           """DA.Exception.GeneralError:GeneralError@\w{8}""",
