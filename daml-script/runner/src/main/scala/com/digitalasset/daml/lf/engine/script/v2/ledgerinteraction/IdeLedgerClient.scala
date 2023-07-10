@@ -353,6 +353,10 @@ class IdeLedgerClient(
         ) =>
       SubmitError.DuplicateContractKey(gk)
 
+    case scenario.Error.LookupError(err, _, _) =>
+      // TODO[SW]: Implement proper Lookup error throughout
+      SubmitError.UnknownError("Lookup error: " + err.toString)
+
     // This covers MustFailSucceeded, InvalidPartyName, PartyAlreadyExists which should not be throwable by a command submission
     // It also covers PartiesNotAllocated.
     case err => SubmitError.UnknownError("Unexpected error type: " + err.toString)
