@@ -1615,8 +1615,11 @@ private[lf] object SBuiltin {
                     (Control.Value(SUnit), true)
                   } else {
                     // SBFetchAny will populate machine.cachedContracts with the contract pointed by coid
+                    // TODO: https://github.com/digital-asset/daml/issues/17082
+                    // - do we have a targetType to pass to SBFetchAny?
+
                     val e = SEAppAtomic(
-                      SEBuiltin(SBFetchAny(None)), // NICK: is there a target type to pass?
+                      SEBuiltin(SBFetchAny(None)),
                       Array(SEValue(SContractId(coid)), SEValue(SOptional(Some(svalue)))),
                     )
                     (Control.Expression(e), true)

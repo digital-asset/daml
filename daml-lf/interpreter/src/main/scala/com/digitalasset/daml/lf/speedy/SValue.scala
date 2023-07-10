@@ -349,10 +349,19 @@ object SValue {
   }
 
   object SAnyContract {
-    def apply(tyCon: Ref.TypeConName, value: SValue): SAny = { // NICK: take record.
-      val _ = tyCon // NICK: avoid passsing since we ignore it anyway
+    def apply(tyCon: Ref.TypeConName, value: SValue): SAny = {
       value match {
-        case record: SRecord => SAny(TTyCon(record.id), record)
+        case record: SRecord =>
+          // TODO: https://github.com/digital-asset/daml/issues/17082
+          // - investigate CompilerTest failures where this is not true...
+          /*if (tyCon != record.id) {
+            throw SError.SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"SAnyContract.apply: mismatch tycon, \nA ${tyCon}\nB: ${record.id}",
+            )
+           }*/
+          val _ = tyCon
+          SAny(TTyCon(record.id), record)
         case v =>
           throw SError.SErrorCrash(
             NameOf.qualifiedNameOfCurrentFunc,

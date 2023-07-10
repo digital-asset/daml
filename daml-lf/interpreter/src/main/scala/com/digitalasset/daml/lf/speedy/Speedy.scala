@@ -124,14 +124,15 @@ private[lf] object Speedy {
 
   final case class CachedContract(
       version: TxVersion,
-      templateId: Ref.TypeConName,
-      value: SValue,
+      templateId: Ref.TypeConName, // TODO: dont pass; recover from (record)value.
+      value: SValue, // TODO: pass an SRecord here
       agreementText: String,
       signatories: Set[Party],
       observers: Set[Party],
       keyOpt: Option[CachedKey],
   ) {
     val stakeholders: Set[Party] = signatories union observers
+
     private[speedy] val any = SValue.SAnyContract(templateId, value)
     private[speedy] def arg = value.toNormalizedValue(version)
     private[speedy] def gkeyOpt: Option[GlobalKey] = keyOpt.map(_.globalKey)
