@@ -1074,15 +1074,7 @@ private[lf] object SBuiltin {
   }
 
   // SBCastAnyContract: ContractId templateId -> Any -> templateId
-  final case class SBCastAnyContract(
-      templateId: TypeConName,
-      targetFieldsAndTypes: ImmArray[(Ast.FieldName, Ast.Type)],
-  ) extends SBuiltin(2) {
-
-    // TODO: https://github.com/digital-asset/daml/issues/17082
-    // - we currently make no use of the types
-    val targetFields = targetFieldsAndTypes.map(_._1)
-
+  final case class SBCastAnyContract(templateId: TypeConName) extends SBuiltin(2) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],

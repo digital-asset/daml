@@ -110,35 +110,6 @@ private[lf] object Compiler {
       case e: ValidationError => Left(e.pretty)
     }
   }
-
-  sealed abstract class Casting { // NICK: rethink
-    def isHard: Boolean
-    def cast: SBuiltin
-  }
-  object Casting {
-    final case class Hard(
-        tmplId: TypeConName,
-        fields: ImmArray[(FieldName, Type)],
-    ) extends Casting {
-      def isHard: Boolean = true
-      def cast: SBuiltin = {
-        SBCastAnyContract(tmplId, fields)
-      }
-    }
-    final case class Soft(
-        tmplId: TypeConName,
-        fields: ImmArray[(FieldName, Type)],
-        // TODO: https://github.com/digital-asset/daml/issues/17082
-        // - predPids is ignored for milestone-1
-        // - might be useful in following milestones
-        predPids: List[PackageId],
-    ) extends Casting {
-      def isHard: Boolean = false
-      def cast: SBuiltin = {
-        SBCastAnyContract(tmplId, fields)
-      }
-    }
-  }
 }
 
 private[lf] final class Compiler(
@@ -397,17 +368,9 @@ private[lf] final class Compiler(
     module.templates.foreach { case (tmplName, tmpl) =>
       val tmplId = Identifier(pkgId, QualifiedName(module.name, tmplName))
 
-      val fields =
-        pkgInterface.lookupDataRecord(tmplId) match {
-          case Right(PackageInterface.DataRecordInfo(_, DataRecord(fields))) =>
-            fields
-          case _ =>
-            throw CompilationError(s"Missing DataRecord definition for Template ${tmplId}")
-        }
-
       addDef(compileCreate(tmplId, tmpl))
-      addDef(compileFetchTemplate(tmplId, tmpl, fields))
-      addDef(compileSoftFetchTemplate(tmplId, tmpl, fields, predPids))
+      addDef(compileFetchTemplate(tmplId, tmpl))
+      addDef(compileSoftFetchTemplate(tmplId, tmpl, predPids))
       addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileAgreementText(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
@@ -424,18 +387,18 @@ private[lf] final class Compiler(
       }
 
       tmpl.choices.values.foreach { choice =>
-        addDef(compileTemplateChoice(tmplId, tmpl, fields, choice))
-        addDef(compileSoftTemplateChoice(tmplId, tmpl, fields, predPids, choice))
+        addDef(compileTemplateChoice(tmplId, tmpl, choice))
+        addDef(compileSoftTemplateChoice(tmplId, tmpl, predPids, choice))
         addDef(compileChoiceController(tmplId, tmpl.param, choice))
         addDef(compileChoiceObserver(tmplId, tmpl.param, choice))
       }
 
       tmpl.key.foreach { tmplKey =>
         addDef(compileContractKeyWithMaintainers(tmplId, tmpl, tmplKey))
-        addDef(compileFetchByKey(tmplId, tmpl, fields, tmplKey))
+        addDef(compileFetchByKey(tmplId, tmpl, tmplKey))
         addDef(compileLookupByKey(tmplId, tmplKey))
         tmpl.choices.values.foreach { x =>
-          addDef(compileChoiceByKey(tmplId, tmpl, fields, tmplKey, x))
+          addDef(compileChoiceByKey(tmplId, tmpl, tmplKey, x))
         }
       }
     }
@@ -523,7 +486,7 @@ private[lf] final class Compiler(
   private[this] def translateChoiceBody(
       env: Env,
       tmplId: TypeConName,
-      casting: Casting,
+      optTargetTemplateId: Option[TypeConName],
       tmpl: Template,
       choice: TemplateChoice,
   )(
@@ -531,12 +494,12 @@ private[lf] final class Compiler(
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
-  ): s.SExpr =
+  ): s.SExpr = {
     let(
       env,
-      casting.cast(
+      SBCastAnyContract(tmplId)(
         env.toSEVar(cidPos),
-        SBFetchAny(optTargetTemplateId = if (casting.isHard) None else Some(tmplId))(
+        SBFetchAny(optTargetTemplateId)(
           env.toSEVar(cidPos),
           mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
         ),
@@ -544,7 +507,6 @@ private[lf] final class Compiler(
     ) { (tmplArgPos, _env) =>
       val env =
         _env.bindExprVar(tmpl.param, tmplArgPos).bindExprVar(choice.argBinder._1, choiceArgPos)
-
       let(
         env,
         SBUBeginExercise(
@@ -574,6 +536,7 @@ private[lf] final class Compiler(
         )
       }
     }
+  }
 
   // TODO https://github.com/digital-asset/daml/issues/12051
   //   Try to factorise this with compileChoiceBody above.
@@ -661,7 +624,6 @@ private[lf] final class Compiler(
   private[this] def compileTemplateChoice(
       tmplId: TypeConName,
       tmpl: Template,
-      fields: ImmArray[(FieldName, Type)],
       choice: TemplateChoice,
   ): (t.SDefinitionRef, SDefinition) =
     // Compiles a choice into:
@@ -673,8 +635,7 @@ private[lf] final class Compiler(
     //   in <retValue>
     topLevelFunction3(t.TemplateChoiceDefRef(tmplId, choice.name)) {
       (cidPos, choiceArgPos, tokenPos, env) =>
-        val casting = Casting.Hard(tmplId, fields)
-        translateChoiceBody(env, tmplId, casting, tmpl, choice)(
+        translateChoiceBody(env, tmplId, optTargetTemplateId = None, tmpl, choice)(
           choiceArgPos,
           cidPos,
           None,
@@ -685,20 +646,23 @@ private[lf] final class Compiler(
   private[this] def compileSoftTemplateChoice(
       tmplId: TypeConName,
       tmpl: Template,
-      fields: ImmArray[(FieldName, Type)],
       predPids: List[PackageId],
       choice: TemplateChoice,
-  ): (t.SDefinitionRef, SDefinition) =
+  ): (t.SDefinitionRef, SDefinition) = {
+    // TODO: https://github.com/digital-asset/daml/issues/17082
+    // - predPids is ignored for milestone-1
+    // - might be useful in following milestones
+    val _ = predPids
     topLevelFunction3(t.SoftTemplateChoiceDefRef(tmplId, choice.name)) {
       (cidPos, choiceArgPos, tokenPos, env) =>
-        val casting = Casting.Soft(tmplId, fields, predPids)
-        translateChoiceBody(env, tmplId, casting, tmpl, choice)(
+        translateChoiceBody(env, tmplId, optTargetTemplateId = Some(tmplId), tmpl, choice)(
           choiceArgPos,
           cidPos,
           None,
           tokenPos,
         )
     }
+  }
 
   private[this] def compileChoiceController(
       typeId: TypeConName,
@@ -742,7 +706,6 @@ private[lf] final class Compiler(
   private[this] def compileChoiceByKey(
       tmplId: TypeConName,
       tmpl: Template,
-      fields: ImmArray[(FieldName, Type)],
       tmplKey: TemplateKey,
       choice: TemplateChoice,
   ): (t.SDefinitionRef, SDefinition) =
@@ -759,8 +722,7 @@ private[lf] final class Compiler(
       (keyPos, choiceArgPos, tokenPos, env) =>
         let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
           let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
-            val casting = Casting.Hard(tmplId, fields)
-            translateChoiceBody(env, tmplId, casting, tmpl, choice)(
+            translateChoiceBody(env, tmplId, optTargetTemplateId = None, tmpl, choice)(
               choiceArgPos,
               cidPos,
               Some(keyWithMPos),
@@ -775,17 +737,17 @@ private[lf] final class Compiler(
       env: Env,
       tmplId: Identifier,
       tmpl: Template,
-      casting: Casting,
+      optTargetTemplateId: Option[TypeConName],
   )(
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
-  ): s.SExpr =
+  ): s.SExpr = {
     let(
       env,
-      casting.cast(
+      SBCastAnyContract(tmplId)(
         env.toSEVar(cidPos),
-        SBFetchAny(optTargetTemplateId = if (casting.isHard) None else Some(tmplId))(
+        SBFetchAny(optTargetTemplateId)(
           env.toSEVar(cidPos),
           mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
         ),
@@ -799,38 +761,37 @@ private[lf] final class Compiler(
         env.toSEVar(tmplArgPos)
       }
     }
+  }
 
   private[this] def compileFetchTemplate(
       tmplId: Identifier,
       tmpl: Template,
-      fields: ImmArray[(FieldName, Type)],
   ): (t.SDefinitionRef, SDefinition) =
-    // compile a template to
-    // FetchDefRef(tmplId) = \ <coid> <token> ->
-    //   let <tmplArg> = $fetch(tmplId) <coid>
-    //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] [tmpl.key]
-    //   in <tmplArg>
     topLevelFunction2(t.FetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
-      val casting = Casting.Hard(tmplId, fields)
-      translateFetchTemplateBody(env, tmplId, tmpl, casting)(cidPos, None, tokenPos)
+      translateFetchTemplateBody(env, tmplId, tmpl, optTargetTemplateId = None)(
+        cidPos,
+        None,
+        tokenPos,
+      )
     }
 
   private[this] def compileSoftFetchTemplate(
       tmplId: Identifier,
       tmpl: Template,
-      fields: ImmArray[(FieldName, Type)],
       predPids: List[PackageId],
-  ): (t.SDefinitionRef, SDefinition) =
-    // compile a template to
-    // SoftFetchTemplateDefRef(tmplId) = \ <coid> <token> ->
-    //   let <any_tmpl> = $fetch_any <coid> None
-    //       <softTmplArg> = $promote_any_contract(tmplId, fields, [preds(tmplId)]) <coid> <any_tmpl>
-    //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] []
-    //   in <softTmplArg>
+  ): (t.SDefinitionRef, SDefinition) = {
+    // TODO: https://github.com/digital-asset/daml/issues/17082
+    // - predPids is ignored for milestone-1
+    // - might be useful in following milestones
+    val _ = predPids
     topLevelFunction2(t.SoftFetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
-      val casting = Casting.Soft(tmplId, fields, predPids)
-      translateFetchTemplateBody(env, tmplId, tmpl, casting)(cidPos, None, tokenPos)
+      translateFetchTemplateBody(env, tmplId, tmpl, optTargetTemplateId = Some(tmplId))(
+        cidPos,
+        None,
+        tokenPos,
+      )
     }
+  }
 
   private[this] def compileFetchInterface(ifaceId: Identifier): (t.SDefinitionRef, SDefinition) =
     topLevelFunction2(t.FetchInterfaceDefRef(ifaceId)) { (cidPos, _, env) =>
@@ -1069,7 +1030,6 @@ private[lf] final class Compiler(
   private[this] def compileFetchByKey(
       tmplId: TypeConName,
       tmpl: Template,
-      fields: ImmArray[(FieldName, Type)],
       tmplKey: TemplateKey,
   ): (t.SDefinitionRef, SDefinition) =
     // compile a template with key into
@@ -1084,7 +1044,7 @@ private[lf] final class Compiler(
         let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
           let(
             env,
-            translateFetchTemplateBody(env, tmplId, tmpl, Casting.Hard(tmplId, fields))(
+            translateFetchTemplateBody(env, tmplId, tmpl, optTargetTemplateId = None)(
               cidPos,
               Some(keyWithMPos),
               tokenPos,
