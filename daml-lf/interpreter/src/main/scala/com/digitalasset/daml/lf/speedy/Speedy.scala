@@ -1103,35 +1103,27 @@ private[lf] object Speedy {
                 val lookupResult =
                   assertRight(compiledPackages.pkgInterface.lookupDataRecord(tyCon))
                 lazy val subst = lookupResult.subst(argTypes)
-
-                // NICK: avoid need for 2nd pass, by constructing None in this first pass
+                // TODO: https://github.com/digital-asset/daml/issues/17082
+                // - disallow dropping extra fields which have value other than None.
                 val actualValues = (lookupResult.dataRecord.fields.iterator zip fields.iterator)
                   .map { case ((_, fieldType), (_, fieldValue)) =>
                     go(AstUtil.substitute(fieldType, subst), fieldValue)
                   }
                   .to(ArrayList)
                 val targetFields = lookupResult.dataRecord.fields.map(_._1)
-
                 val numActual: Int = actualValues.size
                 val numTarget: Int = targetFields.length
-                val patchedValues =
+                assert(numTarget >= numActual) // ensured by the zip used to define actualValues
+                val extendedValues =
                   if (numTarget > numActual) {
                     // Upgrade -- extend with None
-                    actualValues.asScala
-                      .padTo(targetFields.length, SValue.SOptional(None))
-                      .to(ArrayList)
-                  } else if (numTarget < numActual) {
-                    // Downgrade -- truncate
-                    // TODO: https://github.com/digital-asset/daml/issues/17082
-                    // - disallow dropping extra fields which have value other than None.
-                    // actualValues.asScala.take(targetFields.length).to(ArrayList)
-                    ??? // NICK: this can never happen -- we avoid if we merge passes!
+                    actualValues.asScala.padTo(numTarget, SValue.SOptional(None)).to(ArrayList)
                   } else {
                     // Correct number of fields.
                     assert(numTarget == numActual)
                     actualValues // do nothing
                   }
-                SValue.SRecord(tyCon, targetFields, patchedValues)
+                SValue.SRecord(tyCon, targetFields, extendedValues)
 
               case V.ValueVariant(_, constructor, value) =>
                 val info =
