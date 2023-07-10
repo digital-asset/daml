@@ -33,6 +33,7 @@ import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.annotation.{nowarn, tailrec}
+import scala.jdk.CollectionConverters._
 
 private[lf] object Speedy {
 
@@ -1023,6 +1024,11 @@ private[lf] object Speedy {
         optTargetTemplateId: Option[TypeConName],
     ): Control.Value = {
 
+      // NICK: where does typ0 come from?
+      // We need to be able to import a value even when the source type is not available.
+      // Since optTargetTemplateId is always used in preference to typ0
+      // perhaps the caller can combine into a single parameter.
+
       def assertRight[X](x: Either[LookupError, X]): X =
         x match {
           case Right(value) => value
@@ -1105,15 +1111,39 @@ private[lf] object Speedy {
           case TTyCon(tyCon) =>
             value match {
               case V.ValueRecord(_, fields) =>
-                val lookupResult = // TODO: may fail for upgrade/downgrade
+                val lookupResult = // NICK: may fail for upgrade/downgrade -- not if we use target type
                   assertRight(compiledPackages.pkgInterface.lookupDataRecord(tyCon))
                 lazy val subst = lookupResult.subst(argTypes)
-                val values = (lookupResult.dataRecord.fields.iterator zip fields.iterator)
+
+                // NICK: avoid need for 2nd pass, by construction None in this first pass
+                val actualValues = (lookupResult.dataRecord.fields.iterator zip fields.iterator)
                   .map { case ((_, fieldType), (_, fieldValue)) =>
                     go(AstUtil.substitute(fieldType, subst), fieldValue)
                   }
                   .to(ArrayList)
-                SValue.SRecord(tyCon, lookupResult.dataRecord.fields.map(_._1), values)
+                val targetFields = lookupResult.dataRecord.fields.map(_._1)
+
+                val numActual: Int = actualValues.size
+                val numTarget: Int = targetFields.length
+                val patchedValues =
+                  if (numTarget > numActual) {
+                    // Upgrade -- extend with None
+                    actualValues.asScala
+                      .padTo(targetFields.length, SValue.SOptional(None))
+                      .to(ArrayList)
+                  } else if (numTarget < numActual) {
+                    // Downgrade -- truncate
+                    // TODO: https://github.com/digital-asset/daml/issues/17082
+                    // - disallow dropping extra fields which have value other than None.
+                    // actualValues.asScala.take(targetFields.length).to(ArrayList)
+                    ??? // NICK: this can never happen
+                  } else {
+                    // Correct number of fields.
+                    assert(numTarget == numActual)
+                    actualValues // do nothing
+                  }
+                SValue.SRecord(tyCon, targetFields, patchedValues)
+
               case V.ValueVariant(_, constructor, value) =>
                 val info =
                   assertRight(
@@ -1135,39 +1165,16 @@ private[lf] object Speedy {
         }
       }
 
-      // NICK: where does typ0 come from?
-      // do I just use optTargetTemplateId instead, if I have it?
-      // In the end we want to make the source-type optional...
-      // give the source type-con, we might nit have the package ID and so cant get the source type
-
-      // Ok. first step.
-      // assert that (if) we are passed an optTargetTemplateId - it matches the soucrce
-      // and check all ENgineTest example are good.
-      // but we want to see fails insoft tests
-
       optTargetTemplateId match {
-        case None => // interfaces // NICK: OR upgrades disabled?
-          // println(s"**importValue (NO targetTemplateId)") // NICK
+        case None => // interfaces OR upgrades disabled?
           Control.Value(go(typ0, value0))
         case Some(targetTemplateId) =>
           val targetType: Type = TTyCon(targetTemplateId)
           val diff = (typ0 != targetType)
-          val diffMessage = if (diff) "(**DIFF**)" else ""
           if (!diff) {
             Control.Value(go(typ0, value0)) // no up/down-grade required
           } else {
-            println(
-              s"**importValue${diffMessage}:\n- (src) typ0=${typ0}\n- targetType=${targetType}"
-            )
-            // val s = Control.Value(go(typ0, value0)) // NICK: use source
-            val t = Control.Value(go(targetType, value0)) // NICK: use target
-            // val _ = (s,t)
-            // println(s"**importValue->SV:\n- s=$s\n- t=$t") // NICK
-
-            // def xxx: Int = ???
-            // val _ = xxx
-            t
-
+            Control.Value(go(targetType, value0))
           }
       }
     }
