@@ -43,7 +43,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     val contract = CachedContract(
       version = TransactionVersion.maxVersion,
       templateId = templateId,
-      value = SValue.SUnit,
+      value = SValue.SRecord(templateId, ImmArray(), ArrayList()),
       agreementText = "agreement",
       signatories = Set(party),
       observers = Set.empty,

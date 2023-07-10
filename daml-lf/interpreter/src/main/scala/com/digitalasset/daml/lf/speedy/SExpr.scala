@@ -323,9 +323,8 @@ private[lf] object SExpr {
   final case class SEImportValue(
       typ: Ast.Type,
       value: V,
-      optTargetTemplateId: Option[TypeConName] = None,
-  ) // NICK: default yuck
-      extends SExpr {
+      optTargetTemplateId: Option[TypeConName], // = None,// NICK default no! // merge params 1 & 3!
+  ) extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control.Value = {
       machine.importValue(typ, value, optTargetTemplateId)
     }

@@ -132,10 +132,7 @@ private[lf] object Speedy {
       keyOpt: Option[CachedKey],
   ) {
     val stakeholders: Set[Party] = signatories union observers
-    // private[speedy] val any = SValue.SAny(TTyCon(templateId), value) // NICK : AHA, is this my culprit?
-
-    private[speedy] val any =
-      SValue.SAnyContract.x_apply(templateId, value) // NICK : go via the apply!
+    private[speedy] val any = SValue.SAnyContract(templateId, value)
     private[speedy] def arg = value.toNormalizedValue(version)
     private[speedy] def gkeyOpt: Option[GlobalKey] = keyOpt.map(_.globalKey)
     private[speedy] def toCreateNode(coid: V.ContractId) =
@@ -1115,7 +1112,7 @@ private[lf] object Speedy {
                   assertRight(compiledPackages.pkgInterface.lookupDataRecord(tyCon))
                 lazy val subst = lookupResult.subst(argTypes)
 
-                // NICK: avoid need for 2nd pass, by construction None in this first pass
+                // NICK: avoid need for 2nd pass, by constructing None in this first pass
                 val actualValues = (lookupResult.dataRecord.fields.iterator zip fields.iterator)
                   .map { case ((_, fieldType), (_, fieldValue)) =>
                     go(AstUtil.substitute(fieldType, subst), fieldValue)
@@ -1136,7 +1133,7 @@ private[lf] object Speedy {
                     // TODO: https://github.com/digital-asset/daml/issues/17082
                     // - disallow dropping extra fields which have value other than None.
                     // actualValues.asScala.take(targetFields.length).to(ArrayList)
-                    ??? // NICK: this can never happen
+                    ??? // NICK: this can never happen -- we avoid if we merge passes!
                   } else {
                     // Correct number of fields.
                     assert(numTarget == numActual)

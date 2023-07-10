@@ -150,7 +150,7 @@ object CantonRunner {
             "-c" ::
             files.configFile.toString ::
             debugOptions
-        ).run(ProcessLogger { str => println(str); outputBuffer += str }) // NICK
+        ).run(ProcessLogger(str => outputBuffer += str))
       )
       size <- RetryStrategy.constant(attempts = 240, waitTime = 1.seconds) { (_, _) =>
         info("waiting for Canton to start")

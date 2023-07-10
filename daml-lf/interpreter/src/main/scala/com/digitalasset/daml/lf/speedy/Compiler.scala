@@ -112,7 +112,7 @@ private[lf] object Compiler {
   }
 
   sealed abstract class Casting {
-    def isHard: Boolean // NICK: feature flag ish
+    def isHard: Boolean // NICK: feature flag ish -- do beter here!
     def cast: SBuiltin
   }
   object Casting {
@@ -596,7 +596,7 @@ private[lf] final class Compiler(
       SBCastAnyInterface(ifaceId)(
         env.toSEVar(cidPos),
         SBFetchAny(
-          optTargetTemplateId = None // NICK: interface case; dont think we have a Some here!
+          optTargetTemplateId = None
         )(
           env.toSEVar(cidPos),
           s.SEValue.None,
@@ -845,7 +845,7 @@ private[lf] final class Compiler(
         SBCastAnyInterface(ifaceId)(
           env.toSEVar(cidPos),
           SBFetchAny(
-            optTargetTemplateId = None // NICK: None for interface
+            optTargetTemplateId = None
           )(
             env.toSEVar(cidPos),
             s.SEValue.None,
