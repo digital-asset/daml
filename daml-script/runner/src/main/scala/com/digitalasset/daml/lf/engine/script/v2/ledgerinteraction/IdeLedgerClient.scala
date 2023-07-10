@@ -20,7 +20,7 @@ import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.language.{LookupError, PackageInterface, Reference}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
-import com.daml.lf.speedy.{SValue, TraceLog, WarningLog, SError}
+import com.daml.lf.speedy.{Pretty, SValue, TraceLog, WarningLog, SError}
 import com.daml.lf.transaction.{
   GlobalKey,
   IncompleteTransaction,
@@ -295,7 +295,7 @@ class IdeLedgerClient(
       case e: RejectedAuthorityRequest => SubmitError.UnknownError(e.toString)
       case ContractNotFound(cid) => SubmitError.ContractNotFound(cid)
       case ContractKeyNotFound(key) => SubmitError.ContractKeyNotFound(key)
-      case e: FailedAuthorization => SubmitError.AuthorizationError(e.toString)
+      case e: FailedAuthorization => SubmitError.AuthorizationError(Pretty.prettyDamlException(e).renderWideStream.mkString)
       case ContractNotActive(cid, tid, _) => SubmitError.ContractNotActive(tid, cid)
       case DisclosedContractKeyHashingError(cid, key, hash) =>
         SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString)

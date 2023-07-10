@@ -23,11 +23,6 @@ pattern Daml3ScriptPackage <- (T.stripPrefix "daml3-script-" . fsToText . unitId
 pattern Daml3ScriptInternalModule :: GHC.Module
 pattern Daml3ScriptInternalModule <- ModuleIn Daml3ScriptPackage "Daml.Script.Internal"
 
-pattern Daml3ScriptPackage :: GHC.UnitId
-pattern Daml3ScriptPackage <- (T.stripPrefix "daml3-script-" . fsToText . unitIdFS -> Just _)
-pattern Daml3ScriptInternalModule :: GHC.Module
-pattern Daml3ScriptInternalModule <- ModuleIn Daml3ScriptPackage "Daml.Script.Internal"
-
 substUnit :: TyVar -> Type -> Type
 substUnit tyVar ty = TyCoRep.substTy (setTvSubstEnv emptyTCvSubst $ mkVarEnv [(tyVar, TyConApp unitTyCon [])]) ty
 

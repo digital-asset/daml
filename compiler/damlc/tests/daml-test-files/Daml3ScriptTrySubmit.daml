@@ -1,0 +1,39 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @ SCRIPT-V2
+
+module Daml3ScriptTrySubmit where
+
+import Daml.Script
+import DA.Assert
+import DA.Text
+
+template T with
+    p : Party
+  where
+  signatory p
+  
+  key p : Party
+  maintainer key
+
+-- Cannot test contract not found with IDELedger, no way to get an invalid contract ID
+
+contractKeyNotFound : Script ()
+contractKeyNotFound = script do
+  alice <- allocateParty "alice"
+  res <- trySubmit [alice] [alice] $ exerciseByKeyCmd @T alice Archive
+  case res of
+    Left (ContractKeyNotFound (fromAnyContractKey @T -> Some shouldBeAlice)) -> shouldBeAlice === alice
+    Left e -> error $ "contractKeyNotFound incorrect error: " <> show e
+    Right _ -> error "contractKeyNotFound incorrectly succeeded"
+
+authorizationError : Script ()
+authorizationError = script do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  res <- trySubmit [alice] [alice] $ createCmd T with p = bob
+  case res of
+    Left (AuthorizationError err) -> assert $ "requires authorizers bob, but only alice were given" `isInfixOf` err
+    Left e -> error $ "authorizationError incorrect error: " <> show e
+    Right _ -> error "authorizationError incorrectly succeeded"
