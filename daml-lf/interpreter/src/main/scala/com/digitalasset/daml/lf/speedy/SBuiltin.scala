@@ -1374,7 +1374,7 @@ private[lf] object SBuiltin {
       val (actualTemplateId, record) = getSAnyContract(args, 0)
       val v =
         if (interfaceInstanceExists(machine, requiringIfaceId, actualTemplateId))
-          SOptional(Some(SAnyContract.apply(actualTemplateId, record)))
+          SOptional(Some(SAnyContract(actualTemplateId, record)))
         else
           SOptional(None)
       Control.Value(v)
