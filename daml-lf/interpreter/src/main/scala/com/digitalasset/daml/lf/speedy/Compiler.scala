@@ -111,8 +111,8 @@ private[lf] object Compiler {
     }
   }
 
-  sealed abstract class Casting {
-    def isHard: Boolean // NICK: feature flag ish -- do beter here!
+  sealed abstract class Casting { // NICK: rethink
+    def isHard: Boolean
     def cast: SBuiltin
   }
   object Casting {
@@ -122,7 +122,7 @@ private[lf] object Compiler {
     ) extends Casting {
       def isHard: Boolean = true
       def cast: SBuiltin = {
-        SBCastAnyContract(tmplId, fields, allowUpgradesAndDowngrades = false)
+        SBCastAnyContract(tmplId, fields)
       }
     }
     final case class Soft(
@@ -135,7 +135,7 @@ private[lf] object Compiler {
     ) extends Casting {
       def isHard: Boolean = false
       def cast: SBuiltin = {
-        SBCastAnyContract(tmplId, fields, allowUpgradesAndDowngrades = true)
+        SBCastAnyContract(tmplId, fields)
       }
     }
   }
@@ -536,10 +536,7 @@ private[lf] final class Compiler(
       env,
       casting.cast(
         env.toSEVar(cidPos),
-        SBFetchAny(
-          optTargetTemplateId =
-            if (casting.isHard) None else Some(tmplId) // NICK: case(1) we are exploring
-        )(
+        SBFetchAny(optTargetTemplateId = if (casting.isHard) None else Some(tmplId))(
           env.toSEVar(cidPos),
           mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
         ),
@@ -788,10 +785,7 @@ private[lf] final class Compiler(
       env,
       casting.cast(
         env.toSEVar(cidPos),
-        SBFetchAny(
-          optTargetTemplateId =
-            if (casting.isHard) None else Some(tmplId) // NICK: case(2) we are exploring
-        )(
+        SBFetchAny(optTargetTemplateId = if (casting.isHard) None else Some(tmplId))(
           env.toSEVar(cidPos),
           mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
         ),

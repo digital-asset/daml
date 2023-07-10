@@ -1077,12 +1077,7 @@ private[lf] object SBuiltin {
   final case class SBCastAnyContract(
       templateId: TypeConName,
       targetFieldsAndTypes: ImmArray[(Ast.FieldName, Ast.Type)],
-      allowUpgradesAndDowngrades: Boolean,
   ) extends SBuiltin(2) {
-
-    // TODO: https://github.com/digital-asset/daml/issues/17082
-    // - allowUpgradesAndDowngrades will come from a feature flag
-    // val _ = allowUpgradesAndDowngrades // NICK: no longer needed to be passed here!
 
     // TODO: https://github.com/digital-asset/daml/issues/17082
     // - we currently make no use of the types
