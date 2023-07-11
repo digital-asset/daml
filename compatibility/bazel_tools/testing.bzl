@@ -602,11 +602,34 @@ excluded_test_tool_tests = [
         ],
     },
     # Ledger api error structure change, all following tests make assertions on errors
+    # New error api tool cannot be used on old api platform
     {
         "start": "2.7.0-snapshot.20230703.11931.1",
         "platform_ranges": [
             {
                 "end": "2.7.0-snapshot.20230703.11931.0.vc04c7ac9",
+                "exclusions": [
+                    "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
+                    "DeeplyNestedValueIT",
+                    "MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible",
+                    "CommandServiceIT:CSReturnStackTrace",
+                    "TransactionServiceAuthorizationIT:TXRejectMultiActorExcessiveAuth",
+                    "ContractKeysIT:CKGlocalKeyVisibility",
+                    "WronglyTypedContractIdIT",
+                    "ExplicitDisclosureIT:EDMalformedDisclosedContracts",
+                    "InterfaceSubscriptionsIT:ISTransactionsEquivalentFilters",
+                    "TimeServiceIT:TSFailWhenTimeNotAdvanced",
+                    "ExceptionsIT:ExUncaught",
+                ],
+            },
+        ],
+    },
+    # Reverse of above, old api error tool cannot be used on new api platform
+    {
+        "end": "2.7.0-snapshot.20230703.11931.0.vc04c7ac9",
+        "platform_ranges": [
+            {
+                "start": "2.7.0-snapshot.20230703.11931.1",
                 "exclusions": [
                     "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
                     "DeeplyNestedValueIT",
