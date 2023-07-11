@@ -300,8 +300,9 @@ class IdeLedgerClient(
       case ContractNotActive(cid, tid, _) => SubmitError.ContractNotActive(tid, cid)
       case DisclosedContractKeyHashingError(cid, key, hash) =>
         SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString)
-      case ContractKeyNotVisible(cid, key, actAs, readAs, stakeholders) =>
-        SubmitError.ContractKeyNotVisible(cid, key, actAs.toSeq, readAs.toSeq, stakeholders.toSeq)
+      // Hide not visible as not found
+      case ContractKeyNotVisible(_, key, _, _, _) =>
+        SubmitError.ContractKeyNotFound(key)
       case DuplicateContractKey(key) => SubmitError.DuplicateContractKey(key)
       case InconsistentContractKey(key) => SubmitError.InconsistentContractKey(key)
       // Only pass on the error if the type is a TTyCon

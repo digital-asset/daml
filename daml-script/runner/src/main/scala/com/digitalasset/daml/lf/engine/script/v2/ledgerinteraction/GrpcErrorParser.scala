@@ -87,24 +87,6 @@ object GrpcErrorParser {
               keyHash,
             )
         }
-      case "CONTRACT_KEY_NOT_VISIBLE" =>
-        caseErr {
-          case Seq(
-                (ErrorResource.TemplateId, tid),
-                (ErrorResource.ContractId, cid),
-                (ErrorResource.ContractKey, decodeValue.unlift(key)),
-                (ErrorResource.Parties, actAs),
-                (ErrorResource.Parties, readAs),
-                (ErrorResource.Parties, stakeholders),
-              ) =>
-            SubmitError.ContractKeyNotVisible(
-              ContractId.assertFromString(cid),
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key),
-              parseList(actAs).map(Party.assertFromString),
-              parseList(readAs).map(Party.assertFromString),
-              parseList(stakeholders).map(Party.assertFromString),
-            )
-        }
       case "DUPLICATE_CONTRACT_KEY" =>
         caseErr {
           case Seq(

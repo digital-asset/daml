@@ -35,13 +35,6 @@ data SubmitError
       contractId : AnyContractId
       expectedKey : AnyContractKey
       givenKeyHash : Text
-  | -- | Contract with given contract key is not visible to the given stakeholders. TODO: Leaking this over ContractNotActive/ContractNotFound may be a security issue
-    ContractKeyNotVisible with
-      contractId : AnyContractId
-      contractKey : AnyContractKey
-      actAs : [Party]
-      readAs : [Party]
-      stakeholders : [Party]
   | -- | Attempted to create a contract with a contract key that already exists
     DuplicateContractKey with
       contractKey : AnyContractKey
@@ -111,7 +104,6 @@ instance Show SubmitError where
     AuthorizationError {} -> "AuthorizationError"
     ContractNotActive {} -> "ContractNotActive"
     DisclosedContractKeyHashingError {} -> "DisclosedContractKeyHashingError"
-    ContractKeyNotVisible {} -> "ContractKeyNotVisible"
     DuplicateContractKey {} -> "DuplicateContractKey"
     InconsistentContractKey {} -> "InconsistentContractKey"
     UnhandledException {} -> "UnhandledException"

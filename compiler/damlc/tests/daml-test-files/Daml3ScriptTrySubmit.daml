@@ -101,22 +101,6 @@ contractNotActive = script do
 
 -- DisclosedContractKeyHashingError: Cannot test DisclosedContractKeyHashingError yet, scripts does not support this functionality
 
-contractKeyNotVisible : Script ()
-contractKeyNotVisible = script do
-  alice <- allocateParty "alice"
-  bob <- allocateParty "bob"
-  cid <- alice `submit` createCmd T1 with t1_p = alice
-  res <- trySubmit [bob] [bob] $ exerciseByKeyCmd @T1 alice Archive
-  case res of
-    Left (ContractKeyNotVisible (fromAnyContractId @T1 -> Some shouldBeCid) (fromAnyContractKey @T1 -> Some shouldBeAlice) actAs readAs stakeholders) -> do
-      shouldBeCid === cid -- Note how this leaks the contract id when searching by key, not ideal.
-      shouldBeAlice === alice
-      actAs === [bob]
-      readAs === [bob]
-      stakeholders === [alice]
-    Left e -> error $ "contractKeyNotVisible incorrect error: " <> show e
-    Right _ -> error "contractKeyNotVisible incorrectly succeeded"
-
 duplicateContractKey : Script ()
 duplicateContractKey = script do
   alice <- allocateParty "alice"
