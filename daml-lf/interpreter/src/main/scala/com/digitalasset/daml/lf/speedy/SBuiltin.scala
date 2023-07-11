@@ -191,7 +191,9 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
       i: Int,
   ): (TypeConName, SRecord) =
     args.get(i) match {
-      case SAny(_, record: SRecord) => (record.id, record)
+      case SAny(Ast.TTyCon(tyCon), record: SRecord) =>
+        assert(tyCon == record.id)
+        (tyCon, record)
       case otherwise => unexpectedType(i, "AnyContract", otherwise)
     }
 

@@ -124,8 +124,8 @@ private[lf] object Speedy {
 
   final case class CachedContract(
       version: TxVersion,
-      templateId: Ref.TypeConName, // TODO: dont pass; recover from (record)value.
-      value: SValue, // TODO: pass an SRecord here
+      templateId: Ref.TypeConName,
+      value: SValue,
       agreementText: String,
       signatories: Set[Party],
       observers: Set[Party],
