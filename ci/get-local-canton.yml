@@ -13,4 +13,5 @@ steps:
     if [ -f "$(Build.StagingDirectory)/canton_lib/canton_jar/canton.jar" ]; then
       mkdir -p canton/lib
       cp "$(Build.StagingDirectory)/canton_lib/canton_jar/canton.jar" canton/lib/
+      cp "$(Build.StagingDirectory)/canton_lib/canton_jar/canton-ee.jar" canton/lib/
     fi
