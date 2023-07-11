@@ -71,6 +71,7 @@ da_scala_test_suite(
         ["src/test/**/*.scala"],
         exclude = [
             "src/test/**/*Lib.scala",
+            "src/test/scala/com/digitalasset/daml/lf/speedy/SBuiltinBigNumericTest.scala",
         ],
     ),
     scala_deps = [
@@ -99,6 +100,28 @@ da_scala_test_suite(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_test(
+    name = "test-SBuiltinBigNumericTest",
+    size = "large",
+    srcs = glob(["src/test/**/SBuiltinBigNumericTest.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":interpreter",
+        ":interpreter-test-lib",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+        "//libs-scala/contextualized-logging",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
