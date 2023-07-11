@@ -4,11 +4,11 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
+import com.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
+import com.daml.lf.data.Ref.ChoiceName
 import com.daml.lf.typesig
 import typesig.{TemplateChoice, Type}
-import typesig.PackageSignature.TypeDecl
 import com.squareup.javapoet._
 import ClassGenUtils.companionFieldName
 import com.daml.ledger.javaapi.data.codegen.{Exercised, Update}
@@ -93,8 +93,7 @@ object ContractIdClass {
 
   private[inner] def generateExercisesInterface(
       choices: Map[ChoiceName, TemplateChoice.FWT],
-      typeDeclarations: Map[QualifiedName, TypeDecl],
-      packageId: PackageId,
+      typeDeclarations: AuxiliarySignatures,
   )(implicit
       packagePrefixes: PackagePrefixes
   ) = {
@@ -113,7 +112,7 @@ object ContractIdClass {
       )
       for (
         record <- choice.param.fold(
-          ClassGenUtils.getRecord(_, typeDeclarations, packageId),
+          ClassGenUtils.getRecord(_, typeDeclarations),
           _ => None,
           _ => None,
           _ => None,

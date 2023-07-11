@@ -18,10 +18,13 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
   behavior of "InterfaceTree.bfs"
 
   it should "traverse an empty tree" in {
+    val pkgSig =
+      PackageSignature(PackageId.assertFromString("packageid"), None, Map.empty, Map.empty)
     val interfaceTree =
       InterfaceTree(
         Map.empty,
-        PackageSignature(PackageId.assertFromString("packageid"), None, Map.empty, Map.empty),
+        pkgSig,
+        Map(pkgSig.packageId -> pkgSig),
       )
     interfaceTree.bfs(0)((x, _) => x + 1) shouldEqual 0
   }
@@ -47,11 +50,25 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
       Map(qualifiedName1 -> record1, qualifiedName2 -> variant1, qualifiedName3 -> record2)
     val interface =
       PackageSignature(PackageId.assertFromString("packageId2"), None, typeDecls, Map.empty)
-    val tree = InterfaceTree.fromInterface(interface)
+    val tree = InterfaceTree.fromInterface(interface, Map(interface.packageId -> interface))
     val result = tree.bfs(ArrayBuffer.empty[TypeDecl])((ab, n) =>
       n match {
-        case ModuleWithContext(interface @ _, modulesLineage @ _, name @ _, module @ _) => ab
-        case TypeWithContext(interface @ _, modulesLineage @ _, typesLineage @ _, name @ _, typ) =>
+        case ModuleWithContext(
+              interface @ _,
+              auxSigs @ _,
+              modulesLineage @ _,
+              name @ _,
+              module @ _,
+            ) =>
+          ab
+        case TypeWithContext(
+              interface @ _,
+              auxSigs @ _,
+              modulesLineage @ _,
+              typesLineage @ _,
+              name @ _,
+              typ,
+            ) =>
           ab ++= typ.typ.toList
       }
     )
@@ -71,11 +88,11 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
     val typeDecls = Map(bazQuux -> record)
     val interface =
       PackageSignature(PackageId.assertFromString("pkgid"), None, typeDecls, Map.empty)
-    val tree = InterfaceTree.fromInterface(interface)
+    val tree = InterfaceTree.fromInterface(interface, Map(interface.packageId -> interface))
     val result = tree.bfs(ArrayBuffer.empty[TypeDecl])((types, n) =>
       n match {
         case _: ModuleWithContext => types
-        case TypeWithContext(_, _, _, _, tpe) =>
+        case TypeWithContext(_, _, _, _, _, tpe) =>
           types ++= tpe.typ.toList
       }
     )

@@ -3,7 +3,8 @@
 
 package com.daml.lf.codegen.backend.java.inner
 
-import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
+import com.daml.lf.data.Ref
+import Ref.{ChoiceName, PackageId}
 import com.daml.lf.typesig.{DefDataType, Record, TypeCon}
 import com.daml.lf.typesig.PackageSignature.TypeDecl
 
@@ -11,6 +12,7 @@ import java.util.Optional
 import com.daml.lf.typesig._
 import com.squareup.javapoet._
 import com.daml.ledger.javaapi
+import com.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 
 import javax.lang.model.element.Modifier
 
@@ -40,16 +42,13 @@ private[inner] object ClassGenUtils {
 
   def getRecord(
       typeCon: TypeCon,
-      identifierToType: Map[QualifiedName, TypeDecl],
-      packageId: PackageId,
+      identifierToType: AuxiliarySignatures,
   ): Option[Record.FWT] = {
-    // TODO: at the moment we don't support other packages Records because the codegen works on single packages
-    if (typeCon.name.identifier.packageId == packageId) {
-      identifierToType.get(typeCon.name.identifier.qualifiedName) collect {
-        case TypeDecl.Normal(DefDataType(_, record: Record.FWT)) =>
-          record
-      }
-    } else None
+    val TypeCon(TypeConName(Ref.Identifier(packageId, qualName)), _) = typeCon
+    identifierToType get packageId flatMap (_.typeDecls get qualName) collect {
+      case TypeDecl.Normal(DefDataType(_, record: Record.FWT)) =>
+        record
+    }
   }
 
   val templateIdFieldName = "TEMPLATE_ID"
