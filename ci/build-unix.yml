@@ -32,7 +32,15 @@ steps:
     displayName: 'Platform-agnostic lints and checks'
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
-  - bash: ./build.sh "_${{parameters.name}}"
+  - bash: |
+      set -euo pipefail
+      p="_${{parameters.name}}"
+      a="_$(System.JobAttempt)"
+      if [ "$p" == "_m1" ]; then
+          ./build.sh $p $a || ./build.sh $p $a || ./build.sh $p $a || ./build.sh $p $a
+      else
+          ./build.sh $p $a
+      fi
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
@@ -40,10 +48,19 @@ steps:
       ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
       ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
 
-  - template: publish-platform-independence-dar.yml
-    parameters:
-      platform: '${{parameters.name}}'
-      is_release: '${{parameters.is_release}}'
+  # Do not publish dar from m1
+  - ${{ if ne(parameters.name, 'm1') }}:
+    - template: publish-platform-independence-dar.yml
+      parameters:
+        platform: '${{parameters.name}}'
+        is_release: '${{parameters.is_release}}'
+
+  - bash: |
+      set -euo pipefail
+      cd '$(Build.StagingDirectory)/logs'
+      gzip -9 *
+
+    displayName: compress logs
 
   - task: PublishBuildArtifacts@1
     condition: succeededOrFailed()
@@ -88,6 +105,9 @@ steps:
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     name: publish
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'main'))
   - task: PublishPipelineArtifact@0
     inputs:
       targetPath: $(Build.StagingDirectory)/release

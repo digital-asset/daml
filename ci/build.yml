@@ -81,7 +81,7 @@ jobs:
     - name: is_release
       value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     - template: job-variables.yml
-  timeoutInMinutes: 360
+  timeoutInMinutes: 180
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -143,7 +143,7 @@ jobs:
       value: $[ and(eq(variables.is_release, 'true'),
                        eq(variables['Build.SourceBranchName'], 'main')) ]
     - template: job-variables.yml
-  timeoutInMinutes: 360
+  timeoutInMinutes: 180
   pool:
     name: 'windows-pool'
     demands: assignment -equals default
@@ -180,6 +180,10 @@ jobs:
         is_release: variables.is_release
         is_split_release: $(is_split_release)
     - template: upload-bazel-metrics.yml
+    - bash: |
+        set -euo pipefail
+        cd '$(Build.StagingDirectory)/logs'
+        gzip -9 *
     - task: PublishBuildArtifacts@1
       condition: succeededOrFailed()
       inputs:
@@ -193,7 +197,7 @@ jobs:
 - job: Linux_oracle
   dependsOn:
   - build_canton
-  timeoutInMinutes: 360
+  timeoutInMinutes: 180
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -338,7 +342,7 @@ jobs:
     - check_for_release
   condition: and(succeeded(),
                  not(eq(dependencies.check_for_release.outputs['out.is_release'], 'true')))
-  timeoutInMinutes: 360
+  timeoutInMinutes: 180
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
@@ -355,7 +359,7 @@ jobs:
     - check_for_release
     - compatibility_ts_libs
     - build_canton
-  timeoutInMinutes: 360
+  timeoutInMinutes: 180
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
