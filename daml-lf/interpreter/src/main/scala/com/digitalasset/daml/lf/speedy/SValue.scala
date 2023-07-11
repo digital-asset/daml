@@ -75,12 +75,10 @@ sealed abstract class SValue {
         case r: SRecord =>
           V.ValueRecord(
             maybeEraseTypeInfo(r.id),
-            r.fields.toList
-              .map { case field =>
-                val sv = r.lookupField(field)
-                (maybeEraseTypeInfo(field), go(sv, nextMaxNesting))
-              }
-              .to(ImmArray),
+            r.fields.map { case field =>
+              val sv = r.lookupField(field)
+              (maybeEraseTypeInfo(field), go(sv, nextMaxNesting))
+            },
           )
         case SVariant(id, variant, _, sv) =>
           V.ValueVariant(maybeEraseTypeInfo(id), variant, go(sv, nextMaxNesting))
@@ -221,7 +219,7 @@ object SValue {
     }
 
     def values: util.ArrayList[SValue] = {
-      fields.toList.map(this.lookupField).to(ArrayList)
+      fields.toSeq.map(this.lookupField).to(ArrayList)
     }
   }
 
