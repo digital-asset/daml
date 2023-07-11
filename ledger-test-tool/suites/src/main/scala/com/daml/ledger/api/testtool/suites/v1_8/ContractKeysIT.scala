@@ -534,22 +534,12 @@ final class ContractKeysIT extends LedgerTestSuite {
 
     } yield {
       List(failure1, failure2).foreach { failure =>
-        val results = LazyList(
-          LedgerApiErrors.CommandExecution.Interpreter.ContractKeyNotVisible ->
-            "key of contract not visible",
-          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound ->
-            "couldn't find key",
-        ).map { case (errorCode, message) =>
-          scala.util.Try(
-            assertGrpcError(
-              failure,
-              errorCode,
-              Some(message),
-              checkDefiniteAnswerMetadata = true,
-            )
-          )
-        }
-        results.collectFirst { case scala.util.Success(value) => value }.getOrElse(results.head.get)
+        assertGrpcError(
+          failure,
+          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
+          Some("couldn't find key"),
+          checkDefiniteAnswerMetadata = true,
+        )
       }
     }
   })

@@ -27,11 +27,23 @@ import com.daml.lf.{VersionRange, language}
   "Errors raised during the command execution phase of the command submission evaluation."
 )
 object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
-  def encodeValue(v: Value): String =
+  def encodeValue(v: Value): Either[ValueCoder.EncodeError, String] =
     ValueCoder
       .encodeValue(CidEncoder, TransactionVersion.VDev, v)
-      .toOption
-      .fold("")(_.toStringUtf8)
+      .map(_.toStringUtf8)
+
+  def withEncodedValue(
+      v: Value
+  )(
+      f: String => Seq[(ErrorResource, String)]
+  )(implicit loggingContext: ContextualizedErrorLogger): Seq[(ErrorResource, String)] =
+    encodeValue(v).fold(
+      { case ValueCoder.EncodeError(msg) =>
+        loggingContext.error(msg)
+        Seq.empty
+      },
+      f,
+    )
 
   @Explanation(
     """This error occurs if the participant fails to determine the max ledger time of the used
@@ -209,10 +221,13 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
         ) extends DamlErrorWithDefiniteAnswer(
               cause = cause
             ) {
-          override def resources: Seq[(ErrorResource, String)] = Seq(
-            (ErrorResource.TemplateId, key.templateId.toString),
-            (ErrorResource.ContractKey, encodeValue(key.key)),
-          )
+          override def resources: Seq[(ErrorResource, String)] =
+            withEncodedValue(key.key) { encodedKey =>
+              Seq(
+                (ErrorResource.TemplateId, key.templateId.toString),
+                (ErrorResource.ContractKey, encodedKey),
+              )
+            }
         }
       }
     }
@@ -255,44 +270,15 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
             cause = cause
           ) {
 
-        override def resources: Seq[(ErrorResource, String)] = Seq(
-          (ErrorResource.TemplateId, err.key.templateId.toString),
-          (ErrorResource.ContractId, err.coid.coid),
-          (ErrorResource.ContractKey, encodeValue(err.key.key)),
-          (ErrorResource.ContractKeyHash, err.declaredHash.toString),
-        )
-      }
-    }
-
-    @Explanation(
-      """This error occurs if a user attempts to use a contract key that they are not able to see."""
-    )
-    @Resolution(
-      "Ensure your lookup/exercisesByKey are using keys to contracts that the submitter is an observer of."
-    )
-    object ContractKeyNotVisible
-        extends ErrorCode(
-          id = "CONTRACT_KEY_NOT_VISIBLE",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-        ) {
-
-      final case class Reject(
-          override val cause: String,
-          err: LfInterpretationError.ContractKeyNotVisible,
-      )(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = cause
-          ) {
-
-        override def resources: Seq[(ErrorResource, String)] = Seq(
-          (ErrorResource.TemplateId, err.key.templateId.toString),
-          (ErrorResource.ContractId, err.coid.coid),
-          (ErrorResource.ContractKey, encodeValue(err.key.key)),
-          (ErrorResource.Parties, err.actAs.mkString("[", ", ", "]")),
-          (ErrorResource.Parties, err.readAs.mkString("[", ", ", "]")),
-          (ErrorResource.Parties, err.stakeholders.mkString("[", ", ", "]")),
-        )
+        override def resources: Seq[(ErrorResource, String)] =
+          withEncodedValue(err.key.key) { encodedKey =>
+            Seq(
+              (ErrorResource.TemplateId, err.key.templateId.toString),
+              (ErrorResource.ContractId, err.coid.coid),
+              (ErrorResource.ContractKey, encodedKey),
+              (ErrorResource.ContractKeyHash, err.declaredHash.toString),
+            )
+          }
       }
     }
 
@@ -323,22 +309,24 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
             cause = cause
           ) {
         override def resources: Seq[(ErrorResource, String)] =
-          getTypeIdentifier(err.exceptionType)
-            .map(ty =>
-              Seq(
-                (ErrorResource.ExceptionType, ty.toString),
-                (ErrorResource.ExceptionValue, encodeValue(err.value)),
+          withEncodedValue(err.value) { encodedValue =>
+            getTypeIdentifier(err.exceptionType)
+              .map(ty =>
+                Seq(
+                  (ErrorResource.ExceptionType, ty.toString),
+                  (ErrorResource.ExceptionValue, encodedValue),
+                )
               )
-            )
-            .getOrElse(Nil)
+              .getOrElse(Nil)
+          }
       }
     }
 
     @Explanation(
-      """This error occurs when a user calls abort or error pre-exceptions"""
+      """This error occurs when a user calls abort or error on an LF version before native exceptions were introduced"""
     )
     @Resolution(
-      "Either remove the call to abort, error or perhaps assert, or ensure you are calling your contract correctly."
+      "Either remove the call to abort, error or perhaps assert, or ensure you are exercising your contract choice as the author expects."
     )
     object UserError
         extends ErrorCode(
@@ -404,10 +392,12 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
           ) {
 
         override def resources: Seq[(ErrorResource, String)] =
-          Seq(
-            (ErrorResource.TemplateId, err.templateId.toString),
-            (ErrorResource.ContractArg, encodeValue(err.arg)),
-          )
+          withEncodedValue(err.arg) { encodedArg =>
+            Seq(
+              (ErrorResource.TemplateId, err.templateId.toString),
+              (ErrorResource.ContractArg, encodedArg),
+            )
+          }
       }
     }
 
@@ -433,10 +423,12 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
           ) {
 
         override def resources: Seq[(ErrorResource, String)] =
-          Seq(
-            (ErrorResource.TemplateId, err.templateId.toString),
-            (ErrorResource.ContractKey, encodeValue(err.key)),
-          )
+          withEncodedValue(err.key) { encodedKey =>
+            Seq(
+              (ErrorResource.TemplateId, err.templateId.toString),
+              (ErrorResource.ContractKey, encodedKey),
+            )
+          }
       }
     }
 
@@ -444,7 +436,7 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
       """This error occurs when you try to fetch/use a contract in some way with a contract ID that doesn't match the template type on the ledger."""
     )
     @Resolution(
-      "Ensure you are not coercing contract IDs in an unsafe way, and that the template types you are using in disclosed contracts are correct."
+      "Ensure the contract IDs you are using are of the type we expect on the ledger. Avoid unsafely coercing contract IDs."
     )
     object WronglyTypedContract
         extends ErrorCode(

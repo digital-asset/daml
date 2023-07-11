@@ -759,22 +759,6 @@ CONTRACT_ID_IN_CONTRACT_KEY
 
 
 
-.. _error_code_CONTRACT_KEY_NOT_VISIBLE:
-
-CONTRACT_KEY_NOT_VISIBLE
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error occurs if a user attempts to use a contract key that they are not able to see.
-
-    **Category**: InvalidGivenCurrentSystemStateResourceMissing
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
-
-    **Resolution**: Ensure your lookup/exercisesByKey are using keys to contracts that the submitter is an observer of.
-
-
-
-
 .. _error_code_CONTRACT_NOT_ACTIVE:
 
 CONTRACT_NOT_ACTIVE
@@ -956,13 +940,13 @@ UNHANDLED_EXCEPTION
 USER_ERROR
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: This error occurs when a user calls abort or error pre-exceptions
+    **Explanation**: This error occurs when a user calls abort or error on an LF version before native exceptions were introduced
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
-    **Resolution**: Either remove the call to abort, error or perhaps assert, or ensure you are calling your contract correctly.
+    **Resolution**: Either remove the call to abort, error or perhaps assert, or ensure you are exercising your contract choice as the author expects.
 
 
 
@@ -978,7 +962,7 @@ WRONGLY_TYPED_CONTRACT
 
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
-    **Resolution**: Ensure you are not coercing contract IDs in an unsafe way, and that the template types you are using in disclosed contracts are correct.
+    **Resolution**: Ensure the contract IDs you are using are of the type we expect on the ledger. Avoid unsafely coercing contract IDs.
 
 
 
