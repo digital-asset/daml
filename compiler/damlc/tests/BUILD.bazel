@@ -1180,3 +1180,13 @@ daml_compile(
     target = "1.dev",
     version = "1.0.0",
 )
+
+daml_compile(
+    name = "try-submit-test",
+    srcs = ["daml-test-files/Daml3ScriptTrySubmit.daml"],
+    dependencies = [
+        "//daml-script/daml3:daml3-script.dar",
+    ],
+    project_name = "try-submit-test",
+    target = "1.dev",
+)

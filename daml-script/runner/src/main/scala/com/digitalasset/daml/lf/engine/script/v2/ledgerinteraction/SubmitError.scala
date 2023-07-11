@@ -5,8 +5,7 @@ package com.daml.lf.engine.script
 package v2
 package ledgerinteraction
 
-import com.daml.lf.data.FrontStack
-import com.daml.lf.data.Ref.{Identifier, Name, Party}
+import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._

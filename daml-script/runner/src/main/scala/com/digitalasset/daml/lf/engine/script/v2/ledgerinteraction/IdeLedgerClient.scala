@@ -351,8 +351,8 @@ class IdeLedgerClient(
     case scenario.Error.ContractNotVisible(coid, _, _, _, _) =>
       SubmitError.ContractNotFound(coid)
 
-    case scenario.Error.ContractKeyNotVisible(coid, key, actAs, readAs, observers) =>
-      SubmitError.ContractKeyNotVisible(coid, key, actAs.toSeq, readAs.toSeq, observers.toSeq)
+    case scenario.Error.ContractKeyNotVisible(_, key, _, _, _) =>
+      SubmitError.ContractKeyNotFound(key)
 
     case scenario.Error.CommitError(
           ScenarioLedger.CommitError.UniqueKeyViolation(ScenarioLedger.UniqueKeyViolation(gk))

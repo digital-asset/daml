@@ -13,6 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.nio.file.Files
 
+// TODO, factor out the main logic here, and add a version that runs against compiler/damlc/tests:try-submit-test.dar, and ensures it passes with SUCCESS
 class DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers {
   self: Suite =>
 
