@@ -97,12 +97,16 @@ object ContractIdClass {
   )(implicit
       packagePrefixes: PackagePrefixes
   ) = {
+    val exercisesParent =
+      if (hasStandardArchive(choices, typeDeclarations))
+        classOf[javaapi.data.codegen.Exercises.Archive[_]]
+      else classOf[javaapi.data.codegen.Exercises[_]]
     val exercisesClass = TypeSpec
       .interfaceBuilder(exercisesInterface)
       .addTypeVariable(exercisesTypeParam)
       .addSuperinterface(
         ParameterizedTypeName
-          .get(ClassName get classOf[javaapi.data.codegen.Exercises[_]], exercisesTypeParam)
+          .get(ClassName get exercisesParent, exercisesTypeParam)
       )
       .addModifiers(Modifier.PUBLIC)
     choices foreach { case (choiceName, choice) =>
@@ -128,6 +132,22 @@ object ContractIdClass {
     }
     exercisesClass.build()
   }
+
+  private[this] def hasStandardArchive(
+      choices: Map[ChoiceName, TemplateChoice.FWT],
+      typeDeclarations: AuxiliarySignatures,
+  ) =
+    choices get ClassGenUtils.archiveChoiceName exists {
+      case typesig.TemplateChoice(
+            tc: typesig.TypeCon,
+            true,
+            typesig.TypePrim(typesig.PrimType.Unit, Seq()),
+          ) =>
+        ClassGenUtils.getRecord(tc, typeDeclarations) exists { rec =>
+          rec.fields.isEmpty
+        }
+      case _ => false
+    }
 
   private[inner] def generateToInterfaceMethods(
       nestedReturn: String,

@@ -53,6 +53,7 @@ private[inner] object ClassGenUtils {
 
   val templateIdFieldName = "TEMPLATE_ID"
   val companionFieldName = "COMPANION"
+  val archiveChoiceName = ChoiceName assertFromString "Archive"
 
   def generateTemplateIdField(packageId: PackageId, moduleName: String, name: String) =
     FieldSpec
