@@ -16,11 +16,6 @@ load(
 
 exports_files(
     [
-        "configs/html/conf.py",
-        "configs/static/pygments_daml_lexer.py",
-        "configs/static/typescript.py",
-        "scripts/check-closing-quotes.sh",
-        "scripts/check-closing-quotes.sh.allow",
         "source/tools/export/output-root/Export.daml",
         "source/tools/export/output-root/args.json",
         "source/tools/export/output-root/daml.yaml",
