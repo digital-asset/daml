@@ -311,7 +311,7 @@ object TransactionVersionTest {
           Array(),
           1,
           SExpr.SELet1General(
-            SBFetchAny(speedyContractId, SEValue.None),
+            SBFetchAny(optTargetTemplateId = None)(speedyContractId, SEValue.None),
             SExpr.SEScopeExercise(
               SBuiltin.SBUBeginExercise(
                 templateId,

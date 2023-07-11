@@ -191,7 +191,9 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
       i: Int,
   ): (TypeConName, SRecord) =
     args.get(i) match {
-      case SAnyContract(tyCon, value) => (tyCon, value)
+      case SAny(Ast.TTyCon(tyCon), record: SRecord) =>
+        assert(tyCon == record.id)
+        (tyCon, record)
       case otherwise => unexpectedType(i, "AnyContract", otherwise)
     }
 
@@ -1074,63 +1076,18 @@ private[lf] object SBuiltin {
   }
 
   // SBCastAnyContract: ContractId templateId -> Any -> templateId
-  final case class SBCastAnyContract(
-      templateId: TypeConName,
-      targetFieldsAndTypes: ImmArray[(Ast.FieldName, Ast.Type)],
-      // TODO: https://github.com/digital-asset/daml/issues/17082
-      // - allowUpgradesAndDowngrades will come from a feature flag
-      allowUpgradesAndDowngrades: Boolean,
-  ) extends SBuiltin(2) {
-
-    // TODO: https://github.com/digital-asset/daml/issues/17082
-    // - we currently make no use of the types
-    val targetFields = targetFieldsAndTypes.map(_._1)
-
+  final case class SBCastAnyContract(templateId: TypeConName) extends SBuiltin(2) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
       val (actualTemplateId, record) = getSAnyContract(args, 1)
       if (actualTemplateId == templateId) {
-        // No upgrade or downgrade required
         Control.Value(record)
       } else {
         assert(actualTemplateId != templateId)
-        if (!allowUpgradesAndDowngrades) {
-          // Existing behavior retained when the up/down-grades feature is disabled.
-          val coid = getSContractId(args, 0)
-          Control.Error(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
-        } else {
-          assert(allowUpgradesAndDowngrades)
-          // TODO: https://github.com/digital-asset/daml/issues/17082
-          // This code which implements the compatibility relation (i.e drop/make-None) must
-          // move to be within importValue/translateValue
-          val actualValues = record.values
-          val numActual: Int = record.fields.length
-          val numTarget: Int = targetFields.length
-          val patchedValues =
-            if (numTarget > numActual) {
-              // Upgrade -- extend with None
-              actualValues.asScala.padTo(targetFields.length, SOptional(None)).to(ArrayList)
-            } else if (numTarget < numActual) {
-              // Downgrade -- truncate
-              // TODO: https://github.com/digital-asset/daml/issues/17082
-              // - disallow dropping extra fields which have value other than None.
-              actualValues.asScala.take(targetFields.length).to(ArrayList)
-            } else {
-              // Correct number of fields.
-              assert(numTarget == numActual)
-              actualValues // do nothing
-            }
-          val patched: SRecord = {
-            SRecord(
-              id = templateId,
-              fields = targetFields,
-              values = patchedValues,
-            )
-          }
-          Control.Value(patched)
-        }
+        val coid = getSContractId(args, 0)
+        Control.Error(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
       }
     }
   }
@@ -1176,7 +1133,7 @@ private[lf] object SBuiltin {
     *    -> Optional {key: key, maintainers: List Party} (template key, if present)
     *    -> a
     */
-  final case object SBFetchAny extends UpdateBuiltin(2) {
+  final case class SBFetchAny(optTargetTemplateId: Option[TypeConName]) extends UpdateBuiltin(2) {
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
@@ -1206,12 +1163,16 @@ private[lf] object SBuiltin {
                 machine.pushKont(KCacheContract(coid))
                 val e = coinst match {
                   case V.ContractInstance(actualTmplId, arg) =>
+                    val templateId = optTargetTemplateId match {
+                      case Some(tycon) => tycon
+                      case None => actualTmplId
+                    }
                     SELet1(
                       // The call to ToCachedContractDefRef(actualTmplId) will query package
                       // of actualTmplId if not known.
-                      SEVal(ToCachedContractDefRef(actualTmplId)),
+                      SEVal(ToCachedContractDefRef(templateId)),
                       SELet1(
-                        SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                        SEImportValue(Ast.TTyCon(templateId), arg),
                         SEAppAtomic(SELocS(2), Array(SELocS(1), SEValue(args.get(1)))),
                       ),
                     )
@@ -1360,9 +1321,7 @@ private[lf] object SBuiltin {
 
   // This wraps a contract record into an SAny where the type argument corresponds to
   // the record's templateId.
-  final case class SBToAnyContract(
-      tplId: TypeConName
-  ) extends SBuiltinPure(1) {
+  final case class SBToAnyContract(tplId: TypeConName) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
       SAnyContract(tplId, getSRecord(args, 0))
     }
@@ -1650,8 +1609,11 @@ private[lf] object SBuiltin {
                     (Control.Value(SUnit), true)
                   } else {
                     // SBFetchAny will populate machine.cachedContracts with the contract pointed by coid
+                    // TODO: https://github.com/digital-asset/daml/issues/17082
+                    // - do we have a targetType to pass to SBFetchAny?
+
                     val e = SEAppAtomic(
-                      SEBuiltin(SBFetchAny),
+                      SEBuiltin(SBFetchAny(None)),
                       Array(SEValue(SContractId(coid)), SEValue(SOptional(Some(svalue)))),
                     )
                     (Control.Expression(e), true)
