@@ -58,9 +58,13 @@ steps:
   - bash: |
       set -euo pipefail
       cd '$(Build.StagingDirectory)/logs'
-      gzip -9 *
+      find . -type f | xargs gzip -9
+      cd -
+      cd bazel-testlogs
+      find . -type f | xargs gzip -9
 
     displayName: compress logs
+    condition: succeededOrFailed()
 
   - task: PublishBuildArtifacts@1
     condition: succeededOrFailed()
