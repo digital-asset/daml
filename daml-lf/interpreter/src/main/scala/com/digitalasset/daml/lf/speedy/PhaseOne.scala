@@ -225,7 +225,11 @@ private[lf] final class PhaseOne(
         compileERecCon(env, tApp, fields)
       case ERecProj(tapp, field, record) =>
         compileExp(env, record) { record =>
-          Return(SBRecProj(tapp.tycon, field)(record))
+          val fieldNum: Int = handleLookup(
+            NameOf.qualifiedNameOfCurrentFunc,
+            pkgInterface.lookupRecordFieldInfo(tapp.tycon, field),
+          ).index
+          Return(SBRecProj(tapp.tycon, field, fieldNum)(record))
         }
       case erecupd: ERecUpd =>
         compileERecUpd(env, erecupd)
@@ -557,7 +561,7 @@ private[lf] final class PhaseOne(
     tapp match {
       case TypeConApp(tycon, _) =>
         if (fields.isEmpty)
-          Return(SEValue(SRecordRep(tycon, ImmArray.Empty, Map.empty)))
+          Return(SEValue(SRecordRep(tycon, ImmArray.Empty, ArrayList.empty)))
         else {
           val exps = fields.toList.map(_._2)
           compileExps(env, exps) { exps =>
@@ -570,15 +574,24 @@ private[lf] final class PhaseOne(
   private[this] def compileERecUpd(env: Env, erecupd: ERecUpd): Work = {
     val tapp = erecupd.tycon
     val (record, fields, updates) = collectRecUpds(erecupd)
-    if (fields.length == 1) {
+    val fieldsAndNums =
+      fields.map { field =>
+        val fieldNum: Int = handleLookup(
+          NameOf.qualifiedNameOfCurrentFunc,
+          pkgInterface.lookupRecordFieldInfo(tapp.tycon, field),
+        ).index
+        (field, fieldNum)
+      }
+    if (fieldsAndNums.length == 1) {
       compileExp(env, record) { record =>
         compileExp(env, updates.head) { update =>
-          Return(SBRecUpd(tapp.tycon, fields.head)(record, update))
+          val (field, fieldNum) = fieldsAndNums.head
+          Return(SBRecUpd(tapp.tycon, field, fieldNum)(record, update))
         }
       }
     } else {
       compileExps(env, record :: updates) { exps =>
-        Return(SBRecUpdMulti(tapp.tycon, fields)(exps: _*))
+        Return(SBRecUpdMulti(tapp.tycon, fieldsAndNums)(exps: _*))
       }
     }
   }

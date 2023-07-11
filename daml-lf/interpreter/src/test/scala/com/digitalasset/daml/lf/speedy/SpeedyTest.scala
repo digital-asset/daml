@@ -319,7 +319,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
                 SELet1General(
                   SEVal(LfDefRef(qualify("M:origin"))),
                   SEAppAtomicSaturatedBuiltin(
-                    SBRecUpd(qualify("M:Point"), Name.assertFromString("x")),
+                    SBRecUpd(qualify("M:Point"), Name.assertFromString("x"), 0),
                     Array(SELocS(1), SEValue(SInt64(1))),
                   ),
                 )
@@ -349,7 +349,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
                   SEAppAtomicSaturatedBuiltin(
                     SBRecUpdMulti(
                       qualify("M:Point"),
-                      List(Name.assertFromString("x"), Name.assertFromString("y")),
+                      List(Name.assertFromString("x"), Name.assertFromString("y")).zipWithIndex,
                     ),
                     Array(
                       SELocS(1),
@@ -394,7 +394,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
                     SEAppAtomicSaturatedBuiltin(
                       SBRecUpdMulti(
                         qualify("M:Point"),
-                        List(Name.assertFromString("x"), Name.assertFromString("y")),
+                        List(Name.assertFromString("x"), Name.assertFromString("y")).zipWithIndex,
                       ),
                       Array(
                         SELocS(1),
@@ -435,7 +435,10 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
                         SEAppAtomicSaturatedBuiltin(
                           SBRecUpdMulti(
                             qualify("M:Point"),
-                            List(Name.assertFromString("x"), Name.assertFromString("y")),
+                            List(
+                              Name.assertFromString("x"),
+                              Name.assertFromString("y"),
+                            ).zipWithIndex,
                           ),
                           Array(
                             SELocS(5),
@@ -465,7 +468,10 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
                         SEAppAtomicSaturatedBuiltin(
                           SBRecUpdMulti(
                             qualify("M:Point"),
-                            List(Name.assertFromString("x"), Name.assertFromString("y")),
+                            List(
+                              Name.assertFromString("x"),
+                              Name.assertFromString("y"),
+                            ).zipWithIndex,
                           ),
                           Array(SELocS(1), SELocS(2), SELocS(4)),
                         ),
@@ -505,9 +511,9 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
                     SBRecUpdMulti(
                       qualify("M:Point"),
                       List(
-                        Name.assertFromString("x"),
-                        Name.assertFromString("y"),
-                        Name.assertFromString("x"),
+                        (Name.assertFromString("x"), 0),
+                        (Name.assertFromString("y"), 1),
+                        (Name.assertFromString("x"), 0),
                       ),
                     ),
                     Array(

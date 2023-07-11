@@ -74,10 +74,12 @@ sealed abstract class SValue {
         case r: SRecord =>
           V.ValueRecord(
             maybeEraseTypeInfo(r.id),
-            r.fields.map { case field =>
-              val sv = r.lookupField(field)
-              (maybeEraseTypeInfo(field), go(sv, nextMaxNesting))
-            },
+            r.fields.toSeq.zipWithIndex
+              .map { case (field, fieldNum) =>
+                val sv = r.lookupField(fieldNum, field)
+                (maybeEraseTypeInfo(field), go(sv, nextMaxNesting))
+              }
+              .to(ImmArray),
           )
         case SVariant(id, variant, _, sv) =>
           V.ValueVariant(maybeEraseTypeInfo(id), variant, go(sv, nextMaxNesting))
@@ -178,8 +180,8 @@ object SValue {
     def id: Identifier
     def fields: ImmArray[Name]
     def values: util.ArrayList[SValue]
-    def lookupField(field: Name): SValue
-    def updateField(field: Name, value: SValue): SRecord
+    def lookupField(fieldNum: Int, field: Name): SValue
+    def updateField(fieldNum: Int, field: Name, value: SValue): SRecord
   }
 
   object SRecord {
@@ -190,8 +192,7 @@ object SValue {
           s"SRecord.apply(#fields=${fields.length}; #values=${values.size}: mismatch!\n- fields=${fields}\n- values=${values}",
         )
       }
-      val zipped = (fields.toSeq zip values.asScala).toList
-      SRecordRep(id, fields, zipped.toMap)
+      SRecordRep(id, fields, values)
     }
     def unapply(x: SRecord): Option[(Identifier, ImmArray[Name], util.ArrayList[SValue])] = {
       Some((x.id, x.fields, x.values))
@@ -199,26 +200,20 @@ object SValue {
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  final case class SRecordRep(id: Identifier, fields: ImmArray[Name], dict: Map[Name, SValue])
-      extends SRecord {
+  final case class SRecordRep(
+      id: Identifier,
+      fields: ImmArray[Name],
+      values: util.ArrayList[SValue],
+  ) extends SRecord {
 
-    def lookupField(field: Name): SValue = {
-      dict.get(field) match {
-        case Some(v) => v
-        case None =>
-          throw SError.SErrorCrash(
-            NameOf.qualifiedNameOfCurrentFunc,
-            s"SRecord.lookupField($field) : no such field, have:[$fields]",
-          )
-      }
+    def lookupField(fieldNum: Int, field: Name): SValue = {
+      values.get(fieldNum)
     }
 
-    def updateField(field: Name, value: SValue): SRecord = {
-      this.copy(dict = dict + (field -> value))
-    }
-
-    def values: util.ArrayList[SValue] = {
-      fields.toSeq.map(this.lookupField).to(ArrayList)
+    def updateField(fieldNum: Int, field: Name, value: SValue): SRecord = {
+      val values2: util.ArrayList[SValue] = values.clone.asInstanceOf[util.ArrayList[SValue]]
+      discard(values2.set(fieldNum, value))
+      this.copy(values = values2)
     }
   }
 
