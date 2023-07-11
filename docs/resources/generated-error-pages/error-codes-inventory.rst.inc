@@ -748,7 +748,7 @@ CONTRACT_ID_COMPARABILITY
 CONTRACT_ID_IN_CONTRACT_KEY
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: This error occurs when a contract key contains a contract ID, which is illegal for hashing reasons
+    **Explanation**: This error occurs when a contract key contains a contract ID, which is illegal for hashing reasons.
 
     **Category**: InvalidIndependentOfSystemState
 
@@ -892,7 +892,7 @@ FETCH_EMPTY_CONTRACT_KEY_MAINTAINERS
 NON_COMPARABLE_VALUES
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: This error occurs when you attempt to compare two values of different types using the builtin comparison types.
+    **Explanation**: This error occurs when you attempt to compare two values of different types using the built-in comparison types.
 
     **Category**: InvalidIndependentOfSystemState
 
@@ -908,7 +908,7 @@ NON_COMPARABLE_VALUES
 TEMPLATE_PRECONDITION_VIOLATED
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: This error occurs when a contracts pre-condition (the ensure clause) is violated on contract creation.
+    **Explanation**: This error occurs when a contract's pre-condition (the ensure clause) is violated on contract creation.
 
     **Category**: InvalidIndependentOfSystemState
 
@@ -924,7 +924,7 @@ TEMPLATE_PRECONDITION_VIOLATED
 UNHANDLED_EXCEPTION
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: This error occurs when a user throws an error and does not catch it with try-catch
+    **Explanation**: This error occurs when a user throws an error and does not catch it with try-catch.
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
@@ -940,7 +940,7 @@ UNHANDLED_EXCEPTION
 USER_ERROR
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: This error occurs when a user calls abort or error on an LF version before native exceptions were introduced
+    **Explanation**: This error occurs when a user calls abort or error on an LF version before native exceptions were introduced.
 
     **Category**: InvalidGivenCurrentSystemStateOther
 

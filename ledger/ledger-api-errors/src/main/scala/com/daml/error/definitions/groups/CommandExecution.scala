@@ -289,7 +289,7 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
       }
 
     @Explanation(
-      """This error occurs when a user throws an error and does not catch it with try-catch"""
+      """This error occurs when a user throws an error and does not catch it with try-catch."""
     )
     @Resolution(
       "Either your error handling in a choice body is insufficient, or you are using a contract incorrectly."
@@ -323,7 +323,7 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
     }
 
     @Explanation(
-      """This error occurs when a user calls abort or error on an LF version before native exceptions were introduced"""
+      """This error occurs when a user calls abort or error on an LF version before native exceptions were introduced."""
     )
     @Resolution(
       "Either remove the call to abort, error or perhaps assert, or ensure you are exercising your contract choice as the author expects."
@@ -350,7 +350,7 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
     }
 
     @Explanation(
-      """This error occurs when a contracts pre-condition (the ensure clause) is violated on contract creation."""
+      """This error occurs when a contract's pre-condition (the ensure clause) is violated on contract creation."""
     )
     @Resolution(
       "Ensure the contract argument you are passing into your create doesn't violate the conditions of the contract."
@@ -524,7 +524,7 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
     }
 
     @Explanation(
-      """This error occurs when you attempt to compare two values of different types using the builtin comparison types."""
+      """This error occurs when you attempt to compare two values of different types using the built-in comparison types."""
     )
     @Resolution(
       "Avoid using the low level comparison build, and instead use the Eq class."
@@ -545,7 +545,7 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
     }
 
     @Explanation(
-      """This error occurs when a contract key contains a contract ID, which is illegal for hashing reasons"""
+      """This error occurs when a contract key contains a contract ID, which is illegal for hashing reasons."""
     )
     @Resolution(
       "Ensure your contracts key field cannot contain a contract ID."
