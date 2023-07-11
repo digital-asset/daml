@@ -75,12 +75,10 @@ sealed abstract class SValue {
         case r: SRecord =>
           V.ValueRecord(
             maybeEraseTypeInfo(r.id),
-            r.fields.toList
-              .map { case field =>
-                val sv = r.lookupField(field)
-                (maybeEraseTypeInfo(field), go(sv, nextMaxNesting))
-              }
-              .to(ImmArray),
+            r.fields.map { case field =>
+              val sv = r.lookupField(field)
+              (maybeEraseTypeInfo(field), go(sv, nextMaxNesting))
+            },
           )
         case SVariant(id, variant, _, sv) =>
           V.ValueVariant(maybeEraseTypeInfo(id), variant, go(sv, nextMaxNesting))
@@ -221,7 +219,7 @@ object SValue {
     }
 
     def values: util.ArrayList[SValue] = {
-      fields.toList.map(this.lookupField).to(ArrayList)
+      fields.toSeq.map(this.lookupField).to(ArrayList)
     }
   }
 
@@ -349,15 +347,26 @@ object SValue {
   }
 
   object SAnyContract {
-    def apply(tyCon: Ref.TypeConName, record: SRecord): SAny = SAny(TTyCon(tyCon), record)
-
-    def unapply(any: SAny): Option[(TypeConName, SRecord)] =
-      any match {
-        case SAny(TTyCon(tyCon0), record: SRecord) if record.id == tyCon0 =>
-          Some((tyCon0, record))
-        case _ =>
-          None
+    def apply(tyCon: Ref.TypeConName, value: SValue): SAny = {
+      value match {
+        case record: SRecord =>
+          // TODO: https://github.com/digital-asset/daml/issues/17082
+          // - investigate CompilerTest failures where this is not true...
+          /*if (tyCon != record.id) {
+            throw SError.SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"SAnyContract.apply: mismatch tycon, \nA ${tyCon}\nB: ${record.id}",
+            )
+           }*/
+          val _ = tyCon
+          SAny(TTyCon(record.id), record)
+        case v =>
+          throw SError.SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"SAnyContract.apply: expected a record value, got; $v",
+          )
       }
+    }
   }
 
   object SArithmeticError {

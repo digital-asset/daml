@@ -6,190 +6,13 @@ package transaction
 package test
 
 import com.daml.lf.data._
-import com.daml.lf.language.LanguageVersion
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance, VersionedContractInstance}
 
-import java.util.concurrent.atomic.AtomicInteger
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
-
-final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion) {
-
-  private[this] val ids: Iterator[NodeId] = Iterator.from(0).map(NodeId(_))
-  private[this] var nodes: Map[NodeId, Node] = HashMap.empty
-  private[this] var children: Map[NodeId, BackStack[NodeId]] =
-    HashMap.empty.withDefaultValue(BackStack.empty)
-  private[this] var roots: BackStack[NodeId] = BackStack.empty
-
-  private[this] def newNode(node: Node): NodeId = {
-    val nodeId = ids.next()
-    nodes += (nodeId -> node)
-    nodeId
-  }
-
-  def add(node: Node): NodeId = ids.synchronized {
-    val nodeId = newNode(node)
-    roots = roots :+ nodeId
-    nodeId
-  }
-
-  def add(node: Node, parentId: NodeId): NodeId = ids.synchronized {
-    lazy val nodeId = newNode(node) // lazy to avoid getting the next id if the method later throws
-    nodes(parentId) match {
-      case _: Node.Exercise | _: Node.Rollback =>
-        children += parentId -> (children(parentId) :+ nodeId)
-      case _ =>
-        throw new IllegalArgumentException(
-          s"Node ${parentId.index} either does not exist or is not an exercise or rollback"
-        )
-    }
-    nodeId
-  }
-
-  def build(): VersionedTransaction = ids.synchronized {
-    import TransactionVersion.Ordering
-    val finalNodes = nodes.transform {
-      case (nid, rb: Node.Rollback) =>
-        rb.copy(children = children(nid).toImmArray)
-      case (nid, exe: Node.Exercise) =>
-        exe.copy(children = children(nid).toImmArray)
-      case (_, node: Node.LeafOnlyAction) =>
-        node
-    }
-    val txVersion = finalNodes.values.foldLeft(TransactionVersion.minVersion)((acc, node) =>
-      node.optVersion match {
-        case Some(version) => acc max version
-        case None => acc max TransactionVersion.minExceptions
-      }
-    )
-    val finalRoots = roots.toImmArray
-    VersionedTransaction(txVersion, finalNodes, finalRoots)
-  }
-
-  def buildSubmitted(): SubmittedTransaction = SubmittedTransaction(build())
-
-  def buildCommitted(): CommittedTransaction = CommittedTransaction(build())
-
-  def newCid: ContractId = TransactionBuilder.newV1Cid
-
-  private val counter = new AtomicInteger()
-  private def freshSuffix = counter.incrementAndGet().toString
-
-  def newParty = Ref.Party.assertFromString("party" + freshSuffix)
-  def newPackageId = Ref.PackageId.assertFromString("pkgId" + freshSuffix)
-  def newModName = Ref.DottedName.assertFromString("Mod" + freshSuffix)
-  def newChoiceName = Ref.Name.assertFromString("Choice" + freshSuffix)
-  def newIdentifierName = Ref.DottedName.assertFromString("T" + freshSuffix)
-  def newIdenfier = Ref.Identifier(newPackageId, Ref.QualifiedName(newModName, newIdentifierName))
-
-  def versionContract(contract: Value.ContractInstance): value.Value.VersionedContractInstance =
-    Versioned(pkgTxVersion(contract.template.packageId), contract)
-
-  def create(
-      id: ContractId,
-      templateId: Ref.Identifier,
-      argument: Value,
-      signatories: Set[Ref.Party],
-      observers: Set[Ref.Party],
-      key: Option[Value] = None,
-  ): Node.Create =
-    create(id, templateId, argument, signatories, observers, key, signatories)
-
-  def create(
-      id: ContractId,
-      templateId: Ref.Identifier,
-      argument: Value,
-      signatories: Set[Ref.Party],
-      observers: Set[Ref.Party],
-      keyOpt: Option[Value],
-      maintainers: Set[Ref.Party],
-  ): Node.Create = {
-    Node.Create(
-      coid = id,
-      templateId = templateId,
-      arg = argument,
-      agreementText = "",
-      signatories = signatories,
-      stakeholders = signatories | observers,
-      keyOpt =
-        keyOpt.map(key => GlobalKeyWithMaintainers.assertBuild(templateId, key, maintainers)),
-      version = pkgTxVersion(templateId.packageId),
-    )
-  }
-
-  def exercise(
-      contract: Node.Create,
-      choice: Ref.Name,
-      consuming: Boolean,
-      actingParties: Set[Ref.Party],
-      argument: Value,
-      interfaceId: Option[Ref.TypeConName] = None,
-      result: Option[Value] = None,
-      choiceObservers: Set[Ref.Party] = Set.empty,
-      byKey: Boolean = true,
-  ): Node.Exercise =
-    Node.Exercise(
-      choiceObservers = choiceObservers,
-      choiceAuthorizers = None,
-      targetCoid = contract.coid,
-      templateId = contract.templateId,
-      interfaceId = interfaceId,
-      choiceId = choice,
-      consuming = consuming,
-      actingParties = actingParties,
-      chosenValue = argument,
-      stakeholders = contract.stakeholders,
-      signatories = contract.signatories,
-      children = ImmArray.Empty,
-      exerciseResult = result,
-      keyOpt = contract.keyOpt,
-      byKey = byKey,
-      version = pkgTxVersion(contract.templateId.packageId),
-    )
-
-  def exerciseByKey(
-      contract: Node.Create,
-      choice: Ref.Name,
-      consuming: Boolean,
-      actingParties: Set[Ref.Party],
-      argument: Value,
-  ): Node.Exercise =
-    exercise(contract, choice, consuming, actingParties, argument, byKey = true)
-
-  def fetch(
-      contract: Node.Create,
-      byKey: Boolean = false,
-  ): Node.Fetch =
-    Node.Fetch(
-      coid = contract.coid,
-      templateId = contract.templateId,
-      actingParties = contract.signatories.map(Ref.Party.assertFromString),
-      signatories = contract.signatories,
-      stakeholders = contract.stakeholders,
-      keyOpt = contract.keyOpt,
-      byKey = byKey,
-      version = pkgTxVersion(contract.templateId.packageId),
-    )
-
-  def fetchByKey(contract: Node.Create): Node.Fetch =
-    fetch(contract, byKey = true)
-
-  def lookupByKey(contract: Node.Create, found: Boolean = true): Node.LookupByKey =
-    Node.LookupByKey(
-      templateId = contract.templateId,
-      key = contract.keyOpt.get,
-      result = if (found) Some(contract.coid) else None,
-      version = pkgTxVersion(contract.templateId.packageId),
-    )
-
-  def rollback(): Node.Rollback =
-    Node.Rollback(
-      children = ImmArray.Empty
-    )
-}
 
 object TransactionBuilder {
 
@@ -197,11 +20,6 @@ object TransactionBuilder {
 
   type KeyWithMaintainers = GlobalKeyWithMaintainers
   type TxKeyWithMaintainers = Versioned[GlobalKeyWithMaintainers]
-
-  def apply(
-      pkgLangVersion: Ref.PackageId => LanguageVersion = _ => LanguageVersion.StableVersions.max
-  ): TransactionBuilder =
-    new TransactionBuilder(pkgId => TransactionVersion.assignNodeVersion(pkgLangVersion(pkgId)))
 
   private val newHash: () => crypto.Hash = {
     val bytes = Array.ofDim[Byte](crypto.Hash.underlyingHashLength)
@@ -224,7 +42,7 @@ object TransactionBuilder {
   def newCid: ContractId = newV1Cid
 
   def just(node: Node, nodes: Node*): VersionedTransaction = {
-    val builder = TransactionBuilder()
+    val builder = new NodeIdTransactionBuilder()
     val _ = builder.add(node)
     for (node <- nodes) {
       val _ = builder.add(node)
