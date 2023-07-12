@@ -33,7 +33,6 @@ import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.annotation.{nowarn, tailrec}
-import scala.jdk.CollectionConverters._
 
 private[lf] object Speedy {
 
@@ -1099,31 +1098,95 @@ private[lf] object Speedy {
             }
           case TTyCon(tyCon) =>
             value match {
-              case V.ValueRecord(_, fields) =>
+              case V.ValueRecord(_, sourceElements) => {
+
+                // NICK: new code -- kill all toList
+
+                val _: ImmArray[(Option[Name], V)] = sourceElements
+
                 val lookupResult =
                   assertRight(compiledPackages.pkgInterface.lookupDataRecord(tyCon))
+
+                val targetFieldsAndTypes: ImmArray[(Name, Type)] =
+                  lookupResult.dataRecord.fields
+
                 lazy val subst = lookupResult.subst(argTypes)
-                // TODO: https://github.com/digital-asset/daml/issues/17082
-                // - disallow dropping extra fields which have value other than None.
-                val actualValues = (lookupResult.dataRecord.fields.iterator zip fields.iterator)
-                  .map { case ((_, fieldType), (_, fieldValue)) =>
-                    go(AstUtil.substitute(fieldType, subst), fieldValue)
+
+                val numS: Int = sourceElements.length
+                val numT: Int = targetFieldsAndTypes.length
+
+                def recurse(fieldType: Type, v: V): SValue = { // NICK: inline
+                  val typ: Type = AstUtil.substitute(fieldType, subst)
+                  go(typ, v)
+                }
+
+                val fields: List[Name] =
+                  targetFieldsAndTypes.toList.map { case (name, _) =>
+                    name
                   }
-                  .to(ArrayList)
-                val targetFields = lookupResult.dataRecord.fields.map(_._1)
-                val numActual: Int = actualValues.size
-                val numTarget: Int = targetFields.length
-                assert(numTarget >= numActual) // ensured by the zip used to define actualValues
-                val extendedValues =
-                  if (numTarget > numActual) {
-                    // Upgrade -- extend with None
-                    actualValues.asScala.padTo(numTarget, SValue.SOptional(None)).to(ArrayList)
-                  } else {
-                    // Correct number of fields.
-                    assert(numTarget == numActual)
-                    actualValues // do nothing
+
+                def values: List[SValue] =
+                  sourceElements.toList.zipWithIndex.flatMap { case ((optName, v), i) =>
+                    targetFieldsAndTypes.get(i) match {
+                      case Some(x) => {
+                        val (targetField, targetFieldType): (Name, Type) = x
+                        optName match {
+                          case None => ()
+                          case Some(sourceField) =>
+                            // value is not normalized; check field names match
+                            assert(sourceField == targetField)
+                        }
+                        val sv = recurse(targetFieldType, v)
+                        List(sv)
+                      }
+                      case None => {
+                        assert(i >= numT)
+                        // println(s"**targetFieldsAndTypes.get(i=$i), v=$v") // NICK
+                        v match {
+                          case V.ValueOptional(None) =>
+                            List() // ok, drop
+                          case V.ValueOptional(Some(_)) =>
+                            val e = IError.UserError("NICK: may not drop Some")
+                            throw SErrorDamlException(e)
+                          case _ =>
+                            throw SErrorCrash(
+                              NameOf.qualifiedNameOfCurrentFunc,
+                              s"NICK: badly typed",
+                            )
+                        }
+                      }
+                    }
                   }
-                SValue.SRecord(tyCon, targetFields, extendedValues)
+
+                if (numT > numS) {
+                  // upgrade... -- make extra None fields
+                  // println(s"**UPGRADE: #S=$numS, #T=$numT") // NICK
+                  val xvalues: List[SValue] = // extended
+                    values.padTo(numT, SValue.SOptional(None))
+                  SValue.SRecord( // NICK: share
+                    tyCon,
+                    fields.to(ImmArray), // NICK: simp
+                    xvalues.to(ArrayList),
+                  )
+
+                } else if (numS > numT) {
+                  // downgrade... -- drop extra None fields
+                  // println(s"**DOWNGRADE: #S=$numS, #T=$numT") // NICK
+                  SValue.SRecord(
+                    tyCon,
+                    fields.to(ImmArray),
+                    values.to(ArrayList),
+                  )
+
+                } else {
+                  assert(numS == numT)
+                  SValue.SRecord(
+                    tyCon,
+                    fields.to(ImmArray),
+                    values.to(ArrayList),
+                  )
+                }
+              }
 
               case V.ValueVariant(_, constructor, value) =>
                 val info =
