@@ -1,5 +1,8 @@
 # Release of Daml DAML_VERSION
 
+## Bugfixes
+- Fixed the daml-script binary not using TLS and access token settings correctly when using the `--all` flag.
+
 ## What’s New
 
 Use one of the following topics to capture your release notes. Duplicate this file if necessary.

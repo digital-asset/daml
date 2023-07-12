@@ -33,6 +33,7 @@ import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.annotation.{nowarn, tailrec}
+import scala.jdk.CollectionConverters._
 
 private[lf] object Speedy {
 
@@ -131,7 +132,8 @@ private[lf] object Speedy {
       keyOpt: Option[CachedKey],
   ) {
     val stakeholders: Set[Party] = signatories union observers
-    private[speedy] val any = SValue.SAny(TTyCon(templateId), value)
+
+    private[speedy] val any = SValue.SAnyContract(templateId, value)
     private[speedy] def arg = value.toNormalizedValue(version)
     private[speedy] def gkeyOpt: Option[GlobalKey] = keyOpt.map(_.globalKey)
     private[speedy] def toCreateNode(coid: V.ContractId) =
@@ -1098,15 +1100,31 @@ private[lf] object Speedy {
           case TTyCon(tyCon) =>
             value match {
               case V.ValueRecord(_, fields) =>
-                val lookupResult = // TODO: may fail for upgrade/downgrade
+                val lookupResult =
                   assertRight(compiledPackages.pkgInterface.lookupDataRecord(tyCon))
                 lazy val subst = lookupResult.subst(argTypes)
-                val values = (lookupResult.dataRecord.fields.iterator zip fields.iterator)
+                // TODO: https://github.com/digital-asset/daml/issues/17082
+                // - disallow dropping extra fields which have value other than None.
+                val actualValues = (lookupResult.dataRecord.fields.iterator zip fields.iterator)
                   .map { case ((_, fieldType), (_, fieldValue)) =>
                     go(AstUtil.substitute(fieldType, subst), fieldValue)
                   }
                   .to(ArrayList)
-                SValue.SRecord(tyCon, lookupResult.dataRecord.fields.map(_._1), values)
+                val targetFields = lookupResult.dataRecord.fields.map(_._1)
+                val numActual: Int = actualValues.size
+                val numTarget: Int = targetFields.length
+                assert(numTarget >= numActual) // ensured by the zip used to define actualValues
+                val extendedValues =
+                  if (numTarget > numActual) {
+                    // Upgrade -- extend with None
+                    actualValues.asScala.padTo(numTarget, SValue.SOptional(None)).to(ArrayList)
+                  } else {
+                    // Correct number of fields.
+                    assert(numTarget == numActual)
+                    actualValues // do nothing
+                  }
+                SValue.SRecord(tyCon, targetFields, extendedValues)
+
               case V.ValueVariant(_, constructor, value) =>
                 val info =
                   assertRight(

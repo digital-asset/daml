@@ -15,6 +15,7 @@ import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Service
 import Development.IDE.Core.Shake
+import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 
 main :: IO ()
@@ -97,8 +98,13 @@ generateTests scriptPackageData = testGroup "generate doctest module"
                     , optPackageImports = snd scriptPackageData
                     }
             withDamlIdeState opts Logger.makeNopHandle (NotificationHandler $ \_ _ -> pure ()) $ \ideState -> do
-                Just pm <- runActionSync ideState $ use GetParsedModule $ toNormalizedFilePath' tmpFile
-                genModuleContent (getDocTestModule pm) @?= T.unlines (doctestHeader moduleName <> expected)
+                mParsedModule <- runActionSync ideState $ use GetParsedModule $ toNormalizedFilePath' tmpFile
+                case mParsedModule of
+                  Nothing -> do
+                    diags <- getDiagnostics ideState
+                    error $ T.unpack $ showDiagnostics diags
+                  Just pm ->
+                    genModuleContent (getDocTestModule pm) @?= T.unlines (doctestHeader moduleName <> expected)
 
 testModuleHeader :: T.Text -> [T.Text]
 testModuleHeader moduleName =
