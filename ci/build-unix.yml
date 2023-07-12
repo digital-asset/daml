@@ -10,12 +10,18 @@ parameters:
 steps:
   - bash: ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
+    condition: and(succeeded(),
+                   or(eq(${{parameters.is_release}}, 'false'),
+                      ne('${{parameters.name}}', 'm1')))
 
   - bash: |
       source dev-env/lib/ensure-nix
       ci/dev-env-push.py
     displayName: 'Push Developer Environment build results'
-    condition: eq(variables['System.PullRequest.IsFork'], 'False')
+    condition: and(succeeded(),
+                   eq(variables['System.PullRequest.IsFork'], 'False'),
+                   or(eq(${{parameters.is_release}}, 'false'),
+                      ne('${{parameters.name}}', 'm1')))
     env:
       # to upload to the Nix cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
@@ -27,6 +33,9 @@ steps:
       IS_FORK: $(System.PullRequest.IsFork)
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    condition: and(succeeded(),
+                   or(eq(${{parameters.is_release}}, 'false'),
+                      ne('${{parameters.name}}', 'm1')))
 
   - bash: ./fmt.sh --test
     displayName: 'Platform-agnostic lints and checks'
@@ -47,6 +56,9 @@ steps:
       DAML_SCALA_VERSION: ${{parameters.scala_version}}
       ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
       ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
+    condition: and(succeeded(),
+                   or(eq(${{parameters.is_release}}, 'false'),
+                      ne('${{parameters.name}}', 'm1')))
 
   # Do not publish dar from m1
   - ${{ if ne(parameters.name, 'm1') }}:
@@ -64,17 +76,23 @@ steps:
       find . -type f | xargs gzip -9
 
     displayName: compress logs
-    condition: succeededOrFailed()
+    condition: and(succeededOrFailed(),
+                   or(eq(${{parameters.is_release}}, 'false'),
+                      ne('${{parameters.name}}', 'm1')))
 
   - task: PublishBuildArtifacts@1
-    condition: succeededOrFailed()
+    condition: and(succeededOrFailed(),
+                   or(eq(${{parameters.is_release}}, 'false'),
+                      ne('${{parameters.name}}', 'm1')))
     continueOnError: true
     inputs:
       pathtoPublish: '$(Build.StagingDirectory)/logs'
       artifactName: 'Bazel Logs'
 
   - task: PublishBuildArtifacts@1
-    condition: failed()
+    condition: and(failed(),
+                   or(eq(${{parameters.is_release}}, 'false'),
+                      ne('${{parameters.name}}', 'm1')))
     displayName: 'Publish the bazel test logs'
     inputs:
       pathtoPublish: 'bazel-testlogs/'
@@ -101,6 +119,9 @@ steps:
   - template: bash-lib.yml
     parameters:
       var_name: bash-lib
+      condition: and(succeeded(),
+                     or(eq(${{parameters.is_release}}, 'false'),
+                        ne('${{parameters.name}}', 'm1')))
   - bash: |
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
@@ -110,6 +131,7 @@ steps:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     name: publish
     condition: and(succeeded(),
+                   ne('${{parameters.name}}', 'm1'),
                    eq(${{parameters.is_release}}, 'true'),
                    eq(variables['Build.SourceBranchName'], 'main'))
   - task: PublishPipelineArtifact@0
@@ -117,5 +139,6 @@ steps:
       targetPath: $(Build.StagingDirectory)/release
       artifactName: ${{parameters.name}}-release
     condition: and(succeeded(),
+                   ne('${{parameters.name}}', 'm1'),
                    eq(${{parameters.is_release}}, 'true'),
                    eq(variables['Build.SourceBranchName'], 'main'))
