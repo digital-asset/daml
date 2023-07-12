@@ -21,8 +21,6 @@ data SubmitError
         -- ^ Provided as text, as we do not know the template id of a contract if the lookup fails
   | -- | Contract with given contract key could not be found
     ContractKeyNotFound with
-      -- TODO: this (and any other errors with ContractKey) may lose other fields if contract key is too big.
-      -- Consider making it Optional and ensuring its always the last resource on status, so only it is lost
       contractKey : AnyContractKey
   | -- | Generic authorization failure, included missing party authority, invalid signatories, etc.
     AuthorizationError with
