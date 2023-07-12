@@ -18,6 +18,13 @@ steps:
   - powershell: '.\ci\windows-diagnostics.ps1'
     displayName: 'Agent diagnostics'
 
+  - bash: |
+      set -euo pipefail
+      if [ -e bazel-testlogs ]; then
+          rm -rf bazel-testlogs/
+      fi
+    displayName: delete old logs
+
   - powershell: '.\build.ps1'
     displayName: 'Build'
     env:
@@ -39,6 +46,17 @@ steps:
     parameters:
       platform: 'windows'
       is_release: '${{parameters.is_release}}'
+
+  - bash: |
+      set -euo pipefail
+      cd '$(Build.StagingDirectory)/logs'
+      find . -type f | xargs gzip -9
+      cd -
+      cd bazel-testlogs
+      find . -type f | xargs gzip -9
+
+    displayName: compress logs
+    condition: succeededOrFailed()
 
   - task: PublishBuildArtifacts@1
     condition: failed()
