@@ -43,6 +43,13 @@ steps:
 
   - bash: |
       set -euo pipefail
+      if [ -e bazel-testlogs ]; then
+          rm -rf bazel-testlogs/
+      fi
+    displayName: delete old logs
+
+  - bash: |
+      set -euo pipefail
       p="_${{parameters.name}}"
       a="_$(System.JobAttempt)"
       if [ "$p" == "_m1" ]; then
