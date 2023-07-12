@@ -1189,4 +1189,5 @@ daml_compile(
     ],
     project_name = "try-submit-test",
     target = "1.dev",
+    visibility = ["//visibility:public"],
 )

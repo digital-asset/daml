@@ -264,6 +264,7 @@ da_scala_test_suite(
     data = [
         ":script-test.dar",
         ":script-test-no-ledger.dar",
+        "//compiler/damlc/tests:try-submit-test.dar",
         "//daml-script/runner:daml-script-binary",
     ],
     resources = glob(["src/main/resources/**/*"]),
