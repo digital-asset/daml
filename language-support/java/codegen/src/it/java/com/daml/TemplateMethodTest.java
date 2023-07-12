@@ -6,6 +6,8 @@ package com.daml;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.codegen.Created;
+import com.daml.ledger.javaapi.data.codegen.Update;
 import java.util.Collections;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -26,8 +28,8 @@ public class TemplateMethodTest {
 
   @Test
   void templateHasCreateMethods() {
-    var fromStatic = SimpleTemplate.create("Bob");
-    var fromInstance = new SimpleTemplate("Bob").create();
+    Update<Created<SimpleTemplate.ContractId>> fromStatic = SimpleTemplate.create("Bob");
+    Update<Created<SimpleTemplate.ContractId>> fromInstance = new SimpleTemplate("Bob").create();
 
     assertEquals(
         1, fromStatic.commands().size(), "There are not exactly one command from static method");
