@@ -114,9 +114,18 @@ data TrySubmit = TrySubmit with
   commands : [Command]
 instance IsQuestion TrySubmit (Either SubmitError [CommandResult])
 
-trySubmit : HasCallStack => [Party] -> [Party] -> Commands a -> Script (Either SubmitError a)
-trySubmit actAs readAs cmds =
+trySubmitInternal : HasCallStack => [Party] -> [Party] -> Commands a -> Script (Either SubmitError a)
+trySubmitInternal actAs readAs cmds =
   fmap (fmap cmds.continue) $ lift $ TrySubmit with
     actAs = actAsNonEmpty actAs
     readAs = readAs
     commands = cmds.commands
+
+-- | Submit a transaction and recieve back either the result, or a `SubmitError`.
+-- In the majority of failures, this will not crash at runtime.
+trySubmit : HasCallStack => Party -> Commands a -> Script (Either SubmitError a)
+trySubmit p cmds = trySubmitInternal [p] [] cmds
+
+-- | Alternate version of `trySubmit` that allows specifying the actAs and readAs parties.
+trySubmitMulti : HasCallStack => [Party] -> [Party] -> Commands a -> Script (Either SubmitError a)
+trySubmitMulti = trySubmitInternal
