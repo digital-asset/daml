@@ -47,7 +47,7 @@ data SubmitError
         -- ^ Errors more complex than simple records cannot currently be encoded over the grpc status. Such errors will be missing here.
   | -- | Transaction failure due to abort/assert calls pre-exceptions
     UserError with
-      userErrorMessage : Text -- Not possible currently with LF >=1.14, maybe remove?
+      userErrorMessage : Text -- TODO[SW] Post LF 1.14, only `submitMustFail` can throw this. I'll refactor that later and likely remove this error
   | -- | Failure due to false result from `ensure`, strictly pre-exception.
     TemplatePreconditionViolated -- According to docs, not throwable with LF >= 1.14, unsure what replaces it
   | -- | Attempted to create a contract with empty contract key maintainers

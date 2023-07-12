@@ -52,7 +52,7 @@ object SubmitError {
         (
           "contractId",
           SText(cid.coid),
-        ), // TODO: Theres probably a better stringification method, we want to show it how daml does. Look at fromContractId
+        ),
       )
   }
 

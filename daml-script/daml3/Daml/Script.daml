@@ -9,6 +9,7 @@ module Daml.Script
   , submitTree
   , submitTreeMulti
   , trySubmit
+  , trySubmitMulti
   , SubmitError (..)
   , DevErrorType (..)
 
