@@ -74,13 +74,13 @@ data SubmitError
     NonComparableValues
   | -- | Illegal Contract ID found in Contract Key
     ContractIdInContractKey with
-      -- TODO: Update the ContractIdInContractKey scala error to include a TemplateId (which it does have when thrown) in separate PR
+      -- TODO[SW]: Update the ContractIdInContractKey scala error to include a TemplateId (which it does have when thrown) in separate PR
       -- Then we can uncomment this and add the plumbing
       -- contractKey : AnyContractKey
   | -- | Attempted to compare a local and global contract ID with the same discriminator. You're doing something very wrong
     ContractIdComparability with
       globalExistingContractId : Text
-        -- ^ We do not know the template id at time of comparison. TODO: Consider changing this
+        -- ^ We do not know the template id at time of comparison.
   | -- | Development feature exceptions
     DevError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
       devErrorType : DevErrorType
