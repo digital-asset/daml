@@ -8,7 +8,7 @@ import ClassGenUtils.{companionFieldName, templateIdFieldName, generateGetCompan
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.Ref
 import Ref.ChoiceName
-import com.daml.ledger.javaapi.data.codegen.{Choice, ContractId, Created, Exercised, Update}
+import com.daml.ledger.javaapi.data.codegen.{Choice, Created, Exercised, Update}
 import com.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 import com.daml.lf.codegen.backend.java.inner.ToValueGenerator.generateToValueConverter
 import com.daml.lf.typesig
@@ -106,7 +106,6 @@ private[inner] object TemplateClass extends StrictLogging {
       templateType.build()
     }
 
-  private val ctIdClassName = ClassName get classOf[ContractId[_]]
   private val updateClassName = ClassName get classOf[Update[_]]
   private val createUpdateClassName = ClassName get classOf[Update.CreateUpdate[_, _]]
   private val createdClassName = ClassName get classOf[Created[_]]
@@ -114,29 +113,24 @@ private[inner] object TemplateClass extends StrictLogging {
   private def parameterizedTypeName(raw: ClassName, arg: TypeName*) =
     ParameterizedTypeName.get(raw, arg: _*)
 
-  private def generateCreateMethod(name: ClassName): MethodSpec =
+  private def generateCreateMethod(name: ClassName): MethodSpec = {
+    val createdType = parameterizedTypeName(createdClassName, name nestedClass "ContractId")
     MethodSpec
       .methodBuilder("create")
       .addModifiers(Modifier.PUBLIC)
       .addAnnotation(classOf[Override])
       .returns(
-        parameterizedTypeName(
-          updateClassName,
-          parameterizedTypeName(createdClassName, parameterizedTypeName(ctIdClassName, name)),
-        )
+        parameterizedTypeName(updateClassName, createdType)
       )
       .addStatement(
         "return new $T(new $T($T.$N, this.toValue()), x -> x, ContractId::new)",
-        parameterizedTypeName(
-          createUpdateClassName,
-          parameterizedTypeName(ctIdClassName, name),
-          parameterizedTypeName(createdClassName, parameterizedTypeName(ctIdClassName, name)),
-        ),
+        parameterizedTypeName(createUpdateClassName, name nestedClass "ContractId", createdType),
         classOf[javaapi.data.CreateCommand],
         name,
         templateIdFieldName,
       )
       .build()
+  }
 
   private def generateStaticCreateMethod(fields: Fields, name: ClassName): MethodSpec =
     fields
@@ -147,7 +141,7 @@ private[inner] object TemplateClass extends StrictLogging {
           .returns(
             parameterizedTypeName(
               updateClassName,
-              parameterizedTypeName(createdClassName, parameterizedTypeName(ctIdClassName, name)),
+              parameterizedTypeName(createdClassName, name nestedClass "ContractId"),
             )
           )
       ) { case (b, FieldInfo(_, _, escapedName, tpe)) =>
