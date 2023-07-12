@@ -56,7 +56,7 @@ java_import(
 genrule(
     name = "canton-lib-ee",
     # We don't use the else branch but we need a resolvable value
-    srcs = [":lib/canton.jar"] if canton["local"] else ["@canton//:jar"],
+    srcs = [":lib/canton-ee.jar"] if canton["local"] else ["@canton//:jar"],
     outs = ["canton-lib-ee.jar"],
     cmd = """
 set -euo pipefail
@@ -93,12 +93,12 @@ fi
 
 tar xzf $$tmp
 
-cp **/lib/*.jar $@
+cp canton-*/lib/*.jar $@
 """.format(
         auth = artif_auth,
         curl = "@curl_dev_env//:bin/curl" if not is_windows else "@curl_dev_env//:bin/curl.exe",
         local = "true" if canton["local"] else "",
-        src = ":lib/canton.jar" if canton["local"] else "@canton//:jar",  # not used in else case but still must resolve
+        src = ":lib/canton-ee.jar" if canton["local"] else "@canton//:jar",  # not used in else case but still must resolve
     ),
     tags = ["canton-ee"],
     tools = [

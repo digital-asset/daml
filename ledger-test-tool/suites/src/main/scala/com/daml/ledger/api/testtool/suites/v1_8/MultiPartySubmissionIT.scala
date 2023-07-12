@@ -372,7 +372,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
     } yield {
       assertGrpcErrorRegex(
         failure,
-        LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
+        LedgerApiErrors.CommandExecution.Interpreter.UnhandledException,
         Some(
           Pattern.compile(
             "Interpretation error: Error: (" +

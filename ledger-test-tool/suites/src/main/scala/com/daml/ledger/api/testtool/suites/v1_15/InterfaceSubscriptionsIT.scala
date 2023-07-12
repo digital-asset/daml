@@ -735,8 +735,8 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
                     viewStatus = view.viewStatus.map(status =>
                       status.copy(message =
                         status.message.replaceFirst(
-                          """DAML_INTERPRETATION_ERROR\(9,.{8}\)""",
-                          "DAML_INTERPRETATION_ERROR(9,0)",
+                          """UNHANDLED_EXCEPTION\(9,.{8}\)""",
+                          "UNHANDLED_EXCEPTION(9,0)",
                         )
                       )
                     )
@@ -760,7 +760,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     assertEquals("View has correct interface ID", interfaceId, actualInterfaceId)
 
     val status = assertDefined(view.viewStatus, "Status is not defined")
-    assertEquals("Status must be failed", status.code, 9)
+    assertEquals("Status must be invalid argument", status.code, 9)
   }
 
   private def assertViewEquals(views: Seq[InterfaceView], interfaceId: Identifier)(

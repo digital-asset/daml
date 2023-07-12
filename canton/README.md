@@ -72,5 +72,5 @@ Those tests are run on CI.
 
 If you're using a local build of canton (setting `local` to `True` per above)
 _and_ you are explicitly overwriting the `*_tag_filters` to run the Canton EE
-tests, they will be run using your provided `canton.jar` (which therefore needs
-to be an EE jar at that point).
+tests, they will be run using your provided `canton-ee.jar` (which therefore
+needs to be an EE jar at that point).

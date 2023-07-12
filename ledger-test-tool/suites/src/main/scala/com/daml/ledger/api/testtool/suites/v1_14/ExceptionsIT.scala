@@ -24,7 +24,7 @@ final class ExceptionsIT extends LedgerTestSuite {
     } yield {
       assertGrpcErrorRegex(
         failure,
-        LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
+        LedgerApiErrors.CommandExecution.Interpreter.UnhandledException,
         Some(Pattern.compile("Unhandled (Daml )?exception")),
         checkDefiniteAnswerMetadata = true,
       )
