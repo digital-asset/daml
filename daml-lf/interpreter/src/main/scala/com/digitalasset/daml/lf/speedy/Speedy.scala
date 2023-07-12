@@ -1100,10 +1100,6 @@ private[lf] object Speedy {
             value match {
               case V.ValueRecord(_, sourceElements) => {
 
-                // NICK: new code -- kill all toList
-
-                val _: ImmArray[(Option[Name], V)] = sourceElements
-
                 val lookupResult =
                   assertRight(compiledPackages.pkgInterface.lookupDataRecord(tyCon))
 
@@ -1115,18 +1111,10 @@ private[lf] object Speedy {
                 val numS: Int = sourceElements.length
                 val numT: Int = targetFieldsAndTypes.length
 
-                def recurse(fieldType: Type, v: V): SValue = { // NICK: inline
-                  val typ: Type = AstUtil.substitute(fieldType, subst)
-                  go(typ, v)
-                }
+                val _: ImmArray[(Option[Name], V)] = sourceElements
 
-                val fields: List[Name] =
-                  targetFieldsAndTypes.toList.map { case (name, _) =>
-                    name
-                  }
-
-                def values: List[SValue] =
-                  sourceElements.toList.zipWithIndex.flatMap { case ((optName, v), i) =>
+                val values0: List[SValue] =
+                  sourceElements.toSeq.zipWithIndex.flatMap { case ((optName, v), i) =>
                     targetFieldsAndTypes.get(i) match {
                       case Some(x) => {
                         val (targetField, targetFieldType): (Name, Type) = x
@@ -1136,56 +1124,49 @@ private[lf] object Speedy {
                             // value is not normalized; check field names match
                             assert(sourceField == targetField)
                         }
-                        val sv = recurse(targetFieldType, v)
+                        val typ: Type = AstUtil.substitute(targetFieldType, subst)
+                        val sv: SValue = go(typ, v)
                         List(sv)
                       }
                       case None => {
                         assert(i >= numT)
-                        // println(s"**targetFieldsAndTypes.get(i=$i), v=$v") // NICK
                         v match {
-                          case V.ValueOptional(None) =>
-                            List() // ok, drop
+                          case V.ValueOptional(None) => List() // ok, drop
                           case V.ValueOptional(Some(_)) =>
-                            val e = IError.UserError("NICK: may not drop Some")
-                            throw SErrorDamlException(e)
+                            // TODO: https://github.com/digital-asset/daml/issues/17082
+                            // - we need a proper error here
+                            throw SErrorDamlException(
+                              IError.UserError(
+                                "An optional contract field with a value of Some may not be dropped during downgrading."
+                              )
+                            )
                           case _ =>
+                            // TODO: https://github.com/digital-asset/daml/issues/17082
+                            // - Impossible (ill typed) case. Ok to crash here?
                             throw SErrorCrash(
                               NameOf.qualifiedNameOfCurrentFunc,
-                              s"NICK: badly typed",
+                              "Unexpected non-optional extra contract field encountered during downgrading: something is very wrong.",
                             )
                         }
                       }
                     }
+                  }.toList
+
+                val fields: ImmArray[Name] =
+                  targetFieldsAndTypes.map { case (name, _) =>
+                    name
                   }
 
-                if (numT > numS) {
-                  // upgrade... -- make extra None fields
-                  // println(s"**UPGRADE: #S=$numS, #T=$numT") // NICK
-                  val xvalues: List[SValue] = // extended
-                    values.padTo(numT, SValue.SOptional(None))
-                  SValue.SRecord( // NICK: share
-                    tyCon,
-                    fields.to(ImmArray), // NICK: simp
-                    xvalues.to(ArrayList),
-                  )
+                val values: util.ArrayList[SValue] = {
+                  if (numT > numS) {
+                    // make extra None fields
+                    values0.padTo(numT, SValue.SOptional(None))
+                  } else {
+                    values0
+                  }
+                }.to(ArrayList)
 
-                } else if (numS > numT) {
-                  // downgrade... -- drop extra None fields
-                  // println(s"**DOWNGRADE: #S=$numS, #T=$numT") // NICK
-                  SValue.SRecord(
-                    tyCon,
-                    fields.to(ImmArray),
-                    values.to(ArrayList),
-                  )
-
-                } else {
-                  assert(numS == numT)
-                  SValue.SRecord(
-                    tyCon,
-                    fields.to(ImmArray),
-                    values.to(ArrayList),
-                  )
-                }
+                SValue.SRecord(tyCon, fields, values)
               }
 
               case V.ValueVariant(_, constructor, value) =>
