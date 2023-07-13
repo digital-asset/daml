@@ -50,14 +50,10 @@ class InterfaceViewSpec extends AnyWordSpec with Matchers with EitherValues with
 
   private def id(s: String) = Identifier(interfaceviewsPkgId, s"InterfaceViews:$s")
 
-  private[this] def lookupPackage(pkgId: PackageId): Option[Package] = {
-    allPackages.get(pkgId)
-  }
-
   def computeView(templateId: Identifier, argument: Value, interfaceId: Identifier) =
     engine
       .computeInterfaceView(templateId, argument, interfaceId)
-      .consume(_ => None, lookupPackage, _ => None)
+      .consume(PartialFunction.empty, allPackages)
 
   private val t1 = id("T1")
   private val t2 = id("T2")
