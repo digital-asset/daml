@@ -114,22 +114,8 @@ curl -sSfL https://nixos.org/nix/install | sh
 . /home/hoogle/.nix-profile/etc/profile.d/nix.sh
 # Feel free to bump the commit, this was the latest
 # # at the time of creation.
-export NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/c50e680b03adecae01fdd1ea4e44c82e641de0cf.tar.gz
-cat << EOF > /home/hoogle/hoogle_overlay.nix
-super:
-{
-  haskellPackages = super.haskellPackages.override {
-    overrides = haskellSelf: haskellSuper: {
-      hoogle = super.haskell.lib.appendPatch haskellSuper.hoogle
-        (super.fetchurl {
-          url = "https://patch-diff.githubusercontent.com/raw/ndmitchell/hoogle/pull/367.patch";
-          sha256 = "1p0xdnfjicl5zp6g0fkqjk9mgm6fqzl7sz0v5m51chzd7lwx181y";
-        });
-    };
-  };
-}
-EOF
-HOOGLE_PATH=$(nix-build --no-out-link -E '((import /home/hoogle/hoogle_overlay.nix) (import <nixpkgs> {})).haskellPackages.hoogle')
+export NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/04dc69b62ec24a462585c1e705b711e2e05f3080.tar.gz
+HOOGLE_PATH=$(nix-build --no-out-link -E '(import <nixpkgs> {}).haskellPackages.hoogle')
 mkdir -p /home/hoogle/.local/bin
 ln -s $HOOGLE_PATH/bin/hoogle /home/hoogle/.local/bin/hoogle
 cat > /home/hoogle/refresh-db.sh <<MAKE_DB
