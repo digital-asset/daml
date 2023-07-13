@@ -5,6 +5,7 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.TypeConName
 import com.daml.lf.value.Value
 
 /** Useful in various circumstances -- basically this is what a ledger implementation must use as
@@ -35,6 +36,9 @@ object GlobalKey {
   @throws[IllegalArgumentException]
   def assertBuild(templateId: Ref.TypeConName, key: Value): GlobalKey =
     data.assertRight(build(templateId, key).left.map(_.msg))
+
+  private[lf] def unapply(globalKey: GlobalKey): Some[(TypeConName, Value)] =
+    Some((globalKey.templateId, globalKey.key))
 }
 
 final case class GlobalKeyWithMaintainers(

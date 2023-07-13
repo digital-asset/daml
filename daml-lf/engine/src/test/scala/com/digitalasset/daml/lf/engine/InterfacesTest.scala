@@ -10,7 +10,6 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.command.ApiCommand
@@ -59,7 +58,6 @@ class InterfacesTest
     val (interfacesPkgId, _, _) = loadPackage("daml-lf/tests/Interfaces.dar")
     val (interfaceRetroPkgId, _, allInterfacesPkgs) =
       loadPackage("daml-lf/tests/InterfaceRetro.dar")
-    val lookupPackage = allInterfacesPkgs.get(_)
     val idI1 = Identifier(interfacesPkgId, "Interfaces:I1")
     val idI2 = Identifier(interfacesPkgId, "Interfaces:I2")
     val idI5 = Identifier(interfaceRetroPkgId, "InterfaceRetro:I5")
@@ -78,14 +76,8 @@ class InterfacesTest
         ContractInstance(idT2, ValueRecord(None, ImmArray((None, ValueParty(party)))))
       ),
     )
-    val lookupContract = contracts.get(_)
-    def lookupKey = (_: GlobalKeyWithMaintainers) => None
     def consume[X](x: Result[X]) =
-      x.consume(
-        lookupContract,
-        lookupPackage,
-        lookupKey,
-      )
+      x.consume(contracts, allInterfacesPkgs)
 
     def preprocessApi(cmd: ApiCommand) = consume(preprocessor.preprocessApiCommand(cmd))
     def run[Cmd](cmd: Cmd)(preprocess: Cmd => Result[speedy.Command]) =
