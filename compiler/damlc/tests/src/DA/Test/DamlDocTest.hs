@@ -17,9 +17,14 @@ import Development.IDE.Core.Service
 import Development.IDE.Core.Shake
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
+import System.Environment.Blank (setEnv)
 
 main :: IO ()
-main = withDamlScriptDep Nothing $ \scriptPackageData -> -- Install Daml.Script once at the start of the suite, rather than for each case
+main =
+  -- Install Daml.Script once at the start of the suite, rather than for each case
+  withDamlScriptDep Nothing $ \scriptPackageData -> do
+    -- Must run serially
+    setEnv "TASTY_NUM_THREADS" "1" True
     defaultMain $ testGroup "daml-doctest"
         [ generateTests scriptPackageData
         ]

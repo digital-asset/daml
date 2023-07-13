@@ -52,8 +52,8 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       // ignore partial transactions as parties, cids, and package Ids are pretty unpredictable
       .replaceAll("partial transaction: .*", "partial transaction: ...")
       .replaceAll(
-        """DAML_INTERPRETATION_ERROR\((\d+),\w{8}\)""",
-        "DAML_INTERPRETATION_ERROR($1,XXXXXXXX)",
+        """UNHANDLED_EXCEPTION\((\d+),\w{8}\)""",
+        "UNHANDLED_EXCEPTION($1,XXXXXXXX)",
       )
       .replaceAll(
         """DA.Exception.(\w+):(\w+)@\w{8}""",

@@ -24,7 +24,7 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
       } yield {
         assertGrpcError(
           exerciseFailure,
-          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
+          LedgerApiErrors.CommandExecution.Interpreter.WronglyTypedContract,
           Some("wrongly typed contract id"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -45,7 +45,7 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
       } yield {
         assertGrpcError(
           fetchFailure,
-          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
+          LedgerApiErrors.CommandExecution.Interpreter.WronglyTypedContract,
           Some("wrongly typed contract id"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -72,7 +72,7 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
     } yield {
       assertGrpcError(
         failure,
-        LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
+        LedgerApiErrors.CommandExecution.Interpreter.WronglyTypedContract,
         Some("wrongly typed contract id"),
         checkDefiniteAnswerMetadata = true,
       )
