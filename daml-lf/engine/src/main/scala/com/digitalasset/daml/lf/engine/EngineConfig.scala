@@ -12,6 +12,7 @@ import com.daml.lf.speedy.{
 
 import java.nio.file.Path
 import com.daml.lf.transaction.ContractKeyUniquenessMode
+import com.daml.scalautil.Statement.discard
 
 /** The Engine configurations describes the versions of language and
   * transaction the engine is allowed to read and write together with
@@ -70,4 +71,34 @@ final case class EngineConfig(
 
   private[lf] def authorizationChecker: AuthorizationChecker =
     if (checkAuthorization) DefaultAuthorizationChecker else NoopAuthorizationChecker
+}
+
+object EngineConfig {
+
+  /** Target constructor for next canton release, remove once Canton is upgraded to use default constructor
+    *
+    * @param enableContractUpgrading If set this flag a choice that is executed against
+    * a contract may exist in a package different from that of the package.
+    */
+  def apply(
+      allowedLanguageVersions: VersionRange[language.LanguageVersion],
+      packageValidation: Boolean,
+      stackTraceMode: Boolean,
+      profileDir: Option[Path],
+      requireSuffixedGlobalContractId: Boolean,
+      contractKeyUniqueness: ContractKeyUniquenessMode,
+      enableContractUpgrading: Boolean,
+  ): EngineConfig = {
+    // Target constructor for next canton release
+    discard(enableContractUpgrading)
+    new EngineConfig(
+      allowedLanguageVersions,
+      packageValidation,
+      stackTraceMode,
+      profileDir,
+      contractKeyUniqueness,
+      requireSuffixedGlobalContractId,
+    )
+  }
+
 }
