@@ -35,7 +35,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.engine.Error.Interpretation.DamlException
 import com.daml.lf.language.{LanguageVersion, PackageInterface, StablePackage}
-import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
+import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
 import com.daml.logging.LoggingContext
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
@@ -614,7 +614,7 @@ class EngineTest
         speedy.Command.FetchByKey(
           templateId = templateId,
           key = SRecord(
-            BasicTests_WithKey,
+            StablePackage.DA.Types.Tuple2,
             ImmArray("_1", "_2"),
             ArrayList(SParty(alice), SInt64(43)),
           ),
@@ -1189,21 +1189,34 @@ class EngineTest
     )
 
     def makeContract(
+        cid: ContractId,
         tid: Ref.QualifiedName,
         targs: ImmArray[(Option[Name], Value)],
-    ) =
-      assertAsVersionedContract(
-        ContractInstance(
-          TypeConName(basicTestsPkgId, tid),
-          ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
-        )
+        sigs: Set[Party],
+        obs: Set[Party],
+    ) = {
+      val arg = ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs)
+      Node.Create(
+        cid,
+        templateId = TypeConName(basicTestsPkgId, tid),
+        arg = arg,
+        agreementText = "",
+        signatories = sigs,
+        stakeholders = sigs ++ obs,
+        keyOpt = None,
+        version = TxBuilder.assertAssignVersion(arg),
       )
+    }
 
-    val lookupContract: PartialFunction[ContractId, VersionedContractInstance] = {
-      case `fetchedCid` => makeContract(fetchedStrTid, fetchedTArgs)
-      case `fetcher1Cid` => makeContract(fetcherStrTid, fetcher1TArgs)
-      case `fetcher2Cid` => makeContract(fetcherStrTid, fetcher2TArgs)
-      case `fetcher3Cid` => makeContract(fetcherStrTid, fetcher3TArgs)
+    val lookupContract: PartialFunction[ContractId, Node.Create] = {
+      case cid @ `fetchedCid` =>
+        makeContract(cid, fetchedStrTid, fetchedTArgs, Set(alice, bob), Set(clara))
+      case cid @ `fetcher1Cid` =>
+        makeContract(cid, fetcherStrTid, fetcher1TArgs, Set(alice), Set(bob))
+      case cid @ `fetcher2Cid` =>
+        makeContract(cid, fetcherStrTid, fetcher2TArgs, Set(party), Set(alice))
+      case cid @ `fetcher3Cid` =>
+        makeContract(cid, fetcherStrTid, fetcher3TArgs, Set(clara), Set(alice))
     }
 
     val let = Time.Timestamp.now()
@@ -1331,24 +1344,25 @@ class EngineTest
     val fetchedStrTid = "BasicTests:Fetched"
     val fetchedTid = Identifier(basicTestsPkgId, fetchedStrTid)
 
-    val fetchedContract =
-      assertAsVersionedContract(
-        ContractInstance(
-          TypeConName(basicTestsPkgId, fetchedStrTid),
-          ValueRecord(
-            Some(Identifier(basicTestsPkgId, fetchedStrTid)),
-            ImmArray(
-              (Some[Name]("sig1"), ValueParty(alice)),
-              (Some[Name]("sig2"), ValueParty(bob)),
-              (Some[Name]("obs"), ValueParty(clara)),
-            ),
-          ),
-        )
-      )
+    val fetchedCreate = Node.Create(
+      fetchedCid,
+      templateId = TypeConName(basicTestsPkgId, fetchedStrTid),
+      arg = ValueRecord(
+        Some(Identifier(basicTestsPkgId, fetchedStrTid)),
+        ImmArray(
+          (Some[Name]("sig1"), ValueParty(alice)),
+          (Some[Name]("sig2"), ValueParty(bob)),
+          (Some[Name]("obs"), ValueParty(clara)),
+        ),
+      ),
+      agreementText = "",
+      signatories = Set(alice),
+      stakeholders = Set(alice, bob),
+      keyOpt = None,
+      version = TxVersions.StableVersions.max,
+    )
 
-    val lookupContract: PartialFunction[ContractId, VersionedContractInstance] = {
-      case `fetchedCid` => fetchedContract
-    }
+    val lookupContract = toCreatesMap(fetchedCreate)
 
     "succeed with a fresh engine, correctly compiling packages" in {
       val engine = newEngine()
@@ -1377,13 +1391,16 @@ class EngineTest
     val lookerUpTemplate = "BasicTests:LookerUpByKey"
     val lookerUpTemplateId = Identifier(basicTestsPkgId, lookerUpTemplate)
     val lookerUpCid = toContractId("2")
-    val lookerUpInst =
-      assertAsVersionedContract(
-        ContractInstance(
-          TypeConName(basicTestsPkgId, lookerUpTemplate),
-          ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
-        )
-      )
+    val lookerUpCreate = Node.Create(
+      coid = lookerUpCid,
+      templateId = TypeConName(basicTestsPkgId, lookerUpTemplate),
+      arg = ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
+      agreementText = "",
+      signatories = Set(alice),
+      stakeholders = Set(alice),
+      keyOpt = None,
+      version = TxVersions.StableVersions.max,
+    )
 
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
       case GlobalKeyWithMaintainers(
@@ -1396,10 +1413,7 @@ class EngineTest
         lookedUpCid
     }
 
-    def lookupContract = Map(
-      lookedUpCid -> withKeyContractInst,
-      lookerUpCid -> lookerUpInst,
-    )
+    def lookupContract = toCreatesMap(withKeyCreate(lookedUpCid), lookerUpCreate)
 
     def firstLookupNode(tx: Tx): Option[(NodeId, Node.LookupByKey)] =
       tx.nodes.collectFirst { case (nid, nl @ Node.LookupByKey(_, _, _, _)) =>
@@ -1704,7 +1718,7 @@ class EngineTest
 
     "fetched via a fetch" in {
 
-      val lookupContractMap = Map(fetchedCid -> withKeyContractInst)
+      val lookupContractMap = toCreatesMap(withKeyCreate(fetchedCid))
 
       val cmd = speedy.Command.FetchTemplate(BasicTests_WithKey, SValue.SContractId(fetchedCid))
 
@@ -1738,11 +1752,15 @@ class EngineTest
       val fetcherTemplate = "BasicTests:FetcherByKey"
       val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
       val fetcherCid = toContractId("2")
-      val fetcherInst = assertAsVersionedContract(
-        ContractInstance(
-          TypeConName(basicTestsPkgId, fetcherTemplate),
-          ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
-        )
+      val fetcherInst = Node.Create(
+        coid = fetcherCid,
+        templateId = TypeConName(basicTestsPkgId, fetcherTemplate),
+        arg = ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
+        agreementText = "",
+        signatories = Set(alice),
+        stakeholders = Set(alice),
+        keyOpt = None,
+        version = TxVersions.StableVersions.max,
       )
 
       val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
@@ -1756,7 +1774,7 @@ class EngineTest
           fetchedCid
       }
 
-      val lookupContractMap = Map(fetchedCid -> withKeyContractInst, fetcherCid -> fetcherInst)
+      val lookupContractMap = toCreatesMap(withKeyCreate(fetchedCid), fetcherInst)
 
       val submitters = Set(alice)
 
@@ -1805,10 +1823,11 @@ class EngineTest
     val fetcherId = Identifier(basicTestsPkgId, "BasicTests:Fetcher")
     val cid = toContractId("BasicTests:WithKey:1")
     val fetcherCid = toContractId("42")
-    val fetcherInst = assertAsVersionedContract(
-      ContractInstance(
-        fetcherId,
-        ValueRecord(
+    val fetcherCreate =
+      Node.Create(
+        coid = fetcherCid,
+        templateId = fetcherId,
+        arg = ValueRecord(
           None,
           ImmArray(
             (None, ValueParty(alice)),
@@ -1816,9 +1835,13 @@ class EngineTest
             (None, ValueParty(alice)),
           ),
         ),
+        agreementText = "",
+        signatories = Set(alice),
+        stakeholders = Set(alice),
+        keyOpt = None,
+        version = TxVersions.StableVersions.max,
       )
-    )
-    val contracts = defaultContracts + (fetcherCid -> fetcherInst)
+    val contracts = defaultContracts + (fetcherCreate.coid -> fetcherCreate)
     val correctCommand =
       ApiCommand.Exercise(
         withKeyId,
@@ -1978,19 +2001,23 @@ class EngineTest
     val submissionSeed = hash("rollback")
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
-    val contracts = Map(
-      cid -> assertAsVersionedContract(
-        ContractInstance(
-          TypeConName(exceptionsPkgId, "Exceptions:K"),
-          ValueRecord(
-            None,
-            ImmArray(
-              (None, ValueParty(party)),
-              (None, ValueInt64(666)),
-              (None, ValueText("text666")),
-            ),
+    val contracts = toCreatesMap(
+      Node.Create(
+        coid = cid,
+        templateId = TypeConName(exceptionsPkgId, "Exceptions:K"),
+        arg = ValueRecord(
+          None,
+          ImmArray(
+            (None, ValueParty(party)),
+            (None, ValueInt64(666)),
+            (None, ValueText("text666")),
           ),
-        )
+        ),
+        agreementText = "",
+        signatories = Set(party),
+        stakeholders = Set(party),
+        keyOpt = None,
+        version = TxVersions.StableVersions.max,
       )
     )
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
@@ -2125,19 +2152,23 @@ class EngineTest
     val submissionSeed = hash("rollback")
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
-    val contracts = Map(
-      cid -> assertAsVersionedContract(
-        ContractInstance(
-          TypeConName(exceptionsPkgId, "Exceptions:K"),
-          ValueRecord(
-            None,
-            ImmArray(
-              (None, ValueParty(party)),
-              (None, ValueInt64(777)),
-              (None, ValueText("text777")),
-            ),
+    val contracts = toCreatesMap(
+      Node.Create(
+        coid = cid,
+        templateId = TypeConName(exceptionsPkgId, "Exceptions:K"),
+        arg = ValueRecord(
+          None,
+          ImmArray(
+            (None, ValueParty(party)),
+            (None, ValueInt64(777)),
+            (None, ValueText("text777")),
           ),
-        )
+        ),
+        agreementText = "",
+        signatories = Set(party),
+        stakeholders = Set(party),
+        keyOpt = None,
+        version = TxVersions.StableVersions.max,
       )
     )
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
@@ -2200,19 +2231,23 @@ class EngineTest
     val submissionSeed = hash("global-keys")
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
-    val contracts = Map(
-      cid -> assertAsVersionedContract(
-        ContractInstance(
-          TypeConName(exceptionsPkgId, "Exceptions:K"),
-          ValueRecord(
-            None,
-            ImmArray(
-              (None, ValueParty(party)),
-              (None, ValueInt64(0)), // matches 0 in the daml code
-              (None, ValueText("text0")),
-            ),
+    val contracts = toCreatesMap(
+      Node.Create(
+        coid = cid,
+        templateId = TypeConName(exceptionsPkgId, "Exceptions:K"),
+        arg = ValueRecord(
+          None,
+          ImmArray(
+            (None, ValueParty(party)),
+            (None, ValueInt64(0)), // matches 0 in the daml code
+            (None, ValueText("text0")),
           ),
-        )
+        ),
+        agreementText = "",
+        signatories = Set(party),
+        stakeholders = Set(party),
+        keyOpt = None,
+        version = TxVersions.StableVersions.max,
       )
     )
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
@@ -2391,48 +2426,68 @@ object EngineTest {
 
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey: lf.data.Ref.ValueRef = Identifier(basicTestsPkgId, withKeyTemplate)
-  val withKeyContractInst: VersionedContractInstance =
-    assertAsVersionedContract(
-      ContractInstance(
-        TypeConName(basicTestsPkgId, withKeyTemplate),
-        ValueRecord(
-          Some(BasicTests_WithKey),
-          ImmArray(
-            (Some[Ref.Name]("p"), ValueParty(alice)),
-            (Some[Ref.Name]("k"), ValueInt64(42)),
-          ),
+  def withKeyCreate(coid: ContractId): Node.Create =
+    Node.Create(
+      coid = coid,
+      templateId = TypeConName(basicTestsPkgId, withKeyTemplate),
+      arg = ValueRecord(
+        Some(BasicTests_WithKey),
+        ImmArray(
+          (Some[Ref.Name]("p"), ValueParty(alice)),
+          (Some[Ref.Name]("k"), ValueInt64(42)),
         ),
-      )
+      ),
+      agreementText = "",
+      signatories = Set(alice),
+      stakeholders = Set(alice),
+      keyOpt = Some(
+        GlobalKeyWithMaintainers.assertBuild(
+          StablePackage.DA.Types.Tuple2,
+          ValueRecord(
+            Some(StablePackage.DA.Types.Tuple2),
+            ImmArray(
+              (Some[Ref.Name]("_1"), ValueParty(alice)),
+              (Some[Ref.Name]("_2"), ValueInt64(42)),
+            ),
+          ),
+          Set(alice),
+        )
+      ),
+      version = TxVersions.StableVersions.max,
     )
 
-  val defaultContracts: Map[ContractId, VersionedContractInstance] =
-    Map(
-      toContractId("BasicTests:Simple:1") ->
-        assertAsVersionedContract(
-          ContractInstance(
-            TypeConName(basicTestsPkgId, "BasicTests:Simple"),
-            ValueRecord(
-              Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
-              ImmArray((Some[Name]("p"), ValueParty(party))),
-            ),
-          )
+  val defaultContracts: Map[ContractId, Node.Create] = toCreatesMap(
+    Node.Create(
+      coid = toContractId("BasicTests:Simple:1"),
+      templateId = TypeConName(basicTestsPkgId, "BasicTests:Simple"),
+      arg = ValueRecord(
+        Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
+        ImmArray((Some[Name]("p"), ValueParty(party))),
+      ),
+      agreementText = "",
+      signatories = Set(party),
+      stakeholders = Set(party),
+      keyOpt = None,
+      version = TxVersions.StableVersions.max,
+    ),
+    Node.Create(
+      coid = toContractId("BasicTests:CallablePayout:1"),
+      templateId = TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
+      arg = ValueRecord(
+        Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+        ImmArray(
+          (Some[Ref.Name]("giver"), ValueParty(alice)),
+          (Some[Ref.Name]("receiver"), ValueParty(bob)),
         ),
-      toContractId("BasicTests:CallablePayout:1") ->
-        assertAsVersionedContract(
-          ContractInstance(
-            TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
-            ValueRecord(
-              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-              ImmArray(
-                (Some[Ref.Name]("giver"), ValueParty(alice)),
-                (Some[Ref.Name]("receiver"), ValueParty(bob)),
-              ),
-            ),
-          )
-        ),
-      toContractId("BasicTests:WithKey:1") ->
-        withKeyContractInst,
-    )
+      ),
+      agreementText = "",
+      signatories = Set(alice),
+      stakeholders = Set(alice, bob),
+      keyOpt = None,
+      version = TxVersions.StableVersions.max,
+    ),
+    withKeyCreate(toContractId("BasicTests:WithKey:1")),
+  )
 
   val defaultKey = Map(
     GlobalKeyWithMaintainers(
@@ -2490,6 +2545,9 @@ object EngineTest {
   def toContractId(s: String): ContractId =
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
 
+  def toCreatesMap(creates: Node.Create*) =
+    creates.view.map(c => c.coid -> c).toMap
+
   def findNodeByIdx[Cid](nodes: Map[NodeId, Node], idx: Int): Option[Node] =
     nodes.collectFirst { case (nodeId, node) if nodeId.index == idx => node }
 
@@ -2514,7 +2572,7 @@ object EngineTest {
       txMeta: Tx.Metadata,
       ledgerEffectiveTime: Time.Timestamp,
       lookupPackages: PartialFunction[PackageId, Package],
-      contracts: Map[ContractId, VersionedContractInstance] = Map.empty,
+      contracts: Map[ContractId, Node.Create] = Map.empty,
       keys: Map[GlobalKeyWithMaintainers, ContractId] = Map.empty,
   ): Either[Error, (VersionedTransaction, Tx.Metadata)] = {
 
@@ -2562,11 +2620,7 @@ object EngineTest {
                 txMeta.submissionTime,
                 ledgerEffectiveTime,
               )
-              .consume(
-                state.contracts,
-                lookupPackages,
-                state.keys,
-              )
+              .consume(state.contracts, lookupPackages, state.keys)
             (tr0, meta0) = currentStep
             tr1 = suffix(tr0)
             n = state.nodes.size
@@ -2668,7 +2722,7 @@ object EngineTest {
   }
 
   case class ReinterpretState(
-      contracts: Map[ContractId, VersionedContractInstance],
+      contracts: Map[ContractId, Node.Create],
       keys: Map[GlobalKeyWithMaintainers, ContractId],
       nodes: HashMap[NodeId, Node] = HashMap.empty,
       roots: BackStack[NodeId] = BackStack.empty,
@@ -2681,10 +2735,7 @@ object EngineTest {
           (contracts - exe.targetCoid, keys)
         case ((contracts, keys), (_, create: Node.Create)) =>
           (
-            contracts.updated(
-              create.coid,
-              create.versionedCoinst,
-            ),
+            contracts.updated(create.coid, create),
             create.keyOpt.fold(keys)(k => keys.updated(k, create.coid)),
           )
         case (acc, _) => acc

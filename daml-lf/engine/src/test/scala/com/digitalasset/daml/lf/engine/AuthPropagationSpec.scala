@@ -14,17 +14,9 @@ import com.daml.lf.ledger.FailedAuthorization.{
   CreateMissingAuthorization,
   ExerciseMissingAuthorization,
 }
-import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
+import com.daml.lf.transaction.{Node, SubmittedTransaction, TransactionVersion}
 import com.daml.lf.transaction.Transaction.Metadata
-import com.daml.lf.value.Value.{
-  ContractId,
-  ContractInstance,
-  ValueContractId,
-  ValueList,
-  ValueParty,
-  ValueRecord,
-  VersionedContractInstance,
-}
+import com.daml.lf.value.Value.{ContractId, ValueContractId, ValueList, ValueParty, ValueRecord}
 import com.daml.logging.LoggingContext
 
 import java.io.File
@@ -59,37 +51,43 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
   }
 
-  private def t1InstanceFor(party: Party): VersionedContractInstance =
-    Versioned(
-      TransactionVersion.VDev,
-      ContractInstance(
-        "T1",
-        ValueRecord(
-          Some("T1"),
-          ImmArray((Some[Name]("party"), ValueParty(party))),
-        ),
+  private def t1CreateFor(coid: ContractId, party: Party) =
+    Node.Create(
+      coid = coid,
+      templateId = "T1",
+      arg = ValueRecord(
+        Some("T1"),
+        ImmArray((Some[Name]("party"), ValueParty(party))),
       ),
+      agreementText = "",
+      signatories = Set(party),
+      stakeholders = Set(party),
+      keyOpt = None,
+      version = TransactionVersion.StableVersions.max,
     )
 
-  private def x1InstanceFor(party: Party): VersionedContractInstance =
-    Versioned(
-      TransactionVersion.VDev,
-      ContractInstance(
-        "X1",
-        ValueRecord(
-          Some("X1"),
-          ImmArray((Some[Name]("party"), ValueParty(party))),
-        ),
+  private def x1CreateFor(coid: ContractId, party: Party) =
+    Node.Create(
+      coid = coid,
+      templateId = "X1",
+      arg = ValueRecord(
+        Some("X1"),
+        ImmArray((Some[Name]("party"), ValueParty(party))),
       ),
+      agreementText = "",
+      signatories = Set(party),
+      stakeholders = Set(party),
+      keyOpt = None,
+      version = TransactionVersion.StableVersions.max,
     )
 
-  private val defaultContracts: Map[ContractId, VersionedContractInstance] =
-    Map(
-      toContractId("t1a") -> t1InstanceFor("Alice"),
-      toContractId("t1b") -> t1InstanceFor("Bob"),
-      toContractId("x1b") -> x1InstanceFor("Bob"),
-      toContractId("x1c") -> x1InstanceFor("Charlie"),
-    )
+  private val defaultContracts: Map[ContractId, Node.Create] =
+    List(
+      t1CreateFor(toContractId("t1a"), "Alice"),
+      t1CreateFor(toContractId("t1b"), "Bob"),
+      x1CreateFor(toContractId("x1b"), "Bob"),
+      x1CreateFor(toContractId("x1c"), "Charlie"),
+    ).map(c => c.coid -> c).toMap
 
   private val readAs: Set[Party] = Set.empty
   private val let: Time.Timestamp = Time.Timestamp.now()

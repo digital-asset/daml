@@ -19,14 +19,7 @@ import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog, SError}
-import com.daml.lf.transaction.{
-  GlobalKey,
-  IncompleteTransaction,
-  Node,
-  NodeId,
-  Transaction,
-  Versioned,
-}
+import com.daml.lf.transaction.{GlobalKey, IncompleteTransaction, Node, NodeId, Transaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
@@ -83,10 +76,10 @@ class IdeLedgerClient(
     val filtered = acs.collect {
       case ScenarioLedger.LookupOk(
             cid,
-            Versioned(_, Value.ContractInstance(tpl, arg)),
+            create,
             stakeholders,
-          ) if tpl == templateId && parties.any(stakeholders.contains(_)) =>
-        (cid, arg)
+          ) if create.templateId == templateId && parties.any(stakeholders.contains(_)) =>
+        (cid, create.arg)
     }
     Future.successful(filtered.map { case (cid, c) =>
       ScriptLedgerClient.ActiveContract(templateId, cid, c)
@@ -105,10 +98,10 @@ class IdeLedgerClient(
     ) match {
       case ScenarioLedger.LookupOk(
             _,
-            Versioned(_, contractInstance),
+            create,
             stakeholders,
           ) if parties.any(stakeholders.contains(_)) =>
-        Some(contractInstance)
+        Some(create.coinst)
       case _ =>
         // Note that contrary to `fetch` in a scenario, we do not
         // abort on any of the error cases. This makes sense if you
@@ -183,10 +176,11 @@ class IdeLedgerClient(
     val filtered: Seq[(ContractId, Value.ContractInstance)] = acs.collect {
       case ScenarioLedger.LookupOk(
             cid,
-            Versioned(_, contractInstance @ Value.ContractInstance(templateId, _)),
+            create,
             stakeholders,
-          ) if implements(templateId, interfaceId) && parties.any(stakeholders.contains(_)) =>
-        (cid, contractInstance)
+          )
+          if implements(create.templateId, interfaceId) && parties.any(stakeholders.contains(_)) =>
+        (cid, create.coinst)
     }
     val res: Seq[(ContractId, Option[Value])] = {
       filtered.map { case (cid, contractInstance) =>

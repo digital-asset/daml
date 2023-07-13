@@ -14,8 +14,7 @@ import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.command.ApiCommand
 import com.daml.lf.transaction.SubmittedTransaction
-import com.daml.lf.transaction.Transaction
-import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
+import com.daml.lf.transaction.{Node, Transaction, TransactionVersion}
 import com.daml.logging.LoggingContext
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
@@ -68,14 +67,29 @@ class InterfacesTest
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid1 = toContractId("1")
     val cid2 = toContractId("2")
-    val contracts = Map(
-      cid1 -> assertAsVersionedContract(
-        ContractInstance(idT1, ValueRecord(None, ImmArray((None, ValueParty(party)))))
-      ),
-      cid2 -> assertAsVersionedContract(
-        ContractInstance(idT2, ValueRecord(None, ImmArray((None, ValueParty(party)))))
-      ),
-    )
+    val contracts =
+      Map(
+        cid1 -> Node.Create(
+          coid = cid1,
+          templateId = idT1,
+          arg = ValueRecord(None, ImmArray(None -> ValueParty(party))),
+          agreementText = "",
+          signatories = Set(party),
+          stakeholders = Set(party),
+          keyOpt = None,
+          version = TransactionVersion.StableVersions.max,
+        ),
+        cid2 -> Node.Create(
+          coid = cid2,
+          templateId = idT2,
+          arg = ValueRecord(None, ImmArray(None -> ValueParty(party))),
+          agreementText = "",
+          signatories = Set(party),
+          stakeholders = Set(party),
+          keyOpt = None,
+          version = TransactionVersion.StableVersions.max,
+        ),
+      )
     def consume[X](x: Result[X]) =
       x.consume(contracts, allInterfacesPkgs)
 

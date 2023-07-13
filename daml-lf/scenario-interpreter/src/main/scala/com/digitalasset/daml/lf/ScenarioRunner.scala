@@ -264,7 +264,7 @@ private[lf] object ScenarioRunner {
         acoid,
       ) match {
         case ScenarioLedger.LookupOk(_, coinst, _) =>
-          callback(coinst)
+          callback(coinst.versionedCoinst)
 
         case ScenarioLedger.LookupContractNotFound(coid) =>
           // This should never happen, hence we don't have a specific

@@ -32,9 +32,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     * a mutable API for eas of use in tests.
     */
   class MutableLedger {
-
     import ScenarioLedger.{initialLedger => _, _}
-
     private var ledger: ScenarioLedger = initialLedger()
 
     private def initialLedger(): ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.now())
@@ -65,7 +63,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     def get(
         submitter: Party,
         effectiveAt: Time.Timestamp,
-    ): PartialFunction[ContractId, VersionedContractInstance] =
+    ): PartialFunction[ContractId, Node.Create] =
       Function.unlift((id: ContractId) =>
         ledger.lookupGlobalContract(
           ParticipantView(Set(submitter), Set.empty),

@@ -22,20 +22,23 @@ final class Adapter(
   def adapt(tx: VersionedTransaction): SubmittedTransaction =
     tx.foldWithPathState(new TxBuilder(interface.packageLanguageVersion), Option.empty[NodeId])(
       (builder, parent, _, node) =>
-        (builder, Some(parent.fold(builder.add(adapt(node)))(builder.add(adapt(node), _))))
+        (builder, Some(parent.fold(builder.add(adaptNode(node)))(builder.add(adaptNode(node), _))))
     ).buildSubmitted()
 
+  def adapt(create: Node.Create): Node.Create =
+    create.copy(
+      templateId = adapt(create.templateId),
+      arg = adapt(create.arg),
+      keyOpt = create.keyOpt.map(adapt),
+    )
+
   // drop value version and children
-  private[this] def adapt(node: Node): Node =
+  private[this] def adaptNode(node: Node): Node =
     node match {
       case rollback: Node.Rollback =>
         rollback.copy(children = ImmArray.Empty)
       case create: Node.Create =>
-        create.copy(
-          templateId = adapt(create.templateId),
-          arg = adapt(create.arg),
-          keyOpt = create.keyOpt.map(adapt),
-        )
+        adapt(create)
       case exe: Node.Exercise =>
         exe.copy(
           templateId = adapt(exe.templateId),

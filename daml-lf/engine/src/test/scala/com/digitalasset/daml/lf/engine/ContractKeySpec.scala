@@ -7,23 +7,30 @@ package engine
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.command.ApiCommand
-import com.daml.lf.data.Ref.{PackageId, Name, QualifiedName, Identifier, Party, TypeConName}
-import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.daml.lf.data.Ref.{Name, PackageId, TypeConName, QualifiedName, Identifier, Party}
+import com.daml.lf.data.{Bytes, Ref, ImmArray, Time}
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.InitialSeeding
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
-import com.daml.lf.transaction.{ContractKeyUniquenessMode, GlobalKey, GlobalKeyWithMaintainers}
+import com.daml.lf.transaction.{
+  ContractKeyUniquenessMode,
+  Node,
+  GlobalKeyWithMaintainers,
+  GlobalKey,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{
+  ContractId,
+  ValueParty,
+  ValueContractId,
   VersionedContractInstance,
   ContractInstance,
-  ValueRecord,
-  ValueParty,
   ValueInt64,
-  ValueContractId,
-  ContractId,
+  ValueRecord,
 }
 import com.daml.logging.LoggingContext
+
 import java.io.File
 import org.scalatest.EitherValues
 import org.scalatest.Inside.inside
@@ -272,13 +279,27 @@ class ContractKeySpec
 
       val cid1 = toContractId("1")
       val cid2 = toContractId("2")
-      val keyedInst = assertAsVersionedContract(
-        ContractInstance(
-          TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+      def keyedCreate(cid: ContractId) = {
+        val tmplId = TypeConName(multiKeysPkgId, "MultiKeys:Keyed")
+        Node.Create(
+          coid = cid,
+          templateId = tmplId,
+          arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          agreementText = "",
+          signatories = Set(party),
+          stakeholders = Set(party),
+          keyOpt = Some(
+            GlobalKeyWithMaintainers.assertBuild(
+              tmplId,
+              ValueParty(party),
+              Set(party),
+            )
+          ),
+          version = TransactionVersion.StableVersions.max,
         )
-      )
-      val contracts = Map(cid1 -> keyedInst, cid2 -> keyedInst)
+      }
+
+      val contracts = List(keyedCreate(cid1), keyedCreate(cid2)).map(c => c.coid -> c).toMap
       val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
         case GlobalKeyWithMaintainers(GlobalKey(`keyedId`, ValueParty(`party`)), _) => cid1
       }

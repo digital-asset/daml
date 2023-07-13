@@ -18,7 +18,7 @@ import com.daml.lf.transaction.{
   TransactionOuterClass => TxOuterClass,
 }
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf.value.{Value, ValueCoder}
+import com.daml.lf.value.ValueCoder
 import com.daml.logging.LoggingContext
 import com.google.protobuf.ByteString
 
@@ -33,7 +33,7 @@ final case class TransactionSnapshot(
     ledgerTime: Time.Timestamp,
     submissionTime: Time.Timestamp,
     submissionSeed: crypto.Hash,
-    contracts: Map[ContractId, Value.VersionedContractInstance],
+    creates: Map[ContractId, Node.Create],
     contractKeys: Map[GlobalKeyWithMaintainers, ContractId],
     pkgs: Map[Ref.PackageId, Ast.Package],
     profileDir: Option[Path] = None,
@@ -53,7 +53,7 @@ final case class TransactionSnapshot(
         submissionTime,
         submissionSeed,
       )
-      .consume(contracts, pkgs, contractKeys)
+      .consume(creates, pkgs, contractKeys)
       .map(_ => ())
 
   def validate(): Either[Error, Unit] =
@@ -66,13 +66,13 @@ final case class TransactionSnapshot(
         submissionTime,
         submissionSeed,
       )
-      .consume(contracts, pkgs, contractKeys)
+      .consume(creates, pkgs, contractKeys)
 
   def adapt(pkgs: Map[Ref.PackageId, Ast.Package]): TransactionSnapshot = {
     val adapter = new Adapter(pkgs)
     this.copy(
       transaction = adapter.adapt(transaction),
-      contracts = contracts.transform((_, v) => adapter.adapt(v)),
+      creates = creates.transform((_, v) => adapter.adapt(v)),
       contractKeys = contractKeys.iterator.map { case (k, v) => adapter.adapt(k) -> v }.toMap,
       pkgs = pkgs,
     )
@@ -162,10 +162,8 @@ private[snapshot] object TransactionSnapshot {
         txEntry: Snapshot.TransactionEntry,
         tx: SubmittedTx,
     ) = {
-      val relevantCreateNodes = activeCreates.view.filterKeys(tx.inputContracts).toList
-      val contracts = relevantCreateNodes.view.map { case (cid, create) =>
-        cid -> create.versionedCoinst
-      }.toMap
+      val inputContracts = tx.inputContracts
+      val relevantCreateNodes = activeCreates.filter { case (cid, _) => inputContracts(cid) }
       val contractKeys = relevantCreateNodes.view.flatMap { case (cid, create) =>
         create.keyOpt.map(_ -> cid).toList
       }.toMap
@@ -182,7 +180,7 @@ private[snapshot] object TransactionSnapshot {
         submissionSeed = crypto.Hash.assertFromBytes(
           Bytes.fromByteString(txEntry.getSubmissionSeed)
         ),
-        contracts = contracts,
+        creates = relevantCreateNodes,
         contractKeys = contractKeys,
         pkgs = archives.view.map(ArchiveDecoder.assertFromByteString).toMap,
         profileDir = profileDir,

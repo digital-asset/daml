@@ -7,7 +7,7 @@ package engine
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, FrontStack, ImmArray}
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
 import com.daml.lf.value.Value._
 import scalaz.Monad
 
@@ -22,8 +22,8 @@ sealed trait Result[+A] extends Product with Serializable {
     case ResultInterruption(continue) => ResultInterruption(() => continue().map(f))
     case ResultDone(x) => ResultDone(f(x))
     case ResultError(err) => ResultError(err)
-    case ResultNeedContract(acoid, resume) =>
-      ResultNeedContract(acoid, mbContract => resume(mbContract).map(f))
+    case ResultNeedCreate(acoid, resume) =>
+      ResultNeedCreate(acoid, mbContract => resume(mbContract).map(f))
     case ResultNeedPackage(pkgId, resume) =>
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).map(f))
     case ResultNeedKey(gk, resume) =>
@@ -36,8 +36,8 @@ sealed trait Result[+A] extends Product with Serializable {
     case ResultInterruption(continue) => ResultInterruption(() => continue().flatMap(f))
     case ResultDone(x) => f(x)
     case ResultError(err) => ResultError(err)
-    case ResultNeedContract(acoid, resume) =>
-      ResultNeedContract(acoid, mbContract => resume(mbContract).flatMap(f))
+    case ResultNeedCreate(acoid, resume) =>
+      ResultNeedCreate(acoid, mbContract => resume(mbContract).flatMap(f))
     case ResultNeedPackage(pkgId, resume) =>
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).flatMap(f))
     case ResultNeedKey(gk, resume) =>
@@ -47,7 +47,7 @@ sealed trait Result[+A] extends Product with Serializable {
   }
 
   private[lf] def consume(
-      pcs: PartialFunction[ContractId, VersionedContractInstance] = PartialFunction.empty,
+      pcs: PartialFunction[ContractId, Node.Create] = PartialFunction.empty,
       pkgs: PartialFunction[PackageId, Package] = PartialFunction.empty,
       keys: PartialFunction[GlobalKeyWithMaintainers, ContractId] = PartialFunction.empty,
       grantNeedAuthority: Boolean = false,
@@ -58,7 +58,7 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultDone(x) => Right(x)
         case ResultInterruption(continue) => go(continue())
         case ResultError(err) => Left(err)
-        case ResultNeedContract(acoid, resume) => go(resume(pcs.lift(acoid)))
+        case ResultNeedCreate(acoid, resume) => go(resume(pcs.lift(acoid)))
         case ResultNeedPackage(pkgId, resume) => go(resume(pkgs.lift(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys.lift(key)))
         case ResultNeedAuthority(_, _, resume) => go(resume(grantNeedAuthority))
@@ -104,9 +104,9 @@ object ResultError {
   * has previously been associated with `acoid` by the engine.
   * The engine does not validate the given contract instance.
   */
-final case class ResultNeedContract[A](
+final case class ResultNeedCreate[A](
     acoid: ContractId,
-    resume: Option[VersionedContractInstance] => Result[A],
+    resume: Option[Node.Create] => Result[A],
 ) extends Result[A]
 
 /** Intermediate result indicating that a [[Package]] is required to complete the computation.
@@ -169,14 +169,14 @@ object Result {
       acoid: ContractId,
       resume: VersionedContractInstance => Result[A],
   ) =
-    ResultNeedContract(
+    ResultNeedCreate(
       acoid,
       {
         case None =>
           ResultError(
             Error.Interpretation.DamlException(interpretation.Error.ContractNotFound(acoid))
           )
-        case Some(contract) => resume(contract)
+        case Some(contract) => resume(contract.versionedCoinst)
       },
     )
 
@@ -210,8 +210,8 @@ object Result {
                       .map(otherResults => (okResults :+ x) :++ otherResults)
                   ),
               )
-            case ResultNeedContract(acoid, resume) =>
-              ResultNeedContract(
+            case ResultNeedCreate(acoid, resume) =>
+              ResultNeedCreate(
                 acoid,
                 coinst =>
                   resume(coinst).flatMap(x =>

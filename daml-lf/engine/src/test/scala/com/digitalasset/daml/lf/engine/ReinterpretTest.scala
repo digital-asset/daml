@@ -11,10 +11,9 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.{Node, NodeId, Transaction, SubmittedTransaction}
+import com.daml.lf.transaction.{Node, NodeId, Transaction, TransactionVersion, SubmittedTransaction}
 import com.daml.lf.value.Value._
 import com.daml.lf.command.ReplayCommand
-import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
@@ -45,17 +44,19 @@ class ReinterpretTest
     "daml-lf/tests/ReinterpretTests.dar"
   )
 
-  private val defaultContracts: Map[ContractId, VersionedContractInstance] =
+  private val cid = toContractId("ReinterpretTests:MySimple:1")
+  private val defaultContracts: Map[ContractId, Node.Create] =
     Map(
-      toContractId("ReinterpretTests:MySimple:1") ->
-        assertAsVersionedContract(
-          ContractInstance(
-            TypeConName(miniTestsPkgId, "ReinterpretTests:MySimple"),
-            ValueRecord(
-              Some(Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")),
-              ImmArray((Some[Name]("p"), ValueParty(party))),
-            ),
-          )
+      cid ->
+        Node.Create(
+          coid = cid,
+          templateId = TypeConName(miniTestsPkgId, "ReinterpretTests:MySimple"),
+          arg = ValueRecord(None, ImmArray(None -> ValueParty(party))),
+          agreementText = "",
+          signatories = Set(party),
+          stakeholders = Set(party),
+          keyOpt = None,
+          version = TransactionVersion.StableVersions.max,
         )
     )
 
