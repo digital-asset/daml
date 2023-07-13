@@ -1098,7 +1098,7 @@ private[lf] object Speedy {
             }
           case TTyCon(tyCon) =>
             value match {
-              case V.ValueRecord(_, sourceElements) => {
+              case V.ValueRecord(_, sourceElements) => { // This _ is the source typecon, which we ignore.
                 val lookupResult = assertRight(
                   compiledPackages.pkgInterface.lookupDataRecord(tyCon)
                 )
@@ -1109,6 +1109,11 @@ private[lf] object Speedy {
                 // And handles the cases:
                 // - UPGRADE:   numT > numS : creates a None for each missing fields.
                 // - DOWNGRADE: numS > numT : drops each extra field, ensuring it is None.
+                //
+                // When numS == numT, we wont hit the code marked either as UPGRADE or DOWNGRADE,
+                // although it is still possible that the source and target types are different,
+                // but since we don't consult the source type (may be unavailable), we wont know.
+
                 val numS: Int = sourceElements.length
                 val numT: Int = targetFieldsAndTypes.length
 
@@ -1130,7 +1135,8 @@ private[lf] object Speedy {
                         List(sv)
                       }
                       case None => { // DOWNGRADE
-                        assert(i >= numT)
+                        // i ranges from 0 to numS-1. So i >= numT implies numS > numT
+                        assert((numS > i) && (i >= numT))
                         v match {
                           case V.ValueOptional(None) => List() // ok, drop
                           case V.ValueOptional(Some(_)) =>
