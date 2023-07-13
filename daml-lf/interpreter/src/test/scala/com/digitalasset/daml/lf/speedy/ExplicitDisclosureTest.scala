@@ -34,7 +34,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         }
       }
 
-      "ledger queried when contract ID is not disclosed" ignore { // NICK
+      "ledger queried when contract ID is not disclosed" in {
         ledgerQueriedWhenContractNotDisclosed(
           SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
           getContract = Map(contractId -> ledgerCaveContract),
@@ -76,7 +76,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
       }
 
       "contract IDs that are inactive" - {
-        "ledger query fails when contract ID is not disclosed" ignore { // NICK
+        "ledger query fails when contract ID is not disclosed" in {
           ledgerQueryFailsWhenContractNotDisclosed(
             SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
             contractId,
