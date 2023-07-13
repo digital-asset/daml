@@ -1099,20 +1099,21 @@ private[lf] object Speedy {
           case TTyCon(tyCon) =>
             value match {
               case V.ValueRecord(_, sourceElements) => {
-
-                val lookupResult =
-                  assertRight(compiledPackages.pkgInterface.lookupDataRecord(tyCon))
-
-                val targetFieldsAndTypes: ImmArray[(Name, Type)] =
-                  lookupResult.dataRecord.fields
-
+                val lookupResult = assertRight(
+                  compiledPackages.pkgInterface.lookupDataRecord(tyCon)
+                )
+                val targetFieldsAndTypes: ImmArray[(Name, Type)] = lookupResult.dataRecord.fields
                 lazy val subst = lookupResult.subst(argTypes)
 
+                // This code implements the compatibility transformation used for up/down-grading
+                // And handles the cases:
+                // - UPGRADE:   numT > numS : creates a None for each missing fields.
+                // - DOWNGRADE: numS > numT : drops each extra field, ensuring it is None.
                 val numS: Int = sourceElements.length
                 val numT: Int = targetFieldsAndTypes.length
 
-                val _: ImmArray[(Option[Name], V)] = sourceElements
-
+                // traverse the sourceElements, "get"ing the corresponding target type
+                // when there is no corresponding type, we must be downgrading, and so we insist the value is None
                 val values0: List[SValue] =
                   sourceElements.toSeq.zipWithIndex.flatMap { case ((optName, v), i) =>
                     targetFieldsAndTypes.get(i) match {
@@ -1128,7 +1129,7 @@ private[lf] object Speedy {
                         val sv: SValue = go(typ, v)
                         List(sv)
                       }
-                      case None => {
+                      case None => { // DOWNGRADE
                         assert(i >= numT)
                         v match {
                           case V.ValueOptional(None) => List() // ok, drop
@@ -1159,8 +1160,7 @@ private[lf] object Speedy {
 
                 val values: util.ArrayList[SValue] = {
                   if (numT > numS) {
-                    // make extra None fields
-                    values0.padTo(numT, SValue.SOptional(None))
+                    values0.padTo(numT, SValue.SOptional(None)) // UPGRADE
                   } else {
                     values0
                   }
