@@ -14,17 +14,37 @@ import com.daml.error.{
   Resolution,
 }
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
+import com.daml.lf.value.ValueCoder.CidEncoder
+import com.daml.lf.value.{Value, ValueCoder}
 import com.daml.lf.{VersionRange, language}
 
 @Explanation(
   "Errors raised during the command execution phase of the command submission evaluation."
 )
-object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
+object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
+  def encodeValue(v: Value): Either[ValueCoder.EncodeError, String] =
+    ValueCoder
+      .encodeValue(CidEncoder, TransactionVersion.VDev, v)
+      .map(_.toStringUtf8)
+
+  def withEncodedValue(
+      v: Value
+  )(
+      f: String => Seq[(ErrorResource, String)]
+  )(implicit loggingContext: ContextualizedErrorLogger): Seq[(ErrorResource, String)] =
+    encodeValue(v).fold(
+      { case ValueCoder.EncodeError(msg) =>
+        loggingContext.error(msg)
+        Seq.empty
+      },
+      f,
+    )
+
   @Explanation(
     """This error occurs if the participant fails to determine the max ledger time of the used
       |contracts. Most likely, this means that one of the contracts is not active anymore which can
@@ -38,7 +58,7 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
         ErrorCategory.ContentionOnSharedResources,
       ) {
 
-    case class Reject(reason: String)(implicit
+    final case class Reject(reason: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
@@ -67,7 +87,7 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
           .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions)
           .message
 
-      case class Error(
+      final case class Error(
           packageId: Ref.PackageId,
           languageVersion: language.LanguageVersion,
           allowedLanguageVersions: VersionRange[language.LanguageVersion],
@@ -87,7 +107,7 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
           id = "PACKAGE_VALIDATION_FAILED",
           ErrorCategory.SecurityAlert,
         ) {
-      case class Reject(validationErrorCause: String)(implicit
+      final case class Reject(validationErrorCause: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
             cause = validationErrorCause
@@ -106,7 +126,7 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
           id = "COMMAND_PREPROCESSING_FAILED",
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
-      case class Reject(
+      final case class Reject(
           err: LfError.Preprocessing.Error
       )(implicit
           loggingContext: ContextualizedErrorLogger
@@ -128,7 +148,7 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 
-      case class Error(override val cause: String)(implicit
+      final case class Error(override val cause: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
             cause = cause
@@ -145,7 +165,7 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
 
-      case class Error(override val cause: String)(implicit
+      final case class Error(override val cause: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
             cause = cause
@@ -163,7 +183,7 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
 
-      case class Reject(
+      final case class Reject(
           override val cause: String,
           err: LfInterpretationError.ContractNotActive,
       )(implicit
@@ -172,7 +192,8 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
             cause = cause
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
-          (ErrorResource.ContractId, err.coid.coid)
+          (ErrorResource.TemplateId, err.templateId.toString),
+          (ErrorResource.ContractId, err.coid.coid),
         )
       }
 
@@ -192,7 +213,7 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
             ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
           ) {
 
-        case class Reject(
+        final case class Reject(
             override val cause: String,
             key: GlobalKey,
         )(implicit
@@ -200,9 +221,13 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
         ) extends DamlErrorWithDefiniteAnswer(
               cause = cause
             ) {
-          override def resources: Seq[(ErrorResource, String)] = Seq(
-            (ErrorResource.ContractKey, key.toString())
-          )
+          override def resources: Seq[(ErrorResource, String)] =
+            withEncodedValue(key.key) { encodedKey =>
+              Seq(
+                (ErrorResource.TemplateId, key.templateId.toString),
+                (ErrorResource.ContractKey, encodedKey),
+              )
+            }
         }
       }
     }
@@ -217,11 +242,383 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
 
-      case class Reject(override val cause: String)(implicit
+      final case class Reject(override val cause: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
             cause = cause
           )
+    }
+
+    @Explanation(
+      """This error occurs if a user attempts to provide a key hash for a disclosed contract which we have already cached to be different."""
+    )
+    @Resolution(
+      "Ensure the contract ID and contract payload you have provided in your disclosed contract is correct."
+    )
+    object DisclosedContractKeyHashingError
+        extends ErrorCode(
+          id = "DISCLOSED_CONTRACT_KEY_HASHING_ERROR",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+
+      final case class Reject(
+          override val cause: String,
+          err: LfInterpretationError.DisclosedContractKeyHashingError,
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          ) {
+
+        override def resources: Seq[(ErrorResource, String)] =
+          withEncodedValue(err.key.key) { encodedKey =>
+            Seq(
+              (ErrorResource.TemplateId, err.key.templateId.toString),
+              (ErrorResource.ContractId, err.coid.coid),
+              (ErrorResource.ContractKey, encodedKey),
+              (ErrorResource.ContractKeyHash, err.declaredHash.toString),
+            )
+          }
+      }
+    }
+
+    private def getTypeIdentifier(t: Ast.Type): Option[Identifier] =
+      t match {
+        case Ast.TTyCon(ty) => Some(ty)
+        case _ => None
+      }
+
+    @Explanation(
+      """This error occurs when a user throws an error and does not catch it with try-catch."""
+    )
+    @Resolution(
+      "Either your error handling in a choice body is insufficient, or you are using a contract incorrectly."
+    )
+    object UnhandledException
+        extends ErrorCode(
+          id = "UNHANDLED_EXCEPTION",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+
+      final case class Reject(
+          override val cause: String,
+          err: LfInterpretationError.UnhandledException,
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          ) {
+        override def resources: Seq[(ErrorResource, String)] =
+          withEncodedValue(err.value) { encodedValue =>
+            getTypeIdentifier(err.exceptionType)
+              .map(ty =>
+                Seq(
+                  (ErrorResource.ExceptionType, ty.toString),
+                  (ErrorResource.ExceptionValue, encodedValue),
+                )
+              )
+              .getOrElse(Nil)
+          }
+      }
+    }
+
+    @Explanation(
+      """This error occurs when a user calls abort or error on an LF version before native exceptions were introduced."""
+    )
+    @Resolution(
+      "Either remove the call to abort, error or perhaps assert, or ensure you are exercising your contract choice as the author expects."
+    )
+    object UserError
+        extends ErrorCode(
+          id = "USER_ERROR",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+
+      final case class Reject(
+          override val cause: String,
+          err: LfInterpretationError.UserError,
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          ) {
+        override def resources: Seq[(ErrorResource, String)] =
+          Seq(
+            (ErrorResource.ExceptionText, err.message)
+          )
+      }
+    }
+
+    @Explanation(
+      """This error occurs when a contract's pre-condition (the ensure clause) is violated on contract creation."""
+    )
+    @Resolution(
+      "Ensure the contract argument you are passing into your create doesn't violate the conditions of the contract."
+    )
+    object TemplatePreconditionViolated
+        extends ErrorCode(
+          id = "TEMPLATE_PRECONDITION_VIOLATED",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+
+      final case class Reject(
+          override val cause: String
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          ) {}
+    }
+
+    @Explanation(
+      """This error occurs when you try to create a contract that has a key, but with empty maintainers."""
+    )
+    @Resolution(
+      "Check the definition of the contract key's maintainers, and ensure this list won't be empty given your creation arguments."
+    )
+    object CreateEmptyContractKeyMaintainers
+        extends ErrorCode(
+          id = "CREATE_EMPTY_CONTRACT_KEY_MAINTAINERS",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+
+      final case class Reject(
+          override val cause: String,
+          err: LfInterpretationError.CreateEmptyContractKeyMaintainers,
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          ) {
+
+        override def resources: Seq[(ErrorResource, String)] =
+          withEncodedValue(err.arg) { encodedArg =>
+            Seq(
+              (ErrorResource.TemplateId, err.templateId.toString),
+              (ErrorResource.ContractArg, encodedArg),
+            )
+          }
+      }
+    }
+
+    @Explanation(
+      """This error occurs when you try to fetch a contract by key, but that key would have empty maintainers."""
+    )
+    @Resolution(
+      "Check the definition of the contract key's maintainers, and ensure this list won't be empty given the contract key you are fetching."
+    )
+    object FetchEmptyContractKeyMaintainers
+        extends ErrorCode(
+          id = "FETCH_EMPTY_CONTRACT_KEY_MAINTAINERS",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+
+      final case class Reject(
+          override val cause: String,
+          err: LfInterpretationError.FetchEmptyContractKeyMaintainers,
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          ) {
+
+        override def resources: Seq[(ErrorResource, String)] =
+          withEncodedValue(err.key) { encodedKey =>
+            Seq(
+              (ErrorResource.TemplateId, err.templateId.toString),
+              (ErrorResource.ContractKey, encodedKey),
+            )
+          }
+      }
+    }
+
+    @Explanation(
+      """This error occurs when you try to fetch/use a contract in some way with a contract ID that doesn't match the template type on the ledger."""
+    )
+    @Resolution(
+      "Ensure the contract IDs you are using are of the type we expect on the ledger. Avoid unsafely coercing contract IDs."
+    )
+    object WronglyTypedContract
+        extends ErrorCode(
+          id = "WRONGLY_TYPED_CONTRACT",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+
+      final case class Reject(
+          override val cause: String,
+          err: LfInterpretationError.WronglyTypedContract,
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          ) {
+
+        override def resources: Seq[(ErrorResource, String)] =
+          Seq(
+            (ErrorResource.ContractId, err.coid.coid),
+            (ErrorResource.TemplateId, err.expected.toString),
+            (ErrorResource.TemplateId, err.actual.toString),
+          )
+      }
+    }
+
+    @Explanation(
+      """This error occurs when you try to coerce/use a contract via an interface that it does not implement."""
+    )
+    @Resolution(
+      "Ensure the contract you are calling does implement the interface you are using to do so. Avoid writing LF/low-level interface implementation classes manually."
+    )
+    object ContractDoesNotImplementInterface
+        extends ErrorCode(
+          id = "CONTRACT_DOES_NOT_IMPLEMENT_INTERFACE",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+
+      final case class Reject(
+          override val cause: String,
+          err: LfInterpretationError.ContractDoesNotImplementInterface,
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          ) {
+
+        override def resources: Seq[(ErrorResource, String)] =
+          Seq(
+            (ErrorResource.ContractId, err.coid.coid),
+            (ErrorResource.TemplateId, err.templateId.toString),
+            (ErrorResource.InterfaceId, err.interfaceId.toString),
+          )
+      }
+    }
+
+    @Explanation(
+      """This error occurs when you try to create/use a contract that does not implement the requiring interfaces of some other interface that it does implement."""
+    )
+    @Resolution(
+      "Ensure you implement all required interfaces correctly, and avoid writing LF/low-level interface implementation classes manually."
+    )
+    object ContractDoesNotImplementRequiringInterface
+        extends ErrorCode(
+          id = "CONTRACT_DOES_NOT_IMPLEMENT_REQUIRING_INTERFACE",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+
+      final case class Reject(
+          override val cause: String,
+          err: LfInterpretationError.ContractDoesNotImplementRequiringInterface,
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          ) {
+
+        override def resources: Seq[(ErrorResource, String)] =
+          Seq(
+            (ErrorResource.ContractId, err.coid.coid),
+            (ErrorResource.TemplateId, err.templateId.toString),
+            (ErrorResource.InterfaceId, err.requiredInterfaceId.toString),
+            (ErrorResource.InterfaceId, err.requiringInterfaceId.toString),
+          )
+      }
+    }
+
+    @Explanation(
+      """This error occurs when you attempt to compare two values of different types using the built-in comparison types."""
+    )
+    @Resolution(
+      "Avoid using the low level comparison build, and instead use the Eq class."
+    )
+    object NonComparableValues
+        extends ErrorCode(
+          id = "NON_COMPARABLE_VALUES",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+
+      final case class Reject(
+          override val cause: String
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          ) {}
+    }
+
+    @Explanation(
+      """This error occurs when a contract key contains a contract ID, which is illegal for hashing reasons."""
+    )
+    @Resolution(
+      "Ensure your contracts key field cannot contain a contract ID."
+    )
+    object ContractIdInContractKey
+        extends ErrorCode(
+          id = "CONTRACT_ID_IN_CONTRACT_KEY",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+
+      final case class Reject(
+          override val cause: String
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          ) {}
+    }
+
+    @Explanation(
+      """This error occurs when you attempt to compare a global and local contract ID of the same discriminator."""
+    )
+    @Resolution(
+      "Avoid constructing contract IDs manually."
+    )
+    object ContractIdComparability
+        extends ErrorCode(
+          id = "CONTRACT_ID_COMPARABILITY",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+
+      final case class Reject(
+          override val cause: String,
+          err: LfInterpretationError.ContractIdComparability,
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          ) {
+
+        override def resources: Seq[(ErrorResource, String)] =
+          Seq(
+            (ErrorResource.ContractId, err.globalCid.coid)
+          )
+      }
+    }
+
+    @Explanation(
+      """This error is a catch-all for errors thrown by in-development features, and should never be thrown in production."""
+    )
+    @Resolution(
+      "See the error message for details of the specific in-development feature error. If this is production, avoid using development features."
+    )
+    object DevError
+        extends ErrorCode(
+          id = "DEV_ERROR",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+
+      final case class Reject(
+          override val cause: String,
+          err: LfInterpretationError.Dev.Error,
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          ) {
+
+        override def resources: Seq[(ErrorResource, String)] =
+          Seq(
+            (ErrorResource.DevErrorType, err.getClass.getSimpleName)
+          )
+      }
     }
   }
 }

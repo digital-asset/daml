@@ -367,7 +367,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     } yield {
       assertGrpcErrorRegex(
         failure,
-        LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
+        LedgerApiErrors.CommandExecution.Interpreter.UnhandledException,
         Some(
           Pattern.compile(
             "Interpretation error: Error: (User abort: Assertion failed.?|Unhandled (Daml )?exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"Assertion failed\" \\}\\. [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node)"

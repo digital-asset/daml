@@ -87,6 +87,9 @@ before_removing_legacy_error_codes = "2.0.0-snapshot.20220127.9042.0.4038d0a7"
 after_removing_legacy_error_codes = "2.0.0-snapshot.20220127.9042.0.4038d0a7.1"
 first_canton_in_ledger_api_tests = "2.7.0-snapshot.20230504.11748.0.af51d660"
 
+# Following changes to the ledger api, sandbox can no longer be run after this version.
+last_sandbox_in_ledger_api_tests = "2.7.0-snapshot.20230703.11931.0.vc04c7ac9"
+
 excluded_test_tool_tests = [
     {
         # We drop visibily restrictions about local contract key in
@@ -598,6 +601,51 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    # Ledger api error structure change, all following tests make assertions on errors
+    # New error api tool cannot be used on old api platform
+    {
+        "start": "2.7.0-snapshot.20230703.11931.1",
+        "platform_ranges": [
+            {
+                "end": "2.7.0-snapshot.20230703.11931.0.vc04c7ac9",
+                "exclusions": [
+                    "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
+                    "DeeplyNestedValueIT",
+                    "MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible",
+                    "CommandServiceIT:CSReturnStackTrace",
+                    "TransactionServiceAuthorizationIT:TXRejectMultiActorExcessiveAuth",
+                    "ContractKeysIT:CKGlocalKeyVisibility",
+                    "WronglyTypedContractIdIT",
+                    "ExplicitDisclosureIT:EDMalformedDisclosedContracts",
+                    "InterfaceSubscriptionsIT:ISTransactionsEquivalentFilters",
+                    "TimeServiceIT:TSFailWhenTimeNotAdvanced",
+                    "ExceptionsIT:ExUncaught",
+                ],
+            },
+        ],
+    },
+    # Reverse of above, old api error tool cannot be used on new api platform
+    {
+        "end": "2.7.0-snapshot.20230703.11931.0.vc04c7ac9",
+        "platform_ranges": [
+            {
+                "start": "2.7.0-snapshot.20230703.11931.1",
+                "exclusions": [
+                    "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
+                    "DeeplyNestedValueIT",
+                    "MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible",
+                    "CommandServiceIT:CSReturnStackTrace",
+                    "TransactionServiceAuthorizationIT:TXRejectMultiActorExcessiveAuth",
+                    "ContractKeysIT:CKGlocalKeyVisibility",
+                    "WronglyTypedContractIdIT",
+                    "ExplicitDisclosureIT:EDMalformedDisclosedContracts",
+                    "InterfaceSubscriptionsIT:ISTransactionsEquivalentFilters",
+                    "TimeServiceIT:TSFailWhenTimeNotAdvanced",
+                    "ExceptionsIT:ExUncaught",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
@@ -845,6 +893,7 @@ def sdk_platform_test(sdk_version, platform_version):
     )
 
     use_canton = versions.is_at_least(first_canton_in_ledger_api_tests, platform_version)
+    use_sandbox = versions.is_at_most(last_sandbox_in_ledger_api_tests, platform_version)
     sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
     sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--mutable-contract-state-cache", "--enable-user-management=true"]
     sandbox_on_x_cmd = ["run-legacy-cli-config"]
@@ -886,7 +935,7 @@ def sdk_platform_test(sdk_version, platform_version):
                 ],
                 tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
             )
-        else:
+        elif use_sandbox:
             client_server_test(
                 name = name + "-on-x",
                 client = ledger_api_test_tool,

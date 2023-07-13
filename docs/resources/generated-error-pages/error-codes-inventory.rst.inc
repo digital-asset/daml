@@ -695,6 +695,70 @@ Errors raised during the command interpretation phase of the command submission 
 
 
 
+.. _error_code_CONTRACT_DOES_NOT_IMPLEMENT_INTERFACE:
+
+CONTRACT_DOES_NOT_IMPLEMENT_INTERFACE
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs when you try to coerce/use a contract via an interface that it does not implement.
+
+    **Category**: InvalidIndependentOfSystemState
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
+
+    **Resolution**: Ensure the contract you are calling does implement the interface you are using to do so. Avoid writing LF/low-level interface implementation classes manually.
+
+
+
+
+.. _error_code_CONTRACT_DOES_NOT_IMPLEMENT_REQUIRING_INTERFACE:
+
+CONTRACT_DOES_NOT_IMPLEMENT_REQUIRING_INTERFACE
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs when you try to create/use a contract that does not implement the requiring interfaces of some other interface that it does implement.
+
+    **Category**: InvalidIndependentOfSystemState
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
+
+    **Resolution**: Ensure you implement all required interfaces correctly, and avoid writing LF/low-level interface implementation classes manually.
+
+
+
+
+.. _error_code_CONTRACT_ID_COMPARABILITY:
+
+CONTRACT_ID_COMPARABILITY
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs when you attempt to compare a global and local contract ID of the same discriminator.
+
+    **Category**: InvalidIndependentOfSystemState
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
+
+    **Resolution**: Avoid constructing contract IDs manually.
+
+
+
+
+.. _error_code_CONTRACT_ID_IN_CONTRACT_KEY:
+
+CONTRACT_ID_IN_CONTRACT_KEY
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs when a contract key contains a contract ID, which is illegal for hashing reasons.
+
+    **Category**: InvalidIndependentOfSystemState
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
+
+    **Resolution**: Ensure your contracts key field cannot contain a contract ID.
+
+
+
+
 .. _error_code_CONTRACT_NOT_ACTIVE:
 
 CONTRACT_NOT_ACTIVE
@@ -707,6 +771,22 @@ CONTRACT_NOT_ACTIVE
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: This error indicates an application error.
+
+
+
+
+.. _error_code_CREATE_EMPTY_CONTRACT_KEY_MAINTAINERS:
+
+CREATE_EMPTY_CONTRACT_KEY_MAINTAINERS
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs when you try to create a contract that has a key, but with empty maintainers.
+
+    **Category**: InvalidIndependentOfSystemState
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
+
+    **Resolution**: Check the definition of the contract key's maintainers, and ensure this list won't be empty given your creation arguments.
 
 
 
@@ -755,6 +835,134 @@ DAML_INTERPRETER_INVALID_ARGUMENT
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: This error type occurs if there is an application error.
+
+
+
+
+.. _error_code_DEV_ERROR:
+
+DEV_ERROR
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error is a catch-all for errors thrown by in-development features, and should never be thrown in production.
+
+    **Category**: InvalidGivenCurrentSystemStateOther
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
+
+    **Resolution**: See the error message for details of the specific in-development feature error. If this is production, avoid using development features.
+
+
+
+
+.. _error_code_DISCLOSED_CONTRACT_KEY_HASHING_ERROR:
+
+DISCLOSED_CONTRACT_KEY_HASHING_ERROR
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs if a user attempts to provide a key hash for a disclosed contract which we have already cached to be different.
+
+    **Category**: InvalidGivenCurrentSystemStateOther
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
+
+    **Resolution**: Ensure the contract ID and contract payload you have provided in your disclosed contract is correct.
+
+
+
+
+.. _error_code_FETCH_EMPTY_CONTRACT_KEY_MAINTAINERS:
+
+FETCH_EMPTY_CONTRACT_KEY_MAINTAINERS
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs when you try to fetch a contract by key, but that key would have empty maintainers.
+
+    **Category**: InvalidIndependentOfSystemState
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
+
+    **Resolution**: Check the definition of the contract key's maintainers, and ensure this list won't be empty given the contract key you are fetching.
+
+
+
+
+.. _error_code_NON_COMPARABLE_VALUES:
+
+NON_COMPARABLE_VALUES
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs when you attempt to compare two values of different types using the built-in comparison types.
+
+    **Category**: InvalidIndependentOfSystemState
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
+
+    **Resolution**: Avoid using the low level comparison build, and instead use the Eq class.
+
+
+
+
+.. _error_code_TEMPLATE_PRECONDITION_VIOLATED:
+
+TEMPLATE_PRECONDITION_VIOLATED
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs when a contract's pre-condition (the ensure clause) is violated on contract creation.
+
+    **Category**: InvalidIndependentOfSystemState
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
+
+    **Resolution**: Ensure the contract argument you are passing into your create doesn't violate the conditions of the contract.
+
+
+
+
+.. _error_code_UNHANDLED_EXCEPTION:
+
+UNHANDLED_EXCEPTION
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs when a user throws an error and does not catch it with try-catch.
+
+    **Category**: InvalidGivenCurrentSystemStateOther
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
+
+    **Resolution**: Either your error handling in a choice body is insufficient, or you are using a contract incorrectly.
+
+
+
+
+.. _error_code_USER_ERROR:
+
+USER_ERROR
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs when a user calls abort or error on an LF version before native exceptions were introduced.
+
+    **Category**: InvalidGivenCurrentSystemStateOther
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
+
+    **Resolution**: Either remove the call to abort, error or perhaps assert, or ensure you are exercising your contract choice as the author expects.
+
+
+
+
+.. _error_code_WRONGLY_TYPED_CONTRACT:
+
+WRONGLY_TYPED_CONTRACT
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs when you try to fetch/use a contract in some way with a contract ID that doesn't match the template type on the ledger.
+
+    **Category**: InvalidGivenCurrentSystemStateOther
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
+
+    **Resolution**: Ensure the contract IDs you are using are of the type we expect on the ledger. Avoid unsafely coercing contract IDs.
 
 
 
