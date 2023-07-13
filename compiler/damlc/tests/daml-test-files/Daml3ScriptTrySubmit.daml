@@ -84,7 +84,8 @@ authorizationError = script do
   bob <- allocateParty "bob"
   res <- alice `trySubmit` createCmd T1 with t1_p = bob
   case res of
-    Left (AuthorizationError err) -> assert $ "requires authorizers bob, but only alice were given" `isInfixOf` err
+    Left (AuthorizationError err) ->
+      assert $ ("requires authorizers " <> partyToText bob <> ", but only " <> partyToText alice <> " were given") `isInfixOf` err
     Left e -> error $ "authorizationError incorrect error: " <> show e
     Right _ -> error "authorizationError incorrectly succeeded"
 
