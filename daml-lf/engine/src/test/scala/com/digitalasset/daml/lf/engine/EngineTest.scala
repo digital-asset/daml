@@ -299,11 +299,7 @@ class EngineTest
               submissionTime = let,
               seeding = seeding,
             )
-            .consume(
-              lookupContract,
-              lookupPackage,
-              lookupKey,
-            )
+            .consume(lookupContract, lookupPackage, lookupKey)
         }
     val Right((tx, txMeta)) = interpretResult
     val Right(submitter) = tx.guessSubmitter
@@ -318,11 +314,7 @@ class EngineTest
           participant,
           submissionSeed,
         )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
+        .consume(lookupContract, lookupPackage, lookupKey)
       isReplayedBy(tx, rtx) shouldBe Right(())
     }
 
@@ -347,11 +339,7 @@ class EngineTest
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
         .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
+        .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
           fail(e.message)
@@ -439,11 +427,7 @@ class EngineTest
               submissionTime = let,
               seeding = seeding,
             )
-            .consume(
-              lookupContract,
-              lookupPackage,
-              lookupKey,
-            )
+            .consume(lookupContract, lookupPackage, lookupKey)
         }
     val Right((tx, txMeta)) = result
 
@@ -485,11 +469,7 @@ class EngineTest
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
         .validate(submitters, ntx, let, participant, let, submissionSeed)
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
+        .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
           fail(e.message)
@@ -536,7 +516,7 @@ class EngineTest
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
       inside(result) { case Left(err) =>
         err.message should include(
@@ -618,7 +598,7 @@ class EngineTest
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
       inside(result) { case Left(err) =>
         err.message should include(
@@ -653,7 +633,7 @@ class EngineTest
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
       inside(result) { case Left(Error.Interpretation(err, _)) =>
         err shouldBe
@@ -700,7 +680,7 @@ class EngineTest
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
       inside(result) { case Left(Error.Interpretation(err, _)) =>
         err shouldBe
@@ -818,11 +798,7 @@ class EngineTest
               submissionTime = let,
               seeding = InitialSeeding.TransactionSeed(txSeed),
             )
-            .consume(
-              lookupContract,
-              lookupPackage,
-              lookupKey,
-            )
+            .consume(lookupContract, lookupPackage, lookupKey)
         }
 
     val Right((tx, txMeta)) = interpretResult
@@ -849,11 +825,7 @@ class EngineTest
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
         .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
+        .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
           fail(e.message)
@@ -1227,14 +1199,11 @@ class EngineTest
         )
       )
 
-    def lookupContract(id: ContractId): Option[VersionedContractInstance] = {
-      id match {
-        case `fetchedCid` => Some(makeContract(fetchedStrTid, fetchedTArgs))
-        case `fetcher1Cid` => Some(makeContract(fetcherStrTid, fetcher1TArgs))
-        case `fetcher2Cid` => Some(makeContract(fetcherStrTid, fetcher2TArgs))
-        case `fetcher3Cid` => Some(makeContract(fetcherStrTid, fetcher3TArgs))
-        case _ => None
-      }
+    val lookupContract: PartialFunction[ContractId, VersionedContractInstance] = {
+      case `fetchedCid` => makeContract(fetchedStrTid, fetchedTArgs)
+      case `fetcher1Cid` => makeContract(fetcherStrTid, fetcher1TArgs)
+      case `fetcher2Cid` => makeContract(fetcherStrTid, fetcher2TArgs)
+      case `fetcher3Cid` => makeContract(fetcherStrTid, fetcher3TArgs)
     }
 
     val let = Time.Timestamp.now()
@@ -1278,11 +1247,7 @@ class EngineTest
               submissionTime = let,
               seeding = seeding,
             )
-            .consume(
-              lookupContract,
-              lookupPackage,
-              lookupKey,
-            )
+            .consume(lookupContract, lookupPackage, lookupKey)
         }
 
     }
@@ -1381,11 +1346,8 @@ class EngineTest
         )
       )
 
-    def lookupContract(id: ContractId): Option[VersionedContractInstance] = {
-      id match {
-        case `fetchedCid` => Some(fetchedContract)
-        case _ => None
-      }
+    val lookupContract: PartialFunction[ContractId, VersionedContractInstance] = {
+      case `fetchedCid` => fetchedContract
     }
 
     "succeed with a fresh engine, correctly compiling packages" in {
@@ -1423,22 +1385,21 @@ class EngineTest
         )
       )
 
-    def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] = {
-      (key.globalKey.templateId, key.globalKey.key) match {
-        case (
+    val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
+      case GlobalKeyWithMaintainers(
+            GlobalKey(
               BasicTests_WithKey,
               ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
-            ) =>
-          Some(lookedUpCid)
-        case _ =>
-          None
-      }
+            ),
+            _,
+          ) =>
+        lookedUpCid
     }
 
     def lookupContract = Map(
       lookedUpCid -> withKeyContractInst,
       lookerUpCid -> lookerUpInst,
-    ).lift
+    )
 
     def firstLookupNode(tx: Tx): Option[(NodeId, Node.LookupByKey)] =
       tx.nodes.collectFirst { case (nid, nl @ Node.LookupByKey(_, _, _, _)) =>
@@ -1465,11 +1426,7 @@ class EngineTest
           participant,
           seed,
         )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
+        .consume(lookupContract, lookupPackage, lookupKey)
 
       val expectedByKeyNodes = tx.transaction.nodes.collect { case (id, _: Node.LookupByKey) =>
         id
@@ -1498,11 +1455,7 @@ class EngineTest
           participant,
           seed,
         )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
+        .consume(lookupContract, lookupPackage, lookupKey)
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
       val Some((nid, lookupNode)) = firstLookupNode(tx.transaction)
@@ -1541,11 +1494,7 @@ class EngineTest
           participant,
           seed,
         )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
+        .consume(lookupContract, lookupPackage, lookupKey)
 
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
@@ -1586,7 +1535,7 @@ class EngineTest
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
       inside(result) { case Left(err) =>
         err.message should include(
@@ -1771,11 +1720,7 @@ class EngineTest
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
         )
-        .consume(
-          lookupContractMap.get,
-          lookupPackage,
-          lookupKey,
-        )
+        .consume(lookupContractMap, lookupPackage, lookupKey)
 
       tx.transaction.nodes.values.headOption match {
         case Some(Node.Fetch(_, _, _, _, _, key, _, _)) =>
@@ -1800,16 +1745,15 @@ class EngineTest
         )
       )
 
-      def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] = {
-        (key.globalKey.templateId, key.globalKey.key) match {
-          case (
+      val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
+        case GlobalKeyWithMaintainers(
+              GlobalKey(
                 BasicTests_WithKey,
                 ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
-              ) =>
-            Some(fetchedCid)
-          case _ =>
-            None
-        }
+              ),
+              _,
+            ) =>
+          fetchedCid
       }
 
       val lookupContractMap = Map(fetchedCid -> withKeyContractInst, fetcherCid -> fetcherInst)
@@ -1827,11 +1771,7 @@ class EngineTest
             )
           )
         )
-        .consume(
-          lookupContractMap.get,
-          lookupPackage,
-          lookupKey,
-        )
+        .consume(lookupContractMap, lookupPackage, lookupKey)
 
       val Right((tx, _)) = suffixLenientEngine
         .interpretCommands(
@@ -1843,11 +1783,7 @@ class EngineTest
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
         )
-        .consume(
-          lookupContractMap.get,
-          lookupPackage,
-          lookupKey,
-        )
+        .consume(lookupContractMap, lookupPackage, lookupKey)
 
       tx.transaction.nodes
         .collectFirst { case (id, nf: Node.Fetch) =>
@@ -1883,7 +1819,6 @@ class EngineTest
       )
     )
     val contracts = defaultContracts + (fetcherCid -> fetcherInst)
-    val lookupContract = contracts.get _
     val correctCommand =
       ApiCommand.Exercise(
         withKeyId,
@@ -1921,7 +1856,7 @@ class EngineTest
           participant,
           submissionSeed,
         )
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(contracts, lookupPackage, lookupKey)
 
     "error on fetch" in {
       val result = run(ImmArray(incorrectFetch))
@@ -1977,7 +1912,7 @@ class EngineTest
           participant,
           submissionSeed,
         )
-        .consume(_ => None, lookupPackage, _ => None)
+        .consume(PartialFunction.empty, lookupPackage, PartialFunction.empty)
     }
 
     "produce a quadratic number of nodes" in {
@@ -2001,11 +1936,7 @@ class EngineTest
               metaData.submissionTime,
               submissionSeed,
             )
-            .consume(
-              _ => None,
-              lookupPackage,
-              _ => None,
-            )
+            .consume(PartialFunction.empty, lookupPackage, PartialFunction.empty)
             .left
             .map(_.message)
         } yield res
@@ -2041,7 +1972,6 @@ class EngineTest
 
   "exceptions" should {
     val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
-    val lookupPackage = allExceptionsPkgs.get _
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:T")
     val let = Time.Timestamp.now()
@@ -2063,28 +1993,22 @@ class EngineTest
         )
       )
     )
-    val lookupContract = contracts.get _
-
-    def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-      (key.globalKey.templateId, key.globalKey.key) match {
-        case (
+    val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
+      case GlobalKeyWithMaintainers(
+            GlobalKey(
               `kId`,
-              ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
-            ) =>
-          Some(cid)
-        case _ =>
-          None
-      }
+              ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(0)))),
+            ),
+            _,
+          ) =>
+        cid
+    }
 
     def run(cmd: ApiCommand) = {
       val submitters = Set(party)
       val Right(cmds) = preprocessor
         .preprocessApiCommands(ImmArray(cmd))
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
+        .consume(contracts, allExceptionsPkgs, lookupKey)
       suffixLenientEngine
         .interpretCommands(
           validating = false,
@@ -2095,11 +2019,7 @@ class EngineTest
           submissionTime = let,
           seeding = seeding,
         )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
+        .consume(contracts, allExceptionsPkgs, lookupKey)
     }
 
     "rolled-back archive of transient contract does not prevent consuming choice after rollback" in {
@@ -2199,7 +2119,6 @@ class EngineTest
 
   "action node seeds" should {
     val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
-    val lookupPackage = allExceptionsPkgs.get _
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val seedId = Identifier(exceptionsPkgId, "Exceptions:NodeSeeds")
     val let = Time.Timestamp.now()
@@ -2221,28 +2140,22 @@ class EngineTest
         )
       )
     )
-    val lookupContract = contracts.get _
-
-    def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-      (key.globalKey.templateId, key.globalKey.key) match {
-        case (
+    val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
+      case GlobalKeyWithMaintainers(
+            GlobalKey(
               `kId`,
               ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
-            ) =>
-          Some(cid)
-        case _ =>
-          None
-      }
+            ),
+            _,
+          ) =>
+        cid
+    }
 
     def run(cmd: ApiCommand) = {
       val submitters = Set(party)
       val Right(cmds) = preprocessor
         .preprocessApiCommands(ImmArray(cmd))
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
+        .consume(contracts, allExceptionsPkgs, lookupKey)
       suffixLenientEngine
         .interpretCommands(
           validating = false,
@@ -2253,11 +2166,7 @@ class EngineTest
           submissionTime = let,
           seeding = seeding,
         )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
+        .consume(contracts, allExceptionsPkgs, lookupKey)
     }
 
     "Only create and exercise nodes end up in actionNodeSeeds" in {
@@ -2285,7 +2194,6 @@ class EngineTest
 
   "global key lookups" should {
     val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
-    val lookupPackage = allExceptionsPkgs.get _
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:GlobalLookups")
     val let = Time.Timestamp.now()
@@ -2307,35 +2215,29 @@ class EngineTest
         )
       )
     )
-    val lookupContract = contracts.get _
-
-    def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-      (key.globalKey.templateId, key.globalKey.key) match {
-        case (
+    val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
+      case GlobalKeyWithMaintainers(
+            GlobalKey(
               `kId`,
               ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
-            ) =>
-          Some(cid)
-        case _ =>
-          None
-      }
+            ),
+            _,
+          ) =>
+        cid
+    }
 
     def run(cmd: ApiCommand): Int = {
       val submitters = Set(party)
       var keyLookups = 0
 
-      def mockedKeyLookup(key: GlobalKeyWithMaintainers) = {
+      val mockedKeyLookup = Function.unlift { (key: GlobalKeyWithMaintainers) =>
         keyLookups += 1
-        lookupKey(key)
+        lookupKey.lift(key)
       }
 
       val Right(cmds) = preprocessor
         .preprocessApiCommands(ImmArray(cmd))
-        .consume(
-          lookupContract,
-          lookupPackage,
-          mockedKeyLookup,
-        )
+        .consume(contracts, allExceptionsPkgs, mockedKeyLookup)
       val result = suffixLenientEngine
         .interpretCommands(
           validating = false,
@@ -2347,8 +2249,8 @@ class EngineTest
           seeding = seeding,
         )
         .consume(
-          lookupContract,
-          lookupPackage,
+          contracts,
+          allExceptionsPkgs,
           mockedKeyLookup,
         )
       inside(result) { case Right(_) =>
@@ -2533,15 +2435,18 @@ object EngineTest {
     )
 
   val defaultKey = Map(
-    GlobalKey.assertBuild(
-      TypeConName(basicTestsPkgId, withKeyTemplate),
-      ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
+    GlobalKeyWithMaintainers(
+      GlobalKey.assertBuild(
+        TypeConName(basicTestsPkgId, withKeyTemplate),
+        ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
+      ),
+      Set(alice),
     )
       ->
         toContractId("BasicTests:WithKey:1")
   )
 
-  val lookupContract: ContractId => Option[VersionedContractInstance] = defaultContracts.get
+  private val lookupContract = defaultContracts
 
   val suffixLenientEngine: Engine = newEngine()
   val suffixStrictEngine: Engine = newEngine(requireCidSuffixes = true)
@@ -2556,20 +2461,18 @@ object EngineTest {
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
-  def lookupPackage(pkgId: PackageId): Option[Package] = {
-    allPackages.get(pkgId)
-  }
+  val lookupPackage = allPackages
 
-  def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-    (key.globalKey.templateId, key.globalKey.key) match {
-      case (
+  val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
+    case GlobalKeyWithMaintainers(
+          GlobalKey(
             BasicTests_WithKey,
             ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
-          ) =>
-        Some(toContractId("BasicTests:WithKey:1"))
-      case _ =>
-        None
-    }
+          ),
+          _,
+        ) =>
+      toContractId("BasicTests:WithKey:1")
+  }
 
   def hash(s: String): Hash = crypto.Hash.hashPrivateKey(s)
   def participant: Ref.IdString.ParticipantId = Ref.ParticipantId.assertFromString("participant")
@@ -2610,9 +2513,9 @@ object EngineTest {
       tx: VersionedTransaction,
       txMeta: Tx.Metadata,
       ledgerEffectiveTime: Time.Timestamp,
-      lookupPackages: PackageId => Option[Package],
+      lookupPackages: PartialFunction[PackageId, Package],
       contracts: Map[ContractId, VersionedContractInstance] = Map.empty,
-      keys: Map[GlobalKey, ContractId] = Map.empty,
+      keys: Map[GlobalKeyWithMaintainers, ContractId] = Map.empty,
   ): Either[Error, (VersionedTransaction, Tx.Metadata)] = {
 
     val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
@@ -2660,9 +2563,9 @@ object EngineTest {
                 ledgerEffectiveTime,
               )
               .consume(
-                state.contracts.get,
+                state.contracts,
                 lookupPackages,
-                k => state.keys.get(k.globalKey),
+                state.keys,
               )
             (tr0, meta0) = currentStep
             tr1 = suffix(tr0)
@@ -2711,7 +2614,7 @@ object EngineTest {
           seeding = InitialSeeding.TransactionSeed(hash(s"$cmd")),
           disclosures = ImmArray(unusedDisclosedContract, usedDisclosedContract),
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
       inside(result) { case Right((transaction, metadata)) =>
         transaction should haveDisclosedInputContracts(usedDisclosedContract)
@@ -2766,7 +2669,7 @@ object EngineTest {
 
   case class ReinterpretState(
       contracts: Map[ContractId, VersionedContractInstance],
-      keys: Map[GlobalKey, ContractId],
+      keys: Map[GlobalKeyWithMaintainers, ContractId],
       nodes: HashMap[NodeId, Node] = HashMap.empty,
       roots: BackStack[NodeId] = BackStack.empty,
       dependsOnTime: Boolean = false,
@@ -2782,9 +2685,7 @@ object EngineTest {
               create.coid,
               create.versionedCoinst,
             ),
-            create.keyOpt.fold(keys)(k =>
-              keys.updated(GlobalKey.assertBuild(create.templateId, k.value), create.coid)
-            ),
+            create.keyOpt.fold(keys)(k => keys.updated(k, create.coid)),
           )
         case (acc, _) => acc
       }

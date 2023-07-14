@@ -196,19 +196,33 @@ object ExplicitDisclosureLib {
       owner: Party,
       maintainer: Party,
       templateId: Ref.Identifier = houseTemplateId,
-  ): Versioned[ContractInstance] = Versioned(
-    TransactionVersion.minExplicitDisclosure,
-    Value.ContractInstance(
-      templateId,
-      Value.ValueRecord(
-        None,
+  ): Versioned[ContractInstance] = {
+    val contractFields = templateId match {
+      case `caveTemplateId` =>
+        ImmArray(
+          None -> Value.ValueParty(owner)
+        )
+
+      case `houseTemplateId` =>
         ImmArray(
           None -> Value.ValueParty(owner),
           None -> Value.ValueParty(maintainer),
-        ),
+        )
+
+      case _ =>
+        throw new RuntimeException(
+          s"Unknown template ID $templateId - unable to determine the contract fields"
+        )
+    }
+
+    Versioned(
+      TransactionVersion.minExplicitDisclosure,
+      Value.ContractInstance(
+        templateId,
+        Value.ValueRecord(None, contractFields),
       ),
-    ),
-  )
+    )
+  }
 
   def buildHouseCachedContract(
       signatory: Party,

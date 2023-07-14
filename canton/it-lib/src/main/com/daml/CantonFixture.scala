@@ -66,6 +66,7 @@ trait CantonFixtureWithResource[A]
   //  If `true`
   //   - temporary file are not deleted (this requires "--test_tmpdir=/tmp/" or similar for bazel builds)
   //   - some debug info are logged.
+  //   - output from the canton process is sent to stdout
   protected val cantonFixtureDebugMode = false
 
   final protected val logger = org.slf4j.LoggerFactory.getLogger(getClass)

@@ -53,7 +53,7 @@ final case class TransactionSnapshot(
         submissionTime,
         submissionSeed,
       )
-      .consume(contracts.get, pkgs.get, contractKeys.get)
+      .consume(contracts, pkgs, contractKeys)
       .map(_ => ())
 
   def validate(): Either[Error, Unit] =
@@ -66,7 +66,7 @@ final case class TransactionSnapshot(
         submissionTime,
         submissionSeed,
       )
-      .consume(contracts.get, pkgs.get, contractKeys.get)
+      .consume(contracts, pkgs, contractKeys)
 
   def adapt(pkgs: Map[Ref.PackageId, Ast.Package]): TransactionSnapshot = {
     val adapter = new Adapter(pkgs)
@@ -82,7 +82,7 @@ final case class TransactionSnapshot(
 
 private[snapshot] object TransactionSnapshot {
 
-  val unexpectedError = (_: Any) => sys.error("Unexpected Error")
+  val unexpectedError: PartialFunction[Any, Nothing] = { case _ => sys.error("Unexpected Error") }
 
   def loadDar(darFile: Path): Map[Ref.PackageId, Ast.Package] = {
     println(s"%%% loading dar file $darFile ...")

@@ -33,7 +33,6 @@ import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.annotation.{nowarn, tailrec}
-import scala.jdk.CollectionConverters._
 
 private[lf] object Speedy {
 
@@ -1099,31 +1098,82 @@ private[lf] object Speedy {
             }
           case TTyCon(tyCon) =>
             value match {
-              case V.ValueRecord(_, fields) =>
-                val lookupResult =
-                  assertRight(compiledPackages.pkgInterface.lookupDataRecord(tyCon))
+              case V.ValueRecord(_, sourceElements) => { // This _ is the source typecon, which we ignore.
+                val lookupResult = assertRight(
+                  compiledPackages.pkgInterface.lookupDataRecord(tyCon)
+                )
+                val targetFieldsAndTypes: ImmArray[(Name, Type)] = lookupResult.dataRecord.fields
                 lazy val subst = lookupResult.subst(argTypes)
-                // TODO: https://github.com/digital-asset/daml/issues/17082
-                // - disallow dropping extra fields which have value other than None.
-                val actualValues = (lookupResult.dataRecord.fields.iterator zip fields.iterator)
-                  .map { case ((_, fieldType), (_, fieldValue)) =>
-                    go(AstUtil.substitute(fieldType, subst), fieldValue)
+
+                // This code implements the compatibility transformation used for up/down-grading
+                // And handles the cases:
+                // - UPGRADE:   numT > numS : creates a None for each missing fields.
+                // - DOWNGRADE: numS > numT : drops each extra field, ensuring it is None.
+                //
+                // When numS == numT, we wont hit the code marked either as UPGRADE or DOWNGRADE,
+                // although it is still possible that the source and target types are different,
+                // but since we don't consult the source type (may be unavailable), we wont know.
+
+                val numS: Int = sourceElements.length
+                val numT: Int = targetFieldsAndTypes.length
+
+                // traverse the sourceElements, "get"ing the corresponding target type
+                // when there is no corresponding type, we must be downgrading, and so we insist the value is None
+                val values0: List[SValue] =
+                  sourceElements.toSeq.zipWithIndex.flatMap { case ((optName, v), i) =>
+                    targetFieldsAndTypes.get(i) match {
+                      case Some(x) => {
+                        val (targetField, targetFieldType): (Name, Type) = x
+                        optName match {
+                          case None => ()
+                          case Some(sourceField) =>
+                            // value is not normalized; check field names match
+                            assert(sourceField == targetField)
+                        }
+                        val typ: Type = AstUtil.substitute(targetFieldType, subst)
+                        val sv: SValue = go(typ, v)
+                        List(sv)
+                      }
+                      case None => { // DOWNGRADE
+                        // i ranges from 0 to numS-1. So i >= numT implies numS > numT
+                        assert((numS > i) && (i >= numT))
+                        v match {
+                          case V.ValueOptional(None) => List() // ok, drop
+                          case V.ValueOptional(Some(_)) =>
+                            // TODO: https://github.com/digital-asset/daml/issues/17082
+                            // - we need a proper error here
+                            throw SErrorDamlException(
+                              IError.UserError(
+                                "An optional contract field with a value of Some may not be dropped during downgrading."
+                              )
+                            )
+                          case _ =>
+                            // TODO: https://github.com/digital-asset/daml/issues/17082
+                            // - Impossible (ill typed) case. Ok to crash here?
+                            throw SErrorCrash(
+                              NameOf.qualifiedNameOfCurrentFunc,
+                              "Unexpected non-optional extra contract field encountered during downgrading: something is very wrong.",
+                            )
+                        }
+                      }
+                    }
+                  }.toList
+
+                val fields: ImmArray[Name] =
+                  targetFieldsAndTypes.map { case (name, _) =>
+                    name
                   }
-                  .to(ArrayList)
-                val targetFields = lookupResult.dataRecord.fields.map(_._1)
-                val numActual: Int = actualValues.size
-                val numTarget: Int = targetFields.length
-                assert(numTarget >= numActual) // ensured by the zip used to define actualValues
-                val extendedValues =
-                  if (numTarget > numActual) {
-                    // Upgrade -- extend with None
-                    actualValues.asScala.padTo(numTarget, SValue.SOptional(None)).to(ArrayList)
+
+                val values: util.ArrayList[SValue] = {
+                  if (numT > numS) {
+                    values0.padTo(numT, SValue.SOptional(None)) // UPGRADE
                   } else {
-                    // Correct number of fields.
-                    assert(numTarget == numActual)
-                    actualValues // do nothing
+                    values0
                   }
-                SValue.SRecord(tyCon, targetFields, extendedValues)
+                }.to(ArrayList)
+
+                SValue.SRecord(tyCon, fields, values)
+              }
 
               case V.ValueVariant(_, constructor, value) =>
                 val info =
