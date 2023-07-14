@@ -352,6 +352,24 @@ type LedgerError = {
   warnings: unknown | undefined;
 };
 
+export type CommandMeta = {
+  workflowId?: string,
+  disclosedContracts?: DisclosedContract[],
+};
+
+export type DisclosedContract = {
+  contractId: ContractId<any>,
+  templateId: string,
+  payload: unknown,
+  metadata: DisclosedContractMetadata,
+};
+
+export type DisclosedContractMetadata = {
+  createdAt: string,
+  keyHash: string, // base16
+  driverMetadata: string, // base64
+};
+
 /**
  * @internal
  */
@@ -1112,10 +1130,12 @@ class Ledger {
   async create<T extends object, K, I extends string>(
     template: Template<T, K, I>,
     payload: T,
+    meta?: CommandMeta,
   ): Promise<CreateEvent<T, K, I>> {
     const command = {
       templateId: template.templateId,
       payload: template.encode(payload),
+      meta,
     };
     const json = await this.submit("v1/create", command);
     return jtv.Result.withException(decodeCreateEvent(template).run(json));
@@ -1139,12 +1159,14 @@ class Ledger {
     choice: Choice<T, C, R, K>,
     contractId: ContractId<T>,
     argument: C,
+    meta?: CommandMeta,
   ): Promise<[R, Event<object>[]]> {
     const payload = {
       templateId: choice.template().templateId,
       contractId: ContractId(choice.template()).encode(contractId),
       choice: choice.choiceName,
       argument: choice.argumentEncode(argument),
+      meta,
     };
     const json = await this.submit("v1/exercise", payload);
     // Decode the server response into a tuple.
