@@ -625,23 +625,68 @@ excluded_test_tool_tests = [
         ],
     },
     # Reverse of above, old api error tool cannot be used on new api platform
+    # Split up to account for tests not existing in older tools
     {
         "end": "2.7.0-snapshot.20230703.11931.0.vc04c7ac9",
         "platform_ranges": [
             {
                 "start": "2.7.0-snapshot.20230703.11931.1",
                 "exclusions": [
-                    "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
-                    "DeeplyNestedValueIT",
-                    "MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible",
                     "CommandServiceIT:CSReturnStackTrace",
-                    "TransactionServiceAuthorizationIT:TXRejectMultiActorExcessiveAuth",
-                    "ContractKeysIT:CKGlocalKeyVisibility",
+                    "DeeplyNestedValueIT",
+                    "ExceptionsIT:ExUncaught",
+                    "MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible",
                     "WronglyTypedContractIdIT",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.17.1",
+        "end": "2.7.0-snapshot.20230703.11931.0.vc04c7ac9",
+        "platform_ranges": [
+            {
+                "start": "2.7.0-snapshot.20230703.11931.1",
+                "exclusions": [
+                    "TransactionServiceAuthorizationIT:TXRejectMultiActorExcessiveAuth",
+                    "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "2.0.1",
+        "end": "2.7.0-snapshot.20230703.11931.0.vc04c7ac9",
+        "platform_ranges": [
+            {
+                "start": "2.7.0-snapshot.20230703.11931.1",
+                "exclusions": [
+                    "TimeServiceIT:TSFailWhenTimeNotAdvanced",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "2.3.14",
+        "end": "2.7.0-snapshot.20230703.11931.0.vc04c7ac9",
+        "platform_ranges": [
+            {
+                "start": "2.7.0-snapshot.20230703.11931.1",
+                "exclusions": [
+                    "ContractKeysIT:CKGlocalKeyVisibility",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "2.6.5",
+        "end": "2.7.0-snapshot.20230703.11931.0.vc04c7ac9",
+        "platform_ranges": [
+            {
+                "start": "2.7.0-snapshot.20230703.11931.1",
+                "exclusions": [
                     "ExplicitDisclosureIT:EDMalformedDisclosedContracts",
                     "InterfaceSubscriptionsIT:ISTransactionsEquivalentFilters",
-                    "TimeServiceIT:TSFailWhenTimeNotAdvanced",
-                    "ExceptionsIT:ExUncaught",
                 ],
             },
         ],
