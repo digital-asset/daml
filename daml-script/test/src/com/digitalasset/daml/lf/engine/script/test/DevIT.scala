@@ -139,9 +139,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
       } yield r shouldBe SUnit
     }
 
-    // TODO: https://github.com/digital-asset/daml/issues/17082
-    // enable this test when it works!
-    "fail when given a contract id of a non-predecessor type of Coin V1, Coin V2 (with new field = Some _) -- refuse Downgrade/drop-Some" ignore {
+    "fail when given a contract id of a non-predecessor type of Coin V1, Coin V2 (with new field = Some _) -- refuse Downgrade/drop-Some" in {
       for {
         clients <- scriptClients()
         r <-
