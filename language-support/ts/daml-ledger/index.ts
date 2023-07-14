@@ -353,21 +353,21 @@ type LedgerError = {
 };
 
 export type CommandMeta = {
-  workflowId?: string,
-  disclosedContracts?: DisclosedContract[],
+  workflowId?: string;
+  disclosedContracts?: DisclosedContract[];
 };
 
 export type DisclosedContract = {
-  contractId: ContractId<any>,
-  templateId: string,
-  payload: unknown,
-  metadata: DisclosedContractMetadata,
+  contractId: ContractId<any>;
+  templateId: string;
+  payload: unknown;
+  metadata: DisclosedContractMetadata;
 };
 
 export type DisclosedContractMetadata = {
-  createdAt: string,
-  keyHash: string, // base16
-  driverMetadata: string, // base64
+  createdAt: string;
+  keyHash: string; // base16
+  driverMetadata: string; // base64
 };
 
 /**
