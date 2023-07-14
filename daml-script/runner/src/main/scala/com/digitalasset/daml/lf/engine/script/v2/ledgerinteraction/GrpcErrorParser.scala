@@ -8,13 +8,20 @@ import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder
 import com.daml.lf.value.ValueCoder.CidDecoder
+import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import io.grpc.StatusRuntimeException
 import scala.reflect.ClassTag
 
 object GrpcErrorParser {
   val decodeValue = (s: String) =>
-    ValueCoder.decodeValue(CidDecoder, TransactionVersion.VDev, ByteString.copyFromUtf8(s)).toOption
+    ValueCoder
+      .decodeValue(
+        CidDecoder,
+        TransactionVersion.VDev,
+        ByteString.copyFrom(BaseEncoding.base64().decode(s)),
+      )
+      .toOption
 
   val parseList = (s: String) => s.tail.init.split(", ").toSeq
 
@@ -94,8 +101,10 @@ object GrpcErrorParser {
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
               ) =>
             SubmitError.DuplicateContractKey(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key)
+              Some(GlobalKey.assertBuild(Identifier.assertFromString(tid), key))
             )
+          // TODO[SW] Canton can omit the key, unsure why.
+          case Seq() => SubmitError.DuplicateContractKey(None)
         }
       case "INCONSISTENT_CONTRACT_KEY" =>
         caseErr {

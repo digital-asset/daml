@@ -44,6 +44,12 @@ object SubmitError {
       )
   }
 
+  def globalKeyToAnyContractKey(env: Env, key: GlobalKey): SValue = {
+    val ty = env.lookupKeyTy(key.templateId).toOption.get
+    val sValue = env.translateValue(ty, key.key).toOption.get
+    fromAnyContractKey(AnyContractKey(key.templateId, ty, sValue))
+  }
+
   final case class ContractNotFound(cid: ContractId) extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
@@ -57,15 +63,12 @@ object SubmitError {
   }
 
   final case class ContractKeyNotFound(key: GlobalKey) extends SubmitError {
-    override def toDamlSubmitError(env: Env): SValue = {
-      val ty = env.lookupKeyTy(key.templateId).toOption.get
-      val sValue = env.translateValue(ty, key.key).toOption.get
+    override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "ContractKeyNotFound",
         1,
-        ("contractKey", fromAnyContractKey(AnyContractKey(key.templateId, ty, sValue))),
+        ("contractKey", globalKeyToAnyContractKey(env, key)),
       )
-    }
   }
 
   final case class AuthorizationError(message: String) extends SubmitError {
@@ -92,9 +95,7 @@ object SubmitError {
       key: GlobalKey,
       givenKeyHash: String,
   ) extends SubmitError {
-    override def toDamlSubmitError(env: Env): SValue = {
-      val ty = env.lookupKeyTy(key.templateId).toOption.get
-      val sValue = env.translateValue(ty, key.key).toOption.get
+    override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "DisclosedContractKeyHashingError",
         4,
@@ -102,34 +103,27 @@ object SubmitError {
           "contractId",
           fromAnyContractId(env.scriptIds, toApiIdentifier(key.templateId), contractId),
         ),
-        ("expectedKey", fromAnyContractKey(AnyContractKey(key.templateId, ty, sValue))),
+        ("expectedKey", globalKeyToAnyContractKey(env, key)),
         ("givenKeyHash", SText(givenKeyHash)),
       )
-    }
   }
 
-  final case class DuplicateContractKey(key: GlobalKey) extends SubmitError {
-    override def toDamlSubmitError(env: Env): SValue = {
-      val ty = env.lookupKeyTy(key.templateId).toOption.get
-      val sValue = env.translateValue(ty, key.key).toOption.get
+  final case class DuplicateContractKey(oKey: Option[GlobalKey]) extends SubmitError {
+    override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "DuplicateContractKey",
         5,
-        ("contractKey", fromAnyContractKey(AnyContractKey(key.templateId, ty, sValue))),
+        ("duplicateContractKey", SOptional(oKey.map(globalKeyToAnyContractKey(env, _)))),
       )
-    }
   }
 
   final case class InconsistentContractKey(key: GlobalKey) extends SubmitError {
-    override def toDamlSubmitError(env: Env): SValue = {
-      val ty = env.lookupKeyTy(key.templateId).toOption.get
-      val sValue = env.translateValue(ty, key.key).toOption.get
+    override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "InconsistentContractKey",
         6,
-        ("contractKey", fromAnyContractKey(AnyContractKey(key.templateId, ty, sValue))),
+        ("contractKey", globalKeyToAnyContractKey(env, key)),
       )
-    }
   }
 
   final case class UnhandledException(exc: Option[(Identifier, Value)]) extends SubmitError {
@@ -176,15 +170,12 @@ object SubmitError {
   }
 
   final case class FetchEmptyContractKeyMaintainers(key: GlobalKey) extends SubmitError {
-    override def toDamlSubmitError(env: Env): SValue = {
-      val ty = env.lookupKeyTy(key.templateId).toOption.get
-      val sValue = env.translateValue(ty, key.key).toOption.get
+    override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "FetchEmptyContractKeyMaintainers",
         11,
-        ("failedTemplateKey", fromAnyContractKey(AnyContractKey(key.templateId, ty, sValue))),
+        ("failedTemplateKey", globalKeyToAnyContractKey(env, key)),
       )
-    }
   }
 
   final case class WronglyTypedContract(

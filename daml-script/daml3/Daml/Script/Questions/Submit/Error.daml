@@ -35,7 +35,8 @@ data SubmitError
       givenKeyHash : Text
   | -- | Attempted to create a contract with a contract key that already exists
     DuplicateContractKey with
-      contractKey : AnyContractKey
+      duplicateContractKey : Optional AnyContractKey
+        -- ^ Canton will often not provide this key, IDELedger will
   | -- | Contract key lookup yielded different results
     InconsistentContractKey with
       contractKey : AnyContractKey

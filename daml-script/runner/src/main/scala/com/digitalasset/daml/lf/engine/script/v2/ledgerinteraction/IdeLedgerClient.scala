@@ -303,7 +303,7 @@ class IdeLedgerClient(
       // Hide not visible as not found
       case ContractKeyNotVisible(_, key, _, _, _) =>
         SubmitError.ContractKeyNotFound(key)
-      case DuplicateContractKey(key) => SubmitError.DuplicateContractKey(key)
+      case DuplicateContractKey(key) => SubmitError.DuplicateContractKey(Some(key))
       case InconsistentContractKey(key) => SubmitError.InconsistentContractKey(key)
       // Only pass on the error if the type is a TTyCon
       case UnhandledException(ty, v) =>
@@ -357,7 +357,7 @@ class IdeLedgerClient(
     case scenario.Error.CommitError(
           ScenarioLedger.CommitError.UniqueKeyViolation(ScenarioLedger.UniqueKeyViolation(gk))
         ) =>
-      SubmitError.DuplicateContractKey(gk)
+      SubmitError.DuplicateContractKey(Some(gk))
 
     case scenario.Error.LookupError(err, _, _) =>
       // TODO[SW]: Implement proper Lookup error throughout

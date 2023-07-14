@@ -3,6 +3,8 @@
 
 -- @ SCRIPT-V2
 
+{-# LANGUAGE ApplicativeDo #-}
+
 module Daml3ScriptTrySubmit where
 
 import Daml.Script
@@ -93,12 +95,29 @@ contractNotActive : Script ()
 contractNotActive = script do
   alice <- allocateParty "alice"
   cid <- alice `submit` createCmd T1 with t1_p = alice
-  alice `submit` exerciseCmd cid Archive
-  res <- alice `trySubmit` exerciseCmd cid Archive
+  res <- alice `trySubmit` do
+    exerciseCmd cid Archive
+    exerciseCmd cid Archive
+    pure ()
   case res of
     Left (ContractNotActive (fromAnyContractId @T1 -> Some shouldBeCid)) -> shouldBeCid === cid
     Left e -> error $ "contractNotActive incorrect error: " <> show e
     Right _ -> error "contractNotActive incorrectly succeeded"
+
+-- TODO[SW] Behaviour between Canton and IDE Ledger here is different - canton will give a NotFound, whereas IDE gives a NotActive.
+-- Changes to IDE needed to match canton behavior, alongside restructing of NotFound to provide more IDE context.
+-- As such, we don't run this test yet
+
+-- contractNotActiveSeparate : Script ()
+-- contractNotActiveSeparate = script do
+--   alice <- allocateParty "alice"
+--   cid <- alice `submit` createCmd T1 with t1_p = alice
+--   alice `submit` exerciseCmd cid Archive
+--   res <- alice `trySubmit` exerciseCmd cid Archive
+--   case res of
+--     Left (ContractNotActive (fromAnyContractId @T1 -> Some shouldBeCid)) -> shouldBeCid === cid
+--     Left e -> error $ "contractNotActive incorrect error: " <> show e
+--     Right _ -> error "contractNotActive incorrectly succeeded"
 
 -- DisclosedContractKeyHashingError: Cannot test DisclosedContractKeyHashingError yet, scripts does not support this functionality
 
@@ -108,7 +127,9 @@ duplicateContractKey = script do
   alice `submit` createCmd T1 with t1_p = alice
   res <- alice `trySubmit` createCmd T1 with t1_p = alice
   case res of
-    Left (DuplicateContractKey (fromAnyContractKey @T1 -> Some shouldBeAlice)) -> shouldBeAlice === alice
+    Left (DuplicateContractKey (Some (fromAnyContractKey @T1 -> Some shouldBeAlice))) -> shouldBeAlice === alice
+    -- Key is often not provided when using canton
+    Left (DuplicateContractKey None) -> pure ()
     Left e -> error $ "duplicateContractKey incorrect error: " <> show e
     Right _ -> error "duplicateContractKey incorrectly succeeded"
 

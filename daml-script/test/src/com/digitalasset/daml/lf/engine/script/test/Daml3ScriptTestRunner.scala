@@ -18,15 +18,15 @@ class Daml3ScriptTestRunner extends DamlScriptTestRunner {
     "pick up all scripts and returns somewhat sensible outputs for daml3-script features" in
       assertDamlScriptRunnerResult(
         daml3DarPath,
-        """Daml3ScriptTrySubmit:contractKeyNotFound SUCCESS
-          |Daml3ScriptTrySubmit:authorizationError SUCCESS
+        """Daml3ScriptTrySubmit:authorizationError SUCCESS
+          |Daml3ScriptTrySubmit:contractKeyNotFound SUCCESS
           |Daml3ScriptTrySubmit:contractNotActive SUCCESS
-          |Daml3ScriptTrySubmit:duplicateContractKey SUCCESS
-          |Daml3ScriptTrySubmit:unhandledException SUCCESS
           |Daml3ScriptTrySubmit:createEmptyContractKeyMaintainers SUCCESS
-          |Daml3ScriptTrySubmit:fetchEmptyContractKeyMaintainers SUCCESS
-          |Daml3ScriptTrySubmit:wronglyTypedContract SUCCESS
           |Daml3ScriptTrySubmit:devError SUCCESS
+          |Daml3ScriptTrySubmit:duplicateContractKey SUCCESS
+          |Daml3ScriptTrySubmit:fetchEmptyContractKeyMaintainers SUCCESS
+          |Daml3ScriptTrySubmit:unhandledException SUCCESS
+          |Daml3ScriptTrySubmit:wronglyTypedContract SUCCESS
           |""".stripMargin,
       )
     "pick up all scripts and returns somewhat sensible outputs" in
