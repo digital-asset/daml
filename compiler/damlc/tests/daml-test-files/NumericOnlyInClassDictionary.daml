@@ -1,0 +1,9 @@
+module NumericOnlyInClassDictionary where
+
+import GHC.Types
+
+class MyClass (n : Nat) where
+
+-- A class dictionary still counts as an argument that can constrain the type
+numericOnlyInClassDictionary : forall n. MyClass n => Numeric n
+numericOnlyInClassDictionary = error "Numeric only in class dictionary"
