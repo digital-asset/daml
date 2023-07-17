@@ -158,7 +158,11 @@ object CantonRunner {
             "-c" ::
             files.configFile.toString ::
             bootstrapOptions :::
-            debugOptions
+            debugOptions,
+          None,
+          // TODO: https://github.com/digital-asset/daml/issues/17082
+          // Workaround to allow DevIT tests to pass.
+          ("enableContractUpgrading", ""),
         ).run(ProcessLogger { str =>
           if (config.debug) println(str)
           outputBuffer += str
