@@ -203,17 +203,16 @@ devError = script do
 -- UnknownError: Shouldn't be testable, we should know all the possible errors.
 -- Can reproduce right now with a timeout, or package vetting test.
 
--- TruncatedError: Even with below test, creating a key with 100,000 parties, it doesn't hit the limit somehow.
--- I don't know how to hit the payload limit
-
--- -- Using contractKeyNotFound with an enormous key
--- truncatedError : Script ()
--- truncatedError = script do
---   alice <- allocateParty "alice"
---   let t4Key = (alice, replicate 100000 alice)
---   res <- trySubmit [alice] [alice] $ exerciseByKeyCmd @T4 t4Key Archive
---   case res of
---     Left (TruncatedError "ContractKeyNotFound" msg) -> error msg
---     Left (ContractKeyNotFound (fromAnyContractKey @T4 -> Some shouldBeT4Key)) | shouldBeT4Key == t4Key -> error "It sent the whole thing??"
---     Left e -> error $ "contractKeyNotFound incorrect error: " <> show e
---     Right _ -> error "contractKeyNotFound incorrectly succeeded"
+-- Using contractKeyNotFound with an enormous key
+truncatedError : Script ()
+truncatedError = script do
+  alice <- allocateParty "alice"
+  let t4Key = (alice, replicate 10000 alice)
+  res <- alice `trySubmit` exerciseByKeyCmd @T4 t4Key Archive
+  case res of
+    -- We specifically throw a fixed string to be caught by the real Ledger tests
+    Left (TruncatedError "ContractKeyNotFound" _) -> error "EXPECTED_TRUNCATED_ERROR"
+    -- We silently accept this case for the IDE Ledger
+    Left (ContractKeyNotFound (fromAnyContractKey @T4 -> Some shouldBeT4Key)) | shouldBeT4Key == t4Key -> pure ()
+    Left e -> error $ "contractKeyNotFound incorrect error: " <> show e
+    Right _ -> error "contractKeyNotFound incorrectly succeeded"

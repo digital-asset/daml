@@ -25,6 +25,7 @@ class Daml3ScriptTestRunner extends DamlScriptTestRunner {
           |Daml3ScriptTrySubmit:devError SUCCESS
           |Daml3ScriptTrySubmit:duplicateContractKey SUCCESS
           |Daml3ScriptTrySubmit:fetchEmptyContractKeyMaintainers SUCCESS
+          |Daml3ScriptTrySubmit:truncatedError FAILURE (com.daml.lf.engine.script.Runner$InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
           |Daml3ScriptTrySubmit:unhandledException SUCCESS
           |Daml3ScriptTrySubmit:wronglyTypedContract SUCCESS
           |""".stripMargin,
