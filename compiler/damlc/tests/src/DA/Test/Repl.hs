@@ -266,7 +266,7 @@ inboundMessageSizeTests damlc scriptDar testDar getSandboxPort = testGroup "max-
           out <- readCreateProcess (cp port) $ unlines
               [ "import DA.Text"
               , "alice <- allocateParty \"Alice\""
-              , "_ <- submit alice $ createAndExerciseCmd (MessageSize alice) (CreateN 4000)"
+              , "_ <- submit alice $ createAndExerciseCmd (MessageSize alice) (CreateN 5000)"
               , "1 + 1"
               ]
           let regexString = "gRPC message exceeds maximum size 1000" :: String

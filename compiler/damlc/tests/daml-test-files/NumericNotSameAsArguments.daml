@@ -1,0 +1,5 @@
+module NumericNotSameAsArguments where
+
+-- @ERROR range=5:1-5:26; Type variable m in definition of numericNotSameAsArguments is not determined by any arguments in its type Numeric n -> Numeric m
+numericNotSameAsArguments : forall n m. Numeric n -> Numeric m
+numericNotSameAsArguments = error "Numeric not in arguments"
