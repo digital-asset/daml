@@ -61,6 +61,7 @@ genrule(
         "//docs:daml-patterns",
         "//docs:script-example-template",
         "@daml-finance//:quickstart",
+        "@daml-finance//:lifecycling",
     ],
     outs = ["templates-tarball.tar.gz"],
     cmd = """
@@ -110,6 +111,10 @@ genrule(
         # daml finance quickstarter
         mkdir -p $$OUT/quickstart-finance
         tar xf $(location @daml-finance//:quickstart) -C $$OUT/quickstart-finance
+
+        # daml finance lifecycling
+        mkdir -p $$OUT/finance-lifecycling
+        tar xf $(location @daml-finance//:lifecycling) -C $$OUT/finance-lifecycling
 
         DIR=$$(pwd)
         cd $$OUT/..
