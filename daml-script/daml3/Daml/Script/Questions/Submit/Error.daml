@@ -18,7 +18,7 @@ data SubmitError
   = -- | Contract with given contract ID could not be found, and has never existed on this participant
     ContractNotFound with
       unknownContractId : Text
-        -- ^ Provided as text, as we do not know the template id of a contract if the lookup fails
+        -- ^ Provided as text, as we do not know the template ID of a contract if the lookup fails
   | -- | Contract with given contract key could not be found
     ContractKeyNotFound with
       contractKey : AnyContractKey
@@ -81,7 +81,7 @@ data SubmitError
   | -- | Attempted to compare a local and global contract ID with the same discriminator. You're doing something very wrong
     ContractIdComparability with
       globalExistingContractId : Text
-        -- ^ We do not know the template id at time of comparison.
+        -- ^ We do not know the template ID at time of comparison.
   | -- | Development feature exceptions
     DevError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
       devErrorType : DevErrorType
@@ -96,26 +96,30 @@ data SubmitError
         -- ^ One of the contructor names of SubmitFailure except DevError, UnknownError, TruncatedError
       truncatedErrorMessage : Text
 
+-- TODO[SW]: Add more detail here
 instance Show SubmitError where
   show err = case err of
-    ContractNotFound {} -> "ContractNotFound"
-    ContractKeyNotFound {} -> "ContractKeyNotFound"
-    AuthorizationError {} -> "AuthorizationError"
-    ContractNotActive {} -> "ContractNotActive"
-    DisclosedContractKeyHashingError {} -> "DisclosedContractKeyHashingError"
-    DuplicateContractKey {} -> "DuplicateContractKey"
-    InconsistentContractKey {} -> "InconsistentContractKey"
-    UnhandledException {} -> "UnhandledException"
-    UserError {} -> "UserError"
-    TemplatePreconditionViolated {} -> "TemplatePreconditionViolated"
-    CreateEmptyContractKeyMaintainers {} -> "CreateEmptyContractKeyMaintainers"
-    FetchEmptyContractKeyMaintainers {} -> "FetchEmptyContractKeyMaintainers"
-    WronglyTypedContract {} -> "WronglyTypedContract"
-    ContractDoesNotImplementInterface {} -> "ContractDoesNotImplementInterface"
-    ContractDoesNotImplementRequiringInterface {} -> "ContractDoesNotImplementRequiringInterface"
-    NonComparableValues {} -> "NonComparableValues"
-    ContractIdInContractKey {} -> "ContractIdInContractKey"
-    ContractIdComparability {} -> "ContractIdComparability"
+    ContractNotFound contractId -> "Could not find contract with ID " <> contractId
+    ContractKeyNotFound {} -> "Could not find contract with given key"
+    AuthorizationError errMessage -> "Authorization failure: " <> errMessage
+    ContractNotActive anyKey -> "Contract with ID " <> show anyKey.contractId <> " is no longer active"
+    DisclosedContractKeyHashingError contractId _ _ -> "Disclosed contract with ID " <> show contractId.contractId <> " used incorrect payload"
+    DuplicateContractKey {} -> "Attempted to create a contract with a contract key that is already in use"
+    InconsistentContractKey {} -> "Inconsistent contract key between daml and ledger"
+    UnhandledException {} -> "An Exception was thrown and not caught"
+    UserError errMessage -> "User Error: " <> errMessage
+    TemplatePreconditionViolated {} -> "Template precondition was violated"
+    CreateEmptyContractKeyMaintainers {} -> "Attempted to create a contract with empty key maintainers"
+    FetchEmptyContractKeyMaintainers {} -> "Attempted to fetch a contract with empty key maintainers"
+    WronglyTypedContract _ expected actual ->
+      "Excepted contract to be a \"" <> templateTypeRepToText expected <> "\" but it was actually a \"" <> templateTypeRepToText actual <> "\""
+    ContractDoesNotImplementInterface _ t i ->
+      "\"" <> templateTypeRepToText t <> "\" does not implement interface \"" <> templateTypeRepToText i <> "\""
+    ContractDoesNotImplementRequiringInterface _ t required requiring ->
+      "\"" <> templateTypeRepToText t <> "\" does not implement interface \"" <> templateTypeRepToText required <> "\" as required by \"" <> templateTypeRepToText requiring <> "\""
+    NonComparableValues {} -> "Failed to compare values"
+    ContractIdInContractKey {} -> "Illegal contract ID in contract key"
+    ContractIdComparability {} -> "Attempted to compare local and global contract IDs of the same contract"
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
     TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""
