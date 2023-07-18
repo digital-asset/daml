@@ -8,6 +8,7 @@ import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder
 import com.daml.lf.value.ValueCoder.CidDecoder
+import com.daml.nonempty.NonEmpty
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import io.grpc.StatusRuntimeException
@@ -57,10 +58,17 @@ object GrpcErrorParser {
       case "CONTRACT_NOT_FOUND" =>
         caseErr {
           case Seq((ErrorResource.ContractId, cid)) =>
-            SubmitError.ContractNotFound(ContractId.assertFromString(cid))
-          // TODO: what should we do here? Currently just taking the first contract id
+            SubmitError.ContractNotFound(NonEmpty(Seq, ContractId.assertFromString(cid)))
           case Seq((ErrorResource.ContractIds, cids)) =>
-            SubmitError.ContractNotFound(ContractId.assertFromString(parseList(cids).head))
+            SubmitError.ContractNotFound(
+              NonEmpty
+                .from(parseList(cids).map(ContractId.assertFromString(_)))
+                .getOrElse(
+                  throw new IllegalArgumentException(
+                    "Got CONTRACT_NOT_FOUND error without any contract ids"
+                  )
+                )
+            )
         }
       case "CONTRACT_KEY_NOT_FOUND" =>
         caseErr {

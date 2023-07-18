@@ -5,13 +5,15 @@ package com.daml.lf.engine.script
 package v2
 package ledgerinteraction
 
+import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref.{Identifier, Name}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, StablePackage}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
+import com.daml.nonempty.NonEmpty
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 
 import scala.util.control.NoStackTrace
@@ -50,14 +52,23 @@ object SubmitError {
     fromAnyContractKey(AnyContractKey(key.templateId, ty, sValue))
   }
 
-  final case class ContractNotFound(cid: ContractId) extends SubmitError {
+  def fromNonEmptySet[A](set: NonEmpty[Seq[A]], conv: A => SValue): SValue = {
+    val converted: Seq[SValue] = set.map(conv)
+    record(
+      StablePackage.DA.NonEmpty.Types.NonEmpty,
+      ("hd", converted.head),
+      ("tl", SList(converted.tail.to(FrontStack))),
+    )
+  }
+
+  final case class ContractNotFound(cids: NonEmpty[Seq[ContractId]]) extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "ContractNotFound",
         0,
         (
-          "contractId",
-          SText(cid.coid),
+          "unknownContractIds",
+          fromNonEmptySet(cids, { cid: ContractId => SText(cid.coid) }),
         ),
       )
   }

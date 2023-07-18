@@ -216,8 +216,7 @@ trait ScriptLedgerClient {
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]] =
-    throw new java.lang.UnsupportedOperationException("I'm not ready")
+  ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]
 
   def vetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,

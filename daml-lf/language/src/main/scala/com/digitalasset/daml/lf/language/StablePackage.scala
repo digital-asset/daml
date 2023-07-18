@@ -168,7 +168,9 @@ private[daml] object StablePackage {
             "e22bce619ae24ca3b8e6519281cb5a33b64b3190cc763248b4c3f9ad5087a92c",
             "daml-stdlib",
             v1_6,
-          )
+          ) {
+        val NonEmpty: Ref.TypeConName = assertIdentifier("NonEmpty")
+      }
     }
     object Random {
       object Types

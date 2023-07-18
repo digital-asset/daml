@@ -56,6 +56,7 @@ da_scala_library(
         "//libs-scala/auth-utils",
         "//libs-scala/contextualized-logging",
         "//libs-scala/jwt",
+        "//libs-scala/nonempty",
         "@maven//:com_google_guava_guava",
     ],
 )

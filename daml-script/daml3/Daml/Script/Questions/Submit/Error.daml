@@ -4,6 +4,8 @@
 module Daml.Script.Questions.Submit.Error where
 
 import Daml.Script.Questions.Util
+import DA.NonEmpty
+import DA.Text
 
 -- | Errors that will be promoted to SubmitError once stable
 data DevErrorType
@@ -17,7 +19,7 @@ data DevErrorType
 data SubmitError
   = -- | Contract with given contract ID could not be found, and has never existed on this participant
     ContractNotFound with
-      unknownContractId : Text
+      unknownContractIds : NonEmpty Text
         -- ^ Provided as text, as we do not know the template ID of a contract if the lookup fails
   | -- | Contract with given contract key could not be found
     ContractKeyNotFound with
@@ -99,7 +101,7 @@ data SubmitError
 -- TODO[SW]: Add more detail here
 instance Show SubmitError where
   show err = case err of
-    ContractNotFound contractId -> "Could not find contract with ID " <> contractId
+    ContractNotFound contractId -> "Could not find contract with ID(s) " <> intercalate ", " (toList contractId)
     ContractKeyNotFound {} -> "Could not find contract with given key"
     AuthorizationError errMessage -> "Authorization failure: " <> errMessage
     ContractNotActive anyKey -> "Contract with ID " <> show anyKey.contractId <> " is no longer active"
