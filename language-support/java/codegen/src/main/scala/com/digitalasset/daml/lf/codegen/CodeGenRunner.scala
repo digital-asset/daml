@@ -41,7 +41,8 @@ private final class CodeGenRunner(
     logger.info(s"Start processing packageIds '$packageIds'")
     for {
       _ <- generateDecoder()
-      interfaceTrees = scope.signatures.map(InterfaceTree.fromInterface)
+      auxSigs = generateAuxiliarySignatures
+      interfaceTrees = scope.signatures.map(InterfaceTree.fromInterface(_, auxSigs))
       _ <- Future.traverse(interfaceTrees)(processInterfaceTree(_))
     } yield logger.info(s"Finished processing packageIds '$packageIds'")
   }
@@ -52,6 +53,9 @@ private final class CodeGenRunner(
       val decoderFile = JavaFile.builder(decoderPackage, decoderClass).build()
       Future(decoderFile.writeTo(outputDirectory))
     }
+
+  private[this] def generateAuxiliarySignatures: NodeWithContext.AuxiliarySignatures =
+    scope.signatures.view.map(ps => ps.packageId -> ps).toMap
 
   private def processInterfaceTree(
       interfaceTree: InterfaceTree

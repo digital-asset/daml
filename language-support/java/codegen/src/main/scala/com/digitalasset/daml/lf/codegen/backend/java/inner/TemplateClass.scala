@@ -7,8 +7,9 @@ import com.daml.ledger.javaapi
 import ClassGenUtils.{companionFieldName, templateIdFieldName, generateGetCompanion}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.Ref
-import Ref.{ChoiceName, PackageId, QualifiedName}
+import Ref.ChoiceName
 import com.daml.ledger.javaapi.data.codegen.{Choice, Created, Exercised, Update}
+import com.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 import com.daml.lf.codegen.backend.java.inner.ToValueGenerator.generateToValueConverter
 import com.daml.lf.typesig
 import typesig._
@@ -47,15 +48,13 @@ private[inner] object TemplateClass extends StrictLogging {
           generateDeprecatedStaticExerciseByKeyMethods(
             templateChoices,
             template.key,
-            typeWithContext.interface.typeDecls,
-            typeWithContext.packageId,
+            typeWithContext.auxiliarySignatures,
           )
         )
         .addMethods(
           generateDeprecatedCreateAndExerciseMethods(
             templateChoices,
-            typeWithContext.interface.typeDecls,
-            typeWithContext.packageId,
+            typeWithContext.auxiliarySignatures,
           )
         )
         .addMethod(staticCreateMethod)
@@ -79,8 +78,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addType(
           ContractIdClass.generateExercisesInterface(
             templateChoices,
-            typeWithContext.interface.typeDecls,
-            typeWithContext.packageId,
+            typeWithContext.auxiliarySignatures,
           )
         )
         .addMethod(generateCreateAndMethod())
@@ -235,8 +233,7 @@ private[inner] object TemplateClass extends StrictLogging {
   private def generateDeprecatedStaticExerciseByKeyMethods(
       choices: Map[ChoiceName, TemplateChoice[Type]],
       maybeKey: Option[Type],
-      typeDeclarations: Map[QualifiedName, PackageSignature.TypeDecl],
-      packageId: PackageId,
+      typeDeclarations: AuxiliarySignatures,
   )(implicit
       packagePrefixes: PackagePrefixes
   ) =
@@ -251,7 +248,7 @@ private[inner] object TemplateClass extends StrictLogging {
           for (
             record <- choice.param
               .fold(
-                ClassGenUtils.getRecord(_, typeDeclarations, packageId),
+                ClassGenUtils.getRecord(_, typeDeclarations),
                 _ => None,
                 _ => None,
                 _ => None,
@@ -402,8 +399,7 @@ private[inner] object TemplateClass extends StrictLogging {
   // TODO #14039 delete
   private def generateDeprecatedCreateAndExerciseMethods(
       choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
-      typeDeclarations: Map[QualifiedName, PackageSignature.TypeDecl],
-      packageId: PackageId,
+      typeDeclarations: AuxiliarySignatures,
   )(implicit
       packagePrefixes: PackagePrefixes
   ) = {
@@ -417,7 +413,7 @@ private[inner] object TemplateClass extends StrictLogging {
         for (
           record <- choice.param
             .fold(
-              ClassGenUtils.getRecord(_, typeDeclarations, packageId),
+              ClassGenUtils.getRecord(_, typeDeclarations),
               _ => None,
               _ => None,
               _ => None,
