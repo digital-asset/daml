@@ -13,9 +13,8 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{ArrayList, Pretty, SValue, Speedy}
+import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.value.Value
@@ -31,25 +30,30 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, OneAnd, \/-}
 import spray.json._
 
-import scala.annotation.tailrec
 import scala.concurrent.Future
 
 // Helper to create identifiers pointing to the Daml.Script module
 case class ScriptIds(val scriptPackageId: PackageId) {
-  def damlScript(s: String) =
+  def damlScript(s: String) = damlScriptModule("Daml.Script", s)
+
+  def damlScriptModule(module: String, s: String) =
     Identifier(
       scriptPackageId,
-      QualifiedName(ModuleName.assertFromString("Daml.Script"), DottedName.assertFromString(s)),
+      QualifiedName(ModuleName.assertFromString(module), DottedName.assertFromString(s)),
     )
 }
 
 object ScriptIds {
-  // Constructs ScriptIds if the given type has the form Daml.Script.Script a.
+  // Constructs ScriptIds if the given type has the form Daml.Script.Script a (or Daml.Script.Internal.Script a).
   def fromType(ty: Type): Option[ScriptIds] = {
     ty match {
       case TApp(TTyCon(tyCon), _) => {
         val scriptIds = ScriptIds(tyCon.packageId)
-        if (tyCon == scriptIds.damlScript("Script")) {
+        // First is v1, second is v2 where Script was moved to Daml.Script.Internal
+        if (
+          tyCon == scriptIds.damlScript("Script")
+          || tyCon == scriptIds.damlScriptModule("Daml.Script.Internal", "Script")
+        ) {
           Some(scriptIds)
         } else {
           None
@@ -186,7 +190,7 @@ trait ConverterMethods {
     choiceCons.qualifiedName.name.segments.head
   }
 
-  private[this] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
+  private[lf] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
     v match {
       case SRecord(_, _, ArrayList(SAny(TTyCon(choiceCons), choiceVal), _)) =>
         Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
@@ -230,150 +234,18 @@ trait ConverterMethods {
     }
   }
 
-  def toCreateCommand(v: SValue): Either[String, command.ApiCommand] =
-    v match {
-      // template argument, continuation
-      case SRecord(_, _, vals) if vals.size == 2 => {
-        for {
-          anyTemplate <- toAnyTemplate(vals.get(0))
-        } yield command.ApiCommand.Create(
-          templateId = anyTemplate.ty,
-          argument = anyTemplate.arg.toUnnormalizedValue,
-        )
-      }
-      case _ => Left(s"Expected Create but got $v")
-    }
-
-  def toExerciseCommand(v: SValue): Either[String, command.ApiCommand] =
-    v match {
-      // typerep, contract id, choice argument and continuation
-      case SRecord(_, _, vals) if vals.size == 4 =>
-        for {
-          typeId <- typeRepToIdentifier(vals.get(0))
-          cid <- toContractId(vals.get(1))
-          anyChoice <- toAnyChoice(vals.get(2))
-        } yield command.ApiCommand.Exercise(
-          typeId = typeId,
-          contractId = cid,
-          choiceId = anyChoice.name,
-          argument = anyChoice.arg.toUnnormalizedValue,
-        )
-      case _ => Left(s"Expected Exercise but got $v")
-    }
-
-  def toExerciseByKeyCommand(v: SValue): Either[String, command.ApiCommand] =
-    v match {
-      // typerep, contract id, choice argument and continuation
-      case SRecord(_, _, vals) if vals.size == 4 =>
-        for {
-          typeId <- typeRepToIdentifier(vals.get(0))
-          anyKey <- toAnyContractKey(vals.get(1))
-          anyChoice <- toAnyChoice(vals.get(2))
-        } yield command.ApiCommand.ExerciseByKey(
-          templateId = typeId,
-          contractKey = anyKey.key.toUnnormalizedValue,
-          choiceId = anyChoice.name,
-          argument = anyChoice.arg.toUnnormalizedValue,
-        )
-      case _ => Left(s"Expected ExerciseByKey but got $v")
-    }
-
-  def toCreateAndExerciseCommand(v: SValue): Either[String, command.ApiCommand.CreateAndExercise] =
-    v match {
-      case SRecord(_, _, vals) if vals.size == 3 => {
-        for {
-          anyTemplate <- toAnyTemplate(vals.get(0))
-          anyChoice <- toAnyChoice(vals.get(1))
-        } yield command.ApiCommand.CreateAndExercise(
-          templateId = anyTemplate.ty,
-          createArgument = anyTemplate.arg.toUnnormalizedValue,
-          choiceId = anyChoice.name,
-          choiceArgument = anyChoice.arg.toUnnormalizedValue,
-        )
-      }
-      case _ => Left(s"Expected CreateAndExercise but got $v")
-    }
-
   private val fstName = Name.assertFromString("fst")
   private val sndName = Name.assertFromString("snd")
-  private[this] val tupleFieldInputOrder =
+  private[lf] val tupleFieldInputOrder =
     Struct.assertFromSeq(List(fstName, sndName).zipWithIndex)
-  private[this] val fstOutputIdx = tupleFieldInputOrder.indexOf(fstName)
-  private[this] val sndOutputIdx = tupleFieldInputOrder.indexOf(sndName)
+  private[lf] val fstOutputIdx = tupleFieldInputOrder.indexOf(fstName)
+  private[lf] val sndOutputIdx = tupleFieldInputOrder.indexOf(sndName)
 
-  private[this] val extractToTuple = SEMakeClo(
+  private[lf] val extractToTuple = SEMakeClo(
     Array(),
     2,
     SEAppAtomic(SEBuiltin(SBStructCon(tupleFieldInputOrder)), Array(SELocA(0), SELocA(1))),
   )
-
-  // Extract the two fields out of the RankN encoding used in the Ap constructor.
-  private[lf] def toApFields(
-      compiledPackages: CompiledPackages,
-      fun: SValue,
-  ): Either[String, (SValue, SValue)] = {
-    val e = SELet1(extractToTuple, SEAppAtomic(SEValue(fun), Array(SELocS(1))))
-    val machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, e)(
-        Script.DummyLoggingContext
-      )
-    machine.run() match {
-      case SResultFinal(v) =>
-        v match {
-          case SStruct(_, values) if values.size == 2 =>
-            Right((values.get(fstOutputIdx), values.get(sndOutputIdx)))
-          case v => Left(s"Expected binary SStruct but got $v")
-        }
-      case SResultError(err) => Left(Pretty.prettyError(err).render(80))
-      case res => Left(res.toString)
-    }
-  }
-
-  // Walk over the free applicative and extract the list of commands
-  private[lf] def toCommands(
-      compiledPackages: CompiledPackages,
-      freeAp: SValue,
-  ): Either[String, List[command.ApiCommand]] = {
-    @tailrec
-    def iter(
-        v: SValue,
-        commands: List[command.ApiCommand],
-    ): Either[String, List[command.ApiCommand]] = {
-      v match {
-        case SVariant(_, "PureA", _, _) => Right(commands.reverse)
-        case SVariant(_, "Ap", _, v) =>
-          toApFields(compiledPackages, v) match {
-            case Right((SVariant(_, "Create", _, create), v)) =>
-              // This can’t be a for-comprehension since it trips up tailrec optimization.
-              toCreateCommand(create) match {
-                case Left(err) => Left(err)
-                case Right(r) => iter(v, r :: commands)
-              }
-            case Right((SVariant(_, "Exercise", _, exercise), v)) =>
-              // This can’t be a for-comprehension since it trips up tailrec optimization.
-              toExerciseCommand(exercise) match {
-                case Left(err) => Left(err)
-                case Right(r) => iter(v, r :: commands)
-              }
-            case Right((SVariant(_, "ExerciseByKey", _, exerciseByKey), v)) =>
-              toExerciseByKeyCommand(exerciseByKey) match {
-                case Left(err) => Left(err)
-                case Right(r) => iter(v, r :: commands)
-              }
-            case Right((SVariant(_, "CreateAndExercise", _, createAndExercise), v)) =>
-              toCreateAndExerciseCommand(createAndExercise) match {
-                case Left(err) => Left(err)
-                case Right(r) => iter(v, r :: commands)
-              }
-            case Right((fb, _)) =>
-              Left(s"Expected Create, Exercise ExerciseByKey or CreateAndExercise but got $fb")
-            case Left(err) => Left(err)
-          }
-        case _ => Left(s"Expected PureA or Ap but got $v")
-      }
-    }
-    iter(freeAp, List())
-  }
 
   def toParty(v: SValue): Either[String, Party] =
     v match {
@@ -533,7 +405,7 @@ trait ConverterMethods {
     Right(
       record(
         scriptIds.damlScript("User"),
-        ("id", fromUserId(scriptIds, user.id)),
+        ("userId", fromUserId(scriptIds, user.id)),
         ("primaryParty", SOptional(user.primaryParty.map(SParty(_)))),
       )
     )
@@ -541,7 +413,7 @@ trait ConverterMethods {
   def fromUserId(scriptIds: ScriptIds, userId: UserId): SValue =
     record(
       scriptIds.damlScript("UserId"),
-      ("userName", SText(userId)),
+      ("unpack", SText(userId)),
     )
 
   def toUser(v: SValue): Either[String, User] =

@@ -112,10 +112,10 @@ object PrettyPrint {
     case SValue.SPAP(_, _, _) =>
       text("...")
 
-    case SValue.SRecord(id, fields, values) =>
-      Pretty.prettyIdentifier(id) + char('{') & fill(
+    case r: SValue.SRecord =>
+      Pretty.prettyIdentifier(r.id) + char('{') & fill(
         text(", "),
-        fields.toSeq.zip(values.asScala).map { case (k, v) =>
+        r.fields.toSeq.zip(r.values.asScala).map { case (k, v) =>
           text(k) & char('=') & prettySValue(v)
         },
       ) & char('}')

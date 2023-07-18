@@ -81,6 +81,9 @@ case class ScriptConfig(
               participantMode = participantMode,
               timeMode = resolvedTimeMode,
               maxInboundMessageSize = maxInboundMessageSize,
+              accessTokenFile = accessTokenFile,
+              tlsConfig = tlsConfig,
+              applicationId = applicationId,
             )
           )
       }

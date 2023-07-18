@@ -121,7 +121,7 @@ instance IsOption IsScriptV2Opt where
   optionName = Tagged "daml-script-v2"
   optionHelp = Tagged "Use daml script v2 (true|false)"
 
-type ScriptPackageData = (FilePath, PackageFlag)
+type ScriptPackageData = (FilePath, [PackageFlag])
 
 -- | Creates a temp directory with daml script v1 installed, gives the database db path and package flag
 withDamlScriptDep :: Maybe Version -> (ScriptPackageData -> IO a) -> IO a
@@ -129,40 +129,52 @@ withDamlScriptDep mLfVer =
   let 
     lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
     darPath = "daml-script" </> "daml" </> "daml-script" <> lfVerStr <> ".dar"
-  in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer
+  in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer []
 
 -- Daml-script v2 is only 1.dev right now
 withDamlScriptV2Dep :: (ScriptPackageData -> IO a) -> IO a
 withDamlScriptV2Dep =
   let
     darPath = "daml-script" </> "daml3" </> "daml3-script.dar"
-  in withVersionedDamlScriptDep ("daml3-script-" <> sdkPackageVersion) darPath (Just versionDev)
+  in withVersionedDamlScriptDep ("daml3-script-" <> sdkPackageVersion) darPath (Just versionDev) scriptV2ExternalPackages
+
+-- External dars for scriptv2 when testing upgrades.
+-- package name and version
+scriptV2ExternalPackages :: [(String, String)]
+scriptV2ExternalPackages =
+  [ ("package-vetting-package-a", "1.0.0")
+  , ("package-vetting-package-b", "1.0.0")
+  ]
 
 -- | Takes the bazel namespace, dar suffix (used for lf versions in v1) and lf version, installs relevant daml script and gives
 -- database db path and package flag
-withVersionedDamlScriptDep :: String -> String -> Maybe Version -> (ScriptPackageData -> IO a) -> IO a
-withVersionedDamlScriptDep packageFlagName darPath mLfVer cont = do
+withVersionedDamlScriptDep :: String -> String -> Maybe Version -> [(String, String)] -> (ScriptPackageData -> IO a) -> IO a
+withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = do
   withTempDir $ \dir -> do
     withCurrentDirectory dir $ do
       let projDir = toNormalizedFilePath' dir
           -- Bring in daml-script as previously installed by withDamlScriptDep, must include package db
           -- daml-script and daml-triggers use the sdkPackageVersion for their versioning
-          packageFlag = ExposePackage ("--package " <> packageFlagName) (UnitIdArg $ stringToUnitId packageFlagName) (ModRenaming True [])
+          mkPackageFlag flagName = ExposePackage ("--package " <> flagName) (UnitIdArg $ stringToUnitId flagName) (ModRenaming True [])
+          toPackageName (name, version) = name <> "-" <> version
+          packageFlags = mkPackageFlag <$> packageFlagName : (toPackageName <$> extraPackages)
 
       scriptDar <- locateRunfiles $ mainWorkspace </> darPath
+
+      extraDars <- traverse (\(name, _) -> locateRunfiles $ mainWorkspace </> "compiler" </> "damlc" </> "tests" </> name <> ".dar") extraPackages
 
       installDependencies
         projDir
         (defaultOptions mLfVer)
         (PackageSdkVersion sdkVersion)
         ["daml-prim", "daml-stdlib", scriptDar]
-        []
+        extraDars
       createProjectPackageDb
         projDir
         (defaultOptions mLfVer)
         mempty
 
-      cont (dir </> projectPackageDatabase, packageFlag)
+      cont (dir </> projectPackageDatabase, packageFlags)
 
 main :: IO ()
 main = do
@@ -249,7 +261,7 @@ getCantSkipPreprocessorTestFiles = do
     pure [("cant-skip-preprocessor/DA/Internal/Hack.daml", file, anns)]
 
 getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> ScriptPackageData -> IO TestTree
-getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlag) = do
+getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
@@ -277,7 +289,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlag) = 
                     , dlintHintFiles = NoDlintHintFiles
                     }
                 , optSkipScenarioValidation = SkipScenarioValidation skipValidation
-                , optPackageImports = [packageFlag]
+                , optPackageImports = packageFlags
                 }
 
               mkIde options = do

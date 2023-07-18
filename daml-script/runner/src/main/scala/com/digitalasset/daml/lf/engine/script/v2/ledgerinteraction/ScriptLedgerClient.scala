@@ -61,6 +61,12 @@ object ScriptLedgerClient {
       case abstractLedgers.IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled) =>
         new IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled)
     }
+
+  // Essentially PackageMetadata but without the possibility of extension
+  final case class ReadablePackageId(
+      name: PackageName,
+      version: PackageVersion,
+  )
 }
 
 // This abstracts over the interaction with the ledger. This allows
@@ -201,4 +207,28 @@ trait ScriptLedgerClient {
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]]
+
+  def vetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit]
+
+  def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit]
+
+  def listVettedPackages()(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[ScriptLedgerClient.ReadablePackageId]]
+
+  def listAllPackages()(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[ScriptLedgerClient.ReadablePackageId]]
 }

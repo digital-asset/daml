@@ -18,10 +18,19 @@ steps:
   - powershell: '.\ci\windows-diagnostics.ps1'
     displayName: 'Agent diagnostics'
 
+  - bash: |
+      set -euo pipefail
+      if [ -e bazel-testlogs ]; then
+          rm -rf bazel-testlogs/
+      fi
+    displayName: delete old logs
+
   - powershell: '.\build.ps1'
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
+      ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
+      ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
       # On release, we want to skip testing because:
       # - Caching on Windows is keyed on full path, and full path is somewhat
       #   random (for a given machine, each pipeline has a its own workdir, but
@@ -37,6 +46,17 @@ steps:
     parameters:
       platform: 'windows'
       is_release: '${{parameters.is_release}}'
+
+  - bash: |
+      set -euo pipefail
+      cd '$(Build.StagingDirectory)/logs'
+      find . -type f | xargs gzip -9
+      cd -
+      cd bazel-testlogs
+      find . -type f | xargs gzip -9
+
+    displayName: compress logs
+    condition: succeededOrFailed()
 
   - task: PublishBuildArtifacts@1
     condition: failed()

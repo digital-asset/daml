@@ -222,6 +222,7 @@ private[daml] object StablePackage {
           v1_6,
         ) {
       val Tuple2: Ref.TypeConName = assertIdentifier("Tuple2")
+      val Either: Ref.Identifier = assertIdentifier("Either")
     }
     object Validation {
       object Types

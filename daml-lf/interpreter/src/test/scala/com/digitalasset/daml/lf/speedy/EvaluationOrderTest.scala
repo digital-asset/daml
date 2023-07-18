@@ -1869,7 +1869,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             val (res, msgs) = evalUpdateApp(
               pkgs,
               e"""\(exercisingParty : Party) ->
-             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = exercisingParty, ctrl = exercisingParty, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
+             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, obs = exercisingParty, ctrl = exercisingParty, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
              Test:$testCase exercisingParty cId
              """,
               Array(SParty(alice)),
@@ -1893,7 +1893,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             val (res, msgs) = evalUpdateApp(
               pkgs,
               e"""\(exercisingParty : Party) ->
-             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = exercisingParty, ctrl = exercisingParty, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
+             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, obs = exercisingParty, ctrl = exercisingParty, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
              ubind x: Unit <- exercise @M:Human Archive cId ()
              in
              Test:$testCase exercisingParty cId
@@ -1955,7 +1955,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             val (res, msgs) = evalUpdateApp(
               pkgs,
               e"""\(exercisingParty : Party) (other : Party)->
-                  ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = other, ctrl = other, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
+                  ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, obs = other, ctrl = other, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
                     Test:$testCase exercisingParty cId
                   """,
               Array(SParty(alice), SParty(bob)),

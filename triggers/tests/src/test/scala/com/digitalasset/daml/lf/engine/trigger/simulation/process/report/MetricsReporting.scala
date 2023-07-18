@@ -19,6 +19,7 @@ private[simulation] object MetricsReporting {
   sealed abstract class Message extends Product with Serializable
   // Used by TriggerProcess
   private[process] final case class TriggerMetricsUpdate(
+      timestamp: Long,
       reportingId: UUID,
       triggerId: UUID,
       triggerDefRef: Ref.DefinitionRef,
@@ -34,6 +35,7 @@ private[simulation] object MetricsReporting {
     Behaviors.setup { _ =>
       val triggerDataFile = Files.newOutputStream(config.triggerDataFile)
       val triggerDataFileCsvHeader = Seq(
+        "timestamp",
         "reporting-id",
         "trigger-id",
         "trigger-def-ref",
@@ -54,6 +56,7 @@ private[simulation] object MetricsReporting {
       Behaviors
         .receiveMessage[Message] {
           case TriggerMetricsUpdate(
+                timestamp,
                 reportingId,
                 triggerId,
                 triggerDefRef,
@@ -65,6 +68,7 @@ private[simulation] object MetricsReporting {
                 completionStatus,
               ) =>
             val csvData: String = Seq[Any](
+              timestamp,
               reportingId,
               triggerId,
               triggerDefRef,
@@ -78,8 +82,7 @@ private[simulation] object MetricsReporting {
               percentageHeapUsed,
               gcTime,
               gcCount,
-              completionStatus
-                .fold("")(_.code.toString),
+              completionStatus.fold("")(extractStatusMessage),
             ).mkString("", ",", "\n")
             triggerDataFile.write(csvData.getBytes)
             Behaviors.same
@@ -90,5 +93,12 @@ private[simulation] object MetricsReporting {
           Behaviors.same
         }
     }
+  }
+
+  // We attempt to record just the completion summary prefix message (and not its detailed explanation)
+  private[this] def extractStatusMessage(status: GrpcStatus): String = {
+    val failureMessage = status.message.takeWhile('(' != _)
+
+    if (failureMessage.nonEmpty) failureMessage else status.code.toString
   }
 }

@@ -32,7 +32,9 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     * a mutable API for eas of use in tests.
     */
   class MutableLedger {
+
     import ScenarioLedger.{initialLedger => _, _}
+
     private var ledger: ScenarioLedger = initialLedger()
 
     private def initialLedger(): ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.now())
@@ -60,20 +62,22 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
           },
         )
 
-    def get(submitter: Party, effectiveAt: Time.Timestamp)(
-        id: ContractId
-    ): Option[VersionedContractInstance] = {
-      ledger.lookupGlobalContract(
-        ParticipantView(Set(submitter), Set.empty),
-        effectiveAt,
-        id,
-      ) match {
-        case LookupOk(_, coinst, _) => Some(coinst)
-        case _: LookupContractNotEffective | _: LookupContractNotActive |
-            _: LookupContractNotVisible | _: LookupContractNotFound =>
-          None
-      }
-    }
+    def get(
+        submitter: Party,
+        effectiveAt: Time.Timestamp,
+    ): PartialFunction[ContractId, VersionedContractInstance] =
+      Function.unlift((id: ContractId) =>
+        ledger.lookupGlobalContract(
+          ParticipantView(Set(submitter), Set.empty),
+          effectiveAt,
+          id,
+        ) match {
+          case LookupOk(_, coinst, _) => Some(coinst)
+          case _: LookupContractNotEffective | _: LookupContractNotActive |
+              _: LookupContractNotVisible | _: LookupContractNotFound =>
+            None
+        }
+      )
   }
 
   private def hash(s: String, i: Int) =
@@ -95,8 +99,6 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   private[this] val largeTx = (largeTxId, largeTxPkg)
 
   private[this] val party = Party.assertFromString("party")
-
-  private def lookupPackage(pkgId: PackageId): Option[Ast.Package] = allPackages.get(pkgId)
 
   private def report(name: String, quantity: Quantity[Double]): Unit =
     println(s"$name: $quantity")
@@ -288,8 +290,8 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       )
       .consume(
         ledger.get(submitter, effectiveAt),
-        lookupPackage,
-        { _ =>
+        allPackages,
+        { case _ =>
           sys.error("TODO keys for LargeTransactionTest")
         },
       ) match {

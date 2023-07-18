@@ -99,7 +99,8 @@ commandWantsProjectPath cmd = LookForProjectPath $
 -- | Perform version checks, i.e. warn user if project SDK version or assistant SDK
 -- versions are out of date with the latest known release.
 versionChecks :: Env -> IO ()
-versionChecks Env{..} =
+versionChecks Env{..} = do
+    envLatestStableSdkVersion <- envLatestStableSdkVersion
     whenJust envLatestStableSdkVersion $ \latestVersion -> do
         let isHead = maybe False isHeadVersion envSdkVersion
             projectSdkVersionIsOld = isJust envProjectPath && envSdkVersion < Just latestVersion
@@ -155,6 +156,7 @@ autoInstall env@Env{..} = do
             installEnv = InstallEnv
                 { options = options
                 , damlPath = envDamlPath
+                , useCache = envUseCache env
                 , targetVersionM = Just sdkVersion
                 , missingAssistant = False
                 , installingFromOutside = False
@@ -190,15 +192,19 @@ handleCommand env@Env{..} logger command = do
 runCommand :: Env -> Command -> IO ()
 runCommand env@Env{..} = \case
     Builtin (Version VersionOptions{..}) -> do
+        let useCache =
+              UseCache
+                { cachePath = envCachePath
+                , damlPath = envDamlPath
+                , forceReload = vForceRefresh
+                }
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
-        availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envCachePath
+        snapshotVersionsEUnfiltered <- tryAssistant $ fst <$> getAvailableSdkSnapshotVersions useCache
+        let snapshotVersionsE = if vSnapshots then snapshotVersionsEUnfiltered else pure []
+            availableVersionsE = extractReleasesFromSnapshots <$> snapshotVersionsEUnfiltered
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
         projectVersionM <- mapM getSdkVersionFromProjectPath envProjectPath
         envSelectedVersionM <- lookupEnv sdkVersionEnvVar
-        snapshotVersionsE <- tryAssistant $
-            if vSnapshots
-                then getAvailableSdkSnapshotVersions
-                else pure []
 
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
             envVersions = catMaybes
@@ -262,7 +268,7 @@ runCommand env@Env{..} = \case
         putStr . unpack $ T.unlines ("SDK versions:" : versionLines)
 
     Builtin (Install options) -> wrapErr "Installing the SDK." $ do
-        install options envDamlPath envProjectPath envDamlAssistantSdkVersion
+        install options envDamlPath (envUseCache env) envProjectPath envDamlAssistantSdkVersion
 
     Builtin (Uninstall version) -> do
         uninstallVersion env version

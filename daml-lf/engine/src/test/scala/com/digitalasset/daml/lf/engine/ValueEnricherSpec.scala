@@ -86,7 +86,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
 
   engine
     .preloadPackage(defaultPackageId, pkg)
-    .consume(_ => None, _ => None, _ => None)
+    .consume()
     .left
     .foreach(err => sys.error(err.message))
 

@@ -47,9 +47,9 @@ sealed trait Result[+A] extends Product with Serializable {
   }
 
   private[lf] def consume(
-      pcs: ContractId => Option[VersionedContractInstance],
-      packages: PackageId => Option[Package],
-      keys: GlobalKeyWithMaintainers => Option[ContractId],
+      pcs: PartialFunction[ContractId, VersionedContractInstance] = PartialFunction.empty,
+      pkgs: PartialFunction[PackageId, Package] = PartialFunction.empty,
+      keys: PartialFunction[GlobalKeyWithMaintainers, ContractId] = PartialFunction.empty,
       grantNeedAuthority: Boolean = false,
   ): Either[Error, A] = {
     @tailrec
@@ -58,9 +58,9 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultDone(x) => Right(x)
         case ResultInterruption(continue) => go(continue())
         case ResultError(err) => Left(err)
-        case ResultNeedContract(acoid, resume) => go(resume(pcs(acoid)))
-        case ResultNeedPackage(pkgId, resume) => go(resume(packages(pkgId)))
-        case ResultNeedKey(key, resume) => go(resume(keys(key)))
+        case ResultNeedContract(acoid, resume) => go(resume(pcs.lift(acoid)))
+        case ResultNeedPackage(pkgId, resume) => go(resume(pkgs.lift(pkgId)))
+        case ResultNeedKey(key, resume) => go(resume(keys.lift(key)))
         case ResultNeedAuthority(_, _, resume) => go(resume(grantNeedAuthority))
       }
     go(this)

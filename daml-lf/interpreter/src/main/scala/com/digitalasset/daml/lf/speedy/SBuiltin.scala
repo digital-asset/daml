@@ -10,7 +10,6 @@ import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
-import com.daml.lf.language.Util.TOptional
 import com.daml.lf.speedy.ArrayList.Implicits._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -192,7 +191,9 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
       i: Int,
   ): (TypeConName, SRecord) =
     args.get(i) match {
-      case SAnyContract(tyCon, value) => (tyCon, value)
+      case SAny(Ast.TTyCon(tyCon), record: SRecord) =>
+        assert(tyCon == record.id)
+        (tyCon, record)
       case otherwise => unexpectedType(i, "AnyContract", otherwise)
     }
 
@@ -777,40 +778,38 @@ private[lf] object SBuiltin {
   }
 
   /** $rupd[R, field] :: R -> a -> R */
-  final case class SBRecUpd(id: Identifier, field: Int) extends SBuiltinPure(2) {
+  final case class SBRecUpd(id: Identifier, field: Name) extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
       val record = getSRecord(args, 0)
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
-      val values2 = record.values.clone.asInstanceOf[util.ArrayList[SValue]]
-      discard(values2.set(field, args.get(1)))
-      record.copy(values = values2)
+      val value = args.get(1)
+      record.updateField(field, value)
     }
   }
 
   /** $rupdmulti[R, [field_1, ..., field_n]] :: R -> a_1 -> ... -> a_n -> R */
-  final case class SBRecUpdMulti(id: Identifier, updateFields: ImmArray[Int])
-      extends SBuiltinPure(1 + updateFields.length) {
+  final case class SBRecUpdMulti(id: Identifier, fields: List[Name])
+      extends SBuiltinPure(1 + fields.length) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
       val record = getSRecord(args, 0)
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
-      val values2 = record.values.clone.asInstanceOf[util.ArrayList[SValue]]
-      var i = 0
-      while (i < updateFields.length) {
-        discard(values2.set(updateFields(i), args.get(i + 1)))
-        i += 1
+      fields.zipWithIndex.foldLeft(record) { case (r, (field, i)) =>
+        val value = args.get(i + 1)
+        r.updateField(field, value)
       }
-      record.copy(values = values2)
     }
   }
 
   /** $rproj[R, field] :: R -> a */
-  final case class SBRecProj(id: Identifier, field: Int) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue =
-      getSRecord(args, 0).values.get(field)
+  final case class SBRecProj(id: Identifier, field: Name) extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      val record: SRecord = getSRecord(args, 0)
+      record.lookupField(field)
+    }
   }
 
   // SBStructCon sorts the field after evaluation of its arguments to preserve
@@ -1082,78 +1081,13 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
-      def coid = getSContractId(args, 0)
       val (actualTemplateId, record) = getSAnyContract(args, 1)
-      if (actualTemplateId != templateId) {
-        Control.Error(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
-      } else {
+      if (actualTemplateId == templateId) {
         Control.Value(record)
-      }
-    }
-  }
-
-  // SBPromoteAnyContract(templateId): ContractId actualTemplateId -> Any -> templateId
-  // Fails unless actualTemplateId is a predecessor of templateId.
-  final case class SBPromoteAnyContract(
-      templateId: TypeConName,
-      fields: ImmArray[(Ast.FieldName, Ast.Type)],
-      acceptedTemplateIds: List[TypeConName],
-  ) extends SBuiltin(2) {
-    override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
-        machine: Machine[Q],
-    ): Control[Nothing] = {
-
-      // TODO https://github.com/digital-asset/daml/issues/16151
-      // debug calls to SBPromoteAnyContract
-      // println(s"**SBPromoteAnyContract: \n- templateId=${templateId}\n- acceptedTemplateIds=${acceptedTemplateIds}");
-
-      // TODO https://github.com/digital-asset/daml/issues/16151
-      // perhaps compute `acceptedTemplateIds` here, dynamically when execute is called
-      // And then be can be more confident that all relavant package have been compiled.
-
-      def coid = getSContractId(args, 0)
-      val (actualTemplateId, record) = getSAnyContract(args, 1)
-
-      if ((templateId +: acceptedTemplateIds).contains(actualTemplateId)) {
-        // Here we extend values of predecessor template types by adding the
-        // right number of 'None's for missing 'Optional' fields
-        // TODO: https://github.com/digital-asset/daml/issues/16151
-        // For the PoC, this assumes field order is preserved by later versions
-        // and that new fields are only added at the end.
-        val newFields = fields.iterator.drop(record.values.size)
-        val badNewFields = newFields.filter {
-          case (name @ _, TOptional(_)) => false
-          case _ => true
-        }
-        if (badNewFields.isEmpty) {
-          Control.Value(
-            SRecord(
-              id = templateId,
-              fields = fields.map(_._1),
-              values = record.values.asScala.padTo(fields.length, SOptional(None)).to(ArrayList),
-            )
-          )
-        } else {
-          // For the PoC, it is fine to crash here since we assume all new
-          // fields will be of type Optional(_). After the PoC, this will
-          // be checked at daml-compile and package-upload times.
-          crash(
-            s"SBPromoteAnyContract[bad new fields]:\n" +
-              s"  contractId = ${coid}" +
-              s"  expectedTemplateId = ${templateId}" +
-              s"  acceptedTemplateIds = ${acceptedTemplateIds}" +
-              s"  actualTemplateId = ${actualTemplateId}" +
-              s"  badNewFields = ${badNewFields}"
-          )
-        }
       } else {
-        Control.Error(
-          IE.Dev(
-            NameOf.qualifiedNameOfCurrentFunc,
-            IE.Dev.WronglyTypedContractSoft(coid, templateId, acceptedTemplateIds, actualTemplateId),
-          )
-        )
+        assert(actualTemplateId != templateId)
+        val coid = getSContractId(args, 0)
+        Control.Error(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
       }
     }
   }
@@ -1199,7 +1133,7 @@ private[lf] object SBuiltin {
     *    -> Optional {key: key, maintainers: List Party} (template key, if present)
     *    -> a
     */
-  final case object SBFetchAny extends UpdateBuiltin(2) {
+  final case class SBFetchAny(optTargetTemplateId: Option[TypeConName]) extends UpdateBuiltin(2) {
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
@@ -1229,12 +1163,16 @@ private[lf] object SBuiltin {
                 machine.pushKont(KCacheContract(coid))
                 val e = coinst match {
                   case V.ContractInstance(actualTmplId, arg) =>
+                    val templateId = optTargetTemplateId match {
+                      case Some(tycon) => tycon
+                      case None => actualTmplId
+                    }
                     SELet1(
                       // The call to ToCachedContractDefRef(actualTmplId) will query package
                       // of actualTmplId if not known.
-                      SEVal(ToCachedContractDefRef(actualTmplId)),
+                      SEVal(ToCachedContractDefRef(templateId)),
                       SELet1(
-                        SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                        SEImportValue(Ast.TTyCon(templateId), arg),
                         SEAppAtomic(SELocS(2), Array(SELocS(1), SEValue(args.get(1)))),
                       ),
                     )
@@ -1383,9 +1321,7 @@ private[lf] object SBuiltin {
 
   // This wraps a contract record into an SAny where the type argument corresponds to
   // the record's templateId.
-  final case class SBToAnyContract(
-      tplId: TypeConName
-  ) extends SBuiltinPure(1) {
+  final case class SBToAnyContract(tplId: TypeConName) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
       SAnyContract(tplId, getSRecord(args, 0))
     }
@@ -1673,8 +1609,11 @@ private[lf] object SBuiltin {
                     (Control.Value(SUnit), true)
                   } else {
                     // SBFetchAny will populate machine.cachedContracts with the contract pointed by coid
+                    // TODO: https://github.com/digital-asset/daml/issues/17082
+                    // - do we have a targetType to pass to SBFetchAny?
+
                     val e = SEAppAtomic(
-                      SEBuiltin(SBFetchAny),
+                      SEBuiltin(SBFetchAny(None)),
                       Array(SEValue(SContractId(coid)), SEValue(SOptional(Some(svalue)))),
                     )
                     (Control.Expression(e), true)
@@ -1898,6 +1837,7 @@ private[lf] object SBuiltin {
 
   /** $any-exception-message :: AnyException -> Text */
   final case object SBAnyExceptionMessage extends SBuiltin(1) {
+    val field = Ref.Name.assertFromString("message")
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1905,7 +1845,7 @@ private[lf] object SBuiltin {
       val exception = getSAnyException(args, 0)
       exception.id match {
         case ValueArithmeticError.tyCon =>
-          Control.Value(exception.values.get(0))
+          Control.Value(exception.lookupField(field))
         case tyCon =>
           val e = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(exception))
           Control.Expression(e)

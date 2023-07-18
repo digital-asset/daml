@@ -22,6 +22,7 @@ import com.google.rpc.code
 import scalaz.Tag
 import scalaz.syntax.tag._
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
@@ -225,6 +226,7 @@ class PlatformSubscriber(
     Future.unit
   }
 
+  @nowarn("msg=method dropNew in object OverflowStrategy is deprecated")
   private def startTrackingCommands()
       : Future[SourceQueueWithComplete[Ctx[Command, CommandSubmission]]] = {
     for {

@@ -15,7 +15,9 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast.PackageMetadata
 import com.daml.lf.language.Ast.TTyCon
+import com.daml.lf.language.{LookupError, PackageInterface, Reference}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog, SError}
@@ -43,7 +45,7 @@ import scala.util.{Failure, Success}
 
 // Client for the script service.
 class IdeLedgerClient(
-    val compiledPackages: CompiledPackages,
+    val originalCompiledPackages: PureCompiledPackages,
     traceLog: TraceLog,
     warningLog: WarningLog,
     canceled: () => Boolean,
@@ -59,11 +61,46 @@ class IdeLedgerClient(
 
   def currentSubmission: Option[ScenarioRunner.CurrentSubmission] = _currentSubmission
 
-  private[this] val preprocessor =
+  private[this] var compiledPackages = originalCompiledPackages
+
+  private[this] var preprocessor = makePreprocessor
+
+  private[this] var unvettedPackages: Set[PackageId] = Set.empty
+
+  private[this] def makePreprocessor =
     new preprocessing.CommandPreprocessor(
       compiledPackages.pkgInterface,
       requireV1ContractIdSuffix = false,
     )
+
+  private[this] def partialFunctionFilterNot[A](f: A => Boolean): PartialFunction[A, A] = {
+    case x if !f(x) => x
+  }
+
+  // Given a set of disabled packages, filter out all definitions from those packages from the original compiled packages
+  // Similar logic to Scenario-services' Context.scala, however here we make no changes on the module level, and never directly add new packages
+  // We only maintain a subset of an original known package set.
+  private[this] def updateCompiledPackages() = {
+    compiledPackages =
+      if (!unvettedPackages.isEmpty)(
+        originalCompiledPackages.copy(
+          // Remove packages from the set
+          packageIds = originalCompiledPackages.packageIds -- unvettedPackages,
+          // Filter out pkgId "key" to the partial function
+          pkgInterface = new PackageInterface(
+            partialFunctionFilterNot(
+              unvettedPackages
+            ) andThen originalCompiledPackages.pkgInterface.signatures
+          ),
+          // Filter out any defs in a disabled package
+          defns = originalCompiledPackages.defns.view
+            .filterKeys(sDefRef => !unvettedPackages(sDefRef.packageId))
+            .toMap,
+        ),
+      )
+      else originalCompiledPackages
+    preprocessor = makePreprocessor
+  }
 
   private var _ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
   def ledger: ScenarioLedger = _ledger
@@ -246,6 +283,66 @@ class IdeLedgerClient(
       }
   }
 
+  // Build a SubmissionError with empty transaction
+  private def makeEmptySubmissionError(err: scenario.Error): ScenarioRunner.SubmissionError =
+    ScenarioRunner.SubmissionError(
+      err,
+      IncompleteTransaction(
+        transaction = Transaction(Map.empty, ImmArray.empty),
+        locationInfo = Map.empty,
+      ),
+    )
+
+  private def getReferencePackageId(ref: Reference): PackageId =
+    ref match {
+      case Reference.Package(packageId) => packageId
+      case Reference.Module(packageId, _) => packageId
+      case Reference.Definition(name) => name.packageId
+      case Reference.TypeSyn(name) => name.packageId
+      case Reference.DataType(name) => name.packageId
+      case Reference.DataRecord(name) => name.packageId
+      case Reference.DataRecordField(name, _) => name.packageId
+      case Reference.DataVariant(name) => name.packageId
+      case Reference.DataVariantConstructor(name, _) => name.packageId
+      case Reference.DataEnum(name) => name.packageId
+      case Reference.DataEnumConstructor(name, _) => name.packageId
+      case Reference.Value(name) => name.packageId
+      case Reference.Template(name) => name.packageId
+      case Reference.Interface(name) => name.packageId
+      case Reference.TemplateKey(name) => name.packageId
+      case Reference.InterfaceInstance(_, name) => name.packageId
+      case Reference.ConcreteInterfaceInstance(_, ref) => getReferencePackageId(ref)
+      case Reference.TemplateChoice(name, _) => name.packageId
+      case Reference.InterfaceChoice(name, _) => name.packageId
+      case Reference.InheritedChoice(name, _, _) => name.packageId
+      case Reference.TemplateOrInterface(name) => name.packageId
+      case Reference.Choice(name, _) => name.packageId
+      case Reference.Method(name, _) => name.packageId
+      case Reference.Exception(name) => name.packageId
+    }
+
+  private def getLookupErrorPackageId(err: LookupError): PackageId =
+    err match {
+      case LookupError.NotFound(notFound, _) => getReferencePackageId(notFound)
+      case LookupError.AmbiguousInterfaceInstance(instance, _) => getReferencePackageId(instance)
+    }
+
+  private def makeLookupError(
+      err: LookupError
+  ): ScenarioRunner.SubmissionError = {
+    val packageId = getLookupErrorPackageId(err)
+    val packageMetadata = getPackageIdReverseMap().lift(packageId).map {
+      case ScriptLedgerClient.ReadablePackageId(packageName, packageVersion) =>
+        PackageMetadata(packageName, packageVersion, None)
+    }
+    makeEmptySubmissionError(scenario.Error.LookupError(err, packageMetadata, packageId))
+  }
+
+  private def makePartiesNotAllocatedError(
+      unallocatedSubmitters: Set[Party]
+  ): ScenarioRunner.SubmissionError =
+    makeEmptySubmissionError(scenario.Error.PartiesNotAllocated(unallocatedSubmitters))
+
   // unsafe version of submit that does not clear the commit.
   private def unsafeSubmit(
       actAs: OneAnd[Set, Ref.Party],
@@ -261,34 +358,8 @@ class IdeLedgerClient(
     val unallocatedSubmitters: Set[Party] =
       (actAs.toSet union readAs) -- allocatedParties.values.map(_.party)
     if (unallocatedSubmitters.nonEmpty) {
-      Left(
-        ScenarioRunner.SubmissionError(
-          scenario.Error.PartiesNotAllocated(unallocatedSubmitters),
-          IncompleteTransaction(
-            transaction = Transaction(Map.empty, ImmArray.empty),
-            locationInfo = Map.empty,
-          ),
-        )
-      )
+      Left(makePartiesNotAllocatedError(unallocatedSubmitters))
     } else {
-
-      val speedyCommands = preprocessor.unsafePreprocessApiCommands(commands.to(ImmArray))
-      val translated = compiledPackages.compiler.unsafeCompile(speedyCommands, ImmArray.empty)
-
-      val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
-      val result =
-        ScenarioRunner.submit(
-          compiledPackages,
-          ledgerApi,
-          actAs.toSet,
-          readAs,
-          translated,
-          optLocation,
-          nextSeed(),
-          traceLog,
-          warningLog,
-        )(Script.DummyLoggingContext)
-
       @tailrec
       def loop(
           result: ScenarioRunner.SubmissionResult[ScenarioLedger.CommitResult]
@@ -298,7 +369,7 @@ class IdeLedgerClient(
       ] =
         result match {
           case _ if canceled() =>
-            throw Runner.TimedOut
+            throw script.Runner.TimedOut
           case ScenarioRunner.Interruption(continue) =>
             loop(continue())
           case err: ScenarioRunner.SubmissionError => Left(err)
@@ -317,7 +388,33 @@ class IdeLedgerClient(
             )
         }
 
-      loop(result)
+      // We use try + unsafePreprocess here to avoid the addition template lookup logic in `preprocessApiCommands`
+      val eitherSpeedyCommands =
+        try {
+          Right(preprocessor.unsafePreprocessApiCommands(commands.to(ImmArray)))
+        } catch {
+          case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
+        }
+
+      val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
+
+      for {
+        speedyCommands <- eitherSpeedyCommands
+        translated = compiledPackages.compiler.unsafeCompile(speedyCommands, ImmArray.empty)
+        result =
+          ScenarioRunner.submit(
+            compiledPackages,
+            ledgerApi,
+            actAs.toSet,
+            readAs,
+            translated,
+            optLocation,
+            nextSeed(),
+            traceLog,
+            warningLog,
+          )(Script.DummyLoggingContext)
+        res <- loop(result)
+      } yield res
     }
   }
 
@@ -545,4 +642,67 @@ class IdeLedgerClient(
     userManagementStore
       .listUserRights(id, IdentityProviderId.Default)(LoggingContext.empty)
       .map(_.toOption.map(_.toList))
+
+  def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
+    getPackageIdPairs().toMap
+  def getPackageIdReverseMap(): Map[PackageId, ScriptLedgerClient.ReadablePackageId] =
+    getPackageIdPairs().map(_.swap).toMap
+
+  def getPackageIdPairs(): Set[(ScriptLedgerClient.ReadablePackageId, PackageId)] = {
+    originalCompiledPackages.packageIds
+      .collect(
+        Function.unlift(pkgId =>
+          for {
+            pkgSig <- originalCompiledPackages.pkgInterface.lookupPackage(pkgId).toOption
+            meta <- pkgSig.metadata
+            readablePackageId = meta match {
+              case PackageMetadata(name, version, _) =>
+                ScriptLedgerClient.ReadablePackageId(name, version)
+            }
+          } yield (readablePackageId, pkgId)
+        )
+      )
+  }
+
+  override def vetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = Future {
+    val packageMap = getPackageIdMap()
+    val pkgIdsToVet = packages.map(pkg =>
+      packageMap.getOrElse(pkg, throw new IllegalArgumentException(s"Unknown package $pkg"))
+    )
+
+    unvettedPackages = unvettedPackages -- pkgIdsToVet.toSet
+    updateCompiledPackages()
+  }
+
+  override def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = Future {
+    val packageMap = getPackageIdMap()
+    val pkgIdsToUnvet = packages.map(pkg =>
+      packageMap.getOrElse(pkg, throw new IllegalArgumentException(s"Unknown package $pkg"))
+    )
+
+    unvettedPackages = unvettedPackages ++ pkgIdsToUnvet.toSet
+    updateCompiledPackages()
+  }
+
+  override def listVettedPackages()(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
+    Future.successful(getPackageIdMap().filter(kv => !unvettedPackages(kv._2)).keys.toList)
+
+  override def listAllPackages()(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
+    Future.successful(getPackageIdMap().keys.toList)
 }

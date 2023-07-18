@@ -400,6 +400,10 @@ object JsonProtocol extends JsonProtocolLow {
     requestJsonReaderPlusOne(ReadersKey)(domain.GetActiveContractsRequest)
   }
 
+  implicit val RefreshCacheRequestFormat: RootJsonReader[domain.RefreshCacheRequest] = {
+    jsonFormat1(domain.RefreshCacheRequest)
+  }
+
   implicit val SearchForeverQueryFormat: RootJsonReader[domain.SearchForeverQuery] = {
     val OffsetKey = "offset"
     requestJsonReaderPlusOne(OffsetKey)(domain.SearchForeverQuery)
@@ -570,6 +574,9 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
     jsonFormat3(domain.ExerciseResponse[JsValue])
+
+  implicit val RefreshCacheResultFormat: RootJsonFormat[domain.RefreshCacheResult] =
+    jsonFormat1(domain.RefreshCacheResult)
 
   implicit val CreateCommandResponseFormat: RootJsonFormat[domain.CreateCommandResponse[JsValue]] =
     jsonFormat8(domain.CreateCommandResponse[JsValue])

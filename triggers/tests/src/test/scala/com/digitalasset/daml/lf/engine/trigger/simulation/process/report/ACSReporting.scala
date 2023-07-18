@@ -6,6 +6,7 @@ package report
 
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import akka.actor.typed.scaladsl.Behaviors
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
 import com.daml.lf.engine.trigger.simulation.process.ledger.{LedgerProcess, LedgerRegistration}
@@ -22,14 +23,18 @@ private[simulation] object ACSReporting {
   sealed abstract class Message extends Product with Serializable
   // Used by TriggerProcess
   private[process] final case class TriggerACSUpdate(
+      timestamp: Long,
       reportingId: UUID,
       triggerId: UUID,
+      triggerDefRef: Ref.DefinitionRef,
       acsView: TreeMap[String, Identifier],
   ) extends Message
   // Used by LedgerProcess
   private[process] final case class TriggerACSDiff(
+      timestamp: Long,
       reportingId: UUID,
       triggerId: UUID,
+      triggerDefRef: Ref.DefinitionRef,
       diff: ACSDiff,
   ) extends Message
 
@@ -39,28 +44,41 @@ private[simulation] object ACSReporting {
     Behaviors.setup { _ =>
       val acsDataFile = Files.newOutputStream(config.acsDataFile)
       val acsDataFileCsvHeader =
-        Seq("reporting-id", "trigger-id", "template-id", "contract-additions", "contract-deletions")
+        Seq(
+          "timestamp",
+          "reporting-id",
+          "trigger-id",
+          "trigger-def-ref",
+          "template-id",
+          "contract-additions",
+          "contract-deletions",
+        )
           .mkString("", ",", "\n")
       acsDataFile.write(acsDataFileCsvHeader.getBytes)
 
       Behaviors
         .receiveMessage[Message] {
           case TriggerACSUpdate(
+                timestamp,
                 reportingId,
                 triggerId,
+                triggerDefRef,
                 triggerACSView,
               ) =>
             ledger ! LedgerProcess.GetTriggerACSDiff(
-              LedgerRegistration.GetTriggerACSDiff(reportingId, triggerId, triggerACSView)
+              LedgerRegistration
+                .GetTriggerACSDiff(timestamp, reportingId, triggerId, triggerDefRef, triggerACSView)
             )
             Behaviors.same
 
-          case TriggerACSDiff(reportingId, triggerId, acs) =>
+          case TriggerACSDiff(timestamp, reportingId, triggerId, triggerDefRef, acs) =>
             acs.diff.foreach { case (templateId, contracts) =>
               val csvData: String =
                 Seq[Any](
+                  timestamp,
                   reportingId,
                   triggerId,
+                  triggerDefRef,
                   templateId,
                   contracts.additions,
                   contracts.deletions,

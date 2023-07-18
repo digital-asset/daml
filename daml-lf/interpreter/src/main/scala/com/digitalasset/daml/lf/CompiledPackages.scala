@@ -27,7 +27,7 @@ private[lf] abstract class CompiledPackages(
 /** Important: use the constructor only if you _know_ you have all the definitions! Otherwise
   * use the apply in the companion object, which will compile them for you.
   */
-private[lf] final class PureCompiledPackages(
+private[lf] final case class PureCompiledPackages(
     val packageIds: Set[PackageId],
     val pkgInterface: PackageInterface,
     val defns: Map[SDefinitionRef, SDefinition],

@@ -40,7 +40,7 @@ jobs:
       fi
   - task: Cache@2
     inputs:
-      key: '"canton-v2-" | ./canton_sha'
+      key: '"canton-v3-" | ./canton_sha'
       path: $(Build.StagingDirectory)/canton_lib
   - bash: |
       set -euo pipefail
@@ -57,6 +57,8 @@ jobs:
         git submodule update
         nix-shell --max-jobs 2 --run "sbt community-app/assembly"
         cp community/app/target/scala-*/canton-open-source-*.jar "$(Build.StagingDirectory)/canton_lib/canton.jar"
+        nix-shell --max-jobs 2 --run "sbt enterprise-app/assembly"
+        cp enterprise/app/target/scala-*/canton-enterprise-*.jar "$(Build.StagingDirectory)/canton_lib/canton-ee.jar"
       fi
     env:
       GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
@@ -79,7 +81,7 @@ jobs:
     - name: is_release
       value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     - template: job-variables.yml
-  timeoutInMinutes: 360
+  timeoutInMinutes: 180
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -141,7 +143,7 @@ jobs:
       value: $[ and(eq(variables.is_release, 'true'),
                        eq(variables['Build.SourceBranchName'], 'main')) ]
     - template: job-variables.yml
-  timeoutInMinutes: 360
+  timeoutInMinutes: 180
   pool:
     name: 'windows-pool'
     demands: assignment -equals default
@@ -178,6 +180,10 @@ jobs:
         is_release: variables.is_release
         is_split_release: $(is_split_release)
     - template: upload-bazel-metrics.yml
+    - bash: |
+        set -euo pipefail
+        cd '$(Build.StagingDirectory)/logs'
+        gzip -9 *
     - task: PublishBuildArtifacts@1
       condition: succeededOrFailed()
       inputs:
@@ -191,7 +197,7 @@ jobs:
 - job: Linux_oracle
   dependsOn:
   - build_canton
-  timeoutInMinutes: 360
+  timeoutInMinutes: 180
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -246,6 +252,7 @@ jobs:
         # Actually run some tests
         # Note: Oracle tests all run sequentially because they all access the same Oracle instance,
         # and we sometimes observe transient connection issues when running tests in parallel.
+        export ARTIFACTORY_AUTH=$(echo -n "$ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD" | base64 -w0)
         bazel test \
           --config=oracle \
           --test_strategy=exclusive \
@@ -262,6 +269,8 @@ jobs:
       env:
         DOCKER_LOGIN: $(DOCKER_LOGIN)
         DOCKER_PASSWORD: $(DOCKER_PASSWORD)
+        ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
+        ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
       displayName: 'Build'
       condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'False'))
 
@@ -333,7 +342,7 @@ jobs:
     - check_for_release
   condition: and(succeeded(),
                  not(eq(dependencies.check_for_release.outputs['out.is_release'], 'true')))
-  timeoutInMinutes: 360
+  timeoutInMinutes: 180
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
@@ -350,7 +359,7 @@ jobs:
     - check_for_release
     - compatibility_ts_libs
     - build_canton
-  timeoutInMinutes: 360
+  timeoutInMinutes: 180
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default

@@ -83,7 +83,7 @@ private[lf] object SExpr {
       /* special case for nullary record constructors */
       b match {
         case SBRecCon(id, fields) if b.arity == 0 =>
-          SRecord(id, fields, ArrayList.empty)
+          SRecordRep(id, fields, Map.empty)
         case _ =>
           SPAP(PBuiltin(b), ArrayList.empty, b.arity)
       }

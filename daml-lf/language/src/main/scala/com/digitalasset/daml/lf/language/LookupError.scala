@@ -54,7 +54,7 @@ sealed abstract class Reference extends Product with Serializable {
 object Reference {
 
   final case class Package(packageId: PackageId) extends Reference {
-    override def pretty: String = s"package $packageId."
+    override def pretty: String = s"package $packageId"
   }
 
   final case class Module(packageId: PackageId, moduleName: ModuleName) extends Reference {
