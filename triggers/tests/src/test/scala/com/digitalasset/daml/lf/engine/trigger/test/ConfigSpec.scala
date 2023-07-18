@@ -20,8 +20,6 @@ import scala.language.implicitConversions
 
 class ConfigSpec extends AsyncWordSpec with Matchers with CantonFixture {
 
-  final override protected lazy val devMode: Boolean = true
-
   private implicit def toParty(s: String): ApiTypes.Party =
     ApiTypes.Party(s)
   private implicit def toRefParty(s: String): Ref.Party =
