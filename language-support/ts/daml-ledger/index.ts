@@ -987,7 +987,7 @@ class Ledger {
   private async throwOnError(r: Response): Promise<void> {
     if (!r.ok) {
       const json = await r.json();
-      console.log(json);
+      console.log(JSON.stringify(json));
       throw decode(decodeLedgerError, json);
     }
   }
