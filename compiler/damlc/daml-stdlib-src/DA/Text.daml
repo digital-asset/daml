@@ -280,12 +280,11 @@ parseInt = primitive @"BETextToInt64"
 --   parseNumeric "3.14" == Some 3.14
 --   parseNumeric "+12.0" == Some 12
 -- ```
-#ifdef DAML_NAT_TYPE_ERASURE
-parseNumeric : Numeric n -> Text -> Optional (Numeric n)
-parseNumeric = primitive @"BETextToNumeric"
-#else
-parseNumeric : Text -> Optional (Numeric n)
+parseNumeric: forall n. NumericScale n => Text -> Optional (Numeric n)
+#ifndef DAML_NAT_TYPE_ERASURE
 parseNumeric = primitive @"BETextToNumericLegacy"
+#else
+parseNumeric = primitive @"BETextToNumeric" (numericOne @n)
 #endif
 
 -- | Attempt to parse a `Decimal` value from a given `Text`.
@@ -300,11 +299,7 @@ parseNumeric = primitive @"BETextToNumericLegacy"
 --   parseDecimal "+12.0" == Some 12
 -- ```
 parseDecimal : Text -> Optional Decimal
-#ifdef DAML_NAT_TYPE_ERASURE
-parseDecimal = parseNumeric (0.0 : Decimal)
-#else
 parseDecimal = parseNumeric
-#endif
 
 -- | Computes the SHA256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
 -- form. The hex encoding uses lowercase letters.
