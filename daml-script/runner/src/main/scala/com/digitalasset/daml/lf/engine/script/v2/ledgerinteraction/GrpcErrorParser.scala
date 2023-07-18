@@ -13,16 +13,21 @@ import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import io.grpc.StatusRuntimeException
 import scala.reflect.ClassTag
+import scala.util.Try
 
 object GrpcErrorParser {
   val decodeValue = (s: String) =>
-    ValueCoder
-      .decodeValue(
-        CidDecoder,
-        TransactionVersion.VDev,
-        ByteString.copyFrom(BaseEncoding.base64().decode(s)),
-      )
-      .toOption
+    for {
+      bytes <- Try(BaseEncoding.base64().decode(s)).toOption
+      value <-
+        ValueCoder
+          .decodeValue(
+            CidDecoder,
+            TransactionVersion.VDev,
+            ByteString.copyFrom(bytes),
+          )
+          .toOption
+    } yield value
 
   val parseList = (s: String) => s.tail.init.split(", ").toSeq
 
@@ -37,8 +42,16 @@ object GrpcErrorParser {
     val message = grpcStatus.getMessage()
     val oErrorInfoDetail = details.collectFirst { case eid: ErrorInfoDetail => eid }
     val errorCode = oErrorInfoDetail.fold("UNKNOWN")(_.errorCodeId)
-    val resourceDetails = details.collect { case rd: ResourceInfoDetail => rd }
-    val errorResourceFromString = ErrorResource.fromString _
+    val resourceDetails = details.collect { case ResourceInfoDetail(name, res) =>
+      (
+        ErrorResource
+          .fromString(res)
+          .getOrElse(
+            throw new IllegalArgumentException(s"Unrecognised error resource: \"$res\"")
+          ),
+        name,
+      )
+    }
 
     def classNameOf[A: ClassTag]: String = implicitly[ClassTag[A]].runtimeClass.getSimpleName
 
@@ -47,11 +60,7 @@ object GrpcErrorParser {
         handler: PartialFunction[Seq[(ErrorResource, String)], A]
     ): SubmitError =
       handler
-        .lift(
-          resourceDetails.collect {
-            case ResourceInfoDetail(name, errorResourceFromString.unlift(res)) => (res, name)
-          }
-        )
+        .lift(resourceDetails)
         .getOrElse(new SubmitError.TruncatedError(classNameOf[A], message))
 
     errorCode match {
