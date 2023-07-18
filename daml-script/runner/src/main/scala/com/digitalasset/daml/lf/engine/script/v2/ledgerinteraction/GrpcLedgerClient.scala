@@ -288,7 +288,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     val transactionTreeF = grpcClient.commandServiceClient
       .submitAndWaitForTransactionTree(request)
 
-    transactionTreeF.map(transactionTree => {
+    transactionTreeF.map { transactionTree =>
       val events = transactionTree.getTransaction.rootEventIds
         .map(evId => transactionTree.getTransaction.eventsById(evId))
         .toList
@@ -296,7 +296,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
         case Left(err) => throw new ConverterException(err)
         case Right(results) => results
       }
-    })
+    }
   }
 
   override def submitMustFail(
