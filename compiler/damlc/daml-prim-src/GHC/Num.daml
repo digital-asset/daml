@@ -102,6 +102,27 @@ class Signed a where
     -- | The absolute value: that is, the value without the sign.
     abs : a -> a
 
+-- | Use the `Divisible` class for types that can be divided.
+-- Instances should respect that division is the inverse of
+-- multiplication, i.e. `x * y / y` is equal to `x` whenever
+-- it is defined.
+class (Multiplicative a) => Divisible a where
+    -- | `x / y` divides `x` by `y`
+    (/) : a -> a -> a
+
+-- | Use the `Fractional` class for types that can be divided
+-- and where the reciprocal is well defined. Instances
+-- have to respect the following laws:
+--
+-- * When `recip x` is defined, it must be the inverse of
+-- `x` with respect to multiplication: `x * recip x = munit`
+--
+-- * When `recip y` is defined, then `x / y = x * recip y`
+class (Divisible a) => Fractional a where
+    -- | Calculates the reciprocal: `recip x` is `1/x`.
+    recip : a -> a
+    recip x = munit / x
+
 instance Additive Int where
     (+) = primitive @"BEAddInt64"
     (-) = primitive @"BESubInt64"
@@ -119,6 +140,11 @@ instance Number Int where
 instance Signed Int where
     signum x = if x == 0 then 0 else if x <= 0 then (-1) else 1
     abs x = if x <= 0 then negate x else x
+
+instance Divisible Int where
+    (/) = primitive @"BEDivInt64"
+
+#ifndef DAML_NAT_TYPE_ERASURE
 
 #define NUMERIC_LIT(n) (primitive @"BECastNumericLegacy" ((n) : Numeric 10))
 
@@ -143,6 +169,42 @@ instance Number (Numeric n)
 instance Signed (Numeric n) where
     signum x = if x == aunit then aunit else if x <= aunit then negate munit else munit
     abs x = if x <= aunit then negate x else x
+
+instance Divisible (Numeric n) where
+    (/) = primitive @"BEDivNumericLegacy"
+
+instance Fractional (Numeric n)
+
+#else 
+
+instance NumericScale n => Additive (Numeric n) where
+    (+) = primitive @"BEAddNumeric" 
+    (-) = primitive @"BESubNumeric"
+    negate x = aunit - x
+    aunit = munit - munit
+
+instance NumericScale n => Multiplicative (Numeric n) where
+    (*) = primitive @"BEMulNumeric" (numericOne @n)
+    munit = numericOne
+    x ^ n
+        | n == 0 = munit
+        | n == 2 = x * x
+        | n < 0 = munit / x ^ (negate n)
+        | n % 2 == 0 = (x ^ (n / 2)) ^ 2
+        | otherwise = x * x ^ (n - 1)
+
+instance NumericScale n => Number (Numeric n)
+
+instance NumericScale n => Signed (Numeric n) where
+    signum x = if x == aunit then aunit else if x <= aunit then negate munit else munit
+    abs x = if x <= aunit then negate x else x
+
+instance NumericScale n => Divisible (Numeric n) where
+    (/) = primitive @"BEDivNumeric" (numericOne @n)
+
+instance NumericScale n  => Fractional (Numeric n)
+    
+#endif
 
 #ifdef DAML_BIGNUMERIC
 
@@ -170,35 +232,6 @@ instance Signed BigNumeric where
     abs x = if x <= aunit then negate x else x
 
 #endif
-
--- | Use the `Divisible` class for types that can be divided.
--- Instances should respect that division is the inverse of
--- multiplication, i.e. `x * y / y` is equal to `x` whenever
--- it is defined.
-class (Multiplicative a) => Divisible a where
-    -- | `x / y` divides `x` by `y`
-    (/) : a -> a -> a
-
-instance Divisible Int where
-    (/) = primitive @"BEDivInt64"
-
-instance Divisible (Numeric n) where
-    (/) = primitive @"BEDivNumericLegacy"
-
--- | Use the `Fractional` class for types that can be divided
--- and where the reciprocal is well defined. Instances
--- have to respect the following laws:
---
--- * When `recip x` is defined, it must be the inverse of
--- `x` with respect to multiplication: `x * recip x = munit`
---
--- * When `recip y` is defined, then `x / y = x * recip y`
-class (Divisible a) => Fractional a where
-    -- | Calculates the reciprocal: `recip x` is `1/x`.
-    recip : a -> a
-    recip x = munit / x
-
-instance Fractional (Numeric n)
 
 -- | `x % y` calculates the remainder of `x` by `y`
 (%) : Int -> Int -> Int

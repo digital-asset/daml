@@ -562,97 +562,66 @@ fst (x, _) = x
 snd : (a, b) -> b
 snd (_, x) = x
 
-#define NUMERIC_LIT(n) (primitive @"BEMulNumericLegacy" (1.0 : Numeric 0) ((n) : Numeric 10))
-
 -- | `truncate x` rounds `x` toward zero.
 truncate : Numeric n -> Int
 truncate = primitive @"BENumericToInt64"
 
 -- | Convert an `Int` to a `Numeric`.
-#ifdef DAML_NAT_TYPE_ERASURE
-intToNumeric : Numeric n -> Int -> Numeric n
-intToNumeric = primitive @"BEInt64ToNumeric"
-#else
-intToNumeric : Int -> Numeric n
+intToNumeric : forall n. NumericScale n => Int -> Numeric n
+#ifndef DAML_NAT_TYPE_ERASURE
 intToNumeric = primitive @"BEInt64ToNumericLegacy"
+#else
+intToNumeric = primitive @"BEInt64ToNumeric" (numericOne @n)
 #endif
 
 -- | Convert an `Int` to a `Decimal`.
 intToDecimal : Int -> Decimal
-#ifdef DAML_NAT_TYPE_ERASURE
-intToDecimal = intToNumeric (0.0 : Decimal)
-#else
 intToDecimal = intToNumeric
-#endif
 
 -- | Bankers' Rounding: `roundBankers dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded to the nearest even digit.
 roundBankers : Int -> Numeric n -> Numeric n
 roundBankers = primitive @"BERoundNumeric"
 
 -- | Commercial Rounding: `roundCommercial dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded away from zero.
-#ifdef DAML_NAT_TYPE_ERASURE
-roundCommercial : forall n. Int -> Numeric n -> Numeric n
-roundCommercial d x =
-  -- We must avoid conversions to Int, otherwise this will crash in some cases.
-  -- Until we have a `roundCommercial` primitive, we use a somewhat hacky implementation
-  -- relying on `roundBankers` is a primitive.
-
-  -- We first use bankers rounding and then check if the difference is exactly .5
-  -- If that is the case, we’ve rounded in the wrong direction, so we shift it the other way.
-  let t = roundBankers d x
-      diff = x - t
-      -- This is defined in DA.Numeric but we inline it here to avoid creating a cyclic module dependency.
-      divNumeric : Numeric n3 -> Numeric n1 -> Numeric n2 -> Numeric n3
-      divNumeric = primitive @"BEDivNumeric"
-      problematicDiff = divNumeric x (0.5 : Numeric 1) (10.0 ^ d : Numeric 0) * signum x
-  in if diff == problematicDiff
-       then x + problematicDiff
-       else t
-#else
 roundCommercial : forall n. NumericScale n => Int -> Numeric n -> Numeric n
 roundCommercial d x =
-  -- We must avoid conversions to Int, otherwise this will crash in some cases.
   -- Until we have a `roundCommercial` primitive, we use a somewhat hacky implementation
   -- relying on `roundBankers` is a primitive.
 
-  -- We first use bankers rounding and then check if the difference is exactly .5
-  -- If that is the case, we’ve rounded in the wrong direction, so we shift it the other way.
-  let t = roundBankers d x
-      diff = x - t
-      -- This is defined in DA.Numeric but we inline it here to avoid creating a cyclic module dependency.
-      divNumeric : Numeric n1 -> Numeric n2 -> Numeric n
-      divNumeric = primitive @"BEDivNumericLegacy"
-      problematicDiff = (0.5 : Numeric 1) `divNumeric` (10.0 ^ d : Numeric 0) * signum x
-  in if diff == problematicDiff
-       then x + problematicDiff
-       else t
-#endif
+  -- We first use bankers rounding and calculate the difference
+  -- we idendity the problematic rounding by multiply 2 and checking idenmpotency by bankers rounding and its sign
+   let
+      t = roundBankers d x
+      diff = t - x
+      diffx2 = diff * intToNumeric 2
+    in
+      if diffx2 == roundBankers d diffx2 && diff * signum x < intToNumeric 0
+      then x - diff
+      else t
+
+zero: NumericScale n => Numeric n
+zero = intToNumeric 0
+
+half: NumericScale n => Numeric n
+half = fromNumeric (0.5: Numeric 1)
 
 -- | Round a `Decimal` to the nearest integer, where a `.5` is rounded away from zero.
-round : Numeric n -> Int
-round x = if x > NUMERIC_LIT(0.0)
-    then truncate (x + NUMERIC_LIT(0.5))
-    else truncate (x - NUMERIC_LIT(0.5))
+round : NumericScale n => Numeric n -> Int
+round x = if x > zero
+    then truncate $ x + half
+    else truncate $ x - half
 
 -- | Round a `Decimal` down to the nearest integer.
-floor : Numeric n -> Int
+floor : NumericScale n => Numeric n -> Int
 floor x =
   let i = truncate x
-#ifdef DAML_NAT_TYPE_ERASURE
-  in if intToNumeric x i <= x then i else i - 1
-#else
   in if intToNumeric i <= x then i else i - 1
-#endif
 
 -- | Round a `Decimal` up to the nearest integer.
-ceiling : Numeric n -> Int
+ceiling : NumericScale n => Numeric n -> Int
 ceiling x =
   let i = truncate x
-#ifdef DAML_NAT_TYPE_ERASURE
-  in if intToNumeric x i < x then i + 1 else i
-#else
   in if intToNumeric i < x then i + 1 else i
-#endif
 
 -- | Is the list empty? `null xs` is true if `xs` is the empty list.
 null : [a] -> Bool
