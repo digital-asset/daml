@@ -37,6 +37,7 @@ object CantonRunner {
     Paths.get(rlocation("canton/canton-patched_deploy.jar"))
 
   case class CantonFiles(
+      bootstrapFile: Path,
       configFile: Path,
       cantonLogFile: Path,
       portsFile: Path,
@@ -44,6 +45,7 @@ object CantonRunner {
 
   object CantonFiles {
     def apply(dir: Path): CantonFiles = CantonFiles(
+      bootstrapFile = dir.resolve("participant.bootstrap"),
       configFile = dir.resolve("participant.config"),
       cantonLogFile = dir.resolve("canton.log"),
       portsFile = dir.resolve("portsfile"),
@@ -87,6 +89,7 @@ object CantonRunner {
       s"""${participantId} {
          |      admin-api.port = ${adminPort.port}
          |      ledger-api{
+         |        max-deduplication-duration = 0s
          |        port = ${ledgerApiPort.port}
          |        explicit-disclosure-unsafe = ${config.enableDisclosedContracts}
          |        ${authConfig}
@@ -126,6 +129,11 @@ object CantonRunner {
          |}
           """.stripMargin
     discard(Files.write(files.configFile, cantonConfig.getBytes(StandardCharsets.UTF_8)))
+
+    val bootstrapOptions = config.bootstrapScript.fold(List.empty[String]) { case script =>
+      discard { Files.write(files.bootstrapFile, script.getBytes(StandardCharsets.UTF_8)) }
+      List("--bootstrap", files.bootstrapFile.toString)
+    }
     val debugOptions =
       if (config.debug) List("--log-file-name", files.cantonLogFile.toString, "--verbose")
       else List.empty
@@ -149,6 +157,7 @@ object CantonRunner {
             "--auto-connect-local" ::
             "-c" ::
             files.configFile.toString ::
+            bootstrapOptions :::
             debugOptions
         ).run(ProcessLogger { str =>
           if (config.debug) println(str)
