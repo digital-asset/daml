@@ -257,6 +257,7 @@ daml_compile(
 
 da_scala_test_suite(
     name = "test",
+    size = "large",
     srcs = glob(
         ["src/com/**/*.scala"],
         exclude = ["src/com/**/DevIT.scala"],
