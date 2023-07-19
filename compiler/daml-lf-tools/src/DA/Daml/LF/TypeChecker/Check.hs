@@ -182,10 +182,20 @@ kindOf = \case
   TNat _ -> pure KNat
 
 checkQuantifications :: forall m. MonadGamma m => DefValue -> Type -> m ()
-checkQuantifications dval typ = go typ (dvalBody dval)
+checkQuantifications dval topType = go topType (dvalBody dval)
   where
-    exprValName :: ExprValName
-    exprValName = fst (dvalBinder dval)
+    -- Exclude type dictionaries
+    isFunction :: Bool
+    isFunction = go (dvalBody dval) topType
+      where
+        go (ETyLam {tylamBody}) (TForall {forallBody}) = go tylamBody forallBody
+        go (ETmLam {tmlamBinder = (varName, _), tmlamBody}) (AppArrow _ rest)
+          | "$d" `T.isPrefixOf` unExprVarName varName || "$f" `T.isPrefixOf` unExprVarName varName
+          = go tmlamBody rest
+          | otherwise
+          = True
+        go _ (AppArrow _ _) = True
+        go _ _ = False
 
     go :: Type -> Expr -> m ()
     go (TForall (tvn, kind) typ) expr = do
@@ -193,7 +203,10 @@ checkQuantifications dval typ = go typ (dvalBody dval)
             case expr of
               ETyLam {tylamBody} -> tylamBody
               other -> other
-      when (kind == KNat && typeVarOnlyInReturn tvn typ strippedBind) (throwWithContext (ENatTypeVarOnlyInReturn exprValName tvn))
+      when (kind == KNat && typeVarOnlyInReturn tvn typ strippedBind) $
+        if isFunction
+          then throwWithContext (ENatTypeVarOnlyInReturn (dvalName dval) tvn)
+          else throwWithContext (ENatTypeVarOnlyInValue (dvalName dval) tvn)
       go typ strippedBind
     go (AppArrow _ o) expr = do
       let strippedBind =
@@ -222,6 +235,7 @@ typeVarOnlyInReturn tvn typ expr =
   collectBinds soFar (ETyLam {tylamBody}) = collectBinds soFar tylamBody
   collectBinds soFar _ = reverse soFar
 
+  -- Exclude type dictionaries
   pruneTypeWithBind :: Type -> Maybe (ExprVarName, Type) -> Maybe Type
   pruneTypeWithBind typ (Just (varName, typ2)) = do
     when (typ /= typ2) $ error $ unwords ["Types do not match:", show typ, show typ2]

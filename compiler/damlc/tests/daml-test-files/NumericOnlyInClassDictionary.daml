@@ -6,5 +6,5 @@ import GHC.Types
 class MyClass (n : Nat) where
 
 -- A class dictionary does not count as an argument that can constrain the type
-numericOnlyInClassDictionary : forall n. MyClass n => Numeric n
+numericOnlyInClassDictionary : forall n m. MyClass n => Numeric m -> Numeric n
 numericOnlyInClassDictionary = error "Numeric only in class dictionary"
