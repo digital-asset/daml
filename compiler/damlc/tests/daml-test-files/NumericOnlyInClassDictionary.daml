@@ -1,9 +1,10 @@
+-- @ERROR range=10:1-10:29; Natural number type variable n in the type of function numericOnlyInClassDictionary is not determined by any of its arguments
 module NumericOnlyInClassDictionary where
 
 import GHC.Types
 
 class MyClass (n : Nat) where
 
--- A class dictionary still counts as an argument that can constrain the type
+-- A class dictionary does not count as an argument that can constrain the type
 numericOnlyInClassDictionary : forall n. MyClass n => Numeric n
 numericOnlyInClassDictionary = error "Numeric only in class dictionary"

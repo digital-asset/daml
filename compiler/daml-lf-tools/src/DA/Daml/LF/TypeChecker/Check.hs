@@ -43,6 +43,7 @@ import           Data.Either.Combinators (whenLeft)
 import           Data.Foldable
 import           Data.Functor
 import           Data.List.Extended
+import           Data.Maybe (catMaybes)
 import Data.Generics.Uniplate.Data (para, universe)
 import qualified Data.Set as S
 import qualified Data.HashSet as HS
@@ -180,26 +181,54 @@ kindOf = \case
   TStruct recordType -> checkRecordType recordType $> KStar
   TNat _ -> pure KNat
 
-checkQuantifications :: forall m. MonadGamma m => ExprValName -> Type -> m ()
-checkQuantifications exprValName = go
+checkQuantifications :: forall m. MonadGamma m => DefValue -> Type -> m ()
+checkQuantifications dval typ = go typ (dvalBody dval)
   where
-    go :: Type -> m ()
-    go (TForall (tvn, kind) typ) = do
-      when (kind == KNat && typeVarOnlyInReturn tvn typ) (throwWithContext (ETypeVarOnlyInReturn exprValName tvn typ))
-      go typ
-    go (AppArrow _ o) = go o
-    go _ = pure ()
+    exprValName :: ExprValName
+    exprValName = fst (dvalBinder dval)
 
-typeVarOnlyInReturn :: TypeVarName -> Type -> Bool
-typeVarOnlyInReturn tvn typ =
-  let (args, ret) = collectArgsRet [] typ
+    go :: Type -> Expr -> m ()
+    go (TForall (tvn, kind) typ) expr = do
+      let strippedBind =
+            case expr of
+              ETyLam {tylamBody} -> tylamBody
+              other -> other
+      when (kind == KNat && typeVarOnlyInReturn tvn typ strippedBind) (throwWithContext (ENatTypeVarOnlyInReturn exprValName tvn))
+      go typ strippedBind
+    go (AppArrow _ o) expr = do
+      let strippedBind =
+            case expr of
+              ETmLam {tmlamBody} -> tmlamBody
+              other -> other
+      go o strippedBind
+    go _ _ = pure ()
+
+typeVarOnlyInReturn :: TypeVarName -> Type -> Expr -> Bool
+typeVarOnlyInReturn tvn typ expr =
+  let (argTypes, ret) = collectArgTypesRet [] typ
+      binds = collectBinds [] expr
+      prunedTypes =
+        catMaybes $ zipWith pruneTypeWithBind argTypes (map Just binds ++ repeat Nothing)
   in
-  typeVarInType ret && not (any typeVarInType args)
+  typeVarInType ret && not (any typeVarInType prunedTypes)
   where
-  collectArgsRet :: [Type] -> Type -> ([Type], Type)
-  collectArgsRet soFar (AppArrow arg ret) = collectArgsRet (arg:soFar) ret
-  collectArgsRet soFar (TForall _ body) = collectArgsRet soFar body
-  collectArgsRet soFar body = (soFar, body)
+  collectArgTypesRet :: [Type] -> Type -> ([Type], Type)
+  collectArgTypesRet soFar (AppArrow arg ret) = collectArgTypesRet (arg:soFar) ret
+  collectArgTypesRet soFar (TForall _ body) = collectArgTypesRet soFar body
+  collectArgTypesRet soFar body = (reverse soFar, body)
+
+  collectBinds :: [(ExprVarName, Type)] -> Expr -> [(ExprVarName, Type)]
+  collectBinds soFar (ETmLam {tmlamBinder, tmlamBody}) = collectBinds (tmlamBinder:soFar) tmlamBody
+  collectBinds soFar (ETyLam {tylamBody}) = collectBinds soFar tylamBody
+  collectBinds soFar _ = reverse soFar
+
+  pruneTypeWithBind :: Type -> Maybe (ExprVarName, Type) -> Maybe Type
+  pruneTypeWithBind typ (Just (varName, typ2)) = do
+    when (typ /= typ2) $ error $ unwords ["Types do not match:", show typ, show typ2]
+    if "$d" `T.isPrefixOf` unExprVarName varName || "$f" `T.isPrefixOf` unExprVarName varName
+      then Nothing
+      else pure typ
+  pruneTypeWithBind typ _ = pure typ
 
   typeVarInType :: Type -> Bool
   typeVarInType typ = not (null [ () | TVar n <- universe typ, n == tvn ])
@@ -1011,8 +1040,7 @@ checkDefValue dval@(DefValue _loc (_, typ) (IsTest isTest) expr) = do
   checkType typ KStar
   checkExpr expr typ
   isUserWrittenValue <- isUserWrittenValue dval
-  when isUserWrittenValue $
-    checkQuantifications (fst (dvalBinder dval)) typ
+  when isUserWrittenValue $ checkQuantifications dval typ
   when isTest $
     case view _TForalls typ of
       (_, TScenario _) -> pure ()

@@ -161,7 +161,7 @@ data Error
   | EMissingMethodInInterfaceInstance !MethodName
   | EUnknownMethodInInterfaceInstance { eumiiIface :: !(Qualified TypeConName), eumiiTpl :: !(Qualified TypeConName), eumiiMethodName :: !MethodName }
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
-  | ETypeVarOnlyInReturn !ExprValName !TypeVarName !Type
+  | ENatTypeVarOnlyInReturn !ExprValName !TypeVarName
   | EUnknownExperimental !T.Text !Type
 
 contextLocation :: Context -> Maybe SourceLoc
@@ -529,8 +529,8 @@ instance Pretty Error where
       text "Tried to implement method " <> quotes (pretty eumiiMethodName) <> text ", but interface " <> pretty eumiiIface <> text " does not have a method with that name."
     EWrongInterfaceRequirement requiringIface requiredIface ->
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
-    ETypeVarOnlyInReturn evn tvn ty ->
-      "Type variable " <> pretty tvn <> " in definition of " <> pretty evn <> " is not determined by any arguments in its type " <> pretty ty
+    ENatTypeVarOnlyInReturn evn tvn ->
+      "Natural number type variable " <> pretty tvn <> " in the type of function " <> pretty evn <> " is not determined by any of its arguments"
     EUnknownExperimental name ty ->
       "Unknown experimental primitive " <> string (show name) <> " : " <> pretty ty
 
