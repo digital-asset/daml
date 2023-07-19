@@ -1,5 +1,5 @@
 module NumericInReturnType where
 
--- @ERROR range=5:1-5:20; Type variable n in definition of numericInReturnType is not determined by any arguments in its type Unit -> Numeric n
+-- @ERROR range=5:1-5:20; Natural number type variable n in the type of function numericInReturnType is not determined by any of its arguments
 numericInReturnType : forall n. () -> Numeric n
 numericInReturnType = error "Numeric in return type"

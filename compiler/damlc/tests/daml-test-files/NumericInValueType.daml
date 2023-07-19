@@ -1,5 +1,5 @@
 module NumericInValueType where
 
--- @ERROR range=5:1-5:19; Type variable n in definition of numericInValueType is not determined by any arguments in its type Numeric n
+-- @ERROR range=5:1-5:19; Unconstrained type variable n in the type of value numericInValueType cannot be a natural number
 numericInValueType : forall n. Numeric n
 numericInValueType = error "Numeric in value type"
