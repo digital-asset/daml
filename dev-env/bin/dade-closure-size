@@ -2,7 +2,7 @@
 #
 # Compute the size of the development environment closure
 #
-DADE_CURRENT_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+DADE_CURRENT_SCRIPT_DIR="$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )"
 PATHS=$DADE_CURRENT_SCRIPT_DIR/../var/gc-roots/*/
 
 for bin in $PATHS; do

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #set -e
 
-DADE_CURRENT_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+DADE_CURRENT_SCRIPT_DIR="$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )"
 PATH=$DADE_CURRENT_SCRIPT_DIR:$PATH
 source "$DADE_CURRENT_SCRIPT_DIR/../lib/dade-common"
 
