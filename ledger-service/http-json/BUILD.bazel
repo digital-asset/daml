@@ -304,7 +304,10 @@ alias(
 [
     da_scala_library(
         name = "integration-tests-lib-{}".format(edition),
-        srcs = glob(["src/itlib/scala/**/*.scala"]),
+        srcs = glob(
+            ["src/itlib/scala/**/*.scala"],
+            exclude = ["src/itlib/scala/**/CE.scala"] if edition == "ee" else ["src/itlib/scala/**/EE.scala"],
+        ),
         resources = glob(["src/itlib/resources/**/*"]),
         scala_deps = [
             "@maven//:com_lihaoyi_sourcecode",
@@ -364,6 +367,7 @@ alias(
             "//libs-scala/resources",
             "//libs-scala/resources-grpc",
             "//libs-scala/scala-utils",
+            "//libs-scala/timer-utils",
             "//observability/metrics",
             "//observability/metrics:metrics-test-lib",
             "//runtime-components/non-repudiation",

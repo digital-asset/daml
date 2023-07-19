@@ -22,6 +22,7 @@ private[codegen] final case class Type(typ: Option[TypeDecl], types: Map[String,
 private[codegen] final case class InterfaceTree(
     modules: Map[String, Module],
     interface: PackageSignature,
+    auxiliarySignatures: NodeWithContext.AuxiliarySignatures,
 ) {
 
   def process(f: NodeWithContext => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
@@ -33,7 +34,13 @@ private[codegen] final case class InterfaceTree(
   def bfs[A](z: A)(f: (A, NodeWithContext) => A): A = {
     val nodeWithLineages = mutable.Queue.empty[NodeWithContext]
     for ((name, module) <- modules) {
-      nodeWithLineages += ModuleWithContext(interface, BackStack.empty, name, module)
+      nodeWithLineages += ModuleWithContext(
+        interface,
+        auxiliarySignatures,
+        BackStack.empty,
+        name,
+        module,
+      )
     }
     @tailrec
     def go(result: A): A = {
@@ -49,7 +56,7 @@ private[codegen] final case class InterfaceTree(
   }
 }
 
-private[codegen] sealed trait NodeWithContext {
+private[codegen] sealed trait NodeWithContext extends Product with Serializable {
   def interface: PackageSignature
   def lineage: ImmArray[(String, Node)]
   def modulesLineage: BackStack[(String, Module)]
@@ -60,8 +67,15 @@ private[codegen] sealed trait NodeWithContext {
   final def packageId: Ref.PackageId = interface.packageId
 }
 
+private[codegen] object NodeWithContext {
+
+  /** Signatures from other packages involved in the codegen run. */
+  type AuxiliarySignatures = Map[Ref.PackageId, PackageSignature]
+}
+
 private[codegen] final case class ModuleWithContext(
     interface: PackageSignature,
+    auxiliarySignatures: NodeWithContext.AuxiliarySignatures,
     modulesLineage: BackStack[(String, Module)],
     name: String,
     module: Module,
@@ -69,7 +83,13 @@ private[codegen] final case class ModuleWithContext(
   override def childrenLineages: Iterable[NodeWithContext] = {
     val newModulesLineage = modulesLineage :+ (name -> module)
     module.modules.map { case (childName, childModule) =>
-      ModuleWithContext(interface, newModulesLineage, childName, childModule): NodeWithContext
+      ModuleWithContext(
+        interface,
+        auxiliarySignatures,
+        newModulesLineage,
+        childName,
+        childModule,
+      )
     } ++ typesLineages
   }
 
@@ -77,6 +97,7 @@ private[codegen] final case class ModuleWithContext(
     case (childName, childType) =>
       TypeWithContext(
         interface,
+        auxiliarySignatures,
         modulesLineage :+ (name -> module),
         BackStack.empty,
         childName,
@@ -88,6 +109,7 @@ private[codegen] final case class ModuleWithContext(
 
 private[codegen] final case class TypeWithContext(
     interface: PackageSignature,
+    auxiliarySignatures: NodeWithContext.AuxiliarySignatures,
     modulesLineage: BackStack[(String, Module)],
     typesLineage: BackStack[(String, Type)],
     name: String,
@@ -98,6 +120,7 @@ private[codegen] final case class TypeWithContext(
     case (childName, childType) =>
       TypeWithContext(
         interface,
+        auxiliarySignatures,
         modulesLineage,
         typesLineage :+ (name -> `type`),
         childName,
@@ -121,12 +144,15 @@ private[codegen] final case class TypeWithContext(
 
 private[codegen] object InterfaceTree extends StrictLogging {
 
-  def fromInterface(interface: PackageSignature): InterfaceTree = {
+  def fromInterface(
+      interface: PackageSignature,
+      auxSigs: NodeWithContext.AuxiliarySignatures,
+  ): InterfaceTree = {
     val builder = new InterfaceTreeBuilder(new mutable.HashMap())
     interface.typeDecls.foreach { case (identifier, typ) =>
       builder.insert(identifier, typ)
     }
-    builder.build(interface)
+    builder.build(interface, auxSigs)
   }
 
   private sealed trait NodeBuilder
@@ -204,8 +230,11 @@ private[codegen] object InterfaceTree extends StrictLogging {
       children: mutable.HashMap[String, ModuleBuilder]
   ) {
 
-    def build(interface: PackageSignature): InterfaceTree =
-      InterfaceTree(children.view.mapValues(_.build()).toMap, interface)
+    def build(
+        interface: PackageSignature,
+        auxSigs: NodeWithContext.AuxiliarySignatures,
+    ): InterfaceTree =
+      InterfaceTree(children.view.mapValues(_.build()).toMap, interface, auxSigs)
 
     def insert(qualifiedName: Ref.QualifiedName, `type`: TypeDecl): Unit = {
       children
