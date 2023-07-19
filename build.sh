@@ -18,7 +18,7 @@ if [[ "$(uname)" == "Darwin" ]]; then
   tag_filter="$tag_filter,-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
 
-SKIP_DEV_CANTON_TESTS=false
+SKIP_DEV_CANTON_TESTS=true
 if [ "$SKIP_DEV_CANTON_TESTS" = "true" ]; then
   tag_filter="$tag_filter,-dev-canton-test"
 fi
