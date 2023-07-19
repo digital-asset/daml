@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-DADE_CURRENT_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+DADE_CURRENT_SCRIPT_DIR="$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )"
 source "$DADE_CURRENT_SCRIPT_DIR/../lib/dade-common"
-DADE_CURRENT_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+DADE_CURRENT_SCRIPT_DIR="$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )"
 
 if [ $# -lt 1 ]; then
    "$DADE_CURRENT_SCRIPT_DIR"/dade-help
