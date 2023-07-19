@@ -14,7 +14,7 @@ data Submit = Submit with
   actAs : NonEmpty Party
   readAs : [Party]
   commands : [Command]
-instance IsQuestion Submit [CommandResult]
+instance IsQuestion Submit [CommandResult] where command = "Submit"
 
 actAsNonEmpty : [Party] -> NonEmpty Party
 actAsNonEmpty ps = case toParties ps of
@@ -33,7 +33,7 @@ data SubmitMustFail = SubmitMustFail with
   actAs : NonEmpty Party
   readAs : [Party]
   commands : [Command]
-instance IsQuestion SubmitMustFail ()
+instance IsQuestion SubmitMustFail () where command = "SubmitMustFail"
 
 submitMustFailInternal : HasCallStack => [Party] -> [Party] -> Commands a -> Script ()
 submitMustFailInternal actAs readAs cmds =
@@ -83,7 +83,7 @@ data SubmitTree = SubmitTree with
   actAs : NonEmpty Party
   readAs : [Party]
   commands : [Command]
-instance IsQuestion SubmitTree TransactionTree
+instance IsQuestion SubmitTree TransactionTree where command = "SubmitTree"
 
 submitTreeInternal : HasCallStack => [Party] -> [Party] -> Commands a -> Script TransactionTree
 submitTreeInternal actAs readAs cmds =

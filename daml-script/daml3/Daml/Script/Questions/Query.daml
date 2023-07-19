@@ -12,7 +12,7 @@ import DA.Stack
 data QueryACS = QueryACS with
   parties : [Party]
   tplId : TemplateTypeRep
-instance IsQuestion QueryACS [(ContractId (), AnyTemplate)]
+instance IsQuestion QueryACS [(ContractId (), AnyTemplate)] where command = "QueryACS"
 
 -- | Query the set of active contracts of the template
 -- that are visible to the given party.
@@ -35,7 +35,7 @@ data QueryContractId = QueryContractId with
   parties : [Party]
   tplId : TemplateTypeRep
   cid : ContractId ()
-instance IsQuestion QueryContractId (Optional AnyTemplate)
+instance IsQuestion QueryContractId (Optional AnyTemplate) where command = "QueryContractId"
 
 -- | Query for the contract with the given contract id.
 --
@@ -60,7 +60,7 @@ queryContractId p c = fmap convert $ lift $ QueryContractId with
 data QueryInterface = QueryInterface with
   parties : [Party]
   interfaceId : TemplateTypeRep
-instance IsQuestion QueryInterface [LedgerValue]
+instance IsQuestion QueryInterface [LedgerValue] where command = "QueryInterface"
 
 -- | Query the set of active contract views for an interface
 -- that are visible to the given party.
@@ -79,7 +79,7 @@ data QueryInterfaceContractId = QueryInterfaceContractId with
   parties : [Party]
   interfaceId : TemplateTypeRep
   cid : ContractId ()
-instance IsQuestion QueryInterfaceContractId (Optional LedgerValue)
+instance IsQuestion QueryInterfaceContractId (Optional LedgerValue) where command = "QueryInterfaceContractId"
 
 -- | Query for the contract view with the given contract id.
 --
@@ -106,7 +106,7 @@ data QueryContractKey = QueryContractKey with
   parties : [Party]
   tplId : TemplateTypeRep
   key : AnyContractKey -- TODO rename this, key goes blue
-instance IsQuestion QueryContractKey (Optional (ContractId (), AnyTemplate))
+instance IsQuestion QueryContractKey (Optional (ContractId (), AnyTemplate)) where command = "QueryContractKey"
 
 -- | Returns `None` if there is no active contract with the given key that
 -- the party is a stakeholder on.

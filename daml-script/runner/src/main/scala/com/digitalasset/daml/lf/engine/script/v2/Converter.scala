@@ -200,16 +200,14 @@ object Converter extends script.ConverterMethods {
   }
 
   final case class Question[A](
-      name: VariantConName,
+      name: String,
+      version: Int,
       payload: A,
-      continue: SValue,
       stackTrace: StackTrace,
+      continue: SValue,
   ) extends script.Script.FailableCmd {
     override def description = name.toString
   }
-
-  def identifierToVariantConName(identifier: Identifier): VariantConName =
-    identifier.qualifiedName.name.segments.last
 
   def unrollFree(ctx: ScriptF.Ctx, v: SValue): ErrorOr[SValue Either Question[SValue]] =
     // ScriptF is a newtype over the question with its payload, locations and continue. It's modelled as a record with a single field.
@@ -223,13 +221,13 @@ object Converter extends script.ConverterMethods {
               _,
               _,
               ArrayList(
-                SRecord(_, _, ArrayList(payload @ SRecord(name, _, _), locations, continue))
+                SRecord(_, _, ArrayList(SText(name), SInt64(version), payload, locations, continue))
               ),
             ),
           ) =>
         for {
           stackTrace <- toStackTrace(ctx.knownPackages, locations)
-        } yield Right(Question(identifierToVariantConName(name), payload, continue, stackTrace))
+        } yield Right(Question(name, version.toInt, payload, stackTrace, continue))
       case SVariant(_, "Pure", _, v) => Right(Left(v))
       case _ => Left(s"Expected Free Question or Pure, got $v")
     }

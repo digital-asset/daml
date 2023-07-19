@@ -111,6 +111,7 @@ private[lf] class Runner(
             .toFuture(
               ScriptF.parse(
                 question.name,
+                question.version,
                 question.payload,
                 question.stackTrace,
               )

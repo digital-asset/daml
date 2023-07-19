@@ -16,7 +16,7 @@ import Daml.Script.Free (Free (..))
 data Catch = Catch with
   act : () -> Free ScriptF (LedgerValue, ())
   dummy : ()
-instance IsQuestion Catch (Either AnyException x)
+instance IsQuestion Catch (Either AnyException x) where command = "Catch"
 
 tryToEither : forall t. (() -> Script t) -> Script (Either AnyException t)
 tryToEither act = lift Catch with act = \() -> fmap (first toLedgerValue) $ runScript (act ()) (), dummy = ()
@@ -33,7 +33,7 @@ instance ActionCatch Script where
 -- Consider reworking how the ghc stack traces are passed around in this file
 data Throw = Throw with
   exc: AnyException
-instance IsQuestion Throw t
+instance IsQuestion Throw t where command = "Throw"
 
 instance ActionThrow Script where
   throw e = throwAnyException $ toAnyException e

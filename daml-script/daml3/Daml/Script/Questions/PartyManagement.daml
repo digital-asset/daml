@@ -10,7 +10,7 @@ data AllocateParty = AllocateParty with
   displayName : Text
   idHint : Text
   participant : Optional Text
-instance IsQuestion AllocateParty Party
+instance IsQuestion AllocateParty Party where command = "AllocateParty"
 
 -- | A hint to the backing participant what party id to allocate.
 -- Must be a valid PartyIdString (as described in @value.proto@).
@@ -60,7 +60,7 @@ data PartyDetails = PartyDetails
 
 data ListKnownParties = ListKnownParties with
   participant : Optional Text
-instance IsQuestion ListKnownParties [PartyDetails]
+instance IsQuestion ListKnownParties [PartyDetails] where command = "ListKnownParties"
 
 -- | List the parties known to the default participant.
 listKnownParties : HasCallStack => Script [PartyDetails]

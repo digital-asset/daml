@@ -25,7 +25,7 @@ import DA.Text (isPrefixOf)
 
   Time.daml is an excellent example, be sure to check that.
   The generic structure is as follows:
-  You define a data type with a unique name across the scripts library.
+  You define a data type to use as the payload for your question.
     IMPORTANT: This type must be a record in LF, so either give it fields, or use the `data MyRecord = MyRecord {}` syntax.
     Note that if all the fields in your record are of the form `() -> ...`, you'll need to add a `dummy : ()` field
       due to old-style typeclasses, if you want daml3-script to be usable as a data dependency.
@@ -36,12 +36,14 @@ import DA.Text (isPrefixOf)
       someData : Int
   ```
   The above data type will be your payload, the input to the question.
-  Next you define an IsQuestion instance, giving the expected return type. This class has no body.
+  Next you define an IsQuestion instance, giving the expected return type. The body should include the name and version for this payload
   e.g.
   ```
-    instance IsQuestion MyQuestion Int
+    instance IsQuestion MyQuestion Int where
+      command = "MyQuestion"
+      version = 1
   ```
-  Here we're saying that MyQuestion will return an Int.
+  Here we're saying that MyQuestion will return an Int, we're calling it MyQuestion, and starting our version as 1. The default version is also 1, so this could be omitted.
 
   Lastly, you can use `lift` on that data type to bring it up to a Script of the return type
   e.g.
@@ -61,6 +63,8 @@ import DA.Text (isPrefixOf)
 -- Everything is a question, which has a continuation, as well as input/putput types and callstack
 -- Note that res and a are _NOT_ the same, as this must be a functor, and res is contravariant
 data Question req res a = Question with
+    commandName : Text
+    commandVersion : Int
     payload : req
     locations : [(Text, SrcLoc)]
     continue : res -> a
@@ -68,8 +72,11 @@ data Question req res a = Question with
 
 -- We relate question requests to replies with this class, and build using the method.
 class IsQuestion req res where
+  command : Text
+  version : Int
+  version = 1
   makeQuestion : HasCallStack => req -> Question req res res
-  makeQuestion req = Question req (dropInternalFrames $ getCallStack callStack) identity
+  makeQuestion req = Question (command @req @res) (version @req @res) req (dropInternalFrames $ getCallStack callStack) identity
 
 -- Drop any stack frames that reference Daml Script internals
 dropInternalFrames : [(Text, SrcLoc)] -> [(Text, SrcLoc)]
