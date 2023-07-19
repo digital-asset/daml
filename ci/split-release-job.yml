@@ -97,7 +97,7 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
         tell_slack "Split release \`$(release_tag)\` just pushed to Artifactory." \
-                   "$(Slack.ci-failures-daml)"
+                   "$(Slack.team-canton)"
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
