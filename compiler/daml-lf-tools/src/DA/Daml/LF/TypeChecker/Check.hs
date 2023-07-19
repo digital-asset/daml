@@ -43,11 +43,10 @@ import           Data.Either.Combinators (whenLeft)
 import           Data.Foldable
 import           Data.Functor
 import           Data.List.Extended
-import           Data.Maybe (catMaybes)
+import           Data.Maybe (catMaybes, listToMaybe)
 import Data.Generics.Uniplate.Data (para, universe)
 import qualified Data.Set as S
 import qualified Data.HashSet as HS
-import           Data.Maybe (listToMaybe)
 import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
 import qualified Data.IntSet as IntSet
