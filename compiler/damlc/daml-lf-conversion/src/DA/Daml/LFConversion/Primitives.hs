@@ -210,7 +210,8 @@ convertPrim _ "BETextToNumericLegacy" (TText :-> TOptional (TNumeric n)) =
 convertPrim _ "BETextToNumeric" (TNumeric n0 :-> TText :-> TOptional (TNumeric n)) | n0 == n =
     pure $ ETyApp (EBuiltin BETextToNumeric) n
 convertPrim _ "BENumericOne" (TNumeric (TNat n0))  =
-  pure $ EBuiltin $ BENumeric $ numeric (fromTypeLevelNat n0) 1
+  pure $ EBuiltin $ BENumeric $ numeric (10 ^ n)
+  where n = fromTypeLevelNat n0
 
 convertPrim version "BEScaleBigNumeric" ty@(TBigNumeric :-> TInt64) =
     pure $
