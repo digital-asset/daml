@@ -138,7 +138,10 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
-    tags = ["cpu:4"],
+    tags = [
+        "cpu:4",
+        "dev-canton-test",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
