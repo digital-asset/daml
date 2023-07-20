@@ -364,8 +364,8 @@ class HashSpec extends AnyWordSpec with Matchers {
       val timestamps =
         List(
           Time.Timestamp.assertFromLong(0),
-          Time.Timestamp.assertFromString("1969-07-21T02:56:15.000000Z"),
-          Time.Timestamp.assertFromString("2019-12-16T11:17:54.940779363Z"),
+          Time.Timestamp.assertStrictFromString("1969-07-21T02:56:15.000000Z"),
+          Time.Timestamp.assertStrictFromString("2019-12-16T11:17:54.940779Z"),
         ).map(VA.timestamp.inj(_))
       val parties =
         List(

@@ -135,7 +135,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
       }
       case Model.DamlLfPrimType.Unit => { case JsObject(_) => V.ValueUnit }
       case Model.DamlLfPrimType.Timestamp => { case JsString(v) =>
-        V.ValueTimestamp(assertDE(Time.Timestamp fromString v))
+        V.ValueTimestamp(assertDE(Time.Timestamp lenientFromString v))
       }
       case Model.DamlLfPrimType.Date => { case JsString(v) =>
         try {

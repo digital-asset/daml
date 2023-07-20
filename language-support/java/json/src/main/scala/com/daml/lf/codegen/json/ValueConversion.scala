@@ -73,7 +73,7 @@ object ValueConversion {
     case text: JData.Text => LfValue.ValueText(text.getValue)
     case timestamp: JData.Timestamp =>
       LfValue.ValueTimestamp(
-        Time.Timestamp.assertFromInstant(timestamp.getValue)
+        Time.Timestamp.assertLenientFromInstant(timestamp.getValue)
       )
     case date: JData.Date =>
       LfValue.ValueDate(Time.Date.assertFromDaysSinceEpoch(date.getValue.toEpochDay.toInt))

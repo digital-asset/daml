@@ -16,7 +16,7 @@ class ActionsFromTreesSpec extends AnyFreeSpec with Matchers {
         Action.fromTrees(Seq.empty, setTime = true) shouldBe empty
       }
       "single transaction" in {
-        val t1 = Timestamp.assertFromString("1990-01-01T01:00:00Z")
+        val t1 = Timestamp.assertStrictFromString("1990-01-01T01:00:00Z")
         val trees = Seq(
           TestData
             .Tree(
@@ -33,7 +33,7 @@ class ActionsFromTreesSpec extends AnyFreeSpec with Matchers {
         actions(1) shouldBe a[SubmitSimpleSingle]
       }
       "multipe transaction at same time" in {
-        val t1 = Timestamp.assertFromString("1990-01-01T01:00:00Z")
+        val t1 = Timestamp.assertStrictFromString("1990-01-01T01:00:00Z")
         val trees = Seq(
           TestData
             .Tree(
@@ -59,8 +59,8 @@ class ActionsFromTreesSpec extends AnyFreeSpec with Matchers {
         actions(2) shouldBe a[SubmitSimpleSingle]
       }
       "multipe transaction at different times" in {
-        val t1 = Timestamp.assertFromString("1990-01-01T01:00:00Z")
-        val t2 = Timestamp.assertFromString("1990-01-02T01:00:00Z")
+        val t1 = Timestamp.assertStrictFromString("1990-01-01T01:00:00Z")
+        val t2 = Timestamp.assertStrictFromString("1990-01-02T01:00:00Z")
         val trees = Seq(
           TestData
             .Tree(
@@ -89,8 +89,8 @@ class ActionsFromTreesSpec extends AnyFreeSpec with Matchers {
     }
     "setTime disabled" - {
       "multipe transaction at different times" in {
-        val t1 = Timestamp.assertFromString("1990-01-01T01:00:00Z")
-        val t2 = Timestamp.assertFromString("1990-01-02T01:00:00Z")
+        val t1 = Timestamp.assertStrictFromString("1990-01-01T01:00:00Z")
+        val t2 = Timestamp.assertStrictFromString("1990-01-02T01:00:00Z")
         val trees = Seq(
           TestData
             .Tree(

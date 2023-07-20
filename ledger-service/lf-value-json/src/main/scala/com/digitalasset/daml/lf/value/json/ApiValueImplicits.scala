@@ -27,9 +27,10 @@ object ApiValueImplicits {
   // Timestamp has microsecond resolution
   implicit final class `ApiTimestamp.type additions`(private val it: V.ValueTimestamp.type)
       extends AnyVal {
-    def fromIso8601(t: String): V.ValueTimestamp = fromInstant(Instant.parse(t))
+    def fromIso8601(t: String): V.ValueTimestamp =
+      fromInstant(Instant.parse(t))
     def fromInstant(t: Instant): V.ValueTimestamp =
-      V.ValueTimestamp(Time.Timestamp.assertFromInstant(t))
+      V.ValueTimestamp(Time.Timestamp.assertLenientFromInstant(t))
     def fromMillis(t: Long): V.ValueTimestamp =
       V.ValueTimestamp(Time.Timestamp.assertFromLong(micros = t * 1000L))
   }

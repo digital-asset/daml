@@ -26,8 +26,8 @@ final class FuncStaticTimeIT extends AbstractFuncIT {
         assert(vals.size == 2)
         val t0 = assertSTimestamp(vals.get(0))
         val t1 = assertSTimestamp(vals.get(1))
-        assert(t0 == Timestamp.assertFromString("1970-01-01T00:00:00Z"))
-        assert(t1 == Timestamp.assertFromString("2000-02-02T00:01:02Z"))
+        assert(t0 == Timestamp.assertStrictFromString("1970-01-01T00:00:00Z"))
+        assert(t1 == Timestamp.assertStrictFromString("2000-02-02T00:01:02Z"))
       }
     }
   }

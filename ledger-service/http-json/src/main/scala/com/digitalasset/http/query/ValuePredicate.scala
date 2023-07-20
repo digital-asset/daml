@@ -373,7 +373,7 @@ object ValuePredicate {
   )(V.ValueDate)
   private[this] val TimestampRangeExpr = RangeExpr(
     { case JsString(q) =>
-      Time.Timestamp.fromString(q).fold(predicateParseError(_), identity)
+      Time.Timestamp.lenientFromString(q).fold(predicateParseError(_), identity)
     },
     { case V.ValueTimestamp(v) => v },
   )(V.ValueTimestamp)
