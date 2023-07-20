@@ -51,6 +51,13 @@ final case class EngineConfig(
     enableContractUpgrading: Boolean = false,
 ) {
 
+  // TODO: https://github.com/digital-asset/daml/issues/17082
+  // Workaround while we wait for: https://github.com/digital-asset/daml/pull/17126
+  // And a canton PR to support enableContractUpgrading in canton-config.
+  // Until then we set enableContractUpgrading via env-var.
+
+  val enableContractUpgradingEV = sys.env.get("enableContractUpgrading").isDefined
+
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
     speedy.Compiler.Config(
       allowedLanguageVersions,
@@ -69,6 +76,7 @@ final case class EngineConfig(
           speedy.Compiler.FullProfile
         else
           speedy.Compiler.NoProfile,
+      enableContractUpgrading = enableContractUpgradingEV,
     )
 
   private[lf] def authorizationChecker: AuthorizationChecker =

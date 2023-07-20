@@ -109,7 +109,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
             val defns =
               try {
                 new speedy.Compiler(extendedSignatures, compilerConfig)
-                  .unsafeCompilePackage(pkgId, pkg)
+                  .unsafeCompilePackage(pkgId, pkg, compilerConfig.enableContractUpgrading)
               } catch {
                 case e: validation.ValidationError =>
                   return ResultError(Error.Package.Validation(e))
