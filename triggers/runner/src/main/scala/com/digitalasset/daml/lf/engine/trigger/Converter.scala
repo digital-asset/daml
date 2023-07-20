@@ -476,10 +476,10 @@ object Converter {
       name <- DottedName.fromString(identifier.entityName)
     } yield Identifier(pkgId, QualifiedName(mod, name))
 
-  private def toLedgerRecord(v: SValue): Either[String, value.Record] =
+  protected[trigger] def toLedgerRecord(v: SValue): Either[String, value.Record] =
     lfValueToApiRecord(verbose = true, v.toUnnormalizedValue)
 
-  private def toLedgerValue(v: SValue): Either[String, value.Value] =
+  protected[trigger] def toLedgerValue(v: SValue): Either[String, value.Value] =
     lfValueToApiValue(verbose = true, v.toUnnormalizedValue)
 
   private def toIdentifier(v: SValue): Either[String, Identifier] =

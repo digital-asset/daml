@@ -10,19 +10,16 @@ import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.engine.trigger.simulation.process.TriggerProcessFactory
 import com.daml.lf.engine.trigger.simulation.process.ledger.LedgerProcess
-import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest.allocateParty
-import com.daml.lf.speedy.{SValue, Speedy}
-import com.daml.lf.testing.parser
-import com.daml.lf.testing.parser.{defaultLanguageVersion, parseExpr}
-import com.daml.logging.LoggingContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.nio.file.{Files, Path}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
 
-abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with AbstractTriggerTest {
+abstract class TriggerMultiProcessSimulation
+    extends AsyncWordSpec
+    with TriggerSimulationTesting {
 
   import TriggerMultiProcessSimulation._
 
@@ -134,25 +131,6 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
 
       spawnTriggers(client, ledger, actAs, controllerContext)
     }
-  }
-
-  protected def safeSValueFromLf(lfValue: String): Either[String, SValue] = {
-    val parserParameters: parser.ParserParameters[this.type] =
-      parser.ParserParameters(
-        defaultPackageId = packageId,
-        languageVersion = defaultLanguageVersion,
-      )
-
-    parseExpr(lfValue)(parserParameters).flatMap(expr =>
-      Speedy.Machine
-        .runPureExpr(expr, compiledPackages)(LoggingContext.ForTesting)
-        .left
-        .map(_.toString)
-    )
-  }
-
-  protected def unsafeSValueFromLf(lfValue: String): SValue = {
-    safeSValueFromLf(lfValue).left.map(cause => throw new RuntimeException(cause)).toOption.get
   }
 }
 
