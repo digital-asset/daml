@@ -589,7 +589,7 @@ roundCommercial d x =
   -- relying on `roundBankers` is a primitive.
 
   -- We first use bankers rounding and calculate the difference
-  -- we idendity the problematic rounding by multiply 2 and checking idenmpotency by bankers rounding and its sign
+  -- we identify the problematic rounding by multiply 2 and checking idempotency by bankers rounding and its sign
    let
       t = roundBankers d x
       diff = t - x
