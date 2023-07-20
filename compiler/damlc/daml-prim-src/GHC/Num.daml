@@ -202,7 +202,7 @@ instance NumericScale n => Signed (Numeric n) where
 instance NumericScale n => Divisible (Numeric n) where
     (/) = primitive @"BEDivNumeric" (numericOne @n)
 
-instance NumericScale n  => Fractional (Numeric n)
+instance NumericScale n => Fractional (Numeric n)
     
 #endif
 
