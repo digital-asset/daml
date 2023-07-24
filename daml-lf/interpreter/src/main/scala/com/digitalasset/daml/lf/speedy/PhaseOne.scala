@@ -687,9 +687,11 @@ private[lf] final class PhaseOne(
         compileExp(env, coid) { coid =>
           Return(t.FetchTemplateDefRef(tmplId)(coid))
         }
+      // TODO: https://github.com/digital-asset/daml/issues/17082
+      // - Soft fetch now has identical behavior to normal fetch, and could be removed
       case UpdateSoftFetchTemplate(tmplId, coid) =>
         compileExp(env, coid) { coid =>
-          Return(t.SoftFetchTemplateDefRef(tmplId)(coid))
+          Return(t.FetchTemplateDefRef(tmplId)(coid))
         }
       case UpdateFetchInterface(ifaceId, coid) =>
         compileExp(env, coid) { coid =>
@@ -720,10 +722,12 @@ private[lf] final class PhaseOne(
             Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
           }
         }
+      // TODO: https://github.com/digital-asset/daml/issues/17082
+      // - Soft exercise now has identical behavior to normal exercise, and could be removed
       case UpdateSoftExercise(tmplId, chId, cid, arg) =>
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>
-            Return(t.SoftTemplateChoiceDefRef(tmplId, chId)(cid, arg))
+            Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
           }
         }
       case UpdateDynamicExercise(tmplId, chId, cid, arg) =>

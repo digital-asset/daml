@@ -54,7 +54,7 @@ object JsonProtocol extends JsonProtocolLow {
     taggedJsonFormat
 
   private implicit val TimestampFormat: JsonFormat[Time.Timestamp] =
-    xemapStringJsonFormat(Time.Timestamp.fromString)(_.toString)
+    xemapStringJsonFormat(Time.Timestamp.lenientFromString)(_.toString)
 
   implicit def NonEmptyListFormat[A: JsonReader: JsonWriter]: JsonFormat[NonEmptyList[A]] =
     jsonFormatFromReaderWriter(NonEmptyListReader, NonEmptyListWriter)

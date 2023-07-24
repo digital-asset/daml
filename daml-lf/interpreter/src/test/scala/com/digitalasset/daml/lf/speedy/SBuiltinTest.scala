@@ -1350,9 +1350,9 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
         forEvery(testCases) { (date, int) =>
           eval(e"DATE_TO_UNIX_DAYS $date") shouldBe Right(SInt64(int))
-          eval(e"UNIX_DAYS_TO_DATE $int") shouldBe Time.Date
-            .asInt(int)
-            .map(i => SDate(Time.Date.assertFromDaysSinceEpoch(i)))
+          eval(e"UNIX_DAYS_TO_DATE $int") shouldBe Right(
+            SDate(Time.Date.assertFromDaysSinceEpoch(int.toInt))
+          )
           eval(e"EQUAL @Date (UNIX_DAYS_TO_DATE $int) $date") shouldBe Right(SBool(true))
         }
       }

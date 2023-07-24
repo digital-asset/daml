@@ -65,7 +65,7 @@ nix_tool() {
 # TODO(gleber): Compatibility mode until JBH is ugraded.
 DADE_DEVENV_DIR="${DADE_DEVENV_DIR:-${DADE_BASE:-}}"
 if [ -z "$DADE_DEVENV_DIR" ]; then
-    DADE_DEVENV_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
+    DADE_DEVENV_DIR="$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )"
 fi
 export DADE_DEVENV_DIR="${DADE_DEVENV_DIR}"
 export DADE_REPO_ROOT="${DADE_REPO_ROOT:-${DADE_DEVENV_DIR}/..}"

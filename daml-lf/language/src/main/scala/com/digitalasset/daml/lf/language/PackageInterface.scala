@@ -7,7 +7,6 @@ package language
 import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
-import scala.annotation.tailrec
 
 private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, PackageSignature]) {
 
@@ -363,34 +362,6 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
 
   val packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
     signatures andThen (_.languageVersion)
-
-  // TODO https://github.com/digital-asset/daml/issues/16151
-  // Do some println debugging here to understand when lookupPackage fails,
-  // exploring test failures which show up when using "-z" flag to restrict bazel test run, i.e.
-  //    bazel run //daml-script/test:test_test_suite_src_com_digitalasset_daml_lf_engine_script_test_PackageUpgradesIT.scala -- -z softEx
-  private[this] def lookupPredecessors(
-      pkgId: PackageId,
-      context: => Reference,
-  ): Either[LookupError, List[PackageId]] = {
-    @tailrec def preds(
-        pkgId: PackageId,
-        acc: List[PackageId],
-    ): Either[LookupError, List[PackageId]] = {
-      lookupPackage(pkgId, context) match {
-        case Left(err) => Left(err)
-        case Right(pkg) =>
-          pkg.metadata.flatMap(_.upgradedPackageId) match {
-            case None => Right(acc)
-            case Some(pkgId2) => preds(pkgId2, acc :+ pkgId2)
-          }
-      }
-    }
-    preds(pkgId, List.empty)
-  }
-
-  def lookupPredecessors(pkgId: PackageId): Either[LookupError, List[PackageId]] =
-    lookupPredecessors(pkgId, Reference.Package(pkgId))
-
 }
 
 object PackageInterface {

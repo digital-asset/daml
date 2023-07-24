@@ -710,10 +710,11 @@ private[lf] object SBuiltin {
   }
 
   final case object SBUnixDaysToDate extends SBuiltinArithmetic("UNIX_DAYS_TO_DATE", 1) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SDate] = {
-      val days = getSInt64(args, 0)
-      Time.Date.asInt(days).flatMap(Time.Date.fromDaysSinceEpoch).toOption.map(SDate)
-    }
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SDate] =
+      for {
+        days <- toInt(getSInt64(args, 0))
+        date <- Time.Date.fromDaysSinceEpoch(days).toOption
+      } yield SDate(date)
   }
 
   final case object SBTimestampToUnixMicroseconds extends SBuiltinPure(1) {
@@ -901,7 +902,7 @@ private[lf] object SBuiltin {
       val y = getSBigNumeric(args, 3)
       for {
         scale <- SBigNumeric.checkScale(unchekedScale).toOption
-        roundingModeIndex <- scala.util.Try(Math.toIntExact(unchekedRoundingMode)).toOption
+        roundingModeIndex <- toInt(unchekedRoundingMode)
         roundingMode <- java.math.RoundingMode.values().lift(roundingModeIndex)
         uncheckedResult <- handleArithmeticException(x.divide(y, scale, roundingMode))
         result <- SBigNumeric.fromBigDecimal(uncheckedResult).toOption
@@ -2082,6 +2083,8 @@ private[lf] object SBuiltin {
       case SText(text) => text
       case _ => throw SErrorCrash(where, s"value not a text: $v")
     }
+
+  private[this] def toInt(l: Long): Option[Int] = Some(l.toInt).filter(_ == l)
 
   private[this] val keyWithMaintainersStructFields: Struct[Unit] =
     Struct.assertFromNameSeq(List(Ast.keyFieldName, Ast.maintainersFieldName))

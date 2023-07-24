@@ -66,14 +66,14 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
     }
   }
 
-  "softFetch" should {
+  "Upgrading/fetch" should {
     "succeed when given a contract id of the same type Coin V1" in {
       for {
         clients <- scriptClients()
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("CoinUpgrade:create_v1_softFetch_v1"),
+            QualifiedName.assertFromString("CoinUpgrade:create_v1_fetch_v1"),
             dar = coinUpgradeV1V2Dar,
           )
       } yield r shouldBe SUnit
@@ -85,7 +85,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("CoinUpgrade:create_v2_softFetch_v2"),
+            QualifiedName.assertFromString("CoinUpgrade:create_v2_fetch_v2"),
             dar = coinUpgradeV1V2Dar,
           )
       } yield r shouldBe SUnit
@@ -97,7 +97,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("CoinUpgrade:create_v1_softFetch_v2"),
+            QualifiedName.assertFromString("CoinUpgrade:create_v1_fetch_v2"),
             dar = coinUpgradeV1V2Dar,
           )
       } yield r shouldBe SUnit
@@ -109,7 +109,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("CoinUpgrade:create_v1_softFetch_v2"),
+            QualifiedName.assertFromString("CoinUpgrade:create_v1_fetch_v2"),
             dar = coinUpgradeV1V2NewFieldDar,
           )
       } yield r shouldBe SUnit
@@ -121,7 +121,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("CoinUpgrade:create_v2_softFetch_v1"),
+            QualifiedName.assertFromString("CoinUpgrade:create_v2_fetch_v1"),
             dar = coinUpgradeV1V2Dar,
           )
       } yield r shouldBe SUnit
@@ -133,7 +133,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("CoinUpgrade:create_v2_none_softFetch_v1"),
+            QualifiedName.assertFromString("CoinUpgrade:create_v2_none_fetch_v1"),
             dar = coinUpgradeV1V2NewFieldDar,
           )
       } yield r shouldBe SUnit
@@ -145,7 +145,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("CoinUpgrade:create_v2_some_softFetch_v1"),
+            QualifiedName.assertFromString("CoinUpgrade:create_v2_some_fetch_v1"),
             dar = coinUpgradeV1V2NewFieldDar,
           )
       } yield r shouldBe SUnit
@@ -157,7 +157,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("CoinUpgrade:create_v1_softFetch_v3"),
+            QualifiedName.assertFromString("CoinUpgrade:create_v1_fetch_v3"),
             dar = coinUpgradeV1V3Dar,
           )
       } yield r shouldBe SUnit
@@ -169,21 +169,21 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("CoinUpgrade:create_v3_softFetch_v1"),
+            QualifiedName.assertFromString("CoinUpgrade:create_v3_fetch_v1"),
             dar = coinUpgradeV1V3Dar,
           )
       } yield r shouldBe SUnit
     }
   }
 
-  "softExercise" should {
+  "upgrading/exercise" should {
     "succeed when given a contract id of the same type Coin V2" in {
       for {
         clients <- scriptClients()
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("CoinUpgrade:create_v2_softExercise_v2"),
+            QualifiedName.assertFromString("CoinUpgrade:create_v2_exercise_v2"),
             dar = coinUpgradeV1V2Dar,
           )
       } yield r shouldBe SUnit
@@ -194,7 +194,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("CoinUpgrade:create_v1_softExercise_v2"),
+            QualifiedName.assertFromString("CoinUpgrade:create_v1_exercise_v2"),
             dar = coinUpgradeV1V2Dar,
           )
       } yield r shouldBe SUnit

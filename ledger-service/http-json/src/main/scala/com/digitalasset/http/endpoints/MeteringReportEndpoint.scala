@@ -47,7 +47,9 @@ private[http] object MeteringReportEndpoint {
   private val startOfDay = LocalTime.of(0, 0, 0)
 
   private[endpoints] def toTimestamp(ts: LocalDate): Timestamp = {
-    Timestamp.assertFromInstant(Instant.ofEpochSecond(ts.toEpochSecond(startOfDay, ZoneOffset.UTC)))
+    Timestamp.assertStrictFromInstant(
+      Instant.ofEpochSecond(ts.toEpochSecond(startOfDay, ZoneOffset.UTC))
+    )
   }
 
   private[endpoints] def toPbTimestamp(ts: Timestamp): protobuf.timestamp.Timestamp = {
