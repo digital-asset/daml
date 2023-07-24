@@ -75,8 +75,8 @@ class ValueTranslatorSpec
       (TInt64, ValueInt64(42), SInt64(42)),
       (
         TTimestamp,
-        ValueTimestamp(Time.Timestamp.assertStrictFromString("1969-07-20T20:17:00Z")),
-        STimestamp(Time.Timestamp.assertStrictFromString("1969-07-20T20:17:00Z")),
+        ValueTimestamp(Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")),
+        STimestamp(Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")),
       ),
       (
         TDate,

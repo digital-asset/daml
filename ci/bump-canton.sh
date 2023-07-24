@@ -50,3 +50,5 @@ sed -i "s|CANTON_ENTERPRISE_VERSION=.*|CANTON_ENTERPRISE_VERSION=$canton_version
 sed -i "s|CANTON_ENTERPRISE_SHA=.*|CANTON_ENTERPRISE_SHA=$ee_canton_sha|" canton/BUILD.bazel
 
 rm -f arbitrary_canton_sha
+
+echo $canton_version

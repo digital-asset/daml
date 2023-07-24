@@ -476,7 +476,7 @@ object ScriptF {
           }
           case ScriptTimeMode.WallClock =>
             Future {
-              Timestamp.assertLenientFromInstant(env.utcClock.instant())
+              Timestamp.assertFromInstant(env.utcClock.instant())
             }
         }
       } yield SEValue(STimestamp(time))
