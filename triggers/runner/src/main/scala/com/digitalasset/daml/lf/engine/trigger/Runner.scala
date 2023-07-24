@@ -1136,7 +1136,7 @@ private[lf] class Runner private (
       }
 
       val clientTime: Timestamp =
-        Timestamp.assertLenientFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+        Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
       val stateFun = Machine
         .stepToValue(compiledPackages, makeAppD(updateStateLambda, messageVal.value))
         .expect(
@@ -1225,7 +1225,7 @@ private[lf] class Runner private (
     triggerContext.logInfo("Trigger starting")
 
     val clientTime: Timestamp =
-      Timestamp.assertLenientFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+      Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     val hardLimitKillSwitch = KillSwitches.shared("hard-limit")
 
     import UnfoldState.{flatMapConcatNodeOps, toSourceOps}

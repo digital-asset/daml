@@ -176,7 +176,7 @@ object TransactionBuilder {
       Ref.Identifier(defaultPackageId, s)
 
     implicit def toTimestamp(s: String): Time.Timestamp =
-      Time.Timestamp.assertStrictFromString(s)
+      Time.Timestamp.assertFromString(s)
 
     implicit def toDate(s: String): Time.Date =
       Time.Date.assertFromString(s)

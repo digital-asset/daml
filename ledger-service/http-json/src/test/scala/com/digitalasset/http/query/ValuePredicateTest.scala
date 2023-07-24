@@ -140,7 +140,7 @@ class ValuePredicateTest
         true,
       ),
       c("""{"%gte": "1980-01-01T00:00:00Z", "%lt": "2000-01-01T00:00:00Z"}""", VA.timestamp)(
-        Time.Timestamp assertStrictFromString "1986-06-21T00:00:00Z",
+        Time.Timestamp assertFromString "1986-06-21T00:00:00Z",
         true,
       ),
     )
