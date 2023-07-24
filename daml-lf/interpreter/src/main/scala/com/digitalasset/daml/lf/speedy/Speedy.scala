@@ -121,7 +121,7 @@ private[lf] object Speedy {
     }
   }
 
-  final case class CachedContract(
+  final case class ContractInfo(
       version: TxVersion,
       templateId: Ref.TypeConName,
       value: SValue,
@@ -237,18 +237,18 @@ private[lf] object Speedy {
     /* Flag to trace usage of get_time builtins */
     private[this] var dependsOnTime: Boolean = false
     // global contract discriminators, that are discriminators from contract created in previous transactions
-    private[this] var cachedContracts_ : Map[V.ContractId, CachedContract] = Map.empty
+
     private[this] var numInputContracts: Int = 0
 
-    private[this] var disclosedContracts_ = Map.empty[V.ContractId, CachedContract]
-    private[speedy] def disclosedContracts: Map[V.ContractId, CachedContract] = disclosedContracts_
+    private[this] var disclosedContracts_ = Map.empty[V.ContractId, ContractInfo]
+    private[speedy] def disclosedContracts: Map[V.ContractId, ContractInfo] = disclosedContracts_
 
     private[this] var disclosedContractKeys_ = Map.empty[GlobalKey, V.ContractId]
     private[speedy] def disclosedContractKeys: Map[GlobalKey, V.ContractId] = disclosedContractKeys_
 
     private[speedy] def addDisclosedContracts(
         contractId: V.ContractId,
-        contract: CachedContract,
+        contract: ContractInfo,
     ): Unit = {
       disclosedContracts_ = disclosedContracts.updated(contractId, contract)
       contract.keyOpt.foreach(key =>
@@ -265,9 +265,6 @@ private[lf] object Speedy {
     def getDependsOnTime: Boolean =
       dependsOnTime
 
-    private[speedy] def cachedContracts: Map[V.ContractId, CachedContract] =
-      cachedContracts_
-
     val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
       if (validating) { _ => SVisibleToStakeholders.Visible }
       else {
@@ -276,11 +273,42 @@ private[lf] object Speedy {
 
     def incompleteTransaction: IncompleteTx = ptx.finishIncomplete
     def nodesToString: String = ptx.nodesToString
+
+    // local contract store...
+    private[speedy] var localContractStore: Map[V.ContractId, (TypeConName, SValue)] = Map.empty
+    private[speedy] def getIfLocalContract(coid: V.ContractId): Option[(TypeConName, SValue)] = {
+      localContractStore.get(coid)
+    }
+    private[speedy] def storeLocalContract(
+        coid: V.ContractId,
+        templateId: TypeConName,
+        templateArg: SValue,
+    ): Unit = {
+      localContractStore = localContractStore + (coid -> (templateId, templateArg))
+    }
+
+    // contract-info cache
+    // TODO: https://github.com/digital-asset/daml/issues/17082
+    // - Must be template-id aware when we support ResultNeedUpgradeVerification
+    private[speedy] var contractInfoCache: Map[V.ContractId, ContractInfo] = Map.empty
+    private[speedy] def lookupContractInfoCache(coid: V.ContractId): Option[ContractInfo] = {
+      contractInfoCache.get(coid)
+    }
+    private[speedy] def insertContractInfoCache(
+        coid: V.ContractId,
+        contract: ContractInfo,
+    ): Unit = {
+      contractInfoCache = contractInfoCache + (coid -> contract)
+    }
+
     private[speedy] def isLocalContract(contractId: V.ContractId): Boolean = {
       ptx.contractState.locallyCreated.contains(contractId)
     }
 
-    private[speedy] def updateCachedContracts(cid: V.ContractId, contract: CachedContract): Unit = {
+    private[speedy] def enforceLimitSignatoriesAndObservers(
+        cid: V.ContractId,
+        contract: ContractInfo,
+    ): Unit = {
       enforceLimit(
         NameOf.qualifiedNameOfCurrentFunc,
         contract.signatories.size,
@@ -307,10 +335,9 @@ private[lf] object Speedy {
             _,
           ),
       )
-      cachedContracts_ = cachedContracts_.updated(cid, contract)
     }
 
-    private[speedy] def addGlobalContract(coid: V.ContractId, contract: CachedContract): Unit = {
+    private[speedy] def enforceLimitAddInputContract(): Unit = {
       numInputContracts += 1
       enforceLimit(
         NameOf.qualifiedNameOfCurrentFunc,
@@ -318,7 +345,6 @@ private[lf] object Speedy {
         limits.transactionInputContracts,
         IError.Dev.Limit.TransactionInputContracts,
       )
-      updateCachedContracts(coid, contract)
     }
 
     private[speedy] def enforceChoiceControllersLimit(
@@ -363,13 +389,21 @@ private[lf] object Speedy {
         IError.Dev.Limit.ChoiceAuthorizers(cid, templateId, choiceName, arg, authorizers, _),
       )
 
+    // Track which disclosed contracts are used, so we can report events to the ledger
+    private[this] var usedDiclosedContracts = Set[V.ContractId]()
+    private[speedy] def markDisclosedcontractAsUsed(coid: V.ContractId): Unit = {
+      usedDiclosedContracts = usedDiclosedContracts + coid
+    }
+
     // The set of create events for the disclosed contracts that are used by the generated transaction.
-    def disclosedCreateEvents: ImmArray[Node.Create] =
+    def disclosedCreateEvents: ImmArray[Node.Create] = {
       disclosedContracts.iterator
         .collect {
-          case (coid, contract) if cachedContracts_.isDefinedAt(coid) => contract.toCreateNode(coid)
+          case (coid, contract) if usedDiclosedContracts.contains(coid) =>
+            contract.toCreateNode(coid)
         }
         .to(ImmArray)
+    }
 
     @throws[IllegalArgumentException]
     def zipSameLength[X, Y](xs: ImmArray[X], ys: ImmArray[Y]): ImmArray[(X, Y)] = {
@@ -393,7 +427,7 @@ private[lf] object Speedy {
 
     def checkContractVisibility(
         cid: V.ContractId,
-        contract: CachedContract,
+        contract: ContractInfo,
     ): Unit = {
       // For disclosed contracts, we do not perform visibility checking
       if (!isDisclosedContract(cid)) {
@@ -424,29 +458,20 @@ private[lf] object Speedy {
         gkey: GlobalKey,
         coid: V.ContractId,
         handleKeyFound: V.ContractId => Control.Value,
+        contract: ContractInfo,
     ): Control.Value = {
       // For local and disclosed contracts, we do not perform visibility checking
       if (isLocalContract(coid) || isDisclosedContract(coid)) {
         handleKeyFound(coid)
       } else {
-        cachedContracts.get(coid) match {
-          case Some(cachedContract) =>
-            val stakeholders = cachedContract.signatories union cachedContract.observers
-            visibleToStakeholders(stakeholders) match {
-              case SVisibleToStakeholders.Visible =>
-                handleKeyFound(coid)
-
-              case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-                throw SErrorDamlException(
-                  interpretation.Error
-                    .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
-                )
-            }
-
-          case None =>
-            throw SErrorCrash(
-              NameOf.qualifiedNameOfCurrentFunc,
-              s"contract ${coid.coid} not in cachedContracts",
+        val stakeholders = contract.signatories union contract.observers
+        visibleToStakeholders(stakeholders) match {
+          case SVisibleToStakeholders.Visible =>
+            handleKeyFound(coid)
+          case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+            throw SErrorDamlException(
+              interpretation.Error
+                .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
             )
         }
       }
@@ -790,8 +815,8 @@ private[lf] object Speedy {
       track.reset()
     }
 
-    final def setControl(x: Control[Q]): Unit = {
-      control = x
+    final def setControl[Q2](x: Control[Q2]): Unit = {
+      control = x.asInstanceOf[Control[Q]] // appease unhelpful typing
     }
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
@@ -1373,8 +1398,9 @@ private[lf] object Speedy {
 
   /** Kont, or continuation. Describes the next step for the machine
     * after an expression has been evaluated into a 'SValue'.
+    * Not sealed, so we can define Kont variants in SBuiltin.scala
     */
-  private[speedy] sealed abstract class Kont {
+  private[speedy] abstract class Kont {
 
     /** Execute the continuation. */
     def execute[Q](machine: Machine[Q], v: SValue): Control[Q]
@@ -1573,8 +1599,9 @@ private[lf] object Speedy {
       case SValue.SContractId(_) | SValue.SDate(_) | SValue.SNumeric(_) | SValue.SInt64(_) |
           SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
           SValue.SMap(_, _) | _: SValue.SRecordRep | SValue.SAny(_, _) | SValue.STypeRep(_) |
-          SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken =>
+          SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken => {
         throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "Match on non-matchable value")
+      }
     }
 
     val e = altOpt
@@ -1751,25 +1778,6 @@ private[lf] object Speedy {
       defn.setCached(sv)
       Control.Value(sv)
     }
-  }
-
-  private[speedy] final case class KCacheContract(cid: V.ContractId) extends Kont {
-    override def execute[Q](machine: Machine[Q], sv: SValue): Control[Q] =
-      machine.asUpdateMachine(productPrefix) { machine =>
-        val cached = SBuiltin.extractCachedContract(machine.tmplId2TxVersion, sv)
-        machine.checkContractVisibility(cid, cached)
-        machine.addGlobalContract(cid, cached)
-        Control.Value(cached.any)
-      }
-  }
-
-  private[speedy] final case class KCheckKeyVisibility(
-      gKey: GlobalKey,
-      cid: V.ContractId,
-      handleKeyFound: V.ContractId => Control.Value,
-  ) extends Kont {
-    override def execute[Q](machine: Machine[Q], sv: SValue): Control[Q] =
-      machine.asUpdateMachine(productPrefix)(_.checkKeyVisibility(gKey, cid, handleKeyFound))
   }
 
   /** KCloseExercise. Marks an open-exercise which needs to be closed. Either:

@@ -14,7 +14,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.lf.speedy.SBuiltin.{SBUFetchKey, SBFetchAny, SBULookupKey}
 import com.daml.lf.speedy.SValue.SContractId
-import com.daml.lf.speedy.Speedy.CachedContract
+import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.testing.parser.Implicits._
 
@@ -83,14 +83,14 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             "TestMod:destroyCave",
             committers = Set(ledgerParty),
             getContract = Map(contractId -> ledgerCaveContract),
-          )(result =>
+          ) { result =>
             inside(result) {
               case Left(
                     SError.SErrorDamlException(ContractNotActive(`contractId`, `caveTemplateId`, _))
                   ) =>
                 succeed
             }
-          )
+          }
         }
 
         "disclosure table query fails when contract ID is disclosed" - {
@@ -368,7 +368,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
   def ledgerQueriedWhenContractNotDisclosed(
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
-      disclosures: Iterable[(Value.ContractId, CachedContract)] = Iterable.empty,
+      disclosures: Iterable[(Value.ContractId, ContractInfo)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -389,9 +389,9 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
 
   def disclosureTableQueriedWhenContractDisclosed(
       sexpr: SExpr.SExpr,
-      disclosedContract: (Value.ContractId, CachedContract),
+      disclosedContract: (Value.ContractId, ContractInfo),
       committers: Set[Party] = Set.empty,
-      disclosures: Iterable[(Value.ContractId, CachedContract)] = Iterable.empty,
+      disclosures: Iterable[(Value.ContractId, ContractInfo)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -415,7 +415,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       contractId: ContractId,
       action: String,
       committers: Set[Party] = Set.empty,
-      disclosures: Iterable[(Value.ContractId, CachedContract)] = Iterable.empty,
+      disclosures: Iterable[(Value.ContractId, ContractInfo)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -441,11 +441,11 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
 
   def disclosureTableQueryFailsWhenContractDisclosed(
       sexpr: SExpr.SExpr,
-      disclosedContract: (Value.ContractId, CachedContract),
+      disclosedContract: (Value.ContractId, ContractInfo),
       contractToDestroy: ContractId,
       action: String,
       committers: Set[Party] = Set.empty,
-      disclosures: Iterable[(Value.ContractId, CachedContract)],
+      disclosures: Iterable[(Value.ContractId, ContractInfo)],
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,

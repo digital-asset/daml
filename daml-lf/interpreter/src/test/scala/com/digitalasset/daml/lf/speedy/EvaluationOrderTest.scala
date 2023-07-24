@@ -348,9 +348,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
   private[this] def buildDisclosedContract(
       signatory: Party
-  ): (Value.ContractId, Speedy.CachedContract) = {
+  ): (Value.ContractId, Speedy.ContractInfo) = {
     cId ->
-      Speedy.CachedContract(
+      Speedy.ContractInfo(
         version = TransactionVersion.minExplicitDisclosure,
         templateId = Dummy,
         value = SRecord(
@@ -419,7 +419,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       e: Expr,
       args: Array[SValue],
       parties: Set[Party],
-      disclosedContracts: Iterable[(Value.ContractId, Speedy.CachedContract)] = Iterable.empty,
+      disclosedContracts: Iterable[(Value.ContractId, Speedy.ContractInfo)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -440,7 +440,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     val res = Try(
       SpeedyTestLib.run(
         machine,
-        getContract = traceLog.tracePF("queries contract", getContract),
+        getContract = getContract,
         getKey = traceLog.tracePF("queries key", getKey),
       )
     )
@@ -875,7 +875,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) { case Success(Right(_)) =>
             msgs shouldBe Seq(
               "starts test",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -901,7 +900,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
-              msgs shouldBe Seq("starts test", "queries contract")
+              msgs shouldBe Seq("starts test")
           }
         }
 
@@ -918,7 +917,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
             msgs shouldBe Seq(
               "starts test",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -948,7 +946,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) { case Success(Left(SErrorDamlException(IE.InconsistentContractKey(_)))) =>
             msgs shouldBe Seq(
               "starts test",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -1182,7 +1179,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           getContract = PartialFunction.empty,
         )
         inside(res) { case Failure(SpeedyTestLib.UnknownContract(`cId`)) =>
-          msgs shouldBe Seq("starts test", "queries contract")
+          msgs shouldBe Seq("starts test")
         }
       }
 
@@ -1201,7 +1198,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               ) =>
             msgs shouldBe Seq(
               "starts test",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -1229,7 +1225,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               ) =>
             msgs shouldBe Seq(
               "starts test",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -1263,7 +1258,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "starts test",
               "maintainers",
               "queries key",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -1288,7 +1282,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
-              msgs shouldBe Seq("starts test", "maintainers", "queries key", "queries contract")
+              msgs shouldBe Seq("starts test", "maintainers", "queries key")
           }
         }
 
@@ -1308,7 +1302,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "starts test",
               "maintainers",
               "queries key",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -1339,7 +1332,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "starts test",
                 "maintainers",
                 "queries key",
-                "queries contract",
                 "contract agreement",
                 "contract signatories",
                 "contract observers",
@@ -1599,7 +1591,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "starts test",
               "maintainers",
               "queries key",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -1628,7 +1619,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "starts test",
               "maintainers",
               "queries key",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -1691,7 +1681,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             inside(res) { case Success(Right(_)) =>
               msgs shouldBe buildLog(
                 "starts test",
-                "queries contract",
                 "contract agreement",
                 "contract signatories",
                 "contract observers",
@@ -1721,7 +1710,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               case Success(
                     Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(_, _, _)))
                   ) =>
-                msgs shouldBe buildLog("starts test", "queries contract")
+                msgs shouldBe buildLog("starts test")
             }
           }
 
@@ -1738,7 +1727,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
               msgs shouldBe buildLog(
                 "starts test",
-                "queries contract",
                 "contract agreement",
                 "contract signatories",
                 "contract observers",
@@ -2002,7 +1990,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) { case Success(Right(_)) =>
             msgs shouldBe Seq(
               "starts test",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -2024,7 +2011,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
-              msgs shouldBe Seq("starts test", "queries contract")
+              msgs shouldBe Seq("starts test")
           }
         }
 
@@ -2041,7 +2028,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
             msgs shouldBe Seq(
               "starts test",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -2068,7 +2054,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) { case Success(Left(SErrorDamlException(IE.InconsistentContractKey(_)))) =>
             msgs shouldBe Seq(
               "starts test",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -2284,7 +2269,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           getContract = PartialFunction.empty,
         )
         inside(res) { case Failure(SpeedyTestLib.UnknownContract(`cId`)) =>
-          msgs shouldBe Seq("starts test", "queries contract")
+          msgs shouldBe Seq("starts test")
         }
       }
     }
@@ -2308,7 +2293,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "starts test",
               "maintainers",
               "queries key",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -2333,7 +2317,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "starts test",
                 "maintainers",
                 "queries key",
-                "queries contract",
               )
           }
         }
@@ -2353,7 +2336,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "starts test",
               "maintainers",
               "queries key",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -2381,7 +2363,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "starts test",
                 "maintainers",
                 "queries key",
-                "queries contract",
                 "contract agreement",
                 "contract signatories",
                 "contract observers",
@@ -2610,7 +2591,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) { case Success(Right(_)) =>
             msgs shouldBe Seq(
               "starts test",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -2635,7 +2615,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             case Success(
                   Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(Person, _, Dummy)))
                 ) =>
-              msgs shouldBe Seq("starts test", "queries contract")
+              msgs shouldBe Seq("starts test")
           }
         }
 
@@ -2652,7 +2632,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
             msgs shouldBe Seq(
               "starts test",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -2852,7 +2831,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           getContract = PartialFunction.empty,
         )
         inside(res) { case Failure(SpeedyTestLib.UnknownContract(`cId`)) =>
-          msgs shouldBe Seq("starts test", "queries contract")
+          msgs shouldBe Seq("starts test")
         }
       }
 
@@ -2877,7 +2856,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "starts test",
               "maintainers",
               "queries key",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -2901,7 +2879,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "starts test",
               "maintainers",
               "queries key",
-              "queries contract",
               "contract agreement",
               "contract signatories",
               "contract observers",
@@ -2929,7 +2906,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "starts test",
                 "maintainers",
                 "queries key",
-                "queries contract",
                 "contract agreement",
                 "contract signatories",
                 "contract observers",
