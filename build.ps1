@@ -36,8 +36,6 @@ if (Test-Path -Path $env:appdata\stack\pantry\hackage\hackage-security-lock) {
     Remove-Item -ErrorAction Continue -Force -Recurse -Path $env:appdata\stack
 }
 
-$env:ARTIFACTORY_AUTH = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("$env:ARTIFACTORY_USERNAME" + ":" + "$env:ARTIFACTORY_PASSWORD"))
-
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0

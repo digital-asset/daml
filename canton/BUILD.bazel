@@ -7,7 +7,7 @@ load(
     "lf_scalacopts_stricter",
 )
 load("//:canton_dep.bzl", "canton")
-load("@build_environment//:configuration.bzl", "artif_auth")
+load("@build_environment//:configuration.bzl", "artif_pass", "artif_user")
 load("@os_info//:os_info.bzl", "is_windows")
 
 java_binary(
@@ -74,13 +74,14 @@ url=https://digitalasset.jfrog.io/artifactory/canton-enterprise/canton-enterpris
 curl=$(location {curl})
 
 tmp=$$(mktemp)
+auth=$$(echo -n "{artif_user}:{artif_pass}" | base64 -w0)
 $$curl --location \
      --fail \
      --insecure \
      --silent \
-     -H "Authorization: Basic {auth}" \
+     -H "Authorization: Basic $$auth" \
      $$url \
- > $$tmp
+ > $$tmp || echo >&2 " Failed to download from $$url \n Have you set your ARTIFACTORY_USERNAME and ARTIFACTORY_PASSWORD env vars correctly?"
 
 computed_sha=$$(sha256sum $$tmp | awk '{{print $$1}}')
 if [ "$$CANTON_ENTERPRISE_SHA" != "$$computed_sha" ]; then
@@ -95,7 +96,8 @@ tar xzf $$tmp
 
 cp canton-*/lib/*.jar $@
 """.format(
-        auth = artif_auth,
+        artif_user = artif_user,
+        artif_pass = artif_pass,
         curl = "@curl_dev_env//:bin/curl" if not is_windows else "@curl_dev_env//:bin/curl.exe",
         local = "true" if canton["local"] else "",
         src = ":lib/canton-ee.jar" if canton["local"] else "@canton//:jar",  # not used in else case but still must resolve
