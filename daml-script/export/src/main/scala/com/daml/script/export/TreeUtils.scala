@@ -501,7 +501,7 @@ object TreeUtils {
   }
 
   def timestampFromTree(tree: TransactionTree): Timestamp = {
-    Timestamp.assertStrictFromInstant(
+    Timestamp.assertFromInstant(
       Instant.ofEpochSecond(tree.getEffectiveAt.seconds, tree.getEffectiveAt.nanos.toLong)
     )
   }

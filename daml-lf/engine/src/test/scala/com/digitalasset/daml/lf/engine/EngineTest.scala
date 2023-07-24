@@ -1033,7 +1033,7 @@ class EngineTest
     val originalCoid = toContractId("BasicTests:CallablePayout:1")
     val templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
     // we need to fix time as cid are depending on it
-    val let = Time.Timestamp.assertStrictFromString("1969-07-20T20:17:00Z")
+    val let = Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")
     val command = ApiCommand.Exercise(
       templateId,
       originalCoid,
