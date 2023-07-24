@@ -12,6 +12,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.nio.file.Files
+import java.nio.file.Path
 
 trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers {
   self: Suite =>
@@ -21,7 +22,7 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
   private val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
   val scriptPath = BazelRunfiles.rlocation("daml-script/runner/daml-script-binary" + exe)
 
-  def assertDamlScriptRunnerResult(darPath: String, expected: String): Assertion = {
+  def assertDamlScriptRunnerResult(darPath: Path, expected: String): Assertion = {
     val port = ports.head.value
 
     import scala.sys.process._
@@ -33,7 +34,7 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       "--all",
       "--static-time",
       "--dar",
-      darPath,
+      darPath.toString,
       "--max-inbound-message-size",
       "41943040",
       "--ledger-host",
