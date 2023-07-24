@@ -341,7 +341,7 @@ class JsonProtocolTest
         domain.ContractTypeId.Template(Option.empty[String], "Mod", "Tmpl"),
         argumentsDecoded,
         DisclosedContract.Metadata(
-          Time.Timestamp.assertFromString("2023-03-21T18:00:33.246813Z"),
+          Time.Timestamp.assertStrictFromString("2023-03-21T18:00:33.246813Z"),
           Some(domain.Base16(ByteString.copyFrom("well hello", utf8))),
           Some(domain.Base64(ByteString.copyFrom("there reader", utf8))),
         ),

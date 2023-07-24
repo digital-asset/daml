@@ -93,7 +93,7 @@ private[parser] object Lexer extends RegexParsers {
 
   private def toTimestamp(s: String): Parser[Timestamp] =
     (in: Input) =>
-      Time.Timestamp.fromString(s) match {
+      Time.Timestamp.strictFromString(s) match {
         case Right(x) => Success(Timestamp(x), in)
         case Left(_) =>
           Error(s"cannot interpret $s as a Timestamp", in)

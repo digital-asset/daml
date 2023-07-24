@@ -103,11 +103,11 @@ echo "$(date -Is -u) start"
 
 AZURE_PAT=${secret_resource.vsts-token.value}
 
-scale_sets="$(az vmss list | jq -c '[.[] | {name, size: .sku.capacity}]')"
+target="$1"
 
 echo "$(date -Is -u) Shutting down all machines"
 
-for set in $(echo $scale_sets | jq -r '.[] | .name'); do
+for set in du1 du2 dw1 dw2; do
   echo "$(date -Is -u) - Setting scale set $set size to 0"
   az vmss scale -n $set --new-capacity 0 >/dev/null
 done
@@ -134,9 +134,9 @@ done
 
 echo "$(date -Is -u) Bringing scale sets back up"
 
-for set in $(echo $scale_sets | jq -r '.[] | .name'); do
-  size=$(echo $scale_sets | jq --arg set $set -r '.[] | select (.name == $set) | .size')
-  echo "$(date -Is -u) - Setting scale set $set size back to $size"
+for set in du1 du2 dw1 dw2; do
+  size=$(echo "$target" | jq --arg name $set -r '.[$name]')
+  echo "$(date -Is -u) - Setting scale set $set size to $size"
   az vmss scale -n $set --new-capacity $size >/dev/null
 done
 
@@ -146,7 +146,9 @@ CRON
 chmod +x /root/daily-reset.sh
 
 cat <<CRONTAB >> /etc/crontab
-0 4 * * * root /root/daily-reset.sh >> /root/log 2>&1
+30 5 * * 1-5 root /root/daily-reset.sh '{"du1":10,"du2":0,"dw1":5,"dw2":0}' >> /root/log 2>&1
+30 18 * * 1-5 root /root/daily-reset.sh '{"du1":2,"du2":0,"dw1":1,"dw2":0}' >> /root/log 2>&1
+30 5 * * 6,7 root /root/daily-reset.sh '{"du1":2,"du2":0,"dw1":1,"dw2":0}' >> /root/log 2>&1
 CRONTAB
 
 tail -f /root/log

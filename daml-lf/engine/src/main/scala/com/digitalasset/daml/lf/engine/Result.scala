@@ -30,6 +30,8 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).map(f))
     case ResultNeedAuthority(holding, requesting, resume) =>
       ResultNeedAuthority(holding, requesting, bool => resume(bool).map(f))
+    case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
+      ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, x => resume(x).map(f))
   }
 
   def flatMap[B](f: A => Result[B]): Result[B] = this match {
@@ -44,6 +46,8 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).flatMap(f))
     case ResultNeedAuthority(holding, requesting, resume) =>
       ResultNeedAuthority(holding, requesting, bool => resume(bool).flatMap(f))
+    case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
+      ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, x => resume(x).flatMap(f))
   }
 
   private[lf] def consume(
@@ -62,6 +66,7 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultNeedPackage(pkgId, resume) => go(resume(pkgs.lift(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys.lift(key)))
         case ResultNeedAuthority(_, _, resume) => go(resume(grantNeedAuthority))
+        case ResultNeedUpgradeVerification(_, _, _, _, resume) => go(resume(Some("not validated!")))
       }
     go(this)
   }
@@ -150,6 +155,25 @@ final case class ResultNeedAuthority[A](
     resume: Boolean => Result[A],
 ) extends Result[A]
 
+/** After computing the immutable contact data associated with a contract, (for a specific template
+  * type, which may be an upgrade/downgrade of the type at which the contract was created), the
+  * engine will call `ResultNeedUpgradeVerification` to allow the ledger to validate that the
+  * immutable contract data has not changed.
+  *
+  * The ledger will callback `resume` with `None` if everything is fine, or callback with
+  * `Some(helpfulErrorInfo)` otherwise.
+  *
+  * TODO: https://github.com/digital-asset/daml/issues/17082
+  * - The engine must be extended to call `ResultNeedUpgradeVerification`
+  */
+final case class ResultNeedUpgradeVerification[A](
+    coid: ContractId,
+    signatories: Set[Party],
+    observers: Set[Party],
+    keyOpt: Option[GlobalKeyWithMaintainers],
+    resume: Option[String] => Result[A],
+) extends Result[A]
+
 object Result {
   // fails with ResultError if the package is not found
   private[lf] def needPackage[A](
@@ -205,6 +229,19 @@ object Result {
                 requesting,
                 bool =>
                   resume(bool).flatMap(x =>
+                    Result
+                      .sequence(results_)
+                      .map(otherResults => (okResults :+ x) :++ otherResults)
+                  ),
+              )
+            case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
+              ResultNeedUpgradeVerification(
+                coid,
+                signatories,
+                observers,
+                keyOpt,
+                res =>
+                  resume(res).flatMap(x =>
                     Result
                       .sequence(results_)
                       .map(otherResults => (okResults :+ x) :++ otherResults)

@@ -63,7 +63,7 @@ object ClassForType extends StrictLogging {
             className,
             interfaceViewTypeName,
             interface,
-            typeWithContext.interface.typeDecls,
+            typeWithContext.auxiliarySignatures,
             typeWithContext.interface.packageId,
             interfaceName,
           )

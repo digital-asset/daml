@@ -4,11 +4,11 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
+import com.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
+import com.daml.lf.data.Ref.ChoiceName
 import com.daml.lf.typesig
 import typesig.{TemplateChoice, Type}
-import typesig.PackageSignature.TypeDecl
 import com.squareup.javapoet._
 import ClassGenUtils.companionFieldName
 import com.daml.ledger.javaapi.data.codegen.{Exercised, Update}
@@ -93,17 +93,20 @@ object ContractIdClass {
 
   private[inner] def generateExercisesInterface(
       choices: Map[ChoiceName, TemplateChoice.FWT],
-      typeDeclarations: Map[QualifiedName, TypeDecl],
-      packageId: PackageId,
+      typeDeclarations: AuxiliarySignatures,
   )(implicit
       packagePrefixes: PackagePrefixes
   ) = {
+    val exercisesParent =
+      if (hasStandardArchive(choices, typeDeclarations))
+        classOf[javaapi.data.codegen.Exercises.Archive[_]]
+      else classOf[javaapi.data.codegen.Exercises[_]]
     val exercisesClass = TypeSpec
       .interfaceBuilder(exercisesInterface)
       .addTypeVariable(exercisesTypeParam)
       .addSuperinterface(
         ParameterizedTypeName
-          .get(ClassName get classOf[javaapi.data.codegen.Exercises[_]], exercisesTypeParam)
+          .get(ClassName get exercisesParent, exercisesTypeParam)
       )
       .addModifiers(Modifier.PUBLIC)
     choices foreach { case (choiceName, choice) =>
@@ -113,7 +116,7 @@ object ContractIdClass {
       )
       for (
         record <- choice.param.fold(
-          ClassGenUtils.getRecord(_, typeDeclarations, packageId),
+          ClassGenUtils.getRecord(_, typeDeclarations),
           _ => None,
           _ => None,
           _ => None,
@@ -129,6 +132,22 @@ object ContractIdClass {
     }
     exercisesClass.build()
   }
+
+  private[this] def hasStandardArchive(
+      choices: Map[ChoiceName, TemplateChoice.FWT],
+      typeDeclarations: AuxiliarySignatures,
+  ) =
+    choices get ClassGenUtils.archiveChoiceName exists {
+      case typesig.TemplateChoice(
+            tc: typesig.TypeCon,
+            true,
+            typesig.TypePrim(typesig.PrimType.Unit, Seq()),
+          ) =>
+        ClassGenUtils.getRecord(tc, typeDeclarations) exists { rec =>
+          rec.fields.isEmpty
+        }
+      case _ => false
+    }
 
   private[inner] def generateToInterfaceMethods(
       nestedReturn: String,

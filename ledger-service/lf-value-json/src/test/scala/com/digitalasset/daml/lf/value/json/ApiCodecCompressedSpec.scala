@@ -123,7 +123,7 @@ class ApiCodecCompressedSpec
         fListOfText = Vector("foo", "bar"),
         fListOfUnit = Vector((), ()),
         fDate = Time.Date assertFromString "2019-01-28",
-        fTimestamp = Time.Timestamp assertFromString "2019-01-28T12:44:33.22Z",
+        fTimestamp = Time.Timestamp assertStrictFromString "2019-01-28T12:44:33.22Z",
         fOptionalText = None,
         fOptionalUnit = Some(()),
         fOptOptText = Some(Some("foo")),
@@ -309,7 +309,7 @@ class ApiCodecCompressedSpec
         "\"0.12345123445001\"",
       ),
       c("\"1990-11-09T04:30:23.123456Z\"", VA.timestamp)(
-        Time.Timestamp assertFromString "1990-11-09T04:30:23.123456Z",
+        Time.Timestamp assertStrictFromString "1990-11-09T04:30:23.123456Z",
         "\"1990-11-09T04:30:23.1234569Z\"",
       ),
       c("\"1970-01-01T00:00:00Z\"", VA.timestamp)(Time.Timestamp assertFromLong 0),
