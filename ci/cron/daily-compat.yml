@@ -338,7 +338,7 @@ jobs:
         git fetch
         git checkout origin/main
 
-        ci/bump-canton.sh
+        canton_version=$(ci/bump-canton.sh)
 
         branch="canton-update-$canton_version"
 
