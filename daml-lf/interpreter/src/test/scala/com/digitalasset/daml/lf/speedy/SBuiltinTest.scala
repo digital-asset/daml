@@ -13,7 +13,7 @@ import com.daml.lf.speedy.SBuiltin.{SBCacheDisclosedContract, SBCrash, SBuildCac
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
-import com.daml.lf.speedy.Speedy.{CachedContract, Machine, CachedKey}
+import com.daml.lf.speedy.Speedy.{XCachedContract, Machine, CachedKey}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
@@ -1755,7 +1755,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
         val (disclosedContract, None) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = false)
-        val cachedContract = CachedContract(
+        val cachedContract = XCachedContract(
           version = txVersion,
           templateId,
           disclosedContract.argument,
@@ -1802,7 +1802,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           GlobalKeyWithMaintainers.assertBuild(templateId, key.toUnnormalizedValue, Set(alice)),
           key,
         )
-        val cachedContract = CachedContract(
+        val cachedContract = XCachedContract(
           version = txVersion,
           templateId,
           disclosedContract.argument,
@@ -1962,8 +1962,8 @@ object SBuiltinTest {
     SError,
     (
         SValue,
-        Map[Value.ContractId, CachedContract],
-        Map[Value.ContractId, CachedContract],
+        Map[Value.ContractId, XCachedContract],
+        Map[Value.ContractId, XCachedContract],
         Map[GlobalKey, Value.ContractId],
     ),
   ] = {
@@ -1977,7 +1977,9 @@ object SBuiltinTest {
 
     SpeedyTestLib
       .run(machine, getContract = getContract)
-      .map((_, machine.cachedContracts, machine.disclosedContracts, machine.disclosedContractKeys))
+      .map(
+        (_, machine.cachedContracts, machine.disclosedContracts, machine.disclosedContractKeys)
+      )
   }
 
   def intList(xs: Long*): String =

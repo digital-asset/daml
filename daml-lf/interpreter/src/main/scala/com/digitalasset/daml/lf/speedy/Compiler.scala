@@ -502,6 +502,7 @@ private[lf] final class Compiler(
   ): s.SExpr = {
     let(
       env,
+      // NICK: remove SBCastAnyContract/SBFetchAny (here) and replace with runtime code
       SBCastAnyContract(tmplId)(
         env.toSEVar(cidPos),
         SBFetchAny(optTargetTemplateId)(
@@ -533,6 +534,7 @@ private[lf] final class Compiler(
             case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
             case None => s.SEValue.EmptyList
           },
+          env.toSEVar(tmplArgPos),
         ),
       ) { (_, _env) =>
         val env = _env.bindExprVar(choice.selfBinder, cidPos)
@@ -558,54 +560,61 @@ private[lf] final class Compiler(
   ): s.SExpr =
     let(
       env,
-      SBCastAnyInterface(ifaceId)(
+      SBFetchAny( // NICK: why no SBCastAnyContract here+1 ?
+        optTargetTemplateId = None
+      )(
         env.toSEVar(cidPos),
-        SBFetchAny(
-          optTargetTemplateId = None
-        )(
-          env.toSEVar(cidPos),
-          s.SEValue.None,
-        ),
+        s.SEValue.None,
       ),
     ) { (payloadPos, env) =>
       let(
         env,
-        s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
-      ) { (_, _env) =>
-        val env = _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
+        SBCastAnyInterface(ifaceId)(
+          env.toSEVar(cidPos),
+          env.toSEVar(payloadPos),
+        ),
+      ) { (castPos, env) =>
         let(
           env,
-          SBApplyChoiceGuard(choice.name, Some(ifaceId))(
-            env.toSEVar(guardPos),
-            env.toSEVar(payloadPos),
-            env.toSEVar(cidPos),
-          ),
-        ) { (_, env) =>
+          s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
+        ) { (_, _env) =>
+          val env =
+            _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
           let(
             env,
-            SBResolveSBUBeginExercise(
-              interfaceId = ifaceId,
-              choiceName = choice.name,
-              consuming = choice.consuming,
-              byKey = false,
-              explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
-            )(
+            SBApplyChoiceGuard(choice.name, Some(ifaceId))(
+              env.toSEVar(guardPos),
               env.toSEVar(payloadPos),
-              env.toSEVar(choiceArgPos),
               env.toSEVar(cidPos),
-              s.SEPreventCatch(translateExp(env, choice.controllers)),
-              choice.choiceObservers match {
-                case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
-                case None => s.SEValue.EmptyList
-              },
-              choice.choiceAuthorizers match {
-                case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
-                case None => s.SEValue.EmptyList
-              },
             ),
-          ) { (_, _env) =>
-            val env = _env.bindExprVar(choice.selfBinder, cidPos)
-            s.SEScopeExercise(app(translateExp(env, choice.update), env.toSEVar(tokenPos)))
+          ) { (_, env) =>
+            let(
+              env,
+              SBResolveSBUBeginExercise(
+                interfaceId = ifaceId,
+                choiceName = choice.name,
+                consuming = choice.consuming,
+                byKey = false,
+                explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
+              )(
+                env.toSEVar(payloadPos),
+                env.toSEVar(choiceArgPos),
+                env.toSEVar(cidPos),
+                s.SEPreventCatch(translateExp(env, choice.controllers)),
+                choice.choiceObservers match {
+                  case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
+                  case None => s.SEValue.EmptyList
+                },
+                choice.choiceAuthorizers match {
+                  case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
+                  case None => s.SEValue.EmptyList
+                },
+                env.toSEVar(castPos),
+              ),
+            ) { (_, _env) =>
+              val env = _env.bindExprVar(choice.selfBinder, cidPos)
+              s.SEScopeExercise(app(translateExp(env, choice.update), env.toSEVar(tokenPos)))
+            }
           }
         }
       }
@@ -714,31 +723,23 @@ private[lf] final class Compiler(
   private[this] def translateFetchTemplateBody(
       env: Env,
       tmplId: Identifier,
-      tmpl: Template,
+      tmpl: Template, // NICK: dont need!
       optTargetTemplateId: Option[TypeConName],
   )(
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
   ): s.SExpr = {
-    let(
-      env,
-      SBCastAnyContract(tmplId)(
-        env.toSEVar(cidPos),
-        SBFetchAny(optTargetTemplateId)(
-          env.toSEVar(cidPos),
-          mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
-        ),
-      ),
-    ) { (tmplArgPos, _env) =>
-      val env = _env.bindExprVar(tmpl.param, tmplArgPos)
-      let(
-        env,
-        SBUInsertFetchNode(tmplId, byKey = mbKey.isDefined)(env.toSEVar(cidPos)),
-      ) { (_, env) =>
-        env.toSEVar(tmplArgPos)
-      }
-    }
+    val _ = tmpl
+    SBUInsertFetchNode( // NICK: rename loosing Insert
+      tmplId,
+      optTargetTemplateId,
+      byKey = mbKey.isDefined,
+    )(
+      env.toSEVar(cidPos),
+      mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
+    )
+
   }
 
   private[this] def compileFetchTemplate(
@@ -758,25 +759,34 @@ private[lf] final class Compiler(
     topLevelFunction2(t.FetchInterfaceDefRef(ifaceId)) { (cidPos, _, env) =>
       let(
         env,
-        SBCastAnyInterface(ifaceId)(
+        SBFetchAny(
+          optTargetTemplateId = None
+        )(
           env.toSEVar(cidPos),
-          SBFetchAny(
-            optTargetTemplateId = None
-          )(
-            env.toSEVar(cidPos),
-            s.SEValue.None,
-          ),
+          s.SEValue.None,
         ),
       ) { (payloadPos, env) =>
         let(
           env,
-          s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
+          SBCastAnyInterface(ifaceId)(
+            env.toSEVar(cidPos),
+            env.toSEVar(payloadPos),
+          ),
         ) { (_, env) =>
           let(
             env,
-            SBResolveSBUInsertFetchNode(env.toSEVar(payloadPos), env.toSEVar(cidPos)),
+            s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
           ) { (_, env) =>
-            env.toSEVar(payloadPos)
+            let(
+              env,
+              SBResolveSBUInsertFetchNode(
+                env.toSEVar(payloadPos),
+                env.toSEVar(cidPos),
+                s.SEValue(SText("what-should-this-be")), // NICK: None?
+              ),
+            ) { (_, env) =>
+              env.toSEVar(payloadPos)
+            }
           }
         }
       }
@@ -902,7 +912,7 @@ private[lf] final class Compiler(
       templateId,
       env2.toSEVar(contractPos),
     ) { (env: Env) =>
-      SBUCreate(t.ToCachedContractDefRef(templateId)(env.toSEVar(contractPos), s.SEValue.None))
+      SBUCreate(templateId)(env.toSEVar(contractPos))
     }
   }
 
