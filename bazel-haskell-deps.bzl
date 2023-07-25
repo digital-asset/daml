@@ -20,7 +20,7 @@ load("//bazel_tools/ghc-lib:repositories.bzl", "ghc_lib_and_dependencies")
 
 GHCIDE_REV = "f05b2ff831daceb43e2e8dc2cda9e4a17d3742de"
 GHCIDE_SHA256 = "4ca395fed1ba7102beb4b9fcb32846a8579ef2bf65145174cb63a31a2c85315a"
-GHCIDE_LOCAL_PATH = None
+GHCIDE_LOCAL_PATH = "/home/samuelwilliams/Desktop/daml-ghcide/out.tar.gz"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"

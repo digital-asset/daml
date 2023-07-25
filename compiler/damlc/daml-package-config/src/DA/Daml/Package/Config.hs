@@ -42,6 +42,7 @@ data PackageConfigFields = PackageConfigFields
     -- we might not have a version. In `damlc build` this is always set to `Just`.
     , pDependencies :: [String]
     , pDataDependencies :: [String]
+    , pSourceDependencies :: [String]
     , pModulePrefixes :: Map Ghc.UnitId Ghc.ModuleName
     -- ^ Map from unit ids to a prefix for all modules in that package.
     -- If this is specified, all modules from the package will be remapped
@@ -66,13 +67,14 @@ parseProjectConfig project = do
     pVersion <- Just <$> queryProjectConfigRequired ["version"] project
     pDependencies <- queryProjectConfigRequired ["dependencies"] project
     pDataDependencies <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
+    pSourceDependencies <- fromMaybe [] <$> queryProjectConfig ["source-dependencies"] project
     pModulePrefixes <- fromMaybe Map.empty <$> queryProjectConfig ["module-prefixes"] project
     pSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
     pUpgradedPackagePath <- queryProjectConfig ["upgrades"] project
     Right PackageConfigFields {..}
 
 checkPkgConfig :: PackageConfigFields -> [T.Text]
-checkPkgConfig PackageConfigFields {pName, pVersion} =
+checkPkgConfig PackageConfigFields {pName, pVersion, pSourceDependencies} =
   [ T.unlines $
   ["Invalid package name: " <> T.pack (show pName) <> ". Package names should have the format " <> packageNameRegex <> "."]
   ++ errDescription
@@ -83,6 +85,9 @@ checkPkgConfig PackageConfigFields {pName, pVersion} =
   ++ errDescription
   | Just version <- [pVersion]
   , not $ LF.unPackageVersion version =~ versionRegex
+  ] ++
+  [ "Illegal source dependencies. If you wish to compile a project with source dependencies, please use daml damlc multi-build."
+  | (_:_) <- [pSourceDependencies]
   ]
   where
     errDescription =

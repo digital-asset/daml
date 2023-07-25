@@ -5,6 +5,7 @@ module Development.IDE.Core.IdeState.Daml
     , getDamlIdeState
     , withDamlIdeState
     , enabledPlugins
+    , toIdeLogger
     ) where
 
 import Control.Exception
