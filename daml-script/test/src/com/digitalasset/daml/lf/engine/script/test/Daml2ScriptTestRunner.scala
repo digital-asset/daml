@@ -6,10 +6,12 @@ package com.daml.lf.engine.script
 import com.daml.bazeltools.BazelRunfiles
 import org.scalatest.Suite
 
+import java.nio.file.Paths
+
 class Daml2ScriptTestRunner extends DamlScriptTestRunner {
   self: Suite =>
 
-  val darPath = BazelRunfiles.rlocation("daml-script/test/script-test.dar")
+  val darPath = Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test.dar"))
 
   "daml-script command line" should {
     "pick up all scripts and returns somewhat sensible outputs" in
