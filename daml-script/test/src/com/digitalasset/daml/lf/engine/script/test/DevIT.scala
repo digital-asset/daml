@@ -5,9 +5,11 @@ package com.daml.lf.engine.script
 package test
 
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.integrationtest.CantonConfig
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.speedy.SValue._
+
 import java.nio.file.Paths
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -37,6 +39,21 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
     CompiledDar.read(coinUpgradeV1V2NewFieldDarPath, Runner.compilerConfig)
   lazy val coinUpgradeV1V3Dar: CompiledDar =
     CompiledDar.read(coinUpgradeV1V3DarPath, Runner.compilerConfig)
+
+  // TODO: https://github.com/digital-asset/daml/issues/17082
+  // We override the config, to enableUpgrade
+  override lazy val config = CantonConfig(
+    jarPath = cantonJar,
+    authSecret = authSecret,
+    devMode = devMode,
+    nParticipants = nParticipants,
+    timeProviderType = timeProviderType,
+    tlsEnable = tlsEnable,
+    debug = cantonFixtureDebugMode,
+    enableDisclosedContracts = enableDisclosedContracts,
+    bootstrapScript = bootstrapScript,
+    enableUpgrade = true,
+  )
 
   override protected lazy val darFiles = List(
     devDarPath,
