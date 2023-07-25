@@ -147,22 +147,24 @@ object CantonRunner {
          |""".stripMargin
     )
     var outputBuffer = ""
+    val cmd = java ::
+      "-jar" ::
+      config.jarPath.toString ::
+      "daemon" ::
+      "--auto-connect-local" ::
+      "-c" ::
+      files.configFile.toString ::
+      bootstrapOptions :::
+      debugOptions
+    info(cmd.mkString("\\\n    "))
     for {
       proc <- Future(
         Process(
-          java ::
-            "-jar" ::
-            config.jarPath.toString ::
-            "daemon" ::
-            "--auto-connect-local" ::
-            "-c" ::
-            files.configFile.toString ::
-            bootstrapOptions :::
-            debugOptions,
+          cmd,
           None,
           // TODO: https://github.com/digital-asset/daml/issues/17082
           // Workaround to allow DevIT tests to pass.
-          ("enableContractUpgrading", ""),
+          ("enableContractUpgrading", if (config.enableUpgrade) "true" else "false"),
         ).run(ProcessLogger { str =>
           if (config.debug) println(str)
           outputBuffer += str

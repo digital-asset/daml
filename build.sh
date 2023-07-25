@@ -19,7 +19,7 @@ if [[ "$(uname)" == "Darwin" ]]; then
 fi
 
 SKIP_DEV_CANTON_TESTS=false
-if [ "$SKIP_DEV_CANTON_TESTS" = "false" ]; then
+if [ "$SKIP_DEV_CANTON_TESTS" = "true" ]; then
   tag_filter="$tag_filter,-dev-canton-test"
 fi
 
