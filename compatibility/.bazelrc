@@ -137,8 +137,9 @@ test:windows --test_env=ComSpec
 build -c opt
 
 try-import %workspace%/.bazelrc.local
+build --build_tag_filters=-canton-ee
+test --test_tag_filters=-canton-ee
 
-# If you do not have access to a canton-ee instance for testing,
-# uncomment the lines below to exclude the corresponding targets
-#-build --build_tag_filters=-canton-ee
-#-test --test_tag_filters=-canton-ee
+# Set flag --config=canton-ee to run tests which depend on Canton Enterprise Edition
+build:canton-ee --build_tag_filters=canton-ee
+test:canton-ee --test_tag_filters=canton-ee
