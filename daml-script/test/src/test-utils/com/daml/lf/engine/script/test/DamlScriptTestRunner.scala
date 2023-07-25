@@ -5,6 +5,7 @@ package com.daml.lf.engine.script
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonFixture
+import com.daml.platform.services.time.TimeProviderType
 import com.daml.scalautil.Statement.discard
 import org.scalatest.{Assertion, Suite}
 import org.scalatest.matchers.should.Matchers
@@ -15,6 +16,8 @@ import java.nio.file.Path
 
 trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers {
   self: Suite =>
+
+  final override protected lazy val timeProviderType = TimeProviderType.Static
 
   private val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
   val scriptPath = BazelRunfiles.rlocation("daml-script/runner/daml-script-binary" + exe)
@@ -29,6 +32,7 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
     val cmd = Seq(
       scriptPath,
       "--all",
+      "--static-time",
       "--dar",
       darPath.toString,
       "--max-inbound-message-size",
