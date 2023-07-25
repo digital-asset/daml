@@ -56,7 +56,7 @@ final case class EngineConfig(
   // And a canton PR to support enableContractUpgrading in canton-config.
   // Until then we set enableContractUpgrading via env-var.
 
-  val enableContractUpgradingEV = sys.env.get("enableContractUpgrading").isDefined
+  val enableContractUpgradingEV = sys.env.get("enableContractUpgrading").exists(_ == "true")
 
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
     speedy.Compiler.Config(
