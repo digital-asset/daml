@@ -156,7 +156,6 @@ import qualified Data.Text.Extended as T
 import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text.Lazy.IO as TL
 import qualified Data.Text.IO as T
-import Data.Traversable (for)
 import Development.IDE.Core.API (getDalf, makeVFSHandle, runActionSync, setFilesOfInterest)
 import Development.IDE.Core.Debouncer (newAsyncDebouncer, noopDebouncer)
 import Development.IDE.Core.IdeState.Daml (getDamlIdeState,
@@ -167,11 +166,14 @@ import Development.IDE.Core.Rules (transitiveModuleDeps)
 import Development.IDE.Core.Rules.Daml (getDlintIdeas, getSpanInfo)
 import Development.IDE.Core.Shake (Config(..),
                                    IdeResult,
+                                   IsIdeGlobal,
                                    NotificationHandler(..),
                                    ShakeLspEnv(..),
                                    actionLogger,
+                                   addIdeGlobal,
                                    defineEarlyCutoffWithDefaultRunChanged,
                                    getDiagnostics,
+                                   getIdeGlobalAction,
                                    use,
                                    use_,
                                    uses,
@@ -223,7 +225,12 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
-import System.Process (StdStream(..))
+import System.Process (StdStream(..),
+                      CreateProcess(..),
+                      proc,
+                      withCreateProcess,
+                      waitForProcess,
+                      )
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
 import Development.IDE.Core.RuleTypes
 import "ghc-lib-parser" ErrUtils
@@ -971,13 +978,26 @@ execMultiBuild projectOpts opts =
           vfs <- makeVFSHandle
           loggerH <- getLogger opts "multi-build"
           cDir <- getCurrentDirectory
+          assistantPath <- getEnv "DAML_ASSISTANT"
+          -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
+          assistantEnv <- filter ((/="DAML_PROJECT") . fst) <$> getEnvironment
+          let assistantRunner = AssistantRunner $ \location args ->
+                withCreateProcess ((proc assistantPath args) {cwd = Just location, env = Just assistantEnv})
+                  $ \_ _ _ p -> void $ waitForProcess p
+              buildMultiRules = do
+                addIdeGlobal assistantRunner
+                buildMultiRule
           -- Set up a near empty shake environment, with just the buildMulti rule
           bracket
-            (IDE.initialise buildMultiRule (DummyLspEnv diagnosticsLogger) (toIdeLogger loggerH) noopDebouncer (toCompileOpts opts) vfs)
+            (IDE.initialise buildMultiRules (DummyLspEnv diagnosticsLogger) (toIdeLogger loggerH) noopDebouncer (toCompileOpts opts) vfs)
             IDE.shutdown
             $ \ideState -> runActionSync ideState
               $ void $ use_ BuildMulti $ toNormalizedFilePath'
               $ maybe cDir unwrapProjectPath $ projectRoot projectOpts
+
+data AssistantRunner = AssistantRunner { runAssistant :: FilePath -> [String] -> IO ()}
+  deriving Typeable
+instance IsIdeGlobal AssistantRunner
 
 data BuildMulti = BuildMulti
     deriving (Eq, Show, Typeable, Generic)
@@ -1015,20 +1035,19 @@ entryToDalfData entry = do
 dalfDataKey :: LF.PackageName -> LF.PackageVersion -> String
 dalfDataKey name version = T.unpack (LF.unPackageName name <> "-" <> LF.unPackageVersion version)
 
--- TODO: this doesn't need to run in IO
 -- Given an archive, returns the packagename-packageversion string with package ID for all dalfs, and the file path and file contents for all daml files.
-readDarStalenessData :: ZipArchive.Archive -> IO (Map.Map String LF.PackageId, Map.Map FilePath BSL.ByteString)
+readDarStalenessData :: ZipArchive.Archive -> (Map.Map String LF.PackageId, Map.Map FilePath BSL.ByteString)
 readDarStalenessData archive =
-  fmap (bimap Map.fromList Map.fromList . partitionEithers . catMaybes) $
-    for (ZipArchive.zEntries archive) $ \entry ->
+  bimap Map.fromList Map.fromList . partitionEithers $
+    flip mapMaybe (ZipArchive.zEntries archive) $ \entry ->
       case takeExtension $ ZipArchive.eRelativePath entry of
-        ".dalf" -> pure $ Left <$> entryToDalfData entry
-        ".daml" -> do
+        ".dalf" -> Left <$> entryToDalfData entry
+        ".daml" ->
           -- Drop the first directory in the path, as thats the folder containing the entire package contents.
           -- Previously structured this way to support multiple packages in one dar.
           let relPackagePath = joinPath $ tail $ splitPath $ ZipArchive.eRelativePath entry
-          pure $ Just $ Right (relPackagePath, ZipArchive.fromEntry entry)
-        _ -> pure Nothing
+           in Just $ Right (relPackagePath, ZipArchive.fromEntry entry)
+        _ -> Nothing
 
 -- | Gets the package id of a Dar in the given project ONLY if it is not stale.
 getValidPackageId :: IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
@@ -1046,8 +1065,8 @@ getValidPackageId logger path BuildMultiPackageConfig {..} sourceDepPids = do
       sourceFiles <- getDamlFilesBuildMulti $ path </> bmSourceDaml
 
       -- Pull all information we need from the dar.
-      archive <- ZipArchive.toArchive <$> BSL.readFile darPath
-      (archiveDalfPids, archiveSourceFiles) <- readDarStalenessData archive
+      (archiveDalfPids, archiveSourceFiles) <-
+        readDarStalenessData . ZipArchive.toArchive <$> BSL.readFile darPath
 
       let getArchiveDalfPid :: LF.PackageName -> LF.PackageVersion -> Maybe LF.PackageId
           getArchiveDalfPid name version = dalfDataKey name version `Map.lookup` archiveDalfPids
@@ -1074,6 +1093,11 @@ getValidPackageId logger path BuildMultiPackageConfig {..} sourceDepPids = do
 buildMultiRule :: Rules ()
 buildMultiRule = defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
   logger <- actionLogger
+
+  assistantRunner <- getIdeGlobalAction @AssistantRunner
+
+  -- Make an IO action that takes a path and args and call env var DAML_ASSISTANT with it, put it in as a global under a newtype
+  -- pull that out here and call it via `damlc`
 
   liftIO $ IDELogger.logDebug logger $ T.pack $ "Considering building: " <> fromNormalizedFilePath path
 
@@ -1104,7 +1128,9 @@ buildMultiRule = defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
         -- Invoke damlc with the following flags. For now we call to `main`, but later we'll defer to the assistant to find the right version of damlc
         -- and defer to that instead.
         -- Must pass in --convert-source-deps or build will error on the source-dependencies.
-        withArgs ["build", "--convert-source-deps", "yes", "--project-root", fromNormalizedFilePath path] main
+
+        -- withArgs ["build", "--convert-source-deps", "yes", "--project-root", fromNormalizedFilePath path] main
+        runAssistant assistantRunner (fromNormalizedFilePath path) ["build", "--convert-source-deps", "yes"]
 
         -- Extract the new package ID from the dar we just built, by reading the DAR and looking for the dalf that matches our package name/version
         let darPath = darPathFromNameAndVersion filePath bmName bmVersion
