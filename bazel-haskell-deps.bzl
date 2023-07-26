@@ -18,9 +18,9 @@ load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 load("//bazel_tools/ghc-lib:repositories.bzl", "ghc_lib_and_dependencies")
 
-GHCIDE_REV = "f05b2ff831daceb43e2e8dc2cda9e4a17d3742de"
-GHCIDE_SHA256 = "4ca395fed1ba7102beb4b9fcb32846a8579ef2bf65145174cb63a31a2c85315a"
-GHCIDE_LOCAL_PATH = "/home/samuelwilliams/Desktop/daml-ghcide/out.tar.gz"
+GHCIDE_REV = "89d20f2125d9296ad1ffe7fac44c3ce7975ba044"
+GHCIDE_SHA256 = "d56ce993fc2676ca43f4f8fdd5d76ac216ea75b270723d2fc6d19dd61f19f29d"
+GHCIDE_LOCAL_PATH = None
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
