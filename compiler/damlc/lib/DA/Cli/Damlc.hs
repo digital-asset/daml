@@ -14,7 +14,7 @@ import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception (bracket, catch, handle)
 import Control.Exception.Safe (catchIO)
 import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
-import Control.Monad.Extra (whenM, whenJust)
+import Control.Monad.Extra (allM, whenM, whenJust)
 import DA.Bazel.Runfiles (Resource(..),
                           locateResource,
                           mainWorkspace,
@@ -169,6 +169,7 @@ import Development.IDE.Core.Shake (Config(..),
                                    IdeResult,
                                    NotificationHandler(..),
                                    ShakeLspEnv(..),
+                                   actionLogger,
                                    defineEarlyCutoffWithDefaultRunChanged,
                                    getDiagnostics,
                                    use,
@@ -243,6 +244,7 @@ import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import Development.Shake (Rules, RuleResult)
 import Development.Shake.Rule (RunChanged (ChangedRecomputeDiff, ChangedRecomputeSame))
+import qualified Development.IDE.Types.Logger as IDELogger
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -1000,26 +1002,50 @@ readDarStalenessData archive =
         _ -> pure Nothing
 
 -- | Gets the package id of a Dar in the given project ONLY if it is not stale.
-getValidPackageId :: FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
-getValidPackageId path BuildMultiPackageConfig {..} sourceDepPids = do
-  let darPath = darPathFromNameAndVersion path bmName bmVersion
+getValidPackageId :: IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
+getValidPackageId logger path BuildMultiPackageConfig {..} sourceDepPids = do
+  let log str = IDELogger.logDebug logger $ T.pack $ path <> ": " <> str
+      darPath = darPathFromNameAndVersion path bmName bmVersion
   exists <- doesFileExist darPath
   if not exists
-    then pure Nothing
+    then do
+      log "No DAR found, build is stale."
+      pure Nothing
     else do
+      log "DAR found, checking staleness."
       archive <- ZipArchive.toArchive <$> BSL.readFile darPath
       sourceFiles <- getDamlFilesBuildMulti $ path </> bmSourceDaml
       (archiveDalfPids, archiveSourceFiles) <- readDarStalenessData archive
 
       let getArchiveDalfPid :: LF.PackageName -> LF.PackageVersion -> Maybe LF.PackageId
           getArchiveDalfPid name version = dalfDataKey name version `Map.lookup` archiveDalfPids
-          sourceDepsCorrect = all (\(name, version, pid) -> getArchiveDalfPid name version == Just pid) sourceDepPids
           sourceFilesCorrect = sourceFiles == archiveSourceFiles
+
+      sourceDepsCorrect <-
+        allM (\(name, version, pid) -> do
+          let archiveDalfPid = getArchiveDalfPid name version
+              valid = archiveDalfPid == Just pid
+
+          when (not valid) $ log $ 
+            "Source dependency \"" <> dalfDataKey name version <> "\" is stale. Expected PackageId "
+              <> T.unpack (LF.unPackageId pid) <> " but got " <> (show $ LF.unPackageId <$> archiveDalfPid) <> "."
+
+          pure valid
+        ) sourceDepPids
+
+      unless sourceDepsCorrect $ log $ show sourceDepPids
+      unless sourceDepsCorrect $ log $ show archiveDalfPids
+
+      log $ "Source dependencies are " <> (if sourceDepsCorrect then "not " else "") <> "stale."
+      log $ "Source files are " <> (if sourceFilesCorrect then "not " else "") <> "stale."
       pure $ if sourceDepsCorrect && sourceFilesCorrect then getArchiveDalfPid bmName bmVersion else Nothing
 
 buildMultiRule :: Rules ()
 buildMultiRule = defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
-  liftIO $ putStrLn $ "Considering building: " <> show path
+  logger <- actionLogger
+
+  liftIO $ IDELogger.logDebug logger $ T.pack $ "Considering building: " <> fromNormalizedFilePath path
+
   let filePath = fromNormalizedFilePath path
   bmPkgConfig@BuildMultiPackageConfig {..} <- liftIO $ buildMultiPackageConfigFromDamlYaml filePath
 
@@ -1033,14 +1059,14 @@ buildMultiRule = defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
   sourceDepsData <- uses_ BuildMulti $ toNormalizedFilePath' <$> bmSourceDeps
 
   liftIO $ do
-    ownValidPid <- getValidPackageId filePath bmPkgConfig sourceDepsData
+    ownValidPid <- getValidPackageId logger filePath bmPkgConfig sourceDepsData
 
     case ownValidPid of
       Just pid -> do
-        putStrLn $ "Using cached " <> show path
+        IDELogger.logInfo logger $ T.pack $ fromNormalizedFilePath path <> " is unchanged."
         pure $ makeReturn pid False
       Nothing -> do
-        putStrLn $ "Building " <> show path
+        IDELogger.logInfo logger $ T.pack $ "Building " <> fromNormalizedFilePath path
         withArgs ["build", "--convert-source-deps", "yes", "--project-root", fromNormalizedFilePath path] main
 
         let darPath = darPathFromNameAndVersion filePath bmName bmVersion
