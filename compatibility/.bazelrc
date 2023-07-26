@@ -139,3 +139,7 @@ build -c opt
 try-import %workspace%/.bazelrc.local
 build --build_tag_filters=-canton-ee
 test --test_tag_filters=-canton-ee
+
+# Set flag --config=canton-ee to run tests which depend on Canton Enterprise Edition
+build:canton-ee --build_tag_filters=canton-ee
+test:canton-ee --test_tag_filters=canton-ee
