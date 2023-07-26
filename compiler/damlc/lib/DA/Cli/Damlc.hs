@@ -901,6 +901,12 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb convertSourceDep
           withProjectRoot' projectOpts $ \relativize -> do
             withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{pName, pVersion} -> do
                 Logger.logInfo loggerH $ "Compiling " <> LF.unPackageName pName <> " to a DAR."
+
+                -- Using the hidden `convert-source-dependencies` flag, this modification to pkgConfig
+                -- changes all source dependencies into data dependencies, assuming a default path for the dar file
+                -- If someone specifies `-o` in the build-options, this will not work
+                -- TODO: Resolve that, or find a way to move this logic to build-multi, so ensure backwards compatibility with
+                -- SDK versions older than 2.7 (if we even want that)
                 pkgConfig' <-
                   if getConvertSourceDeps convertSourceDeps
                     then do
@@ -937,6 +943,27 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb convertSourceDep
                     Nothing -> pure $ distDir </> name <.> "dar"
                     Just out -> rel out
 
+{- | Multi Build! (Source dependencies for MultiDar)
+  This is currently separate to build, but won't be in future.
+  Multi build is a light wrapper over the top of the existing build, and does not interact with the internals of the build process at all
+  It spins up its own empty shake environment purely for the caching behaviour, and defers as soon as possible to the usual build process
+  We strictly defer via the CLI interface, to support different versions of the SDK in future.
+
+  The process is as follows:
+  - Set up own shake environment, defer to it immediately with the project path
+  - Within the shake rule:
+  - Partially read the daml.yaml file, looking for source dependencies, and some other details needed for caching
+  - Call to shake to build all the source deps, each will return data about the DAR that exists (or was built)
+  - If we already have a DAR, check its staleness. Staleness is defined by any source files being different
+      or any of the package ids of souce dependencies being different between what is currently built, and what is embedded in our dar.
+  - If either are different, call to the SDK via CLI to build our own DAR, requesting that the build translate the source deps into data deps before building
+  - Get the package ID of the DAR we have created, and return it to shake, which can use it as a caching key.
+
+  Due to shakes caching behaviour, this will automatically discover the build order for free, by doing a depth first search over the tree then
+    caching any "nodes" we've already seen entirely within Shake - our rule will not be called twice for any package within the tree for any given multi-build.
+  
+  We currently rely on shake to find cycles, how its errors includes too much information about internals, so we'll need to implement our own cycle detection.
+-}
 execMultiBuild :: ProjectOpts -> Options -> Command
 execMultiBuild projectOpts opts =
   Command MultiBuild (Just projectOpts) effect
@@ -944,6 +971,7 @@ execMultiBuild projectOpts opts =
           vfs <- makeVFSHandle
           loggerH <- getLogger opts "multi-build"
           cDir <- getCurrentDirectory
+          -- Set up a near empty shake environment, with just the buildMulti rule
           bracket
             (IDE.initialise buildMultiRule (DummyLspEnv diagnosticsLogger) (toIdeLogger loggerH) noopDebouncer (toCompileOpts opts) vfs)
             IDE.shutdown
@@ -957,8 +985,10 @@ instance Binary BuildMulti
 instance Hashable BuildMulti
 instance NFData BuildMulti
 
+-- We return all the information needed to derive the dalf name
 type instance RuleResult BuildMulti = (LF.PackageName, LF.PackageVersion, LF.PackageId)
 
+-- Subset of PackageConfig needed for MultiBuild deferring.
 data BuildMultiPackageConfig = BuildMultiPackageConfig
   { bmName :: LF.PackageName
   , bmVersion :: LF.PackageVersion
@@ -975,9 +1005,7 @@ getDamlFilesBuildMulti path = do
   files <- fmap fromNormalizedFilePath <$> damlFilesInDir path
   Map.fromList <$> traverse (\file -> (makeRelative path file,) <$> BSL.readFile file) files
 
-  -- traverse all folders that don't start with dot (unless they are just dot), find all .daml files.
-  -- read them as a string, return.
-
+-- Extract the name/version string and package ID of a given dalf in a dar.
 entryToDalfData :: ZipArchive.Entry -> Maybe (String, LF.PackageId)
 entryToDalfData entry = do
   let fileName = takeBaseName $ ZipArchive.eRelativePath entry
@@ -987,7 +1015,8 @@ entryToDalfData entry = do
 dalfDataKey :: LF.PackageName -> LF.PackageVersion -> String
 dalfDataKey name version = T.unpack (LF.unPackageName name <> "-" <> LF.unPackageVersion version)
 
--- Given an archive, returns the packagename-packageversion string with package id for all dalfs, and the file path and file contents for all daml files.
+-- TODO: this doesn't need to run in IO
+-- Given an archive, returns the packagename-packageversion string with package ID for all dalfs, and the file path and file contents for all daml files.
 readDarStalenessData :: ZipArchive.Archive -> IO (Map.Map String LF.PackageId, Map.Map FilePath BSL.ByteString)
 readDarStalenessData archive =
   fmap (bimap Map.fromList Map.fromList . partitionEithers . catMaybes) $
@@ -1013,14 +1042,19 @@ getValidPackageId logger path BuildMultiPackageConfig {..} sourceDepPids = do
       pure Nothing
     else do
       log "DAR found, checking staleness."
-      archive <- ZipArchive.toArchive <$> BSL.readFile darPath
+      -- Get the real source files we expect to be included in the dar
       sourceFiles <- getDamlFilesBuildMulti $ path </> bmSourceDaml
+
+      -- Pull all information we need from the dar.
+      archive <- ZipArchive.toArchive <$> BSL.readFile darPath
       (archiveDalfPids, archiveSourceFiles) <- readDarStalenessData archive
 
       let getArchiveDalfPid :: LF.PackageName -> LF.PackageVersion -> Maybe LF.PackageId
           getArchiveDalfPid name version = dalfDataKey name version `Map.lookup` archiveDalfPids
+          -- We check source files by comparing the maps, any extra, missing or changed files will be covered by this, regardless of order
           sourceFilesCorrect = sourceFiles == archiveSourceFiles
 
+      -- Expanded `all` check that allows us to log specific dependencies being stale. Useful for debugging, maybe we can remove it.
       sourceDepsCorrect <-
         allM (\(name, version, pid) -> do
           let archiveDalfPid = getArchiveDalfPid name version
@@ -1032,9 +1066,6 @@ getValidPackageId logger path BuildMultiPackageConfig {..} sourceDepPids = do
 
           pure valid
         ) sourceDepPids
-
-      unless sourceDepsCorrect $ log $ show sourceDepPids
-      unless sourceDepsCorrect $ log $ show archiveDalfPids
 
       log $ "Source dependencies are " <> (if sourceDepsCorrect then "not " else "") <> "stale."
       log $ "Source files are " <> (if sourceFilesCorrect then "not " else "") <> "stale."
@@ -1049,6 +1080,7 @@ buildMultiRule = defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
   let filePath = fromNormalizedFilePath path
   bmPkgConfig@BuildMultiPackageConfig {..} <- liftIO $ buildMultiPackageConfigFromDamlYaml filePath
 
+  -- Wrap up a PackageIde and changed flag into the expected Shake return structure
   let makeReturn :: LF.PackageId -> Bool -> (Maybe B.ByteString, RunChanged, IdeResult (LF.PackageName, LF.PackageVersion, LF.PackageId))
       makeReturn pid changed = 
         ( Just $ encodeUtf8 $ LF.unPackageId pid
@@ -1056,9 +1088,11 @@ buildMultiRule = defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
         , ([], Just (bmName, bmVersion, pid))
         )
 
+  -- Build all our deps!
   sourceDepsData <- uses_ BuildMulti $ toNormalizedFilePath' <$> bmSourceDeps
 
   liftIO $ do
+    -- Check our own staleness, if we're not stale, give the package ID to return to shake.
     ownValidPid <- getValidPackageId logger filePath bmPkgConfig sourceDepsData
 
     case ownValidPid of
@@ -1067,13 +1101,17 @@ buildMultiRule = defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
         pure $ makeReturn pid False
       Nothing -> do
         IDELogger.logInfo logger $ T.pack $ "Building " <> fromNormalizedFilePath path
+        -- Invoke damlc with the following flags. For now we call to `main`, but later we'll defer to the assistant to find the right version of damlc
+        -- and defer to that instead.
+        -- Must pass in --convert-source-deps or build will error on the source-dependencies.
         withArgs ["build", "--convert-source-deps", "yes", "--project-root", fromNormalizedFilePath path] main
 
+        -- Extract the new package ID from the dar we just built, by reading the DAR and looking for the dalf that matches our package name/version
         let darPath = darPathFromNameAndVersion filePath bmName bmVersion
         archive <- ZipArchive.toArchive <$> BSL.readFile darPath
         let archiveDalfPids = Map.fromList $ catMaybes $ entryToDalfData <$> ZipArchive.zEntries archive
             mOwnPid = dalfDataKey bmName bmVersion `Map.lookup` archiveDalfPids
-            ownPid = fromMaybe (error "Failed to get PID of own package - should never happen?") mOwnPid
+            ownPid = fromMaybe (error "Failed to get PID of own package - implies a DAR was built without its own dalf, something broke!") mOwnPid
 
         pure $ makeReturn ownPid True
 
