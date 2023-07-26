@@ -21,6 +21,7 @@ data SubmitError
     ContractNotFound with
       unknownContractIds : NonEmpty Text
         -- ^ Provided as text, as we do not know the template ID of a contract if the lookup fails
+      debuggingAdditionalInfo : Optional Text
   | -- | Contract with given contract key could not be found
     ContractKeyNotFound with
       contractKey : AnyContractKey
@@ -101,7 +102,7 @@ data SubmitError
 -- TODO[SW]: Add more detail here
 instance Show SubmitError where
   show err = case err of
-    ContractNotFound contractId -> "Could not find contract with ID(s) " <> intercalate ", " (toList contractId)
+    ContractNotFound contractId mbAdditionalInfo -> "Could not find contract with ID(s) " <> intercalate ", " (toList contractId) <> foldMap (". Additional debugging info: " <>) mbAdditionalInfo
     ContractKeyNotFound {} -> "Could not find contract with given key"
     AuthorizationError errMessage -> "Authorization failure: " <> errMessage
     ContractNotActive anyKey -> "Contract with ID " <> show anyKey.contractId <> " is no longer active"

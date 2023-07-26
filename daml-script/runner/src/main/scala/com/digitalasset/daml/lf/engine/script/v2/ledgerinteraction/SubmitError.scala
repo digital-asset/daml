@@ -61,7 +61,10 @@ object SubmitError {
     )
   }
 
-  final case class ContractNotFound(cids: NonEmpty[Seq[ContractId]]) extends SubmitError {
+  final case class ContractNotFound(
+      cids: NonEmpty[Seq[ContractId]],
+      debuggingAdditionalInfo: Option[String],
+  ) extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "ContractNotFound",
@@ -69,6 +72,10 @@ object SubmitError {
         (
           "unknownContractIds",
           fromNonEmptySet(cids, { cid: ContractId => SText(cid.coid) }),
+        ),
+        (
+          "debuggingAdditionalInfo",
+          SOptional(debuggingAdditionalInfo map SText),
         ),
       )
   }

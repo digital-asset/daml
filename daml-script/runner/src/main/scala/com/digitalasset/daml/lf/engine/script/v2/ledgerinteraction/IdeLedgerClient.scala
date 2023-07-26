@@ -295,7 +295,8 @@ class IdeLedgerClient(
     err match {
       // TODO[SW]: This error isn't yet fully implemented, so remains unknown. Convert to a `dev` error once the feature is supported in IDELedger.
       case e: RejectedAuthorityRequest => SubmitError.UnknownError(e.toString)
-      case ContractNotFound(cid) => SubmitError.ContractNotFound(NonEmpty(Seq, cid))
+      case ContractNotFound(cid) =>
+        SubmitError.ContractNotFound(NonEmpty(Seq, cid), Some("contract does not exist"))
       case ContractKeyNotFound(key) => SubmitError.ContractKeyNotFound(key)
       case e: FailedAuthorization =>
         SubmitError.AuthorizationError(Pretty.prettyDamlException(e).renderWideStream.mkString)
@@ -343,15 +344,18 @@ class IdeLedgerClient(
     case scenario.Error.Timeout(timeout) => SubmitError.UnknownError("Timeout: " + timeout)
 
     // We treat ineffective contracts (ie, ones that don't exist yet) as being not found
-    case scenario.Error.ContractNotEffective(cid, _, _) =>
-      SubmitError.ContractNotFound(NonEmpty(Seq, cid))
+    case scenario.Error.ContractNotEffective(cid, _, effectiveAt) =>
+      SubmitError.ContractNotFound(
+        NonEmpty(Seq, cid),
+        Some("contract not effective, would be effective at " + effectiveAt),
+      )
 
     case scenario.Error.ContractNotActive(cid, templateId, _) =>
       SubmitError.ContractNotActive(templateId, cid)
 
     // Similarly, we treat contracts that we can't see as not being found
     case scenario.Error.ContractNotVisible(cid, _, _, _, _) =>
-      SubmitError.ContractNotFound(NonEmpty(Seq, cid))
+      SubmitError.ContractNotFound(NonEmpty(Seq, cid), Some("contract not visible"))
 
     case scenario.Error.ContractKeyNotVisible(_, key, _, _, _) =>
       SubmitError.ContractKeyNotFound(key)
