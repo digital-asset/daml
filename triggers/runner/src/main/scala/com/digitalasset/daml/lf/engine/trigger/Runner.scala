@@ -1640,7 +1640,7 @@ object Runner {
     }
   }
 
-  private def triggerUserState(
+  private[trigger] def triggerUserState(
       state: SValue,
       level: Trigger.Level,
       version: Trigger.Version,

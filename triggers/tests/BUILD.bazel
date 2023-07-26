@@ -221,6 +221,7 @@ da_scala_library(
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/CatGenerators.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/TriggerMultiProcessSimulation.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/TriggerRuleSimulationLib.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/TriggerSimulationTesting.scala",
     ] + glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/**/*.scala"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",
@@ -228,6 +229,8 @@ da_scala_library(
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],

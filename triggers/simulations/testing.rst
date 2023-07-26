@@ -4,40 +4,162 @@
 How to Test Trigger Code
 ========================
 
+This document describes how to use the trigger simulation library to unit test trigger Daml code.
+
+Throughout, we assume that the :doc:`development instructions <development.rst>` have been followed to setup your development and simulation environment.
+
+.. note::
+  By default, we use the open source version of Canton in our Scalatest based simulation tests. This version of Canton performs:
+
+  - sequential transaction processing
+  - and, due to some hard coded resource limits, is more likely to rate limit ledger command submissions.
+
+  The enterprise version of Canton does not have these limitations.
+
+Our simulation testing will use the Daml ``Cat`` template:
+
+.. code-block:: unused
+  template Cat
+    with
+      owner : Party
+      name : Int
+    where
+      signatory owner
+
+and we use Daml triggers to create 25 instances of this contract every second.
+
+.. note::
+    A good understanding of `Translating Daml to Daml-LF <https://docs.daml.com/app-dev/daml-lf-translation.html>`_ is required when defining simulation tests. This is a known limitation.
+
+The Scala simulation testing code is defined in :doc:`CatBreedingTriggerTest.scala <scala/CatBreedingTriggerTest.scala>`.
+
+Trigger code can be viewed as operating using 2 lambda functions:
+
+- an initialize lambda - given a starting active contract set, this function describes:
+
+    - what the initial state will be
+    - what side-effecting command submissions will be submitted to the ledger (using an internal ledger API client) when evaluating this initial state
+- an update lambda - given a current state and a trigger message, this function describes:
+
+    - how the current state will be modified to produce a next state
+    - what side-effecting command submissions will be submitted to the ledger (using an internal ledger API client) when evaluating the next state.
+
+Clearly then, when unit testing trigger code, we will need to make the following types of assertions:
+
+- assertions regarding the trigger state
+- assertions regarding the command submissions that are to be submitted.
+
+The following code snippet shows the general format required when defining trigger unit tests:
+
+.. code-block:: scala
+    class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting {
+
+      import AbstractTriggerTest._
+      import TriggerRuleSimulationLib._
+
+      "Cat slow breeding trigger" should {
+        "initialize lambda" in {
+          // TODO: initial trigger state assertions
+          // TODO: ledger submission assertions
+        }
+
+        "update lambda" in {
+          // TODO: next trigger state assertions
+          // TODO: ledger submission assertions
+        }
+      }
+    }
+
 Testing Trigger State
 ---------------------
 
-.. code-block:: scala
-    class CatFeedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting {
-        "Cat slow feeding trigger" should {
-            "initialize lambda" in {
-                // TODO: initialise user state correctly
+For the purposes of unit testing, a trigger's state consists of the following components:
 
-                // TODO: generate ledger submissions correctly
-            }
+- a user state that is referenced and manipulated by the trigger initial lambda and update lambda
+- an internal active contract store (ACS) that provides a party specific view of the ledger contracts that are currently active
 
-            "update lambda" in {
-                // TODO: update user state correctly
+    - received transaction create and archive events are used to update the internal ACS.
 
-                // TODO: generate ledger submissions correctly
-            }
+Asserting Properties of the User State
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Trigger starting states may be defined using a Daml-LF expression. To aid with generating these Daml-LF expressions, the method `unsafeSValueFromLf: String => SValue` is used.
+
+Assertions of a given user state can be made using the Scala function `assertEqual: [SValue, String] => Assertion`.
+
+The user state can be extracted from a trigger state using the Scala function `userState: SValue => SValue`.
+
+So, for example, we can assert that a specific initial state is generated using:
+
+.. code:: scala
+    class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting {
+
+      import AbstractTriggerTest._
+      import TriggerRuleSimulationLib._
+
+      "Cat slow breeding trigger" should {
+        "initialize lambda" in {
+          val setup = (_: ApiTypes.Party) => Seq.empty
+
+          initialStateLambdaAssertion(setup) { case (state, submissions) =>
+            // Assert that the user state initializes to the Daml tuple (False, 0), expressed in Daml-LF
+            assertEqual(userState(state), "< _1 = False, _2 = 0 >")
+
+            // TODO: ledger submission assertions
+          }
         }
+
+        "update lambda" in {
+          // ...
+        }
+      }
     }
 
-Asserting Properties of User State
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+or that, when processing heartbeat messages, the user state increases by (the breeding rate of) 25:
 
-TODO: show how to generate an arbitrary user state
+.. code:: scala
+    class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting {
 
-Trigger starting states may be defined using a Daml-LF expression. To aid with generating these Daml-LF expressions, the method `unsafeSValueFromLf: String => SValue` can be used.
+      import AbstractTriggerTest._
+      import TriggerRuleSimulationLib._
 
-.. note::
-  Currently, a good of understanding of `Daml-LF <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>`_ (which parses to a ``Value``) is required when defining create or archive events. This is a known limitation.
+      "Cat slow breeding trigger" should {
+        "initialize lambda" in {
+          // ...
+        }
+      }
 
-TODO: show how to assert against a given user state - add in code to evaluate Daml-LF expressions that interrogate the resulting SValue?
+      "update lambda" should {
+        val templateId = s"$packageId:Cats:Cat"
+        val knownContractId = s"known-${UUID.randomUUID()}"
+        val breedingRate = 25
+        val userStartState = "3"
+        val acsF = (party: ApiTypes.Party) => Seq(createdEvent(templateId, s"< _1 = \"$party\", _2 = 1 >", contractId = knownContractId))
 
-Asserting Properties of the Trigger ACS
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        "for heartbeats" in {
+          val setup = { (party: ApiTypes.Party) =>
+              (
+                unsafeSValueFromLf(s"< _1 = False, _2 = $userStartState >"),
+                acsF(party),
+                TriggerMsg.Heartbeat,
+              )
+          }
+
+          updateStateLambdaAssertion(setup)  { case (startState, endState, submissions) =>
+            val userEndState = unsafeSValueApp("""\(tuple: Tuple2 Bool Int64) -> (Tuple2 Bool Int64) {_2} tuple""", userState(endState))
+
+            assertEqual(userEndState, s"$userStartState + $breedingRate")
+
+            // ...
+          }
+        }
+
+        // TODO: update lambda assertions for other trigger messages
+     }
+    }
+
+Testing the Trigger ACS
+^^^^^^^^^^^^^^^^^^^^^^^
 
 TODO: show how to generate an arbitrary ACS
 
@@ -47,8 +169,18 @@ As a trigger's ACS influences how its user code behaves, we need to understand h
 
 TODO: show how to assert against the trigger ACS - resulting ACS is presented as an SValue - add in code to evaluate Daml-LF expressions that interrogate the resulting SValue?
 
-Testing User Rule Behaviour
----------------------------
+Defining Initial ACS
+~~~~~~~~~~~~~~~~~~~~
+
+Using
+
+Asserting Properties of the ACS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+TODO:
+
+Testing Trigger Command Submissions
+-----------------------------------
 
 TODO: show how to generate an arbitrary trigger message
 

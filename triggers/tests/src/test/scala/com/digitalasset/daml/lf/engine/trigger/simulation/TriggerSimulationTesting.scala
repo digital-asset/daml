@@ -5,7 +5,8 @@ package com.daml.lf.engine.trigger
 package simulation
 
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, InterfaceView}
+import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
+import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, Ref}
@@ -20,10 +21,29 @@ import com.google.rpc.status.Status
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, Suite}
 
+import java.nio.file.{Path, Paths}
 import java.util.UUID
+import scala.collection.immutable.TreeMap
 
 trait TriggerSimulationTesting extends Matchers with AbstractTriggerTest {
   self: Suite =>
+
+  override protected lazy val darFile: Either[Path, Path] =
+    Right(
+      Paths.get(
+        Option(System.getenv("DAR")).getOrElse(
+          throw new RuntimeException(
+            "Trigger simulations need a Dar file specified using the environment variable: DAR"
+          )
+        )
+      )
+    )
+
+  override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
+    super.triggerRunnerConfiguration.copy(hardLimit =
+      super.triggerRunnerConfiguration.hardLimit
+        .copy(allowTriggerTimeouts = true, allowInFlightCommandOverflows = true)
+    )
 
   protected def safeSValueFromLf(lfValue: String): Either[String, SValue] = {
     val parserParameters: parser.ParserParameters[this.type] =
@@ -40,8 +60,18 @@ trait TriggerSimulationTesting extends Matchers with AbstractTriggerTest {
     )
   }
 
+  protected def xxx(lfValue: String) = {
+    val parserParameters: parser.ParserParameters[this.type] =
+      parser.ParserParameters(
+        defaultPackageId = packageId,
+        languageVersion = defaultLanguageVersion,
+      )
+
+    parseExpr(lfValue)(parserParameters)
+  }
+
   protected def unsafeSValueFromLf(lfValue: String): SValue = {
-    safeSValueFromLf(lfValue).left.map(cause => throw new RuntimeException(cause)).toOption.get
+    safeSValueFromLf(lfValue).left.map(cause => throw new RuntimeException(s"$cause - parsing $lfValue")).toOption.get
   }
 
   protected def safeSValueApp(lfFuncExpr: String, svalue: SValue): Either[String, SValue] = {
@@ -55,9 +85,17 @@ trait TriggerSimulationTesting extends Matchers with AbstractTriggerTest {
 
   protected def unsafeSValueApp(lfFuncExpr: String, svalue: SValue): SValue = {
     safeSValueApp(lfFuncExpr, svalue).left
-      .map(cause => throw new RuntimeException(cause))
+      .map(cause => throw new RuntimeException(s"$cause - parsing $lfFuncExpr and applying to $svalue"))
       .toOption
       .get
+  }
+
+  protected def userState(state: SValue)(implicit triggerDefn: TriggerDefinition): SValue = {
+    Runner.triggerUserState(state, triggerDefn.level, triggerDefn.version)
+  }
+
+  protected def activeContracts(state: SValue)(implicit triggerDefn: TriggerDefinition): TreeMap[SValue, TreeMap[SValue, SValue]] = {
+    Runner.getActiveContracts(state, triggerDefn.level, triggerDefn.version).getOrElse(throw new RuntimeException("???"))
   }
 
   protected def createdEvent(
@@ -109,6 +147,14 @@ trait TriggerSimulationTesting extends Matchers with AbstractTriggerTest {
         )
       ),
     )
+  }
+
+  protected def transaction(createdEvent: CreatedEvent, createdEvents: CreatedEvent*): Transaction = {
+    Transaction(events = (createdEvent +: createdEvents).map(evt => Event(Event.Event.Created(evt))))
+  }
+
+  protected def transaction(archivedEvent: ArchivedEvent, archivedEvents: ArchivedEvent*): Transaction = {
+    Transaction(events = (archivedEvent +: archivedEvents).map(evt => Event(Event.Event.Archived(evt))))
   }
 
   protected def completion(commandId: String, status: Status = new Status(0)): Completion = {

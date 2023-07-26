@@ -26,12 +26,6 @@ abstract class TriggerMultiProcessSimulation
   protected implicit lazy val simulationConfig: TriggerSimulationConfig =
     TriggerSimulationConfig()
 
-  override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
-    super.triggerRunnerConfiguration.copy(hardLimit =
-      super.triggerRunnerConfiguration.hardLimit
-        .copy(allowTriggerTimeouts = true, allowInFlightCommandOverflows = true)
-    )
-
   private val simulationTerminatedNormally = Promise[Unit]()
 
   "Multi process trigger simulation" in {
