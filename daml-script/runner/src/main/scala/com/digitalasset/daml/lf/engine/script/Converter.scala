@@ -66,7 +66,7 @@ object ScriptIds {
 
 final case class AnyTemplate(ty: Identifier, arg: SValue)
 final case class AnyChoice(name: ChoiceName, arg: SValue)
-final case class AnyContractKey(key: SValue)
+final case class AnyContractKey(templateId: Identifier, ty: Type, key: SValue)
 // frames ordered from most-recent to least-recent
 final case class StackTrace(frames: Vector[Location]) {
   // Return the most recent frame
@@ -106,19 +106,19 @@ trait ConverterMethods {
     )
   }
 
-  private def fromTemplateTypeRep(templateId: value.Identifier): SValue =
+  private[lf] def fromTemplateTypeRep(templateId: value.Identifier): SValue =
     record(DA.Internal.Any.TemplateTypeRep, ("getTemplateTypeRep", fromIdentifier(templateId)))
 
   private[lf] def fromAnyContractId(
       scriptIds: ScriptIds,
       templateId: value.Identifier,
-      contractId: String,
+      contractId: ContractId,
   ): SValue = {
     val contractIdTy = scriptIds.damlScript("AnyContractId")
     record(
       contractIdTy,
       ("templateId", fromTemplateTypeRep(templateId)),
-      ("contractId", SContractId(ContractId.assertFromString(contractId))),
+      ("contractId", SContractId(contractId)),
     )
   }
 
@@ -212,13 +212,9 @@ trait ConverterMethods {
 
   def toAnyContractKey(v: SValue): Either[String, AnyContractKey] = {
     v match {
-      case SRecord(_, _, vals) if vals.size == 2 => {
-        vals.get(0) match {
-          case SAny(_, key) => Right(AnyContractKey(key))
-          case _ => Left(s"Expected SAny but got $v")
-        }
-      }
-      case _ => Left(s"Expected AnyChoice but got $v")
+      case SRecord(_, _, ArrayList(SAny(ty, key), templateRep)) =>
+        typeRepToIdentifier(templateRep).map(templateId => AnyContractKey(templateId, ty, key))
+      case _ => Left(s"Expected AnyContractKey but got $v")
     }
   }
 
@@ -233,6 +229,19 @@ trait ConverterMethods {
       case _ => Left(s"Expected TemplateTypeRep but got $v")
     }
   }
+
+  def fromAnyContractKey(key: AnyContractKey): SValue =
+    record(
+      DA.Internal.Any.AnyContractKey,
+      ("getAnyContractKey", SAny(key.ty, key.key)),
+      (
+        "getAnyContractKeyTemplateTypeRep",
+        record(
+          DA.Internal.Any.TemplateTypeRep,
+          ("getTemplateTypeRep", STypeRep(TTyCon(key.templateId))),
+        ),
+      ),
+    )
 
   private val fstName = Name.assertFromString("fst")
   private val sndName = Name.assertFromString("snd")

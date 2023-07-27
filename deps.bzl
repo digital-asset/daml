@@ -423,5 +423,23 @@ genrule(
             $(SRCS)
     ''',
 )
+genrule(
+    name = "lifecycling",
+    srcs = glob(["docs/code-samples/lifecycling/**/*"]
+            , exclude = ["docs/code-samples/lifecycling/daml.yaml", "docs/code-samples/lifecycling/NO_AUTO_COPYRIGHT"]),
+    outs = ["daml-finance-lifecycling.tar.gz"],
+    cmd = '''
+        tar czhf $(OUTS) \\\\
+            --transform 's|^.*docs/code-samples/lifecycling/||' \\\\
+            --owner=1000 \\\\
+            --group=1000 \\\\
+            --mtime=2000-01-01\\\\ 00:00Z \\\\
+            --no-acls \\\\
+            --no-xattrs \\\\
+            --no-selinux \\\\
+            --sort=name \\\\
+            $(SRCS)
+    ''',
+)
             """,
         )

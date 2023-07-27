@@ -23,6 +23,8 @@ object ErrorResource {
     ContractKey,
     ContractKeyHash,
     DalfPackage,
+    DevErrorType,
+    ExceptionText,
     ExceptionType,
     ExceptionValue,
     IdentityProviderConfig,

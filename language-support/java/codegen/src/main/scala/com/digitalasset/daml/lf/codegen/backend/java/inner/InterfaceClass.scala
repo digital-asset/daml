@@ -5,6 +5,7 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data.ContractFilter
 import com.daml.ledger.javaapi.data.codegen.{Contract, InterfaceCompanion}
+import com.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 import com.daml.lf.codegen.backend.java.inner.TemplateClass.toChoiceNameField
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.typesig
@@ -22,7 +23,7 @@ object InterfaceClass extends StrictLogging {
       interfaceName: ClassName,
       interfaceViewTypeName: ClassName,
       interface: DefInterface.FWT,
-      typeDeclarations: Map[QualifiedName, typesig.PackageSignature.TypeDecl],
+      typeDeclarations: AuxiliarySignatures,
       packageId: PackageId,
       interfaceId: QualifiedName,
   )(implicit packagePrefixes: PackagePrefixes): TypeSpec =
@@ -55,7 +56,6 @@ object InterfaceClass extends StrictLogging {
           ContractIdClass.generateExercisesInterface(
             interface.choices,
             typeDeclarations,
-            packageId,
           )
         )
         .addType(

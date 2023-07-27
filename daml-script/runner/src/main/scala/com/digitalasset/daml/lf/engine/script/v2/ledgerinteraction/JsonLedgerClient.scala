@@ -672,6 +672,16 @@ class JsonLedgerClient(
       )
     }
 
+  def trySubmit(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commands: List[command.ApiCommand],
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]] = unsupportedOn("trySubmit")
+
   override def vetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,

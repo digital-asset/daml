@@ -21,7 +21,7 @@ locals {
       {
         name       = "du1",
         disk_size  = 400,
-        size       = 15,
+        size       = 10,
         assignment = "default",
       },
       {
