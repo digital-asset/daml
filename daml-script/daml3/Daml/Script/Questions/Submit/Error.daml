@@ -16,13 +16,26 @@ data DevErrorType
   | UnknownNewFeature -- ^ This should never happen - Update Scripts when you see this!
   deriving Show
 
+-- | Additional debugging info optionally provided by the ledger
+data ContractNotFoundAdditionalInfo
+  = NotFound -- The generic "this contract does not exist"
+  | NotActive -- The contract did exist, but has since been archived
+  | NotEffective with -- The contract "will" exist, only thrown from the IDELedger where one can go backwards in time
+      effectiveAt : Text
+  | NotVisible with -- The contract exists, but the readAs/actAs party union cannot see it
+      actAs : [Party]
+      readAs : [Party]
+      observers : [Party]
+  deriving Show
+
 -- | Errors that can be thrown by a command submission
 data SubmitError
   = -- | Contract with given contract ID could not be found, and has never existed on this participant
     ContractNotFound with
       unknownContractIds : NonEmpty Text
         -- ^ Provided as text, as we do not know the template ID of a contract if the lookup fails
-      debuggingAdditionalInfo : Optional Text
+      additionalDebuggingInfo : Optional ContractNotFoundAdditionalInfo
+       -- ^ should always be None in Canton's case, see https://github.com/digital-asset/daml/issues/17154
   | -- | Contract with given contract key could not be found
     ContractKeyNotFound with
       contractKey : AnyContractKey
@@ -103,7 +116,9 @@ data SubmitError
 -- TODO[SW]: Add more detail here
 instance Show SubmitError where
   show err = case err of
-    ContractNotFound contractId mbAdditionalInfo -> "Could not find contract with ID(s) " <> intercalate ", " (toList contractId) <> "." <> foldMap (" Additional debugging info: " <>) mbAdditionalInfo
+    ContractNotFound { unknownContractIds, additionalDebuggingInfo } ->
+      "Could not find contract with ID(s) " <> intercalate ", " (toList unknownContractIds) <> "."
+      <> foldMap (\info -> " Additional debugging info: " <> show info) additionalDebuggingInfo
     ContractKeyNotFound {} -> "Could not find contract with given key"
     AuthorizationError errMessage -> "Authorization failure: " <> errMessage
     ContractNotActive anyKey -> "Contract with ID " <> show anyKey.contractId <> " is no longer active"

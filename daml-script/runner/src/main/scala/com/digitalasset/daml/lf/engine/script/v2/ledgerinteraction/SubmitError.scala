@@ -15,6 +15,8 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.Time
 
 import scala.util.control.NoStackTrace
 
@@ -34,16 +36,18 @@ object SubmitError {
   final case class SubmitErrorConverters(env: ScriptF.Env) {
     def damlScriptErrorIdentifier(s: String) =
       env.scriptIds.damlScriptModule("Daml.Script.Questions.Submit.Error", s)
-    def damlScriptError(name: String, rank: Int, fields: (String, SValue)*) =
+    def damlScriptVariant(datatypeName: String, variantName: String, rank: Int, fields: (String, SValue)*) =
       SVariant(
-        damlScriptErrorIdentifier("SubmitError"),
-        Name.assertFromString(name),
+        damlScriptErrorIdentifier(datatypeName),
+        Name.assertFromString(variantName),
         rank,
         record(
-          damlScriptErrorIdentifier("SubmitError." + name),
+          damlScriptErrorIdentifier(datatypeName + "." + variantName),
           fields: _*
         ),
       )
+    def damlScriptError(name: String, rank: Int, fields: (String, SValue)*) =
+      damlScriptVariant("SubmitError", name, rank, fields: _*)
   }
 
   def globalKeyToAnyContractKey(env: Env, key: GlobalKey): SValue = {
@@ -63,7 +67,7 @@ object SubmitError {
 
   final case class ContractNotFound(
       cids: NonEmpty[Seq[ContractId]],
-      debuggingAdditionalInfo: Option[String],
+      additionalDebuggingInfo: Option[ContractNotFoundAdditionalInfo],
   ) extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
@@ -74,10 +78,71 @@ object SubmitError {
           fromNonEmptySet(cids, { cid: ContractId => SText(cid.coid) }),
         ),
         (
-          "debuggingAdditionalInfo",
-          SOptional(debuggingAdditionalInfo map SText),
+          "additionalDebuggingInfo",
+          SOptional(additionalDebuggingInfo.map(_.toSValue(env))),
         ),
       )
+  }
+
+  sealed abstract class ContractNotFoundAdditionalInfo {
+    def toSValue(env: Env): SValue
+  }
+
+  object ContractNotFoundAdditionalInfo {
+    final case class NotFound() extends ContractNotFoundAdditionalInfo {
+      override def toSValue(env: Env) =
+        SubmitErrorConverters(env).damlScriptVariant(
+          "ContractNotFoundAdditionalInfo",
+          "NotFound",
+          1,
+        )
+    }
+    final case class NotActive() extends ContractNotFoundAdditionalInfo {
+      override def toSValue(env: Env) =
+        SubmitErrorConverters(env).damlScriptVariant(
+          "ContractNotFoundAdditionalInfo",
+          "NotActive",
+          2,
+        )
+    }
+    final case class NotEffective(
+      effectiveAt: Time.Timestamp
+    ) extends ContractNotFoundAdditionalInfo {
+      override def toSValue(env: Env) =
+        SubmitErrorConverters(env).damlScriptVariant(
+          "ContractNotFoundAdditionalInfo",
+          "NotEffective",
+          3,
+          (
+            "effectiveAt",
+            SText(effectiveAt.toString),
+          )
+        )
+    }
+    final case class NotVisible(
+      actAs: Set[Party],
+      readAs: Set[Party],
+      observers: Set[Party],
+    ) extends ContractNotFoundAdditionalInfo {
+      override def toSValue(env: Env) =
+        SubmitErrorConverters(env).damlScriptVariant(
+          "ContractNotFoundAdditionalInfo",
+          "NotVisible",
+          4,
+          (
+            "actAs",
+            SList(actAs.toList.map(SParty).to(FrontStack))
+          ),
+          (
+            "readAs",
+            SList(readAs.toList.map(SParty).to(FrontStack))
+          ),
+          (
+            "observers",
+            SList(observers.toList.map(SParty).to(FrontStack))
+          ),
+        )
+    }
   }
 
   final case class ContractKeyNotFound(key: GlobalKey) extends SubmitError {
