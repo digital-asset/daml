@@ -206,18 +206,38 @@ private class ContractsFetch(
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
     import doobie.implicits._, cats.syntax.apply._
+    import java.sql.SQLException
+    import io.grpc.StatusRuntimeException
+
+    def failedDueToPrune(s: io.grpc.Status) =
+      s.getCode == io.grpc.Status.Code.FAILED_PRECONDITION &&
+        s.getDescription.contains("PARTICIPANT_PRUNED_DATA_ACCESSED")
 
     def loop(maxAttempts: Int): ConnectionIO[BeginBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
-      (contractsIo_(fetchContext, disableAcs, absEnd, templateId) <* fconn.commit)
-        .exceptSql {
-          case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
-            logger.debug(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
+      fconn.handleErrorWith(
+        (contractsIo_(fetchContext, disableAcs, absEnd, templateId) <* fconn.commit),
+        {
+          case e: SQLException if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
+            logger.error(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
             fconn.rollback flatMap (_ => loop(maxAttempts - 1))
-          case e @ _ =>
-            logger.error(s"contractsIo3 exception: ${e.description}, state: ${e.getSQLState}")
+          case e: StatusRuntimeException if maxAttempts > 0 && failedDueToPrune(e.getStatus) =>
+            logger.error(
+              "contractsIo, exception: Failed as the ledger has been pruned since the last cached offset. " +
+                s"Clearing local cache for template $templateId and re-attempting. $e"
+            )
+            for {
+              _ <- fconn.rollback
+              tpids <- surrogateTemplateIds(Set(templateId))
+              _ <- sjd.q.queries.deleteTemplate(tpids(templateId))
+              _ <- fconn.commit
+              offset <- loop(maxAttempts - 1)
+            } yield offset
+          case e =>
+            logger.error(s"contractsIo3 exception: $e")
             fconn.raiseError(e)
-        }
+        },
+      )
     }
 
     loop(5)

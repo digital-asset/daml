@@ -98,6 +98,7 @@ object CantonRunner {
          |      storage.type = memory
          |      parameters = {
          |        enable-engine-stack-traces = true
+         |        enable-contract-upgrading = ${config.enableUpgrade}
          |        dev-version-support = ${config.devMode}
          |      }
          |      ${timeType.fold("")(x => "testing-time.type = " + x)}
@@ -162,9 +163,7 @@ object CantonRunner {
         Process(
           cmd,
           None,
-          // TODO: https://github.com/digital-asset/daml/issues/17082
-          // Workaround to allow DevIT tests to pass.
-          ("enableContractUpgrading", if (config.enableUpgrade) "true" else "false"),
+          // env-vars here
         ).run(ProcessLogger { str =>
           if (config.debug) println(str)
           outputBuffer += str

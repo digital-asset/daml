@@ -917,4 +917,74 @@ trait AbstractHttpServiceIntegrationTestFuns
       .sample
       .getOrElse(sys.error(s"can't generate ${n}b string"))
   }
+
+  import AbstractHttpServiceIntegrationTestFuns.{UriFixture, EncoderFixture}
+
+  protected def offsetBeforeAfterArchival(
+      party: domain.Party,
+      fixture: UriFixture with EncoderFixture,
+      headers: List[HttpHeader],
+  ): Future[(domain.Offset, domain.Offset)] = {
+    import WebsocketTestFixture._
+    import fixture.uri
+    type In = JsValue // JsValue might not be the most convenient choice
+    val syntax = Consume.syntax[In]
+    import syntax._
+
+    def offsetAfterCreate(): Consume.FCC[In, (domain.ContractId, domain.Offset)] = for {
+      // make a contract
+      create <- liftF(
+        postCreateCommand(
+          iouCreateCommand(party),
+          fixture,
+          headers,
+        )
+      )
+      cid = resultContractId(create)
+      // wait for the creation's offset
+      offsetAfter <- readUntil[In] {
+        case ContractDelta(creates, _, off @ Some(_)) =>
+          if (creates.exists(_._1 == cid)) off else None
+        case _ => None
+      }
+    } yield (cid, offsetAfter)
+
+    import akka.stream.{KillSwitches, UniqueKillSwitch}
+    import akka.stream.scaladsl.Keep
+
+    def readMidwayOffset(kill: UniqueKillSwitch) = for {
+      // wait for the ACS
+      _ <- readUntil[In] {
+        case ContractDelta(_, _, offset) => offset
+        case _ => None
+      }
+      // make a contract and fetch the offset after it
+      (cid, betweenOffset) <- offsetAfterCreate()
+      // archive it
+      archive <- liftF(postArchiveCommand(TpId.Iou.Iou, cid, fixture, headers))
+      _ = archive._1 shouldBe (StatusCodes.OK)
+      // wait for the archival offset
+      afterOffset <- readUntil[In] {
+        case ContractDelta(_, archived, offset) =>
+          if (archived.exists(_.contractId == cid)) offset else None
+        case _ => None
+      }
+      // if you try to prune afterOffset, pruning fails with
+      // OFFSET_OUT_OF_RANGE(9,db14ee96): prune_up_to needs to be before ledger end 0000000000000007
+      // create another dummy contract and ignore it
+      _ <- offsetAfterCreate()
+      _ = kill.shutdown()
+    } yield (betweenOffset, afterOffset)
+
+    val query = """[{"templateIds": ["Iou:Iou"]}]"""
+    for {
+      jwt <- jwtForParties(uri)(List(party), List(), "participant0")
+      (kill, source) =
+        singleClientQueryStream(jwt, uri, query)
+          .viaMat(KillSwitches.single)(Keep.right)
+          .preMaterialize()
+      offsets <- source.via(parseResp).runWith(Consume.interpret(readMidwayOffset(kill)))
+    } yield offsets
+  }
+
 }
