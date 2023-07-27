@@ -487,6 +487,7 @@ private[lf] class Runner(
     val timeMode: ScriptTimeMode,
 ) extends StrictLogging {
 
+  // TODO[SW] Move this to daml2-script
   // We overwrite the definition of 'fromLedgerValue' with an identity function.
   // This is a type error but Speedy doesn’t care about the types and the only thing we do
   // with the result is convert it to ledger values/record so this is safe.
@@ -494,12 +495,6 @@ private[lf] class Runner(
   // lack of existential types.
   val extendedCompiledPackages = {
     val damlScriptDefs: PartialFunction[SDefinitionRef, SDefinition] = {
-      // Daml3 script
-      // Generalised version of the various unsafe casts we need in daml scripts,
-      // casting various types involving LedgerValue to/from their real types.
-      case LfDefRef(id)
-          if id == script.scriptIds.damlScriptModule("Daml.Script.Internal", "dangerousCast") =>
-        SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
       // Daml script legacy
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
         SDefinition(SEMakeClo(Array(), 1, SELocA(0)))

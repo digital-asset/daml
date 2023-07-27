@@ -25,7 +25,7 @@ dependencies:
   - daml-prim
 build-options: {build_options}
 EOF
-          $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$@
+          $(location //compiler/damlc:damlc-compile-only) build --project-root=$$TMP_DIR -o $$PWD/$@
           rm -rf $$TMP_DIR
     """.format(
         build_options = str([
@@ -38,7 +38,7 @@ EOF
         sdk = sdk_version,
         ghc = ghc_version,
     ),
-    tools = ["//compiler/damlc"],
+    tools = ["//compiler/damlc:damlc-compile-only"],
     visibility = ["//visibility:public"],
 )
 

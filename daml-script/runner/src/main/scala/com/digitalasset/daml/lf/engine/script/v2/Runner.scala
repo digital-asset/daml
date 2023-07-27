@@ -23,6 +23,14 @@ import com.daml.script.converter.ConverterException
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+// linking magic
+import com.daml.lf.archive.DarDecoder
+import java.nio.file.Paths
+import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.lf.speedy.SDefinition
+import com.daml.lf.language.PackageInterface
+import com.daml.lf.data.Ref._
+
 private[lf] class Runner(
     unversionedRunner: script.Runner,
     initialClients: Participants[UnversionedScriptLedgerClient],
@@ -30,9 +38,88 @@ private[lf] class Runner(
     warningLog: WarningLog = Speedy.Machine.newWarningLog,
     canceled: () => Option[RuntimeException] = () => None,
 ) {
+  // Dynamically link in the daml3-script library
+  private val linkedExtendedCompiledPackages = {
+    // Most recent Dar of the frontend daml3-script library
+    val bazelFile = Paths.get(rlocation("daml-script/daml3/daml3-script.dar")).toFile
+    val sdkFile = Paths.get(sys.env.get("DAML_SDK").get + "/daml-libs/daml3-script.dar").toFile
+    val mostRecentScript =
+      PureCompiledPackages.assertBuild(
+        DarDecoder
+          .assertReadArchiveFromFile(
+            if (bazelFile.exists()) bazelFile else sdkFile
+          )
+          .all
+          .toMap,
+        script.Runner.compilerConfig,
+      )
+    val mostRecentScriptPackageId =
+      mostRecentScript.packageIds
+        .find(
+          (
+              pkgId =>
+                mostRecentScript.pkgInterface
+                  .lookupPackage(pkgId)
+                  .toOption
+                  .flatMap(_.metadata)
+                  .map(_.name) == Some("daml3-script")
+          )
+        )
+        .getOrElse(throw new IllegalArgumentException("Own Daml Script had no metadata"))
+    val injectLinkedDamlScript: (PackageId => PackageId) = pkgId =>
+      if (pkgId == unversionedRunner.script.scriptIds.scriptPackageId)
+        mostRecentScriptPackageId
+      else
+        pkgId
+
+    // Daml script does not define any templates, so only `LfDefRef`s need to be injected
+    val injectLinkedDamlScriptSDefinition: (SDefinitionRef => SDefinitionRef) = dref =>
+      dref match {
+        case LfDefRef(Identifier(pkgId, name)) =>
+          LfDefRef(Identifier(injectLinkedDamlScript(pkgId), name))
+        case _ => dref
+      }
+
+    // Plug in our dangerous cast
+    val dangerousCastDef: PartialFunction[SDefinitionRef, SDefinition] = {
+      // Generalised version of the various unsafe casts we need in daml scripts,
+      // casting various types involving LedgerValue to/from their real types.
+      case LfDefRef(id)
+          if id == (new ScriptIds(mostRecentScriptPackageId)).damlScriptModule(
+            "Daml.Script.Internal",
+            "dangerousCast",
+          ) =>
+        SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
+    }
+
+    new CompiledPackages(script.Runner.compilerConfig) {
+      import PartialFunction._
+      override def getDefinition(dref: SDefinitionRef): Option[SDefinition] = {
+        val injectedDRef = injectLinkedDamlScriptSDefinition(dref)
+        dangerousCastDef.lift(injectedDRef) orElse
+          (mostRecentScript.getDefinition(injectedDRef) orElse
+            unversionedRunner.extendedCompiledPackages.getDefinition(dref))
+      }
+
+      override def pkgInterface: PackageInterface =
+        new PackageInterface(
+          (fromFunction(
+            injectLinkedDamlScript
+          ) andThen mostRecentScript.pkgInterface.signatures) orElse unversionedRunner.extendedCompiledPackages.pkgInterface.signatures
+        )
+
+      override def packageIds: collection.Set[PackageId] =
+        unversionedRunner.extendedCompiledPackages.packageIds ++ mostRecentScript.packageIds
+
+      override def definitions: PartialFunction[SDefinitionRef, SDefinition] =
+        fromFunction(
+          injectLinkedDamlScriptSDefinition
+        ) andThen (dangerousCastDef orElse (mostRecentScript.definitions orElse unversionedRunner.extendedCompiledPackages.definitions))
+    }
+  }
   private val machine =
     Speedy.Machine.fromPureSExpr(
-      unversionedRunner.extendedCompiledPackages,
+      linkedExtendedCompiledPackages,
       unversionedRunner.script.expr,
       iterationsBetweenInterruptions = 100000,
       traceLog = traceLog,
@@ -71,7 +158,7 @@ private[lf] class Runner(
   private val ctx =
     ScriptF.Ctx(
       unversionedRunner.knownPackages,
-      unversionedRunner.extendedCompiledPackages,
+      linkedExtendedCompiledPackages,
     )
 
   // Wraps the result of executing a command in a call to continue, using the following form
