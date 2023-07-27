@@ -39,10 +39,6 @@ else
     bazel=bazel
 fi
 
-if [ -n "${ARTIFACTORY_USERNAME:-}" ] && [ -n "${ARTIFACTORY_PASSWORD:-}" ]; then
-    export ARTIFACTORY_AUTH=$(echo -n "$ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD" | base64 -w0)
-fi
-
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
   --build_tag_filters "${tag_filter:1}" \
@@ -94,7 +90,8 @@ $bazel test //... \
   --experimental_profile_include_target_label \
   --build_event_json_file test-events.json \
   --build_event_publish_all_actions \
-  --experimental_execution_log_file "$ARTIFACT_DIRS/logs/test_execution${execution_log_postfix}.log"
+  --experimental_execution_log_file "$ARTIFACT_DIRS/logs/test_execution${execution_log_postfix}.log" \
+  --config=canton-ee
 
 # Make sure that Bazel query works.
 $bazel query 'deps(//...)' >/dev/null
