@@ -36,7 +36,12 @@ object SubmitError {
   final case class SubmitErrorConverters(env: ScriptF.Env) {
     def damlScriptErrorIdentifier(s: String) =
       env.scriptIds.damlScriptModule("Daml.Script.Questions.Submit.Error", s)
-    def damlScriptVariant(datatypeName: String, variantName: String, rank: Int, fields: (String, SValue)*) =
+    def damlScriptVariant(
+        datatypeName: String,
+        variantName: String,
+        rank: Int,
+        fields: (String, SValue)*
+    ) =
       SVariant(
         damlScriptErrorIdentifier(datatypeName),
         Name.assertFromString(variantName),
@@ -106,7 +111,7 @@ object SubmitError {
         )
     }
     final case class NotEffective(
-      effectiveAt: Time.Timestamp
+        effectiveAt: Time.Timestamp
     ) extends ContractNotFoundAdditionalInfo {
       override def toSValue(env: Env) =
         SubmitErrorConverters(env).damlScriptVariant(
@@ -116,13 +121,13 @@ object SubmitError {
           (
             "effectiveAt",
             SText(effectiveAt.toString),
-          )
+          ),
         )
     }
     final case class NotVisible(
-      actAs: Set[Party],
-      readAs: Set[Party],
-      observers: Set[Party],
+        actAs: Set[Party],
+        readAs: Set[Party],
+        observers: Set[Party],
     ) extends ContractNotFoundAdditionalInfo {
       override def toSValue(env: Env) =
         SubmitErrorConverters(env).damlScriptVariant(
@@ -131,15 +136,15 @@ object SubmitError {
           4,
           (
             "actAs",
-            SList(actAs.toList.map(SParty).to(FrontStack))
+            SList(actAs.toList.map(SParty).to(FrontStack)),
           ),
           (
             "readAs",
-            SList(readAs.toList.map(SParty).to(FrontStack))
+            SList(readAs.toList.map(SParty).to(FrontStack)),
           ),
           (
             "observers",
-            SList(observers.toList.map(SParty).to(FrontStack))
+            SList(observers.toList.map(SParty).to(FrontStack)),
           ),
         )
     }
