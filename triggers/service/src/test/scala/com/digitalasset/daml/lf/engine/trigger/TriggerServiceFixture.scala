@@ -563,6 +563,7 @@ trait TriggerServiceFixture
                 encodedDars,
                 jdbcConfig,
                 false,
+                Cli.DefaultTlsConfiguration,
                 Compiler.Config.Dev,
                 logTriggerStatus,
               )

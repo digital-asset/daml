@@ -11,6 +11,7 @@ import akka.http.scaladsl.model.Uri
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.dbutils.JdbcConfig
+import com.daml.ledger.api.tls.TlsConfiguration
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -40,5 +41,6 @@ private[trigger] final case class ServiceConfig(
     jdbcConfig: Option[JdbcConfig],
     portFile: Option[Path],
     allowExistingSchema: Boolean,
+    tlsConfig: TlsConfiguration,
     compilerConfig: Compiler.Config,
 )

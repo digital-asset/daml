@@ -31,6 +31,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.dbutils.JdbcConfig
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.archive.{Dar, DarReader, Decode, Reader}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine._
@@ -535,6 +536,7 @@ object Server {
       initialDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       allowExistingSchema: Boolean,
+      tlsConfig: TlsConfiguration,
       compilerConfig: speedy.Compiler.Config,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
@@ -609,6 +611,7 @@ object Server {
             runningTrigger.triggerRefreshToken,
             compiledPackages,
             trigger,
+            tlsConfig,
             ledgerConfig,
             restartConfig,
             runningTrigger.triggerReadAs,

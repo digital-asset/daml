@@ -5,6 +5,7 @@ package com.daml.lf.engine.trigger
 
 import akka.http.scaladsl.model.Uri
 import com.daml.lf.speedy.Compiler
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.platform.services.time.TimeProviderType
 
 import java.io.File
@@ -49,6 +50,7 @@ private[trigger] final case class Cli(
     jdbcConfig: Option[JdbcConfig],
     portFile: Option[Path],
     allowExistingSchema: Boolean,
+    tlsConfig: TlsConfiguration,
     compilerConfig: Compiler.Config,
 ) extends StrictLogging {
 
@@ -80,6 +82,7 @@ private[trigger] final case class Cli(
       jdbcConfig = jdbcConfig,
       portFile = portFile,
       allowExistingSchema = allowExistingSchema,
+      tlsConfig = tlsConfig,
       compilerConfig = compilerConfig,
     )
   }
@@ -112,6 +115,8 @@ private[trigger] object Cli {
   val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
   val DefaultCompilerConfig: Compiler.Config = Compiler.Config.Default
   val DefaultCommandTtl: FiniteDuration = FiniteDuration(30, duration.SECONDS)
+  val DefaultTlsConfiguration: TlsConfiguration =
+    TlsConfiguration(enabled = false, None, None, None)
 
   private[trigger] def redirectToLogin(value: String): AuthClient.RedirectToLogin = {
     value.toLowerCase match {
@@ -151,6 +156,7 @@ private[trigger] object Cli {
     jdbcConfig = None,
     portFile = None,
     allowExistingSchema = false,
+    tlsConfig = DefaultTlsConfiguration,
     compilerConfig = DefaultCompilerConfig,
   )
 

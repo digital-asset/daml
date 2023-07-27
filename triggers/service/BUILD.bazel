@@ -77,6 +77,7 @@ da_scala_library(
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
         "@maven//:com_typesafe_config",
+        "@maven//:io_netty_netty_handler",
         "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_slf4j_slf4j_api",
     ],

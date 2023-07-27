@@ -4,7 +4,6 @@
 package com.daml.lf.engine.trigger
 
 import java.util.UUID
-
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
 import akka.http.scaladsl.Http.ServerBinding
@@ -13,6 +12,7 @@ import akka.util.Timeout
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dbutils.JdbcConfig
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
@@ -51,6 +51,7 @@ object ServiceMain {
       encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       allowExistingSchema: Boolean,
+      tlsConfig: TlsConfiguration,
       compilerConfig: Compiler.Config,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Future[(ServerBinding, ActorSystem[Server.Message])] = {
@@ -72,6 +73,7 @@ object ServiceMain {
           encodedDars,
           jdbcConfig,
           allowExistingSchema,
+          tlsConfig,
           compilerConfig,
           logTriggerStatus,
         ),
@@ -166,6 +168,7 @@ object ServiceMain {
               encodedDars,
               config.jdbcConfig,
               config.allowExistingSchema,
+              config.tlsConfig,
               config.compilerConfig,
             ),
             "TriggerService",
