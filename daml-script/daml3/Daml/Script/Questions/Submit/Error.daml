@@ -1,7 +1,11 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Daml.Script.Questions.Submit.Error where
+module Daml.Script.Questions.Submit.Error
+  ( DevErrorType (..)
+  , ContractNotFoundAdditionalInfo -- Don't export construtors, users should not be able to rely on the structure.
+  , SubmitError (..)
+  ) where
 
 import Daml.Script.Questions.Util
 import DA.NonEmpty
