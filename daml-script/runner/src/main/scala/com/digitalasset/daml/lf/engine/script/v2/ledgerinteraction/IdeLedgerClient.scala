@@ -347,20 +347,20 @@ class IdeLedgerClient(
     case scenario.Error.Timeout(timeout) => SubmitError.UnknownError("Timeout: " + timeout)
 
     // We treat ineffective contracts (ie, ones that don't exist yet) as being not found
-    case scenario.Error.ContractNotEffective(cid, _, effectiveAt) =>
+    case scenario.Error.ContractNotEffective(cid, tid, effectiveAt) =>
       SubmitError.ContractNotFound(
         NonEmpty(Seq, cid),
-        Some(SubmitError.ContractNotFoundAdditionalInfo.NotEffective(effectiveAt)),
+        Some(SubmitError.ContractNotFoundAdditionalInfo.NotEffective(tid, effectiveAt)),
       )
 
     case scenario.Error.ContractNotActive(cid, templateId, _) =>
       SubmitError.ContractNotActive(templateId, cid)
 
     // Similarly, we treat contracts that we can't see as not being found
-    case scenario.Error.ContractNotVisible(cid, _, actAs, readAs, observers) =>
+    case scenario.Error.ContractNotVisible(cid, tid, actAs, readAs, observers) =>
       SubmitError.ContractNotFound(
         NonEmpty(Seq, cid),
-        Some(SubmitError.ContractNotFoundAdditionalInfo.NotVisible(actAs, readAs, observers)),
+        Some(SubmitError.ContractNotFoundAdditionalInfo.NotVisible(tid, actAs, readAs, observers)),
       )
 
     case scenario.Error.ContractKeyNotVisible(_, key, _, _, _) =>

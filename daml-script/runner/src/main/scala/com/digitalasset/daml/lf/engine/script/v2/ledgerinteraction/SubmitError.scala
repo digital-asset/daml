@@ -102,15 +102,20 @@ object SubmitError {
           1,
         )
     }
-    final case class NotActive() extends ContractNotFoundAdditionalInfo {
+    final case class NotActive(tid: Identifier) extends ContractNotFoundAdditionalInfo {
       override def toSValue(env: Env) =
         SubmitErrorConverters(env).damlScriptVariant(
           "ContractNotFoundAdditionalInfo",
           "NotActive",
           2,
+          (
+            "templateIdentifier",
+            SText(tid.toString),
+          ),
         )
     }
     final case class NotEffective(
+        tid: Identifier,
         effectiveAt: Time.Timestamp
     ) extends ContractNotFoundAdditionalInfo {
       override def toSValue(env: Env) =
@@ -119,12 +124,17 @@ object SubmitError {
           "NotEffective",
           3,
           (
+            "templateIdentifier",
+            SText(tid.toString),
+          ),
+          (
             "effectiveAt",
             SText(effectiveAt.toString),
           ),
         )
     }
     final case class NotVisible(
+        tid: Identifier,
         actAs: Set[Party],
         readAs: Set[Party],
         observers: Set[Party],
@@ -134,6 +144,10 @@ object SubmitError {
           "ContractNotFoundAdditionalInfo",
           "NotVisible",
           4,
+          (
+            "templateIdentifier",
+            SText(tid.toString),
+          ),
           (
             "actAs",
             SList(actAs.toList.map(SParty).to(FrontStack)),

@@ -18,11 +18,15 @@ data DevErrorType
 
 -- | Additional debugging info optionally provided by the ledger
 data ContractNotFoundAdditionalInfo
-  = NotFound -- The generic "this contract does not exist"
-  | NotActive -- The contract did exist, but has since been archived
+  = NotFound with -- The generic "this contract does not exist"
+      templateIdentifier : Text
+  | NotActive with -- The contract did exist, but has since been archived
+      templateIdentifier : Text
   | NotEffective with -- The contract "will" exist, only thrown from the IDELedger where one can go backwards in time
+      templateIdentifier : Text
       effectiveAt : Text
   | NotVisible with -- The contract exists, but the readAs/actAs party union cannot see it
+      templateIdentifier : Text
       actAs : [Party]
       readAs : [Party]
       observers : [Party]
@@ -31,6 +35,8 @@ data ContractNotFoundAdditionalInfo
 -- | Errors that can be thrown by a command submission
 data SubmitError
   = -- | Contract with given contract ID could not be found, and has never existed on this participant
+    -- When run on Canton, there may be more than one contract ID, and additionalDebuggingInfo is always None
+    -- On the other hand, when run on IDELedger, there is only ever one contract ID, and additionalDebuggingInfo is always Some
     ContractNotFound with
       unknownContractIds : NonEmpty Text
         -- ^ Provided as text, as we do not know the template ID of a contract if the lookup fails
