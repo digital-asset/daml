@@ -120,7 +120,7 @@ object SubmitError {
 
       final case class NotEffective(
           tid: Identifier,
-          effectiveAt: Time.Timestamp
+          effectiveAt: Time.Timestamp,
       ) extends AdditionalInfo {
         override def toSValue(env: Env) =
           SubmitErrorConverters(env).damlScriptVariant(
