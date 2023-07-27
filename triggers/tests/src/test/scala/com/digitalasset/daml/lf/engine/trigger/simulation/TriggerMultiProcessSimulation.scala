@@ -17,9 +17,7 @@ import java.nio.file.{Files, Path}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
 
-abstract class TriggerMultiProcessSimulation
-    extends AsyncWordSpec
-    with TriggerSimulationTesting {
+abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with TriggerSimulationTesting {
 
   import TriggerMultiProcessSimulation._
 

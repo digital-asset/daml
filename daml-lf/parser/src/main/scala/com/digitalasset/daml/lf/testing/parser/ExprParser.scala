@@ -149,13 +149,15 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     }
 
   private lazy val eVariantOrEnumCon: Parser[Expr] =
-    fullIdentifier ~ (`:` ~> id) ~ rep1(argTyp) ~> err("enum type does not take type parameters") |
-    fullIdentifier ~ (`:` ~> id) ~ rep(argTyp) ~ opt(expr0) ^^ {
-      case tName ~ vName ~ argsTyp ~ Some(arg) =>
-        EVariantCon(TypeConApp(tName, argsTyp.to(ImmArray)), vName, arg)
-      case tName ~ vName ~ _ ~ None =>
-        EEnumCon(tName, vName)
-    }
+    phrase(fullIdentifier ~ (`:` ~> id) ~ rep1(argTyp)) ~> err(
+      "enum type does not take type parameters"
+    ) |
+      fullIdentifier ~ (`:` ~> id) ~ rep(argTyp) ~ opt(expr0) ^^ {
+        case tName ~ vName ~ argsTyp ~ Some(arg) =>
+          EVariantCon(TypeConApp(tName, argsTyp.to(ImmArray)), vName, arg)
+        case tName ~ vName ~ _ ~ None =>
+          EEnumCon(tName, vName)
+      }
 
   private lazy val eStructCon: Parser[Expr] =
     `<` ~> fieldInits <~ `>` ^^ EStructCon

@@ -71,7 +71,10 @@ trait TriggerSimulationTesting extends Matchers with AbstractTriggerTest {
   }
 
   protected def unsafeSValueFromLf(lfValue: String): SValue = {
-    safeSValueFromLf(lfValue).left.map(cause => throw new RuntimeException(s"$cause - parsing $lfValue")).toOption.get
+    safeSValueFromLf(lfValue).left
+      .map(cause => throw new RuntimeException(s"$cause - parsing $lfValue"))
+      .toOption
+      .get
   }
 
   protected def safeSValueApp(lfFuncExpr: String, svalue: SValue): Either[String, SValue] = {
@@ -85,7 +88,9 @@ trait TriggerSimulationTesting extends Matchers with AbstractTriggerTest {
 
   protected def unsafeSValueApp(lfFuncExpr: String, svalue: SValue): SValue = {
     safeSValueApp(lfFuncExpr, svalue).left
-      .map(cause => throw new RuntimeException(s"$cause - parsing $lfFuncExpr and applying to $svalue"))
+      .map(cause =>
+        throw new RuntimeException(s"$cause - parsing $lfFuncExpr and applying to $svalue")
+      )
       .toOption
       .get
   }
@@ -94,16 +99,20 @@ trait TriggerSimulationTesting extends Matchers with AbstractTriggerTest {
     Runner.triggerUserState(state, triggerDefn.level, triggerDefn.version)
   }
 
-  protected def activeContracts(state: SValue)(implicit triggerDefn: TriggerDefinition): TreeMap[SValue, TreeMap[SValue, SValue]] = {
-    Runner.getActiveContracts(state, triggerDefn.level, triggerDefn.version).getOrElse(throw new RuntimeException("???"))
+  protected def activeContracts(
+      state: SValue
+  )(implicit triggerDefn: TriggerDefinition): TreeMap[SValue, TreeMap[SValue, SValue]] = {
+    Runner
+      .getActiveContracts(state, triggerDefn.level, triggerDefn.version)
+      .getOrElse(throw new RuntimeException("???"))
   }
 
   protected def createdEvent(
-                              templateId: String,
-                              createArguments: String,
-                              contractId: String = UUID.randomUUID().toString,
-                              contractKey: Option[String] = None,
-                            ): CreatedEvent = {
+      templateId: String,
+      createArguments: String,
+      contractId: String = UUID.randomUUID().toString,
+      contractKey: Option[String] = None,
+  ): CreatedEvent = {
     val apiContractId = toContractId(contractId).coid
     val apiTemplateId = Ref.Identifier.assertFromString(templateId)
     val apiCreateArguments = Converter
@@ -149,12 +158,22 @@ trait TriggerSimulationTesting extends Matchers with AbstractTriggerTest {
     )
   }
 
-  protected def transaction(createdEvent: CreatedEvent, createdEvents: CreatedEvent*): Transaction = {
-    Transaction(events = (createdEvent +: createdEvents).map(evt => Event(Event.Event.Created(evt))))
+  protected def transaction(
+      createdEvent: CreatedEvent,
+      createdEvents: CreatedEvent*
+  ): Transaction = {
+    Transaction(events =
+      (createdEvent +: createdEvents).map(evt => Event(Event.Event.Created(evt)))
+    )
   }
 
-  protected def transaction(archivedEvent: ArchivedEvent, archivedEvents: ArchivedEvent*): Transaction = {
-    Transaction(events = (archivedEvent +: archivedEvents).map(evt => Event(Event.Event.Archived(evt))))
+  protected def transaction(
+      archivedEvent: ArchivedEvent,
+      archivedEvents: ArchivedEvent*
+  ): Transaction = {
+    Transaction(events =
+      (archivedEvent +: archivedEvents).map(evt => Event(Event.Event.Archived(evt)))
+    )
   }
 
   protected def completion(commandId: String, status: Status = new Status(0)): Completion = {

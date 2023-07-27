@@ -29,9 +29,10 @@ class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting
     "initialize lambda" in {
       val setup = (_: ApiTypes.Party) => Seq.empty
 
-      initialStateLambdaAssertion(setup) { case (state, submissions) => implicit trigger =>
-        assertEqual(userState(state), s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = 0 }")
-        submissions should be (Symbol("empty"))
+      initialStateLambdaAssertion(setup) { case (state, submissions) =>
+        implicit trigger =>
+          assertEqual(userState(state), s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = 0 }")
+          submissions should be(Symbol("empty"))
       }
     }
 
@@ -42,88 +43,121 @@ class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting
       val breedingRate = 25
       val userStartState = "3"
       val commandId = s"command-${UUID.randomUUID()}"
-      val acsF = (party: ApiTypes.Party) => Seq(createdEvent(templateId, s"$tuple2TypeCon @Text @Int64 { _1 = \"$party\", _2 = 1 }", contractId = knownContractId))
+      val acsF = (party: ApiTypes.Party) =>
+        Seq(
+          createdEvent(
+            templateId,
+            s"$tuple2TypeCon @Text @Int64 { _1 = \"$party\", _2 = 1 }",
+            contractId = knownContractId,
+          )
+        )
 
       "for heartbeats" in {
         val setup = { (party: ApiTypes.Party) =>
-            (
-              unsafeSValueFromLf(s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
-              acsF(party),
-              TriggerMsg.Heartbeat,
-            )
+          (
+            unsafeSValueFromLf(s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
+            acsF(party),
+            TriggerMsg.Heartbeat,
+          )
         }
-        updateStateLambdaAssertion(setup)  { case (startState, endState, submissions) => implicit trigger =>
-          val userEndState = unsafeSValueApp(s"\\(tuple: $tuple2TypeCon @Bool @Int64) -> $tuple2TypeCon @Bool @Int64 {_2} tuple", userState(endState))
-          val startACS = activeContracts(startState)
-          val endACS = activeContracts(endState)
+        updateStateLambdaAssertion(setup) { case (startState, endState, submissions) =>
+          implicit trigger =>
+            val userEndState = unsafeSValueApp(
+              s"\\(tuple: $tuple2TypeCon @Bool @Int64) -> $tuple2TypeCon @Bool @Int64 {_2} tuple",
+              userState(endState),
+            )
+            val startACS = activeContracts(startState)
+            val endACS = activeContracts(endState)
 
-          assertEqual(userEndState, s"$userStartState + $breedingRate")
-          submissions.map(numberOfExerciseCommands).sum should be(breedingRate)
-          startACS should be(endACS)
+            assertEqual(userEndState, s"$userStartState + $breedingRate")
+            submissions.map(numberOfExerciseCommands).sum should be(breedingRate)
+            startACS should be(endACS)
         }
       }
 
       "for completions" in {
         val setup = { (party: ApiTypes.Party) =>
-            (
-              unsafeSValueFromLf(s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
-              acsF(party),
-              TriggerMsg.Completion(completion(commandId)),
-            )
+          (
+            unsafeSValueFromLf(s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
+            acsF(party),
+            TriggerMsg.Completion(completion(commandId)),
+          )
         }
 
-        updateStateLambdaAssertion(setup) { case (startState, endState, submissions) => implicit trigger =>
-          val userEndState = unsafeSValueApp(s"\\(tuple: $tuple2TypeCon @Bool @Int64) -> $tuple2TypeCon @Bool @Int64 {_2} tuple", userState(endState))
-          val startACS = activeContracts(startState)
-          val endACS = activeContracts(endState)
+        updateStateLambdaAssertion(setup) { case (startState, endState, submissions) =>
+          implicit trigger =>
+            val userEndState = unsafeSValueApp(
+              s"\\(tuple: $tuple2TypeCon @Bool @Int64) -> $tuple2TypeCon @Bool @Int64 {_2} tuple",
+              userState(endState),
+            )
+            val startACS = activeContracts(startState)
+            val endACS = activeContracts(endState)
 
-          assertEqual(userEndState, userStartState)
-          submissions should be (Symbol("empty"))
-          startACS should be (endACS)
+            assertEqual(userEndState, userStartState)
+            submissions should be(Symbol("empty"))
+            startACS should be(endACS)
         }
       }
 
       "for created events" in {
         val setup = { (party: ApiTypes.Party) =>
-            (
-              unsafeSValueFromLf(s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
-              Seq.empty,
-              TriggerMsg.Transaction(transaction(createdEvent(templateId, s"$tuple2TypeCon @Text @Int64 { _1 = \"$party\", _2 = 2 }", contractId = unknownContractId))),
-            )
+          (
+            unsafeSValueFromLf(s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
+            Seq.empty,
+            TriggerMsg.Transaction(
+              transaction(
+                createdEvent(
+                  templateId,
+                  s"$tuple2TypeCon @Text @Int64 { _1 = \"$party\", _2 = 2 }",
+                  contractId = unknownContractId,
+                )
+              )
+            ),
+          )
         }
 
-        updateStateLambdaAssertion(setup) { case (_, endState, submissions) => implicit trigger =>
-          val userEndState = unsafeSValueApp(s"\\(tuple: $tuple2TypeCon @Bool @Int64) -> $tuple2TypeCon @Bool @Int64 {_2} tuple", userState(endState))
-          val sizeOfEndACS = activeContracts(endState)(trigger)(SValue.SText(templateId)).size
+        updateStateLambdaAssertion(setup) { case (_, endState, submissions) =>
+          implicit trigger =>
+            val userEndState = unsafeSValueApp(
+              s"\\(tuple: $tuple2TypeCon @Bool @Int64) -> $tuple2TypeCon @Bool @Int64 {_2} tuple",
+              userState(endState),
+            )
+            val sizeOfEndACS = activeContracts(endState)(trigger)(SValue.SText(templateId)).size
 
-          assertEqual(userEndState, userStartState)
-          submissions should be (Symbol("empty"))
-          sizeOfEndACS should be (unsafeSValueFromLf("1"))
+            assertEqual(userEndState, userStartState)
+            submissions should be(Symbol("empty"))
+            sizeOfEndACS should be(unsafeSValueFromLf("1"))
         }
       }
 
       "for archive events" in {
         val setup = { (party: ApiTypes.Party) =>
-            (
-              unsafeSValueFromLf(s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
-              acsF(party),
-              TriggerMsg.Transaction(transaction(archivedEvent(templateId, knownContractId))),
-            )
+          (
+            unsafeSValueFromLf(s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
+            acsF(party),
+            TriggerMsg.Transaction(transaction(archivedEvent(templateId, knownContractId))),
+          )
         }
 
-        updateStateLambdaAssertion(setup) { case (_, endState, submissions) => implicit trigger =>
-          val userEndState = unsafeSValueApp(s"\\(tuple: $tuple2TypeCon @Bool @Int64) -> $tuple2TypeCon @Bool @Int64 {_2} tuple", userState(endState))
-          val endACS = activeContracts(endState)
+        updateStateLambdaAssertion(setup) { case (_, endState, submissions) =>
+          implicit trigger =>
+            val userEndState = unsafeSValueApp(
+              s"\\(tuple: $tuple2TypeCon @Bool @Int64) -> $tuple2TypeCon @Bool @Int64 {_2} tuple",
+              userState(endState),
+            )
+            val endACS = activeContracts(endState)
 
-          assertEqual(userEndState, userStartState)
-          submissions should be (Symbol("empty"))
-          endACS should be (Symbol("empty"))
+            assertEqual(userEndState, userStartState)
+            submissions should be(Symbol("empty"))
+            endACS should be(Symbol("empty"))
         }
       }
     }
   }
 
-  private def initialStateLambdaAssertion(setup: ApiTypes.Party => Seq[CreatedEvent])(assertion: (SValue, Seq[SubmitRequest]) => TriggerDefinition => Assertion): Future[Assertion] = {
+  private def initialStateLambdaAssertion(setup: ApiTypes.Party => Seq[CreatedEvent])(
+      assertion: (SValue, Seq[SubmitRequest]) => TriggerDefinition => Assertion
+  ): Future[Assertion] = {
     for {
       client <- defaultLedgerClient()
       party <- allocateParty(client)
@@ -144,7 +178,11 @@ class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting
     }
   }
 
-  private def updateStateLambdaAssertion(setup: ApiTypes.Party => (SValue, Seq[CreatedEvent], TriggerMsg))(assertion: (SValue, SValue, Seq[SubmitRequest]) => TriggerDefinition => Assertion): Future[Assertion] = {
+  private def updateStateLambdaAssertion(
+      setup: ApiTypes.Party => (SValue, Seq[CreatedEvent], TriggerMsg)
+  )(
+      assertion: (SValue, SValue, Seq[SubmitRequest]) => TriggerDefinition => Assertion
+  ): Future[Assertion] = {
     for {
       client <- defaultLedgerClient()
       party <- allocateParty(client)
