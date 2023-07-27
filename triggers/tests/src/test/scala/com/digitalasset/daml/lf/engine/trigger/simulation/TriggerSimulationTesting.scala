@@ -4,6 +4,7 @@
 package com.daml.lf.engine.trigger
 package simulation
 
+import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.daml.ledger.api.v1.transaction.Transaction
@@ -20,6 +21,7 @@ import com.daml.logging.LoggingContext
 import com.google.rpc.status.Status
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, Suite}
+import scalaz.syntax.tag._
 
 import java.nio.file.{Path, Paths}
 import java.util.UUID
@@ -93,6 +95,14 @@ trait TriggerSimulationTesting extends Matchers with AbstractTriggerTest {
       )
       .toOption
       .get
+  }
+
+  protected def mkParty(party: ApiTypes.Party): String = {
+    mkParty(party.unwrap)
+  }
+
+  protected def mkParty(party: String): String = {
+    s"(case TEXT_TO_PARTY \"$party\" of None -> ERROR @Party \"none\" | Some x -> x)"
   }
 
   protected def userState(state: SValue)(implicit triggerDefn: TriggerDefinition): SValue = {

@@ -23,7 +23,7 @@ class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting
   import AbstractTriggerTest._
   import TriggerRuleSimulationLib._
 
-  val tuple2TypeCon: String = s"'${StablePackage.DA.Types.packageId}':DA.Types:Tuple2"
+  val tuple2TyCon: String = s"'${StablePackage.DA.Types.packageId}':DA.Types:Tuple2"
 
   "Cat slow breeding trigger" should {
     "initialize lambda" in {
@@ -31,23 +31,24 @@ class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting
 
       initialStateLambdaAssertion(setup) { case (state, submissions) =>
         implicit trigger =>
-          assertEqual(userState(state), s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = 0 }")
+          assertEqual(userState(state), s"$tuple2TyCon @Bool @Int64 { _1 = False, _2 = 0 }")
           submissions should be(Symbol("empty"))
       }
     }
 
     "update lambda" should {
       val templateId = s"$packageId:Cats:Cat"
+      val templateTyCon = s"'$packageId':Cats:Cat"
       val knownContractId = s"known-${UUID.randomUUID()}"
       val unknownContractId = s"unknown-${UUID.randomUUID()}"
       val breedingRate = 25
-      val userStartState = "3"
+      val userStartState = 3
       val commandId = s"command-${UUID.randomUUID()}"
       val acsF = (party: ApiTypes.Party) =>
         Seq(
           createdEvent(
             templateId,
-            s"$tuple2TypeCon @Text @Int64 { _1 = \"$party\", _2 = 1 }",
+            s"$templateTyCon { owner = ${mkParty(party)}, name = 1 }",
             contractId = knownContractId,
           )
         )
@@ -55,7 +56,7 @@ class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting
       "for heartbeats" in {
         val setup = { (party: ApiTypes.Party) =>
           (
-            unsafeSValueFromLf(s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
+            unsafeSValueFromLf(s"$tuple2TyCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
             acsF(party),
             TriggerMsg.Heartbeat,
           )
@@ -63,14 +64,14 @@ class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting
         updateStateLambdaAssertion(setup) { case (startState, endState, submissions) =>
           implicit trigger =>
             val userEndState = unsafeSValueApp(
-              s"\\(tuple: $tuple2TypeCon @Bool @Int64) -> $tuple2TypeCon @Bool @Int64 {_2} tuple",
+              s"\\(tuple: $tuple2TyCon) -> $tuple2TyCon @Bool @Int64 {_2} tuple",
               userState(endState),
             )
             val startACS = activeContracts(startState)
             val endACS = activeContracts(endState)
 
-            assertEqual(userEndState, s"$userStartState + $breedingRate")
-            submissions.map(numberOfExerciseCommands).sum should be(breedingRate)
+            assertEqual(userEndState, s"${userStartState + breedingRate}")
+            submissions.map(numberOfCreateCommands).sum should be(breedingRate)
             startACS should be(endACS)
         }
       }
@@ -78,7 +79,7 @@ class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting
       "for completions" in {
         val setup = { (party: ApiTypes.Party) =>
           (
-            unsafeSValueFromLf(s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
+            unsafeSValueFromLf(s"$tuple2TyCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
             acsF(party),
             TriggerMsg.Completion(completion(commandId)),
           )
@@ -87,13 +88,13 @@ class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting
         updateStateLambdaAssertion(setup) { case (startState, endState, submissions) =>
           implicit trigger =>
             val userEndState = unsafeSValueApp(
-              s"\\(tuple: $tuple2TypeCon @Bool @Int64) -> $tuple2TypeCon @Bool @Int64 {_2} tuple",
+              s"\\(tuple: $tuple2TyCon) -> $tuple2TyCon @Bool @Int64 {_2} tuple",
               userState(endState),
             )
             val startACS = activeContracts(startState)
             val endACS = activeContracts(endState)
 
-            assertEqual(userEndState, userStartState)
+            assertEqual(userEndState, userStartState.toString)
             submissions should be(Symbol("empty"))
             startACS should be(endACS)
         }
@@ -102,13 +103,13 @@ class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting
       "for created events" in {
         val setup = { (party: ApiTypes.Party) =>
           (
-            unsafeSValueFromLf(s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
+            unsafeSValueFromLf(s"$tuple2TyCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
             Seq.empty,
             TriggerMsg.Transaction(
               transaction(
                 createdEvent(
                   templateId,
-                  s"$tuple2TypeCon @Text @Int64 { _1 = \"$party\", _2 = 2 }",
+                  s"$templateTyCon { owner = ${mkParty(party)}, name = 2 }",
                   contractId = unknownContractId,
                 )
               )
@@ -119,21 +120,24 @@ class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting
         updateStateLambdaAssertion(setup) { case (_, endState, submissions) =>
           implicit trigger =>
             val userEndState = unsafeSValueApp(
-              s"\\(tuple: $tuple2TypeCon @Bool @Int64) -> $tuple2TypeCon @Bool @Int64 {_2} tuple",
+              s"\\(tuple: $tuple2TyCon) -> $tuple2TyCon @Bool @Int64 {_2} tuple",
               userState(endState),
             )
-            val sizeOfEndACS = activeContracts(endState)(trigger)(SValue.SText(templateId)).size
+            val templateTyRep = unsafeSValueFromLf(
+              s"DA.Internal.Any:TemplateTypeRep { getTemplateTypeRep = type_rep @Cats:Cat }"
+            )
+            val sizeOfEndACS = activeContracts(endState)(trigger)(templateTyRep).size
 
-            assertEqual(userEndState, userStartState)
+            assertEqual(userEndState, userStartState.toString)
             submissions should be(Symbol("empty"))
-            sizeOfEndACS should be(unsafeSValueFromLf("1"))
+            SValue.SInt64(sizeOfEndACS.toLong) should be(unsafeSValueFromLf("1"))
         }
       }
 
       "for archive events" in {
         val setup = { (party: ApiTypes.Party) =>
           (
-            unsafeSValueFromLf(s"$tuple2TypeCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
+            unsafeSValueFromLf(s"$tuple2TyCon @Bool @Int64 { _1 = False, _2 = $userStartState }"),
             acsF(party),
             TriggerMsg.Transaction(transaction(archivedEvent(templateId, knownContractId))),
           )
@@ -142,12 +146,12 @@ class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting
         updateStateLambdaAssertion(setup) { case (_, endState, submissions) =>
           implicit trigger =>
             val userEndState = unsafeSValueApp(
-              s"\\(tuple: $tuple2TypeCon @Bool @Int64) -> $tuple2TypeCon @Bool @Int64 {_2} tuple",
+              s"\\(tuple: $tuple2TyCon) -> $tuple2TyCon @Bool @Int64 {_2} tuple",
               userState(endState),
             )
             val endACS = activeContracts(endState)
 
-            assertEqual(userEndState, userStartState)
+            assertEqual(userEndState, userStartState.toString)
             submissions should be(Symbol("empty"))
             endACS should be(Symbol("empty"))
         }
