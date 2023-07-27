@@ -79,12 +79,11 @@ if ($env:SKIP_TESTS -ceq "False") {
     $tag_filter = "-dev-canton-test"
 
     bazel test //... `
-      `-`-build_tag_filters "$tag_filter" `
-      `-`-test_tag_filters "$tag_filter" `
+      `-`-build_tag_filters "$tag_filter,-canton-ee" `
+      `-`-test_tag_filters "$tag_filter,-canton-ee" `
       `-`-profile test-profile.json `
       `-`-experimental_profile_include_target_label `
       `-`-build_event_json_file test-events.json `
       `-`-build_event_publish_all_actions `
       `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/test_execution_windows_$env:SYSTEM_JOBATTEMPT.log `
-      `-`-test_tag_filters=-canton-ee
 }

@@ -240,12 +240,36 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     }
   }
 
+  override def trySubmit(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commands: List[command.ApiCommand],
+      optLocation: Option[Location],
+  )(implicit ec: ExecutionContext, mat: Materializer) =
+    internalSubmit(actAs, readAs, commands)
+      .map(Right(_))
+      .recoverWith({ case s: StatusRuntimeException =>
+        Future.successful(Left(GrpcErrorParser.convertStatusRuntimeException(s)))
+      })
+
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
-  )(implicit ec: ExecutionContext, mat: Materializer) = {
+  )(implicit ec: ExecutionContext, mat: Materializer) =
+    internalSubmit(actAs, readAs, commands)
+      .map(Right(_))
+      .recoverWith({
+        case s: StatusRuntimeException if isSubmitMustFailError(s) =>
+          Future.successful(Left(s))
+      })
+
+  def internalSubmit(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commands: List[command.ApiCommand],
+  )(implicit ec: ExecutionContext) = {
     import scalaz.syntax.traverse._
     val ledgerCommands = commands.traverse(toCommand(_)) match {
       case Left(err) => throw new ConverterException(err)
@@ -263,23 +287,16 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     val request = SubmitAndWaitRequest(Some(apiCommands))
     val transactionTreeF = grpcClient.commandServiceClient
       .submitAndWaitForTransactionTree(request)
-      .map(Right(_))
-      .recoverWith({
-        case s: StatusRuntimeException if isSubmitMustFailError(s) =>
-          Future.successful(Left(s))
 
-      })
-    transactionTreeF.map(r =>
-      r.map(transactionTree => {
-        val events = transactionTree.getTransaction.rootEventIds
-          .map(evId => transactionTree.getTransaction.eventsById(evId))
-          .toList
-        events.traverse(fromTreeEvent(_)) match {
-          case Left(err) => throw new ConverterException(err)
-          case Right(results) => results
-        }
-      })
-    )
+    transactionTreeF.map { transactionTree =>
+      val events = transactionTree.getTransaction.rootEventIds
+        .map(evId => transactionTree.getTransaction.eventsById(evId))
+        .toList
+      events.traverse(fromTreeEvent(_)) match {
+        case Left(err) => throw new ConverterException(err)
+        case Right(results) => results
+      }
+    }
   }
 
   override def submitMustFail(

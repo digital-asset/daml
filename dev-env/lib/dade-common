@@ -9,8 +9,8 @@ if [[ -n "${DADE_DEBUG+x}" ]]; then
     set -x
 fi
 
-DADE_CURRENT_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-DADE_BASE_ROOT="$( cd "${DADE_CURRENT_SCRIPT_DIR}/../../" && pwd)"
+DADE_CURRENT_SCRIPT_DIR="$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )"
+DADE_BASE_ROOT="$( readlink -f "${DADE_CURRENT_SCRIPT_DIR}/../../" )"
 
 errcho() {
   >&2 echo "[dev-env] $@"

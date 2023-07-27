@@ -8,8 +8,8 @@ package v2
 
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.validation.NoLoggingValueValidator
-import com.daml.lf.data.Ref._
 import com.daml.lf.data._
+import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.StablePackage.DA
@@ -65,7 +65,7 @@ object Converter extends script.ConverterMethods {
           0,
           record(
             damlTree("Created"),
-            ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId.coid)),
+            ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId)),
             ("argument", anyTemplate),
           ),
         )
@@ -86,7 +86,7 @@ object Converter extends script.ConverterMethods {
           1,
           record(
             damlTree("Exercised"),
-            ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId.coid)),
+            ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId)),
             ("choice", SText(choiceName)),
             ("argument", anyChoice),
             ("childEvents", SList(evs.to(FrontStack))),

@@ -1858,6 +1858,9 @@ class EngineTest
         )
         .consume(contracts, lookupPackage, lookupKey)
 
+    // TODO: https://github.com/digital-asset/daml/issues/17082
+    // - When `enableContractUpgrading = true`, these tests change behaviour & dont fail with "wrongly typed contract"
+
     "error on fetch" in {
       val result = run(ImmArray(incorrectFetch))
       inside(result) { case Left(e) =>

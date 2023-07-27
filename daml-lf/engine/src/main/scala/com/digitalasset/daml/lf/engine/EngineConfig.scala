@@ -35,6 +35,8 @@ import com.daml.lf.transaction.ContractKeyUniquenessMode
   *     A value of false is insecure and should be used for security testing only.
   * @param iterationsBetweenInterruptions bound the maximal number of interpreter
   *     steps needed to produce a Result.
+  * @param enableContractUpgrading If set this flag a choice that is executed against
+  *     a contract may exist in a package different from that of the package.
   */
 final case class EngineConfig(
     allowedLanguageVersions: VersionRange[language.LanguageVersion],
@@ -46,7 +48,15 @@ final case class EngineConfig(
     limits: interpretation.Limits = interpretation.Limits.Lenient,
     checkAuthorization: Boolean = true,
     iterationsBetweenInterruptions: Long = 10000,
+    enableContractUpgrading: Boolean = false,
 ) {
+
+  // TODO: https://github.com/digital-asset/daml/issues/17082
+  // Workaround while we wait for: https://github.com/digital-asset/daml/pull/17126
+  // And a canton PR to support enableContractUpgrading in canton-config.
+  // Until then we set enableContractUpgrading via env-var.
+
+  val enableContractUpgradingEV = sys.env.get("enableContractUpgrading").exists(_ == "true")
 
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
     speedy.Compiler.Config(
@@ -66,6 +76,7 @@ final case class EngineConfig(
           speedy.Compiler.FullProfile
         else
           speedy.Compiler.NoProfile,
+      enableContractUpgrading = enableContractUpgradingEV,
     )
 
   private[lf] def authorizationChecker: AuthorizationChecker =

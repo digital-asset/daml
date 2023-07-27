@@ -23,7 +23,7 @@ locals {
     azure = [
       {
         name       = "dw1",
-        size       = 6,
+        size       = 5,
         assignment = "default",
         disk_size  = 400,
       },

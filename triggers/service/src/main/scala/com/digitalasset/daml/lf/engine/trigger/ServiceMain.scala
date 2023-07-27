@@ -13,6 +13,7 @@ import ch.qos.logback.classic.Level
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dbutils.JdbcConfig
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
@@ -52,6 +53,7 @@ object ServiceMain {
       encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       allowExistingSchema: Boolean,
+      tlsConfig: TlsConfiguration,
       compilerConfig: Compiler.Config,
       triggerConfig: TriggerRunnerConfig,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
@@ -74,6 +76,7 @@ object ServiceMain {
           encodedDars,
           jdbcConfig,
           allowExistingSchema,
+          tlsConfig,
           compilerConfig,
           triggerConfig,
           None,
@@ -180,6 +183,7 @@ object ServiceMain {
               encodedDars,
               config.jdbcConfig,
               config.allowExistingSchema,
+              config.tlsConfig,
               config.compilerConfig,
               config.triggerConfig,
               config.metricsReporter,

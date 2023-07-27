@@ -52,6 +52,8 @@ final case class CantonConfig(
     tlsEnable: Boolean = false,
     debug: Boolean = false,
     enableDisclosedContracts: Boolean = false,
+    bootstrapScript: Option[String] = None,
+    enableUpgrade: Boolean = false,
 ) {
 
   lazy val tlsConfig =

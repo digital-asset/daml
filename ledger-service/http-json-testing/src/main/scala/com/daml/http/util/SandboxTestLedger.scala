@@ -26,6 +26,9 @@ trait SandboxTestLedger extends CantonFixture {
   override lazy protected val darFiles = packageFiles.map(_.toPath)
   override lazy protected val tlsEnable = useTls
   override lazy protected val enableDisclosedContracts: Boolean = true
+  override lazy protected val bootstrapScript = Some(
+    "local.service.set_reconciliation_interval(1.seconds)"
+  )
 
   def usingLedger[A](token: Option[String] = None)(
       testFn: (Port, DamlLedgerClient, LedgerId) => Future[A]
