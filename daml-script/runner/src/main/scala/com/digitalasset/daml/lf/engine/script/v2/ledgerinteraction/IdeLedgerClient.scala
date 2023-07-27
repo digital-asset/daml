@@ -298,7 +298,7 @@ class IdeLedgerClient(
       case ContractNotFound(cid) =>
         SubmitError.ContractNotFound(
           NonEmpty(Seq, cid),
-          Some(SubmitError.ContractNotFoundAdditionalInfo.NotFound()),
+          Some(SubmitError.ContractNotFound.AdditionalInfo.NotFound()),
         )
       case ContractKeyNotFound(key) => SubmitError.ContractKeyNotFound(key)
       case e: FailedAuthorization =>
@@ -350,7 +350,7 @@ class IdeLedgerClient(
     case scenario.Error.ContractNotEffective(cid, tid, effectiveAt) =>
       SubmitError.ContractNotFound(
         NonEmpty(Seq, cid),
-        Some(SubmitError.ContractNotFoundAdditionalInfo.NotEffective(tid, effectiveAt)),
+        Some(SubmitError.ContractNotFound.AdditionalInfo.NotEffective(tid, effectiveAt)),
       )
 
     case scenario.Error.ContractNotActive(cid, templateId, _) =>
@@ -360,7 +360,7 @@ class IdeLedgerClient(
     case scenario.Error.ContractNotVisible(cid, tid, actAs, readAs, observers) =>
       SubmitError.ContractNotFound(
         NonEmpty(Seq, cid),
-        Some(SubmitError.ContractNotFoundAdditionalInfo.NotVisible(tid, actAs, readAs, observers)),
+        Some(SubmitError.ContractNotFound.AdditionalInfo.NotVisible(tid, actAs, readAs, observers)),
       )
 
     case scenario.Error.ContractKeyNotVisible(_, key, _, _, _) =>

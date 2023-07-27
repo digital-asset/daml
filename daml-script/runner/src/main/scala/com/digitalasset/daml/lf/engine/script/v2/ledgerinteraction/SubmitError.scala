@@ -72,7 +72,7 @@ object SubmitError {
 
   final case class ContractNotFound(
       cids: NonEmpty[Seq[ContractId]],
-      additionalDebuggingInfo: Option[ContractNotFoundAdditionalInfo],
+      additionalDebuggingInfo: Option[ContractNotFound.AdditionalInfo],
   ) extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
@@ -89,78 +89,84 @@ object SubmitError {
       )
   }
 
-  sealed abstract class ContractNotFoundAdditionalInfo {
-    def toSValue(env: Env): SValue
-  }
+  object ContractNotFound {
 
-  object ContractNotFoundAdditionalInfo {
-    final case class NotFound() extends ContractNotFoundAdditionalInfo {
-      override def toSValue(env: Env) =
-        SubmitErrorConverters(env).damlScriptVariant(
-          "ContractNotFoundAdditionalInfo",
-          "NotFound",
-          1,
-        )
+    sealed abstract class AdditionalInfo {
+      def toSValue(env: Env): SValue
     }
-    final case class NotActive(tid: Identifier) extends ContractNotFoundAdditionalInfo {
-      override def toSValue(env: Env) =
-        SubmitErrorConverters(env).damlScriptVariant(
-          "ContractNotFoundAdditionalInfo",
-          "NotActive",
-          2,
-          (
-            "templateIdentifier",
-            SText(tid.toString),
-          ),
-        )
-    }
-    final case class NotEffective(
-        tid: Identifier,
-        effectiveAt: Time.Timestamp
-    ) extends ContractNotFoundAdditionalInfo {
-      override def toSValue(env: Env) =
-        SubmitErrorConverters(env).damlScriptVariant(
-          "ContractNotFoundAdditionalInfo",
-          "NotEffective",
-          3,
-          (
-            "templateIdentifier",
-            SText(tid.toString),
-          ),
-          (
-            "effectiveAt",
-            SText(effectiveAt.toString),
-          ),
-        )
-    }
-    final case class NotVisible(
-        tid: Identifier,
-        actAs: Set[Party],
-        readAs: Set[Party],
-        observers: Set[Party],
-    ) extends ContractNotFoundAdditionalInfo {
-      override def toSValue(env: Env) =
-        SubmitErrorConverters(env).damlScriptVariant(
-          "ContractNotFoundAdditionalInfo",
-          "NotVisible",
-          4,
-          (
-            "templateIdentifier",
-            SText(tid.toString),
-          ),
-          (
-            "actAs",
-            SList(actAs.toList.map(SParty).to(FrontStack)),
-          ),
-          (
-            "readAs",
-            SList(readAs.toList.map(SParty).to(FrontStack)),
-          ),
-          (
-            "observers",
-            SList(observers.toList.map(SParty).to(FrontStack)),
-          ),
-        )
+
+    object AdditionalInfo {
+      final case class NotFound() extends AdditionalInfo {
+        override def toSValue(env: Env) =
+          SubmitErrorConverters(env).damlScriptVariant(
+            "ContractNotFoundAdditionalInfo",
+            "NotFound",
+            1,
+          )
+      }
+
+      final case class NotActive(tid: Identifier) extends AdditionalInfo {
+        override def toSValue(env: Env) =
+          SubmitErrorConverters(env).damlScriptVariant(
+            "ContractNotFoundAdditionalInfo",
+            "NotActive",
+            2,
+            (
+              "templateIdentifier",
+              SText(tid.toString),
+            ),
+          )
+      }
+
+      final case class NotEffective(
+          tid: Identifier,
+          effectiveAt: Time.Timestamp
+      ) extends AdditionalInfo {
+        override def toSValue(env: Env) =
+          SubmitErrorConverters(env).damlScriptVariant(
+            "ContractNotFoundAdditionalInfo",
+            "NotEffective",
+            3,
+            (
+              "templateIdentifier",
+              SText(tid.toString),
+            ),
+            (
+              "effectiveAt",
+              SText(effectiveAt.toString),
+            ),
+          )
+      }
+
+      final case class NotVisible(
+          tid: Identifier,
+          actAs: Set[Party],
+          readAs: Set[Party],
+          observers: Set[Party],
+      ) extends AdditionalInfo {
+        override def toSValue(env: Env) =
+          SubmitErrorConverters(env).damlScriptVariant(
+            "ContractNotFoundAdditionalInfo",
+            "NotVisible",
+            4,
+            (
+              "templateIdentifier",
+              SText(tid.toString),
+            ),
+            (
+              "actAs",
+              SList(actAs.toList.map(SParty).to(FrontStack)),
+            ),
+            (
+              "readAs",
+              SList(readAs.toList.map(SParty).to(FrontStack)),
+            ),
+            (
+              "observers",
+              SList(observers.toList.map(SParty).to(FrontStack)),
+            ),
+          )
+      }
     }
   }
 
