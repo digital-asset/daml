@@ -124,7 +124,7 @@ class CatBreedingTriggerTest extends AsyncWordSpec with TriggerSimulationTesting
               userState(endState),
             )
             val templateTyRep = unsafeSValueFromLf(
-              s"DA.Internal.Any:TemplateTypeRep { getTemplateTypeRep = type_rep @Cats:Cat }"
+              s"DA.Internal.Any:TemplateTypeRep { getTemplateTypeRep = type_rep @$templateTyCon }"
             )
             val sizeOfEndACS = activeContracts(endState)(trigger)(templateTyRep).size
 
