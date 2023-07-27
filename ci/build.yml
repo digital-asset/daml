@@ -85,6 +85,8 @@ jobs:
     assignment: m1-builds
 
 - job: Windows
+  # temporary disable windows
+  condition: eq(1,2)
   dependsOn:
     - check_for_release
     - build_canton
