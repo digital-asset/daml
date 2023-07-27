@@ -67,7 +67,10 @@ object GrpcErrorParser {
       case "CONTRACT_NOT_FOUND" =>
         caseErr {
           case Seq((ErrorResource.ContractId, cid)) =>
-            SubmitError.ContractNotFound(NonEmpty(Seq, ContractId.assertFromString(cid)))
+            SubmitError.ContractNotFound(
+              NonEmpty(Seq, ContractId.assertFromString(cid)),
+              None,
+            )
           case Seq((ErrorResource.ContractIds, cids)) =>
             SubmitError.ContractNotFound(
               NonEmpty
@@ -76,7 +79,8 @@ object GrpcErrorParser {
                   throw new IllegalArgumentException(
                     "Got CONTRACT_NOT_FOUND error without any contract ids"
                   )
-                )
+                ),
+              None,
             )
         }
       case "CONTRACT_KEY_NOT_FOUND" =>
