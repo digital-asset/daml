@@ -85,6 +85,7 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml3-script \
             --format=Json \
+            --target=1.dev \
             $(location Daml/Script.daml)
     """,
     tools = [

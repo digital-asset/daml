@@ -69,6 +69,7 @@ final case class EngineConfig(
           speedy.Compiler.FullProfile
         else
           speedy.Compiler.NoProfile,
+      enableContractUpgrading = enableContractUpgrading,
     )
 
   private[lf] def authorizationChecker: AuthorizationChecker =

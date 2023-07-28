@@ -4,15 +4,16 @@
 package com.daml.lf.engine.trigger
 
 import com.daml.lf.speedy.Compiler
+
 import java.nio.file.Path
 import java.time.Duration
-
 import scala.concurrent.duration._
 import akka.http.scaladsl.model.Uri
 import ch.qos.logback.classic.Level
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.dbutils.JdbcConfig
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.metrics.HistogramDefinition
 import com.daml.metrics.api.reporters.MetricsReporter
 
@@ -44,6 +45,7 @@ private[trigger] final case class ServiceConfig(
     jdbcConfig: Option[JdbcConfig],
     portFile: Option[Path],
     allowExistingSchema: Boolean,
+    tlsConfig: TlsConfiguration,
     compilerConfig: Compiler.Config,
     triggerConfig: TriggerRunnerConfig,
     rootLoggingLevel: Option[Level],

@@ -2,7 +2,7 @@
 
 set -Eeuo pipefail
 
-DADE_CURRENT_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+DADE_CURRENT_SCRIPT_DIR="$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )"
 
 if [[ "$DADE_CURRENT_SCRIPT_DIR" =~ ^/nix/store/.* ]]; then
     echo "Unable to release dev-env from Nix store. Are you running this from another repository than `da`?"

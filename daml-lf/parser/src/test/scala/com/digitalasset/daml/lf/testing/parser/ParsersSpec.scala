@@ -395,6 +395,43 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
       )
     }
 
+    "parse properly valid enum expressions" in {
+      val successfulTestCases = Table[String, Expr](
+        "string to parse" ->
+          "expected expression",
+        "Mod:R:V @Int64 @Bool 1" ->
+          EVariantCon(RIntBool, n"V", e"1"),
+        "'-pkgId-':Mod:R:V @Int64 @Bool 1" ->
+          EVariantCon(RIntBool, n"V", e"1"),
+        "Mod:R:V 1" ->
+          EVariantCon(TypeConApp(R.tycon, ImmArray.empty), n"V", e"1"),
+        "Mod:R:C" ->
+          EEnumCon(R.tycon, n"C"),
+        "'-pkgId-':Mod:R:C" ->
+          EEnumCon(R.tycon, n"C"),
+      )
+
+      forEvery(successfulTestCases) { (stringToParse, expectedExp) =>
+        parseExpr(stringToParse) shouldBe Right(expectedExp)
+      }
+    }
+
+    "fail to parse invalid enum expressions" in {
+      val failingTestCases = Table[String](
+        "string to parse",
+        "Mod:R:C @Bool",
+        "Mod:R:C @Bool @Int64",
+        "'-pkgId-':Mod:R:C @Bool",
+        "'-pkgId-':Mod:R:C @Bool @Int64",
+      )
+
+      forEvery(failingTestCases) { stringToParse =>
+        parseExpr(stringToParse) shouldBe Left(
+          "enum type does not take type parameters at line 1, column 1"
+        )
+      }
+    }
+
     "parse properly rounding Mode" in {
       import java.math.RoundingMode._
 

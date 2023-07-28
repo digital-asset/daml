@@ -69,6 +69,7 @@ private[lf] object Compiler {
       packageValidation: PackageValidationMode,
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
+      enableContractUpgrading: Boolean = false,
   )
 
   object Config {
@@ -101,7 +102,7 @@ private[lf] object Compiler {
     try {
       Right(packages.foldLeft(Map.empty[t.SDefinitionRef, SDefinition]) {
         case (acc, (pkgId, pkg)) =>
-          acc ++ compiler.compilePackage(pkgId, pkg)
+          acc ++ compiler.compilePackage(pkgId, pkg, compilerConfig.enableContractUpgrading)
       })
     } catch {
       case CompilationError(msg) => Left(s"Compilation Error: $msg")
@@ -145,7 +146,10 @@ private[lf] final class Compiler(
   def unsafeCompilePackage(
       pkgId: PackageId,
       pkg: Package,
-  ): Iterable[(t.SDefinitionRef, SDefinition)] = compilePackage(pkgId, pkg)
+      enableContractUpgrading: Boolean = false,
+  ): Iterable[(t.SDefinitionRef, SDefinition)] = {
+    compilePackage(pkgId, pkg, enableContractUpgrading)
+  }
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -153,8 +157,7 @@ private[lf] final class Compiler(
       pkgId: PackageId,
       module: Module,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
-    val predPids = pkgInterface.lookupPredecessors(pkgId).getOrElse(List.empty)
-    compileModule(pkgId, module, predPids)
+    compileModule(pkgId, module, enableContractUpgrading = false)
   }
 
   @throws[PackageNotFound]
@@ -348,7 +351,7 @@ private[lf] final class Compiler(
   private[this] def compileModule(
       pkgId: PackageId,
       module: Module,
-      predPids: List[PackageId],
+      enableContractUpgrading: Boolean,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(t.SDefinitionRef, SDefinition)]
     def addDef(binding: (t.SDefinitionRef, SDefinition)): Unit = discard(builder += binding)
@@ -368,9 +371,15 @@ private[lf] final class Compiler(
     module.templates.foreach { case (tmplName, tmpl) =>
       val tmplId = Identifier(pkgId, QualifiedName(module.name, tmplName))
 
+      val optTargetTemplateId =
+        if (enableContractUpgrading) {
+          Some(tmplId) // soft
+        } else {
+          None // hard
+        }
+
       addDef(compileCreate(tmplId, tmpl))
-      addDef(compileFetchTemplate(tmplId, tmpl))
-      addDef(compileSoftFetchTemplate(tmplId, tmpl, predPids))
+      addDef(compileFetchTemplate(tmplId, tmpl, optTargetTemplateId))
       addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileAgreementText(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
@@ -387,8 +396,7 @@ private[lf] final class Compiler(
       }
 
       tmpl.choices.values.foreach { choice =>
-        addDef(compileTemplateChoice(tmplId, tmpl, choice))
-        addDef(compileSoftTemplateChoice(tmplId, tmpl, predPids, choice))
+        addDef(compileTemplateChoice(tmplId, tmpl, choice, optTargetTemplateId))
         addDef(compileChoiceController(tmplId, tmpl.param, choice))
         addDef(compileChoiceObserver(tmplId, tmpl.param, choice))
       }
@@ -435,6 +443,7 @@ private[lf] final class Compiler(
   private def compilePackage(
       pkgId: PackageId,
       pkg: Package,
+      enableContractUpgrading: Boolean,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
     logger.trace(s"compilePackage: Compiling $pkgId...")
 
@@ -456,11 +465,7 @@ private[lf] final class Compiler(
 
     val t1 = Time.Timestamp.now()
 
-    // TODO https://github.com/digital-asset/daml/issues/16151
-    // getOrElse will mask package load errors in lookupPredecessors
-    val preds = pkgInterface.lookupPredecessors(pkgId).getOrElse(List.empty)
-
-    val result = pkg.modules.values.flatMap(compileModule(pkgId, _, preds))
+    val result = pkg.modules.values.flatMap(compileModule(pkgId, _, enableContractUpgrading))
 
     val t2 = Time.Timestamp.now()
     logger.trace(
@@ -625,44 +630,17 @@ private[lf] final class Compiler(
       tmplId: TypeConName,
       tmpl: Template,
       choice: TemplateChoice,
+      optTargetTemplateId: Option[TypeConName],
   ): (t.SDefinitionRef, SDefinition) =
-    // Compiles a choice into:
-    // ChoiceDefRef(SomeTemplate, SomeChoice) = \<actors> <cid> <choiceArg> <token> ->
-    //   let targ = fetch(tmplId) <cid>
-    //       _ = $beginExercise(tmplId, choice.name, choice.consuming, false) <choiceArg> <cid> <actors> [tmpl.signatories] [tmpl.observers] [choice.controllers] [tmpl.key]
-    //       <retValue> = [update] <token>
-    //       _ = $endExercise[tmplId] <retValue>
-    //   in <retValue>
     topLevelFunction3(t.TemplateChoiceDefRef(tmplId, choice.name)) {
       (cidPos, choiceArgPos, tokenPos, env) =>
-        translateChoiceBody(env, tmplId, optTargetTemplateId = None, tmpl, choice)(
+        translateChoiceBody(env, tmplId, optTargetTemplateId, tmpl, choice)(
           choiceArgPos,
           cidPos,
           None,
           tokenPos,
         )
     }
-
-  private[this] def compileSoftTemplateChoice(
-      tmplId: TypeConName,
-      tmpl: Template,
-      predPids: List[PackageId],
-      choice: TemplateChoice,
-  ): (t.SDefinitionRef, SDefinition) = {
-    // TODO: https://github.com/digital-asset/daml/issues/17082
-    // - predPids is ignored for milestone-1
-    // - might be useful in following milestones
-    val _ = predPids
-    topLevelFunction3(t.SoftTemplateChoiceDefRef(tmplId, choice.name)) {
-      (cidPos, choiceArgPos, tokenPos, env) =>
-        translateChoiceBody(env, tmplId, optTargetTemplateId = Some(tmplId), tmpl, choice)(
-          choiceArgPos,
-          cidPos,
-          None,
-          tokenPos,
-        )
-    }
-  }
 
   private[this] def compileChoiceController(
       typeId: TypeConName,
@@ -766,32 +744,15 @@ private[lf] final class Compiler(
   private[this] def compileFetchTemplate(
       tmplId: Identifier,
       tmpl: Template,
+      optTargetTemplateId: Option[TypeConName],
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction2(t.FetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
-      translateFetchTemplateBody(env, tmplId, tmpl, optTargetTemplateId = None)(
+      translateFetchTemplateBody(env, tmplId, tmpl, optTargetTemplateId)(
         cidPos,
         None,
         tokenPos,
       )
     }
-
-  private[this] def compileSoftFetchTemplate(
-      tmplId: Identifier,
-      tmpl: Template,
-      predPids: List[PackageId],
-  ): (t.SDefinitionRef, SDefinition) = {
-    // TODO: https://github.com/digital-asset/daml/issues/17082
-    // - predPids is ignored for milestone-1
-    // - might be useful in following milestones
-    val _ = predPids
-    topLevelFunction2(t.SoftFetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
-      translateFetchTemplateBody(env, tmplId, tmpl, optTargetTemplateId = Some(tmplId))(
-        cidPos,
-        None,
-        tokenPos,
-      )
-    }
-  }
 
   private[this] def compileFetchInterface(ifaceId: Identifier): (t.SDefinitionRef, SDefinition) =
     topLevelFunction2(t.FetchInterfaceDefRef(ifaceId)) { (cidPos, _, env) =>

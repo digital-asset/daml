@@ -20,7 +20,7 @@ import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.language.{LookupError, PackageInterface, Reference}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
-import com.daml.lf.speedy.{SValue, TraceLog, WarningLog, SError}
+import com.daml.lf.speedy.{Pretty, SValue, TraceLog, WarningLog, SError}
 import com.daml.lf.transaction.{
   GlobalKey,
   IncompleteTransaction,
@@ -31,6 +31,7 @@ import com.daml.lf.transaction.{
 }
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
+import com.daml.nonempty.NonEmpty
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.InMemoryUserManagementStore
 import io.grpc.StatusRuntimeException
@@ -283,6 +284,101 @@ class IdeLedgerClient(
       }
   }
 
+  private def getTypeIdentifier(t: Ast.Type): Option[Identifier] =
+    t match {
+      case Ast.TTyCon(ty) => Some(ty)
+      case _ => None
+    }
+
+  private def fromInterpretationError(err: interpretation.Error): SubmitError = {
+    import interpretation.Error._
+    err match {
+      // TODO[SW]: This error isn't yet fully implemented, so remains unknown. Convert to a `dev` error once the feature is supported in IDELedger.
+      case e: RejectedAuthorityRequest => SubmitError.UnknownError(e.toString)
+      case ContractNotFound(cid) =>
+        SubmitError.ContractNotFound(
+          NonEmpty(Seq, cid),
+          Some(SubmitError.ContractNotFound.AdditionalInfo.NotFound()),
+        )
+      case ContractKeyNotFound(key) => SubmitError.ContractKeyNotFound(key)
+      case e: FailedAuthorization =>
+        SubmitError.AuthorizationError(Pretty.prettyDamlException(e).renderWideStream.mkString)
+      case ContractNotActive(cid, tid, _) => SubmitError.ContractNotActive(tid, cid)
+      case DisclosedContractKeyHashingError(cid, key, hash) =>
+        SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString)
+      // Hide not visible as not found
+      case ContractKeyNotVisible(_, key, _, _, _) =>
+        SubmitError.ContractKeyNotFound(key)
+      case DuplicateContractKey(key) => SubmitError.DuplicateContractKey(Some(key))
+      case InconsistentContractKey(key) => SubmitError.InconsistentContractKey(key)
+      // Only pass on the error if the type is a TTyCon
+      case UnhandledException(ty, v) =>
+        SubmitError.UnhandledException(getTypeIdentifier(ty).map(tyId => (tyId, v)))
+      case UserError(msg) => SubmitError.UserError(msg)
+      case _: TemplatePreconditionViolated => SubmitError.TemplatePreconditionViolated()
+      case CreateEmptyContractKeyMaintainers(tid, arg, _) =>
+        SubmitError.CreateEmptyContractKeyMaintainers(tid, arg)
+      case FetchEmptyContractKeyMaintainers(tid, keyValue) =>
+        SubmitError.FetchEmptyContractKeyMaintainers(GlobalKey.assertBuild(tid, keyValue))
+      case WronglyTypedContract(cid, exp, act) => SubmitError.WronglyTypedContract(cid, exp, act)
+      case ContractDoesNotImplementInterface(iid, cid, tid) =>
+        SubmitError.ContractDoesNotImplementInterface(cid, tid, iid)
+      case ContractDoesNotImplementRequiringInterface(requiringIid, requiredIid, cid, tid) =>
+        SubmitError.ContractDoesNotImplementRequiringInterface(cid, tid, requiredIid, requiringIid)
+      case NonComparableValues => SubmitError.NonComparableValues()
+      case ContractIdInContractKey(_) => SubmitError.ContractIdInContractKey()
+      case ContractIdComparability(cid) => SubmitError.ContractIdComparability(cid.toString)
+      case e @ Dev(_, innerError) =>
+        SubmitError.DevError(
+          innerError.getClass.getSimpleName,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
+    }
+  }
+
+  // Projects the scenario submission error down to the script submission error
+  private def fromScenarioError(err: scenario.Error): SubmitError = err match {
+    case scenario.Error.RunnerException(e: SError.SErrorCrash) =>
+      SubmitError.UnknownError(e.toString)
+    case scenario.Error.RunnerException(SError.SErrorDamlException(err)) =>
+      fromInterpretationError(err)
+
+    case scenario.Error.Internal(reason) => SubmitError.UnknownError(reason)
+    case scenario.Error.Timeout(timeout) => SubmitError.UnknownError("Timeout: " + timeout)
+
+    // We treat ineffective contracts (ie, ones that don't exist yet) as being not found
+    case scenario.Error.ContractNotEffective(cid, tid, effectiveAt) =>
+      SubmitError.ContractNotFound(
+        NonEmpty(Seq, cid),
+        Some(SubmitError.ContractNotFound.AdditionalInfo.NotEffective(tid, effectiveAt)),
+      )
+
+    case scenario.Error.ContractNotActive(cid, templateId, _) =>
+      SubmitError.ContractNotActive(templateId, cid)
+
+    // Similarly, we treat contracts that we can't see as not being found
+    case scenario.Error.ContractNotVisible(cid, tid, actAs, readAs, observers) =>
+      SubmitError.ContractNotFound(
+        NonEmpty(Seq, cid),
+        Some(SubmitError.ContractNotFound.AdditionalInfo.NotVisible(tid, actAs, readAs, observers)),
+      )
+
+    case scenario.Error.ContractKeyNotVisible(_, key, _, _, _) =>
+      SubmitError.ContractKeyNotFound(key)
+
+    case scenario.Error.CommitError(
+          ScenarioLedger.CommitError.UniqueKeyViolation(ScenarioLedger.UniqueKeyViolation(gk))
+        ) =>
+      SubmitError.DuplicateContractKey(Some(gk))
+
+    case scenario.Error.LookupError(err, _, _) =>
+      // TODO[SW]: Implement proper Lookup error throughout
+      SubmitError.UnknownError("Lookup error: " + err.toString)
+
+    // This covers MustFailSucceeded, InvalidPartyName, PartyAlreadyExists which should not be throwable by a command submission
+    // It also covers PartiesNotAllocated.
+    case err => SubmitError.UnknownError("Unexpected error type: " + err.toString)
+  }
   // Build a SubmissionError with empty transaction
   private def makeEmptySubmissionError(err: scenario.Error): ScenarioRunner.SubmissionError =
     ScenarioRunner.SubmissionError(
@@ -642,6 +738,44 @@ class IdeLedgerClient(
     userManagementStore
       .listUserRights(id, IdentityProviderId.Default)(LoggingContext.empty)
       .map(_.toOption.map(_.toList))
+
+  override def trySubmit(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commands: List[command.ApiCommand],
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]] =
+    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+      case Right(ScenarioRunner.Commit(result, _, _)) =>
+        _currentSubmission = None
+        _ledger = result.newLedger
+        val transaction = result.richTransaction.transaction
+        def convRootEvent(id: NodeId): ScriptLedgerClient.CommandResult = {
+          val node = transaction.nodes.getOrElse(
+            id,
+            throw new IllegalArgumentException(s"Unknown root node id $id"),
+          )
+          node match {
+            case create: Node.Create => ScriptLedgerClient.CreateResult(create.coid)
+            case exercise: Node.Exercise =>
+              ScriptLedgerClient.ExerciseResult(
+                exercise.templateId,
+                exercise.interfaceId,
+                exercise.choiceId,
+                exercise.exerciseResult.get,
+              )
+            case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback =>
+              throw new IllegalArgumentException(s"Invalid root node: $node")
+          }
+        }
+        Right(transaction.roots.toSeq.map(convRootEvent))
+      case Left(ScenarioRunner.SubmissionError(err, tx)) =>
+        _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
+        Left(fromScenarioError(err))
+    }
 
   def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
     getPackageIdPairs().toMap

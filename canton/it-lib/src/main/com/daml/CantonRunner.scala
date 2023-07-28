@@ -98,6 +98,7 @@ object CantonRunner {
          |      storage.type = memory
          |      parameters = {
          |        enable-engine-stack-traces = true
+         |        enable-contract-upgrading = ${config.enableUpgrade}
          |        dev-version-support = ${config.devMode}
          |      }
          |      ${timeType.fold("")(x => "testing-time.type = " + x)}
@@ -147,18 +148,22 @@ object CantonRunner {
          |""".stripMargin
     )
     var outputBuffer = ""
+    val cmd = java ::
+      "-jar" ::
+      config.jarPath.toString ::
+      "daemon" ::
+      "--auto-connect-local" ::
+      "-c" ::
+      files.configFile.toString ::
+      bootstrapOptions :::
+      debugOptions
+    info(cmd.mkString("\\\n    "))
     for {
       proc <- Future(
         Process(
-          java ::
-            "-jar" ::
-            config.jarPath.toString ::
-            "daemon" ::
-            "--auto-connect-local" ::
-            "-c" ::
-            files.configFile.toString ::
-            bootstrapOptions :::
-            debugOptions
+          cmd,
+          None,
+          // env-vars here
         ).run(ProcessLogger { str =>
           if (config.debug) println(str)
           outputBuffer += str

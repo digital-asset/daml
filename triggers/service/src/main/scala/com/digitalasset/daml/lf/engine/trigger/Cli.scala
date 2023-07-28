@@ -16,6 +16,7 @@ import com.daml.cliopts
 import scala.concurrent.duration.FiniteDuration
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.dbutils.{DBConfig, JdbcConfig}
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.typesafe.scalalogging.StrictLogging
@@ -52,6 +53,7 @@ private[trigger] final case class Cli(
     jdbcConfig: Option[JdbcConfig],
     portFile: Option[Path],
     allowExistingSchema: Boolean,
+    tlsConfig: TlsConfiguration,
     compilerConfig: Compiler.Config,
     triggerConfig: TriggerRunnerConfig,
     rootLoggingLevel: Option[Level],
@@ -88,6 +90,7 @@ private[trigger] final case class Cli(
       jdbcConfig = jdbcConfig,
       portFile = portFile,
       allowExistingSchema = allowExistingSchema,
+      tlsConfig = tlsConfig,
       compilerConfig = compilerConfig,
       triggerConfig = triggerConfig,
       rootLoggingLevel = rootLoggingLevel,
@@ -125,6 +128,8 @@ private[trigger] object Cli {
   val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
   val DefaultCompilerConfig: Compiler.Config = Compiler.Config.Default
   val DefaultCommandTtl: FiniteDuration = FiniteDuration(30, duration.SECONDS)
+  val DefaultTlsConfiguration: TlsConfiguration =
+    TlsConfiguration(enabled = false, None, None, None)
 
   private[trigger] def redirectToLogin(value: String): AuthClient.RedirectToLogin = {
     value.toLowerCase match {
@@ -164,6 +169,7 @@ private[trigger] object Cli {
     jdbcConfig = None,
     portFile = None,
     allowExistingSchema = false,
+    tlsConfig = DefaultTlsConfiguration,
     compilerConfig = DefaultCompilerConfig,
     triggerConfig = DefaultTriggerRunnerConfig,
     rootLoggingLevel = None,

@@ -32,6 +32,8 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
     },
   )
   val text: Parser[String] = accept("Text", { case Text(s) => s })
+
+  // The lexer requires that package IDs wrapped by single quotes - e.g. '-my-package-id-'
   val pkgId: Parser[Ref.PackageId] = accept(
     "PackageId",
     Function unlift {
@@ -40,6 +42,7 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
     },
   )
 
+  // The lexer requires that package names wrapped by single quotes - e.g. '-my-package-name-'
   val pkgName: Parser[Ref.PackageName] = accept(
     "PackageName",
     Function unlift {
@@ -48,6 +51,7 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
     },
   )
 
+  // The lexer requires that package versions wrapped by single quotes - e.g. '-my-package-version-'
   val pkgVersion: Parser[Ref.PackageVersion] = accept(
     "PackageVersion",
     Function unlift {

@@ -18,7 +18,7 @@ if [[ "$(uname)" == "Darwin" ]]; then
   tag_filter="$tag_filter,-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
 
-SKIP_DEV_CANTON_TESTS=true
+SKIP_DEV_CANTON_TESTS=false
 if [ "$SKIP_DEV_CANTON_TESTS" = "true" ]; then
   tag_filter="$tag_filter,-dev-canton-test"
 fi
@@ -37,10 +37,6 @@ if [ "${1:-}" = "_m1" ]; then
     bazel="arch -arm64 bazel"
 else
     bazel=bazel
-fi
-
-if [ -n "${ARTIFACTORY_USERNAME:-}" ] && [ -n "${ARTIFACTORY_PASSWORD:-}" ]; then
-    export ARTIFACTORY_AUTH=$(echo -n "$ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD" | base64 -w0)
 fi
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
@@ -94,7 +90,8 @@ $bazel test //... \
   --experimental_profile_include_target_label \
   --build_event_json_file test-events.json \
   --build_event_publish_all_actions \
-  --experimental_execution_log_file "$ARTIFACT_DIRS/logs/test_execution${execution_log_postfix}.log"
+  --experimental_execution_log_file "$ARTIFACT_DIRS/logs/test_execution${execution_log_postfix}.log" \
+  --config=canton-ee
 
 # Make sure that Bazel query works.
 $bazel query 'deps(//...)' >/dev/null
