@@ -161,6 +161,11 @@ data Error
   | EMissingMethodInInterfaceInstance !MethodName
   | EUnknownMethodInInterfaceInstance { eumiiIface :: !(Qualified TypeConName), eumiiTpl :: !(Qualified TypeConName), eumiiMethodName :: !MethodName }
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
+  | EUpgradeMissing
+  | EUpgradeMismatchDataConsVariety !TypeConName
+  | EUpgradeRecordFieldsMissing
+  | EUpgradeRecordFieldsExistingChanged
+  | EUpgradeRecordFieldsNewNonOptional
   | EUnknownExperimental !T.Text !Type
 
 contextLocation :: Context -> Maybe SourceLoc
@@ -528,6 +533,11 @@ instance Pretty Error where
       text "Tried to implement method " <> quotes (pretty eumiiMethodName) <> text ", but interface " <> pretty eumiiIface <> text " does not have a method with that name."
     EWrongInterfaceRequirement requiringIface requiredIface ->
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
+    EUpgradeMissing {} -> "EUpgradeMissing"
+    EUpgradeMismatchDataConsVariety dataConName -> "EUpgradeMismatchDataConsVariety " <> pretty dataConName
+    EUpgradeRecordFieldsMissing {} -> "EUpgradeRecordFieldsMissing"
+    EUpgradeRecordFieldsExistingChanged {} -> "EUpgradeRecordFieldsExistingChanged"
+    EUpgradeRecordFieldsNewNonOptional {} -> "EUpgradeRecordFieldsNewNonOptional"
     EUnknownExperimental name ty ->
       "Unknown experimental primitive " <> string (show name) <> " : " <> pretty ty
 

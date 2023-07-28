@@ -24,10 +24,12 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource (ResourceT)
-import qualified DA.Daml.Dar.Reader as Dar
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
+import qualified DA.Daml.LF.Proto3.Archive as Archive
+import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
 import DA.Daml.LF.TypeChecker.Error (Error(EUnsupportedFeature))
+import DA.Daml.LF.TypeChecker.Upgrade as TypeChecker.Upgrade
 import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
@@ -64,6 +66,8 @@ import MkIface
 import Module
 import qualified Module as Ghc
 import HscTypes
+
+import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 
 -- | Create a DAR file by running a ZipArchive action.
 createDarFile :: Logger.Handle IO -> FilePath -> Zip.ZipArchive () -> IO ()
@@ -129,24 +133,35 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                  files <- getDamlFiles pSrc
                  opts <- lift getIdeOptions
                  lfVersion <- lift getDamlLfVersion
-                 upgradedPackageId <-
-                  forM pUpgradedPackagePath $ \path ->
-                    if lfVersion `LF.supports` LF.featurePackageUpgrades
-                      then Dar.mainPackageId <$> liftIO (Dar.getDarInfo path)
-                      else do
-                        liftIO $
-                          IdeLogger.logError (ideLogger service) $
-                            renderPretty $ EUnsupportedFeature LF.featurePackageUpgrades
-                        MaybeT (pure Nothing)
+                 mbUpgradedPackage <-
+                   forM pUpgradedPackagePath $ \path ->
+                     if lfVersion `LF.supports` LF.featurePackageUpgrades
+                       then do
+                         ExtractedDar{edMain} <- liftIO $ extractDar path
+                         let bs = BSL.toStrict $ ZipArchive.fromEntry edMain
+                         case Archive.decodeArchive Archive.DecodeAsMain bs of
+                            Left _ -> error $ "Could not decode path " ++ path
+                            Right (pid, package) -> return (pid, package)
+                       else do
+                         liftIO $
+                           IdeLogger.logError (ideLogger service) $
+                             renderPretty $ EUnsupportedFeature LF.featurePackageUpgrades
+                         MaybeT (pure Nothing)
                  let pMeta = LF.PackageMetadata
                         { packageName = pName
                         , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") pVersion
-                        , upgradedPackageId
+                        , upgradedPackageId = fst <$> mbUpgradedPackage
                         }
                  pkg <- case optShakeFiles opts of
                      Nothing -> mergePkgs pMeta lfVersion . map fst <$> usesE GeneratePackage files
                      Just _ -> generateSerializedPackage pName pVersion pMeta files
 
+                 case mbUpgradedPackage of
+                    Just (_, upgradedPackage) ->
+                      MaybeT $ do
+                        let upgradePair = Upgrading { past = upgradedPackage, present = pkg }
+                        runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $ TypeChecker.Upgrade.checkUpgrade lfVersion upgradePair
+                    _ -> pure ()
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
                  let pkgModuleNames = map (Ghc.mkModuleName . T.unpack) $ LF.packageModuleNames pkg
