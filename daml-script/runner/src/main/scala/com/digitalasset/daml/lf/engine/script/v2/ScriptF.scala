@@ -987,37 +987,42 @@ object ScriptF {
     }
   }
 
-  def parse(constr: Ast.VariantConName, v: SValue, stackTrace: StackTrace): Either[String, Cmd] =
-    constr match {
-      case "Submit" => parseSubmit(v, stackTrace).map(Submit(_))
-      case "SubmitMustFail" => parseSubmit(v, stackTrace).map(SubmitMustFail(_))
-      case "SubmitTree" => parseSubmit(v, stackTrace).map(SubmitTree(_))
-      case "TrySubmit" => parseSubmit(v, stackTrace).map(TrySubmit(_))
-      case "Query" => parseQuery(v)
-      case "QueryContractId" => parseQueryContractId(v)
-      case "QueryInterface" => parseQueryInterface(v)
-      case "QueryInterfaceContractId" => parseQueryInterfaceContractId(v)
-      case "QueryContractKey" => parseQueryContractKey(v)
-      case "AllocateParty" => parseAllocParty(v)
-      case "ListKnownParties" => parseListKnownParties(v)
-      case "GetTime" => parseEmpty(GetTime())(v)
-      case "SetTime" => parseSetTime(v)
-      case "Sleep" => parseSleep(v)
-      case "Catch" => parseCatch(v)
-      case "Throw" => parseThrow(v)
-      case "ValidateUserId" => parseValidateUserId(v)
-      case "CreateUser" => parseCreateUser(v)
-      case "GetUser" => parseGetUser(v)
-      case "DeleteUser" => parseDeleteUser(v)
-      case "ListAllUsers" => parseListAllUsers(v)
-      case "GrantUserRights" => parseGrantUserRights(v)
-      case "RevokeUserRights" => parseRevokeUserRights(v)
-      case "ListUserRights" => parseListUserRights(v)
-      case "VetPackages" => parseChangePackages(v).map(VetPackages)
-      case "UnvetPackages" => parseChangePackages(v).map(UnvetPackages)
-      case "ListVettedPackages" => parseEmpty(ListVettedPackages())(v)
-      case "ListAllPackages" => parseEmpty(ListAllPackages())(v)
-      case _ => Left(s"Unknown constructor $constr")
+  def parse(
+      commandName: String,
+      version: Int,
+      v: SValue,
+      stackTrace: StackTrace,
+  ): Either[String, Cmd] =
+    (commandName, version) match {
+      case ("Submit", 1) => parseSubmit(v, stackTrace).map(Submit(_))
+      case ("SubmitMustFail", 1) => parseSubmit(v, stackTrace).map(SubmitMustFail(_))
+      case ("SubmitTree", 1) => parseSubmit(v, stackTrace).map(SubmitTree(_))
+      case ("TrySubmit", 1) => parseSubmit(v, stackTrace).map(TrySubmit(_))
+      case ("Query", 1) => parseQuery(v)
+      case ("QueryContractId", 1) => parseQueryContractId(v)
+      case ("QueryInterface", 1) => parseQueryInterface(v)
+      case ("QueryInterfaceContractId", 1) => parseQueryInterfaceContractId(v)
+      case ("QueryContractKey", 1) => parseQueryContractKey(v)
+      case ("AllocateParty", 1) => parseAllocParty(v)
+      case ("ListKnownParties", 1) => parseListKnownParties(v)
+      case ("GetTime", 1) => parseEmpty(GetTime())(v)
+      case ("SetTime", 1) => parseSetTime(v)
+      case ("Sleep", 1) => parseSleep(v)
+      case ("Catch", 1) => parseCatch(v)
+      case ("Throw", 1) => parseThrow(v)
+      case ("ValidateUserId", 1) => parseValidateUserId(v)
+      case ("CreateUser", 1) => parseCreateUser(v)
+      case ("GetUser", 1) => parseGetUser(v)
+      case ("DeleteUser", 1) => parseDeleteUser(v)
+      case ("ListAllUsers", 1) => parseListAllUsers(v)
+      case ("GrantUserRights", 1) => parseGrantUserRights(v)
+      case ("RevokeUserRights", 1) => parseRevokeUserRights(v)
+      case ("ListUserRights", 1) => parseListUserRights(v)
+      case ("VetPackages", 1) => parseChangePackages(v).map(VetPackages)
+      case ("UnvetPackages", 1) => parseChangePackages(v).map(UnvetPackages)
+      case ("ListVettedPackages", 1) => parseEmpty(ListVettedPackages())(v)
+      case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
+      case _ => Left(s"Unknown command $commandName - Version $version")
     }
 
   private def toOneAndSet[F[_], A](x: OneAnd[F, A])(implicit fF: Foldable[F]): OneAnd[Set, A] =

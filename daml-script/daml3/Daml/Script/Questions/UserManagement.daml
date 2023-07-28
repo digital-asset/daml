@@ -75,7 +75,8 @@ checkUserNotFound userId script = do
 
 data ValidateUserId = ValidateUserId with
   name : Text
-instance IsQuestion ValidateUserId (Optional Text) -- text indicates reason for invalid name
+-- text indicates reason for invalid name
+instance IsQuestion ValidateUserId (Optional Text) where command = "ValidateUserId"
 
 -- | Construct a user identifer from text. May throw InvalidUserId.
 validateUserId : HasCallStack => Text -> Script UserId
@@ -93,7 +94,8 @@ data CreateUser = CreateUser with
   user: User
   rights: [UserRight]
   participant : Optional Text
-instance IsQuestion CreateUser (Optional ()) -- TODO: Optional () -> Bool????
+-- TODO: Optional () -> Bool????
+instance IsQuestion CreateUser (Optional ()) where command = "CreateUser"
 
 createUser' : HasCallStack => User -> [UserRight] -> Optional ParticipantName -> Script ()
 createUser' user rights participant = checkUserAlreadyExists user.userId $ lift CreateUser with
@@ -112,7 +114,7 @@ getUserOn userId participant = getUser' userId (Some participant)
 data GetUser = GetUser with
   userId : UserId
   participant : Optional Text
-instance IsQuestion GetUser (Optional User)
+instance IsQuestion GetUser (Optional User) where command = "GetUser"
 
 getUser' : HasCallStack => UserId -> Optional ParticipantName -> Script User
 getUser' userId participant = checkUserNotFound userId $ lift GetUser with
@@ -129,7 +131,7 @@ listAllUsersOn participant = listAllUsers' (Some participant)
 
 data ListAllUsers = ListAllUsers with
   participant : Optional Text
-instance IsQuestion ListAllUsers [User]
+instance IsQuestion ListAllUsers [User] where command = "ListAllUsers"
 
 listAllUsers' : Optional ParticipantName -> Script [User]
 listAllUsers' participant = lift ListAllUsers with
@@ -147,7 +149,7 @@ data GrantUserRights = GrantUserRights with
   userId : UserId
   rights : [UserRight]
   participant : Optional Text
-instance IsQuestion GrantUserRights (Optional [UserRight])
+instance IsQuestion GrantUserRights (Optional [UserRight]) where command = "GrantUserRights"
 
 grantUserRights' : HasCallStack => UserId -> [UserRight] -> Optional ParticipantName -> Script [UserRight]
 grantUserRights' userId rights participant = checkUserNotFound userId $ lift GrantUserRights with
@@ -167,7 +169,7 @@ data RevokeUserRights = RevokeUserRights with
   userId : UserId
   rights : [UserRight]
   participant : Optional Text
-instance IsQuestion RevokeUserRights (Optional [UserRight])
+instance IsQuestion RevokeUserRights (Optional [UserRight]) where command = "RevokeUserRights"
 
 revokeUserRights' : HasCallStack => UserId -> [UserRight] -> Optional ParticipantName -> Script [UserRight]
 revokeUserRights' userId rights participant = checkUserNotFound userId $ lift RevokeUserRights with
@@ -186,7 +188,8 @@ deleteUserOn userId participant = deleteUser' userId (Some participant)
 data DeleteUser = DeleteUser with
   userId : UserId
   participant : Optional Text
-instance IsQuestion DeleteUser (Optional ()) -- TODO: Optional () -> Bool????
+-- TODO: Optional () -> Bool????
+instance IsQuestion DeleteUser (Optional ()) where command = "DeleteUser"
 
 deleteUser' : HasCallStack => UserId -> Optional ParticipantName -> Script ()
 deleteUser' userId participant = checkUserNotFound userId $ lift DeleteUser with
@@ -204,7 +207,7 @@ listUserRightsOn userId participant = listUserRights' userId (Some participant)
 data ListUserRights = ListUserRights with
   userId : UserId
   participant : Optional Text
-instance IsQuestion ListUserRights (Optional [UserRight])
+instance IsQuestion ListUserRights (Optional [UserRight]) where command = "ListUserRights"
 
 listUserRights' : HasCallStack => UserId -> Optional ParticipantName -> Script [UserRight]
 listUserRights' userId participant = checkUserNotFound userId $ lift ListUserRights with
