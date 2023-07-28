@@ -112,7 +112,7 @@ data TrySubmit = TrySubmit with
   actAs : NonEmpty Party
   readAs : [Party]
   commands : [Command]
-instance IsQuestion TrySubmit (Either SubmitError [CommandResult])
+instance IsQuestion TrySubmit (Either SubmitError [CommandResult]) where command = "TrySubmit"
 
 trySubmitInternal : HasCallStack => [Party] -> [Party] -> Commands a -> Script (Either SubmitError a)
 trySubmitInternal actAs readAs cmds =
