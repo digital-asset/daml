@@ -5,6 +5,7 @@ package com.daml.http.dbbackend
 
 import cats.effect._
 import cats.syntax.apply._
+import com.daml.dbutils
 import com.daml.dbutils.ConnectionPool
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.dbbackend.Queries.SurrogateTpId
@@ -21,6 +22,7 @@ import doobie.free.connection.ConnectionIO
 import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
+import doobie.util.transactor.Transactor
 import org.slf4j.LoggerFactory
 import scalaz.{Equal, NonEmptyList, Order, Semigroup}
 import scalaz.std.set._
@@ -30,16 +32,19 @@ import scalaz.syntax.order._
 import spray.json.{JsNull, JsValue}
 
 import java.io.{Closeable, IOException}
+import java.sql.SQLTransientConnectionException
 import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
 import scala.language.existentials
 import scala.util.Try
+import scala.annotation.nowarn
 
 class ContractDao private (
     ds: DataSource with Closeable,
     xa: ConnectionPool.T,
     dbAccessPool: ExecutorService,
+    @nowarn diagnostics: Option[Diagnostics] = None,
 )(implicit
     val jdbcDriver: SupportedJdbcDriver.TC
 ) extends Closeable {
@@ -47,18 +52,39 @@ class ContractDao private (
   private val logger = LoggerFactory.getLogger(classOf[ContractDao])
   implicit val logHandler: log.LogHandler = Slf4jLogHandler(logger)
 
-  def transact[A](query: ConnectionIO[A]): IO[A] =
-    query.transact(xa)
+  def transact[A](query: ConnectionIO[A], clientInfo: Option[String] = None): IO[A] = {
+    diagnostics match {
+      case Some(diagnostics) =>
+        val xa0 = (diagnostics.clientInfoName, clientInfo) match {
+          case (Some(identifier), Some(info)) =>
+            Transactor.before.modify(xa, _ *> fconn.setClientInfo(identifier, info))
+          case _ => xa
+        }
+        query.transact(xa0).handleErrorWith {
+          case e: SQLTransientConnectionException if Diagnostics.isDiagnosticTrigger(e) =>
+            diagnostics.run()
+            IO.raiseError(e)
+          case e => IO.raiseError(e)
+        }
+      case None => query.transact(xa)
+    }
+  }
 
   def isValid(timeoutSeconds: Int): IO[Boolean] =
     fconn.isValid(timeoutSeconds).transact(xa)
 
   def shutdown(): Try[Unit] = {
-    Try {
-      dbAccessPool.shutdown()
-      val cleanShutdown = dbAccessPool.awaitTermination(10, TimeUnit.SECONDS)
+    def shutdown(ds: DataSource with Closeable, es: ExecutorService) = {
+      es.shutdown()
+      val cleanShutdown = es.awaitTermination(10, TimeUnit.SECONDS)
       logger.debug(s"Clean shutdown of dbAccess pool : $cleanShutdown")
       ds.close()
+    }
+    Try {
+      shutdown(ds, dbAccessPool)
+      diagnostics.foreach { diagnostics =>
+        shutdown(diagnostics.dataSource, diagnostics.executorService)
+      }
     }
   }
 
@@ -92,11 +118,21 @@ object ContractDao {
   def apply(
       cfg: JdbcConfig,
       tpIdCacheMaxEntries: Option[Long] = None,
+      diagnosticConfig: Option[DiagnosticConfig] = None,
   )(implicit
       ec: ExecutionContext,
       metrics: HttpJsonApiMetrics,
   ): ContractDao = {
-    val cs: ContextShift[IO] = IO.contextShift(ec)
+
+    def makeDatasourceAndConPool(
+        cfg: dbutils.JdbcConfig,
+        es: ExecutorService,
+    ) =
+      ConnectionPool.connect(cfg, metrics.getMetricRegistry)(
+        ExecutionContext.fromExecutor(es),
+        IO.contextShift(ec),
+      )
+
     val setup = for {
       sjda <- supportedJdbcDrivers
         .get(cfg.baseConfig.driver)
@@ -104,16 +140,19 @@ object ContractDao {
           s"JDBC driver ${cfg.baseConfig.driver} is not one of ${supportedJdbcDrivers.keySet}"
         )
       sjdc <- configureJdbc(cfg, sjda, tpIdCacheMaxEntries.getOrElse(MaxEntries))
+      query <- Diagnostics.loadQuery(diagnosticConfig.map(_.query))
     } yield {
       implicit val sjd: SupportedJdbcDriver.TC = sjdc
       // pool for connections awaiting database access
       val es = Executors.newWorkStealingPool(cfg.baseConfig.poolSize)
-      val (ds, conn) =
-        ConnectionPool.connect(cfg.baseConfig, metrics.getMetricRegistry)(
-          ExecutionContext.fromExecutor(es),
-          cs,
-        )
-      new ContractDao(ds, conn, es)
+      val (ds, conn) = makeDatasourceAndConPool(cfg.baseConfig, es)
+
+      val diagnostics = diagnosticConfig.map { cfg =>
+        val es = Executors.newSingleThreadExecutor()
+        val (ds, conn) = makeDatasourceAndConPool(cfg.baseConfig, es)
+        Diagnostics(ds, conn, es, cfg.clientInfoName, query.get, cfg.minDelay)
+      }
+      new ContractDao(ds, conn, es, diagnostics)
     }
     setup.fold(msg => throw new IllegalArgumentException(msg), identity)
   }

@@ -118,7 +118,9 @@ object Main {
 
     val contractDao = metricsResource.asFuture.map { implicit metrics =>
       val contractDao =
-        config.jdbcConfig.map(c => ContractDao(c, config.surrogateTpIdCacheMaxEntries))
+        config.jdbcConfig.map(c =>
+          ContractDao(c, config.surrogateTpIdCacheMaxEntries, config.diagnostic)
+        )
       (contractDao, config.jdbcConfig) match {
         case (Some(dao), Some(c)) =>
           import cats.effect.IO
