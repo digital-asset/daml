@@ -107,7 +107,7 @@ object SubmitError {
 
       final case class NotActive(
           cid: ContractId,
-          tid: Identifier
+          tid: Identifier,
       ) extends AdditionalInfo {
         override def toSValue(env: Env) =
           SubmitErrorConverters(env).damlScriptVariant(

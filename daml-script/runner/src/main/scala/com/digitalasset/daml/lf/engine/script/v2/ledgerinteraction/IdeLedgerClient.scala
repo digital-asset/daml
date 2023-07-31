@@ -367,7 +367,9 @@ class IdeLedgerClient(
     case scenario.Error.ContractNotVisible(cid, tid, actAs, readAs, observers) =>
       SubmitError.ContractNotFound(
         NonEmpty(Seq, cid),
-        Some(SubmitError.ContractNotFound.AdditionalInfo.NotVisible(cid, tid, actAs, readAs, observers)),
+        Some(
+          SubmitError.ContractNotFound.AdditionalInfo.NotVisible(cid, tid, actAs, readAs, observers)
+        ),
       )
 
     case scenario.Error.ContractKeyNotVisible(_, key, _, _, _) =>
