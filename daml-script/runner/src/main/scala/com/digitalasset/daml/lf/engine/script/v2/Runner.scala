@@ -24,7 +24,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 // linking magic
-import com.daml.lf.archive.DarDecoder
+import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.Decode
+import com.daml.lf.archive.Dar
+import com.daml.lf.archive.ArchivePayload
 import com.daml.lf.speedy.SDefinition
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.data.Ref._
@@ -40,52 +43,33 @@ private[lf] class Runner(
   // Dynamically link in the daml3-script library
   private val linkedExtendedCompiledPackages = {
     // Most recent Dar of the frontend daml3-script library
+    def renameDamlScript(dar: Dar[ArchivePayload]): Dar[ArchivePayload] =
+      dar.copy(main = dar.main.copy(pkgId = unversionedRunner.script.scriptIds.scriptPackageId))
+
     val mostRecentScript =
       PureCompiledPackages.assertBuild(
-        DarDecoder
+        DarReader
           .readArchive(
             "daml3-script",
             new ZipInputStream(getClass.getResourceAsStream("/daml-script/daml3/daml3-script.dar")),
           )
           .toOption
-          .get // `get` is safe here because the dar is a build artefact that we can't obtain if its not valid.
+          // Here we update the package id to the on the user was expected to replace it.
+          .map(renameDamlScript)
+          // `get` is safe here because the dar is a build artefact that we can't obtain if its not valid.
+          .get
           .all
+          .map(Decode.assertDecodeArchivePayload(_))
           .toMap,
         script.Runner.compilerConfig,
       )
-    val mostRecentScriptPackageId =
-      mostRecentScript.packageIds
-        .find(
-          (
-              pkgId =>
-                mostRecentScript.pkgInterface
-                  .lookupPackage(pkgId)
-                  .toOption
-                  .flatMap(_.metadata)
-                  .map(_.name) == Some("daml3-script")
-          )
-        )
-        .getOrElse(throw new IllegalArgumentException("Own Daml Script had no metadata"))
-    val injectLinkedDamlScript: (PackageId => PackageId) = pkgId =>
-      if (pkgId == unversionedRunner.script.scriptIds.scriptPackageId)
-        mostRecentScriptPackageId
-      else
-        pkgId
-
-    // Daml script does not define any templates, so only `LfDefRef`s need to be injected
-    val injectLinkedDamlScriptSDefinition: (SDefinitionRef => SDefinitionRef) = dref =>
-      dref match {
-        case LfDefRef(Identifier(pkgId, name)) =>
-          LfDefRef(Identifier(injectLinkedDamlScript(pkgId), name))
-        case _ => dref
-      }
 
     // Plug in our dangerous cast
     val dangerousCastDef: PartialFunction[SDefinitionRef, SDefinition] = {
       // Generalised version of the various unsafe casts we need in daml scripts,
       // casting various types involving LedgerValue to/from their real types.
       case LfDefRef(id)
-          if id == (new ScriptIds(mostRecentScriptPackageId)).damlScriptModule(
+          if id == unversionedRunner.script.scriptIds.damlScriptModule(
             "Daml.Script.Internal",
             "dangerousCast",
           ) =>
@@ -93,28 +77,21 @@ private[lf] class Runner(
     }
 
     new CompiledPackages(script.Runner.compilerConfig) {
-      import PartialFunction._
-      override def getDefinition(dref: SDefinitionRef): Option[SDefinition] = {
-        val injectedDRef = injectLinkedDamlScriptSDefinition(dref)
-        dangerousCastDef.lift(injectedDRef) orElse
-          (mostRecentScript.getDefinition(injectedDRef) orElse
+      override def getDefinition(dref: SDefinitionRef): Option[SDefinition] =
+        dangerousCastDef.lift(dref) orElse
+          (mostRecentScript.getDefinition(dref) orElse
             unversionedRunner.extendedCompiledPackages.getDefinition(dref))
-      }
 
       override def pkgInterface: PackageInterface =
         new PackageInterface(
-          (fromFunction(
-            injectLinkedDamlScript
-          ) andThen mostRecentScript.pkgInterface.signatures) orElse unversionedRunner.extendedCompiledPackages.pkgInterface.signatures
+          mostRecentScript.pkgInterface.signatures orElse unversionedRunner.extendedCompiledPackages.pkgInterface.signatures
         )
 
       override def packageIds: collection.Set[PackageId] =
         unversionedRunner.extendedCompiledPackages.packageIds ++ mostRecentScript.packageIds
 
       override def definitions: PartialFunction[SDefinitionRef, SDefinition] =
-        fromFunction(
-          injectLinkedDamlScriptSDefinition
-        ) andThen (dangerousCastDef orElse (mostRecentScript.definitions orElse unversionedRunner.extendedCompiledPackages.definitions))
+        dangerousCastDef orElse (mostRecentScript.definitions orElse unversionedRunner.extendedCompiledPackages.definitions)
     }
   }
   private val machine =
