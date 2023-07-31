@@ -5,11 +5,10 @@ package com.daml.lf.engine.script
 
 import java.io.FileInputStream
 import java.util.concurrent.atomic.AtomicBoolean
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import com.daml.auth.TokenHolder
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref
@@ -62,9 +61,10 @@ object TestMain extends StrictLogging {
         import ParticipantsJsonProtocol._
         (jsVal.convertTo[Participants[ApiParameters]], () => Future.unit)
       case None =>
+        val token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token)
         val (apiParameters, cleanup) =
           (
-            ApiParameters(config.ledgerHost.get, config.ledgerPort.get, None, None),
+            ApiParameters(config.ledgerHost.get, config.ledgerPort.get, token, config.applicationId),
             () => Future.unit,
           )
         (
@@ -95,7 +95,7 @@ object TestMain extends StrictLogging {
     val flow: Future[Boolean] = for {
       clients <- Runner.connect(
         participantParams,
-        TlsConfiguration(false, None, None, None),
+        config.tlsConfig,
         config.maxInboundMessageSize,
       )
       _ <- clients.getParticipant(None) match {

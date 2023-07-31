@@ -85,6 +85,9 @@ case class ScriptConfig(
               participantConfig = participantConfig,
               timeMode = resolvedTimeMode,
               maxInboundMessageSize = maxInboundMessageSize,
+              accessTokenFile = accessTokenFile,
+              tlsConfig = tlsConfig,
+              applicationId = applicationId,
             )
           )
       }
@@ -245,7 +248,7 @@ object ScriptConfig {
         inputFile = None,
         outputFile = None,
         accessTokenFile = None,
-        tlsConfig = TlsConfiguration(false, None, None, None),
+        tlsConfig = TlsConfiguration(false, None, None, None), // FIXME: ???
         jsonApi = false,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         applicationId = None,
