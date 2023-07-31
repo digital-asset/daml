@@ -64,7 +64,12 @@ object TestMain extends StrictLogging {
         val token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token)
         val (apiParameters, cleanup) =
           (
-            ApiParameters(config.ledgerHost.get, config.ledgerPort.get, token, config.applicationId),
+            ApiParameters(
+              config.ledgerHost.get,
+              config.ledgerPort.get,
+              token,
+              config.applicationId,
+            ),
             () => Future.unit,
           )
         (
