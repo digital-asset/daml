@@ -25,11 +25,10 @@ import scala.util.{Failure, Success}
 
 // linking magic
 import com.daml.lf.archive.DarDecoder
-import java.nio.file.Paths
-import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.lf.speedy.SDefinition
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.data.Ref._
+import java.util.zip.ZipInputStream
 
 private[lf] class Runner(
     unversionedRunner: script.Runner,
@@ -41,14 +40,15 @@ private[lf] class Runner(
   // Dynamically link in the daml3-script library
   private val linkedExtendedCompiledPackages = {
     // Most recent Dar of the frontend daml3-script library
-    val bazelFile = Paths.get(rlocation("daml-script/daml3/daml3-script.dar")).toFile
-    val sdkFile = Paths.get(sys.env.get("DAML_SDK").get + "/daml-libs/daml3-script.dar").toFile
     val mostRecentScript =
       PureCompiledPackages.assertBuild(
         DarDecoder
-          .assertReadArchiveFromFile(
-            if (bazelFile.exists()) bazelFile else sdkFile
+          .readArchive(
+            "daml3-script",
+            new ZipInputStream(getClass.getResourceAsStream("/daml-script/daml3/daml3-script.dar")),
           )
+          .toOption
+          .get // `get` is safe here because the dar is a build artefact that we can't obtain if its not valid.
           .all
           .toMap,
         script.Runner.compilerConfig,

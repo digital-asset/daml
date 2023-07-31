@@ -18,8 +18,7 @@ da_scala_library(
     srcs = glob(
         ["src/main/scala/**/*.scala"],
     ),
-    # For daml3script dynamic linking
-    data = ["//daml-script/daml3:daml3-script.dar"],
+    resources = ["//daml-script/daml3:daml3-script.dar"],
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_http",
@@ -35,7 +34,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
