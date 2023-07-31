@@ -248,7 +248,7 @@ object ScriptConfig {
         inputFile = None,
         outputFile = None,
         accessTokenFile = None,
-        tlsConfig = TlsConfiguration(false, None, None, None), // FIXME: ???
+        tlsConfig = TlsConfiguration(false, None, None, None),
         jsonApi = false,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         applicationId = None,
