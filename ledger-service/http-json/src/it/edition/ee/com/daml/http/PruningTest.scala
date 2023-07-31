@@ -30,7 +30,7 @@ final class PruningTest
       )
 
       // prune, at an offset that is later than the last cache refresh.
-      _ <- RetryStrategy.constant(20, 1.second) { case (_, _) =>
+      _ <- RetryStrategy.constant(10, 1.second) { case (_, _) =>
         for {
           // Add artificial ledger activity to advance the safe prune offset. Repeated on failure.
           _ <- postCreateCommand(iouCreateCommand(alice), fixture, aliceHeaders)
