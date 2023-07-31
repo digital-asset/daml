@@ -105,20 +105,24 @@ object SubmitError {
           )
       }
 
-      final case class NotActive(tid: Identifier) extends AdditionalInfo {
+      final case class NotActive(
+          cid: ContractId,
+          tid: Identifier
+      ) extends AdditionalInfo {
         override def toSValue(env: Env) =
           SubmitErrorConverters(env).damlScriptVariant(
             "ContractNotFoundAdditionalInfo",
             "NotActive",
             2,
             (
-              "templateIdentifier",
-              SText(tid.toString),
+              "contractIdentifier",
+              fromAnyContractId(env.scriptIds, toApiIdentifier(tid), cid),
             ),
           )
       }
 
       final case class NotEffective(
+          cid: ContractId,
           tid: Identifier,
           effectiveAt: Time.Timestamp,
       ) extends AdditionalInfo {
@@ -128,8 +132,8 @@ object SubmitError {
             "NotEffective",
             3,
             (
-              "templateIdentifier",
-              SText(tid.toString),
+              "contractIdentifier",
+              fromAnyContractId(env.scriptIds, toApiIdentifier(tid), cid),
             ),
             (
               "effectiveAt",
@@ -139,6 +143,7 @@ object SubmitError {
       }
 
       final case class NotVisible(
+          cid: ContractId,
           tid: Identifier,
           actAs: Set[Party],
           readAs: Set[Party],
@@ -150,8 +155,8 @@ object SubmitError {
             "NotVisible",
             4,
             (
-              "templateIdentifier",
-              SText(tid.toString),
+              "contractIdentifier",
+              fromAnyContractId(env.scriptIds, toApiIdentifier(tid), cid),
             ),
             (
               "actAs",
@@ -185,16 +190,6 @@ object SubmitError {
         "AuthorizationError",
         2,
         ("authorizationErrorMessage", SText(message)),
-      )
-  }
-
-  final case class ContractNotActive(templateId: Identifier, contractId: ContractId)
-      extends SubmitError {
-    override def toDamlSubmitError(env: Env): SValue =
-      SubmitErrorConverters(env).damlScriptError(
-        "ContractNotActive",
-        3,
-        ("contractId", fromAnyContractId(env.scriptIds, toApiIdentifier(templateId), contractId)),
       )
   }
 

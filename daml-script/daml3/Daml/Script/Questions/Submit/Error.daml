@@ -22,15 +22,14 @@ data DevErrorType
 
 -- | Additional debugging info optionally provided by the ledger
 data ContractNotFoundAdditionalInfo
-  = NotFound with -- The generic "this contract does not exist"
-      templateIdentifier : Text
+  = NotFound -- The generic "this contract does not exist"
   | NotActive with -- The contract did exist, but has since been archived
-      templateIdentifier : Text
+      contractIdentifier : AnyContractId
   | NotEffective with -- The contract "will" exist, only thrown from the IDELedger where one can go backwards in time
-      templateIdentifier : Text
+      contractIdentifier : AnyContractId
       effectiveAt : Text
   | NotVisible with -- The contract exists, but the readAs/actAs party union cannot see it
-      templateIdentifier : Text
+      contractIdentifier : AnyContractId
       actAs : [Party]
       readAs : [Party]
       observers : [Party]
