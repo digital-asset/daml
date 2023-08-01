@@ -3,7 +3,7 @@
 
 module Daml.Script.Questions.Submit.Error
   ( DevErrorType (..)
-  , ContractNotFoundAdditionalInfo -- Don't export construtors, users should not be able to rely on the structure.
+  , ContractNotFoundAdditionalInfo -- Don't export constructors, users should not be able to rely on the structure.
   , SubmitError (..)
   ) where
 
@@ -123,32 +123,40 @@ data SubmitError
         -- ^ One of the contructor names of SubmitFailure except DevError, UnknownError, TruncatedError
       truncatedErrorMessage : Text
 
--- TODO[SW]: Add more detail here
+-- FIXME: show for AnyContractKey
+instance Show AnyContractKey where
+  show contractKey = "anyContractKey"
+
+-- FIXME: show for AnyTemplate
+instance Show AnyTemplate where
+  show templateId = "anyTemplate"
+
 instance Show SubmitError where
   show err = case err of
     ContractNotFound { unknownContractIds, additionalDebuggingInfo } ->
       "Could not find contract with ID(s) " <> intercalate ", " (toList unknownContractIds) <> "."
       <> foldMap (\info -> " Additional debugging info: " <> show info) additionalDebuggingInfo
-    ContractKeyNotFound {} -> "Could not find contract with given key"
+    ContractKeyNotFound { contractKey } -> "Could not find contract with given key" <> show contractKey
     AuthorizationError errMessage -> "Authorization failure: " <> errMessage
-    ContractNotActive anyKey -> "Contract with ID " <> show anyKey.contractId <> " is no longer active"
-    DisclosedContractKeyHashingError contractId _ _ -> "Disclosed contract with ID " <> show contractId.contractId <> " used incorrect payload"
-    DuplicateContractKey {} -> "Attempted to create a contract with a contract key that is already in use"
-    InconsistentContractKey {} -> "Inconsistent contract key between daml and ledger"
-    UnhandledException {} -> "An Exception was thrown and not caught"
+    ContractNotActive contractId -> "Contract with ID " <> show contractId <> " is no longer active"
+    DisclosedContractKeyHashingError contractId contractKey contractKeyHash ->
+      "Disclosed contract with ID " <> show contractId <> " used incorrect payload - contract key: " <> show contractKey <> "; and contract key hash: " <> contractKeyHash
+    DuplicateContractKey contractKey -> "Attempted to create a contract with a contract key that is already in use - contract key: " <> show contractKey
+    InconsistentContractKey contractKey -> "Inconsistent contract key between daml and ledger - contract key: " <> show contractKey
+    UnhandledException _ -> "An Exception was thrown and not caught" -- FIXME
     UserError errMessage -> "User Error: " <> errMessage
     TemplatePreconditionViolated {} -> "Template precondition was violated"
-    CreateEmptyContractKeyMaintainers {} -> "Attempted to create a contract with empty key maintainers"
-    FetchEmptyContractKeyMaintainers {} -> "Attempted to fetch a contract with empty key maintainers"
-    WronglyTypedContract _ expected actual ->
-      "Excepted contract to be a \"" <> templateTypeRepToText expected <> "\" but it was actually a \"" <> templateTypeRepToText actual <> "\""
-    ContractDoesNotImplementInterface _ t i ->
-      "\"" <> templateTypeRepToText t <> "\" does not implement interface \"" <> templateTypeRepToText i <> "\""
-    ContractDoesNotImplementRequiringInterface _ t required requiring ->
-      "\"" <> templateTypeRepToText t <> "\" does not implement interface \"" <> templateTypeRepToText required <> "\" as required by \"" <> templateTypeRepToText requiring <> "\""
+    CreateEmptyContractKeyMaintainers templateId -> "Attempted to create a contract with empty key maintainers - template: " <> show templateId
+    FetchEmptyContractKeyMaintainers contractKey -> "Attempted to fetch a contract with empty key maintainers - contract key: " <> show contractKey
+    WronglyTypedContract contractId expected actual ->
+      "Excepted contract ID " <> show contractId <> " to be a \"" <> templateTypeRepToText expected <> "\" but it was actually a \"" <> templateTypeRepToText actual <> "\""
+    ContractDoesNotImplementInterface contractId templateId interfaceId ->
+      "\"" <> templateTypeRepToText templateId <> "\" does not implement interface \"" <> templateTypeRepToText interfaceId <> "\" for contract ID: " <> show contractId
+    ContractDoesNotImplementRequiringInterface contractId templateId required requiring ->
+      "\"" <> templateTypeRepToText templateId <> "\" does not implement interface \"" <> templateTypeRepToText required <> "\" as required by \"" <> templateTypeRepToText requiring <> "\" for contract ID: " <> show contractId
     NonComparableValues {} -> "Failed to compare values"
     ContractIdInContractKey {} -> "Illegal contract ID in contract key"
-    ContractIdComparability {} -> "Attempted to compare local and global contract IDs of the same contract"
+    ContractIdComparability contractId -> "Attempted to compare local and global contract IDs of the same contract - contract ID: " <> contractId
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
     TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""
