@@ -115,7 +115,7 @@ object SubmitError {
             "NotActive",
             2,
             (
-              "contractIdentifier",
+              "additionalInfoCid",
               fromAnyContractId(env.scriptIds, toApiIdentifier(tid), cid),
             ),
           )
@@ -132,7 +132,7 @@ object SubmitError {
             "NotEffective",
             3,
             (
-              "contractIdentifier",
+              "additionalInfoCid",
               fromAnyContractId(env.scriptIds, toApiIdentifier(tid), cid),
             ),
             (
@@ -155,7 +155,7 @@ object SubmitError {
             "NotVisible",
             4,
             (
-              "contractIdentifier",
+              "additionalInfoCid",
               fromAnyContractId(env.scriptIds, toApiIdentifier(tid), cid),
             ),
             (

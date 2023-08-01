@@ -24,12 +24,12 @@ data DevErrorType
 data ContractNotFoundAdditionalInfo
   = NotFound -- The generic "this contract does not exist"
   | NotActive with -- The contract did exist, but has since been archived
-      contractIdentifier : AnyContractId
+      additionalInfoCid : AnyContractId
   | NotEffective with -- The contract "will" exist, only thrown from the IDELedger where one can go backwards in time
-      contractIdentifier : AnyContractId
+      additionalInfoCid : AnyContractId
       effectiveAt : Text
   | NotVisible with -- The contract exists, but the readAs/actAs party union cannot see it
-      contractIdentifier : AnyContractId
+      additionalInfoCid : AnyContractId
       actAs : [Party]
       readAs : [Party]
       observers : [Party]
