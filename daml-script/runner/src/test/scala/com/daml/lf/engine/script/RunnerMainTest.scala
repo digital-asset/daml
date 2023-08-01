@@ -23,7 +23,7 @@ class RunnerMainTest extends AnyFreeSpec with Matchers with Inspectors {
     "with given configurations" in {
       forAll(Seq(configLedgerParticipant, configNodeParticipants, configIdeLedgerParticipant)) {
         clientConfig =>
-          RunnerMain.RunnerConfig(clientConfig) shouldBe Symbol("success")
+          clientConfig.toRunnerMainConfig shouldBe Symbol("right")
       }
     }
   }
@@ -39,43 +39,52 @@ object RunnerMainTest {
     BazelRunfiles.rlocation(
       Paths.get("daml-script/runner/src/test/resources/participantConfig.json")
     )
-  val configLedgerParticipant: RunnerCliConfig = RunnerCliConfig(
+  val configLedgerParticipant: RunnerMainConfigIntermediate = RunnerMainConfigIntermediate(
     darPath = darFilePath.toFile,
-    scriptIdentifier = "Main:setup",
-    participantMode = ParticipantMode.RemoteParticipantHost(localHost, ledgerPort),
-    timeMode = ScriptConfig.DefaultTimeMode,
+    mode = Some(RunnerMainConfigIntermediate.CliMode.RunOne("Main:setup")),
+    ledgerHost = Some(localHost),
+    ledgerPort = Some(ledgerPort),
+    participantConfig = None,
+    isIdeLedger = false,
+    timeMode = Some(RunnerMainConfig.DefaultTimeMode),
     inputFile = None,
     outputFile = None,
     accessTokenFile = None,
     tlsConfig = TlsConfiguration(enabled = false, None, None, None),
     jsonApi = false,
-    maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
+    maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
     applicationId = None,
   )
-  val configNodeParticipants: RunnerCliConfig = RunnerCliConfig(
+  val configNodeParticipants: RunnerMainConfigIntermediate = RunnerMainConfigIntermediate(
     darPath = darFilePath.toFile,
-    scriptIdentifier = "Main:setup",
-    participantMode = ParticipantMode.RemoteParticipantConfig(participantConfigPath.toFile),
-    timeMode = ScriptConfig.DefaultTimeMode,
+    mode = Some(RunnerMainConfigIntermediate.CliMode.RunOne("Main:setup")),
+    ledgerHost = None,
+    ledgerPort = None,
+    participantConfig = Some(participantConfigPath.toFile),
+    isIdeLedger = false,
+    timeMode = Some(RunnerMainConfig.DefaultTimeMode),
     inputFile = None,
     outputFile = None,
     accessTokenFile = None,
     tlsConfig = TlsConfiguration(enabled = false, None, None, None),
     jsonApi = false,
-    maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
+    maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
     applicationId = None,
   )
-  val configIdeLedgerParticipant: RunnerCliConfig = RunnerCliConfig(
+  val configIdeLedgerParticipant: RunnerMainConfigIntermediate = RunnerMainConfigIntermediate(
     darPath = darFilePath.toFile,
-    scriptIdentifier = "Main:setup",
-    participantMode = ParticipantMode.IdeLedgerParticipant(),
-    timeMode = ScriptConfig.DefaultTimeMode,
+    mode = Some(RunnerMainConfigIntermediate.CliMode.RunOne("Main:setup")),
+    ledgerHost = None,
+    ledgerPort = None,
+    participantConfig = None,
+    isIdeLedger = true,
+    timeMode = Some(RunnerMainConfig.DefaultTimeMode),
     inputFile = None,
     outputFile = None,
     accessTokenFile = None,
     tlsConfig = TlsConfiguration(enabled = false, None, None, None),
     jsonApi = false,
-    maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
+    maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
     applicationId = None,
   )
 }

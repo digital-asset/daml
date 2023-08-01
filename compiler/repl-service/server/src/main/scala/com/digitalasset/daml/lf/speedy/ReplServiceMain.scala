@@ -97,7 +97,7 @@ object ReplServiceMain extends App {
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .optional()
         .text(
-          s"Optional max inbound message size in bytes. Defaults to ${ScriptConfig.DefaultMaxInboundMessageSize}"
+          s"Optional max inbound message size in bytes. Defaults to ${RunnerMainConfig.DefaultMaxInboundMessageSize}"
         )
 
       opt[Unit]('w', "wall-clock-time")
@@ -131,7 +131,7 @@ object ReplServiceMain extends App {
           ledgerPort = None,
           accessTokenFile = None,
           tlsConfig = TlsConfiguration(false, None, None, None),
-          maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
+          maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
           timeMode = None,
           applicationId = None,
         ),
