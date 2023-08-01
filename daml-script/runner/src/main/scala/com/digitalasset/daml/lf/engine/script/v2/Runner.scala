@@ -29,9 +29,9 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Dar
 import com.daml.lf.archive.ArchivePayload
 import com.daml.lf.speedy.SDefinition
-import com.daml.lf.language.PackageInterface
-import com.daml.lf.data.Ref._
 import java.util.zip.ZipInputStream
+import com.daml.lf.engine.script.Runner.{LinkingBehaviour, TypeCheckingBehaviour}
+import com.daml.lf.validation.Validation
 
 private[lf] class Runner(
     unversionedRunner: script.Runner,
@@ -39,33 +39,61 @@ private[lf] class Runner(
     traceLog: TraceLog = Speedy.Machine.newTraceLog,
     warningLog: WarningLog = Speedy.Machine.newWarningLog,
     canceled: () => Option[RuntimeException] = () => None,
+    linkingBehaviour: LinkingBehaviour = LinkingBehaviour.LinkRecent,
+    typeCheckingBehaviour: TypeCheckingBehaviour = TypeCheckingBehaviour.NoTypeChecking,
 ) {
+  private def buildLinkedPackages(scriptDar: Dar[ArchivePayload]): CompiledPackages = {
+    val mostRecentScriptDar =
+      scriptDar
+        .copy(main =
+          scriptDar.main.copy(pkgId = unversionedRunner.script.scriptIds.scriptPackageId)
+        )
+        .all
+        .map(Decode.assertDecodeArchivePayload(_))
+        .toMap
+
+    val mostRecentScriptCompiledPackages =
+      PureCompiledPackages.assertBuild(mostRecentScriptDar, script.Runner.compilerConfig)
+
+    typeCheckingBehaviour match {
+      case TypeCheckingBehaviour.TypeChecking(dar) =>
+        Validation
+          .checkPackages(dar.all.toMap ++ mostRecentScriptDar)
+          .fold(err => throw err, identity)
+      case _ =>
+    }
+
+    mostRecentScriptCompiledPackages orElse unversionedRunner.compiledPackages
+  }
+
   // Dynamically link in the daml3-script library
-  private val linkedExtendedCompiledPackages = {
-    // Most recent Dar of the frontend daml3-script library
-    def renameDamlScript(dar: Dar[ArchivePayload]): Dar[ArchivePayload] =
-      dar.copy(main = dar.main.copy(pkgId = unversionedRunner.script.scriptIds.scriptPackageId))
+  private val linkedCompiledPackages =
+    linkingBehaviour match {
+      case LinkingBehaviour.NoLinking => {
+        typeCheckingBehaviour match {
+          case TypeCheckingBehaviour.TypeChecking(dar) =>
+            Validation.checkPackages(dar.all.toMap).fold(err => throw err, identity)
+          case _ =>
+        }
+        unversionedRunner.compiledPackages
+      }
+      case LinkingBehaviour.LinkRecent =>
+        buildLinkedPackages(
+          DarReader
+            .readArchive(
+              "daml3-script",
+              new ZipInputStream(
+                getClass.getResourceAsStream("/daml-script/daml3/daml3-script.dar")
+              ),
+            )
+            .toOption
+            .get
+        )
+      case LinkingBehaviour.LinkSpecific(scriptDar) => buildLinkedPackages(scriptDar)
+    }
 
-    val mostRecentScript =
-      PureCompiledPackages.assertBuild(
-        DarReader
-          .readArchive(
-            "daml3-script",
-            new ZipInputStream(getClass.getResourceAsStream("/daml-script/daml3/daml3-script.dar")),
-          )
-          .toOption
-          // Here we update the package id to the on the user was expected to replace it.
-          .map(renameDamlScript)
-          // `get` is safe here because the dar is a build artefact that we can't obtain if its not valid.
-          .get
-          .all
-          .map(Decode.assertDecodeArchivePayload(_))
-          .toMap,
-        script.Runner.compilerConfig,
-      )
-
-    // Plug in our dangerous cast
-    val dangerousCastDef: PartialFunction[SDefinitionRef, SDefinition] = {
+  val linkedExtendedCompiledPackages =
+    linkedCompiledPackages.overrideDefinitions({
       // Generalised version of the various unsafe casts we need in daml scripts,
       // casting various types involving LedgerValue to/from their real types.
       case LfDefRef(id)
@@ -74,26 +102,8 @@ private[lf] class Runner(
             "dangerousCast",
           ) =>
         SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
-    }
+    })
 
-    new CompiledPackages(script.Runner.compilerConfig) {
-      override def getDefinition(dref: SDefinitionRef): Option[SDefinition] =
-        dangerousCastDef.lift(dref) orElse
-          (mostRecentScript.getDefinition(dref) orElse
-            unversionedRunner.extendedCompiledPackages.getDefinition(dref))
-
-      override def pkgInterface: PackageInterface =
-        new PackageInterface(
-          mostRecentScript.pkgInterface.signatures orElse unversionedRunner.extendedCompiledPackages.pkgInterface.signatures
-        )
-
-      override def packageIds: collection.Set[PackageId] =
-        unversionedRunner.extendedCompiledPackages.packageIds ++ mostRecentScript.packageIds
-
-      override def definitions: PartialFunction[SDefinitionRef, SDefinition] =
-        dangerousCastDef orElse (mostRecentScript.definitions orElse unversionedRunner.extendedCompiledPackages.definitions)
-    }
-  }
   private val machine =
     Speedy.Machine.fromPureSExpr(
       linkedExtendedCompiledPackages,

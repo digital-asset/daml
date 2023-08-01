@@ -31,19 +31,10 @@ import com.daml.lf.engine.script.ledgerinteraction.{
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, PackageInterface}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.{
-  Compiler,
-  Pretty,
-  SDefinition,
-  SError,
-  SValue,
-  Speedy,
-  TraceLog,
-  WarningLog,
-}
+import com.daml.lf.speedy.{Compiler, Pretty, SError, SValue, Speedy, TraceLog, WarningLog}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContext
@@ -60,6 +51,8 @@ import scalaz.{Applicative, NonEmptyList, OneAnd, Traverse, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+
+import com.daml.lf.archive.ArchivePayload
 
 object LfValueCodec extends ApiCodecCompressed(false, false)
 
@@ -338,6 +331,20 @@ object Runner {
     def ledger: ScenarioLedger
   }
 
+  sealed trait LinkingBehaviour
+  object LinkingBehaviour {
+    final case object NoLinking extends LinkingBehaviour
+    final case object LinkRecent extends LinkingBehaviour
+    final case class LinkSpecific(script: Dar[ArchivePayload]) extends LinkingBehaviour
+  }
+
+  sealed trait TypeCheckingBehaviour
+  object TypeCheckingBehaviour {
+    final case object NoTypeChecking extends TypeCheckingBehaviour
+    final case class TypeChecking(originalDar: Dar[(PackageId, Package)])
+        extends TypeCheckingBehaviour
+  }
+
   // Executes a Daml script
   //
   // Looks for the script in the given DAR, applies the input value as an
@@ -391,6 +398,8 @@ object Runner {
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
       canceled: () => Option[RuntimeException] = () => None,
+      linkingBehaviour: Option[LinkingBehaviour] = None,
+      typeCheckingBehaviour: TypeCheckingBehaviour = TypeCheckingBehaviour.NoTypeChecking,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -406,6 +415,8 @@ object Runner {
       traceLog,
       warningLog,
       canceled,
+      linkingBehaviour,
+      typeCheckingBehaviour,
     )
     (machine, resultF)
   }
@@ -421,6 +432,8 @@ object Runner {
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
       canceled: () => Option[RuntimeException] = () => None,
+      linkingBehaviour: Option[LinkingBehaviour] = None,
+      typeCheckingBehaviour: TypeCheckingBehaviour = TypeCheckingBehaviour.NoTypeChecking,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -437,6 +450,8 @@ object Runner {
       traceLog,
       warningLog,
       canceled,
+      linkingBehaviour,
+      typeCheckingBehaviour,
     )
     (machine, resultF, oIdeLedgerContext.get)
   }
@@ -451,6 +466,8 @@ object Runner {
       traceLog: TraceLog,
       warningLog: WarningLog,
       canceled: () => Option[RuntimeException],
+      linkingBehaviour: Option[LinkingBehaviour],
+      typeCheckingBehaviour: TypeCheckingBehaviour,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -477,7 +494,14 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
-    runner.runWithClients(initialClients, traceLog, warningLog, canceled)
+    runner.runWithClients(
+      initialClients,
+      traceLog,
+      warningLog,
+      canceled,
+      linkingBehaviour,
+      typeCheckingBehaviour,
+    )
   }
 }
 
@@ -486,32 +510,7 @@ private[lf] class Runner(
     val script: Script.Action,
     val timeMode: ScriptTimeMode,
 ) extends StrictLogging {
-
-  // TODO[SW] Move this to daml2-script
-  // We overwrite the definition of 'fromLedgerValue' with an identity function.
-  // This is a type error but Speedy doesn’t care about the types and the only thing we do
-  // with the result is convert it to ledger values/record so this is safe.
-  // We do the same substitution for 'castCatchPayload' to circumvent Daml's
-  // lack of existential types.
-  val extendedCompiledPackages = {
-    val damlScriptDefs: PartialFunction[SDefinitionRef, SDefinition] = {
-      // Daml script legacy
-      case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
-        SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
-      case LfDefRef(id) if id == script.scriptIds.damlScript("castCatchPayload") =>
-        SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
-    }
-    new CompiledPackages(Runner.compilerConfig) {
-      override def getDefinition(dref: SDefinitionRef): Option[SDefinition] =
-        damlScriptDefs.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
-      // FIXME: avoid override of non abstract method
-      override def pkgInterface: PackageInterface = compiledPackages.pkgInterface
-      override def packageIds: collection.Set[PackageId] = compiledPackages.packageIds
-      // FIXME: avoid override of non abstract method
-      override def definitions: PartialFunction[SDefinitionRef, SDefinition] =
-        damlScriptDefs.orElse(compiledPackages.definitions)
-    }
-  }
+  import Runner._
 
   // Maps GHC unit ids to LF package ids. Used for location conversion.
   val knownPackages: Map[String, PackageId] = (for {
@@ -531,6 +530,8 @@ private[lf] class Runner(
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
       canceled: () => Option[RuntimeException] = () => None,
+      linkingBehaviour: Option[LinkingBehaviour] = None,
+      typeCheckingBehaviour: TypeCheckingBehaviour = TypeCheckingBehaviour.NoTypeChecking,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -541,10 +542,30 @@ private[lf] class Runner(
     damlScriptName.getOrElse(
       throw new IllegalArgumentException("Couldn't get daml script package name")
     ) match {
-      case "daml-script" =>
+      case "daml-script" => {
+        // Default (and only) daml2-script linking is NoLinking
+        val realLinkingBehaviour = linkingBehaviour.getOrElse(LinkingBehaviour.NoLinking)
+        if (realLinkingBehaviour != LinkingBehaviour.NoLinking)
+          throw new IllegalArgumentException("Daml Script v1 does not support dynamic linking")
+        if (typeCheckingBehaviour != TypeCheckingBehaviour.NoTypeChecking)
+          throw new IllegalArgumentException(
+            "Daml Script v1 does not support dynamic type checking"
+          )
         new v1.Runner(this).runWithClients(initialClients, traceLog, warningLog, canceled)
-      case "daml3-script" =>
-        new v2.Runner(this, initialClients, traceLog, warningLog, canceled).getResult()
+      }
+      case "daml3-script" => {
+        // Default daml3-script linking is LinkRecent
+        val realLinkingBehaviour = linkingBehaviour.getOrElse(LinkingBehaviour.LinkRecent)
+        new v2.Runner(
+          this,
+          initialClients,
+          traceLog,
+          warningLog,
+          canceled,
+          realLinkingBehaviour,
+          typeCheckingBehaviour,
+        ).getResult()
+      }
       case pkgName =>
         throw new IllegalArgumentException(
           "Invalid daml script package name. Expected daml-script or daml3-script, got " + pkgName

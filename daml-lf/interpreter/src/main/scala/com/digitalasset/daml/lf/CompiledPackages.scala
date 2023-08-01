@@ -22,6 +22,34 @@ private[lf] abstract class CompiledPackages(
     Function.unlift(this.getDefinition)
 
   final def compiler: Compiler = new Compiler(pkgInterface, compilerConfig)
+
+  // Keeps the compiler config of the first packages
+  def orElse(other: CompiledPackages): CompiledPackages = {
+    val self = this
+    new CompiledPackages(compilerConfig) {
+      override def getDefinition(dref: SDefinitionRef): Option[SDefinition] =
+        self.getDefinition(dref) orElse other.getDefinition(dref)
+
+      override def pkgInterface: PackageInterface =
+        new PackageInterface(self.pkgInterface.signatures orElse other.pkgInterface.signatures)
+
+      override def packageIds: collection.Set[PackageId] =
+        self.packageIds ++ other.packageIds
+
+      override def definitions: PartialFunction[SDefinitionRef, SDefinition] =
+        self.definitions orElse other.definitions
+    }
+  }
+
+  def overrideDefinitions(
+      overrides: PartialFunction[SDefinitionRef, SDefinition]
+  ): CompiledPackages =
+    (new CompiledPackages(compilerConfig) {
+      override def getDefinition(dref: SDefinitionRef): Option[SDefinition] = overrides.lift(dref)
+      override def pkgInterface: PackageInterface = new PackageInterface(Map.empty)
+      override def packageIds: collection.Set[PackageId] = collection.Set()
+      override def definitions: PartialFunction[SDefinitionRef, SDefinition] = overrides
+    }) orElse this
 }
 
 /** Important: use the constructor only if you _know_ you have all the definitions! Otherwise

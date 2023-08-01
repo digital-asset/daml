@@ -43,6 +43,7 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
+        "//daml-lf/validation",
         "//daml-script/converter",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",

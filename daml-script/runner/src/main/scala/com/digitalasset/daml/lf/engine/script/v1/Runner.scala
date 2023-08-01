@@ -19,7 +19,7 @@ import com.daml.lf.speedy.SBuiltin.SBToAny
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{ArrayList, SError, SValue, Speedy, TraceLog, WarningLog}
+import com.daml.lf.speedy.{ArrayList, SError, SDefinition, SValue, Speedy, TraceLog, WarningLog}
 import com.daml.script.converter.Converter.unrollFree
 import com.daml.script.converter.ConverterException
 
@@ -39,9 +39,24 @@ private[lf] class Runner(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Speedy.PureMachine, Future[SValue], Option[IdeLedgerContext]) = {
+    // We overwrite the definition of 'fromLedgerValue' with an identity function.
+    // This is a type error but Speedy doesn’t care about the types and the only thing we do
+    // with the result is convert it to ledger values/record so this is safe.
+    // We do the same substitution for 'castCatchPayload' to circumvent Daml's
+    // lack of existential types.
+    val extendedCompiledPackages =
+      unversionedRunner.compiledPackages.overrideDefinitions({
+        case LfDefRef(id)
+            if id == unversionedRunner.script.scriptIds.damlScript("fromLedgerValue") =>
+          SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
+        case LfDefRef(id)
+            if id == unversionedRunner.script.scriptIds.damlScript("castCatchPayload") =>
+          SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
+      })
+
     val machine =
       Speedy.Machine.fromPureSExpr(
-        unversionedRunner.extendedCompiledPackages,
+        extendedCompiledPackages,
         unversionedRunner.script.expr,
         iterationsBetweenInterruptions = 100000,
         traceLog = traceLog,
@@ -91,7 +106,7 @@ private[lf] class Runner(
                 ScriptF.parse(
                   ScriptF.Ctx(
                     unversionedRunner.knownPackages,
-                    unversionedRunner.extendedCompiledPackages,
+                    extendedCompiledPackages,
                   ),
                   vv,
                   v,
