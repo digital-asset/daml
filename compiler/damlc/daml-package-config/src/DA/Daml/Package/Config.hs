@@ -56,6 +56,7 @@ data PackageConfigFields = PackageConfigFields
     -- under the given prefix.
     , pSdkVersion :: PackageSdkVersion
     , pUpgradedPackagePath :: Maybe String
+    , pTypecheckUpgrades :: Bool
     }
 
 -- | SDK version for package.
@@ -77,6 +78,7 @@ parseProjectConfig project = do
     pModulePrefixes <- fromMaybe Map.empty <$> queryProjectConfig ["module-prefixes"] project
     pSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
     pUpgradedPackagePath <- queryProjectConfig ["upgrades"] project
+    pTypecheckUpgrades <- fromMaybe False <$> queryProjectConfig ["typecheck-upgrades"] project
     Right PackageConfigFields {..}
 
 checkPkgConfig :: PackageConfigFields -> [T.Text]

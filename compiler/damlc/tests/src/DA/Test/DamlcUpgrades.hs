@@ -161,6 +161,7 @@ tests damlc =
           , "dependencies:"
           , "  - daml-prim"
           , "  - daml-stdlib"
+          , "typecheck-upgrades: true"
           , "build-options:"
           , "- --target=" <> renderVersion (featureMinVersion featurePackageUpgrades)
           ] ++ ["upgrades: \"" <> path <> "\"" | Just path <- pure upgradedFile]
