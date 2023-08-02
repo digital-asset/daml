@@ -132,7 +132,6 @@ instance Show SubmitError where
       <> foldMap (\info -> " Additional debugging info: " <> show info) additionalDebuggingInfo
     ContractKeyNotFound {} -> "Could not find contract with given key"
     AuthorizationError errMessage -> "Authorization failure: " <> errMessage
-    ContractNotActive anyKey -> "Contract with ID " <> show anyKey.contractId <> " is no longer active"
     DisclosedContractKeyHashingError contractId _ _ -> "Disclosed contract with ID " <> show contractId.contractId <> " used incorrect payload"
     DuplicateContractKey {} -> "Attempted to create a contract with a contract key that is already in use"
     InconsistentContractKey {} -> "Inconsistent contract key between daml and ledger"
