@@ -305,8 +305,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       seeding: speedy.InitialSeeding,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
 
-    // println(s"**Engine.interpretExpression...") // NICK
-
     val machine = UpdateMachine(
       compiledPackages = compiledPackages,
       submissionTime = submissionTime,
@@ -387,13 +385,14 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           handleError(err)
       }
 
+    // This cache is a pure optimization to avoid repeated calls to Result.needcontract
     type CoinstCache = Map[ContractId, VersionedContractInstance]
 
-    def loopNT(cache: CoinstCache): Result[(SubmittedTransaction, Tx.Metadata)] = loopTR(cache)
+    // for use in non tail contexts
+    def loopOuter(cache: CoinstCache): Result[(SubmittedTransaction, Tx.Metadata)] = loop(cache)
 
     @scala.annotation.tailrec
-    def loopTR(cache: CoinstCache): Result[(SubmittedTransaction, Tx.Metadata)] = {
-      // println(s"Engine.interpretLoop.loopRT, #cache=${cache.size}") // NICK
+    def loop(cache: CoinstCache): Result[(SubmittedTransaction, Tx.Metadata)] = {
       machine.run() match {
 
         case SResultQuestion(question) =>
@@ -405,7 +404,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 { granted: Boolean =>
                   if (granted) {
                     callback()
-                    loopNT(cache)
+                    loopOuter(cache)
                   } else {
                     ResultError(
                       Error.Interpretation.DamlException(
@@ -421,11 +420,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               // TODO https://github.com/digital-asset/daml/issues/16154 (dynamic-exercise)
               // For now this just continues with the input package id
               callback(pid0)
-              loopTR(cache)
+              loop(cache)
 
             case Question.Update.NeedTime(callback) =>
               callback(time)
-              loopTR(cache)
+              loop(cache)
 
             case Question.Update.NeedPackage(pkgId, context, callback) =>
               Result.needPackage(
@@ -434,27 +433,23 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 { pkg: Package =>
                   compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
                     callback(compiledPackages)
-                    loopNT(cache)
+                    loopOuter(cache)
                   }
                 },
               )
 
             case Question.Update.NeedContract(coid, _, callback) =>
               cache.get(coid) match {
-                case Some(coinst) =>
-                  // println(s"${coid} : Engine, handle NeedContract... found in cache") // NICK
+                case Some(coinst) => // cache hit
                   callback(coinst.unversioned)
-                  loopNT(cache)
+                  loop(cache)
                 case None =>
-                  // println(s"${coid} : Engine, handle NeedContract... asking ledger") // NICK
                   Result.needContract(
                     coid,
                     { coinst: VersionedContractInstance =>
-                      // println(s"${coid} : Engine, handle NeedContract... have answer from ledger, caching") // NICK
                       callback(coinst.unversioned)
-                      val cache1 = cache + (coid -> coinst)
-                      // val _ = cache1
-                      loopNT(cache1)
+                      val cache1 = cache + (coid -> coinst) // cache update
+                      loopOuter(cache1)
                     },
                   )
               }
@@ -464,13 +459,13 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 gk,
                 { coid: Option[ContractId] =>
                   discard[Boolean](callback(coid))
-                  loopNT(cache)
+                  loopOuter(cache)
                 },
               )
           }
 
         case SResultInterruption =>
-          ResultInterruption(() => loopNT(cache))
+          ResultInterruption(() => loopOuter(cache))
 
         case _: SResultFinal =>
           finish
@@ -480,8 +475,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       }
     }
 
-    // println(s"Engine.interpretLoop.loopRT, TOP CALL") // NICK
-    loopTR(cache = Map.empty)
+    loop(cache = Map.empty)
   }
 
   def clearPackages(): Unit = compiledPackages.clear()

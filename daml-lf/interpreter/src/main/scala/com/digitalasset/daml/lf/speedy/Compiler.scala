@@ -782,7 +782,7 @@ private[lf] final class Compiler(
               SBResolveSBUInsertFetchNode(
                 env.toSEVar(payloadPos),
                 env.toSEVar(cidPos),
-                s.SEValue(SText("what-should-this-be")), // NICK: None?
+                s.SEValue(SText("what-should-this-be")), // NICK: None? -- How to trigger this?
               ),
             ) { (_, env) =>
               env.toSEVar(payloadPos)

@@ -76,7 +76,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
       }
 
       "contract IDs that are inactive" - {
-        "NICK1 ledger query fails when contract ID is not disclosed" ignore {
+        "ledger query fails when contract ID is not disclosed" ignore {
           ledgerQueryFailsWhenContractNotDisclosed(
             SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
             contractId,
@@ -84,7 +84,6 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             committers = Set(ledgerParty),
             getContract = Map(contractId -> ledgerCaveContract),
           ) { result =>
-            // println(s"NICK1: [$result]")
             inside(result) {
               case Left(
                     SError.SErrorDamlException(ContractNotActive(`contractId`, `caveTemplateId`, _))
@@ -95,7 +94,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         }
 
         "disclosure table query fails when contract ID is disclosed" - {
-          "NICK2 contract ID in disclosure table only" ignore {
+          "contract ID in disclosure table only" ignore {
             disclosureTableQueryFailsWhenContractDisclosed(
               SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
               disclosedCaveContract,
@@ -115,7 +114,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             )
           }
 
-          "NICK2 contract ID in ledger and disclosure table" ignore {
+          "contract ID in ledger and disclosure table" ignore {
             disclosureTableQueryFailsWhenContractDisclosed(
               SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
               disclosedCaveContract,

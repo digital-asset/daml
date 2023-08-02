@@ -2190,7 +2190,6 @@ class EngineTest
         tx.nodes(NodeId(6)) shouldBe a[Node.Fetch]
         tx.nodes(NodeId(7)) shouldBe a[Node.LookupByKey]
         tx.nodes(NodeId(8)) shouldBe a[Node.Create]
-        // println(s"-- ${meta.nodeSeeds.map(_._1.index)}") // NICK
         meta.nodeSeeds.map(_._1.index) shouldBe ImmArray(0, 1, 4, 8)
       }
     }

@@ -237,6 +237,7 @@ private[lf] object Speedy {
     /* Flag to trace usage of get_time builtins */
     private[this] var dependsOnTime: Boolean = false
     // global contract discriminators, that are discriminators from contract created in previous transactions
+
     // private[this] // NICK
     var die_cachedContracts_ : Map[V.ContractId, XCachedContract] =
       Map.empty // NICK: kill
@@ -283,11 +284,11 @@ private[lf] object Speedy {
       ptx.contractState.locallyCreated.contains(contractId)
     }
 
-    private[speedy] def xx_updateCachedContracts_limitCheck( // NICK: kill prefix; kill
+    private[speedy] def xx_updateCachedContracts_limitCheck( // NICK: rename to show limitCheck behav
         cid: V.ContractId,
         contract: XCachedContract,
     ): Unit = {
-      enforceLimit( // NICK: where will this end up?
+      enforceLimit(
         NameOf.qualifiedNameOfCurrentFunc,
         contract.signatories.size,
         limits.contractSignatories,
@@ -315,12 +316,12 @@ private[lf] object Speedy {
       )
     }
 
-    private[speedy] def xx_addGlobalContract_limitCheck(
+    private[speedy] def xx_addGlobalContract_limitCheck( // NICK: rename to show limitCheck behav
         coid: V.ContractId,
         contract: XCachedContract,
-    ): Unit = { // NICK: kill prefix; kill?
+    ): Unit = {
       numInputContracts += 1
-      enforceLimit( // NICK: where will this end up?
+      enforceLimit(
         NameOf.qualifiedNameOfCurrentFunc,
         numInputContracts,
         limits.transactionInputContracts,
@@ -1510,7 +1511,6 @@ private[lf] object Speedy {
       alts: Array[SCaseAlt],
       v: SValue,
   ): Control[Nothing] = {
-    // println(s"executeMatchAlts: $v") // NICK
     val altOpt = v match {
       case SValue.SBool(b) =>
         alts.find { alt =>
@@ -1583,9 +1583,6 @@ private[lf] object Speedy {
           SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
           SValue.SMap(_, _) | _: SValue.SRecordRep | SValue.SAny(_, _) | SValue.STypeRep(_) |
           SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken => {
-
-        // println(s"executeMatchAlts, about to crash matching: $v") // NICK
-
         throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "Match on non-matchable value")
       }
     }

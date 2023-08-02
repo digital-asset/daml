@@ -957,7 +957,7 @@ private[lf] object SBuiltin {
       val templateArg: SValue = args.get(0)
 
       computeContractInfo(machine, templateId, templateArg) { contract =>
-        machine.asUpdateMachine(productPrefix) { machine => // NICK: push to where needed
+        machine.asUpdateMachine(productPrefix) { machine => // NICK: push down to where needed
           contract.keyOpt match {
             case Some(contractKey) if contractKey.maintainers.isEmpty =>
               Control.Error(
@@ -1020,7 +1020,7 @@ private[lf] object SBuiltin {
 
       val templateArg: SValue = args.get(5)
       computeContractInfo(machine, templateId, templateArg) { contract =>
-        machine.asUpdateMachine(productPrefix) { machine => // NICK: push to where needed
+        machine.asUpdateMachine(productPrefix) { machine => // NICK: push down to where needed
 
           val coid = getSContractId(args, 1)
 
@@ -1169,10 +1169,8 @@ private[lf] object SBuiltin {
       val coid = getSContractId(args, 0)
 
       // NICK: dont use cachedContract --- once we will stop inserting into it!
-      // println(s"${coid} : SBFetchAny: look in cachedContract...") // NICK
       machine.cachedContracts.get(coid) match {
         case Some(cached) =>
-          // println(s"${coid} : SBFetchAny: look in cachedContract... FOUND: ${cached}") // NICK
           machine.ptx.consumedByOrInactive(coid) match {
             case Some(Left(nid)) =>
               Control.Error(IE.ContractNotActive(coid, cached.templateId, nid))
@@ -1185,21 +1183,13 @@ private[lf] object SBuiltin {
           }
 
         case None =>
-          // println(s"${coid} : SBFetchAny: look in cachedContract... NOT FOUND, look in disclosed...") // NICK
           machine.disclosedContracts.get(coid) match {
             case Some(contract) =>
-              // println(s"${coid} : SBFetchAny: look in disclosed... FOUND: ${contract}") // NICK
               machine.xx_addGlobalContract_limitCheck(coid, contract)
-
-              // NICK: insert cache #3 -- copy disclosed contracts to cached
-              // machine.die_cachedContracts_ = machine.die_cachedContracts_.updated(coid, contract)
               machine.markDisclosedcontractAsUsed(coid)
-
               Control.Value(contract.any)
 
             case None =>
-              // println(s"${coid} : SBFetchAny: look in disclosed... NOT FOUND") // NICK
-
               lookupContractOnLedger(machine, coid) { coinst =>
                 case class KCC(coid: V.ContractId) extends Kont { // NICK: inlined local Kont prefer executeExpression
                   override def execute[Q](
@@ -1213,9 +1203,7 @@ private[lf] object SBuiltin {
                       machine.xx_addGlobalContract_limitCheck(coid, contract)
 
                       // NICK: insert cache #1 - computation following lookup from ledger
-                      // println(s"${coid} : SBuiltin.KCacheContract - ABOUT TO MAYBE DO DEPRECATED CACHE!") // NICK
-
-                      // NICK, HERE investigate/fix the disclosed-test fail cause by eliding this insert...
+                      // NICK: without the following line, Daml3ScriptTestRunnerDev fails :(
                       // machine.die_cachedContracts_ = machine.die_cachedContracts_.updated(coid, contract)
 
                       Control.Value(contract.any)
@@ -1238,7 +1226,7 @@ private[lf] object SBuiltin {
                         SEImportValue(
                           Ast.TTyCon(templateId),
                           arg,
-                        ), // NICK: what? why? where are other callers? - no, this is THE caller
+                        ), // NICK: THE caller of SEImportValue
                         SEAppAtomic(SELocS(2), Array(SELocS(1), SEValue(args.get(1)))),
                       ),
                     )
@@ -1258,7 +1246,6 @@ private[lf] object SBuiltin {
       continue: V.ContractInstance => Control[Q]
   ) = {
     machine.asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc) { machine =>
-      // println(s"${coid} - calling NeedContract...") // NICK
       Control.Question(
         Question.Update.NeedContract( // NICK: THIS is where we get the contract from the ledger
           coid,
@@ -1371,7 +1358,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control.Expression = {
-      val optTargetTemplateId: Option[Identifier] = None // NICK, ok?
+      val optTargetTemplateId: Option[Identifier] = None // NICK, ok? ???
       val e = SEBuiltin(
         SBUInsertFetchNode(
           getSAnyContract(args, 0)._1,
@@ -1711,11 +1698,7 @@ private[lf] object SBuiltin {
               keyMapping match {
                 case ContractStateMachine.KeyActive(coid) =>
                   val optTargetTemplateId: Option[Identifier] = None // NICK: hard
-
-                  // val keyOpt: SValue = svalue // NICK: or: SOptional(Some(svalue)) -- WAS PAINFUL BUG
                   val keyOpt: SValue = SOptional(Some(svalue))
-                  // println(s"SMOKING GUN? -- $keyOpt") // NICK
-
                   do_fetch(machine, templateId, optTargetTemplateId, coid, keyOpt) { templateArg =>
                     computeContractInfo(machine, templateId, templateArg) { contract =>
                       machine.checkKeyVisibility(gkey, coid, operation.handleKeyFound, contract)
@@ -1739,7 +1722,7 @@ private[lf] object SBuiltin {
                         do_fetch(machine, templateId, optTargetTemplateId, coid, keyOpt) {
                           templateArg =>
                             computeContractInfo(machine, templateId, templateArg) { contract =>
-                              machine.asUpdateMachine(productPrefix) { machine => // NICK: ???
+                              machine.asUpdateMachine(productPrefix) { machine =>
                                 machine.checkKeyVisibility(
                                   gkey,
                                   coid,
@@ -2309,7 +2292,7 @@ private[lf] object SBuiltin {
     }
   }
 
-  def computeContractInfo[Q]( // NICK: goal: only called of extractCachedContract
+  def computeContractInfo[Q]( // NICK: goal: be the only caller of extractCachedContract
       machine: Machine[Q],
       templateId: Identifier,
       templateArg: SValue,
