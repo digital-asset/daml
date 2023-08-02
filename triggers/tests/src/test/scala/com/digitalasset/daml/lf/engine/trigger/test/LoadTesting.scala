@@ -67,7 +67,7 @@ abstract class LoadTesting
     case Ctx(
           _,
           TriggerMsg.Transaction(
-            ApiTransaction(_, _, _, _, Seq(ApiEvent(Created(created))), _)
+            ApiTransaction(_, _, _, _, Seq(ApiEvent(Created(created))), _, _)
           ),
           _,
         ) if created.getTemplateId == templateId =>
