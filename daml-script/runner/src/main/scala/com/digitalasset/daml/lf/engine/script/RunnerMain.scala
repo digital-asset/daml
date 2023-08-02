@@ -96,6 +96,15 @@ object RunnerMain {
 
       clients <- connectToParticipants(config, compiledPackages, envIface, traceLog, warningLog)
 
+      _ <- (clients.getParticipant(None), config.uploadDar) match {
+        case (Left(err), _) => throw new RuntimeException(err)
+        // RunnerMainConfig ensures uploadDar cannot be true when not using Grpc.
+        case (Right(client: GrpcLedgerClient), true) =>
+          client.grpcClient.packageManagementClient
+            .uploadDarFile(ByteString.readFrom(new FileInputStream(config.darPath)))
+        case _ => Future.unit
+      }
+
       runScript = (
           scriptId: Identifier,
           inputFile: Option[File],
@@ -128,46 +137,34 @@ object RunnerMain {
         } yield ()
 
       success <- config.runMode match {
-        case RunnerMainConfig.RunMode.RunAll =>
-          for {
-            // Legacy behaviour has been to upload the dar for --all, we preserve that.
-            // TODO[SW]: Change this in daml3 to be an explicit flag
-            _ <- clients.getParticipant(None) match {
-              case Left(err) => throw new RuntimeException(err)
-              case Right(client: GrpcLedgerClient) =>
-                client.grpcClient.packageManagementClient
-                  .uploadDarFile(ByteString.readFrom(new FileInputStream(config.darPath)))
-              // Don't upload for json (can't) and IDE (already uploaded)
-              case Right(_) => Future.unit
-            }
-
-            testScripts: Seq[Identifier] = dar.main._2.modules.flatMap {
-              case (moduleName, module) =>
-                module.definitions.collect(Function.unlift { case (name, _) =>
-                  val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
-                  Script.fromIdentifier(compiledPackages, id) match {
-                    // We exclude generated identifiers starting with `$`.
-                    case Right(_: Script.Action) if !name.dottedName.startsWith("$") =>
-                      Some(id)
-                    case _ => None
-                  }
-                })
-            }.toSeq
-
-            success = new AtomicBoolean(true)
-            _ <- sequentialTraverse(testScripts.sorted) { id =>
-              runScript(id, None, None, None)
-                .andThen {
-                  case Failure(exception) =>
-                    success.set(false)
-                    println(s"${id.qualifiedName} FAILURE ($exception)")
-                  case Success(_) =>
-                    println(s"${id.qualifiedName} SUCCESS")
+        case RunnerMainConfig.RunMode.RunAll => {
+          val success = new AtomicBoolean(true)
+          val testScripts: Seq[Identifier] = dar.main._2.modules.flatMap {
+            case (moduleName, module) =>
+              module.definitions.collect(Function.unlift { case (name, _) =>
+                val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
+                Script.fromIdentifier(compiledPackages, id) match {
+                  // We exclude generated identifiers starting with `$`.
+                  case Right(_: Script.Action) if !name.dottedName.startsWith("$") =>
+                    Some(id)
+                  case _ => None
                 }
-                // Do not abort in case of failure, but complete all test runs.
-                .recover { case _ => () }
-            }
-          } yield success.get()
+              })
+          }.toSeq
+
+          sequentialTraverse(testScripts.sorted) { id =>
+            runScript(id, None, None, None)
+              .andThen {
+                case Failure(exception) =>
+                  success.set(false)
+                  println(s"${id.qualifiedName} FAILURE ($exception)")
+                case Success(_) =>
+                  println(s"${id.qualifiedName} SUCCESS")
+              }
+              // Do not abort in case of failure, but complete all test runs.
+              .recover { case _ => () }
+          }.map { case _ => success.get() }
+        }
         case RunnerMainConfig.RunMode.RunOne(scriptName, inputFile, outputFile) => {
           val scriptId: Identifier =
             Identifier(dar.main._1, QualifiedName.assertFromString(scriptName))

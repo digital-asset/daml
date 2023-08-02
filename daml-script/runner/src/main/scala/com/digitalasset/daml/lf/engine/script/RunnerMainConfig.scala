@@ -23,6 +23,7 @@ case class RunnerMainConfig(
     // want to differentiate between not specifying the application id
     // and specifying the default for better error messages.
     applicationId: Option[ApplicationId],
+    uploadDar: Boolean,
 )
 
 object RunnerMainConfig {
@@ -72,6 +73,9 @@ private[script] case class RunnerMainConfigIntermediate(
     // want to differentiate between not specifying the application id
     // and specifying the default for better error messages.
     applicationId: Option[ApplicationId],
+    // Legacy behaviour is to upload the dar when using --all and over grpc. None represents that behaviour
+    // We will drop this for daml3, such that we default to not uploading.
+    uploadDar: Option[Boolean],
 ) {
   import RunnerMainConfigIntermediate._
 
@@ -88,12 +92,36 @@ private[script] case class RunnerMainConfigIntermediate(
         } yield RunnerMainConfig.RunMode.RunAll
     }
 
+  def resolveUploadDar(
+      participantMode: ParticipantMode,
+      cliMode: CliMode,
+  ): Either[String, Boolean] =
+    (participantMode, uploadDar) match {
+      case (ParticipantMode.IdeLedgerParticipant(), Some(true)) =>
+        Left("Cannot upload dar to IDELedger.")
+      case (_, Some(true)) if jsonApi => Left("Cannot upload dar via JSON API")
+      case (_, Some(v)) => Right(v)
+      case (_, None) =>
+        Right(cliMode match {
+          case CliMode.RunOne(_) => false
+          case CliMode.RunAll => {
+            println(
+              """WARNING: Implicitly using the legacy behaviour of uploading the DAR when using --all over GRPC.
+              |This behaviour will be removed for daml3. Please use the explicit `--upload-dar yes` option.
+            """.stripMargin
+            )
+            true
+          }
+        })
+    }
+
   def toRunnerMainConfig: Either[String, RunnerMainConfig] =
     for {
       cliMode <- mode.toRight("Either --script-name or --all must be specified")
       participantMode = this.getLedgerMode
       resolvedTimeMode = timeMode.getOrElse(RunnerMainConfig.DefaultTimeMode)
       runMode <- getRunMode(cliMode)
+      resolvedUploadDar <- resolveUploadDar(participantMode, cliMode)
       config = RunnerMainConfig(
         darPath = darPath,
         runMode = runMode,
@@ -104,6 +132,7 @@ private[script] case class RunnerMainConfigIntermediate(
         jsonApi = jsonApi,
         maxInboundMessageSize = maxInboundMessageSize,
         applicationId = applicationId,
+        uploadDar = resolvedUploadDar,
       )
     } yield config
 
@@ -227,6 +256,13 @@ private[script] object RunnerMainConfigIntermediate {
         s"Application ID used to interact with the ledger. Defaults to ${Runner.DEFAULT_APPLICATION_ID}"
       )
 
+    opt[Boolean]("upload-dar")
+      .action((x, c) => c.copy(uploadDar = Some(x)))
+      .optional()
+      .text(
+        s"Uploads the dar before running. Only available over GRPC. Default behaviour is to upload with --all, not with --script-name."
+      )
+
     help("help").text("Print this usage text")
 
     checkConfig(c => {
@@ -290,6 +326,7 @@ private[script] object RunnerMainConfigIntermediate {
         jsonApi = false,
         maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
         applicationId = None,
+        uploadDar = None,
       ),
     )
 }
