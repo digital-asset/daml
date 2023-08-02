@@ -54,6 +54,7 @@ object RunnerMainTest {
     jsonApi = false,
     maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
     applicationId = None,
+    uploadDar = None,
   )
   val configNodeParticipants: RunnerMainConfigIntermediate = RunnerMainConfigIntermediate(
     darPath = darFilePath.toFile,
@@ -70,6 +71,7 @@ object RunnerMainTest {
     jsonApi = false,
     maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
     applicationId = None,
+    uploadDar = None,
   )
   val configIdeLedgerParticipant: RunnerMainConfigIntermediate = RunnerMainConfigIntermediate(
     darPath = darFilePath.toFile,
@@ -86,5 +88,6 @@ object RunnerMainTest {
     jsonApi = false,
     maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
     applicationId = None,
+    uploadDar = None,
   )
 }
