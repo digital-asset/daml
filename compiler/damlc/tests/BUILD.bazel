@@ -450,6 +450,39 @@ da_haskell_test(
     ],
 )
 
+# Tests for upgrades
+da_haskell_test(
+    name = "upgrades",
+    srcs = ["src/DA/Test/DamlcUpgrades.hs"],
+    data = [
+        "//compiler/damlc",
+        "//daml-script/daml:daml-script.dar",
+        "//daml-script/runner:daml-script-binary",
+    ],
+    hackage_deps = [
+        "base",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "regex-tdfa",
+        "tasty",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Test.DamlcUpgrades.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
+        "//compiler/daml-lf-ast",
+    ],
+)
+
 # Tests for packaging
 da_haskell_test(
     name = "packaging",

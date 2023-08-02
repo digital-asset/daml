@@ -6,6 +6,7 @@ module DA.Test.Process
   , callProcessSilent
   , callProcessSilentError
   , callProcessForStdout
+  , callProcessForStderr
   , callCommandSilent
   , callCommandSilentIn
   , callCommandSilentWithEnvIn
@@ -31,7 +32,11 @@ callProcessSilentError cmd args =
 
 callProcessForStdout :: FilePath -> [String] -> IO String
 callProcessForStdout cmd args =
-  run (ShouldSucceed True) (proc cmd args)
+  fst <$> run (ShouldSucceed True) (proc cmd args)
+
+callProcessForStderr :: FilePath -> [String] -> IO String
+callProcessForStderr cmd args =
+  snd <$> run (ShouldSucceed False) (proc cmd args)
 
 callCommandSilent :: String -> IO ()
 callCommandSilent cmd =
@@ -53,7 +58,7 @@ subprocessEnv envChanges = do
   let newEnv = filter (\(v,_) -> v `S.notMember` changedVars) oldEnv ++ envChanges
   pure newEnv
 
-run :: ShouldSucceed -> CreateProcess -> IO String
+run :: ShouldSucceed -> CreateProcess -> IO (String, String)
 run (ShouldSucceed shouldSucceed) cp = do
     (exitCode, out, err) <- readCreateProcessWithExitCode cp ""
     unless (shouldSucceed == (exitCode == ExitSuccess)) $ do
@@ -61,4 +66,4 @@ run (ShouldSucceed shouldSucceed) cp = do
       hPutStrLn stderr $ unlines ["stdout: ", out]
       hPutStrLn stderr $ unlines ["stderr: ", err]
       exitFailure
-    return out
+    return (out, err)
