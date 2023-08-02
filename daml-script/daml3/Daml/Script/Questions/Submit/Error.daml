@@ -51,9 +51,6 @@ data SubmitError
   | -- | Generic authorization failure, included missing party authority, invalid signatories, etc.
     AuthorizationError with
       authorizationErrorMessage : Text -- We can't pass over the data at the moment, so we just give the full string error here, for anyone that wants to check it
-  | -- | Contract with given contract ID could not be found, as it has already been archived
-    ContractNotActive with 
-      contractId : AnyContractId
   | -- | Given disclosed contract key does not match the contract key of the contract on ledger.
     DisclosedContractKeyHashingError with
       contractId : AnyContractId
