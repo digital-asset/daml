@@ -101,7 +101,7 @@ object SubmitError {
           SubmitErrorConverters(env).damlScriptVariant(
             "ContractNotFoundAdditionalInfo",
             "NotFound",
-            1,
+            0,
           )
       }
 
@@ -113,7 +113,7 @@ object SubmitError {
           SubmitErrorConverters(env).damlScriptVariant(
             "ContractNotFoundAdditionalInfo",
             "NotActive",
-            2,
+            1,
             (
               "additionalInfoCid",
               fromAnyContractId(env.scriptIds, toApiIdentifier(tid), cid),
@@ -130,7 +130,7 @@ object SubmitError {
           SubmitErrorConverters(env).damlScriptVariant(
             "ContractNotFoundAdditionalInfo",
             "NotEffective",
-            3,
+            2,
             (
               "additionalInfoCid",
               fromAnyContractId(env.scriptIds, toApiIdentifier(tid), cid),
@@ -153,7 +153,7 @@ object SubmitError {
           SubmitErrorConverters(env).damlScriptVariant(
             "ContractNotFoundAdditionalInfo",
             "NotVisible",
-            4,
+            3,
             (
               "additionalInfoCid",
               fromAnyContractId(env.scriptIds, toApiIdentifier(tid), cid),
