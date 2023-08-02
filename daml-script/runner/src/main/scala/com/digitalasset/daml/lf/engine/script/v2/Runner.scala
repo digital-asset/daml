@@ -24,10 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 // linking magic
-import com.daml.lf.archive.DarReader
-import com.daml.lf.archive.Decode
-import com.daml.lf.archive.Dar
-import com.daml.lf.archive.ArchivePayload
+import com.daml.lf.archive.{DarReader, Decode, Dar, ArchivePayload}
 import com.daml.lf.speedy.SDefinition
 import java.util.zip.ZipInputStream
 import com.daml.lf.engine.script.Runner.{LinkingBehaviour, TypeCheckingBehaviour}

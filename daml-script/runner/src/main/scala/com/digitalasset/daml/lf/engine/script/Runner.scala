@@ -331,14 +331,14 @@ object Runner {
     def ledger: ScenarioLedger
   }
 
-  sealed trait LinkingBehaviour
+  sealed trait LinkingBehaviour extends Product with Serializable
   object LinkingBehaviour {
     final case object NoLinking extends LinkingBehaviour
     final case object LinkRecent extends LinkingBehaviour
     final case class LinkSpecific(script: Dar[ArchivePayload]) extends LinkingBehaviour
   }
 
-  sealed trait TypeCheckingBehaviour
+  sealed trait TypeCheckingBehaviour extends Product with Serializable
   object TypeCheckingBehaviour {
     final case object NoTypeChecking extends TypeCheckingBehaviour
     final case class TypeChecking(originalDar: Dar[(PackageId, Package)])

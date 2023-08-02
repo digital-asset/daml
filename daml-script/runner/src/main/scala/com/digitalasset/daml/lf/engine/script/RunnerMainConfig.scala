@@ -24,13 +24,15 @@ case class RunnerMainConfig(
     // and specifying the default for better error messages.
     applicationId: Option[ApplicationId],
     uploadDar: Boolean,
+    linkingMode: Option[RunnerMainConfig.LinkingMode],
+    typeChecking: Boolean,
 )
 
 object RunnerMainConfig {
   val DefaultTimeMode: ScriptTimeMode = ScriptTimeMode.WallClock
   val DefaultMaxInboundMessageSize: Int = 4194304
 
-  sealed trait RunMode
+  sealed trait RunMode extends Product with Serializable
   object RunMode {
     final case object RunAll extends RunMode
     final case class RunOne(
@@ -38,6 +40,14 @@ object RunnerMainConfig {
         inputFile: Option[File],
         outputFile: Option[File],
     ) extends RunMode
+  }
+
+  // Version of LinkingBehaviour without compiled artefacts
+  sealed abstract class LinkingMode extends Product with Serializable
+  object LinkingMode {
+    final case object NoLinking extends LinkingMode
+    final case object LinkRecent extends LinkingMode
+    final case class LinkSpecific(file: File) extends LinkingMode
   }
 
   def parse(args: Array[String]): Option[RunnerMainConfig] =
@@ -76,6 +86,8 @@ private[script] case class RunnerMainConfigIntermediate(
     // Legacy behaviour is to upload the dar when using --all and over grpc. None represents that behaviour
     // We will drop this for daml3, such that we default to not uploading.
     uploadDar: Option[Boolean],
+    linkingMode: Option[RunnerMainConfig.LinkingMode],
+    typeChecking: Boolean,
 ) {
   import RunnerMainConfigIntermediate._
 
@@ -133,6 +145,8 @@ private[script] case class RunnerMainConfigIntermediate(
         maxInboundMessageSize = maxInboundMessageSize,
         applicationId = applicationId,
         uploadDar = resolvedUploadDar,
+        linkingMode = linkingMode,
+        typeChecking = typeChecking,
       )
     } yield config
 
@@ -263,6 +277,47 @@ private[script] object RunnerMainConfigIntermediate {
         s"Uploads the dar before running. Only available over GRPC. Default behaviour is to upload with --all, not with --script-name."
       )
 
+    opt[Boolean]("lf-type-checking")
+      .action((x, c) => c.copy(typeChecking = x))
+      .optional()
+      .hidden()
+      .text(
+        "This is a daml3-script feature only. Runs the LF type-checker on the post-linked compiled package. See --no-linking, --link-specific and --link-recent for details."
+      )
+
+    opt[Unit]("no-linking")
+      .action((_, c) => c.copy(linkingMode = Some(RunnerMainConfig.LinkingMode.NoLinking)))
+      .optional()
+      .hidden()
+      .text(
+        """Disables dynamic linking of the daml3-script frontend library.
+          |Uses whichever daml3-script library your scripts was compiled against.
+          |This may cause incompatibility when using an older script DAR against a newer SDK.
+          |This is the default behaviour for daml2-script.
+          """
+      )
+
+    opt[Unit]("link-recent")
+      .action((_, c) => c.copy(linkingMode = Some(RunnerMainConfig.LinkingMode.LinkRecent)))
+      .optional()
+      .hidden()
+      .text(
+        """Enables dynamic linking of the most recent version of the daml3-script frontend library.
+          |We define the most recent version as the version of daml-script that was shipped with this SDK version.
+          |This is the default behaviour for daml3-script, and incompatible with daml2-script.
+          """
+      )
+
+    opt[File]("link-specific")
+      .action((x, c) => c.copy(linkingMode = Some(RunnerMainConfig.LinkingMode.LinkSpecific(x))))
+      .optional()
+      .hidden()
+      .text(
+        """Enables dynamic linking of a specified DAR of the daml3-script frontend library.
+          |It is recommended to use `--lf-type-checking` with this flag, to ensure your DAR's interface is correct.
+          """
+      )
+
     help("help").text("Print this usage text")
 
     checkConfig(c => {
@@ -327,6 +382,8 @@ private[script] object RunnerMainConfigIntermediate {
         maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
         applicationId = None,
         uploadDar = None,
+        linkingMode = None,
+        typeChecking = false,
       ),
     )
 }

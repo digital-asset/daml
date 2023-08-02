@@ -16,7 +16,7 @@ import scalaz.syntax.traverse._
 import spray.json._
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.speedy.{SValue, Speedy, TraceLog, WarningLog}
-import com.daml.lf.archive.{Dar, DarDecoder}
+import com.daml.lf.archive.{Dar, DarDecoder, DarReader}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.Ast.Type
@@ -94,6 +94,17 @@ object RunnerMain {
         dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
       envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
 
+      linkingBehaviour = config.linkingMode.map {
+        case RunnerMainConfig.LinkingMode.NoLinking => Runner.LinkingBehaviour.NoLinking
+        case RunnerMainConfig.LinkingMode.LinkRecent => Runner.LinkingBehaviour.LinkRecent
+        case RunnerMainConfig.LinkingMode.LinkSpecific(path) =>
+          Runner.LinkingBehaviour.LinkSpecific(DarReader.assertReadArchiveFromFile(path))
+      }
+
+      typeCheckingBehaviour =
+        if (config.typeChecking) Runner.TypeCheckingBehaviour.TypeChecking(dar)
+        else Runner.TypeCheckingBehaviour.NoTypeChecking
+
       clients <- connectToParticipants(config, compiledPackages, envIface, traceLog, warningLog)
 
       _ <- (clients.getParticipant(None), config.uploadDar) match {
@@ -122,6 +133,8 @@ object RunnerMain {
               config.timeMode,
               traceLog,
               warningLog,
+              linkingBehaviour = linkingBehaviour,
+              typeCheckingBehaviour = typeCheckingBehaviour,
             )
             ._2
           _ <- Future {
