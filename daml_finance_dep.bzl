@@ -2,6 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 quickstart = {
-    "version": "4bc9d8391fa4fc079a4c53424cbfdc511e53c428",
-    "sha256": "aff2e6dcda097466677d68730737bca0b04b075527e280e2cd177134234cdcaf",
+    "version": "bda6696a9acba9db3f2954ca0c0ebf1d6e37c8ee",
+    "sha256": "f0bec758f6c4086928f4d2d49d1a35f9e3c3a3743d6c2de3e25c61a3a75e5cc2",
 }

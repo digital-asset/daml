@@ -441,5 +441,41 @@ genrule(
             $(SRCS)
     ''',
 )
+genrule(
+    name = "settlement",
+    srcs = glob(["docs/code-samples/settlement/**/*"]
+            , exclude = ["docs/code-samples/settlement/daml.yaml", "docs/code-samples/settlement/NO_AUTO_COPYRIGHT"]),
+    outs = ["daml-finance-settlement.tar.gz"],
+    cmd = '''
+        tar czhf $(OUTS) \\\\
+            --transform 's|^.*docs/code-samples/settlement/||' \\\\
+            --owner=1000 \\\\
+            --group=1000 \\\\
+            --mtime=2000-01-01\\\\ 00:00Z \\\\
+            --no-acls \\\\
+            --no-xattrs \\\\
+            --no-selinux \\\\
+            --sort=name \\\\
+            $(SRCS)
+    ''',
+)
+genrule(
+    name = "payoff-modeling",
+    srcs = glob(["docs/code-samples/payoff-modeling/**/*"]
+            , exclude = ["docs/code-samples/payoff-modeling/daml.yaml", "docs/code-samples/payoff-modeling/NO_AUTO_COPYRIGHT"]),
+    outs = ["daml-finance-payoff-modeling.tar.gz"],
+    cmd = '''
+        tar czhf $(OUTS) \\\\
+            --transform 's|^.*docs/code-samples/payoff-modeling/||' \\\\
+            --owner=1000 \\\\
+            --group=1000 \\\\
+            --mtime=2000-01-01\\\\ 00:00Z \\\\
+            --no-acls \\\\
+            --no-xattrs \\\\
+            --no-selinux \\\\
+            --sort=name \\\\
+            $(SRCS)
+    ''',
+)
             """,
         )
