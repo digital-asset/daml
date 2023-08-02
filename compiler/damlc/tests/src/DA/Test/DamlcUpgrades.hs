@@ -31,9 +31,9 @@ tests damlc =
         [ test
               "Fails when new field is added without Optional type"
               (Just "Message: \n\ESC\\[0;91merror type checking <none>:\n  EUpgradeRecordFieldsNewNonOptional")
-              [ ( "daml/Foo.daml"
+              [ ( "daml/MyLib.daml"
                 , unlines
-                      [ "module Foo where"
+                      [ "module MyLib where"
                       , "data A = A"
                       , "  { existing1 : Int"
                       , "  , existing2 : Int"
@@ -41,9 +41,9 @@ tests damlc =
                       ]
                 )
               ]
-              [ ("daml/Foo.daml"
+              [ ("daml/MyLib.daml"
                 , unlines
-                      [ "module Foo where"
+                      [ "module MyLib where"
                       , "data A = A"
                       , "  { existing1 : Int"
                       , "  , existing2 : Int"
@@ -55,9 +55,9 @@ tests damlc =
         , test
               "Fails when old field is deleted"
               (Just "Message: \n\ESC\\[0;91merror type checking <none>:\n  EUpgradeRecordFieldsMissing")
-              [ ( "daml/Foo.daml"
+              [ ( "daml/MyLib.daml"
                 , unlines
-                      [ "module Foo where"
+                      [ "module MyLib where"
                       , "data A = A"
                       , "  { existing1 : Int"
                       , "  , existing2 : Int"
@@ -65,9 +65,9 @@ tests damlc =
                       ]
                 )
               ]
-              [ ("daml/Foo.daml"
+              [ ("daml/MyLib.daml"
                 , unlines
-                      [ "module Foo where"
+                      [ "module MyLib where"
                       , "data A = A"
                       , "  { existing2 : Int"
                       , "  }"
@@ -77,9 +77,9 @@ tests damlc =
         , test
               "Fails when existing field is changed"
               (Just "Message: \n\ESC\\[0;91merror type checking <none>:\n  EUpgradeRecordFieldsExistingChanged")
-              [ ( "daml/Foo.daml"
+              [ ( "daml/MyLib.daml"
                 , unlines
-                      [ "module Foo where"
+                      [ "module MyLib where"
                       , "data A = A"
                       , "  { existing1 : Int"
                       , "  , existing2 : Int"
@@ -87,9 +87,9 @@ tests damlc =
                       ]
                 )
               ]
-              [ ("daml/Foo.daml"
+              [ ("daml/MyLib.daml"
                 , unlines
-                      [ "module Foo where"
+                      [ "module MyLib where"
                       , "data A = A"
                       , "  { existing1 : Text"
                       , "  , existing2 : Int"
@@ -100,9 +100,9 @@ tests damlc =
         , test
               "Succeeds when new field is added with optional type"
               Nothing
-              [ ( "daml/Foo.daml"
+              [ ( "daml/MyLib.daml"
                 , unlines
-                      [ "module Foo where"
+                      [ "module MyLib where"
                       , "data A = A"
                       , "  { existing1 : Int"
                       , "  , existing2 : Int"
@@ -110,9 +110,9 @@ tests damlc =
                       ]
                 )
               ]
-              [ ("daml/Foo.daml"
+              [ ("daml/MyLib.daml"
                 , unlines
-                      [ "module Foo where"
+                      [ "module MyLib where"
                       , "data A = A"
                       , "  { existing1 : Int"
                       , "  , existing2 : Int"
@@ -135,8 +135,8 @@ tests damlc =
             let depDir = dir </> "oldVersion"
             let dar = dir </> "out.dar"
             let depDar = dir </> "oldVersion" </> "dep.dar"
-            writeFiles dir (projectFile "foo-v2" (Just depDar) : newVersion)
-            writeFiles depDir (projectFile "foo-v1" Nothing : oldVersion)
+            writeFiles dir (projectFile "mylib-v2" (Just depDar) : newVersion)
+            writeFiles depDir (projectFile "mylib-v1" Nothing : oldVersion)
             callProcessSilent damlc ["build", "--project-root", depDir, "-o", depDar]
             case expectedError of
               Nothing ->
