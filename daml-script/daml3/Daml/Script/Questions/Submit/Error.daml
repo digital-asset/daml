@@ -3,7 +3,8 @@
 
 module Daml.Script.Questions.Submit.Error
   ( DevErrorType (..)
-  , ContractNotFoundAdditionalInfo -- Don't export construtors, users should not be able to rely on the structure.
+  , ContractNotFoundAdditionalInfo -- Don't export constructors, users should not be able to rely on the structure.
+  , isNotActive
   , SubmitError (..)
   ) where
 
@@ -34,6 +35,10 @@ data ContractNotFoundAdditionalInfo
       readAs : [Party]
       observers : [Party]
   deriving Show
+
+isNotActive : ContractNotFoundAdditionalInfo -> Optional AnyContractId
+isNotActive (NotActive {additionalInfoCid}) = Some additionalInfoCid
+isNotActive _ = None
 
 -- | Errors that can be thrown by a command submission
 data SubmitError
