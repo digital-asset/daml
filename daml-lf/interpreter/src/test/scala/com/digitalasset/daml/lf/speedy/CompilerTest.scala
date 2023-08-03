@@ -518,7 +518,7 @@ object CompilerTest {
       committers: Set[Party] = Set.empty,
   ): Either[
     SError,
-    (SValue, Map[ContractId, XCachedContract], Map[ContractId, XCachedContract]),
+    (SValue, Map[ContractId, (Ref.Identifier, SValue)], Map[ContractId, XCachedContract]),
   ] = {
     val machine =
       Speedy.UpdateMachine(
@@ -532,7 +532,7 @@ object CompilerTest {
 
     SpeedyTestLib
       .run(machine, getContract = getContract)
-      .map((_, machine.cachedContracts, machine.disclosedContracts))
+      .map((_, machine.localContractStore, machine.disclosedContracts))
   }
 
   def buildDisclosedContract(

@@ -132,8 +132,8 @@ private[lf] object Speedy {
   ) {
     val stakeholders: Set[Party] = signatories union observers
 
-    private[speedy] val any = SValue.SAnyContract(templateId, value)
-    private[speedy] def arg = value.toNormalizedValue(version)
+    private[speedy] val any = SValue.SAnyContract(templateId, value) // NICK, callers?
+    private[speedy] def arg = value.toNormalizedValue(version) // NICK: ah!
     private[speedy] def gkeyOpt: Option[GlobalKey] = keyOpt.map(_.globalKey)
     private[speedy] def toCreateNode(coid: V.ContractId) =
       Node.Create(
@@ -280,6 +280,21 @@ private[lf] object Speedy {
 
     def incompleteTransaction: IncompleteTx = ptx.finishIncomplete
     def nodesToString: String = ptx.nodesToString
+
+    // local contract store...
+    private[speedy] var localContractStore: Map[V.ContractId, (TypeConName, SValue)] = Map.empty
+    private[speedy] def getIfLocalContract(coid: V.ContractId): Option[(TypeConName, SValue)] = {
+      localContractStore.get(coid)
+    }
+    private[speedy] def storeLocalContract(
+        coid: V.ContractId,
+        templateId: TypeConName,
+        templateArg: SValue,
+    ): Unit = {
+      localContractStore = localContractStore + (coid -> (templateId, templateArg))
+    }
+
+    // NICK: this is old. How does it fit in?
     private[speedy] def isLocalContract(contractId: V.ContractId): Boolean = {
       ptx.contractState.locallyCreated.contains(contractId)
     }
