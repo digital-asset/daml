@@ -17,6 +17,7 @@ java_binary(
     runtime_deps = [
         # Do not sort
         "//canton:lib",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
 )
 
@@ -32,6 +33,7 @@ java_binary(
         "//daml-lf/engine",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//canton:lib",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
 )
 
@@ -94,7 +96,7 @@ fi
 
 tar xzf $$tmp
 
-cp canton-*/lib/*.jar $@
+cp canton-*/lib/canton-*.jar $@
 """.format(
         artif_user = artif_user,
         artif_pass = artif_pass,
@@ -120,5 +122,8 @@ java_binary(
     main_class = "com.digitalasset.canton.CantonEnterpriseApp",
     tags = ["canton-ee"],
     visibility = ["//ledger-service:__subpackages__"],
-    runtime_deps = ["//canton:lib-ee"],
+    runtime_deps = [
+        "//canton:lib-ee",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
+    ],
 )
