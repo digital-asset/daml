@@ -43,7 +43,6 @@ da_scala_library(
         "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
         "//test-common",
-        # FIXME: @maven//:org_bouncycastle_bcprov_jdk15on
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
