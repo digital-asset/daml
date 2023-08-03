@@ -292,7 +292,7 @@ private[lf] object Speedy {
       ptx.contractState.locallyCreated.contains(contractId)
     }
 
-    private[speedy] def xx_updateCachedContracts_limitCheck( // NICK: rename to show limitCheck behav
+    private[speedy] def enforceLimitSignatoriesAndObservers(
         cid: V.ContractId,
         contract: XCachedContract,
     ): Unit = {
@@ -324,18 +324,14 @@ private[lf] object Speedy {
       )
     }
 
-    private[speedy] def xx_addGlobalContract_limitCheck( // NICK: rename to show limitCheck behav
-        coid: V.ContractId,
-        contract: XCachedContract,
-    ): Unit = {
-      numInputContracts += 1
+    private[speedy] def enforceLimitAddInputContract(): Unit = {
+      numInputContracts += 1 // NICK, hmm
       enforceLimit(
         NameOf.qualifiedNameOfCurrentFunc,
         numInputContracts,
         limits.transactionInputContracts,
         IError.Dev.Limit.TransactionInputContracts,
       )
-      xx_updateCachedContracts_limitCheck(coid, contract)
     }
 
     private[speedy] def enforceChoiceControllersLimit(

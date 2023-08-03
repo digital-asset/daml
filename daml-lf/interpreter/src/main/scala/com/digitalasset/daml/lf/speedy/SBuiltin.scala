@@ -975,8 +975,7 @@ private[lf] object SBuiltin {
                   optLocation = machine.getLastLocation,
                 ) match {
                 case Right((coid, newPtx)) => {
-                  machine.xx_updateCachedContracts_limitCheck(coid, contract)
-                  // NICK: WAS insert cache #2 -- local creates
+                  machine.enforceLimitSignatoriesAndObservers(coid, contract)
                   machine.storeLocalContract(coid, templateId, templateArg)
                   machine.ptx = newPtx
                   Control.Value(SContractId(coid))
@@ -1179,7 +1178,6 @@ private[lf] object SBuiltin {
         case None => {
           machine.disclosedContracts.get(coid) match {
             case Some(contract) =>
-              machine.xx_addGlobalContract_limitCheck(coid, contract)
               machine.markDisclosedcontractAsUsed(coid)
               Control.Value(contract.any)
 
@@ -1203,10 +1201,9 @@ private[lf] object SBuiltin {
                         case Some(Right(())) =>
                           Control.Error(IE.ContractNotFound(coid))
                         case None =>
-                          // NICK: doing this everytime is prob non required or worse, WRONG...
                           machine.checkContractVisibility(coid, contract)
-                          machine.xx_addGlobalContract_limitCheck(coid, contract)
-                          // NICK: WAS insert cache #1 - computation following lookup from ledger
+                          machine.enforceLimitAddInputContract() // NICK: correct place?
+                          machine.enforceLimitSignatoriesAndObservers(coid, contract)
                           Control.Value(contract.any)
                       }
                     }
