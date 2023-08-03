@@ -1177,72 +1177,64 @@ private[lf] object SBuiltin {
           }
 
         case None => {
-
-          machine.cachedContracts.get(coid) match { // NICK: kill me
-            case Some(_) =>
-              // NICK: prove we never get here
-              ???
+          machine.disclosedContracts.get(coid) match {
+            case Some(contract) =>
+              machine.xx_addGlobalContract_limitCheck(coid, contract)
+              machine.markDisclosedcontractAsUsed(coid)
+              Control.Value(contract.any)
 
             case None =>
-              machine.disclosedContracts.get(coid) match {
-                case Some(contract) =>
-                  machine.xx_addGlobalContract_limitCheck(coid, contract)
-                  machine.markDisclosedcontractAsUsed(coid)
-                  Control.Value(contract.any)
+              lookupContractOnLedger(machine, coid) { coinst =>
+                case class KCC(coid: V.ContractId) extends Kont { // NICK: inlined local Kont prefer executeExpression
+                  override def execute[Q](
+                      machine: Machine[Q],
+                      contractInfoStruct: SValue,
+                  ): Control[Q] = {
+                    machine.asUpdateMachine(productPrefix) { machine =>
+                      val contract =
+                        SBuiltin.extractCachedContract(
+                          machine.tmplId2TxVersion,
+                          contractInfoStruct,
+                        )
 
-                case None =>
-                  lookupContractOnLedger(machine, coid) { coinst =>
-                    case class KCC(coid: V.ContractId) extends Kont { // NICK: inlined local Kont prefer executeExpression
-                      override def execute[Q](
-                          machine: Machine[Q],
-                          contractInfoStruct: SValue,
-                      ): Control[Q] = {
-                        machine.asUpdateMachine(productPrefix) { machine =>
-                          val contract =
-                            SBuiltin.extractCachedContract(
-                              machine.tmplId2TxVersion,
-                              contractInfoStruct,
-                            )
-
-                          machine.ptx.consumedByOrInactive(coid) match { // NICK: dedup
-                            case Some(Left(nid)) =>
-                              Control.Error(IE.ContractNotActive(coid, contract.templateId, nid))
-                            case Some(Right(())) =>
-                              Control.Error(IE.ContractNotFound(coid))
-                            case None =>
-                              // NICK: doing this everytime is prob non required or worse, WRONG...
-                              machine.checkContractVisibility(coid, contract)
-                              machine.xx_addGlobalContract_limitCheck(coid, contract)
-                              // NICK: WAS insert cache #1 - computation following lookup from ledger
-                              Control.Value(contract.any)
-                          }
-                        }
+                      machine.ptx.consumedByOrInactive(coid) match { // NICK: dedup
+                        case Some(Left(nid)) =>
+                          Control.Error(IE.ContractNotActive(coid, contract.templateId, nid))
+                        case Some(Right(())) =>
+                          Control.Error(IE.ContractNotFound(coid))
+                        case None =>
+                          // NICK: doing this everytime is prob non required or worse, WRONG...
+                          machine.checkContractVisibility(coid, contract)
+                          machine.xx_addGlobalContract_limitCheck(coid, contract)
+                          // NICK: WAS insert cache #1 - computation following lookup from ledger
+                          Control.Value(contract.any)
                       }
                     }
-
-                    machine.pushKont(KCC(coid))
-
-                    val e = coinst match {
-                      case V.ContractInstance(actualTmplId, arg) =>
-                        val templateId = optTargetTemplateId match {
-                          case Some(tycon) => tycon
-                          case None => actualTmplId
-                        }
-                        SELet1(
-                          // The call to ToCachedContractDefRef(actualTmplId) will query package
-                          // of actualTmplId if not known.
-                          SEVal(ToCachedContractDefRef(templateId)),
-                          SELet1(
-                            SEImportValue(
-                              Ast.TTyCon(templateId),
-                              arg,
-                            ), // NICK: THE caller of SEImportValue
-                            SEAppAtomic(SELocS(2), Array(SELocS(1), SEValue(args.get(1)))),
-                          ),
-                        )
-                    }
-                    Control.Expression(e)
                   }
+                }
+
+                machine.pushKont(KCC(coid))
+
+                val e = coinst match {
+                  case V.ContractInstance(actualTmplId, arg) =>
+                    val templateId = optTargetTemplateId match {
+                      case Some(tycon) => tycon
+                      case None => actualTmplId
+                    }
+                    SELet1(
+                      // The call to ToCachedContractDefRef(actualTmplId) will query package
+                      // of actualTmplId if not known.
+                      SEVal(ToCachedContractDefRef(templateId)),
+                      SELet1(
+                        SEImportValue(
+                          Ast.TTyCon(templateId),
+                          arg,
+                        ), // NICK: THE caller of SEImportValue
+                        SEAppAtomic(SELocS(2), Array(SELocS(1), SEValue(args.get(1)))),
+                      ),
+                    )
+                }
+                Control.Expression(e)
               }
           }
         }

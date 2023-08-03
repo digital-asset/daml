@@ -1787,8 +1787,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
               )
             ),
           )
-        ) { case Right((SUnit, contractCache, disclosedContracts, disclosedContractKeys)) =>
-          contractCache shouldBe empty
+        ) { case Right((SUnit, disclosedContracts, disclosedContractKeys)) =>
           disclosedContracts shouldBe Map(contractId -> cachedContract)
           disclosedContractKeys shouldBe empty
         }
@@ -1837,8 +1836,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
               )
             ),
           )
-        ) { case Right((SUnit, contractCache, disclosedContracts, disclosedContractKeys)) =>
-          contractCache shouldBe empty
+        ) { case Right((SUnit, disclosedContracts, disclosedContractKeys)) =>
           disclosedContracts shouldBe Map(contractId -> cachedContract)
           disclosedContractKeys shouldBe Map(cachedKey.globalKey -> contractId)
         }
@@ -1963,7 +1961,6 @@ object SBuiltinTest {
     (
         SValue,
         Map[Value.ContractId, XCachedContract],
-        Map[Value.ContractId, XCachedContract],
         Map[GlobalKey, Value.ContractId],
     ),
   ] = {
@@ -1978,7 +1975,7 @@ object SBuiltinTest {
     SpeedyTestLib
       .run(machine, getContract = getContract)
       .map(
-        (_, machine.cachedContracts, machine.disclosedContracts, machine.disclosedContractKeys)
+        (_, machine.disclosedContracts, machine.disclosedContractKeys)
       )
   }
 

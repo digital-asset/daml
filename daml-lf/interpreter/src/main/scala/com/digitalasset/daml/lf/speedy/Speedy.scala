@@ -238,10 +238,6 @@ private[lf] object Speedy {
     private[this] var dependsOnTime: Boolean = false
     // global contract discriminators, that are discriminators from contract created in previous transactions
 
-    // private[this] // NICK
-    var die_cachedContracts_ : Map[V.ContractId, XCachedContract] =
-      Map.empty // NICK: kill
-
     private[this] var numInputContracts: Int = 0
 
     private[this] var disclosedContracts_ = Map.empty[V.ContractId, XCachedContract]
@@ -268,9 +264,6 @@ private[lf] object Speedy {
 
     def getDependsOnTime: Boolean =
       dependsOnTime
-
-    private[speedy] def cachedContracts: Map[V.ContractId, XCachedContract] = // NICK: kill
-      die_cachedContracts_
 
     val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
       if (validating) { _ => SVisibleToStakeholders.Visible }
