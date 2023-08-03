@@ -375,7 +375,6 @@ alias(
             "//runtime-components/non-repudiation-testing",
             "//test-common:dar-files-default-lib",
             "@maven//:com_google_guava_guava",
-            "@maven//:org_bouncycastle_bcprov_jdk15on",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
