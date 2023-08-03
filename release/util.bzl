@@ -27,7 +27,6 @@ inputs = {
     "trigger_dars": "//triggers/daml:daml-trigger-dars",
     "script_dars": "//daml-script/daml:daml-script-dars",
     "canton": "//canton:lib",
-    "bouncycastle_bcprov_jdk15on": "@maven//:org_bouncycastle_bcprov_jdk15on",
     "sdk_deploy_jar": {
         "ce": "//daml-assistant/daml-sdk:sdk_deploy.jar",
         "ee": "//daml-assistant/daml-sdk:sdk_ee_deploy.jar",
@@ -91,7 +90,6 @@ def sdk_tarball(name, version, config):
 
           mkdir -p $$OUT/canton
           cp $(location {canton}) $$OUT/canton/canton.jar
-          cp $(location {bouncycastle_bcprov_jdk15on}) $$OUT/canton/bcprov-jdk15on-1.70.jar
 
           mkdir -p $$OUT/templates
           tar xf $(location {templates}) --strip-components=1 -C $$OUT/templates
