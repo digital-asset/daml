@@ -328,9 +328,9 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
     @Resolution(
       "Either remove the call to abort, error or perhaps assert, or ensure you are exercising your contract choice as the author expects."
     )
-    object UserError
+    object InterpretationUserError
         extends ErrorCode(
-          id = "USER_ERROR",
+          id = "INTERPRETATION_USER_ERROR",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 
@@ -599,9 +599,9 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
     @Resolution(
       "See the error message for details of the specific in-development feature error. If this is production, avoid using development features."
     )
-    object DevError
+    object InterpretationDevError
         extends ErrorCode(
-          id = "DEV_ERROR",
+          id = "INTERPRETATION_DEV_ERROR",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 
