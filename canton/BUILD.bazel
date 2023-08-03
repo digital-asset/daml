@@ -17,6 +17,7 @@ java_binary(
     runtime_deps = [
         # Do not sort
         "//canton:lib",
+        "@maven//:org_bouncycastle_bcpkix_jdk15on",
         "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
 )
@@ -33,6 +34,7 @@ java_binary(
         "//daml-lf/engine",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//canton:lib",
+        "@maven//:org_bouncycastle_bcpkix_jdk15on",
         "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
 )
