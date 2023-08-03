@@ -76,7 +76,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
       }
 
       "contract IDs that are inactive" - {
-        "ledger query fails when contract ID is not disclosed" ignore {
+        "ledger query fails when contract ID is not disclosed" in {
           ledgerQueryFailsWhenContractNotDisclosed(
             SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
             contractId,
@@ -94,7 +94,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         }
 
         "disclosure table query fails when contract ID is disclosed" - {
-          "contract ID in disclosure table only" ignore {
+          "contract ID in disclosure table only" ignore { // NICK: investigate
             disclosureTableQueryFailsWhenContractDisclosed(
               SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
               disclosedCaveContract,
@@ -114,7 +114,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             )
           }
 
-          "contract ID in ledger and disclosure table" ignore {
+          "contract ID in ledger and disclosure table" ignore { // NICK: investigate
             disclosureTableQueryFailsWhenContractDisclosed(
               SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
               disclosedCaveContract,

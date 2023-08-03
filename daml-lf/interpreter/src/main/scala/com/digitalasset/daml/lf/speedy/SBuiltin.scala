@@ -957,7 +957,7 @@ private[lf] object SBuiltin {
       val templateArg: SValue = args.get(0)
 
       computeContractInfo(machine, templateId, templateArg) { contract =>
-        machine.asUpdateMachine(productPrefix) { machine => // NICK: push down to where needed
+        machine.asUpdateMachine(productPrefix) { machine =>
           contract.keyOpt match {
             case Some(contractKey) if contractKey.maintainers.isEmpty =>
               Control.Error(
@@ -1016,8 +1016,7 @@ private[lf] object SBuiltin {
 
       val templateArg: SValue = args.get(5)
       computeContractInfo(machine, templateId, templateArg) { contract =>
-        machine.asUpdateMachine(productPrefix) { machine => // NICK: push down to where needed
-
+        machine.asUpdateMachine(productPrefix) { machine =>
           val coid = getSContractId(args, 1)
 
           val templateVersion = machine.tmplId2TxVersion(templateId)
@@ -1178,29 +1177,6 @@ private[lf] object SBuiltin {
 
             case None =>
               lookupContractOnLedger(machine, coid) { coinst =>
-                case class KCC(coid: V.ContractId) extends Kont { // NICK: inlined local Kont prefer executeExpression
-                  override def execute[Q](
-                      machine: Machine[Q],
-                      contractInfoStruct: SValue,
-                  ): Control[Q] = {
-                    machine.asUpdateMachine(productPrefix) { machine =>
-                      val contract =
-                        SBuiltin.extractCachedContract(
-                          machine.tmplId2TxVersion,
-                          contractInfoStruct,
-                        )
-                      ensureContractActive(machine, coid, contract.templateId) {
-                        machine.checkContractVisibility(coid, contract)
-                        machine.enforceLimitAddInputContract() // NICK: correct place?
-                        machine.enforceLimitSignatoriesAndObservers(coid, contract)
-                        Control.Value(contract.any)
-                      }
-                    }
-                  }
-                }
-
-                machine.pushKont(KCC(coid))
-
                 val e = coinst match {
                   case V.ContractInstance(actualTmplId, arg) =>
                     val templateId = optTargetTemplateId match {
@@ -1208,43 +1184,30 @@ private[lf] object SBuiltin {
                       case None => actualTmplId
                     }
                     SELet1(
-                      // The call to ToCachedContractDefRef(actualTmplId) will query package
-                      // of actualTmplId if not known.
                       SEVal(ToCachedContractDefRef(templateId)),
                       SELet1(
-                        SEImportValue(
-                          Ast.TTyCon(templateId),
-                          arg,
-                        ), // NICK: THE caller of SEImportValue
+                        SEImportValue(Ast.TTyCon(templateId), arg), // NICK: sole call
                         SEAppAtomic(SELocS(2), Array(SELocS(1), SEValue(args.get(1)))),
                       ),
                     )
                 }
-                Control.Expression(e)
+
+                executeExpression(machine, e) { contractInfoStruct =>
+                  machine.asUpdateMachine(productPrefix) { machine =>
+                    val contract =
+                      SBuiltin.extractCachedContract(machine.tmplId2TxVersion, contractInfoStruct)
+                    ensureContractActive(machine, coid, contract.templateId) {
+                      machine.checkContractVisibility(coid, contract)
+                      machine.enforceLimitAddInputContract() // NICK: correct place?
+                      machine.enforceLimitSignatoriesAndObservers(coid, contract)
+                      Control.Value(contract.any)
+                    }
+                  }
+                }
               }
           }
         }
       }
-    }
-  }
-
-  def lookupContractOnLedger[Q](
-      machine: Machine[Q],
-      coid: V.ContractId,
-  )(
-      continue: V.ContractInstance => Control[Q]
-  ) = {
-    machine.asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc) { machine =>
-      Control.Question(
-        Question.Update.NeedContract( // NICK: THIS is where we get the contract from the ledger
-          coid,
-          machine.committers,
-          callback = { res =>
-            val control = continue(res)
-            machine.setControl(control)
-          },
-        )
-      )
     }
   }
 
@@ -1511,35 +1474,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  def do_fetch[Q]( // NICK better name!
-      machine: Machine[Q],
-      templateId: TypeConName,
-      optTargetTemplateId: Option[TypeConName],
-      coid: V.ContractId,
-      keyOpt: SValue,
-  )(f: SValue => Control[Q]): Control[Q] = {
-    // NICK: dont contruct expression, but just call the guts of the builtin
-    val fetchExp: SExpr = SEApp(
-      SEBuiltin(SBFetchAny(optTargetTemplateId)),
-      Array(
-        SContractId(coid),
-        keyOpt,
-      ),
-    )
-    executeExpression(machine, fetchExp) { fetched =>
-      val castExp: SExpr = SEApp(
-        SEBuiltin(SBCastAnyContract(templateId)),
-        Array(
-          SContractId(coid),
-          fetched,
-        ),
-      )
-      executeExpression(machine, castExp) { casted =>
-        f(casted)
-      }
-    }
-  }
-
   /** $insertFetch[tid] -- NICK: kill out of date comment
     *    :: ContractId a
     *    -> List Party    (signatories)
@@ -1560,7 +1494,7 @@ private[lf] object SBuiltin {
       machine.asUpdateMachine(productPrefix) { machine =>
         val coid = getSContractId(args, 0)
         val keyOpt: SValue = args.get(1)
-        do_fetch(machine, templateId, optTargetTemplateId, coid, keyOpt) { templateArg =>
+        fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) { templateArg =>
           computeContractInfo(machine, templateId, templateArg) { contract =>
             val version = machine.tmplId2TxVersion(templateId)
             machine.ptx.insertFetch(
@@ -1668,10 +1602,10 @@ private[lf] object SBuiltin {
       val templateId = operation.templateId
 
       machine.asUpdateMachine(productPrefix) { machine =>
-        val svalue = args.get(0) // NICK: rename keyValue
+        val keyValue = args.get(0)
         val version = machine.tmplId2TxVersion(templateId)
         val cachedKey =
-          extractKey(NameOf.qualifiedNameOfCurrentFunc, version, templateId, svalue)
+          extractKey(NameOf.qualifiedNameOfCurrentFunc, version, templateId, keyValue)
         if (cachedKey.maintainers.isEmpty) {
           Control.Error(
             IE.FetchEmptyContractKeyMaintainers(
@@ -1680,18 +1614,19 @@ private[lf] object SBuiltin {
             )
           )
         } else {
+          val keyOpt = SOptional(Some(keyValue))
           val gkey = cachedKey.globalKey
+          val optTargetTemplateId: Option[TypeConName] = None // NICK: hard
           machine.ptx.contractState.resolveKey(gkey) match {
             case Right((keyMapping, next)) =>
               machine.ptx = machine.ptx.copy(contractState = next)
               keyMapping match {
                 case ContractStateMachine.KeyActive(coid) =>
-                  val optTargetTemplateId: Option[TypeConName] = None // NICK: hard
-                  val keyOpt: SValue = SOptional(Some(svalue))
-                  do_fetch(machine, templateId, optTargetTemplateId, coid, keyOpt) { templateArg =>
-                    computeContractInfo(machine, templateId, templateArg) { contract =>
-                      machine.checkKeyVisibility(gkey, coid, operation.handleKeyFound, contract)
-                    }
+                  fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
+                    templateArg =>
+                      computeContractInfo(machine, templateId, templateArg) { contract =>
+                        machine.checkKeyVisibility(gkey, coid, operation.handleKeyFound, contract)
+                      }
                   }
 
                 case ContractStateMachine.KeyInactive =>
@@ -1705,13 +1640,11 @@ private[lf] object SBuiltin {
                   machine.ptx = machine.ptx.copy(contractState = next)
                   keyMapping match {
                     case ContractStateMachine.KeyActive(coid) =>
-                      val optTargetTemplateId: Option[TypeConName] = None // NICK: hard
-                      val keyOpt: SValue = SOptional(Some(svalue))
                       val c =
-                        do_fetch(machine, templateId, optTargetTemplateId, coid, keyOpt) {
-                          templateArg =>
-                            computeContractInfo(machine, templateId, templateArg) { contract =>
-                              machine.asUpdateMachine(productPrefix) { machine =>
+                        machine.asUpdateMachine(productPrefix) { machine =>
+                          fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
+                            templateArg =>
+                              computeContractInfo(machine, templateId, templateArg) { contract =>
                                 machine.checkKeyVisibility(
                                   gkey,
                                   coid,
@@ -1719,7 +1652,7 @@ private[lf] object SBuiltin {
                                   contract,
                                 )
                               }
-                            }
+                          }
                         }
                       (c, true)
                     case ContractStateMachine.KeyInactive =>
@@ -2281,7 +2214,60 @@ private[lf] object SBuiltin {
     }
   }
 
-  def computeContractInfo[Q]( // NICK: goal: be the only caller of extractCachedContract
+  private[speedy] def lookupContractOnLedger[Q]( // NICK - called by SBFetchAny
+      machine: Machine[Q],
+      coid: V.ContractId,
+  )(
+      continue: V.ContractInstance => Control[Q]
+  ) = {
+    machine.asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc) { machine =>
+      Control.Question(
+        Question.Update.NeedContract( // NICK: THIS is where we get the contract from the ledger
+          coid,
+          machine.committers,
+          callback = { res =>
+            val control = continue(res)
+            machine.setControl(control)
+          },
+        )
+      )
+    }
+  }
+
+  private[speedy] def fetchContract[Q]( // NICK: umm... vs lookupContractOnLedger ?
+      machine: Machine[Q],
+      templateId: TypeConName,
+      optTargetTemplateId: Option[TypeConName],
+      coid: V.ContractId,
+      keyOpt: SValue,
+  )(f: SValue => Control[Q]): Control[Q] = {
+    // NICK: dont contruct expression, but just call the guts of the builtin
+    val fetchExp: SExpr = SEApp(
+      SEBuiltin(
+        SBFetchAny(optTargetTemplateId) // NICK: ends up calling lookupContractOnLedger above
+      ),
+      Array(
+        SContractId(coid),
+        keyOpt,
+      ),
+    )
+    executeExpression(machine, fetchExp) { fetched =>
+      val castExp: SExpr = SEApp(
+        SEBuiltin(SBCastAnyContract(templateId)),
+        Array(
+          SContractId(coid),
+          fetched,
+        ),
+      )
+      executeExpression(machine, castExp) { casted =>
+        f(casted)
+      }
+    }
+  }
+
+  private[speedy] def computeContractInfo[
+      Q
+  ]( // NICK: goal: be the only caller of extractCachedContract
       machine: Machine[Q],
       templateId: Identifier,
       templateArg: SValue,
