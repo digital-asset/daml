@@ -57,6 +57,7 @@ da_scala_library(
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -123,6 +124,7 @@ da_scala_test_suite(
         "//libs-scala/resources",
         "//observability/metrics",
         "//observability/metrics:metrics-test-lib",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
