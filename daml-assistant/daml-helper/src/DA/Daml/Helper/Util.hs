@@ -270,12 +270,11 @@ withCantonSandbox :: CantonOptions -> [String] -> (Process () () () -> IO a) -> 
 withCantonSandbox options remainingArgs k = do
     sdkPath <- getSdkPath
     let cantonJar = sdkPath </> "canton" </> "canton.jar"
-        bouncyCastleJar = sdkPath </> "canton" </> "bcprov-jdk15on-1.70.jar"
     withTempFile $ \config -> do
         BSL.writeFile config (cantonConfig options)
         let args | cantonHelp options = ["--help"]
                  | otherwise = concatMap (\f -> ["-c", f]) (cantonConfigFiles options)
-        withJar cantonJar ["-classpath", bouncyCastleJar] ("daemon" : "-c" : config :  "--auto-connect-local" : (args <> remainingArgs)) k
+        withJar cantonJar [] ("daemon" : "-c" : config :  "--auto-connect-local" : (args <> remainingArgs)) k
 
 -- | Obtain a path to use as canton portfile, and give updated options.
 withCantonPortFile :: CantonOptions -> (CantonOptions -> FilePath -> IO a) -> IO a
