@@ -1166,13 +1166,8 @@ private[lf] object SBuiltin {
 
       machine.getIfLocalContract(coid) match {
         case Some((templateId, templateArg)) =>
-          machine.ptx.consumedByOrInactive(coid) match { // NICK: dedup
-            case Some(Left(nid)) =>
-              Control.Error(IE.ContractNotActive(coid, templateId, nid))
-            case Some(Right(())) =>
-              Control.Error(IE.ContractNotFound(coid))
-            case None =>
-              Control.Value(SValue.SAnyContract(templateId, templateArg))
+          ensureContractActive(machine, coid, templateId) {
+            Control.Value(SValue.SAnyContract(templateId, templateArg))
           }
 
         case None => {
@@ -1194,17 +1189,11 @@ private[lf] object SBuiltin {
                           machine.tmplId2TxVersion,
                           contractInfoStruct,
                         )
-
-                      machine.ptx.consumedByOrInactive(coid) match { // NICK: dedup
-                        case Some(Left(nid)) =>
-                          Control.Error(IE.ContractNotActive(coid, contract.templateId, nid))
-                        case Some(Right(())) =>
-                          Control.Error(IE.ContractNotFound(coid))
-                        case None =>
-                          machine.checkContractVisibility(coid, contract)
-                          machine.enforceLimitAddInputContract() // NICK: correct place?
-                          machine.enforceLimitSignatoriesAndObservers(coid, contract)
-                          Control.Value(contract.any)
+                      ensureContractActive(machine, coid, contract.templateId) {
+                        machine.checkContractVisibility(coid, contract)
+                        machine.enforceLimitAddInputContract() // NICK: correct place?
+                        machine.enforceLimitSignatoriesAndObservers(coid, contract)
+                        Control.Value(contract.any)
                       }
                     }
                   }
@@ -2311,4 +2300,24 @@ private[lf] object SBuiltin {
       f(contract)
     }
   }
+
+  private[speedy] def ensureContractActive[Q](
+      machine: Machine[Q],
+      coid: V.ContractId,
+      templateId: Identifier,
+  )(
+      body: => Control[Q]
+  ): Control[Q] = {
+    machine.asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc) { machine =>
+      machine.ptx.consumedByOrInactive(coid) match {
+        case Some(Left(nid)) =>
+          Control.Error(IE.ContractNotActive(coid, templateId, nid))
+        case Some(Right(())) =>
+          Control.Error(IE.ContractNotFound(coid))
+        case None =>
+          body.asInstanceOf[Control[Question.Update]]
+      }
+    }
+  }
+
 }
