@@ -976,17 +976,8 @@ private[lf] object SBuiltin {
                 ) match {
                 case Right((coid, newPtx)) => {
                   machine.xx_updateCachedContracts_limitCheck(coid, contract)
-
-                  // NICK: insert cache #2 -- local creates
-
+                  // NICK: WAS insert cache #2 -- local creates
                   machine.storeLocalContract(coid, templateId, templateArg)
-
-                  val doTheCachingForLocal = false // NICK, CHANGE HERE - goal, make this false
-                  if (doTheCachingForLocal) {
-                    machine.die_cachedContracts_ =
-                      machine.die_cachedContracts_.updated(coid, contract)
-                  }
-
                   machine.ptx = newPtx
                   Control.Value(SContractId(coid))
                 }
@@ -1175,11 +1166,8 @@ private[lf] object SBuiltin {
       val coid = getSContractId(args, 0)
 
       machine.getIfLocalContract(coid) match {
-        case Some(
-              (templateId, templateArg)
-            ) => // NICK: maybe store the AnyContract, instead of the pair
-          // NICK: reshare copied consumedByOrInactive check.
-          machine.ptx.consumedByOrInactive(coid) match {
+        case Some((templateId, templateArg)) =>
+          machine.ptx.consumedByOrInactive(coid) match { // NICK: dedup
             case Some(Left(nid)) =>
               Control.Error(IE.ContractNotActive(coid, templateId, nid))
             case Some(Right(())) =>
@@ -1190,49 +1178,25 @@ private[lf] object SBuiltin {
 
         case None => {
 
-          // NICK: dont use cachedContract --- once we will stop inserting into it!
-          // mylog(s"${coid} : 1.  SBFetchAny, look in cachedContracts...") // NICK
-          machine.cachedContracts.get(coid) match {
-            case Some(cached) =>
+          machine.cachedContracts.get(coid) match { // NICK: kill me
+            case Some(_) =>
               // NICK: prove we never get here
-              def xxx: Int = ???
-              val _ = xxx
-
-              // mylog(s"${coid} : 2x.  SBFetchAny, look in cachedContracts... FOUND, checking consumedOrInactive") // NICK
-              machine.ptx.consumedByOrInactive(coid) match { // NICK: aha!
-                case Some(Left(nid)) =>
-                  // mylog(s"${coid} : 3xa. SBFetchAny, look in cachedContracts... FOUND, checking consumedOrInactive... CONSUMED") // NICK
-                  Control.Error(IE.ContractNotActive(coid, cached.templateId, nid)) // NICK: aha!
-
-                case Some(Right(())) =>
-                  // mylog(s"${coid} : 3xb. SBFetchAny, look in cachedContracts... FOUND, checking consumedOrInactive... NOT FOUND") // NICK
-                  Control.Error(IE.ContractNotFound(coid))
-
-                case None =>
-                  // mylog(s"${coid} : 3xc. SBFetchAny, look in cachedContracts... FOUND, checking consumedOrInactive... ALL GOOD") // NICK
-                  Control.Value(cached.any)
-              }
+              ???
 
             case None =>
-              // mylog(s"${coid} : 2y.  SBFetchAny, look in cachedContracts... NOT FOUND, check disclosed") // NICK
               machine.disclosedContracts.get(coid) match {
                 case Some(contract) =>
-                  // mylog(s"${coid} : 3ya.  SBFetchAny, look in cachedContracts... NOT FOUND, check disclosed.. DISCLOSED") // NICK
                   machine.xx_addGlobalContract_limitCheck(coid, contract)
                   machine.markDisclosedcontractAsUsed(coid)
                   Control.Value(contract.any)
 
                 case None =>
-                  // mylog(s"${coid} : 3yb.  SBFetchAny, look in cachedContracts... NOT FOUND, check disclosed.. NOT DISCLOSED... look on ledger") // NICK
-                  // mylog(s"${coid} : look on ledger (shorten line)") // NICK
                   lookupContractOnLedger(machine, coid) { coinst =>
-                    // mylog(s"${coid} : look on ledger.. have coinst") // NICK
                     case class KCC(coid: V.ContractId) extends Kont { // NICK: inlined local Kont prefer executeExpression
                       override def execute[Q](
                           machine: Machine[Q],
                           contractInfoStruct: SValue,
                       ): Control[Q] = {
-                        // mylog(s"${coid} : look on ledger.. have coinst.. computing contract info...have info-struct, extracting...") // NICK
                         machine.asUpdateMachine(productPrefix) { machine =>
                           val contract =
                             SBuiltin.extractCachedContract(
@@ -1240,38 +1204,17 @@ private[lf] object SBuiltin {
                               contractInfoStruct,
                             )
 
-                          val cached = contract
-                          // NICK, block copied...
-                          // mylog(s"${coid} : d2x.  SBFetchAny, look in cachedContracts... FOUND, checking consumedOrInactive") // NICK
-                          machine.ptx.consumedByOrInactive(coid) match { // NICK: aha!
+                          machine.ptx.consumedByOrInactive(coid) match { // NICK: dedup
                             case Some(Left(nid)) =>
-                              // mylog(s"${coid} : d3xa. SBFetchAny, look in cachedContracts... FOUND, checking consumedOrInactive... CONSUMED") // NICK
-                              Control.Error(
-                                IE.ContractNotActive(coid, cached.templateId, nid)
-                              ) // NICK: aha!
+                              Control.Error(IE.ContractNotActive(coid, contract.templateId, nid))
                             case Some(Right(())) =>
-                              // mylog(s"${coid} : d3xb. SBFetchAny, look in cachedContracts... FOUND, checking consumedOrInactive... NOT FOUND") // NICK
                               Control.Error(IE.ContractNotFound(coid))
                             case None =>
-                              // mylog(s"${coid} : d3xc. SBFetchAny, look in cachedContracts... FOUND, checking consumedOrInactive... ALL GOOD") // NICK
-                              // Control.Value(cached.any)
-
                               // NICK: doing this everytime is prob non required or worse, WRONG...
                               machine.checkContractVisibility(coid, contract)
                               machine.xx_addGlobalContract_limitCheck(coid, contract)
-
-                              // NICK: insert cache #1 - computation following lookup from ledger
-                              // NICK: without the following line, Daml3ScriptTestRunnerDev fails :(
-
-                              val doTheCaching = false // NICK, CHANGE HERE
-                              if (doTheCaching) {
-                                machine.die_cachedContracts_ =
-                                  machine.die_cachedContracts_.updated(coid, contract)
-                                // mylog(s"${coid} : look on ledger.. have coinst.. computing contract info...have info-struct, extracting...INSERT CACHE") // NICK
-                              }
-                              // mylog(s"${coid} : look on ledger.. have coinst.. computing contract info...have info-struct, extracting...DONE") // NICK
+                              // NICK: WAS insert cache #1 - computation following lookup from ledger
                               Control.Value(contract.any)
-
                           }
                         }
                       }
@@ -1298,9 +1241,7 @@ private[lf] object SBuiltin {
                           ),
                         )
                     }
-                    // mylog(s"${coid} : look on ledger.. have coinst.. computing contract info...") // NICK
                     Control.Expression(e)
-
                   }
               }
           }

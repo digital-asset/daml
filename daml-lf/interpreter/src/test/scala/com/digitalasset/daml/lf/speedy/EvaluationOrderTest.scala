@@ -447,7 +447,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     val msgs = traceLog.getMessages.dropWhile(_ != "starts test") // NICK: what!!!
     // val msgs = traceLog.getMessages
     // (res, msgs.distinct) // NICK - also have distinct on each expected
-    (res, msgs)
+    (res, msgs) // NICK: re-enable the tests in this file!!!
   }
 
   // We cover all errors for each node in the order they are defined

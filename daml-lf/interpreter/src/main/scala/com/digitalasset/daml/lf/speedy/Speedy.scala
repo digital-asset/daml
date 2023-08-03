@@ -281,7 +281,7 @@ private[lf] object Speedy {
     def incompleteTransaction: IncompleteTx = ptx.finishIncomplete
     def nodesToString: String = ptx.nodesToString
 
-    // local contract store...
+    // local contract store... // NICK: maybe store the AnyContract, instead of the pair
     private[speedy] var localContractStore: Map[V.ContractId, (TypeConName, SValue)] = Map.empty
     private[speedy] def getIfLocalContract(coid: V.ContractId): Option[(TypeConName, SValue)] = {
       localContractStore.get(coid)
