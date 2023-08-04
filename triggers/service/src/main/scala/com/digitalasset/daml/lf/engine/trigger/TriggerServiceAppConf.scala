@@ -10,6 +10,7 @@ import com.daml.lf.speedy.Compiler
 import com.daml.platform.services.time.TimeProviderType
 import pureconfig.{ConfigReader, ConvertHelpers}
 import com.daml.auth.middleware.api.{Client => AuthClient}
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.metrics.MetricsConfig
 import com.daml.pureconfigutils.LedgerApiConfig
@@ -17,6 +18,7 @@ import com.daml.pureconfigutils.SharedConfigReaders._
 import pureconfig.error.FailureReason
 import pureconfig.generic.semiauto.deriveReader
 
+import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 import scala.concurrent.duration.FiniteDuration
@@ -83,6 +85,26 @@ private[trigger] object TriggerServiceAppConf {
   implicit val serviceCfgReader: ConfigReader[TriggerServiceAppConf] =
     deriveReader[TriggerServiceAppConf]
 
+  implicit val triggerTlsConfigReader: ConfigReader[TlsConfiguration] =
+    ConfigReader.fromCursor { cur =>
+      for {
+        objCur <- cur.asObjectCursor
+        tlsCur <- objCur.atKey("tls")
+        enabled <- tlsCur.asBoolean
+        pemCur <- objCur.atKey("pem")
+        privateKeyFile <- pemCur.asString
+        crtCur <- objCur.atKey("crt")
+        certChainFile <- crtCur.asString
+        cacrtCur <- objCur.atKey("cacrt")
+        trustCollectionFile <- cacrtCur.asString
+      } yield TlsConfiguration(
+        enabled,
+        Some(new File(certChainFile)),
+        Some(new File(privateKeyFile)),
+        Some(new File(trustCollectionFile)),
+      )
+    }
+
   implicit val triggerConfigReader: ConfigReader[TriggerRunnerConfig] =
     deriveReader[TriggerRunnerConfig]
 
@@ -110,6 +132,7 @@ private[trigger] final case class TriggerServiceAppConf(
     initDb: Boolean = false,
     triggerStore: Option[JdbcConfig] = None,
     allowExistingSchema: Boolean = false,
+    tlsConfig: TlsConfiguration = Cli.DefaultTlsConfiguration,
     compilerConfig: Compiler.Config = Compiler.Config.Default,
     triggerConfig: TriggerRunnerConfig = DefaultTriggerRunnerConfig,
     rootLoggingLevel: Option[Level] = None,
@@ -142,6 +165,7 @@ private[trigger] final case class TriggerServiceAppConf(
       jdbcConfig = triggerStore,
       portFile = portFile,
       allowExistingSchema = allowExistingSchema,
+      tlsConfig = tlsConfig,
       compilerConfig = compilerConfig,
       triggerConfig = triggerConfig,
       rootLoggingLevel = rootLoggingLevel,

@@ -7,7 +7,6 @@ package engine.trigger
 import java.io.ByteArrayInputStream
 import java.util.UUID
 import java.util.zip.ZipInputStream
-
 import akka.actor.ActorSystem
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.AskPattern._
@@ -46,6 +45,7 @@ import com.daml.auth.middleware.api.{
   Request => AuthRequest,
   Response => AuthResponse,
 }
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.speedy.Compiler
 import com.daml.metrics.HistogramDefinition
 import com.daml.metrics.akkahttp.HttpMetricsInterceptor
@@ -540,6 +540,7 @@ object Server {
       initialDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       allowExistingSchema: Boolean,
+      tlsConfig: TlsConfiguration,
       compilerConfig: speedy.Compiler.Config,
       triggerConfig: TriggerRunnerConfig,
       metricsReporter: Option[MetricsReporter],
@@ -636,6 +637,7 @@ object Server {
             runningTrigger.triggerRefreshToken,
             compiledPackages,
             trigger,
+            tlsConfig,
             triggerConfig,
             ledgerConfig,
             restartConfig,
