@@ -99,7 +99,6 @@ da_haskell_test(
     data = [
         "daml-helper",
         "//test-common/test-certificates",
-        ":canton.jar",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",
