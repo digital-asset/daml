@@ -17,6 +17,7 @@ java_binary(
     runtime_deps = [
         # Do not sort
         "//canton:lib",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
 )
 
@@ -32,6 +33,7 @@ java_binary(
         "//daml-lf/engine",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//canton:lib",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
 )
 
@@ -66,8 +68,8 @@ if [ "{local}" = "true" ]; then
     exit 0
 fi
 
-CANTON_ENTERPRISE_VERSION=2.7.0-rc1
-CANTON_ENTERPRISE_SHA=eb7893eb72d5680a2ad19111760b242feac0b8856bf2b5b01b643b37b5879cb5
+CANTON_ENTERPRISE_VERSION=2.7.0-snapshot.20230803.10852.0.vf4dac21e
+CANTON_ENTERPRISE_SHA=b8b4dbb83ae19ae0e76137f70f2742405c3e79afc9e62a538e7fed56f41b9af3
 
 url=https://digitalasset.jfrog.io/artifactory/canton-enterprise/canton-enterprise-$$CANTON_ENTERPRISE_VERSION.tar.gz
 
@@ -93,7 +95,7 @@ fi
 
 tar xzf $$tmp
 
-cp canton-*/lib/*.jar $@
+cp canton-*/lib/canton-*.jar $@
 """.format(
         auth = artif_auth,
         curl = "@curl_dev_env//:bin/curl" if not is_windows else "@curl_dev_env//:bin/curl.exe",
@@ -118,5 +120,8 @@ java_binary(
     main_class = "com.digitalasset.canton.CantonEnterpriseApp",
     tags = ["canton-ee"],
     visibility = ["//ledger-service:__subpackages__"],
-    runtime_deps = ["//canton:lib-ee"],
+    runtime_deps = [
+        "//canton:lib-ee",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
+    ],
 )
