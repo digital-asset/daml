@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v1/event.proto";
+import "com/daml/ledger/api/v1/trace_context.proto";
 import "com/daml/ledger/api/v1/transaction.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -56,6 +57,12 @@ message TransactionTree {
   // Required
   string domain_id = 8;
 
+  // Optional; ledger api trace context
+  //
+  // We typically use a header to transfer this information however streamed items do
+  // not have per item/message headers, so we instead in this instance set it in the body.
+  com.daml.ledger.api.v1.TraceContext trace_context = 9;
+
 }
 
 // Filtered view of an on-ledger transaction's create and archive events.
@@ -94,4 +101,10 @@ message Transaction {
   // Identifies the domain that synchronized the transaction.
   // Required
   string domain_id = 7;
+
+  // Optional; ledger api trace context
+  //
+  // We typically use a header to transfer this information however streamed items do
+  // not have per item/message headers, so we instead in this instance set it in the body.
+  com.daml.ledger.api.v1.TraceContext trace_context = 8;
 }

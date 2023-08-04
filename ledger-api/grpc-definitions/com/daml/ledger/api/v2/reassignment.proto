@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v1/event.proto";
+import "com/daml/ledger/api/v1/trace_context.proto";
 import "com/daml/ledger/api/v1/value.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -39,6 +40,12 @@ message Reassignment {
     UnassignedEvent unassigned_event = 5;
     AssignedEvent assigned_event = 6;
   }
+
+  // Optional; ledger api trace context
+  //
+  // We typically use a header to transfer this information however streamed items do
+  // not have per item/message headers, so we instead in this instance set it in the body.
+  com.daml.ledger.api.v1.TraceContext trace_context = 7;
 }
 
 // Records that a contract has been unassigned, and it becomes unusable on the source domain
