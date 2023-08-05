@@ -904,7 +904,7 @@ nodejs Deprecate 2.0.0 : MIT License
 nodejs-exit 0.1.2 : MIT License
 nodejs/string_decoder 0.10.31 : MIT License
 nodejs/string_decoder 1.1.1 : MIT License
-nodejs/string_decoder v1.3.0 : MIT License
+nodejs/string_decoder 1.3.0 : MIT License
 nomeata/tasty-expected-failure 0.12.3 : MIT License
 nopt 3.0.6 : ISC License
 nopt v4.0.3 : ISC License
@@ -2267,7 +2267,7 @@ Redistribution and use in source and binary forms, with or without
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (utf8-string v1.0.2)
 
 * Copyright (c) 2007, Galois Inc.
@@ -2299,7 +2299,7 @@ Redistribution and use in source and binary forms, with or without
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (protobuf-java 3.19.3)
 
 2019      Bas Couwenberg <sebastic@debian.org>
@@ -2334,7 +2334,7 @@ Redistribution and use in source and binary forms, with or without
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (qs -  QS Querystring v6.9.6)
 
 BSD 3-Clause License
@@ -2369,7 +2369,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (moo 0.5.1)
 
 BSD 3-Clause License
@@ -2404,7 +2404,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (Hamcrest 1.3)
 
 BSD License
@@ -2437,7 +2437,7 @@ DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (Hamcrest 2.1)
 
 BSD License
@@ -2470,7 +2470,7 @@ DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (sha.js 2.4.11)
 
 Copyright (c) 1998 - 2009, Paul Johnston & Contributors
@@ -2503,7 +2503,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (ASM 5.0.4)
 
 Copyright (c) 2000-2011 INRIA, France Telecom
@@ -2535,7 +2535,7 @@ Redistribution and use in source and binary forms, with or without
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (Janino 3.1.4)
 
 Copyright (c) 2001-2016, Arno Unkrig
@@ -2570,7 +2570,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (vector-algorithms 0.8.0.4)
 
 Copyright (c) 2004 Paul Hsieh
@@ -2604,7 +2604,7 @@ POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (Text.Regex.Lazy 0.94.0.2)
 
 Copyright (c) 2007, Christopher Kuklewicz
@@ -2621,7 +2621,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (sprintf.js 1.0.3)
 
 Copyright (c) 2007-2014, Alexandru Marasteanu <hello [at) alexei (dot] ro>
@@ -2651,7 +2651,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (sprintf.js 1.1.2)
 
 Copyright (c) 2007-present, Alexandru Mărășteanu <hello@alexei.ro>
@@ -2681,7 +2681,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (uuid 1.3.15, uuid-types 1.0.5)
 
 Copyright (c) 2008, Antoine Latter
@@ -2715,7 +2715,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (Decimal 0.5.2)
 
 Copyright (c) 2008, Paul Johnson
@@ -2751,7 +2751,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (jgm/zip-archive 0.4.1)
 
 Copyright (c) 2008-2012, John MacFarlane (jgm@berkeley.edu)
@@ -2786,7 +2786,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (Glob 0.10.2)
 
 Copyright (c) 2008-2018 <authors>
@@ -2817,7 +2817,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (golang.org/x/mod v0.5.0, golang.org/x/tools v0.1.5, golang/text v0.3.7)
 
 Copyright (c) 2009 The Go Authors. All rights reserved.
@@ -2850,7 +2850,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (easy-file 0.2.2, fast-logger 3.1.1, unix-time 0.4.7)
 
 Copyright (c) 2009, IIJ Innovation Institute Inc.
@@ -2885,7 +2885,7 @@ POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (google/uuid v.1.1.2)
 
 Copyright (c) 2009,2014 Google Inc. All rights reserved.
@@ -2918,7 +2918,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (corsis/clock 0.8.2)
 
 Copyright (c) 2009-2012, Cetin Sert
@@ -2956,7 +2956,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (scalaz-concurrent 7.2.33, scalaz-core 7.2.33, scalaz-effect 7.2.33, scalaz-iteratee 7.2.33, scalaz-scalacheck-binding 7.2.33-scalacheck-1.15)
 
 Copyright (c) 2009-2018 Tony Morris, Runar Bjarnason, Tom Adams, Kristian Domagala, Brad Clow, Ricky Clarkson, Paul Chiusano, Trygve Laugstøl, Nick Partridge, Jason Zaugg
@@ -2987,7 +2987,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (generic-deriving 1.14.1)
 
 Copyright (c) 2010 Universiteit Utrecht
@@ -3020,7 +3020,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (googleapis/google-api-go-client v0.58.0)
 
 Copyright (c) 2011 Google Inc. All rights reserved.
@@ -3053,7 +3053,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (uri-encode 1.5.0.7)
 
 Copyright (c) 2011 typLAB
@@ -3086,7 +3086,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (basvandijk/case-insensitive 1.2.1.0)
 
 Copyright (c) 2011-2013 Bas van Dijk
@@ -3123,7 +3123,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (unbounded-delays 0.1.1.1)
 
 Copyright (c) 2011-2020 Bas van Dijk & Roel van Dijk
@@ -3161,7 +3161,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (kr-fs v0.1.0)
 
 Copyright (c) 2012 The Go Authors. All rights reserved.
@@ -3194,7 +3194,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (libghc-monoid-subclasses-prof 1.1.3)
 
 Copyright (c) 2012-2013, Mario Blazevic
@@ -3222,7 +3222,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (tf-random 0.5)
 
 Copyright (c) 2012-2013, Michał Pałka
@@ -3258,7 +3258,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (mergo v0.3.4)
 
 Copyright (c) 2013 Dario Castañé. All rights reserved.
@@ -3292,7 +3292,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (duplexer2 0.1.4)
 
 Copyright (c) 2013, Deoxxa Development
@@ -3325,7 +3325,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (qs -  QS Querystring v6.7.0)
 
 Copyright (c) 2014 Nathan LaFreniere and other contributors.
@@ -3355,7 +3355,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (jpeg-js v0.4.3)
 
 Copyright (c) 2014, Eugene Ware
@@ -3387,7 +3387,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (haskell-opengl/StateVar 1.2.2)
 
 Copyright (c) 2014-2015, Edward Kmett
@@ -3422,7 +3422,7 @@ POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (gitrev 1.3.1)
 
 Copyright (c) 2015, Adam C. Foltzer
@@ -3455,7 +3455,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (path 0.9.2)
 
 Copyright (c) 2015–2018, FP Complete
@@ -3485,7 +3485,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (google/go-cmp v0.5.5)
 
 Copyright (c) 2017 The Go Authors. All rights reserved.
@@ -3518,7 +3518,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (haskell TLS 1.5.7)
 
 Copyright (c) 2017, IIJ Innovation Institute Inc.
@@ -3553,7 +3553,7 @@ POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (aeson-extra 0.5.1, aeson-pretty 0.8.9, ansi-terminal 0.11.1, ansi-wl-pprint 0.6.9, appar 0.1.8, asn1-encoding 0.9.6, asn1-parse 0.9.5, asn1-types 0.3.4, assoc 1.0.2, base16-bytestring 1.0.2.0, base64 0.4.2.3, base64-bytestring 1.2.1.0, basvandijk/lifted-base 0.2.3.12, bifunctors 5.5.11, blaze-builder 0.4.2.2, blaze-html 0.9.1.2, blaze-markup 0.8.2.8, bos/attoparsec 0.14.4, byteable 0.1.1, byteorder 1.0.4, cereal-conduit 0.8.0, charset 0.3.9, cmark-gfm 0.2.2, cmdargs 0.10.21, comonad 5.0.8, constraints-extras 0.3.2.1, contravariant 1.5.5, cryptohash-md5 0.11.101.0, cryptohash-sha1 0.11.101.0, cryptonite 0.29, cryptostore 0.2.1.0, data-default 0.7.1.1, data-default-class 0.1.2.0, data-default-instances-containers 0.0.1, data-default-instances-dlist 0.0.1, data-default-instances-old-locale 0.0.1, data-diverse 4.7.0.0, data-fix 0.3.2, dependent-map 0.4.0.0, Diff 0.4.1, digest 0.0.1.3, distributive 0.6.2.1, either 5.0.1.1, ekmett/free v5.1.7, ekmett/profunctors v5.6.2, ekmett/void v0.7.3, entropy 0.4.1.7, extra 1.7.10, filepattern 0.1.2, foldl 1.4.12, GaloisInc/cereal 0.5.8.2, ghc-lib 8.8.1, ghc-lib-parser 8.8.1, ghc-lib-parser-ex 8.8.5.8, golang.org/x/crypto 20200622-snapshot-75b28801, golang.org/x/lint 20210508-snapshot-6edffad5, golang.org/x/net 20201203-snapshot-60bc85c4, golang.org/x/oauth2 20210819-snapshot-2bc19b11, golang.org/x/sync 20210219-snapshot-036812b2, golang.org/x/sys 20210917-snapshot-d61c044b, golang.org/x/term 20201126-snapshot-7de9c90e, golang.org/x/xerrors 20200804-snapshot-5ec99f83, haskell TLS 0.11.9, haskell TLS 1.6.12, haskell TLS 1.6.7, haskell TLS 1.6.9, haskell TLS 1.7.6, haskell-foundation/foundation foundation-v0.0.12, haskell-lexer 1.1, haskell-parsers v0.12.10, haskell-reflection v2.1.6, haskell-src 1.0.3.1, haskell-vector 0.12.3.1, haskell/network 3.1.2.7, heaps 0.4, HLint 2.2.11, hoist-non-react-statics v3.3.2, hostname 1.0, hourglass 0.2.12, hpp 0.6.4, hs-aeson 1.0.2.1, hs-aeson 2.0.3.0, hs-connection connection-v0.3.1, hslogger 1.3.1.0, http-conduit 2.3.8, http-types 0.12.3, indexed-profunctors 0.1.1, insert-ordered-containers 0.2.5.1, iproute 1.7.12, JLine 3.22.0, JLine 3.7.1, JMESPath Core 0.5.0, JMESPath Jackson 0.5.0, jpeg-js 0.4.4, judah/haskeline 0.8.2, kan-extensions 5.2.3, language-c 0.9.0.1, lsp-test 0.14.0.2, managed 1.0.9, maoe/lifted-async 0.10.2.2, memory 0.16.0, monad-control 1.0.3.1, network-bsd 2.8.1.0, network-info 0.2.0.10, network-uri 2.6.4.1, old-locale 1.0.0.7, old-time 1.1.0.3, OneTuple 0.3.1, Only 0.1, open-browser 0.2.1.0, optics-core 0.4, optics-extra 0.4, optional-args 1.0.2, optparse-applicative 0.16.1.0, optparse-generic 1.4.7, parallel 3.2.2.0, parameterized 0.5.0.0, parser-combinators 1.3.0, path-io 1.6.3, Pebble 3.1.4, pem 0.2.4, phadej/cabal-doctest 1.0.9, primitive 0.7.3.0, protobuf-java 3.19.6, Protocol Buffer Java Util Package 3.19.2, Protocol Buffer Java Util Package 3.19.6, qs -  QS Querystring 6.11.0, QuickCheck 2.14.2, quickcheck-instances 0.3.27, random 1.2.1, refact 0.3.0.2, reflections 0.9.12, resourcet 1.2.4.3, rope-utf16-splay 0.3.2.0, rst-selector-parser 2.2.3, safe 0.3.19, scalacheck 1.15.4, scalameter 0.19, scalameter 0.21, scalameter-core 0.19, scalameter-core 0.21, scientific 0.3.7.0, scodec-bits 1.1.27, sebfisch's primes 0.2.1.0, semigroups 0.19.2, semirings 0.6, shake 0.19.6, simonmar/async 2.2.4, socks 0.6.1, some 1.0.3, Soostone/retry 0.9.1.0, sorted-list 0.2.1.0, spl/dlist 1.0, split 0.2.3.4, splitmix 0.1.0.4, stache 2.3.1, stm-chans 3.0.0.6, stm-conduit 4.0.1, strict 0.4.0.1, syb 0.7.2.1, tagged v0.8.6.1, tasty-ant-xml 1.1.8, temporary 1.3, terminal-size 0.3.2.1, test-interface 1.0, text-short 0.1.5, th-compat 0.1.3, these 1.2.0.1, these v1.1.1.1, tibbe/hashable 1.3.5.0, time-compat 1.9.6.1, transformers-base 0.4.6, transformers-compat 0.6.6, turtle 1.5.23, type-equality 1, uniplate 1.6.13, unix-compat 0.5.4, unordered-containers 0.2.16.0, wcwidth 0.0.2, witherable 0.4.2, xml 1.3.14, zip 1.7.1, zlib 0.6.2.3)
 
 Copyright (c) <YEAR>, <OWNER>
@@ -3587,7 +3587,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (Golang Protobuf v1.5.2)
 
 Copyright 2010 The Go Authors.  All rights reserved.
@@ -3620,7 +3620,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (gogo/protobuf v1.1.1)
 
 Copyright 2010 The Go Authors.  All rights reserved.
@@ -3654,7 +3654,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (terminal-progress-bar 0.4.1)
 
 Copyright 2012–2019 Roel van Dijk
@@ -3691,7 +3691,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (googleapis/gax-go v2.1.1)
 
 Copyright 2016, Google Inc.
@@ -3725,7 +3725,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (Golang Protobuf v1.27.1)
 
 Copyright: 2008 Google Inc
@@ -3761,7 +3761,7 @@ Redistribution and use in source and binary forms, with or without
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (ParaNamer Core 2.8)
 
 Files: debian/*
@@ -3797,7 +3797,7 @@ Redistribution and use in source and binary forms, with or without
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (source-map 0.5.7, source-map 0.6.1)
 
 License: BSD-3-clause
@@ -3834,7 +3834,7 @@ Redistribution and use in source and binary forms, with or without
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (HUnit 1.6.2.0)
 
 Redistribution and use in source and binary forms, with or without
@@ -3866,7 +3866,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (silently 1.2.5.2)
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -3880,7 +3880,7 @@ THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED WAR
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (pmezard-go-difflib 1.0.0)
 
 Source: https://github.com/pmezard/go-difflib
@@ -3924,7 +3924,7 @@ Redistribution and use in source and binary forms, with or without
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (regex-tdfa 1.3.1.1)
 
 This modile is under this "3 clause" BSD license:
@@ -3942,7 +3942,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (ieee754 v1.2.1)
 
 Upstream-Contact: https://github.com/feross/ieee754/issues
@@ -3986,7 +3986,7 @@ Redistribution and use in source and binary forms, with or without
 
 ---
 
-BSD 3-clause "New" or "Revised" License
+BSD 3-Clause "New" or "Revised" License
 (haskell-src-exts 1.23.1)
 
 modified BSD license:
@@ -12686,7 +12686,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(elliptic 6.5.4, function-bind 1.1.1, isarray 1.0.0, isarray 2.0.5, nodeca-argparse 1.0.10, nodejs/string_decoder v1.3.0)
+(elliptic 6.5.4, function-bind 1.1.1, isarray 1.0.0, isarray 2.0.5, nodeca-argparse 1.0.10, nodejs/string_decoder 1.3.0)
 
 License: Expat
 
