@@ -54,5 +54,5 @@ class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
       ))
 
   }
-  */
+   */
 }
