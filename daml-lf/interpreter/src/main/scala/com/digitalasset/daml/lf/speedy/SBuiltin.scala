@@ -955,8 +955,9 @@ private[lf] object SBuiltin {
         machine: Machine[Q],
     ): Control[Q] = {
       val templateArg: SValue = args.get(0)
+      val keyOpt: SValue = SOptional(None)
 
-      computeContractInfo(machine, templateId, templateArg) { contract =>
+      computeContractInfo(machine, templateId, templateArg, keyOpt) { contract =>
         machine.asUpdateMachine(productPrefix) { machine =>
           contract.keyOpt match {
             case Some(contractKey) if contractKey.maintainers.isEmpty =>
@@ -1017,7 +1018,9 @@ private[lf] object SBuiltin {
 
       val coid = getSContractId(args, 1)
       val templateArg: SValue = args.get(5)
-      computeContractInfo_cacheAware(machine, coid, templateId, templateArg) { contract =>
+      val keyOpt: SValue = SOptional(None)
+
+      getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
         machine.asUpdateMachine(productPrefix) { machine =>
           val templateVersion = machine.tmplId2TxVersion(templateId)
           val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
@@ -1185,14 +1188,13 @@ private[lf] object SBuiltin {
                 }
                 machine.asUpdateMachine(productPrefix) { machine =>
                   importValue(machine, templateId, coinstArg) { templateArg =>
-                    computeContractInfo_cacheAware(machine, coid, templateId, templateArg, keyOpt) {
-                      contract =>
-                        ensureContractActive(machine, coid, contract.templateId) {
-                          machine.checkContractVisibility(coid, contract)
-                          machine.enforceLimitAddInputContract()
-                          machine.enforceLimitSignatoriesAndObservers(coid, contract)
-                          Control.Value(contract.any)
-                        }
+                    getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
+                      ensureContractActive(machine, coid, contract.templateId) {
+                        machine.checkContractVisibility(coid, contract)
+                        machine.enforceLimitAddInputContract()
+                        machine.enforceLimitSignatoriesAndObservers(coid, contract)
+                        Control.Value(contract.any)
+                      }
                     }
                   }
                 }
@@ -1485,9 +1487,9 @@ private[lf] object SBuiltin {
     ): Control[Q] = {
       machine.asUpdateMachine(productPrefix) { machine =>
         val coid = getSContractId(args, 0)
-        val keyOpt: SValue = args.get(1)
+        val keyOpt: SValue = args.get(1) // NICK - use this, instead of passing None??
         fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) { templateArg =>
-          computeContractInfo_cacheAware(machine, coid, templateId, templateArg) { contract =>
+          getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
             val version = machine.tmplId2TxVersion(templateId)
             machine.ptx.insertFetch(
               coid = coid,
@@ -1606,7 +1608,7 @@ private[lf] object SBuiltin {
             )
           )
         } else {
-          val keyOpt = SOptional(Some(keyValue))
+          val keyOpt = SOptional(Some(keyValue)) // NICK - use this, instead of passing None??
           val gkey = cachedKey.globalKey
           val optTargetTemplateId: Option[TypeConName] = None // NICK: hard, correct?
           machine.ptx.contractState.resolveKey(gkey) match {
@@ -1616,9 +1618,8 @@ private[lf] object SBuiltin {
                 case ContractStateMachine.KeyActive(coid) =>
                   fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
                     templateArg =>
-                      computeContractInfo_cacheAware(machine, coid, templateId, templateArg) {
-                        contract =>
-                          machine.checkKeyVisibility(gkey, coid, operation.handleKeyFound, contract)
+                      getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
+                        machine.checkKeyVisibility(gkey, coid, operation.handleKeyFound, contract)
                       }
                   }
 
@@ -1637,18 +1638,14 @@ private[lf] object SBuiltin {
                         machine.asUpdateMachine(productPrefix) { machine =>
                           fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
                             templateArg =>
-                              computeContractInfo_cacheAware(
-                                machine,
-                                coid,
-                                templateId,
-                                templateArg,
-                              ) { contract =>
-                                machine.checkKeyVisibility(
-                                  gkey,
-                                  coid,
-                                  operation.handleKeyFound,
-                                  contract,
-                                )
+                              getContractInfo(machine, coid, templateId, templateArg, keyOpt) {
+                                contract =>
+                                  machine.checkKeyVisibility(
+                                    gkey,
+                                    coid,
+                                    operation.handleKeyFound,
+                                    contract,
+                                  )
                               }
                           }
                         }
@@ -2270,8 +2267,8 @@ private[lf] object SBuiltin {
     }
   }
 
-  // NICK: comment
-  def importValue[Q](
+  // TODO: With some refactoring, I think we can remove SEImportValue
+  private[speedy] def importValue[Q](
       machine: Machine[Q],
       templateId: TypeConName,
       coinstArg: V,
@@ -2284,15 +2281,13 @@ private[lf] object SBuiltin {
     }
   }
 
-  // NICK: comment
-  private[speedy] def computeContractInfo_cacheAware[Q]( // NICK: terrible name
+  // Get the contract info for a contract, computing if required
+  private[speedy] def getContractInfo[Q](
       machine: Machine[Q],
       coid: V.ContractId,
       templateId: Identifier,
       templateArg: SValue,
-      keyOpt: SValue = SOptional(
-        None
-      ), // NICK: what does this option control? -- key option -- kill default
+      keyOpt: SValue,
   )(
       f: ContractInfo => Control[Q]
   ): Control[Q] = {
@@ -2313,7 +2308,7 @@ private[lf] object SBuiltin {
       machine: Machine[Q],
       templateId: Identifier,
       templateArg: SValue,
-      keyOpt: SValue = SOptional(None), // NICK: kill default value
+      keyOpt: SValue,
   )(
       f: ContractInfo => Control[Q]
   ): Control[Q] = {

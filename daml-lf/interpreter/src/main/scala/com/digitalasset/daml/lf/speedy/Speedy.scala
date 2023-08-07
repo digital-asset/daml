@@ -132,7 +132,7 @@ private[lf] object Speedy {
   ) {
     val stakeholders: Set[Party] = signatories union observers
 
-    private[speedy] val any = SValue.SAnyContract(templateId, value) // NICK, callers?
+    private[speedy] val any = SValue.SAnyContract(templateId, value)
     private[speedy] def arg = value.toNormalizedValue(version)
     private[speedy] def gkeyOpt: Option[GlobalKey] = keyOpt.map(_.globalKey)
     private[speedy] def toCreateNode(coid: V.ContractId) =
