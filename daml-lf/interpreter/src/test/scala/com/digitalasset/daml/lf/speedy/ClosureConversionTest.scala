@@ -49,7 +49,7 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
 
   def transform2(e: SExpr): Boolean = {
     val e1: target.SExpr = closureConvert(e)
-    val _ = flattenToAnf(e1)
+    val _ = flattenToAnf(e1, enableFullAnfTransformation = false)
     true
   }
 

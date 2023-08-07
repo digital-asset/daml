@@ -38,12 +38,12 @@ import com.daml.lf.transaction.ContractKeyUniquenessMode
   * @param enableContractUpgrading If set this flag a choice that is executed against
   *     a contract may exist in a package different from that of the package.
   * @param enableFullAnfTransformation When true, the SExpr produced by the ANF
- *      pass do not contain any SEAppOnlyFunIsAtomic applications, only
- *      SEAppAtomic ones. This simplifies the code of the speedy machine and
- *      speeds it up, but also changes the evaluation order or daml programs in
- *      a way that is incompatible with the daml 2 specification. This
- *      incompatibility is observable in the presence of exceptions or
- *      non-termination.
+  *      pass do not contain any SEAppOnlyFunIsAtomic applications, only
+  *      SEAppAtomic ones. This simplifies the code of the speedy machine and
+  *      speeds it up, but also changes the evaluation order or daml programs in
+  *      a way that is incompatible with the daml 2 specification. This
+  *      incompatibility is observable in the presence of exceptions or
+  *      non-termination.
   */
 final case class EngineConfig(
     allowedLanguageVersions: VersionRange[language.LanguageVersion],

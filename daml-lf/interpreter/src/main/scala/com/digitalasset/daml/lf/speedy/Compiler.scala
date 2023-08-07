@@ -352,7 +352,10 @@ private[lf] final class Compiler(
 
   // speedy compilation phases 2,3 (i.e post translate-from-LF)
   private[this] def pipeline(sexpr: s.SExpr): t.SExpr =
-    flattenToAnf(closureConvert(sexpr))
+    flattenToAnf(
+      closureConvert(sexpr),
+      enableFullAnfTransformation = config.enableFullAnfTransformation,
+    )
 
   private[this] def compileModule(
       pkgId: PackageId,

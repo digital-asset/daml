@@ -50,7 +50,7 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     def transform3(e: Expr): Boolean = {
       val e0: SExpr = phase1.translateFromLF(PhaseOne.Env.Empty, e)
       val e1 = closureConvert(e0)
-      val _ = flattenToAnf(e1)
+      val _ = flattenToAnf(e1, enableFullAnfTransformation = false)
       true
     }
 
