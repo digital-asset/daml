@@ -1304,7 +1304,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control.Expression = {
-      val optTargetTemplateId: Option[TypeConName] = None // NICK, ok? ???
+      val optTargetTemplateId: Option[TypeConName] = None // hard
       val e = SEBuiltin(
         SBUInsertFetchNode(
           getSAnyContract(args, 0)._1,
@@ -1610,7 +1610,7 @@ private[lf] object SBuiltin {
         } else {
           val keyOpt = SOptional(Some(keyValue)) // NICK - use this, instead of passing None??
           val gkey = cachedKey.globalKey
-          val optTargetTemplateId: Option[TypeConName] = None // NICK: hard, correct?
+          val optTargetTemplateId: Option[TypeConName] = None // hard
           machine.ptx.contractState.resolveKey(gkey) match {
             case Right((keyMapping, next)) =>
               machine.ptx = machine.ptx.copy(contractState = next)
@@ -2243,7 +2243,7 @@ private[lf] object SBuiltin {
       coid: V.ContractId,
       keyOpt: SValue,
   )(f: SValue => Control[Q]): Control[Q] = {
-    // NICK: dont contruct expression, but just call the guts of the builtin
+    // NICK: dont construct expression, but just call the guts of the builtin
     val fetchExp: SExpr = SEApp(
       SEBuiltin(
         SBFetchAny(optTargetTemplateId) // NICK: ends up calling lookupContractOnLedger above
