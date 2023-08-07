@@ -181,8 +181,8 @@ private[lf] object Anf {
     transformExp(depth, env, rhs) { (depth, rhs) =>
       val depth1 = depth.incr(1)
       val env1 = trackBindings(depth, env, 1)
-      transformExp(depth1, env1, body)(transform) flatMap { body =>
-        done(target.SELet1(rhs, body))
+      transformExp(depth1, env1, body)(transform) map { body =>
+        target.SELet1(rhs, body)
       }
     }
   }
@@ -220,8 +220,8 @@ private[lf] object Anf {
       case source.SCaseAlt(pat, body) =>
         val n = patternNArgs(pat)
         val env1 = trackBindings(depth, env, n)
-        flattenExp(depth.incr(n), env1, body) flatMap { body =>
-          done(target.SCaseAlt(pat, body))
+        flattenExp(depth.incr(n), env1, body) map { body =>
+          target.SCaseAlt(pat, body)
         }
     }
   }
@@ -361,10 +361,8 @@ private[lf] object Anf {
         transformExp(depth, env, exp) { (depth, exp) =>
           val atom = Right(AbsBinding(depth))
           tailcall {
-            transform(depth.incr(1), atom) flatMap { body =>
-              done {
-                target.SELet1(exp, body)
-              }
+            transform(depth.incr(1), atom) map { body =>
+              target.SELet1(exp, body)
             }
           }
         }
