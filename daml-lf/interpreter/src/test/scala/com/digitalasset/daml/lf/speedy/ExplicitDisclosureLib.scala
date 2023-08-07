@@ -224,7 +224,7 @@ object ExplicitDisclosureLib {
     )
   }
 
-  def buildHouseCachedContract(
+  def buildHouseContractInfo(
       signatory: Party,
       maintainer: Party,
       templateId: Ref.Identifier = houseTemplateId,
