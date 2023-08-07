@@ -25,6 +25,7 @@ sealed abstract class SubmitError
     with NoStackTrace
     with Product
     with Serializable {
+  // Implementing code needs to be kept in sync with daml-script#Error.daml
   def toDamlSubmitError(env: ScriptF.Env): SValue
 }
 
@@ -371,6 +372,7 @@ object SubmitError {
   }
 
   final case class DevError(errorType: String, message: String) extends SubmitError {
+    // This code needs to be kept in sync with daml-script#Error.daml
     override def toDamlSubmitError(env: Env): SValue = {
       val devErrorTypeIdentifier =
         env.scriptIds.damlScriptModule("Daml.Script.Questions.Submit.Error", "DevErrorType")

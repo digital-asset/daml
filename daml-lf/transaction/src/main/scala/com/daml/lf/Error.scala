@@ -146,6 +146,10 @@ object Error {
 
   final case class ContractIdInContractKey(key: Value) extends Error
 
+  /** A value has been nested beyond a given depth limit
+    *
+    * @param limit nesting limit that was exceeded
+    */
   final case class ValueNesting(limit: Int) extends Error
 
   // Error that can be thrown by dev or PoC feature only
