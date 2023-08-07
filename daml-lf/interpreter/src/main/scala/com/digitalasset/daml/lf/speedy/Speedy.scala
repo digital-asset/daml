@@ -121,7 +121,7 @@ private[lf] object Speedy {
     }
   }
 
-  final case class ContractInfo( // NICK: rename ContractInfo; fix bound vars names
+  final case class ContractInfo(
       version: TxVersion,
       templateId: Ref.TypeConName,
       value: SValue,

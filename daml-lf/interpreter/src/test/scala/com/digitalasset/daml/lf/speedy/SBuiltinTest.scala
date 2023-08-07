@@ -1755,7 +1755,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
         val (disclosedContract, None) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = false)
-        val cachedContract = ContractInfo(
+        val contractInfo = ContractInfo(
           version = txVersion,
           templateId,
           disclosedContract.argument,
@@ -1764,7 +1764,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           Set.empty,
           None,
         )
-        val cachedContractSExpr = SBuildCachedContract(
+        val contractInfoSExpr = SBuildCachedContract(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
           SEValue(SText("")),
@@ -1776,7 +1776,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         inside(
           evalOnLedger(
             SELet1(
-              cachedContractSExpr,
+              contractInfoSExpr,
               SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId, None)), Array(SELocS(1))),
             ),
             getContract = Map(
@@ -1788,7 +1788,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
             ),
           )
         ) { case Right((SUnit, disclosedContracts, disclosedContractKeys)) =>
-          disclosedContracts shouldBe Map(contractId -> cachedContract)
+          disclosedContracts shouldBe Map(contractId -> contractInfo)
           disclosedContractKeys shouldBe empty
         }
       }
@@ -1801,7 +1801,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           GlobalKeyWithMaintainers.assertBuild(templateId, key.toUnnormalizedValue, Set(alice)),
           key,
         )
-        val cachedContract = ContractInfo(
+        val contractInfo = ContractInfo(
           version = txVersion,
           templateId,
           disclosedContract.argument,
@@ -1810,7 +1810,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           Set.empty,
           Some(cachedKey),
         )
-        val cachedContractSExpr = SBuildCachedContract(
+        val contractInfoSExpr = SBuildCachedContract(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
           SEValue(SText("agreement")),
@@ -1822,7 +1822,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         inside(
           evalOnLedger(
             SELet1(
-              cachedContractSExpr,
+              contractInfoSExpr,
               SEAppAtomic(
                 SEBuiltin(SBCacheDisclosedContract(contractId, Some(cachedKey.globalKey.hash))),
                 Array(SELocS(1)),
@@ -1837,7 +1837,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
             ),
           )
         ) { case Right((SUnit, disclosedContracts, disclosedContractKeys)) =>
-          disclosedContracts shouldBe Map(contractId -> cachedContract)
+          disclosedContracts shouldBe Map(contractId -> contractInfo)
           disclosedContractKeys shouldBe Map(cachedKey.globalKey -> contractId)
         }
       }

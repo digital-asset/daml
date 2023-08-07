@@ -816,7 +816,7 @@ private[lf] final class Compiler(
       translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmpl.observers)
     }
 
-  private[this] def compileToCachedContract(
+  private[this] def compileToCachedContract( // NICK: better name, no "Cached"
       tmplId: Identifier,
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =

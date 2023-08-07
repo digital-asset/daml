@@ -2048,7 +2048,7 @@ private[lf] object SBuiltin {
 
   }
 
-  /** $cacheDisclosedContract[T] :: ContractId T -> CachedContract T -> Unit */
+  /** $cacheDisclosedContract[T] :: ContractId T -> ContractInfoStruct T -> Unit */
   private[speedy] final case class SBCacheDisclosedContract( // NICK: what do I do?
       contractId: V.ContractId,
       keyHash: Option[crypto.Hash],
@@ -2059,19 +2059,19 @@ private[lf] object SBuiltin {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val contractInfoStruct = args.get(0)
-      val cachedContract = extractCachedContract(machine.tmplId2TxVersion, contractInfoStruct)
-      (keyHash, cachedContract.keyOpt) match {
+      val contract = extractContractInfo(machine.tmplId2TxVersion, contractInfoStruct)
+      (keyHash, contract.keyOpt) match {
         case (Some(hash), Some(key)) if hash != key.globalKey.hash =>
           Control.Error(IE.DisclosedContractKeyHashingError(contractId, key.globalKey, hash))
         case _ =>
           // Command preprocessing should enforce the following invariant
-          val invariant = (keyHash.isDefined == cachedContract.keyOpt.isDefined)
+          val invariant = (keyHash.isDefined == contract.keyOpt.isDefined)
           if (!invariant)
             InternalError.assertionException(
               NameOf.qualifiedNameOfCurrentFunc,
               "unexpected mismatching contract key",
             )
-          machine.addDisclosedContracts(contractId, cachedContract)
+          machine.addDisclosedContracts(contractId, contract)
           Control.Value(SUnit)
       }
     }
@@ -2162,41 +2162,44 @@ private[lf] object SBuiltin {
       case _ => throw SErrorCrash(location, s"Invalid key with maintainers: $v")
     }
 
-  private[this] val cachedContractFieldNames =
+  private[this] val contractInfoStructFieldNames =
     List("type", "value", "agreementText", "signatories", "observers", "mbKey").map(
       Ref.Name.assertFromString
     )
 
-  private[this] val cachedContractStruct =
-    Struct.assertFromSeq(cachedContractFieldNames.zipWithIndex)
+  private[this] val contractInfoPositionStruct =
+    Struct.assertFromSeq(contractInfoStructFieldNames.zipWithIndex)
 
   private[this] val List(
-    cachedContractTypeFieldIdx,
-    cachedContractArgIdx,
-    cachedAgreementTextIdx,
-    cachedContractSignatoriesIdx,
-    cachedContractObserversIdx,
-    cachedContractKeyIdx,
-  ) = cachedContractFieldNames.map(cachedContractStruct.indexOf): @nowarn(
+    contractInfoStructTypeFieldIdx,
+    contractInfoStructArgIdx,
+    contractInfoStructAgreementTextIdx,
+    contractInfoStructSignatoriesIdx,
+    contractInfoStructObserversIdx,
+    contractInfoStructKeyIdx,
+  ) = contractInfoStructFieldNames.map(contractInfoPositionStruct.indexOf): @nowarn(
     "msg=match may not be exhaustive"
   )
 
-  private[speedy] val SBuildCachedContract =
-    SBuiltin.SBStructCon(cachedContractStruct)
+  private[speedy] val SBuildCachedContract = // NICK: rename
+    SBuiltin.SBStructCon(contractInfoPositionStruct)
 
-  private[speedy] def extractCachedContract( // NICK: inline when we have just one caller
+  private[speedy] def extractContractInfo( // NICK: inline when we have just one caller
       tmplId2TxVersion: TypeConName => TransactionVersion,
       contractInfoStruct: SValue,
   ): ContractInfo = {
     contractInfoStruct match {
-      case SStruct(_, vals) if vals.size == cachedContractStruct.size =>
-        val templateId = vals.get(cachedContractTypeFieldIdx) match {
+      case SStruct(_, vals) if vals.size == contractInfoPositionStruct.size =>
+        val templateId = vals.get(contractInfoStructTypeFieldIdx) match {
           case STypeRep(Ast.TTyCon(tycon)) => tycon
           case v =>
-            throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Invalid cached contract: $v")
+            throw SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"Invalid contract info struct: $v",
+            )
         }
         val version = tmplId2TxVersion(templateId)
-        val mbKey = vals.get(cachedContractKeyIdx) match {
+        val mbKey = vals.get(contractInfoStructKeyIdx) match {
           case SOptional(mbKey) =>
             mbKey.map(extractKey(NameOf.qualifiedNameOfCurrentFunc, version, templateId, _))
           case v =>
@@ -2208,19 +2211,23 @@ private[lf] object SBuiltin {
         ContractInfo(
           version = version,
           templateId = templateId,
-          value = vals.get(cachedContractArgIdx),
-          agreementText =
-            extractText(NameOf.qualifiedNameOfCurrentFunc, vals.get(cachedAgreementTextIdx)),
+          value = vals.get(contractInfoStructArgIdx),
+          agreementText = extractText(
+            NameOf.qualifiedNameOfCurrentFunc,
+            vals.get(contractInfoStructAgreementTextIdx),
+          ),
           signatories = extractParties(
             NameOf.qualifiedNameOfCurrentFunc,
-            vals.get(cachedContractSignatoriesIdx),
+            vals.get(contractInfoStructSignatoriesIdx),
           ),
-          observers =
-            extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(cachedContractObserversIdx)),
+          observers = extractParties(
+            NameOf.qualifiedNameOfCurrentFunc,
+            vals.get(contractInfoStructObserversIdx),
+          ),
           keyOpt = mbKey,
         )
       case v =>
-        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Invalid cached contract: $v")
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Invalid contract info struct: $v")
     }
   }
 
@@ -2315,7 +2322,7 @@ private[lf] object SBuiltin {
     }
   }
 
-  // NICK: goal: be the only caller of extractCachedContract
+  // NICK: goal: be the only caller of extractContractInfo
   private[speedy] def computeContractInfo[Q](
       machine: Machine[Q],
       templateId: Identifier,
@@ -2332,7 +2339,7 @@ private[lf] object SBuiltin {
       ),
     )
     executeExpression(machine, e) { contractInfoStruct =>
-      val contract = extractCachedContract(machine.tmplId2TxVersion, contractInfoStruct)
+      val contract = extractContractInfo(machine.tmplId2TxVersion, contractInfoStruct)
       f(contract)
     }
   }
