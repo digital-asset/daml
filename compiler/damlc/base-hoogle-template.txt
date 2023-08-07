@@ -4,7 +4,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.
 
--- | Daml standard library.
+-- | Daml Standard Library.
 @url {{base-url}}
 @package daml-stdlib
 @version 1.2.0

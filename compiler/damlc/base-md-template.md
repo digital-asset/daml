@@ -1,5 +1,5 @@
 
-# The standard library
+# The Standard Library
 
 The Daml standard library is a collection of Daml modules that can be used to implement concrete applications.
 
