@@ -379,7 +379,7 @@ private[lf] final class Compiler(
         }
 
       addDef(compileCreate(tmplId, tmpl))
-      addDef(compileFetchTemplate(tmplId, tmpl, optTargetTemplateId))
+      addDef(compileFetchTemplate(tmplId, optTargetTemplateId))
       addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileAgreementText(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
@@ -403,7 +403,7 @@ private[lf] final class Compiler(
 
       tmpl.key.foreach { tmplKey =>
         addDef(compileContractKeyWithMaintainers(tmplId, tmpl, tmplKey))
-        addDef(compileFetchByKey(tmplId, tmpl, tmplKey))
+        addDef(compileFetchByKey(tmplId, tmplKey))
         addDef(compileLookupByKey(tmplId, tmplKey))
         tmpl.choices.values.foreach { x =>
           addDef(compileChoiceByKey(tmplId, tmpl, tmplKey, x))
@@ -502,7 +502,6 @@ private[lf] final class Compiler(
   ): s.SExpr = {
     let(
       env,
-      // NICK: remove SBCastAnyContract - no longer needed
       SBCastAnyContract(tmplId)(
         env.toSEVar(cidPos),
         SBFetchAny(optTargetTemplateId)(
@@ -723,14 +722,12 @@ private[lf] final class Compiler(
   private[this] def translateFetchTemplateBody(
       env: Env,
       tmplId: Identifier,
-      tmpl: Template, // NICK: dont need!
       optTargetTemplateId: Option[TypeConName],
   )(
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
   ): s.SExpr = {
-    val _ = tmpl
     SBUInsertFetchNode(
       tmplId,
       optTargetTemplateId,
@@ -744,11 +741,10 @@ private[lf] final class Compiler(
 
   private[this] def compileFetchTemplate(
       tmplId: Identifier,
-      tmpl: Template,
       optTargetTemplateId: Option[TypeConName],
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction2(t.FetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
-      translateFetchTemplateBody(env, tmplId, tmpl, optTargetTemplateId)(
+      translateFetchTemplateBody(env, tmplId, optTargetTemplateId)(
         cidPos,
         None,
         tokenPos,
@@ -1001,7 +997,6 @@ private[lf] final class Compiler(
   @inline
   private[this] def compileFetchByKey(
       tmplId: TypeConName,
-      tmpl: Template,
       tmplKey: TemplateKey,
   ): (t.SDefinitionRef, SDefinition) =
     // compile a template with key into
@@ -1016,7 +1011,7 @@ private[lf] final class Compiler(
         let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
           let(
             env,
-            translateFetchTemplateBody(env, tmplId, tmpl, optTargetTemplateId = None)(
+            translateFetchTemplateBody(env, tmplId, optTargetTemplateId = None)(
               cidPos,
               Some(keyWithMPos),
               tokenPos,
