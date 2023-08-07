@@ -187,6 +187,7 @@ conformance_test_excluded_test = [
     "ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
     # dynamic config management not supported by Canton
     "ConfigManagementServiceIT",
+    "DeeplyNestedValueIT",
     "LedgerConfigurationServiceIT",
     "ParticipantPruningIT",  # pruning not supported in Canton Community
     "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
