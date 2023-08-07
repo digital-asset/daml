@@ -64,12 +64,18 @@ private[lf] object Compiler {
   case object NoPackageValidation extends PackageValidationMode
   case object FullPackageValidation extends PackageValidationMode
 
+  /** @param enableFullAnfTransformation When true, the SExpr produced by the ANF pass do not contain any
+    *     SEAppOnlyFunIsAtomic applications, only SEAppAtomic ones. This simplifies the code of the speedy machine and
+    *     speeds it up, but also changes the evaluation order or daml programs in a way that is incompatible with the
+    *     daml 2 specification. This incompatibility is observable in the presence of exceptions or non-termination.
+    */
   final case class Config(
       allowedLanguageVersions: VersionRange[LanguageVersion],
       packageValidation: PackageValidationMode,
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
       enableContractUpgrading: Boolean = false,
+      enableFullAnfTransformation: Boolean = false,
   )
 
   object Config {
