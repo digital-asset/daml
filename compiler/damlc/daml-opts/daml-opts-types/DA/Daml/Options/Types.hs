@@ -8,6 +8,7 @@ module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
     , EnableScenarios(..)
+    , EvaluationOrder(..)
     , AllowLargeTuples(..)
     , StudioAutorunAllScenarios(..)
     , SkipScenarioValidation(..)
@@ -184,6 +185,11 @@ newtype AllowLargeTuples = AllowLargeTuples { getAllowLargeTuples :: Bool }
 
 newtype StudioAutorunAllScenarios = StudioAutorunAllScenarios { getStudioAutorunAllScenarios :: Bool }
     deriving Show
+
+data EvaluationOrder
+  = LeftToRight
+  | RightToLeft
+  deriving (Read, Show, Eq)
 
 damlArtifactDir :: FilePath
 damlArtifactDir = ".daml"
