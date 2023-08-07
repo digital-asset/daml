@@ -121,7 +121,7 @@ private[lf] object Speedy {
     }
   }
 
-  final case class XCachedContract( // NICK: rename ContractInfo; fix bound vars names
+  final case class ContractInfo( // NICK: rename ContractInfo; fix bound vars names
       version: TxVersion,
       templateId: Ref.TypeConName,
       value: SValue,
@@ -240,15 +240,15 @@ private[lf] object Speedy {
 
     private[this] var numInputContracts: Int = 0
 
-    private[this] var disclosedContracts_ = Map.empty[V.ContractId, XCachedContract]
-    private[speedy] def disclosedContracts: Map[V.ContractId, XCachedContract] = disclosedContracts_
+    private[this] var disclosedContracts_ = Map.empty[V.ContractId, ContractInfo]
+    private[speedy] def disclosedContracts: Map[V.ContractId, ContractInfo] = disclosedContracts_
 
     private[this] var disclosedContractKeys_ = Map.empty[GlobalKey, V.ContractId]
     private[speedy] def disclosedContractKeys: Map[GlobalKey, V.ContractId] = disclosedContractKeys_
 
     private[speedy] def addDisclosedContracts(
         contractId: V.ContractId,
-        contract: XCachedContract,
+        contract: ContractInfo,
     ): Unit = {
       disclosedContracts_ = disclosedContracts.updated(contractId, contract)
       contract.keyOpt.foreach(key =>
@@ -288,13 +288,13 @@ private[lf] object Speedy {
     }
 
     // contract-info cache (will become template-id aware when we support ResultNeedUpgradeVerification) // NICK
-    private[speedy] var contractInfoCache: Map[V.ContractId, XCachedContract] = Map.empty
-    private[speedy] def lookupContractInfoCache(coid: V.ContractId): Option[XCachedContract] = {
+    private[speedy] var contractInfoCache: Map[V.ContractId, ContractInfo] = Map.empty
+    private[speedy] def lookupContractInfoCache(coid: V.ContractId): Option[ContractInfo] = {
       contractInfoCache.get(coid)
     }
     private[speedy] def insertContractInfoCache(
         coid: V.ContractId,
-        contract: XCachedContract,
+        contract: ContractInfo,
     ): Unit = {
       contractInfoCache = contractInfoCache + (coid -> contract)
     }
@@ -306,7 +306,7 @@ private[lf] object Speedy {
 
     private[speedy] def enforceLimitSignatoriesAndObservers(
         cid: V.ContractId,
-        contract: XCachedContract,
+        contract: ContractInfo,
     ): Unit = {
       enforceLimit(
         NameOf.qualifiedNameOfCurrentFunc,
@@ -426,7 +426,7 @@ private[lf] object Speedy {
 
     def checkContractVisibility(
         cid: V.ContractId,
-        contract: XCachedContract,
+        contract: ContractInfo,
     ): Unit = {
       // For disclosed contracts, we do not perform visibility checking
       if (!isDisclosedContract(cid)) {
@@ -457,7 +457,7 @@ private[lf] object Speedy {
         gkey: GlobalKey,
         coid: V.ContractId,
         handleKeyFound: V.ContractId => Control.Value,
-        contract: XCachedContract,
+        contract: ContractInfo,
     ): Control.Value = {
       // For local and disclosed contracts, we do not perform visibility checking
       if (isLocalContract(coid) || isDisclosedContract(coid)) {

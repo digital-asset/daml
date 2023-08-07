@@ -2187,7 +2187,7 @@ private[lf] object SBuiltin {
   private[speedy] def extractCachedContract( // NICK: inline when we have just one caller
       tmplId2TxVersion: TypeConName => TransactionVersion,
       contractInfoStruct: SValue,
-  ): XCachedContract = {
+  ): ContractInfo = {
     contractInfoStruct match {
       case SStruct(_, vals) if vals.size == cachedContractStruct.size =>
         val templateId = vals.get(cachedContractTypeFieldIdx) match {
@@ -2205,7 +2205,7 @@ private[lf] object SBuiltin {
               s"Expected optional key with maintainers, got: $v",
             )
         }
-        XCachedContract(
+        ContractInfo(
           version = version,
           templateId = templateId,
           value = vals.get(cachedContractArgIdx),
@@ -2295,7 +2295,7 @@ private[lf] object SBuiltin {
       templateArg: SValue,
       keyOpt: SValue = SOptional(None), // NICK: what does this option control? -- key option
   )(
-      f: XCachedContract => Control[Q]
+      f: ContractInfo => Control[Q]
   ): Control[Q] = {
 
     // NICK - idea: key cache should on templateId+templateArg - no need for coid, crazy??
@@ -2322,7 +2322,7 @@ private[lf] object SBuiltin {
       templateArg: SValue,
       keyOpt: SValue = SOptional(None), // NICK: kill default value
   )(
-      f: XCachedContract => Control[Q]
+      f: ContractInfo => Control[Q]
   ): Control[Q] = {
     val e: SExpr = SEApp(
       SEVal(ToCachedContractDefRef(templateId)), // NICK: sole call

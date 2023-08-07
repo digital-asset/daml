@@ -10,7 +10,7 @@ import data.Time
 import SResult._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.{Ast, PackageInterface}
-import com.daml.lf.speedy.Speedy.{XCachedContract, UpdateMachine}
+import com.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.lf.value.Value.ContractId
@@ -216,7 +216,7 @@ private[speedy] object SpeedyTestLib {
       }
 
       private[speedy] def withDisclosedContractKeys(
-          disclosedContractKeys: (ContractId, XCachedContract)*
+          disclosedContractKeys: (ContractId, ContractInfo)*
       ): UpdateMachine = {
         disclosedContractKeys.foreach { case (contractId, contract) =>
           machine.addDisclosedContracts(contractId, contract)

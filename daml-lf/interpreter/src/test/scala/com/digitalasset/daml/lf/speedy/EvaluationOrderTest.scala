@@ -348,9 +348,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
   private[this] def buildDisclosedContract(
       signatory: Party
-  ): (Value.ContractId, Speedy.XCachedContract) = {
+  ): (Value.ContractId, Speedy.ContractInfo) = {
     cId ->
-      Speedy.XCachedContract(
+      Speedy.ContractInfo(
         version = TransactionVersion.minExplicitDisclosure,
         templateId = Dummy,
         value = SRecord(
@@ -419,7 +419,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       e: Expr,
       args: Array[SValue],
       parties: Set[Party],
-      disclosedContracts: Iterable[(Value.ContractId, Speedy.XCachedContract)] = Iterable.empty,
+      disclosedContracts: Iterable[(Value.ContractId, Speedy.ContractInfo)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,

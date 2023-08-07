@@ -18,7 +18,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import defaultParserParameters.{defaultPackageId => pkgId}
 import SpeedyTestLib.loggingContext
-import com.daml.lf.speedy.Speedy.XCachedContract
+import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.ContextualizedLogger
@@ -639,19 +639,19 @@ object SpeedyTest {
     val localContractId: ContractId =
       ContractId.V1(crypto.Hash.hashPrivateKey("test-local-contract-id"))
     val localContractKey: GlobalKey = buildContractKey(alice, "local-label")
-    val localCachedContract: XCachedContract =
+    val localCachedContract: ContractInfo =
       buildHouseCachedContract(alice, alice, label = "local-label")
     val globalContractId: ContractId =
       ContractId.V1(crypto.Hash.hashPrivateKey("test-global-contract-id"))
     val globalContractKey: GlobalKey = buildContractKey(alice, "global-label")
-    val globalCachedContract: XCachedContract =
+    val globalCachedContract: ContractInfo =
       buildHouseCachedContract(alice, alice, label = "global-label")
     val disclosedContractId: ContractId =
       ContractId.V1(crypto.Hash.hashPrivateKey("test-disclosed-contract-id"))
-    val disclosedContract: XCachedContract =
+    val disclosedContract: ContractInfo =
       buildDisclosedHouseContract(alice, alice, label = "disclosed-label")
     val disclosedContractKey: GlobalKey = buildContractKey(alice, "disclosed-label")
-    val disclosedCachedContract: XCachedContract =
+    val disclosedCachedContract: ContractInfo =
       buildHouseCachedContract(alice, alice, label = "disclosed-label")
     val testLogger: WarningLog = new WarningLog(ContextualizedLogger.createFor("daml.warnings"))
     val machine: Speedy.UpdateMachine = Speedy.Machine
