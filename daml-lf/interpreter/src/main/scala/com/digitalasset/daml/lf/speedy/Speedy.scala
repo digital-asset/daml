@@ -133,7 +133,7 @@ private[lf] object Speedy {
     val stakeholders: Set[Party] = signatories union observers
 
     private[speedy] val any = SValue.SAnyContract(templateId, value) // NICK, callers?
-    private[speedy] def arg = value.toNormalizedValue(version) // NICK: ah!
+    private[speedy] def arg = value.toNormalizedValue(version)
     private[speedy] def gkeyOpt: Option[GlobalKey] = keyOpt.map(_.globalKey)
     private[speedy] def toCreateNode(coid: V.ContractId) =
       Node.Create(
@@ -274,7 +274,7 @@ private[lf] object Speedy {
     def incompleteTransaction: IncompleteTx = ptx.finishIncomplete
     def nodesToString: String = ptx.nodesToString
 
-    // local contract store... // NICK: maybe store the AnyContract, instead of the pair
+    // local contract store...
     private[speedy] var localContractStore: Map[V.ContractId, (TypeConName, SValue)] = Map.empty
     private[speedy] def getIfLocalContract(coid: V.ContractId): Option[(TypeConName, SValue)] = {
       localContractStore.get(coid)
@@ -287,7 +287,7 @@ private[lf] object Speedy {
       localContractStore = localContractStore + (coid -> (templateId, templateArg))
     }
 
-    // contract-info cache (will become template-id aware when we support ResultNeedUpgradeVerification) // NICK
+    // contract-info cache // NICK: be template-id aware when we support ResultNeedUpgradeVerification)
     private[speedy] var contractInfoCache: Map[V.ContractId, ContractInfo] = Map.empty
     private[speedy] def lookupContractInfoCache(coid: V.ContractId): Option[ContractInfo] = {
       contractInfoCache.get(coid)
@@ -299,7 +299,6 @@ private[lf] object Speedy {
       contractInfoCache = contractInfoCache + (coid -> contract)
     }
 
-    // NICK: this is old. How does it fit in?
     private[speedy] def isLocalContract(contractId: V.ContractId): Boolean = {
       ptx.contractState.locallyCreated.contains(contractId)
     }
@@ -337,7 +336,7 @@ private[lf] object Speedy {
     }
 
     private[speedy] def enforceLimitAddInputContract(): Unit = {
-      numInputContracts += 1 // NICK, hmm
+      numInputContracts += 1
       enforceLimit(
         NameOf.qualifiedNameOfCurrentFunc,
         numInputContracts,
@@ -815,7 +814,7 @@ private[lf] object Speedy {
     }
 
     final def setControl[Q2](x: Control[Q2]): Unit = {
-      control = x.asInstanceOf[Control[Q]] // NICK - do I want to highlight this?
+      control = x.asInstanceOf[Control[Q]] // appease unhelpful typing
     }
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */

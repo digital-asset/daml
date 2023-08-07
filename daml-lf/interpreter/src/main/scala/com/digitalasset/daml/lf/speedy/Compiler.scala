@@ -502,7 +502,7 @@ private[lf] final class Compiler(
   ): s.SExpr = {
     let(
       env,
-      // NICK: remove SBCastAnyContract/SBFetchAny (here) and replace with runtime code
+      // NICK: remove SBCastAnyContract - no longer needed
       SBCastAnyContract(tmplId)(
         env.toSEVar(cidPos),
         SBFetchAny(optTargetTemplateId)(
@@ -560,7 +560,7 @@ private[lf] final class Compiler(
   ): s.SExpr =
     let(
       env,
-      SBFetchAny( // NICK: why no SBCastAnyContract here+1 ?
+      SBFetchAny(
         optTargetTemplateId = None
       )(
         env.toSEVar(cidPos),
@@ -731,7 +731,7 @@ private[lf] final class Compiler(
       tokenPos: Position,
   ): s.SExpr = {
     val _ = tmpl
-    SBUInsertFetchNode( // NICK: rename loosing Insert
+    SBUInsertFetchNode(
       tmplId,
       optTargetTemplateId,
       byKey = mbKey.isDefined,

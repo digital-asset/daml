@@ -440,7 +440,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     val res = Try(
       SpeedyTestLib.run(
         machine,
-        getContract = getContract, // traceLog.tracePF("queries contract", getContract), // NICK
+        getContract = getContract,
         getKey = traceLog.tracePF("queries key", getKey),
       )
     )
@@ -449,7 +449,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
   }
 
   def assertMsgs(actual: Seq[String], expected0: Seq[String]): Assertion = {
-    val expected = expected0.filter(_ != "queries contract") // NICK: fixup expectations
+    val expected =
+      expected0.filter(_ != "queries contract") // NICK: fixup expectations + remove assertMsgs
     actual shouldBe expected
   }
 

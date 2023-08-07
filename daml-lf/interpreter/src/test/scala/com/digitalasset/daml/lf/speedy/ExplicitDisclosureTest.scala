@@ -94,7 +94,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         }
 
         "disclosure table query fails when contract ID is disclosed" - {
-          "contract ID in disclosure table only" ignore { // NICK: investigate
+          "contract ID in disclosure table only" ignore { // NICK: 2x investigate
             disclosureTableQueryFailsWhenContractDisclosed(
               SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
               disclosedCaveContract,
@@ -114,7 +114,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             )
           }
 
-          "contract ID in ledger and disclosure table" ignore { // NICK: investigate
+          "contract ID in ledger and disclosure table" ignore {
             disclosureTableQueryFailsWhenContractDisclosed(
               SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
               disclosedCaveContract,
