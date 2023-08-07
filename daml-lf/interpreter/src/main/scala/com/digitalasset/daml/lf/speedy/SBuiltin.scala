@@ -1489,7 +1489,7 @@ private[lf] object SBuiltin {
     ): Control[Q] = {
       machine.asUpdateMachine(productPrefix) { machine =>
         val coid = getSContractId(args, 0)
-        val keyOpt: SValue = args.get(1) // NICK - use this, instead of passing None??
+        val keyOpt: SValue = args.get(1)
         fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) { templateArg =>
           getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
             val version = machine.tmplId2TxVersion(templateId)
@@ -1610,7 +1610,7 @@ private[lf] object SBuiltin {
             )
           )
         } else {
-          val keyOpt = SOptional(Some(keyValue)) // NICK - use this, instead of passing None??
+          val keyOpt = SOptional(Some(keyValue))
           val gkey = cachedKey.globalKey
           val optTargetTemplateId: Option[TypeConName] = None // hard
           machine.ptx.contractState.resolveKey(gkey) match {
