@@ -1175,8 +1175,10 @@ private[lf] object SBuiltin {
         case None => {
           machine.disclosedContracts.get(coid) match {
             case Some(contract) =>
-              machine.markDisclosedcontractAsUsed(coid)
-              Control.Value(contract.any)
+              ensureContractActive(machine, coid, contract.templateId) {
+                machine.markDisclosedcontractAsUsed(coid)
+                Control.Value(contract.any)
+              }
 
             case None =>
               lookupContractOnLedger(machine, coid) { coinst =>
