@@ -287,7 +287,9 @@ private[lf] object Speedy {
       localContractStore = localContractStore + (coid -> (templateId, templateArg))
     }
 
-    // contract-info cache // NICK: be template-id aware when we support ResultNeedUpgradeVerification)
+    // contract-info cache
+    // TODO: https://github.com/digital-asset/daml/issues/17082
+    // - Must be template-id aware when we support ResultNeedUpgradeVerification
     private[speedy] var contractInfoCache: Map[V.ContractId, ContractInfo] = Map.empty
     private[speedy] def lookupContractInfoCache(coid: V.ContractId): Option[ContractInfo] = {
       contractInfoCache.get(coid)
