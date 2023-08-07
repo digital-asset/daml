@@ -36,7 +36,6 @@ import com.daml.lf.speedy.Compiler.CompilationError
 import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.util.control.TailCalls._
-
 import scalaz.{@@, Tag}
 
 private[lf] object Anf {
@@ -192,22 +191,7 @@ private[lf] object Anf {
       env: Env,
       alts0: List[source.SCaseAlt],
   ): TailRec[List[SExpr.SCaseAlt]] = {
-
-    def loop(
-        acc: List[target.SCaseAlt],
-        alts: List[source.SCaseAlt],
-    ): TailRec[List[SExpr.SCaseAlt]] = {
-      alts match {
-        case alt :: alts =>
-          flattenAlt(depth, env, alt) flatMap { alt =>
-            loop(alt :: acc, alts)
-          }
-        case Nil =>
-          done(acc.reverse)
-      }
-    }
-
-    loop(Nil, alts0)
+    traverse(alts0, (alt: source.SCaseAlt) => flattenAlt(depth, env, alt))
   }
 
   private[this] def flattenAlt(
@@ -427,16 +411,21 @@ private[lf] object Anf {
       env: Env,
       exps0: List[source.SExpr],
   ): TailRec[List[SExpr.SExpr]] = {
+    traverse(exps0, (exp: source.SExpr) => flattenExp(depth, env, exp))
+  }
 
-    def loop(acc: List[target.SExpr], exps: List[source.SExpr]): TailRec[List[SExpr.SExpr]] = {
-      exps match {
-        case exp :: exps =>
-          flattenExp(depth, env, exp) flatMap { exp =>
-            loop(exp :: acc, exps)
-          }
-        case Nil => done(acc.reverse)
-      }
+  /** Monadic map for [[TailRec]]. */
+  private[this] def traverse[A, B](
+      xs: List[A],
+      f: A => TailRec[B],
+  ): TailRec[List[B]] = {
+    xs match {
+      case Nil => done(Nil)
+      case x :: xs =>
+        for {
+          x <- f(x)
+          xs <- tailcall { traverse(xs, f) }
+        } yield (x :: xs)
     }
-    loop(Nil, exps0)
   }
 }
