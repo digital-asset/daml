@@ -287,6 +287,18 @@ private[lf] object Speedy {
       localContractStore = localContractStore + (coid -> (templateId, templateArg))
     }
 
+    // contract-info cache (will become template-id aware when we support ResultNeedUpgradeVerification) // NICK
+    private[speedy] var contractInfoCache: Map[V.ContractId, XCachedContract] = Map.empty
+    private[speedy] def lookupContractInfoCache(coid: V.ContractId): Option[XCachedContract] = {
+      contractInfoCache.get(coid)
+    }
+    private[speedy] def insertContractInfoCache(
+        coid: V.ContractId,
+        contract: XCachedContract,
+    ): Unit = {
+      contractInfoCache = contractInfoCache + (coid -> contract)
+    }
+
     // NICK: this is old. How does it fit in?
     private[speedy] def isLocalContract(contractId: V.ContractId): Boolean = {
       ptx.contractState.locallyCreated.contains(contractId)
