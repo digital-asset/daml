@@ -152,7 +152,7 @@ instance Show SubmitError where
     NonComparableValues {} -> "Failed to compare values"
     ContractIdInContractKey {} -> "Illegal contract ID in contract key"
     ContractIdComparability {} -> "Attempted to compare local and global contract IDs of the same contract"
-    ValueNesting limit -> "Exceeded maximum depth for nesting values: " <> show limit
+    ValueNesting limit -> "Exceeded maximum nesting depth for values - limit: " <> show limit
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
     TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""
