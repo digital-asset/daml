@@ -240,14 +240,14 @@ final class Conversions(
                 builder.setCrash(s"Contract Id comparability Error")
               case NonComparableValues =>
                 builder.setComparableValueError(proto.Empty.newBuilder)
+              case ValueNesting(_, _) =>
+                builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
+              // TODO https://github.com/digital-asset/daml/issues/11691
+              //   Handle the other cases properly.
               case Dev(_, devError) if devMode =>
                 devError match {
                   case Dev.Limit(limitError) =>
                     limitError match {
-                      case Dev.Limit.ValueNesting(_) =>
-                        builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
-                      // TODO https://github.com/digital-asset/daml/issues/11691
-                      //   Handle the other cases properly.
                       case _ =>
                         builder.setCrash(s"A limit was overpassed when building the transaction")
                     }

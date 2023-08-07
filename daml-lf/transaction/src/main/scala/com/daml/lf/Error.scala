@@ -146,6 +146,8 @@ object Error {
 
   final case class ContractIdInContractKey(key: Value) extends Error
 
+  final case class ValueNesting(location: String, limit: Int) extends Error
+
   // Error that can be thrown by dev or PoC feature only
   final case class Dev(location: String, error: Dev.Error) extends Error
 
@@ -178,8 +180,6 @@ object Error {
     object Limit {
 
       sealed abstract class Error extends Serializable with Product
-
-      final case class ValueNesting(limit: Int) extends Error
 
       final case class ContractSignatories(
           coid: Value.ContractId,

@@ -361,6 +361,15 @@ object SubmitError {
       )
   }
 
+  final case class ValueNesting(limit: Int) extends SubmitError {
+    override def toDamlSubmitError(env: Env): SValue =
+      SubmitErrorConverters(env).damlScriptError(
+        "ValueNesting",
+        18,
+        ("limit", SInt64(limit.toLong)),
+      )
+  }
+
   final case class DevError(errorType: String, message: String) extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue = {
       val devErrorTypeIdentifier =
@@ -370,12 +379,11 @@ object SubmitError {
           SEnum(devErrorTypeIdentifier, Name.assertFromString("ChoiceGuardFailed"), 0)
         case "WronglyTypedContractSoft" =>
           SEnum(devErrorTypeIdentifier, Name.assertFromString("WronglyTypedContractSoft"), 1)
-        case "Limit" => SEnum(devErrorTypeIdentifier, Name.assertFromString("Limit"), 2)
-        case _ => SEnum(devErrorTypeIdentifier, Name.assertFromString("UnknownNewFeature"), 3)
+        case _ => SEnum(devErrorTypeIdentifier, Name.assertFromString("UnknownNewFeature"), 2)
       }
       SubmitErrorConverters(env).damlScriptError(
         "DevError",
-        18,
+        19,
         ("devErrorType", devErrorType),
         ("devErrorMessage", SText(message)),
       )
@@ -386,7 +394,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "UnknownError",
-        19,
+        20,
         ("unknownErrorMessage", SText(message)),
       )
   }
@@ -395,7 +403,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "TruncatedError",
-        20,
+        21,
         ("truncatedErrorType", SText(errType)),
         ("truncatedErrorMessage", SText(message)),
       )
