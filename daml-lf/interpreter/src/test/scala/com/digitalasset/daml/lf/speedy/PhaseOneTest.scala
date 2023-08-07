@@ -54,6 +54,13 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       true
     }
 
+    def transform4(e: Expr): Boolean = {
+      val e0: SExpr = phase1.translateFromLF(PhaseOne.Env.Empty, e)
+      val e1 = closureConvert(e0)
+      val _ = flattenToAnf(e1, enableFullAnfTransformation = true)
+      true
+    }
+
     /* We test stack-safety by building deep expressions through each of the different
      * recursion points of an expression, using one of the builder functions above, and
      * then ensuring we can 'transform' the expression by a prefix of the compilation.
@@ -166,6 +173,18 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         forEvery(testCases) { (name: String, recursionPoint: Expr => Expr) =>
           name in {
             runTest(transform3)(depth, recursionPoint)
+          }
+        }
+      }
+    }
+
+    {
+      // TODO https://github.com/digital-asset/daml/issues/13351
+      val depth = 3000
+      s"transform(phase1, closureConversion, flattenToFullAnf), depth = $depth" - {
+        forEvery(testCases) { (name: String, recursionPoint: Expr => Expr) =>
+          name in {
+            runTest(transform4)(depth, recursionPoint)
           }
         }
       }

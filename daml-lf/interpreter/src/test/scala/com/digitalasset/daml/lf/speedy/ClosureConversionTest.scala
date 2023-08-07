@@ -53,6 +53,12 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
     true
   }
 
+  def transform3(e: SExpr): Boolean = {
+    val e1: target.SExpr = closureConvert(e)
+    val _ = flattenToAnf(e1, enableFullAnfTransformation = true)
+    true
+  }
+
   "stack-safety; deep" - {
 
     /* We test stack-safety by building deep expressions through each of the different
@@ -105,6 +111,17 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
         forEvery(testCases) { (name: String, recursionPoint: SExpr => SExpr) =>
           name in {
             runTest(transform2)(depth, recursionPoint)
+          }
+        }
+      }
+    }
+
+    {
+      val depth = 10000
+      s"transform(closureConversion,fullANF), depth = $depth" - {
+        forEvery(testCases) { (name: String, recursionPoint: SExpr => SExpr) =>
+          name in {
+            runTest(transform3)(depth, recursionPoint)
           }
         }
       }
