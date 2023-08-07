@@ -384,7 +384,7 @@ private[lf] final class Compiler(
       addDef(compileAgreementText(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
       addDef(compileObservers(tmplId, tmpl))
-      addDef(compileToCachedContract(tmplId, tmpl))
+      addDef(compileToContractInfo(tmplId, tmpl))
       tmpl.implements.values.foreach { impl =>
         compileInterfaceInstance(
           parent = tmplId,
@@ -816,12 +816,13 @@ private[lf] final class Compiler(
       translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmpl.observers)
     }
 
-  private[this] def compileToCachedContract( // NICK: better name, no "Cached"
+  // TODO: This would be better handled by a proper builtin, rather than synthesising a definition
+  private[this] def compileToContractInfo(
       tmplId: Identifier,
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
-    unlabelledTopLevelFunction2(t.ToCachedContractDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
-      SBuildCachedContract(
+    unlabelledTopLevelFunction2(t.ToContractInfoDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
+      SBuildContractInfoStruct(
         s.SEValue(STypeRep(TTyCon(tmplId))),
         env.toSEVar(tmplArgPos),
         t.AgreementTextDefRef(tmplId)(env.toSEVar(tmplArgPos)),
@@ -1117,7 +1118,7 @@ private[lf] final class Compiler(
             s.SEValue(argument),
           )((_) =>
             s.SEApp(
-              s.SEVal(t.ToCachedContractDefRef(templateId)),
+              s.SEVal(t.ToContractInfoDefRef(templateId)),
               List(s.SEValue(argument), s.SEValue.None),
             )
           )

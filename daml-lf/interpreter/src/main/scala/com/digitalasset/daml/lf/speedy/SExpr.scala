@@ -418,7 +418,7 @@ private[lf] object SExpr {
   final case class SignatoriesDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ObserversDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ContractKeyWithMaintainersDefRef(ref: DefinitionRef) extends SDefinitionRef
-  final case class ToCachedContractDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class ToContractInfoDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ChoiceControllerDefRef(ref: DefinitionRef, choiceName: ChoiceName)
       extends SDefinitionRef
   final case class ChoiceObserverDefRef(ref: DefinitionRef, choiceName: ChoiceName)

@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SBuiltin.{SBCacheDisclosedContract, SBCrash, SBuildCachedContract}
+import com.daml.lf.speedy.SBuiltin.{SBCacheDisclosedContract, SBCrash, SBuildContractInfoStruct}
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
@@ -1764,7 +1764,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           Set.empty,
           None,
         )
-        val contractInfoSExpr = SBuildCachedContract(
+        val contractInfoSExpr = SBuildContractInfoStruct(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
           SEValue(SText("")),
@@ -1810,7 +1810,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           Set.empty,
           Some(cachedKey),
         )
-        val contractInfoSExpr = SBuildCachedContract(
+        val contractInfoSExpr = SBuildContractInfoStruct(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
           SEValue(SText("agreement")),

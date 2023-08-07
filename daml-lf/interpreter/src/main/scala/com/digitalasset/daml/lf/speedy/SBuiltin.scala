@@ -2169,7 +2169,7 @@ private[lf] object SBuiltin {
     "msg=match may not be exhaustive"
   )
 
-  private[speedy] val SBuildCachedContract = // NICK: rename
+  private[speedy] val SBuildContractInfoStruct =
     SBuiltin.SBStructCon(contractInfoPositionStruct)
 
   private[speedy] def extractContractInfo(
@@ -2318,7 +2318,7 @@ private[lf] object SBuiltin {
       f: ContractInfo => Control[Q]
   ): Control[Q] = {
     val e: SExpr = SEApp(
-      SEVal(ToCachedContractDefRef(templateId)),
+      SEVal(ToContractInfoDefRef(templateId)),
       Array(
         templateArg,
         keyOpt,
