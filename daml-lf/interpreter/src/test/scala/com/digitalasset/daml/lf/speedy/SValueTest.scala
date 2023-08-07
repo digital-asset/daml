@@ -35,7 +35,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
       // Because Z has a nesting of 1, toNat(Value.MAXIMUM_NESTING) has a nesting of
       // Value.MAXIMUM_NESTING + 1
       val x = Try(toNat(Value.MAXIMUM_NESTING).toUnnormalizedValue)
-      inside(x) { case Failure(SError.SErrorDamlException(IError.ValueNesting(_, limit))) =>
+      inside(x) { case Failure(SError.SErrorDamlException(IError.ValueNesting(limit))) =>
         limit shouldBe Value.MAXIMUM_NESTING
       }
     }

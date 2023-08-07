@@ -136,7 +136,7 @@ private[lf] object Pretty {
       case ContractIdInContractKey(key) =>
         text("Contract IDs are not supported in contract keys:") &
           prettyContractId(key.cids.head)
-      case ValueNesting(_, limit) =>
+      case ValueNesting(limit) =>
         text(s"Value exceeds maximum nesting value of $limit")
       case Dev(_, error) =>
         error match {

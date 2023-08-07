@@ -328,7 +328,7 @@ class IdeLedgerClient(
       case NonComparableValues => SubmitError.NonComparableValues()
       case ContractIdInContractKey(_) => SubmitError.ContractIdInContractKey()
       case ContractIdComparability(cid) => SubmitError.ContractIdComparability(cid.toString)
-      case ValueNesting(_, limit) => SubmitError.ValueNesting(limit)
+      case ValueNesting(limit) => SubmitError.ValueNesting(limit)
       case e @ Dev(_, innerError) =>
         SubmitError.DevError(
           innerError.getClass.getSimpleName,

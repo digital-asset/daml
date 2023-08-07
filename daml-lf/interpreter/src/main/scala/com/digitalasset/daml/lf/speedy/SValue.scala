@@ -58,10 +58,7 @@ sealed abstract class SValue {
     def go(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): V = {
       if (maxNesting < 0)
         throw SError.SErrorDamlException(
-          interpretation.Error.ValueNesting(
-            NameOf.qualifiedNameOfCurrentFunc,
-            V.MAXIMUM_NESTING,
-          )
+          interpretation.Error.ValueNesting(V.MAXIMUM_NESTING)
         )
 
       val nextMaxNesting = maxNesting - 1

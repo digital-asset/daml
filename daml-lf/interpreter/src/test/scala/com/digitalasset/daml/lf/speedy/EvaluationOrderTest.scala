@@ -617,7 +617,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.ValueNesting(_, _)))
+                Left(SErrorDamlException(IE.ValueNesting(_)))
               ) =>
             msgs shouldBe Seq(
               "starts test",
@@ -644,7 +644,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.ValueNesting(_, _)))
+                Left(SErrorDamlException(IE.ValueNesting(_)))
               ) =>
             msgs shouldBe Seq(
               "starts test",
@@ -817,7 +817,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.ValueNesting(_, _)))
+                Left(SErrorDamlException(IE.ValueNesting(_)))
               ) =>
             msgs shouldBe Seq(
               "starts test",
@@ -844,7 +844,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.ValueNesting(_, _)))
+                Left(SErrorDamlException(IE.ValueNesting(_)))
               ) =>
             msgs shouldBe Seq(
               "starts test",
@@ -1197,7 +1197,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.ValueNesting(_, _)))
+                Left(SErrorDamlException(IE.ValueNesting(_)))
               ) =>
             msgs shouldBe Seq(
               "starts test",
@@ -1225,7 +1225,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.ValueNesting(_, _)))
+                Left(SErrorDamlException(IE.ValueNesting(_)))
               ) =>
             msgs shouldBe Seq(
               "starts test",
@@ -1593,7 +1593,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.ValueNesting(_, _)))
+                Left(SErrorDamlException(IE.ValueNesting(_)))
               ) =>
             msgs shouldBe Seq(
               "starts test",
@@ -1622,7 +1622,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.ValueNesting(_, _)))
+                Left(SErrorDamlException(IE.ValueNesting(_)))
               ) =>
             msgs shouldBe Seq(
               "starts test",
@@ -2587,7 +2587,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.ValueNesting(_, _)))
+                Left(SErrorDamlException(IE.ValueNesting(_)))
               ) =>
             msgs shouldBe Seq("starts test", "maintainers")
         }
@@ -3150,7 +3150,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.ValueNesting(_, _)))
+                Left(SErrorDamlException(IE.ValueNesting(_)))
               ) =>
             msgs shouldBe Seq("starts test", "maintainers")
         }
