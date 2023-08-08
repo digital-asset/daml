@@ -102,6 +102,7 @@ contractNotActive = script do
     pure ()
   case res of
     Left e@(ContractNotFound _ mbAdditionalInfo) ->
+
       case mbAdditionalInfo of
         None -> error "contractNotActive no additional info"
         Some additionalInfo ->
