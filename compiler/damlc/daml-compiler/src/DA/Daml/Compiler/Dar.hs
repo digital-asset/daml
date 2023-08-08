@@ -25,7 +25,7 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified DA.Daml.Dar.Reader as Dar
 import qualified DA.Daml.LF.Ast as LF
-import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
+import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash, encodeArchiveFixedHash)
 import DA.Daml.LF.TypeChecker.Error (Error(EUnsupportedFeature))
 import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types
@@ -106,8 +106,9 @@ buildDar ::
     -> PackageConfigFields
     -> NormalizedFilePath
     -> FromDalf
+    -> Maybe String
     -> IO (Maybe (Zip.ZipArchive ()))
-buildDar service PackageConfigFields {..} ifDir dalfInput = do
+buildDar service PackageConfigFields {..} ifDir dalfInput overridePackageId = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
         "Creating dar: " <> T.pack pSrc
@@ -149,7 +150,10 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
 
                  validateExposedModules pExposedModules pkgModuleNames
 
-                 let (dalf,pkgId) = encodeArchiveAndHash pkg
+                 let 
+                  (dalf,pkgId) = case overridePackageId of 
+                    Just pkgIdStr -> let pkgId = LF.PackageId $ T.pack pkgIdStr in (encodeArchiveFixedHash pkg pkgId, pkgId)
+                    Nothing -> encodeArchiveAndHash pkg
                  -- For now, we don’t include ifaces and hie files in incremental mode.
                  -- The main reason for this is that writeIfacesAndHie is not yet ported to incremental mode
                  -- but it also makes creation of the archive slightly faster and those files are only required

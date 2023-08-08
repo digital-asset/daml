@@ -61,6 +61,12 @@ package object archive {
   val ArchiveDecoder: GenReader[(PackageId, Ast.Package)] =
     ArchiveReader.andThen(Decode.decodeArchivePayload(_))
 
+  // These read and decode DARs containing the FIXED hashing "algorithm", disabling package id verification
+  val ArchiveReaderAllowFixed: GenReader[ArchivePayload] =
+    ArchiveParser.andThen(Reader.readArchiveAllowFixed)
+  val ArchiveDecoderAllowFixed: GenReader[(PackageId, Ast.Package)] =
+    ArchiveReaderAllowFixed.andThen(Decode.decodeArchivePayload(_))
+
   val ArchivePayloadParser: GenReader[DamlLf.ArchivePayload] =
     Base.andThen(cos =>
       attempt(getClass.getCanonicalName + ".ArchivePayloadParser")(
@@ -83,6 +89,11 @@ package object archive {
   val DarParser: GenDarReader[DamlLf.Archive] = GenDarReader(ArchiveParser)
   val DarReader: GenDarReader[ArchivePayload] = GenDarReader(ArchiveReader)
   val DarDecoder: GenDarReader[(PackageId, Ast.Package)] = GenDarReader(ArchiveDecoder)
+
+  // These read and decode DARs containing the FIXED hash "algorithm", disabling package id verification
+  val DarReaderAllowFixed: GenDarReader[ArchivePayload] = GenDarReader(ArchiveReaderAllowFixed)
+  val DarDecoderAllowFixed: GenDarReader[(PackageId, Ast.Package)] =
+    GenDarReader(ArchiveDecoderAllowFixed)
 
   val UniversalArchiveReader: GenUniversalArchiveReader[ArchivePayload] =
     new GenUniversalArchiveReader(ArchiveReader)

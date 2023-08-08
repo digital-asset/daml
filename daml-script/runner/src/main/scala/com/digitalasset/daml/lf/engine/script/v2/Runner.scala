@@ -24,7 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 // linking magic
-import com.daml.lf.archive.{DarReader, Decode, Dar, ArchivePayload}
+import com.daml.lf.archive.{DarReaderAllowFixed, Decode, Dar, ArchivePayload}
 import com.daml.lf.speedy.SDefinition
 import java.util.zip.ZipInputStream
 import com.daml.lf.engine.script.Runner.{LinkingBehaviour, TypeCheckingBehaviour}
@@ -39,6 +39,13 @@ private[lf] class Runner(
     linkingBehaviour: LinkingBehaviour = LinkingBehaviour.LinkRecent,
     typeCheckingBehaviour: TypeCheckingBehaviour = TypeCheckingBehaviour.NoTypeChecking,
 ) {
+  if (unversionedRunner.script.scriptIds.scriptPackageId.toString != "daml3scriptlabel")
+    throw new IllegalArgumentException(
+      s"""Expected daml3-script library to have package id 'daml3scriptlabel', but instead got '${unversionedRunner.script.scriptIds.scriptPackageId}'.
+         |Be sure to compile daml3-script library with the '--override-package-id daml3scriptlabel' option.
+         """.stripMargin
+    )
+
   private def buildLinkedPackages(scriptDar: Dar[ArchivePayload]): CompiledPackages = {
     val mostRecentScriptDar =
       scriptDar
@@ -76,7 +83,7 @@ private[lf] class Runner(
       }
       case LinkingBehaviour.LinkRecent =>
         buildLinkedPackages(
-          DarReader
+          DarReaderAllowFixed
             .readArchive(
               "daml3-script",
               new ZipInputStream(

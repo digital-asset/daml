@@ -34,6 +34,8 @@ EOF
             "--log-level=WARNING",
             "--target",
             "1.dev",
+            "--override-package-id",
+            "daml3scriptlabel",
         ]),
         sdk = sdk_version,
         ghc = ghc_version,

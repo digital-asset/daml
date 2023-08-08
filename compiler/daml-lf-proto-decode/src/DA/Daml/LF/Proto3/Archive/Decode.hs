@@ -64,14 +64,17 @@ decodeArchiveHeader bytes = do
     let payloadBytes = ProtoLF.archivePayload archive
     let archiveHash = TL.toStrict (ProtoLF.archiveHash archive)
 
-    computedHash <- case ProtoLF.archiveHashFunction archive of
+    mComputedHash <- case ProtoLF.archiveHashFunction archive of
       Proto.Enumerated (Right ProtoLF.HashFunctionSHA256) ->
-        Right $ encodeHash (BA.convert (Crypto.hash @_ @Crypto.SHA256 payloadBytes) :: BS.ByteString)
+        Right $ Just $ encodeHash (BA.convert (Crypto.hash @_ @Crypto.SHA256 payloadBytes) :: BS.ByteString)
+      Proto.Enumerated (Right ProtoLF.HashFunctionFIXED) ->
+        Right Nothing
       Proto.Enumerated (Left idx) ->
         Left (UnknownHashFunction idx)
 
-    when (computedHash /= archiveHash) $
-      Left (HashMismatch archiveHash computedHash)
+    forM_ mComputedHash $ \computedHash ->
+      when (computedHash /= archiveHash) $
+        Left (HashMismatch archiveHash computedHash)
     let packageId = LF.PackageId archiveHash
     pure (packageId, payloadBytes)
 

@@ -26,6 +26,7 @@ message ArchivePayload {
 
 enum HashFunction {
   SHA256 = 0;
+  FIXED = 1;
 }
 
 message Archive {

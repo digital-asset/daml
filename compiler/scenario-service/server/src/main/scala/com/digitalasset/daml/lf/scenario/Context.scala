@@ -103,7 +103,7 @@ class Context(
     newModules.foreach(mod => modules += mod.name -> mod)
 
     val newPackages =
-      loadPackages.map(archive.ArchiveDecoder.assertFromByteString).toMap
+      loadPackages.map(archive.ArchiveDecoderAllowFixed.assertFromByteString).toMap
 
     val modulesToCompile =
       if (unloadPackages.nonEmpty || newPackages.nonEmpty) {

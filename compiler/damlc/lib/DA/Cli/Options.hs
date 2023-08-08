@@ -155,6 +155,15 @@ newtype InitPkgDb = InitPkgDb Bool
 initPkgDbOpt :: Parser InitPkgDb
 initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database" idm
 
+data OverridePackageId = NoOverridePackageId | OverridePackageId String
+overridePackageIdOpt :: Parser OverridePackageId
+overridePackageIdOpt =
+  optionOnce (OverridePackageId <$> str) $
+       metavar "STRING"
+    <> help "Override package id for the main package of the DAR"
+    <> long "override-package-id"
+    <> value NoOverridePackageId
+
 data Telemetry
     = TelemetryOptedIn -- ^ User has explicitly opted in
     | TelemetryOptedOut -- ^ User has explicitly opted out

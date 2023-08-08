@@ -16,7 +16,7 @@ import scalaz.syntax.traverse._
 import spray.json._
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.speedy.{SValue, Speedy, TraceLog, WarningLog}
-import com.daml.lf.archive.{Dar, DarDecoder, DarReader}
+import com.daml.lf.archive.{Dar, DarDecoderAllowFixed, DarReader}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.Ast.Type
@@ -87,7 +87,8 @@ object RunnerMain {
       traceLog = Speedy.Machine.newTraceLog
       warningLog = Speedy.Machine.newWarningLog
 
-      dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(config.darPath)
+      dar: Dar[(PackageId, Package)] =
+        DarDecoderAllowFixed.assertReadArchiveFromFile(config.darPath)
 
       compiledPackages = PureCompiledPackages.assertBuild(dar.all.toMap, Runner.compilerConfig)
       ifaceDar =

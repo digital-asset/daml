@@ -15,6 +15,25 @@ case class ArchivePayload(
 )
 
 object Reader {
+  private def readArchiveHash(lf: DamlLf.Archive) =
+    PackageId
+      .fromString(lf.getHash)
+      .left
+      .map(err => Error.Parsing("Invalid hash: " + err))
+
+  private def validateHash(lf: DamlLf.Archive): Either[Error, PackageId] =
+    for {
+      theirHash <- readArchiveHash(lf)
+      ourHash = MessageDigestPrototype.Sha256.newDigest
+        .digest(lf.getPayload.toByteArray)
+        .map("%02x" format _)
+        .mkString
+      _ <- Either.cond(
+        theirHash == ourHash,
+        (),
+        Error.Parsing(s"Mismatching hashes! Expected $ourHash but got $theirHash"),
+      )
+    } yield theirHash
 
   // Validate hash and version of a DamlLf.Archive
   @throws[Error.Parsing]
@@ -22,25 +41,27 @@ object Reader {
     lf.getHashFunction match {
       case DamlLf.HashFunction.SHA256 =>
         for {
-          theirHash <- PackageId
-            .fromString(lf.getHash)
-            .left
-            .map(err => Error.Parsing("Invalid hash: " + err))
-          ourHash = MessageDigestPrototype.Sha256.newDigest
-            .digest(lf.getPayload.toByteArray)
-            .map("%02x" format _)
-            .mkString
-          _ <- Either.cond(
-            theirHash == ourHash,
-            (),
-            Error.Parsing(s"Mismatching hashes! Expected $ourHash but got $theirHash"),
-          )
+          theirHash <- validateHash(lf)
           proto <- ArchivePayloadParser.fromByteString(lf.getPayload)
           payload <- readArchivePayload(theirHash, proto)
-
         } yield payload
+      case DamlLf.HashFunction.FIXED => Left(Error.Parsing("Illegal fixed package id"))
       case DamlLf.HashFunction.UNRECOGNIZED =>
         Left(Error.Parsing("Unrecognized hash function"))
+    }
+  }
+
+  // Read DamlLf.Archive, validating hash if present
+  @throws[Error.Parsing]
+  def readArchiveAllowFixed(lf: DamlLf.Archive): Either[Error, ArchivePayload] = {
+    lf.getHashFunction match {
+      case DamlLf.HashFunction.FIXED =>
+        for {
+          theirHash <- readArchiveHash(lf)
+          proto <- ArchivePayloadParser.fromByteString(lf.getPayload)
+          payload <- readArchivePayload(theirHash, proto)
+        } yield payload
+      case _ => readArchive(lf)
     }
   }
 

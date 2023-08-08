@@ -243,6 +243,8 @@ runLedgerUploadDar' args darPathM  = do
   case result of
     Left err -> do
       putStrLn $ "upload-dar did not succeed: " <> show err
+      when ("DAR_PARSE_ERROR" `isInfixOf` err) $
+        putStrLn "You may be trying to upload a script to the ledger, this is not supported."
       exitFailure
     Right () -> putStrLn "DAR upload succeeded."
 

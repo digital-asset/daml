@@ -5,6 +5,7 @@ module DA.Daml.LF.Proto3.Archive.Encode
   ( encodeArchive
   , encodeArchiveLazy
   , encodeArchiveAndHash
+  , encodeArchiveFixedHash
   , encodePackageHash
   ) where
 
@@ -38,6 +39,17 @@ encodeArchiveAndHash package =
           , ProtoLF.archiveHashFunction = Proto.Enumerated (Right ProtoLF.HashFunctionSHA256)
           }
     in (Proto.toLazyByteString archive, LF.PackageId hash)
+
+encodeArchiveFixedHash :: LF.Package -> LF.PackageId -> BSL.ByteString
+encodeArchiveFixedHash package packageId =
+    let payload = BSL.toStrict $ Proto.toLazyByteString $ Encode.encodePayload package
+        archive =
+          ProtoLF.Archive
+          { ProtoLF.archivePayload = payload
+          , ProtoLF.archiveHash    = TL.fromStrict $ LF.unPackageId packageId
+          , ProtoLF.archiveHashFunction = Proto.Enumerated (Right ProtoLF.HashFunctionFIXED)
+          }
+    in Proto.toLazyByteString archive
 
 encodeArchive :: LF.Package -> BS.ByteString
 encodeArchive = BSL.toStrict . encodeArchiveLazy

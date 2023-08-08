@@ -23,6 +23,7 @@ import DA.Bazel.Runfiles (Resource(..),
 import qualified DA.Cli.Args as ParseArgs
 import DA.Cli.Options (Debug(..),
                        InitPkgDb(..),
+                       OverridePackageId(..),
                        ProjectOpts(..),
                        Style(..),
                        Telemetry(..),
@@ -40,6 +41,7 @@ import DA.Cli.Options (Debug(..),
                        optionsParser,
                        optPackageName,
                        outputFileOpt,
+                       overridePackageIdOpt,
                        packageNameOpt,
                        projectOpts,
                        render,
@@ -454,6 +456,7 @@ cmdBuild numProcessors =
             <*> optionalOutputFileOpt
             <*> incrementalBuildOpt
             <*> initPkgDbOpt
+            <*> overridePackageIdOpt
 
 cmdRepl :: Int -> Mod CommandFields Command
 cmdRepl numProcessors =
@@ -845,8 +848,8 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
                   pDataDependencies
               createProjectPackageDb (toNormalizedFilePath' projRoot) opts pModulePrefixes
 
-execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
-execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
+execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> OverridePackageId -> Command
+execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb overridePackageId =
   Command Build (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
             installDepsAndInitPackageDb opts initPkgDb
@@ -871,6 +874,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
                             pkgConfig
                             (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
                             (FromDalf False)
+                            (case overridePackageId of {OverridePackageId pid -> Just pid; NoOverridePackageId -> Nothing})
                     dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
                     fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
                     createDarFile loggerH fp dar
@@ -995,6 +999,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               }
                             (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
                             dalfInput
+                            Nothing
           case mbDar of
             Nothing -> do
                 hPutStrLn stderr "ERROR: Creation of DAR file failed."
