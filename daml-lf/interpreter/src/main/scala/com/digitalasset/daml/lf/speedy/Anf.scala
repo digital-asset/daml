@@ -180,7 +180,7 @@ private[lf] object Anf {
     transformExp(depth, env, rhs) { (depth, rhs) =>
       val depth1 = depth.incr(1)
       val env1 = trackBindings(depth, env, 1)
-      transformExp(depth1, env1, body)(transform) map { body =>
+      transformExp(depth1, env1, body)(transform).map { body =>
         target.SELet1(rhs, body)
       }
     }
@@ -204,7 +204,7 @@ private[lf] object Anf {
       case source.SCaseAlt(pat, body) =>
         val n = patternNArgs(pat)
         val env1 = trackBindings(depth, env, n)
-        flattenExp(depth.incr(n), env1, body) map { body =>
+        flattenExp(depth.incr(n), env1, body).map { body =>
           target.SCaseAlt(pat, body)
         }
     }
@@ -261,14 +261,14 @@ private[lf] object Anf {
 
       case source.SEMakeClo(fvs0, arity, body) =>
         val fvs = fvs0.map((loc) => makeRelativeL(depth)(makeAbsoluteL(env, loc)))
-        flattenExp(DepthA(0), initEnv, body) flatMap { body =>
+        flattenExp(DepthA(0), initEnv, body).flatMap { body =>
           transform(depth, target.SEMakeClo(fvs.toArray, arity, body))
         }
 
       case source.SECase(scrut, alts0) =>
         atomizeExp(depth, env, scrut) { (depth, scrut) =>
           val scrut1 = makeRelativeA(depth)(scrut)
-          flattenAlts(depth, env, alts0) flatMap { alts =>
+          flattenAlts(depth, env, alts0).flatMap { alts =>
             transform(depth, target.SECaseAtomic(scrut1, alts.toArray))
           }
         }
@@ -297,19 +297,19 @@ private[lf] object Anf {
       case source.SETryCatch(body, handler0) =>
         // we must not lift applications from either the body or the handler outside of
         // the try-catch block, so we flatten each separately:
-        flattenExp(depth, env, body) flatMap { body =>
-          flattenExp(depth.incr(1), trackBindings(depth, env, 1), handler0) flatMap { handler =>
+        flattenExp(depth, env, body).flatMap { body =>
+          flattenExp(depth.incr(1), trackBindings(depth, env, 1), handler0).flatMap { handler =>
             transform(depth, target.SETryCatch(body, handler))
           }
         }
 
       case source.SEScopeExercise(body) =>
-        flattenExp(depth, env, body) flatMap { body =>
+        flattenExp(depth, env, body).flatMap { body =>
           transform(depth, target.SEScopeExercise(body))
         }
 
       case source.SEPreventCatch(body) =>
-        flattenExp(depth, env, body) flatMap { body =>
+        flattenExp(depth, env, body).flatMap { body =>
           transform(depth, target.SEPreventCatch(body))
         }
 
@@ -345,7 +345,7 @@ private[lf] object Anf {
         transformExp(depth, env, exp) { (depth, exp) =>
           val atom = Right(AbsBinding(depth))
           tailcall {
-            transform(depth.incr(1), atom) map { body =>
+            transform(depth.incr(1), atom).map { body =>
               target.SELet1(exp, body)
             }
           }
@@ -399,7 +399,7 @@ private[lf] object Anf {
     atomizeExp(depth, env, func) { (depth, func) =>
       val func1 = makeRelativeA(depth)(func)
       // we dont atomize the args here
-      flattenExpList(depth, env, args) flatMap { args =>
+      flattenExpList(depth, env, args).flatMap { args =>
         // we build a non-atomic application here (only the function is atomic)
         transform(depth, target.SEAppOnlyFunIsAtomic(func1, args.toArray))
       }
