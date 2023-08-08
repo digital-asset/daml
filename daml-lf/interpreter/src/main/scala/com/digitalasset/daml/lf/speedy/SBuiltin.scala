@@ -132,12 +132,12 @@ private[lf] object SBuiltin {
   def executeExpression[Q](machine: Machine[Q], expr: SExpr)(
       f: SValue => Control[Q]
   ): Control[Q] = {
-    machine.pushKont(K)
     case object K extends Kont {
       override def execute[Q2](machine: Machine[Q2], sv: SValue): Control[Q2] = {
         f(sv).asInstanceOf[Control[Q2]] // appease unhelpful typing
       }
     }
+    machine.pushKont(K)
     Control.Expression(expr)
   }
 
