@@ -166,19 +166,25 @@ private[speedy] object SpeedyTestLib {
   }
 
   @throws[ValidationError]
-  def typeAndCompile(pkgs: Map[PackageId, Ast.Package]): PureCompiledPackages = {
+  def typeAndCompile(
+      pkgs: Map[PackageId, Ast.Package],
+      enableFullAnfTransformation: Boolean,
+  ): PureCompiledPackages = {
     Validation.unsafeCheckPackages(PackageInterface(pkgs), pkgs)
     PureCompiledPackages.assertBuild(
       pkgs,
-      Compiler.Config.Dev.copy(stacktracing = Compiler.FullStackTrace),
+      Compiler.Config.Dev.copy(
+        enableFullAnfTransformation = enableFullAnfTransformation,
+        stacktracing = Compiler.FullStackTrace,
+      ),
     )
   }
 
   @throws[ValidationError]
-  def typeAndCompile[X](pkg: Ast.Package)(implicit
+  def typeAndCompile[X](pkg: Ast.Package, enableFullAnfTransformation: Boolean = false)(implicit
       parserParameter: ParserParameters[X]
   ): PureCompiledPackages =
-    typeAndCompile(Map(parserParameter.defaultPackageId -> pkg))
+    typeAndCompile(Map(parserParameter.defaultPackageId -> pkg), enableFullAnfTransformation)
 
   private[speedy] object Implicits {
 

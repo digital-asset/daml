@@ -521,34 +521,43 @@ private[lf] final class Compiler(
     ) { (tmplArgPos, _env) =>
       val env =
         _env.bindExprVar(tmpl.param, tmplArgPos).bindExprVar(choice.argBinder._1, choiceArgPos)
-      let(
-        env,
-        SBUBeginExercise(
-          templateId = tmplId,
-          interfaceId = None,
-          choiceId = choice.name,
-          consuming = choice.consuming,
-          byKey = mbKey.isDefined,
-          explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
-        )(
-          env.toSEVar(choiceArgPos),
-          env.toSEVar(cidPos),
-          s.SEPreventCatch(translateExp(env, choice.controllers)),
-          choice.choiceObservers match {
-            case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
-            case None => s.SEValue.EmptyList
-          },
-          choice.choiceAuthorizers match {
+      // We use a chain of let bindings to make the evaluation order of SBUBeginExercise's arguments is independent
+      // from the evaluation strategy imposed by the ANF transformation.
+      val controllersExpr = s.SEPreventCatch(translateExp(env, choice.controllers))
+      let(env, controllersExpr) { (controllersPos, env) =>
+        val observersExpr = choice.choiceObservers match {
+          case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
+          case None => s.SEValue.EmptyList
+        }
+        let(env, observersExpr) { (observersPos, env) =>
+          val authorizersExpr = choice.choiceAuthorizers match {
             case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
             case None => s.SEValue.EmptyList
-          },
-          env.toSEVar(tmplArgPos),
-        ),
-      ) { (_, _env) =>
-        val env = _env.bindExprVar(choice.selfBinder, cidPos)
-        s.SEScopeExercise(
-          app(translateExp(env, choice.update), env.toSEVar(tokenPos))
-        )
+          }
+          let(env, authorizersExpr) { (authorizersPos, env) =>
+            val exerciseExpr = SBUBeginExercise(
+              templateId = tmplId,
+              interfaceId = None,
+              choiceId = choice.name,
+              consuming = choice.consuming,
+              byKey = mbKey.isDefined,
+              explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
+            )(
+              env.toSEVar(choiceArgPos),
+              env.toSEVar(cidPos),
+              env.toSEVar(controllersPos),
+              env.toSEVar(observersPos),
+              env.toSEVar(authorizersPos),
+              env.toSEVar(tmplArgPos),
+            )
+            let(env, exerciseExpr) { (_, _env) =>
+              val env = _env.bindExprVar(choice.selfBinder, cidPos)
+              s.SEScopeExercise(
+                app(translateExp(env, choice.update), env.toSEVar(tokenPos))
+              )
+            }
+          }
+        }
       }
     }
   }
@@ -588,40 +597,47 @@ private[lf] final class Compiler(
         ) { (_, _env) =>
           val env =
             _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
-          let(
-            env,
-            SBApplyChoiceGuard(choice.name, Some(ifaceId))(
-              env.toSEVar(guardPos),
-              env.toSEVar(payloadPos),
-              env.toSEVar(cidPos),
-            ),
-          ) { (_, env) =>
-            let(
-              env,
-              SBResolveSBUBeginExercise(
-                interfaceId = ifaceId,
-                choiceName = choice.name,
-                consuming = choice.consuming,
-                byKey = false,
-                explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
-              )(
-                env.toSEVar(payloadPos),
-                env.toSEVar(choiceArgPos),
-                env.toSEVar(cidPos),
-                s.SEPreventCatch(translateExp(env, choice.controllers)),
-                choice.choiceObservers match {
-                  case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
-                  case None => s.SEValue.EmptyList
-                },
-                choice.choiceAuthorizers match {
+          // We use a chain of let bindings to make the evaluation order of SBResolveSBUBeginExercise's arguments
+          // is independent from the evaluation strategy imposed by the ANF transformation.
+          val applyChoiceGuardExpr = SBApplyChoiceGuard(choice.name, Some(ifaceId))(
+            env.toSEVar(guardPos),
+            env.toSEVar(payloadPos),
+            env.toSEVar(cidPos),
+          )
+          let(env, applyChoiceGuardExpr) { (_, env) =>
+            val controllersExpr = s.SEPreventCatch(translateExp(env, choice.controllers))
+            let(env, controllersExpr) { (controllersPos, env) =>
+              val observersExpr = choice.choiceObservers match {
+                case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
+                case None => s.SEValue.EmptyList
+              }
+              let(env, observersExpr) { (observersPos, env) =>
+                val authorizersExpr = choice.choiceAuthorizers match {
                   case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
                   case None => s.SEValue.EmptyList
-                },
-                env.toSEVar(castPos),
-              ),
-            ) { (_, _env) =>
-              val env = _env.bindExprVar(choice.selfBinder, cidPos)
-              s.SEScopeExercise(app(translateExp(env, choice.update), env.toSEVar(tokenPos)))
+                }
+                let(env, authorizersExpr) { (authorizersPos, env) =>
+                  val exerciseExpr = SBResolveSBUBeginExercise(
+                    interfaceId = ifaceId,
+                    choiceName = choice.name,
+                    consuming = choice.consuming,
+                    byKey = false,
+                    explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
+                  )(
+                    env.toSEVar(payloadPos),
+                    env.toSEVar(choiceArgPos),
+                    env.toSEVar(cidPos),
+                    env.toSEVar(controllersPos),
+                    env.toSEVar(observersPos),
+                    env.toSEVar(authorizersPos),
+                    env.toSEVar(castPos),
+                  )
+                  let(env, exerciseExpr) { (_, _env) =>
+                    val env = _env.bindExprVar(choice.selfBinder, cidPos)
+                    s.SEScopeExercise(app(translateExp(env, choice.update), env.toSEVar(tokenPos)))
+                  }
+                }
+              }
             }
           }
         }
@@ -827,31 +843,50 @@ private[lf] final class Compiler(
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
     unlabelledTopLevelFunction2(t.ToContractInfoDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
-      SBuildContractInfoStruct(
-        s.SEValue(STypeRep(TTyCon(tmplId))),
-        env.toSEVar(tmplArgPos),
-        t.AgreementTextDefRef(tmplId)(env.toSEVar(tmplArgPos)),
-        t.SignatoriesDefRef(tmplId)(env.toSEVar(tmplArgPos)),
-        t.ObserversDefRef(tmplId)(env.toSEVar(tmplArgPos)),
-        tmpl.key match {
-          case None =>
-            s.SEValue.None
-          case Some(tmplKey) =>
-            s.SECase(
-              env.toSEVar(mbKeyPos),
-              List(
-                s.SCaseAlt(
-                  t.SCPNone,
-                  let(env, translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmplKey.body)) {
-                    (keyPos, env) =>
-                      SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
-                  },
-                ),
-                s.SCaseAlt(t.SCPDefault, env.toSEVar(mbKeyPos)),
-              ),
-            )
-        },
-      )
+      // We use a chain of let bindings to make the evaluation order of SBuildContractInfoStruct's arguments is
+      // independent from the evaluation strategy imposed by the ANF transformation.
+      let(env, s.SEValue(STypeRep(TTyCon(tmplId)))) { (typePos, env) =>
+        let(env, t.AgreementTextDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
+          (agreementTextPos, env) =>
+            let(env, t.SignatoriesDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
+              (signatoriesPos, env) =>
+                let(env, t.ObserversDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
+                  (observersPos, env) =>
+                    val body = tmpl.key match {
+                      case None =>
+                        s.SEValue.None
+                      case Some(tmplKey) =>
+                        s.SECase(
+                          env.toSEVar(mbKeyPos),
+                          List(
+                            s.SCaseAlt(
+                              t.SCPNone,
+                              let(
+                                env,
+                                translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmplKey.body),
+                              ) { (keyPos, env) =>
+                                SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
+                              },
+                            ),
+                            s.SCaseAlt(t.SCPDefault, env.toSEVar(mbKeyPos)),
+                          ),
+                        )
+                    }
+                    let(env, body) { (bodyPos, env) =>
+                      SBuildContractInfoStruct(
+                        env.toSEVar(typePos),
+                        env.toSEVar(tmplArgPos),
+                        env.toSEVar(agreementTextPos),
+                        env.toSEVar(signatoriesPos),
+                        env.toSEVar(observersPos),
+                        env.toSEVar(bodyPos),
+                      )
+                    }
+                }
+            }
+        }
+      }
+
     }
 
   private[this] val UnitDef = SDefinition(t.SEValue.Unit)

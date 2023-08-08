@@ -812,7 +812,10 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       } """
     }
     val pkgs =
-      SpeedyTestLib.typeAndCompile(Map(oldPid -> oldPackage, newPid -> newPackage))
+      SpeedyTestLib.typeAndCompile(
+        Map(oldPid -> oldPackage, newPid -> newPackage),
+        enableFullAnfTransformation = false,
+      )
 
     implicit val defaultParserParameters: ParserParameters[this.type] = {
       ParserParameters(

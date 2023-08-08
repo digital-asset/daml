@@ -49,7 +49,8 @@ class TransactionVersionTest
           interfacesPkgId -> oldPkg2,
           implementsPkgId -> newPkg1,
           coImplementsPkgId -> newPkg2,
-        )
+        ),
+        enableFullAnfTransformation = false,
       )
 
       for ((templateId, interfaceId, contract) <- testData) {
@@ -80,7 +81,8 @@ class TransactionVersionTest
           interfacesPkgId -> newPkg2,
           implementsPkgId -> oldPkg1,
           coImplementsPkgId -> oldPkg2,
-        )
+        ),
+        enableFullAnfTransformation = false,
       )
 
       for ((templateId, interfaceId, contract) <- testData) {
@@ -107,7 +109,8 @@ class TransactionVersionTest
           interfacesPkgId -> interfacesPkg,
           implementsPkgId -> implementsPkg,
           coImplementsPkgId -> coImplementsPkg,
-        )
+        ),
+        enableFullAnfTransformation = false,
       )
 
       for ((templateId, interfaceId, contract) <- testData) {
