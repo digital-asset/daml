@@ -390,7 +390,7 @@ private[lf] object Speedy {
       )
 
     // Track which disclosed contracts are used, so we can report events to the ledger
-    private[this] var usedDiclosedContracts = Set[V.ContractId]()
+    private[this] var usedDiclosedContracts: Set[V.ContractId] = Set.empty
     private[speedy] def markDisclosedcontractAsUsed(coid: V.ContractId): Unit = {
       usedDiclosedContracts = usedDiclosedContracts + coid
     }
