@@ -281,21 +281,25 @@ private class Anf(enableFullAnfTransformation: Boolean) {
       case source.SEVal(x) => transform(depth, target.SEVal(x))
 
       case source.SEApp(func, args) =>
-        // It's safe to perform ANF if the func-expression has no effects when evaluated.
-        val safeFunc =
-          func match {
-            // we know that trivially in these two cases
-            case source.SEBuiltin(b) =>
-              val overApp = args.lengthCompare(b.arity) > 0
-              !overApp
-            case _ => false
-          }
-        // It's also safe to perform ANF for applications of a single argument.
-        val singleArg = args.lengthCompare(1) == 0
-        if (safeFunc || singleArg || enableFullAnfTransformation) {
-          transformMultiApp(depth, env, func, args)(transform)
+        if (enableFullAnfTransformation) {
+          transformMultiAppRightToLeft(depth, env, func, args)(transform)
         } else {
-          transformMultiAppSafely(depth, env, func, args)(transform)
+          // It's safe to perform ANF if the func-expression has no effects when evaluated.
+          val safeFunc =
+            func match {
+              // we know that trivially in these two cases
+              case source.SEBuiltin(b) =>
+                val overApp = args.lengthCompare(b.arity) > 0
+                !overApp
+              case _ => false
+            }
+          // It's also safe to perform ANF for applications of a single argument.
+          val singleArg = args.lengthCompare(1) == 0
+          if (safeFunc || singleArg) {
+            transformMultiAppLeftToRight(depth, env, func, args)(transform)
+          } else {
+            transformMultiAppLeftToRightSafely(depth, env, func, args)(transform)
+          }
         }
 
       case source.SEMakeClo(fvs0, arity, body) =>
@@ -392,10 +396,25 @@ private class Anf(enableFullAnfTransformation: Boolean) {
     }
   }
 
+  private[this] def transformMultiAppRightToLeft(
+      depth: DepthA,
+      env: Env,
+      func: source.SExpr,
+      args: List[source.SExpr],
+  )(transform: Tx[target.SExpr]): Res = {
+    atomizeExps(depth, env, args.reverse) { (depth, rargs) =>
+      atomizeExp(depth, env, func) { (depth, func) =>
+        val func1 = makeRelativeA(depth)(func)
+        val args1 = rargs.reverse.map(makeRelativeA(depth))
+        transform(depth, target.SEAppAtomic(func1, args1.toArray))
+      }
+    }
+  }
+
   /* This function is used when transforming known functions.  And so we can we sure that
    the ANF transform is safe, and will not change the evaluation order
    */
-  private[this] def transformMultiApp(
+  private[this] def transformMultiAppLeftToRight(
       depth: DepthA,
       env: Env,
       func: source.SExpr,
@@ -415,7 +434,7 @@ private class Anf(enableFullAnfTransformation: Boolean) {
    translated application is *not* in proper ANF form.
    */
   @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
-  private[this] def transformMultiAppSafely(
+  private[this] def transformMultiAppLeftToRightSafely(
       depth: DepthA,
       env: Env,
       func: source.SExpr,
