@@ -125,7 +125,7 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
-      runner.runExpr(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
+      runner.run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
         case Success(v) =>
           Future.successful(SEAppAtomic(right, Array(SEValue(v))))
         case Failure(
@@ -987,7 +987,7 @@ object ScriptF {
 
   def parse(
       commandName: String,
-      version: Int,
+      version: Long,
       v: SValue,
       stackTrace: StackTrace,
   ): Either[String, Cmd] =

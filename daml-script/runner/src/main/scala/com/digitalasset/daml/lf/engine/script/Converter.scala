@@ -68,19 +68,6 @@ final case class AnyTemplate(ty: Identifier, arg: SValue)
 final case class AnyChoice(name: ChoiceName, arg: SValue)
 final case class AnyContractKey(templateId: Identifier, ty: Type, key: SValue)
 // frames ordered from most-recent to least-recent
-final case class StackTrace(frames: Vector[Location]) {
-  // Return the most recent frame
-  def topFrame: Option[Location] =
-    frames.headOption
-  def pretty(l: Location) =
-    s"${l.definition} at ${l.packageId}:${l.module}:${l.start._1}"
-  def pretty(): String =
-    frames.map(pretty(_)).mkString("\n")
-
-}
-object StackTrace {
-  val empty: StackTrace = StackTrace(Vector.empty)
-}
 
 object Converter extends ConverterMethods
 

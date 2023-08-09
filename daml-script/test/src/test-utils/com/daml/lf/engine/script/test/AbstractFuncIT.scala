@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package engine.script
+package engine
+package script
 package test
 
 import com.daml.lf.data.ImmArray
