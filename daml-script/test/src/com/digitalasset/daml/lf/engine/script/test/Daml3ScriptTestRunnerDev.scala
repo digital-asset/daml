@@ -20,10 +20,7 @@ class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
   override lazy val darFiles = List(daml3DarPath)
 
   val expectedContractNotActiveResponse =
-    if (cantonFixtureDebugMode)
-      "SUCCESS"
-    else
-      """FAILURE (com.daml.lf.engine.script.Runner$InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "contractNotActive no additional info" })"""
+    """FAILURE (com.daml.lf.engine.script.Runner$InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "contractNotActive no additional info" })"""
 
   "daml-script command line" should {
     "pick up all scripts and returns somewhat sensible outputs for daml3-script features" in
