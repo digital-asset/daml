@@ -8,10 +8,14 @@ load(
     "da_scala_test",
     "lf_scalacopts_stricter",
 )
+load("//rules_daml:daml.bzl", "daml_compile")
 
 test_script_sources = [
     "src/main/scala/com/digitalasset/daml/lf/engine/script/TestMain.scala",
 ]
+
+# Should match RunnerMainTestBase.DAR_COUNT
+test_dar_count = 8
 
 da_scala_library(
     name = "script-runner-lib",
@@ -66,15 +70,40 @@ da_scala_test(
     srcs = glob(
         ["src/test/scala/**/*.scala"],
     ),
-    data = glob(["src/test/resources/**/*"]),
+    data =
+        glob(["src/test/resources/**/*"]) + [
+            ":daml-script-binary",
+            "//test-common/test-certificates",
+        ] + [":test-script{n}.dar".format(n = n) for n in range(
+            1,
+            test_dar_count + 1,
+        )],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     visibility = ["//visibility:public"],
     deps = [
-        ":script-runner-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton/it-lib",
+        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
+        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger-service/http-json:http-json-ce",
+        "//ledger-service/http-json-cli:ce",
+        "//ledger-service/http-json-testing:ce",
         "//ledger/ledger-api-common",
+        "//libs-scala/jwt",
+        "//libs-scala/ledger-resources",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/scala-utils",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -95,5 +124,17 @@ da_scala_binary(
         "//release:ee-license",
     ],
 )
+
+[
+    daml_compile(
+        name = "test-script{n}".format(n = n),
+        srcs = glob(["src/test/resources/TestScript.daml"]),
+        dependencies = ["//daml-script/daml:daml-script.dar"],
+    )
+    for n in range(
+        1,
+        test_dar_count + 1,
+    )
+]
 
 exports_files(["src/main/resources/logback.xml"])
