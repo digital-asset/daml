@@ -1439,7 +1439,7 @@ private[lf] object SBuiltin {
   /** $insertFetch[tid]
     *    :: ContractId a
     *    -> Optional {key: key, maintainers: List Party}  (template key, if present)
-    *    -> ()
+    *    -> a
     */
   final case class SBUInsertFetchNode(
       templateId: TypeConName,
