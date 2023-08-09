@@ -55,6 +55,8 @@ object RunnerMainTest {
     maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
     applicationId = None,
     uploadDar = None,
+    linkingMode = None,
+    typeChecking = false,
   )
   val configNodeParticipants: RunnerMainConfigIntermediate = RunnerMainConfigIntermediate(
     darPath = darFilePath.toFile,
@@ -72,6 +74,8 @@ object RunnerMainTest {
     maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
     applicationId = None,
     uploadDar = None,
+    linkingMode = None,
+    typeChecking = false,
   )
   val configIdeLedgerParticipant: RunnerMainConfigIntermediate = RunnerMainConfigIntermediate(
     darPath = darFilePath.toFile,
@@ -89,5 +93,7 @@ object RunnerMainTest {
     maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
     applicationId = None,
     uploadDar = None,
+    linkingMode = None,
+    typeChecking = false,
   )
 }
