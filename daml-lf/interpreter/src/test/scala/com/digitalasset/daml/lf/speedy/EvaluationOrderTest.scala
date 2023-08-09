@@ -285,7 +285,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
   """
 
   private lazy val pkgs: PureCompiledPackages =
-    SpeedyTestLib.typeAndCompile(pkgsAst)
+    SpeedyTestLib.typeAndCompile(pkgsAst, enableFullAnfTransformation = false)
 
   private lazy val fullAnfPkgs: PureCompiledPackages =
     SpeedyTestLib.typeAndCompile(pkgsAst, enableFullAnfTransformation = true)

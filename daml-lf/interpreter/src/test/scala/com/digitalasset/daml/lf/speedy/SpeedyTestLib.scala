@@ -181,7 +181,7 @@ private[speedy] object SpeedyTestLib {
   }
 
   @throws[ValidationError]
-  def typeAndCompile[X](pkg: Ast.Package, enableFullAnfTransformation: Boolean = false)(implicit
+  def typeAndCompile[X](pkg: Ast.Package, enableFullAnfTransformation: Boolean)(implicit
       parserParameter: ParserParameters[X]
   ): PureCompiledPackages =
     typeAndCompile(Map(parserParameter.defaultPackageId -> pkg), enableFullAnfTransformation)
