@@ -182,7 +182,9 @@ class RollbackTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
             in upure @Unit ();
 
        }
-      """, enableFullAnfTransformation)
+      """,
+        enableFullAnfTransformation,
+      )
 
       val testCases = Table[String, List[Tree]](
         ("expression", "expected-number-of-contracts"),
