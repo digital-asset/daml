@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v1/event.proto";
+import "com/daml/ledger/api/v1/trace_context.proto";
 import "com/daml/ledger/api/v1/transaction.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -56,6 +57,19 @@ message TransactionTree {
   // Required
   string domain_id = 8;
 
+  // Optional; ledger api trace context
+  //
+  // The trace context transported in this message corresponds to the trace context supplied
+  // by the client application in a HTTP2 header of the original command submission.
+  // This field can only be populated if the original submission contained it.
+  // As the context is currently served from an in-memory buffer of recent transactions,
+  // it may be omitted if this message is being served from the database instead.
+  // This happens after a restart or when there is a long time elapsing between the arrival
+  // of the transaction at the participant and the moment this message is being created.
+  // We typically use a header to transfer this type of information. Here we use message
+  // body, because it is used in gRPC streams which do not support per message headers.
+  com.daml.ledger.api.v1.TraceContext trace_context = 9;
+
 }
 
 // Filtered view of an on-ledger transaction's create and archive events.
@@ -94,4 +108,17 @@ message Transaction {
   // Identifies the domain that synchronized the transaction.
   // Required
   string domain_id = 7;
+
+  // Optional; ledger api trace context
+  //
+  // The trace context transported in this message corresponds to the trace context supplied
+  // by the client application in a HTTP2 header of the original command submission.
+  // This field can only be populated if the original submission contained it.
+  // As the context is currently served from an in-memory buffer of recent transactions,
+  // it may be omitted if this message is being served from the database instead.
+  // This happens after a restart or when there is a long time elapsing between the arrival
+  // of the transaction at the participant and the moment this message is being created.
+  // We typically use a header to transfer this type of information. Here we use message
+  // body, because it is used in gRPC streams which do not support per message headers.
+  com.daml.ledger.api.v1.TraceContext trace_context = 8;
 }

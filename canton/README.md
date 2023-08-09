@@ -61,12 +61,16 @@ open-source repository so we cannot assume every contributor will have a Canton
 EE license key.
 
 Tests that require Canton EE **must** be tagged with `"canton-ee"`, which is
-disabled by default through `.bazelrc`. To run those tests locally, add
-`--config=canton-ee`, thereby removing the exclusion and including the tests.
+disabled by default through `.bazelrc`. To run those tests locally, either
+explicitly target them or add `--build_tag_filters=` or `--test_tag_filters=`
+as appropriate (yes, these are the full options: by setting the "running"
+filters to empty for the current run, you overwrite the `-canton-ee` set in
+`.bazelrc` which excludes the Canton EE tests, thereby removing the exclusion
+and including the tests).
 
 Those tests are run on CI.
 
 If you're using a local build of canton (setting `local` to `True` per above)
-_and_ you are explicitly using `--config=canton-ee` to run the Canton EE
+_and_ you are explicitly overwriting the `*_tag_filters` to run the Canton EE
 tests, they will be run using your provided `canton-ee.jar` (which therefore
 needs to be an EE jar at that point).
