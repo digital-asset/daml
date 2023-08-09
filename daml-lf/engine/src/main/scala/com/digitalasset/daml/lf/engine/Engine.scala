@@ -448,8 +448,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                     coid,
                     { coinst: VersionedContractInstance =>
                       callback(coinst.unversioned)
-                      val cache1 = cache + (coid -> coinst) // cache update
-                      loopOuter(cache1)
+                      loopOuter(cache.updated(coid, coinst))
                     },
                   )
               }
