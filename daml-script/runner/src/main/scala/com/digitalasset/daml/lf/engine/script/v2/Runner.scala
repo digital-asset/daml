@@ -17,7 +17,7 @@ import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{ArrayList, SValue, Speedy, TraceLog, WarningLog}
+import com.daml.lf.speedy.{ArrayList, SValue, Speedy, Profile, TraceLog, WarningLog}
 import com.daml.script.converter.ConverterException
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,6 +28,7 @@ private[lf] class Runner(
     initialClients: Participants[UnversionedScriptLedgerClient],
     traceLog: TraceLog = Speedy.Machine.newTraceLog,
     warningLog: WarningLog = Speedy.Machine.newWarningLog,
+    profile: Profile = Speedy.Machine.newProfile,
     canceled: () => Option[RuntimeException] = () => None,
 ) {
   private val machine =
@@ -37,6 +38,7 @@ private[lf] class Runner(
       iterationsBetweenInterruptions = 100000,
       traceLog = traceLog,
       warningLog = warningLog,
+      profile = profile,
     )(Script.DummyLoggingContext)
 
   @scala.annotation.tailrec
@@ -65,7 +67,7 @@ private[lf] class Runner(
       unversionedRunner.script.scriptIds,
       unversionedRunner.timeMode,
       initialClientsV1,
-      machine,
+      unversionedRunner.compiledPackages,
     )
 
   private val ctx =
@@ -154,7 +156,7 @@ private[lf] class Runner(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.PureMachine, Future[SValue], Option[IdeLedgerContext]) = {
+  ): (Future[SValue], Option[IdeLedgerContext]) = {
     val resultF = for {
       _ <- Future.unit // We want the evaluation of following stepValue() to happen in a future.
       result <- stepToValue().fold(Future.failed, Future.successful)
@@ -167,6 +169,6 @@ private[lf] class Runner(
       }
       v <- runExpr(expr)
     } yield v
-    (machine, resultF, ideLedgerContext)
+    (resultF, ideLedgerContext)
   }
 }

@@ -141,7 +141,7 @@ object TestMain extends StrictLogging {
           val runner =
             new Runner(compiledPackages, script, config.timeMode)
           val testRun: Future[Unit] =
-            runner.runWithClients(clients, traceLog, warningLog)._2.map(_ => ())
+            runner.runWithClients(clients, traceLog, warningLog)._1.map(_ => ())
           // Print test result and remember failure.
           testRun
             .andThen {

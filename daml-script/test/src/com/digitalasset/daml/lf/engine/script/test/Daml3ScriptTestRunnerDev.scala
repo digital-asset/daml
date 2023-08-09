@@ -12,7 +12,6 @@ class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
   self: Suite =>
 
   override lazy val devMode = true
-  override val cantonFixtureDebugMode: Boolean = true
 
   val daml3DarPath =
     Paths.get(BazelRunfiles.rlocation("compiler/damlc/tests/try-submit-test.dar"))
