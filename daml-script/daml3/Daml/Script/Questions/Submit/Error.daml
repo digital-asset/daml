@@ -11,6 +11,7 @@ import Daml.Script.Questions.Util
 import DA.NonEmpty
 import DA.Text
 import DA.Foldable (foldMap)
+import DA.Exception
 
 -- | Errors that will be promoted to SubmitError once stable
 data DevErrorType
@@ -143,7 +144,8 @@ instance Show SubmitError where
       "Disclosed contract with ID " <> show contractId <> " used incorrect payload - contract key: " <> show contractKey <> "; and contract key hash: " <> contractKeyHash
     DuplicateContractKey contractKey -> "Attempted to create a contract with a contract key that is already in use - contract key: " <> show contractKey
     InconsistentContractKey contractKey -> "Inconsistent contract key between daml and ledger - contract key: " <> show contractKey
-    UnhandledException _ -> "An Exception was thrown and not caught" -- FIXME
+    UnhandledException None -> "An Exception was thrown and not caught"
+    UnhandledException (Some exn) -> "An Exception was thrown and not caught with message " <> (message exn)
     UserError errMessage -> "User Error: " <> errMessage
     TemplatePreconditionViolated {} -> "Template precondition was violated"
     CreateEmptyContractKeyMaintainers templateId -> "Attempted to create a contract with empty key maintainers - template: " <> show templateId
