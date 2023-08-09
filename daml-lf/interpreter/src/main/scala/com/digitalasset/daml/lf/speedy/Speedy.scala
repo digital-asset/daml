@@ -1206,6 +1206,7 @@ private[lf] object Speedy {
     private[this] val damlTraceLog = ContextualizedLogger.createFor("daml.tracelog")
     private[this] val damlWarnings = ContextualizedLogger.createFor("daml.warnings")
 
+    def newProfile: Profile = new Profile()
     def newTraceLog: TraceLog = new RingBufferTraceLog(damlTraceLog, 100)
     def newWarningLog: WarningLog = new WarningLog(damlWarnings)
 
@@ -1300,13 +1301,14 @@ private[lf] object Speedy {
         iterationsBetweenInterruptions: Long = Long.MaxValue,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
+        profile: Profile = newProfile,
     )(implicit loggingContext: LoggingContext): PureMachine =
       new PureMachine(
         sexpr = expr,
         traceLog = traceLog,
         warningLog = warningLog,
         compiledPackages = compiledPackages,
-        profile = new Profile(),
+        profile = profile,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
       )
 

@@ -53,6 +53,7 @@ object RunnerMain {
 
       traceLog = Speedy.Machine.newTraceLog
       warningLog = Speedy.Machine.newWarningLog
+      profile = Speedy.Machine.newProfile
 
       converter = (json: JsValue, typ: Type) =>
         Converter.fromJsonValue(
@@ -85,7 +86,6 @@ object RunnerMain {
           traceLog,
           warningLog,
         )
-        ._2
       _ <- Future {
         config.outputFile.foreach { outputFile =>
           val jsVal = LfValueCodec.apiValueToJsValue(result.toUnnormalizedValue)
