@@ -614,16 +614,16 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
 
           inside(result) {
             case Failure(
-            SErrorDamlException(
-            interpretation.Error.ContractKeyNotVisible(
-            `globalContractId`,
-            `globalContractKey`,
-            _,
-            _,
-            _,
-            )
-            )
-            ) =>
+                  SErrorDamlException(
+                    interpretation.Error.ContractKeyNotVisible(
+                      `globalContractId`,
+                      `globalContractKey`,
+                      _,
+                      _,
+                      _,
+                    )
+                  )
+                ) =>
               succeed
           }
         }
@@ -671,10 +671,10 @@ object SpeedyTest {
   }
 
   def evalApp(
-               e: Expr,
-               args: Array[SValue],
-               packages: PureCompiledPackages,
-             ): Either[SError, SValue] = {
+      e: Expr,
+      args: Array[SValue],
+      packages: PureCompiledPackages,
+  ): Either[SError, SValue] = {
     val se = packages.compiler.unsafeCompile(e)
     evalSExpr(SEApp(se, args), packages)
   }

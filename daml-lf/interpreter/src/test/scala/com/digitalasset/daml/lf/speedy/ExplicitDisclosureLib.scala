@@ -18,7 +18,7 @@ import com.daml.lf.testing.parser.Implicits._
 
 /** Shared test data and functions for testing explicit disclosure.
   */
-object ExplicitDisclosureLib {
+private[lf] class ExplicitDisclosureLib(enableFullAnfTransformation: Boolean) {
 
   val testKeyName: String = "test-key"
   val pkg: PureCompiledPackages = SpeedyTestLib.typeAndCompile(
@@ -75,7 +75,8 @@ object ExplicitDisclosureLib {
                  None -> Nil @t
                | Some x -> Cons @t [x] (Nil @t);
        }
-       """
+       """,
+    enableFullAnfTransformation,
   )
   val maintainerParty: IdString.Party = Ref.Party.assertFromString("maintainerParty")
   val ledgerParty: IdString.Party = Ref.Party.assertFromString("ledgerParty")

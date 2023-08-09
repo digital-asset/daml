@@ -98,7 +98,7 @@ class LimitsSpec extends AnyFreeSpec with Matchers with Inside with TableDrivenP
           )
 
         "refuse to create a contract with too many signatories" in {
-          val limits = interpretation.Limits.Lenient.copy(contractSignatories= limit)
+          val limits = interpretation.Limits.Lenient.copy(contractSignatories = limit)
 
           val e =
             e"""\(signatories: List Party) (observers: List Party) ->
