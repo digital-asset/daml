@@ -140,7 +140,6 @@ instance Show SubmitError where
       <> foldMap (\info -> " Additional debugging info: " <> show info) additionalDebuggingInfo
     ContractKeyNotFound contractKey -> "Could not find contract with given key" <> show contractKey
     AuthorizationError errMessage -> "Authorization failure: " <> errMessage
-    ContractNotActive contractId -> "Contract with ID " <> show contractId <> " is no longer active"
     DisclosedContractKeyHashingError contractId contractKey contractKeyHash ->
       "Disclosed contract with ID " <> show contractId <> " used incorrect payload - contract key: " <> show contractKey <> "; and contract key hash: " <> contractKeyHash
     DuplicateContractKey contractKey -> "Attempted to create a contract with a contract key that is already in use - contract key: " <> show contractKey
