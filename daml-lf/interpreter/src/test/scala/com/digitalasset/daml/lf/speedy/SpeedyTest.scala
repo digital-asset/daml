@@ -18,7 +18,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import defaultParserParameters.{defaultPackageId => pkgId}
 import SpeedyTestLib.loggingContext
-import com.daml.lf.speedy.Speedy.CachedContract
+import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.ContextualizedLogger
@@ -476,30 +476,36 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
   "checkContractVisibility" should {
 
     "warn about non-visible local contracts" in new VisibilityChecking {
-      machine.checkContractVisibility(localContractId, localCachedContract)
+      machine.checkContractVisibility(localContractId, localContractInfo)
 
       testLogger.iterator.size shouldBe 1
     }
 
     "accept non-visible disclosed contracts" in new VisibilityChecking {
-      machine.checkContractVisibility(disclosedContractId, disclosedCachedContract)
+      machine.checkContractVisibility(disclosedContractId, disclosedContractInfo)
 
       testLogger.iterator.size shouldBe 0
     }
 
     "warn about non-visible global contracts" in new VisibilityChecking {
-      machine.checkContractVisibility(globalContractId, globalCachedContract)
+      machine.checkContractVisibility(globalContractId, globalContractInfo)
 
       testLogger.iterator.size shouldBe 1
     }
   }
 
   "checkKeyVisibility" should {
+
     val handleKeyFound = (contractId: ContractId) => Speedy.Control.Value(SContractId(contractId))
 
     "accept non-visible local contract keys" in new VisibilityChecking {
       val result = Try {
-        machine.checkKeyVisibility(localContractKey, localContractId, handleKeyFound)
+        machine.checkKeyVisibility(
+          localContractKey,
+          localContractId,
+          handleKeyFound,
+          localContractInfo,
+        )
       }
 
       inside(result) { case Success(Speedy.Control.Value(SContractId(`localContractId`))) =>
@@ -513,6 +519,7 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
           disclosedContractKey,
           disclosedContractId,
           handleKeyFound,
+          disclosedContractInfo,
         )
       }
 
@@ -523,7 +530,12 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
 
     "reject non-visible global contract keys" in new VisibilityChecking {
       val result = Try {
-        machine.checkKeyVisibility(globalContractKey, globalContractId, handleKeyFound)
+        machine.checkKeyVisibility(
+          globalContractKey,
+          globalContractId,
+          handleKeyFound,
+          globalContractInfo,
+        )
       }
 
       inside(result) {
@@ -627,20 +639,20 @@ object SpeedyTest {
     val localContractId: ContractId =
       ContractId.V1(crypto.Hash.hashPrivateKey("test-local-contract-id"))
     val localContractKey: GlobalKey = buildContractKey(alice, "local-label")
-    val localCachedContract: CachedContract =
-      buildHouseCachedContract(alice, alice, label = "local-label")
+    val localContractInfo: ContractInfo =
+      buildHouseContractInfo(alice, alice, label = "local-label")
     val globalContractId: ContractId =
       ContractId.V1(crypto.Hash.hashPrivateKey("test-global-contract-id"))
     val globalContractKey: GlobalKey = buildContractKey(alice, "global-label")
-    val globalCachedContract: CachedContract =
-      buildHouseCachedContract(alice, alice, label = "global-label")
+    val globalContractInfo: ContractInfo =
+      buildHouseContractInfo(alice, alice, label = "global-label")
     val disclosedContractId: ContractId =
       ContractId.V1(crypto.Hash.hashPrivateKey("test-disclosed-contract-id"))
-    val disclosedContract: CachedContract =
+    val disclosedContract: ContractInfo =
       buildDisclosedHouseContract(alice, alice, label = "disclosed-label")
     val disclosedContractKey: GlobalKey = buildContractKey(alice, "disclosed-label")
-    val disclosedCachedContract: CachedContract =
-      buildHouseCachedContract(alice, alice, label = "disclosed-label")
+    val disclosedContractInfo: ContractInfo =
+      buildHouseContractInfo(alice, alice, label = "disclosed-label")
     val testLogger: WarningLog = new WarningLog(ContextualizedLogger.createFor("daml.warnings"))
     val machine: Speedy.UpdateMachine = Speedy.Machine
       .fromUpdateSExpr(
@@ -652,11 +664,7 @@ object SpeedyTest {
 //        disclosedContracts = ImmArray(disclosedContract),
       )
       .withWarningLog(testLogger)
-      .withCachedContracts(
-        localContractId -> localCachedContract,
-        globalContractId -> globalCachedContract,
-      )
       .withLocalContractKey(localContractId, localContractKey)
-      .withDisclosedContractKeys(disclosedContractId -> disclosedCachedContract)
+      .withDisclosedContractKeys(disclosedContractId -> disclosedContractInfo)
   }
 }

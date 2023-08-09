@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Time}
 import com.daml.lf.ledger.Authorize
-import com.daml.lf.speedy.Speedy.{CachedContract, CachedKey}
+import com.daml.lf.speedy.Speedy.{ContractInfo, CachedKey}
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.lf.transaction.{
   ContractStateMachine,
@@ -337,7 +337,7 @@ private[speedy] case class PartialTransaction(
     */
   def insertCreate(
       submissionTime: Time.Timestamp,
-      contract: CachedContract,
+      contract: ContractInfo,
       optLocation: Option[Location],
   ): Either[(PartialTransaction, Tx.TransactionError), (Value.ContractId, PartialTransaction)] = {
     val auth = Authorize(context.info.authorizers)
@@ -372,7 +372,7 @@ private[speedy] case class PartialTransaction(
 
   def insertFetch(
       coid: Value.ContractId,
-      contract: CachedContract,
+      contract: ContractInfo,
       optLocation: Option[Location],
       byKey: Boolean,
       version: TxVersion,
@@ -440,7 +440,7 @@ private[speedy] case class PartialTransaction(
   def beginExercises(
       templateId: TypeConName,
       targetId: Value.ContractId,
-      contract: CachedContract,
+      contract: ContractInfo,
       interfaceId: Option[TypeConName],
       choiceId: ChoiceName,
       optLocation: Option[Location],

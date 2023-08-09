@@ -379,12 +379,12 @@ private[lf] final class Compiler(
         }
 
       addDef(compileCreate(tmplId, tmpl))
-      addDef(compileFetchTemplate(tmplId, tmpl, optTargetTemplateId))
+      addDef(compileFetchTemplate(tmplId, optTargetTemplateId))
       addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileAgreementText(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
       addDef(compileObservers(tmplId, tmpl))
-      addDef(compileToCachedContract(tmplId, tmpl))
+      addDef(compileToContractInfo(tmplId, tmpl))
       tmpl.implements.values.foreach { impl =>
         compileInterfaceInstance(
           parent = tmplId,
@@ -403,7 +403,7 @@ private[lf] final class Compiler(
 
       tmpl.key.foreach { tmplKey =>
         addDef(compileContractKeyWithMaintainers(tmplId, tmpl, tmplKey))
-        addDef(compileFetchByKey(tmplId, tmpl, tmplKey))
+        addDef(compileFetchByKey(tmplId, tmplKey))
         addDef(compileLookupByKey(tmplId, tmplKey))
         tmpl.choices.values.foreach { x =>
           addDef(compileChoiceByKey(tmplId, tmpl, tmplKey, x))
@@ -533,6 +533,7 @@ private[lf] final class Compiler(
             case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
             case None => s.SEValue.EmptyList
           },
+          env.toSEVar(tmplArgPos),
         ),
       ) { (_, _env) =>
         val env = _env.bindExprVar(choice.selfBinder, cidPos)
@@ -558,54 +559,61 @@ private[lf] final class Compiler(
   ): s.SExpr =
     let(
       env,
-      SBCastAnyInterface(ifaceId)(
+      SBFetchAny(
+        optTargetTemplateId = None
+      )(
         env.toSEVar(cidPos),
-        SBFetchAny(
-          optTargetTemplateId = None
-        )(
-          env.toSEVar(cidPos),
-          s.SEValue.None,
-        ),
+        s.SEValue.None,
       ),
     ) { (payloadPos, env) =>
       let(
         env,
-        s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
-      ) { (_, _env) =>
-        val env = _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
+        SBCastAnyInterface(ifaceId)(
+          env.toSEVar(cidPos),
+          env.toSEVar(payloadPos),
+        ),
+      ) { (castPos, env) =>
         let(
           env,
-          SBApplyChoiceGuard(choice.name, Some(ifaceId))(
-            env.toSEVar(guardPos),
-            env.toSEVar(payloadPos),
-            env.toSEVar(cidPos),
-          ),
-        ) { (_, env) =>
+          s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
+        ) { (_, _env) =>
+          val env =
+            _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
           let(
             env,
-            SBResolveSBUBeginExercise(
-              interfaceId = ifaceId,
-              choiceName = choice.name,
-              consuming = choice.consuming,
-              byKey = false,
-              explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
-            )(
+            SBApplyChoiceGuard(choice.name, Some(ifaceId))(
+              env.toSEVar(guardPos),
               env.toSEVar(payloadPos),
-              env.toSEVar(choiceArgPos),
               env.toSEVar(cidPos),
-              s.SEPreventCatch(translateExp(env, choice.controllers)),
-              choice.choiceObservers match {
-                case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
-                case None => s.SEValue.EmptyList
-              },
-              choice.choiceAuthorizers match {
-                case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
-                case None => s.SEValue.EmptyList
-              },
             ),
-          ) { (_, _env) =>
-            val env = _env.bindExprVar(choice.selfBinder, cidPos)
-            s.SEScopeExercise(app(translateExp(env, choice.update), env.toSEVar(tokenPos)))
+          ) { (_, env) =>
+            let(
+              env,
+              SBResolveSBUBeginExercise(
+                interfaceId = ifaceId,
+                choiceName = choice.name,
+                consuming = choice.consuming,
+                byKey = false,
+                explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
+              )(
+                env.toSEVar(payloadPos),
+                env.toSEVar(choiceArgPos),
+                env.toSEVar(cidPos),
+                s.SEPreventCatch(translateExp(env, choice.controllers)),
+                choice.choiceObservers match {
+                  case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
+                  case None => s.SEValue.EmptyList
+                },
+                choice.choiceAuthorizers match {
+                  case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
+                  case None => s.SEValue.EmptyList
+                },
+                env.toSEVar(castPos),
+              ),
+            ) { (_, _env) =>
+              val env = _env.bindExprVar(choice.selfBinder, cidPos)
+              s.SEScopeExercise(app(translateExp(env, choice.update), env.toSEVar(tokenPos)))
+            }
           }
         }
       }
@@ -714,40 +722,29 @@ private[lf] final class Compiler(
   private[this] def translateFetchTemplateBody(
       env: Env,
       tmplId: Identifier,
-      tmpl: Template,
       optTargetTemplateId: Option[TypeConName],
   )(
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
   ): s.SExpr = {
-    let(
-      env,
-      SBCastAnyContract(tmplId)(
-        env.toSEVar(cidPos),
-        SBFetchAny(optTargetTemplateId)(
-          env.toSEVar(cidPos),
-          mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
-        ),
-      ),
-    ) { (tmplArgPos, _env) =>
-      val env = _env.bindExprVar(tmpl.param, tmplArgPos)
-      let(
-        env,
-        SBUInsertFetchNode(tmplId, byKey = mbKey.isDefined)(env.toSEVar(cidPos)),
-      ) { (_, env) =>
-        env.toSEVar(tmplArgPos)
-      }
-    }
+    SBUInsertFetchNode(
+      tmplId,
+      optTargetTemplateId,
+      byKey = mbKey.isDefined,
+    )(
+      env.toSEVar(cidPos),
+      mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
+    )
+
   }
 
   private[this] def compileFetchTemplate(
       tmplId: Identifier,
-      tmpl: Template,
       optTargetTemplateId: Option[TypeConName],
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction2(t.FetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
-      translateFetchTemplateBody(env, tmplId, tmpl, optTargetTemplateId)(
+      translateFetchTemplateBody(env, tmplId, optTargetTemplateId)(
         cidPos,
         None,
         tokenPos,
@@ -758,25 +755,34 @@ private[lf] final class Compiler(
     topLevelFunction2(t.FetchInterfaceDefRef(ifaceId)) { (cidPos, _, env) =>
       let(
         env,
-        SBCastAnyInterface(ifaceId)(
+        SBFetchAny(
+          optTargetTemplateId = None
+        )(
           env.toSEVar(cidPos),
-          SBFetchAny(
-            optTargetTemplateId = None
-          )(
-            env.toSEVar(cidPos),
-            s.SEValue.None,
-          ),
+          s.SEValue.None,
         ),
       ) { (payloadPos, env) =>
         let(
           env,
-          s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
+          SBCastAnyInterface(ifaceId)(
+            env.toSEVar(cidPos),
+            env.toSEVar(payloadPos),
+          ),
         ) { (_, env) =>
           let(
             env,
-            SBResolveSBUInsertFetchNode(env.toSEVar(payloadPos), env.toSEVar(cidPos)),
+            s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
           ) { (_, env) =>
-            env.toSEVar(payloadPos)
+            let(
+              env,
+              SBResolveSBUInsertFetchNode(
+                env.toSEVar(payloadPos),
+                env.toSEVar(cidPos),
+                s.SEValue.None,
+              ),
+            ) { (_, env) =>
+              env.toSEVar(payloadPos)
+            }
           }
         }
       }
@@ -806,12 +812,13 @@ private[lf] final class Compiler(
       translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmpl.observers)
     }
 
-  private[this] def compileToCachedContract(
+  // TODO: This would be better handled by a proper builtin, rather than synthesising a definition
+  private[this] def compileToContractInfo(
       tmplId: Identifier,
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
-    unlabelledTopLevelFunction2(t.ToCachedContractDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
-      SBuildCachedContract(
+    unlabelledTopLevelFunction2(t.ToContractInfoDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
+      SBuildContractInfoStruct(
         s.SEValue(STypeRep(TTyCon(tmplId))),
         env.toSEVar(tmplArgPos),
         t.AgreementTextDefRef(tmplId)(env.toSEVar(tmplArgPos)),
@@ -902,7 +909,7 @@ private[lf] final class Compiler(
       templateId,
       env2.toSEVar(contractPos),
     ) { (env: Env) =>
-      SBUCreate(t.ToCachedContractDefRef(templateId)(env.toSEVar(contractPos), s.SEValue.None))
+      SBUCreate(templateId)(env.toSEVar(contractPos))
     }
   }
 
@@ -990,7 +997,6 @@ private[lf] final class Compiler(
   @inline
   private[this] def compileFetchByKey(
       tmplId: TypeConName,
-      tmpl: Template,
       tmplKey: TemplateKey,
   ): (t.SDefinitionRef, SDefinition) =
     // compile a template with key into
@@ -1005,7 +1011,7 @@ private[lf] final class Compiler(
         let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
           let(
             env,
-            translateFetchTemplateBody(env, tmplId, tmpl, optTargetTemplateId = None)(
+            translateFetchTemplateBody(env, tmplId, optTargetTemplateId = None)(
               cidPos,
               Some(keyWithMPos),
               tokenPos,
@@ -1107,7 +1113,7 @@ private[lf] final class Compiler(
             s.SEValue(argument),
           )((_) =>
             s.SEApp(
-              s.SEVal(t.ToCachedContractDefRef(templateId)),
+              s.SEVal(t.ToContractInfoDefRef(templateId)),
               List(s.SEValue(argument), s.SEValue.None),
             )
           )
