@@ -42,7 +42,11 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
     Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, Set(party)).run()
   }
 
-  for ((anfMode, fullAnf) <- Seq("partial ANF" -> false, "full ANF" -> true)) {
+  private val anfModes = Seq(
+    "partial ANF" -> false,
+    "full ANF" -> true,
+  )
+  for ((anfMode, enableFullAnfTransformation) <- anfModes) {
 
     anfMode - {
 
@@ -76,7 +80,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
          val divZero : Update Int64 = upure @Int64 (DIV_INT64 1 0) ;
        }
       """,
-          enableFullAnfTransformation = fullAnf,
+          enableFullAnfTransformation,
         )
 
         val List((t1, e1), (t2, e2)) =
@@ -135,7 +139,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
 
        }
       """,
-          enableFullAnfTransformation = fullAnf,
+          enableFullAnfTransformation,
         )
 
         val testCases = Table[String, Long](
@@ -175,7 +179,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
              ;
        }
       """,
-          enableFullAnfTransformation = fullAnf,
+          enableFullAnfTransformation,
         )
 
         val testCases = Table[String, Long](
@@ -259,7 +263,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
 
        }
       """,
-          enableFullAnfTransformation = fullAnf,
+          enableFullAnfTransformation,
         )
 
         val testCases = Table[String, Long](
@@ -331,7 +335,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
             upure @Int64 (ADD_INT64 100 x) ;
        }
       """,
-          enableFullAnfTransformation = fullAnf,
+          enableFullAnfTransformation,
         )
 
         val testCases = Table[String, Long](
@@ -405,7 +409,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
             upure @Int64 (ADD_INT64 1000 x) ;
 
       }""",
-          enableFullAnfTransformation = fullAnf,
+          enableFullAnfTransformation,
         )
 
         val testCases = Table[String, Long](
@@ -488,7 +492,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
           );
 
       } """,
-          enableFullAnfTransformation = fullAnf,
+          enableFullAnfTransformation,
         )
 
         val testCases = Table[String, String](
@@ -496,7 +500,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
           ("M:example1", "RESULT: Happy Path"),
           ("M:example2", "HANDLED: oops1"),
           ("M:example3", "UNHANDLED"),
-          ("M:example4", if (fullAnf) "HANDLED: right" else "HANDLED: left"),
+          ("M:example4", if (enableFullAnfTransformation) "HANDLED: right" else "HANDLED: left"),
           ("M:example5", "HANDLED: throw-in-throw"),
         )
 
@@ -572,7 +576,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
          };
        }
       """,
-            enableFullAnfTransformation = fullAnf,
+            enableFullAnfTransformation,
           )
 
           val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
@@ -725,7 +729,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
             in upure @Unit ();
 
       } """,
-            enableFullAnfTransformation = fullAnf,
+            enableFullAnfTransformation,
           )
         }
 
@@ -846,7 +850,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
         val pkgs =
           SpeedyTestLib.typeAndCompile(
             Map(oldPid -> oldPackage, newPid -> newPackage),
-            enableFullAnfTransformation = fullAnf,
+            enableFullAnfTransformation,
           )
 
         implicit val defaultParserParameters: ParserParameters[this.type] = {

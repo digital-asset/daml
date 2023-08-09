@@ -26,106 +26,116 @@ class TransactionVersionTest
 
   import TransactionVersionTest._
 
-  "interface and transaction versioning" - {
+  private val anfModes = Seq(
+    "partial ANF" -> false,
+    "full ANF" -> true,
+  )
+  for ((anfMode, enableFullAnfTransformation) <- anfModes) {
 
-    "version testing assumptions" in {
-      oldVersion should be < newVersion
-      Set(
-        templatePkg.languageVersion,
-        interfacesPkg.languageVersion,
-        implementsPkg.languageVersion,
-        coImplementsPkg.languageVersion,
-      ) shouldBe Set(commonVersion)
-    }
+    anfMode - {
 
-    "template version > interface version" in {
-      val oldPkg1 = templatePkg.copy(languageVersion = oldVersion)
-      val oldPkg2 = interfacesPkg.copy(languageVersion = oldVersion)
-      val newPkg1 = implementsPkg.copy(languageVersion = newVersion)
-      val newPkg2 = coImplementsPkg.copy(languageVersion = newVersion)
-      val pkgs = SpeedyTestLib.typeAndCompile(
-        Map(
-          templatePkgId -> oldPkg1,
-          interfacesPkgId -> oldPkg2,
-          implementsPkgId -> newPkg1,
-          coImplementsPkgId -> newPkg2,
-        ),
-        enableFullAnfTransformation = false,
-      )
+      "interface and transaction versioning" - {
 
-      for ((templateId, interfaceId, contract) <- testData) {
-        val result = evaluateBeginExercise(
-          pkgs,
-          templateId,
-          Some(interfaceId),
-          contractId,
-          committers = Set(contractParty),
-          controllers = Set(contractParty),
-          getContract = Map(contractId -> contract),
-        )
-
-        inside(result) { case Right(transaction) =>
-          transaction.version shouldBe TransactionVersion.assignNodeVersion(newVersion)
+        "version testing assumptions" in {
+          oldVersion should be < newVersion
+          Set(
+            templatePkg.languageVersion,
+            interfacesPkg.languageVersion,
+            implementsPkg.languageVersion,
+            coImplementsPkg.languageVersion,
+          ) shouldBe Set(commonVersion)
         }
-      }
-    }
 
-    "template version < interface version" in {
-      val oldPkg1 = implementsPkg.copy(languageVersion = oldVersion)
-      val oldPkg2 = coImplementsPkg.copy(languageVersion = oldVersion)
-      val newPkg1 = templatePkg.copy(languageVersion = newVersion)
-      val newPkg2 = interfacesPkg.copy(languageVersion = newVersion)
-      val pkgs = SpeedyTestLib.typeAndCompile(
-        Map(
-          templatePkgId -> newPkg1,
-          interfacesPkgId -> newPkg2,
-          implementsPkgId -> oldPkg1,
-          coImplementsPkgId -> oldPkg2,
-        ),
-        enableFullAnfTransformation = false,
-      )
+        "template version > interface version" in {
+          val oldPkg1 = templatePkg.copy(languageVersion = oldVersion)
+          val oldPkg2 = interfacesPkg.copy(languageVersion = oldVersion)
+          val newPkg1 = implementsPkg.copy(languageVersion = newVersion)
+          val newPkg2 = coImplementsPkg.copy(languageVersion = newVersion)
+          val pkgs = SpeedyTestLib.typeAndCompile(
+            Map(
+              templatePkgId -> oldPkg1,
+              interfacesPkgId -> oldPkg2,
+              implementsPkgId -> newPkg1,
+              coImplementsPkgId -> newPkg2,
+            ),
+            enableFullAnfTransformation,
+          )
 
-      for ((templateId, interfaceId, contract) <- testData) {
-        val result = evaluateBeginExercise(
-          pkgs,
-          templateId,
-          Some(interfaceId),
-          contractId,
-          committers = Set(contractParty),
-          controllers = Set(contractParty),
-          getContract = Map(contractId -> contract),
-        )
+          for ((templateId, interfaceId, contract) <- testData) {
+            val result = evaluateBeginExercise(
+              pkgs,
+              templateId,
+              Some(interfaceId),
+              contractId,
+              committers = Set(contractParty),
+              controllers = Set(contractParty),
+              getContract = Map(contractId -> contract),
+            )
 
-        inside(result) { case Right(transaction) =>
-          transaction.version shouldBe TransactionVersion.assignNodeVersion(newVersion)
+            inside(result) { case Right(transaction) =>
+              transaction.version shouldBe TransactionVersion.assignNodeVersion(newVersion)
+            }
+          }
         }
-      }
-    }
 
-    "template version == interface version" in {
-      val pkgs = SpeedyTestLib.typeAndCompile(
-        Map(
-          templatePkgId -> templatePkg,
-          interfacesPkgId -> interfacesPkg,
-          implementsPkgId -> implementsPkg,
-          coImplementsPkgId -> coImplementsPkg,
-        ),
-        enableFullAnfTransformation = false,
-      )
+        "template version < interface version" in {
+          val oldPkg1 = implementsPkg.copy(languageVersion = oldVersion)
+          val oldPkg2 = coImplementsPkg.copy(languageVersion = oldVersion)
+          val newPkg1 = templatePkg.copy(languageVersion = newVersion)
+          val newPkg2 = interfacesPkg.copy(languageVersion = newVersion)
+          val pkgs = SpeedyTestLib.typeAndCompile(
+            Map(
+              templatePkgId -> newPkg1,
+              interfacesPkgId -> newPkg2,
+              implementsPkgId -> oldPkg1,
+              coImplementsPkgId -> oldPkg2,
+            ),
+            enableFullAnfTransformation,
+          )
 
-      for ((templateId, interfaceId, contract) <- testData) {
-        val result = evaluateBeginExercise(
-          pkgs,
-          templateId,
-          Some(interfaceId),
-          contractId,
-          committers = Set(contractParty),
-          controllers = Set(contractParty),
-          getContract = Map(contractId -> contract),
-        )
+          for ((templateId, interfaceId, contract) <- testData) {
+            val result = evaluateBeginExercise(
+              pkgs,
+              templateId,
+              Some(interfaceId),
+              contractId,
+              committers = Set(contractParty),
+              controllers = Set(contractParty),
+              getContract = Map(contractId -> contract),
+            )
 
-        inside(result) { case Right(transaction) =>
-          transaction.version shouldBe TransactionVersion.assignNodeVersion(commonVersion)
+            inside(result) { case Right(transaction) =>
+              transaction.version shouldBe TransactionVersion.assignNodeVersion(newVersion)
+            }
+          }
+        }
+
+        "template version == interface version" in {
+          val pkgs = SpeedyTestLib.typeAndCompile(
+            Map(
+              templatePkgId -> templatePkg,
+              interfacesPkgId -> interfacesPkg,
+              implementsPkgId -> implementsPkg,
+              coImplementsPkgId -> coImplementsPkg,
+            ),
+            enableFullAnfTransformation,
+          )
+
+          for ((templateId, interfaceId, contract) <- testData) {
+            val result = evaluateBeginExercise(
+              pkgs,
+              templateId,
+              Some(interfaceId),
+              contractId,
+              committers = Set(contractParty),
+              controllers = Set(contractParty),
+              getContract = Map(contractId -> contract),
+            )
+
+            inside(result) { case Right(transaction) =>
+              transaction.version shouldBe TransactionVersion.assignNodeVersion(commonVersion)
+            }
+          }
         }
       }
     }
@@ -137,7 +147,8 @@ object TransactionVersionTest {
   val oldVersion: LanguageVersion = LanguageVersion.v1_15
   val newVersion: LanguageVersion = LanguageVersion.v1_dev
   val (templatePkgId, templatePkg) =
-    PackageId.assertFromString("template-pkg") -> p"""
+    PackageId.assertFromString("template-pkg") ->
+      p"""
         module TemplateMod {
           record @serializable Template1 = { person: Party, label: Text };
           template (this: Template1) = {
@@ -154,7 +165,8 @@ object TransactionVersionTest {
         }
        """
   val (interfacesPkgId, interfacesPkg) =
-    PackageId.assertFromString("interfaces-pkg") -> p"""
+    PackageId.assertFromString("interfaces-pkg") ->
+      p"""
          module InterfacesMod {
            record @serializable EmptyInterfaceView = {};
 
@@ -179,7 +191,8 @@ object TransactionVersionTest {
          }
        """
   val (implementsPkgId, implementsPkg) =
-    PackageId.assertFromString("implements-pkg") -> p"""
+    PackageId.assertFromString("implements-pkg") ->
+      p"""
         module ImplementsMod {
           record @serializable TemplateImplements1 = { person: Party, label: Text } ;
           template (this: TemplateImplements1) = {
@@ -225,7 +238,8 @@ object TransactionVersionTest {
         }
       """
   val (coImplementsPkgId, coImplementsPkg) =
-    PackageId.assertFromString("coimplements-pkg") -> p"""
+    PackageId.assertFromString("coimplements-pkg") ->
+      p"""
         module CoImplementsMod {
           record @serializable EmptyInterfaceView = {};
 
@@ -253,7 +267,9 @@ object TransactionVersionTest {
   val implementsInterfaceId: Ref.TypeConName =
     Ref.TypeConName.assertFromString(s"$interfacesPkgId:InterfaceMod:Interface1")
   val coimplementsInterfaceId: Ref.TypeConName =
-    Ref.TypeConName.assertFromString(s"$coImplementsPkgId:CoImplementsMod:InterfaceCoImplements1")
+    Ref.TypeConName.assertFromString(
+      s"$coImplementsPkgId:CoImplementsMod:InterfaceCoImplements1"
+    )
   val contractId: ContractId =
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
   val implementsContract: Versioned[Value.ContractInstance] = Versioned(
