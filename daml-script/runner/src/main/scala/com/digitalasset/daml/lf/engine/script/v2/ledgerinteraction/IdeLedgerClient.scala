@@ -303,7 +303,11 @@ class IdeLedgerClient(
       case ContractKeyNotFound(key) => SubmitError.ContractKeyNotFound(key)
       case e: FailedAuthorization =>
         SubmitError.AuthorizationError(Pretty.prettyDamlException(e).renderWideStream.mkString)
-      case ContractNotActive(cid, tid, _) => SubmitError.ContractNotActive(tid, cid)
+      case ContractNotActive(cid, tid, _) =>
+        SubmitError.ContractNotFound(
+          NonEmpty(Seq, cid),
+          Some(SubmitError.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
+        )
       case DisclosedContractKeyHashingError(cid, key, hash) =>
         SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString)
       // Hide not visible as not found
@@ -351,17 +355,22 @@ class IdeLedgerClient(
     case scenario.Error.ContractNotEffective(cid, tid, effectiveAt) =>
       SubmitError.ContractNotFound(
         NonEmpty(Seq, cid),
-        Some(SubmitError.ContractNotFound.AdditionalInfo.NotEffective(tid, effectiveAt)),
+        Some(SubmitError.ContractNotFound.AdditionalInfo.NotEffective(cid, tid, effectiveAt)),
       )
 
-    case scenario.Error.ContractNotActive(cid, templateId, _) =>
-      SubmitError.ContractNotActive(templateId, cid)
+    case scenario.Error.ContractNotActive(cid, tid, _) =>
+      SubmitError.ContractNotFound(
+        NonEmpty(Seq, cid),
+        Some(SubmitError.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
+      )
 
     // Similarly, we treat contracts that we can't see as not being found
     case scenario.Error.ContractNotVisible(cid, tid, actAs, readAs, observers) =>
       SubmitError.ContractNotFound(
         NonEmpty(Seq, cid),
-        Some(SubmitError.ContractNotFound.AdditionalInfo.NotVisible(tid, actAs, readAs, observers)),
+        Some(
+          SubmitError.ContractNotFound.AdditionalInfo.NotVisible(cid, tid, actAs, readAs, observers)
+        ),
       )
 
     case scenario.Error.ContractKeyNotVisible(_, key, _, _, _) =>

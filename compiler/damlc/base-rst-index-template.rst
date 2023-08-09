@@ -3,7 +3,7 @@
 
 .. _stdlib-reference-base:
 
-The standard library
+The Standard Library
 ====================
 
 The Daml standard library is a collection of Daml modules that are bundled with the SDK, and can be used to implement Daml applications.

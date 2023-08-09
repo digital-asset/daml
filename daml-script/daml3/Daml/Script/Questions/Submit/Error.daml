@@ -4,6 +4,7 @@
 module Daml.Script.Questions.Submit.Error
   ( DevErrorType (..)
   , ContractNotFoundAdditionalInfo -- Don't export constructors, users should not be able to rely on the structure.
+  , isNotActive
   , SubmitError (..)
   ) where
 
@@ -21,19 +22,22 @@ data DevErrorType
 
 -- | Additional debugging info optionally provided by the ledger
 data ContractNotFoundAdditionalInfo
-  = NotFound with -- The generic "this contract does not exist"
-      templateIdentifier : Text
+  = NotFound -- The generic "this contract does not exist"
   | NotActive with -- The contract did exist, but has since been archived
-      templateIdentifier : Text
+      additionalInfoCid : AnyContractId
   | NotEffective with -- The contract "will" exist, only thrown from the IDELedger where one can go backwards in time
-      templateIdentifier : Text
+      additionalInfoCid : AnyContractId
       effectiveAt : Text
   | NotVisible with -- The contract exists, but the readAs/actAs party union cannot see it
-      templateIdentifier : Text
+      additionalInfoCid : AnyContractId
       actAs : [Party]
       readAs : [Party]
       observers : [Party]
   deriving Show
+
+isNotActive : ContractNotFoundAdditionalInfo -> Optional AnyContractId
+isNotActive (NotActive {additionalInfoCid}) = Some additionalInfoCid
+isNotActive _ = None
 
 -- | Errors that can be thrown by a command submission - code needs to be kept in sync with SubmitError.scala
 data SubmitError
@@ -51,9 +55,6 @@ data SubmitError
   | -- | Generic authorization failure, included missing party authority, invalid signatories, etc.
     AuthorizationError with
       authorizationErrorMessage : Text -- We can't pass over the data at the moment, so we just give the full string error here, for anyone that wants to check it
-  | -- | Contract with given contract ID could not be found, as it has already been archived
-    ContractNotActive with 
-      contractId : AnyContractId
   | -- | Given disclosed contract key does not match the contract key of the contract on ledger.
     DisclosedContractKeyHashingError with
       contractId : AnyContractId
@@ -134,7 +135,6 @@ instance Show SubmitError where
       <> foldMap (\info -> " Additional debugging info: " <> show info) additionalDebuggingInfo
     ContractKeyNotFound {} -> "Could not find contract with given key"
     AuthorizationError errMessage -> "Authorization failure: " <> errMessage
-    ContractNotActive anyKey -> "Contract with ID " <> show anyKey.contractId <> " is no longer active"
     DisclosedContractKeyHashingError contractId _ _ -> "Disclosed contract with ID " <> show contractId.contractId <> " used incorrect payload"
     DuplicateContractKey {} -> "Attempted to create a contract with a contract key that is already in use"
     InconsistentContractKey {} -> "Inconsistent contract key between daml and ledger"
