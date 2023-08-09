@@ -14,11 +14,11 @@ import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.value.Value.{ValueInt64, ValueRecord}
+import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.wordspec.AnyWordSpec
 
-class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class RollbackTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
@@ -37,7 +37,16 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       .fold(e => fail(Pretty.prettyError(e).render(80)), identity)
   }
 
-  val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
+  private val anfModes = Seq(
+    "partial ANF" -> false,
+    "full ANF" -> true,
+  )
+  for ((anfMode, enableFullAnfTransformation) <- anfModes) {
+
+    anfMode - {
+
+      val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(
+        p"""
       module M {
 
         record @serializable MyException = { message: Text } ;
@@ -173,31 +182,32 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
             in upure @Unit ();
 
        }
-      """)
+      """, enableFullAnfTransformation)
 
-  val testCases = Table[String, List[Tree]](
-    ("expression", "expected-number-of-contracts"),
-    ("create0", Nil),
-    ("create1", List(C(100))),
-    ("create2", List(C(100), C(200))),
-    ("create3", List(C(100), C(200), C(300))),
-    ("create3nested", List(C(100), C(200), C(300))),
-    ("create3catchNoThrow", List(C(100), C(200), C(300))),
-    ("create3throwAndCatch", List[Tree](R(List(C(100), C(200))), C(300))),
-    ("create3throwAndOuterCatch", List[Tree](R(List(C(100), C(200))), C(300))),
-    ("exer1", List[Tree](C(100), X(List(C(400), C(500))), C(200), C(300))),
-    ("exer2", List[Tree](C(100), R(List(X(List(C(400))))), C(300))),
-  )
+      val testCases = Table[String, List[Tree]](
+        ("expression", "expected-number-of-contracts"),
+        ("create0", Nil),
+        ("create1", List(C(100))),
+        ("create2", List(C(100), C(200))),
+        ("create3", List(C(100), C(200), C(300))),
+        ("create3nested", List(C(100), C(200), C(300))),
+        ("create3catchNoThrow", List(C(100), C(200), C(300))),
+        ("create3throwAndCatch", List[Tree](R(List(C(100), C(200))), C(300))),
+        ("create3throwAndOuterCatch", List[Tree](R(List(C(100), C(200))), C(300))),
+        ("exer1", List[Tree](C(100), X(List(C(400), C(500))), C(200), C(300))),
+        ("exer2", List[Tree](C(100), R(List(X(List(C(400))))), C(300))),
+      )
 
-  forEvery(testCases) { (exp: String, expected: List[Tree]) =>
-    s"""$exp, contracts expected: $expected """ in {
-      val party = Party.assertFromString("Alice")
-      val tx: SubmittedTransaction = runUpdateExprGetTx(pkgs)(e"M:$exp", party)
-      val ids: List[Tree] = shapeOfTransaction(tx)
-      ids shouldBe expected
+      forEvery(testCases) { (exp: String, expected: List[Tree]) =>
+        s"""$exp, contracts expected: $expected """ in {
+          val party = Party.assertFromString("Alice")
+          val tx: SubmittedTransaction = runUpdateExprGetTx(pkgs)(e"M:$exp", party)
+          val ids: List[Tree] = shapeOfTransaction(tx)
+          ids shouldBe expected
+        }
+      }
     }
   }
-
 }
 
 object RollbackTest {
