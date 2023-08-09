@@ -146,7 +146,7 @@ object GrpcErrorParser {
             SubmitError.UnhandledException(Some((Identifier.assertFromString(ty), value)))
           case Seq() => SubmitError.UnhandledException(None)
         }
-      case "USER_ERROR" =>
+      case "INTERPRETATION_USER_ERROR" =>
         caseErr { case Seq((ErrorResource.ExceptionText, excMessage)) =>
           SubmitError.UserError(excMessage)
         }
@@ -216,7 +216,7 @@ object GrpcErrorParser {
         caseErr { case Seq((ErrorResource.ContractId, cid)) =>
           SubmitError.ContractIdComparability(cid)
         }
-      case "DEV_ERROR" =>
+      case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>
           SubmitError.DevError(errorType, message)
         }

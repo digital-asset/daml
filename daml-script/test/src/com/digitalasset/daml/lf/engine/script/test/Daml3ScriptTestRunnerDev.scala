@@ -19,9 +19,6 @@ class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
 
   override lazy val darFiles = List(daml3DarPath)
 
-  /*
-   *Commented as broken. Please fix.
-   *
   "daml-script command line" should {
     "pick up all scripts and returns somewhat sensible outputs for daml3-script features" in
       assertDamlScriptRunnerResult(
@@ -38,21 +35,5 @@ class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
           |Daml3ScriptTrySubmit:wronglyTypedContract SUCCESS
           |""".stripMargin,
       )
-(macroexpand '(
-        daml3DarPath,
-        """Daml3ScriptTrySubmit:authorizationError SUCCESS
-          |Daml3ScriptTrySubmit:contractKeyNotFound SUCCESS
-          |Daml3ScriptTrySubmit:contractNotActive SUCCESS
-          |Daml3ScriptTrySubmit:createEmptyContractKeyMaintainers SUCCESS
-          |Daml3ScriptTrySubmit:devError SUCCESS
-          |Daml3ScriptTrySubmit:duplicateContractKey SUCCESS
-          |Daml3ScriptTrySubmit:fetchEmptyContractKeyMaintainers SUCCESS
-          |Daml3ScriptTrySubmit:truncatedError FAILURE (com.daml.lf.engine.script.Runner$InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
-          |Daml3ScriptTrySubmit:unhandledException SUCCESS
-          |Daml3ScriptTrySubmit:wronglyTypedContract SUCCESS
-          |""".stripMargin,
-      ))
-
   }
-   */
 }

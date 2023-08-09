@@ -127,7 +127,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
 
     test(
       "exercise argument",
-      LedgerApiErrors.CommandExecution.Interpreter.DevError,
+      LedgerApiErrors.CommandExecution.Interpreter.InterpretationDevError,
     ) { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
@@ -142,7 +142,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
 
     test(
       "exercise output",
-      LedgerApiErrors.CommandExecution.Interpreter.DevError,
+      LedgerApiErrors.CommandExecution.Interpreter.InterpretationDevError,
     ) { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
@@ -153,7 +153,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
 
     test(
       "create argument",
-      LedgerApiErrors.CommandExecution.Interpreter.DevError,
+      LedgerApiErrors.CommandExecution.Interpreter.InterpretationDevError,
     ) { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
@@ -163,7 +163,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
 
     test(
       "contract key",
-      LedgerApiErrors.CommandExecution.Interpreter.DevError,
+      LedgerApiErrors.CommandExecution.Interpreter.InterpretationDevError,
     ) { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
@@ -176,7 +176,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       // it does not make sense to test fetch of those kinds of contracts.
       test(
         "fetch by key",
-        LedgerApiErrors.CommandExecution.Interpreter.DevError,
+        LedgerApiErrors.CommandExecution.Interpreter.InterpretationDevError,
       ) { implicit ec => (alpha, party) =>
         for {
           handler <- alpha.create(party, Handler(party))
@@ -188,7 +188,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
 
     test(
       "failing lookup by key",
-      LedgerApiErrors.CommandExecution.Interpreter.DevError,
+      LedgerApiErrors.CommandExecution.Interpreter.InterpretationDevError,
     ) { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
@@ -201,7 +201,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       // it does not make sens to test successful lookup for those keys.
       test(
         "successful lookup by key",
-        LedgerApiErrors.CommandExecution.Interpreter.DevError,
+        LedgerApiErrors.CommandExecution.Interpreter.InterpretationDevError,
       ) { implicit ec => (alpha, party) =>
         for {
           handler <- alpha.create(party, Handler(party))
