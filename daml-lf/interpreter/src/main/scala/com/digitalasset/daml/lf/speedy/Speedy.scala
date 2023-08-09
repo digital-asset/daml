@@ -274,7 +274,11 @@ private[lf] object Speedy {
     def incompleteTransaction: IncompleteTx = ptx.finishIncomplete
     def nodesToString: String = ptx.nodesToString
 
-    // local contract store...
+    /** Local Contract Store:
+      *      Maps contract-id to type+svalue, for LOCALLY-CREATED contracts.
+      *      - Consulted (getIfLocalContract) by fetchAny (SBuiltin).
+      *      - Updated   (storeLocalContract) by SBUCreate.
+      */
     private[speedy] var localContractStore: Map[V.ContractId, (TypeConName, SValue)] = Map.empty
     private[speedy] def getIfLocalContract(coid: V.ContractId): Option[(TypeConName, SValue)] = {
       localContractStore.get(coid)
@@ -287,7 +291,11 @@ private[lf] object Speedy {
       localContractStore = localContractStore + (coid -> (templateId, templateArg))
     }
 
-    // contract-info cache
+    /** Contract Info Cache:
+      *      Maps contract-id to contract-info, for EVERY referenced contract-id.
+      *      - Consulted (lookupContractInfoCache) by getContractInfo (SBuiltin).
+      *      - Updated   (insertContractInfoCache) by getContractInfo + SBUCreate.
+      */
     // TODO: https://github.com/digital-asset/daml/issues/17082
     // - Must be template-id aware when we support ResultNeedUpgradeVerification
     private[speedy] var contractInfoCache: Map[V.ContractId, ContractInfo] = Map.empty

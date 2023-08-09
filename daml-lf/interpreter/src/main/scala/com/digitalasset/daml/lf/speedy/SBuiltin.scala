@@ -1272,7 +1272,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control.Expression = {
-      val optTargetTemplateId: Option[TypeConName] = None // hard
+      val optTargetTemplateId: Option[TypeConName] = None // no upgrading
       val e = SEBuiltin(
         SBUInsertFetchNode(
           getSAnyContract(args, 0)._1,
@@ -1438,8 +1438,6 @@ private[lf] object SBuiltin {
 
   /** $insertFetch[tid]
     *    :: ContractId a
-    *    -> List Party    (signatories)
-    *    -> List Party    (observers)
     *    -> Optional {key: key, maintainers: List Party}  (template key, if present)
     *    -> ()
     */
@@ -1578,7 +1576,7 @@ private[lf] object SBuiltin {
         } else {
           val keyOpt = SOptional(Some(keyValue))
           val gkey = cachedKey.globalKey
-          val optTargetTemplateId: Option[TypeConName] = None // hard
+          val optTargetTemplateId: Option[TypeConName] = None // no upgrading
           machine.ptx.contractState.resolveKey(gkey) match {
             case Right((keyMapping, next)) =>
               machine.ptx = machine.ptx.copy(contractState = next)
@@ -2255,7 +2253,7 @@ private[lf] object SBuiltin {
 
   private def lookupContractOnLedger[Q](machine: Machine[Q], coid: V.ContractId)(
       continue: V.ContractInstance => Control[Q]
-  ) = {
+  ): Control[Q] = {
     machine.asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc) { machine =>
       Control.Question(
         Question.Update.NeedContract(
