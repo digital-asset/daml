@@ -112,7 +112,7 @@ object ScriptF {
         env: Env
     )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
       Future.failed(
-        script.Runner.InterpretationError(
+        free.InterpretationError(
           SError
             .SErrorDamlException(IE.UnhandledException(exc.ty, exc.value.toUnnormalizedValue))
         )
@@ -129,7 +129,7 @@ object ScriptF {
         case Success(v) =>
           Future.successful(SEAppAtomic(right, Array(SEValue(v))))
         case Failure(
-              script.Runner.InterpretationError(
+              free.InterpretationError(
                 SError.SErrorDamlException(IE.UnhandledException(typ, value))
               )
             ) =>
