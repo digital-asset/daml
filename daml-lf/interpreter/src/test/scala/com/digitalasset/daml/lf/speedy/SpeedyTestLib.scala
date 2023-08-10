@@ -9,7 +9,7 @@ import data.Ref.PackageId
 import data.Time
 import SResult._
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.language.{Ast, PackageInterface}
+import com.daml.lf.language.{Ast, EvaluationOrder, PackageInterface}
 import com.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.{Validation, ValidationError}
@@ -168,23 +168,23 @@ private[speedy] object SpeedyTestLib {
   @throws[ValidationError]
   def typeAndCompile(
       pkgs: Map[PackageId, Ast.Package],
-      enableFullAnfTransformation: Boolean,
+      evaluationOrder: EvaluationOrder,
   ): PureCompiledPackages = {
     Validation.unsafeCheckPackages(PackageInterface(pkgs), pkgs)
     PureCompiledPackages.assertBuild(
       pkgs,
       Compiler.Config.Dev.copy(
-        enableFullAnfTransformation = enableFullAnfTransformation,
+        evaluationOrder = evaluationOrder,
         stacktracing = Compiler.FullStackTrace,
       ),
     )
   }
 
   @throws[ValidationError]
-  def typeAndCompile[X](pkg: Ast.Package, enableFullAnfTransformation: Boolean)(implicit
+  def typeAndCompile[X](pkg: Ast.Package, evaluationOrder: EvaluationOrder)(implicit
       parserParameter: ParserParameters[X]
   ): PureCompiledPackages =
-    typeAndCompile(Map(parserParameter.defaultPackageId -> pkg), enableFullAnfTransformation)
+    typeAndCompile(Map(parserParameter.defaultPackageId -> pkg), evaluationOrder)
 
   private[speedy] object Implicits {
 

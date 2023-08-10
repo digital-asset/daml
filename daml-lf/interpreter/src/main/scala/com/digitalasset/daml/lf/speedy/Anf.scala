@@ -29,6 +29,7 @@ package com.daml.lf.speedy
   *  We use "source." and "t." for lightweight discrimination.
   */
 
+import com.daml.lf.language.{EvaluationOrder, LeftToRight, RightToLeft}
 import com.daml.lf.speedy.{SExpr1 => source}
 import com.daml.lf.speedy.{SExpr => target}
 import com.daml.lf.speedy.Compiler.CompilationError
@@ -42,8 +43,8 @@ private[lf] object Anf {
 
   /** Entry point for the ANF transformation phase. */
   @throws[CompilationError]
-  def flattenToAnf(exp: source.SExpr, enableFullAnfTransformation: Boolean): target.SExpr = {
-    new Anf(enableFullAnfTransformation).flattenToAnfInternal(exp)
+  def flattenToAnf(exp: source.SExpr, evaluationOrder: EvaluationOrder): target.SExpr = {
+    new Anf(evaluationOrder).flattenToAnfInternal(exp)
   }
 
   /** `DepthE` tracks the stack-depth of the original expression being traversed */
@@ -184,7 +185,7 @@ private[lf] object Anf {
   }
 }
 
-private class Anf(enableFullAnfTransformation: Boolean) {
+private class Anf(evaluationOrder: EvaluationOrder) {
   import Anf._
 
   @throws[CompilationError]
@@ -281,25 +282,26 @@ private class Anf(enableFullAnfTransformation: Boolean) {
       case source.SEVal(x) => transform(depth, target.SEVal(x))
 
       case source.SEApp(func, args) =>
-        if (enableFullAnfTransformation) {
-          transformMultiAppRightToLeft(depth, env, func, args)(transform)
-        } else {
-          // It's safe to perform ANF if the func-expression has no effects when evaluated.
-          val safeFunc =
-            func match {
-              // we know that trivially in these two cases
-              case source.SEBuiltin(b) =>
-                val overApp = args.lengthCompare(b.arity) > 0
-                !overApp
-              case _ => false
+        evaluationOrder match {
+          case RightToLeft =>
+            transformMultiAppRightToLeft(depth, env, func, args)(transform)
+          case LeftToRight =>
+            // It's safe to perform ANF if the func-expression has no effects when evaluated.
+            val safeFunc =
+              func match {
+                // we know that trivially in these two cases
+                case source.SEBuiltin(b) =>
+                  val overApp = args.lengthCompare(b.arity) > 0
+                  !overApp
+                case _ => false
+              }
+            // It's also safe to perform ANF for applications of a single argument.
+            val singleArg = args.lengthCompare(1) == 0
+            if (safeFunc || singleArg) {
+              transformMultiAppLeftToRight(depth, env, func, args)(transform)
+            } else {
+              transformMultiAppLeftToRightSafely(depth, env, func, args)(transform)
             }
-          // It's also safe to perform ANF for applications of a single argument.
-          val singleArg = args.lengthCompare(1) == 0
-          if (safeFunc || singleArg) {
-            transformMultiAppLeftToRight(depth, env, func, args)(transform)
-          } else {
-            transformMultiAppLeftToRightSafely(depth, env, func, args)(transform)
-          }
         }
 
       case source.SEMakeClo(fvs0, arity, body) =>

@@ -6,7 +6,7 @@ package speedy
 
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, EvaluationOrder}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
@@ -19,13 +19,9 @@ class LimitsSpec extends AnyFreeSpec with Matchers with Inside with TableDrivenP
 
   import SpeedyTestLib.loggingContext
 
-  private val anfModes = Seq(
-    "partial ANF" -> false,
-    "full ANF" -> true,
-  )
-  for ((anfMode, enableFullAnfTransformation) <- anfModes) {
+  for (evaluationOrder <- EvaluationOrder.values) {
 
-    anfMode - {
+    evaluationOrder.toString - {
 
       val pkgs = SpeedyTestLib.typeAndCompile(
         p"""
@@ -63,7 +59,7 @@ class LimitsSpec extends AnyFreeSpec with Matchers with Inside with TableDrivenP
          };
       }
     """,
-        enableFullAnfTransformation,
+        evaluationOrder,
       )
 
       def eval(

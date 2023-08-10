@@ -6,8 +6,8 @@ package speedy
 
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConName}
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.speedy.SBuiltin.{SBFetchAny, SBCastAnyContract}
+import com.daml.lf.language.{EvaluationOrder, LanguageVersion}
+import com.daml.lf.speedy.SBuiltin.{SBCastAnyContract, SBFetchAny}
 import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
 import com.daml.lf.testing.parser.Implicits._
@@ -26,13 +26,9 @@ class TransactionVersionTest
 
   import TransactionVersionTest._
 
-  private val anfModes = Seq(
-    "partial ANF" -> false,
-    "full ANF" -> true,
-  )
-  for ((anfMode, enableFullAnfTransformation) <- anfModes) {
+  for (evaluationOrder <- EvaluationOrder.values) {
 
-    anfMode - {
+    evaluationOrder.toString - {
 
       "interface and transaction versioning" - {
 
@@ -58,7 +54,7 @@ class TransactionVersionTest
               implementsPkgId -> newPkg1,
               coImplementsPkgId -> newPkg2,
             ),
-            enableFullAnfTransformation,
+            evaluationOrder,
           )
 
           for ((templateId, interfaceId, contract) <- testData) {
@@ -90,7 +86,7 @@ class TransactionVersionTest
               implementsPkgId -> oldPkg1,
               coImplementsPkgId -> oldPkg2,
             ),
-            enableFullAnfTransformation,
+            evaluationOrder,
           )
 
           for ((templateId, interfaceId, contract) <- testData) {
@@ -118,7 +114,7 @@ class TransactionVersionTest
               implementsPkgId -> implementsPkg,
               coImplementsPkgId -> coImplementsPkg,
             ),
-            enableFullAnfTransformation,
+            evaluationOrder,
           )
 
           for ((templateId, interfaceId, contract) <- testData) {

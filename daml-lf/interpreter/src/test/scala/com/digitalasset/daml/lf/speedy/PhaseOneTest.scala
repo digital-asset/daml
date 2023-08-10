@@ -7,12 +7,10 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.PackageInterface
-
+import com.daml.lf.language.{LeftToRight, PackageInterface, RightToLeft}
 import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.SExpr0._
 import com.daml.lf.speedy.Anf.flattenToAnf
-
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -50,14 +48,14 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     def transform3(e: Expr): Boolean = {
       val e0: SExpr = phase1.translateFromLF(PhaseOne.Env.Empty, e)
       val e1 = closureConvert(e0)
-      val _ = flattenToAnf(e1, enableFullAnfTransformation = false)
+      val _ = flattenToAnf(e1, LeftToRight)
       true
     }
 
     def transform4(e: Expr): Boolean = {
       val e0: SExpr = phase1.translateFromLF(PhaseOne.Env.Empty, e)
       val e1 = closureConvert(e0)
-      val _ = flattenToAnf(e1, enableFullAnfTransformation = true)
+      val _ = flattenToAnf(e1, RightToLeft)
       true
     }
 

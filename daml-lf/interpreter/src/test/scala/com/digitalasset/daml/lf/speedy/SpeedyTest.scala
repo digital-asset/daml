@@ -17,6 +17,7 @@ import org.scalactic.Equality
 import org.scalatest.matchers.should.Matchers
 import defaultParserParameters.{defaultPackageId => pkgId}
 import SpeedyTestLib.loggingContext
+import com.daml.lf.language.{EvaluationOrder, LeftToRight, RightToLeft}
 import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
@@ -30,16 +31,12 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
 
   import SpeedyTest._
 
-  private val anfModes = Seq(
-    "partial ANF" -> false,
-    "full ANF" -> true,
-  )
-  for ((anfMode, enableFullAnfTransformation) <- anfModes) {
+  for (evaluationOrder <- EvaluationOrder.values) {
 
-    anfMode - {
+    evaluationOrder.toString - {
 
-      val anyPkgs: PureCompiledPackages = typeAndCompile(anyPkg, enableFullAnfTransformation)
-      val pkgs: PureCompiledPackages = typeAndCompile(p"", enableFullAnfTransformation)
+      val anyPkgs: PureCompiledPackages = typeAndCompile(anyPkg, evaluationOrder)
+      val pkgs: PureCompiledPackages = typeAndCompile(p"", evaluationOrder)
       val recUpdPkgs: PureCompiledPackages = typeAndCompile(
         p"""
     module M {
@@ -57,7 +54,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
       val p_3_2: M:Point = M:Point { M:Point { M:Point { M:origin with x = 1 } with y = 2 } with x = 3 } ;
     }
   """,
-        enableFullAnfTransformation,
+        evaluationOrder,
       )
 
       "application arguments" - {
@@ -130,7 +127,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
 
 
       """
-        val pkgs = typeAndCompile(pkg, enableFullAnfTransformation)
+        val pkgs = typeAndCompile(pkg, evaluationOrder)
 
         "works as expected on primitive constructors" in {
           eval(e"Matcher:unit ()", pkgs) shouldEqual Right(SInt64(2))
@@ -479,8 +476,10 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
               )
             )
           )
-          val expectation =
-            if (enableFullAnfTransformation) fullAnfExpectation else partialAnfExpectation
+          val expectation = evaluationOrder match {
+            case LeftToRight => partialAnfExpectation
+            case RightToLeft => fullAnfExpectation
+          }
           recUpdPkgs
             .getDefinition(LfDefRef(qualify("M:p_6_8"))) shouldEqual expectation
         }
@@ -538,7 +537,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
       "checkContractVisibility" - {
 
         "warn about non-visible local contracts" in new VisibilityChecking(
-          enableFullAnfTransformation
+          evaluationOrder
         ) {
           machine.checkContractVisibility(localContractId, localContractInfo)
 
@@ -546,7 +545,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         "accept non-visible disclosed contracts" in new VisibilityChecking(
-          enableFullAnfTransformation
+          evaluationOrder
         ) {
           machine.checkContractVisibility(disclosedContractId, disclosedContractInfo)
 
@@ -554,7 +553,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         "warn about non-visible global contracts" in new VisibilityChecking(
-          enableFullAnfTransformation
+          evaluationOrder
         ) {
           machine.checkContractVisibility(globalContractId, globalContractInfo)
 
@@ -567,7 +566,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
           (contractId: ContractId) => Speedy.Control.Value(SContractId(contractId))
 
         "accept non-visible local contract keys" in new VisibilityChecking(
-          enableFullAnfTransformation
+          evaluationOrder
         ) {
           val result = Try {
             machine.checkKeyVisibility(
@@ -584,7 +583,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         "accept non-visible disclosed contract keys" in new VisibilityChecking(
-          enableFullAnfTransformation
+          evaluationOrder
         ) {
           val result = Try {
             machine.checkKeyVisibility(
@@ -601,7 +600,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         "reject non-visible global contract keys" in new VisibilityChecking(
-          enableFullAnfTransformation
+          evaluationOrder
         ) {
           val result = Try {
             machine.checkKeyVisibility(
@@ -690,8 +689,8 @@ object SpeedyTest {
     case _ => false
   }
 
-  abstract class VisibilityChecking(enableFullAnfTransformation: Boolean) {
-    val explicitDisclosureLib = new ExplicitDisclosureLib(enableFullAnfTransformation)
+  abstract class VisibilityChecking(evaluationOrder: EvaluationOrder) {
+    val explicitDisclosureLib = new ExplicitDisclosureLib(evaluationOrder)
     import explicitDisclosureLib._
     import SpeedyTestLib.Implicits._
 

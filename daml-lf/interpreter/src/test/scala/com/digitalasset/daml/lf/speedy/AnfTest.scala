@@ -6,7 +6,6 @@ package com.daml.lf.speedy
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-
 import com.daml.lf.speedy.{SExpr1 => source}
 import com.daml.lf.speedy.{SExpr => target}
 import com.daml.lf.speedy.SValue._
@@ -14,6 +13,7 @@ import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Pretty.SExpr._
 import com.daml.lf.data.Ref._
+import com.daml.lf.language.{EvaluationOrder, LeftToRight, RightToLeft}
 
 import scala.annotation.nowarn
 
@@ -23,22 +23,22 @@ class AnfTest extends AnyWordSpec with Matchers {
   "identity: [\\x. x]" should {
     val original = slam(1, sarg0)
     val expected = lam(1, arg0)
-    "be transformed to ANF as expected" in {
-      testTransform(original, expected)
+    "be transformed to left-to-right ANF as expected" in {
+      testTransform(original, expected, LeftToRight)
     }
-    "be transformed to full ANF as expected" in {
-      testTransform(original, expected, enableFullAnfTransformation = true)
+    "be transformed to right-to-left ANF as expected" in {
+      testTransform(original, expected, RightToLeft)
     }
   }
 
   "twice: [\\f x. f (f x)]" should {
     val original = slam(2, sapp(sarg0, sapp(sarg0, sarg1)))
     val expected = lam(2, let1(appa(arg0, arg1), appa(arg0, stack1)))
-    "be transformed to ANF as expected" in {
-      testTransform(original, expected)
+    "be transformed to left-to-right ANF as expected" in {
+      testTransform(original, expected, LeftToRight)
     }
-    "be transformed to full ANF as expected" in {
-      testTransform(original, expected, enableFullAnfTransformation = true)
+    "be transformed to right-to-left ANF as expected" in {
+      testTransform(original, expected, RightToLeft)
     }
   }
 
@@ -46,22 +46,22 @@ class AnfTest extends AnyWordSpec with Matchers {
     val original = slam(2, sapp(sarg0, sapp(sarg0, sapp(sarg0, sarg1))))
     val expected =
       lam(2, let1(appa(arg0, arg1), let1(appa(arg0, stack1), appa(arg0, stack1))))
-    "be transformed to ANF as expected" in {
-      testTransform(original, expected)
+    "be transformed to left-to-right ANF as expected" in {
+      testTransform(original, expected, LeftToRight)
     }
-    "be transformed to full ANF as expected" in {
-      testTransform(original, expected, enableFullAnfTransformation = true)
+    "be transformed to right-to-left ANF as expected" in {
+      testTransform(original, expected, RightToLeft)
     }
   }
 
   "arithmetic non-atomic: [\\f x. f (x+1)]" should {
     val original = slam(2, sapp(sarg0, sbinop(SBAddInt64, sarg1, snum1)))
     val expected = lam(2, let1b2(SBAddInt64, arg1, num1, appa(arg0, stack1)))
-    "be transformed to ANF as expected" in {
-      testTransform(original, expected)
+    "be transformed to left-to-right ANF as expected" in {
+      testTransform(original, expected, LeftToRight)
     }
-    "be transformed to full ANF as expected" in {
-      testTransform(original, expected, enableFullAnfTransformation = true)
+    "be transformed to right-to-left ANF as expected" in {
+      testTransform(original, expected, RightToLeft)
     }
   }
 
@@ -75,7 +75,7 @@ class AnfTest extends AnyWordSpec with Matchers {
           sapp(sarg0, sbinop(SBAddInt64, sarg1, snum2)),
         ),
       )
-    "be transformed to ANF as expected" in {
+    "be transformed to left-to-right ANF as expected" in {
       val expected =
         lam(
           2,
@@ -94,9 +94,9 @@ class AnfTest extends AnyWordSpec with Matchers {
             ),
           ),
         )
-      testTransform(original, expected)
+      testTransform(original, expected, LeftToRight)
     }
-    "be transformed to full ANF as expected" in {
+    "be transformed to right-to-left ANF as expected" in {
       val expected =
         lam(
           2,
@@ -115,37 +115,37 @@ class AnfTest extends AnyWordSpec with Matchers {
             ),
           ),
         )
-      testTransform(original, expected, enableFullAnfTransformation = true)
+      testTransform(original, expected, RightToLeft)
     }
   }
 
   "builtin multi-arg fun: [\\g. (g 1) - (g 2)]" should {
     val original =
       slam(1, sbinop(SBSubInt64, sapp(sarg1, snum1), sapp(sarg1, snum2)))
-    "be transformed to ANF as expected" in {
+    "be transformed to left-to-right ANF as expected" in {
       val expected =
         lam(1, let1(appa(arg1, num1), let1(appa(arg1, num2), binopa(SBSubInt64, stack2, stack1))))
-      testTransform(original, expected)
+      testTransform(original, expected, LeftToRight)
     }
-    "be transformed to full ANF as expected" in {
+    "be transformed to right-to-left ANF as expected" in {
       val expected =
         lam(1, let1(appa(arg1, num2), let1(appa(arg1, num1), binopa(SBSubInt64, stack1, stack2))))
-      testTransform(original, expected, enableFullAnfTransformation = true)
+      testTransform(original, expected, RightToLeft)
     }
   }
 
   "unknown multi-arg fun: [\\f g. f (g 1) (g 2)]" should {
     val original =
       slam(2, sapp2(sarg0, sapp(sarg1, snum1), sapp(sarg1, snum2)))
-    "be transformed to ANF as expected (safely)" in {
+    "be transformed to left-to-right ANF as expected (safely)" in {
       val expected =
         lam(2, app2n(arg0, appa(arg1, num1), appa(arg1, num2)))
-      testTransform(original, expected)
+      testTransform(original, expected, LeftToRight)
     }
-    "be transformed to full ANF as expected (safely)" in {
+    "be transformed to right-to-left ANF as expected (safely)" in {
       val expected =
         lam(2, let1(appa(arg1, num2), let1(appa(arg1, num1), appa(arg0, stack1, stack2))))
-      testTransform(original, expected, enableFullAnfTransformation = true)
+      testTransform(original, expected, RightToLeft)
     }
   }
 
@@ -159,7 +159,7 @@ class AnfTest extends AnyWordSpec with Matchers {
           sapp(sarg1, sbinop(SBSubInt64, sarg3, snum2)),
         ),
       )
-    "be transformed to ANF as expected (safely)" in {
+    "be transformed to left-to-right ANF as expected (safely)" in {
       val expected =
         lam(
           2,
@@ -169,9 +169,9 @@ class AnfTest extends AnyWordSpec with Matchers {
             let1b2(SBSubInt64, arg3, num2, appa(arg1, stack1)),
           ),
         )
-      testTransform(original, expected)
+      testTransform(original, expected, LeftToRight)
     }
-    "be transformed to full ANF as expected (safely)" in {
+    "be transformed to right-to-left ANF as expected (safely)" in {
       val expected =
         lam(
           2,
@@ -185,47 +185,47 @@ class AnfTest extends AnyWordSpec with Matchers {
             ),
           ),
         )
-      testTransform(original, expected, enableFullAnfTransformation = true)
+      testTransform(original, expected, RightToLeft)
     }
   }
 
   "error applied to 1 arg" should {
     val original = slam(1, source.SEApp(source.SEBuiltin(SBUserError), List(sarg0)))
     val expected = lam(1, target.SEAppAtomicSaturatedBuiltin(SBUserError, Array(arg0)))
-    "be transformed to ANF as expected" in {
-      testTransform(original, expected)
+    "be transformed to left-to-right ANF as expected" in {
+      testTransform(original, expected, LeftToRight)
     }
-    "be transformed to full ANF as expected" in {
-      testTransform(original, expected, enableFullAnfTransformation = true)
+    "be transformed to right-to-left ANF as expected" in {
+      testTransform(original, expected, RightToLeft)
     }
   }
 
   "error (over) applied to 2 arg" should {
     val original = slam(2, source.SEApp(source.SEBuiltin(SBUserError), List(sarg0, sarg1)))
-    "be transformed to ANF as expected" in {
+    "be transformed to left-to-right ANF as expected" in {
       val expected = lam(
         2,
         target.SEAppOnlyFunIsAtomic(target.SEBuiltin(SBUserError), Array(arg0, arg1)),
       )
-      testTransform(original, expected)
+      testTransform(original, expected, LeftToRight)
     }
-    "be transformed to full ANF as expected" in {
+    "be transformed to right-to-left ANF as expected" in {
       val expected = lam(
         2,
         appa(target.SEBuiltin(SBUserError), arg0, arg1),
       )
-      testTransform(original, expected, enableFullAnfTransformation = true)
+      testTransform(original, expected, RightToLeft)
     }
   }
 
   "case expression: [\\a b c. if a then b else c]" should {
     val original = slam(3, site(sarg0, sarg1, sarg2))
     val expected = lam(3, itea(arg0, arg1, arg2))
-    "be transformed to ANF as expected" in {
-      testTransform(original, expected)
+    "be transformed to left-to-right ANF as expected" in {
+      testTransform(original, expected, LeftToRight)
     }
-    "be transformed to full ANF as expected" in {
-      testTransform(original, expected, enableFullAnfTransformation = true)
+    "be transformed to right-to-left ANF as expected" in {
+      testTransform(original, expected, RightToLeft)
     }
   }
 
@@ -235,7 +235,7 @@ class AnfTest extends AnyWordSpec with Matchers {
         2,
         site(sbinop(SBEqual, sarg1, snum0), snum1, sapp(sarg0, sbinop(SBDivInt64, snum1, sarg1))),
       )
-    "be transformed to ANF as expected" in {
+    "be transformed to left-to-right ANF as expected" in {
       val expected =
         lam(
           2,
@@ -246,9 +246,9 @@ class AnfTest extends AnyWordSpec with Matchers {
             itea(stack1, num1, let1b2(SBDivInt64, num1, arg1, appa(arg0, stack1))),
           ),
         )
-      testTransform(original, expected)
+      testTransform(original, expected, LeftToRight)
     }
-    "be transformed to full ANF as expected" in {
+    "be transformed to right-to-left ANF as expected" in {
       val expected =
         lam(
           2,
@@ -259,7 +259,7 @@ class AnfTest extends AnyWordSpec with Matchers {
             itea(stack1, num1, let1b2(SBDivInt64, num1, arg1, appa(arg0, stack1))),
           ),
         )
-      testTransform(original, expected, enableFullAnfTransformation = true)
+      testTransform(original, expected, RightToLeft)
     }
   }
 
@@ -271,22 +271,22 @@ class AnfTest extends AnyWordSpec with Matchers {
         2,
         let1(clo1(arg0, 1, let1(appa(free0, arg0), appa(free0, stack1))), appa(arg1, stack1)),
       )
-    "be transformed to ANF as expected" in {
-      testTransform(original, expected)
+    "be transformed to left-to-right ANF as expected" in {
+      testTransform(original, expected, LeftToRight)
     }
-    "be transformed to full ANF as expected" in {
-      testTransform(original, expected, enableFullAnfTransformation = true)
+    "be transformed to right-to-left ANF as expected" in {
+      testTransform(original, expected, RightToLeft)
     }
   }
 
   "issue 6535: [\\x. x + x]" should {
     val original = slam(1, sbinop(SBAddInt64, sarg1, sarg1))
     val expected = lam(1, binopa(SBAddInt64, arg1, arg1))
-    "be transformed to ANF as expected (with no redundant lets)" in {
-      testTransform(original, expected)
+    "be transformed to left-to-right ANF as expected (with no redundant lets)" in {
+      testTransform(original, expected, LeftToRight)
     }
-    "be transformed to full ANF as expected (with no redundant lets)" in {
-      testTransform(original, expected, enableFullAnfTransformation = true)
+    "be transformed to right-to-left ANF as expected (with no redundant lets)" in {
+      testTransform(original, expected, RightToLeft)
     }
   }
 
@@ -395,10 +395,10 @@ class AnfTest extends AnyWordSpec with Matchers {
   private def testTransform(
       original: source.SExpr,
       expected: target.SExpr,
+      evaluationOrder: EvaluationOrder,
       show: Boolean = false,
-      enableFullAnfTransformation: Boolean = false,
   ): Assertion = {
-    val transformed = flattenToAnf(original, enableFullAnfTransformation)
+    val transformed = flattenToAnf(original, evaluationOrder)
     if (show || transformed != expected) {
       println(s"**original:\n${original}\n")
       println(s"**transformed:\n${pp(transformed)}\n")

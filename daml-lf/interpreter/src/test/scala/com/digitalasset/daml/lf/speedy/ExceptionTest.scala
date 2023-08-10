@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{EvaluationOrder, LanguageVersion, LeftToRight, RightToLeft}
 import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
@@ -18,7 +18,7 @@ import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.value.Value.{ValueRecord, ValueText}
-import org.scalatest.{Inside}
+import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
@@ -42,13 +42,9 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
     Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, Set(party)).run()
   }
 
-  private val anfModes = Seq(
-    "partial ANF" -> false,
-    "full ANF" -> true,
-  )
-  for ((anfMode, enableFullAnfTransformation) <- anfModes) {
+  for (evaluationOrder <- EvaluationOrder.values) {
 
-    anfMode - {
+    evaluationOrder.toString - {
 
       "unhandled throw" - {
 
@@ -80,7 +76,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
          val divZero : Update Int64 = upure @Int64 (DIV_INT64 1 0) ;
        }
       """,
-          enableFullAnfTransformation,
+          evaluationOrder,
         )
 
         val List((t1, e1), (t2, e2)) =
@@ -139,7 +135,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
 
        }
       """,
-          enableFullAnfTransformation,
+          evaluationOrder,
         )
 
         val testCases = Table[String, Long](
@@ -179,7 +175,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
              ;
        }
       """,
-          enableFullAnfTransformation,
+          evaluationOrder,
         )
 
         val testCases = Table[String, Long](
@@ -263,7 +259,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
 
        }
       """,
-          enableFullAnfTransformation,
+          evaluationOrder,
         )
 
         val testCases = Table[String, Long](
@@ -335,7 +331,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
             upure @Int64 (ADD_INT64 100 x) ;
        }
       """,
-          enableFullAnfTransformation,
+          evaluationOrder,
         )
 
         val testCases = Table[String, Long](
@@ -409,7 +405,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
             upure @Int64 (ADD_INT64 1000 x) ;
 
       }""",
-          enableFullAnfTransformation,
+          evaluationOrder,
         )
 
         val testCases = Table[String, Long](
@@ -492,7 +488,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
           );
 
       } """,
-          enableFullAnfTransformation,
+          evaluationOrder,
         )
 
         val testCases = Table[String, String](
@@ -500,7 +496,13 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
           ("M:example1", "RESULT: Happy Path"),
           ("M:example2", "HANDLED: oops1"),
           ("M:example3", "UNHANDLED"),
-          ("M:example4", if (enableFullAnfTransformation) "HANDLED: right" else "HANDLED: left"),
+          (
+            "M:example4",
+            evaluationOrder match {
+              case LeftToRight => "HANDLED: left"
+              case RightToLeft => "HANDLED: right"
+            },
+          ),
           ("M:example5", "HANDLED: throw-in-throw"),
         )
 
@@ -576,7 +578,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
          };
        }
       """,
-            enableFullAnfTransformation,
+            evaluationOrder,
           )
 
           val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
@@ -729,7 +731,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
             in upure @Unit ();
 
       } """,
-            enableFullAnfTransformation,
+            evaluationOrder,
           )
         }
 
@@ -850,7 +852,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
         val pkgs =
           SpeedyTestLib.typeAndCompile(
             Map(oldPid -> oldPackage, newPid -> newPackage),
-            enableFullAnfTransformation,
+            evaluationOrder,
           )
 
         implicit val defaultParserParameters: ParserParameters[this.type] = {

@@ -6,10 +6,10 @@ package speedy
 
 import com.daml.lf.data.Ref.{IdString, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, EvaluationOrder}
 import com.daml.lf.speedy.SExpr.SEMakeClo
 import com.daml.lf.speedy.SValue.SToken
-import com.daml.lf.speedy.Speedy.{ContractInfo, CachedKey}
+import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
@@ -18,7 +18,7 @@ import com.daml.lf.testing.parser.Implicits._
 
 /** Shared test data and functions for testing explicit disclosure.
   */
-private[lf] class ExplicitDisclosureLib(enableFullAnfTransformation: Boolean) {
+private[lf] class ExplicitDisclosureLib(evaluationOrder: EvaluationOrder) {
 
   val testKeyName: String = "test-key"
   val pkg: PureCompiledPackages = SpeedyTestLib.typeAndCompile(
@@ -76,7 +76,7 @@ private[lf] class ExplicitDisclosureLib(enableFullAnfTransformation: Boolean) {
                | Some x -> Cons @t [x] (Nil @t);
        }
        """,
-    enableFullAnfTransformation,
+    evaluationOrder,
   )
   val maintainerParty: IdString.Party = Ref.Party.assertFromString("maintainerParty")
   val ledgerParty: IdString.Party = Ref.Party.assertFromString("ledgerParty")

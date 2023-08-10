@@ -8,7 +8,7 @@ import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{Location, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageVersion, LeftToRight, RightToLeft}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
@@ -284,11 +284,11 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     }
   """
 
-  private lazy val pkgs: PureCompiledPackages =
-    SpeedyTestLib.typeAndCompile(pkgsAst, enableFullAnfTransformation = false)
+  private lazy val leftToRightPkgs: PureCompiledPackages =
+    SpeedyTestLib.typeAndCompile(pkgsAst, evaluationOrder = LeftToRight)
 
-  private lazy val fullAnfPkgs: PureCompiledPackages =
-    SpeedyTestLib.typeAndCompile(pkgsAst, enableFullAnfTransformation = true)
+  private lazy val rightToLeftPkgs: PureCompiledPackages =
+    SpeedyTestLib.typeAndCompile(pkgsAst, evaluationOrder = RightToLeft)
 
   private[this] val List(alice, bob, charlie) =
     List("alice", "bob", "charlie").map(Ref.Party.assertFromString)
@@ -469,9 +469,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
   "evaluation order" - {
 
-    for ((anfMode, pkgs) <- Seq("partial ANF" -> pkgs, "full ANF" -> fullAnfPkgs)) {
+    for (pkgs <- Seq(leftToRightPkgs, rightToLeftPkgs)) {
 
-      anfMode - {
+      pkgs.compilerConfig.evaluationOrder.toString - {
 
         "create" - {
 

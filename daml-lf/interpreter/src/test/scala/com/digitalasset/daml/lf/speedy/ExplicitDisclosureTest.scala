@@ -6,6 +6,7 @@ package speedy
 
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.interpretation.Error.{ContractKeyNotFound, ContractNotActive}
+import com.daml.lf.language.EvaluationOrder
 import com.daml.lf.speedy.SExpr.SEValue
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -20,14 +21,10 @@ import com.daml.lf.testing.parser.Implicits._
 
 private[lf] class ExplicitDisclosureTest extends AnyFreeSpec with Inside with Matchers {
 
-  private val anfModes = Seq(
-    "partial ANF" -> false,
-    "full ANF" -> true,
-  )
-  for ((anfMode, enableFullAnfTransformation) <- anfModes) {
+  for (evaluationOrder <- EvaluationOrder.values) {
 
-    anfMode - {
-      val explicitDisclosureLib = new ExplicitDisclosureLib(enableFullAnfTransformation)
+    evaluationOrder.toString - {
+      val explicitDisclosureLib = new ExplicitDisclosureLib(evaluationOrder)
       import explicitDisclosureLib._
 
       "disclosed contract behaviour" - {

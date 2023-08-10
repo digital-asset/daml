@@ -7,13 +7,13 @@ package speedy
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.interpretation.Error.FailedAuthorization
+import com.daml.lf.language.EvaluationOrder
 import com.daml.lf.ledger.FailedAuthorization.{CreateMissingAuthorization, NoAuthorizers}
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr.SEApp
 import com.daml.lf.speedy.SValue.{SList, SParty}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.SubmittedTransaction
-
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers._
@@ -23,13 +23,9 @@ class ChoiceAuthorityTest extends AnyFreeSpec with Inside {
 
   val transactionSeed = crypto.Hash.hashPrivateKey("ChoiceAuthorityTest.scala")
 
-  private val anfModes = Seq(
-    "partial ANF" -> false,
-    "full ANF" -> true,
-  )
-  for ((anfMode, enableFullAnfTransformation) <- anfModes) {
+  for (evaluationOrder <- EvaluationOrder.values) {
 
-    anfMode - {
+    evaluationOrder.toString - {
 
       val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(
         p"""
@@ -68,7 +64,7 @@ class ChoiceAuthorityTest extends AnyFreeSpec with Inside {
           in exercise @M:T ChoiceWithExplicitAuthority cid ();
        }
       """,
-        enableFullAnfTransformation,
+        evaluationOrder,
       )
 
       type Success = (SubmittedTransaction, List[AuthRequest])

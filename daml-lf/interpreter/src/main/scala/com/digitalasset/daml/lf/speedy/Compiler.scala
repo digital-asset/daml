@@ -7,15 +7,22 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackage}
+import com.daml.lf.language.{
+  EvaluationOrder,
+  LanguageVersion,
+  LeftToRight,
+  LookupError,
+  PackageInterface,
+  StablePackage,
+}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.PhaseOne.{Env, Position}
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{SExpr => t} // target expressions
-import com.daml.lf.speedy.{SExpr0 => s} // source expressions
+import com.daml.lf.speedy.{SExpr => t}
+import com.daml.lf.speedy.{SExpr0 => s}
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.scalautil.Statement.discard
 import org.slf4j.LoggerFactory
@@ -64,18 +71,13 @@ private[lf] object Compiler {
   case object NoPackageValidation extends PackageValidationMode
   case object FullPackageValidation extends PackageValidationMode
 
-  /** @param enableFullAnfTransformation When true, the SExpr produced by the ANF pass do not contain any
-    *     SEAppOnlyFunIsAtomic applications, only SEAppAtomic ones. This simplifies the code of the speedy machine and
-    *     speeds it up, but also changes the evaluation order or daml programs in a way that is incompatible with the
-    *     daml 2 specification. This incompatibility is observable in the presence of exceptions or non-termination.
-    */
   final case class Config(
       allowedLanguageVersions: VersionRange[LanguageVersion],
       packageValidation: PackageValidationMode,
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
       enableContractUpgrading: Boolean = false,
-      enableFullAnfTransformation: Boolean = false,
+      evaluationOrder: EvaluationOrder = LeftToRight,
   )
 
   object Config {
@@ -354,7 +356,7 @@ private[lf] final class Compiler(
   private[this] def pipeline(sexpr: s.SExpr): t.SExpr =
     flattenToAnf(
       closureConvert(sexpr),
-      enableFullAnfTransformation = config.enableFullAnfTransformation,
+      evaluationOrder = config.evaluationOrder,
     )
 
   private[this] def compileModule(

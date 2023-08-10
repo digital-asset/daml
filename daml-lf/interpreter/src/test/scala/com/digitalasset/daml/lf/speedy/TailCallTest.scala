@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import java.util
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, EvaluationOrder}
 import com.daml.lf.speedy.SResult.SResultFinal
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.freespec.AnyFreeSpec
@@ -17,13 +17,9 @@ class TailCallTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
   import SpeedyTestLib.loggingContext
 
-  private val anfModes = Seq(
-    "partial ANF" -> false,
-    "full ANF" -> true,
-  )
-  for ((anfMode, enableFullAnfTransformation) <- anfModes) {
+  for (evaluationOrder <- EvaluationOrder.values) {
 
-    anfMode - {
+    evaluationOrder.toString - {
 
       val pkgs = SpeedyTestLib.typeAndCompile(
         p"""
@@ -62,7 +58,7 @@ class TailCallTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
        }
       """,
-        enableFullAnfTransformation,
+        evaluationOrder,
       )
 
       val small: Option[Int] = Some(5)
