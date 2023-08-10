@@ -10,3 +10,6 @@ myScript = debug "Ran myScript"
 
 myOtherScript : Script ()
 myOtherScript = debug "Ran myOtherScript"
+
+inputScript : Int -> Script ()
+inputScript i = debug $ "Got " <> show i

@@ -23,6 +23,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
             "TestScript:myScript",
           ),
           Right(Seq("Ran myScript")),
+          Some(false),
         )
       // Checks we upload following the legacy behaviour, and throw our warning
       "Succeeds with all run, no-upload-flag, default uploading behaviour" in
@@ -42,7 +43,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
               "TestScript:myScript SUCCESS",
             )
           ),
-          true,
+          Some(true),
         )
       "Succeeds with all run, explicit no-upload" in
         testDamlScript(
@@ -61,7 +62,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
               "TestScript:myScript SUCCESS",
             )
           ),
-          false,
+          Some(false),
         )
       "Succeeds with single run, explicit upload" in
         testDamlScript(
@@ -76,7 +77,48 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
             "--upload-dar=yes",
           ),
           Right(Seq("Ran myScript")),
-          true,
+          Some(true),
+        )
+      "Succeeds with single run, passing argument" in
+        testDamlScript(
+          dars(4),
+          Seq(
+            "--ledger-host",
+            "localhost",
+            "--ledger-port",
+            ports.head.toString,
+            "--script-name",
+            "TestScript:inputScript",
+            "--input-file",
+            inputFile,
+          ),
+          Right(Seq("Got 5")),
+        )
+      "Fails when running a single failing script" in
+        testDamlScript(
+          failingDar,
+          Seq(
+            "--ledger-host",
+            "localhost",
+            "--ledger-port",
+            ports.head.toString,
+            "--script-name",
+            "FailingTestScript:failingScript",
+          ),
+          Left(Seq("Failed!")),
+        )
+      "Fails when any script fails with --all" in
+        testDamlScript(
+          failingDar,
+          Seq(
+            "--ledger-host",
+            "localhost",
+            "--ledger-port",
+            ports.head.toString,
+            "--all",
+            "--upload-dar=no",
+          ),
+          Left(Seq("Failed!")),
         )
     }
     "JSON-API" - {
@@ -98,7 +140,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
         )
       "Succeeds with all run" in
         testDamlScript(
-          dars(5),
+          dars(4),
           Seq(
             "--ledger-host",
             "localhost",
@@ -118,7 +160,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
         )
       "Fails when attempting to upload dar" in
         testDamlScript(
-          dars(6),
+          dars(4),
           Seq(
             "--ledger-host",
             "localhost",
@@ -132,6 +174,37 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
             "TestScript:myScript",
           ),
           Left(Seq("Cannot upload dar via JSON API")),
+        )
+      "Fails when running a single failing script" in
+        testDamlScript(
+          failingDar,
+          Seq(
+            "--ledger-host",
+            "localhost",
+            "--ledger-port",
+            jsonApiPort.toString,
+            "--access-token-file",
+            jwt.toString,
+            "--json-api",
+            "--script-name",
+            "FailingTestScript:failingScript",
+          ),
+          Left(Seq("Failed!")),
+        )
+      "Fails when any script fails with --all" in
+        testDamlScript(
+          failingDar,
+          Seq(
+            "--ledger-host",
+            "localhost",
+            "--ledger-port",
+            jsonApiPort.toString,
+            "--access-token-file",
+            jwt.toString,
+            "--json-api",
+            "--all",
+          ),
+          Left(Seq("Failed!")),
         )
     }
   }

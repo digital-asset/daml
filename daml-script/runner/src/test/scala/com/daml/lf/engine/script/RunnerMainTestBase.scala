@@ -21,15 +21,20 @@ trait RunnerMainTestBase extends CantonFixtureWithResource[Port] {
   protected def jsonApiPort: Port = additional
   protected val jwt: Path =
     BazelRunfiles.rlocation(Paths.get("daml-script/runner/src/test/resources/json-access.jwt"))
+  protected val inputFile: String = BazelRunfiles.rlocation("daml-script/runner/src/test/resources/input.json")
 
-  // Defines the size of `dars`, should always be equal to max(number of tls tests, number of non tls tests)
+  // Defines the size of `dars`
   // Should always match test_dar_count in the BUILD file
-  val DAR_COUNT = 8
+  val DAR_COUNT = 5
 
-  // We use a different DAR for each test so we can correctly assert the upload behaviour.
+  // We use a different DAR for each test that asserts upload behaviour to avoid clashes
   val dars: Seq[Path] = (1 to DAR_COUNT).map(n =>
     BazelRunfiles.rlocation(Paths.get(s"daml-script/runner/test-script$n.dar"))
   )
+
+  // DAR containing failingScript and successfulScript
+  val failingDar: Path =
+    BazelRunfiles.rlocation(Paths.get("daml-script/runner/failing-test-script.dar"))
 
   implicit val ec = ExecutionContext.global
 
@@ -74,18 +79,16 @@ trait RunnerMainTestBase extends CantonFixtureWithResource[Port] {
 
   val damlScript = BazelRunfiles.rlocation(Paths.get("daml-script/runner/daml-script-binary"))
 
-  // Runs process with args, returns out on success, stderr on failure
+  // Runs process with args, returns status and stdout <> stderr
   private def runProc(exe: Path, args: Seq[String]): Future[Either[String, String]] =
     Future {
       val out = new StringBuilder()
-      val err = new StringBuilder()
       val cmd = exe.toString +: args
       cmd !< ProcessLogger(
         line => discard(out append line),
-        line => discard(err append line),
       ) match {
         case 0 => Right(out.toString)
-        case _ => Left(err.toString)
+        case _ => Left(out.toString)
       }
     }
 
@@ -109,23 +112,22 @@ trait RunnerMainTestBase extends CantonFixtureWithResource[Port] {
       dar: Path,
       args: Seq[String],
       expectedResult: Either[Seq[String], Seq[String]] = Right(Seq()),
-      shouldHaveUploaded: Boolean = false,
+      shouldHaveUploaded: Option[Boolean] = None,
   ): Future[Assertion] =
     runProc(damlScript, Seq("--dar", dar.toString) ++ args).flatMap { res =>
       (res, expectedResult) match {
         case (Right(actual), Right(expecteds)) =>
-          if (expecteds.forall(actual contains _)) assertUpload(dar, shouldHaveUploaded)
+          if (expecteds.forall(actual contains _)) shouldHaveUploaded.fold(Future.successful(succeed))(assertUpload(dar, _))
           else
             fail(
-              s"Expected daml-script stdout to contain '${expecteds.mkString("', '")}' but it did not:\n$actual"
+              s"Expected daml-script output to contain '${expecteds.mkString("', '")}' but it did not:\n$actual"
             )
 
         case (Left(actual), Left(expecteds)) =>
-          assertUpload(dar, shouldHaveUploaded)
-          if (expecteds.forall(actual contains _)) Future.successful(succeed)
+          if (expecteds.forall(actual contains _)) shouldHaveUploaded.fold(Future.successful(succeed))(assertUpload(dar, _))
           else
             fail(
-              s"Expected daml-script stderr to contain '${expecteds.mkString("', '")}' but it did not:\n$actual"
+              s"Expected daml-script output to contain '${expecteds.mkString("', '")}' but it did not:\n$actual"
             )
 
         case (Right(_), Left(expecteds)) =>

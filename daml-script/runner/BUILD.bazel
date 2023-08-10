@@ -15,7 +15,7 @@ test_script_sources = [
 ]
 
 # Should match RunnerMainTestBase.DAR_COUNT
-test_dar_count = 8
+test_dar_count = 5
 
 da_scala_library(
     name = "script-runner-lib",
@@ -73,6 +73,7 @@ da_scala_test(
     data =
         glob(["src/test/resources/**/*"]) + [
             ":daml-script-binary",
+            ":failing-test-script.dar",
             "//test-common/test-certificates",
         ] + [":test-script{n}.dar".format(n = n) for n in range(
             1,
@@ -136,5 +137,11 @@ da_scala_binary(
         test_dar_count + 1,
     )
 ]
+
+daml_compile(
+    name = "failing-test-script",
+    srcs = glob(["src/test/resources/FailingTestScript.daml"]),
+    dependencies = ["//daml-script/daml:daml-script.dar"],
+)
 
 exports_files(["src/main/resources/logback.xml"])

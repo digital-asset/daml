@@ -36,6 +36,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
             "TestScript:myScript",
           ) ++ tlsArgs,
           Right(Seq("Ran myScript")),
+          Some(false),
         )
       // Checks we upload following the legacy behaviour, and throw our warning
       "Succeeds with all run, no-upload-flag, default uploading behaviour" in
@@ -55,7 +56,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
               "TestScript:myScript SUCCESS",
             )
           ),
-          true,
+          Some(true),
         )
       "Succeeds with all run, explicit no-upload" in
         testDamlScript(
@@ -74,7 +75,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
               "TestScript:myScript SUCCESS",
             )
           ),
-          false,
+          Some(false),
         )
       "Succeeds with single run, explicit upload" in
         testDamlScript(
@@ -89,7 +90,22 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
             "--upload-dar=yes",
           ) ++ tlsArgs,
           Right(Seq("Ran myScript")),
-          true,
+          Some(true),
+        )
+      "Succeeds with single run, passing argument" in
+        testDamlScript(
+          dars(4),
+          Seq(
+            "--ledger-host",
+            "localhost",
+            "--ledger-port",
+            ports.head.toString,
+            "--script-name",
+            "TestScript:inputScript",
+            "--input-file",
+            inputFile,
+          ) ++ tlsArgs,
+          Right(Seq("Got 5")),
         )
       "Fails without TLS args" in
         testDamlScript(
@@ -110,7 +126,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
     "JSON-API" - {
       "Succeeds with single run" in
         testDamlScript(
-          dars(5),
+          dars(4),
           Seq(
             "--ledger-host",
             "localhost",
@@ -126,7 +142,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
         )
       "Succeeds with all run" in
         testDamlScript(
-          dars(6),
+          dars(4),
           Seq(
             "--ledger-host",
             "localhost",
@@ -146,7 +162,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
         )
       "Fails when attempting to upload dar" in
         testDamlScript(
-          dars(7),
+          dars(4),
           Seq(
             "--ledger-host",
             "localhost",
