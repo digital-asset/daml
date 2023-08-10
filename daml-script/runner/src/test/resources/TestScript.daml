@@ -5,11 +5,18 @@ module TestScript where
 
 import Daml.Script
 
+-- Each script gets the time to ensure the ledger is called
 myScript : Script ()
-myScript = debug "Ran myScript"
+myScript = do
+  _ <- getTime
+  debug "Ran myScript"
 
 myOtherScript : Script ()
-myOtherScript = debug "Ran myOtherScript"
+myOtherScript = do
+  _ <- getTime
+  debug "Ran myOtherScript"
 
 inputScript : Int -> Script ()
-inputScript i = debug $ "Got " <> show i
+inputScript i = do
+  _ <- getTime
+  debug $ "Got " <> show i

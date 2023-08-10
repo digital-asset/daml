@@ -7,7 +7,7 @@ import com.daml.bazeltools.BazelRunfiles
 import org.scalatest.Suite
 import org.scalatest.freespec.AsyncFreeSpec
 
-final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
+final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCanton {
   self: Suite =>
 
   override protected lazy val tlsEnable: Boolean = true
@@ -25,7 +25,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
   "TLS" - {
     "GRPC" - {
       "Succeeds with single run, no-upload" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(0),
           Seq(
             "--ledger-host",
@@ -40,7 +40,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
         )
       // Checks we upload following the legacy behaviour, and throw our warning
       "Succeeds with all run, no-upload-flag, default uploading behaviour" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(1),
           Seq(
             "--ledger-host",
@@ -59,7 +59,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           Some(true),
         )
       "Succeeds with all run, explicit no-upload" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(2),
           Seq(
             "--ledger-host",
@@ -78,7 +78,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           Some(false),
         )
       "Succeeds with single run, explicit upload" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(3),
           Seq(
             "--ledger-host",
@@ -93,7 +93,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           Some(true),
         )
       "Succeeds with single run, passing argument" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(4),
           Seq(
             "--ledger-host",
@@ -108,7 +108,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           Right(Seq("Got 5")),
         )
       "Fails without TLS args" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(4),
           Seq(
             "--ledger-host",
@@ -122,10 +122,23 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           // TODO: Look into improving this error for invalid TLS.
           Left(Seq("Network closed for unknown reason")),
         )
+      "Succeeds using --participant-config" in
+        withGrpcParticipantConfig { path =>
+          testDamlScriptCanton(
+            dars(4),
+            Seq(
+              "--participant-config",
+              path.toString,
+              "--script-name",
+              "TestScript:myScript",
+            ) ++ tlsArgs,
+            Right(Seq("Ran myScript")),
+          )
+        }
     }
     "JSON-API" - {
       "Succeeds with single run" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(4),
           Seq(
             "--ledger-host",
@@ -141,7 +154,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           Right(Seq("Ran myScript")),
         )
       "Succeeds with all run" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(4),
           Seq(
             "--ledger-host",
@@ -161,7 +174,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           ),
         )
       "Fails when attempting to upload dar" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(4),
           Seq(
             "--ledger-host",
@@ -177,6 +190,22 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           ) ++ tlsArgs,
           Left(Seq("Cannot upload dar via JSON API")),
         )
+      "Succeeds using --participant-config" in
+        withGrpcParticipantConfig { path =>
+          testDamlScriptCanton(
+            dars(4),
+            Seq(
+              "--participant-config",
+              path.toString,
+              "--access-token-file",
+              jwt.toString,
+              "--json-api",
+              "--script-name",
+              "TestScript:myScript",
+            ),
+            Right(Seq("Ran myScript")),
+          )
+        }
     }
   }
 }

@@ -3,16 +3,16 @@
 
 package com.daml.lf.engine.script
 
-import org.scalatest.Suite
 import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.Suite
 
-final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
+final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCanton {
   self: Suite =>
 
   "No TLS" - {
     "GRPC" - {
       "Succeeds with single run, no-upload" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(0),
           Seq(
             "--ledger-host",
@@ -27,7 +27,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
         )
       // Checks we upload following the legacy behaviour, and throw our warning
       "Succeeds with all run, no-upload-flag, default uploading behaviour" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(1),
           Seq(
             "--ledger-host",
@@ -46,7 +46,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           Some(true),
         )
       "Succeeds with all run, explicit no-upload" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(2),
           Seq(
             "--ledger-host",
@@ -65,7 +65,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           Some(false),
         )
       "Succeeds with single run, explicit upload" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(3),
           Seq(
             "--ledger-host",
@@ -80,7 +80,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           Some(true),
         )
       "Succeeds with single run, passing argument" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(4),
           Seq(
             "--ledger-host",
@@ -94,8 +94,21 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           ),
           Right(Seq("Got 5")),
         )
+      "Succeeds using --participant-config" in
+        withGrpcParticipantConfig { path =>
+          testDamlScriptCanton(
+            dars(4),
+            Seq(
+              "--participant-config",
+              path.toString,
+              "--script-name",
+              "TestScript:myScript",
+            ),
+            Right(Seq("Ran myScript")),
+          )
+        }
       "Fails when running a single failing script" in
-        testDamlScript(
+        testDamlScriptCanton(
           failingDar,
           Seq(
             "--ledger-host",
@@ -108,7 +121,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           Left(Seq("Failed!")),
         )
       "Fails when any script fails with --all" in
-        testDamlScript(
+        testDamlScriptCanton(
           failingDar,
           Seq(
             "--ledger-host",
@@ -123,7 +136,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
     }
     "JSON-API" - {
       "Succeeds with single run" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(4),
           Seq(
             "--ledger-host",
@@ -139,7 +152,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           Right(Seq("Ran myScript")),
         )
       "Succeeds with all run" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(4),
           Seq(
             "--ledger-host",
@@ -159,7 +172,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           ),
         )
       "Fails when attempting to upload dar" in
-        testDamlScript(
+        testDamlScriptCanton(
           dars(4),
           Seq(
             "--ledger-host",
@@ -175,8 +188,24 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           ),
           Left(Seq("Cannot upload dar via JSON API")),
         )
+      "Succeeds using --participant-config" in
+        withJsonParticipantConfig { path =>
+          testDamlScriptCanton(
+            dars(4),
+            Seq(
+              "--participant-config",
+              path.toString,
+              "--access-token-file",
+              jwt.toString,
+              "--json-api",
+              "--script-name",
+              "TestScript:myScript",
+            ),
+            Right(Seq("Ran myScript")),
+          )
+        }
       "Fails when running a single failing script" in
-        testDamlScript(
+        testDamlScriptCanton(
           failingDar,
           Seq(
             "--ledger-host",
@@ -192,7 +221,7 @@ final class NonTlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
           Left(Seq("Failed!")),
         )
       "Fails when any script fails with --all" in
-        testDamlScript(
+        testDamlScriptCanton(
           failingDar,
           Seq(
             "--ledger-host",
