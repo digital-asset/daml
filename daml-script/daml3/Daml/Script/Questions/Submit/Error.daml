@@ -125,13 +125,8 @@ data SubmitError
         -- ^ One of the constructor names of SubmitFailure except DevError, UnknownError, TruncatedError
       truncatedErrorMessage : Text
 
--- FIXME: show for AnyContractKey
 instance Show AnyContractKey where
-  show contractKey = "anyContractKey"
-
--- FIXME: show for AnyTemplate
-instance Show AnyTemplate where
-  show templateId = "anyTemplate"
+  show (AnyContractKey _ templateTypeRep) = show templateTypeRep
 
 instance Show SubmitError where
   show err = case err of
@@ -145,10 +140,10 @@ instance Show SubmitError where
     DuplicateContractKey contractKey -> "Attempted to create a contract with a contract key that is already in use - contract key: " <> show contractKey
     InconsistentContractKey contractKey -> "Inconsistent contract key between daml and ledger - contract key: " <> show contractKey
     UnhandledException None -> "An Exception was thrown and not caught"
-    UnhandledException (Some exn) -> "An Exception was thrown and not caught with message " <> (message exn)
+    UnhandledException (Some exn) -> "An Exception was thrown and not caught - message: " <> (message exn)
     UserError errMessage -> "User Error: " <> errMessage
     TemplatePreconditionViolated {} -> "Template precondition was violated"
-    CreateEmptyContractKeyMaintainers templateId -> "Attempted to create a contract with empty key maintainers - template: " <> show templateId
+    CreateEmptyContractKeyMaintainers _ -> "Attempted to create a contract with empty key maintainers"
     FetchEmptyContractKeyMaintainers contractKey -> "Attempted to fetch a contract with empty key maintainers - contract key: " <> show contractKey
     WronglyTypedContract contractId expected actual ->
       "Excepted contract ID " <> show contractId <> " to be a \"" <> templateTypeRepToText expected <> "\" but it was actually a \"" <> templateTypeRepToText actual <> "\""
