@@ -15,7 +15,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{
 }
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.{SExpr, SValue, Speedy, Profile, TraceLog, WarningLog}
+import com.daml.lf.speedy.{SValue, SExpr, Profile, WarningLog, Speedy, TraceLog}
 import com.daml.script.converter.ConverterException
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -52,18 +52,13 @@ private[lf] class Runner(
     }
 
   def remapQ[X](result: Result[X, Free.Question]): Result[X, ScriptF.Cmd] =
-    result match {
-      case Result.Final(x) => Result.Final(x)
-      case Result.Interruption(resume) => Result.Interruption(() => remapQ(resume()))
-      case Result.Question(
-            Free.Question(name, version, payload, stackTrace),
-            lfContinue,
-            continue,
-          ) =>
-        ScriptF.parse(name, version, payload, stackTrace) match {
-          case Left(value) => Result.failed(new ConverterException(value))
-          case Right(value) => Result.Question(value, lfContinue, x => remapQ(continue(x)))
-        }
+    result.remapQ { case Free.Question(name, version, payload, stackTrace) =>
+      ScriptF.parse(name, version, payload, stackTrace) match {
+        case Right(cmd) =>
+          Result.Question(cmd, Result.successful)
+        case Left(err) =>
+          Result.failed(new ConverterException(err))
+      }
     }
 
   def consume[X](
@@ -75,10 +70,10 @@ private[lf] class Runner(
         Future(result).flatMap {
           case Result.Final(x) => Future.fromTry(x.toTry)
           case Result.Interruption(resume) => consume(resume())
-          case q @ Result.Question(p, _, _) =>
+          case Result.Question(p, resume) =>
             p.executeWithRunner(env, this).transformWith {
-              case Success(x) => consume(q.resume(Right(x)))
-              case Failure(err: RuntimeException) => consume(q.resume(Left(err)))
+              case Success(x) => consume(resume(Right(x)))
+              case Failure(err: RuntimeException) => consume(resume(Left(err)))
               case Failure(err) => Future.failed(err)
             }
         }

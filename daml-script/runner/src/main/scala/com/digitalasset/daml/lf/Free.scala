@@ -18,6 +18,7 @@ private[lf] sealed abstract class Result[+X, +Q] extends Product with Serializab
   def flatMap[Y, R >: Q](f: X => Result[Y, R]): Result[Y, R] =
     transform((err: Result.ErrOr[X]) => err.fold(Result.failed, f))
   def map[Y, R >: Q](f: X => Y): Result[Y, R] = flatMap(x => Result.successful(f(x)))
+  def remapQ[R](f: Q => Result[Result.ErrOr[SExpr], R]): Result[X, R]
 }
 
 private[lf] object Result {
@@ -32,6 +33,7 @@ private[lf] object Result {
 
   final case class Final[X](x: ErrOr[X]) extends Result[X, Nothing] {
     override def transform[Y, Q](f: ErrOr[X] => Result[Y, Q]): Result[Y, Q] = f(x)
+    override def remapQ[R](f: Nothing => Result[Result.ErrOr[SExpr], R]): Result[X, Nothing] = this
   }
 
   def successful[X](x: X): Final[X] = Final(Right(x))
@@ -41,37 +43,23 @@ private[lf] object Result {
   final case class Interruption[X, Q](resume: () => Result[X, Q]) extends Result[X, Q] {
     override def transform[Y, R >: Q](f: ErrOr[X] => Result[Y, R]): Result[Y, R] =
       copy(() => resume().transform(f))
+    override def remapQ[R](f: Q => Result[ErrOr[SExpr], R]): Result[X, R] =
+      Interruption(() => resume().remapQ(f))
   }
 
   final case class Question[X, Q](
       q: Q,
-      private val lfContinue: SValue,
-      private val continue: ErrOr[SExpr] => Result[X, Q],
+      resume: ErrOr[SExpr] => Result[X, Q],
   ) extends Result[X, Q] {
 
     override def transform[Y, R >: Q](f: ErrOr[X] => Result[Y, R]): Result[Y, R] =
-      copy(continue = continue(_).transform(f))
+      copy(resume = resume(_).transform(f))
 
-    def resume(result: ErrOr[SExpr]): Result[X, Q] = {
-      import SExpr._
-      continue(
-        result.map(expr =>
-          SELet1(
-            SEMakeClo(Array(), 1, expr),
-            SELet1(
-              SEAppAtomic(SELocS(1), Array(SEValue(SValue.SUnit))),
-              SEAppAtomic(SEValue(lfContinue), Array(SELocS(1))),
-            ),
-          )
-        )
-      )
-    }
+    override def remapQ[R](f: Q => Result[ErrOr[SExpr], R]): Result[X, R] =
+      f(q).flatMap(resume(_).remapQ(f))
   }
 
-  object Question {
-    def apply[Q](q: Q, continue: SValue): Question[SExpr, Q] =
-      new Question(q, continue, Final(_))
-  }
+  val Unit = Result.Final(Right(()))
 }
 
 case class ConversionError(message: String) extends RuntimeException(message)
@@ -80,16 +68,20 @@ final case class InterpretationError(error: SError.SError)
 
 object Free {
 
+  import Result.ErrOr, Result.Implicits._
+  import SExpr._, SValue._
+
   case class Question(
       name: String,
       version: Long,
       payload: SValue,
       private val stackTrace: StackTrace,
   )
+
   def convError(message: String) = Left(ConversionError(message))
 
   private final implicit class StringOr[X](val e: Either[String, X]) extends AnyVal {
-    def toErrOr: Result.ErrOr[X] = e.left.map(ConversionError(_))
+    def toErrOr: ErrOr[X] = e.left.map(ConversionError(_))
   }
 
   def run(
@@ -118,11 +110,7 @@ object Free {
       loggingContext: LoggingContext,
   ) {
 
-    import Result.ErrOr
-    import Result.Implicits._
-
     def run(): Result[SValue, Question] = {
-      import SExpr._, SValue._
       for {
         v <- runExpr(expr)
         w <- v match {
@@ -162,7 +150,6 @@ object Free {
     }
 
     def parseQuestion(v: SValue): ErrOr[Either[SValue, (Question, SValue)]] = {
-      import SValue._
       v match {
         case SVariant(
               _,
@@ -190,19 +177,33 @@ object Free {
       }
     }
 
-    private[lf] def runFreeMonad(expr: SExpr): Result[SValue, Question] =
+    private[lf] def runFreeMonad(expr: SExpr): Result[SValue, Question] = {
       for {
         fsu <- runExpr(expr)
         free <- parseQuestion(fsu).toResult
         result <- free match {
           case Right((question, continue)) =>
             for {
-              expr <- Result.Question(question, continue)
+              expr <- {
+                def resume(expr: ErrOr[SExpr]): Result.Final[SExpr] =
+                  Result.Final(
+                    expr.map(expr =>
+                      SELet1(
+                        SEMakeClo(Array(), 1, expr),
+                        SELet1(
+                          SEAppAtomic(SELocS(1), Array(SEValue(SValue.Unit))),
+                          SEAppAtomic(SEValue(continue), Array(SELocS(1))),
+                        ),
+                      )
+                    )
+                  )
+                Result.Question(question, resume)
+              }
               res <- runFreeMonad(expr)
             } yield res
           case Left(v) =>
             v match {
-              case SValue.SRecord(_, _, ArrayList(result, _)) =>
+              case SRecord(_, _, ArrayList(result, _)) =>
                 // Unwrap the Tuple2 we get from the inlined StateT.
                 Result.successful(result)
               case _ =>
@@ -210,10 +211,11 @@ object Free {
             }
         }
       } yield result
+    }
 
     private def toSrcLoc(v: SValue): ErrOr[SrcLoc] =
       v match {
-        case SValue.SRecord(
+        case SRecord(
               _,
               _,
               ArrayList(unitId, module, file @ _, startLine, startCol, endLine, endCol),
@@ -241,21 +243,21 @@ object Free {
 
     def toLong(v: SValue): ErrOr[Long] = {
       v match {
-        case SValue.SInt64(i) => Right(i)
+        case SInt64(i) => Right(i)
         case _ => convError(s"Expected SInt64 but got ${v.getClass.getSimpleName}")
       }
     }
 
     def toText(v: SValue): ErrOr[String] = {
       v match {
-        case SValue.SText(text) => Right(text)
+        case SText(text) => Right(text)
         case _ => convError(s"Expected SText but got ${v.getClass.getSimpleName}")
       }
     }
 
     def toLocation(v: SValue): ErrOr[Ref.Location] =
       v match {
-        case SValue.SRecord(_, _, ArrayList(definition, loc)) =>
+        case SRecord(_, _, ArrayList(definition, loc)) =>
           for {
             // TODO[AH] This should be the outer definition. E.g. `main` in `main = do submit ...`.
             //   However, the call-stack only gives us access to the inner definition, `submit` in this case.
@@ -270,7 +272,7 @@ object Free {
         v: SValue
     ): ErrOr[StackTrace] =
       v match {
-        case SValue.SList(frames) =>
+        case SList(frames) =>
           frames.toImmArray.toSeq.to(Vector).traverse(toLocation).map(StackTrace(_))
         case _ =>
           new Throwable().printStackTrace();
