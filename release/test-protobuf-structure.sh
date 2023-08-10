@@ -32,7 +32,7 @@ SORT=$3
 
 export LANG=C
 
-$DIFF -u <(unzip -Z1 $PROTOS | $SORT | sed 's|^[^/]*/||g') <(cat <<EOF
+$DIFF -u <(unzip -Z1 $PROTOS | $SORT | sed 's|^[^/]*/||g') <((cat <<EOF
 com/daml/daml_lf_1_14/daml_lf.proto
 com/daml/daml_lf_1_14/daml_lf_1.proto
 com/daml/daml_lf_1_15/daml_lf.proto
@@ -62,6 +62,7 @@ com/daml/ledger/api/v1/ledger_identity_service.proto
 com/daml/ledger/api/v1/ledger_offset.proto
 com/daml/ledger/api/v1/package_service.proto
 com/daml/ledger/api/v1/testing/time_service.proto
+com/daml/ledger/api/v1/trace_context.proto
 com/daml/ledger/api/v1/transaction.proto
 com/daml/ledger/api/v1/transaction_filter.proto
 com/daml/ledger/api/v1/transaction_service.proto
@@ -84,4 +85,4 @@ com/daml/ledger/api/v2/transaction_filter.proto
 com/daml/ledger/api/v2/update_service.proto
 com/daml/ledger/api/v2/version_service.proto
 EOF
-)
+) | $SORT )

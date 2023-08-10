@@ -123,7 +123,6 @@ object RunnerMain {
               traceLog,
               warningLog,
             )
-            ._2
           _ <- Future {
             outputFile.foreach { outputFile =>
               val jsVal = LfValueCodec.apiValueToJsValue(result.toUnnormalizedValue)

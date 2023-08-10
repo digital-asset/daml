@@ -66,7 +66,6 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
         clients,
         timeMode,
       )
-      ._2
   }
 
   final protected def scriptClients(

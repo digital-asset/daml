@@ -9,11 +9,11 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SBuiltin.{SBCacheDisclosedContract, SBCrash, SBuildCachedContract}
+import com.daml.lf.speedy.SBuiltin.{SBCacheDisclosedContract, SBCrash, SBuildContractInfoStruct}
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
-import com.daml.lf.speedy.Speedy.{CachedContract, Machine, CachedKey}
+import com.daml.lf.speedy.Speedy.{ContractInfo, Machine, CachedKey}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
@@ -1755,7 +1755,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
         val (disclosedContract, None) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = false)
-        val cachedContract = CachedContract(
+        val contractInfo = ContractInfo(
           version = txVersion,
           templateId,
           disclosedContract.argument,
@@ -1764,7 +1764,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           Set.empty,
           None,
         )
-        val cachedContractSExpr = SBuildCachedContract(
+        val contractInfoSExpr = SBuildContractInfoStruct(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
           SEValue(SText("")),
@@ -1776,7 +1776,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         inside(
           evalOnLedger(
             SELet1(
-              cachedContractSExpr,
+              contractInfoSExpr,
               SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId, None)), Array(SELocS(1))),
             ),
             getContract = Map(
@@ -1787,9 +1787,8 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
               )
             ),
           )
-        ) { case Right((SUnit, contractCache, disclosedContracts, disclosedContractKeys)) =>
-          contractCache shouldBe empty
-          disclosedContracts shouldBe Map(contractId -> cachedContract)
+        ) { case Right((SUnit, disclosedContracts, disclosedContractKeys)) =>
+          disclosedContracts shouldBe Map(contractId -> contractInfo)
           disclosedContractKeys shouldBe empty
         }
       }
@@ -1802,7 +1801,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           GlobalKeyWithMaintainers.assertBuild(templateId, key.toUnnormalizedValue, Set(alice)),
           key,
         )
-        val cachedContract = CachedContract(
+        val contractInfo = ContractInfo(
           version = txVersion,
           templateId,
           disclosedContract.argument,
@@ -1811,7 +1810,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           Set.empty,
           Some(cachedKey),
         )
-        val cachedContractSExpr = SBuildCachedContract(
+        val contractInfoSExpr = SBuildContractInfoStruct(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
           SEValue(SText("agreement")),
@@ -1823,7 +1822,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         inside(
           evalOnLedger(
             SELet1(
-              cachedContractSExpr,
+              contractInfoSExpr,
               SEAppAtomic(
                 SEBuiltin(SBCacheDisclosedContract(contractId, Some(cachedKey.globalKey.hash))),
                 Array(SELocS(1)),
@@ -1837,9 +1836,8 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
               )
             ),
           )
-        ) { case Right((SUnit, contractCache, disclosedContracts, disclosedContractKeys)) =>
-          contractCache shouldBe empty
-          disclosedContracts shouldBe Map(contractId -> cachedContract)
+        ) { case Right((SUnit, disclosedContracts, disclosedContractKeys)) =>
+          disclosedContracts shouldBe Map(contractId -> contractInfo)
           disclosedContractKeys shouldBe Map(cachedKey.globalKey -> contractId)
         }
       }
@@ -1962,8 +1960,7 @@ object SBuiltinTest {
     SError,
     (
         SValue,
-        Map[Value.ContractId, CachedContract],
-        Map[Value.ContractId, CachedContract],
+        Map[Value.ContractId, ContractInfo],
         Map[GlobalKey, Value.ContractId],
     ),
   ] = {
@@ -1977,7 +1974,9 @@ object SBuiltinTest {
 
     SpeedyTestLib
       .run(machine, getContract = getContract)
-      .map((_, machine.cachedContracts, machine.disclosedContracts, machine.disclosedContractKeys))
+      .map(
+        (_, machine.disclosedContracts, machine.disclosedContractKeys)
+      )
   }
 
   def intList(xs: Long*): String =

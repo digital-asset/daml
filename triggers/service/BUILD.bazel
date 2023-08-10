@@ -274,6 +274,7 @@ da_scala_test_suite(
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "//libs-scala/timer-utils",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-test-server",

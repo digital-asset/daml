@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConName}
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.speedy.SBuiltin.SBFetchAny
+import com.daml.lf.speedy.SBuiltin.{SBFetchAny, SBCastAnyContract}
 import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
 import com.daml.lf.testing.parser.Implicits._
@@ -312,15 +312,28 @@ object TransactionVersionTest {
           1,
           SExpr.SELet1General(
             SBFetchAny(optTargetTemplateId = None)(speedyContractId, SEValue.None),
-            SExpr.SEScopeExercise(
-              SBuiltin.SBUBeginExercise(
-                templateId,
-                interfaceId,
-                choiceName,
-                consuming = true,
-                byKey = false,
-                explicitChoiceAuthority = false,
-              )(choiceArg, speedyContractId, speedyControllers, speedyObservers, speedyAuthorizers)
+            SExpr.SELet1General(
+              SBCastAnyContract(templateId)(
+                speedyContractId,
+                SExpr.SELocS(1), // result of SBFetchAny
+              ),
+              SExpr.SEScopeExercise(
+                SBuiltin.SBUBeginExercise(
+                  templateId,
+                  interfaceId,
+                  choiceName,
+                  consuming = true,
+                  byKey = false,
+                  explicitChoiceAuthority = false,
+                )(
+                  choiceArg,
+                  speedyContractId,
+                  speedyControllers,
+                  speedyObservers,
+                  speedyAuthorizers,
+                  SExpr.SELocS(1), // result of SBCastAnyContract
+                )
+              ),
             ),
           ),
         ),
