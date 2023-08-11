@@ -119,8 +119,11 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCanto
             "TestScript:myScript",
             "--upload-dar=yes",
           ),
-          // TODO: Look into improving this error for invalid TLS.
-          Left(Seq("Network closed for unknown reason")),
+          // On linux, we throw "UNAVAILABLE: Network closed for unknown reason"
+          // On macOS, simply "UNAVAILABLE: io exception"
+          // and on windows, ???
+          // TODO: Make a consistent error for this with useful information.
+          Left(Seq("UNAVAILABLE")),
         )
       "Succeeds using --participant-config" in
         withGrpcParticipantConfig { path =>
