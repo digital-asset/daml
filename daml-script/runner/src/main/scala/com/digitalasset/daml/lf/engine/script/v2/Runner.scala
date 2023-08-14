@@ -28,7 +28,7 @@ private[lf] class Runner(
     profile: Profile = Speedy.Machine.newProfile,
     canceled: () => Option[RuntimeException] = () => None,
 ) {
-  import Free.Result, Result.Implicits._, SExpr.SExpr
+  import Free.Result, SExpr.SExpr
 
   private val initialClientsV1 = initialClients.map(ScriptLedgerClient.realiseScriptLedgerClient)
 
@@ -54,7 +54,7 @@ private[lf] class Runner(
     result.remapQ { case Free.Question(name, version, payload, stackTrace) =>
       ScriptF.parse(name, version, payload, stackTrace) match {
         case Right(cmd) =>
-          Result.question(cmd, Result.done)
+          Result.Ask(cmd, Result.Final(_))
         case Left(err) =>
           Result.failed(new ConverterException(err))
       }
@@ -74,7 +74,7 @@ private[lf] class Runner(
         profile,
         Script.DummyLoggingContext,
       )
-    ).runFuture(canceled, _.executeWithRunner(env, this).map(Result.successful))
+    ).runF[ScriptF.Cmd, SExpr](_.executeWithRunner(env, this).map(Result.successful), canceled)
 
   def getResult()(implicit
       ec: ExecutionContext,
