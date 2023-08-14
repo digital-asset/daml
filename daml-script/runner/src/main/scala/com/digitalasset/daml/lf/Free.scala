@@ -7,68 +7,157 @@ package free
 
 import data.Ref
 import speedy._
-import SExpr.SExpr
 import com.daml.logging.LoggingContext
 import scalaz.std.either._
 import scalaz.std.vector._
 import scalaz.syntax.traverse._
 
-private[lf] sealed abstract class Result[+X, +Q] extends Product with Serializable {
-  def transform[Y, R >: Q](f: Result.ErrOr[X] => Result[Y, R]): Result[Y, R]
-  def flatMap[Y, R >: Q](f: X => Result[Y, R]): Result[Y, R] =
-    transform((err: Result.ErrOr[X]) => err.fold(Result.failed, f))
-  def map[Y, R >: Q](f: X => Y): Result[Y, R] = flatMap(x => Result.successful(f(x)))
-  def remapQ[R](f: Q => Result[Result.ErrOr[SExpr], R]): Result[X, R]
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Failure
+import scala.util.Success
+
+private[lf] sealed abstract class Cont[+X, +Q, -A] extends Product with Serializable {
+  def flatMap[Y, R >: Q, B <: A](f: X => Cont[Y, R, B]): Cont[Y, R, B]
+  def remapQ[R, B](f: Q => Cont[A, R, B]): Cont[X, R, B]
 }
 
-private[lf] object Result {
-
-  type ErrOr[+X] = Either[RuntimeException, X]
-
-  object Implicits {
-    final implicit class ErrOrOps[X](val either: ErrOr[X]) extends AnyVal {
-      def toResult: Final[X] = Final(either)
-    }
+object Cont {
+  final case class Final[X](x: X) extends Cont[X, Nothing, Any] {
+    override def flatMap[Y, R, B](f: X => Cont[Y, R, B]): Cont[Y, R, B] =
+      f(x)
+    override def remapQ[R, B](f: Nothing => Cont[Any, R, B]): this.type =
+      this
   }
-
-  final case class Final[X](x: ErrOr[X]) extends Result[X, Nothing] {
-    override def transform[Y, Q](f: ErrOr[X] => Result[Y, Q]): Result[Y, Q] = f(x)
-    override def remapQ[R](f: Nothing => Result[Result.ErrOr[SExpr], R]): Result[X, Nothing] = this
-  }
-
-  def successful[X](x: X): Final[X] = Final(Right(x))
-
-  def failed(err: RuntimeException): Final[Nothing] = Final(Left(err))
-
-  final case class Interruption[X, Q](resume: () => Result[X, Q]) extends Result[X, Q] {
-    override def transform[Y, R >: Q](f: ErrOr[X] => Result[Y, R]): Result[Y, R] =
-      copy(() => resume().transform(f))
-    override def remapQ[R](f: Q => Result[ErrOr[SExpr], R]): Result[X, R] =
-      Interruption(() => resume().remapQ(f))
-  }
-
-  final case class Question[X, Q](
-      q: Q,
-      resume: ErrOr[SExpr] => Result[X, Q],
-  ) extends Result[X, Q] {
-
-    override def transform[Y, R >: Q](f: ErrOr[X] => Result[Y, R]): Result[Y, R] =
-      copy(resume = resume(_).transform(f))
-
-    override def remapQ[R](f: Q => Result[ErrOr[SExpr], R]): Result[X, R] =
+  final case class Ask[X, Q, A](q: Q, resume: A => Cont[X, Q, A]) extends Cont[X, Q, A] {
+    override def flatMap[Y, R >: Q, B <: A](f: X => Cont[Y, R, B]): Cont[Y, R, B] =
+      Ask(q, resume(_).flatMap(f))
+    override def remapQ[R, B](f: Q => Cont[A, R, B]): Cont[X, R, B] =
       f(q).flatMap(resume(_).remapQ(f))
   }
-
-  val Unit = Result.Final(Right(()))
 }
 
 case class ConversionError(message: String) extends RuntimeException(message)
 final case class InterpretationError(error: SError.SError)
     extends RuntimeException(s"${Pretty.prettyError(error).render(80)}")
 
-object Free {
+private[lf] object Free {
 
-  import Result.ErrOr, Result.Implicits._
+  type ErrOr[+X] = Either[RuntimeException, X]
+
+  abstract class Mask {
+    type Masked[+_]
+    def disguise[X](x: X): Masked[X]
+    def reveal[X](x: Masked[X]): X
+  }
+
+  val Mask: Mask = new Mask {
+    type Masked[+T] = T
+    override def disguise[X](x: X): Masked[X] = x
+    override def reveal[X](x: Masked[X]): X = x
+  }
+
+  type Result[+X, +Q, -A] = Mask.Masked[Cont[ErrOr[X], Option[Q], ErrOr[A]]]
+
+  object Result {
+
+    import Mask._
+
+    private[this] val notAnError = Left(new RuntimeException("Not a Error"))
+
+    type NoQuestion[+X] = Result[X, Nothing, Any]
+
+    def done[X](either: ErrOr[X]): NoQuestion[X] =
+      disguise(Cont.Final(either))
+    def successful[X](x: X): NoQuestion[X] =
+      done(Right(x))
+    def failed(err: RuntimeException): NoQuestion[Nothing] = // NoQuestion[Nothing] =
+      done(Left(err))
+    def question[X, Q, A](q: Q, resume: ErrOr[A] => Result[X, Q, A]): Result[X, Q, A] =
+      disguise(Cont.Ask[ErrOr[X], Option[Q], ErrOr[A]](Some(q), resume andThen reveal))
+    def interruption[X, Q, A](resume: Any => Result[X, Q, A]): Result[X, Q, A] =
+      disguise(Cont.Ask[ErrOr[X], Option[Q], ErrOr[A]](None, resume andThen reveal))
+
+    object Implicits {
+      final implicit class ResultOps[X, Q, A](val result: Result[X, Q, A]) extends AnyVal {
+        def transform[Y, R >: Q, B <: A](f: ErrOr[X] => Result[Y, R, B]): Result[Y, R, B] =
+          disguise(reveal(result).flatMap(f andThen reveal))
+
+        def flatMap[Y, R >: Q, B <: A](f: X => Result[Y, R, B]): Result[Y, R, B] =
+          transform(_.fold[Result[Y, R, B]](failed, f))
+
+        def map[Y](f: X => Y): Result[Y, Q, A] =
+          flatMap(f andThen successful)
+
+        def remapQ[R, B](f: Q => Result[A, R, B]): Result[X, R, B] =
+          disguise(reveal(result).remapQ {
+            case None =>
+              Cont.Ask[ErrOr[Nothing], None.type, ErrOr[B]](None, _ => Cont.Final(notAnError))
+            case Some(q) =>
+              reveal(f(q))
+          })
+
+        def run(cancel: () => Option[RuntimeException], answer: Q => Result[A, Q, A]): ErrOr[X] = {
+          @scala.annotation.tailrec
+          def loop(cont: Cont[ErrOr[X], Option[Q], ErrOr[A]]): ErrOr[X] =
+            cancel() match {
+              case Some(err) =>
+                Left(err)
+              case None =>
+                cont match {
+                  case Cont.Final(x) =>
+                    x
+                  case Cont.Ask(q, resume) =>
+                    q match {
+                      case None => loop(resume(notAnError))
+                      case Some(q) => loop(reveal(answer(q)).flatMap(resume))
+                    }
+                }
+            }
+
+          loop(reveal(result))
+        }
+
+        def runFuture(cancel: () => Option[RuntimeException], answer: Q => Future[Result[A, Q, A]])(
+            implicit ec: ExecutionContext
+        ): Future[X] = {
+          def loop(cont: Cont[ErrOr[X], Option[Q], ErrOr[A]]): Future[X] = {
+            cancel() match {
+              case Some(err) =>
+                Future.failed(err)
+              case None =>
+                cont match {
+                  case Cont.Final(x) =>
+                    Future.fromTry(x.toTry)
+                  case Cont.Ask(q, resume) =>
+                    q match {
+                      case None => loop(resume(notAnError))
+                      case Some(q) =>
+                        for {
+                          result <- answer(q).transform {
+                            case Success(a) => Success(a)
+                            case Failure(e: RuntimeException) => Success(Result.failed(e))
+                            case Failure(e) => Failure(e)
+                          }
+                          cont = reveal(result).flatMap(resume)
+                          res <- loop(cont)
+                        } yield res
+                    }
+                }
+            }
+          }
+
+          loop(reveal(result))
+        }
+      }
+
+      final implicit class ErrOrOps[X](val either: ErrOr[X]) extends AnyVal {
+        def toResult: NoQuestion[X] = done(either)
+      }
+    }
+    val Unit: NoQuestion[Unit] = successful(())
+  }
+
+  import Result.Implicits._
   import SExpr._, SValue._
 
   case class Question(
@@ -84,14 +173,14 @@ object Free {
     def toErrOr: ErrOr[X] = e.left.map(ConversionError(_))
   }
 
-  def run(
+  def getResult(
       expr: SExpr,
       compiledPackages: CompiledPackages,
       traceLog: TraceLog,
       warningLog: WarningLog,
       profile: Profile,
       loggingContext: LoggingContext,
-  ): Result[SValue, Question] =
+  ): Result[SValue, Question, SExpr] =
     new Runner(
       expr,
       compiledPackages: CompiledPackages,
@@ -99,7 +188,7 @@ object Free {
       warningLog: WarningLog,
       profile: Profile,
       loggingContext: LoggingContext,
-    ).run()
+    ).getResult()
 
   private class Runner(
       expr: SExpr,
@@ -110,7 +199,7 @@ object Free {
       loggingContext: LoggingContext,
   ) {
 
-    def run(): Result[SValue, Question] = {
+    def getResult(): Result[SValue, Question, SExpr] = {
       for {
         v <- runExpr(expr)
         w <- v match {
@@ -135,18 +224,19 @@ object Free {
       )(loggingContext)
 
     @scala.annotation.nowarn("msg=dead code following this construct")
-    private[this] def runExpr(expr: SExpr): Result[SValue, Nothing] = {
+    @scala.annotation.nowarn("msg=parameter value x in method loop is never used")
+    private[this] def runExpr(expr: SExpr): Result.NoQuestion[SValue] = {
       val machine = newMachine(expr)
 
-      def loop: () => Result[SValue, Nothing] = () =>
+      def loop(x: Any): Result.NoQuestion[SValue] =
         machine.run() match {
           case SResult.SResultFinal(v) => Result.successful(v)
           case SResult.SResultError(err) => Result.failed(InterpretationError(err))
-          case SResult.SResultInterruption => Result.Interruption[SValue, Nothing](loop)
+          case SResult.SResultInterruption => Result.interruption(loop)
           case SResult.SResultQuestion(nothing) => nothing
         }
 
-      loop()
+      loop(())
     }
 
     def parseQuestion(v: SValue): ErrOr[Either[SValue, (Question, SValue)]] = {
@@ -177,7 +267,7 @@ object Free {
       }
     }
 
-    private[lf] def runFreeMonad(expr: SExpr): Result[SValue, Question] = {
+    private[lf] def runFreeMonad(expr: SExpr): Result[SValue, Question, SExpr] = {
       for {
         fsu <- runExpr(expr)
         free <- parseQuestion(fsu).toResult
@@ -185,8 +275,8 @@ object Free {
           case Right((question, continue)) =>
             for {
               expr <- {
-                def resume(expr: ErrOr[SExpr]): Result.Final[SExpr] =
-                  Result.Final(
+                def resume(expr: ErrOr[SExpr]): Result.NoQuestion[SExpr] =
+                  Result.done(
                     expr.map(expr =>
                       SELet1(
                         SEMakeClo(Array(), 1, expr),
@@ -197,7 +287,7 @@ object Free {
                       )
                     )
                   )
-                Result.Question(question, resume)
+                Result.question(question, resume)
               }
               res <- runFreeMonad(expr)
             } yield res
