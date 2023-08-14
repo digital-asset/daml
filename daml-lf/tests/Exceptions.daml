@@ -140,25 +140,23 @@ template GlobalLookups
   where
     signatory p
 
-    let k = (p, 0)
-
     choice LookupTwice : ()
       controller p
-      do Some _ <- lookupByKey @K k
-         Some _ <- lookupByKey @K k
+      do Some _ <- lookupByKey @K (p, 0)
+         Some _ <- lookupByKey @K (p, 0)
          pure ()
 
     choice LookupAfterCreate : ()
       controller p
       do cid <- create (K p 0 "")
-         Some cid' <- lookupByKey @K k
+         Some cid' <- lookupByKey @K (p, 0)
          cid === cid'
          pure ()
 
     choice LookupAfterCreateArchive : ()
       controller p
       do cid <- create (K p 0 "")
-         Some cid' <- lookupByKey @K k
+         Some cid' <- lookupByKey @K (p, 0)
          cid === cid'
          pure ()
 
@@ -168,8 +166,8 @@ template GlobalLookups
       controller p
       do -- Fetch does not bring key in scope.
          c <- fetch cid
-         key c === k
-         Some _ <- lookupByKey @K k
+         key c === (p, 0)
+         Some _ <- lookupByKey @K (p, 0)
          pure ()
 
     choice LookupAfterArchive : ()
@@ -178,9 +176,9 @@ template GlobalLookups
       controller p
       do -- Archive does not bring key in scope.
          c <- fetch cid
-         key c === k
+         key c === (p, 0)
          archive cid
-         None <- lookupByKey @K k
+         None <- lookupByKey @K (p, 0)
          pure ()
 
     -- Note that this will be rejected by
@@ -193,17 +191,17 @@ template GlobalLookups
            throw E
          catch
            E -> pure ()
-         None <- lookupByKey @K k
+         None <- lookupByKey @K (p, 0)
          pure ()
 
     choice LookupAfterRollbackLookup : ()
       controller p
       do try do
-           cid <- lookupByKey @K k
+           cid <- lookupByKey @K (p, 0)
            throw E
          catch
            E -> pure ()
-         Some _ <- lookupByKey @K k
+         Some _ <- lookupByKey @K (p, 0)
          pure ()
 
     choice LookupAfterArchiveAfterRollbackLookup : ()
@@ -212,17 +210,17 @@ template GlobalLookups
       controller p
       do try do
            -- this updates globalKeyInputs
-           Some cid' <- lookupByKey @K k
+           Some cid' <- lookupByKey @K (p, 0)
            cid === cid'
            throw E
          catch
            E -> pure ()
          c <- fetch cid
-         key c === k
+         key c === (p, 0)
          -- keys is empty here so archive does not drop it.
          archive cid
          -- this one needs to check activeness for an entry in globalKeyInputs
-         None <- lookupByKey @K k
+         None <- lookupByKey @K (p, 0)
          pure ()
 
 template NodeSeeds
