@@ -179,11 +179,12 @@ class Context(
       Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
     val traceLog = Speedy.Machine.newTraceLog
     val warningLog = Speedy.Machine.newWarningLog
+    val profile = Speedy.Machine.newProfile
     val timeBomb = TimeBomb(timeout.toMillis)
     val isOverdue = timeBomb.hasExploded
     val ledgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog, isOverdue)
     val timeBombCanceller = timeBomb.start()
-    val (clientMachine, resultF, ideLedgerContext) = Runner.runIdeLedgerClient(
+    val (resultF, ideLedgerContext) = Runner.runIdeLedgerClient(
       compiledPackages = compiledPackages,
       scriptId = scriptId,
       convertInputValue = None,
@@ -192,6 +193,7 @@ class Context(
       timeMode = ScriptTimeMode.Static,
       traceLog = traceLog,
       warningLog = warningLog,
+      profile = profile,
       canceled = () => {
         if (timeBombCanceller()) Some(Runner.TimedOut)
         else if (canceledByRequest()) Some(Runner.CanceledByRequest)
@@ -206,8 +208,8 @@ class Context(
         Some(
           ScenarioRunner.ScenarioError(
             ideLedgerContext.ledger,
-            clientMachine.traceLog,
-            clientMachine.warningLog,
+            traceLog,
+            warningLog,
             ideLedgerContext.currentSubmission,
             // TODO (MK) https://github.com/digital-asset/daml/issues/7276
             ImmArray.Empty,
@@ -225,9 +227,9 @@ class Context(
           Some(
             ScenarioRunner.ScenarioSuccess(
               ideLedgerContext.ledger,
-              clientMachine.traceLog,
-              clientMachine.warningLog,
-              clientMachine.profile,
+              traceLog,
+              warningLog,
+              profile,
               dummyDuration,
               dummySteps,
               v,

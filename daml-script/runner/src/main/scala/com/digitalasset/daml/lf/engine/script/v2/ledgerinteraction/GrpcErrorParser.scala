@@ -95,10 +95,10 @@ object GrpcErrorParser {
         }
       case "DAML_AUTHORIZATION_ERROR" => SubmitError.AuthorizationError(message)
       case "CONTRACT_NOT_ACTIVE" =>
-        caseErr { case Seq((ErrorResource.TemplateId, tid), (ErrorResource.ContractId, cid)) =>
-          SubmitError.ContractNotActive(
-            Identifier.assertFromString(tid),
-            ContractId.assertFromString(cid),
+        caseErr { case Seq((ErrorResource.TemplateId, tid @ _), (ErrorResource.ContractId, cid)) =>
+          SubmitError.ContractNotFound(
+            NonEmpty(Seq, ContractId.assertFromString(cid)),
+            None,
           )
         }
       case "DISCLOSED_CONTRACT_KEY_HASHING_ERROR" =>
@@ -146,7 +146,7 @@ object GrpcErrorParser {
             SubmitError.UnhandledException(Some((Identifier.assertFromString(ty), value)))
           case Seq() => SubmitError.UnhandledException(None)
         }
-      case "USER_ERROR" =>
+      case "INTERPRETATION_USER_ERROR" =>
         caseErr { case Seq((ErrorResource.ExceptionText, excMessage)) =>
           SubmitError.UserError(excMessage)
         }
@@ -216,7 +216,7 @@ object GrpcErrorParser {
         caseErr { case Seq((ErrorResource.ContractId, cid)) =>
           SubmitError.ContractIdComparability(cid)
         }
-      case "DEV_ERROR" =>
+      case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>
           SubmitError.DevError(errorType, message)
         }
