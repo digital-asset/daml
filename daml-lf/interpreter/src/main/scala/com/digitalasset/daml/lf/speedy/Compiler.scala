@@ -13,6 +13,7 @@ import com.daml.lf.language.{
   LeftToRight,
   LookupError,
   PackageInterface,
+  RightToLeft,
   StablePackage,
 }
 import com.daml.lf.speedy.Anf.flattenToAnf
@@ -461,10 +462,20 @@ private[lf] final class Compiler(
     val t0 = Time.Timestamp.now()
 
     pkgInterface.lookupPackage(pkgId) match {
-      case Right(pkg)
-          if !stablePackageIds.contains(pkgId) && !config.allowedLanguageVersions
-            .contains(pkg.languageVersion) =>
-        throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
+      case Right(pkg) => {
+        if (
+          !stablePackageIds.contains(pkgId) && !config.allowedLanguageVersions
+            .contains(pkg.languageVersion)
+        )
+          throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
+
+        if (
+          config.evaluationOrder == RightToLeft && !LanguageVersion.DevVersions.contains(
+            pkg.languageVersion
+          )
+        )
+          throw CompilationError("Right-to-left evaluation is only available in dev")
+      }
       case _ =>
     }
 
