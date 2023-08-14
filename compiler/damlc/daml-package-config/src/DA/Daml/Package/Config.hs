@@ -5,11 +5,13 @@
 
 -- | Types and functions for dealing with package config in daml.yaml
 module DA.Daml.Package.Config
-    ( PackageConfigFields (..)
+    ( MultiPackageConfigFields (..)
+    , PackageConfigFields (..)
     , PackageSdkVersion (..)
     , parseProjectConfig
     , overrideSdkVersion
     , withPackageConfig
+    , withMultiPackageConfig
     , checkPkgConfig
     ) where
 
@@ -20,6 +22,7 @@ import DA.Daml.Project.Types
 
 import Control.Exception.Safe (throwIO)
 import Control.Monad (when)
+import Control.Monad.Extra (loopM)
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Key as A
 import qualified Data.Aeson.Encoding as A
@@ -29,6 +32,8 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Data.Yaml as Y
 import qualified Module as Ghc
+import System.Directory (canonicalizePath, listDirectory, withCurrentDirectory)
+import System.FilePath (takeDirectory)
 import System.IO (hPutStrLn, stderr)
 import Text.Regex.TDFA
 
@@ -42,7 +47,6 @@ data PackageConfigFields = PackageConfigFields
     -- we might not have a version. In `damlc build` this is always set to `Just`.
     , pDependencies :: [String]
     , pDataDependencies :: [String]
-    , pSourceDependencies :: [String]
     , pModulePrefixes :: Map Ghc.UnitId Ghc.ModuleName
     -- ^ Map from unit ids to a prefix for all modules in that package.
     -- If this is specified, all modules from the package will be remapped
@@ -67,14 +71,13 @@ parseProjectConfig project = do
     pVersion <- Just <$> queryProjectConfigRequired ["version"] project
     pDependencies <- queryProjectConfigRequired ["dependencies"] project
     pDataDependencies <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
-    pSourceDependencies <- fromMaybe [] <$> queryProjectConfig ["source-dependencies"] project
     pModulePrefixes <- fromMaybe Map.empty <$> queryProjectConfig ["module-prefixes"] project
     pSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
     pUpgradedPackagePath <- queryProjectConfig ["upgrades"] project
     Right PackageConfigFields {..}
 
 checkPkgConfig :: PackageConfigFields -> [T.Text]
-checkPkgConfig PackageConfigFields {pName, pVersion, pSourceDependencies} =
+checkPkgConfig PackageConfigFields {pName, pVersion} =
   [ T.unlines $
   ["Invalid package name: " <> T.pack (show pName) <> ". Package names should have the format " <> packageNameRegex <> "."]
   ++ errDescription
@@ -85,9 +88,6 @@ checkPkgConfig PackageConfigFields {pName, pVersion, pSourceDependencies} =
   ++ errDescription
   | Just version <- [pVersion]
   , not $ LF.unPackageVersion version =~ versionRegex
-  ] ++
-  [ "Illegal source dependencies. If you wish to compile a project with source dependencies, please use daml damlc multi-build."
-  | (_:_) <- [pSourceDependencies]
   ]
   where
     errDescription =
@@ -97,6 +97,16 @@ checkPkgConfig PackageConfigFields {pName, pVersion, pSourceDependencies} =
       ]
     versionRegex = "^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))*$" :: T.Text
     packageNameRegex = "^[A-Za-z][A-Za-z0-9]*(\\-[A-Za-z][A-Za-z0-9]*)*$" :: T.Text
+
+data MultiPackageConfigFields = MultiPackageConfigFields
+    { mpProjectPaths :: [FilePath]
+    }
+
+-- | Parse the multi-package.yaml file for auto rebuilds/IDE intelligence in multi-package projects
+parseMultiPackageConfig :: MultiPackageConfig -> Either ConfigError MultiPackageConfigFields
+parseMultiPackageConfig multiPackage = do
+    mpProjectPaths <- queryMultiPackageConfigRequired ["packages"] multiPackage
+    Right MultiPackageConfigFields {..}
 
 overrideSdkVersion :: PackageConfigFields -> IO PackageConfigFields
 overrideSdkVersion pkgConfig = do
@@ -125,6 +135,32 @@ withPackageConfig projectPath f = do
     pkgConfig <- either throwIO pure (parseProjectConfig project)
     pkgConfig' <- overrideSdkVersion pkgConfig
     f pkgConfig'
+
+-- Traverses up the directory tree from current project path and returns the project path of the "nearest" project.yaml
+-- Stops at root, errors on failure to find.
+findMultiPackageConfigProjectPath :: FilePath -> IO ProjectPath
+findMultiPackageConfigProjectPath filePath = flip loopM filePath $ \path -> do
+  hasMultiPackage <- elem multiPackageConfigName <$> listDirectory path
+  if hasMultiPackage
+    then pure $ Right $ ProjectPath path
+    else
+      let newPath = takeDirectory path
+       in if path == newPath
+            then throwIO (ConfigFileInvalid "multi-package" (Y.InvalidYaml (Just (Y.YamlException $ "Yaml file not found: " <> multiPackageConfigName))))
+            else pure $ Left newPath
+
+-- Should traverse up the directory tree until finding the config file, add the true path to MultiPackageConfigFields.
+withMultiPackageConfig :: ProjectPath -> (MultiPackageConfigFields -> IO a) -> IO a
+withMultiPackageConfig projectPath f = do
+    canonProjectFilePath <- canonicalizePath $ unwrapProjectPath projectPath
+    multiPackageProjectPath <- findMultiPackageConfigProjectPath canonProjectFilePath
+    multiPackage <- readMultiPackageConfig multiPackageProjectPath
+    multiPackageConfig <- either throwIO pure (parseMultiPackageConfig multiPackage)
+    -- canonicalise from 
+    canonPaths <-
+      withCurrentDirectory (unwrapProjectPath multiPackageProjectPath)
+        $ traverse canonicalizePath (mpProjectPaths multiPackageConfig)
+    f multiPackageConfig {mpProjectPaths = canonPaths}
 
 -- | Orphans because I’m too lazy to newtype everything.
 instance A.FromJSON Ghc.ModuleName where

@@ -155,10 +155,6 @@ newtype InitPkgDb = InitPkgDb Bool
 initPkgDbOpt :: Parser InitPkgDb
 initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database" idm
 
-newtype ConvertSourceDeps = ConvertSourceDeps { getConvertSourceDeps :: Bool }
-convertSourceDepsOpt :: Parser ConvertSourceDeps
-convertSourceDepsOpt = ConvertSourceDeps <$> flagYesNoAuto "convert-source-deps" False "Internal only - convert source deps to data deps" internal
-
 data Telemetry
     = TelemetryOptedIn -- ^ User has explicitly opted in
     | TelemetryOptedOut -- ^ User has explicitly opted out

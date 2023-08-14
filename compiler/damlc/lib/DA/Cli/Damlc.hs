@@ -14,7 +14,7 @@ import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception (bracket, catch, handle)
 import Control.Exception.Safe (catchIO)
 import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
-import Control.Monad.Extra (allM, whenM, whenJust)
+import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
 import DA.Bazel.Runfiles (Resource(..),
                           locateResource,
                           mainWorkspace,
@@ -22,13 +22,11 @@ import DA.Bazel.Runfiles (Resource(..),
                           runfilesPathPrefix,
                           setRunfilesEnv)
 import qualified DA.Cli.Args as ParseArgs
-import DA.Cli.Options (ConvertSourceDeps (..),
-                       Debug(..),
+import DA.Cli.Options (Debug(..),
                        InitPkgDb(..),
                        ProjectOpts(..),
                        Style(..),
                        Telemetry(..),
-                       convertSourceDepsOpt,
                        debugOpt,
                        disabledDlintUsageParser,
                        enabledDlintUsageParser,
@@ -116,10 +114,12 @@ import DA.Daml.Options.Types (EnableScenarioService(..),
                               optThreads,
                               pkgNameVersion,
                               projectPackageDatabase)
-import DA.Daml.Package.Config (PackageConfigFields(..),
+import DA.Daml.Package.Config (MultiPackageConfigFields(..),
+                               PackageConfigFields(..),
                                PackageSdkVersion(..),
                                checkPkgConfig,
-                               withPackageConfig)
+                               withPackageConfig,
+                               withMultiPackageConfig)
 import DA.Daml.Project.Config (queryProjectConfig, queryProjectConfigRequired, readProjectConfig)
 import DA.Daml.Project.Consts (ProjectCheck(..),
                                damlCacheEnvVar,
@@ -156,6 +156,7 @@ import qualified Data.Text.Extended as T
 import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text.Lazy.IO as TL
 import qualified Data.Text.IO as T
+import Data.Traversable (for)
 import Development.IDE.Core.API (getDalf, makeVFSHandle, runActionSync, setFilesOfInterest)
 import Development.IDE.Core.Debouncer (newAsyncDebouncer, noopDebouncer)
 import Development.IDE.Core.IdeState.Daml (getDamlIdeState,
@@ -486,13 +487,12 @@ cmdBuild numProcessors =
             <*> optionalOutputFileOpt
             <*> incrementalBuildOpt
             <*> initPkgDbOpt
-            <*> convertSourceDepsOpt
 
 cmdMultiBuild :: Int -> Mod CommandFields Command
 cmdMultiBuild numProcessors =
     command "multi-build" $
     info (helper <*> cmd) $
-    progDesc "Initialize and build a package with source-dependencies" <> fullDesc
+    progDesc "Initialize and build a package with auto-build" <> fullDesc
   where
     cmd =
         execMultiBuild
@@ -900,8 +900,8 @@ installDepsAndInitPackageDbFromConfigForce opts PackageConfigFields {..} = do
       pDataDependencies
   createProjectPackageDb (toNormalizedFilePath' projRoot) opts pModulePrefixes
 
-execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> ConvertSourceDeps -> Command
-execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb convertSourceDeps =
+execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
+execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
   Command Build (Just projectOpts) effect
   where effect = do
           loggerH <- getLogger opts "build"
@@ -909,24 +909,12 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb convertSourceDep
             withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{pName, pVersion} -> do
                 Logger.logInfo loggerH $ "Compiling " <> LF.unPackageName pName <> " to a DAR."
 
-                -- Using the hidden `convert-source-dependencies` flag, this modification to pkgConfig
-                -- changes all source dependencies into data dependencies, assuming a default path for the dar file
-                -- If someone specifies `-o` in the build-options, this will not work
-                -- TODO: Resolve that, or find a way to move this logic to build-multi, so ensure backwards compatibility with
-                -- SDK versions older than 2.7 (if we even want that)
-                pkgConfig' <-
-                  if getConvertSourceDeps convertSourceDeps
-                    then do
-                      darPaths <- traverse darPathFromDamlYaml $ pSourceDependencies pkgConfig
-                      pure $ pkgConfig { pDataDependencies = pDataDependencies pkgConfig <> darPaths, pSourceDependencies = [] }
-                    else pure pkgConfig
-
-                let errors = checkPkgConfig pkgConfig'
+                let errors = checkPkgConfig pkgConfig
                 unless (null errors) $ do
                     mapM_ (Logger.logError loggerH) errors
                     exitFailure
 
-                installDepsAndInitPackageDbFromConfig opts pkgConfig' initPkgDb
+                installDepsAndInitPackageDbFromConfig opts pkgConfig initPkgDb
                 withDamlIdeState
                     opts
                       { optMbPackageName = Just pName
@@ -938,7 +926,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb convertSourceDep
                     mbDar <-
                         buildDar
                             compilerH
-                            pkgConfig'
+                            pkgConfig
                             (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
                             (FromDalf False)
                     dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
@@ -950,6 +938,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb convertSourceDep
                     Nothing -> pure $ distDir </> name <.> "dar"
                     Just out -> rel out
 
+-- TODO: outdated comment
 {- | Multi Build! (Source dependencies for MultiDar)
   This is currently separate to build, but won't be in future.
   Multi build is a light wrapper over the top of the existing build, and does not interact with the internals of the build process at all
@@ -974,30 +963,46 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb convertSourceDep
 execMultiBuild :: ProjectOpts -> Options -> Command
 execMultiBuild projectOpts opts =
   Command MultiBuild (Just projectOpts) effect
-  where effect = do
-          vfs <- makeVFSHandle
-          loggerH <- getLogger opts "multi-build"
-          cDir <- getCurrentDirectory
-          assistantPath <- getEnv "DAML_ASSISTANT"
-          -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
-          assistantEnv <- filter ((/="DAML_PROJECT") . fst) <$> getEnvironment
-          let assistantRunner = AssistantRunner $ \location args ->
-                withCreateProcess ((proc assistantPath args) {cwd = Just location, env = Just assistantEnv})
-                  $ \_ _ _ p -> void $ waitForProcess p
-              buildMultiRules = do
-                addIdeGlobal assistantRunner
-                buildMultiRule
-          -- Set up a near empty shake environment, with just the buildMulti rule
-          bracket
-            (IDE.initialise buildMultiRules (DummyLspEnv diagnosticsLogger) (toIdeLogger loggerH) noopDebouncer (toCompileOpts opts) vfs)
-            IDE.shutdown
-            $ \ideState -> runActionSync ideState
-              $ void $ use_ BuildMulti $ toNormalizedFilePath'
-              $ maybe cDir unwrapProjectPath $ projectRoot projectOpts
+  where effect =
+          -- withProjectRoot' projectOpts $ \relativize ->
+            withMultiPackageConfig defaultProjectPath $ \multiPackageConfig -> do
+              vfs <- makeVFSHandle
+              loggerH <- getLogger opts "multi-build"
+              cDir <- getCurrentDirectory
+              assistantPath <- getEnv "DAML_ASSISTANT"
+              -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
+              assistantEnv <- filter ((/="DAML_PROJECT") . fst) <$> getEnvironment
+
+              -- This isn't fully correct, it should also look for build options that change the dar location
+              buildableDataDepsMapping <- fmap Map.fromList $ for (mpProjectPaths multiPackageConfig) $ \path -> do
+                darPath <- darPathFromDamlYaml path
+                pure (darPath, path)
+
+              let assistantRunner = AssistantRunner $ \location args ->
+                    withCreateProcess ((proc assistantPath args) {cwd = Just location, env = Just assistantEnv})
+                      $ \_ _ _ p -> void $ waitForProcess p
+                  buildableDataDeps = BuildableDataDeps $ flip Map.lookup buildableDataDepsMapping
+                  buildMultiRules = do
+                    addIdeGlobal assistantRunner
+                    addIdeGlobal buildableDataDeps
+                    buildMultiRule
+
+              -- Set up a near empty shake environment, with just the buildMulti rule
+              bracket
+                (IDE.initialise buildMultiRules (DummyLspEnv diagnosticsLogger) (toIdeLogger loggerH) noopDebouncer (toCompileOpts opts) vfs)
+                IDE.shutdown
+                $ \ideState -> runActionSync ideState
+                  $ void $ use_ BuildMulti $ toNormalizedFilePath'
+                  $ maybe cDir unwrapProjectPath $ projectRoot projectOpts
 
 data AssistantRunner = AssistantRunner { runAssistant :: FilePath -> [String] -> IO ()}
   deriving Typeable
 instance IsIdeGlobal AssistantRunner
+
+-- Stores a mapping from dar path to project path
+data BuildableDataDeps = BuildableDataDeps { getDataDepSource :: FilePath -> Maybe FilePath }
+  deriving Typeable
+instance IsIdeGlobal BuildableDataDeps
 
 data BuildMulti = BuildMulti
     deriving (Eq, Show, Typeable, Generic)
@@ -1012,7 +1017,7 @@ type instance RuleResult BuildMulti = (LF.PackageName, LF.PackageVersion, LF.Pac
 data BuildMultiPackageConfig = BuildMultiPackageConfig
   { bmName :: LF.PackageName
   , bmVersion :: LF.PackageVersion
-  , bmSourceDeps :: [FilePath]
+  , bmDataDeps :: [FilePath]
   , bmSourceDaml :: FilePath
   }
 
@@ -1095,6 +1100,7 @@ buildMultiRule = defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
   logger <- actionLogger
 
   assistantRunner <- getIdeGlobalAction @AssistantRunner
+  buildableDataDeps <- getIdeGlobalAction @BuildableDataDeps
 
   -- Make an IO action that takes a path and args and call env var DAML_ASSISTANT with it, put it in as a global under a newtype
   -- pull that out here and call it via `damlc`
@@ -1112,8 +1118,12 @@ buildMultiRule = defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
         , ([], Just (bmName, bmVersion, pid))
         )
 
+  toBuild <- liftIO $ withCurrentDirectory filePath $ flip mapMaybeM bmDataDeps $ \darPath -> do
+    canonDarPath <- canonicalizePath darPath
+    pure $ getDataDepSource buildableDataDeps canonDarPath
+
   -- Build all our deps!
-  sourceDepsData <- uses_ BuildMulti $ toNormalizedFilePath' <$> bmSourceDeps
+  sourceDepsData <- uses_ BuildMulti $ toNormalizedFilePath' <$> toBuild
 
   liftIO $ do
     -- Check our own staleness, if we're not stale, give the package ID to return to shake.
@@ -1127,10 +1137,8 @@ buildMultiRule = defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
         IDELogger.logInfo logger $ T.pack $ "Building " <> fromNormalizedFilePath path
         -- Invoke damlc with the following flags. For now we call to `main`, but later we'll defer to the assistant to find the right version of damlc
         -- and defer to that instead.
-        -- Must pass in --convert-source-deps or build will error on the source-dependencies.
 
-        -- withArgs ["build", "--convert-source-deps", "yes", "--project-root", fromNormalizedFilePath path] main
-        runAssistant assistantRunner (fromNormalizedFilePath path) ["build", "--convert-source-deps", "yes"]
+        runAssistant assistantRunner (fromNormalizedFilePath path) ["build"]
 
         -- Extract the new package ID from the dar we just built, by reading the DAR and looking for the dalf that matches our package name/version
         let darPath = darPathFromNameAndVersion filePath bmName bmVersion
@@ -1250,7 +1258,6 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pVersion = optMbPackageVersion opts
                               , pDependencies = []
                               , pDataDependencies = []
-                              , pSourceDependencies = []
                               , pSdkVersion = PackageSdkVersion SdkVersion.sdkVersion
                               , pModulePrefixes = Map.empty
                               , pUpgradedPackagePath = Nothing
@@ -1475,7 +1482,7 @@ buildMultiPackageConfigFromDamlYaml path =
       bmName <- queryProjectConfigRequired ["name"] project
       bmVersion <- queryProjectConfigRequired ["version"] project
       bmSourceDaml <- queryProjectConfigRequired ["source"] project
-      bmSourceDeps <- fromMaybe [] <$> queryProjectConfig ["source-dependencies"] project
+      bmDataDeps <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
       pure $ BuildMultiPackageConfig {..}
     )
     mbProjectOpts
