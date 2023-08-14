@@ -8,6 +8,12 @@ import Daml.Script
 import DA.Assert
 import ScriptAssertHelpers
 
+updateOwner : Iou -> Party -> Update (ContractId Iou)
+updateOwner this o = create this with owner = o
+
+updateAmount : Iou -> Decimal -> Update (ContractId Iou)
+updateAmount this a = create this with amount = a
+
 template Iou
   with
     issuer : Party
@@ -24,11 +30,6 @@ template Iou
               show amount <> " " <> currency <>
               " on demand to " <> show owner
 
-    let updateOwner : Party -> Update (ContractId Iou)
-        updateAmount : Decimal -> Update (ContractId Iou)
-        updateOwner o = create this with owner  = o
-        updateAmount a = create this with amount = a
-
     nonconsuming choice DoNothing : () -- DEL-6496
       controller owner
       do return ()
@@ -36,7 +37,7 @@ template Iou
     choice Transfer : ContractId Iou -- ^ changes the owner
       with newOwner : Party
       controller owner
-      do updateOwner newOwner
+      do updateOwner this newOwner
 
     choice Split : (ContractId Iou, ContractId Iou)
       -- ^ splits into two `Iou`s with smaller amounts
@@ -45,8 +46,8 @@ template Iou
       controller owner
       do -- Split the IOU by dividing the amount.
          let restAmount = amount - splitAmount
-         splitCid <- updateAmount splitAmount
-         restCid  <- updateAmount restAmount
+         splitCid <- updateAmount this splitAmount
+         restCid  <- updateAmount this restAmount
          return (splitCid, restCid)
 
     choice Merge : ContractId Iou
@@ -66,7 +67,7 @@ template Iou
            exercise otherCid Transfer with newOwner = issuer
          archive transferCid
          -- Return the merged Iou
-         updateAmount (amount + otherIou.amount)
+         updateAmount this (amount + otherIou.amount)
 
 {- |
 A single test case covering all functionality that `Iou` implements.
