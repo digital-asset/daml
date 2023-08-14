@@ -4,7 +4,7 @@
 package com.daml.lf.speedy
 
 import com.daml.lf.data.Ref
-import com.daml.lf.language.{LeftToRight, RightToLeft}
+import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.{SExpr => expr}

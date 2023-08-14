@@ -4,7 +4,7 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.language.{EvaluationOrder, LeftToRight}
+import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight}
 import com.daml.lf.speedy.{
   AuthorizationChecker,
   DefaultAuthorizationChecker,

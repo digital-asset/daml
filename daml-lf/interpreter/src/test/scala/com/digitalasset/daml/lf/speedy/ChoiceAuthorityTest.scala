@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.interpretation.Error.FailedAuthorization
-import com.daml.lf.language.EvaluationOrder
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.ledger.FailedAuthorization.{CreateMissingAuthorization, NoAuthorizers}
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr.SEApp

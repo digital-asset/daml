@@ -17,7 +17,7 @@ import org.scalactic.Equality
 import org.scalatest.matchers.should.Matchers
 import defaultParserParameters.{defaultPackageId => pkgId}
 import SpeedyTestLib.loggingContext
-import com.daml.lf.language.{EvaluationOrder, LeftToRight, RightToLeft}
+import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
 import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId

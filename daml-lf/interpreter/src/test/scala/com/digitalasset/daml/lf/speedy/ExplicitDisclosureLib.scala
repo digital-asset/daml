@@ -6,7 +6,8 @@ package speedy
 
 import com.daml.lf.data.Ref.{IdString, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct}
-import com.daml.lf.language.{Ast, EvaluationOrder}
+import com.daml.lf.language.Ast
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.speedy.SExpr.SEMakeClo
 import com.daml.lf.speedy.SValue.SToken
 import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo}

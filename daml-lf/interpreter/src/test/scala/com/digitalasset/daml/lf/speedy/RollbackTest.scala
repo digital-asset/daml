@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.Ast.Expr
-import com.daml.lf.language.EvaluationOrder
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._

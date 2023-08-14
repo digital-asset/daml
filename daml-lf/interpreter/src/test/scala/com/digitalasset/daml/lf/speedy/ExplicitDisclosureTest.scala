@@ -6,7 +6,7 @@ package speedy
 
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.interpretation.Error.{ContractKeyNotFound, ContractNotActive}
-import com.daml.lf.language.EvaluationOrder
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.speedy.SExpr.SEValue
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId

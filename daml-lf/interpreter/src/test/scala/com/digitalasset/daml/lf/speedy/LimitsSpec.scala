@@ -6,7 +6,8 @@ package speedy
 
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.{Ast, EvaluationOrder}
+import com.daml.lf.language.Ast
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
 import com.daml.lf.value.Value

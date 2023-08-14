@@ -7,7 +7,8 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LeftToRight, PackageInterface, RightToLeft}
+import com.daml.lf.language.PackageInterface
+import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
 import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.SExpr0._
 import com.daml.lf.speedy.Anf.flattenToAnf

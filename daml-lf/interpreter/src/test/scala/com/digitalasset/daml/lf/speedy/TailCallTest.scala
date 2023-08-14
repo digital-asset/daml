@@ -5,7 +5,8 @@ package com.daml.lf
 package speedy
 
 import java.util
-import com.daml.lf.language.{Ast, EvaluationOrder}
+import com.daml.lf.language.Ast
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.speedy.SResult.SResultFinal
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.freespec.AnyFreeSpec

@@ -29,7 +29,7 @@ package com.daml.lf.speedy
   *  We use "source." and "t." for lightweight discrimination.
   */
 
-import com.daml.lf.language.{EvaluationOrder, LeftToRight, RightToLeft}
+import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
 import com.daml.lf.speedy.{SExpr1 => source}
 import com.daml.lf.speedy.{SExpr => target}
 import com.daml.lf.speedy.Compiler.CompilationError

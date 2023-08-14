@@ -7,15 +7,8 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{
-  EvaluationOrder,
-  LanguageVersion,
-  LeftToRight,
-  LookupError,
-  PackageInterface,
-  RightToLeft,
-  StablePackage,
-}
+import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
+import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackage}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.PhaseOne.{Env, Position}

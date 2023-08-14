@@ -9,7 +9,8 @@ import data.Ref.PackageId
 import data.Time
 import SResult._
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.language.{Ast, EvaluationOrder, PackageInterface}
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
+import com.daml.lf.language.{Ast, PackageInterface}
 import com.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.{Validation, ValidationError}

@@ -6,7 +6,8 @@ package speedy
 
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConName}
-import com.daml.lf.language.{EvaluationOrder, LanguageVersion}
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.SBuiltin.{SBCastAnyContract, SBFetchAny}
 import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}

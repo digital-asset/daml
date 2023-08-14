@@ -13,7 +13,7 @@ import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Pretty.SExpr._
 import com.daml.lf.data.Ref._
-import com.daml.lf.language.{EvaluationOrder, LeftToRight, RightToLeft}
+import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
 
 import scala.annotation.nowarn
 
