@@ -974,7 +974,7 @@ execMultiBuild projectOpts opts =
               assistantEnv <- filter ((/="DAML_PROJECT") . fst) <$> getEnvironment
 
               -- This isn't fully correct, it should also look for build options that change the dar location
-              buildableDataDepsMapping <- fmap Map.fromList $ for (mpProjectPaths multiPackageConfig) $ \path -> do
+              buildableDataDepsMapping <- fmap Map.fromList $ for (mpPackagePaths multiPackageConfig) $ \path -> do
                 darPath <- darPathFromDamlYaml path
                 pure (darPath, path)
 

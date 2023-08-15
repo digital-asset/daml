@@ -26,6 +26,7 @@ import Control.Monad.Extra (loopM)
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Key as A
 import qualified Data.Aeson.Encoding as A
+import Data.List (elemIndex, nub)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
@@ -99,14 +100,21 @@ checkPkgConfig PackageConfigFields {pName, pVersion} =
     packageNameRegex = "^[A-Za-z][A-Za-z0-9]*(\\-[A-Za-z][A-Za-z0-9]*)*$" :: T.Text
 
 data MultiPackageConfigFields = MultiPackageConfigFields
-    { mpProjectPaths :: [FilePath]
+    { mpPackagePaths :: [FilePath]
+    }
+
+-- | Intermediate of MultiPackageConfigFields that carries links to other config files, before being flattened into a single MultiPackageConfigFields
+data MultiPackageConfigFieldsIntermediate = MultiPackageConfigFieldsIntermediate
+    { mpiConfigFields :: MultiPackageConfigFields
+    , mpiOtherConfigFiles :: [FilePath]
     }
 
 -- | Parse the multi-package.yaml file for auto rebuilds/IDE intelligence in multi-package projects
-parseMultiPackageConfig :: MultiPackageConfig -> Either ConfigError MultiPackageConfigFields
+parseMultiPackageConfig :: MultiPackageConfig -> Either ConfigError MultiPackageConfigFieldsIntermediate
 parseMultiPackageConfig multiPackage = do
-    mpProjectPaths <- queryMultiPackageConfigRequired ["packages"] multiPackage
-    Right MultiPackageConfigFields {..}
+    mpiConfigFields <- MultiPackageConfigFields . fromMaybe [] <$> queryMultiPackageConfig ["packages"] multiPackage
+    mpiOtherConfigFiles <- fromMaybe [] <$> queryMultiPackageConfig ["projects"] multiPackage
+    Right MultiPackageConfigFieldsIntermediate {..}
 
 overrideSdkVersion :: PackageConfigFields -> IO PackageConfigFields
 overrideSdkVersion pkgConfig = do
@@ -149,16 +157,41 @@ findMultiPackageConfigProjectPath filePath = flip loopM filePath $ \path -> do
             then throwIO (ConfigFileInvalid "multi-package" (Y.InvalidYaml (Just (Y.YamlException $ "Yaml file not found: " <> multiPackageConfigName))))
             else pure $ Left newPath
 
+canonicalizeMultiPackageConfigIntermediate :: ProjectPath -> MultiPackageConfigFieldsIntermediate -> IO MultiPackageConfigFieldsIntermediate
+canonicalizeMultiPackageConfigIntermediate projectPath (MultiPackageConfigFieldsIntermediate (MultiPackageConfigFields packagePaths) multiPackagePaths) =
+  withCurrentDirectory (unwrapProjectPath projectPath) $ do
+    MultiPackageConfigFieldsIntermediate
+      <$> (MultiPackageConfigFields <$> traverse canonicalizePath packagePaths)
+      <*> traverse canonicalizePath multiPackagePaths
+
+-- Fix for single argument that checks for loops over that single argument in the recursion
+cyclelessIOFix :: forall a b. Eq a => ([a] -> String) -> ((a -> IO b) -> a -> IO b) -> a -> IO b
+cyclelessIOFix loopShow f = loop []
+  where
+    loop :: [a] -> a -> IO b
+    loop seen cur = do
+      case cur `elemIndex` seen of
+        Nothing -> f (loop (cur : seen)) cur
+        Just i -> error $ "Cycle detected: " <> loopShow (reverse $ cur : take (i + 1) seen)
+
+fullParseMultiPackageConfig :: ProjectPath -> IO MultiPackageConfigFields
+fullParseMultiPackageConfig = cyclelessIOFix loopShow $ \loop projectPath -> do
+    multiPackage <- readMultiPackageConfig projectPath
+    multiPackageConfigI <- either throwIO pure (parseMultiPackageConfig multiPackage)
+    canonMultiPackageConfigI <- canonicalizeMultiPackageConfigIntermediate projectPath multiPackageConfigI
+    otherMultiPackageConfigs <- traverse loop (ProjectPath <$> mpiOtherConfigFiles canonMultiPackageConfigI)
+
+    pure $ MultiPackageConfigFields $ nub $ concatMap mpPackagePaths $ mpiConfigFields canonMultiPackageConfigI : otherMultiPackageConfigs
+  where
+    loopShow :: [ProjectPath] -> String
+    loopShow = ("\n" <>) . unlines . fmap ((" - " <>) . unwrapProjectPath)
+
 withMultiPackageConfig :: ProjectPath -> (MultiPackageConfigFields -> IO a) -> IO a
 withMultiPackageConfig projectPath f = do
     canonProjectFilePath <- canonicalizePath $ unwrapProjectPath projectPath
     multiPackageProjectPath <- findMultiPackageConfigProjectPath canonProjectFilePath
-    multiPackage <- readMultiPackageConfig multiPackageProjectPath
-    multiPackageConfig <- either throwIO pure (parseMultiPackageConfig multiPackage)
-    canonPaths <-
-      withCurrentDirectory (unwrapProjectPath multiPackageProjectPath)
-        $ traverse canonicalizePath (mpProjectPaths multiPackageConfig)
-    f multiPackageConfig {mpProjectPaths = canonPaths}
+    multiPackageConfig <- fullParseMultiPackageConfig multiPackageProjectPath
+    f multiPackageConfig
 
 -- | Orphans because I’m too lazy to newtype everything.
 instance A.FromJSON Ghc.ModuleName where
