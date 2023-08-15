@@ -56,6 +56,34 @@ final case class EngineConfig(
     enableContractUpgrading: Boolean = false,
     evaluationOrder: EvaluationOrder = LeftToRight,
 ) {
+  // TODO(pb): Remove this overloaded constructor once Canton has picked up the new one above.
+  //    Context: the Canton jar that Daml assistant and tests depend tries to invoke a constructor whose signature is
+  //    missing evaluationOrder. We provide an overloaded constructor with the old signature until Canton depends on a
+  //    new source version of Daml.
+  def this(
+      allowedLanguageVersions: VersionRange[language.LanguageVersion],
+      packageValidation: Boolean,
+      stackTraceMode: Boolean,
+      profileDir: Option[Path],
+      contractKeyUniqueness: ContractKeyUniquenessMode,
+      requireSuffixedGlobalContractId: Boolean,
+      limits: interpretation.Limits,
+      checkAuthorization: Boolean,
+      iterationsBetweenInterruptions: Long,
+      enableContractUpgrading: Boolean,
+  ) = this(
+    allowedLanguageVersions,
+    packageValidation,
+    stackTraceMode,
+    profileDir,
+    contractKeyUniqueness,
+    requireSuffixedGlobalContractId,
+    limits,
+    checkAuthorization,
+    iterationsBetweenInterruptions,
+    enableContractUpgrading,
+    LeftToRight,
+  )
 
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
     speedy.Compiler.Config(
