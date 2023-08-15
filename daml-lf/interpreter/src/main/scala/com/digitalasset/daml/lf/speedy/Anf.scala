@@ -29,6 +29,7 @@ package com.daml.lf.speedy
   *  We use "source." and "t." for lightweight discrimination.
   */
 
+import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
 import com.daml.lf.speedy.{SExpr1 => source}
 import com.daml.lf.speedy.{SExpr => target}
 import com.daml.lf.speedy.Compiler.CompilationError
@@ -40,12 +41,152 @@ import scalaz.{@@, Tag}
 
 private[lf] object Anf {
 
-  /** * Entry point for the ANF transformation phase
-    */
+  /** Entry point for the ANF transformation phase. */
   @throws[CompilationError]
-  def flattenToAnf(exp: source.SExpr): target.SExpr = {
-    flattenToAnfInternal(exp)
+  def flattenToAnf(exp: source.SExpr, evaluationOrder: EvaluationOrder): target.SExpr = {
+    new Anf(evaluationOrder).flattenToAnfInternal(exp)
   }
+
+  /** `DepthE` tracks the stack-depth of the original expression being traversed */
+  private sealed trait DepthETag
+
+  private type DepthE = Int @@ DepthETag
+  private val DepthE = Tag.of[DepthETag]
+
+  private implicit class OpsDepthE[T](val x: DepthE) extends AnyVal {
+    def n: Int = Tag.unwrap(x)
+
+    def incr(m: Int): DepthE = DepthE(m + n)
+  }
+
+  /** `DepthA` tracks the stack-depth of the ANF expression being constructed */
+  private sealed trait DepthATag
+
+  private type DepthA = Int @@ DepthATag
+  private val DepthA = Tag.of[DepthATag]
+
+  private implicit class OpsDepthA[T](val x: DepthA) extends AnyVal {
+    def n: Int = Tag.unwrap(x)
+
+    def incr(m: Int): DepthA = DepthA(m + n)
+  }
+
+  /** `Env` contains the mapping from old to new depth, as well as the old-depth as these
+    * components always travel together
+    */
+  private final case class Env(absMap: Map[DepthE, DepthA], oldDepth: DepthE)
+
+  private val initEnv: Env = Env(absMap = Map.empty, oldDepth = DepthE(0))
+
+  private def trackBindings(depth: DepthA, env: Env, n: Int): Env = {
+    val extra = (0 until n).map(i => (env.oldDepth.incr(i), depth.incr(i)))
+    Env(absMap = env.absMap ++ extra, oldDepth = env.oldDepth.incr(n))
+  }
+
+  private type Res = TailRec[target.SExpr]
+
+  /** Tx is the type for the stacked transformation functions managed by the ANF
+    * transformation, mainly transformExp.
+    *
+    * @tparam T The type of expression this will be applied to.
+    */
+  private type Tx[T] = (DepthA, T) => Res
+
+  /** During conversion we need to deal with bindings which are made/found at a given
+    * absolute stack depth. These are represented using `AbsBinding`. An absolute stack
+    * depth is the offset from the depth of the stack when the function is entered. We call
+    * it absolute because an offset doesn't change as new bindings are pushed onto the
+    * stack.
+    *
+    * Happily, the source expressions use absolute stack offsets in `SELocAbsoluteS`.
+    * In contrast to the target expressions which use relative offsets in `SELocS`. The
+    * relative-offset to a binding varies as new bindings are pushed on the stack.
+    */
+  private case class AbsBinding(abs: DepthA)
+
+  private def makeAbsoluteB(env: Env, abs: Int): AbsBinding = {
+    env.absMap.get(DepthE(abs)) match {
+      case None => throw CompilationError(s"makeAbsoluteB(env=$env,abs=$abs)")
+      case Some(abs) => AbsBinding(abs)
+    }
+  }
+
+  private def makeRelativeB(depth: DepthA, binding: AbsBinding): Int = {
+    (depth.n - binding.abs.n)
+  }
+
+  private type AbsAtom = Either[target.SExprAtomic, AbsBinding]
+
+  private def makeAbsoluteA(env: Env, atom: source.SExprAtomic): AbsAtom = atom match {
+    case source.SELocAbsoluteS(abs) => Right(makeAbsoluteB(env, abs))
+    case source.SELocA(x) => Left(target.SELocA(x))
+    case source.SELocF(x) => Left(target.SELocF(x))
+    case source.SEValue(x) => Left(target.SEValue(x))
+    case source.SEBuiltin(x) => Left(target.SEBuiltin(x))
+  }
+
+  private def makeRelativeA(depth: DepthA)(atom: AbsAtom): target.SExprAtomic = atom match {
+    case Left(x: target.SELocS) => throw CompilationError(s"makeRelativeA: unexpected: $x")
+    case Left(atom) => atom
+    case Right(binding) => target.SELocS(makeRelativeB(depth, binding))
+  }
+
+  private type AbsLoc = Either[source.SELoc, AbsBinding]
+
+  private def makeAbsoluteL(env: Env, loc: source.SELoc): AbsLoc = loc match {
+    case source.SELocAbsoluteS(abs) => Right(makeAbsoluteB(env, abs))
+    case x: source.SELocA => Left(x)
+    case x: source.SELocF => Left(x)
+  }
+
+  private def makeRelativeL(depth: DepthA)(loc: AbsLoc): target.SELoc = loc match {
+    case Left(x: source.SELocAbsoluteS) => throw CompilationError(s"makeRelativeL: unexpected: $x")
+    case Left(source.SELocA(x)) => target.SELocA(x)
+    case Left(source.SELocF(x)) => target.SELocF(x)
+    case Right(binding) => target.SELocS(makeRelativeB(depth, binding))
+  }
+
+  private def patternNArgs(pat: target.SCasePat): Int = pat match {
+    case _: target.SCPEnum | _: target.SCPPrimCon | target.SCPNil | target.SCPDefault |
+        target.SCPNone =>
+      0
+    case _: target.SCPVariant | target.SCPSome => 1
+    case target.SCPCons => 2
+  }
+
+  private def expandMultiLet(rhss: List[source.SExpr], body: source.SExpr): source.SExpr = {
+    // loop over rhss in reverse order
+    @tailrec
+    def loop(acc: source.SExpr, xs: List[source.SExpr]): source.SExpr = {
+      xs match {
+        case Nil => acc
+        case rhs :: xs => loop(source.SELet1General(rhs, acc), xs)
+      }
+    }
+
+    loop(body, rhss.reverse)
+  }
+
+  /** Monadic map for [[TailRec]]. */
+  private def traverse[A, B](
+      xs: List[A],
+      f: A => TailRec[B],
+  ): TailRec[List[B]] = {
+    xs match {
+      case Nil => done(Nil)
+      case x :: xs =>
+        for {
+          x <- f(x)
+          xs <- tailcall {
+            traverse(xs, f)
+          }
+        } yield (x :: xs)
+    }
+  }
+}
+
+private class Anf(evaluationOrder: EvaluationOrder) {
+  import Anf._
 
   @throws[CompilationError]
   private def flattenToAnfInternal(exp: source.SExpr): target.SExpr = {
@@ -73,99 +214,6 @@ private[lf] object Anf {
     *    this, all functions of the core loop return trampolines
     *    (scala.util.control.TailCalls).
     */
-
-  /** `DepthE` tracks the stack-depth of the original expression being traversed */
-  private[this] sealed trait DepthETag
-  private[this] type DepthE = Int @@ DepthETag
-  private[this] val DepthE = Tag.of[DepthETag]
-  private[this] implicit class OpsDepthE[T](val x: DepthE) extends AnyVal {
-    def n: Int = Tag.unwrap(x)
-    def incr(m: Int): DepthE = DepthE(m + n)
-  }
-
-  /** `DepthA` tracks the stack-depth of the ANF expression being constructed */
-  private[this] sealed trait DepthATag
-  private[this] type DepthA = Int @@ DepthATag
-  private[this] val DepthA = Tag.of[DepthATag]
-  private[this] implicit class OpsDepthA[T](val x: DepthA) extends AnyVal {
-    def n: Int = Tag.unwrap(x)
-    def incr(m: Int): DepthA = DepthA(m + n)
-  }
-
-  /** `Env` contains the mapping from old to new depth, as well as the old-depth as these
-    * components always travel together
-    */
-  private[this] final case class Env(absMap: Map[DepthE, DepthA], oldDepth: DepthE)
-
-  private[this] val initEnv: Env = Env(absMap = Map.empty, oldDepth = DepthE(0))
-
-  private[this] def trackBindings(depth: DepthA, env: Env, n: Int): Env = {
-    val extra = (0 until n).map(i => (env.oldDepth.incr(i), depth.incr(i)))
-    Env(absMap = env.absMap ++ extra, oldDepth = env.oldDepth.incr(n))
-  }
-
-  private[this] type Res = TailRec[target.SExpr]
-
-  /** Tx is the type for the stacked transformation functions managed by the ANF
-    * transformation, mainly transformExp.
-    *
-    * @tparam T The type of expression this will be applied to.
-    */
-  private[this] type Tx[T] = (DepthA, T) => Res
-
-  /** During conversion we need to deal with bindings which are made/found at a given
-    *    absolute stack depth. These are represented using `AbsBinding`. An absolute stack
-    *    depth is the offset from the depth of the stack when the function is entered. We call
-    *    it absolute because an offset doesn't change as new bindings are pushed onto the
-    *    stack.
-    *
-    *    Happily, the source expressions use absolute stack offsets in `SELocAbsoluteS`.
-    *    In contrast to the target expressions which use relative offsets in `SELocS`. The
-    *    relative-offset to a binding varies as new bindings are pushed on the stack.
-    */
-  private[this] case class AbsBinding(abs: DepthA)
-
-  private[this] def makeAbsoluteB(env: Env, abs: Int): AbsBinding = {
-    env.absMap.get(DepthE(abs)) match {
-      case None => throw CompilationError(s"makeAbsoluteB(env=$env,abs=$abs)")
-      case Some(abs) => AbsBinding(abs)
-    }
-  }
-
-  private[this] def makeRelativeB(depth: DepthA, binding: AbsBinding): Int = {
-    (depth.n - binding.abs.n)
-  }
-
-  private[this] type AbsAtom = Either[target.SExprAtomic, AbsBinding]
-
-  private[this] def makeAbsoluteA(env: Env, atom: source.SExprAtomic): AbsAtom = atom match {
-    case source.SELocAbsoluteS(abs) => Right(makeAbsoluteB(env, abs))
-    case source.SELocA(x) => Left(target.SELocA(x))
-    case source.SELocF(x) => Left(target.SELocF(x))
-    case source.SEValue(x) => Left(target.SEValue(x))
-    case source.SEBuiltin(x) => Left(target.SEBuiltin(x))
-  }
-
-  private[this] def makeRelativeA(depth: DepthA)(atom: AbsAtom): target.SExprAtomic = atom match {
-    case Left(x: target.SELocS) => throw CompilationError(s"makeRelativeA: unexpected: $x")
-    case Left(atom) => atom
-    case Right(binding) => target.SELocS(makeRelativeB(depth, binding))
-  }
-
-  private[this] type AbsLoc = Either[source.SELoc, AbsBinding]
-
-  private[this] def makeAbsoluteL(env: Env, loc: source.SELoc): AbsLoc = loc match {
-    case source.SELocAbsoluteS(abs) => Right(makeAbsoluteB(env, abs))
-    case x: source.SELocA => Left(x)
-    case x: source.SELocF => Left(x)
-  }
-
-  private[this] def makeRelativeL(depth: DepthA)(loc: AbsLoc): target.SELoc = loc match {
-    case Left(x: source.SELocAbsoluteS) => throw CompilationError(s"makeRelativeL: unexpected: $x")
-    case Left(source.SELocA(x)) => target.SELocA(x)
-    case Left(source.SELocF(x)) => target.SELocF(x)
-    case Right(binding) => target.SELocS(makeRelativeB(depth, binding))
-  }
 
   private[this] def flattenExp(depth: DepthA, env: Env, exp: source.SExpr): Res = {
     transformExp(depth, env, exp) { (_, sexpr) => done(sexpr) }
@@ -210,14 +258,6 @@ private[lf] object Anf {
     }
   }
 
-  private[this] def patternNArgs(pat: target.SCasePat): Int = pat match {
-    case _: target.SCPEnum | _: target.SCPPrimCon | target.SCPNil | target.SCPDefault |
-        target.SCPNone =>
-      0
-    case _: target.SCPVariant | target.SCPSome => 1
-    case target.SCPCons => 2
-  }
-
   /** `transformExp` is the function at the heart of the ANF transformation.
     *  You can read its type as saying: "Caller, give me a general expression
     *  `exp`, (& depth/env info), and a transformation function `transform`
@@ -242,21 +282,26 @@ private[lf] object Anf {
       case source.SEVal(x) => transform(depth, target.SEVal(x))
 
       case source.SEApp(func, args) =>
-        // It's safe to perform ANF if the func-expression has no effects when evaluated.
-        val safeFunc =
-          func match {
-            // we know that trivially in these two cases
-            case source.SEBuiltin(b) =>
-              val overApp = args.lengthCompare(b.arity) > 0
-              !overApp
-            case _ => false
-          }
-        // It's also safe to perform ANF for applications of a single argument.
-        val singleArg = args.lengthCompare(1) == 0
-        if (safeFunc || singleArg) {
-          transformMultiApp(depth, env, func, args)(transform)
-        } else {
-          transformMultiAppSafely(depth, env, func, args)(transform)
+        evaluationOrder match {
+          case RightToLeft =>
+            transformMultiAppRightToLeft(depth, env, func, args)(transform)
+          case LeftToRight =>
+            // It's safe to perform ANF if the func-expression has no effects when evaluated.
+            val safeFunc =
+              func match {
+                // we know that trivially in these two cases
+                case source.SEBuiltin(b) =>
+                  val overApp = args.lengthCompare(b.arity) > 0
+                  !overApp
+                case _ => false
+              }
+            // It's also safe to perform ANF for applications of a single argument.
+            val singleArg = args.lengthCompare(1) == 0
+            if (safeFunc || singleArg) {
+              transformMultiAppLeftToRight(depth, env, func, args)(transform)
+            } else {
+              transformMultiAppLeftToRightSafely(depth, env, func, args)(transform)
+            }
         }
 
       case source.SEMakeClo(fvs0, arity, body) =>
@@ -353,22 +398,25 @@ private[lf] object Anf {
     }
   }
 
-  private[this] def expandMultiLet(rhss: List[source.SExpr], body: source.SExpr): source.SExpr = {
-    // loop over rhss in reverse order
-    @tailrec
-    def loop(acc: source.SExpr, xs: List[source.SExpr]): source.SExpr = {
-      xs match {
-        case Nil => acc
-        case rhs :: xs => loop(source.SELet1General(rhs, acc), xs)
+  private[this] def transformMultiAppRightToLeft(
+      depth: DepthA,
+      env: Env,
+      func: source.SExpr,
+      args: List[source.SExpr],
+  )(transform: Tx[target.SExpr]): Res = {
+    atomizeExps(depth, env, args.reverse) { (depth, rargs) =>
+      atomizeExp(depth, env, func) { (depth, func) =>
+        val func1 = makeRelativeA(depth)(func)
+        val args1 = rargs.reverse.map(makeRelativeA(depth))
+        transform(depth, target.SEAppAtomic(func1, args1.toArray))
       }
     }
-    loop(body, rhss.reverse)
   }
 
   /* This function is used when transforming known functions.  And so we can we sure that
    the ANF transform is safe, and will not change the evaluation order
    */
-  private[this] def transformMultiApp(
+  private[this] def transformMultiAppLeftToRight(
       depth: DepthA,
       env: Env,
       func: source.SExpr,
@@ -387,9 +435,8 @@ private[lf] object Anf {
   /* This function must be used when transforming an application of unknown function.  The
    translated application is *not* in proper ANF form.
    */
-
   @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
-  private[this] def transformMultiAppSafely(
+  private[this] def transformMultiAppLeftToRightSafely(
       depth: DepthA,
       env: Env,
       func: source.SExpr,
@@ -412,20 +459,5 @@ private[lf] object Anf {
       exps0: List[source.SExpr],
   ): TailRec[List[SExpr.SExpr]] = {
     traverse(exps0, (exp: source.SExpr) => flattenExp(depth, env, exp))
-  }
-
-  /** Monadic map for [[TailRec]]. */
-  private[this] def traverse[A, B](
-      xs: List[A],
-      f: A => TailRec[B],
-  ): TailRec[List[B]] = {
-    xs match {
-      case Nil => done(Nil)
-      case x :: xs =>
-        for {
-          x <- f(x)
-          xs <- tailcall { traverse(xs, f) }
-        } yield (x :: xs)
-    }
   }
 }
