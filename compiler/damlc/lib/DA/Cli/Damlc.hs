@@ -876,45 +876,35 @@ execInit opts projectOpts =
 
 installDepsAndInitPackageDb :: Options -> InitPkgDb -> IO ()
 installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
-  when shouldInit $ do
-    -- Rather than just checking that there is a daml.yaml file we check that it has a project configuration.
-    -- This allows us to have a `daml.yaml` in the root of a multi-package project that just has an `sdk-version` field.
-    -- Once the IDE handles `initPackageDb` properly in multi-package projects instead of simply calling it once on
-    -- startup, this can be removed.
-
-    withPackageConfig defaultProjectPath (installDepsAndInitPackageDbFromConfigForce opts)
-      `catch` (\(_ :: ConfigError) -> pure ())
-
-installDepsAndInitPackageDbFromConfig :: Options -> PackageConfigFields -> InitPkgDb -> IO ()
-installDepsAndInitPackageDbFromConfig opts pkgConfig (InitPkgDb shouldInit) =
-  when shouldInit $ installDepsAndInitPackageDbFromConfigForce opts pkgConfig
-
-installDepsAndInitPackageDbFromConfigForce :: Options -> PackageConfigFields -> IO ()
-installDepsAndInitPackageDbFromConfigForce opts PackageConfigFields {..} = do
-  projRoot <- getCurrentDirectory
-  installDependencies
-      (toNormalizedFilePath' projRoot)
-      opts
-      pSdkVersion
-      pDependencies
-      pDataDependencies
-  createProjectPackageDb (toNormalizedFilePath' projRoot) opts pModulePrefixes
+    when shouldInit $ do
+        -- Rather than just checking that there is a daml.yaml file we check that it has a project configuration.
+        -- This allows us to have a `daml.yaml` in the root of a multi-package project that just has an `sdk-version` field.
+        -- Once the IDE handles `initPackageDb` properly in multi-package projects instead of simply calling it once on
+        -- startup, this can be removed.
+        isProject <- withPackageConfig defaultProjectPath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
+        when isProject $ do
+            projRoot <- getCurrentDirectory
+            withPackageConfig defaultProjectPath $ \PackageConfigFields {..} -> do
+              installDependencies
+                  (toNormalizedFilePath' projRoot)
+                  opts
+                  pSdkVersion
+                  pDependencies
+                  pDataDependencies
+              createProjectPackageDb (toNormalizedFilePath' projRoot) opts pModulePrefixes
 
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
 execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
   Command Build (Just projectOpts) effect
-  where effect = do
-          loggerH <- getLogger opts "build"
-          withProjectRoot' projectOpts $ \relativize -> do
-            withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{pName, pVersion} -> do
+  where effect = withProjectRoot' projectOpts $ \relativize -> do
+            installDepsAndInitPackageDb opts initPkgDb
+            withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
+                loggerH <- getLogger opts "build"
                 Logger.logInfo loggerH $ "Compiling " <> LF.unPackageName pName <> " to a DAR."
-
                 let errors = checkPkgConfig pkgConfig
                 unless (null errors) $ do
                     mapM_ (Logger.logError loggerH) errors
                     exitFailure
-
-                installDepsAndInitPackageDbFromConfig opts pkgConfig initPkgDb
                 withDamlIdeState
                     opts
                       { optMbPackageName = Just pName
@@ -938,21 +928,31 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
                     Nothing -> pure $ distDir </> name <.> "dar"
                     Just out -> rel out
 
--- TODO: outdated comment
-{- | Multi Build! (Source dependencies for MultiDar)
+
+{- | Multi Build! (the multi-package.yaml approach)
   This is currently separate to build, but won't be in future.
   Multi build is a light wrapper over the top of the existing build, and does not interact with the internals of the build process at all
   It spins up its own empty shake environment purely for the caching behaviour, and defers as soon as possible to the usual build process
   We strictly defer via the CLI interface, to support different versions of the SDK in future.
 
+  The general idea is taken somewhat from cabal, in which we define some kind of project file (currently multi-package.yaml)
+  which lists directories to packages (folders containing a daml.yaml) that are in our project, and we'd like to rebuild together.
+  Then, any data-dependency on one of these packages will first ensure the dar artefact is up to date with the source, and rebuild if not.
+  As such, any set of packages with these relations will continue to be buildable without the multi-package.yaml.
+  Given we may want to build specific packages within our dependency multi-tree (be that a sub tree, or an alternate root),
+  the multi-package.yaml is not required to be in the same directory as any given package. We only require it is at or above
+  (in the directory tree) the package you are building. multi-build will first look for this file before attempting to build.
+
   The process is as follows:
+  - Search for the multi-package.yaml file by traversing up the directory tree to root until we are at a directory containing the file.
   - Set up own shake environment, defer to it immediately with the project path
   - Within the shake rule:
-  - Partially read the daml.yaml file, looking for source dependencies, and some other details needed for caching
-  - Call to shake to build all the source deps, each will return data about the DAR that exists (or was built)
+  - Partially read the daml.yaml file, looking for data dependencies, and some other details needed for caching
+  - Intercept the packages data dependencies with the packages we have listed in multi-package.yaml.
+  - Call to shake to build all the above subset of data-dependencies, each will return data about the DAR that exists (or was built)
   - If we already have a DAR, check its staleness. Staleness is defined by any source files being different
       or any of the package ids of souce dependencies being different between what is currently built, and what is embedded in our dar.
-  - If either are different, call to the SDK via CLI to build our own DAR, requesting that the build translate the source deps into data deps before building
+  - If either are different, call to the SDK via CLI to build our own DAR.
   - Get the package ID of the DAR we have created, and return it to shake, which can use it as a caching key.
 
   Due to shakes caching behaviour, this will automatically discover the build order for free, by doing a depth first search over the tree then

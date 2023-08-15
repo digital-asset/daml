@@ -149,14 +149,12 @@ findMultiPackageConfigProjectPath filePath = flip loopM filePath $ \path -> do
             then throwIO (ConfigFileInvalid "multi-package" (Y.InvalidYaml (Just (Y.YamlException $ "Yaml file not found: " <> multiPackageConfigName))))
             else pure $ Left newPath
 
--- Should traverse up the directory tree until finding the config file, add the true path to MultiPackageConfigFields.
 withMultiPackageConfig :: ProjectPath -> (MultiPackageConfigFields -> IO a) -> IO a
 withMultiPackageConfig projectPath f = do
     canonProjectFilePath <- canonicalizePath $ unwrapProjectPath projectPath
     multiPackageProjectPath <- findMultiPackageConfigProjectPath canonProjectFilePath
     multiPackage <- readMultiPackageConfig multiPackageProjectPath
     multiPackageConfig <- either throwIO pure (parseMultiPackageConfig multiPackage)
-    -- canonicalise from 
     canonPaths <-
       withCurrentDirectory (unwrapProjectPath multiPackageProjectPath)
         $ traverse canonicalizePath (mpProjectPaths multiPackageConfig)
