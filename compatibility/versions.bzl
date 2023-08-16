@@ -14,6 +14,7 @@ sdk_versions = [
     "2.5.0",
     "2.5.5",
     "2.6.5",
+    "2.7.0",
     "0.0.0",
 ]
 platform_versions = [
@@ -28,6 +29,7 @@ platform_versions = [
     "2.5.0",
     "2.5.5",
     "2.6.5",
+    "2.7.0",
     "0.0.0",
 ]
 stable_versions = [
@@ -42,9 +44,10 @@ stable_versions = [
     "2.5.0",
     "2.5.5",
     "2.6.5",
+    "2.7.0",
     "0.0.0",
 ]
-latest_stable_version = "2.6.5"
+latest_stable_version = "2.7.0"
 version_sha256s = {
     "1.16.0": {
         "linux": "90dff4d7679f00f79c66c7c718decaa34d16f38274764926ee6359a7a5bb183d",
@@ -163,5 +166,15 @@ version_sha256s = {
         "daml_react": "36ad551102e95281b78b4b66f5250fc12730f145529089eb0160730287610b00",
         "create_daml_app_patch": "57b76fb4ed7c3bf6bc900dc70965b51434a22a30aa4229d46684a35e300bfe81",
         "sandbox_on_x": "b858a52e1e3412e06321b8792ea75a212e1fef3d3e02013c645f4c2cafbb5d94",
+    },
+    "2.7.0": {
+        "linux": "1600a7e72cb86f1a2a4a2e916b8f2c8b3d203ebee3bbd4dfb3684cc339a7e87f",
+        "macos": "48d3d4f545d11c1630d24369f7eecd6b7c0987dbb74e1cb3e4e308bbcae65ac1",
+        "windows": "60ab0de36484c1fa48d3ede1ef93dd4293a177cb0369be158688d9e4a7c60ba4",
+        "test_tool": "b0eba1e449a51085194449fa105368f1cfdd119419bc67dea4e0477cce463337",
+        "daml_types": "1428006d7d78c1454374e3634ae8dcecb117ec693d04a34b8caa781c729c45e1",
+        "daml_ledger": "6a75621638685eb0fbc24ca3a39ce92cd2fb4d0cdac18f6745fef40ebd601063",
+        "daml_react": "c4ee278890ff204f2064861aba7f2aa09938f934fe05056d96206f7d222372bb",
+        "create_daml_app_patch": "57b76fb4ed7c3bf6bc900dc70965b51434a22a30aa4229d46684a35e300bfe81",
     },
 }
