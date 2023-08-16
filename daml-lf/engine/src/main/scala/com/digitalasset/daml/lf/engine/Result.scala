@@ -195,6 +195,10 @@ final case class ResultNeedAuthority[A](
   * The ledger will callback `resume` with `None` if everything is fine, or callback with
   * `Some(helpfulErrorInfo)` otherwise.
   *
+  * During submission this callback should only be called where the target template id is different
+  * from the contract template id. During reinterpretation this callback is also used for model conformance
+  * so should be called once for all used contracts even if they are not being upgraded.
+  *
   * TODO: https://github.com/digital-asset/daml/issues/17082
   * - The engine must be extended to call `ResultNeedUpgradeVerification`
   */
