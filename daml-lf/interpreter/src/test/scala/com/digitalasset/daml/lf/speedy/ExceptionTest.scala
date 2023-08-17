@@ -9,6 +9,7 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
 import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
@@ -19,12 +20,12 @@ import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.value.Value.{ValueRecord, ValueText}
 import org.scalatest.Inside
+import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
 
 // TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
-class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDrivenPropertyChecks {
+class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDrivenPropertyChecks {
 
   import com.daml.lf.testing.parser.Implicits.defaultParserParameters.defaultPackageId
   import SpeedyTestLib.loggingContext
@@ -34,15 +35,28 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
     SEApp(se, Array(SParty(p)))
   }
 
-  "unhandled throw" should {
+  private val party = Party.assertFromString("Alice")
 
-    // Behaviour when no handler catches a throw:
-    // 1: User Exception thrown; no try-catch in scope
-    // 2. User Exception thrown; try catch in scope, but handler does not catch
-    // 3. User Exception thrown; no handler in scope
-    // 4. User Exception thrown; no handler in scope; secondary throw from the message function of the 1st exception
+  private def runUpdateExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult[Question.Update] = {
+    def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("ExceptionTest.scala")
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+    Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, Set(party)).run()
+  }
+
+  for (evaluationOrder <- EvaluationOrder.values) {
+
+    evaluationOrder.toString - {
+
+      "unhandled throw" - {
+
+        // Behaviour when no handler catches a throw:
+        // 1: User Exception thrown; no try-catch in scope
+        // 2. User Exception thrown; try catch in scope, but handler does not catch
+        // 3. User Exception thrown; no handler in scope
+        // 4. User Exception thrown; no handler in scope; secondary throw from the message function of the 1st exception
+
+        val pkgs: PureCompiledPackages = typeAndCompile(
+          p"""
        module M {
 
          val unhandled1 : Update Int64 =
@@ -62,49 +76,52 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
          val divZero : Update Int64 = upure @Int64 (DIV_INT64 1 0) ;
        }
-      """)
+      """,
+          evaluationOrder,
+        )
 
-    val List((t1, e1), (t2, e2)) =
-      List("M:E1", "M:E2")
-        .map(id => data.Ref.Identifier.assertFromString(s"$defaultPackageId:$id"))
-        .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.Empty))
-    val divZeroE =
-      ValueRecord(
-        Some(DA.Exception.ArithmeticError.ArithmeticError),
-        data.ImmArray(
-          Some(data.Ref.Name.assertFromString("message")) ->
-            ValueText("ArithmeticError while evaluating (DIV_INT64 1 0).")
-        ),
-      )
+        val List((t1, e1), (t2, e2)) =
+          List("M:E1", "M:E2")
+            .map(id => data.Ref.Identifier.assertFromString(s"$defaultPackageId:$id"))
+            .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.Empty))
+        val divZeroE =
+          ValueRecord(
+            Some(DA.Exception.ArithmeticError.ArithmeticError),
+            data.ImmArray(
+              Some(data.Ref.Name.assertFromString("message")) ->
+                ValueText("ArithmeticError while evaluating (DIV_INT64 1 0).")
+            ),
+          )
 
-    val testCases = Table[String, SError](
-      ("expression", "expected"),
-      ("M:unhandled1", SErrorDamlException(IE.UnhandledException(t1, e1))),
-      ("M:unhandled2", SErrorDamlException(IE.UnhandledException(t1, e1))),
-      ("M:unhandled3", SErrorDamlException(IE.UnhandledException(t1, e1))),
-      ("M:unhandled4", SErrorDamlException(IE.UnhandledException(t2, e2))),
-      (
-        "M:divZero",
-        SErrorDamlException(
-          IE.UnhandledException(TTyCon(DA.Exception.ArithmeticError.ArithmeticError), divZeroE)
-        ),
-      ),
-    )
+        val testCases = Table[String, SError](
+          ("expression", "expected"),
+          ("M:unhandled1", SErrorDamlException(IE.UnhandledException(t1, e1))),
+          ("M:unhandled2", SErrorDamlException(IE.UnhandledException(t1, e1))),
+          ("M:unhandled3", SErrorDamlException(IE.UnhandledException(t1, e1))),
+          ("M:unhandled4", SErrorDamlException(IE.UnhandledException(t2, e2))),
+          (
+            "M:divZero",
+            SErrorDamlException(
+              IE.UnhandledException(TTyCon(DA.Exception.ArithmeticError.ArithmeticError), divZeroE)
+            ),
+          ),
+        )
 
-    forEvery(testCases) { (exp: String, expected: SError) =>
-      s"eval[$exp] --> $expected" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultError(err) =>
-          err shouldBe expected
+        forEvery(testCases) { (exp: String, expected: SError) =>
+          s"eval[$exp] --> $expected" in {
+            inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultError(err) =>
+              err shouldBe expected
+            }
+          }
         }
       }
-    }
-  }
 
-  "throw/catch (UserDefined)" should {
+      "throw/catch (UserDefined)" - {
 
-    // Basic throw/catch example a user defined exception
+        // Basic throw/catch example a user defined exception
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+        val pkgs: PureCompiledPackages = typeAndCompile(
+          p"""
        module M {
 
          record @serializable MyException = { message: Text } ;
@@ -118,27 +135,30 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
            catch e -> Some @(Update Int64) (upure @Int64 77);
 
        }
-      """)
+      """,
+          evaluationOrder,
+        )
 
-    val testCases = Table[String, Long](
-      ("expression", "expected"),
-      ("M:throwAndCatch", 77),
-    )
+        val testCases = Table[String, Long](
+          ("expression", "expected"),
+          ("M:throwAndCatch", 77),
+        )
 
-    forEvery(testCases) { (exp: String, num: Long) =>
-      s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
-          v shouldBe SValue.SInt64(num)
+        forEvery(testCases) { (exp: String, num: Long) =>
+          s"eval[$exp] --> $num" in {
+            inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
+              v shouldBe SValue.SInt64(num)
+            }
+          }
         }
       }
-    }
-  }
 
-  "throw/catch (UserDefined, with integer payload)" should {
+      "throw/catch (UserDefined, with integer payload)" - {
 
-    // Throw/catch example of a user defined exception, passing an integer payload.
+        // Throw/catch example of a user defined exception, passing an integer payload.
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+        val pkgs: PureCompiledPackages = typeAndCompile(
+          p"""
        module M {
 
          record @serializable MyException = { message: Text, payload : Int64 } ;
@@ -155,31 +175,34 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
                 | Some my -> Some @(Update Int64) (upure @Int64 (M:MyException {payload} my))
              ;
        }
-      """)
+      """,
+          evaluationOrder,
+        )
 
-    val testCases = Table[String, Long](
-      ("expression", "expected"),
-      ("M:throwAndCatch", 77),
-    )
+        val testCases = Table[String, Long](
+          ("expression", "expected"),
+          ("M:throwAndCatch", 77),
+        )
 
-    forEvery(testCases) { (exp: String, num: Long) =>
-      s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
-          v shouldBe SValue.SInt64(num)
+        forEvery(testCases) { (exp: String, num: Long) =>
+          s"eval[$exp] --> $num" in {
+            inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
+              v shouldBe SValue.SInt64(num)
+            }
+          }
         }
       }
-    }
-  }
 
-  "selective exception handling" should {
+      "selective exception handling" - {
 
-    // Example which nests two try-catch block around an expression which throws:
-    // 3 variants: (with one source line changed,marked)
-    // -- The inner handler catches (some)
-    // -- The inner handler does not catch (none); allowing the outer handler to catch
-    // -- The inner handler throws while deciding whether to catch
+        // Example which nests two try-catch block around an expression which throws:
+        // 3 variants: (with one source line changed,marked)
+        // -- The inner handler catches (some)
+        // -- The inner handler does not catch (none); allowing the outer handler to catch
+        // -- The inner handler throws while deciding whether to catch
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+        val pkgs: PureCompiledPackages = typeAndCompile(
+          p"""
       module M {
         record @serializable MyException = { message: Text } ;
 
@@ -236,42 +259,45 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
          ;
 
        }
-      """)
+      """,
+          evaluationOrder,
+        )
 
-    val testCases = Table[String, Long](
-      ("expression", "expected"),
-      ("M:innerCatch", 377),
-      ("M:outerCatch", 188),
-      ("M:throwWhileInnerHandlerDecides", 188),
-    )
+        val testCases = Table[String, Long](
+          ("expression", "expected"),
+          ("M:innerCatch", 377),
+          ("M:outerCatch", 188),
+          ("M:throwWhileInnerHandlerDecides", 188),
+        )
 
-    forEvery(testCases) { (exp: String, num: Long) =>
-      s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
-          v shouldBe SValue.SInt64(num)
+        forEvery(testCases) { (exp: String, num: Long) =>
+          s"eval[$exp] --> $num" in {
+            inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
+              v shouldBe SValue.SInt64(num)
+            }
+          }
         }
       }
-    }
-  }
 
-  "selective exception handling (using payload)" should {
+      "selective exception handling (using payload)" - {
 
-    // Selective handling, where either an inner or outer handler may access the exception payload:
-    // 3 variantions, this time seleced dynamically using a pair of bool
-    //
-    // 1. True/False  -- The inner handler catches (some)
-    // 2. False/False -- The inner handler does not catch (none); allowing the outer handler to catch
-    // 3. False/True  -- The inner handler throws while deciding whether to catch
-    //
-    // The test result is an integer, composed by adding components demonstrating the control flow taken
-    // 1000 -- exception payload or original throw
-    // 2000 -- exception payload of secondary throw (variation-3)
-    // 77 -- inner handler catches
-    // 88 -- outer handler catches
-    // 200 -- normal controlflow following inner catch
-    // 100 -- normal controlflow following outer catch
+        // Selective handling, where either an inner or outer handler may access the exception payload:
+        // 3 variantions, this time seleced dynamically using a pair of bool
+        //
+        // 1. True/False  -- The inner handler catches (some)
+        // 2. False/False -- The inner handler does not catch (none); allowing the outer handler to catch
+        // 3. False/True  -- The inner handler throws while deciding whether to catch
+        //
+        // The test result is an integer, composed by adding components demonstrating the control flow taken
+        // 1000 -- exception payload or original throw
+        // 2000 -- exception payload of secondary throw (variation-3)
+        // 77 -- inner handler catches
+        // 88 -- outer handler catches
+        // 200 -- normal controlflow following inner catch
+        // 100 -- normal controlflow following outer catch
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+        val pkgs: PureCompiledPackages = typeAndCompile(
+          p"""
       module M {
         record @serializable MyException = { payload: Int64 } ;
 
@@ -305,32 +331,35 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
           in
             upure @Int64 (ADD_INT64 100 x) ;
        }
-      """)
+      """,
+          evaluationOrder,
+        )
 
-    val testCases = Table[String, Long](
-      ("expression", "expected"),
-      ("M:maybeInnerCatch True False", 1377),
-      ("M:maybeInnerCatch False False", 1188),
-      ("M:maybeInnerCatch False True", 2188),
-    )
+        val testCases = Table[String, Long](
+          ("expression", "expected"),
+          ("M:maybeInnerCatch True False", 1377),
+          ("M:maybeInnerCatch False False", 1188),
+          ("M:maybeInnerCatch False True", 2188),
+        )
 
-    forEvery(testCases) { (exp: String, num: Long) =>
-      s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
-          v shouldBe SValue.SInt64(num)
+        forEvery(testCases) { (exp: String, num: Long) =>
+          s"eval[$exp] --> $num" in {
+            inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
+              v shouldBe SValue.SInt64(num)
+            }
+          }
         }
       }
-    }
-  }
 
-  "throw/catch (control flow)" should {
+      "throw/catch (control flow)" - {
 
-    // Another example allowing dynamic control of different test paths. Novelty here:
-    // - uses GeneralError, with Text payload encoding an int
-    // - variations 1..4 selected by an integer arg
-    // - final result contains elements which demonstrate the control flow taken
+        // Another example allowing dynamic control of different test paths. Novelty here:
+        // - uses GeneralError, with Text payload encoding an int
+        // - variations 1..4 selected by an integer arg
+        // - final result contains elements which demonstrate the control flow taken
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+        val pkgs: PureCompiledPackages = typeAndCompile(
+          p"""
       module M {
 
          record @serializable E = { message: Text } ;
@@ -376,37 +405,40 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
           in
             upure @Int64 (ADD_INT64 1000 x) ;
 
-      }""")
+      }""",
+          evaluationOrder,
+        )
 
-    val testCases = Table[String, Long](
-      ("expression", "expected"),
-      ("M:throwCatchTest 1", 7001),
-      ("M:throwCatchTest 2", 3202),
-      ("M:throwCatchTest 3", 3203),
-      ("M:throwCatchTest 4", 7004),
-    )
+        val testCases = Table[String, Long](
+          ("expression", "expected"),
+          ("M:throwCatchTest 1", 7001),
+          ("M:throwCatchTest 2", 3202),
+          ("M:throwCatchTest 3", 3203),
+          ("M:throwCatchTest 4", 7004),
+        )
 
-    forEvery(testCases) { (exp: String, num: Long) =>
-      s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
-          v shouldBe SValue.SInt64(num)
+        forEvery(testCases) { (exp: String, num: Long) =>
+          s"eval[$exp] --> $num" in {
+            inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
+              v shouldBe SValue.SInt64(num)
+            }
+          }
         }
       }
-    }
-  }
 
-  "throws from various places" should {
+      "throws from various places" - {
 
-    // Example define a common "wrap" function which handles just a specific user exception:
-    // Series of tests which may throw within its context:
-    //
-    // - example1 -- no thow
-    // - example2 -- throw handled exception
-    // - example3 -- throw unhandled exception
-    // - example4 -- throw handled exception on left & right of a binary op
-    // - example5 -- throw handled exception which computing the payload of an outer throw
+        // Example define a common "wrap" function which handles just a specific user exception:
+        // Series of tests which may throw within its context:
+        //
+        // - example1 -- no thow
+        // - example2 -- throw handled exception
+        // - example3 -- throw unhandled exception
+        // - example4 -- throw handled exception on left & right of a binary op
+        // - example5 -- throw handled exception which computing the payload of an outer throw
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+        val pkgs: PureCompiledPackages = typeAndCompile(
+          p"""
       module M {
 
         record @serializable MyExceptionH = { message: Text } ;
@@ -456,32 +488,41 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
             throw @Text @M:MyExceptionH (throw @M:MyExceptionH @M:MyExceptionH (M:MyExceptionH {message = "throw-in-throw"}))
           );
 
-      } """)
+      } """,
+          evaluationOrder,
+        )
 
-    val testCases = Table[String, String](
-      ("expression", "expected"),
-      ("M:example1", "RESULT: Happy Path"),
-      ("M:example2", "HANDLED: oops1"),
-      ("M:example3", "UNHANDLED"),
-      ("M:example4", "HANDLED: left"),
-      ("M:example5", "HANDLED: throw-in-throw"),
-    )
+        val testCases = Table[String, String](
+          ("expression", "expected"),
+          ("M:example1", "RESULT: Happy Path"),
+          ("M:example2", "HANDLED: oops1"),
+          ("M:example3", "UNHANDLED"),
+          (
+            "M:example4",
+            evaluationOrder match {
+              case LeftToRight => "HANDLED: left"
+              case RightToLeft => "HANDLED: right"
+            },
+          ),
+          ("M:example5", "HANDLED: throw-in-throw"),
+        )
 
-    forEvery(testCases) { (exp: String, str: String) =>
-      s"eval[$exp] --> $str" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
-          v shouldBe SValue.SText(str)
+        forEvery(testCases) { (exp: String, str: String) =>
+          s"eval[$exp] --> $str" in {
+            inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
+              v shouldBe SValue.SText(str)
+            }
+          }
         }
       }
-    }
-  }
 
-  // TODO https://github.com/digital-asset/daml/issues/12821
-  //  add tests for interface
-  "uncatchable exceptions" should {
-    "not be caught" in {
+      // TODO https://github.com/digital-asset/daml/issues/12821
+      //  add tests for interface
+      "uncatchable exceptions" - {
+        "not be caught" in {
 
-      val pkgs: PureCompiledPackages = typeAndCompile(p"""
+          val pkgs: PureCompiledPackages = typeAndCompile(
+            p"""
        module M {
 
          record @serializable MyUnit = {};
@@ -537,122 +578,125 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
            };
          };
        }
-      """)
+      """,
+            evaluationOrder,
+          )
 
-      val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
+          val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
-      val testCases = Table[String, String](
-        ("description", "update"),
-        "exception thrown by the evaluation of the choice body during exercise by template can be caught" ->
-          """
+          val testCases = Table[String, String](
+            ("description", "update"),
+            "exception thrown by the evaluation of the choice body during exercise by template can be caught" ->
+              """
             ubind
               cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
             in exercise @M:T BodyCrash cid ()
         """,
-        "exception thrown by the evaluation of the choice controllers during exercise by template cannot be caught" ->
-          """
+            "exception thrown by the evaluation of the choice controllers during exercise by template cannot be caught" ->
+              """
             ubind
               cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
             in exercise @M:T ControllersCrash cid ()
         """,
-        "exception thrown by the evaluation of the choice observers during exercise by template cannot be caught" ->
-          """
+            "exception thrown by the evaluation of the choice observers during exercise by template cannot be caught" ->
+              """
             ubind
               cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
             in exercise @M:T ObserversCrash cid ()
         """,
-        "exception thrown by the evaluation of the view during create by interface cannot be caught" ->
-          """
+            "exception thrown by the evaluation of the view during create by interface cannot be caught" ->
+              """
             ubind
               cid : ContractId M:I <- create_by_interface @M:I (to_interface @M:I @M:T (M:T {party = sig, viewFails = True}))
             in ()
         """,
-        "exception thrown by the evaluation of the view during fetch by interface cannot be caught" ->
-          """
+            "exception thrown by the evaluation of the view during fetch by interface cannot be caught" ->
+              """
             ubind
               cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = True});
               i: M:I <- fetch_interface @M:I (COERCE_CONTRACT_ID @M:T @M:I cid)
             in ()
         """,
-        "exception thrown by the evaluation of the choice body during exercise by interface can be caught" ->
-          """
+            "exception thrown by the evaluation of the choice body during exercise by interface can be caught" ->
+              """
             ubind
               cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
             in exercise_interface @M:I BodyCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()
         """,
-        "exception thrown by the evaluation of the choice controllers during exercise by interface cannot be caught" ->
-          """
+            "exception thrown by the evaluation of the choice controllers during exercise by interface cannot be caught" ->
+              """
             ubind
               cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
             in exercise_interface @M:I ControllersCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()
         """,
-        "exception thrown by the evaluation of the choice observers during exercise by interface cannot be caught" ->
-          """
+            "exception thrown by the evaluation of the choice observers during exercise by interface cannot be caught" ->
+              """
             ubind
               cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
             in exercise_interface @M:I ObserversCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()
         """,
-      )
+          )
 
-      forEvery(testCases) { (description, update) =>
-        val expr =
-          e"""\(sig: Party) ->
+          forEvery(testCases) { (description, update) =>
+            val expr =
+              e"""\(sig: Party) ->
               try @Unit ($update)
               catch e -> Some @(Update Unit) (upure @Unit ())
               """
 
-        val res = Speedy.Machine
-          .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, expr, party), Set(party))
-          .run()
-        if (description.contains("can be caught"))
+            val res = Speedy.Machine
+              .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, expr, party), Set(party))
+              .run()
+            if (description.contains("can be caught"))
+              inside(res) { case SResultFinal(SUnit) =>
+              }
+            else if (description.contains("cannot be caught"))
+              inside(res) { case SResultError(SErrorDamlException(err)) =>
+                err shouldBe a[IE.UnhandledException]
+              }
+            else
+              sys.error("the description should contains \"can be caught\" or \"cannot be caught\"")
+          }
+        }
+      }
+
+      "rollback of creates" - {
+
+        val party = Party.assertFromString("Alice")
+        val example: Expr = e"M:causeRollback"
+        val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
+
+        "works as expected for a contract version POST-dating exceptions" in {
+          val pkgs = mkPackagesAtVersion(LanguageVersion.v1_dev)
+          val res = Speedy.Machine
+            .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
+            .run()
           inside(res) { case SResultFinal(SUnit) =>
           }
-        else if (description.contains("cannot be caught"))
-          inside(res) { case SResultError(SErrorDamlException(err)) =>
-            err shouldBe a[IE.UnhandledException]
-          }
-        else
-          sys.error("the description should contains \"can be caught\" or \"cannot be caught\"")
-      }
-    }
-  }
+        }
 
-  "rollback of creates" should {
+        "causes an uncatchable exception to be thrown for a contract version PRE-dating exceptions" in {
 
-    val party = Party.assertFromString("Alice")
-    val example: Expr = e"M:causeRollback"
-    val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
+          val id = "M:AnException"
+          val tyCon =
+            data.Ref.Identifier.assertFromString(s"$defaultPackageId:$id")
+          val anException =
+            IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
 
-    "works as expected for a contract version POST-dating exceptions" in {
-      val pkgs = mkPackagesAtVersion(LanguageVersion.v1_dev)
-      val res = Speedy.Machine
-        .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
-        .run()
-      inside(res) { case SResultFinal(SUnit) =>
-      }
-    }
+          val pkgs = mkPackagesAtVersion(LanguageVersion.v1_11)
+          val res = Speedy.Machine
+            .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
+            .run()
+          res shouldBe SResultError(SErrorDamlException(anException))
+        }
 
-    "causes an uncatchable exception to be thrown for a contract version PRE-dating exceptions" in {
+        def mkPackagesAtVersion(languageVersion: LanguageVersion): PureCompiledPackages = {
 
-      val id = "M:AnException"
-      val tyCon =
-        data.Ref.Identifier.assertFromString(s"$defaultPackageId:$id")
-      val anException =
-        IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
+          implicit val defaultParserParameters: ParserParameters[this.type] =
+            ParserParameters(defaultPackageId, languageVersion)
 
-      val pkgs = mkPackagesAtVersion(LanguageVersion.v1_11)
-      val res = Speedy.Machine
-        .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
-        .run()
-      res shouldBe SResultError(SErrorDamlException(anException))
-    }
-
-    def mkPackagesAtVersion(languageVersion: LanguageVersion): PureCompiledPackages = {
-
-      implicit val defaultParserParameters: ParserParameters[this.type] =
-        ParserParameters(defaultPackageId, languageVersion)
-
-      typeAndCompile(p"""
+          typeAndCompile(
+            p"""
       module M {
 
         record @serializable AnException = { } ;
@@ -687,31 +731,26 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
               x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
             in upure @Unit ();
 
-      } """)
-    }
+      } """,
+            evaluationOrder,
+          )
+        }
 
-  }
-
-  private val party = Party.assertFromString("Alice")
-
-  private def runUpdateExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult[Question.Update] = {
-    def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("ExceptionTest.scala")
-    Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, Set(party)).run()
-  }
-
-  "rollback of creates (mixed versions)" should {
-
-    val oldPid: PackageId = Ref.PackageId.assertFromString("OldPackage")
-    val newPid: PackageId = Ref.PackageId.assertFromString("Newpackage")
-
-    val oldPackage = {
-      implicit val defaultParserParameters: ParserParameters[this.type] = {
-        ParserParameters(
-          defaultPackageId = oldPid,
-          languageVersion = LanguageVersion.v1_11, // version pre-dating exceptions
-        )
       }
-      p"""
+
+      "rollback of creates (mixed versions)" - {
+
+        val oldPid: PackageId = Ref.PackageId.assertFromString("OldPackage")
+        val newPid: PackageId = Ref.PackageId.assertFromString("Newpackage")
+
+        val oldPackage = {
+          implicit val defaultParserParameters: ParserParameters[this.type] = {
+            ParserParameters(
+              defaultPackageId = oldPid,
+              languageVersion = LanguageVersion.v1_11, // version pre-dating exceptions
+            )
+          }
+          p"""
       module OldM {
         record @serializable OldT = { party: Party } ;
         template (record : OldT) = {
@@ -721,15 +760,15 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
           agreement "Agreement";
         };
       } """
-    }
-    val newPackage = {
-      implicit val defaultParserParameters: ParserParameters[this.type] = {
-        ParserParameters(
-          defaultPackageId = newPid,
-          languageVersion = LanguageVersion.v1_dev,
-        )
-      }
-      p"""
+        }
+        val newPackage = {
+          implicit val defaultParserParameters: ParserParameters[this.type] = {
+            ParserParameters(
+              defaultPackageId = newPid,
+              languageVersion = LanguageVersion.v1_dev,
+            )
+          }
+          p"""
       module NewM {
         record @serializable AnException = { } ;
         exception AnException = { message \(e: NewM:AnException) -> "AnException" };
@@ -810,47 +849,56 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
             in upure @Unit ();
 
       } """
-    }
-    val pkgs =
-      SpeedyTestLib.typeAndCompile(Map(oldPid -> oldPackage, newPid -> newPackage))
+        }
+        val pkgs =
+          SpeedyTestLib.typeAndCompile(
+            Map(oldPid -> oldPackage, newPid -> newPackage),
+            evaluationOrder,
+          )
 
-    implicit val defaultParserParameters: ParserParameters[this.type] = {
-      ParserParameters(
-        defaultPackageId = newPid,
-        languageVersion = LanguageVersion.v1_dev,
-      )
-    }
+        implicit val defaultParserParameters: ParserParameters[this.type] = {
+          ParserParameters(
+            defaultPackageId = newPid,
+            languageVersion = LanguageVersion.v1_dev,
+          )
+        }
 
-    val anException = {
-      val id = "NewM:AnException"
-      val tyCon = data.Ref.Identifier.assertFromString(s"$newPid:$id")
-      IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
-    }
+        val anException = {
+          val id = "NewM:AnException"
+          val tyCon = data.Ref.Identifier.assertFromString(s"$newPid:$id")
+          IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
+        }
 
-    def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
+        def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
-    val causeRollback: SExpr = applyToParty(pkgs, e"NewM:causeRollback", party)
-    val causeUncatchable: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable", party)
-    val causeUncatchable2: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable2", party)
+        val causeRollback: SExpr = applyToParty(pkgs, e"NewM:causeRollback", party)
+        val causeUncatchable: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable", party)
+        val causeUncatchable2: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable2", party)
 
-    "create rollback when old contacts are not within try-catch context" in {
-      val res =
-        Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party)).run()
-      inside(res) { case SResultFinal(SUnit) =>
+        "create rollback when old contacts are not within try-catch context" in {
+          val res =
+            Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party)).run()
+          inside(res) { case SResultFinal(SUnit) =>
+          }
+        }
+
+        "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {
+          val res =
+            Speedy.Machine
+              .fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable, Set(party))
+              .run()
+          res shouldBe SResultError(SErrorDamlException(anException))
+        }
+
+        "causes uncatchable exception when an old contract is within a new-exercise which aborts" in {
+          val res =
+            Speedy.Machine
+              .fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable2, Set(party))
+              .run()
+          res shouldBe SResultError(SErrorDamlException(anException))
+        }
+
       }
     }
-
-    "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {
-      val res =
-        Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable, Set(party)).run()
-      res shouldBe SResultError(SErrorDamlException(anException))
-    }
-
-    "causes uncatchable exception when an old contract is within a new-exercise which aborts" in {
-      val res =
-        Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable2, Set(party)).run()
-      res shouldBe SResultError(SErrorDamlException(anException))
-    }
-
   }
 }

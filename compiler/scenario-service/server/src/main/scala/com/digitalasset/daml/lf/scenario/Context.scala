@@ -18,6 +18,7 @@ import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
 import com.daml.lf.engine.script.{Runner, Script}
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.ExecutionContext
@@ -35,10 +36,21 @@ object Context {
 
   private val contextCounter = new AtomicLong()
 
-  def newContext(lfVerion: LanguageVersion, timeout: Duration)(implicit
-      loggingContext: LoggingContext
+  def newContext(lfVerion: LanguageVersion, timeout: Duration, evaluationOrder: EvaluationOrder)(
+      implicit loggingContext: LoggingContext
   ): Context =
-    new Context(contextCounter.incrementAndGet(), lfVerion, timeout)
+    new Context(contextCounter.incrementAndGet(), lfVerion, timeout, evaluationOrder)
+}
+
+class Context(
+    val contextId: Context.ContextId,
+    languageVersion: LanguageVersion,
+    timeout: Duration,
+    evaluationOrder: EvaluationOrder,
+)(implicit
+    loggingContext: LoggingContext
+) {
+  def devMode: Boolean = languageVersion == LanguageVersion.v1_dev
 
   private val compilerConfig =
     Compiler.Config(
@@ -46,20 +58,8 @@ object Context {
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,
+      evaluationOrder = evaluationOrder,
     )
-}
-
-class Context(
-    val contextId: Context.ContextId,
-    languageVersion: LanguageVersion,
-    timeout: Duration,
-)(implicit
-    loggingContext: LoggingContext
-) {
-
-  import Context._
-
-  def devMode: Boolean = languageVersion == LanguageVersion.v1_dev
 
   /** The package identifier to use for modules added to the context.
     * When decoding LF modules this package identifier should be used to rewrite
@@ -78,7 +78,7 @@ class Context(
   def loadedPackages(): Iterable[PackageId] = extSignatures.keys
 
   def cloneContext(): Context = synchronized {
-    val newCtx = Context.newContext(languageVersion, timeout)
+    val newCtx = Context.newContext(languageVersion, timeout, evaluationOrder)
     newCtx.extSignatures = extSignatures
     newCtx.extDefns = extDefns
     newCtx.modules = modules
@@ -179,11 +179,12 @@ class Context(
       Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
     val traceLog = Speedy.Machine.newTraceLog
     val warningLog = Speedy.Machine.newWarningLog
+    val profile = Speedy.Machine.newProfile
     val timeBomb = TimeBomb(timeout.toMillis)
     val isOverdue = timeBomb.hasExploded
     val ledgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog, isOverdue)
     val timeBombCanceller = timeBomb.start()
-    val (clientMachine, resultF, ideLedgerContext) = Runner.runIdeLedgerClient(
+    val (resultF, ideLedgerContext) = Runner.runIdeLedgerClient(
       compiledPackages = compiledPackages,
       scriptId = scriptId,
       convertInputValue = None,
@@ -192,6 +193,7 @@ class Context(
       timeMode = ScriptTimeMode.Static,
       traceLog = traceLog,
       warningLog = warningLog,
+      profile = profile,
       canceled = () => {
         if (timeBombCanceller()) Some(Runner.TimedOut)
         else if (canceledByRequest()) Some(Runner.CanceledByRequest)
@@ -206,8 +208,8 @@ class Context(
         Some(
           ScenarioRunner.ScenarioError(
             ideLedgerContext.ledger,
-            clientMachine.traceLog,
-            clientMachine.warningLog,
+            traceLog,
+            warningLog,
             ideLedgerContext.currentSubmission,
             // TODO (MK) https://github.com/digital-asset/daml/issues/7276
             ImmArray.Empty,
@@ -225,9 +227,9 @@ class Context(
           Some(
             ScenarioRunner.ScenarioSuccess(
               ideLedgerContext.ledger,
-              clientMachine.traceLog,
-              clientMachine.warningLog,
-              clientMachine.profile,
+              traceLog,
+              warningLog,
+              profile,
               dummyDuration,
               dummySteps,
               v,

@@ -123,6 +123,9 @@ firstMessagingPatch =
 firstSandboxOnX :: Version
 firstSandboxOnX = fromRight (error "Invalid version") $ SemVer.fromText "2.0.0"
 
+firstVersionWithoutSandboxOnX :: Version
+firstVersionWithoutSandboxOnX = fromRight (error "Invalid version") $ SemVer.fromText "2.7.0"
+
 getChecksums :: Version -> IO Checksums
 getChecksums ver = do
     putStrLn ("Requesting hashes for " <> SemVer.toString ver)
@@ -163,7 +166,7 @@ getChecksums ver = do
                <> "/templates/create-daml-app-test-resources/messaging.patch"
           | otherwise = Nothing
         mbSandboxOnXUrl
-          | ver >= firstSandboxOnX =
+          | ver >= firstSandboxOnX && ver < firstVersionWithoutSandboxOnX =
              Just $ "https://repo1.maven.org/maven2/com/daml/sandbox-on-x-app-jar/" <>
              SemVer.toString ver <> "/sandbox-on-x-app-jar-" <> SemVer.toString ver <> ".jar"
           | otherwise = Nothing

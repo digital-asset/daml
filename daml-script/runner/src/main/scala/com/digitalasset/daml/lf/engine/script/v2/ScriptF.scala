@@ -30,7 +30,6 @@ import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SBuiltin.SBVariantCon
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.Speedy.PureMachine
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import scalaz.{Foldable, OneAnd}
@@ -72,10 +71,9 @@ object ScriptF {
       val scriptIds: ScriptIds,
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
-      machine: PureMachine,
+      compiledPackages: CompiledPackages,
   ) {
     def clients = _clients
-    def compiledPackages = machine.compiledPackages
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
       requireV1ContractIdSuffix = false,

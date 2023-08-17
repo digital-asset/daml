@@ -110,7 +110,7 @@ instance IsOption SkipValidationOpt where
   optionName = Tagged "skip-validation"
   optionHelp = Tagged "Skip package validation in scenario service (true|false)"
 
-newtype IsScriptV2Opt = IsScriptV2Opt { isScriptV2 :: Bool }
+newtype IsScriptV2Opt = IsScriptV2Opt Bool
   deriving (Eq)
 
 instance IsOption IsScriptV2Opt where
@@ -120,6 +120,14 @@ instance IsOption IsScriptV2Opt where
   parseValue = fmap IsScriptV2Opt . safeReadBool
   optionName = Tagged "daml-script-v2"
   optionHelp = Tagged "Use daml script v2 (true|false)"
+
+newtype EvaluationOrderOpt = EvaluationOrderOpt EvaluationOrder
+
+instance IsOption EvaluationOrderOpt where
+  defaultValue = EvaluationOrderOpt LeftToRight
+  parseValue = fmap EvaluationOrderOpt . readMaybe
+  optionName = Tagged "evaluation-order"
+  optionHelp = Tagged "Use the specified evaluation order for Daml expressions"
 
 type ScriptPackageData = (FilePath, [PackageFlag])
 
@@ -178,17 +186,25 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
 
 main :: IO ()
 main = do
-  let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"], SS.cnfEvaluationTimeout = Just 3 }
   -- This is a bit hacky, we want the LF version before we hand over to
   -- tasty. To achieve that we first pass with optparse-applicative ignoring
   -- everything apart from the LF version.
-  (LfVersionOpt lfVer, SkipValidationOpt _, IsScriptV2Opt isV2) <- do
-      let parser = (,,) <$> optionCLParser <*> optionCLParser <*> optionCLParser <* many (strArgument @String mempty)
+  (LfVersionOpt lfVer, SkipValidationOpt _, IsScriptV2Opt isV2, EvaluationOrderOpt evalOrder) <- do
+      let parser = (,,,)
+                     <$> optionCLParser
+                     <*> optionCLParser
+                     <*> optionCLParser
+                     <*> optionCLParser
+                     <* many (strArgument @String mempty)
       execParser (info parser forwardOptions)
 
   scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
 
   let withDep = if isV2 then withDamlScriptV2Dep else withDamlScriptDep $ Just lfVer
+  let scenarioConf = SS.defaultScenarioServiceConfig
+                       { SS.cnfJvmOptions = ["-Xmx200M"]
+                       , SS.cnfEvaluationTimeout = Just 3
+                       , SS.cnfEvaluationOrder = evalOrder }
 
   withDep $ \scriptPackageData ->
     SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
@@ -207,6 +223,7 @@ main = do
                 [ Option (Proxy @LfVersionOpt)
                 , Option (Proxy @SkipValidationOpt)
                 , Option (Proxy @IsScriptV2Opt)
+                , Option (Proxy @EvaluationOrderOpt)
                 ] :
               defaultIngredients
 
@@ -279,7 +296,10 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
     vfs <- makeVFSHandle
     -- We use a separate service for generated files so that we can test files containing internal imports.
     let tree :: TestTree
-        tree = askOption $ \(LfVersionOpt version) -> askOption @IsScriptV2Opt $ \isScriptV2Opt -> askOption $ \(SkipValidationOpt skipValidation) ->
+        tree = askOption $ \(LfVersionOpt version) ->
+               askOption @IsScriptV2Opt $ \isScriptV2Opt ->
+               askOption $ \(SkipValidationOpt skipValidation) ->
+               askOption $ \(EvaluationOrderOpt evalOrder) ->
           let opts = (defaultOptions (Just version))
                 { optPackageDbs = [packageDbPath]
                 , optThreads = 0
@@ -308,7 +328,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
             shutdown
             $ \service ->
           testGroup ("Tests for Daml-LF " ++ renderPretty version) $
-            map (testCase version isScriptV2Opt service outdir registerTODO) damlTests
+            map (testCase version isScriptV2Opt evalOrder service outdir registerTODO) damlTests
 
     pure tree
 
@@ -326,12 +346,12 @@ instance IsTest TestCase where
     pure $ res { resultDescription = desc }
   testOptions = Tagged []
 
-testCase :: LF.Version -> IsScriptV2Opt -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath, [Ann]) -> TestTree
-testCase version isScriptV2Opt getService outdir registerTODO (name, file, anns) = singleTest name . TestCase $ \log -> do
+testCase :: LF.Version -> IsScriptV2Opt -> EvaluationOrder -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath, [Ann]) -> TestTree
+testCase version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir registerTODO (name, file, anns) = singleTest name . TestCase $ \log -> do
   service <- getService
   if any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] then
     pure (testFailed "Unsupported Daml-LF version in UNTIL-LF annotation")
-  else if any (ignoreVersion version isScriptV2) anns
+  else if any (ignoreVersion version) anns
     then pure $ Result
       { resultOutcome = Success
       , resultDescription = ""
@@ -353,11 +373,12 @@ testCase version isScriptV2Opt getService outdir registerTODO (name, file, anns)
         err : _others -> pure $ testFailed err
         [] -> pure $ testPassed ""
   where
-    ignoreVersion version isScriptV2 = \case
+    ignoreVersion version = \case
       Ignore -> True
       SinceLF minVersion -> version < minVersion
       UntilLF maxVersion -> version >= maxVersion
-      ScriptV2 -> not $ isScriptV2 isScriptV2Opt
+      ScriptV2 -> not isScriptV2Opt
+      EvaluationOrder evalOrder -> evalOrder /= evalOrderOpt
       _ -> False
 
 runJqQuery :: (String -> IO ()) -> Maybe FilePath -> [(String, Bool)] -> IO [Maybe String]
@@ -439,6 +460,7 @@ data Ann
     | QueryLF String Bool                -- The jq query against the produced Daml-LF returns "true". Includes a boolean for is stream
     | ScriptV2                           -- Run only in daml script V2
     | Todo String                        -- Just a note that is printed out
+    | EvaluationOrder EvaluationOrder
 
 readFileAnns :: FilePath -> IO [Ann]
 readFileAnns file = do
@@ -459,6 +481,7 @@ readFileAnns file = do
             ("QUERY-LF-STREAM", x) -> Just $ QueryLF x True
             ("SCRIPT-V2", _) -> Just ScriptV2
             ("TODO",x) -> Just $ Todo x
+            ("EVALUATION-ORDER", x) -> EvaluationOrder <$> readMaybe x
             _ -> error $ "Can't understand test annotation in " ++ show file ++ ", got " ++ show x
         f _ = Nothing
 

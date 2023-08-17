@@ -12,6 +12,7 @@ import Daml.Script.Questions.Util
 import DA.NonEmpty
 import DA.Text
 import DA.Foldable (foldMap)
+import DA.Exception
 
 -- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
 data DevErrorType
@@ -127,31 +128,35 @@ data SubmitError
         -- ^ One of the constructor names of SubmitFailure except DevError, UnknownError, TruncatedError
       truncatedErrorMessage : Text
 
--- TODO[SW]: Add more detail here
+instance Show AnyContractKey where
+  show (AnyContractKey _ templateTypeRep) = show templateTypeRep
+
 instance Show SubmitError where
   show err = case err of
     ContractNotFound { unknownContractIds, additionalDebuggingInfo } ->
       "Could not find contract with ID(s) " <> intercalate ", " (toList unknownContractIds) <> "."
       <> foldMap (\info -> " Additional debugging info: " <> show info) additionalDebuggingInfo
-    ContractKeyNotFound {} -> "Could not find contract with given key"
+    ContractKeyNotFound contractKey -> "Could not find contract with given key: " <> show contractKey
     AuthorizationError errMessage -> "Authorization failure: " <> errMessage
-    DisclosedContractKeyHashingError contractId _ _ -> "Disclosed contract with ID " <> show contractId.contractId <> " used incorrect payload"
-    DuplicateContractKey {} -> "Attempted to create a contract with a contract key that is already in use"
-    InconsistentContractKey {} -> "Inconsistent contract key between daml and ledger"
-    UnhandledException {} -> "An Exception was thrown and not caught"
+    DisclosedContractKeyHashingError contractId contractKey contractKeyHash ->
+      "Disclosed contract with ID " <> show contractId <> " used incorrect payload - contract key: " <> show contractKey <> "; and contract key hash: " <> contractKeyHash
+    DuplicateContractKey contractKey -> "Attempted to create a contract with a contract key that is already in use - contract key: " <> show contractKey
+    InconsistentContractKey contractKey -> "Inconsistent contract key between daml and ledger - contract key: " <> show contractKey
+    UnhandledException None -> "An Exception was thrown and not caught"
+    UnhandledException (Some exn) -> "An Exception was thrown and not caught - message: " <> (message exn)
     UserError errMessage -> "User Error: " <> errMessage
     TemplatePreconditionViolated {} -> "Template precondition was violated"
-    CreateEmptyContractKeyMaintainers {} -> "Attempted to create a contract with empty key maintainers"
-    FetchEmptyContractKeyMaintainers {} -> "Attempted to fetch a contract with empty key maintainers"
-    WronglyTypedContract _ expected actual ->
-      "Excepted contract to be a \"" <> templateTypeRepToText expected <> "\" but it was actually a \"" <> templateTypeRepToText actual <> "\""
-    ContractDoesNotImplementInterface _ t i ->
-      "\"" <> templateTypeRepToText t <> "\" does not implement interface \"" <> templateTypeRepToText i <> "\""
-    ContractDoesNotImplementRequiringInterface _ t required requiring ->
-      "\"" <> templateTypeRepToText t <> "\" does not implement interface \"" <> templateTypeRepToText required <> "\" as required by \"" <> templateTypeRepToText requiring <> "\""
+    CreateEmptyContractKeyMaintainers _ -> "Attempted to create a contract with empty key maintainers"
+    FetchEmptyContractKeyMaintainers contractKey -> "Attempted to fetch a contract with empty key maintainers - contract key: " <> show contractKey
+    WronglyTypedContract contractId expected actual ->
+      "Excepted contract ID " <> show contractId <> " to be a \"" <> templateTypeRepToText expected <> "\" but it was actually a \"" <> templateTypeRepToText actual <> "\""
+    ContractDoesNotImplementInterface contractId templateId interfaceId ->
+      "\"" <> templateTypeRepToText templateId <> "\" does not implement interface \"" <> templateTypeRepToText interfaceId <> "\" for contract ID: " <> show contractId
+    ContractDoesNotImplementRequiringInterface contractId templateId required requiring ->
+      "\"" <> templateTypeRepToText templateId <> "\" does not implement interface \"" <> templateTypeRepToText required <> "\" as required by \"" <> templateTypeRepToText requiring <> "\" for contract ID: " <> show contractId
     NonComparableValues {} -> "Failed to compare values"
     ContractIdInContractKey {} -> "Illegal contract ID in contract key"
-    ContractIdComparability {} -> "Attempted to compare local and global contract IDs of the same contract"
+    ContractIdComparability contractId -> "Attempted to compare local and global contract IDs of the same contract - contract ID: " <> contractId
     ValueNesting limit -> "Exceeded maximum nesting depth for values - limit: " <> show limit
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
