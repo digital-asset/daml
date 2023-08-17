@@ -904,7 +904,7 @@ nodejs Deprecate 2.0.0 : MIT License
 nodejs-exit 0.1.2 : MIT License
 nodejs/string_decoder 0.10.31 : MIT License
 nodejs/string_decoder 1.1.1 : MIT License
-nodejs/string_decoder v1.3.0 : MIT License
+nodejs/string_decoder 1.3.0 : MIT License
 nomeata/tasty-expected-failure 0.12.3 : MIT License
 nopt 3.0.6 : ISC License
 nopt v4.0.3 : ISC License
@@ -12686,7 +12686,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(elliptic 6.5.4, function-bind 1.1.1, isarray 1.0.0, isarray 2.0.5, nodeca-argparse 1.0.10, nodejs/string_decoder v1.3.0)
+(elliptic 6.5.4, function-bind 1.1.1, isarray 1.0.0, isarray 2.0.5, nodeca-argparse 1.0.10, nodejs/string_decoder 1.3.0)
 
 License: Expat
 
