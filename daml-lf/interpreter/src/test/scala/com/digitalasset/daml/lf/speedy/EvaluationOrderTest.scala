@@ -1217,7 +1217,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                   ) =>
                 msgs shouldBe Seq(
                   "starts test",
-                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
