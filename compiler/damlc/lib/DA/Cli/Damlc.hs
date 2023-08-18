@@ -22,11 +22,14 @@ import DA.Bazel.Runfiles (Resource(..),
                           runfilesPathPrefix,
                           setRunfilesEnv)
 import qualified DA.Cli.Args as ParseArgs
-import DA.Cli.Options (Debug(..),
+import DA.Cli.Options (BuildAll(..),
+                       Debug(..),
                        InitPkgDb(..),
+                       NoCache(..),
                        ProjectOpts(..),
                        Style(..),
                        Telemetry(..),
+                       buildAllOpt,
                        debugOpt,
                        disabledDlintUsageParser,
                        enabledDlintUsageParser,
@@ -36,6 +39,7 @@ import DA.Cli.Options (Debug(..),
                        inputDarOpt,
                        inputFileOpt,
                        inputFileOptWithExt,
+                       noCacheOpt,
                        optionalDlintUsageParser,
                        optionalOutputFileOpt,
                        optionsParser,
@@ -502,6 +506,8 @@ cmdMultiBuild numProcessors =
                   (EnableScenarioService False)
                   (pure Nothing)
                   disabledDlintUsageParser
+            <*> buildAllOpt
+            <*> noCacheOpt
 
 cmdRepl :: Int -> Mod CommandFields Command
 cmdRepl numProcessors =
@@ -960,8 +966,8 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
   
   We currently rely on shake to find cycles, how its errors includes too much information about internals, so we'll need to implement our own cycle detection.
 -}
-execMultiBuild :: ProjectOpts -> Options -> Command
-execMultiBuild projectOpts opts =
+execMultiBuild :: ProjectOpts -> Options -> BuildAll -> NoCache -> Command
+execMultiBuild projectOpts opts (BuildAll buildAll) noCache =
   Command MultiBuild (Just projectOpts) effect
   where effect =
           -- withProjectRoot' projectOpts $ \relativize ->
@@ -985,6 +991,7 @@ execMultiBuild projectOpts opts =
                   buildMultiRules = do
                     addIdeGlobal assistantRunner
                     addIdeGlobal buildableDataDeps
+                    addIdeGlobal noCache
                     buildMultiRule
 
               -- Set up a near empty shake environment, with just the buildMulti rule
@@ -992,8 +999,12 @@ execMultiBuild projectOpts opts =
                 (IDE.initialise buildMultiRules (DummyLspEnv diagnosticsLogger) (toIdeLogger loggerH) noopDebouncer (toCompileOpts opts) vfs)
                 IDE.shutdown
                 $ \ideState -> runActionSync ideState
-                  $ void $ use_ BuildMulti $ toNormalizedFilePath'
-                  $ maybe cDir unwrapProjectPath $ projectRoot projectOpts
+                  $ if buildAll
+                      then
+                        void $ uses_ BuildMulti $ toNormalizedFilePath' <$> mpPackagePaths multiPackageConfig
+                      else
+                        void $ use_ BuildMulti $ toNormalizedFilePath'
+                          $ maybe cDir unwrapProjectPath $ projectRoot projectOpts
 
 data AssistantRunner = AssistantRunner { runAssistant :: FilePath -> [String] -> IO ()}
   deriving Typeable
@@ -1101,6 +1112,7 @@ buildMultiRule = defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
 
   assistantRunner <- getIdeGlobalAction @AssistantRunner
   buildableDataDeps <- getIdeGlobalAction @BuildableDataDeps
+  (NoCache noCache) <- getIdeGlobalAction @NoCache
 
   -- Make an IO action that takes a path and args and call env var DAML_ASSISTANT with it, put it in as a global under a newtype
   -- pull that out here and call it via `damlc`
@@ -1127,7 +1139,11 @@ buildMultiRule = defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
 
   liftIO $ do
     -- Check our own staleness, if we're not stale, give the package ID to return to shake.
-    ownValidPid <- getValidPackageId logger filePath bmPkgConfig sourceDepsData
+    -- If caching disabled, we fail this check pre-emtively
+    ownValidPid <- 
+      if noCache
+        then pure Nothing
+        else getValidPackageId logger filePath bmPkgConfig sourceDepsData
 
     case ownValidPid of
       Just pid -> do

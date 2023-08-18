@@ -26,7 +26,8 @@ import Control.Monad.Extra (loopM)
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Key as A
 import qualified Data.Aeson.Encoding as A
-import Data.List (elemIndex, nub)
+import Data.List (elemIndex)
+import Data.List.Extra (nubOrd)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
@@ -181,7 +182,7 @@ fullParseMultiPackageConfig = cyclelessIOFix loopShow $ \loop projectPath -> do
     canonMultiPackageConfigI <- canonicalizeMultiPackageConfigIntermediate projectPath multiPackageConfigI
     otherMultiPackageConfigs <- traverse loop (ProjectPath <$> mpiOtherConfigFiles canonMultiPackageConfigI)
 
-    pure $ MultiPackageConfigFields $ nub $ concatMap mpPackagePaths $ mpiConfigFields canonMultiPackageConfigI : otherMultiPackageConfigs
+    pure $ MultiPackageConfigFields $ nubOrd $ concatMap mpPackagePaths $ mpiConfigFields canonMultiPackageConfigI : otherMultiPackageConfigs
   where
     loopShow :: [ProjectPath] -> String
     loopShow = ("\n" <>) . unlines . fmap ((" - " <>) . unwrapProjectPath)

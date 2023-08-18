@@ -21,7 +21,8 @@ import qualified DA.Service.Logger as Logger
 import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
-
+import Development.IDE.Core.Shake (IsIdeGlobal)
+import Data.Typeable (Typeable)
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
@@ -154,6 +155,16 @@ debugOpt = fmap Debug $
 newtype InitPkgDb = InitPkgDb Bool
 initPkgDbOpt :: Parser InitPkgDb
 initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database" idm
+
+newtype BuildAll = BuildAll Bool
+buildAllOpt :: Parser BuildAll
+buildAllOpt = BuildAll <$> flagYesNoAuto "all" False "Build all packages in multi-package.daml" idm
+
+newtype NoCache = NoCache Bool
+  deriving Typeable
+instance IsIdeGlobal NoCache
+noCacheOpt :: Parser NoCache
+noCacheOpt = NoCache <$> flagYesNoAuto "no-cache" False "Disables cache checking, rebuilding all dependencies" idm
 
 data Telemetry
     = TelemetryOptedIn -- ^ User has explicitly opted in
