@@ -119,6 +119,16 @@ Templates
 Functions
 ^^^^^^^^^
 
+.. _function-iou12-updateowner-56091:
+
+`updateOwner <function-iou12-updateowner-56091_>`_
+  \: `Iou <type-iou12-iou-72962_>`_ \-\> `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_)
+
+.. _function-iou12-updateamount-41005:
+
+`updateAmount <function-iou12-updateamount-41005_>`_
+  \: `Iou <type-iou12-iou-72962_>`_ \-\> `Decimal <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_)
+
 .. _function-iou12-main-28537:
 
 `main <function-iou12-main-28537_>`_

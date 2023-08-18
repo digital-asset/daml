@@ -63,24 +63,27 @@ exception GuardException
     where
         message m
 
+assetAsTokenTpl : Party -> Token
+assetAsTokenTpl p =
+  toInterface @Token $
+    Asset with
+      issuer = p
+      owner = p
+      amount = 100
+
+getRich : GetRich
+getRich = GetRich with byHowMuch = 1000000
+
 template Test
   with
     p : Party
   where
     signatory p
-    let
-      assetAsTokenTpl =
-        toInterface @Token $
-          Asset with
-            issuer = p
-            owner = p
-            amount = 100
-      getRich = GetRich with byHowMuch = 1000000
 
     nonconsuming choice TrueGuard : ()
       controller p
       do
-        assetAsToken <- create assetAsTokenTpl
+        assetAsToken <- create (assetAsTokenTpl p)
         exerciseGuarded (const True) assetAsToken getRich
         pure ()
 
@@ -88,7 +91,7 @@ template Test
       controller p
       do
         -- Fail if guard returns False
-        assetAsToken <- create assetAsTokenTpl
+        assetAsToken <- create (assetAsTokenTpl p)
         exerciseGuarded (const False) assetAsToken getRich
         pure ()
 
@@ -96,7 +99,7 @@ template Test
       controller p
       do
         -- Fail if guard throws exception
-        assetAsToken <- create assetAsTokenTpl
+        assetAsToken <- create (assetAsTokenTpl p)
         exerciseGuarded (\_ -> error "foo") assetAsToken getRich
         pure ()
 
@@ -104,7 +107,7 @@ template Test
       controller p
       do
         -- Fail if guard throws custom exception
-        assetAsToken <- create assetAsTokenTpl
+        assetAsToken <- create (assetAsTokenTpl p)
         exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
         pure ()
 
@@ -112,7 +115,7 @@ template Test
       controller p
       do
         -- Fail if guard throws exception, even in `try-catch` block
-        assetAsToken <- create assetAsTokenTpl
+        assetAsToken <- create (assetAsTokenTpl p)
         try do
           exerciseGuarded (\_ -> error "foo") assetAsToken getRich
         catch
@@ -124,7 +127,7 @@ template Test
       controller p
       do
         -- Fail if guard throws custom exception, even in `try-catch` block
-        assetAsToken <- create assetAsTokenTpl
+        assetAsToken <- create (assetAsTokenTpl p)
         try do
           exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
         catch
