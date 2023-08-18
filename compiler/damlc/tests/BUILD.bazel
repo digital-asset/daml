@@ -163,10 +163,9 @@ da_haskell_library(
     da_haskell_test(
         # NOTE(MH): For some reason, ghc-pkg gets very unhappy if we separate
         # the components of the version number by dot, dash or underscore.
-        name = "integration{skip}{order}-v{version}".format(
+        name = "integration{skip}-v{version}".format(
             version = version.replace(".", ""),
             skip = "-unvalidated" if skip_validation else "",
-            order = "-r2l" if eval_order == "RightToLeft" else "",
         ),
         size = "large",
         srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
@@ -178,7 +177,7 @@ da_haskell_library(
             "--daml-script-v2",
             "false",
             "--evaluation-order",
-            eval_order,
+            "LeftToRight",
         ],
         data = [
             ":bond-trading",
@@ -202,21 +201,14 @@ da_haskell_library(
             ":integration-lib",
         ],
     )
-    for version, skip_validation, eval_order in [(version, False, "LeftToRight") for version in COMPILER_LF_VERSIONS] + [
+    for version, skip_validation in [(version, False) for version in COMPILER_LF_VERSIONS] + [
         (
             lf_version_configuration.get("default"),
             True,
-            "LeftToRight",
         ),
         (
             lf_version_configuration.get("dev"),
             True,
-            "LeftToRight",
-        ),
-        (
-            lf_version_configuration.get("dev"),
-            False,
-            "RightToLeft",
         ),
     ]
 ]
