@@ -28,14 +28,17 @@ let
       };
     });
 
-    bazel_4 = pkgs.bazel_4.overrideAttrs(oldAttrs: {
+    bazel_6 = pkgs.bazel_6.overrideAttrs(oldAttrs: {
       patches = oldAttrs.patches ++ [
         # This should be upstreamed. Bazel is too aggressive
         # in treating arguments starting with @ as response files.
-        ./bazel-cc-wrapper-response-file.patch
+        # ./bazel-cc-wrapper-response-file.patch
+        # upstreamed: https://github.com/bazelbuild/bazel/pull/13044
+
         # This should be upstreamed once we tested it a bit
         # on our own setup.
-        ./bazel-retry-cache.patch
+        # ./bazel-retry-cache.patch
+        # upstreamed: https://github.com/bazelbuild/bazel/pull/14258
       ];
     });
     haskell = pkgs.haskell // {
