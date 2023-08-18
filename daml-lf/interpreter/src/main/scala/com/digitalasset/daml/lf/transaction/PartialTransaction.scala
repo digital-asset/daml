@@ -187,7 +187,7 @@ private[lf] object PartialTransaction {
     nodes = HashMap.empty,
     actionNodeSeeds = BackStack.empty,
     context = Context(initialSeeds, committers),
-    contractState = new ContractStateMachine[NodeId](contractKeyUniqueness).initial,
+    contractState = ContractStateMachine.initial[NodeId](contractKeyUniqueness),
     actionNodeLocations = BackStack.empty,
     authorizationChecker = authorizationChecker,
   )
@@ -221,7 +221,7 @@ private[speedy] case class PartialTransaction(
     nodes: HashMap[NodeId, Node],
     actionNodeSeeds: BackStack[crypto.Hash],
     context: PartialTransaction.Context,
-    contractState: ContractStateMachine[NodeId]#State,
+    contractState: ContractStateMachine.State[NodeId ],
     actionNodeLocations: BackStack[Option[Location]],
     authorizationChecker: AuthorizationChecker,
 ) {
@@ -652,7 +652,7 @@ private[speedy] case class PartialTransaction(
       node: Node.LeafOnlyAction,
       version: TxVersion,
       optLocation: Option[Location],
-      newContractState: ContractStateMachine[NodeId]#State,
+      newContractState: ContractStateMachine.State[NodeId],
   ): PartialTransaction = {
     val _ = version
     val nid = NodeId(nextNodeIdx)
