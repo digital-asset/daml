@@ -64,6 +64,7 @@ load("//:versions.bzl", "latest_stable_version")
 #   - https://github.com/digital-asset/daml/pull/9218
 # - DeeplyNestedValueIT
 #   - https://github.com/digital-asset/daml/pull/10393
+#   - https://github.com/digital-asset/daml/pull/17241
 # - KVCommandDeduplicationIT (only some test cases):
 #   - https://github.com/digital-asset/daml/pull/11095
 # - CommandDeduplicationIT:CDDeduplicateSubmitterBasic (fixed in https://github.com/digital-asset/daml/pull/11095):
@@ -637,6 +638,17 @@ excluded_test_tool_tests = [
                     "ExceptionsIT:ExUncaught",
                     "MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible",
                     "WronglyTypedContractIdIT",
+                ],
+            },
+        ],
+    },
+    {
+        "end": "2.7.0",
+        "platform_ranges": [
+            {
+                "start": "2.7.0-snapshot.20230703.11931.0.vc04c7ac9",
+                "exclusions": [
+                    "DeeplyNestedValueIT",
                 ],
             },
         ],
