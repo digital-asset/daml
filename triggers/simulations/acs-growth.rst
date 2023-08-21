@@ -51,12 +51,12 @@ At runtime, triggers process two types of workload:
 - and they process completion and transaction events - we will refer to this as internal processing or the internal workload
 
   - completion events are processed as part of managing asynchronous ledger API command submissions
-  - and transaction events (i.e. ledger contract create and archive events) are processed to ensure that the internal trigger ACS view remains in-sync with the ledger ACS view.
+  - and transaction events (i.e. create and archive events) are processed to ensure that the internal trigger ACS view remains in-sync with the ledger ACS view.
 
 .. note::
   To aid debugging trigger code, it is often helpful to ensure that these 2 types of workloads (i.e. user and internal) are separated - that way a developer may better detect issues with user vs internal trigger processing. For this use case we achieve this by ensuring that all user processing occurs only as a result of ``Heartbeat`` messages.
 
-Querying the trigger ACS data structure has O(n) complexity - i.e. it is linear in the size of the trigger ACS. So, allowing the trigger ACS to become large risks:
+Allowing the trigger ACS to become large risks:
 
 - increasing the time to perform user processing, as user code might query the ACS
 - delaying when user processing occurs, as internal processing starts to become the dominant workload
