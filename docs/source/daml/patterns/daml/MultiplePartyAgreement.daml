@@ -24,6 +24,11 @@ template Agreement
 -- end snippet: agreement template
 
 -- start snippet: first half pending template
+-- | The parties who need to sign are the finalContract.signatories with alreadySigned filtered out
+toSign : Pending -> [Party]
+toSign Pending { alreadySigned, finalContract } =
+  filter (`notElem` alreadySigned) finalContract.signatories
+
 template Pending
   with
     finalContract: Agreement
@@ -35,15 +40,12 @@ template Pending
       -- Can't have duplicate signatories
       unique alreadySigned
 
-    -- The parties who need to sign is the finalContract.signatories with alreadySigned filtered out
-    let toSign = filter (`notElem` alreadySigned) finalContract.signatories
-
     choice Sign : ContractId Pending with
         signer : Party
       controller signer
         do
           -- Check the controller is in the toSign list, and if they are, sign the Pending contract
-          assert (signer `elem` toSign)
+          assert (signer `elem` toSign this)
           create this with alreadySigned = signer :: alreadySigned
     -- end snippet: first half pending template
     -- start snippet: second half pending template

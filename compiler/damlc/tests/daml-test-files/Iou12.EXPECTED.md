@@ -68,6 +68,14 @@
 
 ## Functions
 
+<a name="function-iou12-updateowner-56091"></a>[updateOwner](#function-iou12-updateowner-56091)
+
+> : [Iou](#type-iou12-iou-72962) -\> [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Iou](#type-iou12-iou-72962))
+
+<a name="function-iou12-updateamount-41005"></a>[updateAmount](#function-iou12-updateamount-41005)
+
+> : [Iou](#type-iou12-iou-72962) -\> [Decimal](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135) -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Iou](#type-iou12-iou-72962))
+
 <a name="function-iou12-main-28537"></a>[main](#function-iou12-main-28537)
 
 > : Script ()

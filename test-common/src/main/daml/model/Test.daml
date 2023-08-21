@@ -269,6 +269,10 @@ template BranchingSignatories
   where
   signatory (if whichSign then signTrue else signFalse)
 
+ctrl : BranchingControllers -> Party
+ctrl BranchingControllers { whichCtrl, ctrlTrue, ctrlFalse } =
+  if whichCtrl then ctrlTrue else ctrlFalse
+
 template BranchingControllers
   with
     giver : Party
@@ -277,11 +281,10 @@ template BranchingControllers
     ctrlFalse : Party
   where
   signatory giver
-  let ctrl = if whichCtrl then ctrlTrue else ctrlFalse
-  observer ctrl
+  observer ctrl this
 
   choice Delete : ()
-    controller ctrl
+    controller ctrl this
     do return ()
 
 
