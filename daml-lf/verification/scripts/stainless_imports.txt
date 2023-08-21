@@ -14,7 +14,7 @@ import utils.{
   Unreachable,
   Node,
   ContractKeyUniquenessMode,
-  filterNot
+  Option
 }
 import utils.Value.ContractId
 import utils.Transaction.{

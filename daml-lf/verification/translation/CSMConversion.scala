@@ -17,7 +17,6 @@ import utils.{
   Unreachable,
   Node,
   ContractKeyUniquenessMode,
-  filterNot,
   MapProperties,
   MapAxioms,
   NodeId,

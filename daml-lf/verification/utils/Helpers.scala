@@ -38,11 +38,11 @@ object Either{
   )
 }
 
-extension[T](o: Option[T]) {
-  def filterNot(p: T => Boolean): Option[T] =
+object Option{
+
+  def filterNot[T](o: Option[T], p: T => Boolean): Option[T] =
     o match {
       case Some(v) if !p(v) => o
       case _ => None[T]()
     }
 }
-

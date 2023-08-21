@@ -26,9 +26,10 @@ ARGS="--watch=false --timeout=30 --vc-cache=false --compact=true --solvers=nativ
 # 2 : the files do not compile
 
 if [[ $1 = "translate" ]]; then
+  FILE_LOCATION="../../transaction/src/main/scala/com/digitalasset/daml/lf/transaction/ContractStateMachine.scala"
 
   #We first load the original file in a variable
-  FILE=$(cat ../../transaction/src/main/scala/com/digitalasset/daml/lf/transaction/ContractStateMachine.scala)
+  FILE=$(cat $FILE_LOCATION)
 
   #To be able to quickly double check the output we first remove comments and emptyLines
   FILE=$(sed '/^\s*\/\*/d' <<<"$FILE");
@@ -36,9 +37,10 @@ if [[ $1 = "translate" ]]; then
   FILE=$(sed  '/^\s*\/\//d' <<<"$FILE");
   FILE=$(sed  '/^$/d' <<<"$FILE");
 
-  #Replacing covariant options by invariant ones
+  #Replacing covariant options and lists by invariant ones
   FILE=$(sed 's/\bNone\b/None()/g' <<<"$FILE");
   FILE=$(sed 's/\([A-Za-z0-9_]*\)\s*::\s*\([A-Za-z0-9_]*\)/Cons(\1, \2)/g' <<<"$FILE");
+  FILE=$(sed 's/\(\([A-Za-z0-9_]\|\.\)*\).filterNot(\(\([A-Za-z0-9_]\|\.\)*\))/Option.filterNot(\1, \3)/g' <<<"$FILE");
   FILE=$(sed 's/\bNil\b/Nil()/g' <<<"$FILE");
 
   #Replacing KeyMapping with Option
@@ -65,6 +67,7 @@ if [[ $1 = "translate" ]]; then
   
   #Cleaning everything up
   rm -rf stainless
+  rm $FILE_LOCATION
   
   exit $?
 
