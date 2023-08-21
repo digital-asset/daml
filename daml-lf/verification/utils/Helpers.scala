@@ -10,7 +10,6 @@ import scala.annotation.{Annotation}
 
 object Unreachable {
 
-
   @opaque
   def apply(): Nothing = {
     require(false)
@@ -28,17 +27,15 @@ class nopaque extends Annotation
 @ignore
 class alias extends Annotation
 
-object Either{
+object Either {
 
   @pure
   def cond[A, B](test: Boolean, right: B, left: A): Either[A, B] = {
     if (test) Right[A, B](right) else Left[A, B](left)
-  }.ensuring(
-    (res: Either[A, B]) => res.isInstanceOf[Right[A, B]] == test
-  )
+  }.ensuring((res: Either[A, B]) => res.isInstanceOf[Right[A, B]] == test)
 }
 
-object Option{
+object Option {
 
   def filterNot[T](o: Option[T], p: T => Boolean): Option[T] =
     o match {
