@@ -5,14 +5,9 @@
 
 cd scripts
 
-#Removes anything that could make the script crash
-rm -rf stainless
 
-#Unzipping stainless
-mkdir stainless
-unzip stainless.zip -d stainless
-STAINLESS=$(pwd)/stainless/stainless.sh
-ARGS="--watch=false --timeout=30 --vc-cache=false --compact=true --solvers=smt-z3 --infer-measures=false"
+STAINLESS=$1
+ARGS="--watch=false --timeout=30 --vc-cache=false --compact=true --solvers=nativez3 --infer-measures=false"
 
 #Running stainless, there are 3 modes:
 # - translate: translate the original file to a simplified version and verifies only that
@@ -24,7 +19,7 @@ ARGS="--watch=false --timeout=30 --vc-cache=false --compact=true --solvers=smt-z
 # 1 : something does not verify
 # 2 : the files do not compile
 
-if [[ $1 = "translate" ]]; then
+if [[ $2 = "translate" ]]; then
   FILE_LOCATION="../../transaction/src/main/scala/com/digitalasset/daml/lf/transaction/ContractStateMachine.scala"
 
   #We first load the original file in a variable
@@ -67,32 +62,18 @@ if [[ $1 = "translate" ]]; then
   $STAINLESS ../utils/* ../translation/* ../transaction/* $ARGS;
   
   #Cleaning everything up
-  rm -rf stainless
   rm $FILE_DESTINATION
   
   exit $?
 
-elif [[ $1 = "verify" ]]; then
+elif [[ $2 = "verify" ]]; then
   $STAINLESS ../utils/* ../transaction/* ../tree/* $ARGS;
-  
-  #Cleaning everything up
-  rm -rf stainless;
-  
-  
   exit $?
 
-elif [[ $1 = "test" ]]; then
+elif [[ $2 = "test" ]]; then
   $STAINLESS $ARGS;
-  
-   #Cleaning everything up
-  rm -rf stainless;
-  
-  
   exit $?
 else
-  #Cleaning everything up
-  rm -rf stainless;
-  
   exit 3
 fi
 

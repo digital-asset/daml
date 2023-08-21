@@ -28,7 +28,7 @@ The verification happens in 2 major steps:
 
 To verify the former you can execute the verification script with the following argument:
 
-``` scripts/verification_script.sh translate```
+``` scripts/verification_script.sh <stainless_path> translate```
 
 
 
@@ -38,7 +38,7 @@ To verify the former you can execute the verification script with the following 
 
 or execute the script with the following argument:
 
-``` scripts/verification_script.sh verify```
+``` scripts/verification_script.sh <stainless_path> verify```
 
 If in the first command you find that the timeout is too big you can reduce it as you will (it is recommended to keep it above 10 if you don't want to have any suprise).
 
