@@ -1,3 +1,6 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package lf.verified
 package translation
 
@@ -14,17 +17,18 @@ import utils.{
   Unreachable,
   Node,
   ContractKeyUniquenessMode,
-  filterNot
+  filterNot,
 }
 import utils.Value.ContractId
 import utils.Transaction.{
-KeyCreate,
-KeyInputError,
-NegativeKeyLookup,
-InconsistentContractKey,
-DuplicateContractKey,
-KeyInput
+  KeyCreate,
+  KeyInputError,
+  NegativeKeyLookup,
+  InconsistentContractKey,
+  DuplicateContractKey,
+  KeyInput,
 }
+
 object ContractStateMachine {
   @dropVCs
   case class State[Nid] private[lf] (
@@ -206,7 +210,8 @@ object ContractStateMachine {
       this.copy(rollbackStack = Cons(activeState, rollbackStack))
     def endRollback(): State[Nid] = rollbackStack match {
       case Nil() => Unreachable()
-      case Cons(headState, tailStack) => this.copy(activeState = headState, rollbackStack = tailStack)
+      case Cons(headState, tailStack) =>
+        this.copy(activeState = headState, rollbackStack = tailStack)
     }
     def dropRollback(): State[Nid] = rollbackStack match {
       case Nil() => Unreachable()
@@ -316,7 +321,10 @@ object ContractStateMachine {
       )
     def localActiveKeys: Map[GlobalKey, KeyMapping] =
       localKeys.view
-        .mapValues((v: ContractId) => if (consumedBy.contains(v)) None[ContractId]() else Some[ContractId](v))
+        .mapValues((v: ContractId) =>
+          if (consumedBy.contains(v)) None[ContractId]()
+          else Some[ContractId](v)
+        )
         .toMap
     def getLocalActiveKey(key: GlobalKey): Option[KeyMapping] =
       localKeys.get(key) match {
@@ -329,3 +337,4 @@ object ContractStateMachine {
     def empty[Nid]: ActiveLedgerState[Nid] = ActiveLedgerState(Set.empty, Map.empty, Map.empty)
   }
 }
+

@@ -1,3 +1,6 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package lf.verified
 package utils
 
@@ -7,8 +10,7 @@ import scala.collection.{Set => ScalaSet}
 
 import SetProperties._
 
-
-case class Set[T] (@pure @extern toScala: ScalaSet[T]) {
+case class Set[T](@pure @extern toScala: ScalaSet[T]) {
 
   import SetAxioms._
 
@@ -52,8 +54,7 @@ case class Set[T] (@pure @extern toScala: ScalaSet[T]) {
         intersectSingleton(this, e)
         unionSize(this, Set(e))
         sizeEquals(intersect(Set(e)), Set(e))
-      }
-      else {
+      } else {
         disjointSingleton(this, e)
         unionDisjointSize(this, Set(e))
       }
@@ -69,12 +70,11 @@ case class Set[T] (@pure @extern toScala: ScalaSet[T]) {
     )
     inclProp
     res
-  }.ensuring{
-    res =>
-      res.contains(e) &&
-      subsetOf(res) &&
-        (res.size == (if (contains(e)) size else size + 1)) &&
-        !res.isEmpty
+  }.ensuring { res =>
+    res.contains(e) &&
+    subsetOf(res) &&
+    (res.size == (if (contains(e)) size else size + 1)) &&
+    !res.isEmpty
   }
 
   @pure @alias
@@ -92,10 +92,7 @@ case class Set[T] (@pure @extern toScala: ScalaSet[T]) {
   def diff(s2: Set[T]): Set[T] = {
     filterSubsetOf(this, x => !s2.contains(x))
     filter(!s2.contains(_))
-  }.ensuring(
-    res =>
-      res.subsetOf(this)
-  )
+  }.ensuring(res => res.subsetOf(this))
 
   @pure @alias
   def &~(s2: Set[T]): Set[T] = diff(s2)
@@ -103,10 +100,7 @@ case class Set[T] (@pure @extern toScala: ScalaSet[T]) {
   @pure @opaque
   def remove(e: T): Set[T] = {
     diff(Set[T](e))
-  }.ensuring(
-    res =>
-      res.subsetOf(this)
-  )
+  }.ensuring(res => res.subsetOf(this))
 
   @pure @alias
   def -(e: T): Set[T] = remove(e)
@@ -124,25 +118,21 @@ case class Set[T] (@pure @extern toScala: ScalaSet[T]) {
   @pure @alias
   def &(s2: Set[T]): Set[T] = intersect(s2)
 
-
-
   @pure @extern
   def witness(f: T => Boolean): T = {
     require(exists(f))
     ??? : T
   }.ensuring(w => contains(w) && f(w))
 
-
-  /**
-   * Extensional equality for finite sets
-   *
-   * Should not be opaque in order to have automatic symmetry
-   */
+  /** Extensional equality for finite sets
+    *
+    * Should not be opaque in order to have automatic symmetry
+    */
   @pure @nopaque
   def ===(s2: Set[T]): Boolean = subsetOf(s2) && s2.subsetOf(this)
 
   @pure @alias
-  def =/=(s2: Set[T]): Boolean = ! (this === s2)
+  def =/=(s2: Set[T]): Boolean = !(this === s2)
 
 }
 
@@ -158,10 +148,9 @@ object Set {
   def range(a: BigInt, b: BigInt): Set[BigInt] = {
     decreases(b - a)
     require(a <= b)
-    if(a == b){
+    if (a == b) {
       Set.empty[BigInt]
-    }
-    else {
+    } else {
       Set.range(a + 1, b) + a
     }
   }
@@ -170,145 +159,130 @@ object Set {
 
 object SetAxioms {
 
-  /**
-   * Size nonnegativity axiom
-   *
-   * The size of any set is always non negative
-   */
+  /** Size nonnegativity axiom
+    *
+    * The size of any set is always non negative
+    */
   @pure
   @extern
-  def sizePositive[T](s: Set[T]): Unit = {
-  }.ensuring(s.size >= BigInt(0))
+  def sizePositive[T](s: Set[T]): Unit = {}.ensuring(s.size >= BigInt(0))
 
-  /**
-   * Singleton size axiom
-   *
-   * The size of a singleton is 1
-   */
+  /** Singleton size axiom
+    *
+    * The size of a singleton is 1
+    */
   @pure @extern
-  def singletonSize[T](e: T): Unit = {
-  }.ensuring(Set(e).size == BigInt(1))
+  def singletonSize[T](e: T): Unit = {}.ensuring(Set(e).size == BigInt(1))
 
-  /**
-   * Disjoint union size axiom
-   *
-   * The size of a disjoint union is the sum of the sizes of the set
-   */
+  /** Disjoint union size axiom
+    *
+    * The size of a disjoint union is the sum of the sizes of the set
+    */
   @pure
   @extern
   def unionDisjointSize[T](s1: Set[T], s2: Set[T]): Unit = {
     require(s1.disjoint(s2))
   }.ensuring((s1 ++ s2).size == s1.size + s2.size)
 
-  /**
-   * Congruence size axiom
-   *
-   * If two sets are equal then their size is also equal
-   */
+  /** Congruence size axiom
+    *
+    * If two sets are equal then their size is also equal
+    */
   @pure
   @extern
   def sizeEquals[T](s1: Set[T], s2: Set[T]): Unit = {
     require(s1 === s2)
   }.ensuring(s1.size == s2.size)
 
-
-  /**
-   * De Morgan's laws for quantifiers
-   *
-   * The second one should not be an axiom if we assume that !!f == f
-   * which Stainless is not able to prove.
-   */
+  /** De Morgan's laws for quantifiers
+    *
+    * The second one should not be an axiom if we assume that !!f == f
+    * which Stainless is not able to prove.
+    */
   @pure @extern @inlineOnce
-  def notForallExists[T](s: Set[T], f: T => Boolean): Unit = {
-  }.ensuring(!s.forall(f) == s.exists(!f(_)))
+  def notForallExists[T](s: Set[T], f: T => Boolean): Unit = {}.ensuring(
+    !s.forall(f) == s.exists(!f(_))
+  )
 
   @pure
   @extern
   @inlineOnce
-  def forallNotExists[T](s: Set[T], f: T => Boolean): Unit = {
-  }.ensuring(!s.forall(!f(_)) == s.exists(f))
+  def forallNotExists[T](s: Set[T], f: T => Boolean): Unit = {}.ensuring(
+    !s.forall(!f(_)) == s.exists(f)
+  )
 
-  /**
-   * Existential quantifier definition
-   *
-   * Should not be an axiom if we assume some properties on lambdas that
-   * Stainless is not able to prove
-   */
+  /** Existential quantifier definition
+    *
+    * Should not be an axiom if we assume some properties on lambdas that
+    * Stainless is not able to prove
+    */
   @pure @extern
   def witnessExists[T](s: Set[T], f: T => Boolean, w: T): Unit = {
     require(s.contains(w))
     require(f(w))
   }.ensuring(s.exists(f))
 
-  /**
-   * Axiom of empty set
-   *
-   * Empty introduction axiom: any predicate on the empty set is valid. Equivalent
-   * to the ZF empty set axiom stating that there exists an empty such that it
-   * contains no element.
-   */
+  /** Axiom of empty set
+    *
+    * Empty introduction axiom: any predicate on the empty set is valid. Equivalent
+    * to the ZF empty set axiom stating that there exists an empty such that it
+    * contains no element.
+    */
   @pure
   @extern
-  def forallEmpty[T](f: T => Boolean): Unit = {
-  }.ensuring(Set.empty.forall(f))
+  def forallEmpty[T](f: T => Boolean): Unit = {}.ensuring(Set.empty.forall(f))
 
-
-  /**
-   * Axiom of union
-   *
-   * Union introduction axiom: any predicate is true on the union of two sets if
-   * and only if it is true for both.
-   */
+  /** Axiom of union
+    *
+    * Union introduction axiom: any predicate is true on the union of two sets if
+    * and only if it is true for both.
+    */
   @pure @extern
-  def forallUnion[T](s1: Set[T], s2: Set[T], f: T => Boolean): Unit = {
-  }.ensuring((s1 ++ s2).forall(f) == (s1.forall(f) && s2.forall(f)))
+  def forallUnion[T](s1: Set[T], s2: Set[T], f: T => Boolean): Unit = {}.ensuring(
+    (s1 ++ s2).forall(f) == (s1.forall(f) && s2.forall(f))
+  )
 
-  /**
-   * Axiom of filter
-   *
-   * Filter introduction axiom: if a set is filtered by a predicate then all the element
-   * of the set verify this predicate.
-   */
+  /** Axiom of filter
+    *
+    * Filter introduction axiom: if a set is filtered by a predicate then all the element
+    * of the set verify this predicate.
+    */
   @pure
   @extern
   @inlineOnce
-  def forallFilter[T](s: Set[T], f: T => Boolean, p: T => Boolean): Unit = {
-  }.ensuring(s.filter(f).forall(p) == s.forall(x => f(x) ==> p(x)))
+  def forallFilter[T](s: Set[T], f: T => Boolean, p: T => Boolean): Unit = {}.ensuring(
+    s.filter(f).forall(p) == s.forall(x => f(x) ==> p(x))
+  )
 
-
-  /**
-   * Axiom of map
-   *
-   * Map introduction axiom: if a set is filtered by a predicate then all the element
-   * of the set verify this predicate.
-   */
+  /** Axiom of map
+    *
+    * Map introduction axiom: if a set is filtered by a predicate then all the element
+    * of the set verify this predicate.
+    */
   @pure
   @extern
   @inlineOnce
-  def forallMap[T, V](s: Set[T], f: T => V, p: V => Boolean): Unit = {
-  }.ensuring(s.map(f).forall(p) == s.forall(f andThen p))
+  def forallMap[T, V](s: Set[T], f: T => V, p: V => Boolean): Unit = {}.ensuring(
+    s.map(f).forall(p) == s.forall(f andThen p)
+  )
 
-
-  /**
-   * Axiom of singleton
-   *
-   * Singleton introduction axiom: a predicate is true on a singleton if and only if
-   * it is valid for its unique element. Equivalent to an axiom for incl.
-   */
+  /** Axiom of singleton
+    *
+    * Singleton introduction axiom: a predicate is true on a singleton if and only if
+    * it is valid for its unique element. Equivalent to an axiom for incl.
+    */
   @pure @extern
-  def forallSingleton[T](e: T, f: T => Boolean): Unit = {
-  }.ensuring(Set(e).forall(f) == f(e))
+  def forallSingleton[T](e: T, f: T => Boolean): Unit = {}.ensuring(Set(e).forall(f) == f(e))
 
-  /**
-   * Extensionality axiom
-   *
-   * If two sets are subset of each other then their are equal
-   */
+  /** Extensionality axiom
+    *
+    * If two sets are subset of each other then their are equal
+    */
   @pure
   @extern
   def extensionality[T](s1: Set[T], s2: Set[T]): Unit = {
     require(s1 === s2)
   }.ensuring(s1 == s2)
 
-
 }
+

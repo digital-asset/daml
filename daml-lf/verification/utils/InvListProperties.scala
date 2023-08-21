@@ -1,3 +1,6 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package lf.verified
 package utils
 
@@ -23,16 +26,15 @@ object ListProperties {
     require(!l.forall(f))
     l match {
       case Nil() => Unreachable()
-      case Cons(h, t) => if(!f(h)) h else notForallWitness(t, f)
+      case Cons(h, t) => if (!f(h)) h else notForallWitness(t, f)
     }
-  }.ensuring(
-    res => l.contains(res) && !f(res)
-  )
+  }.ensuring(res => l.contains(res) && !f(res))
 
   @pure
   @opaque
-  def concatContains[T](@induct l1: List[T], l2: List[T], e: T): Unit = {
-  }.ensuring((l1 ++ l2).contains(e) == (l1.contains(e) || l2.contains(e)))
+  def concatContains[T](@induct l1: List[T], l2: List[T], e: T): Unit = {}.ensuring(
+    (l1 ++ l2).contains(e) == (l1.contains(e) || l2.contains(e))
+  )
 
   @pure
   @opaque
@@ -53,14 +55,13 @@ object ListProperties {
     if (l1.forall(p) && l2.forall(p) && !(l1 ++ l2).forall(p)) {
       val w = notForallWitness(l1 ++ l2, p)
       concatContains(l1, l2, w)
-      if(l1.contains(w)) forallContains(l1, p, w) else forallContains(l2, p, w)
+      if (l1.contains(w)) forallContains(l1, p, w) else forallContains(l2, p, w)
     }
   }.ensuring((l1 ++ l2).forall(p) == (l1.forall(p) && l2.forall(p)))
 
-
   @pure @opaque
   def forallContains[T](l: List[T], f: T => Boolean, e: T): Unit = {
-    if(l.forall(f) && l.contains(e)) {
+    if (l.forall(f) && l.contains(e)) {
       ListSpecs.forallContained(l, f, e)
     }
   }.ensuring((l.forall(f) && l.contains(e)) ==> f(e))
@@ -76,8 +77,7 @@ object ListProperties {
       case Cons(h, t) =>
         if (i == 0) {
           Trivial()
-        }
-        else {
+        } else {
           bapplyContains(t, i - 1)
         }
     }
@@ -105,14 +105,11 @@ object ListProperties {
       case Cons(h, t) =>
         if ((i1 == 0) && (i2 == 0)) {
           Trivial()
-        }
-        else if (i1 == 0) {
+        } else if (i1 == 0) {
           bapplyContains(t, i2 - 1)
-        }
-        else if (i2 == 0) {
+        } else if (i2 == 0) {
           bapplyContains(t, i1 - 1)
-        }
-        else {
+        } else {
           isUniqueIndex(t, i1 - 1, i2 - 1)
         }
     }
@@ -125,10 +122,9 @@ object ListProperties {
     l match {
       case Nil() => Unreachable()
       case Cons(h, t) =>
-        if(h == e){
+        if (h == e) {
           Trivial()
-        }
-        else{
+        } else {
           bapplyBindexOf(t, e)
         }
     }
@@ -146,10 +142,9 @@ object ListProperties {
     l match {
       case Nil() => Unreachable()
       case Cons(h, t) =>
-        if(t.isEmpty){
+        if (t.isEmpty) {
           Trivial()
-        }
-        else {
+        } else {
           bindexOfLast(t, e)
         }
     }
@@ -161,7 +156,7 @@ object ListProperties {
   def next[T](l: List[T], e: T): T = {
     require(l.contains(e))
     require(e != l.last)
-    if(l.bindexOf(e) >= l.blength - 1){
+    if (l.bindexOf(e) >= l.blength - 1) {
       bindexOfLast(l, e)
     }
     l.bapply(l.bindexOf(e) + 1)
@@ -176,10 +171,9 @@ object ListProperties {
     l1 match {
       case Nil() => Trivial()
       case Cons(h1, t1) =>
-        if(i == 0){
+        if (i == 0) {
           Trivial()
-        }
-        else {
+        } else {
           concatIndex(t1, l2, i - 1)
         }
     }
@@ -188,3 +182,4 @@ object ListProperties {
   )
 
 }
+

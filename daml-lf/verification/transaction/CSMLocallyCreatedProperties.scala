@@ -1,7 +1,20 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package lf.verified
 package transaction
 
-import stainless.lang.{unfold, decreases, BooleanDecorations, Either, Some, None, Option, Right, Left}
+import stainless.lang.{
+  unfold,
+  decreases,
+  BooleanDecorations,
+  Either,
+  Some,
+  None,
+  Option,
+  Right,
+  Left,
+}
 import stainless.annotation._
 import scala.annotation.targetName
 import stainless.collection._
@@ -14,16 +27,13 @@ import CSMHelpers._
 import CSMEither._
 import CSMEitherDef._
 
-/**
- * This file shows how the set of locallyCreated and consumed contracts of a state behave after handling a node.
- */
+/** This file shows how the set of locallyCreated and consumed contracts of a state behave after handling a node.
+  */
 object CSMLocallyCreatedProperties {
 
-
-  /**
-   * The set of locally created contracts has the new contract added to it when the node is an instance of Create and
-   * otherwise remains the same
-   */
+  /** The set of locally created contracts has the new contract added to it when the node is an instance of Create and
+    * otherwise remains the same
+    */
   @pure
   @opaque
   def handleNodeLocallyCreated(s: State, id: NodeId, node: Node.Action): Unit = {
@@ -40,44 +50,57 @@ object CSMLocallyCreatedProperties {
         sameLocallyCreatedTransitivity(s, s.visitLookup(lookup.gkey, lookup.result), res)
         unfold(sameLocallyCreated(s, res))
       case exe: Node.Exercise =>
-        sameLocallyCreatedTransitivity(s, s.visitExercise(id, exe.targetCoid, exe.gkeyOpt, exe.byKey, exe.consuming), res)
+        sameLocallyCreatedTransitivity(
+          s,
+          s.visitExercise(id, exe.targetCoid, exe.gkeyOpt, exe.byKey, exe.consuming),
+          res,
+        )
         unfold(sameLocallyCreated(s, res))
     }
   }.ensuring(
-    s.handleNode(id, node).forall( r =>
-      node match {
-        case Node.Create(coid, _) => r.locallyCreated == s.locallyCreated + coid
-        case _ => s.locallyCreated == r.locallyCreated
-      }
-    )
+    s.handleNode(id, node)
+      .forall(r =>
+        node match {
+          case Node.Create(coid, _) => r.locallyCreated == s.locallyCreated + coid
+          case _ => s.locallyCreated == r.locallyCreated
+        }
+      )
   )
 
-  /**
-   * The set of locally created contracts has the new contract added to it when the node is an instance of Create and
-   * otherwise remains the same
-   */
+  /** The set of locally created contracts has the new contract added to it when the node is an instance of Create and
+    * otherwise remains the same
+    */
   @pure
   @opaque
-  def handleNodeLocallyCreated(e: Either[KeyInputError, State], id: NodeId, node: Node.Action): Unit = {
+  def handleNodeLocallyCreated(
+      e: Either[KeyInputError, State],
+      id: NodeId,
+      node: Node.Action,
+  ): Unit = {
     unfold(handleNode(e, id, node))
     e match {
       case Left(_) => Trivial()
       case Right(s) => handleNodeLocallyCreated(s, id, node)
     }
   }.ensuring(
-    handleNode(e, id, node).forall(r => e.forall(s =>
-      node match {
-        case Node.Create(coid, _) => r.locallyCreated == s.locallyCreated + coid
-        case _ => s.locallyCreated == r.locallyCreated
-      }
-    ))
+    handleNode(e, id, node).forall(r =>
+      e.forall(s =>
+        node match {
+          case Node.Create(coid, _) => r.locallyCreated == s.locallyCreated + coid
+          case _ => s.locallyCreated == r.locallyCreated
+        }
+      )
+    )
   )
 
-  /**
-   * If two states propagates the error have the same set of locally created contracts then if the first is a subset of
-   * a third set then the second one also is.
-   */
-    def sameLocallyCreatedSubsetOfTransivity[T, U](e1: Either[T, State], e2: Either[U, State], lc: Set[ContractId]): Unit = {
+  /** If two states propagates the error have the same set of locally created contracts then if the first is a subset of
+    * a third set then the second one also is.
+    */
+  def sameLocallyCreatedSubsetOfTransivity[T, U](
+      e1: Either[T, State],
+      e2: Either[U, State],
+      lc: Set[ContractId],
+  ): Unit = {
     require(sameLocallyCreated(e1, e2))
     require(propagatesError(e1, e2))
     require(e1.forall(s1 => s1.locallyCreated.subsetOf(lc)))
@@ -90,10 +113,9 @@ object CSMLocallyCreatedProperties {
     }
   }.ensuring(e2.forall(s2 => s2.locallyCreated.subsetOf(lc)))
 
-  /**
-   * The set of consumed contracts has the consumed contract added to it when the node is an instance of a consuming
-   * Exercise and otherwise remains the same
-   */
+  /** The set of consumed contracts has the consumed contract added to it when the node is an instance of a consuming
+    * Exercise and otherwise remains the same
+    */
   @pure
   @opaque
   def handleNodeConsumed(s: State, id: NodeId, node: Node.Action): Unit = {
@@ -122,18 +144,18 @@ object CSMLocallyCreatedProperties {
         ()
     }
   }.ensuring(
-    s.handleNode(id, node).forall(r =>
-      node match {
-        case Node.Exercise(targetCoid, true, _, _, _) => r.consumed == s.consumed + targetCoid
-        case _ => s.consumed == r.consumed
-      }
-    )
+    s.handleNode(id, node)
+      .forall(r =>
+        node match {
+          case Node.Exercise(targetCoid, true, _, _, _) => r.consumed == s.consumed + targetCoid
+          case _ => s.consumed == r.consumed
+        }
+      )
   )
 
-  /**
-   * The set of consumed contracts has the consumed contract added to it when the node is an instance of a consuming
-   * Exercise and otherwise remains the same
-   */
+  /** The set of consumed contracts has the consumed contract added to it when the node is an instance of a consuming
+    * Exercise and otherwise remains the same
+    */
   @pure
   @opaque
   def handleNodeConsumed(e: Either[KeyInputError, State], id: NodeId, node: Node.Action): Unit = {
@@ -143,19 +165,24 @@ object CSMLocallyCreatedProperties {
       case Right(s) => handleNodeConsumed(s, id, node)
     }
   }.ensuring(
-    handleNode(e, id, node).forall(r => e.forall(s =>
-      node match {
-        case Node.Exercise(targetCoid, true, _, _, _) => r.consumed == s.consumed + targetCoid
-        case _ => s.consumed == r.consumed
-      }
-    ))
+    handleNode(e, id, node).forall(r =>
+      e.forall(s =>
+        node match {
+          case Node.Exercise(targetCoid, true, _, _, _) => r.consumed == s.consumed + targetCoid
+          case _ => s.consumed == r.consumed
+        }
+      )
+    )
   )
 
-  /**
-   * If two states propagates the error have the same set of consumed contracts then if the first is a subset of
-   * a third set then the second one also is.
-   */
-  def sameConsumedSubsetOfTransivity[T, U](e1: Either[T, State], e2: Either[U, State], lc: Set[ContractId]): Unit = {
+  /** If two states propagates the error have the same set of consumed contracts then if the first is a subset of
+    * a third set then the second one also is.
+    */
+  def sameConsumedSubsetOfTransivity[T, U](
+      e1: Either[T, State],
+      e2: Either[U, State],
+      lc: Set[ContractId],
+  ): Unit = {
     require(sameConsumed(e1, e2))
     require(propagatesError(e1, e2))
     require(e1.forall(s1 => s1.consumed.subsetOf(lc)))
@@ -168,6 +195,5 @@ object CSMLocallyCreatedProperties {
     }
   }.ensuring(e2.forall(s2 => s2.consumed.subsetOf(lc)))
 
-
-
 }
+

@@ -1,7 +1,20 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package lf.verified
 package transaction
 
-import stainless.lang.{unfold, decreases, BooleanDecorations, Either, Some, None, Option, Right, Left}
+import stainless.lang.{
+  unfold,
+  decreases,
+  BooleanDecorations,
+  Either,
+  Some,
+  None,
+  Option,
+  Right,
+  Left,
+}
 import stainless.annotation._
 import scala.annotation.targetName
 import stainless.collection._
@@ -13,20 +26,22 @@ import ContractStateMachine._
 import CSMEitherDef._
 import CSMEither._
 
-/**
- * Helpers definitions
- *
- * Definitions tightly related to ContractStateMachineAlt content. Most of them are extensions of already existing
- * methods with Either arguments type instead of State.
- */
+/** Helpers definitions
+  *
+  * Definitions tightly related to ContractStateMachineAlt content. Most of them are extensions of already existing
+  * methods with Either arguments type instead of State.
+  */
 object CSMHelpers {
 
-  /**
-   * Extension of [[State.handleNode]] method to a union type argument. If e is defined calls handleNode otherwise returns
-   * the same error.
-   */
+  /** Extension of [[State.handleNode]] method to a union type argument. If e is defined calls handleNode otherwise returns
+    * the same error.
+    */
   @pure
-  def handleNode(e: Either[KeyInputError, State], id: NodeId, node: Node.Action): Either[KeyInputError, State] = {
+  def handleNode(
+      e: Either[KeyInputError, State],
+      id: NodeId,
+      node: Node.Action,
+  ): Either[KeyInputError, State] = {
     val res = e match {
       case Left(e) => Left[KeyInputError, State](e)
       case Right(s) => s.handleNode(id, node)
@@ -34,15 +49,13 @@ object CSMHelpers {
     unfold(propagatesError(e, res))
     unfold(sameGlobalKeys(e, res))
     res
-  }.ensuring(
-    res =>
-      propagatesError(e, res) &&
-        sameGlobalKeys(e, res)
+  }.ensuring(res =>
+    propagatesError(e, res) &&
+      sameGlobalKeys(e, res)
   )
 
-  /**
-   * Converts consumed active key mappings into an inactive key mappings.
-   */
+  /** Converts consumed active key mappings into an inactive key mappings.
+    */
   @pure
   @opaque
   def keyMappingToActiveMapping(consumedBy: Map[ContractId, NodeId]): KeyMapping => KeyMapping = {
@@ -50,18 +63,15 @@ object CSMHelpers {
     case _ => KeyInactive
   }
 
-
-  /**
-   * Converts the error of an union type argument (InconsistentContractKey or DuplicateContractkey) into the more
-   * generic error type KeyInputError.
-   */
+  /** Converts the error of an union type argument (InconsistentContractKey or DuplicateContractkey) into the more
+    * generic error type KeyInputError.
+    */
   @pure
   def toKeyInputError(e: Either[InconsistentContractKey, State]): Either[KeyInputError, State] = {
     sameStateLeftProj(e, Left[InconsistentContractKey, DuplicateContractKey](_))
     e.left.map(Left[InconsistentContractKey, DuplicateContractKey](_))
-  }.ensuring(
-    res =>
-      propagatesBothError(e, res) &&
+  }.ensuring(res =>
+    propagatesBothError(e, res) &&
       sameState(e, res)
   )
   @pure
@@ -69,21 +79,19 @@ object CSMHelpers {
   def toKeyInputError(e: Either[DuplicateContractKey, State]): Either[KeyInputError, State] = {
     sameStateLeftProj(e, Right[InconsistentContractKey, DuplicateContractKey](_))
     e.left.map(Right[InconsistentContractKey, DuplicateContractKey](_))
-  }.ensuring(
-    res =>
-      propagatesBothError(e, res) &&
-        sameState(e, res)
+  }.ensuring(res =>
+    propagatesBothError(e, res) &&
+      sameState(e, res)
   )
 
-  /**
-   * Mapping that is added in the global keys when the n is handled.
-   *
-   * In the original ContractStateMachine, handleNode first adds the node's key with this mapping to the global keys
-   * and then process the node in the same way as ContractStateMachineAlt. In the simplified version, both operations
-   * are separated which brings the need for this function.
-   *
-   * @see mapping n, in the latex document
-   */
+  /** Mapping that is added in the global keys when the n is handled.
+    *
+    * In the original ContractStateMachine, handleNode first adds the node's key with this mapping to the global keys
+    * and then process the node in the same way as ContractStateMachineAlt. In the simplified version, both operations
+    * are separated which brings the need for this function.
+    *
+    * @see mapping n, in the latex document
+    */
   @pure
   @opaque
   def nodeActionKeyMapping(n: Node.Action): KeyMapping = {
@@ -95,11 +103,9 @@ object CSMHelpers {
     }
   }
 
-
-  /**
-   * Extension of State.beginRollback() method to a union type argument. If e is defined calls beginRollback otherwise
-   * returns the same error.
-   */
+  /** Extension of State.beginRollback() method to a union type argument. If e is defined calls beginRollback otherwise
+    * returns the same error.
+    */
   @pure
   @opaque
   def beginRollback[T](e: Either[T, State]): Either[T, State] = {
@@ -117,23 +123,20 @@ object CSMHelpers {
         unfold(sameConsumed(s, res))
     }
     res
-  }.ensuring(
-    (res: Either[T, State]) =>
-        sameGlobalKeys[T, T](e, res) &&
-        sameLocallyCreated(e, res) &&
-        sameConsumed(e, res) &&
-        sameError(e, res)
+  }.ensuring((res: Either[T, State]) =>
+    sameGlobalKeys[T, T](e, res) &&
+      sameLocallyCreated(e, res) &&
+      sameConsumed(e, res) &&
+      sameError(e, res)
   )
 
-
-  /**
-   * Extension of State.endRollback() method to a union type argument. If e is defined calls endRollback otherwise
-   * returns the same error.
-   *
-   * Due to a bug in Stainless, writing the properties in the enduring clause of endRollback makes the JVM crash.
-   * Therefore, all of these are grouped in a different function endRollbackProp that often needs to be called
-   * separately when using endRollback with a union type argument.
-   */
+  /** Extension of State.endRollback() method to a union type argument. If e is defined calls endRollback otherwise
+    * returns the same error.
+    *
+    * Due to a bug in Stainless, writing the properties in the enduring clause of endRollback makes the JVM crash.
+    * Therefore, all of these are grouped in a different function endRollbackProp that often needs to be called
+    * separately when using endRollback with a union type argument.
+    */
   @pure
   @opaque
   def endRollback(e: Either[KeyInputError, State]): Either[KeyInputError, State] = {
@@ -163,7 +166,10 @@ object CSMHelpers {
     require(!substate.withinRollbackScope)
   }.ensuring(
     init.advance(substate).isRight ==
-    substate.globalKeys.keySet.forall(k => init.activeKeys.get(k).forall(m => Some(m) == substate.globalKeys.get(k)))
+      substate.globalKeys.keySet.forall(k =>
+        init.activeKeys.get(k).forall(m => Some(m) == substate.globalKeys.get(k))
+      )
   )
 
-  }
+}
+
