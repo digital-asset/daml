@@ -4,6 +4,7 @@
 package com.daml.lf
 package engine
 
+import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight}
 import com.daml.lf.speedy.{
   AuthorizationChecker,
   DefaultAuthorizationChecker,
@@ -35,6 +36,12 @@ import com.daml.lf.transaction.ContractKeyUniquenessMode
   *     A value of false is insecure and should be used for security testing only.
   * @param iterationsBetweenInterruptions bound the maximal number of interpreter
   *     steps needed to produce a Result.
+  * @param enableContractUpgrading If set this flag a choice that is executed against
+  *     a contract may exist in a package different from that of the package.
+  * @param evaluationOrder The order in which applications are evaluated: from left
+  *      to right or from right to left. Right-to-left is incompatible with Daml 2.x
+  *      but it is faster and allows for simplifications in the interpreter. We're
+  *      aiming for right-to-left to be the default in Daml 3.
   */
 final case class EngineConfig(
     allowedLanguageVersions: VersionRange[language.LanguageVersion],
@@ -42,12 +49,39 @@ final case class EngineConfig(
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,
     contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
-    forbidV0ContractId: Boolean = false,
     requireSuffixedGlobalContractId: Boolean = false,
     limits: interpretation.Limits = interpretation.Limits.Lenient,
     checkAuthorization: Boolean = true,
     iterationsBetweenInterruptions: Long = 10000,
+    enableContractUpgrading: Boolean = false,
+    evaluationOrder: EvaluationOrder = LeftToRight,
 ) {
+  // TODO https://github.com/digital-asset/daml/issues/17270
+  // Remove this overloaded constructor once Canton has been updated.
+  def this(
+      allowedLanguageVersions: VersionRange[language.LanguageVersion],
+      packageValidation: Boolean,
+      stackTraceMode: Boolean,
+      profileDir: Option[Path],
+      contractKeyUniqueness: ContractKeyUniquenessMode,
+      requireSuffixedGlobalContractId: Boolean,
+      limits: interpretation.Limits,
+      checkAuthorization: Boolean,
+      iterationsBetweenInterruptions: Long,
+      enableContractUpgrading: Boolean,
+  ) = this(
+    allowedLanguageVersions,
+    packageValidation,
+    stackTraceMode,
+    profileDir,
+    contractKeyUniqueness,
+    requireSuffixedGlobalContractId,
+    limits,
+    checkAuthorization,
+    iterationsBetweenInterruptions,
+    enableContractUpgrading,
+    LeftToRight,
+  )
 
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
     speedy.Compiler.Config(
@@ -67,6 +101,8 @@ final case class EngineConfig(
           speedy.Compiler.FullProfile
         else
           speedy.Compiler.NoProfile,
+      enableContractUpgrading = enableContractUpgrading,
+      evaluationOrder = evaluationOrder,
     )
 
   private[lf] def authorizationChecker: AuthorizationChecker =

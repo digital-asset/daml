@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-DADE_CURRENT_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+DADE_CURRENT_SCRIPT_DIR="$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )"
 BASEL_CACHE_DIR="${DADE_CURRENT_SCRIPT_DIR}/../../.bazel-cache"
 source "$DADE_CURRENT_SCRIPT_DIR/../lib/dade-common"
 

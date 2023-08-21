@@ -5,6 +5,7 @@ package com.daml.lf
 package scenario
 
 import com.daml.lf.data.{ImmArray, Numeric, Ref}
+import com.daml.lf.language.Ast.PackageMetadata
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
 import com.daml.lf.speedy.{SError, SValue, TraceLog, Warning, WarningLog}
@@ -330,6 +331,28 @@ final class Conversions(
         builder.setEvaluationTimeout(timeout.toSeconds)
       case Error.CanceledByRequest() =>
         builder.setCancelledByRequest(empty)
+      case Error.LookupError(err, oPackageMeta, packageId) =>
+        val nstBuilder =
+          proto.ScenarioError.LookupError.newBuilder
+            .setPackageId(packageId)
+        err match {
+          case language.LookupError.NotFound(notFound, context) =>
+            nstBuilder.setNotFound(
+              proto.ScenarioError.LookupError.NotFound.newBuilder
+                .setNotFound(notFound.pretty)
+                .setContext(context.pretty)
+            )
+          case language.LookupError.AmbiguousInterfaceInstance(instance, context) =>
+            nstBuilder.setAmbiguousInterfaceInstance(
+              proto.ScenarioError.LookupError.AmbiguousInterfaceInstance.newBuilder
+                .setInstance(instance.pretty)
+                .setContext(context.pretty)
+            )
+        }
+        oPackageMeta.foreach(packageMeta =>
+          nstBuilder.setPackageMetadata(mkPackageMetadata(packageMeta))
+        )
+        builder.setLookupError(nstBuilder.build)
     }
     builder.build
   }
@@ -484,6 +507,12 @@ final class Conversions(
     proto.ContractRef.newBuilder
       .setContractId(coidToEventId(coid).toLedgerString)
       .setTemplateId(convertIdentifier(templateId))
+      .build
+
+  def mkPackageMetadata(packageMetadata: PackageMetadata): proto.PackageMetadata =
+    proto.PackageMetadata.newBuilder
+      .setPackageName(packageMetadata.name.toString)
+      .setPackageVersion(packageMetadata.version.toString)
       .build
 
   def convertScenarioStep(

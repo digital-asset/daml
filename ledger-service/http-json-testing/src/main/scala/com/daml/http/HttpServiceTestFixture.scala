@@ -153,12 +153,14 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
     val cantonTmpDir = Files.createTempDirectory("CantonFixture")
     val config = CantonConfig(
+      jarPath = Edition.cantonJar,
       authSecret = None,
       devMode = false,
       nParticipants = 1,
       timeProviderType = TimeProviderType.WallClock,
       debug = false,
       enableDisclosedContracts = false,
+      bootstrapScript = None,
     )
     val logger = org.slf4j.LoggerFactory.getLogger(getClass)
     val portsResource = CantonRunner

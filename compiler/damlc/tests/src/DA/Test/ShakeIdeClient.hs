@@ -55,9 +55,9 @@ ideTests mbScenarioService scriptPackageData =
         ]
 
 addScriptOpts :: Maybe ScriptPackageData -> Daml.Options -> Daml.Options
-addScriptOpts = maybe id $ \(packageDbPath, packageFlag) opts -> opts
+addScriptOpts = maybe id $ \(packageDbPath, packageFlags) opts -> opts
     { Daml.optPackageDbs = [packageDbPath]
-    , Daml.optPackageImports = [packageFlag]
+    , Daml.optPackageImports = packageFlags
     }
 
 -- | Tasty test case from a ShakeTest.

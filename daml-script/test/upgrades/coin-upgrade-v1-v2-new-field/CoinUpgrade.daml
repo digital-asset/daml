@@ -15,34 +15,34 @@ template Aux
   where
     signatory party
 
-    choice SoftFetch_Coin_1 : (Text, Coin_1.Coin.Coin)
+    choice Fetch_Coin_1 : (Text, Coin_1.Coin.Coin)
       with cid : ContractId Coin_1.Coin.Coin
       controller party
       do
-        coin <- softFetch cid
+        coin <- fetch cid
         pure $
-          ( "soft fetch v1\n" <> show coin
+          ( "fetch v1\n" <> show coin
           , coin
           )
 
-    choice SoftFetch_Coin_2 : (Text, Coin_2.Coin.Coin)
+    choice Fetch_Coin_2 : (Text, Coin_2.Coin.Coin)
       with cid : ContractId Coin_2.Coin.Coin
       controller party
       do
-        coin <- softFetch cid
+        coin <- fetch cid
         pure $
-          ( "soft fetch v2\n" <> show coin
+          ( "fetch v2\n" <> show coin
           , coin
           )
 
-create_v1_softFetch_v2 : Script ()
-create_v1_softFetch_v2 = do
+create_v1_fetch_v2 : Script ()
+create_v1_fetch_v2 = do
   alice <- allocateParty "alice"
   cid <- alice `submit` createCmd Coin_1.Coin.Coin with
     issuer = alice
     owner = alice
     obs = []
-  (_, coin) <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_2 with
+  (_, coin) <- alice `submit` createAndExerciseCmd (Aux alice) Fetch_Coin_2 with
     cid = coerceContractId cid
   -- the new field is empty
   coin.ccy === None
@@ -50,26 +50,26 @@ create_v1_softFetch_v2 = do
   (coin with ccy = Some "USD").ccy === Some "USD"
   pure ()
 
-create_v2_none_softFetch_v1 : Script ()
-create_v2_none_softFetch_v1 = do
+create_v2_none_fetch_v1 : Script ()
+create_v2_none_fetch_v1 = do
   alice <- allocateParty "alice"
   cid <- alice `submit` createCmd Coin_2.Coin.Coin with
     issuer = alice
     owner = alice
     obs = []
     ccy = None
-  _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1 with
+  _ <- alice `submit` createAndExerciseCmd (Aux alice) Fetch_Coin_1 with -- Downgrade/drop-None
     cid = coerceContractId cid
   pure ()
 
-create_v2_some_softFetch_v1 : Script ()
-create_v2_some_softFetch_v1 = do
+create_v2_some_fetch_v1 : Script ()
+create_v2_some_fetch_v1 = do
   alice <- allocateParty "alice"
   cid <- alice `submit` createCmd Coin_2.Coin.Coin with
     issuer = alice
     owner = alice
     obs = []
     ccy = Some "CHF"
-  _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1 with
+  _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) Fetch_Coin_1 with -- refuse Downgrade/drop-Some
     cid = coerceContractId cid
   pure ()

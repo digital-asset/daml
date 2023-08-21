@@ -8,7 +8,6 @@ import java.io.File
 
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
-import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 
 sealed abstract class CliMode extends Product with Serializable
 object CliMode {
@@ -82,6 +81,9 @@ case class ScriptConfig(
               participantMode = participantMode,
               timeMode = resolvedTimeMode,
               maxInboundMessageSize = maxInboundMessageSize,
+              accessTokenFile = accessTokenFile,
+              tlsConfig = tlsConfig,
+              applicationId = applicationId,
             )
           )
       }

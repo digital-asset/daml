@@ -225,15 +225,7 @@ private[lf] final class PhaseOne(
         compileERecCon(env, tApp, fields)
       case ERecProj(tapp, field, record) =>
         compileExp(env, record) { record =>
-          Return(
-            SBRecProj(
-              tapp.tycon,
-              handleLookup(
-                NameOf.qualifiedNameOfCurrentFunc,
-                pkgInterface.lookupRecordFieldInfo(tapp.tycon, field),
-              ).index,
-            )(record)
-          )
+          Return(SBRecProj(tapp.tycon, field)(record))
         }
       case erecupd: ERecUpd =>
         compileERecUpd(env, erecupd)
@@ -557,8 +549,6 @@ private[lf] final class PhaseOne(
     go(exp, List.empty, List.empty)
   }
 
-  private[this] def noArgs = ArrayList.empty[SValue]
-
   private[this] def compileERecCon(
       env: Env,
       tapp: TypeConApp,
@@ -567,7 +557,7 @@ private[lf] final class PhaseOne(
     tapp match {
       case TypeConApp(tycon, _) =>
         if (fields.isEmpty)
-          Return(SEValue(SRecord(tycon, ImmArray.Empty, noArgs)))
+          Return(SEValue(SRecordRep(tycon, ImmArray.Empty, Map.empty)))
         else {
           val exps = fields.toList.map(_._2)
           compileExps(env, exps) { exps =>
@@ -581,25 +571,14 @@ private[lf] final class PhaseOne(
     val tapp = erecupd.tycon
     val (record, fields, updates) = collectRecUpds(erecupd)
     if (fields.length == 1) {
-      val index = handleLookup(
-        NameOf.qualifiedNameOfCurrentFunc,
-        pkgInterface.lookupRecordFieldInfo(tapp.tycon, fields.head),
-      ).index
       compileExp(env, record) { record =>
         compileExp(env, updates.head) { update =>
-          Return(SBRecUpd(tapp.tycon, index)(record, update))
+          Return(SBRecUpd(tapp.tycon, fields.head)(record, update))
         }
       }
     } else {
-      val indices =
-        fields.map(name =>
-          handleLookup(
-            NameOf.qualifiedNameOfCurrentFunc,
-            pkgInterface.lookupRecordFieldInfo(tapp.tycon, name),
-          ).index
-        )
       compileExps(env, record :: updates) { exps =>
-        Return(SBRecUpdMulti(tapp.tycon, indices.to(ImmArray))(exps: _*))
+        Return(SBRecUpdMulti(tapp.tycon, fields)(exps: _*))
       }
     }
   }
@@ -708,9 +687,11 @@ private[lf] final class PhaseOne(
         compileExp(env, coid) { coid =>
           Return(t.FetchTemplateDefRef(tmplId)(coid))
         }
+      // TODO: https://github.com/digital-asset/daml/issues/17082
+      // - Soft fetch now has identical behavior to normal fetch, and could be removed
       case UpdateSoftFetchTemplate(tmplId, coid) =>
         compileExp(env, coid) { coid =>
-          Return(t.SoftFetchTemplateDefRef(tmplId)(coid))
+          Return(t.FetchTemplateDefRef(tmplId)(coid))
         }
       case UpdateFetchInterface(ifaceId, coid) =>
         compileExp(env, coid) { coid =>
@@ -741,10 +722,12 @@ private[lf] final class PhaseOne(
             Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
           }
         }
+      // TODO: https://github.com/digital-asset/daml/issues/17082
+      // - Soft exercise now has identical behavior to normal exercise, and could be removed
       case UpdateSoftExercise(tmplId, chId, cid, arg) =>
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>
-            Return(t.SoftTemplateChoiceDefRef(tmplId, chId)(cid, arg))
+            Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
           }
         }
       case UpdateDynamicExercise(tmplId, chId, cid, arg) =>

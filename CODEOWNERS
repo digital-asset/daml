@@ -27,9 +27,10 @@ NOTICES     @garyverhaegen-da @dasormeter
 /daml-assistant/    @remyhaemmerle-da @filmackay
 /daml-script/       @remyhaemmerle-da
 /triggers/          @remyhaemmerle-da
-/compiler/          @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da
-/libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da
-/ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da
+/compiler/          @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
+/libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
+/ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
+/canton/            @garyverhaegen-da @remyhaemmerle-da
 
 # Runtime
 /daml-lf/ @remyhaemmerle-da
@@ -50,7 +51,7 @@ NOTICES     @garyverhaegen-da @dasormeter
 /ledger-test-tool/                      @digital-asset/kv-participant @digital-asset/kv-committer
 
 # Conformance test on canton
-/ledger-test-tool/ledger-api-test-tool-on-canton @remyhaemmerle-da @rgugliel-da
+/ledger-test-tool/ledger-api-test-tool-on-canton @remyhaemmerle-da @rgugliel-da @digital-asset/kv-participant @digital-asset/kv-committer
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da @remyhaemmerle-da

@@ -1,0 +1,41 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_EXCEPTIONS
+
+module ScriptTryCatch where
+
+import Daml.Script
+import DA.Assert
+
+-- @ ERROR Should throw
+throwException : Script ()
+throwException = error "Should throw"
+
+catchException : Script ()
+catchException = do
+  try do
+    assert False
+  catch
+    AssertionFailed m ->
+      m === "Assertion failed"
+
+-- @ ERROR Didn't catch this exception
+missException : Script ()
+missException = do
+  try do
+    error "Didn't catch this exception"
+  catch
+    AssertionFailed m -> pure ()
+
+nestedTry : Script ()
+nestedTry = do
+  try do
+    try do
+      assert False
+    catch
+      AssertionFailed m ->
+        m === "Assertion failed"
+    pure ()
+  catch
+    AssertionFailed _ -> error "Inner try didn't catch"

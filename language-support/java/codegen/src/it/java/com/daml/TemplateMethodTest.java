@@ -6,6 +6,10 @@ package com.daml;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.codegen.Created;
+import com.daml.ledger.javaapi.data.codegen.Exercises;
+import com.daml.ledger.javaapi.data.codegen.Update;
+import da.internal.template.Archive;
 import java.util.Collections;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -26,8 +30,8 @@ public class TemplateMethodTest {
 
   @Test
   void templateHasCreateMethods() {
-    var fromStatic = SimpleTemplate.create("Bob");
-    var fromInstance = new SimpleTemplate("Bob").create();
+    Update<Created<SimpleTemplate.ContractId>> fromStatic = SimpleTemplate.create("Bob");
+    Update<Created<SimpleTemplate.ContractId>> fromInstance = new SimpleTemplate("Bob").create();
 
     assertEquals(
         1, fromStatic.commands().size(), "There are not exactly one command from static method");
@@ -77,6 +81,14 @@ public class TemplateMethodTest {
         1,
         fromRecord.commands().size(),
         "There are not exactly one command from Update<R> from record choice");
+  }
+
+  @Test
+  void templateHasArchive() {
+    SimpleTemplate.ContractId cid = new SimpleTemplate.ContractId("id");
+    Exercises.Archive<?> wideCid = cid;
+    assertEquals(
+        wideCid.exerciseArchive().commands(), cid.exerciseArchive(new Archive()).commands());
   }
 
   @Test

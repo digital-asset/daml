@@ -21,7 +21,7 @@ import qualified DA.Daml.Assistant.Install.Artifactory as Artifactory
 import qualified DA.Daml.Assistant.Install.Github as Github
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
-import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion)
+import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion, UseCache (..))
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
 import Safe
@@ -76,6 +76,8 @@ data InstallEnv = InstallEnv
         -- ^ version of running daml assistant
     , damlPath :: DamlPath
         -- ^ path to install daml assistant
+    , useCache :: UseCache
+        -- ^ path to daml assistant cache
     , missingAssistant :: Bool
         -- ^ daml assistant is not installed in expected path.
     , installingFromOutside :: Bool
@@ -415,9 +417,9 @@ versionInstall env@InstallEnv{..} version = withInstallLock env $ do
 -- | Install the latest version of the SDK.
 latestInstall :: InstallEnv -> IO ()
 latestInstall env@InstallEnv{..} = do
-    version1 <- getLatestReleaseVersion
+    version1 <- getLatestReleaseVersion useCache
     version2M <- if iSnapshots options
-        then getLatestSdkSnapshotVersion
+        then getLatestSdkSnapshotVersion useCache
         else pure Nothing
     let version = maybe version1 (max version1) version2M
     versionInstall env version
@@ -445,8 +447,8 @@ pattern RawInstallTarget_Latest :: RawInstallTarget
 pattern RawInstallTarget_Latest = RawInstallTarget "latest"
 
 -- | Run install command.
-install :: InstallOptions -> DamlPath -> Maybe ProjectPath -> Maybe DamlAssistantSdkVersion -> IO ()
-install options damlPath projectPathM assistantVersion = do
+install :: InstallOptions -> DamlPath -> UseCache -> Maybe ProjectPath -> Maybe DamlAssistantSdkVersion -> IO ()
+install options damlPath useCache projectPathM assistantVersion = do
     when (unActivateInstall (iActivate options)) $
         hPutStr stderr . unlines $
             [ "WARNING: --activate is deprecated, use --install-assistant=yes instead."

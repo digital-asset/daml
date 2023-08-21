@@ -7,7 +7,7 @@ package engine
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, FrontStack, ImmArray}
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
 import com.daml.lf.value.Value._
 import scalaz.Monad
 
@@ -24,12 +24,16 @@ sealed trait Result[+A] extends Product with Serializable {
     case ResultError(err) => ResultError(err)
     case ResultNeedContract(acoid, resume) =>
       ResultNeedContract(acoid, mbContract => resume(mbContract).map(f))
+    case ResultNeedCreate(acoid, resume) =>
+      ResultNeedCreate(acoid, create => resume(create).map(f))
     case ResultNeedPackage(pkgId, resume) =>
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).map(f))
     case ResultNeedKey(gk, resume) =>
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).map(f))
     case ResultNeedAuthority(holding, requesting, resume) =>
       ResultNeedAuthority(holding, requesting, bool => resume(bool).map(f))
+    case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
+      ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, x => resume(x).map(f))
   }
 
   def flatMap[B](f: A => Result[B]): Result[B] = this match {
@@ -38,19 +42,24 @@ sealed trait Result[+A] extends Product with Serializable {
     case ResultError(err) => ResultError(err)
     case ResultNeedContract(acoid, resume) =>
       ResultNeedContract(acoid, mbContract => resume(mbContract).flatMap(f))
+    case ResultNeedCreate(acoid, resume) =>
+      ResultNeedCreate(acoid, create => resume(create).flatMap(f))
     case ResultNeedPackage(pkgId, resume) =>
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).flatMap(f))
     case ResultNeedKey(gk, resume) =>
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).flatMap(f))
     case ResultNeedAuthority(holding, requesting, resume) =>
       ResultNeedAuthority(holding, requesting, bool => resume(bool).flatMap(f))
+    case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
+      ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, x => resume(x).flatMap(f))
   }
 
   private[lf] def consume(
-      pcs: ContractId => Option[VersionedContractInstance],
-      packages: PackageId => Option[Package],
-      keys: GlobalKeyWithMaintainers => Option[ContractId],
+      pcs: PartialFunction[ContractId, VersionedContractInstance] = PartialFunction.empty,
+      pkgs: PartialFunction[PackageId, Package] = PartialFunction.empty,
+      keys: PartialFunction[GlobalKeyWithMaintainers, ContractId] = PartialFunction.empty,
       grantNeedAuthority: Boolean = false,
+      creates: PartialFunction[ContractId, Node.Create] = PartialFunction.empty,
   ): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
@@ -58,10 +67,12 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultDone(x) => Right(x)
         case ResultInterruption(continue) => go(continue())
         case ResultError(err) => Left(err)
-        case ResultNeedContract(acoid, resume) => go(resume(pcs(acoid)))
-        case ResultNeedPackage(pkgId, resume) => go(resume(packages(pkgId)))
-        case ResultNeedKey(key, resume) => go(resume(keys(key)))
+        case ResultNeedContract(acoid, resume) => go(resume(pcs.lift(acoid)))
+        case ResultNeedCreate(acoid, resume) => go(resume(creates.lift(acoid)))
+        case ResultNeedPackage(pkgId, resume) => go(resume(pkgs.lift(pkgId)))
+        case ResultNeedKey(key, resume) => go(resume(keys.lift(key)))
         case ResultNeedAuthority(_, _, resume) => go(resume(grantNeedAuthority))
+        case ResultNeedUpgradeVerification(_, _, _, _, resume) => go(resume(Some("not validated!")))
       }
     go(this)
   }
@@ -109,6 +120,32 @@ final case class ResultNeedContract[A](
     resume: Option[VersionedContractInstance] => Result[A],
 ) extends Result[A]
 
+/** Intermediate result indicating that a [[Node.Create]] is required to complete the computation.
+  * To resume the computation, the caller must invoke `resume` with the following argument:
+  * <ul>
+  * <li>`Some(create)`, if the caller can dereference `acoid` to `create`</li>
+  * <li>`None`, if the caller is unable to dereference `acoid`</li>
+  * </ul>
+  *
+  * The caller of `resume` has to ensure that the create passed to `resume` is a create that
+  * has previously been associated with `acoid` by the engine.
+  *
+  * The engine will verify that details provided in the create match the recomputed values based on the
+  * target package template (that may or may not be the package originally associated with the create).
+  *
+  * The details that should be checked are:
+  *
+  *  - signatories
+  *  - observers
+  *  - contract key
+  *  - maintainers
+  *  - agreement
+  */
+final case class ResultNeedCreate[A](
+    acoid: ContractId,
+    resume: Option[Node.Create] => Result[A],
+) extends Result[A]
+
 /** Intermediate result indicating that a [[Package]] is required to complete the computation.
   * To resume the computation, the caller must invoke `resume` with the following argument:
   * <ul>
@@ -148,6 +185,25 @@ final case class ResultNeedAuthority[A](
     holding: Set[Party],
     requesting: Set[Party],
     resume: Boolean => Result[A],
+) extends Result[A]
+
+/** After computing the immutable contact data associated with a contract, (for a specific template
+  * type, which may be an upgrade/downgrade of the type at which the contract was created), the
+  * engine will call `ResultNeedUpgradeVerification` to allow the ledger to validate that the
+  * immutable contract data has not changed.
+  *
+  * The ledger will callback `resume` with `None` if everything is fine, or callback with
+  * `Some(helpfulErrorInfo)` otherwise.
+  *
+  * TODO: https://github.com/digital-asset/daml/issues/17082
+  * - The engine must be extended to call `ResultNeedUpgradeVerification`
+  */
+final case class ResultNeedUpgradeVerification[A](
+    coid: ContractId,
+    signatories: Set[Party],
+    observers: Set[Party],
+    keyOpt: Option[GlobalKeyWithMaintainers],
+    resume: Option[String] => Result[A],
 ) extends Result[A]
 
 object Result {
@@ -210,8 +266,31 @@ object Result {
                       .map(otherResults => (okResults :+ x) :++ otherResults)
                   ),
               )
+            case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
+              ResultNeedUpgradeVerification(
+                coid,
+                signatories,
+                observers,
+                keyOpt,
+                res =>
+                  resume(res).flatMap(x =>
+                    Result
+                      .sequence(results_)
+                      .map(otherResults => (okResults :+ x) :++ otherResults)
+                  ),
+              )
             case ResultNeedContract(acoid, resume) =>
               ResultNeedContract(
+                acoid,
+                coinst =>
+                  resume(coinst).flatMap(x =>
+                    Result
+                      .sequence(results_)
+                      .map(otherResults => (okResults :+ x) :++ otherResults)
+                  ),
+              )
+            case ResultNeedCreate(acoid, resume) =>
+              ResultNeedCreate(
                 acoid,
                 coinst =>
                   resume(coinst).flatMap(x =>

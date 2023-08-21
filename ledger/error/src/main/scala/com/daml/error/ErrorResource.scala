@@ -15,15 +15,41 @@ trait ErrorResource {
 
 object ErrorResource {
 
-  val all = Seq(ContractId, ContractKey, DalfPackage, LedgerId, CommandId, TransactionId, Party)
+  val all = Seq(
+    CommandId,
+    ContractArg,
+    ContractId,
+    ContractIds,
+    ContractKey,
+    ContractKeyHash,
+    DalfPackage,
+    DevErrorType,
+    ExceptionText,
+    ExceptionType,
+    ExceptionValue,
+    IdentityProviderConfig,
+    InterfaceId,
+    LedgerId,
+    Parties,
+    Party,
+    TemplateId,
+    TransactionId,
+    User,
+  )
 
   def fromString(str: String): Option[ErrorResource] = all.find(_.asString == str)
 
   object ContractId extends ErrorResource {
     def asString: String = "CONTRACT_ID"
   }
+  object ContractIds extends ErrorResource {
+    def asString: String = "CONTRACT_IDS"
+  }
   object ContractKey extends ErrorResource {
     def asString: String = "CONTRACT_KEY"
+  }
+  object ContractArg extends ErrorResource {
+    def asString: String = "CONTRACT_ARG"
   }
   object TransactionId extends ErrorResource {
     def asString: String = "TRANSACTION_ID"
@@ -46,10 +72,28 @@ object ErrorResource {
   object Party extends ErrorResource {
     def asString: String = "PARTY"
   }
+  object Parties extends ErrorResource {
+    def asString: String = "PARTIES"
+  }
   object User extends ErrorResource {
     def asString: String = "USER"
   }
   object IdentityProviderConfig extends ErrorResource {
     def asString: String = "IDENTITY_PROVIDER_CONFIG"
+  }
+  object ContractKeyHash extends ErrorResource {
+    def asString: String = "CONTRACT_KEY_HASH"
+  }
+  object ExceptionValue extends ErrorResource {
+    def asString: String = "EXCEPTION_VALUE"
+  }
+  object ExceptionType extends ErrorResource {
+    def asString: String = "EXCEPTION_TYPE"
+  }
+  object ExceptionText extends ErrorResource {
+    def asString: String = "EXCEPTION_TEXT"
+  }
+  object DevErrorType extends ErrorResource {
+    def asString: String = "DEV_ERROR_TYPE"
   }
 }

@@ -30,7 +30,7 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
           ValueRecord("", ImmArray("owners" -> parties, "data" -> ValueInt64(42))),
         )
       intermediaryResult shouldBe a[ResultNeedPackage[_]]
-      val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
+      val finalResult = intermediaryResult.consume(pkgs = pkgs)
       finalResult shouldBe a[Right[_, _]]
     }
 
@@ -45,7 +45,7 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
           ),
         )
       intermediaryResult shouldBe a[ResultNeedPackage[_]]
-      val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
+      val finalResult = intermediaryResult.consume(pkgs = pkgs)
       inside(finalResult) { case Left(Error.Preprocessing(error)) =>
         error shouldBe a[Error.Preprocessing.TypeMismatch]
       }
@@ -60,7 +60,7 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
 
           val finalResult = preprocessor
             .preprocessDisclosedContracts(ImmArray(normalizedContract))
-            .consume(_ => None, pkgs.get, _ => None)
+            .consume(pkgs = pkgs)
 
           acceptDisclosedContract(finalResult)
         }
@@ -71,7 +71,7 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
             buildDisclosedContract(withNormalization = true, withFieldsReversed = true)
           val finalResult = preprocessor
             .preprocessDisclosedContracts(ImmArray(altNormalizedContract))
-            .consume(_ => None, pkgs.get, _ => None)
+            .consume(pkgs = pkgs)
 
           inside(finalResult) { case Left(Error.Preprocessing(error)) =>
             error shouldBe a[Error.Preprocessing.TypeMismatch]
@@ -89,7 +89,7 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
           val result =
             preprocessor
               .preprocessDisclosedContracts(ImmArray(contract))
-              .consume(_ => None, pkgs.get, _ => None)
+              .consume(pkgs = pkgs)
 
           acceptDisclosedContract(result)
         }
@@ -102,7 +102,7 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
           buildDisclosedContract(contractId, templateId = withKeyTmplId, keyHash = Some(keyHash))
         val finalResult = preprocessor
           .preprocessDisclosedContracts(ImmArray(contract1, contract2))
-          .consume(_ => None, pkgs.get, _ => None)
+          .consume(pkgs = pkgs)
 
         inside(finalResult) {
           case Left(
@@ -125,7 +125,7 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
           buildDisclosedContract(contractId2, templateId = withKeyTmplId, keyHash = Some(keyHash))
         val finalResult = preprocessor
           .preprocessDisclosedContracts(ImmArray(contract1, contract2))
-          .consume(_ => None, pkgs.get, _ => None)
+          .consume(pkgs = pkgs)
 
         inside(finalResult) {
           case Left(
@@ -141,7 +141,7 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
           buildDisclosedContract(contractId, templateId = withoutKeyTmplId, keyHash = Some(keyHash))
         val finalResult = preprocessor
           .preprocessDisclosedContracts(ImmArray(contract))
-          .consume(_ => None, pkgs.get, _ => None)
+          .consume(pkgs = pkgs)
 
         inside(finalResult) {
           case Left(
@@ -163,7 +163,7 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
           buildDisclosedContract(contractId, templateId = withKeyTmplId, keyHash = None)
         val finalResult = preprocessor
           .preprocessDisclosedContracts(ImmArray(contract))
-          .consume(_ => None, pkgs.get, _ => None)
+          .consume(pkgs = pkgs)
 
         inside(finalResult) {
           case Left(

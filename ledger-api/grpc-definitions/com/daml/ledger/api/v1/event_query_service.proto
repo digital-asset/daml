@@ -70,6 +70,8 @@ message GetEventsByContractKeyRequest {
   // The events associated with the contract key will only be returned if the requesting parties includes
   // at least one party that is a stakeholder of the event. For a definition of stakeholders see
   // https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#contract-observers-and-stakeholders
+  // To gain visibility of all contract key bindings and to ensure consistent performance use a key maintainer as
+  // a requesting party.
   // Required
   repeated string requesting_parties = 3;
 

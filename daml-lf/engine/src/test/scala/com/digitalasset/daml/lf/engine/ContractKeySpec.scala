@@ -117,22 +117,18 @@ class ContractKeySpec
         toContractId("BasicTests:WithKey:1")
   )
 
-  private[this] def lookupPackage(pkgId: PackageId): Option[Package] = {
-    allPackages.get(pkgId)
-  }
-
-  private[this] def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-    (key.globalKey.templateId, key.globalKey.key) match {
-      case (
+  private[this] val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
+    case GlobalKeyWithMaintainers(
+          GlobalKey(
             BasicTests_WithKey,
             ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
-          ) =>
-        Some(toContractId("BasicTests:WithKey:1"))
-      case _ =>
-        None
-    }
+          ),
+          _,
+        ) =>
+      toContractId("BasicTests:WithKey:1")
+  }
 
-  private[this] val suffixLenientEngine = newEngine()
+  private[this] val suffixLenientEngine = Engine.DevEngine()
   private[this] val preprocessor =
     new preprocessing.Preprocessor(
       ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
@@ -166,7 +162,7 @@ class ContractKeySpec
             ApiCommand.CreateAndExercise(templateId, createArg, "DontExecuteCreate", exerciseArg)
           )
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(pkgs = allPackages, keys = lookupKey)
 
       val result = suffixLenientEngine
         .interpretCommands(
@@ -178,7 +174,7 @@ class ContractKeySpec
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(pkgs = allPackages, keys = lookupKey)
       result shouldBe a[Right[_, _]]
     }
 
@@ -196,8 +192,7 @@ class ContractKeySpec
 
       val Right(cmds) = preprocessor
         .preprocessApiCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
-        .consume(_ => None, lookupPackage, lookupKey)
-
+        .consume(pkgs = allPackages, keys = lookupKey)
       val result = suffixLenientEngine
         .interpretCommands(
           validating = false,
@@ -208,7 +203,7 @@ class ContractKeySpec
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(pkgs = allPackages, keys = lookupKey)
       result shouldBe a[Left[_, _]]
       val Left(err) = result
       err.message should not include ("Boom")
@@ -229,7 +224,7 @@ class ContractKeySpec
 
       val Right(cmds) = preprocessor
         .preprocessApiCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(pkgs = allPackages, keys = lookupKey)
       val result = suffixLenientEngine
         .interpretCommands(
           validating = false,
@@ -240,7 +235,7 @@ class ContractKeySpec
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume(pkgs = allPackages, keys = lookupKey)
 
       inside(result) { case Left(err) =>
         err.message should include(
@@ -258,7 +253,6 @@ class ContractKeySpec
         EngineConfig(
           allowedLanguageVersions = LV.DevVersions,
           contractKeyUniqueness = ContractKeyUniquenessMode.Off,
-          forbidV0ContractId = true,
           requireSuffixedGlobalContractId = true,
         )
       )
@@ -266,12 +260,10 @@ class ContractKeySpec
         EngineConfig(
           allowedLanguageVersions = LV.DevVersions,
           contractKeyUniqueness = ContractKeyUniquenessMode.Strict,
-          forbidV0ContractId = true,
           requireSuffixedGlobalContractId = true,
         )
       )
       val (multiKeysPkgId, _, allMultiKeysPkgs) = loadPackage("daml-lf/tests/MultiKeys.dar")
-      val lookupPackage = allMultiKeysPkgs.get(_)
       val keyedId = Identifier(multiKeysPkgId, "MultiKeys:Keyed")
       val opsId = Identifier(multiKeysPkgId, "MultiKeys:KeyOperations")
       val let = Time.Timestamp.now()
@@ -287,17 +279,9 @@ class ContractKeySpec
         )
       )
       val contracts = Map(cid1 -> keyedInst, cid2 -> keyedInst)
-      val lookupContract = contracts.get(_)
-      def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-        (key.globalKey.templateId, key.globalKey.key) match {
-          case (
-                `keyedId`,
-                ValueParty(`party`),
-              ) =>
-            Some(cid1)
-          case _ =>
-            None
-        }
+      val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
+        case GlobalKeyWithMaintainers(GlobalKey(`keyedId`, ValueParty(`party`)), _) => cid1
+      }
       def run(engine: Engine, choice: String, argument: Value) = {
         val cmd = ApiCommand.CreateAndExercise(
           opsId,
@@ -307,7 +291,7 @@ class ContractKeySpec
         )
         val Right(cmds) = preprocessor
           .preprocessApiCommands(ImmArray(cmd))
-          .consume(lookupContract, lookupPackage, lookupKey)
+          .consume(contracts, pkgs = allMultiKeysPkgs, keys = lookupKey)
         engine
           .interpretCommands(
             validating = false,
@@ -318,7 +302,7 @@ class ContractKeySpec
             submissionTime = let,
             seeding = seeding,
           )
-          .consume(lookupContract, lookupPackage, lookupKey)
+          .consume(contracts, pkgs = allMultiKeysPkgs, keys = lookupKey)
       }
       val emptyRecord = ValueRecord(None, ImmArray.Empty)
       // The cid returned by a fetchByKey at the beginning
@@ -439,15 +423,6 @@ object ContractKeySpec {
   private val party = Party.assertFromString("Party")
   private val alice = Party.assertFromString("Alice")
   private val bob = Party.assertFromString("Bob")
-
-  private def newEngine(requireCidSuffixes: Boolean = false) =
-    new Engine(
-      EngineConfig(
-        allowedLanguageVersions = language.LanguageVersion.DevVersions,
-        forbidV0ContractId = true,
-        requireSuffixedGlobalContractId = requireCidSuffixes,
-      )
-    )
 
   private implicit def qualifiedNameStr(s: String): QualifiedName =
     QualifiedName.assertFromString(s)

@@ -507,6 +507,11 @@ instance DA.Internal.Desugar.HasToAnyException GuardException where
   toAnyException = GHC.Types.primitive @"EToAnyException"
 instance DA.Internal.Desugar.HasFromAnyException GuardException where
   fromAnyException = GHC.Types.primitive @"EFromAnyException"
+assetAsTokenTpl : Party -> Token
+assetAsTokenTpl p
+  = toInterface @Token $ Asset {issuer = p, owner = p, amount = 100}
+getRich : GetRich
+getRich = GetRich {byHowMuch = 1000000}
 data GHC.Types.DamlTemplate => Test
   = Test {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -531,44 +536,25 @@ data TryErrorGuard
 data TryCustomErrorGuard
   = TryCustomErrorGuard {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-_templateLet_Test this@Test {..}
-  = let
-      assetAsTokenTpl
-        = toInterface @Token
-            $ Asset {issuer = p, owner = p, amount = 100} in
-    let getRich = GetRich {byHowMuch = 1000000} in
-    let _ = this in (assetAsTokenTpl, getRich)
 instance DA.Internal.Desugar.HasSignatory Test where
   signatory this@Test {..}
     = DA.Internal.Desugar.toParties (p)
     where
-        (assetAsTokenTpl, getRich) = _templateLet_Test this
-        _ = assetAsTokenTpl
-        _ = getRich
         _ = this
 instance DA.Internal.Desugar.HasObserver Test where
   observer this@Test {..}
     = []
     where
-        (assetAsTokenTpl, getRich) = _templateLet_Test this
-        _ = assetAsTokenTpl
-        _ = getRich
         _ = this
 instance DA.Internal.Desugar.HasEnsure Test where
   ensure this@Test {..}
     = DA.Internal.Desugar.True
     where
-        (assetAsTokenTpl, getRich) = _templateLet_Test this
-        _ = assetAsTokenTpl
-        _ = getRich
         _ = this
 instance DA.Internal.Desugar.HasAgreement Test where
   agreement this@Test {..}
     = ""
     where
-        (assetAsTokenTpl, getRich) = _templateLet_Test this
-        _ = assetAsTokenTpl
-        _ = getRich
         _ = this
 instance DA.Internal.Desugar.HasArchive Test where
   archive cid
@@ -684,20 +670,15 @@ _choice$_Test$TrueGuard :
 _choice$_Test$TrueGuard
   = (DA.Internal.Desugar.NonConsuming, 
      \ this@Test {..} arg@TrueGuard
-       -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
-          let _ = assetAsTokenTpl in
-          let _ = getRich in
-          let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this@Test {..} arg@TrueGuard
-       -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
-          let _ = assetAsTokenTpl in
-          let _ = getRich in
-          let _ = self in
+       -> let _ = self in
           let _ = this in
           let _ = arg
           in
-            do assetAsToken <- create assetAsTokenTpl
+            do assetAsToken <- create (assetAsTokenTpl p)
                exerciseGuarded (const True) assetAsToken getRich
                pure ())
 _choice$_Test$FalseGuard :
@@ -712,20 +693,15 @@ _choice$_Test$FalseGuard :
 _choice$_Test$FalseGuard
   = (DA.Internal.Desugar.NonConsuming, 
      \ this@Test {..} arg@FalseGuard
-       -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
-          let _ = assetAsTokenTpl in
-          let _ = getRich in
-          let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this@Test {..} arg@FalseGuard
-       -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
-          let _ = assetAsTokenTpl in
-          let _ = getRich in
-          let _ = self in
+       -> let _ = self in
           let _ = this in
           let _ = arg
           in
-            do assetAsToken <- create assetAsTokenTpl
+            do assetAsToken <- create (assetAsTokenTpl p)
                exerciseGuarded (const False) assetAsToken getRich
                pure ())
 _choice$_Test$ErrorGuard :
@@ -740,20 +716,15 @@ _choice$_Test$ErrorGuard :
 _choice$_Test$ErrorGuard
   = (DA.Internal.Desugar.NonConsuming, 
      \ this@Test {..} arg@ErrorGuard
-       -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
-          let _ = assetAsTokenTpl in
-          let _ = getRich in
-          let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this@Test {..} arg@ErrorGuard
-       -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
-          let _ = assetAsTokenTpl in
-          let _ = getRich in
-          let _ = self in
+       -> let _ = self in
           let _ = this in
           let _ = arg
           in
-            do assetAsToken <- create assetAsTokenTpl
+            do assetAsToken <- create (assetAsTokenTpl p)
                exerciseGuarded (\ _ -> error "foo") assetAsToken getRich
                pure ())
 _choice$_Test$CustomErrorGuard :
@@ -768,20 +739,15 @@ _choice$_Test$CustomErrorGuard :
 _choice$_Test$CustomErrorGuard
   = (DA.Internal.Desugar.NonConsuming, 
      \ this@Test {..} arg@CustomErrorGuard
-       -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
-          let _ = assetAsTokenTpl in
-          let _ = getRich in
-          let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this@Test {..} arg@CustomErrorGuard
-       -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
-          let _ = assetAsTokenTpl in
-          let _ = getRich in
-          let _ = self in
+       -> let _ = self in
           let _ = this in
           let _ = arg
           in
-            do assetAsToken <- create assetAsTokenTpl
+            do assetAsToken <- create (assetAsTokenTpl p)
                exerciseGuarded
                  (\ _ -> throwPure (GuardException "bar")) assetAsToken getRich
                pure ())
@@ -797,20 +763,15 @@ _choice$_Test$TryErrorGuard :
 _choice$_Test$TryErrorGuard
   = (DA.Internal.Desugar.NonConsuming, 
      \ this@Test {..} arg@TryErrorGuard
-       -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
-          let _ = assetAsTokenTpl in
-          let _ = getRich in
-          let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this@Test {..} arg@TryErrorGuard
-       -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
-          let _ = assetAsTokenTpl in
-          let _ = getRich in
-          let _ = self in
+       -> let _ = self in
           let _ = this in
           let _ = arg
           in
-            do assetAsToken <- create assetAsTokenTpl
+            do assetAsToken <- create (assetAsTokenTpl p)
                DA.Internal.Desugar._tryCatch
                  \ _ -> do exerciseGuarded (\ _ -> error "foo") assetAsToken getRich
                  \case
@@ -831,20 +792,15 @@ _choice$_Test$TryCustomErrorGuard :
 _choice$_Test$TryCustomErrorGuard
   = (DA.Internal.Desugar.NonConsuming, 
      \ this@Test {..} arg@TryCustomErrorGuard
-       -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
-          let _ = assetAsTokenTpl in
-          let _ = getRich in
-          let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this@Test {..} arg@TryCustomErrorGuard
-       -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
-          let _ = assetAsTokenTpl in
-          let _ = getRich in
-          let _ = self in
+       -> let _ = self in
           let _ = this in
           let _ = arg
           in
-            do assetAsToken <- create assetAsTokenTpl
+            do assetAsToken <- create (assetAsTokenTpl p)
                DA.Internal.Desugar._tryCatch
                  \ _
                    -> do exerciseGuarded

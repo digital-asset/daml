@@ -206,18 +206,38 @@ private class ContractsFetch(
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
     import doobie.implicits._, cats.syntax.apply._
+    import java.sql.SQLException
+    import io.grpc.StatusRuntimeException
+
+    def failedDueToPrune(s: io.grpc.Status) =
+      s.getCode == io.grpc.Status.Code.FAILED_PRECONDITION &&
+        s.getDescription.contains("PARTICIPANT_PRUNED_DATA_ACCESSED")
 
     def loop(maxAttempts: Int): ConnectionIO[BeginBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
-      (contractsIo_(fetchContext, disableAcs, absEnd, templateId) <* fconn.commit)
-        .exceptSql {
-          case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
-            logger.debug(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
+      fconn.handleErrorWith(
+        (contractsIo_(fetchContext, disableAcs, absEnd, templateId) <* fconn.commit),
+        {
+          case e: SQLException if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
+            logger.error(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
             fconn.rollback flatMap (_ => loop(maxAttempts - 1))
-          case e @ _ =>
-            logger.error(s"contractsIo3 exception: ${e.description}, state: ${e.getSQLState}")
+          case e: StatusRuntimeException if maxAttempts > 0 && failedDueToPrune(e.getStatus) =>
+            logger.error(
+              "contractsIo, exception: Failed as the ledger has been pruned since the last cached offset. " +
+                s"Clearing local cache for template $templateId and re-attempting. $e"
+            )
+            for {
+              _ <- fconn.rollback
+              tpids <- surrogateTemplateIds(Set(templateId))
+              _ <- sjd.q.queries.deleteTemplate(tpids(templateId))
+              _ <- fconn.commit
+              offset <- loop(maxAttempts - 1)
+            } yield offset
+          case e =>
+            logger.error(s"contractsIo3 exception: $e")
             fconn.raiseError(e)
-        }
+        },
+      )
     }
 
     loop(5)
@@ -249,6 +269,49 @@ private class ContractsFetch(
         s"contractsFromOffsetIo($fetchContext, $templateId, $offsets, $disableAcs, $absEnd): $offset1"
       )
       offset1
+    }
+  }
+
+  def fetchAndRefreshCache(
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+      ledgerEnd: Terminates.AtAbsolute,
+      offsetLimitToRefresh: domain.Offset,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: HttpJsonApiMetrics,
+  ): ConnectionIO[Unit] = {
+    import sjd.q.queries
+    import cats.syntax.traverse._
+
+    debugLogActionWithMetrics(
+      s"cache refresh for templates older than offset: $offsetLimitToRefresh",
+      metrics.Db.warmCache,
+    ) {
+
+      for {
+        oldTemplates <- queries.templateOffsetsOlderThan(offsetLimitToRefresh.unwrap)
+        _ = logger.debug(s"refreshing the cache for ${oldTemplates.size} templates")
+        _ <- oldTemplates
+          .map { case ((packageId, moduleName, entityName), partyOffsetsRaw) =>
+            val templateId = ContractTypeId.Template(packageId, moduleName, entityName)
+            val partyOffsets = partyOffsetsRaw.map { case (p, o) =>
+              (domain.Party(p), domain.Offset(o))
+            }.toMap
+            val fetchContext = FetchContext(jwt, ledgerId, partyOffsets.keySet)
+            contractsFromOffsetIo(
+              fetchContext,
+              templateId,
+              partyOffsets,
+              true,
+              ledgerEnd,
+            )
+          }
+          .toList
+          .sequence
+      } yield {}
     }
   }
 
@@ -316,8 +379,8 @@ private class ContractsFetch(
       debugLogActionWithMetrics(
         s"cache refresh for templateId: $templateId",
         metrics.Db.cacheUpdate,
-        metrics.Db.cacheUpdateStarted,
-        metrics.Db.cacheUpdateFailed,
+        Some(metrics.Db.cacheUpdateStarted),
+        Some(metrics.Db.cacheUpdateFailed),
       ) {
         val graph = RunnableGraph.fromGraph(
           GraphDSL.createGraph(
@@ -392,10 +455,10 @@ private class ContractsFetch(
   private def debugLogActionWithMetrics[T, C](
       actionDescription: String,
       timer: Timer,
-      startedCounter: Counter,
-      failedCounter: Counter,
+      optStartedCounter: Option[Counter] = None,
+      optFailedCounter: Option[Counter] = None,
   )(block: => T)(implicit lc: LoggingContextOf[C]): T = {
-    startedCounter.inc()
+    optStartedCounter.foreach(_.inc())
     val timerHandler = timer.startAsync()
     val startTime = System.nanoTime()
     logger.debug(s"Starting $actionDescription")
@@ -404,7 +467,7 @@ private class ContractsFetch(
         block
       } catch {
         case e: Exception =>
-          failedCounter.inc()
+          optFailedCounter.foreach(_.inc())
           logger.error(
             s"Failed $actionDescription after ${(System.nanoTime() - startTime) / 1000000L}ms because: $e"
           )

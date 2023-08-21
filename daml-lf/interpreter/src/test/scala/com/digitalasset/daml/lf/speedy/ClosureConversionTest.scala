@@ -4,14 +4,13 @@
 package com.daml.lf.speedy
 
 import com.daml.lf.data.Ref
-
+import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.{SExpr => expr}
 import com.daml.lf.speedy.{SExpr0 => source}
 import com.daml.lf.speedy.{SExpr1 => target}
 import com.daml.lf.speedy.{SValue => v}
-
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -49,7 +48,13 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
 
   def transform2(e: SExpr): Boolean = {
     val e1: target.SExpr = closureConvert(e)
-    val _ = flattenToAnf(e1)
+    val _ = flattenToAnf(e1, evaluationOrder = LeftToRight)
+    true
+  }
+
+  def transform3(e: SExpr): Boolean = {
+    val e1: target.SExpr = closureConvert(e)
+    val _ = flattenToAnf(e1, evaluationOrder = RightToLeft)
     true
   }
 
@@ -101,10 +106,21 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
 
     {
       val depth = 10000
-      s"transform(closureConversion,ANF), depth = $depth" - {
+      s"transform(closureConversion, left-to-right ANF), depth = $depth" - {
         forEvery(testCases) { (name: String, recursionPoint: SExpr => SExpr) =>
           name in {
             runTest(transform2)(depth, recursionPoint)
+          }
+        }
+      }
+    }
+
+    {
+      val depth = 10000
+      s"transform(closureConversion, right-to-left ANF), depth = $depth" - {
+        forEvery(testCases) { (name: String, recursionPoint: SExpr => SExpr) =>
+          name in {
+            runTest(transform3)(depth, recursionPoint)
           }
         }
       }

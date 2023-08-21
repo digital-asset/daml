@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.ImmArray
 import com.daml.lf.speedy.PartialTransaction
 import com.daml.lf.speedy.SValue.{SValue => _, _}
-import com.daml.lf.speedy.Speedy.CachedContract
+import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
 import com.daml.lf.value.Value
 import org.scalatest._
@@ -40,10 +40,10 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   private[this] implicit class PartialTransactionExtra(val ptx: PartialTransaction) {
 
-    val contract = CachedContract(
+    val contract = ContractInfo(
       version = TransactionVersion.maxVersion,
       templateId = templateId,
-      value = SValue.SUnit,
+      value = SValue.SRecord(templateId, ImmArray(), ArrayList()),
       agreementText = "agreement",
       signatories = Set(party),
       observers = Set.empty,

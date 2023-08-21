@@ -15,10 +15,16 @@ import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Service
 import Development.IDE.Core.Shake
+import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
+import System.Environment.Blank (setEnv)
 
 main :: IO ()
-main = withDamlScriptDep Nothing $ \scriptPackageData -> -- Install Daml.Script once at the start of the suite, rather than for each case
+main =
+  -- Install Daml.Script once at the start of the suite, rather than for each case
+  withDamlScriptDep Nothing $ \scriptPackageData -> do
+    -- Must run serially
+    setEnv "TASTY_NUM_THREADS" "1" True
     defaultMain $ testGroup "daml-doctest"
         [ generateTests scriptPackageData
         ]
@@ -94,11 +100,16 @@ generateTests scriptPackageData = testGroup "generate doctest module"
                     { optHaddock = Haddock True
                     , optScenarioService = EnableScenarioService False
                     , optPackageDbs = [fst scriptPackageData]
-                    , optPackageImports = [snd scriptPackageData]
+                    , optPackageImports = snd scriptPackageData
                     }
             withDamlIdeState opts Logger.makeNopHandle (NotificationHandler $ \_ _ -> pure ()) $ \ideState -> do
-                Just pm <- runActionSync ideState $ use GetParsedModule $ toNormalizedFilePath' tmpFile
-                genModuleContent (getDocTestModule pm) @?= T.unlines (doctestHeader moduleName <> expected)
+                mParsedModule <- runActionSync ideState $ use GetParsedModule $ toNormalizedFilePath' tmpFile
+                case mParsedModule of
+                  Nothing -> do
+                    diags <- getDiagnostics ideState
+                    error $ T.unpack $ showDiagnostics diags
+                  Just pm ->
+                    genModuleContent (getDocTestModule pm) @?= T.unlines (doctestHeader moduleName <> expected)
 
 testModuleHeader :: T.Text -> [T.Text]
 testModuleHeader moduleName =

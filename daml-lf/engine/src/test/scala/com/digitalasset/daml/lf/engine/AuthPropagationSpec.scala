@@ -14,12 +14,7 @@ import com.daml.lf.ledger.FailedAuthorization.{
   CreateMissingAuthorization,
   ExerciseMissingAuthorization,
 }
-import com.daml.lf.transaction.{
-  GlobalKeyWithMaintainers,
-  SubmittedTransaction,
-  TransactionVersion,
-  Versioned,
-}
+import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
 import com.daml.lf.transaction.Transaction.Metadata
 import com.daml.lf.value.Value.{
   ContractId,
@@ -101,15 +96,6 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   private val participant: ParticipantId = ParticipantId.assertFromString("participant")
   private val submissionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("submissionSeed")
 
-  private val lookupPackage: PackageId => Option[Package] =
-    pkgId => allPackages.get(pkgId)
-
-  private val lookupContract: ContractId => Option[VersionedContractInstance] =
-    cid => defaultContracts.get(cid)
-
-  private val lookupKey: GlobalKeyWithMaintainers => Option[ContractId] =
-    _ => None
-
   private val testEngine: Engine =
     Engine.DevEngine()
 
@@ -128,7 +114,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
           participant,
           submissionSeed,
         )
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(pcs = defaultContracts, pkgs = allPackages)
 
     interpretResult
   }

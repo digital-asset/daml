@@ -115,7 +115,7 @@ data TemplateDoc = TemplateDoc
   { td_anchor    :: Maybe Anchor
   , td_name      :: Typename
   , td_descr     :: Maybe DocText
-  , td_signatory :: Maybe String
+  , td_signatory :: Maybe [String]
   , td_payload   :: [FieldDoc]
   , td_choices   :: [ChoiceDoc]
   , td_interfaceInstances :: [InterfaceInstanceDoc]
@@ -236,7 +236,7 @@ data ChoiceDoc = ChoiceDoc
   { cd_anchor     :: Maybe Anchor
   , cd_name       :: Typename
   , cd_descr      :: Maybe DocText
-  , cd_controller :: Maybe String
+  , cd_controller :: Maybe [String]
   , cd_fields     :: [FieldDoc]
   , cd_type       :: Type
   }

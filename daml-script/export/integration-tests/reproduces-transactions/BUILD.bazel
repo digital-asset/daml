@@ -6,7 +6,6 @@ load(
     "da_scala_test",
     "lf_scalacopts_stricter",
 )
-load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_test(
     name = "test",
@@ -55,4 +54,4 @@ da_scala_test(
         "@maven//:io_netty_netty_handler",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
-) if not is_windows else None
+)

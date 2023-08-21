@@ -32,6 +32,7 @@ import com.daml.lf.speedy.SValue._
 import org.scalatest._
 import scalaz.syntax.tag._
 
+import java.nio.file.Path
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -39,14 +40,14 @@ import scala.util.{Failure, Success, Try}
 trait AbstractTriggerTest extends CantonFixture {
   self: Suite =>
 
-  private[this] lazy val darFile =
+  protected lazy val darFile: Either[Path, Path] =
     Try(BazelRunfiles.requiredResource("triggers/tests/acs.dar").toPath) match {
       case Success(value) => Right(value)
       case Failure(_) => Left(BazelRunfiles.requiredResource("triggers/tests/acs-1.dev.dar").toPath)
     }
 
-  final override protected lazy val darFiles = List(darFile.merge)
-  final override protected lazy val devMode = darFile.isLeft
+  override protected lazy val darFiles: List[Path] = List(darFile.merge)
+  override protected lazy val devMode: Boolean = darFile.isLeft
 
   implicit override protected lazy val applicationId: ApplicationId =
     RunnerConfig.DefaultApplicationId

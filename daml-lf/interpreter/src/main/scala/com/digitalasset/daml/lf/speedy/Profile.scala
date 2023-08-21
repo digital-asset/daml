@@ -245,12 +245,10 @@ object Profile {
       implicit val interfaceInstanceMethodDefRef: Allowed[InterfaceInstanceMethodDefRef] = allowAll
       implicit val interfaceInstanceViewDefRef: Allowed[InterfaceInstanceViewDefRef] = allowAll
       implicit val templateChoiceDefRef: Allowed[TemplateChoiceDefRef] = allowAll
-      implicit val softTemplateChoiceDefRef: Allowed[SoftTemplateChoiceDefRef] = allowAll
       implicit val interfaceChoiceDefRef: Allowed[InterfaceChoiceDefRef] = allowAll
       implicit val choiceControllerDefRef: Allowed[ChoiceControllerDefRef] = allowAll
       implicit val choiceObserverDefRef: Allowed[ChoiceObserverDefRef] = allowAll
       implicit val fetchTemplateDefRef: Allowed[FetchTemplateDefRef] = allowAll
-      implicit val softFetchTemplateDefRef: Allowed[SoftFetchTemplateDefRef] = allowAll
       implicit val fetchInterfaceDefRef: Allowed[FetchInterfaceDefRef] = allowAll
       implicit val choiceByKeyDefRef: Allowed[ChoiceByKeyDefRef] = allowAll
       implicit val fetchByKeyDefRef: Allowed[FetchByKeyDefRef] = allowAll
@@ -275,7 +273,7 @@ object Profile {
           case SignatoriesDefRef(tmplRef) => s"signatories @${tmplRef.qualifiedName}"
           case ObserversDefRef(tmplRef) => s"observers @${tmplRef.qualifiedName}"
           case ContractKeyWithMaintainersDefRef(tmplRef) => s"key @${tmplRef.qualifiedName}"
-          case ToCachedContractDefRef(tmplRef) => s"toAnyContract @${tmplRef.qualifiedName}"
+          case ToContractInfoDefRef(tmplRef) => s"toAnyContract @${tmplRef.qualifiedName}"
           case InterfaceInstanceMethodDefRef(ii, methodName) =>
             s"interfaceInstanceMethod @${ii.parent.qualifiedName} @${ii.interfaceId.qualifiedName} @${ii.templateId.qualifiedName} ${methodName}"
           case InterfaceInstanceViewDefRef(ii) =>
@@ -285,7 +283,6 @@ object Profile {
           case InterfaceChoiceDefRef(ifaceRef, name) =>
             s"exercise @${ifaceRef.qualifiedName} ${name}"
           case FetchTemplateDefRef(tmplRef) => s"fetch_template @${tmplRef.qualifiedName}"
-          case SoftFetchTemplateDefRef(tmplRef) => s"soft_fetch_template @${tmplRef.qualifiedName}"
           case FetchInterfaceDefRef(ifaceRef) => s"fetch_interface @${ifaceRef.qualifiedName}"
           case ChoiceByKeyDefRef(tmplRef, name) =>
             s"exerciseByKey @${tmplRef.qualifiedName} ${name}"

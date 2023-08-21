@@ -7,9 +7,10 @@ package speedy
 import com.daml.lf.data.Ref.{IdString, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct}
 import com.daml.lf.language.Ast
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.speedy.SExpr.SEMakeClo
 import com.daml.lf.speedy.SValue.SToken
-import com.daml.lf.speedy.Speedy.{CachedContract, CachedKey}
+import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
@@ -18,7 +19,7 @@ import com.daml.lf.testing.parser.Implicits._
 
 /** Shared test data and functions for testing explicit disclosure.
   */
-object ExplicitDisclosureLib {
+private[lf] class ExplicitDisclosureLib(evaluationOrder: EvaluationOrder) {
 
   val testKeyName: String = "test-key"
   val pkg: PureCompiledPackages = SpeedyTestLib.typeAndCompile(
@@ -75,7 +76,8 @@ object ExplicitDisclosureLib {
                  None -> Nil @t
                | Some x -> Cons @t [x] (Nil @t);
        }
-       """
+       """,
+    evaluationOrder,
   )
   val maintainerParty: IdString.Party = Ref.Party.assertFromString("maintainerParty")
   val ledgerParty: IdString.Party = Ref.Party.assertFromString("ledgerParty")
@@ -108,11 +110,11 @@ object ExplicitDisclosureLib {
     buildContract(ledgerParty, maintainerParty)
   val ledgerCaveContract: Value.VersionedContractInstance =
     buildContract(ledgerParty, maintainerParty, caveTemplateId)
-  val disclosedCaveContractNoHash: (Value.ContractId, Speedy.CachedContract) =
+  val disclosedCaveContractNoHash: (Value.ContractId, Speedy.ContractInfo) =
     contractId -> buildDisclosedCaveContract(disclosureParty)
-  val disclosedHouseContract: (Value.ContractId, Speedy.CachedContract) =
+  val disclosedHouseContract: (Value.ContractId, Speedy.ContractInfo) =
     disclosureContractId -> buildDisclosedHouseContract(disclosureParty, maintainerParty)
-  val disclosedCaveContract: (Value.ContractId, Speedy.CachedContract) =
+  val disclosedCaveContract: (Value.ContractId, Speedy.ContractInfo) =
     contractId -> buildDisclosedCaveContract(disclosureParty)
 
   def buildDisclosedHouseContract(
@@ -121,7 +123,7 @@ object ExplicitDisclosureLib {
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
       label: String = testKeyName,
-  ): Speedy.CachedContract = {
+  ): Speedy.ContractInfo = {
     val cachedKey: Option[Speedy.CachedKey] =
       if (withKey)
         Some(
@@ -133,7 +135,7 @@ object ExplicitDisclosureLib {
         )
       else
         None
-    Speedy.CachedContract(
+    Speedy.ContractInfo(
       version = TransactionVersion.maxVersion,
       templateId = templateId,
       value = SValue.SRecord(
@@ -141,7 +143,7 @@ object ExplicitDisclosureLib {
         ImmArray(Ref.Name.assertFromString("owner"), Ref.Name.assertFromString("key_maintainer")),
         ArrayList(SValue.SParty(owner), SValue.SParty(maintainer)),
       ),
-      agreementText = "",
+      agreementText = "Agreement1",
       signatories = Set(owner, maintainer),
       observers = Set.empty,
       keyOpt = cachedKey,
@@ -151,8 +153,8 @@ object ExplicitDisclosureLib {
   def buildDisclosedCaveContract(
       owner: Party,
       templateId: Ref.Identifier = caveTemplateId,
-  ): Speedy.CachedContract = {
-    Speedy.CachedContract(
+  ): Speedy.ContractInfo = {
+    Speedy.ContractInfo(
       version = TransactionVersion.maxVersion,
       templateId = templateId,
       value = SValue.SRecord(
@@ -160,7 +162,7 @@ object ExplicitDisclosureLib {
         ImmArray(Ref.Name.assertFromString("owner")),
         ArrayList(SValue.SParty(owner)),
       ),
-      agreementText = "",
+      agreementText = "Agreement2",
       signatories = Set(owner),
       observers = Set.empty,
       keyOpt = None,
@@ -196,27 +198,41 @@ object ExplicitDisclosureLib {
       owner: Party,
       maintainer: Party,
       templateId: Ref.Identifier = houseTemplateId,
-  ): Versioned[ContractInstance] = Versioned(
-    TransactionVersion.minExplicitDisclosure,
-    Value.ContractInstance(
-      templateId,
-      Value.ValueRecord(
-        None,
+  ): Versioned[ContractInstance] = {
+    val contractFields = templateId match {
+      case `caveTemplateId` =>
+        ImmArray(
+          None -> Value.ValueParty(owner)
+        )
+
+      case `houseTemplateId` =>
         ImmArray(
           None -> Value.ValueParty(owner),
           None -> Value.ValueParty(maintainer),
-        ),
-      ),
-    ),
-  )
+        )
 
-  def buildHouseCachedContract(
+      case _ =>
+        throw new RuntimeException(
+          s"Unknown template ID $templateId - unable to determine the contract fields"
+        )
+    }
+
+    Versioned(
+      TransactionVersion.minExplicitDisclosure,
+      Value.ContractInstance(
+        templateId,
+        Value.ValueRecord(None, contractFields),
+      ),
+    )
+  }
+
+  def buildHouseContractInfo(
       signatory: Party,
       maintainer: Party,
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
       label: String = testKeyName,
-  ): CachedContract = {
+  ): ContractInfo = {
     val contract = SValue.SRecord(
       templateId,
       ImmArray("label", "maintainers").map(Ref.Name.assertFromString),
@@ -236,11 +252,11 @@ object ExplicitDisclosureLib {
         )
       else None
 
-    CachedContract(
+    ContractInfo(
       TransactionVersion.minExplicitDisclosure,
       templateId,
       contract,
-      agreementText = "",
+      agreementText = "Agreement3",
       signatories = Set(signatory),
       observers = Set.empty,
       keyOpt = mbKey,
@@ -276,7 +292,7 @@ object ExplicitDisclosureLib {
   )(
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
-      disclosures: Iterable[(Value.ContractId, CachedContract)] = Iterable.empty,
+      disclosures: Iterable[(Value.ContractId, ContractInfo)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -322,7 +338,7 @@ object ExplicitDisclosureLib {
   def evaluateSExpr(
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
-      disclosures: Iterable[(Value.ContractId, CachedContract)] = Iterable.empty,
+      disclosures: Iterable[(Value.ContractId, ContractInfo)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -367,7 +383,7 @@ object ExplicitDisclosureLib {
   }
 
   def haveDisclosedContracts(
-      disclosures: (Value.ContractId, CachedContract)*
+      disclosures: (Value.ContractId, ContractInfo)*
   ): Matcher[Speedy.UpdateMachine] =
     Matcher { machine =>
       val expectedResult = disclosures.iterator.map { case (coid, contract) =>

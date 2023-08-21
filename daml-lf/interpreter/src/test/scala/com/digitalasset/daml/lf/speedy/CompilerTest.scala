@@ -10,7 +10,7 @@ import com.daml.lf.interpretation.Error.TemplatePreconditionViolated
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr.SExpr
-import com.daml.lf.speedy.Speedy.CachedContract
+import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
@@ -518,7 +518,7 @@ object CompilerTest {
       committers: Set[Party] = Set.empty,
   ): Either[
     SError,
-    (SValue, Map[ContractId, CachedContract], Map[ContractId, CachedContract]),
+    (SValue, Map[ContractId, (Ref.Identifier, SValue)], Map[ContractId, ContractInfo]),
   ] = {
     val machine =
       Speedy.UpdateMachine(
@@ -532,7 +532,7 @@ object CompilerTest {
 
     SpeedyTestLib
       .run(machine, getContract = getContract)
-      .map((_, machine.cachedContracts, machine.disclosedContracts))
+      .map((_, machine.localContractStore, machine.disclosedContracts))
   }
 
   def buildDisclosedContract(

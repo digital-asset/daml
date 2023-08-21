@@ -44,7 +44,7 @@ import qualified Data.Set as S
 import qualified Data.Text as T
 import System.Directory
 
-import DA.Daml.Options.Types (EnableScenarioService(..), EnableScenarios(..))
+import DA.Daml.Options.Types (EnableScenarioService(..), EnableScenarios(..), EvaluationOrder (..))
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
@@ -75,6 +75,7 @@ toLowLevelOpts optDamlLfVersion Options{..} =
         optEvaluationTimeout = fromMaybe 60 $ cnfEvaluationTimeout optScenarioServiceConfig
         optGrpcMaxMessageSize = cnfGrpcMaxMessageSize optScenarioServiceConfig
         optJvmOptions = cnfJvmOptions optScenarioServiceConfig
+        optEvaluationOrder = cnfEvaluationOrder optScenarioServiceConfig
 
 data Handle = Handle
   { hLowLevelHandle :: LowLevel.Handle
@@ -163,6 +164,7 @@ data ScenarioServiceConfig = ScenarioServiceConfig
     , cnfGrpcTimeout :: Maybe LowLevel.TimeoutSeconds
     , cnfEvaluationTimeout :: Maybe LowLevel.TimeoutSeconds
     , cnfJvmOptions :: [String]
+    , cnfEvaluationOrder :: EvaluationOrder
     } deriving Show
 
 defaultScenarioServiceConfig :: ScenarioServiceConfig
@@ -171,6 +173,7 @@ defaultScenarioServiceConfig = ScenarioServiceConfig
     , cnfGrpcTimeout = Nothing
     , cnfEvaluationTimeout = Nothing
     , cnfJvmOptions = []
+    , cnfEvaluationOrder = LeftToRight
     }
 
 readScenarioServiceConfig :: IO ScenarioServiceConfig
@@ -188,6 +191,7 @@ parseScenarioServiceConfig conf = do
     cnfGrpcTimeout <- queryOpt "grpc-timeout"
     cnfEvaluationTimeout <- queryOpt "evaluation-timeout"
     cnfJvmOptions <- fromMaybe [] <$> queryOpt "jvm-options"
+    let cnfEvaluationOrder = LeftToRight
     pure ScenarioServiceConfig {..}
   where queryOpt opt = do
             a <- queryProjectConfig ["script-service", opt] conf

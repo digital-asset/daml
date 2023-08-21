@@ -215,23 +215,13 @@ NIX_CONF
 
 systemctl restart nix-daemon
 
-# Warm up local caches by building dev-env and current daml main
-# This is allowed to fail, as we still want to have CI machines
-# around, even when their caches are only warmed up halfway
-su --login vsts <<'CACHE_WARMUP'
+# Initialize caches
+su --login vsts <<'CACHE_INIT'
 # user-wide bazel disk cache override
 echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
 # set up cache folders
 /home/vsts/reset_caches.sh
-
-# clone and build
-(
-  git clone https://github.com/digital-asset/daml
-  cd daml
-  ./ci/dev-env-install.sh
-  ./build.sh "_$(uname)"
-) || true
-CACHE_WARMUP
+CACHE_INIT
 
 # Remove /home/vsts/daml folder that might be present from cache warmup
 rm -R /home/vsts/daml || true

@@ -7,6 +7,7 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
 import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackage}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.ClosureConversion.closureConvert
@@ -14,8 +15,8 @@ import com.daml.lf.speedy.PhaseOne.{Env, Position}
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{SExpr => t} // target expressions
-import com.daml.lf.speedy.{SExpr0 => s} // source expressions
+import com.daml.lf.speedy.{SExpr => t}
+import com.daml.lf.speedy.{SExpr0 => s}
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.scalautil.Statement.discard
 import org.slf4j.LoggerFactory
@@ -69,6 +70,8 @@ private[lf] object Compiler {
       packageValidation: PackageValidationMode,
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
+      enableContractUpgrading: Boolean = false,
+      evaluationOrder: EvaluationOrder = LeftToRight,
   )
 
   object Config {
@@ -101,37 +104,13 @@ private[lf] object Compiler {
     try {
       Right(packages.foldLeft(Map.empty[t.SDefinitionRef, SDefinition]) {
         case (acc, (pkgId, pkg)) =>
-          acc ++ compiler.compilePackage(pkgId, pkg)
+          acc ++ compiler.compilePackage(pkgId, pkg, compilerConfig.enableContractUpgrading)
       })
     } catch {
       case CompilationError(msg) => Left(s"Compilation Error: $msg")
       case PackageNotFound(pkgId, context) =>
         Left(LookupError.MissingPackage.pretty(pkgId, context))
       case e: ValidationError => Left(e.pretty)
-    }
-  }
-
-  sealed abstract class Casting {
-    def cast: SBuiltin
-  }
-  object Casting {
-    final case class Hard(tmplId: TypeConName) extends Casting {
-      def cast: SBuiltin = {
-        SBCastAnyContract(tmplId)
-      }
-    }
-    final case class Soft(
-        tmplId: TypeConName,
-        fields: ImmArray[(FieldName, Type)],
-        predPids: List[PackageId],
-    ) extends Casting {
-      def cast: SBuiltin = {
-        SBPromoteAnyContract(
-          tmplId,
-          fields,
-          predPids.map(Identifier(_, tmplId.qualifiedName)),
-        )
-      }
     }
   }
 }
@@ -169,7 +148,10 @@ private[lf] final class Compiler(
   def unsafeCompilePackage(
       pkgId: PackageId,
       pkg: Package,
-  ): Iterable[(t.SDefinitionRef, SDefinition)] = compilePackage(pkgId, pkg)
+      enableContractUpgrading: Boolean = false,
+  ): Iterable[(t.SDefinitionRef, SDefinition)] = {
+    compilePackage(pkgId, pkg, enableContractUpgrading)
+  }
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -177,8 +159,7 @@ private[lf] final class Compiler(
       pkgId: PackageId,
       module: Module,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
-    val predPids = pkgInterface.lookupPredecessors(pkgId).getOrElse(List.empty)
-    compileModule(pkgId, module, predPids)
+    compileModule(pkgId, module, enableContractUpgrading = false)
   }
 
   @throws[PackageNotFound]
@@ -367,12 +348,15 @@ private[lf] final class Compiler(
 
   // speedy compilation phases 2,3 (i.e post translate-from-LF)
   private[this] def pipeline(sexpr: s.SExpr): t.SExpr =
-    flattenToAnf(closureConvert(sexpr))
+    flattenToAnf(
+      closureConvert(sexpr),
+      evaluationOrder = config.evaluationOrder,
+    )
 
   private[this] def compileModule(
       pkgId: PackageId,
       module: Module,
-      predPids: List[PackageId],
+      enableContractUpgrading: Boolean,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(t.SDefinitionRef, SDefinition)]
     def addDef(binding: (t.SDefinitionRef, SDefinition)): Unit = discard(builder += binding)
@@ -392,22 +376,20 @@ private[lf] final class Compiler(
     module.templates.foreach { case (tmplName, tmpl) =>
       val tmplId = Identifier(pkgId, QualifiedName(module.name, tmplName))
 
-      val fields =
-        pkgInterface.lookupDataRecord(tmplId) match {
-          case Right(PackageInterface.DataRecordInfo(_, DataRecord(fields))) =>
-            fields
-          case _ =>
-            throw CompilationError(s"Missing DataRecord definition for Template ${tmplId}")
+      val optTargetTemplateId =
+        if (enableContractUpgrading) {
+          Some(tmplId) // soft
+        } else {
+          None // hard
         }
 
       addDef(compileCreate(tmplId, tmpl))
-      addDef(compileFetchTemplate(tmplId, tmpl))
-      addDef(compileSoftFetchTemplate(tmplId, tmpl, fields, predPids))
+      addDef(compileFetchTemplate(tmplId, optTargetTemplateId))
       addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileAgreementText(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
       addDef(compileObservers(tmplId, tmpl))
-      addDef(compileToCachedContract(tmplId, tmpl))
+      addDef(compileToContractInfo(tmplId, tmpl))
       tmpl.implements.values.foreach { impl =>
         compileInterfaceInstance(
           parent = tmplId,
@@ -419,15 +401,14 @@ private[lf] final class Compiler(
       }
 
       tmpl.choices.values.foreach { choice =>
-        addDef(compileTemplateChoice(tmplId, tmpl, choice))
-        addDef(compileSoftTemplateChoice(tmplId, tmpl, fields, predPids, choice))
+        addDef(compileTemplateChoice(tmplId, tmpl, choice, optTargetTemplateId))
         addDef(compileChoiceController(tmplId, tmpl.param, choice))
         addDef(compileChoiceObserver(tmplId, tmpl.param, choice))
       }
 
       tmpl.key.foreach { tmplKey =>
         addDef(compileContractKeyWithMaintainers(tmplId, tmpl, tmplKey))
-        addDef(compileFetchByKey(tmplId, tmpl, tmplKey))
+        addDef(compileFetchByKey(tmplId, tmplKey))
         addDef(compileLookupByKey(tmplId, tmplKey))
         tmpl.choices.values.foreach { x =>
           addDef(compileChoiceByKey(tmplId, tmpl, tmplKey, x))
@@ -467,16 +448,27 @@ private[lf] final class Compiler(
   private def compilePackage(
       pkgId: PackageId,
       pkg: Package,
+      enableContractUpgrading: Boolean,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
     logger.trace(s"compilePackage: Compiling $pkgId...")
 
     val t0 = Time.Timestamp.now()
 
     pkgInterface.lookupPackage(pkgId) match {
-      case Right(pkg)
-          if !stablePackageIds.contains(pkgId) && !config.allowedLanguageVersions
-            .contains(pkg.languageVersion) =>
-        throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
+      case Right(pkg) => {
+        if (
+          !stablePackageIds.contains(pkgId) && !config.allowedLanguageVersions
+            .contains(pkg.languageVersion)
+        )
+          throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
+
+        if (
+          config.evaluationOrder == RightToLeft && !LanguageVersion.DevVersions.contains(
+            pkg.languageVersion
+          )
+        )
+          throw CompilationError("Right-to-left evaluation is only available in dev")
+      }
       case _ =>
     }
 
@@ -488,11 +480,7 @@ private[lf] final class Compiler(
 
     val t1 = Time.Timestamp.now()
 
-    // TODO https://github.com/digital-asset/daml/issues/16151
-    // getOrElse will mask package load errors in lookupPredecessors
-    val preds = pkgInterface.lookupPredecessors(pkgId).getOrElse(List.empty)
-
-    val result = pkg.modules.values.flatMap(compileModule(pkgId, _, preds))
+    val result = pkg.modules.values.flatMap(compileModule(pkgId, _, enableContractUpgrading))
 
     val t2 = Time.Timestamp.now()
     logger.trace(
@@ -518,7 +506,7 @@ private[lf] final class Compiler(
   private[this] def translateChoiceBody(
       env: Env,
       tmplId: TypeConName,
-      casting: Casting,
+      optTargetTemplateId: Option[TypeConName],
       tmpl: Template,
       choice: TemplateChoice,
   )(
@@ -526,12 +514,12 @@ private[lf] final class Compiler(
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
-  ): s.SExpr =
+  ): s.SExpr = {
     let(
       env,
-      casting.cast(
+      SBCastAnyContract(tmplId)(
         env.toSEVar(cidPos),
-        SBFetchAny(
+        SBFetchAny(optTargetTemplateId)(
           env.toSEVar(cidPos),
           mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
         ),
@@ -539,36 +527,46 @@ private[lf] final class Compiler(
     ) { (tmplArgPos, _env) =>
       val env =
         _env.bindExprVar(tmpl.param, tmplArgPos).bindExprVar(choice.argBinder._1, choiceArgPos)
-
-      let(
-        env,
-        SBUBeginExercise(
-          templateId = tmplId,
-          interfaceId = None,
-          choiceId = choice.name,
-          consuming = choice.consuming,
-          byKey = mbKey.isDefined,
-          explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
-        )(
-          env.toSEVar(choiceArgPos),
-          env.toSEVar(cidPos),
-          s.SEPreventCatch(translateExp(env, choice.controllers)),
-          choice.choiceObservers match {
-            case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
-            case None => s.SEValue.EmptyList
-          },
-          choice.choiceAuthorizers match {
+      // We use a chain of let bindings to make the evaluation order of SBUBeginExercise's arguments is independent
+      // from the evaluation strategy imposed by the ANF transformation.
+      val controllersExpr = s.SEPreventCatch(translateExp(env, choice.controllers))
+      let(env, controllersExpr) { (controllersPos, env) =>
+        val observersExpr = choice.choiceObservers match {
+          case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
+          case None => s.SEValue.EmptyList
+        }
+        let(env, observersExpr) { (observersPos, env) =>
+          val authorizersExpr = choice.choiceAuthorizers match {
             case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
             case None => s.SEValue.EmptyList
-          },
-        ),
-      ) { (_, _env) =>
-        val env = _env.bindExprVar(choice.selfBinder, cidPos)
-        s.SEScopeExercise(
-          app(translateExp(env, choice.update), env.toSEVar(tokenPos))
-        )
+          }
+          let(env, authorizersExpr) { (authorizersPos, env) =>
+            val exerciseExpr = SBUBeginExercise(
+              templateId = tmplId,
+              interfaceId = None,
+              choiceId = choice.name,
+              consuming = choice.consuming,
+              byKey = mbKey.isDefined,
+              explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
+            )(
+              env.toSEVar(choiceArgPos),
+              env.toSEVar(cidPos),
+              env.toSEVar(controllersPos),
+              env.toSEVar(observersPos),
+              env.toSEVar(authorizersPos),
+              env.toSEVar(tmplArgPos),
+            )
+            let(env, exerciseExpr) { (_, _env) =>
+              val env = _env.bindExprVar(choice.selfBinder, cidPos)
+              s.SEScopeExercise(
+                app(translateExp(env, choice.update), env.toSEVar(tokenPos))
+              )
+            }
+          }
+        }
       }
     }
+  }
 
   // TODO https://github.com/digital-asset/daml/issues/12051
   //   Try to factorise this with compileChoiceBody above.
@@ -585,49 +583,68 @@ private[lf] final class Compiler(
   ): s.SExpr =
     let(
       env,
-      SBCastAnyInterface(ifaceId)(
+      SBFetchAny(
+        optTargetTemplateId = None
+      )(
         env.toSEVar(cidPos),
-        SBFetchAny(env.toSEVar(cidPos), s.SEValue.None),
+        s.SEValue.None,
       ),
     ) { (payloadPos, env) =>
       let(
         env,
-        s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
-      ) { (_, _env) =>
-        val env = _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
+        SBCastAnyInterface(ifaceId)(
+          env.toSEVar(cidPos),
+          env.toSEVar(payloadPos),
+        ),
+      ) { (castPos, env) =>
         let(
           env,
-          SBApplyChoiceGuard(choice.name, Some(ifaceId))(
+          s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
+        ) { (_, _env) =>
+          val env =
+            _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
+          // We use a chain of let bindings to make the evaluation order of SBResolveSBUBeginExercise's arguments
+          // is independent from the evaluation strategy imposed by the ANF transformation.
+          val applyChoiceGuardExpr = SBApplyChoiceGuard(choice.name, Some(ifaceId))(
             env.toSEVar(guardPos),
             env.toSEVar(payloadPos),
             env.toSEVar(cidPos),
-          ),
-        ) { (_, env) =>
-          let(
-            env,
-            SBResolveSBUBeginExercise(
-              interfaceId = ifaceId,
-              choiceName = choice.name,
-              consuming = choice.consuming,
-              byKey = false,
-              explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
-            )(
-              env.toSEVar(payloadPos),
-              env.toSEVar(choiceArgPos),
-              env.toSEVar(cidPos),
-              s.SEPreventCatch(translateExp(env, choice.controllers)),
-              choice.choiceObservers match {
+          )
+          let(env, applyChoiceGuardExpr) { (_, env) =>
+            val controllersExpr = s.SEPreventCatch(translateExp(env, choice.controllers))
+            let(env, controllersExpr) { (controllersPos, env) =>
+              val observersExpr = choice.choiceObservers match {
                 case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
                 case None => s.SEValue.EmptyList
-              },
-              choice.choiceAuthorizers match {
-                case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
-                case None => s.SEValue.EmptyList
-              },
-            ),
-          ) { (_, _env) =>
-            val env = _env.bindExprVar(choice.selfBinder, cidPos)
-            s.SEScopeExercise(app(translateExp(env, choice.update), env.toSEVar(tokenPos)))
+              }
+              let(env, observersExpr) { (observersPos, env) =>
+                val authorizersExpr = choice.choiceAuthorizers match {
+                  case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
+                  case None => s.SEValue.EmptyList
+                }
+                let(env, authorizersExpr) { (authorizersPos, env) =>
+                  val exerciseExpr = SBResolveSBUBeginExercise(
+                    interfaceId = ifaceId,
+                    choiceName = choice.name,
+                    consuming = choice.consuming,
+                    byKey = false,
+                    explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
+                  )(
+                    env.toSEVar(payloadPos),
+                    env.toSEVar(choiceArgPos),
+                    env.toSEVar(cidPos),
+                    env.toSEVar(controllersPos),
+                    env.toSEVar(observersPos),
+                    env.toSEVar(authorizersPos),
+                    env.toSEVar(castPos),
+                  )
+                  let(env, exerciseExpr) { (_, _env) =>
+                    val env = _env.bindExprVar(choice.selfBinder, cidPos)
+                    s.SEScopeExercise(app(translateExp(env, choice.update), env.toSEVar(tokenPos)))
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -652,36 +669,11 @@ private[lf] final class Compiler(
       tmplId: TypeConName,
       tmpl: Template,
       choice: TemplateChoice,
+      optTargetTemplateId: Option[TypeConName],
   ): (t.SDefinitionRef, SDefinition) =
-    // Compiles a choice into:
-    // ChoiceDefRef(SomeTemplate, SomeChoice) = \<actors> <cid> <choiceArg> <token> ->
-    //   let targ = fetch(tmplId) <cid>
-    //       _ = $beginExercise(tmplId, choice.name, choice.consuming, false) <choiceArg> <cid> <actors> [tmpl.signatories] [tmpl.observers] [choice.controllers] [tmpl.key]
-    //       <retValue> = [update] <token>
-    //       _ = $endExercise[tmplId] <retValue>
-    //   in <retValue>
     topLevelFunction3(t.TemplateChoiceDefRef(tmplId, choice.name)) {
       (cidPos, choiceArgPos, tokenPos, env) =>
-        val casting = Casting.Hard(tmplId)
-        translateChoiceBody(env, tmplId, casting, tmpl, choice)(
-          choiceArgPos,
-          cidPos,
-          None,
-          tokenPos,
-        )
-    }
-
-  private[this] def compileSoftTemplateChoice(
-      tmplId: TypeConName,
-      tmpl: Template,
-      fields: ImmArray[(FieldName, Type)],
-      predPids: List[PackageId],
-      choice: TemplateChoice,
-  ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction3(t.SoftTemplateChoiceDefRef(tmplId, choice.name)) {
-      (cidPos, choiceArgPos, tokenPos, env) =>
-        val casting = Casting.Soft(tmplId, fields, predPids)
-        translateChoiceBody(env, tmplId, casting, tmpl, choice)(
+        translateChoiceBody(env, tmplId, optTargetTemplateId, tmpl, choice)(
           choiceArgPos,
           cidPos,
           None,
@@ -747,8 +739,7 @@ private[lf] final class Compiler(
       (keyPos, choiceArgPos, tokenPos, env) =>
         let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
           let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
-            val casting = Casting.Hard(tmplId)
-            translateChoiceBody(env, tmplId, casting, tmpl, choice)(
+            translateChoiceBody(env, tmplId, optTargetTemplateId = None, tmpl, choice)(
               choiceArgPos,
               cidPos,
               Some(keyWithMPos),
@@ -762,81 +753,67 @@ private[lf] final class Compiler(
   private[this] def translateFetchTemplateBody(
       env: Env,
       tmplId: Identifier,
-      tmpl: Template,
-      casting: Casting,
+      optTargetTemplateId: Option[TypeConName],
   )(
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
-  ): s.SExpr =
-    let(
-      env,
-      casting.cast(
-        env.toSEVar(cidPos),
-        SBFetchAny(
-          env.toSEVar(cidPos),
-          mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
-        ),
-      ),
-    ) { (tmplArgPos, _env) =>
-      val env = _env.bindExprVar(tmpl.param, tmplArgPos)
-      let(
-        env,
-        SBUInsertFetchNode(tmplId, byKey = mbKey.isDefined)(env.toSEVar(cidPos)),
-      ) { (_, env) =>
-        env.toSEVar(tmplArgPos)
-      }
-    }
+  ): s.SExpr = {
+    SBUInsertFetchNode(
+      tmplId,
+      optTargetTemplateId,
+      byKey = mbKey.isDefined,
+    )(
+      env.toSEVar(cidPos),
+      mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
+    )
+
+  }
 
   private[this] def compileFetchTemplate(
       tmplId: Identifier,
-      tmpl: Template,
+      optTargetTemplateId: Option[TypeConName],
   ): (t.SDefinitionRef, SDefinition) =
-    // compile a template to
-    // FetchDefRef(tmplId) = \ <coid> <token> ->
-    //   let <tmplArg> = $fetch(tmplId) <coid>
-    //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] [tmpl.key]
-    //   in <tmplArg>
     topLevelFunction2(t.FetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
-      val casting = Casting.Hard(tmplId)
-      translateFetchTemplateBody(env, tmplId, tmpl, casting)(cidPos, None, tokenPos)
-    }
-
-  private[this] def compileSoftFetchTemplate(
-      tmplId: Identifier,
-      tmpl: Template,
-      fields: ImmArray[(FieldName, Type)],
-      predPids: List[PackageId],
-  ): (t.SDefinitionRef, SDefinition) =
-    // compile a template to
-    // SoftFetchTemplateDefRef(tmplId) = \ <coid> <token> ->
-    //   let <any_tmpl> = $fetch_any <coid> None
-    //       <softTmplArg> = $promote_any_contract(tmplId, fields, [preds(tmplId)]) <coid> <any_tmpl>
-    //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] []
-    //   in <softTmplArg>
-    topLevelFunction2(t.SoftFetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
-      val casting = Casting.Soft(tmplId, fields, predPids)
-      translateFetchTemplateBody(env, tmplId, tmpl, casting)(cidPos, None, tokenPos)
+      translateFetchTemplateBody(env, tmplId, optTargetTemplateId)(
+        cidPos,
+        None,
+        tokenPos,
+      )
     }
 
   private[this] def compileFetchInterface(ifaceId: Identifier): (t.SDefinitionRef, SDefinition) =
     topLevelFunction2(t.FetchInterfaceDefRef(ifaceId)) { (cidPos, _, env) =>
       let(
         env,
-        SBCastAnyInterface(ifaceId)(
+        SBFetchAny(
+          optTargetTemplateId = None
+        )(
           env.toSEVar(cidPos),
-          SBFetchAny(env.toSEVar(cidPos), s.SEValue.None),
+          s.SEValue.None,
         ),
       ) { (payloadPos, env) =>
         let(
           env,
-          s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
+          SBCastAnyInterface(ifaceId)(
+            env.toSEVar(cidPos),
+            env.toSEVar(payloadPos),
+          ),
         ) { (_, env) =>
           let(
             env,
-            SBResolveSBUInsertFetchNode(env.toSEVar(payloadPos), env.toSEVar(cidPos)),
+            s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
           ) { (_, env) =>
-            env.toSEVar(payloadPos)
+            let(
+              env,
+              SBResolveSBUInsertFetchNode(
+                env.toSEVar(payloadPos),
+                env.toSEVar(cidPos),
+                s.SEValue.None,
+              ),
+            ) { (_, env) =>
+              env.toSEVar(payloadPos)
+            }
           }
         }
       }
@@ -866,36 +843,56 @@ private[lf] final class Compiler(
       translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmpl.observers)
     }
 
-  private[this] def compileToCachedContract(
+  // TODO: This would be better handled by a proper builtin, rather than synthesising a definition
+  private[this] def compileToContractInfo(
       tmplId: Identifier,
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
-    unlabelledTopLevelFunction2(t.ToCachedContractDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
-      SBuildCachedContract(
-        s.SEValue(STypeRep(TTyCon(tmplId))),
-        env.toSEVar(tmplArgPos),
-        t.AgreementTextDefRef(tmplId)(env.toSEVar(tmplArgPos)),
-        t.SignatoriesDefRef(tmplId)(env.toSEVar(tmplArgPos)),
-        t.ObserversDefRef(tmplId)(env.toSEVar(tmplArgPos)),
-        tmpl.key match {
-          case None =>
-            s.SEValue.None
-          case Some(tmplKey) =>
-            s.SECase(
-              env.toSEVar(mbKeyPos),
-              List(
-                s.SCaseAlt(
-                  t.SCPNone,
-                  let(env, translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmplKey.body)) {
-                    (keyPos, env) =>
-                      SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
-                  },
-                ),
-                s.SCaseAlt(t.SCPDefault, env.toSEVar(mbKeyPos)),
-              ),
-            )
-        },
-      )
+    unlabelledTopLevelFunction2(t.ToContractInfoDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
+      // We use a chain of let bindings to make the evaluation order of SBuildContractInfoStruct's arguments is
+      // independent from the evaluation strategy imposed by the ANF transformation.
+      let(env, s.SEValue(STypeRep(TTyCon(tmplId)))) { (typePos, env) =>
+        let(env, t.AgreementTextDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
+          (agreementTextPos, env) =>
+            let(env, t.SignatoriesDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
+              (signatoriesPos, env) =>
+                let(env, t.ObserversDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
+                  (observersPos, env) =>
+                    val body = tmpl.key match {
+                      case None =>
+                        s.SEValue.None
+                      case Some(tmplKey) =>
+                        s.SECase(
+                          env.toSEVar(mbKeyPos),
+                          List(
+                            s.SCaseAlt(
+                              t.SCPNone,
+                              let(
+                                env,
+                                translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmplKey.body),
+                              ) { (keyPos, env) =>
+                                SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
+                              },
+                            ),
+                            s.SCaseAlt(t.SCPDefault, env.toSEVar(mbKeyPos)),
+                          ),
+                        )
+                    }
+                    let(env, body) { (bodyPos, env) =>
+                      SBuildContractInfoStruct(
+                        env.toSEVar(typePos),
+                        env.toSEVar(tmplArgPos),
+                        env.toSEVar(agreementTextPos),
+                        env.toSEVar(signatoriesPos),
+                        env.toSEVar(observersPos),
+                        env.toSEVar(bodyPos),
+                      )
+                    }
+                }
+            }
+        }
+      }
+
     }
 
   private[this] val UnitDef = SDefinition(t.SEValue.Unit)
@@ -962,7 +959,7 @@ private[lf] final class Compiler(
       templateId,
       env2.toSEVar(contractPos),
     ) { (env: Env) =>
-      SBUCreate(t.ToCachedContractDefRef(templateId)(env.toSEVar(contractPos), s.SEValue.None))
+      SBUCreate(templateId)(env.toSEVar(contractPos))
     }
   }
 
@@ -1050,7 +1047,6 @@ private[lf] final class Compiler(
   @inline
   private[this] def compileFetchByKey(
       tmplId: TypeConName,
-      tmpl: Template,
       tmplKey: TemplateKey,
   ): (t.SDefinitionRef, SDefinition) =
     // compile a template with key into
@@ -1065,7 +1061,7 @@ private[lf] final class Compiler(
         let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
           let(
             env,
-            translateFetchTemplateBody(env, tmplId, tmpl, Casting.Hard(tmplId))(
+            translateFetchTemplateBody(env, tmplId, optTargetTemplateId = None)(
               cidPos,
               Some(keyWithMPos),
               tokenPos,
@@ -1167,7 +1163,7 @@ private[lf] final class Compiler(
             s.SEValue(argument),
           )((_) =>
             s.SEApp(
-              s.SEVal(t.ToCachedContractDefRef(templateId)),
+              s.SEVal(t.ToContractInfoDefRef(templateId)),
               List(s.SEValue(argument), s.SEValue.None),
             )
           )

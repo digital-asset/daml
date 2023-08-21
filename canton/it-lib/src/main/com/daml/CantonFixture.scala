@@ -58,12 +58,16 @@ trait CantonFixtureWithResource[A]
   protected lazy val timeProviderType: TimeProviderType = TimeProviderType.WallClock
   protected lazy val tlsEnable: Boolean = false
   protected lazy val enableDisclosedContracts: Boolean = false
+  protected lazy val bootstrapScript: Option[String] = Option.empty
   protected lazy val applicationId: ApplicationId = ApplicationId(getClass.getName)
+  protected lazy val cantonJar: Path =
+    if (devMode) CantonRunner.cantonPatchPath else CantonRunner.cantonPath
 
   // This flag setup some behavior to ease debugging tests.
   //  If `true`
   //   - temporary file are not deleted (this requires "--test_tmpdir=/tmp/" or similar for bazel builds)
   //   - some debug info are logged.
+  //   - output from the canton process is sent to stdout
   protected val cantonFixtureDebugMode = false
 
   final protected val logger = org.slf4j.LoggerFactory.getLogger(getClass)
@@ -94,6 +98,7 @@ trait CantonFixtureWithResource[A]
   }
 
   lazy val config = CantonConfig(
+    jarPath = cantonJar,
     authSecret = authSecret,
     devMode = devMode,
     nParticipants = nParticipants,
@@ -101,6 +106,7 @@ trait CantonFixtureWithResource[A]
     tlsEnable = tlsEnable,
     debug = cantonFixtureDebugMode,
     enableDisclosedContracts = enableDisclosedContracts,
+    bootstrapScript = bootstrapScript,
   )
 
   protected def info(msg: String): Unit =

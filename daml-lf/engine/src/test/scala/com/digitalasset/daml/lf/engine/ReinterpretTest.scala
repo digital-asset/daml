@@ -11,16 +11,10 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.{
-  GlobalKeyWithMaintainers,
-  Node,
-  NodeId,
-  Transaction,
-  SubmittedTransaction,
-}
+import com.daml.lf.transaction.{Node, NodeId, Transaction, SubmittedTransaction}
 import com.daml.lf.value.Value._
 import com.daml.lf.command.ReplayCommand
-import com.daml.lf.transaction.test.TransactionBuilder.{assertAsVersionedContract}
+import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
@@ -65,14 +59,9 @@ class ReinterpretTest
         )
     )
 
-  val lookupContract = defaultContracts.get(_)
-  val lookupPackage = allPackages.get(_)
-  val lookupKey = { _: GlobalKeyWithMaintainers => None }
-
   private val engine = new Engine(
     EngineConfig(
       allowedLanguageVersions = language.LanguageVersion.DevVersions,
-      forbidV0ContractId = true,
       requireSuffixedGlobalContractId = true,
     )
   )
@@ -95,11 +84,7 @@ class ReinterpretTest
         time,
         time,
       )
-      .consume(
-        lookupContract,
-        lookupPackage,
-        lookupKey,
-      )
+      .consume(pcs = defaultContracts, pkgs = allPackages)
     res match {
       case Right((tx, _)) => Right(tx)
       case Left(e) => Left(e)

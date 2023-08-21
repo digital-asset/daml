@@ -9,14 +9,16 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.data.{ImmArray, assertRight}
 import com.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
-import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
+import com.daml.lf.engine.script.ScriptTimeMode
+import com.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
 import com.daml.lf.speedy.{Compiler, SDefinition, Speedy}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
-import com.daml.lf.engine.script.{Participants, Runner, ScriptF}
+import com.daml.lf.engine.script.{Runner, Script}
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.ExecutionContext
@@ -34,10 +36,21 @@ object Context {
 
   private val contextCounter = new AtomicLong()
 
-  def newContext(lfVerion: LanguageVersion, timeout: Duration)(implicit
-      loggingContext: LoggingContext
+  def newContext(lfVerion: LanguageVersion, timeout: Duration, evaluationOrder: EvaluationOrder)(
+      implicit loggingContext: LoggingContext
   ): Context =
-    new Context(contextCounter.incrementAndGet(), lfVerion, timeout)
+    new Context(contextCounter.incrementAndGet(), lfVerion, timeout, evaluationOrder)
+}
+
+class Context(
+    val contextId: Context.ContextId,
+    languageVersion: LanguageVersion,
+    timeout: Duration,
+    evaluationOrder: EvaluationOrder,
+)(implicit
+    loggingContext: LoggingContext
+) {
+  def devMode: Boolean = languageVersion == LanguageVersion.v1_dev
 
   private val compilerConfig =
     Compiler.Config(
@@ -45,20 +58,8 @@ object Context {
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,
+      evaluationOrder = evaluationOrder,
     )
-}
-
-class Context(
-    val contextId: Context.ContextId,
-    languageVersion: LanguageVersion,
-    timeout: Duration,
-)(implicit
-    loggingContext: LoggingContext
-) {
-
-  import Context._
-
-  def devMode: Boolean = languageVersion == LanguageVersion.v1_dev
 
   /** The package identifier to use for modules added to the context.
     * When decoding LF modules this package identifier should be used to rewrite
@@ -77,7 +78,7 @@ class Context(
   def loadedPackages(): Iterable[PackageId] = extSignatures.keys
 
   def cloneContext(): Context = synchronized {
-    val newCtx = Context.newContext(languageVersion, timeout)
+    val newCtx = Context.newContext(languageVersion, timeout, evaluationOrder)
     newCtx.extSignatures = extSignatures
     newCtx.extDefns = extDefns
     newCtx.modules = modules
@@ -178,20 +179,21 @@ class Context(
       Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
     val traceLog = Speedy.Machine.newTraceLog
     val warningLog = Speedy.Machine.newWarningLog
+    val profile = Speedy.Machine.newProfile
     val timeBomb = TimeBomb(timeout.toMillis)
     val isOverdue = timeBomb.hasExploded
     val ledgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog, isOverdue)
-    val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
     val timeBombCanceller = timeBomb.start()
-    val (clientMachine, resultF) = Runner.run(
+    val (resultF, ideLedgerContext) = Runner.runIdeLedgerClient(
       compiledPackages = compiledPackages,
       scriptId = scriptId,
       convertInputValue = None,
       inputValue = None,
-      initialClients = participants,
+      initialClient = ledgerClient,
       timeMode = ScriptTimeMode.Static,
       traceLog = traceLog,
       warningLog = warningLog,
+      profile = profile,
       canceled = () => {
         if (timeBombCanceller()) Some(Runner.TimedOut)
         else if (canceledByRequest()) Some(Runner.CanceledByRequest)
@@ -205,10 +207,10 @@ class Context(
       Success(
         Some(
           ScenarioRunner.ScenarioError(
-            ledgerClient.ledger,
-            clientMachine.traceLog,
-            clientMachine.warningLog,
-            ledgerClient.currentSubmission,
+            ideLedgerContext.ledger,
+            traceLog,
+            warningLog,
+            ideLedgerContext.currentSubmission,
             // TODO (MK) https://github.com/digital-asset/daml/issues/7276
             ImmArray.Empty,
             e,
@@ -224,10 +226,10 @@ class Context(
         Success(
           Some(
             ScenarioRunner.ScenarioSuccess(
-              ledgerClient.ledger,
-              clientMachine.traceLog,
-              clientMachine.warningLog,
-              clientMachine.profile,
+              ideLedgerContext.ledger,
+              traceLog,
+              warningLog,
+              profile,
               dummyDuration,
               dummySteps,
               v,
@@ -240,14 +242,14 @@ class Context(
         handleFailure(Error.CanceledByRequest())
       case Failure(Runner.TimedOut) =>
         handleFailure(Error.Timeout(timeout))
-      case Failure(e: ScriptF.FailedCmd) =>
+      case Failure(e: Script.FailedCmd) =>
         e.cause match {
           case e: Error => handleFailure(e)
           case e: speedy.SError.SError => handleFailure(Error.RunnerException(e))
           case e => {
             // We can't send _everything_ over without changing internal, nicer to put a print here.
             e.printStackTrace
-            handleFailure(Error.Internal("ScriptF.FailedCmd unexpected cause: " + e.getMessage))
+            handleFailure(Error.Internal("Script.FailedCmd unexpected cause: " + e.getMessage))
           }
         }
       case Failure(e) => {

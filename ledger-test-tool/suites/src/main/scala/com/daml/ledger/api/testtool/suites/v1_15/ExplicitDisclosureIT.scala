@@ -517,7 +517,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           .mustFail("using a disclosed contract with missing createdAt in contract metadata")
         _ = assertGrpcError(
           err,
-          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
+          LedgerApiErrors.CommandExecution.Interpreter.DisclosedContractKeyHashingError,
           None,
           checkDefiniteAnswerMetadata = true,
         )

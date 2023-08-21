@@ -6,7 +6,7 @@ set -euo pipefail
 
 eval "$("$(dirname "$0")/dev-env/bin/dade-assist")"
 
-execution_log_postfix=${1:-}
+execution_log_postfix=${1:-}${2:-}
 
 export LC_ALL=en_US.UTF-8
 
@@ -18,7 +18,7 @@ if [[ "$(uname)" == "Darwin" ]]; then
   tag_filter="$tag_filter,-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
 
-SKIP_DEV_CANTON_TESTS=true
+SKIP_DEV_CANTON_TESTS=false
 if [ "$SKIP_DEV_CANTON_TESTS" = "true" ]; then
   tag_filter="$tag_filter,-dev-canton-test"
 fi

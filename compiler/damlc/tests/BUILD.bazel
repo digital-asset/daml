@@ -163,9 +163,10 @@ da_haskell_library(
     da_haskell_test(
         # NOTE(MH): For some reason, ghc-pkg gets very unhappy if we separate
         # the components of the version number by dot, dash or underscore.
-        name = "integration{skip}-v{version}".format(
+        name = "integration{skip}{order}-v{version}".format(
             version = version.replace(".", ""),
             skip = "-unvalidated" if skip_validation else "",
+            order = "-r2l" if eval_order == "RightToLeft" else "",
         ),
         size = "large",
         srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
@@ -174,6 +175,10 @@ da_haskell_library(
             version,
             "--skip-validation",
             "true" if skip_validation else "false",
+            "--daml-script-v2",
+            "false",
+            "--evaluation-order",
+            eval_order,
         ],
         data = [
             ":bond-trading",
@@ -197,15 +202,69 @@ da_haskell_library(
             ":integration-lib",
         ],
     )
-    for version, skip_validation in [(version, False) for version in COMPILER_LF_VERSIONS] + [
+    for version, skip_validation, eval_order in [(version, False, "LeftToRight") for version in COMPILER_LF_VERSIONS] + [
         (
             lf_version_configuration.get("default"),
             True,
+            "LeftToRight",
         ),
         (
             lf_version_configuration.get("dev"),
             True,
+            "LeftToRight",
         ),
+        (
+            lf_version_configuration.get("dev"),
+            False,
+            "RightToLeft",
+        ),
+    ]
+]
+
+[
+    da_haskell_test(
+        name = "integration{order}-v1dev-script2".format(
+            order = "-r2l" if eval_order == "RightToLeft" else "",
+        ),
+        size = "large",
+        srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
+        args = [
+            "--daml-lf-version",
+            "1.dev",
+            "--skip-validation",
+            "false",
+            "--daml-script-v2",
+            "true",
+            "--evaluation-order",
+            eval_order,
+        ],
+        data = [
+            ":bond-trading",
+            ":cant-skip-preprocessor",
+            ":daml-test-files",
+            ":package-vetting-package-a.dar",
+            ":package-vetting-package-b.dar",
+            ":query-lf-lib",
+            "//compiler/damlc/pkg-db",
+            "//compiler/damlc/stable-packages",
+            "//compiler/scenario-service/server:scenario_service_jar",
+            "//daml-script/daml3:daml3-script.dar",
+            "@jq_dev_env//:jq",
+            ghc_pkg,
+        ],
+        hackage_deps = [
+            "base",
+        ],
+        main_function = "DA.Test.DamlcIntegrationMain.main",
+        src_strip_prefix = "src",
+        visibility = ["//visibility:public"],
+        deps = [
+            ":integration-lib",
+        ],
+    )
+    for eval_order in [
+        "LeftToRight",
+        "RightToLeft",
     ]
 ]
 
@@ -614,7 +673,7 @@ da_haskell_test(
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
         "//test-common/test-certificates",
-        "//canton:lib",
+        "//canton:canton_deploy.jar",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "aeson",
@@ -656,7 +715,7 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/repl-service/server:repl_service_jar",
         "//daml-script/daml:daml-script.dar",
-        "//canton:lib",
+        "//canton:canton_deploy.jar",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "async",
@@ -975,7 +1034,7 @@ da_haskell_test(
     data = [
         ":pkg-manager-test.dar",
         "//compiler/damlc",
-        "//canton:lib",
+        "//canton:canton_deploy.jar",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",
@@ -1124,4 +1183,31 @@ da_haskell_test(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
+)
+
+daml_compile(
+    name = "package-vetting-package-a",
+    srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageAModule.daml"],
+    project_name = "package-vetting-package-a",
+    target = "1.dev",
+    version = "1.0.0",
+)
+
+daml_compile(
+    name = "package-vetting-package-b",
+    srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageBModule.daml"],
+    project_name = "package-vetting-package-b",
+    target = "1.dev",
+    version = "1.0.0",
+)
+
+daml_compile(
+    name = "try-submit-test",
+    srcs = ["daml-test-files/Daml3ScriptTrySubmit.daml"],
+    dependencies = [
+        "//daml-script/daml3:daml3-script.dar",
+    ],
+    project_name = "try-submit-test",
+    target = "1.dev",
+    visibility = ["//visibility:public"],
 )

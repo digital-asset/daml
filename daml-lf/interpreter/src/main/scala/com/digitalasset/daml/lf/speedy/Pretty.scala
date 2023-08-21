@@ -572,8 +572,8 @@ private[lf] object Pretty {
               ) + char(
                 ']'
               )
-            case SBUCreate => text("$create")
-            case SBFetchAny => text("$fetchAny")
+            case SBUCreate(id) => text(s"$$create($id)")
+            case SBFetchAny(optTargetTemplateId) => text(s"$$fetchAny($optTargetTemplateId)")
             case SBUGetTime | SBSGetTime => text("$getTime")
             case _ => str(x)
           }

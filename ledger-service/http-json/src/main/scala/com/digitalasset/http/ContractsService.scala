@@ -10,7 +10,12 @@ import akka.stream.Materializer
 import com.daml.lf
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.dbbackend.ContractDao
-import com.daml.http.domain.{ContractTypeId, GetActiveContractsRequest, JwtPayload}
+import com.daml.http.domain.{
+  ContractTypeId,
+  GetActiveContractsRequest,
+  JwtPayload,
+  RefreshCacheRequest,
+}
 import ContractTypeId.toLedgerApiValue
 import com.daml.http.json.JsonProtocol.LfValueCodec
 import com.daml.http.query.ValuePredicate
@@ -303,6 +308,46 @@ class ContractsService(
             domain.OkResponse(source, warnings)
           }
           .merge
+    }
+  }
+
+  def refreshCache(
+      jwt: Jwt,
+      jwtPayload: JwtPayload,
+      refreshCacheRequest: RefreshCacheRequest,
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: HttpJsonApiMetrics,
+  ): Future[domain.SyncResponse[Source[Error \/ domain.RefreshCacheResult, NotUsed]]] = {
+    val ledgerId = toLedgerId(jwtPayload.ledgerId)
+    getTermination(jwt, ledgerId)(lc).map { optLedgerEnd =>
+      optLedgerEnd.cata(
+        { ledgerEnd =>
+          daoAndFetch.cata(
+            { case (dao, fetchService) =>
+              val response: Source[Error \/ domain.RefreshCacheResult, NotUsed] = {
+                val offsetLimitToRefresh = refreshCacheRequest.offset.getOrElse(ledgerEnd.toDomain)
+                val futureValue =
+                  dao
+                    .transact(
+                      fetchService
+                        .fetchAndRefreshCache(jwt, ledgerId, ledgerEnd, offsetLimitToRefresh)
+                    )
+                    .unsafeToFuture()
+                Source
+                  .future(futureValue)
+                  .map { _ =>
+                    \/.right(domain.RefreshCacheResult(offsetLimitToRefresh))
+                  }
+              }
+              domain.OkResponse(response)
+            },
+            mkErrorResponse("No query-storage is set to update cache", None),
+          )
+        }, {
+          mkErrorResponse("Ledger is at the beginning, cache do not have anything to update", None)
+        },
+      )
     }
   }
 

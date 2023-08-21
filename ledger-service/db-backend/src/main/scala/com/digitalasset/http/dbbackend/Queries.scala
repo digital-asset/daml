@@ -5,14 +5,13 @@ package com.daml.http.dbbackend
 
 import com.daml.lf.data.Ref
 import com.daml.nonempty
-import nonempty.{NonEmpty, +-:}
+import nonempty.{+-:, NonEmpty}
 import nonempty.NonEmptyReturningOps._
-
 import doobie._
 import doobie.implicits._
 import scala.annotation.nowarn
-import scala.collection.immutable.{Seq => ISeq, SortedMap}
-import scalaz.{@@, Cord, Functor, OneAnd, Tag, \/, -\/, \/-}
+import scala.collection.immutable.{SortedMap, Seq => ISeq}
+import scalaz.{-\/, @@, Cord, Functor, OneAnd, Tag, \/, \/-}
 import scalaz.Digit._0
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
@@ -193,8 +192,30 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     tpid <- sql"""SELECT tpid FROM $templateIdTableName
                   WHERE (package_id = $packageId AND template_module_name = $moduleName
                       AND template_entity_name = $entityName)""".query[SurrogateTpId].unique
-
   } yield tpid
+
+  // Returns a map from templates to the latest seen offset per party
+  final def templateOffsetsOlderThan(offsetLimitToRefresh: String)(implicit
+      log: LogHandler
+  ): ConnectionIO[
+    Map[(String, String, String), NonEmpty[Map[String, String]]]
+  ] = {
+    val allOffsetsQuery =
+      sql"""
+        SELECT o.party, o.last_offset, t.package_id, t.template_module_name, t.template_entity_name
+            FROM $ledgerOffsetTableName o
+            JOIN $templateIdTableName t
+            ON t.tpid = o.tpid
+            WHERE o.last_offset < $offsetLimitToRefresh
+        """
+    allOffsetsQuery
+      .query[(String, String, String, String, String)]
+      .to[Vector]
+      .map {
+        _.groupBy1(x => (x._3, x._4, x._5))
+          .transform((_, tpos) => tpos.map(x => (x._1, x._2)).toMap)
+      }
+  }
 
   protected def insertTemplateIdIfNotExists(
       packageId: String,
@@ -306,6 +327,13 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   protected[this] def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
   )(implicit log: LogHandler): ConnectionIO[Int]
+
+  final def deleteTemplate(tpid: SurrogateTpId)(implicit log: LogHandler): ConnectionIO[Unit] = {
+    for {
+      _ <- sql"DELETE FROM $contractTableName WHERE tpid = $tpid".update.run
+      _ <- sql"DELETE FROM $ledgerOffsetTableName WHERE tpid = $tpid".update.run
+    } yield {}
+  }
 
   // ContractTypeId -> CId[String]
   final def deleteContracts(

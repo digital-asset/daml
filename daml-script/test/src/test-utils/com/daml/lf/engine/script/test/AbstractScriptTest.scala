@@ -10,11 +10,7 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.engine.script.ledgerinteraction.{
-  GrpcLedgerClient,
-  ScriptLedgerClient,
-  ScriptTimeMode,
-}
+import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedgerClient}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.{ArrayList, SValue}
@@ -70,7 +66,6 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
         clients,
         timeMode,
       )
-      ._2
   }
 
   final protected def scriptClients(

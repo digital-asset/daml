@@ -3,6 +3,7 @@
 
 package com.daml.lf
 package engine.script
+package v1
 
 import java.time.Clock
 import akka.stream.Materializer
@@ -13,7 +14,6 @@ import com.daml.lf.{CompiledPackages, command}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, UserId}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SExpr.{SEAppAtomic, SEValue}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
@@ -34,21 +34,10 @@ import scala.concurrent.{ExecutionContext, Future}
 sealed trait ScriptF
 
 object ScriptF {
-  final class FailedCmd(val cmd: Cmd, val cause: Throwable)
-      extends RuntimeException(
-        s"""Command ${cmd.description} failed: ${cause.getMessage}
-           |Daml stacktrace:
-           |${cmd.stackTrace.pretty()}""".stripMargin,
-        cause,
-      )
-
   final case class Catch(act: SValue, handle: SValue, continue: SValue) extends ScriptF
   final case class Throw(exc: SAny) extends ScriptF
 
-  sealed trait Cmd extends ScriptF {
-    def stackTrace: StackTrace
-    // Human-readable description of the command used in error messages.
-    def description: String
+  sealed trait Cmd extends ScriptF with Script.FailableCmd {
     def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -59,7 +48,7 @@ object ScriptF {
   final class Env(
       val scriptIds: ScriptIds,
       val timeMode: ScriptTimeMode,
-      private var _clients: Participants[ScriptLedgerClient],
+      private var _clients: Participants[v1.ledgerinteraction.ScriptLedgerClient],
       machine: PureMachine,
   ) {
     def clients = _clients

@@ -32,11 +32,8 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
-import com.daml.lf.engine.script.ledgerinteraction.{
-  ScriptLedgerClient,
-  JsonLedgerClient,
-  ScriptTimeMode,
-}
+import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient
+import com.daml.lf.engine.script.v1.ledgerinteraction.JsonLedgerClient
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
@@ -405,7 +402,7 @@ final class JsonApiIt extends AsyncWordSpec with JsonApiFixture with Matchers wi
       for {
         alice <- allocateParty
         clients <- getClients(List(alice))
-        exception <- recoverToExceptionIf[ScriptF.FailedCmd](
+        exception <- recoverToExceptionIf[Script.FailedCmd](
           run(
             clients,
             QualifiedName.assertFromString("ScriptTest:jsonFailingCreateAndExercise"),
@@ -649,7 +646,7 @@ final class JsonApiIt extends AsyncWordSpec with JsonApiFixture with Matchers wi
           )
           participants = Participants(Some(participant), Map.empty, Map.empty)
           clients <- Runner.jsonClients(participants, envIface)
-          exc <- recoverToExceptionIf[ScriptF.FailedCmd](
+          exc <- recoverToExceptionIf[Script.FailedCmd](
             run(
               clients,
               QualifiedName.assertFromString("ScriptTest:jsonBasic"),

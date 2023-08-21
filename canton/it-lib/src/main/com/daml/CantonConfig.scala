@@ -44,6 +44,7 @@ object CantonConfig {
 }
 
 final case class CantonConfig(
+    jarPath: Path = CantonRunner.cantonPath,
     authSecret: Option[String] = None,
     devMode: Boolean = false,
     nParticipants: Int = 1,
@@ -51,6 +52,8 @@ final case class CantonConfig(
     tlsEnable: Boolean = false,
     debug: Boolean = false,
     enableDisclosedContracts: Boolean = false,
+    bootstrapScript: Option[String] = None,
+    enableUpgrade: Boolean = false,
 ) {
 
   lazy val tlsConfig =

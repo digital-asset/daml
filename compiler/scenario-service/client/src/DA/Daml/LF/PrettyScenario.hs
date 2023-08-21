@@ -509,6 +509,30 @@ prettyScenarioErrorError (Just err) =  do
       pure $ text $ T.pack $ "Evaluation timed out after " <> show timeout <> " seconds"
     ScenarioErrorErrorCancelledByRequest _ ->
       pure $ text $ T.pack "Evaluation was cancelled because the test was changed and rerun in a new thread."
+    
+    ScenarioErrorErrorLookupError ScenarioError_LookupError {..} -> do
+      let
+        errMsg =
+          case scenarioError_LookupErrorError of
+            Just (ScenarioError_LookupErrorErrorNotFound ScenarioError_LookupError_NotFound {..}) ->
+              "Failed to find " <> scenarioError_LookupError_NotFoundNotFound <>
+                if scenarioError_LookupError_NotFoundNotFound == scenarioError_LookupError_NotFoundContext
+                  then ""
+                  else " when looking for " <> scenarioError_LookupError_NotFoundContext
+            Just (ScenarioError_LookupErrorErrorAmbiguousInterfaceInstance ScenarioError_LookupError_AmbiguousInterfaceInstance {..}) ->
+              "Multiple possible instances of " <> scenarioError_LookupError_AmbiguousInterfaceInstanceInstance <>
+                if scenarioError_LookupError_AmbiguousInterfaceInstanceInstance == scenarioError_LookupError_AmbiguousInterfaceInstanceContext
+                  then ""
+                  else " in the context of " <> scenarioError_LookupError_AmbiguousInterfaceInstanceContext
+            Nothing -> "Unknown Lookup error"
+      pure $ vcat
+        [ text $ TL.toStrict errMsg
+        , label_ "Package name:" $
+            prettyMay "<missing package name>"
+              prettyPackageMetadata
+              scenarioError_LookupErrorPackageMetadata
+        , label_ "Package id:" $ text $ TL.toStrict scenarioError_LookupErrorPackageId
+        ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
@@ -991,6 +1015,9 @@ prettyDefName world (Identifier mbPkgId (UnmangledQualifiedName modName defName)
     name = LF.moduleNameString modName <> ":" <> defName
     ppName = text name <> ppPkgId
     ppPkgId = maybe mempty prettyPackageIdentifier mbPkgId
+
+prettyPackageMetadata :: PackageMetadata -> Doc SyntaxClass
+prettyPackageMetadata (PackageMetadata name version) = text $ TL.toStrict $ name <> "-" <> version
 
 prettyChoiceId
   :: LF.World -> Maybe Identifier -> TL.Text

@@ -90,6 +90,7 @@ private[daml] object StablePackage {
             v1_7,
           ) {
         val AnyChoice: Ref.TypeConName = assertIdentifier("AnyChoice")
+        val AnyContractKey: Ref.TypeConName = assertIdentifier("AnyContractKey")
         val AnyTemplate: Ref.TypeConName = assertIdentifier("AnyTemplate")
         val TemplateTypeRep: Ref.TypeConName = assertIdentifier("TemplateTypeRep")
       }
@@ -167,7 +168,9 @@ private[daml] object StablePackage {
             "e22bce619ae24ca3b8e6519281cb5a33b64b3190cc763248b4c3f9ad5087a92c",
             "daml-stdlib",
             v1_6,
-          )
+          ) {
+        val NonEmpty: Ref.TypeConName = assertIdentifier("NonEmpty")
+      }
     }
     object Random {
       object Types
@@ -222,6 +225,7 @@ private[daml] object StablePackage {
           v1_6,
         ) {
       val Tuple2: Ref.TypeConName = assertIdentifier("Tuple2")
+      val Either: Ref.Identifier = assertIdentifier("Either")
     }
     object Validation {
       object Types

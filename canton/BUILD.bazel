@@ -7,6 +7,8 @@ load(
     "lf_scalacopts_stricter",
 )
 load("//:canton_dep.bzl", "canton")
+load("@build_environment//:configuration.bzl", "artif_pass", "artif_user")
+load("@os_info//:os_info.bzl", "is_windows")
 
 java_binary(
     name = "canton",
@@ -15,6 +17,7 @@ java_binary(
     runtime_deps = [
         # Do not sort
         "//canton:lib",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
 )
 
@@ -30,6 +33,7 @@ java_binary(
         "//daml-lf/engine",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//canton:lib",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
 )
 
@@ -49,4 +53,77 @@ java_import(
     name = "lib",
     jars = [":canton-lib.jar"],
     visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "canton-lib-ee",
+    # We don't use the else branch but we need a resolvable value
+    srcs = [":lib/canton-ee.jar"] if canton["local"] else ["@canton//:jar"],
+    outs = ["canton-lib-ee.jar"],
+    cmd = """
+set -euo pipefail
+
+if [ "{local}" = "true" ]; then
+    cp $(location {src}) $@
+    exit 0
+fi
+
+CANTON_ENTERPRISE_VERSION=2.8.0-snapshot.20230818.11028.0.ve8bd7201
+CANTON_ENTERPRISE_SHA=44aefc0dd13d1fae9d9e1f9838247da89859eee393ccea5514d816645b255574
+
+url=https://digitalasset.jfrog.io/artifactory/canton-enterprise/canton-enterprise-$$CANTON_ENTERPRISE_VERSION.tar.gz
+
+curl=$(location {curl})
+
+tmp=$$(mktemp)
+auth=$$(echo -n "{artif_user}:{artif_pass}" | base64 -w0)
+$$curl --location \
+     --fail \
+     --insecure \
+     --silent \
+     -H "Authorization: Basic $$auth" \
+     $$url \
+ > $$tmp || echo >&2 " Failed to download from $$url \n Have you set your ARTIFACTORY_USERNAME and ARTIFACTORY_PASSWORD env vars correctly?"
+
+computed_sha=$$(sha256sum $$tmp | awk '{{print $$1}}')
+if [ "$$CANTON_ENTERPRISE_SHA" != "$$computed_sha" ]; then
+    echo "Wrong sha for canton enterprise jar." >&2
+    echo "Trying to download from: $$url" >&2
+    echo "Got: $$computed_sha" >&2
+    echo "Expected: $$CANTON_ENTERPRISE_SHA" >&2
+    exit 1
+fi
+
+tar xzf $$tmp
+
+cp canton-*/lib/canton-*.jar $@
+""".format(
+        artif_user = artif_user,
+        artif_pass = artif_pass,
+        curl = "@curl_dev_env//:bin/curl" if not is_windows else "@curl_dev_env//:bin/curl.exe",
+        local = "true" if canton["local"] else "",
+        src = ":lib/canton-ee.jar" if canton["local"] else "@canton//:jar",  # not used in else case but still must resolve
+    ),
+    tags = ["canton-ee"],
+    tools = [
+        "@curl_dev_env//:bin/curl" if not is_windows else "@curl_dev_env//:bin/curl.exe",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+java_import(
+    name = "lib-ee",
+    jars = [":canton-lib-ee.jar"],
+    tags = ["canton-ee"],
+)
+
+java_binary(
+    name = "canton-ee",
+    main_class = "com.digitalasset.canton.CantonEnterpriseApp",
+    tags = ["canton-ee"],
+    visibility = ["//ledger-service:__subpackages__"],
+    runtime_deps = [
+        "//canton:lib-ee",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
+    ],
 )

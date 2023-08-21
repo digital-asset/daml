@@ -7,6 +7,7 @@ module DA.Daml.Assistant.Tests
 
 import DA.Daml.Assistant.Env
 import DA.Daml.Assistant.Install
+import DA.Daml.Assistant.Cache (UseCache (DontUseCache))
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
 import DA.Daml.Project.Consts hiding (getDamlPath, getProjectPath)
@@ -291,7 +292,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
                     , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
                     , envDamlAssistantSdkVersion = Just $ DamlAssistantSdkVersion version
                     , envSdkVersion = Just version
-                    , envLatestStableSdkVersion = Just version
+                    , envLatestStableSdkVersion = pure (Just version)
                     , envSdkPath = Just $ SdkPath (base </> "sdk")
                     , envProjectPath = Just $ ProjectPath (base </> "proj")
                     }
@@ -308,13 +309,15 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
                     , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
                     , envDamlAssistantSdkVersion = Just $ DamlAssistantSdkVersion version
                     , envSdkVersion = Just version
-                    , envLatestStableSdkVersion = Just version
+                    , envLatestStableSdkVersion = pure (Just version)
                     , envSdkPath = Just $ SdkPath (base </> "sdk")
                     , envProjectPath = Just $ ProjectPath (base </> "proj")
                     }
             env <- withEnv [] (getDispatchEnv denv1)
             denv2 <- withEnv (fmap (fmap Just) env) (getDamlEnv' =<< getDamlPath)
-            Tasty.assertEqual "daml envs" denv1 denv2
+            forcedDenv1 <- forceEnv denv1
+            forcedDenv2 <- forceEnv denv2
+            Tasty.assertEqual "daml envs" forcedDenv1 forcedDenv2
 
     , Tasty.testCase "getDispatchEnv should override getDamlEnv (2)" $ do
         withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
@@ -324,13 +327,15 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
                     , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
                     , envDamlAssistantSdkVersion = Nothing
                     , envSdkVersion = Nothing
-                    , envLatestStableSdkVersion = Nothing
+                    , envLatestStableSdkVersion = pure Nothing
                     , envSdkPath = Nothing
                     , envProjectPath = Nothing
                     }
             env <- withEnv [] (getDispatchEnv denv1)
             denv2 <- withEnv (fmap (fmap Just) env) (getDamlEnv' =<< getDamlPath)
-            Tasty.assertEqual "daml envs" denv1 denv2
+            forcedDenv1 <- forceEnv denv1
+            forcedDenv2 <- forceEnv denv2
+            Tasty.assertEqual "daml envs" forcedDenv1 forcedDenv2
     ]
     where
         getDamlEnv' x = getDamlEnv x (LookForProjectPath True)
@@ -395,7 +400,7 @@ testInstall = Tasty.testGroup "DA.Daml.Assistant.Install"
                 .| Zlib.gzip
                 .| sinkFile "source.tar.gz"
 
-            install options damlPath Nothing Nothing
+            install options damlPath DontUseCache Nothing Nothing
     , if isWindows
         then testInstallWindows
         else testInstallUnix
@@ -432,7 +437,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                       .| Zlib.gzip
                       .| sinkFile "source.tar.gz"
 
-                  install options damlPath Nothing Nothing,
+                  install options damlPath DontUseCache Nothing Nothing,
 
       Tasty.testCase "reject an absolute symlink in a tarball" $ do
         withSystemTempDirectory "test-install" $ \ base -> do
@@ -463,7 +468,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
 
             assertError "Extracting SDK release tarball."
                 "Invalid SDK release: symbolic link target is absolute."
-                (install options damlPath Nothing Nothing)
+                (install options damlPath DontUseCache Nothing Nothing)
 
     , Tasty.testCase "reject an escaping symlink in a tarball" $ do
         withSystemTempDirectory "test-install" $ \ base -> do
@@ -494,7 +499,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
 
             assertError "Extracting SDK release tarball."
                 "Invalid SDK release: symbolic link target escapes tarball."
-                (install options damlPath Nothing Nothing)
+                (install options damlPath DontUseCache Nothing Nothing)
 
     , Tasty.testCase "check that relative symlink is used in installation" $ do
         withSystemTempDirectory "test-install" $ \ base -> do
@@ -524,7 +529,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                 .| Zlib.gzip
                 .| sinkFile "source.tar.gz"
 
-            install options damlPath Nothing Nothing
+            install options damlPath DontUseCache Nothing Nothing
             renamePath "daml" "daml2"
             x <- readFileUTF8 ("daml2" </> "bin" </> "daml")
                 -- ^ this will fail if the symlink created for
