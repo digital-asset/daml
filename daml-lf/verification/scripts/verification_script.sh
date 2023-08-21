@@ -6,14 +6,13 @@
 cd scripts
 
 #Removes anything that could make the script crash
-rm stainless-stack-trace.txt
 rm -rf stainless
 
 #Unzipping stainless
 mkdir stainless
 unzip stainless.zip -d stainless
 STAINLESS=$(pwd)/stainless/stainless.sh
-ARGS="--watch=false --timeout=30 --vc-cache=false --compact=true --solvers=nativez3 --infer-measures=false"
+ARGS="--watch=false --timeout=30 --vc-cache=false --compact=true --solvers=smt-z3 --infer-measures=false"
 
 #Running stainless, there are 3 modes:
 # - translate: translate the original file to a simplified version and verifies only that
@@ -60,14 +59,16 @@ if [[ $1 = "translate" ]]; then
   FILE=$(sed -z 's/\s*import\s*\([A-Za-z0-9]\|\.\)\+{\([A-Za-z0-9(),:;]\|\s\|\[\|\]\|\-\|\.\|\/\)*}//g' <<<"$FILE");
   FILE=$(sed '/^\s*import\s*\([A-Za-z0-9]\|\.\)\+/d' <<<"$FILE");
   FILE=$(sed 's/\(\s*\)\(case class State\)/\1@dropVCs\n\1\2/' <<<"$FILE");
+  
   ADD=$(cat stainless_imports.txt);
-  echo -e "${ADD}$FILE" > ../translation/ContractStateMachine.scala;
+  FILE_DESTINATION="../translation/ContractStateMachine.scala"
+  echo -e "${ADD}$FILE" > $FILE_DESTINATION;
 
   $STAINLESS ../utils/* ../translation/* ../transaction/* $ARGS;
   
   #Cleaning everything up
   rm -rf stainless
-  rm $FILE_LOCATION
+  rm $FILE_DESTINATION
   
   exit $?
 
