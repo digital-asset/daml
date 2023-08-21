@@ -563,7 +563,12 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
             // We use `Unit` instead of `NodeId` so that we don't have to fiddle with node ids
             val actualResolver: KeyResolver =
               if (mode == ContractKeyUniquenessMode.Strict) Map.empty else resolver
-            val result = visitSubtrees(tx.nodes, tx.roots.toSeq, actualResolver, ContractStateMachine.initial[Unit](mode))
+            val result = visitSubtrees(
+              tx.nodes,
+              tx.roots.toSeq,
+              actualResolver,
+              ContractStateMachine.initial[Unit](mode),
+            )
 
             (result, expectedResult) match {
               case (Left(err1), Left(err2)) => err1 shouldBe err2

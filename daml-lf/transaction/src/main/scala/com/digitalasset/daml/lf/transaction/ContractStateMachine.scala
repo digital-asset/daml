@@ -78,14 +78,13 @@ object ContractStateMachine {
     *   the keys belonging to the contracts in [[activeState]].[[ActiveLedgerState.consumedBy]]'s
     *   keyset are in [[activeState]].[[ActiveLedgerState.keys]],
     *   and similarly for all [[ActiveLedgerState]]s in [[rollbackStack]].
-   *
     */
   case class State[Nid] private[lf] (
       locallyCreated: Set[ContractId],
       globalKeyInputs: Map[GlobalKey, KeyInput],
       activeState: ContractStateMachine.ActiveLedgerState[Nid],
       rollbackStack: List[ContractStateMachine.ActiveLedgerState[Nid]],
-      mode: ContractKeyUniquenessMode
+      mode: ContractKeyUniquenessMode,
   ) {
 
     /** The return value indicates if the given contract is either consumed, inactive, or otherwise
@@ -322,7 +321,7 @@ object ContractStateMachine {
       * Must be matched by [[endRollback]] or [[dropRollback]].
       */
     def beginRollback(): State[Nid] =
-      this.copy(rollbackStack = activeState +: rollbackStack)
+      this.copy(rollbackStack = activeState :: rollbackStack)
 
     /** To be called when interpretation does insert a Rollback node or iteration leaves a Rollback node.
       * Must be matched by a [[beginRollback]].
@@ -375,15 +374,20 @@ object ContractStateMachine {
       def consistentGlobalKeyInputs: Either[KeyInputError, Unit] =
         substate.globalKeyInputs
           .find {
-            case (key, KeyCreate) => lookupActiveKey(key).exists(_ != KeyInactive) && mode == ContractKeyUniquenessMode.Strict
+            case (key, KeyCreate) =>
+              lookupActiveKey(key).exists(
+                _ != KeyInactive
+              ) && mode == ContractKeyUniquenessMode.Strict
             case (key, NegativeKeyLookup) => lookupActiveKey(key).exists(_ != KeyInactive)
-            case (key, Transaction.KeyActive(cid)) => lookupActiveKey(key).exists(_ != KeyActive(cid))
+            case (key, Transaction.KeyActive(cid)) =>
+              lookupActiveKey(key).exists(_ != KeyActive(cid))
             case _ => false
-          }
-        match {
+          } match {
           case Some((key, KeyCreate)) => Left[KeyInputError, Unit](Right(DuplicateContractKey(key)))
-          case Some((key, NegativeKeyLookup)) => Left[KeyInputError, Unit](Left(InconsistentContractKey(key)))
-          case Some((key, Transaction.KeyActive(_))) => Left[KeyInputError, Unit](Left(InconsistentContractKey(key)))
+          case Some((key, NegativeKeyLookup)) =>
+            Left[KeyInputError, Unit](Left(InconsistentContractKey(key)))
+          case Some((key, Transaction.KeyActive(_))) =>
+            Left[KeyInputError, Unit](Left(InconsistentContractKey(key)))
           case _ => Right[KeyInputError, Unit](())
         }
 
@@ -442,7 +446,13 @@ object ContractStateMachine {
   }
 
   object State {
-    def empty[Nid](mode: ContractKeyUniquenessMode): State[Nid] = new State(Set.empty, Map.empty, ContractStateMachine.ActiveLedgerState.empty, List.empty, mode)
+    def empty[Nid](mode: ContractKeyUniquenessMode): State[Nid] = new State(
+      Set.empty,
+      Map.empty,
+      ContractStateMachine.ActiveLedgerState.empty,
+      List.empty,
+      mode,
+    )
   }
 
   def initial[Nid](mode: ContractKeyUniquenessMode): State[Nid] = State.empty(mode)
@@ -507,7 +517,9 @@ object ContractStateMachine {
     /** localKeys filter by whether contracts have been consumed already.
       */
     def localActiveKeys: Map[GlobalKey, KeyMapping] =
-      localKeys.view.mapValues((v: ContractId) => if (consumedBy.contains(v)) KeyInactive else KeyActive(v)).toMap
+      localKeys.view
+        .mapValues((v: ContractId) => if (consumedBy.contains(v)) KeyInactive else KeyActive(v))
+        .toMap
 
     /** Lookup in localActiveKeys.
       */

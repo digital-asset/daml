@@ -221,7 +221,7 @@ private[speedy] case class PartialTransaction(
     nodes: HashMap[NodeId, Node],
     actionNodeSeeds: BackStack[crypto.Hash],
     context: PartialTransaction.Context,
-    contractState: ContractStateMachine.State[NodeId ],
+    contractState: ContractStateMachine.State[NodeId],
     actionNodeLocations: BackStack[Option[Location]],
     authorizationChecker: AuthorizationChecker,
 ) {
