@@ -530,4 +530,3 @@ object TransactionTree {
       ))
   )
 }
-

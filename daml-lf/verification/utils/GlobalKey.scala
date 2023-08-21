@@ -12,4 +12,3 @@ object ContractKeyUniquenessMode {
   case object Off extends ContractKeyUniquenessMode
   case object Strict extends ContractKeyUniquenessMode
 }
-

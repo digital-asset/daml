@@ -55,4 +55,3 @@ object Node {
 }
 
 final case class NodeId(index: BigInt)
-

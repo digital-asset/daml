@@ -337,4 +337,3 @@ object ContractStateMachine {
     def empty[Nid]: ActiveLedgerState[Nid] = ActiveLedgerState(Set.empty, Map.empty, Map.empty)
   }
 }
-

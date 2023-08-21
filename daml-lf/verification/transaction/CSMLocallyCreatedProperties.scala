@@ -196,4 +196,3 @@ object CSMLocallyCreatedProperties {
   }.ensuring(e2.forall(s2 => s2.consumed.subsetOf(lc)))
 
 }
-

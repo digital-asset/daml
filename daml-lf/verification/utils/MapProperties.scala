@@ -1102,4 +1102,3 @@ object MapProperties {
   }.ensuring(m1.find(f).isDefined == m2.find(f).isDefined)
 
 }
-

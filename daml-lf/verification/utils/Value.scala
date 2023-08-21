@@ -12,4 +12,3 @@ import stainless.collection._
 object Value {
   case class ContractId(coid: String)
 }
-

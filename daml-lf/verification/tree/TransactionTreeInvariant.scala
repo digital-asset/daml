@@ -268,4 +268,3 @@ object TransactionTreeInvariant {
   )
 
 }
-

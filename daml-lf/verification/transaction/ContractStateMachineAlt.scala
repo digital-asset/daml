@@ -333,4 +333,3 @@ object ContractStateMachine {
     )
   }
 }
-

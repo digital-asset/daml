@@ -2104,4 +2104,3 @@ object SetProperties {
   }.ensuring((s + e).map[V](f) === (s.map[V](f) + f(e)))
 
 }
-

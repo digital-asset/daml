@@ -1173,4 +1173,3 @@ object TransactionTreeChecks {
   )
 
 }
-

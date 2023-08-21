@@ -255,4 +255,3 @@ object MapAxioms {
   }.ensuring(m1 == m2)
 
 }
-

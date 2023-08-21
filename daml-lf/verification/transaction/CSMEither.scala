@@ -671,4 +671,3 @@ object CSMEither {
   )
 
 }
-

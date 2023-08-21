@@ -843,8 +843,8 @@ object TransactionTreeKeys {
     }
   }.ensuring(
     i =>
-      (tr.size > 0)
-      i >= 0 && i < 2 * tr.size - 1 &&
+      (tr.size > BigInt(0))
+      i >= BigInt(0) && i < 2 * tr.size - 1 &&
         firstAppears(tr, Map.empty[GlobalKey, KeyMapping], collectFun, (z, t) => z, k, i)
   )
 

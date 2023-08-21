@@ -478,4 +478,3 @@ object TransactionTreeAdvance {
   )
 
 }
-

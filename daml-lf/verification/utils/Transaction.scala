@@ -72,4 +72,3 @@ object Transaction {
 
   type KeyInputError = Either[InconsistentContractKey, DuplicateContractKey]
 }
-

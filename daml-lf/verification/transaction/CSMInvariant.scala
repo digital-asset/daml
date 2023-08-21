@@ -823,4 +823,3 @@ object CSMInvariantDerivedProp {
   )
 
 }
-

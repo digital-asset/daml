@@ -696,4 +696,3 @@ object CSMInconsistency {
   )
 
 }
-

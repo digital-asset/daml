@@ -285,4 +285,3 @@ object SetAxioms {
   }.ensuring(s1 == s2)
 
 }
-
