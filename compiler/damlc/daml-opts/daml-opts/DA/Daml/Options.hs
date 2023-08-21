@@ -545,10 +545,14 @@ expandSdkPackages lfVersion dars = do
     mapM (expand mbSdkPath) (nubOrd $ concatMap addDep dars)
   where
     isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
+    isInvalidDaml3Script = \case
+      "daml3-script" | lfVersion /= LF.versionDev -> True
+      _ -> False
     sdkSuffix = "-" <> LF.renderVersion lfVersion
     expand mbSdkPath fp
       | fp `elem` basePackages = pure fp
       | isSdkPackage fp = case mbSdkPath of
+            Just _ | isInvalidDaml3Script fp -> fail "Daml3-script may only be used in LF 1.dev, and is unstable."
             Just sdkPath -> pure $ sdkPath </> "daml-libs" </> fp <> sdkSuffix <.> "dar"
             Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
       | otherwise = pure fp
