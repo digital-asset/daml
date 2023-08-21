@@ -1,0 +1,13 @@
+diff --git a/lsp-types.cabal b/lsp-types.cabal
+index 1af6907..66f4e84 100644
+--- a/lsp-types.cabal
++++ b/lsp-types.cabal
+@@ -23,7 +23,7 @@ library
+                      , Language.LSP.Types.SMethodMap
+                      , Language.LSP.VFS
+                      , Data.IxMap
+-  other-modules:       Language.LSP.Types.CallHierarchy
++                     , Language.LSP.Types.CallHierarchy
+                      , Language.LSP.Types.Cancellation
+                      , Language.LSP.Types.ClientCapabilities
+                      , Language.LSP.Types.CodeAction

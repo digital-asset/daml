@@ -20,7 +20,7 @@ load("//bazel_tools/ghc-lib:repositories.bzl", "ghc_lib_and_dependencies")
 
 GHCIDE_REV = "f05b2ff831daceb43e2e8dc2cda9e4a17d3742de"
 GHCIDE_SHA256 = "4ca395fed1ba7102beb4b9fcb32846a8579ef2bf65145174cb63a31a2c85315a"
-GHCIDE_LOCAL_PATH = None
+GHCIDE_LOCAL_PATH = "/home/dylan-thinnes/root/daml-ide-multi-ide/out.tar.gz"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
@@ -35,6 +35,8 @@ GRPC_HASKELL_PATCHES = [
 XML_CONDUIT_VERSION = "1.9.1.1"
 LSP_TYPES_VERSION = "1.4.0.0"
 LSP_TYPES_SHA256 = "7ae8a3bad0e91d4a2af9b93e3ad207e3f4c3dace40d420e0592f6323ac93fb67"
+LSP_VERSION = "1.4.0.0"
+LSP_SHA256 = "0000000000000000000000000000000000000000000000000000000000000000"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the Daml repository."""
@@ -59,11 +61,34 @@ haskell_cabal_library(
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:lsp-types-normalisation.patch",
+            "@com_github_digital_asset_daml//bazel_tools:lsp-types-expose-other-modules.patch",
         ],
         sha256 = LSP_TYPES_SHA256,
         strip_prefix = "lsp-types-{}".format(LSP_TYPES_VERSION),
         urls = ["http://hackage.haskell.org/package/lsp-types-{version}/lsp-types-{version}.tar.gz".format(version = LSP_TYPES_VERSION)],
     )
+
+#    http_archive(
+#        name = "lsp",
+#        build_file_content = """
+#load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+#load("@stackage//:packages.bzl", "packages")
+#haskell_cabal_library(
+#    name = "lsp",
+#    version = packages["lsp"].version,
+#    srcs = glob(["**"]),
+#    deps = packages["lsp"].deps,
+#    haddock = False,
+#    visibility = ["//visibility:public"],
+#)""",
+#        patch_args = ["-p1"],
+#        patches = [
+#            # "@com_github_digital_asset_daml//bazel_tools:lsp-types-normalisation.patch",
+#        ],
+#        sha256 = LSP_SHA256,
+#        strip_prefix = "lsp-{}".format(LSP_VERSION),
+#        urls = ["http://hackage.haskell.org/package/lsp-{version}/lsp-{version}.tar.gz".format(version = LSP_VERSION)],
+#    )
 
     # ghc-lib based ghcide - injected into `@stackage` and used for Daml IDE.
     http_archive(
@@ -468,6 +493,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "ansi-terminal",
             "ansi-wl-pprint",
             "async",
+            "attoparsec",
             "base",
             "base16-bytestring",
             "base64",

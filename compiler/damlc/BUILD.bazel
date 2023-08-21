@@ -154,6 +154,8 @@ da_haskell_library(
     hackage_deps = [
         "aeson",
         "aeson-pretty",
+        "async",
+        "attoparsec",
         "ansi-wl-pprint",
         "ansi-terminal",
         "base",
@@ -188,6 +190,7 @@ da_haskell_library(
         "safe-exceptions",
         "shake",
         "split",
+        "stm",
         "tasty",
         "tasty-ant-xml",
         "tasty-hunit",
@@ -231,6 +234,12 @@ da_haskell_library(
         "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+    ],
+    compiler_flags = [
+        "-Wno-unused-imports",
+        "-Wno-unused-local-binds",
+        "-Wno-unused-matches",
+        "-Wno-incomplete-uni-patterns",
     ],
 )
 

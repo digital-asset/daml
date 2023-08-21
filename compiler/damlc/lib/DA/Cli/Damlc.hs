@@ -5,6 +5,8 @@
 {-# LANGUAGE ApplicativeDo       #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DisambiguateRecordFields #-}
 
 -- | Main entry-point of the Daml compiler
 module DA.Cli.Damlc (main) where
@@ -134,6 +136,8 @@ import DA.Signals (installSignalHandlers)
 import qualified Com.Daml.DamlLfDev.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.Aeson.Text as Aeson
+import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Types as Aeson
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
@@ -162,7 +166,7 @@ import Development.IDE.Core.Shake (Config(..),
                                    use,
                                    use_,
                                    uses)
-import Development.IDE.GHC.Util (hscEnv, moduleImportPath)
+import Development.IDE.GHC.Util (hscEnv, moduleImportPath, hDuplicateTo')
 import Development.IDE.Types.Location (toNormalizedFilePath')
 import "ghc-lib-parser" DynFlags (DumpFlag(..),
                                   ModRenaming(..),
@@ -209,7 +213,7 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
-import System.Process (StdStream(..))
+import System.Process (StdStream(..), CreateProcess(..), proc, waitForProcess, createProcess)
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
 import Development.IDE.Core.RuleTypes
 import "ghc-lib-parser" ErrUtils
@@ -221,6 +225,30 @@ import "ghc-lib-parser" HscTypes
 import qualified "ghc-lib-parser" Outputable as GHC
 import qualified SdkVersion
 import "ghc-lib-parser" Util (looksLikePackageName)
+
+--import qualified Language.LSP.Server as LSP
+--import Data.Default
+--import qualified Language.LSP.Types as LSP
+--import qualified Language.LSP.Types.Capabilities as LSP
+--import qualified Language.LSP.Types.Lens as LSP (params)
+--import Control.Lens ((^.))
+--import qualified Language.LSP.Types.SMethodMap as SMM
+--import qualified Development.IDE.LSP.LanguageServer as IDELanguageServer
+--import qualified Data.Text as T
+import Data.ByteString.Builder.Extra (defaultChunkSize)
+import qualified Data.Attoparsec.ByteString.Lazy as Attoparsec
+--import qualified Data.Attoparsec.ByteString.Char8 as Attoparsec
+import System.IO.Unsafe (unsafeInterleaveIO)
+import qualified Language.LSP.Types.Parsing as LSP
+import qualified Language.LSP.Types.Method as LSP
+import qualified Language.LSP.Types.Message as LSP
+import qualified Language.LSP.Types.Capabilities as LSP
+import qualified Language.LSP.Types as LSP
+import           Control.Concurrent.STM.TChan
+import Control.Concurrent.Async (async, wait, waitAny)
+import Control.Concurrent.STM.TChan
+import Control.Monad
+import Control.Monad.STM
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -245,8 +273,306 @@ data CommandName =
   | Package
   | Test
   | Repl
+  | MultiIde
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe ProjectOpts) (IO ())
+
+cmdMultiIde :: Int -> Mod CommandFields Command
+cmdMultiIde _numProcessors =
+    command "multi-ide" $ info (helper <*> cmd) $
+       progDesc
+        "Start the Daml language server on standard input/output."
+    <> fullDesc
+  where
+    cmd = execMultiIde <$> many (strArgument mempty)
+
+    execMultiIde :: [String] -> Command
+    execMultiIde sourceDeps = Command MultiIde Nothing effect
+      where
+        effect = do
+          hPutStrLn stderr (show sourceDeps)
+
+          -- Launch sub-server
+          subproc_stderr_out <- openFile "/home/dylan-thinnes/subproc_stderr" WriteMode
+          (~(Just _subprocStdin), ~(Just _subprocStdout), ~(Just _subprocStderr), _subprocHandle) <-
+            createProcess
+              (proc "/home/dylan-thinnes/.daml/sdk/0.0.0/daml/daml" ["ide", "--debug"])
+              -- { std_in = Inherit, std_out = Inherit, std_err = Inherit }
+              { std_in = CreatePipe, std_out = CreatePipe, std_err = UseHandle subproc_stderr_out }
+          --stdout `hDuplicateTo'` _subprocStdout
+          --stderr `hDuplicateTo'` _subprocStderr
+
+          --alt_stderr <- openFile "/home/dylan-thinnes/runServerWithHandlesStderr" WriteMode
+          --LS.runLanguageServer def () (\c _ -> Right c)
+              {-
+          let forward notification = do
+                let forwardMessage = Aeson.encode notification
+                hPutStr _subprocStdin $ "Content-Length: " <> show (BSL.length forwardMessage)
+                hPutStr _subprocStdin "\r\n\r\n"
+                BSL.hPut _subprocStdin $ forwardMessage
+                hFlush _subprocStdin
+
+              serverDefinition :: LSP.ServerDefinition ()
+              serverDefinition = LSP.ServerDefinition
+                  { LSP.onConfigurationChange = \conf _ -> Right conf
+                  , LSP.doInitialize = \_env _tmessage -> pure (Right ())
+                  , LSP.staticHandlers =
+                      let cancelHandler :: LSP.Handlers IO
+                          cancelHandler = LSP.notificationHandler LSP.SCancelRequest (const $ pure ())
+
+                          exitHandler :: LSP.Handlers IO
+                          exitHandler = LSP.notificationHandler LSP.SExit $
+                            \_notification -> do
+                              hPutStrLn stderr "Exit"
+                              hFlush stderr
+
+                          initializeHandler :: LSP.Handlers IO
+                          initializeHandler = LSP.requestHandler LSP.SInitialize $
+                            \_notification _respond -> do
+                              hPutStrLn stderr "Initialize"
+                              hFlush stderr
+                              forward _notification
+
+                          initializedHandler :: LSP.Handlers IO
+                          initializedHandler = LSP.notificationHandler LSP.SInitialized $
+                            \_notification -> do
+                              hPutStrLn stderr "Initialized"
+                              hFlush stderr
+
+                          didOpenHandler :: LSP.Handlers IO
+                          didOpenHandler = LSP.notificationHandler LSP.STextDocumentDidOpen $
+                            \notification -> do
+                              let (LSP.DidOpenTextDocumentParams LSP.TextDocumentItem{_uri}) = notification ^. LSP.params
+                              hPutStrLn stderr $ "Opened virtual resource: " <> T.unpack (LSP.getUri _uri)
+                              hFlush stderr
+                              forward notification
+                              pure ()
+
+                          didChangeHandler :: LSP.Handlers IO
+                          didChangeHandler = LSP.notificationHandler LSP.STextDocumentDidChange $
+                            \_notification -> do
+                              -- let _@LSP.DidChangeTextDocumentParams = notification ^. LSP.params
+                              hPutStrLn stderr $ "Changed virtual resource"
+                              hFlush stderr
+                              pure ()
+
+                          keepAliveHandler :: LSP.Handlers IO
+                          keepAliveHandler = LSP.requestHandler (LSP.SCustomMethod "daml/keepAlive") $
+                            \_value respond -> respond (Right Aeson.Null)
+                      in
+                      mconcat
+                        [ didOpenHandler
+                        , didChangeHandler
+                        , cancelHandler
+                        , exitHandler
+                        , initializeHandler
+                        , initializedHandler
+                        , keepAliveHandler
+                        ]
+                  , LSP.interpretHandler = \() -> LSP.Iso id id
+                  , LSP.options =
+                      let modifyOptions :: LSP.Options -> LSP.Options
+                          modifyOptions x = x { LSP.textDocumentSync = tweakTDS (LSP.textDocumentSync x) }
+                            where
+                              tweakTDS (Just tds) = Just $ overrideFields tds
+                              tweakTDS Nothing = Just $ overrideFields $ LSP.TextDocumentSyncOptions Nothing Nothing Nothing Nothing Nothing
+                              overrideFields tds = tds
+                                { LSP._openClose = Just True
+                                , LSP._change = Just LSP.TdSyncIncremental
+                                , LSP._save = Just $ LSP.InR $ LSP.SaveOptions Nothing
+                                }
+                      in
+                      modifyOptions def
+                  , LSP.defaultConfig = ()
+                  }
+          hPutStrLn stderr "Starting server"
+          hPutStrLn stderr $
+            case serverDefinition of
+              LSP.ServerDefinition { LSP.staticHandlers } -> show (IDELanguageServer.hasMethods staticHandlers)
+          hFlush stderr
+          --fh <- openFile "/home/dylan-thinnes/runServerWithHandles" WriteMode
+          LSP.runServerWithHandles
+            stdin
+            stdout
+            serverDefinition
+            -}
+          let allBytes :: Handle -> IO BSL.ByteString
+              allBytes hin = fmap BSL.fromChunks go
+                where
+                  go :: IO [B.ByteString]
+                  go = do
+                    first <- unsafeInterleaveIO $ B.hGetSome hin defaultChunkSize
+                    rest <- unsafeInterleaveIO go
+                    pure (first : rest)
+
+              decimal :: Attoparsec.Parser Int
+              decimal = B.foldl' step 0 `fmap` Attoparsec.takeWhile1 (\w -> w - 48 <= 9)
+                where step a w = a * 10 + fromIntegral (w - 48)
+
+              contentChunkParser :: Attoparsec.Parser B.ByteString
+              contentChunkParser = do
+                _ <- Attoparsec.string "Content-Length: "
+                len <- decimal
+                _ <- Attoparsec.string "\r\n\r\n"
+                Attoparsec.take len
+
+              getChunks :: Handle -> IO [B.ByteString]
+              getChunks handle =
+                let loop bytes =
+                      case Attoparsec.parse contentChunkParser bytes of
+                        Attoparsec.Done leftovers result -> result : loop leftovers
+                        _ -> []
+                in
+                loop <$> allBytes handle
+
+              putChunk :: Handle -> BSL.ByteString -> IO ()
+              putChunk handle payload = do
+                let fullMessage = "Content-Length: " <> BSLC.pack (show (BSL.length payload)) <> "\r\n\r\n" <> payload
+                BSL.hPut handle fullMessage
+                hFlush handle
+
+              er :: String -> Either x a -> a
+              er _msg (Right a) = a
+              er msg _ = error msg
+
+              subprocMessageHandler :: TChan BSL.ByteString -> TChan BSL.ByteString -> B.ByteString -> IO ()
+              subprocMessageHandler toClientChan toSubprocChan bs = do
+                hPutStrLn stderr "Called subprocMessageHandler"
+                BSC.hPutStrLn stderr bs
+                hFlush stderr
+                hPutStrLn stderr "Backwarding"
+                atomically $ writeTChan toClientChan (BSL.fromStrict bs)
+
+                -- -- Decode a value, parse
+                -- let val :: Aeson.Value
+                --     val = er "eitherDecode" $ Aeson.eitherDecodeStrict bs
+                --     msg :: LSP.FromServerMessage
+                --     msg = either error id $ Aeson.parseEither (LSP.parseServerMessage @LSP.SMethod (const Nothing)) val
+
+                -- let sendClient :: LSP.FromServerMessage -> IO ()
+                --     sendClient = atomically . writeTChan toClientChan . Aeson.encode
+                --     sendSubproc :: LSP.FromClientMessage -> IO ()
+                --     sendSubproc = atomically . writeTChan toSubprocChan . Aeson.encode
+
+                -- hPutStrLn stderr "About to thunk message"
+                -- case msg of
+                --   LSP.FromServerRsp LSP.SInitialize LSP.ResponseMessage {_result} -> do
+                --     hPutStrLn stderr "Backwarding initialization"
+                --     hFlush stderr
+                --     sendClient msg
+                --   _ -> do
+                --     hPutStrLn stderr "Backwarding unknown message"
+                --     hFlush stderr
+                --     atomically $ writeTChan toClientChan (BSL.fromStrict bs)
+
+              clientMessageHandler :: TChan BSL.ByteString -> TChan BSL.ByteString -> B.ByteString -> IO ()
+              clientMessageHandler toClientChan toSubprocChan bs = do
+                hPutStrLn stderr "Called clientMessageHandler"
+                hFlush stderr
+
+                -- Decode a value, parse
+                let val :: Aeson.Value
+                    val = er "eitherDecode" $ Aeson.eitherDecodeStrict bs
+                    msg :: LSP.FromClientMessage
+                    msg = er "parseEither" $ Aeson.parseEither (LSP.parseClientMessage @LSP.SMethod (const Nothing)) val
+
+                let sendClient :: LSP.FromServerMessage -> IO ()
+                    sendClient = atomically . writeTChan toClientChan . Aeson.encode
+                    sendSubproc :: LSP.FromClientMessage -> IO ()
+                    sendSubproc = atomically . writeTChan toSubprocChan . Aeson.encode
+
+                -- Get a client message
+                case msg of
+                  LSP.FromClientMess LSP.STextDocumentDidOpen LSP.NotificationMessage {_method, _params} -> do
+                    let (LSP.DidOpenTextDocumentParams LSP.TextDocumentItem{_uri}) = _params
+                    hPutStrLn stderr ("Opened virtual resource: " <> T.unpack (LSP.getUri _uri))
+                    hFlush stderr
+                    pure ()
+                  LSP.FromClientMess (LSP.SCustomMethod "daml/keepAlive") (LSP.ReqMess LSP.RequestMessage {_id, _method, _params}) -> do
+                    hPutStrLn stderr "Custom message daml/keepAlive"
+                    hFlush stderr
+                    sendClient $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right Aeson.Null)
+                  LSP.FromClientMess LSP.SInitialize mess@LSP.RequestMessage {_id, _method, _params} -> do
+                    hPutStrLn stderr "Initialize"
+                    let 
+                    sendSubproc msg -- $ LSP.FromClientMess LSP.SInitialize mess
+                    --let true = Just $ LSP.InL True
+                    --    capabilities =
+                    --      LSP.ServerCapabilities
+                    --        { _textDocumentSync = Just $ LSP.InL $ LSP.TextDocumentSyncOptions
+                    --            { LSP._openClose = Just True
+                    --            , LSP._change = Just LSP.TdSyncIncremental
+                    --            , LSP._willSave = Nothing
+                    --            , LSP._willSaveWaitUntil = Nothing
+                    --            , LSP._save = Just $ LSP.InR $ LSP.SaveOptions Nothing
+                    --            }
+                    --        , _hoverProvider                    = true
+                    --        , _completionProvider               = Nothing
+                    --        , _signatureHelpProvider            = Nothing
+                    --        , _declarationProvider              = true
+                    --        , _definitionProvider               = true
+                    --        , _typeDefinitionProvider           = true
+                    --        , _implementationProvider           = true
+                    --        , _referencesProvider               = true
+                    --        , _documentHighlightProvider        = true
+                    --        , _documentSymbolProvider           = true
+                    --        , _codeActionProvider               = true
+                    --        , _codeLensProvider                 = Nothing
+                    --        , _documentFormattingProvider       = true
+                    --        , _documentRangeFormattingProvider  = true
+                    --        , _documentOnTypeFormattingProvider = Nothing
+                    --        , _renameProvider                   = true
+                    --        , _documentLinkProvider             = Nothing
+                    --        , _colorProvider                    = true
+                    --        , _foldingRangeProvider             = true
+                    --        , _executeCommandProvider           = Nothing
+                    --        , _selectionRangeProvider           = true
+                    --        , _callHierarchyProvider            = true
+                    --        , _semanticTokensProvider           = Nothing
+                    --        , _workspaceSymbolProvider          = Just True
+                    --        , _workspace                        = Nothing
+                    --        -- TODO: Add something for experimental
+                    --        , _experimental                     = Nothing :: Maybe Aeson.Value
+                    --        }
+                    --pure $ Just $ LSP.FromServerRsp LSP.SInitialize $ LSP.ResponseMessage "2.0" (Just _id) (Right (LSP.InitializeResult capabilities Nothing))
+                  _ -> pure ()
+          hPutStrLn stderr "retrieving bytes"
+
+          -- Client <- *****
+          toClientChan <- atomically newTChan
+          toClientThread <- async $ forever $ do
+            msg <- atomically $ readTChan toClientChan
+            hPutStrLn stderr "Pushing message to client"
+            BSLC.hPutStrLn stderr msg
+            putChunk stdout msg
+
+          --           ***** -> Subproc
+          toSubprocChan <- atomically newTChan
+          toSubprocThread <- async $ forever $ do
+            msg <- atomically $ readTChan toSubprocChan
+            hPutStrLn stderr "Pushing message to subproc"
+            BSLC.hPutStrLn stderr msg
+            putChunk _subprocStdin msg
+
+          -- Client -> Coord
+          clientToCoordThread <- async $ do
+            chunks <- getChunks stdin
+            mapM_ (clientMessageHandler toClientChan toSubprocChan) chunks
+
+          --           Coord <- Subproc
+          subprocToCoord <- async $ do
+            chunks <- getChunks _subprocStdout
+            mapM_ (subprocMessageHandler toClientChan toSubprocChan) chunks
+
+          waitAny
+            [ toClientThread
+            , toSubprocThread
+            , clientToCoordThread
+            , subprocToCoord
+            ]
+          waitForProcess _subprocHandle
+          -- hPutStrLn stderr (show exitCode)
+          pure ()
 
 cmdIde :: Int -> Mod CommandFields Command
 cmdIde numProcessors =
@@ -1155,6 +1481,7 @@ options :: Int -> Parser Command
 options numProcessors =
     subparser
       (  cmdIde numProcessors
+      <> cmdMultiIde numProcessors
       <> cmdLicense
       -- cmdPackage can go away once we kill the old assistant.
       <> cmdPackage numProcessors
@@ -1247,6 +1574,7 @@ cmdUseDamlYamlArgs = \case
   Package -> False -- deprecated
   Test -> True
   Repl -> True
+  MultiIde -> False
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =

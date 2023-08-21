@@ -243,7 +243,7 @@ export function createLanguageClient(
   };
 
   let command: string;
-  let args: string[] = ["ide", "--"];
+  let args: string[] = ["multi-ide", "--"];
 
   try {
     command = which.sync("daml");
