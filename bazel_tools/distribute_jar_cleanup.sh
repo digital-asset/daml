@@ -12,16 +12,16 @@ IS_EE=$6
 
 cp $SRC $OUT
 chmod +w $OUT
-zip -dq $OUT /LICENSE* /META-INF/LICENSE* /NOTICE* /META-INF/NOTICE*
+zip -dq $OUT "/LICENSE*" "/META-INF/LICENSE*" "/NOTICE*" "/META-INF/NOTICE*"
 zip -uq $OUT $NOTICE
 
+# both licenses have the wrong file name/directory, so we copy to a temp dir
+TMP_LICENSE_DIR=$(mktemp -d)
 if [[ "$IS_EE" -eq 1 ]]; then
-  # LICENSE_EE has the wrong file name/directory, so we copy to a temp dir and 
-  TMP_LICENSE_EE_DIR=$(mktemp -d)
-  cp $LICENSE_EE $TMP_LICENSE_EE_DIR/LICENSE
-  zip -ujq $OUT $TMP_LICENSE_EE_DIR/LICENSE
-  rm -rf $TMP_LICENSE_EE_DIR
+  cp $LICENSE_EE $TMP_LICENSE_DIR/LICENSE.txt
 else
-  zip -uq $OUT $LICENSE
+  cp $LICENSE $TMP_LICENSE_DIR/LICENSE.txt
 fi
+zip -ujq $OUT $TMP_LICENSE_DIR/LICENSE.txt
+rm -rf $TMP_LICENSE_DIR
 
