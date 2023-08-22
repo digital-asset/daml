@@ -252,11 +252,13 @@ class Context(
           case e =>
             // We can't send _everything_ over without changing internal, we log and wrap the error in t.
             logger.warn("Script.FailedCmd unexpected cause: " + e.getMessage)
+            logger.debug(e.getStackTrace.mkString("\n"))
             handleFailure(Error.Internal("Script.FailedCmd unexpected cause: " + e.getMessage))
         }
       case Failure(e) =>
         // something bad happened, we log and fail
         logger.error("Unexpected error type from script runner: " + e.getMessage)
+        logger.debug(e.getStackTrace.mkString("\n"))
         Failure(e)
     }
   }
