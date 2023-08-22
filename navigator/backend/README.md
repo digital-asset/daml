@@ -19,10 +19,10 @@ We can build and run a basic the backend using the following commands:
 
 ```bash
 # Build a distribution archive ("fat jar"):
-bazel build //navigator/backend:navigator-binary_deploy.jar
+bazel build //navigator/backend:navigator-binary_distribute.jar
 
 # Run without arguments to show usage:
-java -jar bazel-bin/navigator/backend/navigator-binary_deploy.jar --help
+java -jar bazel-bin/navigator/backend/navigator-binary_distribute.jar --help
 
 # Create a dummy configuration file
 cat << EOF > navigator.conf
@@ -34,7 +34,7 @@ users {
 EOF
 
 # Start the web server
-java -jar bazel-bin/navigator/backend/navigator-binary_deploy.jar server -c navigator.conf
+java -jar bazel-bin/navigator/backend/navigator-binary_distribute.jar server -c navigator.conf
 ```
 
 If you start the server and the configuration file doesn't exist, the server will

@@ -655,7 +655,11 @@ def da_scala_binary(name, initial_heap_size = default_initial_heap_size, max_hea
     arguments = _set_jvm_flags(arguments, initial_heap_size = initial_heap_size, max_heap_size = max_heap_size)
     _wrap_rule(scala_binary, name, **arguments)
 
+    is_ee = 0
+
     if "tags" in arguments:
+        if "ee-jar-license" in arguments["tags"]:
+            is_ee = 1
         for tag in arguments["tags"]:
             if tag.startswith("maven_coordinates="):
                 pom_file(
@@ -675,6 +679,28 @@ def da_scala_binary(name, initial_heap_size = default_initial_heap_size, max_hea
                     out = name + "_javadoc.jar",
                 )
                 break
+
+    native.genrule(
+        name = name + "_distribute",
+        srcs = [":" + name + "_deploy.jar"],
+        tools = [
+            "//bazel_tools:distribute_jar_cleanup.sh",
+            "//:NOTICES",
+            "//:LICENSE",
+            "//release:ee-license.txt",
+        ],
+        outs = [name + "_distribute.jar"],
+        cmd = """
+$(location //bazel_tools:distribute_jar_cleanup.sh)\
+  $(location :{name}_deploy.jar)\
+  $(location :{name}_distribute.jar)\
+  $(location //:NOTICES)\
+  $(location //:LICENSE)\
+  $(location //release:ee-license.txt)\
+  {is_ee}
+""".format(name = name, is_ee = is_ee),
+        visibility = arguments.get("visibility"),
+    )
 
 def da_scala_test(initial_heap_size = default_initial_heap_size, max_heap_size = default_max_heap_size, **kwargs):
     """

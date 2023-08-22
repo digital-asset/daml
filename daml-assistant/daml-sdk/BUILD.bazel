@@ -48,6 +48,7 @@ da_scala_binary(
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = scala_deps,
     scala_runtime_deps = scala_runtime_deps,
+    tags = ["ee-jar-license"],
     # Navigator resources trigger this incorrectly
     unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],
@@ -65,12 +66,12 @@ sh_test(
     srcs = ["validate.sh"],
     args = [
         "$(location @local_jdk//:bin/java.exe)" if is_windows else "$(location @local_jdk//:bin/java)",
-        "$(location :sdk_deploy.jar)",
-        "$(location :sdk_ee_deploy.jar)",
+        "$(location :sdk_distribute.jar)",
+        "$(location :sdk_ee_distribute.jar)",
     ],
     data = [
-        ":sdk_deploy.jar",
-        ":sdk_ee_deploy.jar",
+        ":sdk_distribute.jar",
+        ":sdk_ee_distribute.jar",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
     ],
     deps = [
