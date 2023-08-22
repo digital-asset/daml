@@ -19,16 +19,29 @@ A pen and paper proof of the main component of the verification can be found [he
 - `tree` : all the proofs related to how the CSM handles a transaction.
 - `utils` : helpers and theorems about collections.
 
+## Build
+
+To build the Stainless version used in the proof:
+
+ 1. Clone [Stainless repo](https://github.com/epfl-lara/stainless)
+ 2. Run sbt universal:stage
+ 3. The generated binary can be found at the folllowing location:
+    `$STAINLESS_REPO_ROOT/frontends/dotty/target/universal/stage/bin/stainless-dotty`
+ 4. The verification currently works with JDK 17
+
 
 ## Verification
 
 The verification happens in 2 major steps:
- - The translation from the original file to a simplified version that works well with stainless and a proof of the soudness of this translation.
+ - The translation from the original file to a [simplified version](transaction/ContractStateMachineAlt.scala) that is easy to work with in stainless and a proof of the soudness of this translation.
  - The verification of the property
 
 To verify the former you can execute the verification script with the following argument:
 
 ``` scripts/verification_script.sh <stainless_path> translate```
+
+The scripts takes the original files and uses a regex to create a temporary copy of the file that modifies the imports,
+removes the exceptions and in general features that are not yet supported in Stainless.
 
 
 
