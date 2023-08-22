@@ -83,13 +83,13 @@ da_scala_binary(
         "@maven//:com_typesafe_akka_akka_slf4j",
     ],
     scalacopts = lf_scalacopts_stricter,
+    tags = ["ee-jar-license"],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
         ":script-runner-lib",
-        "//release:ee-license",
     ],
 )
 

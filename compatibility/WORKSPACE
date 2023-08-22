@@ -282,7 +282,7 @@ daml_sdk_head(
     daml_ledger_tarball = "@head_sdk//:daml-ledger-0.0.0.tgz",
     daml_react_tarball = "@head_sdk//:daml-react-0.0.0.tgz",
     daml_types_tarball = "@head_sdk//:daml-types-0.0.0.tgz",
-    ledger_api_test_tool = "@head_sdk//:ledger-api-test-tool_deploy.jar",
+    ledger_api_test_tool = "@head_sdk//:ledger-api-test-tool_distribute.jar",
     os_name = os_name,
     sdk_tarball = "@head_sdk//:sdk-release-tarball-ce.tar.gz",
 )

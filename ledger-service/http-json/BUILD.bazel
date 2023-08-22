@@ -147,7 +147,6 @@ json_deps = {
         "//ledger-service/http-json-cli:ee",
         "//ledger-service/http-json-ledger-client:ee",
         "@maven//:com_oracle_database_jdbc_ojdbc8",
-        "//release:ee-license",
     ],
 }
 
@@ -178,6 +177,7 @@ da_scala_binary(
     scala_deps = json_scala_deps,
     scalacopts = hj_scalacopts,
     tags = [
+        "ee-jar-license",
         "maven_coordinates=com.daml:http-json-deploy:__VERSION__",
         "no_scala_version_suffix",
     ],
