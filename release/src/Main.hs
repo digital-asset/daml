@@ -101,7 +101,7 @@ main = do
 
       -- all known targets uploaded to maven, that are not deploy Jars
       -- we don't check dependencies for deploy jars as they are single-executable-jars
-      let nonDeployJars = filter (not . isDeployJar . artReleaseType) mvnArtifacts
+      let nonDeployJars = filter (not . isDeployableJar . artReleaseType) mvnArtifacts
 
       nonScalaArtifacts <- buildAndCopyArtifacts optIncludeDocs mvnVersion bazelLocations releaseDir nonScalaArtifacts
 

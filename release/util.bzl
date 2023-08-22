@@ -28,8 +28,8 @@ inputs = {
     "script_dars": "//daml-script/daml:daml-script-dars",
     "canton": "//canton:lib",
     "sdk_deploy_jar": {
-        "ce": "//daml-assistant/daml-sdk:sdk_deploy.jar",
-        "ee": "//daml-assistant/daml-sdk:sdk_ee_deploy.jar",
+        "ce": "//daml-assistant/daml-sdk:sdk_distribute.jar",
+        "ee": "//daml-assistant/daml-sdk:sdk_ee_distribute.jar",
     },
     "license": ":ee-license.txt",
 }
