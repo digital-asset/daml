@@ -14,11 +14,10 @@ import DA.Text
 import DA.Foldable (foldMap)
 import DA.Exception
 
--- | Errors that will be promoted to SubmitError once stable
+-- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
 data DevErrorType
   = ChoiceGuardFailed
   | WronglyTypedContractSoft
-  | Limit
   | UnknownNewFeature -- ^ This should never happen - Update Scripts when you see this!
   deriving Show
 
@@ -41,7 +40,7 @@ isNotActive : ContractNotFoundAdditionalInfo -> Optional AnyContractId
 isNotActive (NotActive {additionalInfoCid}) = Some additionalInfoCid
 isNotActive _ = None
 
--- | Errors that can be thrown by a command submission
+-- | Errors that can be thrown by a command submission - code needs to be kept in sync with SubmitError.scala
 data SubmitError
   = -- | Contract with given contract ID could not be found, and has never existed on this participant
     -- When run on Canton, there may be more than one contract ID, and additionalDebuggingInfo is always None
@@ -111,6 +110,10 @@ data SubmitError
     ContractIdComparability with
       globalExistingContractId : Text
         -- ^ We do not know the template ID at time of comparison.
+  | -- | A value has been nested beyond a given depth limit
+    ValueNesting with
+        limit : Int
+          -- ^ Nesting limit that was exceeded
   | -- | Development feature exceptions
     DevError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
       devErrorType : DevErrorType
@@ -154,6 +157,7 @@ instance Show SubmitError where
     NonComparableValues {} -> "Failed to compare values"
     ContractIdInContractKey {} -> "Illegal contract ID in contract key"
     ContractIdComparability contractId -> "Attempted to compare local and global contract IDs of the same contract - contract ID: " <> contractId
+    ValueNesting limit -> "Exceeded maximum nesting depth for values - limit: " <> show limit
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
     TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""

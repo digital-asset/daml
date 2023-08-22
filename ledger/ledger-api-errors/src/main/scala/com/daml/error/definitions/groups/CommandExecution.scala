@@ -593,6 +593,16 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
       }
     }
 
+    @Explanation("This error occurs when you nest values too deeply.")
+    @Resolution("Restructure your code and reduce value nesting.")
+    object ValueNesting
+        extends ErrorCode(id = "VALUE_NESTING", ErrorCategory.InvalidIndependentOfSystemState) {
+
+      final case class Reject(override val cause: String, err: LfInterpretationError.ValueNesting)(
+          implicit loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
+    }
+
     @Explanation(
       """This error is a catch-all for errors thrown by in-development features, and should never be thrown in production."""
     )
