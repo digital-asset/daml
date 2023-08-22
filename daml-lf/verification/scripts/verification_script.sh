@@ -62,10 +62,12 @@ if [[ $2 = "translate" ]]; then
 
   $STAINLESS ../utils/* ../translation/* ../transaction/* $ARGS;
   
+  RES=$?
+
   #Cleaning everything up
   rm $FILE_DESTINATION
   
-  exit $?
+  exit $RES
 
 elif [[ $2 = "verify" ]]; then
   $STAINLESS ../utils/* ../transaction/* ../tree/* $ARGS;
