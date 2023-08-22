@@ -123,7 +123,7 @@ installDependencies ::
    -> IO ()
 installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pDataDeps = do
     logger <- getLogger opts "install-dependencies"
-    deps <- expandSdkPackages (optDamlLfVersion opts) (filter (`notElem` basePackages) pDeps)
+    deps <- expandSdkPackages logger (optDamlLfVersion opts) (filter (`notElem` basePackages) pDeps)
     DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds, dataDepsNameVersion} <- readDataDeps pDataDeps
     (needsUpdate, newFingerprint) <-
         depsNeedUpdate
