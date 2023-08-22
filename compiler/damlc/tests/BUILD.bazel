@@ -665,7 +665,7 @@ da_haskell_test(
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
         "//test-common/test-certificates",
-        "//canton:canton_deploy.jar",
+        "//canton:lib",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "aeson",
@@ -707,7 +707,7 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/repl-service/server:repl_service_jar",
         "//daml-script/daml:daml-script.dar",
-        "//canton:canton_deploy.jar",
+        "//canton:lib",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "async",
@@ -1026,7 +1026,7 @@ da_haskell_test(
     data = [
         ":pkg-manager-test.dar",
         "//compiler/damlc",
-        "//canton:canton_deploy.jar",
+        "//canton:lib",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",

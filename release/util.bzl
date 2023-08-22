@@ -26,7 +26,7 @@ inputs = {
     "templates": "//templates:templates-tarball.tar.gz",
     "trigger_dars": "//triggers/daml:daml-trigger-dars",
     "script_dars": "//daml-script/daml:daml-script-dars",
-    "canton": "//canton:canton_deploy.jar",
+    "canton": "//canton:lib",
     "sdk_deploy_jar": {
         "ce": "//daml-assistant/daml-sdk:sdk_deploy.jar",
         "ee": "//daml-assistant/daml-sdk:sdk_ee_deploy.jar",
