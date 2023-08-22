@@ -21,8 +21,8 @@ git clean -fxd -e 'daml-*.tgz' $HEAD_TARGET_DIR
 
 bazel build \
   //release:sdk-release-tarball \
-  //ledger-test-tool/tool:ledger-api-test-tool_deploy.jar
+  //ledger-test-tool/tool:ledger-api-test-tool_distribute.jar
 
 cp -f bazel-bin/release/sdk-release-tarball-ce.tar.gz "$HEAD_TARGET_DIR"
-cp -f bazel-bin/ledger-test-tool/tool/ledger-api-test-tool_deploy.jar "$HEAD_TARGET_DIR"
+cp -f bazel-bin/ledger-test-tool/tool/ledger-api-test-tool_distribute.jar "$HEAD_TARGET_DIR"
 cp -f templates/create-daml-app-test-resources/messaging.patch "$HEAD_TARGET_DIR"

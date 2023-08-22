@@ -170,7 +170,7 @@ dar_to_java(
 
 jar_jar(
     name = "shaded_binary",
-    input_jar = "//language-support/java/codegen:codegen_deploy.jar",
+    input_jar = "//language-support/java/codegen:codegen_distribute.jar",
     rules = "shade_rule",
     tags = ["maven_coordinates=com.daml:codegen-java:__VERSION__"],
     visibility = ["//visibility:public"],

@@ -129,7 +129,7 @@ common_binary_deps = [
 
 binary_deps = {
     "ce": common_binary_deps,
-    "ee": common_binary_deps + ["//release:ee-license"],
+    "ee": common_binary_deps,
 }
 
 trigger_service_runtime_deps = {
@@ -146,6 +146,7 @@ trigger_service_runtime_deps = {
         resources = ["release/trigger-service-logback.xml"],
         scala_deps = scala_binary_deps,
         scalacopts = lf_scalacopts_stricter,
+        tags = ["ee-jar-license"] if edition == "ee" else [],
         visibility = ["//visibility:public"],
         runtime_deps = trigger_service_runtime_deps.get(edition),
         deps = binary_deps.get(edition) + [

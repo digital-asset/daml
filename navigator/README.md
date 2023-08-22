@@ -22,13 +22,13 @@ To build a "fat" JAR of the Navigator that includes the pre-compiled front-end
 assets, run:
 
 ```bash
-bazel build //navigator/backend:navigator-binary_deploy.jar
+bazel build //navigator/backend:navigator-binary_distribute.jar
 ```
 
-This produces a "fat" JAR `bazel-bin/navigator/backend/navigator-binary_deploy.jar` which can be run with:
+This produces a "fat" JAR `bazel-bin/navigator/backend/navigator-binary_distribute.jar` which can be run with:
 
 ```bash
-java -jar bazel-bin/navigator/backend/navigator-binary_deploy.jar
+java -jar bazel-bin/navigator/backend/navigator-binary_distribute.jar
 ```
 
 Notable things in the Navigator build:
