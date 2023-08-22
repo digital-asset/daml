@@ -2,7 +2,10 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE PolyKinds           #-}
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE ApplicativeDo       #-}
+{-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -244,11 +247,15 @@ import qualified Language.LSP.Types.Method as LSP
 import qualified Language.LSP.Types.Message as LSP
 import qualified Language.LSP.Types.Capabilities as LSP
 import qualified Language.LSP.Types as LSP
+import qualified Data.IxMap as IM
 import           Control.Concurrent.STM.TChan
+import           Control.Concurrent.STM.TVar
 import Control.Concurrent.Async (async, wait, waitAny)
 import Control.Concurrent.STM.TChan
 import Control.Monad
 import Control.Monad.STM
+import Data.Functor.Const
+import Data.Functor.Product
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -396,6 +403,56 @@ cmdMultiIde _numProcessors =
             stdout
             serverDefinition
             -}
+
+          (requestMethodTracker ::
+            TVar (IM.IxMap @(LSP.Method 'LSP.FromClient 'LSP.Request) LSP.LspId LSP.SMethod))
+            <- newTVarIO IM.emptyIxMap
+          let putReqMethod
+                :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
+                 . LSP.LspId m -> LSP.SMethod m -> IO ()
+              putReqMethod id method = atomically $ modifyTVar' requestMethodTracker $ \im ->
+                fromMaybe im $ IM.insertIxMap id method im
+
+              pickReqMethodTo
+                :: forall r
+                 . ((forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
+                      . LSP.LspId m
+                     -> ( Maybe (LSP.SMethod m)
+                        , IM.IxMap @(LSP.Method 'LSP.FromClient 'LSP.Request) LSP.LspId LSP.SMethod
+                        )
+                    ) -> (r, Maybe (IM.IxMap @(LSP.Method 'LSP.FromClient 'LSP.Request) LSP.LspId LSP.SMethod)))
+                -> IO r
+              pickReqMethodTo handler = atomically $ do
+                im <- readTVar requestMethodTracker
+                let (r, mayNewIM) = handler (flip IM.pickFromIxMap im)
+                case mayNewIM of
+                  Just newIM -> writeTVar requestMethodTracker newIM
+                  Nothing -> pure ()
+                pure r
+
+              parseServerMessageWithTracker :: Aeson.Value -> IO (Either String LSP.FromServerMessage)
+              parseServerMessageWithTracker val = pickReqMethodTo $ \extract ->
+                let lookup
+                      :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
+                       . LSP.LspId m
+                      -> Maybe
+                          ( LSP.SMethod m
+                          , Product
+                              LSP.SMethod
+                              (Const (IM.IxMap @(LSP.Method 'LSP.FromClient 'LSP.Request) LSP.LspId LSP.SMethod))
+                              m
+                          )
+                    lookup id =
+                      let (mayMethod, newIM) = extract id
+                      in
+                      fmap (\meth -> (meth, Pair meth (Const newIM))) mayMethod
+                in
+                case Aeson.parseEither (LSP.parseServerMessage lookup) val of
+                  Right (LSP.FromServerMess meth mess) -> (Right (LSP.FromServerMess meth mess), Nothing)
+                  Right (LSP.FromServerRsp (Pair meth (Const newIxMap)) rsp) -> (Right (LSP.FromServerRsp meth rsp), Just newIxMap)
+                  Left msg -> (Left msg, Nothing)
+
+
           let allBytes :: Handle -> IO BSL.ByteString
               allBytes hin = fmap BSL.fromChunks go
                 where
@@ -439,31 +496,29 @@ cmdMultiIde _numProcessors =
               subprocMessageHandler toClientChan toSubprocChan bs = do
                 hPutStrLn stderr "Called subprocMessageHandler"
                 BSC.hPutStrLn stderr bs
-                hFlush stderr
-                hPutStrLn stderr "Backwarding"
-                atomically $ writeTChan toClientChan (BSL.fromStrict bs)
 
-                -- -- Decode a value, parse
-                -- let val :: Aeson.Value
-                --     val = er "eitherDecode" $ Aeson.eitherDecodeStrict bs
-                --     msg :: LSP.FromServerMessage
-                --     msg = either error id $ Aeson.parseEither (LSP.parseServerMessage @LSP.SMethod (const Nothing)) val
+                -- Decode a value, parse
+                let val :: Aeson.Value
+                    val = er "eitherDecode" $ Aeson.eitherDecodeStrict bs
+                    --msg :: LSP.FromServerMessage
+                    --msg = either error id $ Aeson.parseEither (LSP.parseServerMessage @LSP.SMethod (const Nothing)) val
+                msg <- either error id <$> parseServerMessageWithTracker val
 
-                -- let sendClient :: LSP.FromServerMessage -> IO ()
-                --     sendClient = atomically . writeTChan toClientChan . Aeson.encode
-                --     sendSubproc :: LSP.FromClientMessage -> IO ()
-                --     sendSubproc = atomically . writeTChan toSubprocChan . Aeson.encode
+                let sendClient :: LSP.FromServerMessage -> IO ()
+                    sendClient = atomically . writeTChan toClientChan . Aeson.encode
+                    sendSubproc :: LSP.FromClientMessage -> IO ()
+                    sendSubproc = atomically . writeTChan toSubprocChan . Aeson.encode
 
-                -- hPutStrLn stderr "About to thunk message"
-                -- case msg of
-                --   LSP.FromServerRsp LSP.SInitialize LSP.ResponseMessage {_result} -> do
-                --     hPutStrLn stderr "Backwarding initialization"
-                --     hFlush stderr
-                --     sendClient msg
-                --   _ -> do
-                --     hPutStrLn stderr "Backwarding unknown message"
-                --     hFlush stderr
-                --     atomically $ writeTChan toClientChan (BSL.fromStrict bs)
+                hPutStrLn stderr "About to thunk message"
+                case msg of
+                  LSP.FromServerRsp LSP.SInitialize LSP.ResponseMessage {_result} -> do
+                    hPutStrLn stderr "Backwarding initialization"
+                    hFlush stderr
+                    sendClient msg
+                  _ -> do
+                    hPutStrLn stderr "Backwarding unknown message"
+                    hFlush stderr
+                    atomically $ writeTChan toClientChan (BSL.fromStrict bs)
 
               clientMessageHandler :: TChan BSL.ByteString -> TChan BSL.ByteString -> B.ByteString -> IO ()
               clientMessageHandler toClientChan toSubprocChan bs = do
@@ -494,7 +549,7 @@ cmdMultiIde _numProcessors =
                     sendClient $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right Aeson.Null)
                   LSP.FromClientMess LSP.SInitialize mess@LSP.RequestMessage {_id, _method, _params} -> do
                     hPutStrLn stderr "Initialize"
-                    let 
+                    putReqMethod _id _method
                     sendSubproc msg -- $ LSP.FromClientMess LSP.SInitialize mess
                     --let true = Just $ LSP.InL True
                     --    capabilities =
