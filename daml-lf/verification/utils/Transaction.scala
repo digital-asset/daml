@@ -12,23 +12,6 @@ import stainless.collection._
 
 import Value.ContractId
 
-/** General transaction type
-  *
-  * Abstracts over NodeId type and ContractId type
-  * ContractId restricts the occurrence of contractIds
-  *
-  * @param nodes The nodes of this transaction.
-  * @param roots References to the root nodes of the transaction.
-  *
-  *              Users of this class may assume that all instances are well-formed, i.e., `isWellFormed.isEmpty`.
-  *              For performance reasons, users are not required to call `isWellFormed`.
-  *              Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
-  */
-final case class Transaction(
-    nodes: Map[NodeId, Node],
-    roots: List[NodeId],
-)
-
 object Transaction {
 
   /** The state of a key at the beginning of the transaction.

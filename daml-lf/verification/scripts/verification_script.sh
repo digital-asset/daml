@@ -20,7 +20,7 @@ ARGS="--watch=false --timeout=30 --vc-cache=false --compact=true --solvers=nativ
 # 2 : the files do not compile
 
 if [[ $2 = "translate" ]]; then
-  FILE_LOCATION="../../transaction/src/main/scala/com/digitalasset/daml/lf/transaction/ContractStateMachine.scala"
+  FILE_LOCATION="/daml-lf/transaction/src/main/scala/com/digitalasset/daml/lf/transaction/ContractStateMachine.scala"
 
   #We first load the original file in a variable
   FILE=$(cat $FILE_LOCATION)

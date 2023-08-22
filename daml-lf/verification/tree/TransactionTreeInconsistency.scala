@@ -130,6 +130,13 @@ object TransactionTreeInconsistency {
     }
   )
 
+  /** The actives keys does not change after entering a rollback node, processing a subtree and leaving
+    * the rollback node.
+
+    * @param tr The subtree that is being traversed
+    * @param s The initial state
+    * @param k The key we are querying in the active keys
+    */
   @opaque
   @pure
   def activeKeysGetTraverseTransaction(

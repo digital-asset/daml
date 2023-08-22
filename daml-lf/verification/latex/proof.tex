@@ -133,7 +133,7 @@
 
 \section*{Trees}
 
-\begin{definition}
+\begin{definition}[\textcode{Tree}]
     A tree of nodes is a data structure defined inductively as either:
     \begin{itemize}
         \item $\nilNode$
@@ -146,7 +146,7 @@ Although this is not the most intuitive definition, it has the advantage of bein
 without running into measure decreaseness problems. In fact one can see content nodes as being trees and articulation nodes as forests.
 
 
-\begin{definition}
+\begin{definition}[\textcode{Tree.size}]
     \label{size_def}
     Let $tr$ be a tree of nodes, \bolddef{\size{tr}} is defined inductively as:
     \begin{itemize}
@@ -156,7 +156,7 @@ without running into measure decreaseness problems. In fact one can see content 
     \end{itemize}
 \end{definition}
 
-\begin{definition}
+\begin{definition}[\textcode{Tree.traverse}]
     \label{traverse_def}
     Let $tr$ be a tree of nodes and $init$ a value, \bolddef{\longtraverse{tr}{init}{f_1}{f_2}} is defined inductively as:
     \begin{itemize}
@@ -166,7 +166,7 @@ without running into measure decreaseness problems. In fact one can see content 
     \end{itemize}
 \end{definition}
 
-\begin{definition}
+\begin{definition}[\textcode{Tree.scan}]
     \label{scan_def}
     Let $tr$ be a tree of nodes and $init$ a value, \bolddef{\longscan{tr}{init}{f_1}{f_2}} is defined inductively as:
     \begin{itemize}
@@ -178,7 +178,7 @@ without running into measure decreaseness problems. In fact one can see content 
     \end{itemize}
 \end{definition}
 
-\begin{claim}
+\begin{claim}[postcondition of \textcode{Tree.size}]
     \label{size_pos}
     Let $tr$ be a tree of nodes, 
     \[\size{tr} \geq 0 \] 
@@ -187,7 +187,7 @@ without running into measure decreaseness problems. In fact one can see content 
     Straight induction on $tr$.
 \end{proof}
 
-\begin{claim}
+\begin{claim}[postcondition of \textcode{Tree.scan}]
     \label{scan_size}
     For any tree of nodes $tr$, value $init$ and functions $f_1, f_2$
     \[\size{(\longscan{tr}{init}{f_1}{f_2})} = 2 \cdot \size{tr}\]
@@ -197,7 +197,7 @@ without running into measure decreaseness problems. In fact one can see content 
     Straight induction on tr.
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[\textcode{scanIndexing}]
     \label{scan_indexing}
     For any tree of nodes $tr$, value $init$ and functions $f_1, f_2$
 
@@ -222,7 +222,7 @@ without running into measure decreaseness problems. In fact one can see content 
     Application of union indexing property in lists
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[\textcode{scanIndexingState}]
     \label{scan_indexing_state}
     Let $tr$ be a tree of nodes $tr$, $init$ a value, $f_1, f_2$ two functions and $i < 2 \cdot \size{tr}$ a non-negative integer. Let $l := \longscan{tr}{init}{f_1}{f_2}$:
     \begin{align}
@@ -321,7 +321,7 @@ Induction on tr:
 
 \end{proof}
 
-\begin{claim}
+\begin{claim}[\textcode{scanIndexingNode}]
     \label{scan_indexing_node}
     For any tree of nodes $tr$, values $init_1,\, init_2$, functions $f^1_1, f^1_2, f^2_1, f^2_2$ and non-negative integer $i < 2\, \cdot\, \size{tr}$.
     \[ \snd{((\longscan{tr}{init_1}{f^1_1}{f^1_2})[i])} = \snd{((\longscan{tr}{init_2}{f^2_1}{f^2_2})[i])}\]
@@ -476,12 +476,12 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
 
 \section*{Active Keys Lemmas}
 
-\begin{definition}
+\begin{definition}[\textcode{State.activeKeys.get}]
     Let $s$ be a well-defined state and $k$ a key, \bolddef{\actkey{k}{s}} is the value associated to key in the active keys of the state 
     (i.e. we first look at the local keys, then the global ones filtering the consumed contracts).
 \end{definition}
 
-\begin{definition}
+\begin{definition}[\textcode{nodeActionKeyMapping}]
     Let $n$ be a node, \bolddef{\mapping{n}} is defined as:
     \begin{itemize}
         \item \mapping{(\createNode{id}{k})} := \keyInact
@@ -491,14 +491,14 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
     \end{itemize}
 \end{definition}
 
-\begin{lemma}[already proven]
+\begin{lemma}[\textcode{handleNodeUndefined}]
     \label{defined_def}
     For any well-defined state s and Action node n, 
     \[\defined{(\hNode{s}{n})} \iff {\actkey{n.k}{s} = \mapping{n}}\]
 \end{lemma}
 
 
-\begin{corollary}
+\begin{corollary}[\textcode{handleSameNodeActiveKeys}]
     \label{same_key_hnode}
     For any well-defined states $s_1$, $s_2$ and Action node n, if $\defined{(\hNode{s_ 1}{n})}$ and $\defined{(\hNode{s_ 2}{n})}$ 
     \[\actkey{n.k}{s_1} = \actkey{n.k}{s_2}\]
@@ -508,27 +508,27 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
     Direct consequence of \cref{defined_def}.
 \end{proof}
 
-\begin{lemma}[already proven]
+\begin{lemma}[\textcode{handleNodeDifferentStatesActiveKeysGet}]
     \label{same_key_after_hnode}
     For any well-defined states $s_1$, $s_2$ and Action node n, if $\defined{(\hNode{s_ 1}{n})}$ and $\defined{(\hNode{s_ 2}{n})}$ 
     \[\actkey{n.k}{(\get{(\hNode{s_1}{n})})} = \actkey{n.k}{(\get{(\hNode{s_2}{n})})}\]
 \end{lemma}
 
 
-\begin{lemma}[already proven]
+\begin{lemma}[\textcode{handleNodeActiveKeysGet}]
     \label{actkey_handle_node}
     For any well-defined state $s$, Action node $n$, key $k_2$, if $n$ has no key or $k_2 \neq n.k$ and if $\defined{(\hNode{s}{n})}$,
     \[\actkey{k_2}{(\get{(\hNode{s}{n})})} = \actkey{k_2}{s}\]
 \end{lemma}
 
-\begin{lemma}[already proven]
+\begin{lemma}[\textcode{beginRollbackActiveKeysGet}]
     \label{act_begin_rb}
     For any well-defined state s, node n, key $k$,
     \[\actkey{k}{(\beginRb{s})} = \actkey{k}{s}\]
 \end{lemma}
 
 
-\begin{lemma}[already proven]
+\begin{lemma}[\textcode{activeKeysGetRollbackScope}]
     \label{skip_rb}
     For any well-defined state s, node n, key $k$, function $g: \state \rightarrow \state $ and:
     \begin{itemize}
@@ -592,7 +592,7 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
     Immediate from \cref{appear_def}.
 \end{proof}
 
-\begin{claim}
+\begin{claim}[\textcode{doesNotAppearBeforeSameActiveKeysGet}]
     \label{actkey_not_appear}
     Let tr be a tree of nodes, init a state, $k$ a key, $0 \leq j < i < 2\cdot\, \size{tr}$ two integers and let $l := \scan{tr}{init}$. 
     If $k$ does not appear before $i$ in $l$ and $\defined{(\fst{(l[i])})}$ (and  $\defined{(\fst{(l[j])})}$ by \cref{defined_prop}) then 
@@ -650,7 +650,7 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
     
 \end{proof}
 
-\begin{corollary}
+\begin{corollary}[\textcode{firstAppearsSameActiveKeysGet}]
     \label{actkey_first_appear}
     Let tr be a tree of nodes, init a state, $k$ a key, $0 \leq j < i < 2\cdot \size{tr}$ two integers and let $l := \scan{tr}{init}$. 
     If $i$ is the first appearance of $k$ in $l$ and $\defined{(\fst{(l[i])})}$ (and  $\defined{(\fst{(l[j])})}$ by \cref{defined_prop}), then 
@@ -660,7 +660,7 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
     Direct consequence of \cref{actkey_not_appear}.
 \end{proof}
 
-\begin{corollary}
+\begin{corollary}[\textcode{firstAppearsHandleNodeUndefined}]
     \label{defined_first_appear}
     Let tr be a tree of nodes, init a state, $0 \leq i < 2\cdot \size{tr}$ an integer, let $l := \scan{tr}{init}$ and $(s, n, dir) := l[i]$. 
     If $n$ is an Action node with a well-defined key, $i$ is the first appearance of $n.k$ in $l$ and $\defined{s}$, then 
@@ -672,7 +672,7 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
     The first statement is a direct consequence of \cref{actkey_first_appear}. Applying \cref{defined_def} gives us the second statement.
 \end{proof}
 
-\begin{claim}
+\begin{claim}[\textcode{appearsBeforeSameActiveKeysGet}]
     \label{actkey_after_appear}
     Let tr be a tree of nodes, $init_1$, $init_2$ two state, $k$ a key, $0 \leq i < 2\cdot \size{tr}$ an integer, 
     let $l_1 := \scan{tr}{init_1}$, $l_2 := \scan{tr}{init_2}$, $s^1_i := \fst{(l_1[i])}$ and $s^2_i := \fst{(l_2[i])}$. 
@@ -759,7 +759,7 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
 
 \end{proof}
 
-\begin{corollary}
+\begin{corollary}[\textcode{appearsBeforeSameUndefined}]
     \label{same_defined_appear}
     Let tr be a tree of nodes, $init_1, init_2$ states, $0 \leq i < 2\cdot \size{tr} - 1$ an integer, let $l_1 := \scan{tr}{init_1}$, $l_2 := \scan{tr}{init_2}$, $(s^1, n^1, dir^1) := l_1[i]$ and $(s^2, n^2, dir^2) := l_2[i]$. 
     By \cref{scan_indexing_node}, $n := n^1 = n^2$. If $n$ is an Action node, $n.k$ appears before $i$ in $l_1$ and $l_2$, $\defined{s^1}$ and $\defined{s^2}$, then 
@@ -774,7 +774,7 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
 
 \section*{Empty state traversal}
 
-\begin{definition}
+\begin{definition}[\textcode{collect}]
     Let $tr$ be a tree of nodes. 
     We respectively define the mapping \bolddef{\collect{tr}} as $\longtraverse{tr}{\emptyList}{f_{collect}}{id}$ and \bolddef{\collectTr{tr}} as
     $\longscan{tr}{\emptyList}{f_{collect}}{id}$, where
@@ -785,12 +785,12 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
          \end{cases} \] 
 \end{definition}
 
-\begin{definition}
+\begin{definition}[\textcode{emptyState}]
     We define the empty state $\emptyState{tr}$ as the state whose rollback stack, locally created contracts set, consumed contracts set and local keys map are empty, 
     but whose global key map is $\collect{tr}$
 \end{definition}
 
-\begin{claim}
+\begin{claim}[\textcode{collectTraceProp}]
     \label{collect_submap}
     Let tr be a tree of nodes and $0 \leq i < 2 \cdot \, \size{tr}$ an integer
     \[\fst{((\collectTr{tr})[i])} \subseteq \collect{tr}\] 
@@ -800,7 +800,7 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
     By backward induction on $i$ and applying \cref{scan_indexing_state}.
 \end{proof}
 
-\begin{claim}
+\begin{claim}[\textcode{collectTraceDoesNotAppear}, \textcode{collectDoesNotAppear}]
     \label{collect_not_contains}
     Let tr be a tree of nodes, $0 \leq i < 2 \cdot \, \size{tr}$ an integer and $k$ a key. 
     \[k \text{ does not appear before } i \text{ in } \collectTr{tr} \iff k \notin \fst{((\collectTr{tr})[i])}\] 
@@ -813,7 +813,7 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
 \end{proof}
 
 
-\begin{corollary}
+\begin{corollary}[\textcode{collectGet}]
     \label{first_mapping}
     Let tr be a tree of nodes, $0 \leq i < 2 \cdot \, \size{tr}$ an integer, 
     $n := \snd{((\collectTr{tr})[i])}$. If $n$ is an Action node with a well-defined key and $i$ is the first appearance of $n.k$ in $\collectTr{tr}$, then
@@ -825,7 +825,7 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
     if $i < 2 \cdot \, \size{tr} - 1$ and $(n.k \to \mapping{n}) \in \collect{tr}$ otherwise. In the first case we make use of \cref{collect_submap} to prove the claim.
 \end{proof}
 
-\begin{corollary}
+\begin{corollary}[\textcode{collectContains}]
     \label{find_k_first_appear}
     Let $tr$ be a tree of nodes and  $k$ a key. If $k \in \collect{tr}$ then there exists an integer $0 \leq  i < 2 \cdot \size{tr} - 1$ such that
     $i$ is the first appearance of $k$ in $\collectTr{tr}$.
@@ -834,7 +834,7 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
     By \cref{collect_not_contains}, if $k \in \collect{tr}$ then $k$ does not appear before $2 \cdot \size{tr} - 1$. \cref{find_first_appear} concludes the proof.
 \end{proof}
 
-\begin{corollary}
+\begin{corollary}[\textcode{firstAppearsHandleNodeUndefinedEmpty}]
     \label{defined_globalkeys_mapping}
     Let tr be a tree of nodes, $init$ a state, $0 \leq i < 2\cdot \size{tr} - 1$ an integer, let $l := \scan{tr}{init}$, and $n := \snd{(l[i])}$. 
    If $n$ is an Action node with a well-defined key, $i$ is the first appearance of $n.k$ in $l$ and $\defined{(\fst{(l[i])})}$ then 
@@ -868,7 +868,7 @@ $\longtraverse{tr}{init}{f_{down}}{f_{up}}$ and $\longscan{tr}{init}{f_{down}}{f
 \end{proof}
 
 
-\begin{res}
+\begin{res}[\textcode{traverseTransactionEmptyDefined}]
     Let $tr$ be a tree of nodes and $init$ a well-defined state. If $\defined{(\traverse{tr}{\emptyState{tr}})}$, then
     \[ (\forall (k \to m) \in \emptyState{tr}.globalKeys,\ \actkey{k}{(\get{init})} = m) \iff \defined{(\traverse{tr}{init})}  \]  
 \end{res}

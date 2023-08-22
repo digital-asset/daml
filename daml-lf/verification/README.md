@@ -40,6 +40,6 @@ or execute the script with the following argument:
 
 ``` scripts/verification_script.sh <stainless_path> verify```
 
-If in the first command you find that the timeout is too big you can reduce it as you will (it is recommended to keep it above 10 if you don't want to have any suprise).
+If in the first command you find that the timeout is too big you can reduce it as you wish (it is recommended to keep it above 10 if you don't want to have any suprises).
 
 
