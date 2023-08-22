@@ -45,6 +45,21 @@ In an effort to unify some of our internal and external tools, we now support th
 
 # Release of Daml 2.8.0
 
+## Deprecation of template-local definitions
+
+The syntax for `let` bindings in `template` definitions will be deprecated in
+favor of plain top-level bindings. If the deprecated syntax is used then the
+following warning will be shown during compilation or in the IDE:
+
+```
+  Template-local binding syntax ("template-let") is deprecated,
+  it will be removed in a future version of Daml.
+  Instead, use plain top level definitions, taking parameters
+  for the contract fields or body ("this") if necessary.
+```
+
+For more information, see [Reference: Templates: Template-local Definitions (Deprecated)](https://docs.daml.com/2.8.0/daml/reference/templates.html#template-local-definitions-deprecated)
+
 # Release of Daml 2.9.0
 
 # Release of Daml 3.0.0
