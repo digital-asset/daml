@@ -70,7 +70,10 @@ checkDeleted handle upgrade = do
 checkModule :: MonadGamma m => Upgrading LF.Module -> m ()
 checkModule module_ = do
     (existingDefDataTypes, _new) <- checkDeleted (const EUpgradeMissing) $ NM.toHashMap . moduleDataTypes <$> module_
-    forM_ existingDefDataTypes checkDefDataType
+    forM_ existingDefDataTypes $ \dt ->
+        withContext
+            (ContextDefDataType (present module_) (present dt))
+            (checkDefDataType dt)
 
 checkDefDataType :: MonadGamma m => Upgrading LF.DefDataType -> m ()
 checkDefDataType datatype = do

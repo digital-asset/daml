@@ -30,7 +30,7 @@ tests damlc =
         "Upgrade"
         [ test
               "Fails when new field is added without Optional type"
-              (Just "Message: \n\ESC\\[0;91merror type checking <none>:\n  EUpgradeRecordFieldsNewNonOptional")
+              (Just "Message: \n\ESC\\[0;91merror type checking data type MyLib.A:\n  EUpgradeRecordFieldsNewNonOptional")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -54,7 +54,7 @@ tests damlc =
               ]
         , test
               "Fails when old field is deleted"
-              (Just "Message: \n\ESC\\[0;91merror type checking <none>:\n  EUpgradeRecordFieldsMissing")
+              (Just "Message: \n\ESC\\[0;91merror type checking data type MyLib.A:\n  EUpgradeRecordFieldsMissing")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -76,7 +76,7 @@ tests damlc =
               ]
         , test
               "Fails when existing field is changed"
-              (Just "Message: \n\ESC\\[0;91merror type checking <none>:\n  EUpgradeRecordFieldsExistingChanged")
+              (Just "Message: \n\ESC\\[0;91merror type checking data type MyLib.A:\n  EUpgradeRecordFieldsExistingChanged")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
