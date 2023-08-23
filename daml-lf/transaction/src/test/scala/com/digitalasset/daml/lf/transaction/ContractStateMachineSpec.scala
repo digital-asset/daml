@@ -162,7 +162,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val tx = builder.build()
     val expected = Right(
       Map(gkey("key1") -> KeyCreate) ->
-        ActiveLedgerState(Set(1), Map.empty, Map(gkey("key1") -> 1))
+        ActiveLedgerState[Unit](Set(1), Map.empty, Map(gkey("key1") -> 1))
     )
     TestCase(
       "Create|Rb-Ex-LBK|LBK",
@@ -331,7 +331,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val tx = builder.build()
     val expectedOff = Right(
       Map(gkey("key1") -> KeyCreate) ->
-        ActiveLedgerState(
+        ActiveLedgerState[Unit](
           Set(2, 3),
           Map.empty,
           Map(
@@ -358,7 +358,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val tx = builder.build()
     val expected = Right(
       Map(gkey("key1") -> NegativeKeyLookup) ->
-        ActiveLedgerState(Set.empty, Map.empty, Map.empty)
+        ActiveLedgerState[Unit](Set.empty, Map.empty, Map.empty)
     )
     TestCase(
       "DivulgedLookup",
@@ -427,7 +427,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val tx = builder.build()
     val expected = Right(
       Map(gkey("key1") -> KeyCreate) ->
-        ActiveLedgerState(Set(3), Map.empty, Map(gkey("key1") -> cid(3)))
+        ActiveLedgerState[Unit](Set(3), Map.empty, Map(gkey("key1") -> cid(3)))
     )
     TestCase(
       "CreateAfterRbExercise",
@@ -475,7 +475,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val tx = builder.build()
     val expectedOff = Right(
       Map(gkey("key1") -> KeyCreate, gkey("key2") -> KeyCreate) ->
-        ActiveLedgerState(
+        ActiveLedgerState[Unit](
           Set(1, 3, 4, 5),
           Map.empty,
           Map(gkey("key1") -> cid(4), gkey("key2") -> cid(5)),
@@ -561,10 +561,14 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
         expected.foreach { case (mode, expectedResult) =>
           s"mode $mode" in {
             // We use `Unit` instead of `NodeId` so that we don't have to fiddle with node ids
-            val ksm = new ContractStateMachine[Unit](mode)
             val actualResolver: KeyResolver =
               if (mode == ContractKeyUniquenessMode.Strict) Map.empty else resolver
-            val result = visitSubtrees(ksm)(tx.nodes, tx.roots.toSeq, actualResolver, ksm.initial)
+            val result = visitSubtrees(
+              tx.nodes,
+              tx.roots.toSeq,
+              actualResolver,
+              ContractStateMachine.initial[Unit](mode),
+            )
 
             (result, expectedResult) match {
               case (Left(err1), Left(err2)) => err1 shouldBe err2
@@ -652,12 +656,12 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     *                 for handling [[com.daml.lf.transaction.Node.LookupByKey]].
     *                 Ignored in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]].
     */
-  private def visitSubtree(ksm: ContractStateMachine[Unit])(
+  private def visitSubtree(
       nodes: Map[NodeId, Node],
       root: NodeId,
       resolver: KeyResolver,
-      state: ksm.State,
-  ): Either[Transaction.KeyInputError, ksm.State] = {
+      state: ContractStateMachine.State[Unit],
+  ): Either[Transaction.KeyInputError, ContractStateMachine.State[Unit]] = {
     val node = nodes(root)
     for {
       next <- node match {
@@ -667,7 +671,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
           Right(state.beginRollback())
       }
       afterChildren <- withClue(s"visiting children of $node") {
-        visitSubtrees(ksm)(nodes, children(node).toSeq, resolver, next)
+        visitSubtrees(nodes, children(node).toSeq, resolver, next)
       }
       exited = node match {
         case _: Node.Rollback => afterChildren.endRollback()
@@ -682,26 +686,26 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     *
     * @see visitSubtree for how visiting nodes updates the state
     */
-  private def visitSubtrees(ksm: ContractStateMachine[Unit])(
+  private def visitSubtrees(
       nodes: Map[NodeId, Node],
       roots: Seq[NodeId],
       resolver: KeyResolver,
-      state: ksm.State,
-  ): Either[Transaction.KeyInputError, ksm.State] = {
+      state: ContractStateMachine.State[Unit],
+  ): Either[Transaction.KeyInputError, ContractStateMachine.State[Unit]] = {
     roots match {
       case Seq() => Right(state)
       case root +: tail =>
         val node = nodes(root)
-        val directVisit = visitSubtree(ksm)(nodes, root, resolver, state)
+        val directVisit = visitSubtree(nodes, root, resolver, state)
         // Now project the resolver and visit the subtree from a fresh state and check whether we end up the same using advance
-        val fresh = ksm.initial
+        val fresh = ContractStateMachine.initial[Unit](state.mode)
         val projectedResolver: KeyResolver =
           if (state.mode == ContractKeyUniquenessMode.Strict) Map.empty
           else state.projectKeyResolver(resolver)
         withClue(
           s"Advancing over subtree rooted at $node with projected resolver $projectedResolver; projection state=$state; original resolver=$resolver"
         ) {
-          val freshVisit = visitSubtree(ksm)(nodes, root, projectedResolver, fresh)
+          val freshVisit = visitSubtree(nodes, root, projectedResolver, fresh)
           val advanced = freshVisit.flatMap(substate => state.advance(resolver, substate))
 
           (directVisit, advanced) match {
@@ -715,7 +719,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
             case _ => fail(s"$directVisit was knot equal to $advanced")
           }
         }
-        directVisit.flatMap(next => visitSubtrees(ksm)(nodes, tail, resolver, next))
+        directVisit.flatMap(next => visitSubtrees(nodes, tail, resolver, next))
     }
   }
 }
