@@ -10,7 +10,7 @@ in rec {
     buildInputs = with pkgs; [
       stdenv
       sbt
-      openjdk
+      openjdk17
       z3
     ];
   };
