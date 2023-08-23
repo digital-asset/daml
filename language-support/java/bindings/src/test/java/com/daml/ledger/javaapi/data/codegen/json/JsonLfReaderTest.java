@@ -18,6 +18,7 @@ import java.time.Month;
 import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
@@ -26,156 +27,138 @@ import org.junit.runner.RunWith;
 @RunWith(JUnitPlatform.class)
 public class JsonLfReaderTest {
 
-  private class TestCase<T> {
-    public final String input;
-    public final T expected;
-
-    public TestCase(String input, T expected) {
-      this.input = input;
-      this.expected = expected;
-    }
-
-    public String toString() {
-      return String.format("input=%s, expected=%s", input, expected);
-    }
-  }
-
-  private <T> TestCase<T> test(String input, T expected) {
-    return new TestCase(input, expected);
-  }
-
   @Test
   void testUnit() throws IOException {
-    testAll(
-        JsonLfReader::unit, test("{}", Unit.getInstance()), test("\t{\n} ", Unit.getInstance()));
+    checkReadAll(
+        JsonLfReader::unit, eq("{}", Unit.getInstance()), eq("\t{\n} ", Unit.getInstance()));
   }
 
   @Test
   void testBool() throws IOException {
-    testAll(JsonLfReader::bool, test("false", false), test("true", true));
+    checkReadAll(JsonLfReader::bool, eq("false", false), eq("true", true));
   }
 
   @Test
   void testInt64() throws IOException {
-    testAll(
+    checkReadAll(
         JsonLfReader::int64,
-        test("42", 42L),
-        test("\"+42\"", 42L),
-        test("-42", -42L),
-        test("0", 0L),
-        test("-0", -0L),
-        test("9223372036854775807", 9223372036854775807L),
-        test("\"9223372036854775807\"", 9223372036854775807L),
-        test("-9223372036854775808", -9223372036854775808L),
-        test("\"-9223372036854775808\"", -9223372036854775808L));
+        eq("42", 42L),
+        eq("\"+42\"", 42L),
+        eq("-42", -42L),
+        eq("0", 0L),
+        eq("-0", -0L),
+        eq("9223372036854775807", 9223372036854775807L),
+        eq("\"9223372036854775807\"", 9223372036854775807L),
+        eq("-9223372036854775808", -9223372036854775808L),
+        eq("\"-9223372036854775808\"", -9223372036854775808L));
   }
 
   @Test
   void testDecimal() throws IOException {
-    testAllByComparison(
+    checkReadAll(
         JsonLfReader::decimal,
-        test("42", dec("42")),
-        test("42.0", dec("42")),
-        test("\"42\"", dec("42")),
-        test("-42", dec("-42")),
-        test("\"-42\"", dec("-42")),
-        test("0", dec("0")),
-        test("-0", dec("-0")),
-        //            test("0.30000000000000004", dec("0.3")), // TODO(raphael-speyer-da):
+        cmpEq("42", dec("42")),
+        cmpEq("42.0", dec("42")),
+        cmpEq("\"42\"", dec("42")),
+        cmpEq("-42", dec("-42")),
+        cmpEq("\"-42\"", dec("-42")),
+        cmpEq("0", dec("0")),
+        cmpEq("-0", dec("-0")),
+        //            cmpEq("0.30000000000000004", dec("0.3")), // TODO(raphael-speyer-da):
         // Appropriate rounding
-        test("2e3", dec("2000")),
-        test(
+        cmpEq("2e3", dec("2000")),
+        cmpEq(
             "9999999999999999999999999999.9999999999",
             dec("9999999999999999999999999999.9999999999")));
   }
 
   @Test
   void testTimestamp() throws IOException {
-    testAll(
+    checkReadAll(
         JsonLfReader::timestamp,
-        test(
+        eq(
             "\"1990-11-09T04:30:23.123456Z\"",
             timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 123456)),
-        test(
+        eq(
             "\"9999-12-31T23:59:59.999999Z\"",
             timestampUTC(9999, Month.DECEMBER, 31, 23, 59, 59, 999999)),
-        //            test("\"1990-11-09T04:30:23.1234569Z\"", timestampUTC(1990, Month.NOVEMBER,
+        //            eq("\"1990-11-09T04:30:23.1234569Z\"", timestampUTC(1990, Month.NOVEMBER,
         // 9,  4, 30, 23, 123457)), // TODO(raphael-speyer-da): Appropriate rounding
-        test("\"1990-11-09T04:30:23Z\"", timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 0)),
-        test(
+        eq("\"1990-11-09T04:30:23Z\"", timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 0)),
+        eq(
             "\"1990-11-09T04:30:23.123Z\"",
             timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 123000)),
-        test("\"0001-01-01T00:00:00Z\"", timestampUTC(1, Month.JANUARY, 1, 0, 0, 0, 0)));
+        eq("\"0001-01-01T00:00:00Z\"", timestampUTC(1, Month.JANUARY, 1, 0, 0, 0, 0)));
   }
 
   @Test
   void testDate() throws IOException {
-    testAll(
+    checkReadAll(
         JsonLfReader::date,
-        test("\"2019-06-18\"", date(2019, Month.JUNE, 18)),
-        test("\"9999-12-31\"", date(9999, Month.DECEMBER, 31)),
-        test("\"0001-01-01\"", date(1, Month.JANUARY, 1)));
+        eq("\"2019-06-18\"", date(2019, Month.JUNE, 18)),
+        eq("\"9999-12-31\"", date(9999, Month.DECEMBER, 31)),
+        eq("\"0001-01-01\"", date(1, Month.JANUARY, 1)));
   }
 
   @Test
   void testParty() throws IOException {
-    testAll(JsonLfReader::party, test("\"Alice\"", "Alice"));
+    checkReadAll(JsonLfReader::party, eq("\"Alice\"", "Alice"));
   }
 
   @Test
   void testText() throws IOException {
-    testAll(JsonLfReader::text, test("\"\"", ""), test("\" \"", " "), test("\"hello\"", "hello"));
+    checkReadAll(JsonLfReader::text, eq("\"\"", ""), eq("\" \"", " "), eq("\"hello\"", "hello"));
   }
 
   @Test
   void testList() throws IOException {
-    testAll(r -> r.list(r.int64()), test("[]", emptyList()), test("[1,2]", asList(1L, 2L)));
+    checkReadAll(r -> r.list(r.int64()), eq("[]", emptyList()), eq("[1,2]", asList(1L, 2L)));
   }
 
   @Test
   void testTextMap() throws IOException {
-    testAll(
+    checkReadAll(
         r -> r.textMap(r.int64()),
-        test("{}", emptyMap()),
-        test("{\"foo\":1, \"bar\": 2}", java.util.Map.of("foo", 1L, "bar", 2L)));
+        eq("{}", emptyMap()),
+        eq("{\"foo\":1, \"bar\": 2}", java.util.Map.of("foo", 1L, "bar", 2L)));
   }
 
   @Test
   void testGenMap() throws IOException {
-    testAll(
+    checkReadAll(
         r -> r.genMap(r.text(), r.int64()),
-        test("[]", emptyMap()),
-        test("[[\"foo\", 1], [\"bar\", 2]]", java.util.Map.of("foo", 1L, "bar", 2L)));
+        eq("[]", emptyMap()),
+        eq("[[\"foo\", 1], [\"bar\", 2]]", java.util.Map.of("foo", 1L, "bar", 2L)));
   }
 
   @Test
   void testOptionalNonNested() throws IOException {
-    testAll(
-        r -> r.optional(r.int64()), test("null", Optional.empty()), test("42", Optional.of(42L)));
+    checkReadAll(
+        r -> r.optional(r.int64()), eq("null", Optional.empty()), eq("42", Optional.of(42L)));
   }
 
   @Test
   void testOptionalNested() throws IOException {
-    testAll(
+    checkReadAll(
         r -> r.optionalNested(r.optional(r.int64())),
-        test("null", Optional.empty()),
-        test("[]", Optional.of(Optional.empty())),
-        test("[42]", Optional.of(Optional.of(42L))));
+        eq("null", Optional.empty()),
+        eq("[]", Optional.of(Optional.empty())),
+        eq("[42]", Optional.of(Optional.of(42L))));
   }
 
   @Test
   void testOptionalNestedDeeper() throws IOException {
-    testAll(
+    checkReadAll(
         r -> r.optionalNested(r.optionalNested(r.optional(r.int64()))),
-        test("null", Optional.empty()),
-        test("[]", Optional.of(Optional.empty())),
-        test("[[]]", Optional.of(Optional.of(Optional.empty()))),
-        test("[[42]]", Optional.of(Optional.of(Optional.of(42L)))));
+        eq("null", Optional.empty()),
+        eq("[]", Optional.of(Optional.empty())),
+        eq("[[]]", Optional.of(Optional.of(Optional.empty()))),
+        eq("[[42]]", Optional.of(Optional.of(Optional.of(42L)))));
   }
 
   @Test
   void testVariant() throws IOException, FromJson.Error {
-    testAll(
+    checkReadAll(
         r ->
             r.variant(
                 asList("Bar", "Baz", "Quux"),
@@ -191,15 +174,15 @@ public class JsonLfReaderTest {
                       return null;
                   }
                 }),
-        test("{\"tag\": \"Bar\", \"value\": 42}", new SomeVariant.Bar(42L)),
-        test("{\"tag\": \"Baz\", \"value\": {}}", new SomeVariant.Baz(Unit.getInstance())),
-        test("{\"tag\": \"Quux\", \"value\": null}", new SomeVariant.Quux(Optional.empty())),
-        test("{\"tag\": \"Quux\", \"value\": 42}", new SomeVariant.Quux(Optional.of(42L))));
+        eq("{\"tag\": \"Bar\", \"value\": 42}", new SomeVariant.Bar(42L)),
+        eq("{\"tag\": \"Baz\", \"value\": {}}", new SomeVariant.Baz(Unit.getInstance())),
+        eq("{\"tag\": \"Quux\", \"value\": null}", new SomeVariant.Quux(Optional.empty())),
+        eq("{\"tag\": \"Quux\", \"value\": 42}", new SomeVariant.Quux(Optional.of(42L))));
   }
 
   @Test
   void testRecord() throws IOException {
-    testAll(
+    checkReadAll(
         r ->
             r.record(
                 SomeRecord::new,
@@ -215,10 +198,10 @@ public class JsonLfReaderTest {
                       return null;
                   }
                 }),
-        test("[1,true]", new SomeRecord(1L, true)),
-        test("{\"i\":1,\"b\":true}", new SomeRecord(1L, true)),
-        test("{\"b\":true,\"i\":1}", new SomeRecord(1L, true)),
-        test("{\"i\":1}", new SomeRecord(1L, false)));
+        eq("[1,true]", new SomeRecord(1L, true)),
+        eq("{\"i\":1,\"b\":true}", new SomeRecord(1L, true)),
+        eq("{\"b\":true,\"i\":1}", new SomeRecord(1L, true)),
+        eq("{\"i\":1}", new SomeRecord(1L, false)));
   }
 
   private BigDecimal dec(String s) {
@@ -337,23 +320,44 @@ public class JsonLfReaderTest {
     }
   }
 
-  private <T> void testAll(
-      Function<JsonLfReader, FromJson<T>> readT, TestCase<? extends T>... testCases)
+  private <T> void checkReadAll(Function<JsonLfReader, FromJson<T>> readT, TestCase<T>... testCases)
       throws IOException {
     for (var tc : testCases) {
-      var fromJson = readT.apply(new JsonLfReader(tc.input));
-      assertEquals(tc.expected, fromJson.read(), tc.toString());
+      tc.check.accept(readT.apply(new JsonLfReader(tc.input)).read());
     }
   }
 
-  private <T extends Comparable> void testAllByComparison(
-      Function<JsonLfReader, FromJson<T>> readT, TestCase<T>... testCases) throws IOException {
-    for (var tc : testCases) {
-      var fromJson = readT.apply(new JsonLfReader(tc.input));
-      assertEquals(
-          0,
-          tc.expected.compareTo(fromJson.read()),
-          "unequal by ordering comparison, when reading " + tc.toString());
+  static class TestCase<T> {
+    public String input;
+    public final Consumer<T> check;
+
+    public TestCase(String input, Consumer<T> check) {
+      this.input = input;
+      this.check = check;
     }
+  }
+
+  private <T> TestCase<T> eq(String input, T expected) {
+    return new TestCase(
+        input,
+        actual -> {
+          assertEquals(
+              expected,
+              actual,
+              String.format("input=%s, expected=%s, actual=%s", input, expected, actual));
+        });
+  }
+
+  private <T extends Comparable> TestCase<T> cmpEq(String input, T expected) {
+    return new TestCase(
+        input,
+        actual -> {
+          assertEquals(
+              0,
+              expected.compareTo(actual),
+              String.format(
+                  "unequal by ordering comparison, input=%s, expected=%s, actual=%s",
+                  input, expected, actual));
+        });
   }
 }
