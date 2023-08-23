@@ -156,6 +156,23 @@ public class JsonLfReaderTest {
         eq("[[42]]", Optional.of(Optional.of(Optional.of(42L)))));
   }
 
+  enum Suit {
+    Hearts,
+    Diamonds,
+    Clubs,
+    Spades
+  }
+
+  @Test
+  void testEnum() throws IOException {
+    checkReadAll(
+        r -> r.enumeration(Suit.class),
+        eq("\"Hearts\"", Suit.Hearts),
+        eq("\"Diamonds\"", Suit.Diamonds),
+        eq("\"Clubs\"", Suit.Clubs),
+        eq("\"Spades\"", Suit.Spades));
+  }
+
   @Test
   void testVariant() throws IOException, FromJson.Error {
     checkReadAll(

@@ -15,7 +15,6 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 
 // Utility to read LF-JSON data in a streaming fashion. Can be used by code-gen.
@@ -288,12 +287,15 @@ public class JsonLfReader {
     };
   }
 
-  public FromJson<String> enumeration(Set<String> values) {
+  public <E extends Enum<E>> FromJson<E> enumeration(Class<E> enumClass) {
     return () -> {
       String value = text().read();
-      if (!values.contains(value))
-        parseExpected(String.format("one of %s", String.join(" or ", values)));
-      return value;
+      try {
+        return Enum.valueOf(enumClass, value);
+      } catch (IllegalArgumentException e) {
+        parseExpected(String.format("constant of %s", enumClass.getName()));
+      }
+      return null;
     };
   }
 
