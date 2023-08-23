@@ -25,6 +25,7 @@ sealed abstract class SubmitError
     with NoStackTrace
     with Product
     with Serializable {
+  // Implementing code needs to be kept in sync with daml-script#Error.daml
   def toDamlSubmitError(env: ScriptF.Env): SValue
 }
 
@@ -356,7 +357,17 @@ object SubmitError {
       )
   }
 
+  final case class ValueNesting(limit: Int) extends SubmitError {
+    override def toDamlSubmitError(env: Env): SValue =
+      SubmitErrorConverters(env).damlScriptError(
+        "ValueNesting",
+        17,
+        ("limit", SInt64(limit.toLong)),
+      )
+  }
+
   final case class DevError(errorType: String, message: String) extends SubmitError {
+    // This code needs to be kept in sync with daml-script#Error.daml
     override def toDamlSubmitError(env: Env): SValue = {
       val devErrorTypeIdentifier =
         env.scriptIds.damlScriptModule("Daml.Script.Questions.Submit.Error", "DevErrorType")
@@ -365,12 +376,11 @@ object SubmitError {
           SEnum(devErrorTypeIdentifier, Name.assertFromString("ChoiceGuardFailed"), 0)
         case "WronglyTypedContractSoft" =>
           SEnum(devErrorTypeIdentifier, Name.assertFromString("WronglyTypedContractSoft"), 1)
-        case "Limit" => SEnum(devErrorTypeIdentifier, Name.assertFromString("Limit"), 2)
-        case _ => SEnum(devErrorTypeIdentifier, Name.assertFromString("UnknownNewFeature"), 3)
+        case _ => SEnum(devErrorTypeIdentifier, Name.assertFromString("UnknownNewFeature"), 2)
       }
       SubmitErrorConverters(env).damlScriptError(
         "DevError",
-        17,
+        18,
         ("devErrorType", devErrorType),
         ("devErrorMessage", SText(message)),
       )
@@ -381,7 +391,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "UnknownError",
-        18,
+        19,
         ("unknownErrorMessage", SText(message)),
       )
   }
@@ -390,7 +400,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "TruncatedError",
-        19,
+        20,
         ("truncatedErrorType", SText(errType)),
         ("truncatedErrorMessage", SText(message)),
       )

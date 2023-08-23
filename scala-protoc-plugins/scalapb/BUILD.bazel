@@ -23,7 +23,7 @@ da_scala_binary(
 #
 # genrule(
 #     name = "gen_protoc_gen_scala",
-#     srcs = ["compiler_plugin_deploy.jar", "@local_jdk//:bin/java"],
+#     srcs = ["compiler_plugin_distribute.jar", "@local_jdk//:bin/java"],
 #     outs = ["protoc-gen-scala.sh"],
 #     cmd = """
 #     echo '$(location @local_jdk//:bin/java) -jar $(location protoc_gen_deploy.jar) $$@' > $@
@@ -53,7 +53,7 @@ go_library(
 go_binary(
     name = "protoc-gen-scalapb",
     data = [
-        ":compiler_plugin_deploy.jar",
+        ":compiler_plugin_distribute.jar",
         "@bazel_tools//tools/jdk",
     ],
     embed = [":go_default_library"],

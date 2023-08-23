@@ -11,11 +11,11 @@ import (
 func main() {
 	// This works due to the expected sandbox layout:
 	//
-	// ./bazel-out/host/bin/external/build_stack_rules_proto/scala/compiler_plugin_deploy.jar
+	// ./bazel-out/host/bin/external/build_stack_rules_proto/scala/compiler_plugin_distribute.jar
 	// ./bazel-out/host/bin/external/build_stack_rules_proto/scala/linux_amd64_stripped
 	// ./bazel-out/host/bin/external/build_stack_rules_proto/scala/linux_amd64_stripped/protoc-gen-scala
 
-	jar := mustFindInSandbox(path.Dir(os.Args[0]), "compiler_plugin_deploy.jar")
+	jar := mustFindInSandbox(path.Dir(os.Args[0]), "compiler_plugin_distribute.jar")
 	err, exitCode := run("external/local_jdk/bin/java", append([]string{"-jar", jar}, os.Args...), ".", nil)
 	if err != nil {
 		log.Printf("%v", err)

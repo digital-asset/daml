@@ -20,6 +20,7 @@ import com.google.protobuf.ByteString
 import com.daml.lf.engine.script.{Runner, Script}
 import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.logging.LoggingContext
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -50,6 +51,8 @@ class Context(
 )(implicit
     loggingContext: LoggingContext
 ) {
+  private[this] val logger = LoggerFactory.getLogger(this.getClass)
+
   def devMode: Boolean = languageVersion == LanguageVersion.v1_dev
 
   private val compilerConfig =
@@ -246,16 +249,17 @@ class Context(
         e.cause match {
           case e: Error => handleFailure(e)
           case e: speedy.SError.SError => handleFailure(Error.RunnerException(e))
-          case e => {
-            // We can't send _everything_ over without changing internal, nicer to put a print here.
-            e.printStackTrace
+          case e =>
+            // We can't send _everything_ over without changing internal, we log and wrap the error in t.
+            logger.warn("Script.FailedCmd unexpected cause: " + e.getMessage)
+            logger.debug(e.getStackTrace.mkString("\n"))
             handleFailure(Error.Internal("Script.FailedCmd unexpected cause: " + e.getMessage))
-          }
         }
-      case Failure(e) => {
-        e.printStackTrace
-        handleFailure(Error.Internal("Unexpected error type from script runner: " + e.getMessage))
-      }
+      case Failure(e) =>
+        // something bad happened, we log and fail
+        logger.error("Unexpected error type from script runner: " + e.getMessage)
+        logger.debug(e.getStackTrace.mkString("\n"))
+        Failure(e)
     }
   }
 }
