@@ -33,6 +33,10 @@ To build the Stainless version used in the proof:
     `$STAINLESS_REPO_ROOT/frontends/dotty/target/universal/stage/bin/stainless-dotty`
  4. The verification currently works with JDK 17
 
+### Building documentation
+
+To build the PDF version of the proof documentation:
+``` pdflatex ./latex/proof.tex ```
 
 ## Verification
 
