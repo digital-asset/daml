@@ -164,5 +164,5 @@ tests damlc =
           , "typecheck-upgrades: true"
           , "build-options:"
           , "- --target=" <> renderVersion (featureMinVersion featurePackageUpgrades)
-          ] ++ ["upgrades: \"" <> path <> "\"" | Just path <- pure upgradedFile]
+          ] ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
         )
