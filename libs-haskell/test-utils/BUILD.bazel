@@ -10,7 +10,7 @@ da_haskell_library(
     name = "test-utils",
     srcs = glob(["DA/Test/**/*.hs"]),
     data = [
-        "//canton:canton_deploy.jar",
+        "//canton:canton-lib.jar",
     ],
     hackage_deps = [
         "aeson",
