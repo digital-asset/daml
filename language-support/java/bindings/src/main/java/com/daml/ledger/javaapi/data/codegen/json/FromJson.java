@@ -14,11 +14,11 @@ import java.io.IOException;
 // or
 //   List<String> = reader.list(reader::text).read();
 public interface FromJson<T> {
+  public T read() throws Error;
+
   public class Error extends IOException {
     public Error(String msg) {
       super(msg);
     }
   }
-
-  public T read() throws Error;
 }

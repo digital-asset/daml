@@ -111,6 +111,21 @@ public class JsonLfReaderTest {
   }
 
   @Test
+  void testContractId() throws IOException {
+    checkReadAll(r -> r.contractId(Tmpl.Cid::new), eq("\"deadbeef\"", new Tmpl.Cid("deadbeef")));
+  }
+
+  @Test
+  void testEnum() throws IOException {
+    checkReadAll(
+        r -> r.enumeration(Suit.class),
+        eq("\"Hearts\"", Suit.Hearts),
+        eq("\"Diamonds\"", Suit.Diamonds),
+        eq("\"Clubs\"", Suit.Clubs),
+        eq("\"Spades\"", Suit.Spades));
+  }
+
+  @Test
   void testList() throws IOException {
     checkReadAll(r -> r.list(r.int64()), eq("[]", emptyList()), eq("[1,2]", asList(1L, 2L)));
   }
@@ -156,23 +171,6 @@ public class JsonLfReaderTest {
         eq("[[42]]", Optional.of(Optional.of(Optional.of(42L)))));
   }
 
-  enum Suit {
-    Hearts,
-    Diamonds,
-    Clubs,
-    Spades
-  }
-
-  @Test
-  void testEnum() throws IOException {
-    checkReadAll(
-        r -> r.enumeration(Suit.class),
-        eq("\"Hearts\"", Suit.Hearts),
-        eq("\"Diamonds\"", Suit.Diamonds),
-        eq("\"Clubs\"", Suit.Clubs),
-        eq("\"Spades\"", Suit.Spades));
-  }
-
   @Test
   void testVariant() throws IOException, FromJson.Error {
     checkReadAll(
@@ -202,15 +200,14 @@ public class JsonLfReaderTest {
     checkReadAll(
         r ->
             r.record(
-                SomeRecord::new,
+                args -> new SomeRecord((Long) args[0], (Boolean) args[1]),
                 asList("i", "b"),
                 fieldName -> {
                   switch (fieldName) {
                     case "i":
-                      return JsonLfReader.Field.of(0, r.int64());
+                      return JsonLfReader.Field.required(0, r.int64());
                     case "b":
-                      return JsonLfReader.Field.of(
-                          1, r.bool(), false); // Note a default value here when missing.
+                      return JsonLfReader.Field.optional(1, r.bool(), false);
                     default:
                       return null;
                   }
@@ -242,10 +239,6 @@ public class JsonLfReaderTest {
     public SomeRecord(long i, boolean b) {
       this.i = i;
       this.b = b;
-    }
-
-    public SomeRecord(Object... args) {
-      this((Long) args[0], (Boolean) args[1]);
     }
 
     public String toString() {
@@ -335,6 +328,21 @@ public class JsonLfReaderTest {
         return String.format("Quux(%s)", x);
       }
     }
+  }
+
+  static class Tmpl {
+    public static final class Cid extends com.daml.ledger.javaapi.data.codegen.ContractId<Tmpl> {
+      public Cid(String id) {
+        super(id);
+      }
+    }
+  }
+
+  enum Suit {
+    Hearts,
+    Diamonds,
+    Clubs,
+    Spades
   }
 
   private <T> void checkReadAll(Function<JsonLfReader, FromJson<T>> readT, TestCase<T>... testCases)

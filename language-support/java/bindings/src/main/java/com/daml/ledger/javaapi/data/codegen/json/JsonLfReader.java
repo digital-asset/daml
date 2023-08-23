@@ -4,17 +4,22 @@
 package com.daml.ledger.javaapi.data.codegen.json;
 
 import com.daml.ledger.javaapi.data.Unit;
+import com.daml.ledger.javaapi.data.codegen.ContractId;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.function.Function;
 
 // Utility to read LF-JSON data in a streaming fashion. Can be used by code-gen.
@@ -22,80 +27,32 @@ public class JsonLfReader {
   private static final JsonFactory jsonFactory = new JsonFactory();
   private final JsonParser parser;
 
-  private void parseExpected(String expected) throws FromJson.Error {
-    throw new FromJson.Error(
-        String.format("Expected %s but was %s at %s", expected, currentText(), location()));
+  public JsonLfReader(Reader textReader) throws IOException {
+    parser = jsonFactory.createParser(textReader);
+    parser.nextToken();
+  }
+
+  public JsonLfReader(String text) throws IOException {
+    this(new StringReader(text));
   }
 
   // Can override these two for different handling of these cases.
-  public void missingField(Object obj, String fieldName) throws FromJson.Error {
+  protected void missingField(Object obj, String fieldName) throws FromJson.Error {
     throw new FromJson.Error(
         String.format(
             "Missing field %s.%s at %s", obj.getClass().getCanonicalName(), fieldName, location()));
   }
 
-  public void unknownFields(Object obj, List<String> fieldNames) throws FromJson.Error {
+  protected void unknownFields(Object obj, List<String> fieldNames) throws FromJson.Error {
     throw new FromJson.Error(
         String.format(
             "Unknown fields %s.%s at %s",
             obj.getClass().getCanonicalName(), fieldNames.toString(), location()));
   }
 
-  public JsonLfReader(String text) throws IOException {
-    parser = jsonFactory.createParser(text);
-    parser.nextToken();
-  }
-
-  /// Used for branching and looping on objects and arrays. ///
-
-  public boolean isStartObject() {
-    return parser.currentToken() == JsonToken.START_OBJECT;
-  }
-
-  public boolean notEndObject() {
-    return !parser.isClosed() && parser.currentToken() != JsonToken.END_OBJECT;
-  }
-
-  public boolean isStartArray() {
-    return parser.currentToken() == JsonToken.START_ARRAY;
-  }
-
-  public boolean notEndArray() {
-    return !parser.isClosed() && parser.currentToken() != JsonToken.END_ARRAY;
-  }
-
-  /// Used for consuming the structural components of objects and arrays. ///
-
-  public void readStartObject() throws FromJson.Error {
-    expectIsAt("{", JsonToken.START_OBJECT);
-    moveNext();
-  }
-
-  public void readEndObject() throws FromJson.Error {
-    expectIsAt("}", JsonToken.END_OBJECT);
-    moveNext();
-  }
-
-  public void readStartArray() throws FromJson.Error {
-    expectIsAt("[", JsonToken.START_ARRAY);
-    moveNext();
-  }
-
-  public void readEndArray() throws FromJson.Error {
-    expectIsAt("]", JsonToken.END_ARRAY);
-    moveNext();
-  }
-
-  public String readFieldName() throws FromJson.Error {
-    expectIsAt("field name", JsonToken.FIELD_NAME);
-    String fieldName = null;
-    try {
-      fieldName = parser.getText();
-    } catch (IOException e) {
-      parseExpected("textual field name");
-    }
-    moveNext();
-    return fieldName;
+  private void parseExpected(String expected) throws FromJson.Error {
+    throw new FromJson.Error(
+        String.format("Expected %s but was %s at %s", expected, currentText(), location()));
   }
 
   /// Readers for built-in LF types. ///
@@ -194,8 +151,11 @@ public class JsonLfReader {
     return text();
   }
 
-  public FromJson<String> contractId() {
-    return text();
+  public <C extends ContractId<?>> FromJson<C> contractId(Function<String, C> constr) {
+    return () -> {
+      String id = text().read();
+      return constr.apply(id);
+    };
   }
 
   public FromJson<String> text() {
@@ -215,7 +175,7 @@ public class JsonLfReader {
   // Read an list with an unknown number of items of the same type.
   public <T> FromJson<List<T>> list(FromJson<T> readItem) {
     return () -> {
-      List<T> list = new java.util.ArrayList<>();
+      List<T> list = new ArrayList<>();
       readStartArray();
       while (notEndArray()) {
         T item = readItem.read();
@@ -229,7 +189,7 @@ public class JsonLfReader {
   // Read a map with textual keys, and unknown number of items of the same type.
   public <V> FromJson<Map<String, V>> textMap(FromJson<V> readValue) {
     return () -> {
-      Map<String, V> map = new java.util.TreeMap<>();
+      Map<String, V> map = new TreeMap<>();
       readStartObject();
       while (notEndObject()) {
         String key = readFieldName();
@@ -245,7 +205,7 @@ public class JsonLfReader {
   // Read a map with unknown number of items of the same types.
   public <K, V> FromJson<Map<K, V>> genMap(FromJson<K> readKey, FromJson<V> readValue) {
     return () -> {
-      Map<K, V> map = new java.util.TreeMap<>();
+      Map<K, V> map = new TreeMap<>();
       // Maps are represented as an array of 2-element arrays.
       readStartArray();
       while (notEndArray()) {
@@ -317,19 +277,34 @@ public class JsonLfReader {
     T get(String tagName) throws FromJson.Error;
   }
 
-  // Provides a generic way to read a record type, by specifying each field.
-  // This is a little fragile, so is better built by code-gen. Specifically:
-  // - The elements of fieldNames should all evaluate to non non-null when applied to fieldsByName
-  // - The argIndex field values should be dense and unique.
-  // - The record type must have a constructor which takes an Object[] and appropriately casts
-  //   and populates its own fields, as per the argIndex of the fields provided.
+  // Provides a generic way to read a record type, with a constructor arg for each field.
+  // This is a little fragile, so is better used by code-gen. Specifically:
+  // - The constructor must cast the elements and pass them to the T's constructor appropriately.
+  // - The elements of fieldNames should all evaluate to non non-null when applied to fieldsByName.
+  // - The argIndex field values should correspond to the args passed to the constructor.
+  //
+  // e.g.
+  //     r.record(
+  //        args -> new Foo((Long) args[0], (Boolean) args[1]),
+  //        asList("i", "b"),
+  //        fieldName -> {
+  //          switch (fieldName) {
+  //            case "i":
+  //              return JsonLfReader.Field.required(0, r.int64());
+  //            case "b":
+  //              return JsonLfReader.Field.optional(1, r.bool(), false);
+  //            default:
+  //              return null;
+  //          }
+  //        }
+  //     )
   public <T> FromJson<T> record(
       Function<Object[], T> constr,
       List<String> fieldNames,
       Function<String, Field<? extends Object>> fieldsByName) {
     return () -> {
-      List<String> missingFields = new java.util.ArrayList<>();
-      List<String> unknownFields = new java.util.ArrayList<>();
+      List<String> missingFields = new ArrayList<>();
+      List<String> unknownFields = new ArrayList<>();
 
       Object[] args = new Object[fieldNames.size()];
       if (isStartObject()) {
@@ -370,7 +345,7 @@ public class JsonLfReader {
   public static class Field<T> {
     final int argIndex;
     final FromJson<T> fromJson;
-    final T defaultVal;
+    final T defaultVal; // If non-null, used to populate value of missing fields.
 
     private Field(int argIndex, FromJson<T> fromJson, T defaultVal) {
       this.argIndex = argIndex;
@@ -378,13 +353,65 @@ public class JsonLfReader {
       this.defaultVal = defaultVal;
     }
 
-    public static <T extends Object> Field<T> of(int argIndex, FromJson<T> fromJson, T defaultVal) {
+    public static <T> Field<T> optional(int argIndex, FromJson<T> fromJson, T defaultVal) {
       return new Field<T>(argIndex, fromJson, defaultVal);
     }
 
-    public static <T extends Object> Field<T> of(int argIndex, FromJson<T> fromJson) {
-      return of(argIndex, fromJson, null);
+    public static <T> Field<T> required(int argIndex, FromJson<T> fromJson) {
+      return new Field<T>(argIndex, fromJson, null);
     }
+  }
+
+  /// Used for branching and looping on objects and arrays. ///
+
+  private boolean isStartObject() {
+    return parser.currentToken() == JsonToken.START_OBJECT;
+  }
+
+  private boolean notEndObject() {
+    return !parser.isClosed() && parser.currentToken() != JsonToken.END_OBJECT;
+  }
+
+  private boolean isStartArray() {
+    return parser.currentToken() == JsonToken.START_ARRAY;
+  }
+
+  private boolean notEndArray() {
+    return !parser.isClosed() && parser.currentToken() != JsonToken.END_ARRAY;
+  }
+
+  /// Used for consuming the structural components of objects and arrays. ///
+
+  private void readStartObject() throws FromJson.Error {
+    expectIsAt("{", JsonToken.START_OBJECT);
+    moveNext();
+  }
+
+  private void readEndObject() throws FromJson.Error {
+    expectIsAt("}", JsonToken.END_OBJECT);
+    moveNext();
+  }
+
+  private void readStartArray() throws FromJson.Error {
+    expectIsAt("[", JsonToken.START_ARRAY);
+    moveNext();
+  }
+
+  private void readEndArray() throws FromJson.Error {
+    expectIsAt("]", JsonToken.END_ARRAY);
+    moveNext();
+  }
+
+  private String readFieldName() throws FromJson.Error {
+    expectIsAt("field name", JsonToken.FIELD_NAME);
+    String fieldName = null;
+    try {
+      fieldName = parser.getText();
+    } catch (IOException e) {
+      parseExpected("textual field name");
+    }
+    moveNext();
+    return fieldName;
   }
 
   private String location() {
