@@ -35,8 +35,8 @@ load("//:daml_finance_dep.bzl", "quickstart")
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "6899cddf7407d09266dddcf6faf9f2a8b414de5e2b35ef8b294418f559172f28"
 
-rules_haskell_version = "d3caf0cc94a8dc6af682da42d3b89ef7e85cb987"
-rules_haskell_sha256 = "16f6ba4997fa4847d7dc26db2c08f71087b591e53ac8c334b1e7f62f6cf3a5da"
+rules_haskell_version = "0.16"
+rules_haskell_sha256 = "2a07b55c30e526c07138c717b0343a07649e27008a873f2508ffab3074f3d4f3"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
@@ -103,7 +103,7 @@ def daml_deps():
         http_archive(
             name = "rules_haskell",
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
-            urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
+            urls = ["https://github.com/tweag/rules_haskell/archive/v%s.tar.gz" % rules_haskell_version],
             patches = rules_haskell_patches,
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
