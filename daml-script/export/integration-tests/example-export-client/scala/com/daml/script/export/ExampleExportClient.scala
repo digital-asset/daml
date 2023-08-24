@@ -12,7 +12,7 @@ import com.daml.fs.Utils.deleteRecursively
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.lf.engine.script.{RunnerCliConfig, RunnerMain, ScriptConfig, ParticipantMode}
+import com.daml.lf.engine.script.{RunnerMainConfig, RunnerMain, ParticipantMode}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientChannelConfiguration,
@@ -119,18 +119,17 @@ object ExampleExportClient {
     val hostIp = "localhost"
     val port = clientConfig.targetPort
 
-    val config = RunnerCliConfig(
+    val config = RunnerMainConfig(
       darPath = clientConfig.darPath,
-      scriptIdentifier = clientConfig.scriptIdentifier,
+      runMode = RunnerMainConfig.RunMode.RunOne(clientConfig.scriptIdentifier, None, None),
       participantMode = ParticipantMode.RemoteParticipantHost(hostIp, port),
-      timeMode = ScriptConfig.DefaultTimeMode,
-      inputFile = None,
-      outputFile = None,
+      timeMode = RunnerMainConfig.DefaultTimeMode,
       accessTokenFile = None,
       tlsConfig = TlsConfiguration(enabled = false, None, None, None),
       jsonApi = false,
-      maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
+      maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
       applicationId = None,
+      uploadDar = false,
     )
     val adminClient = LedgerClient.singleHost(
       hostIp,

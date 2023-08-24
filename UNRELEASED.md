@@ -60,6 +60,17 @@ following warning will be shown during compilation or in the IDE:
 
 For more information, see [Reference: Templates: Template-local Definitions (Deprecated)](https://docs.daml.com/2.8.0/daml/reference/templates.html#template-local-definitions-deprecated)
 
+## What’s New
+### Daml-script json support for --all
+The daml-script binary runner has been refactored to be more consistent across using `--script-name` and `--all`.  
+As such, now `--all` will work when using `--json-api`.  
+
+### Daml-script --upload-dar flag
+The daml-script binary now allows you to specify if you want the Dar containing your scripts to be uploaded to the ledger before execution.  
+**NOTE - DEPRECATION:** The previously implicit uploading behaviour of automatically uploading when using `--all` is now deprecated with a warning.  
+If you need to upload, you should explicitly write `--upload-dar=yes`. If you don't, you can either ignore the warning until it is dropped in daml3
+(at which point the default behaviour will change to never upload), or you can explicitly write `--upload-dar=no`, which will continue to work after daml3.
+
 # Release of Daml 2.9.0
 
 # Release of Daml 3.0.0
