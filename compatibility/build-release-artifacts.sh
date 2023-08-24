@@ -20,6 +20,7 @@ HEAD_TARGET_DIR=${1:-compatibility/head_sdk}
 git clean -fxd -e 'daml-*.tgz' $HEAD_TARGET_DIR
 
 bazel build \
+  --java_language_version=11 --java_runtime_version=11 \
   //release:sdk-release-tarball \
   //ledger-test-tool/tool:ledger-api-test-tool_distribute.jar
 
