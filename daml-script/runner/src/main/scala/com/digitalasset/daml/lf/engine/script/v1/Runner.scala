@@ -19,7 +19,16 @@ import com.daml.lf.speedy.SBuiltin.SBToAny
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{ArrayList, SError, SDefinition, SValue, Speedy, TraceLog, WarningLog}
+import com.daml.lf.speedy.{
+  ArrayList,
+  SError,
+  SDefinition,
+  SValue,
+  Speedy,
+  Profile,
+  TraceLog,
+  WarningLog,
+}
 import com.daml.script.converter.Converter.unrollFree
 import com.daml.script.converter.ConverterException
 
@@ -33,12 +42,13 @@ private[lf] class Runner(
       initialClients: Participants[UnversionedScriptLedgerClient],
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
+      profile: Profile = Speedy.Machine.newProfile,
       canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.PureMachine, Future[SValue], Option[IdeLedgerContext]) = {
+  ): (Future[SValue], Option[IdeLedgerContext]) = {
     // We overwrite the definition of 'fromLedgerValue' with an identity function.
     // This is a type error but Speedy doesn’t care about the types and the only thing we do
     // with the result is convert it to ledger values/record so this is safe.
@@ -61,6 +71,7 @@ private[lf] class Runner(
         iterationsBetweenInterruptions = 100000,
         traceLog = traceLog,
         warningLog = warningLog,
+        profile = profile,
       )(Script.DummyLoggingContext)
 
     @scala.annotation.tailrec
@@ -210,6 +221,6 @@ private[lf] class Runner(
       }
       v <- run(expr)
     } yield v
-    (machine, resultF, ideLedgerContext)
+    (resultF, ideLedgerContext)
   }
 }

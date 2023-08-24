@@ -109,10 +109,10 @@ scala_binary_deps = [
     "@maven//:org_scalaz_scalaz_core",
 ]
 
-common_binary_deps = [
+binary_deps = [
     ":trigger-service",
-    "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
+    "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/data",
     "//daml-lf/interpreter",
     "//language-support/scala/bindings",
@@ -121,16 +121,12 @@ common_binary_deps = [
     "//libs-scala/db-utils",
     "//libs-scala/ports",
     "//libs-scala/scala-utils",
+    "//observability/metrics",
     "//triggers/runner:trigger-runner-lib",
     "//triggers/service/auth:middleware-api",
     "@maven//:org_slf4j_slf4j_api",
     "@maven//:ch_qos_logback_logback_classic",
 ]
-
-binary_deps = {
-    "ce": common_binary_deps,
-    "ee": common_binary_deps + ["//release:ee-license"],
-}
 
 trigger_service_runtime_deps = {
     "ce": [],
@@ -146,10 +142,10 @@ trigger_service_runtime_deps = {
         resources = ["release/trigger-service-logback.xml"],
         scala_deps = scala_binary_deps,
         scalacopts = lf_scalacopts_stricter,
+        tags = ["ee-jar-license"] if edition == "ee" else [],
         visibility = ["//visibility:public"],
         runtime_deps = trigger_service_runtime_deps.get(edition),
-        deps = binary_deps.get(edition) + [
-            "//observability/metrics",
+        deps = binary_deps + [
             "//runtime-components/jdbc-drivers:jdbc-drivers-{}".format(edition),
         ],
     )
@@ -274,6 +270,7 @@ da_scala_test_suite(
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "//libs-scala/timer-utils",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-test-server",

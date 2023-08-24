@@ -9,8 +9,9 @@ import data.Ref.PackageId
 import data.Time
 import SResult._
 import com.daml.lf.data.Ref.Party
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.language.{Ast, PackageInterface}
-import com.daml.lf.speedy.Speedy.{CachedContract, UpdateMachine}
+import com.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.lf.value.Value.ContractId
@@ -166,19 +167,25 @@ private[speedy] object SpeedyTestLib {
   }
 
   @throws[ValidationError]
-  def typeAndCompile(pkgs: Map[PackageId, Ast.Package]): PureCompiledPackages = {
+  def typeAndCompile(
+      pkgs: Map[PackageId, Ast.Package],
+      evaluationOrder: EvaluationOrder,
+  ): PureCompiledPackages = {
     Validation.unsafeCheckPackages(PackageInterface(pkgs), pkgs)
     PureCompiledPackages.assertBuild(
       pkgs,
-      Compiler.Config.Dev.copy(stacktracing = Compiler.FullStackTrace),
+      Compiler.Config.Dev.copy(
+        evaluationOrder = evaluationOrder,
+        stacktracing = Compiler.FullStackTrace,
+      ),
     )
   }
 
   @throws[ValidationError]
-  def typeAndCompile[X](pkg: Ast.Package)(implicit
+  def typeAndCompile[X](pkg: Ast.Package, evaluationOrder: EvaluationOrder)(implicit
       parserParameter: ParserParameters[X]
   ): PureCompiledPackages =
-    typeAndCompile(Map(parserParameter.defaultPackageId -> pkg))
+    typeAndCompile(Map(parserParameter.defaultPackageId -> pkg), evaluationOrder)
 
   private[speedy] object Implicits {
 
@@ -202,14 +209,6 @@ private[speedy] object SpeedyTestLib {
           iterationsBetweenInterruptions = machine.iterationsBetweenInterruptions,
         )
 
-      def withCachedContracts(cachedContracts: (ContractId, CachedContract)*): UpdateMachine = {
-        for {
-          entry <- cachedContracts
-          (contractId, cachedContract) = entry
-        } machine.updateCachedContracts(contractId, cachedContract)
-        machine
-      }
-
       private[speedy] def withLocalContractKey(
           contractId: ContractId,
           key: GlobalKey,
@@ -224,7 +223,7 @@ private[speedy] object SpeedyTestLib {
       }
 
       private[speedy] def withDisclosedContractKeys(
-          disclosedContractKeys: (ContractId, CachedContract)*
+          disclosedContractKeys: (ContractId, ContractInfo)*
       ): UpdateMachine = {
         disclosedContractKeys.foreach { case (contractId, contract) =>
           machine.addDisclosedContracts(contractId, contract)

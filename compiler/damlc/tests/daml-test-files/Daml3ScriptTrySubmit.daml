@@ -8,6 +8,7 @@
 module Daml3ScriptTrySubmit where
 
 import Daml.Script
+import Daml.Script.Questions
 import DA.Assert
 import DA.Exception
 import DA.Text
@@ -100,7 +101,17 @@ contractNotActive = script do
     exerciseCmd cid Archive
     pure ()
   case res of
-    Left (ContractNotActive (fromAnyContractId @T1 -> Some shouldBeCid)) -> shouldBeCid === cid
+    Left e@(ContractNotFound _ mbAdditionalInfo) ->
+
+      case mbAdditionalInfo of
+        None -> error "contractNotActive no additional info"
+        Some additionalInfo ->
+          case isNotActive additionalInfo of
+            None -> error "contractNotActive additional info is not NotActive variant"
+            Some anyCid ->
+              case fromAnyContractId @T1 anyCid of
+                None -> error $ "contractNotActive cannot find contract with id: " <> show e
+                Some shouldBeCid -> shouldBeCid === cid
     Left e -> error $ "contractNotActive incorrect error: " <> show e
     Right _ -> error "contractNotActive incorrectly succeeded"
 

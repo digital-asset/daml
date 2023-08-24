@@ -62,7 +62,7 @@
 - target: //language-support/codegen-main:shaded_binary
   type: jar-jarjar
 - target: //language-support/scala/codegen:codegen-main
-  type: jar-deploy
+  type: jar-distribute
 - target: //language-support/java/bindings:bindings-java
   type: jar-lib
 - target: //language-support/java/bindings-rxjava:bindings-rxjava
@@ -116,13 +116,13 @@
 - target: //ledger-test-tool/suites:suites-1.dev
   type: jar-scala
 - target: //ledger-test-tool/tool:ledger-api-test-tool
-  type: jar-deploy
+  type: jar-distribute
 - target: //ledger-test-tool/tool:tool-1.14
-  type: jar-deploy
+  type: jar-distribute
 - target: //ledger-test-tool/tool:tool-1.15
-  type: jar-deploy
+  type: jar-distribute
 - target: //ledger-test-tool/tool:tool-1.dev
-  type: jar-deploy
+  type: jar-distribute
 - target: //ledger/participant-local-store:participant-local-store
   type: jar-scala
 - target: //test-common:dar-files-1.14-lib

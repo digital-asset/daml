@@ -176,6 +176,8 @@ da_haskell_library(
             "true" if skip_validation else "false",
             "--daml-script-v2",
             "false",
+            "--evaluation-order",
+            "LeftToRight",
         ],
         data = [
             ":bond-trading",
@@ -211,42 +213,52 @@ da_haskell_library(
     ]
 ]
 
-da_haskell_test(
-    name = "integration-v1dev-script2",
-    size = "large",
-    srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
-    args = [
-        "--daml-lf-version",
-        "1.dev",
-        "--skip-validation",
-        "false",
-        "--daml-script-v2",
-        "true",
-    ],
-    data = [
-        ":bond-trading",
-        ":cant-skip-preprocessor",
-        ":daml-test-files",
-        ":package-vetting-package-a.dar",
-        ":package-vetting-package-b.dar",
-        ":query-lf-lib",
-        "//compiler/damlc/pkg-db",
-        "//compiler/damlc/stable-packages",
-        "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml3:daml3-script.dar",
-        "@jq_dev_env//:jq",
-        ghc_pkg,
-    ],
-    hackage_deps = [
-        "base",
-    ],
-    main_function = "DA.Test.DamlcIntegrationMain.main",
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":integration-lib",
-    ],
-)
+[
+    da_haskell_test(
+        name = "integration{order}-v1dev-script2".format(
+            order = "-r2l" if eval_order == "RightToLeft" else "",
+        ),
+        size = "large",
+        srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
+        args = [
+            "--daml-lf-version",
+            "1.dev",
+            "--skip-validation",
+            "false",
+            "--daml-script-v2",
+            "true",
+            "--evaluation-order",
+            eval_order,
+        ],
+        data = [
+            ":bond-trading",
+            ":cant-skip-preprocessor",
+            ":daml-test-files",
+            ":package-vetting-package-a.dar",
+            ":package-vetting-package-b.dar",
+            ":query-lf-lib",
+            "//compiler/damlc/pkg-db",
+            "//compiler/damlc/stable-packages",
+            "//compiler/scenario-service/server:scenario_service_jar",
+            "//daml-script/daml3:daml3-script.dar",
+            "@jq_dev_env//:jq",
+            ghc_pkg,
+        ],
+        hackage_deps = [
+            "base",
+        ],
+        main_function = "DA.Test.DamlcIntegrationMain.main",
+        src_strip_prefix = "src",
+        visibility = ["//visibility:public"],
+        deps = [
+            ":integration-lib",
+        ],
+    )
+    for eval_order in [
+        "LeftToRight",
+        "RightToLeft",
+    ]
+]
 
 # Tests for daml-doc
 da_haskell_test(

@@ -328,9 +328,9 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
     @Resolution(
       "Either remove the call to abort, error or perhaps assert, or ensure you are exercising your contract choice as the author expects."
     )
-    object UserError
+    object InterpretationUserError
         extends ErrorCode(
-          id = "USER_ERROR",
+          id = "INTERPRETATION_USER_ERROR",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 
@@ -593,15 +593,25 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
       }
     }
 
+    @Explanation("This error occurs when you nest values too deeply.")
+    @Resolution("Restructure your code and reduce value nesting.")
+    object ValueNesting
+        extends ErrorCode(id = "VALUE_NESTING", ErrorCategory.InvalidIndependentOfSystemState) {
+
+      final case class Reject(override val cause: String, err: LfInterpretationError.ValueNesting)(
+          implicit loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
+    }
+
     @Explanation(
       """This error is a catch-all for errors thrown by in-development features, and should never be thrown in production."""
     )
     @Resolution(
       "See the error message for details of the specific in-development feature error. If this is production, avoid using development features."
     )
-    object DevError
+    object InterpretationDevError
         extends ErrorCode(
-          id = "DEV_ERROR",
+          id = "INTERPRETATION_DEV_ERROR",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 

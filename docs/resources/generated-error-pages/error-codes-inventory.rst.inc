@@ -839,22 +839,6 @@ DAML_INTERPRETER_INVALID_ARGUMENT
 
 
 
-.. _error_code_DEV_ERROR:
-
-DEV_ERROR
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error is a catch-all for errors thrown by in-development features, and should never be thrown in production.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: See the error message for details of the specific in-development feature error. If this is production, avoid using development features.
-
-
-
-
 .. _error_code_DISCLOSED_CONTRACT_KEY_HASHING_ERROR:
 
 DISCLOSED_CONTRACT_KEY_HASHING_ERROR
@@ -883,6 +867,38 @@ FETCH_EMPTY_CONTRACT_KEY_MAINTAINERS
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Check the definition of the contract key's maintainers, and ensure this list won't be empty given the contract key you are fetching.
+
+
+
+
+.. _error_code_INTERPRETATION_DEV_ERROR:
+
+INTERPRETATION_DEV_ERROR
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error is a catch-all for errors thrown by in-development features, and should never be thrown in production.
+
+    **Category**: InvalidGivenCurrentSystemStateOther
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
+
+    **Resolution**: See the error message for details of the specific in-development feature error. If this is production, avoid using development features.
+
+
+
+
+.. _error_code_INTERPRETATION_USER_ERROR:
+
+INTERPRETATION_USER_ERROR
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs when a user calls abort or error on an LF version before native exceptions were introduced.
+
+    **Category**: InvalidGivenCurrentSystemStateOther
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
+
+    **Resolution**: Either remove the call to abort, error or perhaps assert, or ensure you are exercising your contract choice as the author expects.
 
 
 
@@ -935,18 +951,18 @@ UNHANDLED_EXCEPTION
 
 
 
-.. _error_code_USER_ERROR:
+.. _error_code_VALUE_NESTING:
 
-USER_ERROR
+VALUE_NESTING
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: This error occurs when a user calls abort or error on an LF version before native exceptions were introduced.
+    **Explanation**: This error occurs when you nest values too deeply.
 
-    **Category**: InvalidGivenCurrentSystemStateOther
+    **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
-    **Resolution**: Either remove the call to abort, error or perhaps assert, or ensure you are exercising your contract choice as the author expects.
+    **Resolution**: Restructure your code and reduce value nesting.
 
 
 

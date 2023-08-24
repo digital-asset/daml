@@ -54,7 +54,7 @@ da_scala_binary(
 
 jar_jar(
     name = "shaded_binary",
-    input_jar = "//language-support/codegen-main:codegen-main_deploy.jar",
+    input_jar = "//language-support/codegen-main:codegen-main_distribute.jar",
     rules = "shade_rule",
     tags = ["maven_coordinates=com.daml:codegen-jvm-main:__VERSION__"],
     visibility = ["//visibility:public"],
