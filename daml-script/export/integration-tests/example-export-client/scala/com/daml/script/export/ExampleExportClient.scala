@@ -130,6 +130,8 @@ object ExampleExportClient {
       maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
       applicationId = None,
       uploadDar = false,
+      linkingMode = None,
+      typeChecking = false,
     )
     val adminClient = LedgerClient.singleHost(
       hostIp,
