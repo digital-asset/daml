@@ -49,8 +49,8 @@ rules_nixpkgs_sha256 = "b01f170580f646ee3cde1ea4c117d00e561afaf3c59eda604cf09194
 rules_nixpkgs_patches = [
 ]
 
-buildifier_version = "4.0.0"
-buildifier_sha256 = "0d3ca4ed434958dda241fb129f77bd5ef0ce246250feed2d5a5470c6f29a77fa"
+buildifier_version = "6.3.2"
+buildifier_sha256 = "b7187e0856280feb0658ab9d629c244e638022819ded8243fb02e0c1d4db8f1c"
 zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
 rules_nodejs_version = "4.6.1"
@@ -297,7 +297,7 @@ def daml_deps():
             name = "com_github_bazelbuild_buildtools",
             sha256 = buildifier_sha256,
             strip_prefix = "buildtools-{}".format(buildifier_version),
-            url = "https://github.com/bazelbuild/buildtools/archive/{}.tar.gz".format(buildifier_version),
+            url = "https://github.com/bazelbuild/buildtools/archive/v{}.tar.gz".format(buildifier_version),
         )
 
     native.bind(
