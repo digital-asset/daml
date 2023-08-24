@@ -17,6 +17,7 @@ exports_files(
         "haskell-win-sys-includes.patch",
         "haskell-drop-fake-static.patch",
         "pom_template.xml",
+        "distribute_jar_cleanup.sh",
     ],
     visibility = ["//:__subpackages__"],
 )

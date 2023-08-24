@@ -9,7 +9,7 @@ load(
 
 genrule(
     name = "repl_service_jar",
-    srcs = [":repl-service-raw_deploy.jar"],
+    srcs = [":repl-service-raw_distribute.jar"],
     outs = ["repl-service.jar"],
     cmd = "cp $< $@",
     visibility = ["//visibility:public"],

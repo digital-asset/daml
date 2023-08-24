@@ -376,7 +376,7 @@ genrule(
 package(default_visibility = ["//visibility:public"])
 filegroup(
   name = "jar",
-  srcs = glob(["*/lib/**/canton-*.jar"]),
+  srcs = glob(["*/lib/**/*.jar"]),
 )
         """,
             sha256 = canton["sha"],

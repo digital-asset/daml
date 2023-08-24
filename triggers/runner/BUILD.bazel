@@ -46,10 +46,10 @@ da_scala_binary(
     main_class = "com.daml.lf.engine.trigger.RunnerMain",
     resources = ["src/main/resources/logback.xml"],
     scalacopts = lf_scalacopts_stricter,
+    tags = ["ee-jar-license"],
     visibility = ["//visibility:public"],
     deps = [
         ":trigger-runner-lib",
-        "//release:ee-license",
     ],
 )
 

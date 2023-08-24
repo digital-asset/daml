@@ -1,6 +1,12 @@
 # Release of Daml DAML_VERSION
 
 ## Bugfixes
+
+## What’s New
+
+# Release of Daml 2.7.0
+
+## Bugfixes
 - Fixed the daml-script binary not using TLS and access token settings correctly when using the `--all` flag.
 
 ## What’s New
@@ -11,7 +17,7 @@ Add [links to the documentation too](https://docs.daml.com/DAML_VERSION/about.ht
 You text does not need to be perfect. Leave good information here such that we can build release notes from your hints.
 Of course, perfect write-ups are very welcome.
 
-You need to update this file whenever you commit something of significance. Reviewers need to check your PR 
+You need to update this file whenever you commit something of significance. Reviewers need to check your PR
 and ensure that the release notes and documentation has been included as part of the PR.
 
 ### Minor Script warning
@@ -26,7 +32,7 @@ This test will not run, as it is implicitly polymorphic. Take a look at the type
 We provide a warning in this case so a user may rectify this issue either by providing an explicit type signature, or by bounding the value of `a` in the call to `script`, via `script @()`.
 
 ### Restricted name warnings
-Attempting to use the names `this`, `self` or `arg` in template, interface or exception fields will often result in confusing errors, mismatches with the underlying desugared code.  
+Attempting to use the names `this`, `self` or `arg` in template, interface or exception fields will often result in confusing errors, mismatches with the underlying desugared code.
 We now throw an error (or warning) early in those cases on the field name itself to make this more clear.
 
 *Note: Exception as well as templates without any choices did not previously throw errors for both `self` and `arg`. While using these names is discouraged, we only throw a warning here to avoid a breaking change. We may promote this to an error in future.*
@@ -36,3 +42,24 @@ As part of extending the language to support evolving template definitions, we'v
 
 ### `daml script --ide-ledger`
 In an effort to unify some of our internal and external tools, we now support the `--ide-ledger` option in `daml script`, allowing a user to directly invoke scripts within a `dar` file on their local machine, without a separate ledger running. Note the difference here with `daml test` being that `daml script` will not attempt to recompile or read the source code directly. This option cannot be used with `--ledger-host`, `--participant-config` or `--json-api`.
+
+# Release of Daml 2.8.0
+
+## Deprecation of template-local definitions
+
+The syntax for `let` bindings in `template` definitions will be deprecated in
+favor of plain top-level bindings. If the deprecated syntax is used then the
+following warning will be shown during compilation or in the IDE:
+
+```
+  Template-local binding syntax ("template-let") is deprecated,
+  it will be removed in a future version of Daml.
+  Instead, use plain top level definitions, taking parameters
+  for the contract fields or body ("this") if necessary.
+```
+
+For more information, see [Reference: Templates: Template-local Definitions (Deprecated)](https://docs.daml.com/2.8.0/daml/reference/templates.html#template-local-definitions-deprecated)
+
+# Release of Daml 2.9.0
+
+# Release of Daml 3.0.0

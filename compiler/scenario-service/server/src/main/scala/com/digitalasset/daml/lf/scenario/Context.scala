@@ -18,7 +18,9 @@ import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
 import com.daml.lf.engine.script.{Runner, Script}
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.logging.LoggingContext
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -35,10 +37,23 @@ object Context {
 
   private val contextCounter = new AtomicLong()
 
-  def newContext(lfVerion: LanguageVersion, timeout: Duration)(implicit
-      loggingContext: LoggingContext
+  def newContext(lfVerion: LanguageVersion, timeout: Duration, evaluationOrder: EvaluationOrder)(
+      implicit loggingContext: LoggingContext
   ): Context =
-    new Context(contextCounter.incrementAndGet(), lfVerion, timeout)
+    new Context(contextCounter.incrementAndGet(), lfVerion, timeout, evaluationOrder)
+}
+
+class Context(
+    val contextId: Context.ContextId,
+    languageVersion: LanguageVersion,
+    timeout: Duration,
+    evaluationOrder: EvaluationOrder,
+)(implicit
+    loggingContext: LoggingContext
+) {
+  private[this] val logger = LoggerFactory.getLogger(this.getClass)
+
+  def devMode: Boolean = languageVersion == LanguageVersion.v1_dev
 
   private val compilerConfig =
     Compiler.Config(
@@ -46,20 +61,8 @@ object Context {
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,
+      evaluationOrder = evaluationOrder,
     )
-}
-
-class Context(
-    val contextId: Context.ContextId,
-    languageVersion: LanguageVersion,
-    timeout: Duration,
-)(implicit
-    loggingContext: LoggingContext
-) {
-
-  import Context._
-
-  def devMode: Boolean = languageVersion == LanguageVersion.v1_dev
 
   /** The package identifier to use for modules added to the context.
     * When decoding LF modules this package identifier should be used to rewrite
@@ -78,7 +81,7 @@ class Context(
   def loadedPackages(): Iterable[PackageId] = extSignatures.keys
 
   def cloneContext(): Context = synchronized {
-    val newCtx = Context.newContext(languageVersion, timeout)
+    val newCtx = Context.newContext(languageVersion, timeout, evaluationOrder)
     newCtx.extSignatures = extSignatures
     newCtx.extDefns = extDefns
     newCtx.modules = modules
@@ -246,16 +249,17 @@ class Context(
         e.cause match {
           case e: Error => handleFailure(e)
           case e: speedy.SError.SError => handleFailure(Error.RunnerException(e))
-          case e => {
-            // We can't send _everything_ over without changing internal, nicer to put a print here.
-            e.printStackTrace
+          case e =>
+            // We can't send _everything_ over without changing internal, we log and wrap the error in t.
+            logger.warn("Script.FailedCmd unexpected cause: " + e.getMessage)
+            logger.debug(e.getStackTrace.mkString("\n"))
             handleFailure(Error.Internal("Script.FailedCmd unexpected cause: " + e.getMessage))
-          }
         }
-      case Failure(e) => {
-        e.printStackTrace
-        handleFailure(Error.Internal("Unexpected error type from script runner: " + e.getMessage))
-      }
+      case Failure(e) =>
+        // something bad happened, we log and fail
+        logger.error("Unexpected error type from script runner: " + e.getMessage)
+        logger.debug(e.getStackTrace.mkString("\n"))
+        Failure(e)
     }
   }
 }

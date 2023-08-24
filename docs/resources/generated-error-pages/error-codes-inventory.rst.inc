@@ -951,6 +951,22 @@ UNHANDLED_EXCEPTION
 
 
 
+.. _error_code_VALUE_NESTING:
+
+VALUE_NESTING
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs when you nest values too deeply.
+
+    **Category**: InvalidIndependentOfSystemState
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
+
+    **Resolution**: Restructure your code and reduce value nesting.
+
+
+
+
 .. _error_code_WRONGLY_TYPED_CONTRACT:
 
 WRONGLY_TYPED_CONTRACT
