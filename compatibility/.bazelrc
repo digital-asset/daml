@@ -65,12 +65,6 @@ build --copt -DGRPC_BAZEL_BUILD
 build --java_language_version=11
 build --java_runtime_version=11
 
-# Do not use a distinct configuration for "host", that is, binaries used
-# at build time should be the same as release binaries.
-# Without this, we will end up building everything twice as we need "damlc"
-# at build time to bootstrap itself (for compiling ghc-prim).
-build --distinct_host_configuration=false
-
 # Propagate locales and the java home to the test environment.
 build --test_env=LANG=en_US.utf8 --test_env=LOCALE_ARCHIVE --test_env=JAVA_HOME
 
