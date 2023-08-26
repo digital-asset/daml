@@ -14,7 +14,7 @@ sdk_versions = [
     "2.5.0",
     "2.5.5",
     "2.6.5",
-    "2.7.0",
+    "2.7.1",
     "0.0.0",
 ]
 platform_versions = [
@@ -29,7 +29,7 @@ platform_versions = [
     "2.5.0",
     "2.5.5",
     "2.6.5",
-    "2.7.0",
+    "2.7.1",
     "0.0.0",
 ]
 stable_versions = [
@@ -44,10 +44,10 @@ stable_versions = [
     "2.5.0",
     "2.5.5",
     "2.6.5",
-    "2.7.0",
+    "2.7.1",
     "0.0.0",
 ]
-latest_stable_version = "2.7.0"
+latest_stable_version = "2.7.1"
 version_sha256s = {
     "1.16.0": {
         "linux": "90dff4d7679f00f79c66c7c718decaa34d16f38274764926ee6359a7a5bb183d",
@@ -167,14 +167,14 @@ version_sha256s = {
         "create_daml_app_patch": "57b76fb4ed7c3bf6bc900dc70965b51434a22a30aa4229d46684a35e300bfe81",
         "sandbox_on_x": "b858a52e1e3412e06321b8792ea75a212e1fef3d3e02013c645f4c2cafbb5d94",
     },
-    "2.7.0": {
-        "linux": "1600a7e72cb86f1a2a4a2e916b8f2c8b3d203ebee3bbd4dfb3684cc339a7e87f",
-        "macos": "48d3d4f545d11c1630d24369f7eecd6b7c0987dbb74e1cb3e4e308bbcae65ac1",
-        "windows": "60ab0de36484c1fa48d3ede1ef93dd4293a177cb0369be158688d9e4a7c60ba4",
-        "test_tool": "b0eba1e449a51085194449fa105368f1cfdd119419bc67dea4e0477cce463337",
-        "daml_types": "1428006d7d78c1454374e3634ae8dcecb117ec693d04a34b8caa781c729c45e1",
-        "daml_ledger": "6a75621638685eb0fbc24ca3a39ce92cd2fb4d0cdac18f6745fef40ebd601063",
-        "daml_react": "c4ee278890ff204f2064861aba7f2aa09938f934fe05056d96206f7d222372bb",
+    "2.7.1": {
+        "linux": "72b6151168b8229e040cf4ed033c9838c1f0d986e63f18186091280dc82f4ea9",
+        "macos": "72a6672586e093e7036c6a30ea3f0203ecf4cda186ae2f7276aa96d9b22dac2f",
+        "windows": "200d358103daaf3cd58910966f4a5059bf4bbd3a98964bf65c3414fb3ec6cd92",
+        "test_tool": "6524a4f85ffba4296cb5b565d492fe17fb6ce182832b5cf5ff9be6a2fa12dfde",
+        "daml_types": "383f35d6c491809f2b7b159fc27fb3c4993d97157c6c6095d2cc3e68c2717a79",
+        "daml_ledger": "01dcf1d955bf83fa2585d8c04ee533f04000a12ab0894bf410813e6da7bca4ba",
+        "daml_react": "06a95c118ce3da9c920f51d7f3eab0f654ae0089ab50a09207a3a51c672500d4",
         "create_daml_app_patch": "57b76fb4ed7c3bf6bc900dc70965b51434a22a30aa4229d46684a35e300bfe81",
     },
 }
