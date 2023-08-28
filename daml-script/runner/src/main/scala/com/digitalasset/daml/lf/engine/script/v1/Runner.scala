@@ -144,7 +144,7 @@ private[lf] class Runner(
                       case f @ Failure(Runner.CanceledByRequest) => f
                       case f @ Failure(Runner.TimedOut) => f
                       case Failure(exception) =>
-                        Failure(new Script.FailedCmd(cmd, exception))
+                        Failure(Script.FailedCmd(cmd.description, cmd.stackTrace, exception))
                       case Success(value) =>
                         Success(value)
                     }
