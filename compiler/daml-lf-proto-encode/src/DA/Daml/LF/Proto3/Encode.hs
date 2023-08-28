@@ -11,7 +11,10 @@ import DA.Daml.LF.Ast
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 
 encodePayload :: Package -> ArchivePayload
-encodePayload package = case packageLfVersion package of
-    V1 minor ->
+encodePayload package =
+  case v1MinorVersion (packageLfVersion package) of
+    Just minor ->
         let payload = ArchivePayloadSumDamlLf1 (EncodeV1.encodePackage package)
-        in  ArchivePayload (TL.pack $ renderMinorVersion minor) (Just payload)
+        in  ArchivePayload (TL.pack minor) (Just payload)
+    Nothing ->
+        undefined -- impossible, for now

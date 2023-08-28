@@ -178,7 +178,7 @@ templateLocation t = \case
   TPWhole -> tplLocation t
   TPPrecondition -> extractExprSourceLoc $ tplPrecondition t
   TPSignatories -> extractExprSourceLoc $ tplSignatories t
-  TPObservers -> extractExprSourceLoc $ tplObservers t 
+  TPObservers -> extractExprSourceLoc $ tplObservers t
   TPAgreement -> extractExprSourceLoc $ tplAgreement t
   TPKey -> tplKey t >>= extractExprSourceLoc . tplKeyBody
   TPChoice tc -> chcLocation tc
@@ -477,7 +477,8 @@ instance Pretty Error where
       <> text " should return " <> pretty emtmExpectedType <> text " but instead returns " <> pretty emtmFoundType
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
-      <-> "only supported in Daml-LF version" <-> pretty featureMinVersion <-> "and later"
+      <-> case featureVersionReq of
+          FromVersion minVersion -> "only supported in Daml-LF version" <-> pretty minVersion <-> "and later"
     EForbiddenNameCollision name names ->
       "name collision between" <-> pretty name <-> "and" <-> pretty (T.intercalate ", " names)
     ESynAppWrongArity DefTypeSyn{synName,synParams} args ->
