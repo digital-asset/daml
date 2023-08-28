@@ -54,7 +54,20 @@ private[lf] class Runner(
     result.remapQ { case Free.Question(name, version, payload, stackTrace) =>
       ScriptF.parse(name, version, payload, stackTrace) match {
         case Right(cmd) =>
-          Result.Ask(cmd, Result.Final(_))
+          Result.Ask(
+            cmd,
+            {
+              case Right(value) =>
+                Result.successful(value)
+              case Left(
+                    e @ (_: free.InterpretationError | script.Runner.CanceledByRequest |
+                    script.Runner.TimedOut)
+                  ) =>
+                Result.failed(e)
+              case Left(err) =>
+                Result.failed(Script.FailedCmd(name, stackTrace, err))
+            },
+          )
         case Left(err) =>
           Result.failed(new ConverterException(err))
       }
@@ -74,7 +87,12 @@ private[lf] class Runner(
         profile,
         Script.DummyLoggingContext,
       )
-    ).runF[ScriptF.Cmd, SExpr](_.executeWithRunner(env, this).map(Result.successful), canceled)
+    ).runF[ScriptF.Cmd, SExpr](
+      _.executeWithRunner(env, this)
+        .map(Result.successful)
+        .recover { case err: RuntimeException => Result.failed(err) },
+      canceled,
+    )
 
   def getResult()(implicit
       ec: ExecutionContext,

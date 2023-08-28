@@ -510,7 +510,7 @@ abstract class AbstractFuncIT
           start,
           end,
         )
-        e.cmd.stackTrace shouldBe StackTrace(
+        e.stackTrace shouldBe StackTrace(
           Vector(loc("submit", (22, 18), (22, 31)), loc("mySubmit", (27, 2), (27, 12)))
         )
       }
