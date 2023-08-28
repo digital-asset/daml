@@ -24,7 +24,7 @@ message LoadPackagesResponse {
 
 message RunScriptRequest {
   bytes daml_lf_1 = 1;
-  string minor = 2;
+  string minor = 2; // WHY???
   enum Format {
     TEXT_ONLY = 0;
     JSON = 1;
