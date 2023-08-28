@@ -35,8 +35,8 @@ load("//:daml_finance_dep.bzl", "quickstart")
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "6899cddf7407d09266dddcf6faf9f2a8b414de5e2b35ef8b294418f559172f28"
 
-rules_haskell_version = "0.16"
-rules_haskell_sha256 = "2a07b55c30e526c07138c717b0343a07649e27008a873f2508ffab3074f3d4f3"
+rules_haskell_version = "15aba7bee8823264fb6a7e7a053b37e806d2cb5c"
+rules_haskell_sha256 = "a4b5e11738a78cf177a65b0938b12b10f15746818a8afdfa9351d9b47fe7409b"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
@@ -44,13 +44,13 @@ rules_haskell_patches = [
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
 ]
-rules_nixpkgs_version = "0.9.0"
-rules_nixpkgs_sha256 = "b01f170580f646ee3cde1ea4c117d00e561afaf3c59eda604cf09194a824ff10"
+rules_nixpkgs_version = "9f08fb2322050991dead17c8d10d453650cf92b7"
+rules_nixpkgs_sha256 = "46aa0ca80b77848492aa1564e9201de9ed79588ca1284f8a4f76deb7a0eeccb9"
 rules_nixpkgs_patches = [
 ]
 
-buildifier_version = "6.3.2"
-buildifier_sha256 = "b7187e0856280feb0658ab9d629c244e638022819ded8243fb02e0c1d4db8f1c"
+buildifier_version = "b163fcf72b7def638f364ed129c9b28032c1d39b"
+buildifier_sha256 = "c2399161fa569f7c815f8e27634035557a2e07a557996df579412ac73bf52c23"
 zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
 rules_nodejs_version = "4.6.1"
@@ -103,7 +103,7 @@ def daml_deps():
         http_archive(
             name = "rules_haskell",
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
-            urls = ["https://github.com/tweag/rules_haskell/archive/v%s.tar.gz" % rules_haskell_version],
+            urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = rules_haskell_patches,
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -119,7 +119,7 @@ def daml_deps():
         http_archive(
             name = "io_tweag_rules_nixpkgs",
             strip_prefix = strip_prefix,
-            urls = ["https://github.com/tweag/rules_nixpkgs/archive/v%s.tar.gz" % rules_nixpkgs_version],
+            urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
             patches = rules_nixpkgs_patches,
             patch_args = ["-p1"],
@@ -128,7 +128,7 @@ def daml_deps():
         http_archive(
             name = "rules_nixpkgs_core",
             strip_prefix = strip_prefix + "/core",
-            urls = ["https://github.com/tweag/rules_nixpkgs/archive/v%s.tar.gz" % rules_nixpkgs_version],
+            urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
             patches = rules_nixpkgs_patches,
             patch_args = ["-p2"],
@@ -297,7 +297,7 @@ def daml_deps():
             name = "com_github_bazelbuild_buildtools",
             sha256 = buildifier_sha256,
             strip_prefix = "buildtools-{}".format(buildifier_version),
-            url = "https://github.com/bazelbuild/buildtools/archive/v{}.tar.gz".format(buildifier_version),
+            url = "https://github.com/bazelbuild/buildtools/archive/{}.tar.gz".format(buildifier_version),
         )
 
     native.bind(
