@@ -2198,36 +2198,35 @@ private[lf] object SBuiltin {
               f(contract.any)
             }
 
-            case None =>
-              lookupContractOnLedger(machine, coid) { coinst =>
-                val V.ContractInstance(srcTemplateId, coinstArg) = coinst
+          case None =>
+            lookupContractOnLedger(machine, coid) { coinst =>
+              val V.ContractInstance(srcTemplateId, coinstArg) = coinst
 
-                val (upgradingIsEnabled, destTemplateId) = optTargetTemplateId match {
-                  case Some(tycon) =>
-                    (true, tycon)
-                  case None =>
-                    (false, srcTemplateId) // upgrading not enabled; import at source type
-                }
+              val (upgradingIsEnabled, destTemplateId) = optTargetTemplateId match {
+                case Some(tycon) =>
+                  (true, tycon)
+                case None =>
+                  (false, srcTemplateId) // upgrading not enabled; import at source type
+              }
 
-                importValue(machine, destTemplateId, coinstArg) { templateArg =>
-                  getContractInfo(machine, coid, destTemplateId, templateArg, keyOpt) { contract =>
-                    ensureContractActive(machine, coid, contract.templateId) {
+              importValue(machine, destTemplateId, coinstArg) { templateArg =>
+                getContractInfo(machine, coid, destTemplateId, templateArg, keyOpt) { contract =>
+                  ensureContractActive(machine, coid, contract.templateId) {
 
-                      machine.checkContractVisibility(coid, contract)
-                      machine.enforceLimitAddInputContract()
-                      machine.enforceLimitSignatoriesAndObservers(coid, contract)
+                    machine.checkContractVisibility(coid, contract)
+                    machine.enforceLimitAddInputContract()
+                    machine.enforceLimitSignatoriesAndObservers(coid, contract)
 
-                      val src: TypeConName = srcTemplateId
-                      val dest: TypeConName = destTemplateId
+                    val src: TypeConName = srcTemplateId
+                    val dest: TypeConName = destTemplateId
 
-                      if (upgradingIsEnabled && src != dest) {
+                    if (upgradingIsEnabled && src != dest) {
 
-                        validateContractInfo(machine, coid, contract) { () =>
-                          f(contract.any)
-                        }
-                      } else {
+                      validateContractInfo(machine, coid, contract) { () =>
                         f(contract.any)
                       }
+                    } else {
+                      f(contract.any)
                     }
                   }
                 }
