@@ -574,6 +574,9 @@ nixpkgs_java_configure(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    toolchain = True,
+    toolchain_name = "nixpkgs_java",
+    toolchain_version = "11",
 ) if not is_windows else None
 
 # rules_go used here to compile a wrapper around the protoc-gen-scala plugin

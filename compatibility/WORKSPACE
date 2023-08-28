@@ -318,6 +318,9 @@ nixpkgs_java_configure(
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    toolchain = True,
+    toolchain_name = "nixpkgs_java",
+    toolchain_version = "11",
 ) if not is_windows else None
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
