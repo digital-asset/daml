@@ -1,6 +1,12 @@
 # private configuration
 .envrc.private
 
+# local development
+## these are sometimes defined as symlinks for local development,
+## but should never be checked in because they break
+## `git clone --recursive` for repos that have `daml` as a submodule.
+/daml-ghcide
+
 # Artifacts
 dist
 .interfaces
