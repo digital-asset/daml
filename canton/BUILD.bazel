@@ -66,8 +66,8 @@ if [ "{local}" = "true" ]; then
     exit 0
 fi
 
-CANTON_ENTERPRISE_VERSION=2.8.0-snapshot.20230823.11049.0.vbde4ed98
-CANTON_ENTERPRISE_SHA=9e5c88f4447a3d463741fc839cb10be1ef3882a56945e3bff32055e7daa40186
+CANTON_ENTERPRISE_VERSION=2.8.0-snapshot.20230825.11064.0.va1489b9c
+CANTON_ENTERPRISE_SHA=3c0f6aa09ccc18a6c0ec18d87c9eacddd565dcb4f02c56c3852eefce27989a3c
 
 url=https://digitalasset.jfrog.io/artifactory/canton-enterprise/canton-enterprise-$$CANTON_ENTERPRISE_VERSION.tar.gz
 
