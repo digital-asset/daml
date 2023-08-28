@@ -79,13 +79,13 @@ class TailCallTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         kontBound match {
           case None => ()
           case Some(bound) =>
-            val onlyKont: Speedy.Kont =
+            val onlyKont: Speedy.Kont[Nothing] =
               if (machine.kontDepth() != 1) {
                 crash(s"setBoundedKontStack, unexpected size of kont-stack: ${machine.kontDepth()}")
               } else {
                 machine.peekKontStackTop()
               }
-            machine.kontStack = new BoundedArrayList[Speedy.Kont](bound)
+            machine.kontStack = new BoundedArrayList[Speedy.Kont[Nothing]](bound)
             machine.pushKont(onlyKont)
         }
         // run the machine

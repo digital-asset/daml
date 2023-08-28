@@ -132,12 +132,7 @@ private[lf] object SBuiltin {
   def executeExpression[Q](machine: Machine[Q], expr: SExpr)(
       f: SValue => Control[Q]
   ): Control[Q] = {
-    case object K extends Kont {
-      override def execute[Q2](machine: Machine[Q2], sv: SValue): Control[Q2] = {
-        f(sv).asInstanceOf[Control[Q2]] // appease unhelpful typing
-      }
-    }
-    machine.pushKont(K)
+    machine.pushKont(KPure(f))
     Control.Expression(expr)
   }
 
@@ -949,43 +944,41 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case class SBUCreate(templateId: Identifier) extends SBuiltin(1) {
-    override private[speedy] def execute[Q](
+  final case class SBUCreate(templateId: Identifier) extends UpdateBuiltin(1) {
+    override protected def executeUpdate(
         args: util.ArrayList[SValue],
-        machine: Machine[Q],
-    ): Control[Q] = {
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
       val templateArg: SValue = args.get(0)
       val keyOpt: SValue = SOptional(None)
 
       computeContractInfo(machine, templateId, templateArg, keyOpt) { contract =>
-        machine.asUpdateMachine(productPrefix) { machine =>
-          contract.keyOpt match {
-            case Some(contractKey) if contractKey.maintainers.isEmpty =>
-              Control.Error(
-                IE.CreateEmptyContractKeyMaintainers(
-                  contract.templateId,
-                  contract.arg,
-                  contractKey.lfValue,
-                )
+        contract.keyOpt match {
+          case Some(contractKey) if contractKey.maintainers.isEmpty =>
+            Control.Error(
+              IE.CreateEmptyContractKeyMaintainers(
+                contract.templateId,
+                contract.arg,
+                contractKey.lfValue,
               )
-            case _ => {
-              machine.ptx
-                .insertCreate(
-                  submissionTime = machine.submissionTime,
-                  contract = contract,
-                  optLocation = machine.getLastLocation,
-                ) match {
-                case Right((coid, newPtx)) => {
-                  machine.enforceLimitSignatoriesAndObservers(coid, contract)
-                  machine.storeLocalContract(coid, templateId, templateArg)
-                  machine.ptx = newPtx
-                  machine.insertContractInfoCache(coid, contract)
-                  Control.Value(SContractId(coid))
-                }
-                case Left((newPtx, err)) => {
-                  machine.ptx = newPtx // Seems wrong. But one test in ScriptService requires this.
-                  Control.Error(convTxError(err))
-                }
+            )
+          case _ => {
+            machine.ptx
+              .insertCreate(
+                submissionTime = machine.submissionTime,
+                contract = contract,
+                optLocation = machine.getLastLocation,
+              ) match {
+              case Right((coid, newPtx)) => {
+                machine.enforceLimitSignatoriesAndObservers(coid, contract)
+                machine.storeLocalContract(coid, templateId, templateArg)
+                machine.ptx = newPtx
+                machine.insertContractInfoCache(coid, contract)
+                Control.Value(SContractId(coid))
+              }
+              case Left((newPtx, err)) => {
+                machine.ptx = newPtx // Seems wrong. But one test in ScriptService requires this.
+                Control.Error(convTxError(err))
               }
             }
           }
@@ -1009,94 +1002,92 @@ private[lf] object SBuiltin {
       consuming: Boolean,
       byKey: Boolean,
       explicitChoiceAuthority: Boolean,
-  ) extends SBuiltin(6) {
+  ) extends UpdateBuiltin(6) {
 
-    override private[speedy] def execute[Q](
+    override protected def executeUpdate(
         args: util.ArrayList[SValue],
-        machine: Machine[Q],
-    ): Control[Q] = {
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
 
       val coid = getSContractId(args, 1)
       val templateArg: SValue = args.get(5)
       val keyOpt: SValue = SOptional(None)
 
       getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
-        machine.asUpdateMachine(productPrefix) { machine =>
-          val templateVersion = machine.tmplId2TxVersion(templateId)
-          val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
-          val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
-          val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
-          val controllers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
-          machine.enforceChoiceControllersLimit(
-            controllers,
-            coid,
-            templateId,
-            choiceId,
-            chosenValue,
-          )
-          val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
-          machine.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
-          val authorizersWhenExplicit =
-            extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(4))
-          machine.enforceChoiceAuthorizersLimit(
-            authorizersWhenExplicit,
-            coid,
-            templateId,
-            choiceId,
-            chosenValue,
-          )
-          def doExe(choiceAuthorizers: Option[Set[Party]]): Control[Nothing] = {
-            machine.ptx
-              .beginExercises(
-                templateId = templateId,
-                targetId = coid,
-                contract = contract,
-                interfaceId = interfaceId,
-                choiceId = choiceId,
-                optLocation = machine.getLastLocation,
-                consuming = consuming,
-                actingParties = controllers,
-                choiceObservers = obsrs,
-                choiceAuthorizers = choiceAuthorizers,
-                byKey = byKey,
-                chosenValue = chosenValue,
-                version = exerciseVersion,
-              ) match {
-              case Right(ptx) =>
-                machine.ptx = ptx
-                Control.Value(SUnit)
-              case Left(err) =>
-                Control.Error(convTxError(err))
-            }
+        val templateVersion = machine.tmplId2TxVersion(templateId)
+        val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
+        val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
+        val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
+        val controllers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
+        machine.enforceChoiceControllersLimit(
+          controllers,
+          coid,
+          templateId,
+          choiceId,
+          chosenValue,
+        )
+        val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
+        machine.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
+        val authorizersWhenExplicit =
+          extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(4))
+        machine.enforceChoiceAuthorizersLimit(
+          authorizersWhenExplicit,
+          coid,
+          templateId,
+          choiceId,
+          chosenValue,
+        )
+        def doExe(choiceAuthorizers: Option[Set[Party]]): Control[Nothing] = {
+          machine.ptx
+            .beginExercises(
+              templateId = templateId,
+              targetId = coid,
+              contract = contract,
+              interfaceId = interfaceId,
+              choiceId = choiceId,
+              optLocation = machine.getLastLocation,
+              consuming = consuming,
+              actingParties = controllers,
+              choiceObservers = obsrs,
+              choiceAuthorizers = choiceAuthorizers,
+              byKey = byKey,
+              chosenValue = chosenValue,
+              version = exerciseVersion,
+            ) match {
+            case Right(ptx) =>
+              machine.ptx = ptx
+              Control.Value(SUnit)
+            case Left(err) =>
+              Control.Error(convTxError(err))
           }
+        }
 
-          if (explicitChoiceAuthority) {
-            val authorizers = authorizersWhenExplicit
-            val signatories = contract.signatories
-            val holding = controllers.union(signatories)
-            val requesting = authorizers.diff(holding)
+        if (explicitChoiceAuthority) {
+          val authorizers = authorizersWhenExplicit
+          val signatories = contract.signatories
+          val holding = controllers.union(signatories)
+          val requesting = authorizers.diff(holding)
 
-            if (requesting.isEmpty) {
-              // *no* additional authority is required; (so there is no need to ask ledger)
-              // (although the authority might be being restricted)
-              doExe(Some(authorizers))
-            } else {
-              // additional authority *is* required; ask the ledger
-              Control.Question[Question.Update](
-                Question.Update.NeedAuthority(
-                  holding = holding,
-                  requesting = requesting,
-                  callback = { () =>
-                    val control = doExe(Some(authorizers))
-                    machine.setControl(control)
-                  },
-                )
-              )
-            }
+          if (requesting.isEmpty) {
+            // *no* additional authority is required; (so there is no need to ask ledger)
+            // (although the authority might be being restricted)
+            doExe(Some(authorizers))
           } else {
-            // use default authorizers
-            doExe(None)
+            // additional authority *is* required; ask the ledger
+            Control.Question[Question.Update](
+              Question.Update.NeedAuthority(
+                holding = holding,
+                requesting = requesting,
+                callback = { () =>
+                  val control = doExe(Some(authorizers))
+                  machine.setControl(control)
+                },
+              )
+            )
           }
+        } else {
+          // use default authorizers
+          doExe(None)
         }
       }
     }
@@ -1176,10 +1167,10 @@ private[lf] object SBuiltin {
   final case class SBApplyChoiceGuard(
       choiceName: ChoiceName,
       byInterface: Option[TypeConName],
-  ) extends SBuiltin(3) {
-    override private[speedy] def execute[Q](
+  ) extends UpdateBuiltin(3) {
+    override protected def executeUpdate(
         args: util.ArrayList[SValue],
-        machine: Machine[Q],
+        machine: UpdateMachine,
     ): Control.Expression = {
       val guard = args.get(0)
       val (templateId, record) = getSAnyContract(args, 1)
@@ -1428,31 +1419,29 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       optTargetTemplateId: Option[TypeConName],
       byKey: Boolean,
-  ) extends SBuiltin(2) {
+  ) extends UpdateBuiltin(2) {
 
-    private[speedy] def execute[Q](
+    protected def executeUpdate(
         args: util.ArrayList[SValue],
-        machine: Machine[Q],
-    ): Control[Q] = {
-      machine.asUpdateMachine(productPrefix) { machine =>
-        val coid = getSContractId(args, 0)
-        val keyOpt: SValue = args.get(1)
-        fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) { templateArg =>
-          getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
-            val version = machine.tmplId2TxVersion(templateId)
-            machine.ptx.insertFetch(
-              coid = coid,
-              contract = contract,
-              optLocation = machine.getLastLocation,
-              byKey = byKey,
-              version = version,
-            ) match {
-              case Right(ptx) =>
-                machine.ptx = ptx
-                Control.Value(templateArg)
-              case Left(err) =>
-                Control.Error(convTxError(err))
-            }
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
+      val coid = getSContractId(args, 0)
+      val keyOpt: SValue = args.get(1)
+      fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) { templateArg =>
+        getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
+          val version = machine.tmplId2TxVersion(templateId)
+          machine.ptx.insertFetch(
+            coid = coid,
+            contract = contract,
+            optLocation = machine.getLastLocation,
+            byKey = byKey,
+            version = version,
+          ) match {
+            case Right(ptx) =>
+              machine.ptx = ptx
+              Control.Value(templateArg)
+            case Left(err) =>
+              Control.Error(convTxError(err))
           }
         }
       }
@@ -1538,90 +1527,88 @@ private[lf] object SBuiltin {
   }
 
   private[speedy] sealed abstract class SBUKeyBuiltin(operation: KeyOperation)
-      extends SBuiltin(1)
+      extends UpdateBuiltin(1)
       with Product {
-    final override def execute[Q](args: util.ArrayList[SValue], machine: Machine[Q]): Control[Q] = {
+    override protected def executeUpdate(
+        args: util.ArrayList[SValue],
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
 
       val templateId = operation.templateId
 
-      machine.asUpdateMachine(productPrefix) { machine =>
-        val keyValue = args.get(0)
-        val version = machine.tmplId2TxVersion(templateId)
-        val cachedKey =
-          extractKey(NameOf.qualifiedNameOfCurrentFunc, version, templateId, keyValue)
-        if (cachedKey.maintainers.isEmpty) {
-          Control.Error(
-            IE.FetchEmptyContractKeyMaintainers(
-              cachedKey.templateId,
-              cachedKey.lfValue,
-            )
+      val keyValue = args.get(0)
+      val version = machine.tmplId2TxVersion(templateId)
+      val cachedKey =
+        extractKey(NameOf.qualifiedNameOfCurrentFunc, version, templateId, keyValue)
+      if (cachedKey.maintainers.isEmpty) {
+        Control.Error(
+          IE.FetchEmptyContractKeyMaintainers(
+            cachedKey.templateId,
+            cachedKey.lfValue,
           )
-        } else {
-          val keyOpt = SOptional(Some(keyValue))
-          val gkey = cachedKey.globalKey
-          val optTargetTemplateId: Option[TypeConName] = None // no upgrading
-          machine.ptx.contractState.resolveKey(gkey) match {
-            case Right((keyMapping, next)) =>
+        )
+      } else {
+        val keyOpt = SOptional(Some(keyValue))
+        val gkey = cachedKey.globalKey
+        val optTargetTemplateId: Option[TypeConName] = None // no upgrading
+        machine.ptx.contractState.resolveKey(gkey) match {
+          case Right((keyMapping, next)) =>
+            machine.ptx = machine.ptx.copy(contractState = next)
+            keyMapping match {
+              case ContractStateMachine.KeyActive(coid) =>
+                fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
+                  templateArg =>
+                    getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
+                      machine.checkKeyVisibility(gkey, coid, operation.handleKeyFound, contract)
+                    }
+                }
+
+              case ContractStateMachine.KeyInactive =>
+                operation.handleKnownInputKey(gkey, keyMapping)
+            }
+
+          case Left(handle) =>
+            def continue: Option[V.ContractId] => (Control[Question.Update], Boolean) = { result =>
+              val (keyMapping, next) = handle(result)
               machine.ptx = machine.ptx.copy(contractState = next)
               keyMapping match {
                 case ContractStateMachine.KeyActive(coid) =>
-                  fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
-                    templateArg =>
-                      getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
-                        machine.checkKeyVisibility(gkey, coid, operation.handleKeyFound, contract)
-                      }
-                  }
-
-                case ContractStateMachine.KeyInactive =>
-                  operation.handleKnownInputKey(gkey, keyMapping)
-              }
-
-            case Left(handle) =>
-              def continue: Option[V.ContractId] => (Control[Question.Update], Boolean) = {
-                result =>
-                  val (keyMapping, next) = handle(result)
-                  machine.ptx = machine.ptx.copy(contractState = next)
-                  keyMapping match {
-                    case ContractStateMachine.KeyActive(coid) =>
-                      val c =
-                        machine.asUpdateMachine(productPrefix) { machine =>
-                          fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
-                            templateArg =>
-                              getContractInfo(machine, coid, templateId, templateArg, keyOpt) {
-                                contract =>
-                                  machine.checkKeyVisibility(
-                                    gkey,
-                                    coid,
-                                    operation.handleKeyFound,
-                                    contract,
-                                  )
-                              }
-                          }
+                  val c =
+                    fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
+                      templateArg =>
+                        getContractInfo(machine, coid, templateId, templateArg, keyOpt) {
+                          contract =>
+                            machine.checkKeyVisibility(
+                              gkey,
+                              coid,
+                              operation.handleKeyFound,
+                              contract,
+                            )
                         }
-                      (c, true)
-                    case ContractStateMachine.KeyInactive =>
-                      operation.handleKeyNotFound(gkey)
-                  }
+                    }
+                  (c, true)
+                case ContractStateMachine.KeyInactive =>
+                  operation.handleKeyNotFound(gkey)
               }
+            }
 
-              machine.disclosedContractKeys.get(gkey) match {
-                case someCid: Some[_] =>
-                  continue(someCid)._1
+            machine.disclosedContractKeys.get(gkey) match {
+              case someCid: Some[_] =>
+                continue(someCid)._1
 
-                case None =>
-                  Control.Question(
-                    Question.Update.NeedKey(
-                      GlobalKeyWithMaintainers(gkey, cachedKey.maintainers),
-                      machine.committers,
-                      callback = { res =>
-                        val (control, bool) = continue(res)
-                        machine.setControl(control)
-                        bool
-                      },
-                    )
+              case None =>
+                Control.Question(
+                  Question.Update.NeedKey(
+                    GlobalKeyWithMaintainers(gkey, cachedKey.maintainers),
+                    machine.committers,
+                    callback = { res =>
+                      val (control, bool) = continue(res)
+                      machine.setControl(control)
+                      bool
+                    },
                   )
-              }
-          }
+                )
+            }
         }
       }
     }
@@ -2165,14 +2152,13 @@ private[lf] object SBuiltin {
     }
   }
 
-  private def fetchContract[Q](
-      machine: Machine[Q],
+  private def fetchContract(
+      machine: UpdateMachine,
       templateId: TypeConName,
       optTargetTemplateId: Option[TypeConName],
       coid: V.ContractId,
       keyOpt: SValue,
-  )(f: SValue => Control[Q]): Control[Q] = {
-
+  )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
     fetchAny(machine, optTargetTemplateId, coid, keyOpt) { fetched =>
       // The SBCastAnyContract check can never fail when the upgrading feature flag is enabled.
       // This is because the contract got up/down-graded when imported by importValue.
@@ -2192,26 +2178,25 @@ private[lf] object SBuiltin {
 
   // This is the core function which fetches a contract given it's coid.
   // Regardless of it being a local, disclosed or global contract
-  private def fetchAny[Q](
-      machine: Machine[Q],
+  private def fetchAny(
+      machine: UpdateMachine,
       optTargetTemplateId: Option[TypeConName],
       coid: V.ContractId,
       keyOpt: SValue,
-  )(f: SValue => Control[Q]): Control[Q] = {
-    machine.asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc) { machine =>
-      machine.getIfLocalContract(coid) match {
-        case Some((templateId, templateArg)) =>
-          ensureContractActive(machine, coid, templateId) {
-            f(SValue.SAnyContract(templateId, templateArg)).asInstanceOf[Control[Question.Update]]
-          }
+  )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
+    machine.getIfLocalContract(coid) match {
+      case Some((templateId, templateArg)) =>
+        ensureContractActive(machine, coid, templateId) {
+          f(SValue.SAnyContract(templateId, templateArg))
+        }
 
-        case None => {
-          machine.disclosedContracts.get(coid) match {
-            case Some(contract) =>
-              ensureContractActive(machine, coid, contract.templateId) {
-                machine.markDisclosedcontractAsUsed(coid)
-                f(contract.any).asInstanceOf[Control[Question.Update]]
-              }
+      case None => {
+        machine.disclosedContracts.get(coid) match {
+          case Some(contract) =>
+            ensureContractActive(machine, coid, contract.templateId) {
+              machine.markDisclosedcontractAsUsed(coid)
+              f(contract.any)
+            }
 
             case None =>
               lookupContractOnLedger(machine, coid) { coinst =>
@@ -2238,36 +2223,34 @@ private[lf] object SBuiltin {
                       if (upgradingIsEnabled && src != dest) {
 
                         validateContractInfo(machine, coid, contract) { () =>
-                          f(contract.any).asInstanceOf[Control[Question.Update]]
+                          f(contract.any)
                         }
                       } else {
-                        f(contract.any).asInstanceOf[Control[Question.Update]]
+                        f(contract.any)
                       }
                     }
                   }
                 }
               }
-          }
+            }
         }
       }
     }
   }
 
-  private def lookupContractOnLedger[Q](machine: Machine[Q], coid: V.ContractId)(
-      continue: V.ContractInstance => Control[Q]
-  ): Control[Q] = {
-    machine.asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc) { machine =>
-      Control.Question(
-        Question.Update.NeedContract(
-          coid,
-          machine.committers,
-          callback = { res =>
-            val control = continue(res)
-            machine.setControl(control)
-          },
-        )
+  private def lookupContractOnLedger[Q](machine: UpdateMachine, coid: V.ContractId)(
+      continue: V.ContractInstance => Control[Question.Update]
+  ): Control[Question.Update] = {
+    Control.Question(
+      Question.Update.NeedContract(
+        coid,
+        machine.committers,
+        callback = { res =>
+          val control = continue(res)
+          machine.setControl(control)
+        },
       )
-    }
+    )
   }
 
   private def validateContractInfo[Q](
@@ -2310,23 +2293,21 @@ private[lf] object SBuiltin {
   }
 
   // Get the contract info for a contract, computing if not in our cache
-  private def getContractInfo[Q](
-      machine: Machine[Q],
+  private def getContractInfo(
+      machine: UpdateMachine,
       coid: V.ContractId,
       templateId: Identifier,
       templateArg: SValue,
       keyOpt: SValue,
-  )(f: ContractInfo => Control[Q]): Control[Q] = {
-    machine.asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc) { machine =>
-      machine.lookupContractInfoCache(coid) match {
-        case Some(contract) =>
-          f(contract).asInstanceOf[Control[Question.Update]]
-        case None =>
-          computeContractInfo(machine, templateId, templateArg, keyOpt) { contract =>
-            machine.insertContractInfoCache(coid, contract)
-            f(contract).asInstanceOf[Control[Question.Update]]
-          }
-      }
+  )(f: ContractInfo => Control[Question.Update]): Control[Question.Update] = {
+    machine.lookupContractInfoCache(coid) match {
+      case Some(contract) =>
+        f(contract)
+      case None =>
+        computeContractInfo(machine, templateId, templateArg, keyOpt) { contract =>
+          machine.insertContractInfoCache(coid, contract)
+          f(contract)
+        }
     }
   }
 
@@ -2349,20 +2330,18 @@ private[lf] object SBuiltin {
     }
   }
 
-  private def ensureContractActive[Q](
-      machine: Machine[Q],
+  private def ensureContractActive(
+      machine: UpdateMachine,
       coid: V.ContractId,
       templateId: Identifier,
-  )(body: => Control[Q]): Control[Q] = {
-    machine.asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc) { machine =>
-      machine.ptx.consumedByOrInactive(coid) match {
-        case Some(Left(nid)) =>
-          Control.Error(IE.ContractNotActive(coid, templateId, nid))
-        case Some(Right(())) =>
-          Control.Error(IE.ContractNotFound(coid))
-        case None =>
-          body.asInstanceOf[Control[Question.Update]] // appease unhelpful typing
-      }
+  )(body: => Control[Question.Update]): Control[Question.Update] = {
+    machine.ptx.consumedByOrInactive(coid) match {
+      case Some(Left(nid)) =>
+        Control.Error(IE.ContractNotActive(coid, templateId, nid))
+      case Some(Right(())) =>
+        Control.Error(IE.ContractNotFound(coid))
+      case None =>
+        body
     }
   }
 
