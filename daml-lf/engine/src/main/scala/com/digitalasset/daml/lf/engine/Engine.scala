@@ -9,7 +9,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{InitialSeeding, Pretty, Question, SError, SResult, SValue}
-import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
+import com.daml.lf.speedy.SExpr.{SEApp, SEValue, SExpr}
 import com.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{
@@ -270,22 +270,41 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
-  )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
+  )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
+    import Result.Implicits._
     for {
-      sexpr <- runCompilerSafely(
+      head <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
-        compiledPackages.compiler.unsafeCompile(commands, disclosures),
+        compiledPackages.compiler.unsafeCompileDisclosures(disclosures),
       )
-      result <- interpretExpression(
-        validating,
-        submitters,
-        readAs,
-        sexpr,
-        ledgerTime,
-        submissionTime,
-        seeding,
+      tail <- commands.toSeq.traverse(cmd =>
+        runCompilerSafely(
+          NameOf.qualifiedNameOfCurrentFunc,
+          compiledPackages.compiler.unsafeCompileCommand(cmd),
+        )
       )
-    } yield result
+      machine = UpdateMachine(
+        compiledPackages = compiledPackages,
+        submissionTime = submissionTime,
+        initialSeeding = seeding,
+        expr = SEValue(SValue.SToken),
+        committers = submitters,
+        readAs = readAs,
+        authorizationChecker = config.authorizationChecker,
+        validating = validating,
+        contractKeyUniqueness = config.contractKeyUniqueness,
+        limits = config.limits,
+      )
+      _ <- (head :: tail).foldLeft[Result[_]](ResultDone.Unit) { (acc, sexpr) =>
+        for {
+          _ <- acc
+          _ = machine.setExpressionToEvaluate(SEApp(sexpr, Array(SValue.SToken)))
+          _ <- interpretLoop(machine, ledgerTime)
+        } yield ()
+      }
+      res <- finish(machine)
+    } yield res
+  }
 
   /** Interprets the given commands under the authority of @submitters, with additional readers @readAs
     *
@@ -317,7 +336,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       contractKeyUniqueness = config.contractKeyUniqueness,
       limits = config.limits,
     )
-    interpretLoop(machine, ledgerTime)
+    interpretLoop(machine, ledgerTime).flatMap(_ => finish(machine))
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
@@ -350,49 +369,47 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     }
   }
 
+  private[this] def finish(machine: UpdateMachine): Result[(SubmittedTransaction, Tx.Metadata)] =
+    machine.finish match {
+      case Right(UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)) =>
+        deps(tx).flatMap { deps =>
+          val meta = Tx.Metadata(
+            submissionSeed = None,
+            submissionTime = machine.submissionTime,
+            usedPackages = deps,
+            dependsOnTime = machine.getDependsOnTime,
+            nodeSeeds = nodeSeeds,
+            globalKeyMapping = globalKeyMapping,
+            disclosedEvents = disclosedCreateEvents,
+          )
+          config.profileDir.foreach { dir =>
+            val desc = Engine.profileDesc(tx)
+            val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
+            machine.profile.name = s"${meta.submissionTime}-$desc"
+            machine.profile.writeSpeedscopeJson(profileFile)
+          }
+          ResultDone((tx, meta))
+        }
+      case Left(err) =>
+        handleError(err)
+    }
+
   private[engine] def interpretLoop(
       machine: UpdateMachine,
       time: Time.Timestamp,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
+  ): Result[Unit] = {
     def detailMsg = Some(
       s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${machine.nodesToString}"
     )
-
-    def finish: Result[(SubmittedTransaction, Tx.Metadata)] =
-      machine.finish match {
-        case Right(
-              UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
-            ) =>
-          deps(tx).flatMap { deps =>
-            val meta = Tx.Metadata(
-              submissionSeed = None,
-              submissionTime = machine.submissionTime,
-              usedPackages = deps,
-              dependsOnTime = machine.getDependsOnTime,
-              nodeSeeds = nodeSeeds,
-              globalKeyMapping = globalKeyMapping,
-              disclosedEvents = disclosedCreateEvents,
-            )
-            config.profileDir.foreach { dir =>
-              val desc = Engine.profileDesc(tx)
-              val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
-              machine.profile.name = s"${meta.submissionTime}-$desc"
-              machine.profile.writeSpeedscopeJson(profileFile)
-            }
-            ResultDone((tx, meta))
-          }
-        case Left(err) =>
-          handleError(err)
-      }
 
     // This cache is a pure optimization to avoid repeated calls to Result.needcontract
     type CoinstCache = Map[ContractId, VersionedContractInstance]
 
     // for use in non tail contexts
-    def loopOuter(cache: CoinstCache): Result[(SubmittedTransaction, Tx.Metadata)] = loop(cache)
+    def loopOuter(cache: CoinstCache): Result[Unit] = loop(cache)
 
     @scala.annotation.tailrec
-    def loop(cache: CoinstCache): Result[(SubmittedTransaction, Tx.Metadata)] = {
+    def loop(cache: CoinstCache): Result[Unit] = {
       machine.run() match {
 
         case SResultQuestion(question) =>
@@ -467,7 +484,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           ResultInterruption(() => loopOuter(cache))
 
         case _: SResultFinal =>
-          finish
+          ResultDone(())
 
         case SResultError(err) =>
           handleError(err, detailMsg)
