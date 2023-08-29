@@ -217,11 +217,11 @@ object Script {
     def description: String
   }
 
-  final class FailedCmd(val cmd: FailableCmd, val cause: Throwable)
+  final case class FailedCmd(description: String, stackTrace: StackTrace, cause: Throwable)
       extends RuntimeException(
-        s"""Command ${cmd.description} failed: ${cause.getMessage}
+        s"""Command ${description} failed: ${cause.getMessage}
           |Daml stacktrace:
-          |${cmd.stackTrace.pretty()}""".stripMargin,
+          |${stackTrace.pretty()}""".stripMargin,
         cause,
       )
 }
