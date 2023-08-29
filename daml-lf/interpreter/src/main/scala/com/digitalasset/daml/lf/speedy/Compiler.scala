@@ -131,6 +131,16 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
+  def unsafeCompileDisclosures(disclosures: ImmArray[DisclosedContract]): t.SExpr =
+    compileDisclosures(disclosures)
+
+  @throws[PackageNotFound]
+  @throws[CompilationError]
+  def unsafeCompileCommand(cmd: Command): t.SExpr =
+    compileCommand(cmd)
+
+  @throws[PackageNotFound]
+  @throws[CompilationError]
   def unsafeCompileForReinterpretation(cmd: Command): t.SExpr =
     compileCommandForReinterpretation(cmd)
 
@@ -342,6 +352,12 @@ private[lf] final class Compiler(
         translateContractDisclosures(Env.Empty, disclosures),
       )((_, env) => translateCommands(env, cmds))
     )
+
+  private[this] def compileCommand(cmd: Command): t.SExpr =
+    pipeline(translateCommand(Env.Empty, cmd))
+
+  private[this] def compileDisclosures(disclosures: ImmArray[DisclosedContract]): t.SExpr =
+    pipeline(s.SEAbs(1, translateContractDisclosures(Env1, disclosures)))
 
   private[this] def compileCommandForReinterpretation(cmd: Command): t.SExpr =
     pipeline(translateCommandForReinterpretation(cmd))

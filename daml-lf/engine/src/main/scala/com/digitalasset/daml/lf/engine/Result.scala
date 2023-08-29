@@ -5,13 +5,14 @@ package com.daml.lf
 package engine
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{BackStack, FrontStack, ImmArray}
+import com.daml.lf.data.{ImmArray, FrontStack, BackStack}
 import com.daml.lf.language.Ast._
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value._
 import scalaz.Monad
 
 import scala.annotation.tailrec
+import scala.collection.mutable
 
 /** many operations require to look up packages and contracts. we do this
   * by allowing our functions to pause and resume after the contract has been
@@ -282,6 +283,22 @@ object Result {
           }
       }
     go(BackStack.empty, results0).map(_.toImmArray)
+  }
+
+  def traverse[X, Y](xs: Iterable[X], f: X => Result[Y]): Result[List[Y]] = {
+    xs.foldLeft[Result[mutable.Builder[Y, List[Y]]]](ResultDone(List.newBuilder[Y])) { (acc, x) =>
+      for {
+        builder <- acc
+        y <- f(x)
+      } yield builder += y
+    }.map(_.result())
+  }
+
+  object Implicits {
+    implicit final class IterableOps[X](val xs: Iterable[X]) extends AnyVal {
+      def traverse[Y](f: X => Result[Y]): Result[List[Y]] = Result.traverse(xs, f)
+      def sequence[Y](implicit ev: X <:< Result[Y]) = Result.traverse(xs, ev)
+    }
   }
 
   def assert(assertion: Boolean)(err: Error): Result[Unit] =
