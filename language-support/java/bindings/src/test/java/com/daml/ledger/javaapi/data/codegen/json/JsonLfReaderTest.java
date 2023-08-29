@@ -172,6 +172,16 @@ public class JsonLfReaderTest {
   }
 
   @Test
+  void testOptionalLists() throws IOException {
+    checkReadAll(
+        r -> r.optional(r.list(r.list(r.int64()))),
+        eq("null", Optional.empty()),
+        eq("[]", Optional.of(emptyList())),
+        eq("[[]]", Optional.of(asList(emptyList()))),
+        eq("[[42]]", Optional.of(asList(asList(42L)))));
+  }
+
+  @Test
   void testVariant() throws IOException, FromJson.Error {
     checkReadAll(
         r ->
