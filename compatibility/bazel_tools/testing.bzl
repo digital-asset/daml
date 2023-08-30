@@ -643,7 +643,7 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "end": "2.7.0",
+        "end": "2.7.1",
         "platform_ranges": [
             {
                 "start": "2.7.0-snapshot.20230703.11931.0.vc04c7ac9",

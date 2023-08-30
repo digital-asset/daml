@@ -9,23 +9,54 @@ import java.io.File
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 
-sealed abstract class CliMode extends Product with Serializable
-object CliMode {
-  // Run a single script in the DAR
-  final case class RunOne(scriptId: String) extends CliMode
-  // Run all scripts in the DAR
-  final case object RunAll extends CliMode
-}
-
-sealed abstract class ScriptCommand extends Product with Serializable
-object ScriptCommand {
-  final case class RunOne(conf: RunnerCliConfig) extends ScriptCommand
-  final case class RunAll(conf: TestConfig) extends ScriptCommand
-}
-
-case class ScriptConfig(
+case class RunnerMainConfig(
     darPath: File,
-    mode: Option[CliMode],
+    runMode: RunnerMainConfig.RunMode,
+    participantMode: ParticipantMode,
+    // optional so we can detect if both --static-time and --wall-clock-time are passed.
+    timeMode: ScriptTimeMode,
+    accessTokenFile: Option[Path],
+    tlsConfig: TlsConfiguration,
+    jsonApi: Boolean,
+    maxInboundMessageSize: Int,
+    // While we do have a default application id, we
+    // want to differentiate between not specifying the application id
+    // and specifying the default for better error messages.
+    applicationId: Option[ApplicationId],
+    uploadDar: Boolean,
+)
+
+object RunnerMainConfig {
+  val DefaultTimeMode: ScriptTimeMode = ScriptTimeMode.WallClock
+  val DefaultMaxInboundMessageSize: Int = 4194304
+
+  sealed trait RunMode
+  object RunMode {
+    final case object RunAll extends RunMode
+    final case class RunOne(
+        scriptId: String,
+        inputFile: Option[File],
+        outputFile: Option[File],
+    ) extends RunMode
+  }
+
+  def parse(args: Array[String]): Option[RunnerMainConfig] =
+    for {
+      intermediate <- RunnerMainConfigIntermediate.parse(args)
+      config <-
+        intermediate.toRunnerMainConfig.fold(
+          err => {
+            System.err.println(err)
+            None
+          },
+          Some(_),
+        )
+    } yield config
+}
+
+private[script] case class RunnerMainConfigIntermediate(
+    darPath: File,
+    mode: Option[RunnerMainConfigIntermediate.CliMode],
     ledgerHost: Option[String],
     ledgerPort: Option[Int],
     participantConfig: Option[File],
@@ -42,52 +73,68 @@ case class ScriptConfig(
     // want to differentiate between not specifying the application id
     // and specifying the default for better error messages.
     applicationId: Option[ApplicationId],
+    // Legacy behaviour is to upload the dar when using --all and over grpc. None represents that behaviour
+    // We will drop this for daml3, such that we default to not uploading.
+    uploadDar: Option[Boolean],
 ) {
-  def toCommand(): Either[String, ScriptCommand] =
+  import RunnerMainConfigIntermediate._
+
+  def getRunMode(cliMode: CliMode): Either[String, RunnerMainConfig.RunMode] =
+    cliMode match {
+      case CliMode.RunOne(id) =>
+        Right(RunnerMainConfig.RunMode.RunOne(id, inputFile, outputFile))
+      case CliMode.RunAll =>
+        def incompatible(name: String, isValid: Boolean): Either[String, Unit] =
+          Either.cond(isValid, (), s"--${name} is incompatible with --all")
+        for {
+          _ <- incompatible("input-file", inputFile.isEmpty)
+          _ <- incompatible("output-file", outputFile.isEmpty)
+        } yield RunnerMainConfig.RunMode.RunAll
+    }
+
+  def resolveUploadDar(
+      participantMode: ParticipantMode,
+      cliMode: CliMode,
+  ): Either[String, Boolean] =
+    (participantMode, uploadDar) match {
+      case (ParticipantMode.IdeLedgerParticipant(), Some(true)) =>
+        Left("Cannot upload dar to IDELedger.")
+      case (_, Some(true)) if jsonApi => Left("Cannot upload dar via JSON API")
+      case (_, Some(v)) => Right(v)
+      case (_, None) =>
+        Right(cliMode match {
+          case CliMode.RunOne(_) => false
+          case CliMode.RunAll => {
+            println(
+              """WARNING: Implicitly using the legacy behaviour of uploading the DAR when using --all over GRPC.
+              |This behaviour will be removed for daml3. Please use the explicit `--upload-dar yes` option.
+            """.stripMargin
+            )
+            true
+          }
+        })
+    }
+
+  def toRunnerMainConfig: Either[String, RunnerMainConfig] =
     for {
-      mode <- mode.toRight("Either --script-name or --all must be specified")
+      cliMode <- mode.toRight("Either --script-name or --all must be specified")
       participantMode = this.getLedgerMode
-      resolvedTimeMode = timeMode.getOrElse(ScriptConfig.DefaultTimeMode)
-      conf <- mode match {
-        case CliMode.RunOne(id) =>
-          Right(
-            ScriptCommand.RunOne(
-              RunnerCliConfig(
-                darPath = darPath,
-                participantMode = participantMode,
-                timeMode = resolvedTimeMode,
-                inputFile = inputFile,
-                outputFile = outputFile,
-                accessTokenFile = accessTokenFile,
-                tlsConfig = tlsConfig,
-                jsonApi = jsonApi,
-                maxInboundMessageSize = maxInboundMessageSize,
-                applicationId = applicationId,
-                scriptIdentifier = id,
-              )
-            )
-          )
-        case CliMode.RunAll =>
-          def incompatible[A](name: String, isValid: Boolean): Either[String, Unit] =
-            Either.cond(isValid, (), s"--${name} is incompatible with --all")
-          for {
-            _ <- incompatible("input-file", inputFile.isEmpty)
-            _ <- incompatible("output-file", outputFile.isEmpty)
-            _ <- incompatible("application-id", applicationId.isEmpty)
-            _ <- incompatible("json-api", !jsonApi)
-          } yield ScriptCommand.RunAll(
-            TestConfig(
-              darPath = darPath,
-              participantMode = participantMode,
-              timeMode = resolvedTimeMode,
-              maxInboundMessageSize = maxInboundMessageSize,
-              accessTokenFile = accessTokenFile,
-              tlsConfig = tlsConfig,
-              applicationId = applicationId,
-            )
-          )
-      }
-    } yield conf
+      resolvedTimeMode = timeMode.getOrElse(RunnerMainConfig.DefaultTimeMode)
+      runMode <- getRunMode(cliMode)
+      resolvedUploadDar <- resolveUploadDar(participantMode, cliMode)
+      config = RunnerMainConfig(
+        darPath = darPath,
+        runMode = runMode,
+        participantMode = participantMode,
+        timeMode = resolvedTimeMode,
+        accessTokenFile = accessTokenFile,
+        tlsConfig = tlsConfig,
+        jsonApi = jsonApi,
+        maxInboundMessageSize = maxInboundMessageSize,
+        applicationId = applicationId,
+        uploadDar = resolvedUploadDar,
+      )
+    } yield config
 
   private def getLedgerMode: ParticipantMode =
     (ledgerHost, ledgerPort, participantConfig, isIdeLedger) match {
@@ -100,13 +147,17 @@ case class ScriptConfig(
     }
 }
 
-object ScriptConfig {
-
-  val DefaultTimeMode: ScriptTimeMode = ScriptTimeMode.WallClock
-  val DefaultMaxInboundMessageSize: Int = 4194304
+private[script] object RunnerMainConfigIntermediate {
+  sealed abstract class CliMode extends Product with Serializable
+  object CliMode {
+    // Run a single script in the DAR
+    final case class RunOne(scriptId: String) extends CliMode
+    // Run all scripts in the DAR
+    final case object RunAll extends CliMode
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-  private val parser = new scopt.OptionParser[ScriptConfig]("script-runner") {
+  private val parser = new scopt.OptionParser[RunnerMainConfigIntermediate]("script-runner") {
     head("script-runner")
 
     opt[File]("dar")
@@ -195,7 +246,7 @@ object ScriptConfig {
       .action((x, c) => c.copy(maxInboundMessageSize = x))
       .optional()
       .text(
-        s"Optional max inbound message size in bytes. Defaults to $DefaultMaxInboundMessageSize"
+        s"Optional max inbound message size in bytes. Defaults to ${RunnerMainConfig.DefaultMaxInboundMessageSize}"
       )
 
     opt[String]("application-id")
@@ -203,6 +254,13 @@ object ScriptConfig {
       .optional()
       .text(
         s"Application ID used to interact with the ledger. Defaults to ${Runner.DEFAULT_APPLICATION_ID}"
+      )
+
+    opt[Boolean]("upload-dar")
+      .action((x, c) => c.copy(uploadDar = Some(x)))
+      .optional()
+      .text(
+        s"Uploads the dar before running. Only available over GRPC. Default behaviour is to upload with --all, not with --script-name."
       )
 
     help("help").text("Print this usage text")
@@ -227,9 +285,9 @@ object ScriptConfig {
   }
 
   private def setTimeMode(
-      config: ScriptConfig,
+      config: RunnerMainConfigIntermediate,
       timeMode: ScriptTimeMode,
-  ): ScriptConfig = {
+  ): RunnerMainConfigIntermediate = {
     if (config.timeMode.exists(_ != timeMode)) {
       throw new IllegalStateException(
         "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous."
@@ -239,9 +297,9 @@ object ScriptConfig {
   }
 
   private def setMode(
-      config: ScriptConfig,
+      config: RunnerMainConfigIntermediate,
       mode: CliMode,
-  ): ScriptConfig = {
+  ): RunnerMainConfigIntermediate = {
     if (config.mode.exists(_ != mode)) {
       throw new IllegalStateException(
         "--script-name and --all are mutually exclusive."
@@ -250,10 +308,10 @@ object ScriptConfig {
     config.copy(mode = Some(mode))
   }
 
-  def parse(args: Array[String]): Option[ScriptConfig] =
+  private[script] def parse(args: Array[String]): Option[RunnerMainConfigIntermediate] =
     parser.parse(
       args,
-      ScriptConfig(
+      RunnerMainConfigIntermediate(
         darPath = null,
         mode = None,
         ledgerHost = None,
@@ -266,8 +324,9 @@ object ScriptConfig {
         accessTokenFile = None,
         tlsConfig = TlsConfiguration(false, None, None, None),
         jsonApi = false,
-        maxInboundMessageSize = DefaultMaxInboundMessageSize,
+        maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
         applicationId = None,
+        uploadDar = None,
       ),
     )
 }

@@ -112,7 +112,7 @@ object ScriptF {
         env: Env
     )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
       Future.failed(
-        script.Runner.InterpretationError(
+        free.InterpretationError(
           SError
             .SErrorDamlException(IE.UnhandledException(exc.ty, exc.value.toUnnormalizedValue))
         )
@@ -125,11 +125,11 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
-      runner.runExpr(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
+      runner.run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
         case Success(v) =>
           Future.successful(SEAppAtomic(right, Array(SEValue(v))))
         case Failure(
-              script.Runner.InterpretationError(
+              free.InterpretationError(
                 SError.SErrorDamlException(IE.UnhandledException(typ, value))
               )
             ) =>
@@ -987,7 +987,7 @@ object ScriptF {
 
   def parse(
       commandName: String,
-      version: Int,
+      version: Long,
       v: SValue,
       stackTrace: StackTrace,
   ): Either[String, Cmd] =
