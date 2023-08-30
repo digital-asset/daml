@@ -82,8 +82,62 @@ type MethodTracker (from :: LSP.From) = IM.IxMap @(LSP.Method from 'LSP.Request)
 type MethodTrackerVar (from :: LSP.From) = TVar (MethodTracker from)
 data MethodTrackerVars = MethodTrackerVars 
   { fromClientTracker :: MethodTrackerVar 'LSP.FromClient
+    -- ^ The client will track its own IDs to ensure they're unique, so no worries about collisions
   , fromServerTracker :: MethodTrackerVar 'LSP.FromServer
+    -- ^ We will prefix LspIds before they get here based on their SubIDE messageIdPrefix, to avoid collisions
   }
+
+data SubIDE = SubIDE
+  { inHandle :: Handle
+  , inhandleThread :: Thread
+  , outHandle :: Handle
+  , outHandleThread :: Thread
+  , outHandleChannel :: TChan
+    -- ^ For sending messages to that SubIDE
+  , processHandle :: ProcessHandle
+  , homeDirectory :: FilePath
+  , messageIdPrefix :: String
+    -- ^ Some unique string used to prefix message ids created by the SubIDE, to avoid collisions with other SubIDEs
+  }
+
+-- TODO for multiple IDEs:
+{-
+Add a function
+addNewSubIDE :: FilePath -> IO SubIDE
+which adds the IDE to a TVar list, creates the threads/channels, and replays the initialize message with relevant fields
+  find out if the cmd location or the initialize message is what tells the IDE where to find the project - do the right thing there
+
+add a function
+sendSubIDE :: FilePath -> LSP.FromClientMessage -> IO ()
+which takes some directory or file, finds a SubIDE that holds it, and sends the request to that subIDE
+  if the message is a response, remove the prefix from the LspId
+  it might also call ensureSubIDE below
+
+  consider a variant of this that takes params with `HasTextDocument _ a` where `HasUri a Uri` holds for convenience?
+  sendSubIDETextDoc :: forall p a. (HasTextDocument p a, HasUri a Uri). p -> LSP.FromClientMessage -> IO ()
+    or even try pull the params from the FromClientMessage there and then?
+
+add a function
+sendAllSubIDEs :: LSP.FromClientMessage -> IO ()
+obvious
+
+add a function
+ensureSubIDE :: FilePath -> IO ()
+which checks if we have a subIDE that holds the filepath we give. if we don't, it finds the directory above it that holds a daml.yaml
+  and calls addNewSubIDE with that path
+
+when handling messages coming from the SubIDE:
+  if its a new request, prefix the LspId with messageIdPrefix
+  otherwise, unchanged
+
+when handling messages coming from vscode
+  store the initialize message, it _should_ always be the first message.
+  we'll spin up the IDEs we need on demand for now, assuming the IDE sends an "opened file" for every file already open
+  later, we can consider looking at _workspaceFolders, or prediscovering packages in the root folder.
+
+If implemented correctly, we should have multiple IDEs working at the same time, but not cooperating.
+
+-}
 
 putReqMethod
   :: forall (f :: LSP.From) (m :: LSP.Method f 'LSP.Request)
