@@ -46,9 +46,15 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
         ),
     ]
     for version in PROTO_LF_VERSIONS
-    for short_version in ["dev" if version == "1.dev" else version]
+    for short_version in ["dev" if version in [
+        "1.dev",
+        "2.dev",
+    ] else version]
     for mangled_version in [mangle_for_java(short_version)]
-    for directory in ["main" if version == "1.dev" else "stable"]
+    for directory in ["main" if version in [
+        "1.dev",
+        "2.dev",
+    ] else "stable"]
 ]
 
 # FIXME(JM): Clean this up
@@ -169,7 +175,10 @@ da_scala_binary(
     ],
 )
 
-SNASPSHOT_VERSIONS = [ver for ver in PROTO_LF_VERSIONS if ver != "1.dev"]
+SNASPSHOT_VERSIONS = [ver for ver in PROTO_LF_VERSIONS if not ver in [
+    "1.dev",
+    "2.dev",
+]]
 
 [
     sh_test(

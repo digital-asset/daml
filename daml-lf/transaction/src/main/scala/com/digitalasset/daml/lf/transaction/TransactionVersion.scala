@@ -66,6 +66,7 @@ object TransactionVersion {
       v1_14 -> V14,
       v1_15 -> V15,
       v1_dev -> VDev,
+      v2_dev -> VDev,
     )
   }
 

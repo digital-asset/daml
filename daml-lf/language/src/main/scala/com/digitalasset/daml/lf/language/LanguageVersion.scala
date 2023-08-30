@@ -25,14 +25,25 @@ object LanguageVersion {
 
   def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
 
+  // TODO(paul): get rid of this ordering
   implicit val Ordering: scala.Ordering[LanguageVersion] = {
     case (LanguageVersion(Major.V1, leftMinor), LanguageVersion(Major.V1, rightMinor)) =>
       Major.V1.minorVersionOrdering.compare(leftMinor, rightMinor)
+    case (LanguageVersion(Major.V2, leftMinor), LanguageVersion(Major.V2, rightMinor)) =>
+      Major.V2.minorVersionOrdering.compare(leftMinor, rightMinor)
+    case (LanguageVersion(Major.V2, _), LanguageVersion(Major.V1, _)) =>
+      1
+    case (_, _) =>
+      -1
   }
 
-  val All = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
+  val All = {
+    val v1Versions = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
+    val v2Versions = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
+    v1Versions ++ v2Versions
+  }
 
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev) =
+  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev, v2_dev) =
     All: @nowarn("msg=match may not be exhaustive")
 
   object Features {
@@ -67,7 +78,7 @@ object LanguageVersion {
     /** Guards in interfaces */
     val extendedInterfaces = v1_dev
 
-    /** Unstable, experimental features. This should stay in 1.dev forever.
+    /** Unstable, experimental features. This should stay in 2.dev forever.
       * Features implemented with this flag should be moved to a separate
       * feature flag once the decision to add them permanently has been made.
       */
@@ -90,9 +101,8 @@ object LanguageVersion {
 
   // All the versions
   val DevVersions: VersionRange[LanguageVersion] =
-    EarlyAccessVersions.copy(max = v1_dev)
+    EarlyAccessVersions.copy(max = v2_dev)
 
   // This refers to the default output LF version in the compiler
   val default: LanguageVersion = v1_14
-
 }

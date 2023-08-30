@@ -4,11 +4,24 @@
 def mangle_for_java(name):
     return name.replace(".", "_")
 
-def _to_major_minor(v):
+def _to_major_minor_str(v):
     (majorStr, _, minorStr) = v.partition(".")
-    return (int(majorStr), int(minorStr))
+    return (majorStr, minorStr)
 
-def _cmp(a, b):
+def _cmp_major_version_str(aStr, bStr):
+    return _cmp_int(int(aStr), int(bStr))
+
+def _cmp_minor_version_str(aStr, bStr):
+    if aStr == bStr:
+        return 0
+    elif aStr == "dev":
+        return 1
+    elif bStr == "dev":
+        return -1
+    else:
+        return _cmp_int(int(aStr), int(bStr))
+
+def _cmp_int(a, b):
     if a == b:
         return 0
     elif a > b:
@@ -17,16 +30,10 @@ def _cmp(a, b):
         return -1
 
 def _cmp_lf_version(a, b):
-    if a == "1.dev" and b == "1.dev":
-        return 0
-    elif a == "1.dev":
-        return 1
-    elif b == "1.dev":
-        return -1
-    else:
-        aVer = _to_major_minor(a)
-        bVer = _to_major_minor(b)
-        return _cmp(aVer, bVer)
+    (aMajStr, aMinStr) = _to_major_minor_str(a)
+    (bMajStr, bMinStr) = _to_major_minor_str(b)
+    majComp = _cmp_major_version_str(aMajStr, bMajStr)
+    return majComp if majComp != 0 else _cmp_minor_version_str(aMinStr, bMinStr)
 
 def _gte(a, b):
     return _cmp_lf_version(a, b) >= 0
@@ -54,13 +61,25 @@ versions = struct(
 # for all other values.  If we make a new LF release, we bump latest
 # and once we make it the compiler default we bump stable.
 
-lf_version_configuration = {
+_lf_version_configuration = {
     "legacy": "1.8",
     "default": "1.15",
     "latest": "1.15",
     #    "preview": "",
     "dev": "1.dev",
 }
+
+def _safe_get(x, default = None):
+    if x == "get":
+        return 1 / 0
+    else:
+        return _lf_version_configuration.get(x, default)
+
+lf_version_configuration = struct(
+    get = _safe_get,
+    values = _lf_version_configuration.values,
+    items = _lf_version_configuration.items,
+)
 
 lf_version_configuration_versions = depset(lf_version_configuration.values()).to_list()
 
@@ -91,6 +110,7 @@ LF_VERSIONS = [
     "1.14",
     "1.15",
     "1.dev",
+    "2.dev",
 ]
 
 PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14")]
@@ -99,4 +119,4 @@ PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14")]
 # expected by the --target option.
 COMPILER_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14")]
 
-LF_MAJOR_VERSIONS = ["1"]
+LF_MAJOR_VERSIONS = ["1", "2"]

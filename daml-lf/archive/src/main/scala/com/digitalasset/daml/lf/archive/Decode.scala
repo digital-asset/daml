@@ -3,7 +3,7 @@
 
 package com.daml.lf.archive
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf_dev.{DamlLf, DamlLf1}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.util.PackageInfo
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
@@ -22,6 +22,16 @@ object Decode {
           .decodePackage(
             payload.pkgId,
             payload.proto.getDamlLf1,
+            onlySerializableDataDefs,
+          )
+          .map(payload.pkgId -> _)
+      case LanguageVersion(LanguageMajorVersion.V2, minor)
+          if LanguageMajorVersion.V2.supportedMinorVersions.contains(minor) =>
+        new DecodeV1(minor)
+          .decodePackage(
+            payload.pkgId,
+            // For the moment, v1 and v2 are wire compatible.
+            DamlLf1.Package.parseFrom(payload.proto.getDamlLf2.toByteString),
             onlySerializableDataDefs,
           )
           .map(payload.pkgId -> _)

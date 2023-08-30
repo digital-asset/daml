@@ -15,6 +15,7 @@ import qualified Text.Read as Read
 -- | Daml-LF version of an archive payload.
 data Version
   = V1{versionMinor :: MinorVersion}
+  | V2{versionMinor :: MinorVersion}
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 data MinorVersion = PointStable Int | PointDev
@@ -57,11 +58,14 @@ versionDefault :: Version
 versionDefault = version1_15
 
 -- | The Daml-LF development version.
-versionDev :: Version
-versionDev = V1 PointDev
+version1_dev :: Version
+version1_dev = V1 PointDev
+
+version2_dev :: Version
+version2_dev = V1 PointDev
 
 supportedOutputVersions :: [Version]
-supportedOutputVersions = [version1_14, version1_15, versionDev]
+supportedOutputVersions = [version1_14, version1_15, version1_dev, version2_dev]
 
 supportedInputVersions :: [Version]
 supportedInputVersions = [version1_8, version1_11, version1_12, version1_13] ++ supportedOutputVersions
@@ -95,7 +99,7 @@ featureTypeInterning = Feature
 featureUnstable :: Feature
 featureUnstable = Feature
     { featureName = "Unstable, experimental features"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_dev
     , featureCppFlag = Just "DAML_UNSTABLE"
     }
 
@@ -130,49 +134,49 @@ featureSimpleInterfaces = Feature
 featureExtendedInterfaces :: Feature
 featureExtendedInterfaces = Feature
     { featureName = "Guards in interfaces"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_dev
     , featureCppFlag = Just "DAML_INTERFACE_EXTENDED"
     }
 
 featureChoiceFuncs :: Feature
 featureChoiceFuncs = Feature
     { featureName = "choiceController and choiceObserver functions"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_dev
     , featureCppFlag = Just "DAML_CHOICE_FUNCS"
     }
 
 featureTemplateTypeRepToText :: Feature
 featureTemplateTypeRepToText = Feature
     { featureName = "templateTypeRepToText function"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_dev
     , featureCppFlag = Just "DAML_TEMPLATE_TYPEREP_TO_TEXT"
     }
 
 featureDynamicExercise :: Feature
 featureDynamicExercise = Feature
     { featureName = "dynamicExercise function"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_dev
     , featureCppFlag = Just "DAML_DYNAMIC_EXERCISE"
     }
 
 featurePackageUpgrades :: Feature
 featurePackageUpgrades = Feature
     { featureName = "Package upgrades POC"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_dev
     , featureCppFlag = Just "DAML_PACKAGE_UPGRADES"
     }
 
 featureNatTypeErasure :: Feature
 featureNatTypeErasure = Feature
     { featureName = "Erasing types of kind Nat"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_dev
     , featureCppFlag = Just "DAML_NAT_TYPE_ERASURE"
     }
 
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_dev
     , featureCppFlag = Just "DAML_EXPERIMENTAL"
     }
 
@@ -242,10 +246,12 @@ parseMinorVersion = \case
 renderVersion :: Version -> String
 renderVersion = \case
     V1 minor -> "1." ++ renderMinorVersion minor
+    V2 minor -> "2." ++ renderMinorVersion minor
 
 parseVersion :: String -> Maybe Version
 parseVersion = \case
     '1':'.':minor -> V1 <$> parseMinorVersion minor
+    '2':'.':minor -> V2 <$> parseMinorVersion minor
     _ -> Nothing
 
 instance Pretty Version where

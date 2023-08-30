@@ -14,6 +14,7 @@ import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
 decodePayload :: PackageId -> PackageRef -> ArchivePayload -> Either Error Package
 decodePayload pkgId selfPackageRef payload = case archivePayloadSum payload of
     Just (ArchivePayloadSumDamlLf1 package) -> DecodeV1.decodePackage (Just pkgId) minor selfPackageRef package
+    Just (ArchivePayloadSumDamlLf2 _) -> Left $ ParseError "LF v2 is unsupported"
     Nothing -> Left $ ParseError "Empty payload"
     where
         minor = archivePayloadMinor payload
