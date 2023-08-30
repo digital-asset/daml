@@ -75,7 +75,7 @@ final class DamlExportIt
       partiesMapping = partyPrefixes zip parties
       response <- client.transactionClient.getLedgerEnd()
       startOffset <- Future(response.offset.get)
-      entry = Runner.run(
+      _ <- Runner.run(
         compiledPackages = dar.compiledPackages,
         scriptId = dar.id(scriptIdentifier),
         convertInputValue = Some(converter),
@@ -84,8 +84,6 @@ final class DamlExportIt
           Participants(Some(new GrpcLedgerClient(client, applicationId)), Map.empty, Map.empty),
         timeMode = ScriptTimeMode.Static,
       )
-      (_, future) = entry
-      _ <- future
       response <- client.transactionClient.getLedgerEnd()
       endOffset <- Future(response.offset.get)
       outputDir = Files.createTempDirectory(getClass.getSimpleName)
