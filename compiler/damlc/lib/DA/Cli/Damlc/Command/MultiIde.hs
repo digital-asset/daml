@@ -10,249 +10,33 @@
 
 module DA.Cli.Damlc.Command.MultiIde (runMultiIde) where
 
-import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception (catch, handle)
-import Control.Exception.Safe (catchIO)
-import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
-import Control.Monad.Extra (whenM, whenJust)
-import DA.Bazel.Runfiles (Resource(..),
-                          locateResource,
-                          mainWorkspace,
-                          resourcesPath,
-                          runfilesPathPrefix,
-                          setRunfilesEnv)
-import qualified DA.Cli.Args as ParseArgs
-import DA.Cli.Options (Debug(..),
-                       InitPkgDb(..),
-                       ProjectOpts(..),
-                       Style(..),
-                       Telemetry(..),
-                       debugOpt,
-                       disabledDlintUsageParser,
-                       enabledDlintUsageParser,
-                       enableScenarioServiceOpt,
-                       incrementalBuildOpt,
-                       initPkgDbOpt,
-                       inputDarOpt,
-                       inputFileOpt,
-                       inputFileOptWithExt,
-                       optionalDlintUsageParser,
-                       optionalOutputFileOpt,
-                       optionsParser,
-                       optPackageName,
-                       outputFileOpt,
-                       packageNameOpt,
-                       projectOpts,
-                       render,
-                       studioAutorunAllScenariosOpt,
-                       targetFileNameOpt,
-                       telemetryOpt)
-import DA.Cli.Damlc.BuildInfo (buildInfo)
-import qualified DA.Daml.Dar.Reader as InspectDar
-import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
-import DA.Cli.Damlc.Packaging (createProjectPackageDb, mbErr)
-import DA.Cli.Damlc.DependencyDb (installDependencies)
-import DA.Cli.Damlc.Test (CoveragePaths(..),
-                          LoadCoverageOnly(..),
-                          RunAllTests(..),
-                          ShowCoverage(..),
-                          TableOutputPath(..),
-                          TransactionsOutputPath(..),
-                          UseColor(..),
-                          execTest,
-                          getRunAllTests,
-                          loadAggregatePrintResults)
-import DA.Daml.Compiler.Dar (FromDalf(..),
-                             breakAt72Bytes,
-                             buildDar,
-                             createDarFile,
-                             getDamlRootFiles,
-                             writeIfacesAndHie)
-import DA.Daml.Compiler.Output (diagnosticsLogger, writeOutput, writeOutputBSL)
-import qualified DA.Daml.Compiler.Repl as Repl
-import DA.Daml.Compiler.DocTest (docTest)
-import DA.Daml.Desugar (desugar)
-import DA.Daml.LF.ScenarioServiceClient (readScenarioServiceConfig, withScenarioService')
-import qualified DA.Daml.LF.ReplClient as ReplClient
-import DA.Daml.Compiler.Validate (validateDar)
-import qualified DA.Daml.LF.Ast as LF
-import DA.Daml.LF.Ast.Util (splitUnitId)
-import qualified DA.Daml.LF.Proto3.Archive as Archive
-import DA.Daml.LF.Reader (dalfPaths,
-                          mainDalf,
-                          mainDalfPath,
-                          manifestPath,
-                          readDalfManifest,
-                          readDalfs,
-                          readManifest)
-import DA.Daml.LanguageServer (runLanguageServer)
-import DA.Daml.Options.Types (EnableScenarioService(..),
-                              Haddock(..),
-                              IncrementalBuild,
-                              Options,
-                              SkipScenarioValidation(..),
-                              StudioAutorunAllScenarios,
-                              damlArtifactDir,
-                              distDir,
-                              getLogger,
-                              ifaceDir,
-                              optDamlLfVersion,
-                              optEnableOfInterestRule,
-                              optEnableScenarios,
-                              optHaddock,
-                              optIfaceDir,
-                              optImportPath,
-                              optIncrementalBuild,
-                              optMbPackageName,
-                              optMbPackageVersion,
-                              optPackageDbs,
-                              optPackageImports,
-                              optScenarioService,
-                              optSkipScenarioValidation,
-                              optThreads,
-                              pkgNameVersion,
-                              projectPackageDatabase)
-import DA.Daml.Package.Config (PackageConfigFields(..),
-                               PackageSdkVersion(..),
-                               checkPkgConfig,
-                               withPackageConfig)
-import DA.Daml.Project.Config (queryProjectConfigRequired, readProjectConfig)
-import DA.Daml.Project.Consts (ProjectCheck(..),
-                               damlCacheEnvVar,
-                               damlPathEnvVar,
-                               getProjectPath,
-                               getSdkVersion,
-                               projectConfigName,
-                               sdkVersionEnvVar,
-                               withExpectProjectRoot,
-                               withProjectRoot)
-import DA.Daml.Project.Types (ConfigError(..), ProjectPath(..))
-import qualified DA.Pretty
-import qualified DA.Service.Logger as Logger
-import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
-import qualified DA.Service.Logger.Impl.IO as Logger.IO
-import DA.Signals (installSignalHandlers)
-import qualified Com.Daml.DamlLfDev.DamlLf as PLF
-import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
-import qualified Data.Aeson.Text as Aeson
+import Control.Concurrent.Async (async, waitAny)
+import Control.Concurrent.STM.TChan
+import Control.Concurrent.STM.TVar
+import Control.Monad
+import Control.Monad.STM
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
+import qualified Data.Attoparsec.ByteString.Lazy as Attoparsec
 import qualified Data.ByteString as B
+import Data.ByteString.Builder.Extra (defaultChunkSize)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import qualified Data.ByteString.UTF8 as BSUTF8
-import Data.FileEmbed (embedFile)
-import qualified Data.HashSet as HashSet
-import Data.List.Extra (nubOrd, nubSort, nubSortOn)
-import qualified Data.List.Split as Split
-import qualified Data.Map.Strict as Map
-import Data.Maybe (catMaybes, fromMaybe, mapMaybe)
-import qualified Data.Text.Extended as T
-import qualified Data.Text.Lazy.IO as TL
-import qualified Data.Text.IO as T
-import Development.IDE.Core.API (getDalf, runActionSync, setFilesOfInterest)
-import Development.IDE.Core.Debouncer (newAsyncDebouncer)
-import Development.IDE.Core.IdeState.Daml (getDamlIdeState,
-                                           enabledPlugins,
-                                           withDamlIdeState)
-import Development.IDE.Core.Rules (transitiveModuleDeps)
-import Development.IDE.Core.Rules.Daml (getDlintIdeas, getSpanInfo)
-import Development.IDE.Core.Shake (Config(..),
-                                   NotificationHandler(..),
-                                   ShakeLspEnv(..),
-                                   getDiagnostics,
-                                   use,
-                                   use_,
-                                   uses)
-import Development.IDE.GHC.Util (hscEnv, moduleImportPath, hDuplicateTo')
-import Development.IDE.Types.Location (toNormalizedFilePath')
-import "ghc-lib-parser" DynFlags (DumpFlag(..),
-                                  ModRenaming(..),
-                                  PackageArg(..),
-                                  PackageFlag(..))
-import GHC.Conc (getNumProcessors)
-import "ghc-lib-parser" Module (unitIdString, stringToUnitId)
-import qualified Network.Socket as NS
-import Options.Applicative.Extended (flagYesNoAuto, optionOnce, strOptionOnce)
-import Options.Applicative ((<|>),
-                            CommandFields,
-                            Mod,
-                            Parser,
-                            ParserInfo,
-                            auto,
-                            command,
-                            eitherReader,
-                            flag,
-                            flag',
-                            fullDesc,
-                            handleParseResult,
-                            headerDoc,
-                            help,
-                            helper,
-                            info,
-                            internal,
-                            liftA2,
-                            long,
-                            many,
-                            metavar,
-                            optional,
-                            progDesc,
-                            short,
-                            str,
-                            strArgument,
-                            subparser,
-                            switch,
-                            value)
-import qualified Options.Applicative (option, strOption)
-import qualified Proto3.Suite as PS
-import qualified Proto3.Suite.JSONPB as Proto.JSONPB
-import System.Directory.Extra
-import System.Environment
-import System.Exit
-import System.FilePath
-import System.IO.Extra
-import System.Process (StdStream(..), CreateProcess(..), proc, waitForProcess, createProcess)
-import qualified Text.PrettyPrint.ANSI.Leijen as PP
-import Development.IDE.Core.RuleTypes
-import "ghc-lib-parser" ErrUtils
--- For dumps
-import "ghc-lib" GHC
-import "ghc-lib-parser" HsDumpAst
-import "ghc-lib" HscStats
-import "ghc-lib-parser" HscTypes
-import qualified "ghc-lib-parser" Outputable as GHC
-import qualified SdkVersion
-import "ghc-lib-parser" Util (looksLikePackageName)
-
---import qualified Language.LSP.Server as LSP
---import Data.Default
---import qualified Language.LSP.Types as LSP
---import qualified Language.LSP.Types.Capabilities as LSP
---import qualified Language.LSP.Types.Lens as LSP (params)
---import Control.Lens ((^.))
---import qualified Language.LSP.Types.SMethodMap as SMM
---import qualified Development.IDE.LSP.LanguageServer as IDELanguageServer
---import qualified Data.Text as T
-import Data.ByteString.Builder.Extra (defaultChunkSize)
-import qualified Data.Attoparsec.ByteString.Lazy as Attoparsec
---import qualified Data.Attoparsec.ByteString.Char8 as Attoparsec
-import System.IO.Unsafe (unsafeInterleaveIO)
-import qualified Language.LSP.Types.Parsing as LSP
-import qualified Language.LSP.Types.Method as LSP
-import qualified Language.LSP.Types.Message as LSP
-import qualified Language.LSP.Types.Capabilities as LSP
-import qualified Language.LSP.Types as LSP
-import qualified Data.IxMap as IM
-import           Control.Concurrent.STM.TVar
-import Control.Concurrent.Async (async, wait, waitAny)
-import Control.Concurrent.STM.TChan
-import Control.Monad
-import Control.Monad.STM
 import Data.Functor.Const
 import Data.Functor.Product
+import qualified Data.IxMap as IM
+import Data.Maybe (fromJust, fromMaybe)
+import qualified Language.LSP.Types as LSP
+import qualified Language.LSP.Types.Message as LSP
+import qualified Language.LSP.Types.Method as LSP
+import qualified Language.LSP.Types.Parsing as LSP
+import System.IO.Extra
+import System.IO.Unsafe (unsafeInterleaveIO)
+import System.Process (StdStream(..), CreateProcess(..), ProcessHandle, proc, waitForProcess, createProcess)
 
-{-# ANN module "HLint: ignore Avoid restricted function" #-}
+{-# ANN allBytes ("HLint: ignore Avoid restricted function" :: String) #-}
+-- unsafeInterleaveIO used to create a chunked lazy bytestring over IO for a given Handle
 allBytes :: Handle -> IO BSL.ByteString
 allBytes hin = fmap BSL.fromChunks go
   where
@@ -262,6 +46,8 @@ allBytes hin = fmap BSL.fromChunks go
       rest <- unsafeInterleaveIO go
       pure (first : rest)
 
+-- Feels like this could just be a `takeWhile isDigit >>= read . concat`
+-- I'd also be quite surprised if Attoparsec doesn't already have an integer parser...
 decimal :: Attoparsec.Parser Int
 decimal = B.foldl' step 0 `fmap` Attoparsec.takeWhile1 (\w -> w - 48 <= 9)
   where step a w = a * 10 + fromIntegral (w - 48)
@@ -321,6 +107,8 @@ pickReqMethodTo tracker handler = atomically $ do
     Nothing -> pure ()
   pure r
 
+-- We're forced to give a result of type `(SMethod m, a m)` by parseServerMessage, but we want to include the updated MethodTracker
+-- so we use Product to ensure our result has the SMethod and our MethodTracker
 wrapExtract
   :: forall (f :: LSP.From) (m :: LSP.Method f 'LSP.Request)
     . (Maybe (LSP.SMethod m), MethodTracker f)
@@ -331,6 +119,8 @@ wrapExtract
 wrapExtract (mayMethod, newIM) =
   fmap (\meth -> (meth, Pair meth (Const newIM))) mayMethod
 
+-- Parses a message from the server providing context about previous requests from client
+-- allowing the server parser to reconstruct typed responses to said requests
 parseServerMessageWithTracker :: MethodTrackerVar 'LSP.FromClient -> Aeson.Value -> IO (Either String LSP.FromServerMessage)
 parseServerMessageWithTracker tracker val = pickReqMethodTo tracker $ \extract ->
   case Aeson.parseEither (LSP.parseServerMessage (wrapExtract . extract)) val of
@@ -338,6 +128,7 @@ parseServerMessageWithTracker tracker val = pickReqMethodTo tracker $ \extract -
     Right (LSP.FromServerRsp (Pair meth (Const newIxMap)) rsp) -> (Right (LSP.FromServerRsp meth rsp), Just newIxMap)
     Left msg -> (Left msg, Nothing)
 
+-- Identical to parseServerMessageWithTracker but using Client message types, and checking previous requests from server
 parseClientMessageWithTracker :: MethodTrackerVar 'LSP.FromServer -> Aeson.Value -> IO (Either String LSP.FromClientMessage)
 parseClientMessageWithTracker tracker val = pickReqMethodTo tracker $ \extract ->
   case Aeson.parseEither (LSP.parseClientMessage (wrapExtract . extract)) val of
@@ -345,6 +136,7 @@ parseClientMessageWithTracker tracker val = pickReqMethodTo tracker $ \extract -
     Right (LSP.FromClientRsp (Pair meth (Const newIxMap)) rsp) -> (Right (LSP.FromClientRsp meth rsp), Just newIxMap)
     Left msg -> (Left msg, Nothing)
 
+-- Takes a message from server and stores it if its a request, so that later messages from the client can deduce response context
 putServerReq :: MethodTrackerVar 'LSP.FromServer -> LSP.FromServerMessage -> IO ()
 putServerReq tracker msg =
   case msg of
@@ -360,6 +152,7 @@ putServerReq tracker msg =
         _ -> pure ()
     _ -> pure ()
 
+-- Identical to putServerReq but for messages from client
 putClientReq :: MethodTrackerVar 'LSP.FromClient -> LSP.FromClientMessage -> IO ()
 putClientReq tracker msg =
   case msg of
@@ -387,8 +180,8 @@ subprocMessageHandler trackers toClientChan toSubprocChan bs = do
 
   let sendClient :: LSP.FromServerMessage -> IO ()
       sendClient = atomically . writeTChan toClientChan . Aeson.encode
-      sendSubproc :: LSP.FromClientMessage -> IO ()
-      sendSubproc = atomically . writeTChan toSubprocChan . Aeson.encode
+      _sendSubproc :: LSP.FromClientMessage -> IO ()
+      _sendSubproc = atomically . writeTChan toSubprocChan . Aeson.encode
 
   -- If its a request (builtin or custom), save it for response handling.
   putServerReq (fromServerTracker trackers) msg
@@ -433,7 +226,7 @@ clientMessageHandler trackers toClientChan toSubprocChan bs = do
       hPutStrLn stderr "Custom message daml/keepAlive"
       hFlush stderr
       sendClient $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right Aeson.Null)
-    LSP.FromClientMess LSP.SInitialize mess@LSP.RequestMessage {_id, _method, _params} -> do
+    LSP.FromClientMess LSP.SInitialize LSP.RequestMessage {_id, _method, _params} -> do
       hPutStrLn stderr "Initialize"
       hFlush stderr
       sendSubproc msg 
@@ -490,7 +283,7 @@ runSubProc :: IO (Handle, Handle, ProcessHandle)
 runSubProc = do
   -- TODO: Better to make a tmp file and print its location
   subproc_stderr_out <- openFile "/home/samuelwilliams/subproc_stderr" WriteMode
-  (~(Just subprocStdin), ~(Just subprocStdout), ~(Just _), subprocHandle) <-
+  (fromJust -> subprocStdin, fromJust -> subprocStdout, _, subprocHandle) <-
     createProcess
       -- TODO: This needs to be version aware, use the env var to set SDK version then envoke daml assistant via its own env var
       -- it likely doesn't matter which version of daml assistant is used, as it'll grab the correct IDE under the hood.

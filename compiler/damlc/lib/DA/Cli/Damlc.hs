@@ -17,7 +17,7 @@ module DA.Cli.Damlc (main) where
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception (catch, handle)
 import Control.Exception.Safe (catchIO)
-import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
+import Control.Monad.Except (liftIO)
 import Control.Monad.Extra (whenM, whenJust)
 import DA.Bazel.Runfiles (Resource(..),
                           locateResource,
@@ -140,8 +140,6 @@ import DA.Signals (installSignalHandlers)
 import qualified Com.Daml.DamlLfDev.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.Aeson.Text as Aeson
-import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.Types as Aeson
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
@@ -170,7 +168,7 @@ import Development.IDE.Core.Shake (Config(..),
                                    use,
                                    use_,
                                    uses)
-import Development.IDE.GHC.Util (hscEnv, moduleImportPath, hDuplicateTo')
+import Development.IDE.GHC.Util (hscEnv, moduleImportPath)
 import Development.IDE.Types.Location (toNormalizedFilePath')
 import "ghc-lib-parser" DynFlags (DumpFlag(..),
                                   ModRenaming(..),
@@ -217,7 +215,7 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
-import System.Process (StdStream(..), CreateProcess(..), proc, waitForProcess, createProcess)
+import System.Process (StdStream(..))
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
 import Development.IDE.Core.RuleTypes
 import "ghc-lib-parser" ErrUtils
@@ -230,32 +228,7 @@ import qualified "ghc-lib-parser" Outputable as GHC
 import qualified SdkVersion
 import "ghc-lib-parser" Util (looksLikePackageName)
 
---import qualified Language.LSP.Server as LSP
---import Data.Default
---import qualified Language.LSP.Types as LSP
---import qualified Language.LSP.Types.Capabilities as LSP
---import qualified Language.LSP.Types.Lens as LSP (params)
---import Control.Lens ((^.))
---import qualified Language.LSP.Types.SMethodMap as SMM
---import qualified Development.IDE.LSP.LanguageServer as IDELanguageServer
---import qualified Data.Text as T
-import Data.ByteString.Builder.Extra (defaultChunkSize)
-import qualified Data.Attoparsec.ByteString.Lazy as Attoparsec
---import qualified Data.Attoparsec.ByteString.Char8 as Attoparsec
-import System.IO.Unsafe (unsafeInterleaveIO)
-import qualified Language.LSP.Types.Parsing as LSP
-import qualified Language.LSP.Types.Method as LSP
-import qualified Language.LSP.Types.Message as LSP
-import qualified Language.LSP.Types.Capabilities as LSP
-import qualified Language.LSP.Types as LSP
-import qualified Data.IxMap as IM
-import           Control.Concurrent.STM.TVar
-import Control.Concurrent.Async (async, wait, waitAny)
-import Control.Concurrent.STM.TChan
 import Control.Monad
-import Control.Monad.STM
-import Data.Functor.Const
-import Data.Functor.Product
 
 --------------------------------------------------------------------------------
 -- Commands

@@ -235,12 +235,6 @@ da_haskell_library(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
-    compiler_flags = [
-        "-Wno-unused-imports",
-        "-Wno-unused-local-binds",
-        "-Wno-unused-matches",
-        "-Wno-incomplete-uni-patterns",
-    ],
 )
 
 # Generating Daml stdlib docs.
