@@ -11,7 +11,7 @@ jobs:
   dependsOn:
     - check_for_release
     - build_canton
-  timeoutInMinutes: 180
+  timeoutInMinutes: 240
   pool:
     name: macOS-pool
     demands: assignment -equals ${{parameters.assignment}}
