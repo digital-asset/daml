@@ -182,7 +182,6 @@ SNASPSHOT_VERSIONS = [ver for ver in PROTO_LF_VERSIONS if ver != "1.dev"]
         data = [
             "buf.yaml",
             "proto_breaking_changes.sh",
-            "src/main/protobuf/com/daml/daml_lf_dev",
             ":daml_lf_%s_archive_proto_srcs" % version,
             ":daml_lf_1.dev_archive_proto_srcs",
             "@buf//:bin/buf",
