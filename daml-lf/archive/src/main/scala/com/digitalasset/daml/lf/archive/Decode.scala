@@ -3,10 +3,12 @@
 
 package com.daml.lf.archive
 
-import com.daml.daml_lf_dev.{DamlLf, DamlLf1}
+import com.daml.daml_lf_dev.{DamlLf, DamlLf1, DamlLf2}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.util.PackageInfo
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.daml.scalautil.Statement.discard
+import com.google.protobuf.CodedInputStream
 
 object Decode {
 
@@ -30,13 +32,20 @@ object Decode {
         new DecodeV1(minor)
           .decodePackage(
             payload.pkgId,
-            // For the moment, v1 and v2 are wire compatible.
-            DamlLf1.Package.parseFrom(payload.proto.getDamlLf2.toByteString),
+            coerce(payload.proto.getDamlLf2),
             onlySerializableDataDefs,
           )
           .map(payload.pkgId -> _)
       case v => Left(Error.Parsing(s"$v unsupported"))
     }
+
+  // For the moment, v1 and v2 are wire compatible
+  // TODO(paul): move this to archive/package.scala to share the 1000 constant
+  private def coerce(lf2Package: DamlLf2.Package): DamlLf1.Package = {
+    val codedInputStream = CodedInputStream.newInstance(lf2Package.toByteArray)
+    discard(codedInputStream.setRecursionLimit(1000))
+    DamlLf1.Package.parseFrom(codedInputStream)
+  }
 
   @throws[Error]
   def assertDecodeArchivePayload(
