@@ -199,13 +199,10 @@ da_haskell_library(
     )
     # Test stable versions with validation
     # Test dev versions without validation
-    for version, skip_validation in [(version, False) for version in COMPILER_LF_VERSIONS] + [
-        (
-            version,
-            True,
-        )
-        for version in [lf_version_configuration.get("default")] + LF_DEV_VERSIONS
-    ]
+    for version, skip_validation in (
+        [(version, False) for version in COMPILER_LF_VERSIONS] +
+        [(version, True) for version in [lf_version_configuration.get("default")] + LF_DEV_VERSIONS]
+    )
 ]
 
 [
