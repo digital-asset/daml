@@ -69,7 +69,7 @@ darPackageIds fp = do
 lfVersionTestPairs :: [(LF.Version, LF.Version)]
 lfVersionTestPairs =
     let legacyPairs = map (, LF.version1_14) (LF.supportedInputVersions \\ LF.supportedOutputVersions)
-        versions = sort LF.supportedOutputVersions ++ [LF.versionDev]
+        versions = sort LF.supportedOutputVersions ++ [LF.version1_dev]
     in legacyPairs ++ zip versions (tail versions)
 
 tests :: Tools -> TestTree
@@ -2512,7 +2512,7 @@ tests tools = testGroup "Data Dependencies" $
         callProcessSilent damlc
             [ "build"
             , "--project-root", tmpDir </> "main"
-            , "--target", LF.renderVersion LF.versionDev ]
+            , "--target", LF.renderVersion LF.version1_dev ]
 
     , testCaseSteps "Package ids are stable across rebuilds" $ \step -> withTempDir $ \tmpDir -> do
         step "building lib (project to be imported via data-dependencies)"
@@ -2534,7 +2534,7 @@ tests tools = testGroup "Data Dependencies" $
             [ "build"
             , "--project-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
-            , "--target", LF.renderVersion LF.versionDev
+            , "--target", LF.renderVersion LF.version1_dev
             ]
 
         step "building main (project that imports lib via data-dependencies)"
@@ -2559,7 +2559,7 @@ tests tools = testGroup "Data Dependencies" $
             [ "build"
             , "--project-root", tmpDir </> "main"
             , "-o", tmpDir </> "main" </> "main.dar"
-            , "--target", LF.renderVersion LF.versionDev
+            , "--target", LF.renderVersion LF.version1_dev
             ]
 
         step "building main again as main2.dar"
@@ -2567,7 +2567,7 @@ tests tools = testGroup "Data Dependencies" $
             [ "build"
             , "--project-root", tmpDir </> "main"
             , "-o", tmpDir </> "main" </> "main2.dar"
-            , "--target", LF.renderVersion LF.versionDev
+            , "--target", LF.renderVersion LF.version1_dev
             ]
 
         step "compare package ids in main.dar and main2.dar"
@@ -2696,12 +2696,12 @@ tests tools = testGroup "Data Dependencies" $
         callProcessSilent damlc
             [ "build"
             , "--project-root", tmpDir </> "main"
-            , "--target", LF.renderVersion LF.versionDev ]
+            , "--target", LF.renderVersion LF.version1_dev ]
         step "running damlc test"
         callProcessSilent damlc
             [ "test"
             , "--project-root", tmpDir </> "main"
-            , "--target", LF.renderVersion LF.versionDev ]
+            , "--target", LF.renderVersion LF.version1_dev ]
     ]
   where
     Tools
