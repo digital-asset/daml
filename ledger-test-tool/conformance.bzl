@@ -73,21 +73,5 @@ EOF
         visibility = ["//visibility:public"],
     )
 
-def server_conformance_test(name, servers, server_args = [], test_tool_args = [], flaky = False, lf_versions = ["default"], hocon = False, hocon_config = None):
-    for server_name, server in servers.items():
-        test_name = "-".join([name, server_name])
-        conformance_test(
-            name = test_name,
-            extra_data = server.get("extra_data", []),
-            server = server["binary"],
-            server_args = server.get("server_args", []) + server_args,
-            test_tool_args = server.get("test_tool_args", []) + test_tool_args,
-            tags = server.get("tags", []),
-            lf_versions = lf_versions,
-            flaky = flaky,
-            server_hocon_config = hocon_config,
-            hocon = hocon,
-        )
-
 # versions for which we build a test-tool
 testtool_lf_versions = ["1.8", "1.14", "1.15", "1.dev"]
