@@ -78,7 +78,7 @@ object LanguageVersion {
     /** Guards in interfaces */
     val extendedInterfaces = v1_dev
 
-    /** Unstable, experimental features. This should stay in 2.dev forever.
+    /** Unstable, experimental features. This should stay in x.dev forever.
       * Features implemented with this flag should be moved to a separate
       * feature flag once the decision to add them permanently has been made.
       */

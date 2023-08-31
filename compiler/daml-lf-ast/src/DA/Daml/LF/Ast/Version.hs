@@ -62,7 +62,7 @@ version1_dev :: Version
 version1_dev = V1 PointDev
 
 version2_dev :: Version
-version2_dev = V1 PointDev
+version2_dev = V2 PointDev
 
 supportedOutputVersions :: [Version]
 supportedOutputVersions = [version1_14, version1_15, version1_dev, version2_dev]

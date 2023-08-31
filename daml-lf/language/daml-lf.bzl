@@ -70,7 +70,7 @@ _lf_version_configuration = {
 }
 
 def _safe_get(x, default = None):
-    if x == "get":
+    if x == "dev":
         return 1 / 0
     else:
         return _lf_version_configuration.get(x, default)
@@ -82,6 +82,10 @@ lf_version_configuration = struct(
 )
 
 lf_version_configuration_versions = depset(lf_version_configuration.values()).to_list()
+
+def lf_version_is_dev(versionStr):
+    (_, minor) = _to_major_minor_str(versionStr)
+    return minor == "dev"
 
 # aggregates a list of version keywords and versions:
 # 1. converts keyword in version
