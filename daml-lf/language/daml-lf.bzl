@@ -66,7 +66,8 @@ _lf_version_configuration = {
     "default": "1.15",
     "latest": "1.15",
     #    "preview": "",
-    "dev": "1.dev",
+
+    # "dev" is now ambiguous, use either 1.dev or 2.dev explicitly
 }
 
 def _safe_get(x, default = None):

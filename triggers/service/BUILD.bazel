@@ -19,7 +19,8 @@ triggerMain = "src/main/scala/com/digitalasset/daml/lf/engine/trigger/ServiceMai
 
 target_lf_versions = lf_versions_aggregate([
     "default",
-    "dev",
+    "1.dev",
+    "2.dev",
 ])
 
 da_scala_library(

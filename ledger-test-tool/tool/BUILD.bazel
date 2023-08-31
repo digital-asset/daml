@@ -252,7 +252,8 @@ conformance_test(
     extra_runner_args = ["7000"],
     lf_versions = [
         "preview",
-        "dev",
+        "1.dev",
+        "2.dev",
     ],
     ports = conformance_test_ports,
     preview_mod_flag = "",
