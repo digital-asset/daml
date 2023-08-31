@@ -144,7 +144,7 @@ withDamlScriptV2Dep :: (ScriptPackageData -> IO a) -> IO a
 withDamlScriptV2Dep =
   let
     darPath = "daml-script" </> "daml3" </> "daml3-script.dar"
-  in withVersionedDamlScriptDep ("daml3-script-" <> sdkPackageVersion) darPath (Just versionDev) scriptV2ExternalPackages
+  in withVersionedDamlScriptDep ("daml3-script-" <> sdkPackageVersion) darPath (Just version2_dev) scriptV2ExternalPackages
 
 -- External dars for scriptv2 when testing upgrades.
 -- package name and version
