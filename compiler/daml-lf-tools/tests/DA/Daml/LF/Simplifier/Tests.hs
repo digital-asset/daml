@@ -12,18 +12,19 @@ import qualified Data.Text as T
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Util
-import DA.Daml.LF.Ast.Version (versionDev)
+import DA.Daml.LF.Ast.Version (version1_dev, version2_dev, Version, renderVersion)
 import DA.Daml.LF.Ast.World (initWorld)
 import DA.Daml.LF.Simplifier (simplifyModule)
 
 
 main :: IO ()
 main = defaultMain $ testGroup "DA.Daml.LF.Simplifier"
-    [ constantLiftingTests
+    [ constantLiftingTests version1_dev
+    , constantLiftingTests version2_dev
     ]
 
-constantLiftingTests :: TestTree
-constantLiftingTests = testGroup "Constant Lifting"
+constantLiftingTests :: Version -> TestTree
+constantLiftingTests version = testGroup ("Constant Lifting " <> renderVersion version)
     [ mkTestCase "empty module" [] []
     , mkTestCase "closed value"
         [ dval "foo" TInt64 (EBuiltin (BEInt64 10)) ]
@@ -105,7 +106,6 @@ constantLiftingTests = testGroup "Constant Lifting"
             , moduleExceptions = NM.empty
             , moduleInterfaces = NM.empty
             }
-    version = versionDev
     world = initWorld [] version
 
     qualify :: t -> Qualified t
