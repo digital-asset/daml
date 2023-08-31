@@ -162,3 +162,4 @@ fromLedgerValue = dangerousCast
 
 toLedgerValue : a -> LedgerValue
 toLedgerValue = dangerousCast
+

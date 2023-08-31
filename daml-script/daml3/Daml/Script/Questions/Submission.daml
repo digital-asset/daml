@@ -1,0 +1,46 @@
+module Daml.Script.Questions.Submission where
+
+import Daml.Script.Internal 
+
+data RootCreate = RootCreate with
+  argC : AnyTemplate
+
+instance IsQuestion RootCreate (ContractId ()) where command = "RootCreate"
+
+rootCreate : (Template t, HasAgreement t) => t -> Script (ContractId t)
+rootCreate arg = do
+   cid <- lift $ RootCreate (toAnyTemplate arg)
+   pure $ coerceContractId @() cid
+
+data RootExercise = RootExercise with
+   tplId : TemplateTypeRep
+   cId : ContractId ()
+   argE : AnyChoice
+
+instance IsQuestion RootExercise LedgerValue where command = "RootExercise"
+
+rootExercise : forall t c r. Choice t c r  => ContractId t -> c -> Script r
+rootExercise cId arg = do
+  ledgerValue <- lift $ RootExercise (templateTypeRep @t) (coerceContractId cId) (toAnyChoice @t arg)
+  pure $ fromLedgerValue ledgerValue
+
+rootCreateAndExercise : forall t c r. (HasAgreement t, Choice t c r) => t -> c -> Script (ContractId t, r)
+rootCreateAndExercise arg choiceArg = do
+  cid <- rootCreate arg
+  r <- rootExercise cid choiceArg
+  pure (cid, r)
+
+class IsSubmissionScript req res | req -> res where 
+  submissionId: req -> Script res   
+  
+data SubmitScript req res = SubmitScript with 
+   actAs : [Party]
+   readAs : [Party]
+   arg : req 
+   id : req -> Script res   
+   
+instance IsSubmissionScript req res => IsQuestion (SubmitScript req res) res where command = "SubmitScript"  
+   
+submitScript :IsSubmissionScript req res => [Party] -> [Party] -> req -> Script res 
+submitScript actAs readAs arg = do
+  lift $ SubmitScript actAs readAs arg submissionId
