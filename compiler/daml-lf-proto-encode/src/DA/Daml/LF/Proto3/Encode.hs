@@ -12,7 +12,7 @@ import qualified Com.Daml.DamlLfDev.DamlLf2 as LF2
 import DA.Daml.LF.Ast
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import Proto3.Suite (toLazyByteString, fromByteString)
-import Data.ByteString.Lazy (toStrict)
+import qualified Data.ByteString.Lazy as BL
 import Data.Either (fromRight)
 
 encodePayload :: Package -> ArchivePayload
@@ -25,4 +25,7 @@ encodePayload package = case packageLfVersion package of
         in  ArchivePayload (TL.pack $ renderMinorVersion minor) (Just payload)
 
 coerceLF1toLF2 :: LF1.Package -> LF2.Package
-coerceLF1toLF2 package = fromRight (error "cannot coerce LF1 proto to LF2 proto") (fromByteString (toStrict $ toLazyByteString package))
+coerceLF1toLF2 package =
+  fromRight
+    (error "cannot coerce LF1 proto to LF2 proto")
+    (fromByteString (BL.toStrict $ toLazyByteString package))

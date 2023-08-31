@@ -7,7 +7,7 @@ load(
 )
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version")
-load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration", "lf_versions_aggregate")
+load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration", "lf_version_is_dev", "lf_versions_aggregate")
 
 def conformance_test(
         name,
@@ -28,7 +28,7 @@ def conformance_test(
     for lf_version in lf_versions_aggregate(lf_versions):
         daml_lf_dev_mode_args = ["-C ledger.engine.allowed-language-versions=daml-lf-dev-mode-unsafe"] if hocon else [dev_mod_flag]
         daml_lf_preview_mode_args = ["-C ledger.engine.allowed-language-versions=early-access"] if hocon else [preview_mod_flag]
-        extra_server_args = daml_lf_preview_mode_args if lf_version == lf_version_configuration.get("preview") else daml_lf_dev_mode_args if lf_version == lf_version_configuration.get("dev") else []
+        extra_server_args = daml_lf_preview_mode_args if lf_version == lf_version_configuration.get("preview") else daml_lf_dev_mode_args if lf_version_is_dev(lf_version) else []
         if not is_windows:
             test_name = "-".join([name, lf_version])
             hocon_conf_file_name = test_name + ".conf"

@@ -83,10 +83,6 @@ lf_version_configuration = struct(
 
 lf_version_configuration_versions = depset(lf_version_configuration.values()).to_list()
 
-def lf_version_is_dev(versionStr):
-    (_, minor) = _to_major_minor_str(versionStr)
-    return minor == "dev"
-
 # aggregates a list of version keywords and versions:
 # 1. converts keyword in version
 # 2. removes "preview" if no preview version is available.
@@ -103,6 +99,12 @@ def lf_versions_aggregate(versions):
 # in a stable LF version.
 lf_docs_version = lf_version_configuration.get("preview", lf_version_configuration.get("latest"))
 
+# All LF dev versions
+LF_DEV_VERSIONS = [
+    "1.dev",
+    "2.dev",
+]
+
 # All LF versions
 LF_VERSIONS = [
     "1.6",
@@ -113,10 +115,13 @@ LF_VERSIONS = [
     "1.13",
     "1.14",
     "1.15",
-    "1.dev",
-    "2.dev",
-]
+] + LF_DEV_VERSIONS
 
+def lf_version_is_dev(versionStr):
+    return versionStr in LF_DEV_VERSIONS
+
+# Later: add 2.0
+SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["1.14", "1.15"]
 PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14")]
 
 # The subset of LF versions accepted by the compiler in the syntax

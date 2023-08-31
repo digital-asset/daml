@@ -38,8 +38,8 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/api-type-signature",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
@@ -88,8 +88,8 @@ da_scala_test(
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton/it-lib",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",

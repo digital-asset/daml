@@ -70,6 +70,11 @@ supportedOutputVersions = [version1_14, version1_15, version1_dev, version2_dev]
 supportedInputVersions :: [Version]
 supportedInputVersions = [version1_8, version1_11, version1_12, version1_13] ++ supportedOutputVersions
 
+isDevVersion :: Version -> Bool
+isDevVersion (V1 PointDev) = True
+isDevVersion (V2 PointDev) = True
+isDevVersion _ = False
+
 data Feature = Feature
     { featureName :: !T.Text
     , featureMinVersion :: !Version
