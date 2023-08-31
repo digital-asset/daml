@@ -7,7 +7,7 @@ module DA.Daml.LF.Proto3.Decode
   ) where
 
 import Com.Daml.DamlLfDev.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
-import DA.Daml.LF.Ast (Package, PackageId, PackageRef)
+import DA.Daml.LF.Ast (Package, PackageId, PackageRef, packageLfVersion, Version (..), versionMinor)
 import DA.Daml.LF.Proto3.Error
 import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
 import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
@@ -23,7 +23,8 @@ decodePayload pkgId selfPackageRef payload = case archivePayloadSum payload of
       DecodeV1.decodePackage (Just pkgId) minor selfPackageRef package
     Just (ArchivePayloadSumDamlLf2 package) -> do
       lf1Package <- first (ParseError . show) (coerceLF2toLF1 package)
-      DecodeV1.decodePackage (Just pkgId) minor selfPackageRef lf1Package
+      package <- DecodeV1.decodePackage (Just pkgId) minor selfPackageRef lf1Package
+      return (package { packageLfVersion = V2 (versionMinor $ packageLfVersion package) })
     Nothing -> Left $ ParseError "Empty payload"
     where
         minor = archivePayloadMinor payload
