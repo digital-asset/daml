@@ -225,6 +225,7 @@ da_haskell_library(
             "true",
             "--evaluation-order",
             eval_order,
+            "-p", "Daml3ScriptTrySubmit",
         ],
         data = [
             ":bond-trading",
