@@ -45,6 +45,7 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             "//ledger-api/rs-grpc-bridge",
             "//ledger-api/testing-utils",
             "//ledger-service/fetch-contracts",
+            "@maven//:org_apache_commons_commons_text",
             "@maven//:org_scalatest_scalatest_compatible",
             "//ledger-service/http-json:http-json-{}".format(edition),
             "//ledger-service/http-json-cli:{}".format(edition),

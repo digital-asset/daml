@@ -41,6 +41,7 @@ import com.daml.logging.LoggingContextOf
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.commons.text.StringEscapeUtils
 import org.scalatest.{Assertions, Inside}
 import org.scalatest.OptionValues._
 import scalaz._
@@ -63,6 +64,20 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   import json.JsonProtocol._
 
   private val doNotReloadPackages = FiniteDuration(100, DAYS)
+
+  final case class TestJsonParseException(input: String, cause: JsonParser.ParsingException)
+      extends RuntimeException(
+        s"""Failed to parse Json in test
+          |Raw input: "${StringEscapeUtils.escapeJava(input)}"""".stripMargin,
+        cause,
+      )
+
+  def parseTestJson(input: String): JsValue =
+    try input.parseJson
+    catch {
+      case parsingException: JsonParser.ParsingException =>
+        throw TestJsonParseException(input, parsingException)
+    }
 
   def withHttpService[A](
       testName: String,
@@ -341,7 +356,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       .flatMap { resp =>
         val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
         bodyF.map(body => {
-          (resp.status, body.parseJson)
+          (resp.status, parseTestJson(body))
         })
       }
   }
@@ -373,7 +388,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       mat: Materializer,
   ): Future[(StatusCode, JsValue)] =
     postJsonStringRequestEncoded(uri, jsonString, headers).map { case (status, body) =>
-      (status, body.parseJson)
+      (status, parseTestJson(body))
     }
 
   def postJsonRequest(uri: Uri, json: JsValue, headers: List[HttpHeader])(implicit
@@ -439,7 +454,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       mat: Materializer,
   ): Future[(StatusCode, JsValue)] =
     getRequestEncoded(uri, headers).map { case (status, body) =>
-      (status, body.parseJson)
+      (status, parseTestJson(body))
     }
 
   def archiveCommand[Ref](reference: Ref): domain.ExerciseCommand[Nothing, v.Value, Ref] = {
