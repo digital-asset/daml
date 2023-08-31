@@ -10,6 +10,7 @@ module DA.Daml.LFConversion.Primitives(convertPrim) where
 
 import           DA.Daml.LFConversion.ConvertM
 import           DA.Daml.LF.Ast
+import           DA.Daml.LF.Ast.Numeric (numeric)
 import           DA.Daml.UtilLF
 import           DA.Pretty (renderPretty)
 import qualified Data.Text as T
@@ -208,6 +209,9 @@ convertPrim _ "BETextToNumericLegacy" (TText :-> TOptional (TNumeric n)) =
     pure $ ETyApp (EBuiltin BETextToNumericLegacy) n
 convertPrim _ "BETextToNumeric" (TNumeric n0 :-> TText :-> TOptional (TNumeric n)) | n0 == n =
     pure $ ETyApp (EBuiltin BETextToNumeric) n
+convertPrim _ "BENumericOne" (TNumeric (TNat n0))  =
+    pure $ EBuiltin $ BENumeric $ numeric n (10 ^ n)
+  where n = fromTypeLevelNat n0
 
 convertPrim version "BEScaleBigNumeric" ty@(TBigNumeric :-> TInt64) =
     pure $

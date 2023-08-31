@@ -235,6 +235,19 @@ _TForalls = rightSpine _TForall
 _TApps :: Iso' Type (Type, [Type])
 _TApps = leftSpine _TApp
 
+pattern AppArrow :: Type -> Type -> Type
+pattern AppArrow t1 t2 = TApp (TApp TArrow t1) t2
+
+appArrow :: Prism' Type (Type, Type)
+appArrow = prism' from to
+  where
+    from = uncurry AppArrow
+    to (AppArrow i o) = Just (i, o)
+    to _ = Nothing
+
+_TFuns :: Iso' Type ([Type], Type)
+_TFuns = rightSpine appArrow
+
 mkTForalls :: [(TypeVarName, Kind)] -> Type -> Type
 mkTForalls binders ty = foldr TForall ty binders
 

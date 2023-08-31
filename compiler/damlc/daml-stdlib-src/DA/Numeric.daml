@@ -11,60 +11,46 @@ import GHC.Types (primitive)
 -- different scales, unlike `(*)` which forces all numeric scales
 -- to be the same. Raises an error on overflow, rounds to chosen
 -- scale otherwise.
-#ifdef DAML_NAT_TYPE_ERASURE
-mul : forall n3 n1 n2. Numeric n3 -> Numeric n1 -> Numeric n2 -> Numeric n3
-mul = primitive @"BEMulNumeric"
-#else
 mul : forall n3 n1 n2. NumericScale n3 => Numeric n1 -> Numeric n2 -> Numeric n3
+#ifndef DAML_NAT_TYPE_ERASURE
 mul = primitive @"BEMulNumericLegacy"
+#else
+mul = primitive @"BEMulNumeric" (numericOne @n3)
 #endif
 
 -- | Divide two numerics. Both inputs and the output may have
 -- different scales, unlike `(/)` which forces all numeric scales
 -- to be the same. Raises an error on overflow, rounds to chosen
 -- scale otherwise.
-#ifdef DAML_NAT_TYPE_ERASURE
-div : forall n3 n1 n2. Numeric n3 -> Numeric n1 -> Numeric n2 -> Numeric n3
-div = primitive @"BEDivNumeric"
-#else
 div : forall n3 n1 n2. NumericScale n3 => Numeric n1 -> Numeric n2 -> Numeric n3
+#ifndef DAML_NAT_TYPE_ERASURE
 div = primitive @"BEDivNumericLegacy"
+#else
+div = primitive @"BEDivNumeric" (numericOne @n3)
 #endif
 
 -- | Cast a Numeric. Raises an error on overflow or loss of precision.
-#ifdef DAML_NAT_TYPE_ERASURE
-cast : forall n2 n1. Numeric n2 -> Numeric n1 -> Numeric n2
-cast = primitive @"BECastNumeric"
-#else
 cast : forall n2 n1. NumericScale n2 => Numeric n1 -> Numeric n2
+#ifndef DAML_NAT_TYPE_ERASURE
 cast = primitive @"BECastNumericLegacy"
+#else
+cast = primitive @"BECastNumeric" (numericOne @n2)
 #endif
 
 -- | Cast a Numeric. Raises an error on overflow, rounds to chosen
 -- scale otherwise.
-#ifdef DAML_NAT_TYPE_ERASURE
-castAndRound : forall n2 n1. Numeric n2 -> Numeric n1 -> Numeric n2
-castAndRound n m = mul @n2 @0 @n1 n (1.0 : Numeric 0) m
-#else
 castAndRound : forall n2 n1. NumericScale n2 => Numeric n1 -> Numeric n2
 castAndRound = mul (1.0 : Numeric 0)
-#endif
 
 -- | Move the decimal point left or right by multiplying the numeric
 -- value by 10^(n1 - n2). Does not overflow or underflow.
-#ifdef DAML_NAT_TYPE_ERASURE
-shift : forall n2 n1. Numeric n2 -> Numeric n1 -> Numeric n2
-shift = primitive @"BEShiftNumeric"
-#else
 shift : forall n2 n1. NumericScale n2 => Numeric n1 -> Numeric n2
+#ifndef DAML_NAT_TYPE_ERASURE
 shift = primitive @"BEShiftNumericLegacy"
+#else
+shift = primitive @"BEShiftNumeric" (numericOne @n2)
 #endif
 
 -- | The number pi.
-#ifdef DAML_NAT_TYPE_ERASURE
-pi : forall n1. Numeric n1 -> Numeric n1
-pi n = castAndRound n (3.14159_26535_89793_23846_26433_83279_50288_41 : Numeric 37)
-#else
 pi : forall n. NumericScale n => Numeric n
 pi = castAndRound (3.14159_26535_89793_23846_26433_83279_50288_41 : Numeric 37)
-#endif

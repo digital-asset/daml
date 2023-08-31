@@ -1,0 +1,5 @@
+module NumericInValueType where
+
+-- @ERROR range=5:1-5:19; Unconstrained type variable n in the type of value numericInValueType cannot be a natural number
+numericInValueType : forall n. Numeric n
+numericInValueType = error "Numeric in value type"

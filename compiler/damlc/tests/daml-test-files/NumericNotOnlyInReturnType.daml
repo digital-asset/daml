@@ -1,0 +1,7 @@
+module NumericNotOnlyInReturnType where
+
+numericNotOnlyInReturnType : forall n. Numeric n -> Numeric n
+numericNotOnlyInReturnType = error "Numeric not only in return type"
+
+numericInReturnTypeWithStar : forall a n m. a -> Numeric m -> Numeric n -> Numeric m
+numericInReturnTypeWithStar = error "Numeric in return type with star"

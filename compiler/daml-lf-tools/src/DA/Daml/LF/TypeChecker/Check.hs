@@ -33,19 +33,20 @@ module DA.Daml.LF.TypeChecker.Check
     , expandTypeSynonyms
     , expandSynApp
     , typeOf'
+    , typeVarOnlyInReturn
     ) where
 
 import Data.Hashable
-import           Control.Lens hiding (Context, MethodName, para)
+import           Control.Lens hiding (Context, MethodName, para, universe)
 import           Control.Monad.Extra
 import           Data.Either.Combinators (whenLeft)
 import           Data.Foldable
 import           Data.Functor
 import           Data.List.Extended
-import Data.Generics.Uniplate.Data (para)
+import           Data.Maybe (catMaybes, listToMaybe)
+import Data.Generics.Uniplate.Data (para, universe)
 import qualified Data.Set as S
 import qualified Data.HashSet as HS
-import           Data.Maybe (listToMaybe)
 import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
 import qualified Data.IntSet as IntSet
@@ -60,7 +61,7 @@ import           DA.Daml.LF.Ast.Numeric
 import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
-
+import           DA.Daml.Options.Types
 
 -- | Check that a list does /not/ contain duplicate elements.
 checkUnique :: (MonadGamma m, Eq a, Hashable a) => (a -> Error) -> [a] -> m ()
@@ -107,6 +108,8 @@ checkTypeConApp tapp@(TypeConApp tcon targs) = do
 --
 -- (3) 'BTContractId' is only applied to type constructors which originate from
 --     a template.
+--
+-- (4) All type variables are show up on the left sides of function arrows
 checkType :: MonadGamma m => Type -> Kind -> m ()
 checkType typ kind = do
   typKind <- kindOf typ
@@ -172,9 +175,76 @@ kindOf = \case
   TBuiltin btype -> pure (kindOfBuiltin btype)
   TForall (v, k) t1 -> do
     checkKind k
-    introTypeVar v k $ checkType t1 KStar $> KStar
+    introTypeVar v k $ checkType t1 KStar
+    pure KStar
   TStruct recordType -> checkRecordType recordType $> KStar
   TNat _ -> pure KNat
+
+checkQuantifications :: forall m. MonadGamma m => DefValue -> Type -> m ()
+checkQuantifications dval topType = go topType (dvalBody dval)
+  where
+    -- Exclude type dictionaries
+    isFunction :: Bool
+    isFunction = go (dvalBody dval) topType
+      where
+        go (ETyLam {tylamBody}) (TForall {forallBody}) = go tylamBody forallBody
+        go (ETmLam {tmlamBinder = (varName, _), tmlamBody}) (AppArrow _ rest)
+          | "$d" `T.isPrefixOf` unExprVarName varName || "$f" `T.isPrefixOf` unExprVarName varName
+          = go tmlamBody rest
+          | otherwise
+          = True
+        go _ (AppArrow _ _) = True
+        go _ _ = False
+
+    go :: Type -> Expr -> m ()
+    go (TForall (tvn, kind) typ) expr = do
+      let strippedBind =
+            case expr of
+              ETyLam {tylamBody} -> tylamBody
+              other -> other
+      when (kind == KNat && typeVarOnlyInReturn tvn typ strippedBind) $
+        if isFunction
+          then throwWithContext (ENatTypeVarOnlyInReturn (dvalName dval) tvn)
+          else throwWithContext (ENatTypeVarOnlyInValue (dvalName dval) tvn)
+      go typ strippedBind
+    go (AppArrow _ o) expr = do
+      let strippedBind =
+            case expr of
+              ETmLam {tmlamBody} -> tmlamBody
+              other -> other
+      go o strippedBind
+    go _ _ = pure ()
+
+typeVarOnlyInReturn :: TypeVarName -> Type -> Expr -> Bool
+typeVarOnlyInReturn tvn typ expr =
+  let (argTypes, ret) = collectArgTypesRet [] typ
+      binds = collectBinds [] expr
+      prunedTypes =
+        catMaybes $ zipWith pruneTypeWithBind argTypes (map Just binds ++ repeat Nothing)
+  in
+  typeVarInType ret && not (any typeVarInType prunedTypes)
+  where
+  collectArgTypesRet :: [Type] -> Type -> ([Type], Type)
+  collectArgTypesRet soFar (AppArrow arg ret) = collectArgTypesRet (arg:soFar) ret
+  collectArgTypesRet soFar (TForall _ body) = collectArgTypesRet soFar body
+  collectArgTypesRet soFar body = (reverse soFar, body)
+
+  collectBinds :: [(ExprVarName, Type)] -> Expr -> [(ExprVarName, Type)]
+  collectBinds soFar (ETmLam {tmlamBinder, tmlamBody}) = collectBinds (tmlamBinder:soFar) tmlamBody
+  collectBinds soFar (ETyLam {tylamBody}) = collectBinds soFar tylamBody
+  collectBinds soFar _ = reverse soFar
+
+  -- Exclude type dictionaries
+  pruneTypeWithBind :: Type -> Maybe (ExprVarName, Type) -> Maybe Type
+  pruneTypeWithBind typ (Just (varName, typ2)) = do
+    when (typ /= typ2) $ error $ unwords ["Types do not match:", show typ, show typ2]
+    if "$d" `T.isPrefixOf` unExprVarName varName || "$f" `T.isPrefixOf` unExprVarName varName
+      then Nothing
+      else pure typ
+  pruneTypeWithBind typ _ = pure typ
+
+  typeVarInType :: Type -> Bool
+  typeVarInType typ = not (null [ () | TVar n <- universe typ, n == tvn ])
 
 expandTypeSynonyms :: MonadGamma m => Type -> m Type
 expandTypeSynonyms = expand where
@@ -979,13 +1049,34 @@ checkDefDataType m (DefDataType _loc name _serializable params dataCons) = do
         void $ inWorld $ lookupInterface (Qualified PRSelf (moduleName m) name)
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
-checkDefValue (DefValue _loc (_, typ) (IsTest isTest) expr) = do
+checkDefValue dval@(DefValue _loc (_, typ) (IsTest isTest) expr) = do
   checkType typ KStar
   checkExpr expr typ
+  isUserWrittenValue <- isUserWrittenValue dval
+  when isUserWrittenValue $ checkQuantifications dval typ
   when isTest $
     case view _TForalls typ of
       (_, TScenario _) -> pure ()
       _ -> throwWithContext (EExpectedScenarioType typ)
+
+-- Check if a DefValue was written by an end-user
+-- 1. It is not a generated value, e.g. dictionary function "$f<name>"
+-- 2. It is not belonging to a package that DA distributes
+isUserWrittenValue :: MonadGamma m => DefValue -> m Bool
+isUserWrittenValue dval =
+  andM
+    [ pure $ not ("$" `T.isPrefixOf` unExprValName (fst (dvalBinder dval)))
+    , do
+        world <- getWorld
+        let daPackageNames = "daml-script" : basePackages
+        let isDAPackage pkg =
+              case packageMetadata pkg of
+                Just PackageMetadata { packageName }
+                  | T.unpack (unPackageName packageName) `elem` daPackageNames
+                  -> True
+                _ -> False
+        pure $ not (isDAPackage (getWorldSelf world))
+    ]
 
 checkTemplateChoice :: MonadGamma m => Qualified TypeConName -> TemplateChoice -> m ()
 checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers mbAuthorizers selfBinder (param, paramType) retType upd) = do

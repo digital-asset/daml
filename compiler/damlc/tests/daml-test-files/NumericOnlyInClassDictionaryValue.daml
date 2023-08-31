@@ -1,0 +1,10 @@
+-- @ERROR range=10:1-10:34; Unconstrained type variable n in the type of value numericOnlyInClassDictionaryValue cannot be a natural number
+module NumericOnlyInClassDictionaryValue where
+
+import GHC.Types
+
+class MyClass (n : Nat) where
+
+-- A class dictionary does not count as an argument that can constrain the type
+numericOnlyInClassDictionaryValue : forall n m. MyClass n => Numeric n
+numericOnlyInClassDictionaryValue = error "Numeric only in class dictionary on value"
