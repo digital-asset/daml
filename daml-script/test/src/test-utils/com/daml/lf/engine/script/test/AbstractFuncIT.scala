@@ -10,7 +10,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Numeric, FrontStack, FrontStackCons}
 import com.daml.lf.engine.script.Runner.InterpretationError
-import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.{StackTrace, SValue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value
 import io.grpc.{Status, StatusRuntimeException}

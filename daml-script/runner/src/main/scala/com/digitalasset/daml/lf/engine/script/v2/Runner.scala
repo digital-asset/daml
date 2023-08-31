@@ -8,7 +8,8 @@ package v2
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.engine.free.Free
+import com.daml.lf.speedy.free
+import free.Free
 import com.daml.lf.engine.script.Runner.IdeLedgerContext
 import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient => UnversionedScriptLedgerClient

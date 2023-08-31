@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package engine
+package speedy
 package free
 
 import data.Ref
-import speedy._
 import com.daml.logging.LoggingContext
 import scalaz.std.either._
 import scalaz.std.vector._
@@ -151,6 +150,13 @@ private[lf] object Free {
       profile: Profile,
       loggingContext: LoggingContext,
     ).getResult()
+
+  private[this] case class SrcLoc(
+      pkgId: Ref.PackageId,
+      module: Ref.ModuleName,
+      start: (Int, Int),
+      end: (Int, Int),
+  )
 
   private class Runner(
       expr: SExpr,

@@ -26,7 +26,7 @@ import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast
 import com.daml.lf.language.StablePackage
-import com.daml.lf.speedy.{ArrayList, SError, SValue}
+import com.daml.lf.speedy.{free, ArrayList, SError, StackTrace, SValue}
 import com.daml.lf.speedy.SBuiltin.SBVariantCon
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
