@@ -214,7 +214,7 @@ da_haskell_library(
         srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
         args = [
             "--daml-lf-version",
-            "1.dev",
+            "2.dev",
             "--skip-validation",
             "false",
             "--daml-script-v2",
@@ -1190,6 +1190,6 @@ daml_compile(
         "//daml-script/daml3:daml3-script.dar",
     ],
     project_name = "try-submit-test",
-    target = "1.dev",
+    target = "2.dev",
     visibility = ["//visibility:public"],
 )
