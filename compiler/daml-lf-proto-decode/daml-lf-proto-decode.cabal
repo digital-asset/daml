@@ -43,6 +43,8 @@ library
       mtl,
       -- @stackage//:proto3-suite
       proto3-suite,
+      -- @stackage//:proto3-wire
+      proto3-wire,
       -- //compiler/damlc/stable-packages:stable-packages-list
       stable-packages-list,
       -- @stackage//:text
