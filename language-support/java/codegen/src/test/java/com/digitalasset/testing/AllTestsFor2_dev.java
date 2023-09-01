@@ -14,4 +14,4 @@ import org.junit.runners.Suite;
       .class,
   GenMapTestFor1_11AndFor1_12ndFor1_13AndFor1_14AndFor1_15AndFor1_devAndFor2_dev.class,
 })
-public class AllTestsFor1_11 {}
+public class AllTestsFor2_dev {}
