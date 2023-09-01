@@ -235,11 +235,11 @@ da_haskell_library(
     name = "create-daml-app-tests-lib",
     srcs = ["src/DA/Daml/Assistant/CreateDamlAppTests.hs"],
     data = [
+        ":create_daml_app_deps.tar",
+        "//:yarn",
         "//release:sdk-release-tarball",
         "@local_jdk//:bin/java",
-        "//:yarn",
         "@patch_dev_env//:patch",
-        ":create_daml_app_deps.tar",
     ] + ts_libraries + create_daml_app_resources,
     hackage_deps = [
         "aeson",
