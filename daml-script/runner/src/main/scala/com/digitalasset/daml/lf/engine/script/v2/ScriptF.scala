@@ -9,41 +9,35 @@ package v2
 import java.time.Clock
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.api.domain.{UserRight, User}
 import com.daml.lf.data.FrontStack
+import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.{CompiledPackages, command}
-import com.daml.lf.data.Ref.{
-  Identifier,
-  Name,
-  PackageId,
-  PackageName,
-  PackageVersion,
-  Party,
-  UserId,
-}
+import com.daml.lf.data.Ref.{Name, PackageId, PackageVersion, Identifier, UserId, PackageName, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, Util => AstUtil}
 import com.daml.lf.language.StablePackage
-import com.daml.lf.speedy.{free, ArrayList, SError, StackTrace, SValue}
+import com.daml.lf.speedy.{SValue, StackTrace, SError, ArrayList, free}
 import com.daml.lf.speedy.SBuiltin.SBVariantCon
+import com.daml.lf.speedy.SExpr.SEValue
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import scalaz.{Foldable, OneAnd}
+import scalaz.{OneAnd, Foldable}
 import scalaz.syntax.traverse._
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.option._
 import com.daml.script.converter.Converter.{toContractId, toText}
-
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.speedy.SBuiltin.SBToAny
+import com.daml.script.converter.ConverterException
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Success, Failure}
 
 object ScriptF {
   val left = SEBuiltin(
@@ -74,8 +68,10 @@ object ScriptF {
       compiledPackages: CompiledPackages,
   ) {
     def clients = _clients
+    def pkgInterface = compiledPackages.pkgInterface
+    def pkgIds = compiledPackages.packageIds
     val valueTranslator = new ValueTranslator(
-      pkgInterface = compiledPackages.pkgInterface,
+      pkgInterface = pkgInterface,
       requireV1ContractIdSuffix = false,
     )
     val utcClock = Clock.systemUTC()
@@ -742,6 +738,59 @@ object ScriptF {
       )
   }
 
+  def submssionId(env: Env, name: String): Either[String, Identifier] = {
+    for {
+      qName <- QualifiedName.fromString(name)
+      QualifiedName(modName, name) = qName
+      id <- (for {
+        pkgId <- env.pkgIds.view
+        pkg = env.pkgInterface.signatures(pkgId)
+        mod <- pkg.modules.get(modName).iterator
+        id <- mod.definitions.get(name).collect{
+          case Ast.DValueSignature(_, _, _) => Identifier(pkgId, qName)
+        }.iterator
+      } yield  id).headOption.toRight(s"cannot find script $name")
+    } yield id
+  }
+
+  final case class SubmitScript(
+      actAs: OneAnd[Set, Party],
+      readAs: Set[Party],
+      arg: SValue,
+      name: String,
+      stackTrace: StackTrace,
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- Converter.toFuture(env.clients.getParticipant(None))
+        scriptId <-  Converter.toFuture(submssionId(env, name))
+        cmd = command.ApiCommand.Exercise(
+          scriptId,
+          Engine.submssionCid,
+          Name.assertFromString("Submission"),
+          arg.toUnnormalizedValue,
+        )
+        submitRes <- client.submit(actAs, readAs, List(cmd), None)
+        v <- submitRes match {
+          case Right(Seq(ScriptLedgerClient.ExerciseResult(_, _, _, result))) =>
+            env.pkgInterface.lookupValue(scriptId) match {
+              case Right(Ast.DValueSignature(AstUtil.TFun(_, Ast.TApp(_, output)), _, _)) =>
+                env.valueTranslator
+                  .translateValue(output, result)
+                  .fold(Future.failed, v => Future.successful(SEValue(v)))
+              case _ => Future.failed(new ConverterException("unexpect SubmitScript script type"))
+            }
+          case Right(_) =>
+            Future.failed(new ConverterException("unexpect SubmitScript scrit result"))
+          case Left(statusEx) => Future.failed(statusEx)
+        }
+      } yield v
+  }
+
   // Shared between Submit, SubmitMustFail and SubmitTree
   final case class SubmitData(
       actAs: OneAnd[Set, Party],
@@ -877,6 +926,25 @@ object ScriptF {
       // Catch includes a dummy field for old style typeclass LF encoding, we ignore it here.
       case SRecord(_, _, ArrayList(act, _)) => Right(Catch(act))
       case _ => Left(s"Expected Catch payload but got $v")
+    }
+
+  private def parseSubmitScript(v: SValue, st: StackTrace): Either[String, SubmitScript] =
+    v match {
+      case SRecord(
+            _,
+            _,
+            ArrayList(
+              SRecord(_, _, ArrayList(hdAct, SList(tlAct))),
+              SList(read),
+              SText(name),
+              arg,
+            ),
+          ) =>
+        for {
+          actAs <- OneAnd(hdAct, tlAct.toList).traverse(Converter.toParty(_)).map(toOneAndSet(_))
+          readAs <- read.traverse(Converter.toParty(_))
+        } yield SubmitScript(actAs, readAs.toSet, arg, name, st)
+      case _ => Left(s"Expected SubmitScript payload but got $v")
     }
 
   private def parseThrow(v: SValue): Either[String, Throw] =
@@ -1020,6 +1088,7 @@ object ScriptF {
       case ("UnvetPackages", 1) => parseChangePackages(v).map(UnvetPackages)
       case ("ListVettedPackages", 1) => parseEmpty(ListVettedPackages())(v)
       case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
+      case ("SubmitScript", 1) => parseSubmitScript(v, stackTrace)
       case _ => Left(s"Unknown command $commandName - Version $version")
     }
 

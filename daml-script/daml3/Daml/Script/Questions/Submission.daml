@@ -1,5 +1,9 @@
+  
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
 module Daml.Script.Questions.Submission where
 
+import DA.NonEmpty
 import Daml.Script.Internal 
 
 data RootCreate = RootCreate with
@@ -24,23 +28,24 @@ rootExercise cId arg = do
   ledgerValue <- lift $ RootExercise (templateTypeRep @t) (coerceContractId cId) (toAnyChoice @t arg)
   pure $ fromLedgerValue ledgerValue
 
-rootCreateAndExercise : forall t c r. (HasAgreement t, Choice t c r) => t -> c -> Script (ContractId t, r)
+rootCreateAndExercise: forall t c r. (HasAgreement t, Choice t c r) => t -> c -> Script (ContractId t, r)
 rootCreateAndExercise arg choiceArg = do
   cid <- rootCreate arg
   r <- rootExercise cid choiceArg
   pure (cid, r)
 
-class IsSubmissionScript req res | req -> res where 
-  submissionId: req -> Script res   
-  
+--class IsSubmissionScript req res | req -> res where
+--  scriptName : Text
+--  submissionScript: req -> Script res   
+
 data SubmitScript req res = SubmitScript with 
-   actAs : [Party]
+   actAs : NonEmpty Party
    readAs : [Party]
+   name : Text
    arg : req 
-   id : req -> Script res   
+
+instance IsQuestion (SubmitScript req res) res where command = "SubmitScript"  
    
-instance IsSubmissionScript req res => IsQuestion (SubmitScript req res) res where command = "SubmitScript"  
-   
-submitScript :IsSubmissionScript req res => [Party] -> [Party] -> req -> Script res 
-submitScript actAs readAs arg = do
-  lift $ SubmitScript actAs readAs arg submissionId
+submitScript: forall req res. NonEmpty Party -> [Party] -> Text -> req -> Script res 
+submitScript actAs readAs name arg = do
+  lift $ SubmitScript @req @res actAs readAs name arg 

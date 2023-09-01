@@ -621,6 +621,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
 object Engine {
 
+  val submssionCid = ContractId.V1(crypto.Hash.hashPrivateKey("submission"))
+
   type Packages = Map[PackageId, Package]
 
   def initialSeeding(
