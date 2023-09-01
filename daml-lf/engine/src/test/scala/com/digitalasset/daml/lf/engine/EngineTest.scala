@@ -2333,7 +2333,7 @@ class EngineTest
     "accept stable packages even if version is smaller than min version" in {
       for {
         lv <- LanguageVersion.All
-        eng = engine(min = lv, LanguageVersion.v1_dev)
+        eng = engine(min = lv, LanguageVersion.v2_dev)
         pkg <- StablePackage.values
         pkgId = pkg.packageId
         pkg <- allPackagesDev.get(pkgId).toList
