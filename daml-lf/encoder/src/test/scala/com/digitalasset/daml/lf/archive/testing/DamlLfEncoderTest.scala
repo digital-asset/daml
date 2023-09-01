@@ -5,12 +5,14 @@ package com.daml.lf.testing.archive
 
 import java.io.File
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.lf.archive.{UniversalArchiveReader, Dar, ArchivePayload, UniversalArchiveDecoder}
+import com.daml.daml_lf_dev.{DamlLf1, DamlLf2}
+import com.daml.lf.archive.{ArchivePayload, Dar, UniversalArchiveDecoder, UniversalArchiveReader}
 import com.daml.lf.archive.DecodeV1
 import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.data.Ref.ModuleName
 import com.daml.lf.language.Ast
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.LanguageVersion.Major
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -87,15 +89,27 @@ class DamlLfEncoderTest
 
   }
 
-  private def getNonEmptyModules(dar: Dar[ArchivePayload]) = {
+  private def getNonEmptyModules(dar: Dar[ArchivePayload]): Seq[ModuleName] = {
     for {
       payload <- dar.all
       ArchivePayload(_, pkg, version) = payload
-      internedStrings = pkg.getDamlLf1.getInternedStringsList.asScala.toArray
-      dottedNames = pkg.getDamlLf1.getInternedDottedNamesList.asScala.map(
-        _.getSegmentsInternedStrList.asScala.map(internedStrings(_))
-      )
-      segments <- pkg.getDamlLf1.getModulesList.asScala.map {
+      name <- version match {
+        case LanguageVersion(Major.V1, _) => getNonEmptyModules(version, pkg.getDamlLf1)
+        case LanguageVersion(Major.V2, _) => getNonEmptyModules(pkg.getDamlLf2)
+      }
+    } yield name
+  }
+
+  private def getNonEmptyModules(
+      version: LanguageVersion,
+      pkg: DamlLf1.Package,
+  ): Seq[ModuleName] = {
+    val internedStrings = pkg.getInternedStringsList.asScala.toArray
+    val dottedNames = pkg.getInternedDottedNamesList.asScala.map(
+      _.getSegmentsInternedStrList.asScala.map(internedStrings(_))
+    )
+    for {
+      segments <- pkg.getModulesList.asScala.toSeq.map {
         case mod
             if mod.getSynonymsCount != 0 ||
               mod.getDataTypesCount != 0 ||
@@ -105,7 +119,23 @@ class DamlLfEncoderTest
             mod.getNameDname.getSegmentsList.asScala
           else
             dottedNames(mod.getNameInternedDname)
+      }
+    } yield DottedName.assertFromSegments(segments)
+  }
 
+  private def getNonEmptyModules(pkg: DamlLf2.Package): Seq[DottedName] = {
+    val internedStrings = pkg.getInternedStringsList.asScala.toArray
+    val dottedNames = pkg.getInternedDottedNamesList.asScala.map(
+      _.getSegmentsInternedStrList.asScala.map(internedStrings(_))
+    )
+    for {
+      segments <- pkg.getModulesList.asScala.toSeq.map {
+        case mod
+            if mod.getSynonymsCount != 0 ||
+              mod.getDataTypesCount != 0 ||
+              mod.getValuesCount != 0 ||
+              mod.getTemplatesCount != 0 =>
+          dottedNames(mod.getNameInternedDname)
       }
     } yield DottedName.assertFromSegments(segments)
   }
