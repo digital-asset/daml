@@ -535,7 +535,7 @@ abstract class EventStorageBackendTemplate(
       .flatMap(_.iterator)
       .toSet
     SQL"""
-      SELECT
+      SELECT /*+ INDEX(create_evs PARTICIPANT_EVENTS_CREATE_EVENT_SEQUENTIAL_ID) */
         #$selectColumnsForACSEvents,
         flat_event_witnesses as event_witnesses,
         '' AS command_id
@@ -544,7 +544,7 @@ abstract class EventStorageBackendTemplate(
       WHERE
         create_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
         AND NOT EXISTS (  -- check not archived as of snapshot
-          SELECT 1
+          SELECT /*+ INDEX(consuming_evs PARTICIPANT_EVENTS_CONSUMING_EXERCISE_CONTRACT_ID_IDX) NO_INDEX(consuming_evs PARTICIPANT_EVENTS_CONSUMING_EXERCISE_EVENT_SEQUENTIAL_ID) */ 1
           FROM participant_events_consuming_exercise consuming_evs
           WHERE
             create_evs.contract_id = consuming_evs.contract_id
