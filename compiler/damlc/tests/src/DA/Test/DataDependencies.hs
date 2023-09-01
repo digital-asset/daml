@@ -65,12 +65,12 @@ darPackageIds fp = do
 -- | We test two sets of versions:
 -- 1. Versions no longer supported as output versions by damlc are tested against
 --    1.14.
--- 2. For all other versions we test them against the next version + an extra (1.dev, 1.dev) pair.
+-- 2. For all other versions we test them against the next version + extra (1.dev, 1.dev) and (2.dev, 2.dev) pairs.
 lfVersionTestPairs :: [(LF.Version, LF.Version)]
 lfVersionTestPairs =
     let legacyPairs = map (, LF.version1_14) (LF.supportedInputVersions \\ LF.supportedOutputVersions)
-        versions = sort LF.supportedOutputVersions ++ [LF.version1_dev]
-    in legacyPairs ++ zip versions (tail versions)
+        versions = sort LF.supportedOutputVersions
+    in legacyPairs ++ zip versions (tail versions) ++ [(LF.version1_dev, LF.version1_dev), (LF.version2_dev, LF.version2_dev)]
 
 tests :: Tools -> TestTree
 tests tools = testGroup "Data Dependencies" $
