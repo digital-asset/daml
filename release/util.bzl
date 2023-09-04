@@ -78,7 +78,7 @@ def sdk_tarball(name, version, config):
           mkdir -p $$OUT/daml-libs
           cp -t $$OUT/daml-libs $(locations {trigger_dars})
           cp -t $$OUT/daml-libs $(locations {script_dars})
-          cp $(location {script3_dar}) $$OUT/daml-libs/daml3-script-1.dev.dar
+          cp $(location {script3_dar}) $$OUT/daml-libs/daml3-script-2.dev.dar
 
           mkdir -p $$OUT/daml-helper
           tar xf $(location {daml_helper_dist}) --strip-components=1 -C $$OUT/daml-helper
