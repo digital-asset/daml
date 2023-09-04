@@ -29,6 +29,17 @@ object Question {
         callback: Value.ContractInstance => Unit,
     ) extends Update
 
+    // NICK : comment here
+    final case class NeedUpgradeVerification(
+        src: Int, // NICK -- idea, pass src/dest packageId, do can only dispatch when diff
+        dest: Int,
+        coid: ContractId,
+        signatories: Set[Party],
+        observers: Set[Party],
+        keyOpt: Option[GlobalKeyWithMaintainers],
+        callback: () => Unit,
+    ) extends Update
+
     /** Machine needs a definition that was not present when the machine was
       * initialized. The caller must retrieve the definition and fill it in
       * the packages cache it had provided to initialize the machine.

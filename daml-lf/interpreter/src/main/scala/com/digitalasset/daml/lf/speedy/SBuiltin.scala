@@ -2229,20 +2229,30 @@ private[lf] object SBuiltin {
 
             case None =>
               lookupContractOnLedger(machine, coid) { coinst =>
-                val V.ContractInstance(actualTmplId, coinstArg) = coinst
-                val templateId = optTargetTemplateId match {
-                  case Some(tycon) => tycon
-                  case None => actualTmplId
-                }
-                importValue(machine, templateId, coinstArg) { templateArg =>
-                  getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
-                    ensureContractActive(machine, coid, contract.templateId) {
-                      machine.checkContractVisibility(coid, contract)
-                      machine.enforceLimitAddInputContract()
-                      machine.enforceLimitSignatoriesAndObservers(coid, contract)
-                      f(contract.any).asInstanceOf[Control[Question.Update]]
+                // NICK: Where exactly should we call validate?
+                // NICK : from where exactly comes this info?.. this the core puzzle to solve!!
+                def src: Int = 42 // NICK: silly ints
+                def dest: Int = 43
+                def signatories: Set[Party] = Set.empty // NICK hack
+                def observers: Set[Party] = Set.empty // NICK hack
+                def x_keyOpt: Option[GlobalKeyWithMaintainers] = None // NICK hack
+                validateContractInfo(machine, src, dest, coid, signatories, observers, x_keyOpt) {
+                  () => // NICK: new!
+                    val V.ContractInstance(actualTmplId, coinstArg) = coinst
+                    val templateId = optTargetTemplateId match {
+                      case Some(tycon) => tycon
+                      case None => actualTmplId
                     }
-                  }
+                    importValue(machine, templateId, coinstArg) { templateArg =>
+                      getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
+                        ensureContractActive(machine, coid, contract.templateId) {
+                          machine.checkContractVisibility(coid, contract)
+                          machine.enforceLimitAddInputContract()
+                          machine.enforceLimitSignatoriesAndObservers(coid, contract)
+                          f(contract.any).asInstanceOf[Control[Question.Update]]
+                        }
+                      }
+                    }
                 }
               }
           }
@@ -2261,6 +2271,35 @@ private[lf] object SBuiltin {
           machine.committers,
           callback = { res =>
             val control = continue(res)
+            machine.setControl(control)
+          },
+        )
+      )
+    }
+  }
+
+  private def validateContractInfo[Q](
+      machine: Machine[Q],
+      src: Int,
+      dest: Int,
+      coid: V.ContractId,
+      signatories: Set[Party],
+      observers: Set[Party],
+      keyOpt: Option[GlobalKeyWithMaintainers],
+  )(
+      continue: () => Control[Q]
+  ): Control[Q] = {
+    machine.asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc) { machine =>
+      Control.Question(
+        Question.Update.NeedUpgradeVerification(
+          src,
+          dest,
+          coid,
+          signatories,
+          observers,
+          keyOpt,
+          callback = { () =>
+            val control = continue()
             machine.setControl(control)
           },
         )

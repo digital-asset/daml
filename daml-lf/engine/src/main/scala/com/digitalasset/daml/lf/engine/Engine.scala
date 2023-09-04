@@ -453,6 +453,57 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                   )
               }
 
+            case Question.Update.NeedUpgradeVerification(
+                  src,
+                  dest,
+                  coid,
+                  signatories,
+                  observers,
+                  keyOpt,
+                  callback,
+                ) =>
+              // NICK -- check and remove all debug prints
+
+              println(
+                s"**interpretLoop: Question.Update.NeedUpgradeVerification, \n- src=$src\n- dest=$dest"
+              )
+              if (src == dest) {
+                // dont ask question to ledger
+                println(
+                  "**interpretLoop: Question.Update.NeedUpgradeVerification, src==dest, not asking ledger"
+                )
+                callback()
+                loop(cache)
+              } else {
+                println(
+                  "**interpretLoop: Question.Update.NeedUpgradeVerification, asking ledger..."
+                )
+                ResultNeedUpgradeVerification(
+                  coid,
+                  signatories,
+                  observers,
+                  keyOpt,
+                  { failureMessageOpt: Option[String] =>
+                    failureMessageOpt match {
+                      case None =>
+                        println(
+                          "**interpretLoop: Question.Update.NeedUpgradeVerification, ledger says ALL OK"
+                        )
+                        callback()
+                        loopOuter(cache)
+                      case Some(mes) =>
+                        println(
+                          s"**interpretLoop: Question.Update.NeedUpgradeVerification, message-from-ledger=$mes"
+                        )
+                        // NICK, the correct behaviour is to fail here (model on NeedAuthority)
+                        // NICK: but ir dev lets continue...
+                        callback()
+                        loopOuter(cache)
+                    }
+                  },
+                )
+              }
+
             case Question.Update.NeedKey(gk, _, callback) =>
               ResultNeedKey(
                 gk,
