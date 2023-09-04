@@ -1,8 +1,6 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# OPTIONS -Wno-controller-can #-}
-
 -- template-let warning disabled because 'start template let snippet' is
 -- used by docs.daml.com for older compiler versions and to explain
 -- new deprecation warning in 2.8.0
@@ -50,6 +48,63 @@ template NameOfTemplate
     key (exampleParty, exampleParam) : (Party, Text)
     maintainer (exampleFunction key)
 -- end contract key snippet
+
+-- start new template choice snippet
+    choice NameOfChoice
+      : ()  -- replace () with the actual return type
+      with
+        exampleParameter : Text -- parameters here
+      controller exampleParty
+      do
+        return () -- replace this line with the choice body
+-- end new template choice snippet
+
+-- start new choice name snippet
+    choice ExampleChoice
+      : () -- replace () with the actual return type
+-- end new choice name snippet
+-- start new choice params snippet
+      with
+        exampleParameter : Text
+-- end new choice params snippet
+-- start new controller snippet
+      controller exampleParty
+-- end new controller snippet
+      do
+        return () -- replace () with the actual return type
+-- start new preconsuming snippet
+    preconsuming choice ExamplePreconsumingChoice
+      : () -- replace () with the actual return type
+-- end new preconsuming snippet
+      with -- params
+      controller exampleParty
+      do
+        return ()
+-- start new postconsuming snippet
+    postconsuming choice ExamplePostconsumingChoice
+      : () -- replace () with the actual return type
+-- end new postconsuming snippet
+      with -- params
+      controller exampleParty
+      do
+        return ()
+-- start new nonconsuming snippet
+    nonconsuming choice ExampleNonconsumingChoice
+      : () -- replace () with the actual return type
+-- end new nonconsuming snippet
+      with -- params
+      controller exampleParty
+      do
+        return ()
+
+{- LEGACY CHOICE SNIPPETS
+Before Daml 2.8.0, two syntaxes were supported for declaring choices,
+choice name first and controller-first. The latter was removed, so the
+code below doesn't compile anymore, but docs.daml.com uses the version
+of this file in the `main` branch, including when building the docs
+for Daml <2.8.0, so it's easier to leave the old snippets alone for
+those versions.
+
 -- start template choice snippet
     -- option 1 for specifying choices: choice name first
     choice NameOfChoice1
@@ -147,3 +202,4 @@ template NameOfTemplate
 -- end controller-first nonconsuming snippet
         do
           return () -- replace () with the actual return type
+-}
