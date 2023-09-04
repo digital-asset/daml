@@ -22,10 +22,10 @@ cd "$(dirname "$0")/.."
 # detect the OS
 case $(uname) in
 Linux)
-  os=linux
+  os=ubuntu
   ;;
 Darwin)
-  os=darwin
+  os=macos
   ;;
 MINGW*)
   os=windows
@@ -77,6 +77,8 @@ if is_windows; then
   CACHE_SUFFIX="$SUFFIX-v14"
   CACHE_URL="$CACHE_URL/$CACHE_SUFFIX"
   echo "build:windows-ci --remote_cache=https://bazel-cache.da-ext.net/$CACHE_SUFFIX" >> .bazelrc.local
+else
+  CACHE_URL=$CACHE_URL/$os/202308
 fi
 
 # sets up write access to the shared remote cache if the branch is not a fork
