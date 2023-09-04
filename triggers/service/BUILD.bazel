@@ -3,8 +3,7 @@
 
 load("@oracle//:index.bzl", "oracle_tags")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "lf_versions_aggregate")
-load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")
+load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "lf_version_configuration", "lf_versions_aggregate")
 load("@os_info//:os_info.bzl", "is_windows")
 load(
     "//bazel_tools:scala.bzl",
@@ -17,11 +16,7 @@ load(
 
 triggerMain = "src/main/scala/com/digitalasset/daml/lf/engine/trigger/ServiceMain.scala"
 
-target_lf_versions = lf_versions_aggregate([
-    "default",
-    "1.dev",
-    "2.dev",
-])
+target_lf_versions = lf_versions_aggregate(["default"] + LF_DEV_VERSIONS)
 
 da_scala_library(
     name = "trigger-service",
