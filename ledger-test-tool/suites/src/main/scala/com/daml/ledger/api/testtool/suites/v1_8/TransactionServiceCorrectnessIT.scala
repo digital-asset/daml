@@ -337,9 +337,20 @@ object TransactionServiceCorrectnessIT {
           events = t.events
             .map(e => e.copy(event = stripEventId(e.event)).modifyWitnessParties(_.sorted)),
           transactionId = "transactionId",
+          traceContext = t.traceContext.map(tc => tc.copy(tc.traceparent.map(eraseSpanId))),
         )
       )
   }
+
+  // Erase span id from the trace context. It is an element of the race context that
+  // is different on the different participants that are handling the transacion stream
+  // requests.
+  def eraseSpanId(parentTraceId: String): String =
+    parentTraceId.split("-").toList match {
+      case ver :: traceId :: _ :: rest =>
+        (ver :: traceId :: "0123456789abcdef" :: rest).mkString("-")
+      case _ => parentTraceId
+    }
 
   // Strip command id, offset, event id and transaction id to yield a transaction comparable across participant
   // Furthermore, makes sure that the order is not relevant for witness parties
@@ -368,6 +379,7 @@ object TransactionServiceCorrectnessIT {
           }.toMap,
           transactionId = "transactionId",
           rootEventIds = t.rootEventIds.map(_ => "eventId"),
+          traceContext = t.traceContext.map(tc => tc.copy(tc.traceparent.map(eraseSpanId))),
         )
       )
   }
