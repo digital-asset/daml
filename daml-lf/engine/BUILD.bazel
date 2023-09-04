@@ -48,7 +48,8 @@ da_scala_test_suite(
     data = [
         "//daml-lf/tests:AuthTests.dar",
         "//daml-lf/tests:BasicTests.dar",
-        "//daml-lf/tests:BasicTests-dev.dar",
+        "//daml-lf/tests:BasicTests-v1dev.dar",
+        "//daml-lf/tests:BasicTests-v2dev.dar",
         "//daml-lf/tests:Exceptions.dar",
         "//daml-lf/tests:InterfaceRetro.dar",
         "//daml-lf/tests:InterfaceViews.dar",

@@ -51,6 +51,7 @@ import org.scalatest.matchers.{MatchResult, Matcher}
 import scala.annotation.nowarn
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
+import scala.math.Ordered.orderingToOrdered
 
 @SuppressWarnings(
   Array(
@@ -2330,26 +2331,33 @@ class EngineTest
 
     }
 
-    "accept stable packages even if version is smaller than min version" in {
-      for {
-        lv <- LanguageVersion.All
-        eng = engine(min = lv, LanguageVersion.v2_dev)
-        pkg <- StablePackage.values
-        pkgId = pkg.packageId
-        pkg <- allPackagesDev.get(pkgId).toList
-      } yield eng.preloadPackage(pkgId, pkg) shouldBe a[ResultDone[_]]
-    }
+    for (
+      (devVersion, allPackagesDev) <- Seq(
+        LanguageVersion.v1_dev -> allPackages1Dev,
+        LanguageVersion.v2_dev -> allPackages2Dev,
+      )
+    ) {
+      s"accept stable packages from ${devVersion} even if version is smaller than min version" in {
+        for {
+          lv <- LanguageVersion.All.filter(_ <= devVersion)
+          eng = engine(min = lv, devVersion)
+          pkg <- StablePackage.values
+          pkgId = pkg.packageId
+          pkg <- allPackagesDev.get(pkgId).toList
+        } yield eng.preloadPackage(pkgId, pkg) shouldBe a[ResultDone[_]]
+      }
 
-    "reject stable packages if version is greater than max version" in {
-      for {
-        lv <- LanguageVersion.All
-        eng = engine(LanguageVersion.v1_6, max = lv)
-        pkg <- StablePackage.values
-        pkgId = pkg.packageId
-        pkg <- allPackagesDev.get(pkgId).toList
-      } yield inside(eng.preloadPackage(pkgId, pkg)) {
-        case ResultDone(_) => pkg.languageVersion shouldBe <=(lv)
-        case ResultError(_) => pkg.languageVersion shouldBe >(lv)
+      s"reject stable packages from ${devVersion} if version is greater than max version" in {
+        for {
+          lv <- LanguageVersion.All
+          eng = engine(LanguageVersion.v1_6, max = lv)
+          pkg <- StablePackage.values
+          pkgId = pkg.packageId
+          pkg <- allPackagesDev.get(pkgId).toList
+        } yield inside(eng.preloadPackage(pkgId, pkg)) {
+          case ResultDone(_) => pkg.languageVersion shouldBe <=(lv)
+          case ResultError(_) => pkg.languageVersion shouldBe >(lv)
+        }
       }
     }
   }
@@ -2378,8 +2386,12 @@ object EngineTest {
     "daml-lf/tests/BasicTests.dar"
   )
 
-  val (_, _, allPackagesDev) = loadPackage(
-    "daml-lf/tests/BasicTests-dev.dar"
+  val (_, _, allPackages1Dev) = loadPackage(
+    "daml-lf/tests/BasicTests-v1dev.dar"
+  )
+
+  val (_, _, allPackages2Dev) = loadPackage(
+    "daml-lf/tests/BasicTests-v2dev.dar"
   )
 
   val basicTestsSignatures: PackageInterface =
