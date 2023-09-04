@@ -198,7 +198,7 @@ da_haskell_library(
         ],
     )
     # Test stable versions with validation
-    # Test dev versions without validation
+    # Test dev and default versions without validation
     for version, skip_validation in (
         [(version, False) for version in COMPILER_LF_VERSIONS] +
         [(version, True) for version in [lf_version_configuration.get("default")] + LF_DEV_VERSIONS]
@@ -1171,7 +1171,7 @@ daml_compile(
     name = "package-vetting-package-a",
     srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageAModule.daml"],
     project_name = "package-vetting-package-a",
-    target = "1.dev",
+    target = "2.dev",
     version = "1.0.0",
 )
 
@@ -1179,7 +1179,7 @@ daml_compile(
     name = "package-vetting-package-b",
     srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageBModule.daml"],
     project_name = "package-vetting-package-b",
-    target = "1.dev",
+    target = "2.dev",
     version = "1.0.0",
 )
 
