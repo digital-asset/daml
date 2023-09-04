@@ -8,6 +8,8 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonConfig
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
+import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.language.LanguageMajorVersion.{V1, V2}
 import com.daml.lf.speedy.SValue._
 
 import java.nio.file.Paths
@@ -15,24 +17,39 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
+class V1DevIT extends DevIT(V1) {}
+class V2DevIT extends DevIT(V2) {}
+
+class DevIT(val majorVersion: LanguageMajorVersion)
+    extends AsyncWordSpec
+    with AbstractScriptTest
+    with Inside
+    with Matchers {
   final override protected lazy val devMode = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
-  lazy val devDarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/script-test-1.dev.dar"))
+  val prettyLfVersion = s"${majorVersion.pretty}.dev"
+
+  lazy val devDarPath =
+    BazelRunfiles.rlocation(Paths.get(s"daml-script/test/script-test-$prettyLfVersion.dar"))
   lazy val devDar = CompiledDar.read(devDarPath, Runner.compilerConfig)
 
-  lazy val coinV1DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v1.dar"))
-  lazy val coinV2DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v2.dar"))
+  lazy val coinV1DarPath =
+    BazelRunfiles.rlocation(Paths.get(s"daml-script/test/coin-v1-$prettyLfVersion.dar"))
+  lazy val coinV2DarPath =
+    BazelRunfiles.rlocation(Paths.get(s"daml-script/test/coin-v2-$prettyLfVersion.dar"))
   lazy val coinV2NewFieldDarPath =
-    BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v2-new-field.dar"))
-  lazy val coinV3DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v3.dar"))
+    BazelRunfiles.rlocation(Paths.get(s"daml-script/test/coin-v2-new-field-$prettyLfVersion.dar"))
+  lazy val coinV3DarPath =
+    BazelRunfiles.rlocation(Paths.get(s"daml-script/test/coin-v3-$prettyLfVersion.dar"))
   lazy val coinUpgradeV1V2DarPath =
-    BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-upgrade-v1-v2.dar"))
+    BazelRunfiles.rlocation(Paths.get(s"daml-script/test/coin-upgrade-v1-v2-$prettyLfVersion.dar"))
   lazy val coinUpgradeV1V2NewFieldDarPath =
-    BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-upgrade-v1-v2-new-field.dar"))
+    BazelRunfiles.rlocation(
+      Paths.get(s"daml-script/test/coin-upgrade-v1-v2-new-field-$prettyLfVersion.dar")
+    )
   lazy val coinUpgradeV1V3DarPath =
-    BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-upgrade-v1-v3.dar"))
+    BazelRunfiles.rlocation(Paths.get(s"daml-script/test/coin-upgrade-v1-v3-$prettyLfVersion.dar"))
   lazy val coinUpgradeV1V2Dar: CompiledDar =
     CompiledDar.read(coinUpgradeV1V2DarPath, Runner.compilerConfig)
   lazy val coinUpgradeV1V2NewFieldDar: CompiledDar =
