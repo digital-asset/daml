@@ -117,7 +117,7 @@ da_scala_binary(
             args = [
                 "$(location //daml-lf/repl:repl)",
                 "$(location :testing-dar-%s)" % target,
-                "--dev" if (lf_version_configuration.get("dev") or target == lf_version_configuration.get("preview")) else "",
+                "--dev" if (target == lf_version_configuration.get("dev") or target == lf_version_configuration.get("preview")) else "",
             ],
             data = [
                 "//daml-lf/repl",
