@@ -97,6 +97,7 @@ da_scala_test_suite(
     ],
     deps = [
         ":suites-1.dev",
+        ":suites-2.dev",
         "//daml-lf/data",
         "//ledger-test-tool/infrastructure",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
