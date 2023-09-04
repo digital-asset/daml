@@ -158,7 +158,6 @@ daml_compile(
         "src/test/daml/Bar.daml",
         "src/test/daml/Retro.daml",
     ],
-    # TODO(#13296) remove when interfaces in default
     target = lf_version_configuration.get("latest"),
 )
 

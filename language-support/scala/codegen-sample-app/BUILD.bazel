@@ -17,7 +17,6 @@ load(
     "lf_version_configuration",
 )
 
-# TODO(#13296) change to "latest" when interfaces released
 tested_lf_config = "latest"
 
 daml_compile(
