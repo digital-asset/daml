@@ -158,7 +158,7 @@ daml_compile(
         "src/test/daml/Bar.daml",
         "src/test/daml/Retro.daml",
     ],
-    target = lf_version_configuration.get("latest"),
+    target = lf_version_configuration.get("default"),
 )
 
 dar_to_java(

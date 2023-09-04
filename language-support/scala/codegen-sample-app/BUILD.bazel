@@ -17,7 +17,7 @@ load(
     "lf_version_configuration",
 )
 
-tested_lf_config = "latest"
+tested_lf_config = "default"
 
 daml_compile(
     name = "MyMain",
