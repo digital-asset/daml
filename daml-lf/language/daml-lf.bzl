@@ -4,6 +4,9 @@
 def mangle_for_java(name):
     return name.replace(".", "_")
 
+def mangle_for_damlc(name):
+    return "v{}".format(name.replace(".", ""))
+
 def _to_major_minor_str(v):
     (majorStr, _, minorStr) = v.partition(".")
     return (majorStr, minorStr)

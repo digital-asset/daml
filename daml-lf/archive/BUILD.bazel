@@ -13,7 +13,7 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
-load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "SUPPORTED_PROTO_STABLE_LF_VERSIONS", "lf_version_configuration", "mangle_for_java", "versions")
+load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "SUPPORTED_PROTO_STABLE_LF_VERSIONS", "lf_version_configuration", "mangle_for_damlc", "mangle_for_java", "versions")
 load(
     "//rules_daml:daml.bzl",
     "daml_compile",
@@ -119,7 +119,9 @@ da_scala_test_suite(
     data = [
         ":DarReaderTest.dalf",
         ":DarReaderTest.dar",
-        ":DarReaderTest-dev.dar",
+    ] + [
+        ":DarReaderTest-{}.dar".format(mangle_for_damlc(version))
+        for version in LF_DEV_VERSIONS
     ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
@@ -150,11 +152,14 @@ daml_compile_with_dalf(
     srcs = ["src/test/daml/DarReaderTest.daml"],
 )
 
-daml_compile(
-    name = "DarReaderTest-dev",
-    srcs = ["src/test/daml/DarReaderTest.daml"],
-    target = "1.dev",
-)
+[
+    daml_compile(
+        name = "DarReaderTest-{}".format(mangle_for_damlc(version)),
+        srcs = ["src/test/daml/DarReaderTest.daml"],
+        target = version,
+    )
+    for version in LF_DEV_VERSIONS
+]
 
 # An ad-hoc tool for testing, benchmarking and profiling package decoding performance in isolation.
 da_scala_binary(
