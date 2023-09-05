@@ -63,8 +63,8 @@ For more information, see [Reference: Templates: Template-local Definitions (Dep
 ## Removal of deprecated 'controller..can' syntax
 
 The 'controller..can' syntax for defining template choices, deprecated since
-Daml 2.0, has now been completely removed, so projects that use them will no
-longer be accepted. Those choices should instead be defined using 'choice-first'
+Daml 2.0, has now been completely removed. Projects that use this syntax are no
+longer accepted. Those choices should instead be defined using 'choice-first'
 syntax.
 
 Note that, as a consequence, the warning flags `-Wcontroller-can` and
