@@ -76,7 +76,7 @@ if is_windows; then
   # We include an extra version at the end that we can bump manually.
   CACHE_SUFFIX="$SUFFIX-v14"
   CACHE_URL="$CACHE_URL/$CACHE_SUFFIX"
-  echo "build:windows-ci --remote_cache=https://bazel-cache.da-ext.net/$CACHE_SUFFIX" >> .bazelrc.local
+  echo "build:windows-ci --remote_cache=https://storage.googleapis.com/daml-bazel-cache/$CACHE_SUFFIX" >> .bazelrc.local
 else
   CACHE_URL=$CACHE_URL/$os/202308
 fi
