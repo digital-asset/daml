@@ -60,6 +60,19 @@ following warning will be shown during compilation or in the IDE:
 
 For more information, see [Reference: Templates: Template-local Definitions (Deprecated)](https://docs.daml.com/2.8.0/daml/reference/templates.html#template-local-definitions-deprecated)
 
+## Removal of deprecated 'controller..can' syntax
+
+The 'controller..can' syntax for defining template choices, deprecated since
+Daml 2.0, has now been completely removed, so projects that use them will no
+longer be accepted. Those choices should instead be defined using 'choice-first'
+syntax.
+
+Note that, as a consequence, the warning flags `-Wcontroller-can` and
+`-Wnocontroller-can` are not accepted anymore.
+
+See [Deprecation of `controller`-first syntax: Migrating](https://docs.daml.com/2.7.0/daml/reference/choices.html#migrating)
+for more information on how to adapt existing projects.
+
 ## What’s New
 ### Daml-script json support for --all
 The daml-script binary runner has been refactored to be more consistent across using `--script-name` and `--all`.  
