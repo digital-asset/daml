@@ -81,6 +81,10 @@ else
   CACHE_URL="$CACHE_URL/$os/202308"
 fi
 
+echo "CACHE_URL: $CACHE_URL"
+cat .bazelrc | grep remote_
+cat .bazrlrc.local | grep remote_
+
 # sets up write access to the shared remote cache if the branch is not a fork
 if [[ "${IS_FORK}" = False ]]; then
   step "configuring write access to the remote cache"
