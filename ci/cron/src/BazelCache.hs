@@ -157,5 +157,5 @@ gsCachePath mbSuffix = "gs://daml-bazel-cache/" <> suffix <> "/ac/*"
   where suffix = fromMaybe "*-v*" mbSuffix
 
 cacheUrl :: String -> String
-cacheUrl path = "https://storage.googleapis.com/daml-bazel-cache/" <> path
+cacheUrl path = "https://bazel-cache.da-ext.net/" <> path
 
