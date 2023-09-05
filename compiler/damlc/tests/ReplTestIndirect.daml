@@ -1,8 +1,0 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
--- SPDX-License-Identifier: Apache-2.0
-
-module ReplTestIndirect where
-
--- Re-export create to test transitive DAR dependencies in the REPL.
-myCreate : HasCreate t => t -> Update (ContractId t)
-myCreate = create

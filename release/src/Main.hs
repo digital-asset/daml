@@ -40,7 +40,6 @@ import qualified SdkVersion
 depsToExclude :: T.Text
 depsToExclude = T.intercalate " + " [
    "//compiler/scenario-service/protos:scenario_service_java_proto",
-   "//compiler/repl-service/protos:repl_service_java_proto",
    "//daml-script/runner:script-runner-lib"]
 
 buildAndCopyArtifacts :: (MonadLogger m, MonadIO m, E.MonadThrow m) => IncludeDocs -> SemVer.Version -> BazelLocations -> Path Abs Dir -> [Artifact (Maybe ArtifactLocation)] -> m [Artifact PomData]
