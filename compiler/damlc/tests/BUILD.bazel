@@ -214,7 +214,7 @@ da_haskell_library(
         srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
         args = [
             "--daml-lf-version",
-            "2.dev",
+            "2.dev",  # script2 only supports 2.x
             "--skip-validation",
             "false",
             "--daml-script-v2",

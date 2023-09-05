@@ -19,6 +19,9 @@ import DA.Daml.LF.Simplifier (simplifyModule)
 
 main :: IO ()
 main = defaultMain $ testGroup "DA.Daml.LF.Simplifier"
+    -- The Simplifier calls the typechecker whose behavior is affected by feature flags. The
+    -- simplifier may thus behave differently based on the version of LF and thus we need to test
+    -- both x.dev versions as they will diverge over time.
     [ constantLiftingTests version1_dev
     , constantLiftingTests version2_dev
     ]

@@ -16,6 +16,8 @@ import qualified Text.Read as Read
 data Version
   = V1{versionMinor :: MinorVersion}
   | V2{versionMinor :: MinorVersion}
+  -- TODO(#17366): Remove the Ord instance once V2 is backwards incompatible with V1. All code
+  --     relying on the Ord instance should use the supports function instead.
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 data MinorVersion = PointStable Int | PointDev
@@ -77,6 +79,8 @@ isDevVersion _ = False
 
 data Feature = Feature
     { featureName :: !T.Text
+    -- TODO(#17366): Replace with a richer specification once features can be deprecated after a
+    --     given version. See PR #17334.
     , featureMinVersion :: !Version
     , featureCppFlag :: Maybe T.Text
         -- ^ CPP flag to test for availability of the feature.

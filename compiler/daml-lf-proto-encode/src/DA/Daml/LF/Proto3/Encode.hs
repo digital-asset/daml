@@ -21,9 +21,13 @@ encodePayload package = case packageLfVersion package of
         let payload = ArchivePayloadSumDamlLf1 (EncodeV1.encodePackage package)
         in  ArchivePayload (TL.pack $ renderMinorVersion minor) (Just payload)
     V2 minor ->
+        -- The DamlLf2 proto is currently a copy of DamlLf1 so we can coerce one to the other.
+        -- TODO(#17366): Introduce a new DamlLf2 encoder once we introduce changes to DamlLf2.
         let payload = ArchivePayloadSumDamlLf2 (coerceLF1toLF2 (EncodeV1.encodePackage package))
         in  ArchivePayload (TL.pack $ renderMinorVersion minor) (Just payload)
 
+
+-- TODO(#17366): Delete as soon as the DamlLf2 proto diverges from the DamlLF1 one.
 coerceLF1toLF2 :: LF1.Package -> LF2.Package
 coerceLF1toLF2 package =
   fromRight

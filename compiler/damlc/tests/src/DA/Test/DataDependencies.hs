@@ -65,12 +65,14 @@ darPackageIds fp = do
 -- | We test two sets of versions:
 -- 1. Versions no longer supported as output versions by damlc are tested against
 --    1.14.
--- 2. For all other versions we test them against the next version + extra (1.dev, 1.dev) and (2.dev, 2.dev) pairs.
+-- 2. For all other versions we test them against the next version + extra (1.dev, 1.dev) and
+--    (2.dev, 2.dev) pairs.
 lfVersionTestPairs :: [(LF.Version, LF.Version)]
 lfVersionTestPairs =
     let legacyPairs = map (, LF.version1_14) (LF.supportedInputVersions \\ LF.supportedOutputVersions)
+        selfPairs = [(LF.version1_dev, LF.version1_dev), (LF.version2_dev, LF.version2_dev)]
         versions = sort LF.supportedOutputVersions
-    in legacyPairs ++ zip versions (tail versions) ++ [(LF.version1_dev, LF.version1_dev), (LF.version2_dev, LF.version2_dev)]
+    in concat [legacyPairs, zip versions (tail versions), selfPairs]
 
 tests :: Tools -> TestTree
 tests tools = testGroup "Data Dependencies" $
@@ -2512,6 +2514,7 @@ tests tools = testGroup "Data Dependencies" $
         callProcessSilent damlc
             [ "build"
             , "--project-root", tmpDir </> "main"
+            -- TODO(paul): run this against LF2 as well?
             , "--target", LF.renderVersion LF.version1_dev ]
 
     , testCaseSteps "Package ids are stable across rebuilds" $ \step -> withTempDir $ \tmpDir -> do
@@ -2534,6 +2537,7 @@ tests tools = testGroup "Data Dependencies" $
             [ "build"
             , "--project-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
+            -- TODO(paul): run this against LF2 as well?
             , "--target", LF.renderVersion LF.version1_dev
             ]
 
@@ -2559,6 +2563,7 @@ tests tools = testGroup "Data Dependencies" $
             [ "build"
             , "--project-root", tmpDir </> "main"
             , "-o", tmpDir </> "main" </> "main.dar"
+            -- TODO(paul): run this against LF2 as well?
             , "--target", LF.renderVersion LF.version1_dev
             ]
 
@@ -2567,6 +2572,7 @@ tests tools = testGroup "Data Dependencies" $
             [ "build"
             , "--project-root", tmpDir </> "main"
             , "-o", tmpDir </> "main" </> "main2.dar"
+            -- TODO(paul): run this against LF2 as well?
             , "--target", LF.renderVersion LF.version1_dev
             ]
 
@@ -2696,11 +2702,13 @@ tests tools = testGroup "Data Dependencies" $
         callProcessSilent damlc
             [ "build"
             , "--project-root", tmpDir </> "main"
+            -- TODO(paul): run this against LF2 as well?
             , "--target", LF.renderVersion LF.version1_dev ]
         step "running damlc test"
         callProcessSilent damlc
             [ "test"
             , "--project-root", tmpDir </> "main"
+            -- TODO(paul): run this against LF2 as well?
             , "--target", LF.renderVersion LF.version1_dev ]
     ]
   where

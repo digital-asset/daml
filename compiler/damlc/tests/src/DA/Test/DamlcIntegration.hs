@@ -139,7 +139,7 @@ withDamlScriptDep mLfVer =
     darPath = "daml-script" </> "daml" </> "daml-script" <> lfVerStr <> ".dar"
   in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer []
 
--- Daml-script v2 is only 1.dev right now
+-- Daml-script v2 is only 2.dev right now
 withDamlScriptV2Dep :: (ScriptPackageData -> IO a) -> IO a
 withDamlScriptV2Dep =
   let
