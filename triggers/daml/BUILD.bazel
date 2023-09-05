@@ -43,8 +43,8 @@ EOF
                 lf_version,
             ] if lf_version else []),
             daml_script = "//daml-script/daml:daml-script{}".format(suffix),
-            ghc = ghc_version,
             sdk = sdk_version,
+            ghc = ghc_version,
         ),
         tools = [
             "//compiler/damlc",
@@ -102,8 +102,8 @@ EOF
             $$TMP_DIR/daml/Daml/Trigger/LowLevel.daml
     """.format(
         daml_script = "//daml-script/daml:daml-script",
-        ghc = ghc_version,
         sdk = sdk_version,
+        ghc = ghc_version,
     ),
     tools = [
         "//compiler/damlc",

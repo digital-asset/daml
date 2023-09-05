@@ -91,8 +91,8 @@ da_scala_test_suite(
     ],
     scalacopts = hj_scalacopts,
     tags = oracle_tags + [
-        "canton-ee",
         "cpu:6",
+        "canton-ee",
     ],
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",

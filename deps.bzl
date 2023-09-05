@@ -35,8 +35,8 @@ load("//:daml_finance_dep.bzl", "quickstart")
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "6899cddf7407d09266dddcf6faf9f2a8b414de5e2b35ef8b294418f559172f28"
 
-rules_haskell_version = "15aba7bee8823264fb6a7e7a053b37e806d2cb5c"
-rules_haskell_sha256 = "a4b5e11738a78cf177a65b0938b12b10f15746818a8afdfa9351d9b47fe7409b"
+rules_haskell_version = "d3caf0cc94a8dc6af682da42d3b89ef7e85cb987"
+rules_haskell_sha256 = "16f6ba4997fa4847d7dc26db2c08f71087b591e53ac8c334b1e7f62f6cf3a5da"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
@@ -44,13 +44,13 @@ rules_haskell_patches = [
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
 ]
-rules_nixpkgs_version = "9f08fb2322050991dead17c8d10d453650cf92b7"
-rules_nixpkgs_sha256 = "46aa0ca80b77848492aa1564e9201de9ed79588ca1284f8a4f76deb7a0eeccb9"
+rules_nixpkgs_version = "210d30a81cedde04b4281fd163428722278fddfb"
+rules_nixpkgs_sha256 = "61b24e273821a15146f9ae7577e64b53f6aa332d5a7056abe8221ae2c346fdbd"
 rules_nixpkgs_patches = [
 ]
 
-buildifier_version = "b163fcf72b7def638f364ed129c9b28032c1d39b"
-buildifier_sha256 = "c2399161fa569f7c815f8e27634035557a2e07a557996df579412ac73bf52c23"
+buildifier_version = "4.0.0"
+buildifier_sha256 = "0d3ca4ed434958dda241fb129f77bd5ef0ce246250feed2d5a5470c6f29a77fa"
 zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
 rules_nodejs_version = "4.6.1"

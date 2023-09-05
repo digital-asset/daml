@@ -42,12 +42,12 @@ deps = {
         exports = [":base"],
         deps = deps.get(edition) + [
             ":base",
-            "//ledger-api/rs-grpc-bridge",
             "//ledger/ledger-api-client",
+            "//ledger-api/rs-grpc-bridge",
             "//ledger-service/http-json-cli:{}".format(edition),
-            "//libs-scala/contextualized-logging",
             "@maven//:io_grpc_grpc_api",
             "@maven//:io_grpc_grpc_core",
+            "//libs-scala/contextualized-logging",
             "@maven//:io_grpc_grpc_netty",
         ],
     )
