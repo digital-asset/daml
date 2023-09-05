@@ -22,10 +22,10 @@ cd "$(dirname "$0")/.."
 # detect the OS
 case $(uname) in
 Linux)
-  os=linux
+  os=ubuntu
   ;;
 Darwin)
-  os=darwin
+  os=macos
   ;;
 MINGW*)
   os=windows
@@ -76,7 +76,9 @@ if is_windows; then
   # We include an extra version at the end that we can bump manually.
   CACHE_SUFFIX="$SUFFIX-v14"
   CACHE_URL="$CACHE_URL/$CACHE_SUFFIX"
-  echo "build:windows-ci --remote_cache=https://bazel-cache.da-ext.net/$CACHE_SUFFIX" >> .bazelrc.local
+  echo "build:windows-ci --remote_cache=https://storage.googleapis.com/daml-bazel-cache/$CACHE_SUFFIX" >> .bazelrc.local
+else
+  CACHE_URL="$CACHE_URL/$os/202308"
 fi
 
 # sets up write access to the shared remote cache if the branch is not a fork
@@ -86,5 +88,5 @@ if [[ "${IS_FORK}" = False ]]; then
   echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > "$GOOGLE_APPLICATION_CREDENTIALS"
   unset GOOGLE_APPLICATION_CREDENTIALS_CONTENT
   export GOOGLE_APPLICATION_CREDENTIALS
-  echo "build --remote_cache=$CACHE_URL --remote_upload_local_results=true --google_credentials=${GOOGLE_APPLICATION_CREDENTIALS}" >> .bazelrc.local
+  echo "build --remote_cache=\"$CACHE_URL\" --remote_upload_local_results=true --google_credentials=${GOOGLE_APPLICATION_CREDENTIALS}" >> .bazelrc.local
 fi
