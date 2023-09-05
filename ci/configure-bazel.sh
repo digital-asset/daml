@@ -83,7 +83,7 @@ fi
 
 echo "CACHE_URL: $CACHE_URL"
 cat .bazelrc | grep remote_
-cat .bazrlrc.local | grep remote_
+[ -f .bazelrc.local] && cat .bazrlrc.local | grep remote_ || true
 
 # sets up write access to the shared remote cache if the branch is not a fork
 if [[ "${IS_FORK}" = False ]]; then
