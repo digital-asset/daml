@@ -58,7 +58,7 @@ class ContractKeySpec
   }
 
   private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
-    "daml-lf/tests/BasicTests.dar"
+    "daml-lf/engine/BasicTests.dar"
   )
 
   val basicTestsSignatures = language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))

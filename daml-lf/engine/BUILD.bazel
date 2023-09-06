@@ -9,6 +9,15 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "LF_DEV_VERSIONS",
+    "mangle_for_damlc",
+)
 
 da_scala_library(
     name = "engine",
@@ -33,6 +42,28 @@ da_scala_library(
     ],
 )
 
+ENGINE_TEST_FILES = \
+    [
+        "BasicTests",
+    ]
+
+[
+    daml_compile(
+        name = name,
+        srcs = ["src/test/daml/%s.daml" % name],
+    )
+    for name in ENGINE_TEST_FILES
+]
+
+[
+    daml_compile(
+        name = "BasicTests-{}".format(mangle_for_damlc(version)),
+        srcs = ["src/test/daml/BasicTests.daml"],
+        target = version,
+    )
+    for version in LF_DEV_VERSIONS
+]
+
 da_scala_test_suite(
     name = "tests",
     srcs = glob(
@@ -47,9 +78,6 @@ da_scala_test_suite(
     ),
     data = [
         "//daml-lf/tests:AuthTests.dar",
-        "//daml-lf/tests:BasicTests.dar",
-        "//daml-lf/tests:BasicTests-v1dev.dar",
-        "//daml-lf/tests:BasicTests-v2dev.dar",
         "//daml-lf/tests:Exceptions.dar",
         "//daml-lf/tests:InterfaceRetro.dar",
         "//daml-lf/tests:InterfaceViews.dar",
@@ -57,6 +85,12 @@ da_scala_test_suite(
         "//daml-lf/tests:MultiKeys.dar",
         "//daml-lf/tests:Optional.dar",
         "//daml-lf/tests:ReinterpretTests.dar",
+    ] + [
+        ":%s.dar" % name
+        for name in ENGINE_TEST_FILES
+    ] + [
+        ":BasicTests-{}.dar".format(mangle_for_damlc(version))
+        for version in LF_DEV_VERSIONS
     ],
     scala_deps = [
         "@maven//:com_storm_enroute_scalameter_core",

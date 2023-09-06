@@ -6,15 +6,9 @@ load(
     "daml_build_test",
     "daml_compile",
 )
-load(
-    "//daml-lf/language:daml-lf.bzl",
-    "LF_DEV_VERSIONS",
-    "mangle_for_damlc",
-)
 
 TEST_FILES = \
     [
-        "BasicTests",
         "AuthorizedDivulgence",
         "DontDiscloseNonConsumingExercisesToObservers",
         "LargeTransaction",
@@ -31,17 +25,6 @@ TEST_FILES = \
         visibility = ["//daml-lf:__subpackages__"],
     )
     for name in TEST_FILES
-]
-
-[
-    daml_compile(
-        name = "BasicTests-{}".format(mangle_for_damlc(version)),
-        srcs = ["BasicTests.daml"],
-        enable_scenarios = True,
-        target = version,
-        visibility = ["//daml-lf:__subpackages__"],
-    )
-    for version in LF_DEV_VERSIONS
 ]
 
 daml_compile(
