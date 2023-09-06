@@ -7,48 +7,6 @@ def mangle_for_java(name):
 def mangle_for_damlc(name):
     return "v{}".format(name.replace(".", ""))
 
-def _to_major_minor_str(v):
-    (majorStr, _, minorStr) = v.partition(".")
-    return (majorStr, minorStr)
-
-def _cmp_major_version_str(aStr, bStr):
-    return _cmp_int(int(aStr), int(bStr))
-
-def _cmp_minor_version_str(aStr, bStr):
-    if aStr == bStr:
-        return 0
-    elif aStr == "dev":
-        return 1
-    elif bStr == "dev":
-        return -1
-    else:
-        return _cmp_int(int(aStr), int(bStr))
-
-def _cmp_int(a, b):
-    if a == b:
-        return 0
-    elif a > b:
-        return 1
-    else:
-        return -1
-
-def _cmp_lf_version(a, b):
-    (aMajStr, aMinStr) = _to_major_minor_str(a)
-    (bMajStr, bMinStr) = _to_major_minor_str(b)
-    majComp = _cmp_major_version_str(aMajStr, bMajStr)
-    return majComp if majComp != 0 else _cmp_minor_version_str(aMinStr, bMinStr)
-
-def _gte(a, b):
-    return _cmp_lf_version(a, b) >= 0
-
-def _lte(a, b):
-    return _cmp_lf_version(a, b) <= 0
-
-versions = struct(
-    lte = _lte,
-    gte = _gte,
-)
-
 # The following dictionary alias LF versions to keywords:
 # - "legacy" is the keyword for last LF version that supports legacy
 #    contract ID scheme,
@@ -56,15 +14,13 @@ versions = struct(
 # - "latest" is the keyword for the latest stable LF version,
 # - "preview" is the keyword fort he next LF version, *not stable*,
 #    usable for beta testing,
-# - "dev" is the keyword for the development version, *not stable*,
-#    usable for alpha testing.
 # The following dictionary is always defined for "legacy", "stable",
-# "latest", and "dev". It contains "preview" iff a preview version is
-# available.  If exists "preview"'s value is guarantee to be different
-# for all other values.  If we make a new LF release, we bump latest
+# and "latest". It contains "preview" iff a preview version is
+# available.  If it exists, "preview"'s value is guaranteed to be different
+# from all other values. If we make a new LF release, we bump latest
 # and once we make it the compiler default we bump stable.
 
-_lf_version_configuration = {
+lf_version_configuration = {
     "legacy": "1.8",
     "default": "1.15",
     "latest": "1.15",
@@ -72,18 +28,6 @@ _lf_version_configuration = {
 
     # "dev" is now ambiguous, use either 1.dev or 2.dev explicitly
 }
-
-def _safe_get(x, default = None):
-    if x == "dev":
-        return 1 / 0
-    else:
-        return _lf_version_configuration.get(x, default)
-
-lf_version_configuration = struct(
-    get = _safe_get,
-    values = _lf_version_configuration.values,
-    items = _lf_version_configuration.items,
-)
 
 lf_version_configuration_versions = depset(lf_version_configuration.values()).to_list()
 
@@ -124,12 +68,13 @@ LF_VERSIONS = [
 def lf_version_is_dev(versionStr):
     return versionStr in LF_DEV_VERSIONS
 
-# Later: add 2.0
+# The stable versions for which we have an LF proto definition under daml-lf/archive/src/stable
+# TODO(#17366): add 2.0 once created
 SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["1.14", "1.15"]
-PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14")]
 
-# The subset of LF versions accepted by the compiler in the syntax
-# expected by the --target option.
-COMPILER_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14")]
+# The subset of LF versions accepted by the compiler in the syntax, expected by the --target option.
+# Must be kept in sync with supportedOutputVersions in Version.hs.
+# TODO(#17366): add 2.0 once created
+COMPILER_LF_VERSIONS = ["1.14", "1.15"] + LF_DEV_VERSIONS
 
 LF_MAJOR_VERSIONS = ["1", "2"]

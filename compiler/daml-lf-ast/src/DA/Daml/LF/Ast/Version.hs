@@ -66,6 +66,7 @@ version1_dev = V1 PointDev
 version2_dev :: Version
 version2_dev = V2 PointDev
 
+-- Must be kept in sync with COMPILER_LF_VERSION in daml-lf.bzl.
 supportedOutputVersions :: [Version]
 supportedOutputVersions = [version1_14, version1_15, version1_dev, version2_dev]
 
