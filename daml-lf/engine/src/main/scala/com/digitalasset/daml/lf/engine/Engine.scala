@@ -477,9 +477,15 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                       loopOuter(cache)
                     case Some(mes) =>
                       println(s"interpretLoop: NeedUpgradeVerification, message-from-ledger=$mes")
-                      // NICK, the correct behaviour is to fail here (model on NeedAuthority)
-                      callback()
-                      loopOuter(cache)
+                      // TODO: https://github.com/digital-asset/daml/issues/17082
+                      // - we need a new interpretation.Error for this
+                      ResultError(
+                        Error.Interpretation.Internal(
+                          NameOf.qualifiedNameOfCurrentFunc,
+                          s"Ledger refused upgrade verification with message: $mes",
+                          None
+                        )
+                      )
                   }
                 },
               )
