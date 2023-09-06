@@ -3,7 +3,8 @@
 
 package com.daml.lf.archive
 
-import com.daml.daml_lf_dev.{DamlLf}
+import com.daml.SafeProto
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.util.PackageInfo
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
@@ -30,7 +31,11 @@ object Decode {
         for {
           // The DamlLf2 proto is currently a copy of DamlLf1 so we can coerce one to the other.
           // TODO (#17366): Introduce a new DamlLf2 decoder once we introduce changes to DamlLf2.
-          lf1ProtoPackage <- Lf1PackageParser.fromByteString(payload.proto.getDamlLf2.toByteString)
+          lf2Bytestring <- SafeProto
+            .toByteString(payload.proto.getDamlLf2)
+            .left
+            .map(msg => Error.Internal("SafeProto.toByteString", msg, None))
+          lf1ProtoPackage <- Lf1PackageParser.fromByteString(lf2Bytestring)
           astPackage <- new DecodeV1(minor)
             .decodePackage(
               payload.pkgId,

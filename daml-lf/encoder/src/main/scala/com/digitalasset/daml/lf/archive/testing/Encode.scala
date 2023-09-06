@@ -7,7 +7,7 @@ package archive.testing
 import com.daml.SafeProto
 import com.daml.crypto.MessageDigestPrototype
 import com.daml.daml_lf_dev.{DamlLf => PLF}
-import com.daml.lf.archive.Lf2PackageParser
+import com.daml.lf.archive.{Error, Lf2PackageParser}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
@@ -40,8 +40,11 @@ object Encode {
         val lf1ProtoPackage = new EncodeV1(minor).encodePackage(pkgId, pkg)
         // The DamlLf2 proto is currently a copy of DamlLf1 so we can coerce one to the other.
         // TODO (#17366): Introduce a new DamlLf2 encoder once we introduce changes to DamlLf2.
-        Lf2PackageParser
-          .fromByteString(lf1ProtoPackage.toByteString)
+        SafeProto
+          .toByteString(lf1ProtoPackage)
+          .left
+          .map(msg => Error.Internal("SafeProto.toByteString", msg, None))
+          .flatMap(bs => Lf2PackageParser.fromByteString(bs))
           .fold(
             err => throw new RuntimeException(err),
             lf2ProtoPackage =>
