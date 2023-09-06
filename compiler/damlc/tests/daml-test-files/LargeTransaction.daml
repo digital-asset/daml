@@ -1,8 +1,11 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{- DLINT ignore -}
 
 module LargeTransaction where
+
+import Daml.Script
 
 import DA.Assert
 
@@ -19,7 +22,8 @@ rangeHelper xs next n =
       []     -> []
       h :: _ -> rangeHelper ((next h) :: xs) next (n - 1)
 
-rangeTest = scenario do
+rangeTest : Script ()
+rangeTest = script do
   rangeHelper [] (\x -> x + 2)  2 === []
   rangeHelper [] (\x -> x + 2)  0 === []
   rangeHelper [] (\x -> x + 2)  (-1) === []
@@ -40,7 +44,7 @@ template IntContainer
     signatory party
 
 template ListContainer
-  with 
+  with
     party: Party
     list: [Int]
   where
@@ -74,72 +78,106 @@ template ListUtil
       with list: [Int]
       controller party
       do create IntContainer with party = party, value = (length list)
-        
-rangeOfIntsToListTest = scenario do
-    p <- getParty "Dummy"
+
+rangeOfIntsToListTest : Script ()
+rangeOfIntsToListTest = script do
+    p <- allocateParty "Dummy"
     cid <- submit p do
-      create RangeOfInts with
+      createCmd RangeOfInts with
         party = p
         start = 0
         step = 10
         size = 5
-    lst <- submit p do exercise cid ToList
+    lst <- submit p do exerciseCmd cid ToList
     lst === [0, 10, 20, 30, 40]
 
-rangeOfIntsToListContainerTest =  scenario do
-    p <- getParty "Dummy"
+rangeOfIntsToListContainerTest : Script ()
+rangeOfIntsToListContainerTest = script do
+    p <- allocateParty "Dummy"
     cid <- submit p do
-      create RangeOfInts with
+      createCmd RangeOfInts with
         party = p
         start = 0
         step = 10
         size = 5
-    listContainerCid <- submit p (exercise cid ToListContainer)
-    listContainer <- submit p (fetch listContainerCid)
+    listContainerCid <- submit p (exerciseCmd cid ToListContainer)
+    listContainer <- submit p do createAndExerciseCmd (ListFetchHelper p) (ListFetchExe listContainerCid)
     listContainer.list === [0, 10, 20, 30, 40]
 
-listSizeTest = scenario do
-  p <- getParty "Dummy"
+listSizeTest : Script ()
+listSizeTest = script do
+  p <- allocateParty "Dummy"
   cid <- submit p do
-    create ListUtil with party = p
-  cid <- submit p (exercise cid Size with list = [0, 1, 2, 3, 4, 5, 6])
-  sizeContainer <- submit p (fetch cid)
+    createCmd ListUtil with party = p
+  cid <- submit p (exerciseCmd cid Size with list = [0, 1, 2, 3, 4, 5, 6])
+  sizeContainer <- submit p do createAndExerciseCmd (IntFetchHelper p) (IntFetchExe cid)
   sizeContainer.value === 7
 
-largeTransactionWithOneContractTest = scenario do
+largeTransactionWithOneContractTest : Script ()
+largeTransactionWithOneContractTest = script do
     let expectedSize: Int = 100
-    p: Party <- getParty "Dummy"
+    p: Party <- allocateParty "Dummy"
     cid: ContractId RangeOfInts <- submit p do
-      create RangeOfInts with party = p, start = 0, step = 1, size = expectedSize
-    cid: ContractId ListContainer <- submit p do exercise cid ToListContainer
-    listContainer <- submit p do fetch cid
+      createCmd RangeOfInts with party = p, start = 0, step = 1, size = expectedSize
+    cid: ContractId ListContainer <- submit p do exerciseCmd cid ToListContainer
+    listContainer <- submit p do createAndExerciseCmd (ListFetchHelper p) (ListFetchExe cid)
     (length listContainer.list) === expectedSize
 
-largeListAsAChoiceArgTest = scenario do
+largeListAsAChoiceArgTest : Script ()
+largeListAsAChoiceArgTest = script do
     let expectedSize: Int = 100
     let list: [Int] = range 0 (\x -> x + 1) expectedSize
-    p: Party <- getParty "Dummy"
-    cid: ContractId ListUtil <- submit p do  create ListUtil with party = p
-    cid: ContractId IntContainer <- submit p do exercise cid Size with list = list
-    sizeContainer: IntContainer <- submit p do fetch cid
+    p: Party <- allocateParty "Dummy"
+    cid: ContractId ListUtil <- submit p do createCmd ListUtil with party = p
+    cid: ContractId IntContainer <- submit p do exerciseCmd cid Size with list = list
+    sizeContainer: IntContainer <- submit p do createAndExerciseCmd (IntFetchHelper p) (IntFetchExe cid)
     sizeContainer.value === expectedSize
 
-largeTransactionWithManyContractsTest = scenario do
+largeTransactionWithManyContractsTest : Script ()
+largeTransactionWithManyContractsTest = script do
     let expectedSize: Int = 100
-    p: Party <- getParty "Dummy"
+    p: Party <- allocateParty "Dummy"
     cid: ContractId RangeOfInts <- submit p do
-      create RangeOfInts with party = p, start = 0, step = 1, size = expectedSize
-    cids: [ContractId IntContainer] <- submit p do exercise cid ToListOfIntContainers
+      createCmd RangeOfInts with party = p, start = 0, step = 1, size = expectedSize
+    cids: [ContractId IntContainer] <- submit p do exerciseCmd cid ToListOfIntContainers
     (length cids) === expectedSize
     list: [Int] <- fetchAllInts p cids
     list === (range 0 (\x -> x + 1) expectedSize)
 
-fetchAllInts: Party -> [ContractId IntContainer] -> Scenario [Int]
+fetchAllInts: Party -> [ContractId IntContainer] -> Script [Int]
 fetchAllInts p cids = mapA (\cid -> (fetchOneInt p cid)) cids
 
-fetchOneInt: Party -> ContractId IntContainer -> Scenario Int
+fetchOneInt: Party -> ContractId IntContainer -> Script Int
 fetchOneInt p cid = do
-  c: IntContainer <- submit p do fetch cid
+  c: IntContainer <- submit p do createAndExerciseCmd (IntFetchHelper p) (IntFetchExe cid)
   return c.value
 
-  
+template IntFetchHelper
+  with
+    p : Party
+  where
+    signatory p
+    choice IntFetchExe : IntContainer
+      with cid : ContractId IntContainer
+      controller p
+      do fetch cid
+
+template ListFetchHelper
+  with
+    p : Party
+  where
+    signatory p
+    choice ListFetchExe : ListContainer
+      with cid : ContractId ListContainer
+      controller p
+      do fetch cid
+
+template RangeFetchHelper
+  with
+    p : Party
+  where
+    signatory p
+    choice RangeFetchExe : RangeOfInts
+      with cid : ContractId RangeOfInts
+      controller p
+      do fetch cid

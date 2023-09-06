@@ -7,21 +7,6 @@ load(
     "daml_compile",
 )
 
-TEST_FILES = \
-    [
-        "LargeTransaction",
-    ]
-
-[
-    daml_compile(
-        name = name,
-        srcs = ["%s.daml" % name],
-        enable_scenarios = True,
-        visibility = ["//daml-lf:__subpackages__"],
-    )
-    for name in TEST_FILES
-]
-
 daml_compile(
     name = "Exceptions",
     srcs = ["Exceptions.daml"],
@@ -78,26 +63,6 @@ daml_compile(
     srcs = ["MultiKeys.daml"],
     visibility = ["//daml-lf:__subpackages__"],
 )
-
-[
-    sh_test(
-        name = name + "-test",
-        size = "small",
-        srcs = ["daml-lf-test.sh"],
-        args = [
-            "$(location //daml-lf/repl:repl)",
-            "$(location :%s.dar)" % name,
-        ],
-        data = [
-            "//daml-lf/repl",
-            ":%s.dar" % name,
-        ],
-        deps = [
-            "@bazel_tools//tools/bash/runfiles",
-        ],
-    )
-    for name in TEST_FILES
-]
 
 [
     sh_test(

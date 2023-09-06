@@ -121,6 +121,11 @@ da_scala_test_suite(
     ],
 )
 
+daml_compile(
+    name = "LargeTransaction",
+    srcs = ["src/test/daml/LargeTransaction.daml"],
+)
+
 da_scala_test(
     name = "test-large-transaction",
     timeout = "moderate",
@@ -129,7 +134,7 @@ da_scala_test(
         "src/test/**/InMemoryPrivateLedgerData.scala",
     ]),
     data = [
-        "//daml-lf/tests:LargeTransaction.dar",
+        ":LargeTransaction.dar",
     ],
     # We setup a large heap size to reduce as much as possible GC overheads.
     initial_heap_size = "2g",
