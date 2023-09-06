@@ -26,11 +26,13 @@ class StablePackageTest
     f
   }
 
+  // TODO(#17366): For now both 1.dev and 2.dev contain the same stable packages. Once 2.dev
+  //    diverges from 1.dev we will need to split this test.
   for (version <- Seq("v1dev", "v2dev")) {
     version should {
       "DA.StablePackages" should {
 
-        // We rely on the fact a dar generated with targer 1.dev contains all the stable packages
+        // We rely on the fact a dar generated with target x.dev contains all the stable packages
         lazy val darFile = resource(rlocation(s"daml-lf/archive/DarReaderTest-${version}.dar"))
         lazy val depPkgs = UniversalArchiveDecoder.assertReadFile(darFile).dependencies.toMap
 
