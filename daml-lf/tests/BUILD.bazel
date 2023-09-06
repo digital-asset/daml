@@ -9,7 +9,6 @@ load(
 
 TEST_FILES = \
     [
-        "DontDiscloseNonConsumingExercisesToObservers",
         "LargeTransaction",
         "ConjunctionChoices",
         "ContractKeys",
