@@ -460,10 +460,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                   keyOpt,
                   callback,
                 ) =>
-              println("interpretLoop: NeedUpgradeVerification, asking ledger...")
-              // println(s"- signatories = $signatories")
-              // println(s"- observers = $observers")
-              // println(s"- keyOpt = $keyOpt")
               ResultNeedUpgradeVerification(
                 coid,
                 signatories,
@@ -472,18 +468,16 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 { failureMessageOpt: Option[String] =>
                   failureMessageOpt match {
                     case None =>
-                      println("interpretLoop: NeedUpgradeVerification, ledger says ALL OK")
                       callback()
                       loopOuter(cache)
                     case Some(mes) =>
-                      println(s"interpretLoop: NeedUpgradeVerification, message-from-ledger=$mes")
                       // TODO: https://github.com/digital-asset/daml/issues/17082
                       // - we need a new interpretation.Error for this
                       ResultError(
                         Error.Interpretation.Internal(
                           NameOf.qualifiedNameOfCurrentFunc,
                           s"Ledger refused upgrade verification with message: $mes",
-                          None
+                          None,
                         )
                       )
                   }
