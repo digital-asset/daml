@@ -17,6 +17,8 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+// TODO(#17366): Once daml3-script diverges from script, V1DevIT and V2DevIT may not be able to
+//     share the same code anymore.
 class V1DevIT extends DevIT(V1) {}
 class V2DevIT extends DevIT(V2) {}
 
