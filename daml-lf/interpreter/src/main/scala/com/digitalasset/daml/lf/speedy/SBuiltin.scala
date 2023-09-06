@@ -2214,27 +2214,32 @@ private[lf] object SBuiltin {
 
             case None =>
               lookupContractOnLedger(machine, coid) { coinst =>
-                val V.ContractInstance(actualTmplId, coinstArg) = coinst
+                val V.ContractInstance(srcTemplateId, coinstArg) = coinst
 
-                val templateId = optTargetTemplateId match {
-                  case Some(tycon) => tycon // Upgrade to the required destintaion type (may fail)
+                val (upgradingIsEnabled, destTemplateId) = optTargetTemplateId match {
+                  case Some(tycon) =>
+                    (true, tycon)
                   case None =>
-                    actualTmplId // Do not upgrade; import at actual type (can never fail)
+                    (false, srcTemplateId) // upgrading not enabled; import at source type
                 }
 
-                importValue(machine, templateId, coinstArg) { templateArg =>
-                  getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
+                importValue(machine, destTemplateId, coinstArg) { templateArg =>
+                  getContractInfo(machine, coid, destTemplateId, templateArg, keyOpt) { contract =>
                     ensureContractActive(machine, coid, contract.templateId) {
 
                       machine.enforceLimitAddInputContract()
                       machine.checkContractVisibility(coid, contract)
                       machine.enforceLimitSignatoriesAndObservers(coid, contract)
 
-                      val src: TypeConName = actualTmplId
-                      val dest: TypeConName = templateId
+                      if (upgradingIsEnabled) {
 
-                      // NICK: should only validate when FF-UPGRADE is enabled
-                      validateContractInfo(machine, src, dest, coid, contract) { () =>
+                        val src: TypeConName = srcTemplateId
+                        val dest: TypeConName = destTemplateId
+
+                        validateContractInfo(machine, src, dest, coid, contract) { () =>
+                          f(contract.any).asInstanceOf[Control[Question.Update]]
+                        }
+                      } else {
                         f(contract.any).asInstanceOf[Control[Question.Update]]
                       }
                     }

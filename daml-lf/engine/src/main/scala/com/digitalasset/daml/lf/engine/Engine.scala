@@ -466,7 +466,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               // println(s"interpretLoop: NeedUpgradeVerification...")
               // println(s"- src = $src")
               // println(s"- dest = $dest")
-              if (src == dest) {
+              if (src == dest) { // NICK: move this logic back into speedy
                 // dont ask question to ledger
                 println("interpretLoop: NeedUpgradeVerification, src==dest, not asking ledger")
                 callback()
