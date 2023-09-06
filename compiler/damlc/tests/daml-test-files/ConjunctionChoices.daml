@@ -14,7 +14,11 @@
 -- There's a blog post about this example as well:
 -- https://digitalasset.atlassian.net/wiki/spaces/DEL/blog/2018/06/14/595427344/Introducing+Conjunction+Choices
 
+{- DLINT ignore -}
+
 module ConjunctionChoices where
+
+import Daml.Script
 
 template PaintHouse
   with
@@ -76,47 +80,48 @@ template PainterCleanerProposal
       do create PainterCleanerRelationship with painter; cleaner; threshold
 
 
-demo = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
-  charlie <- getParty "Charlie"
-  donald <- getParty "Donald"
-  eric <- getParty "Eric"
+demo : Script (ContractId PaintHouse)
+demo = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+  donald <- allocateParty "Donald"
+  eric <- allocateParty "Eric"
   painterCleanerProposal <- submit bob do
-    create PainterCleanerProposal with
+    createCmd PainterCleanerProposal with
       painter = bob
       cleaner = charlie
       threshold = 500.0
   painterCleanerRelationship <- submit charlie do
-    exercise painterCleanerProposal PainterCleanerProposal_Accept
+    exerciseCmd painterCleanerProposal PainterCleanerProposal_Accept
 
   paintAlicesHouseProposal <- submit alice do
-    create PaintHouseProposal with
+    createCmd PaintHouseProposal with
       owner = alice
       painter = bob
       cleaner = charlie
       price = 1000.0
   submit bob do
-    exercise painterCleanerRelationship AcceptPaintHouse with
+    exerciseCmd painterCleanerRelationship AcceptPaintHouse with
       cid = paintAlicesHouseProposal
 
   paintDonaldsTowerProposal1 <- submit donald do
-    create PaintHouseProposal with
+    createCmd PaintHouseProposal with
       owner = donald
       painter = bob
       cleaner = eric
       price = 1000000.0
   submitMustFail bob do
-    exercise painterCleanerRelationship AcceptPaintHouse with
+    exerciseCmd painterCleanerRelationship AcceptPaintHouse with
       cid = paintDonaldsTowerProposal1
   submitMustFail bob do
-    exercise paintDonaldsTowerProposal1 PaintHouseProposal_Accept
+    exerciseCmd paintDonaldsTowerProposal1 PaintHouseProposal_Accept
 
   paintDonaldsTowerProposal2 <- submit donald do
-    create PaintHouseProposal with
+    createCmd PaintHouseProposal with
       owner = donald
       painter = bob
       cleaner = bob
       price = 1500000.0
   submit bob do
-    exercise paintDonaldsTowerProposal2 PaintHouseProposal_Accept
+    exerciseCmd paintDonaldsTowerProposal2 PaintHouseProposal_Accept
