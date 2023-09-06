@@ -7,6 +7,51 @@ def mangle_for_java(name):
 def mangle_for_damlc(name):
     return "v{}".format(name.replace(".", ""))
 
+def _to_major_minor_str(v):
+    (major_str, _, minor_str) = v.partition(".")
+    return (major_str, minor_str)
+
+def _cmp_int(a, b):
+    if a == b:
+        return 0
+    elif a > b:
+        return 1
+    else:
+        return -1
+
+def _cmp_minor_version_str(a_str, b_str):
+    if a_str == b_str:
+        return 0
+    elif a_str == "dev":
+        return 1
+    elif b_str == "dev":
+        return -1
+    else:
+        return _cmp_int(int(a_str), int(b_str))
+
+def _minor_version_in(mv_str, minor_version_range):
+    if minor_version_range == None:
+        return False
+    else:
+        return (
+            _cmp_minor_version_str(mv_str, minor_version_range[0]) >= 0 and
+            _cmp_minor_version_str(mv_str, minor_version_range[1]) <= 0
+        )
+
+# Returns true if v is in the union of [1.x for x in v1_minor_version_range] and
+# [2.y for y in v2_minor_version_range]. None means the empty range.
+def version_in(
+        v,
+        v1_minor_version_range = None,
+        v2_minor_version_range = None):
+    (major_str, minor_str) = _to_major_minor_str(v)
+    if major_str == "1":
+        return _minor_version_in(minor_str, v1_minor_version_range)
+    elif major_str == "2":
+        return _minor_version_in(minor_str, v2_minor_version_range)
+    else:
+        return False
+
 # The following dictionary alias LF versions to keywords:
 # - "legacy" is the keyword for last LF version that supports legacy
 #    contract ID scheme,

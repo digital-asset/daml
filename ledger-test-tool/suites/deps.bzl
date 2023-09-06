@@ -1,7 +1,13 @@
 # Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//daml-lf/language:daml-lf.bzl", "versions")
+load("//daml-lf/language:daml-lf.bzl", "version_in")
+
+def _has_model_tests(lf_version):
+    return version_in(
+        lf_version,
+        v1_minor_version_range = ("15", "dev"),
+        v2_minor_version_range = ("0", "dev"))
 
 def deps(lf_version):
     carbon_tests = [
@@ -10,7 +16,7 @@ def deps(lf_version):
         "//test-common:carbonv3-tests-%s.scala" % lf_version,
     ]
     model_tests = ["//test-common:modelext-tests-%s.scala" % lf_version]
-    additional_tests = carbon_tests + model_tests if (versions.gte(lf_version, "1.15")) else []
+    additional_tests = carbon_tests + model_tests if _has_model_tests(lf_version) else []
     return [
         "//daml-lf/data",
         "//daml-lf/transaction",

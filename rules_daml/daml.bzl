@@ -3,7 +3,7 @@
 
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "versions")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "version_in")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
 _damlc = attr.label(
@@ -293,6 +293,13 @@ def damlc_for_target(target):
 def path_to_dar(data):
     return Label(data).name + ".dar"
 
+def _supports_scenarios(lf_version):
+  return version_in(
+    lf_version,
+    v1_minor_version_range = ("14", "dev"),
+    # TODO(#17366): change to None when we deprecate scenarios in 2.x
+    v2_minor_version_range = ("0", "dev"))
+
 def daml_compile(
         name,
         srcs,
@@ -331,7 +338,7 @@ def daml_compile(
         dar = name + ".dar",
         ghc_options =
             ghc_options +
-            (["--enable-scenarios=yes"] if enable_scenarios and (target == None or versions.gte(target, "1.14")) else []),
+            (["--enable-scenarios=yes"] if enable_scenarios and (target == None or _supports_scenarios(target)) else []),
         damlc = damlc_for_target(target),
         **kwargs
     )
