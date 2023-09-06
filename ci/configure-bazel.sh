@@ -77,8 +77,6 @@ if is_windows; then
   CACHE_SUFFIX="$SUFFIX-v14"
   CACHE_URL="$CACHE_URL/$CACHE_SUFFIX"
   echo "build:windows-ci --remote_cache=https://bazel-cache.da-ext.net/$CACHE_SUFFIX" >> .bazelrc.local
-else
-  CACHE_URL=$CACHE_URL/$os/202308
 fi
 
 # sets up write access to the shared remote cache if the branch is not a fork
@@ -88,5 +86,5 @@ if [[ "${IS_FORK}" = False ]]; then
   echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > "$GOOGLE_APPLICATION_CREDENTIALS"
   unset GOOGLE_APPLICATION_CREDENTIALS_CONTENT
   export GOOGLE_APPLICATION_CREDENTIALS
-  echo "build --remote_cache=$CACHE_URL --remote_upload_local_results=true --google_credentials=${GOOGLE_APPLICATION_CREDENTIALS}" >> .bazelrc.local
+  echo "build --remote_upload_local_results=true --google_credentials=${GOOGLE_APPLICATION_CREDENTIALS}" >> .bazelrc.local
 fi
