@@ -25,6 +25,7 @@ class TransactionVersionSpec extends AnyWordSpec with Matchers with TableDrivenP
         LanguageVersion.v1_14 -> TransactionVersion.V14,
         LanguageVersion.v1_15 -> TransactionVersion.V15,
         LanguageVersion.v1_dev -> TransactionVersion.VDev,
+        LanguageVersion.v2_dev -> TransactionVersion.VDev,
       )
 
       forEvery(testCases) { (languageVersion, transactionVersions) =>
