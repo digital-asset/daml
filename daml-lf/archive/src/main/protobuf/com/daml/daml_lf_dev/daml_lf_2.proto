@@ -16,39 +16,6 @@
 
 
 // Minor version history:
-// * 0 (somewhen in December 2018): initial version
-// * 1 --  2019-01-10: Add Optional type
-//     --  2019-01-27: Add <, <=, =>, > for Party
-//     --  2019-01-29: Add PrimType.ARROW
-// * 2 --  2019-03-18: Add BuiltinFunction.{SHA256_TEXT, PARTY_TO_TEXT, TEXT_TO_PARTY}
-//     --  2019-03-18: Add flexible controllers (change scoping of controller expressions)
-// * 3 --  2019-03-25: Add contract keys
-//     --  2019-03-27: Add Map type
-// * 4 --  2019-05-15: Add complex contract keys
-// * 5 --  2019-05-22: Relax serializability constraints for contract ids
-//         2019-05-23: Add BuiltinFunction.COERCE_CONTRACT_ID
-//         2019-05-24: Make actors in exercise optional
-// * 6 --  2019-05-27: Add enum type.
-//         2019-06-04: Add BuiltinFunction.{CODE_POINTS_TO_TEXT, TEXT_TO_CODE_POINTS}
-//         2019-06-12: Add Package.interned_package_ids and PackageRef.interned_id
-// * 7 --  2019-07-29: Add nat kind and Nat types, Numeric types and Numeric builtins
-//         2019-09-17: Add Any type and, `to_any` and `from_any` builtins
-//         2019-09-17: Drop support for Decimal
-//         2019-09-30: Add interning of strings and dotted names
-//         2019-11-04: Add Type representation values
-// * 8 --  2019-11-22: Rename Map to TextMap
-//         2019-11-28: Rename Tuple to Struct
-//         2019-12-03: Add type synonyms
-//         2020-02-20: Add PackageMetadata.
-// * 11 -- 2019-11-12: Add Generic Map (GenMap)
-//         2019-12-05: Add Generic Equality builtin
-//         2019-10-13: Add ExerciseByKey Update
-//         2020-11-04: Add interning of types
-//         2020-11-20: Add choice-observers
-// * 12 -- 2021-01-27: No Archive changes
-// * 13 -- 2021-04-06: Add BigNumeric
-// * 14 -- 2021-03-06: Add Exception
-// * 15 -- 2022-06-18: Add Interfaces
 // * dev (special staging area for the next version to be released)
 
 syntax = "proto3";

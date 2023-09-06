@@ -21,7 +21,7 @@ message ArchivePayload {
   oneof Sum {
     daml_lf_1.Package daml_lf_1 = 2;
     daml_lf_2.Package daml_lf_2 = 4;
-    // lf_2 = 4, lf_3 = 5, etc
+    // lf_3 = 5, lf_4 = 6, etc
   }
 }
 
