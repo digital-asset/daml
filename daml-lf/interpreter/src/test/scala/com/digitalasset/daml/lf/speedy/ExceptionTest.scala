@@ -666,12 +666,18 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
         val example: Expr = e"M:causeRollback"
         val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
-        "works as expected for a contract version POST-dating exceptions" in {
-          val pkgs = mkPackagesAtVersion(LanguageVersion.v1_dev)
-          val res = Speedy.Machine
-            .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
-            .run()
-          inside(res) { case SResultFinal(SUnit) =>
+        "works as expected for a contract version POST-dating exceptions" - {
+
+          for (languageVersion <- Seq(LanguageVersion.v1_dev, LanguageVersion.v2_dev)) {
+            languageVersion.pretty in {
+
+              val pkgs = mkPackagesAtVersion(languageVersion)
+              val res = Speedy.Machine
+                .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
+                .run()
+              inside(res) { case SResultFinal(SUnit) =>
+              }
+            }
           }
         }
 
@@ -683,7 +689,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
           val anException =
             IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
 
-          val pkgs = mkPackagesAtVersion(LanguageVersion.v1_11)
+          val pkgs = mkPackagesAtVersion(LanguageVersion.v1_11) // version pre-dating exceptions
           val res = Speedy.Machine
             .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
             .run()
@@ -740,17 +746,21 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
 
       "rollback of creates (mixed versions)" - {
 
-        val oldPid: PackageId = Ref.PackageId.assertFromString("OldPackage")
-        val newPid: PackageId = Ref.PackageId.assertFromString("Newpackage")
+        for (devLanguageVersion <- Seq(LanguageVersion.v1_dev, LanguageVersion.v2_dev)) {
 
-        val oldPackage = {
-          implicit val defaultParserParameters: ParserParameters[this.type] = {
-            ParserParameters(
-              defaultPackageId = oldPid,
-              languageVersion = LanguageVersion.v1_11, // version pre-dating exceptions
-            )
-          }
-          p"""
+          devLanguageVersion.pretty - {
+
+            val oldPid: PackageId = Ref.PackageId.assertFromString("OldPackage")
+            val newPid: PackageId = Ref.PackageId.assertFromString("Newpackage")
+
+            val oldPackage = {
+              implicit val defaultParserParameters: ParserParameters[this.type] = {
+                ParserParameters(
+                  defaultPackageId = oldPid,
+                  languageVersion = LanguageVersion.v1_11, // version pre-dating exceptions
+                )
+              }
+              p"""
       module OldM {
         record @serializable OldT = { party: Party } ;
         template (record : OldT) = {
@@ -760,15 +770,15 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
           agreement "Agreement";
         };
       } """
-        }
-        val newPackage = {
-          implicit val defaultParserParameters: ParserParameters[this.type] = {
-            ParserParameters(
-              defaultPackageId = newPid,
-              languageVersion = LanguageVersion.v1_dev,
-            )
-          }
-          p"""
+            }
+            val newPackage = {
+              implicit val defaultParserParameters: ParserParameters[this.type] = {
+                ParserParameters(
+                  defaultPackageId = newPid,
+                  languageVersion = devLanguageVersion,
+                )
+              }
+              p"""
       module NewM {
         record @serializable AnException = { } ;
         exception AnException = { message \(e: NewM:AnException) -> "AnException" };
@@ -849,55 +859,57 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
             in upure @Unit ();
 
       } """
-        }
-        val pkgs =
-          SpeedyTestLib.typeAndCompile(
-            Map(oldPid -> oldPackage, newPid -> newPackage),
-            evaluationOrder,
-          )
+            }
+            val pkgs =
+              SpeedyTestLib.typeAndCompile(
+                Map(oldPid -> oldPackage, newPid -> newPackage),
+                evaluationOrder,
+              )
 
-        implicit val defaultParserParameters: ParserParameters[this.type] = {
-          ParserParameters(
-            defaultPackageId = newPid,
-            languageVersion = LanguageVersion.v1_dev,
-          )
-        }
+            implicit val defaultParserParameters: ParserParameters[this.type] = {
+              ParserParameters(
+                defaultPackageId = newPid,
+                languageVersion = devLanguageVersion,
+              )
+            }
 
-        val anException = {
-          val id = "NewM:AnException"
-          val tyCon = data.Ref.Identifier.assertFromString(s"$newPid:$id")
-          IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
-        }
+            val anException = {
+              val id = "NewM:AnException"
+              val tyCon = data.Ref.Identifier.assertFromString(s"$newPid:$id")
+              IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
+            }
 
-        def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
+            def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
-        val causeRollback: SExpr = applyToParty(pkgs, e"NewM:causeRollback", party)
-        val causeUncatchable: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable", party)
-        val causeUncatchable2: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable2", party)
+            val causeRollback: SExpr = applyToParty(pkgs, e"NewM:causeRollback", party)
+            val causeUncatchable: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable", party)
+            val causeUncatchable2: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable2", party)
 
-        "create rollback when old contacts are not within try-catch context" in {
-          val res =
-            Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party)).run()
-          inside(res) { case SResultFinal(SUnit) =>
+            "create rollback when old contacts are not within try-catch context" in {
+              val res =
+                Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party)).run()
+              inside(res) { case SResultFinal(SUnit) =>
+              }
+            }
+
+            "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {
+              val res =
+                Speedy.Machine
+                  .fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable, Set(party))
+                  .run()
+              res shouldBe SResultError(SErrorDamlException(anException))
+            }
+
+            "causes uncatchable exception when an old contract is within a new-exercise which aborts" in {
+              val res =
+                Speedy.Machine
+                  .fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable2, Set(party))
+                  .run()
+              res shouldBe SResultError(SErrorDamlException(anException))
+            }
+
           }
         }
-
-        "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {
-          val res =
-            Speedy.Machine
-              .fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable, Set(party))
-              .run()
-          res shouldBe SResultError(SErrorDamlException(anException))
-        }
-
-        "causes uncatchable exception when an old contract is within a new-exercise which aborts" in {
-          val res =
-            Speedy.Machine
-              .fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable2, Set(party))
-              .run()
-          res shouldBe SResultError(SErrorDamlException(anException))
-        }
-
       }
     }
   }
