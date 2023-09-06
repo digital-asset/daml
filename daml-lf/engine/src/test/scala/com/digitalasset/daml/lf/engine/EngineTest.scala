@@ -2331,6 +2331,8 @@ class EngineTest
 
     }
 
+    // TODO(#17366): For now both 1.dev and 2.dev contain the same stable packages. Once 2.dev
+    //    diverges from 1.dev and <= is no longer available, we will need to update this test.
     for (
       (devVersion, allPackagesDev) <- Seq(
         LanguageVersion.v1_dev -> allPackages1Dev,

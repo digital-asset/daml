@@ -27,7 +27,8 @@ object LanguageVersion {
 
   def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
 
-  // TODO(paul): get rid of this ordering
+  // TODO(#17366): As soon as LF2 introduces breaking changes w.r.t. LF1, this order will no longer
+  //    be total and should be replaced by ad-hoc methods wherever it is used.
   implicit val Ordering: scala.Ordering[LanguageVersion] = {
     case (LanguageVersion(Major.V1, leftMinor), LanguageVersion(Major.V1, rightMinor)) =>
       Major.V1.minorVersionOrdering.compare(leftMinor, rightMinor)
@@ -48,6 +49,9 @@ object LanguageVersion {
   val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev, v2_dev) =
     All: @nowarn("msg=match may not be exhaustive")
 
+  // TODO(#17366): Once LF2 deprecates some features, it will no longer be possible to represent
+  //    them as a just a version number. Instead we'll need a richer specification of which versions
+  //    support which feature. See PR #17334.
   object Features {
     val default = v1_6
     val internedPackageId = v1_6
