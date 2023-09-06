@@ -1200,23 +1200,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case class SBGuardMatchTemplateId(
-      expectedTmplId: TypeConName
-  ) extends SBuiltin(2) {
-    override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
-        machine: Machine[Q],
-    ): Control[Nothing] = {
-      val contractId = getSContractId(args, 0)
-      val (actualTmplId, _) = getSAnyContract(args, 1)
-      if (actualTmplId != expectedTmplId) {
-        Control.Error(IE.WronglyTypedContract(contractId, expectedTmplId, actualTmplId))
-      } else {
-        Control.Value(SBool(true))
-      }
-    }
-  }
-
   final case class SBGuardRequiredInterfaceId(
       requiredIfaceId: TypeConName,
       requiringIfaceId: TypeConName,
@@ -2191,6 +2174,8 @@ private[lf] object SBuiltin {
   )(f: SValue => Control[Q]): Control[Q] = {
 
     fetchAny(machine, optTargetTemplateId, coid, keyOpt) { fetched =>
+      // NICK: The SBCastAnyContract check can never fail when FF-UPGRADE is enabled
+
       val castExp: SExpr = SEApp(
         SEBuiltin(SBCastAnyContract(templateId)),
         Array(
@@ -2229,30 +2214,31 @@ private[lf] object SBuiltin {
 
             case None =>
               lookupContractOnLedger(machine, coid) { coinst =>
-                // NICK: Where exactly should we call validate?
-                // NICK : from where exactly comes this info?.. this the core puzzle to solve!!
-                def src: Int = 42 // NICK: silly ints
-                def dest: Int = 43
-                def signatories: Set[Party] = Set.empty // NICK hack
-                def observers: Set[Party] = Set.empty // NICK hack
-                def x_keyOpt: Option[GlobalKeyWithMaintainers] = None // NICK hack
-                validateContractInfo(machine, src, dest, coid, signatories, observers, x_keyOpt) {
-                  () => // NICK: new!
-                    val V.ContractInstance(actualTmplId, coinstArg) = coinst
-                    val templateId = optTargetTemplateId match {
-                      case Some(tycon) => tycon
-                      case None => actualTmplId
-                    }
-                    importValue(machine, templateId, coinstArg) { templateArg =>
-                      getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
-                        ensureContractActive(machine, coid, contract.templateId) {
-                          machine.checkContractVisibility(coid, contract)
-                          machine.enforceLimitAddInputContract()
-                          machine.enforceLimitSignatoriesAndObservers(coid, contract)
-                          f(contract.any).asInstanceOf[Control[Question.Update]]
-                        }
+                val V.ContractInstance(actualTmplId, coinstArg) = coinst
+
+                val templateId = optTargetTemplateId match {
+                  case Some(tycon) => tycon // Upgrade to the required destintaion type (may fail)
+                  case None =>
+                    actualTmplId // Do not upgrade; import at actual type (can never fail)
+                }
+
+                importValue(machine, templateId, coinstArg) { templateArg =>
+                  getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
+                    ensureContractActive(machine, coid, contract.templateId) {
+
+                      machine.enforceLimitAddInputContract()
+                      machine.checkContractVisibility(coid, contract)
+                      machine.enforceLimitSignatoriesAndObservers(coid, contract)
+
+                      val src: TypeConName = actualTmplId
+                      val dest: TypeConName = templateId
+
+                      // NICK: should only validate when FF-UPGRADE is enabled
+                      validateContractInfo(machine, src, dest, coid, contract) { () =>
+                        f(contract.any).asInstanceOf[Control[Question.Update]]
                       }
                     }
+                  }
                 }
               }
           }
@@ -2280,23 +2266,28 @@ private[lf] object SBuiltin {
 
   private def validateContractInfo[Q](
       machine: Machine[Q],
-      src: Int,
-      dest: Int,
+      src: TypeConName,
+      dest: TypeConName,
       coid: V.ContractId,
-      signatories: Set[Party],
-      observers: Set[Party],
-      keyOpt: Option[GlobalKeyWithMaintainers],
+      contract: ContractInfo,
   )(
       continue: () => Control[Q]
   ): Control[Q] = {
+
+    val keyOpt: Option[GlobalKeyWithMaintainers] = contract.keyOpt match {
+      case None => None
+      case Some(cachedKey) =>
+        Some(cachedKey.globalKeyWithMaintainers)
+    }
+
     machine.asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc) { machine =>
       Control.Question(
         Question.Update.NeedUpgradeVerification(
           src,
           dest,
           coid,
-          signatories,
-          observers,
+          contract.signatories,
+          contract.observers,
           keyOpt,
           callback = { () =>
             val control = continue()

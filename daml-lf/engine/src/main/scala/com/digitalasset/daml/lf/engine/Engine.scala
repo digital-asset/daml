@@ -463,21 +463,19 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                   callback,
                 ) =>
               // NICK -- check and remove all debug prints
-
-              println(
-                s"**interpretLoop: Question.Update.NeedUpgradeVerification, \n- src=$src\n- dest=$dest"
-              )
+              // println(s"interpretLoop: NeedUpgradeVerification...")
+              // println(s"- src = $src")
+              // println(s"- dest = $dest")
               if (src == dest) {
                 // dont ask question to ledger
-                println(
-                  "**interpretLoop: Question.Update.NeedUpgradeVerification, src==dest, not asking ledger"
-                )
+                println("interpretLoop: NeedUpgradeVerification, src==dest, not asking ledger")
                 callback()
                 loop(cache)
               } else {
-                println(
-                  "**interpretLoop: Question.Update.NeedUpgradeVerification, asking ledger..."
-                )
+                println("interpretLoop: NeedUpgradeVerification, asking ledger...")
+                // println(s"- signatories = $signatories")
+                // println(s"- observers = $observers")
+                // println(s"- keyOpt = $keyOpt")
                 ResultNeedUpgradeVerification(
                   coid,
                   signatories,
@@ -486,17 +484,12 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                   { failureMessageOpt: Option[String] =>
                     failureMessageOpt match {
                       case None =>
-                        println(
-                          "**interpretLoop: Question.Update.NeedUpgradeVerification, ledger says ALL OK"
-                        )
+                        println("interpretLoop: NeedUpgradeVerification, ledger says ALL OK")
                         callback()
                         loopOuter(cache)
                       case Some(mes) =>
-                        println(
-                          s"**interpretLoop: Question.Update.NeedUpgradeVerification, message-from-ledger=$mes"
-                        )
+                        println(s"interpretLoop: NeedUpgradeVerification, message-from-ledger=$mes")
                         // NICK, the correct behaviour is to fail here (model on NeedAuthority)
-                        // NICK: but ir dev lets continue...
                         callback()
                         loopOuter(cache)
                     }

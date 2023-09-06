@@ -29,10 +29,10 @@ object Question {
         callback: Value.ContractInstance => Unit,
     ) extends Update
 
-    // NICK : comment here
+    /** Contract info needs verification by ledger in case of upgrade */
     final case class NeedUpgradeVerification(
-        src: Int, // NICK -- idea, pass src/dest packageId, do can only dispatch when diff
-        dest: Int,
+        src: TypeConName,
+        dest: TypeConName,
         coid: ContractId,
         signatories: Set[Party],
         observers: Set[Party],
