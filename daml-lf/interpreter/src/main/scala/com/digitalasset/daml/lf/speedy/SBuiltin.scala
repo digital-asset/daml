@@ -2228,8 +2228,8 @@ private[lf] object SBuiltin {
                   getContractInfo(machine, coid, destTemplateId, templateArg, keyOpt) { contract =>
                     ensureContractActive(machine, coid, contract.templateId) {
 
-                      machine.enforceLimitAddInputContract()
                       machine.checkContractVisibility(coid, contract)
+                      machine.enforceLimitAddInputContract()
                       machine.enforceLimitSignatoriesAndObservers(coid, contract)
 
                       val src: TypeConName = srcTemplateId
