@@ -35,7 +35,7 @@ runDamlDesugar input = desugar opts input
   where
     opts = (defaultOptions Nothing)
       { optScenarioService = EnableScenarioService False
-      -- The desugarer is unaffected by the version of LF so we randomly test it with 2.dev.
+      -- The desugarer is unaffected by the version of LF so we arbitrarily test it with 2.dev.
       , optDamlLfVersion = version2_dev
       }
 
