@@ -2312,6 +2312,7 @@ class EngineTest
         (LV.v1_7, LV.v1_6, LV.v1_8),
         (LV.v1_8, LV.v1_6, LV.v1_8),
         (LV.v1_dev, LV.v1_6, LV.v1_dev),
+        (LV.v2_dev, LV.v1_6, LV.v2_dev),
       )
       val positiveTestCases = Table(
         ("pkg version", "minVersion", "maxversion"),
@@ -2319,6 +2320,7 @@ class EngineTest
         (LV.v1_7, LV.v1_8, LV.v1_8),
         (LV.v1_8, LV.v1_6, LV.v1_7),
         (LV.v1_dev, LV.v1_6, LV.v1_8),
+        (LV.v2_dev, LV.v1_6, LV.v1_8),
       )
 
       forEvery(negativeTestCases)((v, min, max) =>
