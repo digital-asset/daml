@@ -124,7 +124,7 @@ private[speedy] object SpeedyTestLib {
           case None =>
             throw UnknownContract(contractId)
         }
-      case Question.Update.NeedUpgradeVerification(_, _, _, _, _, _, callback) =>
+      case Question.Update.NeedUpgradeVerification(_, _, _, _, callback) =>
         callback()
 
       case Question.Update.NeedPackage(pkg, _, callback) =>

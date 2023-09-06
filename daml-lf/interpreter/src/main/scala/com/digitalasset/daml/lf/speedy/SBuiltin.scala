@@ -2174,7 +2174,8 @@ private[lf] object SBuiltin {
   )(f: SValue => Control[Q]): Control[Q] = {
 
     fetchAny(machine, optTargetTemplateId, coid, keyOpt) { fetched =>
-      // NICK: The SBCastAnyContract check can never fail when FF-UPGRADE is enabled
+      // The SBCastAnyContract check can never fail when the upgrading feature flag is enabled.
+      // This is because the contract got up/down-graded when imported by importValue.
 
       val castExp: SExpr = SEApp(
         SEBuiltin(SBCastAnyContract(templateId)),
@@ -2231,12 +2232,12 @@ private[lf] object SBuiltin {
                       machine.checkContractVisibility(coid, contract)
                       machine.enforceLimitSignatoriesAndObservers(coid, contract)
 
-                      if (upgradingIsEnabled) {
+                      val src: TypeConName = srcTemplateId
+                      val dest: TypeConName = destTemplateId
 
-                        val src: TypeConName = srcTemplateId
-                        val dest: TypeConName = destTemplateId
+                      if (upgradingIsEnabled && src != dest) {
 
-                        validateContractInfo(machine, src, dest, coid, contract) { () =>
+                        validateContractInfo(machine, coid, contract) { () =>
                           f(contract.any).asInstanceOf[Control[Question.Update]]
                         }
                       } else {
@@ -2271,8 +2272,6 @@ private[lf] object SBuiltin {
 
   private def validateContractInfo[Q](
       machine: Machine[Q],
-      src: TypeConName,
-      dest: TypeConName,
       coid: V.ContractId,
       contract: ContractInfo,
   )(
@@ -2288,8 +2287,6 @@ private[lf] object SBuiltin {
     machine.asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc) { machine =>
       Control.Question(
         Question.Update.NeedUpgradeVerification(
-          src,
-          dest,
           coid,
           contract.signatories,
           contract.observers,

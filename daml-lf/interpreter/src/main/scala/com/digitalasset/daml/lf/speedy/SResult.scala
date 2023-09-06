@@ -29,10 +29,8 @@ object Question {
         callback: Value.ContractInstance => Unit,
     ) extends Update
 
-    /** Contract info needs verification by ledger in case of upgrade */
+    /** Contract info for upgraded contract needs verification by ledger */
     final case class NeedUpgradeVerification(
-        src: TypeConName,
-        dest: TypeConName,
         coid: ContractId,
         signatories: Set[Party],
         observers: Set[Party],

@@ -463,7 +463,7 @@ private[lf] object ScenarioRunner {
                 case Left(err) => SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
                 case Right(_) => go()
               }
-            case Question.Update.NeedUpgradeVerification(_, _, _, _, _, _, callback) =>
+            case Question.Update.NeedUpgradeVerification(_, _, _, _, callback) =>
               callback()
               go()
             case Question.Update.NeedKey(keyWithMaintainers, committers, callback) =>

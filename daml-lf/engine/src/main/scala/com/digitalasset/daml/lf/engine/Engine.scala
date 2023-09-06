@@ -454,48 +454,35 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               }
 
             case Question.Update.NeedUpgradeVerification(
-                  src,
-                  dest,
                   coid,
                   signatories,
                   observers,
                   keyOpt,
                   callback,
                 ) =>
-              // NICK -- check and remove all debug prints
-              // println(s"interpretLoop: NeedUpgradeVerification...")
-              // println(s"- src = $src")
-              // println(s"- dest = $dest")
-              if (src == dest) { // NICK: move this logic back into speedy
-                // dont ask question to ledger
-                println("interpretLoop: NeedUpgradeVerification, src==dest, not asking ledger")
-                callback()
-                loop(cache)
-              } else {
-                println("interpretLoop: NeedUpgradeVerification, asking ledger...")
-                // println(s"- signatories = $signatories")
-                // println(s"- observers = $observers")
-                // println(s"- keyOpt = $keyOpt")
-                ResultNeedUpgradeVerification(
-                  coid,
-                  signatories,
-                  observers,
-                  keyOpt,
-                  { failureMessageOpt: Option[String] =>
-                    failureMessageOpt match {
-                      case None =>
-                        println("interpretLoop: NeedUpgradeVerification, ledger says ALL OK")
-                        callback()
-                        loopOuter(cache)
-                      case Some(mes) =>
-                        println(s"interpretLoop: NeedUpgradeVerification, message-from-ledger=$mes")
-                        // NICK, the correct behaviour is to fail here (model on NeedAuthority)
-                        callback()
-                        loopOuter(cache)
-                    }
-                  },
-                )
-              }
+              println("interpretLoop: NeedUpgradeVerification, asking ledger...")
+              // println(s"- signatories = $signatories")
+              // println(s"- observers = $observers")
+              // println(s"- keyOpt = $keyOpt")
+              ResultNeedUpgradeVerification(
+                coid,
+                signatories,
+                observers,
+                keyOpt,
+                { failureMessageOpt: Option[String] =>
+                  failureMessageOpt match {
+                    case None =>
+                      println("interpretLoop: NeedUpgradeVerification, ledger says ALL OK")
+                      callback()
+                      loopOuter(cache)
+                    case Some(mes) =>
+                      println(s"interpretLoop: NeedUpgradeVerification, message-from-ledger=$mes")
+                      // NICK, the correct behaviour is to fail here (model on NeedAuthority)
+                      callback()
+                      loopOuter(cache)
+                  }
+                },
+              )
 
             case Question.Update.NeedKey(gk, _, callback) =>
               ResultNeedKey(
