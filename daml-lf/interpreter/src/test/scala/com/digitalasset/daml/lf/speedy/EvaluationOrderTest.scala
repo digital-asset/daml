@@ -55,7 +55,10 @@ class TestTraceLog extends TraceLog {
 class EvaluationOrderTest_V1 extends EvaluationOrderTest(LanguageVersion.v1_dev)
 class EvaluationOrderTest_V2 extends EvaluationOrderTest(LanguageVersion.v2_dev)
 
-class EvaluationOrderTest(languageVersion: LanguageVersion) extends AnyFreeSpec with Matchers with Inside {
+class EvaluationOrderTest(languageVersion: LanguageVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with Inside {
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 

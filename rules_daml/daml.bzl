@@ -294,11 +294,12 @@ def path_to_dar(data):
     return Label(data).name + ".dar"
 
 def _supports_scenarios(lf_version):
-  return version_in(
-    lf_version,
-    v1_minor_version_range = ("14", "dev"),
-    # TODO(#17366): change to None when we deprecate scenarios in 2.x
-    v2_minor_version_range = ("0", "dev"))
+    return version_in(
+        lf_version,
+        v1_minor_version_range = ("14", "dev"),
+        # TODO(#17366): change to None when we deprecate scenarios in 2.x
+        v2_minor_version_range = ("0", "dev"),
+    )
 
 def daml_compile(
         name,

@@ -7,7 +7,8 @@ def _has_model_tests(lf_version):
     return version_in(
         lf_version,
         v1_minor_version_range = ("15", "dev"),
-        v2_minor_version_range = ("0", "dev"))
+        v2_minor_version_range = ("0", "dev"),
+    )
 
 def deps(lf_version):
     carbon_tests = [

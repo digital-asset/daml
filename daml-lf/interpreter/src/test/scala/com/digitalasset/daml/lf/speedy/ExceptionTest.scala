@@ -673,7 +673,12 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
 
               val pkgs = mkPackagesAtVersion(languageVersion)
               val res = Speedy.Machine
-                .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
+                .fromUpdateSExpr(
+                  pkgs,
+                  transactionSeed,
+                  applyToParty(pkgs, example, party),
+                  Set(party),
+                )
                 .run()
               inside(res) { case SResultFinal(SUnit) =>
               }
@@ -887,7 +892,9 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
 
             "create rollback when old contacts are not within try-catch context" in {
               val res =
-                Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party)).run()
+                Speedy.Machine
+                  .fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party))
+                  .run()
               inside(res) { case SResultFinal(SUnit) =>
               }
             }
