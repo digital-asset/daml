@@ -52,6 +52,13 @@ package object archive {
       Right(cos)
     })
 
+  // TODO(#17366): This is only used to coerce LF2 to LF1 packages.
+  //     Remove once LL2 and LF1 have diverged.
+  private[archive] val Lf1PackageParser: GenReader[DamlLf1.Package] =
+    Base.andThen(cos =>
+      attempt(getClass.getCanonicalName + ".Lf2PackageParser")(DamlLf1.Package.parseFrom(cos))
+    )
+
   val ArchiveParser: GenReader[DamlLf.Archive] =
     Base.andThen(cos =>
       attempt(getClass.getCanonicalName + ".ArchiveParser")(DamlLf.Archive.parseFrom(cos))
