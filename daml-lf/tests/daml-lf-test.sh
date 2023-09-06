@@ -27,8 +27,7 @@ fi
 # --- end runfiles.bash initialization ---
 
 DAML_LF_REPL=$(rlocation "$TEST_WORKSPACE/$1")
-DAMLC=$(rlocation "$TEST_WORKSPACE/$2")
-MAIN=$(rlocation "$TEST_WORKSPACE/$3")
+MAIN=$(rlocation "$TEST_WORKSPACE/$2")
 TMPDIR=$(mktemp -d)
 
 cleanup() {
@@ -39,10 +38,6 @@ trap cleanup EXIT
 case "${MAIN##*.}" in
   dar)
     $DAML_LF_REPL testAll "$MAIN"
-    ;;
-  daml)
-    $DAMLC compile "$MAIN" main -o $TMPDIR/out.dar
-    $DAML_LF_REPL testAll $TMPDIR/out.dar
     ;;
   *)
     echo "Unknown file extension on $MAIN" 1>&2

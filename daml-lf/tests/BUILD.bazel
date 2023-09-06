@@ -114,11 +114,9 @@ daml_compile(
         srcs = ["daml-lf-test.sh"],
         args = [
             "$(location //daml-lf/repl:repl)",
-            "$(location //compiler/damlc:damlc-compile-only)",
             "$(location :%s.dar)" % name,
         ],
         data = [
-            "//compiler/damlc:damlc-compile-only",
             "//daml-lf/repl",
             ":%s.dar" % name,
         ],
