@@ -8,6 +8,8 @@ import scala.annotation.nowarn
 
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
   def pretty: String = s"${major.pretty}.${minor.toProtoIdentifier}"
+
+  def isDevVersion = minor.identifier == "dev"
 }
 
 object LanguageVersion {
