@@ -50,12 +50,17 @@ class TestTraceLog extends TraceLog {
   def getMessages: Seq[String] = messages.view.map(_._1).toSeq
 }
 
-class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
+// TODO(#17366): Once 2.x is right-to-left only and 1.x is left-to-right only, change this test to
+//     only test the right evaluation order for each version.
+class EvaluationOrderTest_V1 extends EvaluationOrderTest(LanguageVersion.v1_dev)
+class EvaluationOrderTest_V2 extends EvaluationOrderTest(LanguageVersion.v2_dev)
+
+class EvaluationOrderTest(languageVersion: LanguageVersion) extends AnyFreeSpec with Matchers with Inside {
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private[this] implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters(defaultPackageId, languageVersion = LanguageVersion.v1_dev)
+    ParserParameters(defaultPackageId, languageVersion = languageVersion)
 
   private val pkgsAst: Package =
     p"""
