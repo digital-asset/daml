@@ -421,7 +421,6 @@ da_haskell_test(
     srcs = ["src/DA/Test/IncrementalPackageDb.hs"],
     data = [
         "//compiler/damlc",
-        "//daml-lf/repl",
     ],
     hackage_deps = [
         "base",
