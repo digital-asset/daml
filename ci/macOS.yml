@@ -40,14 +40,14 @@ jobs:
       condition: and(succeeded(), eq(variables.is_release, 'true'))
     - template: get-local-canton.yml
     - template: clean-up.yml
-    - template: build-unix.yml
-      parameters:
-        release_tag: $(release_tag)
-        name: ${{parameters.name}}
-        is_release: variables.is_release
-    # Do not upload metrics for m1
-    - ${{ if eq(parameters.name, 'macos') }}:
-      - template: upload-bazel-metrics.yml
+    #- template: build-unix.yml
+    #  parameters:
+    #    release_tag: $(release_tag)
+    #    name: ${{parameters.name}}
+    #    is_release: variables.is_release
+    ## Do not upload metrics for m1
+    #- ${{ if eq(parameters.name, 'macos') }}:
+    #  - template: upload-bazel-metrics.yml
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
