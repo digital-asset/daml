@@ -668,6 +668,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
 
         "works as expected for a contract version POST-dating exceptions" - {
 
+          // TODO(#17366): split this test when exception behavior change in 2.x
           for (languageVersion <- Seq(LanguageVersion.v1_dev, LanguageVersion.v2_dev)) {
             languageVersion.pretty in {
 
@@ -751,6 +752,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
 
       "rollback of creates (mixed versions)" - {
 
+        // TODO(#17366): split these tests when exception behavior change in 2.x
         for (devLanguageVersion <- Seq(LanguageVersion.v1_dev, LanguageVersion.v2_dev)) {
 
           devLanguageVersion.pretty - {
