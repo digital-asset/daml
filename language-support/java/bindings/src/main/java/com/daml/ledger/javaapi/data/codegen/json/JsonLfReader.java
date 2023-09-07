@@ -57,178 +57,167 @@ public class JsonLfReader {
 
   /// Readers for built-in LF types. ///
 
-  public FromJson<Unit> unit() {
-    return () -> {
-      readStartObject();
-      readEndObject();
-      return Unit.getInstance();
-    };
-  }
+  public static final FromJson<Unit> unit =
+      r -> {
+        r.readStartObject();
+        r.readEndObject();
+        return Unit.getInstance();
+      };
 
-  public FromJson<Boolean> bool() {
-    return () -> {
-      expectIsAt("boolean", JsonToken.VALUE_TRUE, JsonToken.VALUE_FALSE);
-      Boolean value = null;
-      try {
-        value = parser.getBooleanValue();
-      } catch (IOException e) {
-        parseExpected("true or false");
-      }
-      moveNext();
-      return value;
-    };
-  }
+  public static final FromJson<Boolean> bool =
+      r -> {
+        r.expectIsAt("boolean", JsonToken.VALUE_TRUE, JsonToken.VALUE_FALSE);
+        Boolean value = null;
+        try {
+          value = r.parser.getBooleanValue();
+        } catch (IOException e) {
+          r.parseExpected("true or false");
+        }
+        r.moveNext();
+        return value;
+      };
 
-  public FromJson<Long> int64() {
-    return () -> {
-      expectIsAt("int64", JsonToken.VALUE_NUMBER_INT, JsonToken.VALUE_STRING);
-      Long value = null;
-      try {
-        value = Long.parseLong(parser.getText());
-      } catch (IOException e) {
-        parseExpected("int64");
-      } catch (NumberFormatException e) {
-        parseExpected("int64");
-      }
-      moveNext();
-      return value;
-    };
-  }
+  public static final FromJson<Long> int64 =
+      r -> {
+        r.expectIsAt("int64", JsonToken.VALUE_NUMBER_INT, JsonToken.VALUE_STRING);
+        Long value = null;
+        try {
+          value = Long.parseLong(r.parser.getText());
+        } catch (IOException e) {
+          r.parseExpected("int64");
+        } catch (NumberFormatException e) {
+          r.parseExpected("int64");
+        }
+        r.moveNext();
+        return value;
+      };
 
-  public FromJson<BigDecimal> decimal() {
-    return () -> {
-      expectIsAt(
-          "decimal",
-          JsonToken.VALUE_NUMBER_INT,
-          JsonToken.VALUE_NUMBER_FLOAT,
-          JsonToken.VALUE_STRING);
-      BigDecimal value = null;
-      try {
-        value = new BigDecimal(parser.getText());
-      } catch (NumberFormatException e) {
-        parseExpected("decimal");
-      } catch (IOException e) {
-        parseExpected("decimal");
-      }
-      moveNext();
-      return value;
-    };
-  }
+  public static final FromJson<BigDecimal> decimal =
+      r -> {
+        r.expectIsAt(
+            "decimal",
+            JsonToken.VALUE_NUMBER_INT,
+            JsonToken.VALUE_NUMBER_FLOAT,
+            JsonToken.VALUE_STRING);
+        BigDecimal value = null;
+        try {
+          value = new BigDecimal(r.parser.getText());
+        } catch (NumberFormatException e) {
+          r.parseExpected("decimal");
+        } catch (IOException e) {
+          r.parseExpected("decimal");
+        }
+        r.moveNext();
+        return value;
+      };
 
-  public FromJson<Instant> timestamp() {
-    return () -> {
-      expectIsAt("timestamp", JsonToken.VALUE_STRING);
-      Instant value = null;
-      try {
-        value = Instant.parse(parser.getText());
-      } catch (DateTimeParseException e) {
-        parseExpected("timestamp");
-      } catch (IOException e) {
-        parseExpected("timestamp");
-      }
-      moveNext();
-      return value;
-    };
-  }
+  public static final FromJson<Instant> timestamp =
+      r -> {
+        r.expectIsAt("timestamp", JsonToken.VALUE_STRING);
+        Instant value = null;
+        try {
+          value = Instant.parse(r.parser.getText());
+        } catch (DateTimeParseException e) {
+          r.parseExpected("timestamp");
+        } catch (IOException e) {
+          r.parseExpected("timestamp");
+        }
+        r.moveNext();
+        return value;
+      };
 
-  public FromJson<LocalDate> date() {
-    return () -> {
-      expectIsAt("date", JsonToken.VALUE_STRING);
-      LocalDate value = null;
-      try {
-        value = LocalDate.parse(parser.getText());
-      } catch (DateTimeParseException e) {
-        parseExpected("date");
-      } catch (IOException e) {
-        parseExpected("date");
-      }
-      moveNext();
-      return value;
-    };
-  }
+  public static final FromJson<LocalDate> date =
+      r -> {
+        r.expectIsAt("date", JsonToken.VALUE_STRING);
+        LocalDate value = null;
+        try {
+          value = LocalDate.parse(r.parser.getText());
+        } catch (DateTimeParseException e) {
+          r.parseExpected("date");
+        } catch (IOException e) {
+          r.parseExpected("date");
+        }
+        r.moveNext();
+        return value;
+      };
 
-  public FromJson<String> party() {
-    return text();
-  }
+  public static final FromJson<String> text =
+      r -> {
+        r.expectIsAt("text", JsonToken.VALUE_STRING);
+        String value = null;
+        try {
+          value = r.parser.getText();
+        } catch (IOException e) {
+          r.parseExpected("valid textual value");
+        }
+        r.moveNext();
+        return value;
+      };
 
-  public <C extends ContractId<?>> FromJson<C> contractId(Function<String, C> constr) {
-    return () -> {
-      String id = text().read();
+  public static final FromJson<String> party = text;
+
+  public static <C extends ContractId<?>> FromJson<C> contractId(Function<String, C> constr) {
+    return r -> {
+      String id = text.read(r);
       return constr.apply(id);
     };
   }
 
-  public FromJson<String> text() {
-    return () -> {
-      expectIsAt("text", JsonToken.VALUE_STRING);
-      String value = null;
-      try {
-        value = parser.getText();
-      } catch (IOException e) {
-        parseExpected("valid textual value");
-      }
-      moveNext();
-      return value;
-    };
-  }
-
   // Read an list with an unknown number of items of the same type.
-  public <T> FromJson<List<T>> list(FromJson<T> readItem) {
-    return () -> {
+  public static <T> FromJson<List<T>> list(FromJson<T> readItem) {
+    return r -> {
       List<T> list = new ArrayList<>();
-      readStartArray();
-      while (notEndArray()) {
-        T item = readItem.read();
+      r.readStartArray();
+      while (r.notEndArray()) {
+        T item = readItem.read(r);
         list.add(item);
       }
-      readEndArray();
+      r.readEndArray();
       return list;
     };
   }
 
   // Read a map with textual keys, and unknown number of items of the same type.
-  public <V> FromJson<Map<String, V>> textMap(FromJson<V> readValue) {
-    return () -> {
+  public static <V> FromJson<Map<String, V>> textMap(FromJson<V> readValue) {
+    return r -> {
       Map<String, V> map = new TreeMap<>();
-      readStartObject();
-      while (notEndObject()) {
-        String key = readFieldName();
-        V val = readValue.read();
+      r.readStartObject();
+      while (r.notEndObject()) {
+        String key = r.readFieldName();
+        V val = readValue.read(r);
         map.put(key, val);
       }
-      ;
-      readEndObject();
+      r.readEndObject();
       return map;
     };
   }
 
   // Read a map with unknown number of items of the same types.
-  public <K, V> FromJson<Map<K, V>> genMap(FromJson<K> readKey, FromJson<V> readValue) {
-    return () -> {
+  public static <K, V> FromJson<Map<K, V>> genMap(FromJson<K> readKey, FromJson<V> readValue) {
+    return r -> {
       Map<K, V> map = new TreeMap<>();
       // Maps are represented as an array of 2-element arrays.
-      readStartArray();
-      while (notEndArray()) {
-        readStartArray();
-        K key = readKey.read();
-        V val = readValue.read();
-        readEndArray();
+      r.readStartArray();
+      while (r.notEndArray()) {
+        r.readStartArray();
+        K key = readKey.read(r);
+        V val = readValue.read(r);
+        r.readEndArray();
         map.put(key, val);
       }
-      ;
-      readEndArray();
+      r.readEndArray();
       return map;
     };
   }
 
   // The T type should not itself be Optional<?>. In that case use OptionalNested below.
-  public <T> FromJson<Optional<T>> optional(FromJson<T> readValue) {
-    return () -> {
-      if (parser.currentToken() == JsonToken.VALUE_NULL) {
-        moveNext();
+  public static <T> FromJson<Optional<T>> optional(FromJson<T> readValue) {
+    return r -> {
+      if (r.parser.currentToken() == JsonToken.VALUE_NULL) {
+        r.moveNext();
         return Optional.empty();
       } else {
-        T some = readValue.read();
+        T some = readValue.read(r);
         if (some instanceof Optional) {
           throw new IllegalArgumentException(
               "Used `optional` to decode a "
@@ -240,48 +229,50 @@ public class JsonLfReader {
     };
   }
 
-  public <T> FromJson<Optional<Optional<T>>> optionalNested(FromJson<Optional<T>> readValue) {
-    return () -> {
-      if (parser.currentToken() == JsonToken.VALUE_NULL) {
-        moveNext();
+  public static <T> FromJson<Optional<Optional<T>>> optionalNested(
+      FromJson<Optional<T>> readValue) {
+    return r -> {
+      if (r.parser.currentToken() == JsonToken.VALUE_NULL) {
+        r.moveNext();
         return Optional.empty();
       } else {
-        readStartArray();
-        Optional<T> val = notEndArray() ? readValue.read() : Optional.empty();
-        readEndArray();
+        r.readStartArray();
+        Optional<T> val = r.notEndArray() ? readValue.read(r) : Optional.empty();
+        r.readEndArray();
         return Optional.of(val);
       }
     };
   }
 
-  public <E extends Enum<E>> FromJson<E> enumeration(Class<E> enumClass) {
-    return () -> {
-      String value = text().read();
+  public static <E extends Enum<E>> FromJson<E> enumeration(Class<E> enumClass) {
+    return r -> {
+      String value = text.read(r);
       try {
         return Enum.valueOf(enumClass, value);
       } catch (IllegalArgumentException e) {
-        parseExpected(String.format("constant of %s", enumClass.getName()));
+        r.parseExpected(String.format("constant of %s", enumClass.getName()));
       }
       return null;
     };
   }
 
   // Provides a generic way to read a variant type, by specifying each tag.
-  public <T> FromJson<T> variant(List<String> tagNames, TagReader<T> readTag) {
-    return () -> {
-      readStartObject();
-      if (!readFieldName().equals("tag")) parseExpected("tag field");
-      String tagName = text().read();
-      if (!readFieldName().equals("value")) parseExpected("value field");
-      T result = readTag.get(tagName);
-      readEndObject();
-      if (result == null) parseExpected(String.format("tag of %s", String.join(" or ", tagNames)));
+  public static <T> FromJson<T> variant(List<String> tagNames, TagReader<T> readTag) {
+    return r -> {
+      r.readStartObject();
+      if (!r.readFieldName().equals("tag")) r.parseExpected("tag field");
+      String tagName = text.read(r);
+      if (!r.readFieldName().equals("value")) r.parseExpected("value field");
+      T result = readTag.get(tagName).read(r);
+      r.readEndObject();
+      if (result == null)
+        r.parseExpected(String.format("tag of %s", String.join(" or ", tagNames)));
       return result;
     };
   }
 
-  public interface TagReader<T> {
-    T get(String tagName) throws FromJson.Error;
+  public static interface TagReader<T> {
+    FromJson<T> get(String tagName) throws FromJson.Error;
   }
 
   // Provides a generic way to read a record type, with a constructor arg for each field.
@@ -305,33 +296,33 @@ public class JsonLfReader {
   //          }
   //        }
   //     )
-  public <T> FromJson<T> record(
+  public static <T> FromJson<T> record(
       Function<Object[], T> constr,
       List<String> fieldNames,
       Function<String, Field<? extends Object>> fieldsByName) {
-    return () -> {
+    return r -> {
       List<String> missingFields = new ArrayList<>();
       List<String> unknownFields = new ArrayList<>();
 
       Object[] args = new Object[fieldNames.size()];
-      if (isStartObject()) {
-        readStartObject();
-        while (notEndObject()) {
-          String fieldName = readFieldName();
+      if (r.isStartObject()) {
+        r.readStartObject();
+        while (r.notEndObject()) {
+          String fieldName = r.readFieldName();
           var field = fieldsByName.apply(fieldName);
           if (field == null) unknownFields.add(fieldName);
-          else args[field.argIndex] = field.fromJson.read();
+          else args[field.argIndex] = field.fromJson.read(r);
         }
-        readEndObject();
-      } else if (isStartArray()) {
-        readStartArray();
+        r.readEndObject();
+      } else if (r.isStartArray()) {
+        r.readStartArray();
         for (String fieldName : fieldNames) {
           var field = fieldsByName.apply(fieldName);
-          args[field.argIndex] = field.fromJson.read();
+          args[field.argIndex] = field.fromJson.read(r);
         }
-        readEndArray();
+        r.readEndArray();
       } else {
-        parseExpected("object or array");
+        r.parseExpected("object or array");
       }
 
       // Handle missing and unknown fields.
@@ -342,8 +333,8 @@ public class JsonLfReader {
         args[field.argIndex] = field.defaultVal;
       }
       T result = constr.apply(args);
-      for (String f : missingFields) missingField(result, f);
-      if (!unknownFields.isEmpty()) unknownFields(result, unknownFields);
+      for (String f : missingFields) r.missingField(result, f);
+      if (!unknownFields.isEmpty()) r.unknownFields(result, unknownFields);
 
       return result;
     };

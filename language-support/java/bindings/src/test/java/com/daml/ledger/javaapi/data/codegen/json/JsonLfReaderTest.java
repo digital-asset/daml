@@ -19,7 +19,6 @@ import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
@@ -30,18 +29,18 @@ public class JsonLfReaderTest {
   @Test
   void testUnit() throws IOException {
     checkReadAll(
-        JsonLfReader::unit, eq("{}", Unit.getInstance()), eq("\t{\n} ", Unit.getInstance()));
+        JsonLfReader.unit, eq("{}", Unit.getInstance()), eq("\t{\n} ", Unit.getInstance()));
   }
 
   @Test
   void testBool() throws IOException {
-    checkReadAll(JsonLfReader::bool, eq("false", false), eq("true", true));
+    checkReadAll(JsonLfReader.bool, eq("false", false), eq("true", true));
   }
 
   @Test
   void testInt64() throws IOException {
     checkReadAll(
-        JsonLfReader::int64,
+        JsonLfReader.int64,
         eq("42", 42L),
         eq("\"+42\"", 42L),
         eq("-42", -42L),
@@ -56,7 +55,7 @@ public class JsonLfReaderTest {
   @Test
   void testDecimal() throws IOException {
     checkReadAll(
-        JsonLfReader::decimal,
+        JsonLfReader.decimal,
         cmpEq("42", dec("42")),
         cmpEq("42.0", dec("42")),
         cmpEq("\"42\"", dec("42")),
@@ -75,7 +74,7 @@ public class JsonLfReaderTest {
   @Test
   void testTimestamp() throws IOException {
     checkReadAll(
-        JsonLfReader::timestamp,
+        JsonLfReader.timestamp,
         eq(
             "\"1990-11-09T04:30:23.123456Z\"",
             timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 123456)),
@@ -94,7 +93,7 @@ public class JsonLfReaderTest {
   @Test
   void testDate() throws IOException {
     checkReadAll(
-        JsonLfReader::date,
+        JsonLfReader.date,
         eq("\"2019-06-18\"", date(2019, Month.JUNE, 18)),
         eq("\"9999-12-31\"", date(9999, Month.DECEMBER, 31)),
         eq("\"0001-01-01\"", date(1, Month.JANUARY, 1)));
@@ -102,23 +101,24 @@ public class JsonLfReaderTest {
 
   @Test
   void testParty() throws IOException {
-    checkReadAll(JsonLfReader::party, eq("\"Alice\"", "Alice"));
+    checkReadAll(JsonLfReader.party, eq("\"Alice\"", "Alice"));
   }
 
   @Test
   void testText() throws IOException {
-    checkReadAll(JsonLfReader::text, eq("\"\"", ""), eq("\" \"", " "), eq("\"hello\"", "hello"));
+    checkReadAll(JsonLfReader.text, eq("\"\"", ""), eq("\" \"", " "), eq("\"hello\"", "hello"));
   }
 
   @Test
   void testContractId() throws IOException {
-    checkReadAll(r -> r.contractId(Tmpl.Cid::new), eq("\"deadbeef\"", new Tmpl.Cid("deadbeef")));
+    checkReadAll(
+        JsonLfReader.contractId(Tmpl.Cid::new), eq("\"deadbeef\"", new Tmpl.Cid("deadbeef")));
   }
 
   @Test
   void testEnum() throws IOException {
     checkReadAll(
-        r -> r.enumeration(Suit.class),
+        JsonLfReader.enumeration(Suit.class),
         eq("\"Hearts\"", Suit.Hearts),
         eq("\"Diamonds\"", Suit.Diamonds),
         eq("\"Clubs\"", Suit.Clubs),
@@ -127,13 +127,14 @@ public class JsonLfReaderTest {
 
   @Test
   void testList() throws IOException {
-    checkReadAll(r -> r.list(r.int64()), eq("[]", emptyList()), eq("[1,2]", asList(1L, 2L)));
+    checkReadAll(
+        JsonLfReader.list(JsonLfReader.int64), eq("[]", emptyList()), eq("[1,2]", asList(1L, 2L)));
   }
 
   @Test
   void testTextMap() throws IOException {
     checkReadAll(
-        r -> r.textMap(r.int64()),
+        JsonLfReader.textMap(JsonLfReader.int64),
         eq("{}", emptyMap()),
         eq("{\"foo\":1, \"bar\": 2}", java.util.Map.of("foo", 1L, "bar", 2L)));
   }
@@ -141,7 +142,7 @@ public class JsonLfReaderTest {
   @Test
   void testGenMap() throws IOException {
     checkReadAll(
-        r -> r.genMap(r.text(), r.int64()),
+        JsonLfReader.genMap(JsonLfReader.text, JsonLfReader.int64),
         eq("[]", emptyMap()),
         eq("[[\"foo\", 1], [\"bar\", 2]]", java.util.Map.of("foo", 1L, "bar", 2L)));
   }
@@ -149,13 +150,15 @@ public class JsonLfReaderTest {
   @Test
   void testOptionalNonNested() throws IOException {
     checkReadAll(
-        r -> r.optional(r.int64()), eq("null", Optional.empty()), eq("42", Optional.of(42L)));
+        JsonLfReader.optional(JsonLfReader.int64),
+        eq("null", Optional.empty()),
+        eq("42", Optional.of(42L)));
   }
 
   @Test
   void testOptionalNested() throws IOException {
     checkReadAll(
-        r -> r.optionalNested(r.optional(r.int64())),
+        JsonLfReader.optionalNested(JsonLfReader.optional(JsonLfReader.int64)),
         eq("null", Optional.empty()),
         eq("[]", Optional.of(Optional.empty())),
         eq("[42]", Optional.of(Optional.of(42L))));
@@ -164,7 +167,8 @@ public class JsonLfReaderTest {
   @Test
   void testOptionalNestedDeeper() throws IOException {
     checkReadAll(
-        r -> r.optionalNested(r.optionalNested(r.optional(r.int64()))),
+        JsonLfReader.optionalNested(
+            JsonLfReader.optionalNested(JsonLfReader.optional(JsonLfReader.int64))),
         eq("null", Optional.empty()),
         eq("[]", Optional.of(Optional.empty())),
         eq("[[]]", Optional.of(Optional.of(Optional.empty()))),
@@ -174,7 +178,7 @@ public class JsonLfReaderTest {
   @Test
   void testOptionalLists() throws IOException {
     checkReadAll(
-        r -> r.optional(r.list(r.list(r.int64()))),
+        JsonLfReader.optional(JsonLfReader.list(JsonLfReader.list(JsonLfReader.int64))),
         eq("null", Optional.empty()),
         eq("[]", Optional.of(emptyList())),
         eq("[[]]", Optional.of(asList(emptyList()))),
@@ -184,21 +188,21 @@ public class JsonLfReaderTest {
   @Test
   void testVariant() throws IOException, FromJson.Error {
     checkReadAll(
-        r ->
-            r.variant(
-                asList("Bar", "Baz", "Quux"),
-                tagName -> {
-                  switch (tagName) {
-                    case "Bar":
-                      return new SomeVariant.Bar(r.int64().read());
-                    case "Baz":
-                      return new SomeVariant.Baz(r.unit().read());
-                    case "Quux":
-                      return new SomeVariant.Quux(r.optional(r.int64()).read());
-                    default:
-                      return null;
-                  }
-                }),
+        JsonLfReader.variant(
+            asList("Bar", "Baz", "Quux"),
+            tagName -> {
+              switch (tagName) {
+                case "Bar":
+                  return r -> new SomeVariant.Bar(JsonLfReader.int64.read(r));
+                case "Baz":
+                  return r -> new SomeVariant.Baz(JsonLfReader.unit.read(r));
+                case "Quux":
+                  return r ->
+                      new SomeVariant.Quux(JsonLfReader.optional(JsonLfReader.int64).read(r));
+                default:
+                  return null;
+              }
+            }),
         eq("{\"tag\": \"Bar\", \"value\": 42}", new SomeVariant.Bar(42L)),
         eq("{\"tag\": \"Baz\", \"value\": {}}", new SomeVariant.Baz(Unit.getInstance())),
         eq("{\"tag\": \"Quux\", \"value\": null}", new SomeVariant.Quux(Optional.empty())),
@@ -208,20 +212,19 @@ public class JsonLfReaderTest {
   @Test
   void testRecord() throws IOException {
     checkReadAll(
-        r ->
-            r.record(
-                args -> new SomeRecord((Long) args[0], (Boolean) args[1]),
-                asList("i", "b"),
-                fieldName -> {
-                  switch (fieldName) {
-                    case "i":
-                      return JsonLfReader.Field.required(0, r.int64());
-                    case "b":
-                      return JsonLfReader.Field.optional(1, r.bool(), false);
-                    default:
-                      return null;
-                  }
-                }),
+        JsonLfReader.record(
+            args -> new SomeRecord((Long) args[0], (Boolean) args[1]),
+            asList("i", "b"),
+            fieldName -> {
+              switch (fieldName) {
+                case "i":
+                  return JsonLfReader.Field.required(0, JsonLfReader.int64);
+                case "b":
+                  return JsonLfReader.Field.optional(1, JsonLfReader.bool, false);
+                default:
+                  return null;
+              }
+            }),
         eq("[1,true]", new SomeRecord(1L, true)),
         eq("{\"i\":1,\"b\":true}", new SomeRecord(1L, true)),
         eq("{\"b\":true,\"i\":1}", new SomeRecord(1L, true)),
@@ -355,10 +358,9 @@ public class JsonLfReaderTest {
     Spades
   }
 
-  private <T> void checkReadAll(Function<JsonLfReader, FromJson<T>> readT, TestCase<T>... testCases)
-      throws IOException {
+  private <T> void checkReadAll(FromJson<T> readT, TestCase<T>... testCases) throws IOException {
     for (var tc : testCases) {
-      tc.check.accept(readT.apply(new JsonLfReader(tc.input)).read());
+      tc.check.accept(readT.read(new JsonLfReader(tc.input)));
     }
   }
 
