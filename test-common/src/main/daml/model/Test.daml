@@ -5,8 +5,6 @@
 
 module Test where
 
-import DA.Time
-
 import Iou()
 import IouTrade()
 
@@ -438,31 +436,6 @@ template DecimalRounding
   where
     signatory party
 
-{-
-testDivulgence : Scenario ()
-testDivulgence = test do
-  alice <- getParty "alice"
-  bob <- getParty "bob"
-  div1Cid <- submit alice (create Divulgence1 with div1Party = alice)
-  div2Cid <- submit bob (create Divulgence2 with div2Signatory = bob, div2Fetcher = alice)
-  submit alice (exercise div2Cid Divulgence2Fetch with div1ToFetch = div1Cid)
--}
-
-testScenario : Scenario ()
-testScenario = do
-  pass (days 10)
-  party <- getParty "party"
-  submit party (create Dummy with operator = party)
-  pass (seconds 10)
-  submit party (create DummyWithParam with operator = party)
-  submit party (create DummyFactory with operator = party)
-  pass (seconds 10)
-  submit party (create DummyContractFactory with operator = party)
-  pass (seconds 10)
-  other <- getParty "other"
-  submitMustFail party (create Dummy with operator = other)
-  return ()
-
 template Delegated
   with
     owner : Party
@@ -528,22 +501,6 @@ template ShowDelegated
       controller owner
       do fetch delegatedId
          return ()
-
-testDivulgenceVisibility = scenario do
-  owner <- getParty "owner"
-  delegate <- getParty "delegate"
-  delegated <- owner `submit` create Delegated with owner, k = "key"
-  delegation <- owner `submit` create Delegation with owner, delegate
-  delegate `submit` exercise delegation FetchDelegated with delegated
-
-testDivulgenceSuccess = scenario do
-  owner <- getParty "owner"
-  delegate <- getParty "delegate"
-  delegated <- owner `submit` create Delegated with owner, k = "key"
-  delegation <- owner `submit` create Delegation with owner, delegate
-  showId <- owner `submit` create ShowDelegated with owner, delegate
-  owner `submit` exercise showId ShowIt with delegatedId = delegated
-  delegate `submit` exercise delegation  FetchDelegated with delegated
 
 template Witnesses
   with
