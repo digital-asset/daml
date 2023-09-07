@@ -228,7 +228,14 @@ public class JsonLfReader {
         moveNext();
         return Optional.empty();
       } else {
-        return Optional.of(readValue.read());
+        T some = readValue.read();
+        if (some instanceof Optional) {
+          throw new IllegalArgumentException(
+              "Used `optional` to decode a "
+                  + some.getClass()
+                  + " but `optionalNested` must be used for the outer decoders of nested Optional");
+        }
+        return Optional.of(some);
       }
     };
   }

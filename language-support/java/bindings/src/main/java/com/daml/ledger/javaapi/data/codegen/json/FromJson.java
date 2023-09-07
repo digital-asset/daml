@@ -16,7 +16,7 @@ import java.io.IOException;
 public interface FromJson<T> {
   public T read() throws Error;
 
-  public class Error extends IOException {
+  public static class Error extends IOException {
     public Error(String msg) {
       super(msg);
     }
