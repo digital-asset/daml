@@ -59,6 +59,13 @@ object LanguageVersion {
     val choiceAuthority = v1_dev
     val natTypeErasure = v1_dev
     val packageUpgrades = v1_dev
+    val dynamicExercise = v1_dev
+
+    /** TYPE_REP_TYCON_NAME builtin */
+    val templateTypeRepToText = v1_dev
+
+    /** Guards in interfaces */
+    val extendedInterfaces = v1_dev
 
     /** Unstable, experimental features. This should stay in 1.dev forever.
       * Features implemented with this flag should be moved to a separate
