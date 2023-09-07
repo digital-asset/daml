@@ -23,6 +23,15 @@ load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
+# The LF protos are stored in two directories:
+#   - src/stable: Snapshot of the LF protos at the time of various releases.
+#   - src/main  : The current development version of the LF protos: 1.dev and
+#                 2.dev. They will be frozen into a src/stable directory after
+#                 the next release of either a 1.x version or a 2.x version.
+#
+# We generate:
+#  - one file group for each stable version, e.g daml_lf_1.14_archive_proto_srcs
+#  - one single file group for both dev versions: daml_lf_dev_archive_proto_srcs
 [
     [
         filegroup(
