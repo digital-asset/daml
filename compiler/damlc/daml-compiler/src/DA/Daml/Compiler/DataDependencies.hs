@@ -404,7 +404,7 @@ generateSrcFromLf env = noLoc mod
     classReexportMap = MS.fromList $ do
         synDef@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
         Just fields <- [getTypeClassFields synType]
-        let methods = catMaybes (getClassMethodName . fst <$> fields)
+        let methods = mapMaybe (getClassMethodName . fst) fields
         LF.TypeSynName [name] <- [synName]
         Just (pkgId, depDef) <- [envLookupDepClass synName env]
         guard (safeToReexport env synDef depDef)
