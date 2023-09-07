@@ -2321,6 +2321,7 @@ class EngineTest
         (LV.v1_8, LV.v1_6, LV.v1_7),
         (LV.v1_dev, LV.v1_6, LV.v1_8),
         (LV.v2_dev, LV.v1_6, LV.v1_8),
+        (LV.v2_dev, LV.v1_6, LV.v1_dev),
       )
 
       forEvery(negativeTestCases)((v, min, max) =>
