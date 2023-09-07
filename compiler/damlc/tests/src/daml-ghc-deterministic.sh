@@ -31,7 +31,6 @@ diff="$3"
 scriptdar=$(rlocation "$TEST_WORKSPACE/$4")
 SDK_VERSION=$5
 GHC_FRIENDLY_SDK_VERSION=$6
-scenarios="--enable-scenarios=yes" # TODO: https://github.com/digital-asset/daml/issues/11316
 
 # Check that Daml compilation is deterministic.
 TMP_SRC1=$(mktemp -d)
@@ -64,13 +63,13 @@ echo -e "$damlyaml" > "$TMP_SRC1/daml.yaml"
 cp -a $TESTS_DIR/. "$TMP_SRC1"
 cp -a $TMP_SRC1/. "$TMP_SRC2"
 
-(cd "$TMP_SRC1" && DAML_PROJECT="$TMP_SRC1" $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_1" $importargs)
-(cd "$TMP_SRC2" && DAML_PROJECT="$TMP_SRC2" $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_2" $importargs)
+(cd "$TMP_SRC1" && DAML_PROJECT="$TMP_SRC1" $damlc compile "Examples.daml" -o "$TMP_OUT/out_1" $importargs)
+(cd "$TMP_SRC2" && DAML_PROJECT="$TMP_SRC2" $damlc compile "Examples.daml" -o "$TMP_OUT/out_2" $importargs)
 
 # When invoked with a project root (as set by the Daml assistant)
 # we should produce the same output regardless of the path with which we are invoked.
-(cd "/" && DAML_PROJECT="$TMP_SRC1" $damlc compile $scenarios "$TMP_SRC1/Examples.daml" -o "$TMP_OUT/out_proj_1" $importargs)
-(cd "$TMP_SRC1" && DAML_PROJECT="$TMP_SRC1" $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_proj_2" $importargs)
+(cd "/" && DAML_PROJECT="$TMP_SRC1" $damlc compile "$TMP_SRC1/Examples.daml" -o "$TMP_OUT/out_proj_1" $importargs)
+(cd "$TMP_SRC1" && DAML_PROJECT="$TMP_SRC1" $damlc compile "Examples.daml" -o "$TMP_OUT/out_proj_2" $importargs)
 
 $protoc --decode_raw < "$TMP_OUT/out_1" > "$TMP_OUT/decoded_out_1"
 $protoc --decode_raw < "$TMP_OUT/out_2" > "$TMP_OUT/decoded_out_2"
@@ -94,10 +93,10 @@ cat <<EOF > "$PROJDIR/A.daml"
 module A where
 EOF
 
-$damlc build $scenarios --project-root "$PROJDIR" -o "$PROJDIR/out.dar"
+$damlc build --project-root "$PROJDIR" -o "$PROJDIR/out.dar"
 FIRST_SHA=$(sha256sum $PROJDIR/out.dar)
 
-$damlc build $scenarios --project-root "$PROJDIR" -o "$PROJDIR/out.dar"
+$damlc build --project-root "$PROJDIR" -o "$PROJDIR/out.dar"
 SECOND_SHA=$(sha256sum $PROJDIR/out.dar)
 
 if [[ $FIRST_SHA != $SECOND_SHA ]]; then
