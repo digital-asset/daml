@@ -23,6 +23,7 @@ import Data.Aeson.Encode.Pretty
 import Control.Exception
 import Control.Lens.MonoTraversal (monoTraverse)
 import Control.Lens.Traversal (Traversal')
+import Control.Monad
 import Control.Monad.Extra
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
