@@ -23,7 +23,10 @@ import scala.language.implicitConversions
 class EncodeV1Spec extends EncodeSpec(LanguageVersion.v1_dev)
 class EncodeV2Spec extends EncodeSpec(LanguageVersion.v2_dev)
 
-class EncodeSpec(languageVersion: LanguageVersion) extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class EncodeSpec(languageVersion: LanguageVersion)
+    extends AnyWordSpec
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   import EncodeSpec._
 
