@@ -64,7 +64,7 @@ bazel build //... `
   `-`-experimental_profile_include_target_label `
   `-`-build_event_json_file build-events.json `
   `-`-build_event_publish_all_actions `
-  `-`-execution_log_json_file ${ARTIFACT_DIRS}/logs/build_execution_windows_$env:BUILD_BUILDNUMBER_$env:SYSTEM_JOBATTEMPT.log `
+  `-`-execution_log_json_file ${ARTIFACT_DIRS}/logs/build_execution_windows_$env:BUILD_BUILDNUMBER_$env:SYSTEM_JOBATTEMPT.json.gz `
   `-`-build_tag_filters=-canton-ee
 
 bazel shutdown
@@ -83,5 +83,5 @@ if ($env:SKIP_TESTS -ceq "False") {
       `-`-experimental_profile_include_target_label `
       `-`-build_event_json_file test-events.json `
       `-`-build_event_publish_all_actions `
-      `-`-execution_log_json_file ${ARTIFACT_DIRS}/logs/test_execution_windows_$env:BUILD_BUILDNUMBER_$env:SYSTEM_JOBATTEMPT.log `
+      `-`-execution_log_json_file ${ARTIFACT_DIRS}/logs/test_execution_windows_$env:BUILD_BUILDNUMBER_$env:SYSTEM_JOBATTEMPT.json.gz `
 }

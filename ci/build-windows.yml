@@ -47,17 +47,6 @@ steps:
       platform: 'windows'
       is_release: '${{parameters.is_release}}'
 
-  - bash: |
-      set -euo pipefail
-      cd '$(Build.StagingDirectory)/logs'
-      find . -type f | xargs gzip -9
-      cd -
-      cd bazel-testlogs
-      find . -type f | xargs gzip -9
-
-    displayName: compress logs
-    condition: succeededOrFailed()
-
   - task: PublishBuildArtifacts@1
     condition: failed()
     displayName: 'Publish the bazel test logs'
