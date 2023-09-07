@@ -1387,8 +1387,8 @@ private[lf] object Speedy {
   // Kontinuation
   //
   // Whilst the machine is running, we ensure the kontStack is *never* empty.
-  // We do this by pushing a KFinished continutaion on the initially empty stack, which
-  // returns the final result
+  // We do this by pushing a KPure(Control.Complete) continutaion on the initially
+  // empty stack, which returns the final result
 
   private[this] def initialKontStack[Q](): util.ArrayList[Kont[Q]] = {
     val kontStack = new util.ArrayList[Kont[Q]](128)

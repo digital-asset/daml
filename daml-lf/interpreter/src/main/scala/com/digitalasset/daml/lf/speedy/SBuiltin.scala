@@ -2252,34 +2252,31 @@ private[lf] object SBuiltin {
     )
   }
 
-  private def validateContractInfo[Q](
-      machine: Machine[Q],
+  private def validateContractInfo(
+      machine: UpdateMachine,
       coid: V.ContractId,
       contract: ContractInfo,
   )(
-      continue: () => Control[Q]
-  ): Control[Q] = {
+      continue: () => Control[Question.Update]
+  ): Control[Question.Update] = {
 
     val keyOpt: Option[GlobalKeyWithMaintainers] = contract.keyOpt match {
       case None => None
       case Some(cachedKey) =>
         Some(cachedKey.globalKeyWithMaintainers)
     }
-
-    machine.asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc) { machine =>
-      Control.Question(
-        Question.Update.NeedUpgradeVerification(
-          coid,
-          contract.signatories,
-          contract.observers,
-          keyOpt,
-          callback = { () =>
-            val control = continue()
-            machine.setControl(control)
-          },
-        )
+    Control.Question(
+      Question.Update.NeedUpgradeVerification(
+        coid,
+        contract.signatories,
+        contract.observers,
+        keyOpt,
+        callback = { () =>
+          val control = continue()
+          machine.setControl(control)
+        },
       )
-    }
+    )
   }
 
   private def importValue[Q](machine: Machine[Q], templateId: TypeConName, coinstArg: V)(
