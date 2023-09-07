@@ -3,7 +3,6 @@
 
 package com.daml.lf.archive
 
-import com.daml.SafeProto
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.util.PackageInfo
@@ -28,21 +27,13 @@ object Decode {
           .map(payload.pkgId -> _)
       case LanguageVersion(LanguageMajorVersion.V2, minor)
           if LanguageMajorVersion.V2.supportedMinorVersions.contains(minor) =>
-        for {
-          // The DamlLf2 proto is currently a copy of DamlLf1 so we can coerce one to the other.
-          // TODO (#17366): Introduce a new DamlLf2 decoder once we introduce changes to DamlLf2.
-          lf2Bytestring <- SafeProto
-            .toByteString(payload.proto.getDamlLf2)
-            .left
-            .map(msg => Error.Internal("SafeProto.toByteString", msg, None))
-          lf1ProtoPackage <- Lf1PackageParser.fromByteString(lf2Bytestring)
-          astPackage <- new DecodeV1(minor)
-            .decodePackage(
-              payload.pkgId,
-              lf1ProtoPackage,
-              onlySerializableDataDefs,
-            )
-        } yield (payload.pkgId -> astPackage)
+        new DecodeV2(minor)
+          .decodePackage(
+            payload.pkgId,
+            payload.proto.getDamlLf2,
+            onlySerializableDataDefs,
+          )
+          .map(payload.pkgId -> _)
       case v => Left(Error.Parsing(s"$v unsupported"))
     }
 

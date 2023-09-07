@@ -7,7 +7,6 @@ package archive.testing
 import com.daml.SafeProto
 import com.daml.crypto.MessageDigestPrototype
 import com.daml.daml_lf_dev.{DamlLf => PLF}
-import com.daml.lf.archive.{Error, Lf2PackageParser}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
@@ -37,23 +36,11 @@ object Encode {
           .setDamlLf1(new EncodeV1(minor).encodePackage(pkgId, pkg))
           .build()
       case LanguageMajorVersion.V2 => {
-        val lf1ProtoPackage = new EncodeV1(minor).encodePackage(pkgId, pkg)
-        // The DamlLf2 proto is currently a copy of DamlLf1 so we can coerce one to the other.
-        // TODO (#17366): Introduce a new DamlLf2 encoder once we introduce changes to DamlLf2.
-        SafeProto
-          .toByteString(lf1ProtoPackage)
-          .left
-          .map(msg => Error.Internal("SafeProto.toByteString", msg, None))
-          .flatMap(bs => Lf2PackageParser.fromByteString(bs))
-          .fold(
-            err => throw new RuntimeException(err),
-            lf2ProtoPackage =>
-              PLF.ArchivePayload
-                .newBuilder()
-                .setMinor(minor.toProtoIdentifier)
-                .setDamlLf2(lf2ProtoPackage)
-                .build(),
-          )
+        PLF.ArchivePayload
+          .newBuilder()
+          .setMinor(minor.toProtoIdentifier)
+          .setDamlLf2(new EncodeV2(minor).encodePackage(pkgId, pkg))
+          .build()
       }
       case _ =>
         sys.error(s"$version not supported")
