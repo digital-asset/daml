@@ -13,7 +13,15 @@ import com.daml.ledger.api.domain.{UserRight, User}
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.{CompiledPackages, command}
-import com.daml.lf.data.Ref.{Name, PackageId, PackageVersion, Identifier, UserId, PackageName, Party}
+import com.daml.lf.data.Ref.{
+  Name,
+  PackageId,
+  PackageVersion,
+  Identifier,
+  UserId,
+  PackageName,
+  Party,
+}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
@@ -746,10 +754,13 @@ object ScriptF {
         pkgId <- env.pkgIds.view
         pkg = env.pkgInterface.signatures(pkgId)
         mod <- pkg.modules.get(modName).iterator
-        id <- mod.definitions.get(name).collect{
-          case Ast.DValueSignature(_, _, _) => Identifier(pkgId, qName)
-        }.iterator
-      } yield  id).headOption.toRight(s"cannot find script $name")
+        id <- mod.definitions
+          .get(name)
+          .collect { case Ast.DValueSignature(_, _, _) =>
+            Identifier(pkgId, qName)
+          }
+          .iterator
+      } yield id).headOption.toRight(s"cannot find script $name")
     } yield id
   }
 
@@ -767,7 +778,7 @@ object ScriptF {
     ): Future[SExpr] =
       for {
         client <- Converter.toFuture(env.clients.getParticipant(None))
-        scriptId <-  Converter.toFuture(submssionId(env, name))
+        scriptId <- Converter.toFuture(submssionId(env, name))
         cmd = command.ApiCommand.Exercise(
           scriptId,
           Engine.submssionCid,

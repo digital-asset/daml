@@ -1,3 +1,6 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
   
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
@@ -49,3 +52,4 @@ instance IsQuestion (SubmitScript req res) res where command = "SubmitScript"
 submitScript: forall req res. NonEmpty Party -> [Party] -> Text -> req -> Script res 
 submitScript actAs readAs name arg = do
   lift $ SubmitScript @req @res actAs readAs name arg 
+
