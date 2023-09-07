@@ -1200,23 +1200,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case class SBGuardMatchTemplateId(
-      expectedTmplId: TypeConName
-  ) extends SBuiltin(2) {
-    override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
-        machine: Machine[Q],
-    ): Control[Nothing] = {
-      val contractId = getSContractId(args, 0)
-      val (actualTmplId, _) = getSAnyContract(args, 1)
-      if (actualTmplId != expectedTmplId) {
-        Control.Error(IE.WronglyTypedContract(contractId, expectedTmplId, actualTmplId))
-      } else {
-        Control.Value(SBool(true))
-      }
-    }
-  }
-
   final case class SBGuardRequiredInterfaceId(
       requiredIfaceId: TypeConName,
       requiringIfaceId: TypeConName,
@@ -2191,6 +2174,9 @@ private[lf] object SBuiltin {
   )(f: SValue => Control[Q]): Control[Q] = {
 
     fetchAny(machine, optTargetTemplateId, coid, keyOpt) { fetched =>
+      // The SBCastAnyContract check can never fail when the upgrading feature flag is enabled.
+      // This is because the contract got up/down-graded when imported by importValue.
+
       val castExp: SExpr = SEApp(
         SEBuiltin(SBCastAnyContract(templateId)),
         Array(
@@ -2229,18 +2215,34 @@ private[lf] object SBuiltin {
 
             case None =>
               lookupContractOnLedger(machine, coid) { coinst =>
-                val V.ContractInstance(actualTmplId, coinstArg) = coinst
-                val templateId = optTargetTemplateId match {
-                  case Some(tycon) => tycon
-                  case None => actualTmplId
+                val V.ContractInstance(srcTemplateId, coinstArg) = coinst
+
+                val (upgradingIsEnabled, destTemplateId) = optTargetTemplateId match {
+                  case Some(tycon) =>
+                    (true, tycon)
+                  case None =>
+                    (false, srcTemplateId) // upgrading not enabled; import at source type
                 }
-                importValue(machine, templateId, coinstArg) { templateArg =>
-                  getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
+
+                importValue(machine, destTemplateId, coinstArg) { templateArg =>
+                  getContractInfo(machine, coid, destTemplateId, templateArg, keyOpt) { contract =>
                     ensureContractActive(machine, coid, contract.templateId) {
+
                       machine.checkContractVisibility(coid, contract)
                       machine.enforceLimitAddInputContract()
                       machine.enforceLimitSignatoriesAndObservers(coid, contract)
-                      f(contract.any).asInstanceOf[Control[Question.Update]]
+
+                      val src: TypeConName = srcTemplateId
+                      val dest: TypeConName = destTemplateId
+
+                      if (upgradingIsEnabled && src != dest) {
+
+                        validateContractInfo(machine, coid, contract) { () =>
+                          f(contract.any).asInstanceOf[Control[Question.Update]]
+                        }
+                      } else {
+                        f(contract.any).asInstanceOf[Control[Question.Update]]
+                      }
                     }
                   }
                 }
@@ -2261,6 +2263,36 @@ private[lf] object SBuiltin {
           machine.committers,
           callback = { res =>
             val control = continue(res)
+            machine.setControl(control)
+          },
+        )
+      )
+    }
+  }
+
+  private def validateContractInfo[Q](
+      machine: Machine[Q],
+      coid: V.ContractId,
+      contract: ContractInfo,
+  )(
+      continue: () => Control[Q]
+  ): Control[Q] = {
+
+    val keyOpt: Option[GlobalKeyWithMaintainers] = contract.keyOpt match {
+      case None => None
+      case Some(cachedKey) =>
+        Some(cachedKey.globalKeyWithMaintainers)
+    }
+
+    machine.asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc) { machine =>
+      Control.Question(
+        Question.Update.NeedUpgradeVerification(
+          coid,
+          contract.signatories,
+          contract.observers,
+          keyOpt,
+          callback = { () =>
+            val control = continue()
             machine.setControl(control)
           },
         )

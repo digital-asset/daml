@@ -29,6 +29,15 @@ object Question {
         callback: Value.ContractInstance => Unit,
     ) extends Update
 
+    /** Contract info for upgraded contract needs verification by ledger */
+    final case class NeedUpgradeVerification(
+        coid: ContractId,
+        signatories: Set[Party],
+        observers: Set[Party],
+        keyOpt: Option[GlobalKeyWithMaintainers],
+        callback: () => Unit,
+    ) extends Update
+
     /** Machine needs a definition that was not present when the machine was
       * initialized. The caller must retrieve the definition and fill it in
       * the packages cache it had provided to initialize the machine.
