@@ -28,6 +28,14 @@ let
       };
     });
 
+    bazel_5 = pkgs.bazel_5.overrideAttrs(oldAttrs: {
+      patches = oldAttrs.patches ++ [
+        # This has been upstreamed but it's only available from Bazel 7.0.0-pre.20230215.2
+        # (maybe we can get it backported?)
+        # https://github.com/bazelbuild/bazel/commit/6115d94cd05864fe5c6e5f774e9482b3b4976976
+        ./bazel-retry-cache.patch
+      ];
+    });
     haskell = pkgs.haskell // {
       compiler = pkgs.haskell.compiler // {
         ghc902 =
