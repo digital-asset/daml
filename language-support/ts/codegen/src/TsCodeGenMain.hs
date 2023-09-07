@@ -173,7 +173,7 @@ daml2js Daml2jsParams {..} = do
     createDirectoryIfMissing True packageSrcDir
     -- Write .ts files for the package and harvest references to
     -- foreign packages as we do.
-    (nonEmptyModNames, dependenciesSets) <- unzip <$> mapM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
+    (nonEmptyModNames, dependenciesSets) <- Control.Monad.mapAndUnzipM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
     writeIndexTs pkgId packageSrcDir (catMaybes nonEmptyModNames)
     let dependencies = Set.toList (Set.unions dependenciesSets)
     -- Now write package metadata.
