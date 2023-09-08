@@ -10,7 +10,6 @@
 -- the same rule, we use `R_1`, `R_2`, `R_3`, and so on. This is why there is
 -- `evExpRecUpdErr1`, `evExpRecUpdErr2_1`, and `evExpRecUpdErr2_2`, for example.)
 
-{-# OPTIONS_GHC -Wno-controller-can #-}
 {-# LANGUAGE ApplicativeDo #-}
 
 module SemanticsEvalOrder where
@@ -246,7 +245,7 @@ evUpdCreateErr1 = script do
     createCmd (T_EvUpdCreateErr1 p)
   abort "EvUpdCreateErr1 failed (4)"
 
--- @ERROR range=260:1-260:16; Template precondition violated
+-- @ERROR range=259:1-259:16; Template precondition violated
 template T_EvUpdCreateFail
   with
     p : Party
@@ -370,29 +369,6 @@ evUpdCreateWithKeyErr2 = script do
   submit p do
     createCmd (T_EvUpdCreateWithKeyErr2 p)
   abort "EvUpdCreateWithKeyErr2 failed"
-
--- | `controller P can ...` syntax adds `P` to the observers,
--- so if `P` causes an error, this is triggered on create,
--- instead of on exercise.
--- @ERROR controllerCanAddsObserver OK
-template T_ControllerCanAddsObserver
-  with
-    p : Party
-  where
-    signatory p
-    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
-    -- This tests that `controller X can` implicitly adds `X` as an observer, so we keep
-    -- it until it is removed.
-    controller (error @Party "controllerCanAddsObserver OK") can
-      C_ControllerCanAddsObserver: ()
-        do pure ()
-
-controllerCanAddsObserver : Script ()
-controllerCanAddsObserver = script do
-  p <- allocateParty "Alice"
-  submit p do
-    createCmd (T_ControllerCanAddsObserver p)
-  abort "controllerCanAddsObserver failed"
 
 -- | `choice ... controller P ...` doesn't add `P` as observer.
 -- This test is here to contrast with the previous.

@@ -3,8 +3,6 @@
 
 -- Check that all syntaxes for defining choices can be parsed.
 
-{-# OPTIONS_GHC -Wno-controller-can #-}
-
 module ChoiceSyntaxes where
 
 template T with
@@ -22,15 +20,3 @@ template T with
       controller p
       do
         pure ()
-
-    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
-    -- This file tests the various options for defining choices, so we keep it until it is removed.
-    controller p can
-      C3 : () with
-          x : ()
-        do
-          pure  ()
-
-      C4 : ()
-        do
-          pure  ()
