@@ -23,6 +23,7 @@ import Data.Aeson.Encode.Pretty
 import Control.Exception
 import Control.Lens.MonoTraversal (monoTraverse)
 import Control.Lens.Traversal (Traversal')
+import Control.Monad
 import Control.Monad.Extra
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
@@ -173,7 +174,7 @@ daml2js Daml2jsParams {..} = do
     createDirectoryIfMissing True packageSrcDir
     -- Write .ts files for the package and harvest references to
     -- foreign packages as we do.
-    (nonEmptyModNames, dependenciesSets) <- unzip <$> mapM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
+    (nonEmptyModNames, dependenciesSets) <- Control.Monad.mapAndUnzipM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
     writeIndexTs pkgId packageSrcDir (catMaybes nonEmptyModNames)
     let dependencies = Set.toList (Set.unions dependenciesSets)
     -- Now write package metadata.
