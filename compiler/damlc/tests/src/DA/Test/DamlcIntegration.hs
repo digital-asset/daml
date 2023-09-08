@@ -256,29 +256,51 @@ uniqueUniques = HUnit.testCase "Uniques" $
         let n = length $ nubOrd $ concat results
         n @?= 10000
 
-getDamlTestFiles :: FilePath -> IO [(String, FilePath, [Ann])]
+data DamlTestInput = DamlTestInput
+  { name :: String
+  , path :: FilePath
+  , anns :: [Ann]
+  }
+
+getDamlTestFiles :: FilePath -> IO [DamlTestInput]
 getDamlTestFiles location = do
     -- test files are declared as data in BUILD.bazel
     testsLocation <- locateRunfiles $ mainWorkspace </> location
     files <- filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
     forM files $ \file -> do
         anns <- readFileAnns file
-        pure (makeRelative testsLocation file, file, anns)
+        pure DamlTestInput
+            { name = makeRelative testsLocation file
+            , path = file
+            , anns
+            }
 
-getBondTradingTestFiles :: IO [(String, FilePath, [Ann])]
+getBondTradingTestFiles :: IO [DamlTestInput]
 getBondTradingTestFiles = do
     -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
     bondTradingLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/bond-trading"
     let file = bondTradingLocation </> "Test.daml"
     anns <- readFileAnns file
-    pure [("bond-trading/Test.daml", file, anns)]
+    pure
+        [ DamlTestInput
+            { name = "bond-trading/Test.daml"
+            , path = file
+            , anns
+            }
+        ]
 
-getCantSkipPreprocessorTestFiles :: IO [(String, FilePath, [Ann])]
+getCantSkipPreprocessorTestFiles :: IO [DamlTestInput]
 getCantSkipPreprocessorTestFiles = do
     cantSkipPreprocessorLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/cant-skip-preprocessor"
     let file = cantSkipPreprocessorLocation </> "DA" </> "Internal" </> "Hack.daml"
     anns <- readFileAnns file
-    pure [("cant-skip-preprocessor/DA/Internal/Hack.daml", file, anns)]
+    pure
+        [ DamlTestInput
+            { name = "cant-skip-preprocessor/DA/Internal/Hack.daml"
+            , path = file
+            , anns
+            }
+        ]
 
 getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> ScriptPackageData -> IO TestTree
 getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) = do
@@ -286,7 +308,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
     damlTests <-
-        mconcat @(IO [(String, FilePath, [Ann])])
+        mconcat @(IO [DamlTestInput])
             [ getDamlTestFiles "compiler/damlc/tests/daml-test-files"
             , getBondTradingTestFiles
             , getCantSkipPreprocessorTestFiles
@@ -349,8 +371,8 @@ instance IsTest TestCase where
     pure $ res { resultDescription = desc }
   testOptions = Tagged []
 
-testCase :: LF.Version -> IsScriptV2Opt -> EvaluationOrder -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath, [Ann]) -> TestTree
-testCase version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir registerTODO (name, file, anns) = singleTest name . TestCase $ \log -> do
+testCase :: LF.Version -> IsScriptV2Opt -> EvaluationOrder -> IO IdeState -> FilePath -> (TODO -> IO ()) -> DamlTestInput -> TestTree
+testCase version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir registerTODO input = singleTest name . TestCase $ \log -> do
   service <- getService
   if any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] then
     pure (testFailed "Unsupported Daml-LF version in UNTIL-LF annotation")
@@ -365,9 +387,9 @@ testCase version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir re
     else do
       -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
       unsafeClearDiagnostics service
-      ex <- try $ mainProj service outdir log (toNormalizedFilePath' file) :: IO (Either SomeException (Package, FilePath))
+      ex <- try $ mainProj service outdir log (toNormalizedFilePath' path) :: IO (Either SomeException (Package, FilePath))
       diags <- getDiagnostics service
-      for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
+      for_ [path ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
         [ideErrorText "" $ T.pack $ show e | Left e <- [ex], not $ "_IGNORE_" `isInfixOf` show e] ++ diags
       resQueries <- runJqQuery log (eitherToMaybe $ snd <$> ex) [(q, isStream) | QueryLF q isStream <- anns]
@@ -376,6 +398,7 @@ testCase version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir re
         err : _others -> pure $ testFailed err
         [] -> pure $ testPassed ""
   where
+    DamlTestInput { name, path, anns } = input
     ignoreVersion version = \case
       Ignore -> True
       SinceLF minVersion -> version < minVersion
