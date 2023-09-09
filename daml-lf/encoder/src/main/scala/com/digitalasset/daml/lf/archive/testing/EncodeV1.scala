@@ -402,7 +402,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setArg(arg)
           builder.setSoftExercise(b)
         case UpdateDynamicExercise(templateId, choice, cid, arg) =>
-          assertSince(LV.v1_dev, "DynamicExercise")
+          assertSince(LV.Features.dynamicExercise, "DynamicExercise")
           val b = PLF.Update.DynamicExercise.newBuilder()
           b.setTemplate(templateId)
           setInternedString(choice, b.setChoiceInternedStr)
@@ -416,7 +416,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setCid(cid)
           b.setArg(arg)
           guard.foreach { g =>
-            assertSince(LV.v1_dev, "ExerciseInterface.guard")
+            assertSince(LV.Features.extendedInterfaces, "ExerciseInterface.guard")
             b.setGuard(g)
           }
           builder.setExerciseInterface(b)
@@ -791,7 +791,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           setInternedString(choiceName, b.setChoiceInternedStr)
           builder.setChoiceObserver(b)
         case EExperimental(name, ty) =>
-          assertSince(LV.v1_dev, "Expr.experimental")
+          assertSince(LV.Features.unstable, "Expr.experimental")
           builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))
 
         case ECallInterface(ty, methodName, expr) =>

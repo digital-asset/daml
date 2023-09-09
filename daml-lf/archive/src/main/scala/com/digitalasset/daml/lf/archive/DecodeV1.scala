@@ -1520,7 +1520,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.EXPERIMENTAL =>
-          assertSince(LV.v1_dev, "Expr.experimental")
+          assertSince(LV.Features.unstable, "Expr.experimental")
           val experimental = lfExpr.getExperimental
           decodeType(experimental.getType) { typ =>
             Ret(EExperimental(experimental.getName, typ))
@@ -1717,7 +1717,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             decodeExpr(exercise.getArg, definition) { argE =>
               bindWork(
                 if (exercise.hasGuard) {
-                  assertSince(LV.v1_dev, "exerciseInterface.guard")
+                  assertSince(LV.Features.extendedInterfaces, "exerciseInterface.guard")
                   decodeExpr(exercise.getGuard, definition) { e =>
                     Ret(Some(e))
                   }
