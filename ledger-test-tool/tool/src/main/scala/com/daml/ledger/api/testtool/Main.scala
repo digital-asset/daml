@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.runner.{AvailableTests, TestRunner}
+import com.daml.ledger.test.TestDar
 
 object Main {
   def main(args: Array[String]): Unit = {
@@ -16,6 +17,6 @@ object Main {
       override def optionalTests: Vector[LedgerTestSuite] =
         Tests.optional(config.tlsConfig)
     }
-    new TestRunner(availableTests, config).runAndExit()
+    new TestRunner(availableTests, config, TestDar.paths).runAndExit()
   }
 }

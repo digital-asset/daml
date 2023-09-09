@@ -28,6 +28,7 @@ import io.grpc.netty.NettyChannelBuilder
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, OptionValues}
+import com.daml.ledger.test.TestDar
 
 import scala.concurrent.duration.DurationInt
 
@@ -105,6 +106,7 @@ final class NonRepudiationProxyConformance
         ),
         clientTlsConfiguration = config.tlsConfig,
         timeoutScaleFactor = 2,
+        uploadDars = Some(TestDar.paths),
       )
 
       runner.runTests.map { summaries =>

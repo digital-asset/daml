@@ -47,7 +47,7 @@ final class LedgerTestCasesRunner(
     shuffleParticipants: Boolean = false,
     timeoutScaleFactor: Double = 1.0,
     concurrentTestRuns: Int = 8,
-    uploadDars: Boolean = true,
+    uploadDars: Option[List[String]],
     identifierSuffix: String = "test",
     commandInterceptors: Seq[ClientInterceptor] = Seq.empty,
 ) {
@@ -147,7 +147,7 @@ final class LedgerTestCasesRunner(
   private def uploadDarsIfRequired(
       sessions: Vector[ParticipantSession]
   )(implicit executionContext: ExecutionContext): Future[Unit] =
-    if (uploadDars) {
+    uploadDars.fold(Future.successful(logger.info("DAR files upload skipped."))) { darPaths =>
       FutureUtil
         .sequential(sessions) { session =>
           logger.info(s"Uploading DAR files for session $session")
@@ -158,12 +158,10 @@ final class LedgerTestCasesRunner(
               features = session.features,
             )
             // upload the dars sequentially to avoid conflicts
-            _ <- FutureUtil.sequential(Dars.resources)(uploadDar(context, _))
+            _ <- FutureUtil.sequential(darPaths)(uploadDar(context, _))
           } yield ()
         }
         .map(_ => ())
-    } else {
-      Future.successful(logger.info("DAR files upload skipped."))
     }
 
   private def uploadDar(
