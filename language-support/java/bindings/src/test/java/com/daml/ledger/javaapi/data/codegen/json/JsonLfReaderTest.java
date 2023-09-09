@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -199,6 +200,8 @@ public class JsonLfReaderTest {
                 case "Quux":
                   return r ->
                       new SomeVariant.Quux(JsonLfReader.optional(JsonLfReader.int64).read(r));
+                case "Flarp":
+                  return r -> new SomeVariant.Flarp(JsonLfReader.list(JsonLfReader.int64).read(r));
                 default:
                   return null;
               }
@@ -206,7 +209,9 @@ public class JsonLfReaderTest {
         eq("{\"tag\": \"Bar\", \"value\": 42}", new SomeVariant.Bar(42L)),
         eq("{\"tag\": \"Baz\", \"value\": {}}", new SomeVariant.Baz(Unit.getInstance())),
         eq("{\"tag\": \"Quux\", \"value\": null}", new SomeVariant.Quux(Optional.empty())),
-        eq("{\"tag\": \"Quux\", \"value\": 42}", new SomeVariant.Quux(Optional.of(42L))));
+        eq("{\"tag\": \"Quux\", \"value\": 42}", new SomeVariant.Quux(Optional.of(42L))),
+        eq("{\"value\": 42, \"tag\": \"Quux\"}", new SomeVariant.Quux(Optional.of(42L))),
+        eq("{\"value\": [42], \"tag\": \"Flarp\"}", new SomeVariant.Flarp(asList(42L))));
   }
 
   @Test
@@ -339,6 +344,29 @@ public class JsonLfReaderTest {
       @Override
       public String toString() {
         return String.format("Quux(%s)", x);
+      }
+    }
+
+    static class Flarp extends SomeVariant {
+      private final List<Long> x;
+
+      public Flarp(List<Long> x) {
+        this.x = x;
+      }
+
+      @Override
+      public boolean equals(Object o) {
+        return o != null && (o instanceof Flarp) && x.equals(((Flarp) o).x);
+      }
+
+      @Override
+      public int hashCode() {
+        return Objects.hash(x);
+      }
+
+      @Override
+      public String toString() {
+        return String.format("Flarp(%s)", x);
       }
     }
   }

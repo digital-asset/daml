@@ -6,11 +6,10 @@ package com.daml.ledger.javaapi.data.codegen.json;
 import com.daml.ledger.javaapi.data.Unit;
 import com.daml.ledger.javaapi.data.codegen.ContractId;
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
-import java.io.Reader;
-import java.io.StringReader;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -24,16 +23,14 @@ import java.util.function.Function;
 
 // Utility to read LF-JSON data in a streaming fashion. Can be used by code-gen.
 public class JsonLfReader {
+  private final String json; // Used to reference unknown values until they can be decoded.
   private static final JsonFactory jsonFactory = new JsonFactory();
   private final JsonParser parser;
 
-  public JsonLfReader(Reader textReader) throws IOException {
-    parser = jsonFactory.createParser(textReader);
+  public JsonLfReader(String json) throws IOException {
+    this.json = json;
+    parser = jsonFactory.createParser(json);
     parser.nextToken();
-  }
-
-  public JsonLfReader(String text) throws IOException {
-    this(new StringReader(text));
   }
 
   // Can override these two for different handling of these cases.
@@ -256,17 +253,69 @@ public class JsonLfReader {
     };
   }
 
+  // Represents a value whose type is not yet known, but should be preserved for later decoding.
+  public static class UnknownValue {
+    private final String jsonRepr;
+    private final JsonLocation start;
+
+    private UnknownValue(String jsonRepr, JsonLocation start) {
+      this.jsonRepr = jsonRepr;
+      this.start = start;
+    }
+
+    public static UnknownValue read(JsonLfReader r) throws FromJson.Error {
+      JsonLocation from = r.parser.currentTokenLocation();
+      try {
+        r.parser.skipChildren();
+        r.parser.nextToken();
+        JsonLocation to = r.parser.currentTokenLocation();
+        String repr = r.json.substring((int) from.getCharOffset(), (int) to.getCharOffset()).trim();
+        if (repr.endsWith(",")) repr = repr.substring(0, repr.length() - 1); // drop trailing comma
+        return new UnknownValue(repr, from);
+      } catch (IOException e) {
+        throw new FromJson.Error("cannot read unknown value: " + e);
+      }
+    }
+
+    public <T> T decodeWith(FromJson<T> decoder) throws FromJson.Error {
+      try {
+        return decoder.read(new JsonLfReader(this.jsonRepr));
+        // TODO(raphael-speyer-da): fix the location on parse errors by adding start offset, e.g.
+        // catch (FromJson.Error e) { throw new FromJson.Error(e.message, add(start, e.location)); }
+      } catch (IOException e) {
+        throw new FromJson.Error(
+            String.format("cannot decode unknown value '%s': %s", this.jsonRepr, e));
+      }
+    }
+  }
+
   // Provides a generic way to read a variant type, by specifying each tag.
   public static <T> FromJson<T> variant(List<String> tagNames, TagReader<T> readTag) {
     return r -> {
       r.readStartObject();
-      if (!r.readFieldName().equals("tag")) r.parseExpected("tag field");
-      String tagName = text.read(r);
-      if (!r.readFieldName().equals("value")) r.parseExpected("value field");
-      T result = readTag.get(tagName).read(r);
+      T result = null;
+      switch (r.readFieldName()) {
+        case "tag":
+          {
+            String tagName = text.read(r);
+            if (!r.readFieldName().equals("value")) r.parseExpected("value field");
+            result = readTag.get(tagName).read(r);
+            break;
+          }
+        case "value":
+          {
+            UnknownValue unknown = UnknownValue.read(r);
+            if (!r.readFieldName().equals("tag")) r.parseExpected("tag field");
+            String tagName = text.read(r);
+            result = unknown.decodeWith(readTag.get(tagName));
+            break;
+          }
+        default:
+          r.parseExpected("tag or value");
+          break;
+      }
       r.readEndObject();
-      if (result == null)
-        r.parseExpected(String.format("tag of %s", String.join(" or ", tagNames)));
+      if (result == null) r.parseExpected(String.format("tag %s", String.join(" or ", tagNames)));
       return result;
     };
   }
