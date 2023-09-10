@@ -21,21 +21,25 @@ object VariantValueDecodersMethods {
       typeWithContext: TypeWithContext,
       subPackage: String,
   )(implicit packagePrefixes: PackagePrefixes): Vector[MethodSpec] = {
-    val (variantRecords, methodSpecs) =
+    val (variantRecords, variantSimples) =
       getFieldsWithTypes(variant.fields).partitionMap { fieldInfo =>
-        val FieldInfo(damlName, damlType, javaName, _) = fieldInfo
+        val FieldInfo(damlName, damlType, _, _) = fieldInfo
         damlType match {
           case TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
             // Variant records will be dealt with in a subsequent phase
             Left(damlName)
           case _ =>
-            val className =
-              ClassName.bestGuess(s"$subPackage.$javaName").parameterized(typeArgs)
-            Right(
-              variantConDecoderMethod(damlName, typeArgs, className, damlType)
-            )
+            Right(fieldInfo)
         }
       }
+
+    val methodSpecs = variantSimples.flatMap { fi =>
+      val className = ClassName.bestGuess(s"$subPackage.${fi.javaName}").parameterized(typeArgs)
+      Seq(
+        variantConDecoderMethod(fi.damlName, typeArgs, className, fi.damlType),
+        FromJsonGenerator.forVariantSimple(className, typeArgs, fi),
+      )
+    }
 
     val recordAddons = for {
       child <- typeWithContext.typesLineages
@@ -48,14 +52,22 @@ object VariantValueDecodersMethods {
         case Some(Normal(DefDataType(typeVars, record: Record.FWT))) =>
           val typeParameters = typeVars.map(JavaEscaper.escapeString)
           val className =
-            ClassName.bestGuess(s"$subPackage.${child.name}").parameterized(typeParameters)
+            ClassName.bestGuess(s"$subPackage.${child.name}")
 
-          FromValueGenerator.generateValueDecoderForRecordLike(
-            getFieldsWithTypes(record.fields),
-            className,
-            typeArgs,
-            s"valueDecoder${child.name}",
-            FromValueGenerator.variantCheck(child.name, _, _),
+          Seq(
+            FromValueGenerator.generateValueDecoderForRecordLike(
+              getFieldsWithTypes(record.fields),
+              className.parameterized(typeParameters),
+              typeArgs,
+              s"valueDecoder${child.name}",
+              FromValueGenerator.variantCheck(child.name, _, _),
+            ),
+            FromJsonGenerator.forVariantRecord(
+              child.name,
+              getFieldsWithTypes(record.fields),
+              className,
+              typeArgs,
+            ),
           )
         case t =>
           val c = s"${typeWithContext.name}.${child.name}"
@@ -64,7 +76,7 @@ object VariantValueDecodersMethods {
           )
       }
     }
-    (methodSpecs ++ recordAddons).toVector
+    (methodSpecs ++ recordAddons.flatten).toVector
   }
 
   private def variantConDecoderMethod(
