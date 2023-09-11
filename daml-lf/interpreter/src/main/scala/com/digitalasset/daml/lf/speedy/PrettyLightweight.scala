@@ -41,7 +41,7 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
     }
   }
 
-  def ppKont(k: Kont): String = k.getClass.getSimpleName
+  def ppKont(k: Kont[_]): String = k.getClass.getSimpleName
 
   def pp(v: SELoc) = v match {
     case SELocS(n) => s"S#$n"
