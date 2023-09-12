@@ -35,13 +35,12 @@ object Encode {
           .setMinor(minor.toProtoIdentifier)
           .setDamlLf1(new EncodeV1(minor).encodePackage(pkgId, pkg))
           .build()
-      case LanguageMajorVersion.V2 => {
+      case LanguageMajorVersion.V2 =>
         PLF.ArchivePayload
           .newBuilder()
           .setMinor(minor.toProtoIdentifier)
           .setDamlLf2(new EncodeV2(minor).encodePackage(pkgId, pkg))
           .build()
-      }
       case _ =>
         sys.error(s"$version not supported")
     }
