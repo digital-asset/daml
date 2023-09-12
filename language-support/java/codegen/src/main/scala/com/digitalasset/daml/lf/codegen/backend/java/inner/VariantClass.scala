@@ -46,7 +46,9 @@ private[inner] object VariantClass extends StrictLogging {
           generateDeprecatedFromValue(typeArguments, variantClassName)
         )
         .addMethod(generateValueDecoder(typeArguments, constructorInfo, variantClassName))
-        .addMethod(FromJsonGenerator.forVariant(variantClassName, typeArguments, constructorInfo))
+        .addMethods(
+          FromJsonGenerator.forVariant(variantClassName, typeArguments, constructorInfo).asJava
+        )
         .addMethods(
           VariantValueDecodersMethods(
             typeArguments,

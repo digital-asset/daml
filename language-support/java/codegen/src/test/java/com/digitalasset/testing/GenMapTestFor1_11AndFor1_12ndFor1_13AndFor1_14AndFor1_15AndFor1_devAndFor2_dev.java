@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.daml.ledger.javaapi.data.*;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -70,7 +71,7 @@ public class GenMapTestFor1_11AndFor1_12ndFor1_13AndFor1_14AndFor1_15AndFor1_dev
   }
 
   @Test
-  void fromJson() throws java.io.IOException {
+  void fromJson() throws IOException {
     Box b =
         Box.fromJson(
             "{"

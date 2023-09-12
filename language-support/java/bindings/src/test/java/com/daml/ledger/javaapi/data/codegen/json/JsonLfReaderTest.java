@@ -17,7 +17,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -118,11 +120,11 @@ public class JsonLfReaderTest {
   @Test
   void testEnum() throws IOException {
     checkReadAll(
-        Decoders.enumeration(Suit.class),
-        eq("\"Hearts\"", Suit.Hearts),
-        eq("\"Diamonds\"", Suit.Diamonds),
-        eq("\"Clubs\"", Suit.Clubs),
-        eq("\"Spades\"", Suit.Spades));
+        Decoders.enumeration(Suit.damlNames),
+        eq("\"Hearts\"", Suit.HEARTS),
+        eq("\"Diamonds\"", Suit.DIAMONDS),
+        eq("\"Clubs\"", Suit.CLUBS),
+        eq("\"Spades\"", Suit.SPADES));
   }
 
   @Test
@@ -377,10 +379,20 @@ public class JsonLfReaderTest {
   }
 
   enum Suit {
-    Hearts,
-    Diamonds,
-    Clubs,
-    Spades
+    HEARTS,
+    DIAMONDS,
+    CLUBS,
+    SPADES;
+
+    static final Map<String, Suit> damlNames =
+        new HashMap<>() {
+          {
+            put("Hearts", HEARTS);
+            put("Diamonds", DIAMONDS);
+            put("Clubs", CLUBS);
+            put("Spades", SPADES);
+          }
+        };
   }
 
   private <T> void checkReadAll(JsonLfDecoder<T> decoder, TestCase<T>... testCases)

@@ -29,7 +29,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
 
   private def jsonDecoderParamsForTypeParams(
       typeParams: IndexedSeq[String]
-  ): java.lang.Iterable[ParameterSpec] =
+  ): java.util.List[ParameterSpec] =
     typeParams.map { t =>
       ParameterSpec
         .builder(decoderTypeName(TypeVariableName.get(t)), decodeTypeParamName(t))
@@ -47,7 +47,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
         className,
         typeParams,
       ),
-      forRecordLikeFromString(className, typeParams),
+      fromJsonString(className, typeParams),
     )
   }
 
@@ -108,7 +108,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .build()
   }
 
-  private def forRecordLikeFromString(
+  private def fromJsonString(
       className: ClassName,
       typeParams: IndexedSeq[String],
   ): MethodSpec =
@@ -131,7 +131,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       className: ClassName,
       typeParams: IndexedSeq[String],
       fields: Fields,
-  ) = {
+  ): Seq[MethodSpec] = {
     val typeName = className.parameterized(typeParams)
 
     val tagNames = CodeBlock.of(
@@ -159,7 +159,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
         .build()
     }
 
-    MethodSpec
+    val jsonDecoder = MethodSpec
       .methodBuilder("jsonDecoder")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
       .addTypeVariables(typeParams.map(TypeVariableName.get).asJava)
@@ -167,6 +167,8 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .returns(decoderTypeName(typeName))
       .addStatement("return $T.variant($L, $L)", decodeClass, tagNames, variantsByTag.toString())
       .build()
+
+    Seq(jsonDecoder, fromJsonString(className, typeParams))
   }
 
   def forVariantRecord(
@@ -201,13 +203,15 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       )
       .build()
 
-  def forEnum(className: ClassName): MethodSpec = {
-    MethodSpec
+  def forEnum(className: ClassName, damlNameToEnumMap: String): Seq[MethodSpec] = {
+    val jsonDecoder = MethodSpec
       .methodBuilder("jsonDecoder")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
       .returns(decoderTypeName(className))
-      .addStatement("return $T.enumeration($T.class)", decodeClass, className)
+      .addStatement("return $T.enumeration($L)", decodeClass, damlNameToEnumMap)
       .build()
+
+    Seq(jsonDecoder, fromJsonString(className, IndexedSeq.empty[String]))
   }
 
   import com.daml.lf.typesig.Type

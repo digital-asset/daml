@@ -229,15 +229,12 @@ public class JsonLfReader {
       };
     }
 
-    public static <E extends Enum<E>> JsonLfDecoder<E> enumeration(Class<E> enumClass) {
+    public static <E extends Enum<E>> JsonLfDecoder<E> enumeration(Map<String, E> damlNameToEnum) {
       return r -> {
-        String value = text.decode(r);
-        try {
-          return Enum.valueOf(enumClass, value);
-        } catch (IllegalArgumentException e) {
-          r.parseExpected(String.format("constant of %s", enumClass.getName()));
-        }
-        return null;
+        String name = text.decode(r);
+        E value = damlNameToEnum.get(name);
+        if (value == null) r.parseExpected(String.format("one of %s", damlNameToEnum.keySet()));
+        return value;
       };
     }
 
