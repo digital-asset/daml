@@ -28,5 +28,5 @@ final case class VersionRange[V](
     min <= v && v <= max
 
   def intersects(other: VersionRange[V]): Boolean =
-    max >= other.min && min <= other.max
+    other.min =< max && min <= other.max
 }
