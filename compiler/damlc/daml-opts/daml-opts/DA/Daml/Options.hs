@@ -548,7 +548,7 @@ expandSdkPackages logger lfVersion dars = do
   where
     isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
     isInvalidDaml3Script = \case
-      "daml3-script" | isDevVersion lfVersion -> True
+      "daml3-script" | not (isDevVersion lfVersion) -> True
       _ -> False
     sdkSuffix = "-" <> LF.renderVersion lfVersion
     expand mbSdkPath fp
