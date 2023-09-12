@@ -49,7 +49,7 @@ template NameOfTemplate
     maintainer (exampleFunction key)
 -- end contract key snippet
 
--- start new template choice snippet
+-- start template choice snippet
     choice NameOfChoice
       : ()  -- replace () with the actual return type
       with
@@ -57,149 +57,42 @@ template NameOfTemplate
       controller exampleParty
       do
         return () -- replace this line with the choice body
--- end new template choice snippet
-
--- start new choice name snippet
-    choice ExampleChoice
-      : () -- replace () with the actual return type
--- end new choice name snippet
--- start new choice params snippet
-      with
-        exampleParameter : Text
--- end new choice params snippet
--- start new controller snippet
-      controller exampleParty
--- end new controller snippet
-      do
-        return () -- replace () with the actual return type
--- start new preconsuming snippet
-    preconsuming choice ExamplePreconsumingChoice
-      : () -- replace () with the actual return type
--- end new preconsuming snippet
-      with -- params
-      controller exampleParty
-      do
-        return ()
--- start new postconsuming snippet
-    postconsuming choice ExamplePostconsumingChoice
-      : () -- replace () with the actual return type
--- end new postconsuming snippet
-      with -- params
-      controller exampleParty
-      do
-        return ()
--- start new nonconsuming snippet
-    nonconsuming choice ExampleNonconsumingChoice
-      : () -- replace () with the actual return type
--- end new nonconsuming snippet
-      with -- params
-      controller exampleParty
-      do
-        return ()
-
-{- LEGACY CHOICE SNIPPETS
-Before Daml 2.8.0, two syntaxes were supported for declaring choices,
-choice name first and controller-first. The latter was removed, so the
-code below doesn't compile anymore, but docs.daml.com uses the version
-of this file in the `main` branch, including when building the docs
-for Daml <2.8.0, so it's easier to leave the old snippets alone for
-those versions.
-
--- start template choice snippet
-    -- option 1 for specifying choices: choice name first
-    choice NameOfChoice1
-      : ()  -- replace () with the actual return type
-      with
-        exampleParameter : Text -- parameters here
-      controller exampleParty
-      do
-        return () -- replace this line with the choice body
-
-    -- option 2 for specifying choices (deprecated syntax): controller first
-    controller exampleParty can
-      NameOfChoice2
-        : () -- replace () with the actual return type
-        with
-          exampleParameter : Text -- parameters here
-        do
-          return () -- replace this line with the choice body
-      nonconsuming NameOfChoice3
-        : ()  -- replace () with the actual return type
-        with
-          exampleParameter : Text -- parameters here
-        do
-          return () -- replace this line with the choice body
 -- end template choice snippet
 
--- start choice-first choice name snippet
-    choice ExampleChoice1
+-- start choice name snippet
+    choice ExampleChoice
       : () -- replace () with the actual return type
--- end choice-first choice name snippet
--- start choice-first params snippet
+-- end choice name snippet
+-- start choice params snippet
       with
         exampleParameter : Text
--- end choice-first params snippet
--- start choice-first controller snippet
+-- end choice params snippet
+-- start controller snippet
       controller exampleParty
--- end choice-first controller snippet
+-- end controller snippet
       do
         return () -- replace () with the actual return type
--- start choice-first preconsuming snippet
-    preconsuming choice ExampleChoice5
+-- start preconsuming snippet
+    preconsuming choice ExamplePreconsumingChoice
       : () -- replace () with the actual return type
--- end choice-first preconsuming snippet
+-- end preconsuming snippet
       with -- params
       controller exampleParty
       do
         return ()
--- start choice-first postconsuming snippet
-    postconsuming choice ExampleChoice6
+-- start postconsuming snippet
+    postconsuming choice ExamplePostconsumingChoice
       : () -- replace () with the actual return type
--- end choice-first postconsuming snippet
+-- end postconsuming snippet
       with -- params
       controller exampleParty
       do
         return ()
--- start choice-first nonconsuming snippet
-    nonconsuming choice ExampleChoice3
+-- start nonconsuming snippet
+    nonconsuming choice ExampleNonconsumingChoice
       : () -- replace () with the actual return type
--- end choice-first nonconsuming snippet
+-- end nonconsuming snippet
       with -- params
       controller exampleParty
       do
         return ()
-
--- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
--- We keep it here for documentation purposes until it is removed.
--- start controller-first controller snippet
-    controller exampleParty can
--- end controller-first controller snippet
--- start controller-first choice name snippet
-      ExampleChoice2
-        : () -- replace () with the actual return type
--- end controller-first choice name snippet
--- start controller-first params snippet
-        with
-          exampleParameter : Text
--- end controller-first params snippet
-        do
-          return () -- replace () with the actual return type
--- start controller-first preconsuming snippet
-      preconsuming ExampleChoice7
-        : () -- replace () with the actual return type
--- end controller-first preconsuming snippet
-        do
-          return () -- replace () with the actual return type
--- start controller-first postconsuming snippet
-      postconsuming ExampleChoice8
-        : () -- replace () with the actual return type
--- end controller-first postconsuming snippet
-        do
-          return () -- replace () with the actual return type
--- start controller-first nonconsuming snippet
-      nonconsuming ExampleChoice4
-        : () -- replace () with the actual return type
--- end controller-first nonconsuming snippet
-        do
-          return () -- replace () with the actual return type
--}
