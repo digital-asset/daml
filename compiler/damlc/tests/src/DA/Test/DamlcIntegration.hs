@@ -426,13 +426,13 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService o
               diags <- diagnostics <$> getDamlOutput
               resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] diags
               pure $ maybe (testPassed "") testFailed resDiag
-          , singleTest "jq Queries" $ TestCase \log -> do
-              mJsonFile <- jsonPackagePath <$> getDamlOutput
-              resQueries <- runJqQuery log mJsonFile [(q, isStream) | QueryLF q isStream <- anns]
-              let failures = catMaybes resQueries
-              case failures of
-                err : _others -> pure $ testFailed err
-                [] -> pure $ testPassed ""
+          , testGroup "jq Queries"
+              [ singleTest ("#" <> show @Integer ix) $ TestCase \log -> do
+                  mJsonFile <- jsonPackagePath <$> getDamlOutput
+                  r <- runJqQuery log mJsonFile q isStream
+                  pure $ maybe (testPassed "") testFailed r
+              | (ix, QueryLF q isStream) <- zip [1..] anns
+              ]
           ]
   where
     DamlTestInput { name, path, anns } = input
@@ -444,24 +444,22 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService o
       EvaluationOrder evalOrder -> evalOrder /= evalOrderOpt
       _ -> False
 
-runJqQuery :: (String -> IO ()) -> Maybe FilePath -> [(String, Bool)] -> IO [Maybe String]
-runJqQuery log mJsonFile qs = do
+runJqQuery :: (String -> IO ()) -> Maybe FilePath -> String -> Bool -> IO (Maybe String)
+runJqQuery log mJsonFile q isStream = do
   case mJsonFile of
-    Just jsonPath ->
-      forM qs $ \(q, isStream) -> do
-        log $ "running jq query: " ++ q
-        let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
-        jq <- locateRunfiles $ mainWorkspace </> jqKey
-        queryLfDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
-        let fullQuery = "import \"./query-lf\" as lf; inputs as $pkg | " ++ q
-        out <- readProcess jq (["--stream" | isStream] <> ["-n", "-L", queryLfDir, fullQuery, jsonPath]) ""
-        case trim out of
-          "true" -> pure Nothing
-          other -> pure $ Just $ "jq query failed: got " ++ other
-    _ | not $ null qs -> do
-      log $ "jq query failed: " ++ show (length qs) ++ " queries failed to run as test errored"
-      pure [Just "Couldn't run jq"]
-    _ -> pure []
+    Just jsonPath -> do
+      log $ "running jq query: " ++ q
+      let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
+      jq <- locateRunfiles $ mainWorkspace </> jqKey
+      queryLfDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
+      let fullQuery = "import \"./query-lf\" as lf; inputs as $pkg | " ++ q
+      out <- readProcess jq (["--stream" | isStream] <> ["-n", "-L", queryLfDir, fullQuery, jsonPath]) ""
+      case trim out of
+        "true" -> pure Nothing
+        other -> pure $ Just $ "jq query failed: got " ++ other
+    _ | otherwise -> do
+      log "jq query failed to run as test errored"
+      pure (Just "Couldn't run jq")
 
 data DiagnosticField
   = DFilePath !FilePath
