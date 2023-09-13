@@ -109,10 +109,14 @@ da_haskell_test(
 da_haskell_library(
     name = "integration-lib",
     srcs = ["src/DA/Test/DamlcIntegration.hs"],
+    compiler_flags = [
+        "-DPOSIX_DIFF=\"$(POSIX_DIFF)\"",
+    ],
     hackage_deps = [
         "aeson-pretty",
         "base",
         "bytestring",
+        "containers",
         "data-default",
         "deepseq",
         "directory",
@@ -129,10 +133,15 @@ da_haskell_library(
         "shake",
         "tagged",
         "tasty",
+        "tasty-golden",
         "tasty-hunit",
         "text",
         "time",
         "unordered-containers",
+        "vector",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -146,6 +155,7 @@ da_haskell_library(
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-package-config",
+        "//compiler/damlc/daml-rule-types",
         "//compiler/scenario-service/client",
         "//daml-assistant:daml-project-config",
         "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",

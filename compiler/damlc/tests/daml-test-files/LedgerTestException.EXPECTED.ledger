@@ -1,0 +1,8 @@
+Script execution failed:
+  Unhandled exception:  DA.Exception.GeneralError:GeneralError with
+                          message = "ohno"
+
+Ledger time: 1970-01-01T00:00:00Z
+
+Trace: 
+  hello world
