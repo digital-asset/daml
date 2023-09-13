@@ -346,6 +346,12 @@ prettyScenarioErrorError lvl (Just err) =  do
     ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumFailedAuthorizations fas))) -> do
       pure $ vcat $ mapV (prettyFailedAuthorization lvl world) (failedAuthorizationsFailedAuthorizations fas)
 
+    ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumUniqueContractIdViolation contractId))) -> do
+      pure $ vcat
+        [ "Commit error due to unique contract ID violation for contract ID"
+        , label_ "Contract:" $ prettyContractRef world contractId
+        ]
+
     ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumUniqueContractKeyViolation gk))) -> do
       pure $ vcat
         [ "Commit error due to unique key violation for key"
