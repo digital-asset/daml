@@ -135,7 +135,7 @@ type ScriptPackageData = (FilePath, [PackageFlag])
 -- | Creates a temp directory with daml script v1 installed, gives the database db path and package flag
 withDamlScriptDep :: Maybe Version -> (ScriptPackageData -> IO a) -> IO a
 withDamlScriptDep mLfVer =
-  let 
+  let
     lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
     darPath = "daml-script" </> "daml" </> "daml-script" <> lfVerStr <> ".dar"
   in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer []
@@ -146,7 +146,7 @@ withDamlScriptV2Dep =
     darPath = "daml-script" </> "daml3" </> "daml3-script.dar"
   in withVersionedDamlScriptDep
        ("daml3-script-" <> sdkPackageVersion)
-       darPath 
+       darPath
        (Just version2_dev) -- daml-script only supports 2.dev for now
        scriptV2ExternalPackages
 
