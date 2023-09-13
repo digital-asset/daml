@@ -134,6 +134,15 @@ case class Set[T](@pure @extern toScala: ScalaSet[T]) {
   @pure @alias
   def =/=(s2: Set[T]): Boolean = !(this === s2)
 
+  @pure @opaque
+  def find(p: T => Boolean): Option[T] = {
+    ??? : Option[T]
+  }.ensuring(res =>
+    res match {
+      case None[T]() => !exists(p)
+      case Some[T](x) => contains(x) && p(x)
+    }
+  )
 }
 
 object Set {

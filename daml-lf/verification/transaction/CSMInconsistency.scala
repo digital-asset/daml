@@ -19,7 +19,7 @@ import stainless.annotation._
 import scala.annotation.targetName
 import stainless.collection._
 import utils.Value.ContractId
-import utils.Transaction.{DuplicateContractKey, InconsistentContractKey, KeyInputError}
+import utils.TransactionErrors.{DuplicateContractKey, InconsistentContractKey, KeyInputError}
 import utils._
 
 import ContractStateMachine._
