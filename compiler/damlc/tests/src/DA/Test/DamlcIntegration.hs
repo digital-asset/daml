@@ -380,6 +380,28 @@ withLog action = do
   msgs <- readIORef logger
   pure (f (unlines (DList.toList msgs)))
 
+data DamlOutput = DamlOutput
+  { diagnostics :: [D.FileDiagnostic]
+  , jsonPackagePath :: Maybe FilePath
+  , buildLog :: String
+  }
+
+testSetup :: IO IdeState -> FilePath -> FilePath -> IO DamlOutput
+testSetup getService outdir path =
+  withLog \log -> do
+    service <- getService
+    ex <- try $ mainProj service outdir log (toNormalizedFilePath' path) :: IO (Either SomeException (Package, FilePath))
+    diags0 <- getDiagnostics service
+    pure \msgs -> DamlOutput
+      { diagnostics =
+          [ ideErrorText "" $ T.pack $ show e
+          | Left e <- [ex]
+          , not $ "_IGNORE_" `isInfixOf` show e
+          ] ++ diags0
+      , jsonPackagePath = snd <$> eitherToMaybe ex
+      , buildLog = msgs
+      }
+
 testCase :: LF.Version -> IsScriptV2Opt -> EvaluationOrder -> IO IdeState -> FilePath -> (TODO -> IO ()) -> DamlTestInput -> TestTree
 testCase version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir registerTODO input
   | any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] =
@@ -389,20 +411,23 @@ testCase version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir re
     singleTest name $ TestCase \_ ->
       pure (testPassed "") { resultShortDescription = "IGNORE" }
   | otherwise =
-    singleTest name $ TestCase \log -> do
-      service <- getService
-      -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
-      unsafeClearDiagnostics service
-      ex <- try $ mainProj service outdir log (toNormalizedFilePath' path) :: IO (Either SomeException (Package, FilePath))
-      diags <- getDiagnostics service
-      for_ [path ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
-      resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
-        [ideErrorText "" $ T.pack $ show e | Left e <- [ex], not $ "_IGNORE_" `isInfixOf` show e] ++ diags
-      resQueries <- runJqQuery log (eitherToMaybe $ snd <$> ex) [(q, isStream) | QueryLF q isStream <- anns]
-      let failures = catMaybes $ resDiag : resQueries
-      case failures of
-        err : _others -> pure $ testFailed err
-        [] -> pure $ testPassed ""
+    withResource
+      (testSetup getService outdir path)
+      (\_ ->
+        -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
+        getService >>= unsafeClearDiagnostics
+      )
+      \getDamlOutput -> do
+        singleTest name $ TestCase \log -> do
+          DamlOutput { diagnostics, jsonPackagePath, buildLog } <- getDamlOutput
+          log buildLog
+          for_ [path ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
+          resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] diagnostics
+          resQueries <- runJqQuery log jsonPackagePath [(q, isStream) | QueryLF q isStream <- anns]
+          let failures = catMaybes $ resDiag : resQueries
+          case failures of
+            err : _others -> pure $ testFailed err
+            [] -> pure $ testPassed ""
   where
     DamlTestInput { name, path, anns } = input
     ignoreVersion version = \case
