@@ -33,7 +33,7 @@ EOF
             "-Werror",
             "--log-level=WARNING",
             "--target",
-            "1.dev",
+            "2.dev",
         ]),
         ghc = ghc_version,
         sdk = sdk_version,
@@ -85,7 +85,7 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml3-script \
             --format=Json \
-            --target=1.dev \
+            --target=2.dev \
             $(location Daml/Script.daml)
     """,
     tools = [

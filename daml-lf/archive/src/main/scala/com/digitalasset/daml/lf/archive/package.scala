@@ -3,7 +3,7 @@
 
 package com.daml.lf
 
-import com.daml.daml_lf_dev.{DamlLf, DamlLf1}
+import com.daml.daml_lf_dev.{DamlLf, DamlLf1, DamlLf2}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.nameof.NameOf
@@ -51,6 +51,20 @@ package object archive {
       discard(cos.setRecursionLimit(PROTOBUF_RECURSION_LIMIT))
       Right(cos)
     })
+
+  // TODO(#17366): This is only used to coerce LF2 to LF1 packages in the decoder.
+  //     Remove once Lf2 and LF1 have diverged.
+  val Lf1PackageParser: GenReader[DamlLf1.Package] =
+    Base.andThen(cos =>
+      attempt(getClass.getCanonicalName + ".Lf1PackageParser")(DamlLf1.Package.parseFrom(cos))
+    )
+
+  // TODO(#17366): This is only used to coerce LF1 to LF2 packages in the encoder.
+  //     Remove once LF2 and LF1 have diverged.
+  val Lf2PackageParser: GenReader[DamlLf2.Package] =
+    Base.andThen(cos =>
+      attempt(getClass.getCanonicalName + ".Lf2PackageParser")(DamlLf2.Package.parseFrom(cos))
+    )
 
   val ArchiveParser: GenReader[DamlLf.Archive] =
     Base.andThen(cos =>

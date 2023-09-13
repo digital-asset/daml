@@ -8,7 +8,8 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "lf_version_configuration",
+    "LF_DEV_VERSIONS",
+    "mangle_for_damlc",
 )
 
 TEST_FILES = \
@@ -32,13 +33,16 @@ TEST_FILES = \
     for name in TEST_FILES
 ]
 
-daml_compile(
-    name = "BasicTests-dev",
-    srcs = ["BasicTests.daml"],
-    enable_scenarios = True,
-    target = "1.dev",
-    visibility = ["//daml-lf:__subpackages__"],
-)
+[
+    daml_compile(
+        name = "BasicTests-{}".format(mangle_for_damlc(version)),
+        srcs = ["BasicTests.daml"],
+        enable_scenarios = True,
+        target = version,
+        visibility = ["//daml-lf:__subpackages__"],
+    )
+    for version in LF_DEV_VERSIONS
+]
 
 daml_compile(
     name = "Optional",

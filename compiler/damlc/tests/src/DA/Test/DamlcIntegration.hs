@@ -139,12 +139,15 @@ withDamlScriptDep mLfVer =
     darPath = "daml-script" </> "daml" </> "daml-script" <> lfVerStr <> ".dar"
   in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer []
 
--- Daml-script v2 is only 1.dev right now
 withDamlScriptV2Dep :: (ScriptPackageData -> IO a) -> IO a
 withDamlScriptV2Dep =
   let
     darPath = "daml-script" </> "daml3" </> "daml3-script.dar"
-  in withVersionedDamlScriptDep ("daml3-script-" <> sdkPackageVersion) darPath (Just versionDev) scriptV2ExternalPackages
+  in withVersionedDamlScriptDep
+       ("daml3-script-" <> sdkPackageVersion)
+       darPath 
+       (Just version2_dev) -- daml-script only supports 2.dev for now
+       scriptV2ExternalPackages
 
 -- External dars for scriptv2 when testing upgrades.
 -- package name and version

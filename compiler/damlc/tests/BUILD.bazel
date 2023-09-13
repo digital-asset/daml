@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_compile_with_dalf", "daml_test")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_configuration")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LF_DEV_VERSIONS", "lf_version_configuration")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # Tests for the lax CLI parser
@@ -197,16 +197,12 @@ da_haskell_library(
             ":integration-lib",
         ],
     )
-    for version, skip_validation in [(version, False) for version in COMPILER_LF_VERSIONS] + [
-        (
-            lf_version_configuration.get("default"),
-            True,
-        ),
-        (
-            lf_version_configuration.get("dev"),
-            True,
-        ),
-    ]
+    # Test stable versions with validation
+    # Test dev and default versions without validation
+    for version, skip_validation in (
+        [(version, False) for version in COMPILER_LF_VERSIONS] +
+        [(version, True) for version in [lf_version_configuration.get("default")] + LF_DEV_VERSIONS]
+    )
 ]
 
 [
@@ -218,7 +214,7 @@ da_haskell_library(
         srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
         args = [
             "--daml-lf-version",
-            "1.dev",
+            "2.dev",  # script2 only supports 2.x
             "--skip-validation",
             "false",
             "--daml-script-v2",
@@ -493,6 +489,7 @@ da_haskell_test(
         "@damlc_legacy",
         "//compiler/damlc/tests:generate-simple-dalf",
         "//daml-script/daml:daml-script-1.dev.dar",
+        "//daml-script/daml3:daml3-script.dar",
         # Feel free to update this to 0.13.55 once that is frozen.
         ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
     ],
@@ -1175,7 +1172,7 @@ daml_compile(
     name = "package-vetting-package-a",
     srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageAModule.daml"],
     project_name = "package-vetting-package-a",
-    target = "1.dev",
+    target = "2.dev",
     version = "1.0.0",
 )
 
@@ -1183,7 +1180,7 @@ daml_compile(
     name = "package-vetting-package-b",
     srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageBModule.daml"],
     project_name = "package-vetting-package-b",
-    target = "1.dev",
+    target = "2.dev",
     version = "1.0.0",
 )
 
@@ -1194,6 +1191,6 @@ daml_compile(
         "//daml-script/daml3:daml3-script.dar",
     ],
     project_name = "try-submit-test",
-    target = "1.dev",
+    target = "2.dev",
     visibility = ["//visibility:public"],
 )

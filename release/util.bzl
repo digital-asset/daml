@@ -1,7 +1,7 @@
 # Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//daml-lf/language:daml-lf.bzl", "PROTO_LF_VERSIONS")
+load("//daml-lf/language:daml-lf.bzl", "SUPPORTED_PROTO_STABLE_LF_VERSIONS")
 load("@build_environment//:configuration.bzl", "sdk_version")
 
 inputs = {
@@ -78,7 +78,7 @@ def sdk_tarball(name, version, config):
           mkdir -p $$OUT/daml-libs
           cp -t $$OUT/daml-libs $(locations {trigger_dars})
           cp -t $$OUT/daml-libs $(locations {script_dars})
-          cp $(location {script3_dar}) $$OUT/daml-libs/daml3-script-1.dev.dar
+          cp $(location {script3_dar}) $$OUT/daml-libs/daml3-script-2.dev.dar
 
           mkdir -p $$OUT/daml-helper
           tar xf $(location {daml_helper_dist}) --strip-components=1 -C $$OUT/daml-helper
@@ -176,7 +176,7 @@ protos_zip = rule(
             allow_files = True,
             default = [
                 Label("//daml-lf/archive:daml_lf_{}_archive_proto_tar.tar.gz".format(version))
-                for version in PROTO_LF_VERSIONS
+                for version in SUPPORTED_PROTO_STABLE_LF_VERSIONS + ["dev"]
             ],
         ),
         "ledger_api_tarball": attr.label(

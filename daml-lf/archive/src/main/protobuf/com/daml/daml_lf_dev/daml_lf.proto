@@ -8,6 +8,7 @@ option java_package = "com.daml.daml_lf_dev";
 option csharp_namespace = "Com.Daml.Daml_Lf_Dev.DamlLf";
 
 import "com/daml/daml_lf_dev/daml_lf_1.proto";
+import "com/daml/daml_lf_dev/daml_lf_2.proto";
 
 message ArchivePayload {
   // this is number 3 for historical reasons -- we had
@@ -19,8 +20,8 @@ message ArchivePayload {
 
   oneof Sum {
     daml_lf_1.Package daml_lf_1 = 2;
-
-    // lf_2 = 4, lf_3 = 5, etc
+    daml_lf_2.Package daml_lf_2 = 4;
+    // lf_3 = 5, lf_4 = 6, etc
   }
 }
 

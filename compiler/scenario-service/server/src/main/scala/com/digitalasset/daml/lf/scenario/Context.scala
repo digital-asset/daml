@@ -53,7 +53,7 @@ class Context(
 ) {
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
-  def devMode: Boolean = languageVersion == LanguageVersion.v1_dev
+  def devMode: Boolean = languageVersion.isDevVersion
 
   private val compilerConfig =
     Compiler.Config(

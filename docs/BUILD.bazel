@@ -10,6 +10,7 @@ load("@scala_version//:index.bzl", "scala_major_version")
 load("//bazel_tools:scala.bzl", "da_scala_test")
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "LF_DEV_VERSIONS",
     "LF_VERSIONS",
     "lf_version_configuration",
 )
@@ -471,7 +472,7 @@ java_binary(
     srcs = glob(["source/app-dev/bindings-java/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-srcjar"],
     main_class = "com.daml.quickstart.iou.IouMain",
     deps = [
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//language-support/java/bindings:bindings-java",
         "//language-support/java/bindings-rxjava",
         "@maven//:ch_qos_logback_logback_classic",
@@ -524,12 +525,15 @@ daml_test(
     deps = ["//daml-script/daml:daml-script.dar"],
 )
 
-daml_test(
-    name = "daml-ref-daml-test-dev",
-    timeout = "long",
-    srcs = glob(["source/daml/code-snippets-dev/**/*.daml"]),
-    target = "1.dev",
-)
+[
+    daml_test(
+        name = "daml-ref-daml-test-{}".format(version),
+        timeout = "long",
+        srcs = glob(["source/daml/code-snippets-dev/**/*.daml"]),
+        target = version,
+    )
+    for version in LF_DEV_VERSIONS
+]
 
 daml_test(
     name = "introduction-daml-test",
@@ -624,12 +628,15 @@ daml_test(
     deps = ["//daml-script/daml:daml-script.dar"],
 )
 
-daml_test(
-    name = "daml-intro-8-daml-test",
-    srcs = glob(["source/daml/intro/daml/daml-intro-8/**/*.daml"]),
-    target = "1.dev",
-    deps = ["//daml-script/daml:daml-script-1.dev.dar"],
-)
+[
+    daml_test(
+        name = "daml-intro-8-daml-test-{}".format(version),
+        srcs = glob(["source/daml/intro/daml/daml-intro-8/**/*.daml"]),
+        target = version,
+        deps = ["//daml-script/daml:daml-script-{}.dar".format(version)],
+    )
+    for version in LF_DEV_VERSIONS
+]
 
 daml_build_test(
     name = "daml-intro-7",

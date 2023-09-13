@@ -19,6 +19,7 @@ da_haskell_library(
         "bytestring",
         "mtl",
         "proto3-suite",
+        "proto3-wire",
         "text",
         "vector",
     ],
