@@ -1,6 +1,8 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE BlockArguments #-}
+
 -- | Test driver for Daml-GHC CompilerService.
 -- For each file, compile it with GHC, convert it,
 -- typecheck with LF, test it.  Test annotations are documented as 'Ann'.
@@ -360,16 +362,24 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
 newtype TestCase = TestCase ((String -> IO ()) -> IO Result)
 
 instance IsTest TestCase where
-  run _ (TestCase r) _ = do
-    logger <- newIORef DList.empty
-    let log msg = modifyIORef logger (`DList.snoc` msg)
-    res <- r log
-    msgs <- readIORef logger
-    let desc
-          | null (resultDescription res) = unlines (DList.toList msgs)
-          | otherwise = unlines (DList.toList (msgs `DList.snoc` resultDescription res))
-    pure $ res { resultDescription = desc }
+  run _ (TestCase r) _ =
+    withLog \log -> do
+      res <- r log
+      log (resultDescription res)
+      pure \msgs -> res { resultDescription = msgs }
   testOptions = Tagged []
+
+-- | 'withLog' takes a function 'f :: (String -> IO ()) -> IO (String -> a)',
+-- that is, a function such that given a logger function ':: String -> IO ()'
+-- returns (in an IO context) a function ':: String -> a' that constructs
+-- the final result in terms of the final state of the log.
+withLog :: ((String -> IO ()) -> IO (String -> a)) -> IO a
+withLog action = do
+  logger <- newIORef DList.empty
+  let log msg = unless (null msg) $ modifyIORef logger (`DList.snoc` msg)
+  f <- action log
+  msgs <- readIORef logger
+  pure (f (unlines (DList.toList msgs)))
 
 testCase :: LF.Version -> IsScriptV2Opt -> EvaluationOrder -> IO IdeState -> FilePath -> (TODO -> IO ()) -> DamlTestInput -> TestTree
 testCase version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir registerTODO input = singleTest name . TestCase $ \log -> do
