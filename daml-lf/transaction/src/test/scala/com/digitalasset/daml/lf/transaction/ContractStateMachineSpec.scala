@@ -146,13 +146,13 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     )
 
   def inconsistentContractKey[X](key: GlobalKey): Left[KeyInputError, X] =
-    Left(KeyInputError.inject(InconsistentContractKey(key)))
+    Left(InconsistentContractKey(key))
 
   def duplicateContractKey[X](key: GlobalKey): Left[KeyInputError, X] =
-    Left(KeyInputError.inject(DuplicateContractKey(key)))
+    Left(DuplicateContractKey(key))
 
   def duplicateContractId[X](contractId: ContractId): Left[KeyInputError, X] =
-    Left(KeyInputError.inject(DuplicateContractId(contractId)))
+    Left(DuplicateContractId(contractId))
 
   def createRbExLbkLbk: TestCase = {
     // [ Create c1 (key=k1), Rollback [ Exe c1 [ LBK k1 -> None ]], LBK k1 -> c1 ]
