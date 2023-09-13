@@ -354,7 +354,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
             shutdown
             $ \service ->
           testGroup ("Tests for Daml-LF " ++ renderPretty version) $
-            map (testCase version isScriptV2Opt evalOrder service outdir registerTODO) damlTests
+            map (damlFileTestTree version isScriptV2Opt evalOrder service outdir registerTODO) damlTests
 
     pure tree
 
@@ -402,8 +402,8 @@ testSetup getService outdir path =
       , buildLog = msgs
       }
 
-testCase :: LF.Version -> IsScriptV2Opt -> EvaluationOrder -> IO IdeState -> FilePath -> (TODO -> IO ()) -> DamlTestInput -> TestTree
-testCase version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir registerTODO input
+damlFileTestTree :: LF.Version -> IsScriptV2Opt -> EvaluationOrder -> IO IdeState -> FilePath -> (TODO -> IO ()) -> DamlTestInput -> TestTree
+damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir registerTODO input
   | any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] =
     singleTest name $ TestCase \_ ->
       pure $ testFailed "Unsupported Daml-LF version in UNTIL-LF annotation"
@@ -418,16 +418,22 @@ testCase version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir re
         getService >>= unsafeClearDiagnostics
       )
       \getDamlOutput -> do
-        singleTest name $ TestCase \log -> do
-          DamlOutput { diagnostics, jsonPackagePath, buildLog } <- getDamlOutput
-          log buildLog
-          for_ [path ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
-          resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] diagnostics
-          resQueries <- runJqQuery log jsonPackagePath [(q, isStream) | QueryLF q isStream <- anns]
-          let failures = catMaybes $ resDiag : resQueries
-          case failures of
-            err : _others -> pure $ testFailed err
-            [] -> pure $ testPassed ""
+        testGroup name
+          [ singleTest "Build log" $ TestCase \_ -> do
+              for_ [path ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
+              testPassed . buildLog <$> getDamlOutput
+          , singleTest "Check diagnostics" $ TestCase \log -> do
+              diags <- diagnostics <$> getDamlOutput
+              resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] diags
+              pure $ maybe (testPassed "") testFailed resDiag
+          , singleTest "jq Queries" $ TestCase \log -> do
+              mJsonFile <- jsonPackagePath <$> getDamlOutput
+              resQueries <- runJqQuery log mJsonFile [(q, isStream) | QueryLF q isStream <- anns]
+              let failures = catMaybes resQueries
+              case failures of
+                err : _others -> pure $ testFailed err
+                [] -> pure $ testPassed ""
+          ]
   where
     DamlTestInput { name, path, anns } = input
     ignoreVersion version = \case
