@@ -78,8 +78,7 @@ import qualified Test.Tasty.HUnit as HUnit
 import Test.Tasty.HUnit ((@?=))
 import Test.Tasty.Options
 import Test.Tasty.Providers
-import Test.Tasty.Providers.ConsoleFormat (noResultDetails)
-import Test.Tasty.Runners (Outcome(..), Result(..))
+import Test.Tasty.Runners (Result(..))
 
 import DA.Daml.Package.Config (PackageSdkVersion (..))
 import DA.Cli.Damlc.DependencyDb (installDependencies)
@@ -386,13 +385,7 @@ testCase version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir re
   if any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] then
     pure (testFailed "Unsupported Daml-LF version in UNTIL-LF annotation")
   else if any (ignoreVersion version) anns
-    then pure $ Result
-      { resultOutcome = Success
-      , resultDescription = ""
-      , resultShortDescription = "IGNORE"
-      , resultTime = 0
-      , resultDetailsPrinter = noResultDetails
-      }
+    then pure (testPassed "") { resultShortDescription = "IGNORE" }
     else do
       service <- getService
       -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
