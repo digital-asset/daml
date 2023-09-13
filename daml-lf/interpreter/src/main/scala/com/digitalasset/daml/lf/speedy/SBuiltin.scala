@@ -978,7 +978,7 @@ private[lf] object SBuiltin {
               }
               case Left((newPtx, err)) => {
                 machine.ptx = newPtx // Seems wrong. But one test in ScriptService requires this.
-                Control.Error(convTxError(err))
+                Control.Error(convTxError(templateId, err))
               }
             }
           }
@@ -1058,7 +1058,7 @@ private[lf] object SBuiltin {
               machine.ptx = ptx
               Control.Value(SUnit)
             case Left(err) =>
-              Control.Error(convTxError(err))
+              Control.Error(convTxError(templateId, err))
           }
         }
 
@@ -1441,7 +1441,7 @@ private[lf] object SBuiltin {
               machine.ptx = ptx
               Control.Value(templateArg)
             case Left(err) =>
-              Control.Error(convTxError(err))
+              Control.Error(convTxError(templateId, err))
           }
         }
       }
@@ -1480,7 +1480,7 @@ private[lf] object SBuiltin {
           machine.ptx = ptx
           Control.Value(SUnit)
         case Left(err) =>
-          Control.Error(convTxError(err))
+          Control.Error(convTxError(templateId, err))
       }
     }
   }
@@ -2023,12 +2023,12 @@ private[lf] object SBuiltin {
     }
   }
 
-  private[speedy] def convTxError(err: Tx.TransactionError): IE = {
+  private[speedy] def convTxError(templateId: TypeConName, err: Tx.TransactionError): IE = {
     err match {
       case Tx.AuthFailureDuringExecution(nid, fa) =>
         IE.FailedAuthorization(nid, fa)
-      case Tx.DuplicateContractId(_) =>
-        ???
+      case Tx.DuplicateContractId(contractId) =>
+        IE.DuplicateContractId(templateId, contractId)
       case Tx.DuplicateContractKey(key) =>
         IE.DuplicateContractKey(key)
     }

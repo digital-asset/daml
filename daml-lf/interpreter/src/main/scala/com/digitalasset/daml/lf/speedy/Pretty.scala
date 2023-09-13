@@ -87,6 +87,10 @@ private[lf] object Pretty {
             comma + space,
             stakeholders.map(prettyParty),
           ) + char('.')
+      case DuplicateContractId(tid, coid) =>
+        prettyTypeConName(tid) &
+          text("with") &
+          text("Update failed due to a duplicate contract ID") & prettyContractId(coid)
       case DuplicateContractKey(key) =>
         text("Update failed due to a duplicate contract key") & prettyValue(false)(key.key)
       case InconsistentContractKey(key) =>
