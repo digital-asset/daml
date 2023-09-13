@@ -706,7 +706,7 @@ object Transaction {
     *   - [[DuplicateContractKey]]
     *   - [[AuthFailureDuringExecution]]
     */
-  sealed trait TransactionError extends Product with Serializable
+  sealed trait TransactionError extends Serializable with Product
 
   /** Signals that the transaction tried to create two contracts with the same
     * contract ID
@@ -714,7 +714,6 @@ object Transaction {
   final case class DuplicateContractId(
       contractId: ContractId
   ) extends CreateError
-      with TransactionError
 
   /** Signals that within the transaction we got to a point where
     * two contracts with the same key were active.
@@ -735,7 +734,6 @@ object Transaction {
   final case class DuplicateContractKey(
       key: GlobalKey
   ) extends CreateError
-      with TransactionError
 
   final case class AuthFailureDuringExecution(
       nid: NodeId,
