@@ -701,15 +701,19 @@ object Transaction {
   ): Either[String, CommittedTransaction] =
     submittedTransaction.suffixCid(f).map(CommittedTransaction(_))
 
-  /** Errors that can happen during building transactions. */
-  sealed abstract class TransactionError extends Product with Serializable
+  /** Errors that can happen during building transactions:
+    *   - [[DuplicateContractId]]
+    *   - [[DuplicateContractKey]]
+    *   - [[AuthFailureDuringExecution]]
+    */
+  sealed trait TransactionError extends Product with Serializable
 
   /** Signals that the transaction tried to create two contracts with the same
     * contract ID
     */
   final case class DuplicateContractId(
       contractId: ContractId
-  ) extends TransactionError
+  ) extends CreateError with TransactionError
 
   /** Signals that within the transaction we got to a point where
     * two contracts with the same key were active.
@@ -729,7 +733,7 @@ object Transaction {
     */
   final case class DuplicateContractKey(
       key: GlobalKey
-  ) extends TransactionError
+  ) extends CreateError with TransactionError
 
   final case class AuthFailureDuringExecution(
       nid: NodeId,
@@ -770,43 +774,21 @@ object Transaction {
     * of a race condition between the contract and the contract keys queried to the ledger
     * during an interpretation.
     */
-  final case class InconsistentContractKey(key: GlobalKey)
+  final case class InconsistentContractKey(key: GlobalKey) extends KeyInputError
 
   /** The errors returned by [[ContractStateMachine.State.handleNode]] and, as a consequence,
-    * [[HasTxNodes.contractKeyInputs]] (hence the name).
+    * [[HasTxNodes.contractKeyInputs]] (hence the name):
+    *   - [[DuplicateContractId]]
+    *   - [[DuplicateContractKey]]
+    *   - [[InconsistentContractKey]]
     */
   sealed trait KeyInputError extends Serializable with Product
-  final case class InconsistentContractKeyInputError(
-      inconsistentContractKey: InconsistentContractKey
-  ) extends KeyInputError
-  final case class DuplicateContractKeyInputError(duplicateContractKey: DuplicateContractKey)
-      extends KeyInputError
-  final case class DuplicateContractIdInputError(duplicateContractId: DuplicateContractId)
-      extends KeyInputError
 
-  object KeyInputError {
-    def inject(error: InconsistentContractKey): KeyInputError =
-      InconsistentContractKeyInputError(error)
-    def inject(error: DuplicateContractKey): KeyInputError = DuplicateContractKeyInputError(error)
-    def inject(error: DuplicateContractId): KeyInputError = DuplicateContractIdInputError(error)
-
-    def from(error: CreateError): KeyInputError = error match {
-      case DuplicateContractKeyCreateError(error) => DuplicateContractKeyInputError(error)
-      case DuplicateContractIdCreateError(error) => DuplicateContractIdInputError(error)
-    }
-  }
-
-  /** The errors returned by [[ContractStateMachine.State.visitCreate]] */
-  sealed trait CreateError extends Serializable with Product
-  final case class DuplicateContractKeyCreateError(duplicateContractKey: DuplicateContractKey)
-      extends CreateError
-  final case class DuplicateContractIdCreateError(duplicateContractId: DuplicateContractId)
-      extends CreateError
-
-  object CreateError {
-    def inject(error: DuplicateContractKey): CreateError = DuplicateContractKeyCreateError(error)
-    def inject(error: DuplicateContractId): CreateError = DuplicateContractIdCreateError(error)
-  }
+  /** The errors returned by [[ContractStateMachine.State.visitCreate]]:
+    *   - [[DuplicateContractId]]
+    *   - [[DuplicateContractKey]]
+    */
+  sealed trait CreateError extends KeyInputError with TransactionError
 
   sealed abstract class ChildrenRecursion
   object ChildrenRecursion {

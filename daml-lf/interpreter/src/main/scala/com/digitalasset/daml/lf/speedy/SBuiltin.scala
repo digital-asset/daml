@@ -2027,6 +2027,8 @@ private[lf] object SBuiltin {
     err match {
       case Tx.AuthFailureDuringExecution(nid, fa) =>
         IE.FailedAuthorization(nid, fa)
+      case Tx.DuplicateContractId(_) =>
+        ???
       case Tx.DuplicateContractKey(key) =>
         IE.DuplicateContractKey(key)
     }
