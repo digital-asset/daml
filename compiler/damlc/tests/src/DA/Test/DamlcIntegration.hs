@@ -383,7 +383,6 @@ withLog action = do
 
 testCase :: LF.Version -> IsScriptV2Opt -> EvaluationOrder -> IO IdeState -> FilePath -> (TODO -> IO ()) -> DamlTestInput -> TestTree
 testCase version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir registerTODO input = singleTest name . TestCase $ \log -> do
-  service <- getService
   if any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] then
     pure (testFailed "Unsupported Daml-LF version in UNTIL-LF annotation")
   else if any (ignoreVersion version) anns
@@ -395,6 +394,7 @@ testCase version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir re
       , resultDetailsPrinter = noResultDetails
       }
     else do
+      service <- getService
       -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
       unsafeClearDiagnostics service
       ex <- try $ mainProj service outdir log (toNormalizedFilePath' path) :: IO (Either SomeException (Package, FilePath))
