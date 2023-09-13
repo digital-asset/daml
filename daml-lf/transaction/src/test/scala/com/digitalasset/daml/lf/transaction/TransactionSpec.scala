@@ -465,7 +465,9 @@ class TransactionSpec
       builder.add(lookupNode)
       inside(lookupNode.result) { case Some(contractId) =>
         contractId shouldBe cid("#0")
-        builder.build().contractKeyInputs shouldBe Right(Map(globalKey("k0") -> KeyActive(contractId)))
+        builder.build().contractKeyInputs shouldBe Right(
+          Map(globalKey("k0") -> KeyActive(contractId))
+        )
       }
     }
     "returns keys used under rollback nodes" in {
