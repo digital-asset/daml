@@ -704,6 +704,13 @@ object Transaction {
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable
 
+  /** Signals that the transaction tried to create two contracts with the same
+    * contract ID
+    */
+  final case class DuplicateContractId(
+      contractId: ContractId
+  ) extends TransactionError
+
   /** Signals that within the transaction we got to a point where
     * two contracts with the same key were active.
     *
@@ -765,14 +772,45 @@ object Transaction {
     */
   final case class InconsistentContractKey(key: GlobalKey)
 
-  /** contractKeyInputs failed to produce an input due to an error for the given key.
+  /** The errors returned by [[ContractStateMachine.State.handleNode]] and, as a consequence,
+    * [[HasTxNodes.contractKeyInputs]] (hence the name).
     */
-  type KeyInputError = Either[InconsistentContractKey, DuplicateContractKey]
+  sealed trait KeyInputError extends Serializable with Product
+  final case class InconsistentContractKeyInputError(
+      inconsistentContractKey: InconsistentContractKey
+  ) extends KeyInputError
+  final case class DuplicateContractKeyInputError(duplicateContractKey: DuplicateContractKey)
+      extends KeyInputError
+  final case class DuplicateContractIdInputError(duplicateContractId: DuplicateContractId)
+      extends KeyInputError
+
+  object KeyInputError {
+    def inject(error: InconsistentContractKey): KeyInputError =
+      InconsistentContractKeyInputError(error)
+    def inject(error: DuplicateContractKey): KeyInputError = DuplicateContractKeyInputError(error)
+    def inject(error: DuplicateContractId): KeyInputError = DuplicateContractIdInputError(error)
+
+    def from(error: CreateError): KeyInputError = error match {
+      case DuplicateContractKeyCreateError(error) => DuplicateContractKeyInputError(error)
+      case DuplicateContractIdCreateError(error) => DuplicateContractIdInputError(error)
+    }
+  }
+
+  /** The errors returned by [[ContractStateMachine.State.visitCreate]] */
+  sealed trait CreateError extends Serializable with Product
+  final case class DuplicateContractKeyCreateError(duplicateContractKey: DuplicateContractKey)
+      extends CreateError
+  final case class DuplicateContractIdCreateError(duplicateContractId: DuplicateContractId)
+      extends CreateError
+
+  object CreateError {
+    def inject(error: DuplicateContractKey): CreateError = DuplicateContractKeyCreateError(error)
+    def inject(error: DuplicateContractId): CreateError = DuplicateContractIdCreateError(error)
+  }
 
   sealed abstract class ChildrenRecursion
   object ChildrenRecursion {
     case object DoRecurse extends ChildrenRecursion
     case object DoNotRecurse extends ChildrenRecursion
   }
-
 }
