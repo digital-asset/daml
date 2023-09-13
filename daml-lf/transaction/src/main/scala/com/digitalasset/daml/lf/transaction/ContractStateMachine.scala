@@ -5,6 +5,8 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.transaction.Transaction.{
+  CreateError,
+  DuplicateContractId,
   DuplicateContractKey,
   InconsistentContractKey,
   KeyCreate,
@@ -121,38 +123,41 @@ object ContractStateMachine {
 
     /** Visit a create node */
     def handleCreate(node: Node.Create): Either[KeyInputError, State[Nid]] =
-      visitCreate(node.coid, node.gkeyOpt).left.map(Right(_))
+      visitCreate(node.coid, node.gkeyOpt).left.map(KeyInputError.from)
 
     private[lf] def visitCreate(
         contractId: ContractId,
         mbKey: Option[GlobalKey],
-    ): Either[DuplicateContractKey, State[Nid]] = {
-      val me =
-        this.copy(
-          locallyCreated = locallyCreated + contractId,
-          activeState = this.activeState
-            .copy(locallyCreatedThisTimeline =
-              this.activeState.locallyCreatedThisTimeline + contractId
-            ),
-        )
-      // if we have a contract key being added, include it in the list of
-      // active keys
-      mbKey match {
-        case None => Right(me)
-        case Some(gk) =>
-          val conflict = lookupActiveKey(gk).exists(_ != KeyInactive)
-
-          val newKeyInputs =
-            if (globalKeyInputs.contains(gk)) globalKeyInputs
-            else globalKeyInputs.updated(gk, KeyCreate)
-          Either.cond(
-            !conflict || mode == ContractKeyUniquenessMode.Off,
-            me.copy(
-              activeState = me.activeState.createKey(gk, contractId),
-              globalKeyInputs = newKeyInputs,
-            ),
-            DuplicateContractKey(gk),
+    ): Either[CreateError, State[Nid]] = {
+      if (locallyCreated.contains(contractId)) {
+        Left(CreateError.inject(DuplicateContractId(contractId)))
+      } else {
+        val me =
+          this.copy(
+            locallyCreated = locallyCreated + contractId,
+            activeState = this.activeState
+              .copy(locallyCreatedThisTimeline =
+                this.activeState.locallyCreatedThisTimeline + contractId
+              ),
           )
+        // if we have a contract key being added, include it in the list of
+        // active keys
+        mbKey match {
+          case None => Right(me)
+          case Some(gk) =>
+            val conflict = lookupActiveKey(gk).exists(_ != KeyInactive)
+            val newKeyInputs =
+              if (globalKeyInputs.contains(gk)) globalKeyInputs
+              else globalKeyInputs.updated(gk, KeyCreate)
+            Either.cond(
+              !conflict || mode == ContractKeyUniquenessMode.Off,
+              me.copy(
+                activeState = me.activeState.createKey(gk, contractId),
+                globalKeyInputs = newKeyInputs,
+              ),
+              CreateError.inject(DuplicateContractKey(gk)),
+            )
+        }
       }
     }
 
@@ -164,7 +169,7 @@ object ContractStateMachine {
         exe.byKey,
         exe.consuming,
       ).left
-        .map(Left(_))
+        .map(KeyInputError.inject)
 
     /** Omits the key lookup that are done in [[com.daml.lf.speedy.Compiler.compileChoiceByKey]] for by-bey nodes,
       * which translates to a [[resolveKey]] below.
@@ -200,7 +205,7 @@ object ContractStateMachine {
         throw new UnsupportedOperationException(
           "handleLookup can only be used if all key nodes are considered"
         )
-      visitLookup(lookup.gkey, lookup.result, lookup.result).left.map(Left(_))
+      visitLookup(lookup.gkey, lookup.result, lookup.result).left.map(KeyInputError.inject)
     }
 
     /** Must be used to handle lookups iff in [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]] mode
@@ -222,7 +227,7 @@ object ContractStateMachine {
         throw new UnsupportedOperationException(
           "handleLookupWith can only be used if only by-key nodes are considered"
         )
-      visitLookup(lookup.gkey, keyInput, lookup.result).left.map(Left(_))
+      visitLookup(lookup.gkey, keyInput, lookup.result).left.map(KeyInputError.inject)
     }
 
     private[lf] def visitLookup(
@@ -270,7 +275,7 @@ object ContractStateMachine {
     }
 
     def handleFetch(node: Node.Fetch): Either[KeyInputError, State[Nid]] =
-      visitFetch(node.coid, node.gkeyOpt, node.byKey).left.map(Left(_))
+      visitFetch(node.coid, node.gkeyOpt, node.byKey).left.map(KeyInputError.inject)
 
     private[lf] def visitFetch(
         contractId: ContractId,
@@ -371,25 +376,32 @@ object ContractStateMachine {
       )
 
       // We want consistent key lookups within an action in any contract key mode.
-      def consistentGlobalKeyInputs: Either[KeyInputError, Unit] =
-        substate.globalKeyInputs
-          .find {
-            case (key, KeyCreate) =>
-              lookupActiveKey(key).exists(
-                _ != KeyInactive
-              ) && mode == ContractKeyUniquenessMode.Strict
-            case (key, NegativeKeyLookup) => lookupActiveKey(key).exists(_ != KeyInactive)
-            case (key, Transaction.KeyActive(cid)) =>
-              lookupActiveKey(key).exists(_ != KeyActive(cid))
-            case _ => false
-          } match {
-          case Some((key, KeyCreate)) => Left[KeyInputError, Unit](Right(DuplicateContractKey(key)))
-          case Some((key, NegativeKeyLookup)) =>
-            Left[KeyInputError, Unit](Left(InconsistentContractKey(key)))
-          case Some((key, Transaction.KeyActive(_))) =>
-            Left[KeyInputError, Unit](Left(InconsistentContractKey(key)))
-          case _ => Right[KeyInputError, Unit](())
+      def consistentGlobalKeyInputs: Either[KeyInputError, Unit] = {
+        substate.locallyCreated.find(locallyCreated.contains) match {
+          case Some(contractId) =>
+            Left[KeyInputError, Unit](KeyInputError.inject(DuplicateContractId(contractId)))
+          case None =>
+            substate.globalKeyInputs
+              .find {
+                case (key, KeyCreate) =>
+                  lookupActiveKey(key).exists(
+                    _ != KeyInactive
+                  ) && mode == ContractKeyUniquenessMode.Strict
+                case (key, NegativeKeyLookup) => lookupActiveKey(key).exists(_ != KeyInactive)
+                case (key, Transaction.KeyActive(cid)) =>
+                  lookupActiveKey(key).exists(_ != KeyActive(cid))
+                case _ => false
+              } match {
+              case Some((key, KeyCreate)) =>
+                Left[KeyInputError, Unit](KeyInputError.inject(DuplicateContractKey(key)))
+              case Some((key, NegativeKeyLookup)) =>
+                Left[KeyInputError, Unit](KeyInputError.inject(InconsistentContractKey(key)))
+              case Some((key, Transaction.KeyActive(_))) =>
+                Left[KeyInputError, Unit](KeyInputError.inject(InconsistentContractKey(key)))
+              case _ => Right[KeyInputError, Unit](())
+            }
         }
+      }
 
       for {
         _ <- consistentGlobalKeyInputs

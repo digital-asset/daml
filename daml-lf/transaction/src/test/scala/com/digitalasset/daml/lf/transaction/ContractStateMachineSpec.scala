@@ -16,6 +16,7 @@ import com.daml.lf.transaction.ContractStateMachine.{
 import com.daml.lf.transaction.ContractStateMachineSpec._
 import com.daml.lf.transaction.Transaction.{
   ChildrenRecursion,
+  DuplicateContractId,
   DuplicateContractKey,
   InconsistentContractKey,
   KeyCreate,
@@ -145,10 +146,13 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     )
 
   def inconsistentContractKey[X](key: GlobalKey): Left[KeyInputError, X] =
-    Left(Left(InconsistentContractKey(key)))
+    Left(KeyInputError.inject(InconsistentContractKey(key)))
 
   def duplicateContractKey[X](key: GlobalKey): Left[KeyInputError, X] =
-    Left(Right(DuplicateContractKey(key)))
+    Left(KeyInputError.inject(DuplicateContractKey(key)))
+
+  def duplicateContractId[X](contractId: ContractId): Left[KeyInputError, X] =
+    Left(KeyInputError.inject(DuplicateContractId(contractId)))
 
   def createRbExLbkLbk: TestCase = {
     // [ Create c1 (key=k1), Rollback [ Exe c1 [ LBK k1 -> None ]], LBK k1 -> c1 ]
@@ -323,6 +327,27 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   }
 
   def doubleCreate: TestCase = {
+    // [ Create c1, Create c1 ]
+    val createNode = mkCreate(1)
+    // We can't use TxBuilder to build this transaction because the builder ensures the unicity of
+    // of contract IDs.
+    val tx = VersionedTransaction(
+      txVersion,
+      nodes = Map(NodeId(0) -> createNode, NodeId(1) -> createNode),
+      roots = ImmArray(NodeId(0), NodeId(1)),
+    )
+    val expected = duplicateContractId(1)
+    TestCase(
+      "DoubleCreate",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
+  def doubleCreateWithKey: TestCase = {
     // [ ExeN c1 [ Create c2 (key=k1), Create c3 (key=k1) ] ]
     val builder = new TxBuilder()
     val exerciseNid = builder.add(mkExercise(1, consuming = false))
@@ -340,7 +365,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
         )
     )
     TestCase(
-      "DoubleCreate",
+      "DoubleCreateWithKey",
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> duplicateContractKey(gkey("key1")),
@@ -716,7 +741,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
             case (Left(_), Left(_)) =>
             // We can't really make sure that we get the same errors.
             // There may be multiple key conflicts and advancing non-deterministically picks one of them
-            case _ => fail(s"$directVisit was knot equal to $advanced")
+            case _ => fail(s"$directVisit was not equal to $advanced")
           }
         }
         directVisit.flatMap(next => visitSubtrees(nodes, tail, resolver, next))
