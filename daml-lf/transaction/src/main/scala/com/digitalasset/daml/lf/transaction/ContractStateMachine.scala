@@ -83,6 +83,7 @@ object ContractStateMachine {
     */
   case class State[Nid] private[lf] (
       locallyCreated: Set[ContractId],
+      fetched: Set[ContractId],
       globalKeyInputs: Map[GlobalKey, KeyInput],
       activeState: ContractStateMachine.ActiveLedgerState[Nid],
       rollbackStack: List[ContractStateMachine.ActiveLedgerState[Nid]],
@@ -129,7 +130,7 @@ object ContractStateMachine {
         contractId: ContractId,
         mbKey: Option[GlobalKey],
     ): Either[CreateError, State[Nid]] = {
-      if (locallyCreated.contains(contractId)) {
+      if (locallyCreated.union(fetched).contains(contractId)) {
         Left(DuplicateContractId(contractId))
       } else {
         val me =
@@ -280,11 +281,13 @@ object ContractStateMachine {
         contractId: ContractId,
         mbKey: Option[GlobalKey],
         byKey: Boolean,
-    ): Either[InconsistentContractKey, State[Nid]] =
+    ): Either[InconsistentContractKey, State[Nid]] = {
+      val state = this.copy(fetched = fetched + contractId)
       if (byKey || mode == ContractKeyUniquenessMode.Strict)
-        assertKeyMapping(contractId, mbKey)
+        state.assertKeyMapping(contractId, mbKey)
       else
-        Right(this)
+        Right(state)
+    }
 
     private[lf] def assertKeyMapping(
         cid: Value.ContractId,
@@ -376,7 +379,7 @@ object ContractStateMachine {
 
       // We want consistent key lookups within an action in any contract key mode.
       def consistentGlobalKeyInputs: Either[KeyInputError, Unit] = {
-        substate.locallyCreated.find(locallyCreated.contains) match {
+        substate.locallyCreated.union(fetched).find(locallyCreated.contains) match {
           case Some(contractId) =>
             Left[KeyInputError, Unit](DuplicateContractId(contractId))
           case None =>
@@ -437,6 +440,7 @@ object ContractStateMachine {
 
         this.copy(
           locallyCreated = this.locallyCreated.union(substate.locallyCreated),
+          fetched = this.fetched.union(substate.fetched),
           globalKeyInputs = globalKeyInputs,
           activeState = next,
         )
@@ -458,6 +462,7 @@ object ContractStateMachine {
 
   object State {
     def empty[Nid](mode: ContractKeyUniquenessMode): State[Nid] = new State(
+      Set.empty,
       Set.empty,
       Map.empty,
       ContractStateMachine.ActiveLedgerState.empty,
