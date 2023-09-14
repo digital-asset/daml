@@ -157,16 +157,12 @@ prettyScenarioResult world activeContracts (ScenarioResult steps nodes retValue 
 
       ppTrace = vcat $ map prettyTraceMessage (V.toList traceLog)
       ppWarnings = vcat $ map prettyWarningMessage (V.toList warnings)
-  in vsep
-    [ label_ "Transactions: " ppSteps
-    , label_ "Active contracts: " ppActive
-    , maybe mempty (\v -> label_ "Return value:" (prettyValue' True 0 world v)) retValue
-    , if V.null traceLog
-      then text ""
-      else text "Trace: " $$ nest 2 ppTrace
-    , if V.null warnings
-      then text ""
-      else text "Warnings: " $$ nest 2 ppWarnings
+  in vsep $ concat
+    [ [label_ "Transactions: " ppSteps]
+    , [label_ "Active contracts: " ppActive]
+    , [label_ "Return value:" (prettyValue' True 0 world v) | Just v <- [retValue]]
+    , [text "Trace: " $$ nest 2 ppTrace | not (V.null traceLog)]
+    , [text "Warnings: " $$ nest 2 ppWarnings | not (V.null warnings)]
     ]
 
 prettyBriefScenarioError
