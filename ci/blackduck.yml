@@ -1,0 +1,189 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+jobs:
+- job: blackduck_scan
+  timeoutInMinutes: 120
+  #condition: eq(variables['Build.SourceBranchName'], 'main')
+  pool:
+    name: ubuntu_20_04
+    demands: assignment -equals default
+  variables:
+    blackduck_script_sha: 8b310017a440d1ceec25fbdec75c188342cb28e2
+  steps:
+  - checkout: self
+    persistCredentials: true
+  - bash: ci/dev-env-install.sh
+    displayName: 'Build/Install the Developer Environment'
+  - bash: |
+      set -euo pipefail
+      eval "$(dev-env/bin/dade assist)"
+      export LC_ALL=en_US.UTF-8
+
+      bazel build //...
+      # Make sure that Bazel query works
+      bazel query 'deps(//...)' >/dev/null
+    displayName: 'Build'
+  - bash: |
+      set -euo pipefail
+      eval "$(dev-env/bin/dade-assist)"
+
+      #needs to be specified since blackduck can not scan all bazel
+      #dependency types in one go, haskell has to be scanned separatey and
+      #code location name uniquely identified to avoid stomping
+      BAZEL_DEPENDENCY_TYPE="haskell_cabal_library"
+
+      bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
+      ci-build digital-asset_daml main \
+      --logging.level.com.synopsys.integration=DEBUG \
+      --detect.tools=BAZEL \
+      --detect.bazel.target=//... \
+      --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
+      --detect.notices.report=true \
+      --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
+      --detect.timeout=1500
+    displayName: 'Blackduck Bazel Haskell Scan'
+    env:
+      BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
+  - bash: |
+      set -euo pipefail
+      eval "$(dev-env/bin/dade-assist)"
+
+      #needs to be specified since blackduck can not scan all bazel
+      #dependency types in one go, java has to be scanned separatey and
+      #code location name uniquely identified to avoid stomping
+      BAZEL_DEPENDENCY_TYPE="maven_install"
+
+      bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
+      ci-build digital-asset_daml main \
+      --logging.level.com.synopsys.integration=DEBUG \
+      --detect.tools=BAZEL \
+      --detect.bazel.target=//... \
+      --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
+      --detect.notices.report=true \
+      --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
+      --detect.timeout=1500
+    displayName: 'Blackduck Bazel JVM Scan'
+    env:
+      BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
+  - bash: |
+      set -euo pipefail
+      eval "$(dev-env/bin/dade-assist)"
+
+      (cd language-support/ts && yarn install)
+
+      bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
+      ci-build digital-asset_daml main \
+      --logging.level.com.synopsys.integration=DEBUG \
+      --detect.tools=DETECTOR \
+      --detect.included.detector.types=YARN,NPM,CLANG \
+      --detect.npm.dependency.types.excluded=DEV \
+      --detect.yarn.dependency.types.excluded=NON_PRODUCTION \
+      --detect.follow.symbolic.links=false \
+      --detect.excluded.directories=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
+      --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
+      --detect.detector.search.exclusion.paths=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
+      --detect.notices.report=true \
+      --detect.code.location.name=digital-asset_daml_npm \
+      --detect.timeout=1500
+    displayName: 'Blackduck Npm Scan'
+    env:
+      BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
+  - bash: |
+      set -euo pipefail
+      eval "$(dev-env/bin/dade-assist)"
+
+      bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
+      ci-build digital-asset_daml main \
+      --logging.level.com.synopsys.integration=DEBUG \
+      --detect.tools=DETECTOR \
+      --detect.included.detector.types=PIP,POETRY \
+      --detect.follow.symbolic.links=false \
+      --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
+      --detect.blackduck.signature.scanner.exclusion.name.patterns=.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*,*_bazel_vsts* \
+      --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*,*_bazel_vsts* \
+      --detect.notices.report=true \
+      --detect.code.location.name=digital-asset_daml_python \
+      --detect.timeout=1500
+    displayName: 'Blackduck Python Scan'
+    env:
+      BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
+  - bash: |
+      set -euo pipefail
+      eval "$(dev-env/bin/dade-assist)"
+
+      bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
+      ci-build digital-asset_daml main \
+      --logging.level.com.synopsys.integration=DEBUG \
+      --detect.tools=DETECTOR \
+      --detect.included.detector.types=GIT,GO_MOD,GO_DEP,GO_VNDR,GO_VENDOR,GO_GRADLE \
+      --detect.follow.symbolic.links=false \
+      --detect.go.path=$(bazel info execution_root)/external/go_sdk/bin/go \
+      --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
+      --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
+      --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
+      --detect.code.location.name=digital-asset_daml_go \
+      --detect.timeout=1500
+    displayName: 'Blackduck Go Scan'
+    env:
+      BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
+  - template: bash-lib.yml
+    parameters:
+      var_name: bash_lib
+  - bash: |
+      set -euo pipefail
+      eval "$(./dev-env/bin/dade-assist)"
+      source $(bash_lib)
+
+      branch="notices-update-$(Build.BuildId)"
+
+      tr -d '\015' < digital_asset_daml_main_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml > NOTICES
+      if git diff --exit-code -- NOTICES; then
+          echo "NOTICES file already up-to-date."
+          setvar need_to_build false
+      else
+          git add NOTICES
+          open_pr "$branch" "update NOTICES file"
+          setvar need_to_build true
+      fi
+    displayName: open PR
+    name: out
+    condition: and(succeeded(),
+                     eq(variables['Build.SourceBranchName'], 'main'))
+
+- job: bump_blackduck_if_needed
+  timeoutInMinutes: 10
+  #condition: eq(variables['Build.SourceBranchName'], 'main')
+  pool:
+    name: ubuntu_20_04
+    demands: assignment -equals default
+  steps:
+  - checkout: self
+    persistCredentials: true
+  - bash: ci/dev-env-install.sh
+    displayName: 'Build/Install the Developer Environment'
+  - template: bash-lib.yml
+    parameters:
+      var_name: bash_lib
+  - bash: |
+      set -euo pipefail
+      eval "$(dev-env/bin/dade-assist)"
+      source $(bash_lib)
+
+      latest=$(git ls-remote https://github.com/DACH-NY/security-blackduck.git master | awk '{print $1}')
+      current=$(cat ci/blackduck.yml | grep blackduck_script_sha: | head -1 | cut -f2 -d: | cut -c2- )
+
+      if [ "$current" != "$latest" ]; then
+        branch="bump-blackduck-script-${latest:0:8}"
+        echo "s|blackduck_script_sha: $current|blackduck_script_sha: $latest|"
+        sed -i "s|blackduck_script_sha: $current|blackduck_script_sha: $latest|" ci/blackduck.yml
+        git add ci/blackduck.yml
+        open_pr "$branch" "bump blackduck script to $latest"
+        az extension add --name azure-devops
+        trap "az devops logout" EXIT
+        echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
+        az pipelines build queue --branch "$branch" \
+                                 --definition-name "PRs" \
+                                 --org "https://dev.azure.com/digitalasset" \
+                                 --project daml
+      fi

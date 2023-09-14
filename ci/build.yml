@@ -84,6 +84,8 @@ jobs:
     name: m1
     assignment: m1-builds
 
+- template: blackduck.yml
+
 - job: Windows
   dependsOn:
     - check_for_release
