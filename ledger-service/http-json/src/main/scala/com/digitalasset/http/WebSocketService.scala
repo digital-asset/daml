@@ -848,7 +848,6 @@ class WebSocketService(
           InvalidUserInput("Multiple requests over the same WebSocket connection are not allowed.")
         )
       )
-      // flatMapMerge only completes when all consumed substreams complete, hence the kill-switch for otherwise infinite streams
       .flatMapMerge(
         2, // 2 streams max, the 2nd is to be able to send an error back
         _.map { case (offPrefix, rq: ResolvedQueryRequest[q]) =>
@@ -861,6 +860,7 @@ class WebSocketService(
             rq.q: q,
           )
             .via(logTermination("getTransactionSourceForParty"))
+            // flatMapMerge only completes when all consumed substreams complete, hence the kill-switch for otherwise infinite streams
             .via(killSwitch.flow)
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
