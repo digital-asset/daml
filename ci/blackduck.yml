@@ -8,6 +8,8 @@ jobs:
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
+  variables:
+    blackduck_script_sha: 8b310017a440d1ceec25fbdec75c188342cb28e2
   steps:
     - checkout: self
       persistCredentials: true
@@ -31,7 +33,7 @@ jobs:
         #code location name uniquely identified to avoid stomping
         BAZEL_DEPENDENCY_TYPE="haskell_cabal_library"
 
-        bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
+        bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
         ci-build digital-asset_daml main \
         --logging.level.com.synopsys.integration=DEBUG \
         --detect.tools=BAZEL \
@@ -52,7 +54,7 @@ jobs:
         #code location name uniquely identified to avoid stomping
         BAZEL_DEPENDENCY_TYPE="maven_install"
 
-        bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
+        bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
         ci-build digital-asset_daml main \
         --logging.level.com.synopsys.integration=DEBUG \
         --detect.tools=BAZEL \
@@ -70,7 +72,7 @@ jobs:
 
         (cd language-support/ts && yarn install)
 
-        bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
+        bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
         ci-build digital-asset_daml main \
         --logging.level.com.synopsys.integration=DEBUG \
         --detect.tools=DETECTOR \
@@ -83,7 +85,6 @@ jobs:
         --detect.detector.search.exclusion.paths=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
         --detect.notices.report=true \
         --detect.code.location.name=digital-asset_daml_npm \
-        --detect.accuracy.required=HIGH \
         --detect.timeout=1500
       displayName: 'Blackduck Npm Scan'
       env:
@@ -92,7 +93,7 @@ jobs:
         set -euo pipefail
         eval "$(dev-env/bin/dade-assist)"
 
-        bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
+        bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
         ci-build digital-asset_daml main \
         --logging.level.com.synopsys.integration=DEBUG \
         --detect.tools=DETECTOR \
@@ -111,7 +112,7 @@ jobs:
         set -euo pipefail
         eval "$(dev-env/bin/dade-assist)"
 
-        bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
+        bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
         ci-build digital-asset_daml main \
         --logging.level.com.synopsys.integration=DEBUG \
         --detect.tools=DETECTOR \
