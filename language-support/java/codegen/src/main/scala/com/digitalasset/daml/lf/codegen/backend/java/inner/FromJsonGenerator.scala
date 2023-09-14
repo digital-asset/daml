@@ -119,7 +119,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .addParameter(classOf[String], "json")
       .addParameters(jsonDecoderParamsForTypeParams(typeParams))
       .returns(className.parameterized(typeParams))
-      .addException(classOf[java.io.IOException])
+      .addException(classOf[JsonLfDecoder.Error])
       .addStatement(
         "return jsonDecoder($L).decode(new $T(json))",
         CodeBlock.join(typeParams.map(t => CodeBlock.of(decodeTypeParamName(t))).asJava, ", "),

@@ -30,10 +30,14 @@ public class JsonLfReader {
   private static final JsonFactory jsonFactory = new JsonFactory();
   private final JsonParser parser;
 
-  public JsonLfReader(String json) throws IOException {
+  public JsonLfReader(String json) throws JsonLfDecoder.Error {
     this.json = json;
-    parser = jsonFactory.createParser(json);
-    parser.nextToken();
+    try {
+      parser = jsonFactory.createParser(json);
+      parser.nextToken();
+    } catch (IOException e) {
+      throw new JsonLfDecoder.Error("initialization error", e);
+    }
   }
 
   /// Readers for built-in LF types. ///
@@ -53,7 +57,7 @@ public class JsonLfReader {
           try {
             value = r.parser.getBooleanValue();
           } catch (IOException e) {
-            r.parseExpected("true or false");
+            r.parseExpected("true or false", e);
           }
           r.moveNext();
           return value;
@@ -66,9 +70,9 @@ public class JsonLfReader {
           try {
             value = Long.parseLong(r.parser.getText());
           } catch (IOException e) {
-            r.parseExpected("int64");
+            r.parseExpected("int64", e);
           } catch (NumberFormatException e) {
-            r.parseExpected("int64");
+            r.parseExpected("int64", e);
           }
           r.moveNext();
           return value;
@@ -85,9 +89,9 @@ public class JsonLfReader {
           try {
             value = new BigDecimal(r.parser.getText());
           } catch (NumberFormatException e) {
-            r.parseExpected("decimal");
+            r.parseExpected("decimal", e);
           } catch (IOException e) {
-            r.parseExpected("decimal");
+            r.parseExpected("decimal", e);
           }
           r.moveNext();
           return value;
@@ -100,9 +104,9 @@ public class JsonLfReader {
           try {
             value = Instant.parse(r.parser.getText());
           } catch (DateTimeParseException e) {
-            r.parseExpected("timestamp");
+            r.parseExpected("timestamp", e);
           } catch (IOException e) {
-            r.parseExpected("timestamp");
+            r.parseExpected("timestamp", e);
           }
           r.moveNext();
           return value;
@@ -115,9 +119,9 @@ public class JsonLfReader {
           try {
             value = LocalDate.parse(r.parser.getText());
           } catch (DateTimeParseException e) {
-            r.parseExpected("date");
+            r.parseExpected("date", e);
           } catch (IOException e) {
-            r.parseExpected("date");
+            r.parseExpected("date", e);
           }
           r.moveNext();
           return value;
@@ -130,7 +134,7 @@ public class JsonLfReader {
           try {
             value = r.parser.getText();
           } catch (IOException e) {
-            r.parseExpected("valid textual value");
+            r.parseExpected("valid textual value", e);
           }
           r.moveNext();
           return value;
@@ -380,7 +384,7 @@ public class JsonLfReader {
         if (repr.endsWith(",")) repr = repr.substring(0, repr.length() - 1); // drop trailing comma
         return new UnknownValue(repr, from);
       } catch (IOException e) {
-        throw new JsonLfDecoder.Error("cannot read unknown value: " + e);
+        throw new JsonLfDecoder.Error("cannot read unknown value", e);
       }
     }
 
@@ -392,7 +396,7 @@ public class JsonLfReader {
         // e.location)); }
       } catch (IOException e) {
         throw new JsonLfDecoder.Error(
-            String.format("cannot decode unknown value '%s': %s", this.jsonRepr, e));
+            String.format("cannot decode unknown value '%s'", this.jsonRepr), e);
       }
     }
   }
@@ -453,7 +457,7 @@ public class JsonLfReader {
     try {
       fieldName = parser.getText();
     } catch (IOException e) {
-      parseExpected("textual field name");
+      parseExpected("textual field name", e);
     }
     moveNext();
     return fieldName;
@@ -472,8 +476,15 @@ public class JsonLfReader {
   }
 
   private void parseExpected(String expected) throws JsonLfDecoder.Error {
-    throw new JsonLfDecoder.Error(
-        String.format("Expected %s but was %s at %s", expected, currentText(), location()));
+    parseExpected(expected, null);
+  }
+
+  private void parseExpected(String expected, Throwable cause) throws JsonLfDecoder.Error {
+    String message =
+        String.format("Expected %s but was %s at %s", expected, currentText(), location());
+    throw (cause == null
+        ? new JsonLfDecoder.Error(message)
+        : new JsonLfDecoder.Error(message, cause));
   }
 
   private void expectIsAt(String description, JsonToken... expected) throws JsonLfDecoder.Error {
@@ -487,7 +498,7 @@ public class JsonLfReader {
     try {
       parser.nextToken();
     } catch (IOException e) {
-      parseExpected("more input");
+      parseExpected("more input", e);
     }
   }
 }

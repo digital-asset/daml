@@ -10,8 +10,12 @@ public interface JsonLfDecoder<T> {
   public T decode(JsonLfReader r) throws Error;
 
   public static class Error extends IOException {
-    public Error(String msg) {
-      super(msg);
+    public Error(String message) {
+      super(message);
+    }
+
+    public Error(String message, Throwable cause) {
+      super(message, cause);
     }
   }
 }
