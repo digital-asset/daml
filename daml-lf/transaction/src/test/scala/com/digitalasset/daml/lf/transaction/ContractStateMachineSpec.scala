@@ -326,6 +326,23 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
 
   }
 
+  def createAfterFetch: TestCase = {
+    // [ Fetch c1, Create c1 ]
+    val builder = new TxBuilder()
+    val _ = builder.add(mkFetch(1, "key1", byKey = false))
+    val _ = builder.add(mkCreate(1, "key2"))
+    val tx = builder.build()
+    val expected = duplicateContractId(1)
+    TestCase(
+      "CreateAfterFetch",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
   def doubleCreate: TestCase = {
     // [ Create c1, Create c1 ]
     val createNode = mkCreate(1)
@@ -568,7 +585,9 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     archiveRbLookupCreate,
     rbExeCreateLbkDivulged,
     rbExeCreateFbk,
+    createAfterFetch,
     doubleCreate,
+    doubleCreateWithKey,
     divulgedLookup,
     rbFbkFetch,
     archiveOtherKeyContract,

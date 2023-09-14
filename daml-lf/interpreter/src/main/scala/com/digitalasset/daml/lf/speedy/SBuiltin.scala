@@ -2028,6 +2028,7 @@ private[lf] object SBuiltin {
       case Tx.AuthFailureDuringExecution(nid, fa) =>
         IE.FailedAuthorization(nid, fa)
       case Tx.DuplicateContractId(contractId) =>
+        // TODO call crash here
         IE.DuplicateContractId(templateId, contractId)
       case Tx.DuplicateContractKey(key) =>
         IE.DuplicateContractKey(key)
