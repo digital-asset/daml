@@ -1217,10 +1217,10 @@ runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do
       SS.BackendError err -> assertFailure $ "Unexpected result " <> show err
       SS.ExceptionError err -> assertFailure $ "Unexpected result " <> show err
       SS.ScenarioError err -> pure $ Left $ renderPlain $
-        prettyScenarioError world err
+        prettyScenarioError prettyNormal world err
           $$ text "" -- add a newline at the end
     prettyResult world (Right r) = pure $ Right $ renderPlain $
-      prettyScenarioResult world (S.fromList (V.toList (SS.scenarioResultActiveContracts r))) r
+      prettyScenarioResult prettyNormal world (S.fromList (V.toList (SS.scenarioResultActiveContracts r))) r
         $$ text "" -- add a newline at the end
     file = toNormalizedFilePath' "Test.daml"
     getIdeState = do

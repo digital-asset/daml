@@ -82,6 +82,8 @@ data Options = Options
     -- ^ The target Daml-LF version
   , optLogLevel :: Logger.Priority
     -- ^ Min log level that we display
+  , optDetailLevel :: PrettyLevel
+    -- ^ Level of detail in pretty printed output
   , optGhcCustomOpts :: [String]
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   , optScenarioService :: EnableScenarioService
@@ -251,6 +253,7 @@ defaultOptions mbVersion =
         , optThreads = 1
         , optDamlLfVersion = fromMaybe LF.versionDefault mbVersion
         , optLogLevel = Logger.Info
+        , optDetailLevel = DA.Pretty.prettyNormal
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
         , optEnableScenarios = EnableScenarios False
