@@ -379,7 +379,7 @@ object ContractStateMachine {
 
       // We want consistent key lookups within an action in any contract key mode.
       def consistentGlobalKeyInputs: Either[KeyInputError, Unit] = {
-        substate.locallyCreated.union(fetched).find(locallyCreated.contains) match {
+        substate.locallyCreated.find(locallyCreated.union(fetched).contains) match {
           case Some(contractId) =>
             Left[KeyInputError, Unit](DuplicateContractId(contractId))
           case None =>
