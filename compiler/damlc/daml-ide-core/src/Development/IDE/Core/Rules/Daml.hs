@@ -101,6 +101,7 @@ import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import DA.Daml.UtilLF
 import qualified DA.Pretty as Pretty
+import DA.Pretty (PrettyLevel)
 import SdkVersion (damlStdlib)
 
 import Language.Haskell.HLint4
@@ -861,13 +862,14 @@ runSingleScenarioRule =
             | (sc, _scLoc) <- scenariosInModule m
             , targetScenarioName == LF.unExprValName (LF.qualObject sc)]
 
+      lvl <- getDetailLevel
       scenarioResults <-
           forM scenarios $ \scenario -> do
               (vr, res) <- runScenario scenarioService file ctxId scenario
               let scenarioName = LF.qualObject scenario
               let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
               let range = maybe noRange sourceLocToRange mbLoc
-              pure (toDiagnostics world file range res, (vr, res))
+              pure (toDiagnostics lvl world file range res, (vr, res))
       let (diags, results) = unzip scenarioResults
       pure (concat diags, Just results)
 
@@ -907,13 +909,14 @@ runSingleScriptRule =
               | (sc, _scLoc) <- scriptsInModule m
               , targetScriptName == LF.unExprValName (LF.qualObject sc)]
 
+      lvl <- getDetailLevel
       scenarioResults <-
           forM scenarios $ \scenario -> do
               (vr, res) <- runScript scenarioService file ctxId scenario
               let scenarioName = LF.qualObject scenario
               let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
               let range = maybe noRange sourceLocToRange mbLoc
-              pure (toDiagnostics world file range res, (vr, res))
+              pure (toDiagnostics lvl world file range res, (vr, res))
       let (diags, results) = unzip scenarioResults
       pure (concat diags, Just results)
 
@@ -935,6 +938,7 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
     scenarioContextsVar <- envScenarioContexts <$> getDamlServiceEnv
     liftIO $ modifyMVar_ scenarioContextsVar $ pure . HashMap.insert projRoot ctxId
     rs <- do
+        lvl <- getDetailLevel
         scenarioResults <- forM scenarios $ \scenario ->
             runScenario scenarioService pkgName' ctxId scenario
         scriptResults <- forM scripts $ \script ->
@@ -944,7 +948,7 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
                 ctxId
                 script
         pure $
-            [ (toDiagnostics world pkgName' noRange res, (vr, res))
+            [ (toDiagnostics lvl world pkgName' noRange res, (vr, res))
             | (vr, res) <- scenarioResults ++ scriptResults
             ]
     let (diags, results) = unzip rs
@@ -972,14 +976,15 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
             ]
 
 toDiagnostics ::
-       LF.World
+       PrettyLevel
+    -> LF.World
     -> NormalizedFilePath
     -> Range
     -> Either SS.Error SS.ScenarioResult
     -> [FileDiagnostic]
-toDiagnostics world scenarioFile scenarioRange = \case
+toDiagnostics lvl world scenarioFile scenarioRange = \case
     Left err -> pure $ mkDiagnostic DsError (scenarioFile, scenarioRange) $
-        formatScenarioError world err
+        formatScenarioError lvl world err
     Right SS.ScenarioResult{..} ->
         [ mkDiagnostic DsWarning fileRange (LF.prettyWarningMessage warning)
         | warning <- V.toList scenarioResultWarnings
@@ -1198,9 +1203,11 @@ ofInterestRule = do
           mbScriptVrs <- use (RunSingleScript (vrScenarioName vr)) file
           let vrResults = fromMaybe [] mbScenarioVrs ++ fromMaybe [] mbScriptVrs
 
+          lvl <- getDetailLevel
+
           -- Should be a singleton list, send results via LSP
           forM_ vrResults $ \(vr, res) -> do
-              let doc = formatScenarioResult world res
+              let doc = formatScenarioResult lvl world res
               vrChangedNotification vr doc
 
           -- If the scenario name is not in the results, the scenario no
@@ -1276,27 +1283,27 @@ getOpenVirtualResourcesRule = do
         openVRs <- liftIO $ readVar envOpenVirtualResources
         pure (Just $ BS.fromString $ show openVRs, ([], Just openVRs))
 
-formatHtmlScenarioError :: LF.World -> SS.Error -> T.Text
-formatHtmlScenarioError world  err = case err of
+formatHtmlScenarioError :: PrettyLevel -> LF.World -> SS.Error -> T.Text
+formatHtmlScenarioError lvl world  err = case err of
     SS.BackendError err ->
         Pretty.renderHtmlDocumentText 128 $ Pretty.pretty $ "Scenario service backend error: " <> show err
-    SS.ScenarioError err -> LF.renderScenarioError world err
+    SS.ScenarioError err -> LF.renderScenarioError lvl world err
     SS.ExceptionError err ->
         Pretty.renderHtmlDocumentText 128 $ Pretty.pretty $ "Exception during scenario execution: " <> show err
 
-formatScenarioError :: LF.World -> SS.Error -> Pretty.Doc Pretty.SyntaxClass
-formatScenarioError world  err = case err of
+formatScenarioError :: PrettyLevel -> LF.World -> SS.Error -> Pretty.Doc Pretty.SyntaxClass
+formatScenarioError lvl world  err = case err of
     SS.BackendError err -> Pretty.pretty $ "Scenario service backend error: " <> show err
-    SS.ScenarioError err -> LF.prettyScenarioError world err
+    SS.ScenarioError err -> LF.prettyScenarioError lvl world err
     SS.ExceptionError err -> Pretty.pretty $ "Exception during scenario execution: " <> show err
 
-formatScenarioResult :: LF.World -> Either SS.Error SS.ScenarioResult -> T.Text
-formatScenarioResult world errOrRes =
+formatScenarioResult :: PrettyLevel -> LF.World -> Either SS.Error SS.ScenarioResult -> T.Text
+formatScenarioResult lvl world errOrRes =
     case errOrRes of
         Left err ->
-            formatHtmlScenarioError world err
+            formatHtmlScenarioError lvl world err
         Right res ->
-            LF.renderScenarioResult world res
+            LF.renderScenarioResult lvl world res
 
 runScenario :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
 runScenario scenarioService file ctxId scenario = do
@@ -1437,6 +1444,9 @@ scriptsInModule m =
 
 getDamlLfVersion :: Action LF.Version
 getDamlLfVersion = envDamlLfVersion <$> getDamlServiceEnv
+
+getDetailLevel :: Action PrettyLevel
+getDetailLevel = envDetailLevel <$> getDamlServiceEnv
 
 -- | This operates on file paths rather than module names so that we avoid introducing a dependency on GetParsedModule.
 discardInternalModules :: Maybe UnitId -> [NormalizedFilePath] -> Action [NormalizedFilePath]

@@ -19,6 +19,7 @@ module DA.Daml.LF.PrettyScenario
   , fileWScenarioNoLongerCompilesNote
   , isActive
   , ModuleRef
+  , PrettyLevel
   -- Exposed for testing
   , ptxExerciseContext
   , ExerciseContext(..)
@@ -28,6 +29,7 @@ import           Control.Monad.Extra
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Except
 import qualified DA.Daml.LF.Ast             as LF
+import qualified DA.Daml.LF.Ast.Pretty      as LF
 import DA.Daml.LF.Mangling
 import Control.Applicative
 import Text.Read hiding (parens)
@@ -145,9 +147,9 @@ activeContractsFromScenarioError err =
     S.fromList (V.toList (scenarioErrorActiveContracts err))
 
 prettyScenarioResult
-  :: LF.World -> S.Set TL.Text -> ScenarioResult -> Doc SyntaxClass
-prettyScenarioResult world activeContracts (ScenarioResult steps nodes retValue _finaltime traceLog warnings _) =
-  let ppSteps = runM nodes world (vsep <$> mapM prettyScenarioStep (V.toList steps))
+  :: PrettyLevel -> LF.World -> S.Set TL.Text -> ScenarioResult -> Doc SyntaxClass
+prettyScenarioResult lvl world activeContracts (ScenarioResult steps nodes retValue _finaltime traceLog warnings _) =
+  let ppSteps = runM nodes world (vsep <$> mapM (prettyScenarioStep lvl) (V.toList steps))
       sortNodeIds = sortOn parseNodeId
       ppActive =
           fcommasep
@@ -160,15 +162,15 @@ prettyScenarioResult world activeContracts (ScenarioResult steps nodes retValue 
   in vsep $ concat
     [ [label_ "Transactions: " ppSteps]
     , [label_ "Active contracts: " ppActive]
-    , [label_ "Return value:" (prettyValue' True 0 world v) | Just v <- [retValue]]
+    , [label_ "Return value:" (prettyValue' lvl True 0 world v) | Just v <- [retValue]]
     , [text "Trace: " $$ nest 2 ppTrace | not (V.null traceLog)]
     , [text "Warnings: " $$ nest 2 ppWarnings | not (V.null warnings)]
     ]
 
 prettyBriefScenarioError
-  :: LF.World -> ScenarioError -> Doc SyntaxClass
-prettyBriefScenarioError world ScenarioError{..} = runM scenarioErrorNodes world $ do
-  ppError <- prettyScenarioErrorError scenarioErrorError
+  :: PrettyLevel -> LF.World -> ScenarioError -> Doc SyntaxClass
+prettyBriefScenarioError lvl world ScenarioError{..} = runM scenarioErrorNodes world $ do
+  ppError <- prettyScenarioErrorError lvl scenarioErrorError
   pure $
     annotateSC ErrorSC
       (text "Script execution" <->
@@ -180,12 +182,12 @@ prettyBriefScenarioError world ScenarioError{..} = runM scenarioErrorNodes world
     $$ nest 2 ppError
 
 prettyScenarioError
-  :: LF.World -> ScenarioError -> Doc SyntaxClass
-prettyScenarioError world ScenarioError{..} = runM scenarioErrorNodes world $ do
-  ppError <- prettyScenarioErrorError scenarioErrorError
-  ppSteps <- vsep <$> mapM prettyScenarioStep (V.toList scenarioErrorScenarioSteps)
+  :: PrettyLevel -> LF.World -> ScenarioError -> Doc SyntaxClass
+prettyScenarioError lvl world ScenarioError{..} = runM scenarioErrorNodes world $ do
+  ppError <- prettyScenarioErrorError lvl scenarioErrorError
+  ppSteps <- vsep <$> mapM (prettyScenarioStep lvl) (V.toList scenarioErrorScenarioSteps)
   ppPtx <- forM scenarioErrorPartialTransaction $ \ptx -> do
-      p <- prettyPartialTransaction ptx
+      p <- prettyPartialTransaction lvl ptx
       pure $ text "Partial transaction:" $$ nest 2 p
   let ppTrace = vcat $ map prettyTraceMessage (V.toList scenarioErrorTraceLog)
       ppWarnings = vcat $ map prettyWarningMessage (V.toList scenarioErrorWarnings)
@@ -268,22 +270,22 @@ ptxExerciseContext PartialTransaction{..} = go Nothing partialTransactionRoots
                         acc
         nodeMap = MS.fromList [ (nodeId, node) | node <- V.toList partialTransactionNodes, Just nodeId <- [nodeNodeId node] ]
 
-prettyScenarioErrorError :: Maybe ScenarioErrorError -> M (Doc SyntaxClass)
-prettyScenarioErrorError Nothing = pure $ text "<missing error details>"
-prettyScenarioErrorError (Just err) =  do
+prettyScenarioErrorError :: PrettyLevel -> Maybe ScenarioErrorError -> M (Doc SyntaxClass)
+prettyScenarioErrorError _ Nothing = pure $ text "<missing error details>"
+prettyScenarioErrorError lvl (Just err) =  do
   world <- askWorld
   case err of
     ScenarioErrorErrorCrash reason -> pure $ text "CRASH:" <-> ltext reason
     ScenarioErrorErrorUserError reason -> pure $ text "Aborted: " <-> ltext reason
-    ScenarioErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' True 0 world exc
+    ScenarioErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' lvl True 0 world exc
     ScenarioErrorErrorTemplatePrecondViolated ScenarioError_TemplatePreconditionViolated{..} -> do
       pure $
         "Template precondition violated in:"
           $$ nest 2
           (   "create"
-          <-> prettyMay "<missing template id>" (prettyDefName world) scenarioError_TemplatePreconditionViolatedTemplateId
+          <-> prettyMay "<missing template id>" (prettyDefName lvl world) scenarioError_TemplatePreconditionViolatedTemplateId
           $$ (   keyword_ "with"
-              $$ nest 2 (prettyMay "<missing argument>" (prettyValue' False 0 world) scenarioError_TemplatePreconditionViolatedArg)
+              $$ nest 2 (prettyMay "<missing argument>" (prettyValue' lvl False 0 world) scenarioError_TemplatePreconditionViolatedArg)
              )
           )
     ScenarioErrorErrorUpdateLocalContractNotActive ScenarioError_ContractNotActive{..} ->
@@ -291,30 +293,30 @@ prettyScenarioErrorError (Just err) =  do
         [ "Attempt to exercise a contract that was consumed in same transaction."
         , "Contract:"
             <-> prettyMay "<missing contract>"
-                  (prettyContractRef world)
+                  (prettyContractRef lvl world)
                   scenarioError_ContractNotActiveContractRef
         ]
     ScenarioErrorErrorDisclosedContractKeyHashingError(ScenarioError_DisclosedContractKeyHashingError contractId key computedHash declaredHash) ->
       pure $ vcat
         [ "Mismatched disclosed contract key hash for contract"
-        , label_ "Contract:" $ prettyMay "<missing contract>" (prettyContractRef world) contractId
-        , label_ "key:" $ prettyMay "<missing key>" (prettyValue' False 0 world) key
+        , label_ "Contract:" $ prettyMay "<missing contract>" (prettyContractRef lvl world) contractId
+        , label_ "key:" $ prettyMay "<missing key>" (prettyValue' lvl False 0 world) key
         , label_ "computed hash:" $ ltext computedHash
-        , label_ "declared hash:" $ ltext declaredHash    
+        , label_ "declared hash:" $ ltext declaredHash
         ]
     ScenarioErrorErrorCreateEmptyContractKeyMaintainers ScenarioError_CreateEmptyContractKeyMaintainers{..} ->
       pure $ vcat
         [ "Attempt to create a contract key with an empty set of maintainers:"
         , nest 2
           (   "create"
-          <-> prettyMay "<missing template id>" (prettyDefName world) scenarioError_CreateEmptyContractKeyMaintainersTemplateId
+          <-> prettyMay "<missing template id>" (prettyDefName lvl world) scenarioError_CreateEmptyContractKeyMaintainersTemplateId
           $$ (   keyword_ "with"
-              $$ nest 2 (prettyMay "<missing argument>" (prettyValue' False 0 world) scenarioError_CreateEmptyContractKeyMaintainersArg)
+              $$ nest 2 (prettyMay "<missing argument>" (prettyValue' lvl False 0 world) scenarioError_CreateEmptyContractKeyMaintainersArg)
              )
           )
         , label_ "Key: "
           $ prettyMay "<missing key>"
-              (prettyValue' False 0 world)
+              (prettyValue' lvl False 0 world)
               scenarioError_CreateEmptyContractKeyMaintainersKey
         ]
     ScenarioErrorErrorFetchEmptyContractKeyMaintainers ScenarioError_FetchEmptyContractKeyMaintainers{..} ->
@@ -322,18 +324,18 @@ prettyScenarioErrorError (Just err) =  do
         [ "Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers"
         , label_ "Template:"
             $ prettyMay "<missing template id>"
-                (prettyDefName world)
+                (prettyDefName lvl world)
                 scenarioError_FetchEmptyContractKeyMaintainersTemplateId
         , label_ "Key: "
             $ prettyMay "<missing key>"
-                (prettyValue' False 0 world)
+                (prettyValue' lvl False 0 world)
                 scenarioError_FetchEmptyContractKeyMaintainersKey
         ]
     ScenarioErrorErrorScenarioContractNotActive ScenarioError_ContractNotActive{..} -> do
       pure $ vcat
         [ "Attempt to exercise a consumed contract"
             <-> prettyMay "<missing contract>"
-                  (prettyContractRef world)
+                  (prettyContractRef lvl world)
                   scenarioError_ContractNotActiveContractRef
         , "Consumed by:"
             <-> prettyMay "<missing node id>" prettyNodeIdLink scenarioError_ContractNotActiveConsumedBy
@@ -342,33 +344,33 @@ prettyScenarioErrorError (Just err) =  do
       pure "Unknown commit error"
 
     ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumFailedAuthorizations fas))) -> do
-      pure $ vcat $ mapV (prettyFailedAuthorization world) (failedAuthorizationsFailedAuthorizations fas)
+      pure $ vcat $ mapV (prettyFailedAuthorization lvl world) (failedAuthorizationsFailedAuthorizations fas)
 
     ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumUniqueContractKeyViolation gk))) -> do
       pure $ vcat
         [ "Commit error due to unique key violation for key"
-        , nest 2 (prettyMay "<missing key>" (prettyValue' False 0 world) (globalKeyKey gk))
+        , nest 2 (prettyMay "<missing key>" (prettyValue' lvl False 0 world) (globalKeyKey gk))
         , "for template"
-        , nest 2 (prettyMay "<missing template id>" (prettyDefName world) (globalKeyTemplateId gk))
+        , nest 2 (prettyMay "<missing template id>" (prettyDefName lvl world) (globalKeyTemplateId gk))
         ]
 
     ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumInconsistentContractKey gk))) -> do
       pure $ vcat
         [ "Commit error due to inconsistent key"
-        , nest 2 (prettyMay "<missing key>" (prettyValue' False 0 world) (globalKeyKey gk))
+        , nest 2 (prettyMay "<missing key>" (prettyValue' lvl False 0 world) (globalKeyKey gk))
         , "for template"
-        , nest 2 (prettyMay "<missing template id>" (prettyDefName world) (globalKeyTemplateId gk))
+        , nest 2 (prettyMay "<missing template id>" (prettyDefName lvl world) (globalKeyTemplateId gk))
         ]
 
     ScenarioErrorErrorUnknownContext ctxId ->
       pure $ "Unknown script interpretation context:" <-> string (show ctxId)
     ScenarioErrorErrorUnknownScenario name ->
-      pure $ "Unknown script:" <-> prettyDefName world name
+      pure $ "Unknown script:" <-> prettyDefName lvl world name
     ScenarioErrorErrorScenarioContractNotEffective ScenarioError_ContractNotEffective{..} ->
       pure $ vcat
         [ "Attempt to fetch or exercise a contract not yet effective."
         , "Contract:"
-        <-> prettyMay "<missing contract>" (prettyContractRef world)
+        <-> prettyMay "<missing contract>" (prettyContractRef lvl world)
               scenarioError_ContractNotEffectiveContractRef
         , "Effective at:"
         <-> prettyTimestamp scenarioError_ContractNotEffectiveEffectiveAt
@@ -386,7 +388,7 @@ prettyScenarioErrorError (Just err) =  do
         [ "Attempt to fetch or exercise a contract not visible to the reading parties."
         , label_ "Contract: "
             $ prettyMay "<missing contract>"
-                (prettyContractRef world)
+                (prettyContractRef lvl world)
                 scenarioError_ContractNotVisibleContractRef
         , label_ "actAs:" $ prettyParties scenarioError_ContractNotVisibleActAs
         , label_ "readAs:" $ prettyParties scenarioError_ContractNotVisibleReadAs
@@ -398,11 +400,11 @@ prettyScenarioErrorError (Just err) =  do
         [ "Attempt to fetch, lookup or exercise a key associated with a contract not visible to the committer."
         , label_ "Contract: "
             $ prettyMay "<missing contract>"
-                (prettyContractRef world)
+                (prettyContractRef lvl world)
                 scenarioError_ContractKeyNotVisibleContractRef
         , label_ "Key: "
             $ prettyMay "<missing key>"
-                (prettyValue' False 0 world)
+                (prettyValue' lvl False 0 world)
                 scenarioError_ContractKeyNotVisibleKey
         , label_ "actAs:" $ prettyParties scenarioError_ContractKeyNotVisibleActAs
         , label_ "readAs:" $ prettyParties scenarioError_ContractKeyNotVisibleReadAs
@@ -414,11 +416,11 @@ prettyScenarioErrorError (Just err) =  do
         [ "Attempt to fetch or exercise by key but no contract with that key was found."
         , label_ "Template:"
             $ prettyMay "<missing template id>"
-                (prettyDefName world)
+                (prettyDefName lvl world)
                 scenarioError_ContractKeyNotFoundTemplateId
         , label_ "Key: "
           $ prettyMay "<missing key>"
-              (prettyValue' False 0 world)
+              (prettyValue' lvl False 0 world)
               scenarioError_ContractKeyNotFoundKey
         ]
     ScenarioErrorErrorWronglyTypedContract ScenarioError_WronglyTypedContract{..} ->
@@ -426,27 +428,27 @@ prettyScenarioErrorError (Just err) =  do
         [ "Attempt to fetch or exercise a wrongly typed contract."
         , label_ "Contract: "
             $ prettyMay "<missing contract>"
-                (prettyContractRef world)
+                (prettyContractRef lvl world)
                 scenarioError_WronglyTypedContractContractRef
         , label_ "Expected type: "
-            $ prettyMay "<missing template id>" (prettyDefName world) scenarioError_WronglyTypedContractExpected
+            $ prettyMay "<missing template id>" (prettyDefName lvl world) scenarioError_WronglyTypedContractExpected
         ]
     ScenarioErrorErrorWronglyTypedContractSoft ScenarioError_WronglyTypedContractSoft{..} ->
       pure $ vcat
         [ "Attempt to fetch or exercise a wrongly typed contract."
         , label_ "Contract: "
             $ prettyMay "<missing contract>"
-                (prettyContractRef world)
+                (prettyContractRef lvl world)
                 scenarioError_WronglyTypedContractSoftContractRef
         , label_ "Expected type: "
-            $ prettyMay "<missing template id>" (prettyDefName world) scenarioError_WronglyTypedContractSoftExpected
+            $ prettyMay "<missing template id>" (prettyDefName lvl world) scenarioError_WronglyTypedContractSoftExpected
         , label_ "Accepted types (ancestors): "
-            $ vcat $ mapV (prettyDefName world) scenarioError_WronglyTypedContractSoftAccepted
+            $ vcat $ mapV (prettyDefName lvl world) scenarioError_WronglyTypedContractSoftAccepted
         ]
     ScenarioErrorErrorContractIdInContractKey ScenarioError_ContractIdInContractKey{..} ->
       pure $ "Contract IDs are not supported in contract key:" <->
         prettyMay "<missing contract key>"
-          (prettyValue' False 0 world)
+          (prettyValue' lvl False 0 world)
           scenarioError_ContractIdInContractKeyKey
     ScenarioErrorErrorComparableValueError _ ->
       pure "Attend to compare incomparable values"
@@ -462,7 +464,7 @@ prettyScenarioErrorError (Just err) =  do
         [ "Attempt to exercise a choice with a failing guard"
         , label_ "Contract: " $
             prettyMay "<missing contract>"
-              (prettyContractRef world)
+              (prettyContractRef lvl world)
               scenarioError_ChoiceGuardFailedContractRef
         , label_ "Choice: " $
             prettyChoiceId world
@@ -470,7 +472,7 @@ prettyScenarioErrorError (Just err) =  do
               scenarioError_ChoiceGuardFailedChoiceId
         , maybe
             mempty
-            (\iid -> label_ "Interface: " $ prettyDefName world iid)
+            (\iid -> label_ "Interface: " $ prettyDefName lvl world iid)
             scenarioError_ChoiceGuardFailedByInterface
         ]
     ScenarioErrorErrorContractDoesNotImplementInterface ScenarioError_ContractDoesNotImplementInterface {..} ->
@@ -478,11 +480,11 @@ prettyScenarioErrorError (Just err) =  do
         [ "Attempt to use a contract via an interface that the contract does not implement"
         , label_ "Contract: " $
             prettyMay "<missing contract>"
-              (prettyContractRef world)
+              (prettyContractRef lvl world)
               scenarioError_ContractDoesNotImplementInterfaceContractRef
         , label_ "Interface: " $
             prettyMay "<missing interface>"
-              (prettyDefName world)
+              (prettyDefName lvl world)
               scenarioError_ContractDoesNotImplementInterfaceInterfaceId
         ]
     ScenarioErrorErrorContractDoesNotImplementRequiringInterface ScenarioError_ContractDoesNotImplementRequiringInterface {..} ->
@@ -490,22 +492,22 @@ prettyScenarioErrorError (Just err) =  do
         [ "Attempt to use a contract via a required interface, but the contract does not implement the requiring interface"
         , label_ "Contract: " $
             prettyMay "<missing contract>"
-              (prettyContractRef world)
+              (prettyContractRef lvl world)
               scenarioError_ContractDoesNotImplementRequiringInterfaceContractRef
         , label_ "Required interface: " $
             prettyMay "<missing interface>"
-              (prettyDefName world)
+              (prettyDefName lvl world)
               scenarioError_ContractDoesNotImplementRequiringInterfaceRequiredInterfaceId
         , label_ "Requiring interface: " $
             prettyMay "<missing interface>"
-              (prettyDefName world)
+              (prettyDefName lvl world)
               scenarioError_ContractDoesNotImplementRequiringInterfaceRequiringInterfaceId
         ]
     ScenarioErrorErrorEvaluationTimeout timeout ->
       pure $ text $ T.pack $ "Evaluation timed out after " <> show timeout <> " seconds"
     ScenarioErrorErrorCancelledByRequest _ ->
       pure $ text $ T.pack "Evaluation was cancelled because the test was changed and rerun in a new thread."
-    
+
     ScenarioErrorErrorLookupError ScenarioError_LookupError {..} -> do
       let
         errMsg =
@@ -539,15 +541,15 @@ partyDifference with without =
 prettyParties :: V.Vector Party -> Doc SyntaxClass
 prettyParties = fcommasep . mapV prettyParty
 
-prettyFailedAuthorization :: LF.World -> FailedAuthorization -> Doc SyntaxClass
-prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
+prettyFailedAuthorization :: PrettyLevel -> LF.World -> FailedAuthorization -> Doc SyntaxClass
+prettyFailedAuthorization lvl world (FailedAuthorization mbNodeId mbFa) =
   hcat
     [ prettyMay "<missing node id>" prettyNodeIdLink mbNodeId
     , text ": "
     , vcat $ case mbFa of
         Just (FailedAuthorizationSumCreateMissingAuthorization
           (FailedAuthorization_CreateMissingAuthorization templateId mbLoc authParties reqParties)) ->
-              [ "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+              [ "create of" <-> prettyMay "<missing template id>" (prettyDefName lvl world) templateId
                 <-> "at" <-> prettyMayLocation world mbLoc
               , "failed due to a missing authorization from"
                 <-> reqParties `partyDifference` authParties
@@ -555,7 +557,7 @@ prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
 
         Just (FailedAuthorizationSumMaintainersNotSubsetOfSignatories
           (FailedAuthorization_MaintainersNotSubsetOfSignatories templateId mbLoc signatories maintainers)) ->
-              [ "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+              [ "create of" <-> prettyMay "<missing template id>" (prettyDefName lvl world) templateId
                 <-> "at" <-> prettyMayLocation world mbLoc
               , "failed due to that some parties are maintainers but not signatories: "
                 <-> maintainers `partyDifference` signatories
@@ -563,7 +565,7 @@ prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
 
         Just (FailedAuthorizationSumFetchMissingAuthorization
           (FailedAuthorization_FetchMissingAuthorization templateId mbLoc authParties stakeholders)) ->
-              [ "fetch of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+              [ "fetch of" <-> prettyMay "<missing template id>" (prettyDefName lvl world) templateId
                 <-> "at" <-> prettyMayLocation world mbLoc
               , "failed since none of the stakeholders"
                 <-> prettyParties stakeholders
@@ -574,7 +576,7 @@ prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
         Just (FailedAuthorizationSumExerciseMissingAuthorization
           (FailedAuthorization_ExerciseMissingAuthorization templateId choiceId mbLoc authParties reqParties)) ->
               [ "exercise of" <-> prettyChoiceId world templateId choiceId
-                <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "in" <-> prettyMay "<missing template id>" (prettyDefName lvl world) templateId
                 <-> "at" <-> prettyMayLocation world mbLoc
               , "failed due to a missing authorization from"
                 <-> reqParties `partyDifference` authParties
@@ -583,7 +585,7 @@ prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
         Just (FailedAuthorizationSumNoControllers
           (FailedAuthorization_NoControllers templateId choiceId mbLoc)) ->
               [ "exercise of" <-> prettyChoiceId world templateId choiceId
-                <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "in" <-> prettyMay "<missing template id>" (prettyDefName lvl world) templateId
                 <-> "at" <-> prettyMayLocation world mbLoc
               , "failed due missing controllers"
               ]
@@ -591,14 +593,14 @@ prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
         Just (FailedAuthorizationSumNoSignatories
           (FailedAuthorization_NoSignatories templateId mbLoc)) ->
               [ "create of"
-                <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> prettyMay "<missing template id>" (prettyDefName lvl world) templateId
                 <-> "at" <-> prettyMayLocation world mbLoc
               , "failed due missing signatories"
               ]
 
         Just (FailedAuthorizationSumLookupByKeyMissingAuthorization
           (FailedAuthorization_LookupByKeyMissingAuthorization templateId mbLoc authParties maintainers)) ->
-              [ "lookup by key of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+              [ "lookup by key of" <-> prettyMay "<missing template id>" (prettyDefName lvl world) templateId
                 <-> "at" <-> prettyMayLocation world mbLoc
               , "failed due to a missing authorization from"
                 <-> maintainers `partyDifference` authParties
@@ -608,14 +610,14 @@ prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
     ]
 
 
-prettyScenarioStep :: ScenarioStep -> M (Doc SyntaxClass)
-prettyScenarioStep (ScenarioStep _stepId Nothing) =
+prettyScenarioStep :: PrettyLevel -> ScenarioStep -> M (Doc SyntaxClass)
+prettyScenarioStep _ (ScenarioStep _stepId Nothing) =
   pure $ text "<missing script step>"
-prettyScenarioStep (ScenarioStep stepId (Just step)) = do
+prettyScenarioStep lvl (ScenarioStep stepId (Just step)) = do
   world <- askWorld
   case step of
     ScenarioStepStepCommit (ScenarioStep_Commit txId (Just tx) mbLoc) ->
-      prettyCommit txId mbLoc tx
+      prettyCommit lvl txId mbLoc tx
 
     ScenarioStepStepAssertMustFail (ScenarioStep_AssertMustFail actAs readAs time txId mbLoc) ->
       pure
@@ -662,10 +664,10 @@ prettyTimestamp = prettyUtcTime . toUtcTime . fromIntegral
         CP.posixSecondsToUTCTime
       $ fromRational $ t Ratio.% (10 ^ (6 :: Integer))
 
-prettyCommit :: Int32 -> Maybe Location -> Transaction -> M (Doc SyntaxClass)
-prettyCommit txid mbLoc Transaction{..} = do
+prettyCommit :: PrettyLevel -> Int32 -> Maybe Location -> Transaction -> M (Doc SyntaxClass)
+prettyCommit lvl txid mbLoc Transaction{..} = do
   world <- askWorld
-  children <- vsep <$> mapM (lookupNode >=> prettyNode) (V.toList transactionRoots)
+  children <- vsep <$> mapM (lookupNode >=> prettyNode lvl) (V.toList transactionRoots)
   return
       $ idSC ("n" <> TE.show txid) (keyword_ "TX")
     <-> prettyTxId txid
@@ -744,15 +746,15 @@ ltext = text . TL.toStrict
 mapV :: (a -> b) -> V.Vector a -> [b]
 mapV f = map f . V.toList
 
-prettyChildren :: V.Vector NodeId -> M (Doc SyntaxClass)
-prettyChildren cs
+prettyChildren :: PrettyLevel -> V.Vector NodeId -> M (Doc SyntaxClass)
+prettyChildren lvl cs
   | V.null cs = pure mempty
   | otherwise = do
-        children <- mapM (lookupNode >=> prettyNode) (V.toList cs)
+        children <- mapM (lookupNode >=> prettyNode lvl) (V.toList cs)
         pure $ keyword_ "children:" $$ vsep children
 
-prettyNodeNode :: NodeNode -> M (Doc SyntaxClass)
-prettyNodeNode nn = do
+prettyNodeNode :: PrettyLevel -> NodeNode -> M (Doc SyntaxClass)
+prettyNodeNode lvl nn = do
   world <- askWorld
   case nn of
     NodeNodeCreate Node_Create{..} ->
@@ -763,12 +765,12 @@ prettyNodeNode nn = do
             let (parties, kw) = partiesAction node_CreateSignatories "creates" "create" in
             parties
             <-> ( -- group to align "create" and "with"
-              (kw <-> prettyMay "<TEMPLATE?>" (prettyDefName world) contractInstanceTemplateId)
+              (kw <-> prettyMay "<TEMPLATE?>" (prettyDefName lvl world) contractInstanceTemplateId)
               $$ maybe
                     mempty
                     (\v ->
                       keyword_ "with" $$
-                        nest 2 (prettyValue' False 0 world v))
+                        nest 2 (prettyValue' lvl False 0 world v))
                       contractInstanceValue
               )
 
@@ -780,11 +782,11 @@ prettyNodeNode nn = do
               kw
           <-> prettyContractId node_FetchContractId
           <-> maybe mempty
-                  (\tid -> parens (prettyDefName world tid))
+                  (\tid -> parens (prettyDefName lvl world tid))
                   node_FetchTemplateId
            $$ foldMap
               (\key ->
-                  let prettyKey = prettyMay "<KEY?>" (prettyValue' False 0 world) $ keyWithMaintainersKey key
+                  let prettyKey = prettyMay "<KEY?>" (prettyValue' lvl False 0 world) $ keyWithMaintainersKey key
                   in
                   hsep [ keyword_ "by key", prettyKey ]
               )
@@ -792,7 +794,7 @@ prettyNodeNode nn = do
         )
 
     NodeNodeExercise Node_Exercise{..} -> do
-      ppChildren <- prettyChildren node_ExerciseChildren
+      ppChildren <- prettyChildren lvl node_ExerciseChildren
       let (parties, kw) = partiesAction node_ExerciseActingParties "exercises" "exercise"
       pure
         $   parties
@@ -802,11 +804,11 @@ prettyNodeNode nn = do
               [ prettyChoiceId world node_ExerciseTemplateId node_ExerciseChoiceId
               , keyword_ "on"
               , prettyContractId node_ExerciseTargetContractId
-              , parens (prettyMay "<missing TemplateId>" (prettyDefName world) node_ExerciseTemplateId)
+              , parens (prettyMay "<missing TemplateId>" (prettyDefName lvl world) node_ExerciseTemplateId)
               ]
            $$ foldMap
               (\key ->
-                let prettyKey = prettyMay "<KEY?>" (prettyValue' False 0 world) $ keyWithMaintainersKey key
+                let prettyKey = prettyMay "<KEY?>" (prettyValue' lvl False 0 world) $ keyWithMaintainersKey key
                 in
                 hsep [ keyword_ "by key", prettyKey ]
               )
@@ -816,7 +818,7 @@ prettyNodeNode nn = do
               else keyword_ "with"
                 $$ nest 2
                      (prettyMay "<missing value>"
-                       (prettyValue' False 0 world)
+                       (prettyValue' lvl False 0 world)
                        node_ExerciseChosenValue)
         )
         $$ ppChildren
@@ -824,18 +826,18 @@ prettyNodeNode nn = do
     NodeNodeLookupByKey Node_LookupByKey{..} -> do
       pure $
         keyword_ "lookupByKey"
-          <-> prettyMay "<TEMPLATE?>" (prettyDefName world) node_LookupByKeyTemplateId
+          <-> prettyMay "<TEMPLATE?>" (prettyDefName lvl world) node_LookupByKeyTemplateId
           $$ text "with key"
           $$ nest 2
             (prettyMay "<KEY?>"
-              (prettyMay "<KEY?>" (prettyValue' False 0 world) . keyWithMaintainersKey)
+              (prettyMay "<KEY?>" (prettyValue' lvl False 0 world) . keyWithMaintainersKey)
               node_LookupByKeyKeyWithMaintainers)
           $$ if TL.null node_LookupByKeyContractId
             then text "not found"
             else text "found:" <-> text (TL.toStrict node_LookupByKeyContractId)
 
     NodeNodeRollback Node_Rollback{..} -> do
-        ppChildren <- prettyChildren node_RollbackChildren
+        ppChildren <- prettyChildren lvl node_RollbackChildren
         pure $ keyword_ "rollback" $$ ppChildren
 
 -- | Take a list of parties and the singular and multiple present tense verbs
@@ -853,13 +855,13 @@ isUnitValue (Just (Value (Just ValueSumUnit{}))) = True
 isUnitValue (Just (Value (Just (ValueSumRecord Record{recordFields})))) = V.null recordFields
 isUnitValue _ = False
 
-prettyNode :: Node -> M (Doc SyntaxClass)
-prettyNode Node{..}
+prettyNode :: PrettyLevel -> Node -> M (Doc SyntaxClass)
+prettyNode lvl Node{..}
   | Nothing <- nodeNode =
       pure "<missing node>"
 
   | Just node <- nodeNode = do
-      ppNode <- prettyNodeNode node
+      ppNode <- prettyNodeNode lvl node
       let ppConsumedBy =
               maybe mempty
                 (\nodeId -> meta $ archivedSC $ text "consumed by:" <-> prettyNodeIdLink nodeId)
@@ -897,13 +899,13 @@ prettyNode Node{..}
     meta p       = text "│  " <-> p
     archivedSC = annotateSC PredicateSC -- Magenta
 
-prettyPartialTransaction :: PartialTransaction -> M (Doc SyntaxClass)
-prettyPartialTransaction ptx@PartialTransaction{..} = do
+prettyPartialTransaction :: PrettyLevel -> PartialTransaction -> M (Doc SyntaxClass)
+prettyPartialTransaction lvl ptx@PartialTransaction{..} = do
   world <- askWorld
   let ppNodes =
            runM partialTransactionNodes world
          $ fmap vsep
-         $ mapM (lookupNode >=> prettyNode)
+         $ mapM (lookupNode >=> prettyNode lvl)
                 (V.toList partialTransactionRoots)
   pure $ vcat
     [ case ptxExerciseContext ptx of
@@ -919,12 +921,12 @@ prettyPartialTransaction ptx@PartialTransaction{..} = do
                   (contractRefTemplateId <$> targetId)
             <-> keyword_ "on"
             <-> prettyMay "<missing>"
-                  (prettyContractRef world)
+                  (prettyContractRef lvl world)
                   targetId
              $$ keyword_ "with"
              $$ ( nest 2
                 $ prettyMay "<missing>"
-                    (prettyValue' False 0 world)
+                    (prettyValue' lvl False 0 world)
                     chosenValue)
             )
 
@@ -934,22 +936,22 @@ prettyPartialTransaction ptx@PartialTransaction{..} = do
    ]
 
 
-prettyValue' :: Bool -> Int -> LF.World -> Value -> Doc SyntaxClass
-prettyValue' _ _ _ (Value Nothing) = text "<missing value>"
-prettyValue' showRecordType prec world (Value (Just vsum)) = case vsum of
+prettyValue' :: PrettyLevel -> Bool -> Int -> LF.World -> Value -> Doc SyntaxClass
+prettyValue' _ _ _ _ (Value Nothing) = text "<missing value>"
+prettyValue' lvl showRecordType prec world (Value (Just vsum)) = case vsum of
   ValueSumRecord (Record mbRecordId fields) ->
     maybeParens (prec > precWith) $
       (if showRecordType
-       then \fs -> prettyMay "" (prettyDefName world) mbRecordId <-> keyword_ "with" $$ nest 2 fs
+       then \fs -> prettyMay "" (prettyDefName lvl world) mbRecordId <-> keyword_ "with" $$ nest 2 fs
        else id)
       (sep (punctuate ";" (mapV prettyField fields)))
   ValueSumVariant (Variant mbVariantId ctor mbValue) ->
-        prettyMay "" (\v -> prettyDefName world v <> ":") mbVariantId <> ltext ctor
-    <-> prettyMay "<missing value>" (prettyValue' True precHighest world) mbValue
+        prettyMay "" (\v -> prettyDefName lvl world v <> ":") mbVariantId <> ltext ctor
+    <-> prettyMay "<missing value>" (prettyValue' lvl True precHighest world) mbValue
   ValueSumEnum (Enum mbEnumId constructor) ->
-        prettyMay "" (\x -> prettyDefName world x <> ":") mbEnumId <> ltext constructor
+        prettyMay "" (\x -> prettyDefName lvl world x <> ":") mbEnumId <> ltext constructor
   ValueSumList (List elems) ->
-    brackets (fcommasep (mapV (prettyValue' True prec world) elems))
+    brackets (fcommasep (mapV (prettyValue' lvl True prec world) elems))
   ValueSumContractId coid -> prettyContractId coid
   ValueSumInt64 i -> string (show i)
   ValueSumDecimal ds -> ltext ds
@@ -961,26 +963,26 @@ prettyValue' showRecordType prec world (Value (Just vsum)) = case vsum of
   ValueSumUnit{} -> text "{}"
   ValueSumDate d -> prettyDate d
   ValueSumOptional (Optional Nothing) -> text "none"
-  ValueSumOptional (Optional (Just v)) -> "some " <> prettyValue' True precHighest world v
-  ValueSumMap (Map entries) -> "Map" <> brackets (fcommasep (mapV (prettyEntry prec world) entries))
-  ValueSumGenMap (GenMap entries) -> "GenMap" <> brackets (fcommasep (mapV (prettyGenMapEntry prec world) entries))
+  ValueSumOptional (Optional (Just v)) -> "some " <> prettyValue' lvl True precHighest world v
+  ValueSumMap (Map entries) -> "Map" <> brackets (fcommasep (mapV (prettyEntry lvl prec world) entries))
+  ValueSumGenMap (GenMap entries) -> "GenMap" <> brackets (fcommasep (mapV (prettyGenMapEntry lvl prec world) entries))
   ValueSumUnserializable what -> ltext what
   where
     prettyField (Field label mbValue) =
       hang (ltext label <-> "=") 2
-        (prettyMay "<missing value>" (prettyValue' True precHighest world) mbValue)
+        (prettyMay "<missing value>" (prettyValue' lvl True precHighest world) mbValue)
     precWith = 1
     precHighest = 9
 
-prettyGenMapEntry :: Int -> LF.World -> GenMap_Entry -> Doc SyntaxClass
-prettyGenMapEntry prec world (GenMap_Entry keyM valueM) =
-    prettyMay "<missing key>" (prettyValue' True prec world) keyM <> "->" <>
-    prettyMay "<missing value>" (prettyValue' True prec world) valueM
+prettyGenMapEntry :: PrettyLevel -> Int -> LF.World -> GenMap_Entry -> Doc SyntaxClass
+prettyGenMapEntry lvl prec world (GenMap_Entry keyM valueM) =
+    prettyMay "<missing key>" (prettyValue' lvl True prec world) keyM <> "->" <>
+    prettyMay "<missing value>" (prettyValue' lvl True prec world) valueM
 
-prettyEntry :: Int -> LF.World ->  Map_Entry -> Doc SyntaxClass
-prettyEntry prec world (Map_Entry key (Just value)) =
-   ltext key <> "->" <> prettyValue' True prec world value
-prettyEntry  _ _ (Map_Entry key _) =
+prettyEntry :: PrettyLevel -> Int -> LF.World ->  Map_Entry -> Doc SyntaxClass
+prettyEntry lvl prec world (Map_Entry key (Just value)) =
+   ltext key <> "->" <> prettyValue' lvl True prec world value
+prettyEntry _ _ _ (Map_Entry key _) =
    ltext key <> "-> <missing value>"
 
 prettyDate :: Int32 -> Doc a
@@ -991,16 +993,17 @@ prettyDate =
   . (24*60*60*)
   . fromIntegral
 
-
-prettyPackageIdentifier :: PackageIdentifier -> Doc SyntaxClass
-prettyPackageIdentifier (PackageIdentifier psum) = case psum of
+prettyPackageIdentifier :: PrettyLevel -> PackageIdentifier -> Doc SyntaxClass
+prettyPackageIdentifier lvl (PackageIdentifier psum) = case psum of
   Nothing                                    -> mempty
   (Just (PackageIdentifierSumSelf _))        -> mempty
-  (Just (PackageIdentifierSumPackageId pid)) -> char '@' <> ltext pid
+  (Just (PackageIdentifierSumPackageId pid))
+    | LF.levelHasPackageIds lvl -> char '@' <> ltext pid
+    | otherwise -> mempty
 
 -- | Note that this should only be called with dotted identifiers.
-prettyDefName :: LF.World -> Identifier -> Doc SyntaxClass
-prettyDefName world (Identifier mbPkgId (UnmangledQualifiedName modName defName))
+prettyDefName :: PrettyLevel -> LF.World -> Identifier -> Doc SyntaxClass
+prettyDefName lvl world (Identifier mbPkgId (UnmangledQualifiedName modName defName))
   | Just mod0 <- lookupModule world mbPkgId modName
   , Just fp <- LF.moduleSource mod0
   , Just (LF.SourceLoc _mref sline _scol eline _ecol) <- lookupDefLocation mod0 defName =
@@ -1010,7 +1013,7 @@ prettyDefName world (Identifier mbPkgId (UnmangledQualifiedName modName defName)
   where
     name = LF.moduleNameString modName <> ":" <> defName
     ppName = text name <> ppPkgId
-    ppPkgId = maybe mempty prettyPackageIdentifier mbPkgId
+    ppPkgId = maybe mempty (prettyPackageIdentifier lvl) mbPkgId
 
 prettyPackageMetadata :: PackageMetadata -> Doc SyntaxClass
 prettyPackageMetadata (PackageMetadata name version) = text $ TL.toStrict $ name <> "-" <> version
@@ -1037,11 +1040,11 @@ revealLocationUri fp sline eline =
   where
     encodeURI = Network.URI.Encode.encodeText
 
-prettyContractRef :: LF.World -> ContractRef -> Doc SyntaxClass
-prettyContractRef world (ContractRef coid tid) =
+prettyContractRef :: PrettyLevel -> LF.World -> ContractRef -> Doc SyntaxClass
+prettyContractRef lvl world (ContractRef coid tid) =
   hsep
   [ prettyContractId coid
-  , parens (prettyMay "<missing template id>" (prettyDefName world) tid)
+  , parens (prettyMay "<missing template id>" (prettyDefName lvl world) tid)
   ]
 
 
@@ -1097,22 +1100,22 @@ groupTables =
     . MS.fromListWith (++)
     . map (\node -> (niTemplateId node, [node]))
 
-renderValue :: LF.World -> [T.Text] -> Value -> (H.Html, H.Html)
-renderValue world name = \case
+renderValue :: PrettyLevel -> LF.World -> [T.Text] -> Value -> (H.Html, H.Html)
+renderValue lvl world name = \case
     Value (Just (ValueSumRecord (Record _ fields))) ->
         let (ths, tds) = unzip $ map renderField (V.toList fields)
         in (mconcat ths, mconcat tds)
     value ->
         let th = H.th $ H.text $ T.intercalate "." name
-            td = H.td $ H.text $ renderPlain $ prettyValue' True 0 world value
+            td = H.td $ H.text $ renderPlain $ prettyValue' lvl True 0 world value
         in (th, td)
     where
         renderField (Field label mbValue) =
-            renderValue world (name ++ [TL.toStrict label]) (fromJust mbValue)
+            renderValue lvl world (name ++ [TL.toStrict label]) (fromJust mbValue)
 
-renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> (H.Html, H.Html)
-renderRow world parties NodeInfo{..} =
-    let (ths, tds) = renderValue world [] niValue
+renderRow :: PrettyLevel -> LF.World -> S.Set T.Text -> NodeInfo -> (H.Html, H.Html)
+renderRow lvl world parties NodeInfo{..} =
+    let (ths, tds) = renderValue lvl world [] niValue
         header = H.tr $ mconcat
             [ H.th "id"
             , H.th "status"
@@ -1141,52 +1144,52 @@ renderRow world parties NodeInfo{..} =
 
 -- TODO(MH): The header should be rendered from the type rather than from the
 -- first value.
-renderTable :: LF.World -> Table -> H.Html
-renderTable world Table{..} = H.div H.! A.class_ active $ do
+renderTable :: PrettyLevel -> LF.World -> Table -> H.Html
+renderTable lvl world Table{..} = H.div H.! A.class_ active $ do
     let parties = S.unions $ map (\row -> niWitnesses row `S.union` niDivulgences row) tRows
-    H.h1 $ renderPlain $ prettyDefName world tTemplateId
-    let (headers, rows) = unzip $ map (renderRow world parties) tRows
+    H.h1 $ renderPlain $ prettyDefName lvl world tTemplateId
+    let (headers, rows) = unzip $ map (renderRow lvl world parties) tRows
     H.table $ head headers <> mconcat rows
     where
         active = if any niActive tRows then "active" else "archived"
 
-renderTableView :: LF.World -> S.Set TL.Text -> V.Vector Node -> Maybe H.Html
-renderTableView world activeContracts nodes =
+renderTableView :: PrettyLevel -> LF.World -> S.Set TL.Text -> V.Vector Node -> Maybe H.Html
+renderTableView lvl world activeContracts nodes =
     let nodeInfos = mapMaybe (nodeInfo activeContracts) (V.toList nodes)
         tables = groupTables nodeInfos
-    in if null nodeInfos then Nothing else Just $ H.div H.! A.class_ "table" $ foldMap (renderTable world) tables
+    in if null nodeInfos then Nothing else Just $ H.div H.! A.class_ "table" $ foldMap (renderTable lvl world) tables
 
-renderTransactionView :: LF.World -> S.Set TL.Text -> ScenarioResult -> H.Html
-renderTransactionView world activeContracts res =
-    let doc = prettyScenarioResult world activeContracts res
+renderTransactionView :: PrettyLevel -> LF.World -> S.Set TL.Text -> ScenarioResult -> H.Html
+renderTransactionView lvl world activeContracts res =
+    let doc = prettyScenarioResult lvl world activeContracts res
     in H.div H.! A.class_ "da-code transaction" $ Pretty.renderHtml 128 doc
 
-renderScenarioResult :: LF.World -> ScenarioResult -> T.Text
-renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
+renderScenarioResult :: PrettyLevel -> LF.World -> ScenarioResult -> T.Text
+renderScenarioResult lvl world res = TL.toStrict $ Blaze.renderHtml $ do
     H.docTypeHtml $ do
         H.head $ do
             H.style $ H.text Pretty.highlightStylesheet
             H.script "" H.! A.src "$webviewSrc"
             H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
         let activeContracts = S.fromList (V.toList (scenarioResultActiveContracts res))
-        let tableView = renderTableView world activeContracts (scenarioResultNodes res)
-        let transView = renderTransactionView world activeContracts res
+        let tableView = renderTableView lvl world activeContracts (scenarioResultNodes res)
+        let transView = renderTransactionView lvl world activeContracts res
         renderViews SuccessView tableView transView
 
-renderScenarioError :: LF.World -> ScenarioError -> T.Text
-renderScenarioError world err = TL.toStrict $ Blaze.renderHtml $ do
+renderScenarioError :: PrettyLevel -> LF.World -> ScenarioError -> T.Text
+renderScenarioError lvl world err = TL.toStrict $ Blaze.renderHtml $ do
     H.docTypeHtml $ do
         H.head $ do
             H.style $ H.text Pretty.highlightStylesheet
             H.script "" H.! A.src "$webviewSrc"
             H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
         let tableView = do
-                table <- renderTableView world (activeContractsFromScenarioError err) (scenarioErrorNodes err)
+                table <- renderTableView lvl world (activeContractsFromScenarioError err) (scenarioErrorNodes err)
                 pure $ H.div H.! A.class_ "table" $ do
                   Pretty.renderHtml 128 $ annotateSC ErrorSC "Script execution failed, displaying state before failing transaction"
                   table
         let transView =
-                let doc = prettyScenarioError world err
+                let doc = prettyScenarioError lvl world err
                 in H.div H.! A.class_ "da-code transaction" $ Pretty.renderHtml 128 doc
         renderViews ErrorView tableView transView
 

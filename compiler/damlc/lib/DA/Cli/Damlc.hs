@@ -26,6 +26,7 @@ import DA.Cli.Options (Debug(..),
                        ProjectOpts(..),
                        Style(..),
                        Telemetry(..),
+                       cliOptDetailLevel,
                        debugOpt,
                        disabledDlintUsageParser,
                        enabledDlintUsageParser,
@@ -432,10 +433,7 @@ cmdInspect =
     <> fullDesc
   where
     jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
-    detailOpt =
-        fmap (maybe DA.Pretty.prettyNormal DA.Pretty.PrettyLevel) $
-            optional $ optionOnce auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
-    cmd = execInspect <$> inputFileOptWithExt ".dalf or .dar" <*> outputFileOpt <*> jsonOpt <*> detailOpt
+    cmd = execInspect <$> inputFileOptWithExt ".dalf or .dar" <*> outputFileOpt <*> jsonOpt <*> cliOptDetailLevel
 
 cmdBuild :: Int -> Mod CommandFields Command
 cmdBuild numProcessors =

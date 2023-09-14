@@ -3,8 +3,12 @@
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE FlexibleInstances  #-}
-module DA.Daml.LF.Ast.Pretty(
-    (<:>)
+module DA.Daml.LF.Ast.Pretty
+    ( levelHasTypes
+    , levelHasKinds
+    , levelHasPackageIds
+    , levelHasLocations
+    , (<:>)
     ) where
 
 import qualified Data.Ratio                 as Ratio

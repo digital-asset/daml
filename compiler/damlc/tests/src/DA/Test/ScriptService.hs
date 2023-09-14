@@ -1219,8 +1219,8 @@ runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do
     prettyResult world (Left err) = case err of
       SS.BackendError err -> assertFailure $ "Unexpected result " <> show err
       SS.ExceptionError err -> assertFailure $ "Unexpected result " <> show err
-      SS.ScenarioError err -> pure $ Left $ renderPlain (prettyScenarioError world err)
-    prettyResult world (Right r) = pure $ Right $ renderPlain (prettyScenarioResult world (S.fromList (V.toList (SS.scenarioResultActiveContracts r))) r)
+      SS.ScenarioError err -> pure $ Left $ renderPlain (prettyScenarioError prettyNormal world err)
+    prettyResult world (Right r) = pure $ Right $ renderPlain (prettyScenarioResult prettyNormal world (S.fromList (V.toList (SS.scenarioResultActiveContracts r))) r)
     file = toNormalizedFilePath' "Test.daml"
     getIdeState = do
       vfs <- makeVFSHandle
