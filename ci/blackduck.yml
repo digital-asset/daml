@@ -83,6 +83,7 @@ jobs:
         --detect.detector.search.exclusion.paths=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
         --detect.notices.report=true \
         --detect.code.location.name=digital-asset_daml_npm \
+        --detect.accuracy.required=HIGH \
         --detect.timeout=1500
       displayName: 'Blackduck Npm Scan'
       env:
@@ -102,7 +103,6 @@ jobs:
         --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*,*_bazel_vsts* \
         --detect.notices.report=true \
         --detect.code.location.name=digital-asset_daml_python \
-        --detect.accuracy.required=HIGH \
         --detect.timeout=1500
       displayName: 'Blackduck Python Scan'
       env:
