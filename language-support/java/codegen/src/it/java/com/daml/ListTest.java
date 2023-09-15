@@ -10,6 +10,8 @@ import com.daml.ledger.javaapi.data.DamlCollectors;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Text;
 import com.daml.ledger.javaapi.data.Unit;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfReader;
 import com.google.protobuf.Empty;
 import java.util.Arrays;
 import java.util.Collections;
@@ -99,6 +101,21 @@ public class ListTest {
   }
 
   @Test
+  void fromJsonMyListRecord() throws JsonLfDecoder.Error {
+    MyListRecord expected =
+        new MyListRecord(
+            Arrays.asList(1L, 2L),
+            Collections.singletonList(Unit.getInstance()),
+            Arrays.asList(new Node<Long>(17L), new Node<Long>(42L)));
+
+    assertEquals(
+        expected,
+        MyListRecord.fromJson(
+            "{\"intList\": [1, 2], \"unitList\": [{}], \"itemList\": "
+                + "[{\"tag\": \"Node\", \"value\": 17}, {\"tag\": \"Node\", \"value\": 42}]}"));
+  }
+
+  @Test
   void listOfListsFromProtobufValue() {
 
     ValueOuterClass.Record protoListRecord =
@@ -183,6 +200,21 @@ public class ListTest {
   }
 
   @Test
+  void fromJsonMyListOfListRecord() throws JsonLfDecoder.Error {
+    MyListOfListRecord expected =
+        new MyListOfListRecord(
+            Arrays.asList(
+                Arrays.asList(new Node<>(17L), new Node<>(42L)), Arrays.asList(new Node<>(1337L))));
+
+    assertEquals(
+        expected,
+        MyListOfListRecord.fromJson(
+            "{\"itemList\": ["
+                + "[{\"tag\": \"Node\", \"value\": 17}, {\"tag\": \"Node\", \"value\": 42}], "
+                + "[{\"tag\": \"Node\", \"value\": 1337}]]}"));
+  }
+
+  @Test
   void listOfColorsFromProtobufValue() {
 
     ValueOuterClass.Record protoColorListRecord =
@@ -218,6 +250,13 @@ public class ListTest {
 
     assertEquals(fromRecord, fromCodegen);
     assertEquals(fromCodegen.toValue().toProtoRecord(), protoColorListRecord);
+  }
+
+  @Test
+  void fromJsonColorListRecord() throws JsonLfDecoder.Error {
+    ColorListRecord expected = new ColorListRecord(Arrays.asList(Color.GREEN, Color.RED));
+
+    assertEquals(expected, ColorListRecord.fromJson("{\"colors\": [\"Green\", \"Red\"]}"));
   }
 
   @Test
@@ -257,6 +296,17 @@ public class ListTest {
     assertEquals(fromConstructor.toValue(Text::new), dataRecord);
     assertEquals(fromConstructor.toValue(Text::new).toProtoRecord(), protoRecord);
     assertEquals(fromRoundTrip, fromConstructor);
+  }
+
+  @Test
+  void fromJsonParameterizedListRecordWithString() throws JsonLfDecoder.Error {
+    ParameterizedListRecord<String> expected =
+        new ParameterizedListRecord<>(Arrays.asList("Element1", "Element2"));
+
+    assertEquals(
+        expected,
+        ParameterizedListRecord.fromJson(
+            "{\"list\":[\"Element1\", \"Element2\"]}", JsonLfReader.Decoders.text));
   }
 
   @Test
@@ -336,5 +386,19 @@ public class ListTest {
     assertEquals(
         fromConstructor.toValue(f -> f.stream().collect(DamlCollectors.toDamlList(Text::new))),
         dataRecord);
+  }
+
+  @Test
+  void fromJsonParameterizedListRecordWithListOfString() throws JsonLfDecoder.Error {
+    ParameterizedListRecord<List<String>> expected =
+        new ParameterizedListRecord<>(
+            Arrays.asList(
+                Arrays.asList("Element1", "Element2"), Arrays.asList("Element3", "Element4")));
+
+    assertEquals(
+        expected,
+        ParameterizedListRecord.fromJson(
+            "{\"list\": [[\"Element1\", \"Element2\"], [\"Element3\", \"Element4\"]]}",
+            JsonLfReader.Decoders.list(JsonLfReader.Decoders.text)));
   }
 }

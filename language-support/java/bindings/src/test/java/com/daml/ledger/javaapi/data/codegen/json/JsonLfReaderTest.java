@@ -168,11 +168,13 @@ public class JsonLfReaderTest {
   @Test
   void testOptionalNestedDeeper() throws IOException {
     checkReadAll(
-        Decoders.optionalNested(Decoders.optionalNested(Decoders.optional(Decoders.int64))),
+        Decoders.optionalNested(
+            Decoders.optionalNested(Decoders.optionalNested(Decoders.optional(Decoders.int64)))),
         eq("null", Optional.empty()),
         eq("[]", Optional.of(Optional.empty())),
         eq("[[]]", Optional.of(Optional.of(Optional.empty()))),
-        eq("[[42]]", Optional.of(Optional.of(Optional.of(42L)))));
+        eq("[[[]]]", Optional.of(Optional.of(Optional.of(Optional.empty())))),
+        eq("[[[42]]]", Optional.of(Optional.of(Optional.of(Optional.of(42L))))));
   }
 
   @Test
