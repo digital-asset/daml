@@ -11,9 +11,11 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -78,31 +80,33 @@ public class JsonLfReader {
           return value;
         };
 
-    public static final JsonLfDecoder<BigDecimal> decimal =
-        r -> {
-          r.expectIsAt(
-              "decimal",
-              JsonToken.VALUE_NUMBER_INT,
-              JsonToken.VALUE_NUMBER_FLOAT,
-              JsonToken.VALUE_STRING);
-          BigDecimal value = null;
-          try {
-            value = new BigDecimal(r.parser.getText());
-          } catch (NumberFormatException e) {
-            r.parseExpected("decimal", e);
-          } catch (IOException e) {
-            r.parseExpected("decimal", e);
-          }
-          r.moveNext();
-          return value;
-        };
+    public static JsonLfDecoder<BigDecimal> decimal(int scale) {
+      return r -> {
+        r.expectIsAt(
+            "decimal",
+            JsonToken.VALUE_NUMBER_INT,
+            JsonToken.VALUE_NUMBER_FLOAT,
+            JsonToken.VALUE_STRING);
+        BigDecimal value = null;
+        try {
+          value = new BigDecimal(r.parser.getText());
+          if (value.scale() > scale) value = value.setScale(scale, RoundingMode.HALF_EVEN);
+        } catch (NumberFormatException e) {
+          r.parseExpected("decimal", e);
+        } catch (IOException e) {
+          r.parseExpected("decimal", e);
+        }
+        r.moveNext();
+        return value;
+      };
+    }
 
     public static final JsonLfDecoder<Instant> timestamp =
         r -> {
           r.expectIsAt("timestamp", JsonToken.VALUE_STRING);
           Instant value = null;
           try {
-            value = Instant.parse(r.parser.getText());
+            value = Instant.parse(r.parser.getText()).truncatedTo(ChronoUnit.MICROS);
           } catch (DateTimeParseException e) {
             r.parseExpected("timestamp", e);
           } catch (IOException e) {

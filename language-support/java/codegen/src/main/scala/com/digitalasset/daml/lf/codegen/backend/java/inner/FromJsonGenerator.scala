@@ -230,7 +230,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
         CodeBlock.of("$T.jsonDecoder($L)", guessClass(ident), typeReaders(typeParams))
       case TypePrim(PrimTypeBool, _) => CodeBlock.of("$T.bool", decodeClass)
       case TypePrim(PrimTypeInt64, _) => CodeBlock.of("$T.int64", decodeClass)
-      case TypeNumeric(_) => CodeBlock.of("$T.decimal", decodeClass)
+      case TypeNumeric(scale) => CodeBlock.of("$T.decimal($L)", decodeClass, scale)
       case TypePrim(PrimTypeText, _) => CodeBlock.of("$T.text", decodeClass)
       case TypePrim(PrimTypeDate, _) => CodeBlock.of("$T.date", decodeClass)
       case TypePrim(PrimTypeTimestamp, _) => CodeBlock.of("$T.timestamp", decodeClass)

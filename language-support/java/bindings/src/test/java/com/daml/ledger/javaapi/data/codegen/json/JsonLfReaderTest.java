@@ -58,7 +58,7 @@ public class JsonLfReaderTest {
   @Test
   void testDecimal() throws IOException {
     checkReadAll(
-        Decoders.decimal,
+        Decoders.decimal(12),
         cmpEq("42", dec("42")),
         cmpEq("42.0", dec("42")),
         cmpEq("\"42\"", dec("42")),
@@ -66,8 +66,7 @@ public class JsonLfReaderTest {
         cmpEq("\"-42\"", dec("-42")),
         cmpEq("0", dec("0")),
         cmpEq("-0", dec("-0")),
-        //            cmpEq("0.30000000000000004", dec("0.3")), // TODO(raphael-speyer-da):
-        // Appropriate rounding
+        cmpEq("0.30000000000000004", dec("0.3")),
         cmpEq("2e3", dec("2000")),
         cmpEq(
             "9999999999999999999999999999.9999999999",
@@ -84,8 +83,9 @@ public class JsonLfReaderTest {
         eq(
             "\"9999-12-31T23:59:59.999999Z\"",
             timestampUTC(9999, Month.DECEMBER, 31, 23, 59, 59, 999999)),
-        //            eq("\"1990-11-09T04:30:23.1234569Z\"", timestampUTC(1990, Month.NOVEMBER,
-        // 9,  4, 30, 23, 123457)), // TODO(raphael-speyer-da): Appropriate rounding
+        eq(
+            "\"1990-11-09T04:30:23.1234569Z\"",
+            timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 123456)),
         eq("\"1990-11-09T04:30:23Z\"", timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 0)),
         eq(
             "\"1990-11-09T04:30:23.123Z\"",
