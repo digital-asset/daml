@@ -9,6 +9,7 @@ import static java.util.Collections.emptyMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.daml.ledger.javaapi.data.Unit;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfReader.Decoders;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -16,7 +17,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -29,19 +32,18 @@ public class JsonLfReaderTest {
 
   @Test
   void testUnit() throws IOException {
-    checkReadAll(
-        JsonLfReader.unit, eq("{}", Unit.getInstance()), eq("\t{\n} ", Unit.getInstance()));
+    checkReadAll(Decoders.unit, eq("{}", Unit.getInstance()), eq("\t{\n} ", Unit.getInstance()));
   }
 
   @Test
   void testBool() throws IOException {
-    checkReadAll(JsonLfReader.bool, eq("false", false), eq("true", true));
+    checkReadAll(Decoders.bool, eq("false", false), eq("true", true));
   }
 
   @Test
   void testInt64() throws IOException {
     checkReadAll(
-        JsonLfReader.int64,
+        Decoders.int64,
         eq("42", 42L),
         eq("\"+42\"", 42L),
         eq("-42", -42L),
@@ -56,7 +58,7 @@ public class JsonLfReaderTest {
   @Test
   void testDecimal() throws IOException {
     checkReadAll(
-        JsonLfReader.decimal,
+        Decoders.decimal,
         cmpEq("42", dec("42")),
         cmpEq("42.0", dec("42")),
         cmpEq("\"42\"", dec("42")),
@@ -75,7 +77,7 @@ public class JsonLfReaderTest {
   @Test
   void testTimestamp() throws IOException {
     checkReadAll(
-        JsonLfReader.timestamp,
+        Decoders.timestamp,
         eq(
             "\"1990-11-09T04:30:23.123456Z\"",
             timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 123456)),
@@ -94,7 +96,7 @@ public class JsonLfReaderTest {
   @Test
   void testDate() throws IOException {
     checkReadAll(
-        JsonLfReader.date,
+        Decoders.date,
         eq("\"2019-06-18\"", date(2019, Month.JUNE, 18)),
         eq("\"9999-12-31\"", date(9999, Month.DECEMBER, 31)),
         eq("\"0001-01-01\"", date(1, Month.JANUARY, 1)));
@@ -102,40 +104,38 @@ public class JsonLfReaderTest {
 
   @Test
   void testParty() throws IOException {
-    checkReadAll(JsonLfReader.party, eq("\"Alice\"", "Alice"));
+    checkReadAll(Decoders.party, eq("\"Alice\"", "Alice"));
   }
 
   @Test
   void testText() throws IOException {
-    checkReadAll(JsonLfReader.text, eq("\"\"", ""), eq("\" \"", " "), eq("\"hello\"", "hello"));
+    checkReadAll(Decoders.text, eq("\"\"", ""), eq("\" \"", " "), eq("\"hello\"", "hello"));
   }
 
   @Test
   void testContractId() throws IOException {
-    checkReadAll(
-        JsonLfReader.contractId(Tmpl.Cid::new), eq("\"deadbeef\"", new Tmpl.Cid("deadbeef")));
+    checkReadAll(Decoders.contractId(Tmpl.Cid::new), eq("\"deadbeef\"", new Tmpl.Cid("deadbeef")));
   }
 
   @Test
   void testEnum() throws IOException {
     checkReadAll(
-        JsonLfReader.enumeration(Suit.class),
-        eq("\"Hearts\"", Suit.Hearts),
-        eq("\"Diamonds\"", Suit.Diamonds),
-        eq("\"Clubs\"", Suit.Clubs),
-        eq("\"Spades\"", Suit.Spades));
+        Decoders.enumeration(Suit.damlNames),
+        eq("\"Hearts\"", Suit.HEARTS),
+        eq("\"Diamonds\"", Suit.DIAMONDS),
+        eq("\"Clubs\"", Suit.CLUBS),
+        eq("\"Spades\"", Suit.SPADES));
   }
 
   @Test
   void testList() throws IOException {
-    checkReadAll(
-        JsonLfReader.list(JsonLfReader.int64), eq("[]", emptyList()), eq("[1,2]", asList(1L, 2L)));
+    checkReadAll(Decoders.list(Decoders.int64), eq("[]", emptyList()), eq("[1,2]", asList(1L, 2L)));
   }
 
   @Test
   void testTextMap() throws IOException {
     checkReadAll(
-        JsonLfReader.textMap(JsonLfReader.int64),
+        Decoders.textMap(Decoders.int64),
         eq("{}", emptyMap()),
         eq("{\"foo\":1, \"bar\": 2}", java.util.Map.of("foo", 1L, "bar", 2L)));
   }
@@ -143,7 +143,7 @@ public class JsonLfReaderTest {
   @Test
   void testGenMap() throws IOException {
     checkReadAll(
-        JsonLfReader.genMap(JsonLfReader.text, JsonLfReader.int64),
+        Decoders.genMap(Decoders.text, Decoders.int64),
         eq("[]", emptyMap()),
         eq("[[\"foo\", 1], [\"bar\", 2]]", java.util.Map.of("foo", 1L, "bar", 2L)));
   }
@@ -151,7 +151,7 @@ public class JsonLfReaderTest {
   @Test
   void testOptionalNonNested() throws IOException {
     checkReadAll(
-        JsonLfReader.optional(JsonLfReader.int64),
+        Decoders.optional(Decoders.int64),
         eq("null", Optional.empty()),
         eq("42", Optional.of(42L)));
   }
@@ -159,7 +159,7 @@ public class JsonLfReaderTest {
   @Test
   void testOptionalNested() throws IOException {
     checkReadAll(
-        JsonLfReader.optionalNested(JsonLfReader.optional(JsonLfReader.int64)),
+        Decoders.optionalNested(Decoders.optional(Decoders.int64)),
         eq("null", Optional.empty()),
         eq("[]", Optional.of(Optional.empty())),
         eq("[42]", Optional.of(Optional.of(42L))));
@@ -168,8 +168,7 @@ public class JsonLfReaderTest {
   @Test
   void testOptionalNestedDeeper() throws IOException {
     checkReadAll(
-        JsonLfReader.optionalNested(
-            JsonLfReader.optionalNested(JsonLfReader.optional(JsonLfReader.int64))),
+        Decoders.optionalNested(Decoders.optionalNested(Decoders.optional(Decoders.int64))),
         eq("null", Optional.empty()),
         eq("[]", Optional.of(Optional.empty())),
         eq("[[]]", Optional.of(Optional.of(Optional.empty()))),
@@ -179,7 +178,7 @@ public class JsonLfReaderTest {
   @Test
   void testOptionalLists() throws IOException {
     checkReadAll(
-        JsonLfReader.optional(JsonLfReader.list(JsonLfReader.list(JsonLfReader.int64))),
+        Decoders.optional(Decoders.list(Decoders.list(Decoders.int64))),
         eq("null", Optional.empty()),
         eq("[]", Optional.of(emptyList())),
         eq("[[]]", Optional.of(asList(emptyList()))),
@@ -187,21 +186,20 @@ public class JsonLfReaderTest {
   }
 
   @Test
-  void testVariant() throws IOException, FromJson.Error {
+  void testVariant() throws IOException, JsonLfDecoder.Error {
     checkReadAll(
-        JsonLfReader.variant(
-            asList("Bar", "Baz", "Quux"),
+        Decoders.variant(
+            asList("Bar", "Baz", "Quux", "Flarp"),
             tagName -> {
               switch (tagName) {
                 case "Bar":
-                  return r -> new SomeVariant.Bar(JsonLfReader.int64.read(r));
+                  return r -> new SomeVariant.Bar(Decoders.int64.decode(r));
                 case "Baz":
-                  return r -> new SomeVariant.Baz(JsonLfReader.unit.read(r));
+                  return r -> new SomeVariant.Baz(Decoders.unit.decode(r));
                 case "Quux":
-                  return r ->
-                      new SomeVariant.Quux(JsonLfReader.optional(JsonLfReader.int64).read(r));
+                  return r -> new SomeVariant.Quux(Decoders.optional(Decoders.int64).decode(r));
                 case "Flarp":
-                  return r -> new SomeVariant.Flarp(JsonLfReader.list(JsonLfReader.int64).read(r));
+                  return r -> new SomeVariant.Flarp(Decoders.list(Decoders.int64).decode(r));
                 default:
                   return null;
               }
@@ -217,23 +215,24 @@ public class JsonLfReaderTest {
   @Test
   void testRecord() throws IOException {
     checkReadAll(
-        JsonLfReader.record(
-            args -> new SomeRecord((Long) args[0], (Boolean) args[1]),
+        Decoders.record(
             asList("i", "b"),
-            fieldName -> {
-              switch (fieldName) {
+            name -> {
+              switch (name) {
                 case "i":
-                  return JsonLfReader.Field.required(0, JsonLfReader.int64);
+                  return Decoders.Field.at(0, Decoders.list(Decoders.int64));
                 case "b":
-                  return JsonLfReader.Field.optional(1, JsonLfReader.bool, false);
+                  return Decoders.Field.at(1, Decoders.bool, false);
                 default:
                   return null;
               }
-            }),
-        eq("[1,true]", new SomeRecord(1L, true)),
-        eq("{\"i\":1,\"b\":true}", new SomeRecord(1L, true)),
-        eq("{\"b\":true,\"i\":1}", new SomeRecord(1L, true)),
-        eq("{\"i\":1}", new SomeRecord(1L, false)));
+            },
+            args -> new SomeRecord((List<Long>) args[0], (Boolean) args[1])),
+        eq("[[1],true]", new SomeRecord(asList(1L), true)),
+        eq("{\"i\":[],\"b\":true}", new SomeRecord(asList(), true)),
+        eq("{\"i\":[1,2],\"b\":true}", new SomeRecord(asList(1L, 2L), true)),
+        eq("{\"b\":true,\"i\":[1]}", new SomeRecord(asList(1L), true)),
+        eq("{\"i\":[1]}", new SomeRecord(asList(1L), false)));
   }
 
   private BigDecimal dec(String s) {
@@ -251,10 +250,10 @@ public class JsonLfReaderTest {
   }
 
   class SomeRecord {
-    private final long i;
-    private final boolean b;
+    private final List<Long> i;
+    private final Boolean b;
 
-    public SomeRecord(long i, boolean b) {
+    public SomeRecord(List<Long> i, Boolean b) {
       this.i = i;
       this.b = b;
     }
@@ -267,8 +266,8 @@ public class JsonLfReaderTest {
     public boolean equals(Object o) {
       return o != null
           && (o instanceof SomeRecord)
-          && ((SomeRecord) o).i == i
-          && (((SomeRecord) o).b == b);
+          && ((SomeRecord) o).i.equals(i)
+          && (((SomeRecord) o).b.equals(b));
     }
 
     @Override
@@ -380,15 +379,28 @@ public class JsonLfReaderTest {
   }
 
   enum Suit {
-    Hearts,
-    Diamonds,
-    Clubs,
-    Spades
+    HEARTS,
+    DIAMONDS,
+    CLUBS,
+    SPADES;
+
+    static final Map<String, Suit> damlNames =
+        new HashMap<>() {
+          {
+            put("Hearts", HEARTS);
+            put("Diamonds", DIAMONDS);
+            put("Clubs", CLUBS);
+            put("Spades", SPADES);
+          }
+        };
   }
 
-  private <T> void checkReadAll(FromJson<T> readT, TestCase<T>... testCases) throws IOException {
+  private <T> void checkReadAll(JsonLfDecoder<T> decoder, TestCase<T>... testCases)
+      throws IOException {
     for (var tc : testCases) {
-      tc.check.accept(readT.read(new JsonLfReader(tc.input)));
+      JsonLfReader r = new JsonLfReader(tc.input);
+      T actual = decoder.decode(r);
+      tc.check.accept(actual);
     }
   }
 

@@ -10,6 +10,7 @@ import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Party;
 import com.daml.ledger.javaapi.data.Unit;
 import com.daml.ledger.javaapi.data.Variant;
+import java.io.IOException;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
@@ -54,6 +55,29 @@ public class EnumTestForForAll {
       assertEquals(Box.fromValue(record).toValue(), record);
       assertEquals(OptionalColor.fromValue(variant).toValue(), variant);
       assertEquals(ColoredTree.fromValue(tree).toValue(), tree);
+    }
+  }
+
+  @Test
+  void fromJson() throws IOException {
+    for (String s : new String[] {"Red", "Green", "Blue"}) {
+      String damlEnum = String.format("\"%s\"", s);
+      String record = String.format("{\"x\": %s, \"party\":\"party\"}", damlEnum);
+      String variant = String.format("{\"tag\": \"SomeColor\", \"value\": %s}", damlEnum);
+      String leaf = "{\"tag\": \"Leaf\", \"value\": {}}";
+      String node =
+          String.format("{\"color\": %s, \"left\": %s, \"right\": %s}", damlEnum, leaf, leaf);
+      String tree = String.format("{\"tag\": \"Node\", \"value\": %s}", node);
+
+      assertEquals(Color.valueOf(s.toUpperCase()), Color.fromJson(damlEnum));
+      assertEquals(new Box(Color.valueOf(s.toUpperCase()), "party"), Box.fromJson(record));
+      assertEquals(new SomeColor(Color.valueOf(s.toUpperCase())), OptionalColor.fromJson(variant));
+      assertEquals(
+          new Node(
+              Color.valueOf(s.toUpperCase()),
+              new Leaf(Unit.getInstance()),
+              new Leaf(Unit.getInstance())),
+          ColoredTree.fromJson(tree));
     }
   }
 

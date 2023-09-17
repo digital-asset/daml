@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.daml.ledger.javaapi.data.*;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -67,6 +68,21 @@ public class GenMapTestFor1_11AndFor1_12ndFor1_13AndFor1_14AndFor1_15AndFor1_dev
     assertEquals(keys[0], pair1());
     assertEquals(keys[1], pair2());
     assertEquals(keys[2], pair3());
+  }
+
+  @Test
+  void fromJson() throws IOException {
+    Box b =
+        Box.fromJson(
+            "{"
+                + "\"party\": \"alice\", "
+                + "\"x\": [ "
+                + "  [ [1, \"1.0000000000\"], {\"tag\": \"Right\", \"value\": \"1.0000000000\"} ], "
+                + "  [ [2, \"-2.2222222222\"], {\"tag\": \"Left\", \"value\": 2} ], "
+                + "  [ [3, \"3.3333333333\"], {\"tag\": \"Right\", \"value\": \"3.3333333333\"} ] "
+                + "]"
+                + "}");
+    assertEquals(box(), b);
   }
 
   private DamlRecord pair(Long fst, BigDecimal snd) {

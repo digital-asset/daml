@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Numeric;
 import com.daml.ledger.javaapi.data.Party;
+import java.io.IOException;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
@@ -42,6 +43,14 @@ public class DecimalTestForAll {
       DamlRecord record =
           new DamlRecord(new DamlRecord.Field("x", new Numeric(new BigDecimal(s))), partyField);
       assertEquals(Box.fromValue(record).toValue(), record);
+    }
+  }
+
+  @Test
+  void testFromJson() throws IOException {
+    for (String s : goodValues) {
+      Box b = new Box(new BigDecimal(s), "alice");
+      assertEquals(Box.fromJson(String.format("{\"x\": \"%s\", \"party\": \"alice\"}", s)), b);
     }
   }
 }
