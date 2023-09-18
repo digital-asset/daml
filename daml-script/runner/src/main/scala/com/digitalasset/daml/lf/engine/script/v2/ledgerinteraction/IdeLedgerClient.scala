@@ -318,7 +318,6 @@ class IdeLedgerClient(
       // Hide not visible as not found
       case ContractKeyNotVisible(_, key, _, _, _) =>
         SubmitError.ContractKeyNotFound(key)
-      case DuplicateContractId(tid, contractId) => SubmitError.DuplicateContractId(tid, contractId)
       case DuplicateContractKey(key) => SubmitError.DuplicateContractKey(Some(key))
       case InconsistentContractKey(key) => SubmitError.InconsistentContractKey(key)
       // Only pass on the error if the type is a TTyCon

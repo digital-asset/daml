@@ -173,12 +173,6 @@ final class Conversions(
                     .setKey(convertValue(gk.key))
                     .build
                 )
-              case DuplicateContractId(tid, coid) =>
-                builder.setScenarioCommitError(
-                  proto.CommitError.newBuilder
-                    .setUniqueContractIdViolation(mkContractRef(coid, tid))
-                    .build
-                )
               case DuplicateContractKey(key) =>
                 builder.setScenarioCommitError(
                   proto.CommitError.newBuilder

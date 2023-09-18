@@ -61,9 +61,6 @@ data SubmitError
       contractId : AnyContractId
       expectedKey : AnyContractKey
       givenKeyHash : Text
-  | -- | Attempted to create a contract with a contract ID that already exists
-    DuplicateContractId with
-      duplicateContractId: AnyContractId
   | -- | Attempted to create a contract with a contract key that already exists
     DuplicateContractKey with
       duplicateContractKey : Optional AnyContractKey
@@ -143,7 +140,6 @@ instance Show SubmitError where
     AuthorizationError errMessage -> "Authorization failure: " <> errMessage
     DisclosedContractKeyHashingError contractId contractKey contractKeyHash ->
       "Disclosed contract with ID " <> show contractId <> " used incorrect payload - contract key: " <> show contractKey <> "; and contract key hash: " <> contractKeyHash
-    DuplicateContractId contractId -> "Attempted to create a contract with a contract ID that already exists - contract ID: " <> show contractId
     DuplicateContractKey contractKey -> "Attempted to create a contract with a contract key that is already in use - contract key: " <> show contractKey
     InconsistentContractKey contractKey -> "Inconsistent contract key between daml and ledger - contract key: " <> show contractKey
     UnhandledException None -> "An Exception was thrown and not caught"

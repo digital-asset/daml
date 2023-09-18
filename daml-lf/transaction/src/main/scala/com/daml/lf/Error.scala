@@ -71,15 +71,6 @@ object Error {
       key: GlobalKey
   ) extends Error
 
-  /** Two contracts were created with the same contract ID.
-    * See com.daml.lf.transaction.Transaction.DuplicateContractId
-    * for more details.
-    */
-  final case class DuplicateContractId(
-      templateId: TypeConName,
-      contractId: ContractId,
-  ) extends Error
-
   /** Two contracts with the same key were active at the same time.
     * See com.daml.lf.transaction.Transaction.DuplicateContractKey
     * for more details.
