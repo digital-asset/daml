@@ -115,7 +115,7 @@ def install_java_deps():
             "com.typesafe.scala-logging:scala-logging_{}:3.9.5".format(scala_major_version),
             "com.zaxxer:HikariCP:3.2.0",
             "commons-io:commons-io:2.11.0",
-             "commons-codec:commons-codec:1.16.0",
+            "commons-codec:commons-codec:1.16.0",
             "eu.rekawek.toxiproxy:toxiproxy-java:2.1.7",
             "io.circe:circe-core_{}:{}".format(scala_major_version, circe_version),
             "io.circe:circe-generic-extras_{}:{}".format(scala_major_version, circe_version),
