@@ -17,12 +17,17 @@ import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.{SExpr0 => compileTime}
 import com.daml.lf.speedy.{SExpr => runTime}
 import com.daml.lf.speedy.SValue.{SValue => SV, _}
+import com.daml.lf.transaction.TransactionErrors.{
+  AuthFailureDuringExecution,
+  DuplicateContractId,
+  DuplicateContractKey,
+}
 import com.daml.lf.transaction.{
   ContractStateMachine,
   GlobalKey,
   GlobalKeyWithMaintainers,
-  Transaction => Tx,
   TransactionVersion,
+  TransactionErrors => TxErr,
 }
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.Value.ValueArithmeticError
@@ -2023,14 +2028,14 @@ private[lf] object SBuiltin {
     }
   }
 
-  private[speedy] def convTxError(templateId: TypeConName, err: Tx.TransactionError): IE = {
+  private[speedy] def convTxError(templateId: TypeConName, err: TxErr.TransactionError): IE = {
     err match {
-      case Tx.AuthFailureDuringExecution(nid, fa) =>
+      case TxErr.AuthFailureDuringExecutionTxError(AuthFailureDuringExecution(nid, fa)) =>
         IE.FailedAuthorization(nid, fa)
-      case Tx.DuplicateContractId(contractId) =>
+      case TxErr.DuplicateContractIdTxError(DuplicateContractId(contractId)) =>
         // TODO call crash here
         IE.DuplicateContractId(templateId, contractId)
-      case Tx.DuplicateContractKey(key) =>
+      case TxErr.DuplicateContractKeyTxError(DuplicateContractKey(key)) =>
         IE.DuplicateContractKey(key)
     }
   }

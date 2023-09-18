@@ -16,6 +16,7 @@ import com.daml.lf.transaction.{
   NodeId,
   SubmittedTransaction => SubmittedTx,
   Transaction => Tx,
+  TransactionErrors => TxErr,
   TransactionVersion => TxVersion,
 }
 import com.daml.lf.value.Value
@@ -193,11 +194,11 @@ private[lf] object PartialTransaction {
   )
 
   @throws[SError.SErrorDamlException]
-  private def assertRightKey[X](either: Either[Tx.InconsistentContractKey, X]): X =
+  private def assertRightKey[X](either: Either[TxErr.InconsistentContractKey, X]): X =
     either match {
       case Right(value) =>
         value
-      case Left(Tx.InconsistentContractKey(key)) =>
+      case Left(TxErr.InconsistentContractKey(key)) =>
         throw SError.SErrorDamlException(interpretation.Error.InconsistentContractKey(key))
     }
 
@@ -339,7 +340,10 @@ private[speedy] case class PartialTransaction(
       submissionTime: Time.Timestamp,
       contract: ContractInfo,
       optLocation: Option[Location],
-  ): Either[(PartialTransaction, Tx.TransactionError), (Value.ContractId, PartialTransaction)] = {
+  ): Either[
+    (PartialTransaction, TxErr.TransactionError),
+    (Value.ContractId, PartialTransaction),
+  ] = {
     val auth = Authorize(context.info.authorizers)
     val actionNodeSeed = context.nextActionChildSeed
     val discriminator =
@@ -355,7 +359,8 @@ private[speedy] case class PartialTransaction(
       actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
     )
     authorizationChecker.authorizeCreate(optLocation, createNode)(auth) match {
-      case fa :: _ => Left((ptx, Tx.AuthFailureDuringExecution(nid, fa)))
+      case fa :: _ =>
+        Left((ptx, TxErr.TransactionError.inject(TxErr.AuthFailureDuringExecution(nid, fa))))
       case Nil =>
         ptx.contractState.visitCreate(
           cid,
@@ -365,7 +370,7 @@ private[speedy] case class PartialTransaction(
             val nextPtx = ptx.copy(contractState = next)
             Right((cid, nextPtx))
           case Left(duplicate) =>
-            Left((ptx, duplicate))
+            Left((ptx, TxErr.TransactionError.from(duplicate)))
         }
     }
   }
@@ -376,7 +381,7 @@ private[speedy] case class PartialTransaction(
       optLocation: Option[Location],
       byKey: Boolean,
       version: TxVersion,
-  ): Either[Tx.TransactionError, PartialTransaction] = {
+  ): Either[TxErr.TransactionError, PartialTransaction] = {
     val contextActors = context.info.authorizers
     val actingParties = contextActors intersect contract.stakeholders
     val auth = Authorize(context.info.authorizers)
@@ -401,7 +406,8 @@ private[speedy] case class PartialTransaction(
         )
       )
       authorizationChecker.authorizeFetch(optLocation, node)(auth) match {
-        case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
+        case fa :: _ =>
+          Left(TxErr.TransactionError.inject(TxErr.AuthFailureDuringExecution(nid, fa)))
         case Nil =>
           Right(insertLeafNode(node, version, optLocation, newContractState))
       }
@@ -413,7 +419,7 @@ private[speedy] case class PartialTransaction(
       key: CachedKey,
       result: Option[Value.ContractId],
       keyVersion: TxVersion,
-  ): Either[Tx.TransactionError, PartialTransaction] = {
+  ): Either[TxErr.TransactionError, PartialTransaction] = {
     val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val node = Node.LookupByKey(
@@ -428,7 +434,8 @@ private[speedy] case class PartialTransaction(
     val newContractState =
       assertRightKey(contractState.visitLookup(key.globalKey, keyInput.toKeyMapping, result))
     authorizationChecker.authorizeLookupByKey(optLocation, node)(auth) match {
-      case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
+      case fa :: _ =>
+        Left(TxErr.TransactionError.inject(TxErr.AuthFailureDuringExecution(nid, fa)))
       case Nil =>
         Right(insertLeafNode(node, keyVersion, optLocation, newContractState))
     }
@@ -451,7 +458,7 @@ private[speedy] case class PartialTransaction(
       byKey: Boolean,
       chosenValue: Value,
       version: TxVersion,
-  ): Either[Tx.TransactionError, PartialTransaction] = {
+  ): Either[TxErr.TransactionError, PartialTransaction] = {
     val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val ec =
@@ -488,7 +495,8 @@ private[speedy] case class PartialTransaction(
         )
       )
       authorizationChecker.authorizeExercise(optLocation, makeExNode(ec))(auth) match {
-        case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
+        case fa :: _ =>
+          Left(TxErr.TransactionError.inject(TxErr.AuthFailureDuringExecution(nid, fa)))
         case Nil =>
           Right(
             copy(
