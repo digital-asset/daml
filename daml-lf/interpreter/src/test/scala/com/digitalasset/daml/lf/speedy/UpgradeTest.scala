@@ -23,6 +23,8 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.util._ //{Success, Try}
 
+import com.daml.lf.transaction.TransactionVersion.VDev
+
 class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
 
   private def makePP(pid: PackageId): ParserParameters[this.type] = {
@@ -73,11 +75,12 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
   """,
   )
 
-  private val packageMap = Map(
-    pid1 -> package1
-  )
-
   private val pkgs = {
+
+    val packageMap = Map(
+      pid1 -> package1
+    )
+
     PureCompiledPackages.assertBuild(
       packageMap,
       Compiler.Config.Dev.copy(
@@ -88,14 +91,14 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
 
   private val List(alice) = List("alice").map(Party.assertFromString)
 
-  private val seed = crypto.Hash.hashPrivateKey("seed")
-
   private def evalUpdateApp(
       pkgs: CompiledPackages,
       e: Expr,
       args: Array[SValue],
       getContract: Map[Value.ContractId, Value.VersionedContractInstance],
   ): Try[Either[SError, SValue]] = {
+
+    val seed = crypto.Hash.hashPrivateKey("seed")
 
     implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
@@ -107,7 +110,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
         if (args.isEmpty) se else SEApp(se, args),
         Set(alice),
       )
-    Try(
+    Try( // NICK, why Try?
       SpeedyTestLib.run(
         machine,
         getContract = getContract,
@@ -115,118 +118,170 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
     )
   }
 
-  val P1_M1_Tx = parseTyCon(pid1, "M1:Tx")
   val theCid = Value.ContractId.V1(crypto.Hash.hashPrivateKey(s"theCid"))
 
-  val tycon: Identifier = P1_M1_Tx
+  val tycon: Identifier = {
+    val P1_M1_Tx = parseTyCon(pid1, "M1:Tx")
+    P1_M1_Tx
+  }
 
-  "upgrades and downgrades" - {
+  "downgrade attempted" - {
+
+    // These test check downgrade of different shapea actula contract
+    // when we are expecting a contract of type M1:Tx
+
+    val v1_base: Value =
+      Value.ValueRecord(
+        None,
+        ImmArray(
+          None -> Value.ValueParty(alice),
+          None -> Value.ValueText("bar"),
+          None -> Value.ValueText("foo"),
+        ),
+      )
 
     "correct fields" in {
-      val contract: Versioned[Value.ContractInstance] = {
+
+      val contract: Versioned[Value.ContractInstance] =
         Versioned(
           TransactionVersion.StableVersions.max,
           Value.ContractInstance(
             tycon,
-            Value.ValueRecord(
-              None,
-              ImmArray(
-                Some(n"theSig") -> Value.ValueParty(alice),
-                Some(n"f1") -> Value.ValueText("bar"),
-                Some(n"f2") -> Value.ValueText("foo"),
-              ),
-            ),
+            v1_base,
           ),
         )
-      }
+
       val res = evalUpdateApp(
         pkgs,
         parseExpr(pid1, "M1:do_fetch"),
         Array(SContractId(theCid)),
         Map(theCid -> contract),
       )
-      println(s"res=$res")
+      // println(s"res=$res") // NICK
+      inside(res) { case Success(x) =>
+        inside(x) { case Right(sv) =>
+          val _: SValue = sv
+          val v = sv.toNormalizedValue(VDev)
+          v shouldBe v1_base
+        }
+      }
+
     }
 
-    "extra field (text) - BAD" in {
-      val contract: Versioned[Value.ContractInstance] = {
+    "extra field (text) - something is very wrong" in {
+
+      val v1_extraText: Value =
+        Value.ValueRecord(
+          None,
+          ImmArray(
+            None -> Value.ValueParty(alice),
+            None -> Value.ValueText("bar"),
+            None -> Value.ValueText("foo"),
+            None -> Value.ValueText("extra"),
+          ),
+        )
+
+      val contract: Versioned[Value.ContractInstance] =
         Versioned(
           TransactionVersion.StableVersions.max,
           Value.ContractInstance(
             tycon,
-            Value.ValueRecord(
-              None,
-              ImmArray(
-                Some(n"theSig") -> Value.ValueParty(alice),
-                Some(n"f1") -> Value.ValueText("bar"),
-                Some(n"f2") -> Value.ValueText("foo"),
-                Some(n"smee") -> Value.ValueText("extra"),
-              ),
-            ),
+            v1_extraText,
           ),
         )
-      }
+
       val res = evalUpdateApp(
         pkgs,
         parseExpr(pid1, "M1:do_fetch"),
         Array(SContractId(theCid)),
         Map(theCid -> contract),
       )
-      println(s"res=$res")
+
+      inside(res) { case Success(x) =>
+        inside(x) { case Left(err) =>
+          err.toString should include(
+            "Unexpected non-optional extra contract field encountered during downgrading: something is very wrong."
+          )
+        }
+      }
+
     }
 
     "extra field (Some) - cannot be dropped" in {
-      val contract: Versioned[Value.ContractInstance] = {
+
+      val v1_extraSome: Value =
+        Value.ValueRecord(
+          None,
+          ImmArray(
+            None -> Value.ValueParty(alice),
+            None -> Value.ValueText("bar"),
+            None -> Value.ValueText("foo"),
+            None -> Value.ValueOptional(Some(Value.ValueText("heyhey"))),
+          ),
+        )
+
+      val contract: Versioned[Value.ContractInstance] =
         Versioned(
           TransactionVersion.StableVersions.max,
           Value.ContractInstance(
             tycon,
-            Value.ValueRecord(
-              None,
-              ImmArray(
-                Some(n"theSig") -> Value.ValueParty(alice),
-                Some(n"f1") -> Value.ValueText("bar"),
-                Some(n"f2") -> Value.ValueText("foo"),
-                Some(n"smee") -> Value.ValueOptional(Some(Value.ValueText("heyhey"))),
-              ),
-            ),
+            v1_extraSome,
           ),
         )
-      }
+
       val res = evalUpdateApp(
         pkgs,
         parseExpr(pid1, "M1:do_fetch"),
         Array(SContractId(theCid)),
         Map(theCid -> contract),
       )
-      println(s"res=$res")
+      inside(res) { case Success(x) =>
+        inside(x) { case Left(err) =>
+          err.toString should include(
+            "An optional contract field with a value of Some may not be dropped during downgrading"
+          )
+        }
+      }
+
     }
 
     "extra field (None) - OK, downgrade allowed" in {
-      val contract: Versioned[Value.ContractInstance] = {
+
+      val v1_extraNone: Value =
+        Value.ValueRecord(
+          None,
+          ImmArray(
+            None -> Value.ValueParty(alice),
+            None -> Value.ValueText("bar"),
+            None -> Value.ValueText("foo"),
+            None -> Value.ValueOptional(None),
+          ),
+        )
+
+      val contract: Versioned[Value.ContractInstance] =
         Versioned(
           TransactionVersion.StableVersions.max,
           Value.ContractInstance(
             tycon,
-            Value.ValueRecord(
-              None,
-              ImmArray(
-                Some(n"theSig") -> Value.ValueParty(alice),
-                Some(n"f1") -> Value.ValueText("bar"),
-                Some(n"f2") -> Value.ValueText("foo"),
-                Some(n"smee") -> Value.ValueOptional(None),
-              ),
-            ),
+            v1_extraNone,
           ),
         )
-      }
+
       val res = evalUpdateApp(
         pkgs,
         parseExpr(pid1, "M1:do_fetch"),
         Array(SContractId(theCid)),
         Map(theCid -> contract),
       )
-      println(s"res=$res")
+
+      inside(res) { case Success(x) =>
+        inside(x) { case Right(sv) =>
+          val _: SValue = sv
+          val v = sv.toNormalizedValue(VDev)
+          v shouldBe v1_base
+        }
+      }
+
     }
 
   }
