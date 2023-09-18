@@ -88,19 +88,23 @@ public class OptionalTest {
   @Test
   void constructNestedOptional() {
     DamlRecord record =
-        new DamlRecord(new DamlRecord.Field(DamlOptional.of(DamlOptional.of(new Int64(42L)))));
+        new DamlRecord(
+            new DamlRecord.Field(
+                DamlOptional.of(DamlOptional.of(DamlOptional.of(new Int64(42L))))));
     NestedOptionalRecord fromValue = NestedOptionalRecord.fromValue(record);
 
-    NestedOptionalRecord fromConstructor = new NestedOptionalRecord(Optional.of(Optional.of(42L)));
+    NestedOptionalRecord fromConstructor =
+        new NestedOptionalRecord(Optional.of(Optional.of(Optional.of(42L))));
 
     assertEquals(fromValue, fromConstructor);
   }
 
   @Test
   void fromJsonNestedOptional() throws JsonLfDecoder.Error {
-    NestedOptionalRecord expected = new NestedOptionalRecord(Optional.of(Optional.of(42L)));
+    NestedOptionalRecord expected =
+        new NestedOptionalRecord(Optional.of(Optional.of(Optional.of(42L))));
 
-    assertEquals(expected, NestedOptionalRecord.fromJson("{\"outerOptional\": [42]}"));
+    assertEquals(expected, NestedOptionalRecord.fromJson("{\"outerOptional\": [[42]]}"));
   }
 
   @Test

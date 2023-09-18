@@ -12,7 +12,7 @@ data MyOptionalRecord = MyOptionalRecord
 
 data NestedOptionalRecord = NestedOptionalRecord
     with
-        outerOptional : Optional (Optional Int)
+        outerOptional : Optional (Optional (Optional Int))
   deriving (Eq, Show)
 
 data MyOptionalListRecord = MyOptionalListRecord
