@@ -110,7 +110,10 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
             subprotocol = validSubprotocol(jwt),
           )
         )
-      ran <- scenario.input via webSocketFlow runWith collectResultsAsTextMessageSkipOffsetTicks
+      ran <- scenario.input
+        .concatMat(Source.maybe[Message])(Keep.left)
+        .via(webSocketFlow)
+        .runWith(collectResultsAsTextMessageSkipOffsetTicks)
     } yield ran
 
   List(
