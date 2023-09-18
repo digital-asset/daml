@@ -193,7 +193,56 @@ jobs:
         git fetch
         git checkout origin/main
 
-        canton_version=$(ci/bump-canton.sh)
+        canton_version=$(curl -u $AUTH \
+                              --fail \
+                              --location \
+                              --silent \
+                              https://digitalasset.jfrog.io/artifactory/api/storage/assembly/canton \
+                         | jq -r '.children[].uri' \
+                         | sed -e 's/^\///' \
+                         | grep -P '^\d+\.\d+\.\d+' \
+                         | sort -V \
+                         | tail -1)
+
+        os_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-open-source-$canton_version.tar.gz"
+        os_tmp=$(mktemp)
+        curl -u $AUTH --fail --location --silent "$os_url" > $tmp
+        os_sha=$(sha256sum $os_tmp | awk '{print $1}')
+        os_url_path=canton-stable/$canton_version/$os_sha/canton-open-source-$canton_version.tar.gz
+        os_upload_url=gs://daml-binaries/$os_url_path
+        os_download_url=https://storage.googleapis.com/$os_url_path
+        gcs "$GCRED" cp $os_tmp $os_upload_url
+
+        ee_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-enterprise-$canton_version.tar.gz"
+        ee_tmp=$(mktemp)
+        curl -u $AUTH --fail --location --silent "$ee_url" > $ee_tmp
+        ee_sha=$(sha256sum $ee_tmp | awk '{print $1}')
+        ee_target_url=https://digitalasset.jfrog.io/artifactory/assembly/daml/canton-backup/$canton_version/$ee_sha/canton-enterprise-$canton_version.tar.gz
+        curl -u $AUTH \
+             -f \
+             -X PUT \
+             -H "X-Checksum-MD5: $(md5sum $ee_tmp | awk '{print $1}')" \
+             -H "X-Checksum-SHA1: $(sha1sum $ee_tmp | awk '{print $1}')" \
+             -H "X-Checksum-SHA256: $(sha256sum $ee_tmp | awk '{print $1}')" \
+             -T $ee_tmp \
+             $ee_target_url
+
+        sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
+        sed -e 's/^/# /' COPY > canton_dep.bzl
+        cat <<EOF >> canton_dep.bzl
+
+        canton = {
+            "sha": "$os_sha",
+            "url": "$os_download_url",
+            "local": False,
+        }
+        EOF
+
+        sed -i "s|CANTON_ENTERPRISE_VERSION=.*|CANTON_ENTERPRISE_VERSION=$canton_version|" canton/BUILD.bazel
+        sed -i "s|CANTON_ENTERPRISE_SHA=.*|CANTON_ENTERPRISE_SHA=$ee_sha|" canton/BUILD.bazel
+        sed -i "s|CANTON_ENTERPRISE_URL=.*|CANTON_ENTERPRISE_URL=$ee_target_url|" canton/BUILD.bazel
+
+        rm -f arbitrary_canton_sha
 
         branch="canton-update-$canton_version"
 
@@ -217,6 +266,7 @@ jobs:
         fi
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
   - job: compat_versions_pr
     condition: eq(variables['Build.SourceBranchName'], 'main')
