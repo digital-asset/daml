@@ -2033,8 +2033,7 @@ private[lf] object SBuiltin {
       case TxErr.AuthFailureDuringExecutionTxError(AuthFailureDuringExecution(nid, fa)) =>
         IE.FailedAuthorization(nid, fa)
       case TxErr.DuplicateContractIdTxError(DuplicateContractId(contractId)) =>
-        // TODO call crash here
-        IE.DuplicateContractId(templateId, contractId)
+        crash(s"Unexpected duplicate contract ID ${contractId}")
       case TxErr.DuplicateContractKeyTxError(DuplicateContractKey(key)) =>
         IE.DuplicateContractKey(key)
     }

@@ -613,7 +613,6 @@ message CommitError {
     FailedAuthorizations failed_authorizations = 1;
     GlobalKey unique_contract_key_violation = 2;
     GlobalKey inconsistent_contract_key = 3;
-    ContractRef unique_contract_id_violation = 4;
   }
 }
 
