@@ -56,7 +56,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
     """
     module M1 {
 
-      record @serializable T1 = { theSig: Party, f1: Text, f2: Text};
+      record @serializable T1 = { theSig: Party, aNumber: Int64, someText: Text};
       template (this: T1) = {
         precondition True;
         signatories Cons @Party [M1:T1 {theSig} this] Nil @Party;
@@ -124,8 +124,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
     val v1_base =
       makeRecord(
         Value.ValueParty(alice),
-        Value.ValueText("bar"),
-        Value.ValueText("foo"),
+        Value.ValueInt64(100),
+        Value.ValueText("lala"),
       )
 
     "correct fields" in {
@@ -143,8 +143,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
       val v1_extraText =
         makeRecord(
           Value.ValueParty(alice),
-          Value.ValueText("bar"),
-          Value.ValueText("foo"),
+          Value.ValueInt64(100),
+          Value.ValueText("lala"),
           Value.ValueText("extra"),
         )
 
@@ -163,8 +163,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
       val v1_extraSome =
         makeRecord(
           Value.ValueParty(alice),
-          Value.ValueText("bar"),
-          Value.ValueText("foo"),
+          Value.ValueInt64(100),
+          Value.ValueText("lala"),
           Value.ValueOptional(Some(Value.ValueText("heyhey"))),
         )
 
@@ -182,8 +182,8 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
       val v1_extraNone =
         makeRecord(
           Value.ValueParty(alice),
-          Value.ValueText("bar"),
-          Value.ValueText("foo"),
+          Value.ValueInt64(100),
+          Value.ValueText("lala"),
           Value.ValueOptional(None),
         )
 
