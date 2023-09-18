@@ -5,7 +5,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "kind_projector_plugin",
-    "lf_scalacopts",
+    "ls_scalacopts_stricter",
 )
 load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
 

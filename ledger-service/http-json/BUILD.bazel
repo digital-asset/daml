@@ -9,7 +9,7 @@ load(
     "da_scala_test",
     "da_scala_test_suite",
     "kind_projector_plugin",
-    "lf_scalacopts",
+    "ls_scalacopts_stricter",
 )
 load("//rules_daml:daml.bzl", "daml_compile")
 load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")

@@ -7,7 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
     "kind_projector_plugin",
-    "lf_scalacopts",
+    "ls_scalacopts_stricter",
 )
 load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
 
