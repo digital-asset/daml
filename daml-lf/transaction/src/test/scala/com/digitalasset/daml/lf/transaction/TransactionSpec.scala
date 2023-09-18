@@ -490,6 +490,12 @@ class TransactionSpec
         )
       )
     }
+    "fetch and create conflict for the same contract ID" in {
+      val builder = new TxBuilder()
+      builder.add(fetch(cid("#0"), "k0", byKey = false))
+      builder.add(create(cid("#0"), "k1"))
+      builder.build().contractKeyInputs shouldBe Left(DuplicateContractId(cid("#0")))
+    }
     "two creates conflict" in {
       val builder = new TxBuilder()
       builder.add(create(cid("#0"), "k0"))
