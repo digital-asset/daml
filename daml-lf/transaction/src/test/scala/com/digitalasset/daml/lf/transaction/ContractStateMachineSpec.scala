@@ -16,13 +16,15 @@ import com.daml.lf.transaction.ContractStateMachine.{
 import com.daml.lf.transaction.ContractStateMachineSpec._
 import com.daml.lf.transaction.Transaction.{
   ChildrenRecursion,
+  KeyCreate,
+  KeyInput,
+  NegativeKeyLookup,
+}
+import com.daml.lf.transaction.TransactionErrors.{
   DuplicateContractId,
   DuplicateContractKey,
   InconsistentContractKey,
-  KeyCreate,
-  KeyInput,
   KeyInputError,
-  NegativeKeyLookup,
 }
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{
@@ -146,13 +148,13 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     )
 
   def inconsistentContractKey[X](key: GlobalKey): Left[KeyInputError, X] =
-    Left(InconsistentContractKey(key))
+    Left(KeyInputError.inject(InconsistentContractKey(key)))
 
   def duplicateContractKey[X](key: GlobalKey): Left[KeyInputError, X] =
-    Left(DuplicateContractKey(key))
+    Left(KeyInputError.inject(DuplicateContractKey(key)))
 
   def duplicateContractId[X](contractId: ContractId): Left[KeyInputError, X] =
-    Left(DuplicateContractId(contractId))
+    Left(KeyInputError.inject(DuplicateContractId(contractId)))
 
   def createRbExLbkLbk: TestCase = {
     // [ Create c1 (key=k1), Rollback [ Exe c1 [ LBK k1 -> None ]], LBK k1 -> c1 ]
@@ -705,7 +707,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       root: NodeId,
       resolver: KeyResolver,
       state: ContractStateMachine.State[Unit],
-  ): Either[Transaction.KeyInputError, ContractStateMachine.State[Unit]] = {
+  ): Either[KeyInputError, ContractStateMachine.State[Unit]] = {
     val node = nodes(root)
     for {
       next <- node match {
@@ -735,7 +737,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       roots: Seq[NodeId],
       resolver: KeyResolver,
       state: ContractStateMachine.State[Unit],
-  ): Either[Transaction.KeyInputError, ContractStateMachine.State[Unit]] = {
+  ): Either[KeyInputError, ContractStateMachine.State[Unit]] = {
     roots match {
       case Seq() => Right(state)
       case root +: tail =>
