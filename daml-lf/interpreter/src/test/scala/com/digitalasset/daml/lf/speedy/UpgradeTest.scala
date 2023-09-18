@@ -69,6 +69,23 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
           fetch_template @M1:T1 cId;
 
     }
+
+    module M2 {
+
+      record @serializable T1 = { theSig: Party, aNumber: Int64, optText: Option Text};
+      template (this: T1) = {
+        precondition True;
+        signatories Cons @Party [M2:T1 {theSig} this] Nil @Party;
+        observers Nil @Party;
+        agreement "Agreement";
+      };
+
+      val do_fetch: ContractId M2:T1 -> Update M2:T1 =
+        \(cId: ContractId M2:T1) ->
+          fetch_template @M2:T1 cId;
+
+    }
+
   """,
   )
 
@@ -84,42 +101,41 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
 
   private val List(alice) = List("alice").map(Party.assertFromString)
 
+  val theCid = Value.ContractId.V1(crypto.Hash.hashPrivateKey(s"theCid"))
+
+  def go(entryPoint: String, contractValue: Value): Either[SError, SValue] = {
+
+    val e: Expr = parseExpr(pid1, entryPoint)
+    val se: SExpr = pkgs.compiler.unsafeCompile(e)
+    val args: Array[SValue] = Array(SContractId(theCid))
+    val sexprToEval: SExpr = SEApp(se, args)
+
+    implicit def logContext: LoggingContext = LoggingContext.ForTesting
+    val seed = crypto.Hash.hashPrivateKey("seed")
+    val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice))
+
+    val contract: Versioned[Value.ContractInstance] = {
+      val tycon: Identifier = parseTyCon(pid1, "Mxxx:Txxx") // ignored
+      Versioned(VDev, Value.ContractInstance(tycon, contractValue))
+    }
+
+    val getContract: Map[Value.ContractId, Value.VersionedContractInstance] =
+      Map(theCid -> contract)
+
+    SpeedyTestLib.run(machine, getContract = getContract)
+  }
+
+  def makeRecord(fields: Value*): Value = {
+    Value.ValueRecord(
+      None,
+      fields.map { v => (None, v) }.to(ImmArray),
+    )
+  }
+
   "downgrade attempted" - {
 
     // These tests check downgrade of differently shaped actual contracts
-    // Always expecting a contract of type M1:Tx
-
-    val theCid = Value.ContractId.V1(crypto.Hash.hashPrivateKey(s"theCid"))
-
-    def go(contractValue: Value): Either[SError, SValue] = {
-
-      val e: Expr = parseExpr(pid1, "M1:do_fetch")
-      val se: SExpr = pkgs.compiler.unsafeCompile(e)
-      val args: Array[SValue] = Array(SContractId(theCid))
-      val sexprToEval: SExpr = SEApp(se, args)
-
-      implicit def logContext: LoggingContext = LoggingContext.ForTesting
-      val seed = crypto.Hash.hashPrivateKey("seed")
-      val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice))
-
-      val tycon: Identifier = parseTyCon(pid1, "Mxxx:Txxx") // NICK: anything!?
-      // println(s"tycon=$tycon")
-
-      val contract: Versioned[Value.ContractInstance] =
-        Versioned(VDev, Value.ContractInstance(tycon, contractValue))
-
-      val getContract: Map[Value.ContractId, Value.VersionedContractInstance] =
-        Map(theCid -> contract)
-
-      SpeedyTestLib.run(machine, getContract = getContract)
-    }
-
-    def makeRecord(fields: Value*): Value = {
-      Value.ValueRecord(
-        None,
-        fields.map { v => (None, v) }.to(ImmArray),
-      )
-    }
+    // Always expecting a contract of type M1:T1
 
     val v1_base =
       makeRecord(
@@ -130,7 +146,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
 
     "correct fields" in {
 
-      val res = go(v1_base)
+      val res = go("M1:do_fetch", v1_base)
 
       inside(res) { case Right(sv) =>
         val v = sv.toNormalizedValue(VDev)
@@ -148,7 +164,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
           Value.ValueText("extra"),
         )
 
-      val res = go(v1_extraText)
+      val res = go("M1:do_fetch", v1_extraText)
 
       inside(res) { case Left(err) =>
         err.toString should include(
@@ -168,7 +184,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
           Value.ValueOptional(Some(Value.ValueText("heyhey"))),
         )
 
-      val res = go(v1_extraSome)
+      val res = go("M1:do_fetch", v1_extraSome)
 
       inside(res) { case Left(err) =>
         err.toString should include(
@@ -187,7 +203,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
           Value.ValueOptional(None),
         )
 
-      val res = go(v1_extraNone)
+      val res = go("M1:do_fetch", v1_extraNone)
 
       inside(res) { case Right(sv) =>
         val v = sv.toNormalizedValue(VDev)
@@ -195,4 +211,51 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
       }
     }
   }
+
+  "upgrade attempted" - {
+
+    "missing optional field -- None is manufactured" in {
+
+      val v_missingField =
+        makeRecord(
+          Value.ValueParty(alice),
+          Value.ValueInt64(100),
+        )
+
+      val v_extendedWithNone =
+        makeRecord(
+          Value.ValueParty(alice),
+          Value.ValueInt64(100),
+          Value.ValueOptional(None),
+        )
+
+      val res = go("M2:do_fetch", v_missingField)
+
+      inside(res) { case Right(sv) =>
+        val v = sv.toNormalizedValue(VDev)
+        v shouldBe v_extendedWithNone
+      }
+    }
+
+    // TODO: https://github.com/digital-asset/daml/issues/17082
+    // - Make this test work!
+    // - Currently a None is manufactured for any missing field.
+    // - but we should reject for non optional types.
+    "missing non-optional field -- should be rejected" ignore {
+
+      val v_missingField =
+        makeRecord(
+          Value.ValueParty(alice),
+          Value.ValueInt64(100),
+        )
+
+      val res = go("M1:do_fetch", v_missingField)
+
+      inside(res) { case Left(err) =>
+        err.toString should include("can only upgrade fields of Option type")
+      }
+    }
+
+  }
+
 }
