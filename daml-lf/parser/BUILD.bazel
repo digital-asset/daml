@@ -38,7 +38,7 @@ da_scala_test(
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     visibility = [
         "//daml-lf:__subpackages__",
     ],

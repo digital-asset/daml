@@ -19,7 +19,7 @@ da_scala_library(
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:lf-value-json:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -54,7 +54,7 @@ da_scala_test(
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     deps = [
         ":lf-value-json",
         "//bazel_tools/runfiles:scala_runfiles",

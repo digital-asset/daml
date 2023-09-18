@@ -79,7 +79,7 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     deps = [
         ":transaction",
         ":value_proto_java",
@@ -104,7 +104,7 @@ da_scala_test(
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     deps = [
         ":transaction",
         ":transaction_proto_java",
@@ -123,7 +123,7 @@ da_scala_test(
     srcs = glob([
         "src/test/**/validation/*.scala",
     ]),
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     deps = [
         ":transaction",
         "//daml-lf/data",

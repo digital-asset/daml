@@ -56,7 +56,7 @@ da_scala_test_suite(
         ["src/test/**/*.scala"],
         exclude = ["src/test/**/*SpecUtil.scala"],
     ),
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     deps = [
         ":validation",
         ":validation-test-lib",

@@ -63,7 +63,7 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     deps = [
         ":api-type-signature",
         "//bazel_tools/runfiles:scala_runfiles",

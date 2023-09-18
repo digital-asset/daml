@@ -14,7 +14,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:http-json-utils:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -37,7 +37,7 @@ da_scala_test_suite(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     deps = [
         ":utils",
     ],

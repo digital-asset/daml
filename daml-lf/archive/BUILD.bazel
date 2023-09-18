@@ -143,7 +143,7 @@ da_scala_test_suite(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     deps = [
         ":daml_lf_archive_reader",
         ":daml_lf_dev_archive_proto_java",

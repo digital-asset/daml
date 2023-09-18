@@ -17,7 +17,7 @@ da_scala_library(
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:jwt:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -34,7 +34,7 @@ da_scala_library(
 da_scala_binary(
     name = "jwt-bin",
     main_class = "com.daml.jwt.Main",
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -83,7 +83,7 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_lihaoyi_sourcecode",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     deps = [
         ":jwt",
         "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",

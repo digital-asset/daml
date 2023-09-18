@@ -45,7 +45,7 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     deps = [
         ":data",
         "//daml-lf/data-scalacheck",

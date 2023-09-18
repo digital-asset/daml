@@ -23,7 +23,7 @@ da_scala_library(
     scala_runtime_deps = [
         "@maven//:org_tpolecat_doobie_postgres",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:db-utils:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -53,7 +53,7 @@ da_scala_test(
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_kernel",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = ls_scalacopts_stricter,
     deps = [
         ":db-utils",
         "//libs-scala/scala-utils",
