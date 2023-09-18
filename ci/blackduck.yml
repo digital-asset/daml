@@ -5,7 +5,7 @@ jobs:
 - job: blackduck_scan
   timeoutInMinutes: 120
   condition: or(eq(variables['Build.SourceBranchName'], 'main'),
-                startsWith(variables['Build.SourceBranchName'], 'blackduck-'))
+                startsWith(variables['Build.SourceBranchName'], 'bump-blackduck-script-'))
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
