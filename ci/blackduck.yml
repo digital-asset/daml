@@ -4,8 +4,8 @@
 jobs:
 - job: blackduck_scan
   timeoutInMinutes: 120
-  condition: or(eq(variables['Build.SourceBranchName'], 'main'),
-                startsWith(variables['Build.SourceBranchName'], 'bump-blackduck-script-'))
+  condition: or(eq(variables['Build.SourceBranch'], 'main'),
+                startsWith(variables['Build.SourceBranch'], 'bump-blackduck-script-'))
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
@@ -35,7 +35,7 @@ jobs:
       BAZEL_DEPENDENCY_TYPE="haskell_cabal_library"
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
-      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      ci-build digital-asset_daml $(Build.SourceBranch) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.tools=BAZEL \
       --detect.bazel.target=//... \
@@ -56,7 +56,7 @@ jobs:
       BAZEL_DEPENDENCY_TYPE="maven_install"
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
-      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      ci-build digital-asset_daml $(Build.SourceBranch) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.tools=BAZEL \
       --detect.bazel.target=//... \
@@ -74,7 +74,7 @@ jobs:
       (cd language-support/ts && yarn install)
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
-      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      ci-build digital-asset_daml $(Build.SourceBranch) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.tools=DETECTOR \
       --detect.included.detector.types=YARN,NPM,CLANG \
@@ -95,7 +95,7 @@ jobs:
       eval "$(dev-env/bin/dade-assist)"
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
-      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      ci-build digital-asset_daml $(Build.SourceBranch) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.tools=DETECTOR \
       --detect.included.detector.types=PIP,POETRY \
@@ -114,7 +114,7 @@ jobs:
       eval "$(dev-env/bin/dade-assist)"
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
-      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      ci-build digital-asset_daml $(Build.SourceBranch) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.tools=DETECTOR \
       --detect.included.detector.types=GIT,GO_MOD,GO_DEP,GO_VNDR,GO_VENDOR,GO_GRADLE \
@@ -139,7 +139,7 @@ jobs:
 
       branch="notices-update-$(Build.BuildId)"
 
-      tr -d '\015' < digital_asset_daml_$(Build.SourceBranchName)_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml > NOTICES
+      tr -d '\015' < digital_asset_daml_$(Build.SourceBranch)_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml > NOTICES
       if git diff --exit-code -- NOTICES; then
           echo "NOTICES file already up-to-date."
           setvar need_to_build false
@@ -151,11 +151,11 @@ jobs:
     displayName: open PR
     name: out
     condition: and(succeeded(),
-                     eq(variables['Build.SourceBranchName'], 'main'))
+                     eq(variables['Build.SourceBranch'], 'main'))
 
 - job: bump_blackduck_if_needed
   timeoutInMinutes: 10
-  condition: eq(variables['Build.SourceBranchName'], 'main')
+  condition: eq(variables['Build.SourceBranch'], 'main')
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
