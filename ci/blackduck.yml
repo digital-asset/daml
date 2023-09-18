@@ -5,12 +5,12 @@ jobs:
 - job: blackduck_scan
   timeoutInMinutes: 120
   condition: or(eq(variables['Build.SourceBranchName'], 'main'),
-                startsWith(variables['Build.SourceBranchName'], 'bump-blackduck-script-'))
+                startsWith(variables['Build.SourceBranchName'], 'blackduck-'))
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
   variables:
-    blackduck_script_sha: 8b310017a440d1ceec25fbdec75c188342cb28e2
+    blackduck_script_sha: bee7a8c6c04af059fa446efcd697cc097eded1cf
   steps:
   - checkout: self
     persistCredentials: true
@@ -40,7 +40,7 @@ jobs:
       --detect.tools=BAZEL \
       --detect.bazel.target=//... \
       --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
-      --detect.notices.report=true \
+      --detect.notices.report=false \
       --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
       --detect.timeout=1500
     displayName: 'Blackduck Bazel Haskell Scan'
@@ -61,7 +61,7 @@ jobs:
       --detect.tools=BAZEL \
       --detect.bazel.target=//... \
       --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
-      --detect.notices.report=true \
+      --detect.notices.report=false \
       --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
       --detect.timeout=1500
     displayName: 'Blackduck Bazel JVM Scan'
@@ -81,10 +81,10 @@ jobs:
       --detect.npm.dependency.types.excluded=DEV \
       --detect.yarn.dependency.types.excluded=NON_PRODUCTION \
       --detect.follow.symbolic.links=false \
-      --detect.excluded.directories=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
+      --detect.excluded.directories=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
       --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
       --detect.detector.search.exclusion.paths=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
-      --detect.notices.report=true \
+      --detect.notices.report=false \
       --detect.code.location.name=digital-asset_daml_npm \
       --detect.timeout=1500
     displayName: 'Blackduck Npm Scan'
@@ -103,7 +103,7 @@ jobs:
       --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
       --detect.blackduck.signature.scanner.exclusion.name.patterns=.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*,*_bazel_vsts* \
       --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*,*_bazel_vsts* \
-      --detect.notices.report=true \
+      --detect.notices.report=false \
       --detect.code.location.name=digital-asset_daml_python \
       --detect.timeout=1500
     displayName: 'Blackduck Python Scan'
@@ -121,8 +121,9 @@ jobs:
       --detect.follow.symbolic.links=false \
       --detect.go.path=$(bazel info execution_root)/external/go_sdk/bin/go \
       --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
-      --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
+      --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
       --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
+      --detect.notices.report=true \
       --detect.code.location.name=digital-asset_daml_go \
       --detect.timeout=1500
     displayName: 'Blackduck Go Scan'
