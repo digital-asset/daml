@@ -245,15 +245,14 @@ private[inner] object FromJsonGenerator extends StrictLogging {
         CodeBlock.of("$T.contractId($T::new)", decodeClass, contractIdType)
       case TypePrim(PrimTypeList, typeParams) =>
         CodeBlock.of("$T.list($L)", decodeClass, typeReaders(typeParams))
-      case TypePrim(PrimTypeOptional, Seq(TypePrim(PrimTypeOptional, typeParams))) =>
-        CodeBlock.of(
-          "$T.optionalNested($T.optional($L))",
-          decodeClass,
-          decodeClass,
-          typeReaders(typeParams),
-        )
-      case TypePrim(PrimTypeOptional, typeParams) =>
-        CodeBlock.of("$T.optional($L)", decodeClass, typeReaders(typeParams))
+      case TypePrim(PrimTypeOptional, Seq(typeParam)) =>
+        def buildNestedOptionals(b: CodeBlock.Builder, typ: Type): CodeBlock.Builder = typ match {
+          case TypePrim(PrimTypeOptional, Seq(innerType)) =>
+            buildNestedOptionals(b.add("$T.optionalNested(", decodeClass), innerType).add(")")
+          case _ =>
+            b.add("$T.optional($L)", decodeClass, typeReaders(Seq(typ)))
+        }
+        buildNestedOptionals(CodeBlock.builder(), typeParam).build()
       case TypePrim(PrimTypeTextMap, typeParams) =>
         CodeBlock.of("$T.textMap($L)", decodeClass, typeReaders(typeParams))
       case TypePrim(PrimTypeGenMap, typeParams) =>
