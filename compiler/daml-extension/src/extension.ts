@@ -87,6 +87,21 @@ export async function activate(context: vscode.ExtensionContext) {
           params.startedAt,
         ),
     );
+    vscode.workspace.onDidChangeConfiguration(
+      (event: vscode.ConfigurationChangeEvent) => {
+        if (event.affectsConfiguration("daml.multiIDESupport")) {
+          if (vscode.workspace.getConfiguration("daml").get("multiIDESupport"))
+            window.showWarningMessage(
+              "Multi-IDE Support: WARNING - This feature is experimental, has bugs, and will likely change without warning. Use at your own risk.",
+              { modal: true },
+            );
+          window.showInformationMessage(
+            "Multi-IDE Support: Please reload the window for changes to take effect.",
+            { modal: true },
+          );
+        }
+      },
+    );
   });
 
   damlLanguageClient.start();
@@ -242,8 +257,10 @@ export function createLanguageClient(
     documentSelector: ["daml"],
   };
 
+  const multiIDESupport = config.get("multiIDESupport");
+
   let command: string;
-  let args: string[] = ["multi-ide", "--"];
+  let args: string[] = [multiIDESupport ? "multi-ide" : "ide", "--"];
 
   try {
     command = which.sync("daml");

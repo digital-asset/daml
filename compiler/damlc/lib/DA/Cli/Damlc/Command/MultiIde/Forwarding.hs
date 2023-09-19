@@ -15,7 +15,7 @@
 -- We generate missing instances for SignatureHelpParams
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module DA.Cli.Damlc.Command.MultiIdeMessageDir (
+module DA.Cli.Damlc.Command.MultiIde.Forwarding (
   getMessageForwardingBehaviour,
   Forwarding (..),
   ForwardingBehaviour (..),
@@ -34,17 +34,15 @@ import Development.IDE.Core.RuleTypes.Daml (VirtualResource (..))
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Lens as LSP
 import qualified Network.URI as URI
+import DA.Cli.Damlc.Command.MultiIde.Types
 
-{-# ANN module "HLint: ignore Avoid restricted flags" #-}
+{-# ANN module ("HLint: ignore Avoid restricted flags" :: String) #-}
 
 -- SignatureHelpParams has no lenses from Language.LSP.Types.Lens
 -- We just need this one, so we'll write it ourselves
 makeLensesFor [("_textDocument", "signatureHelpParamsTextDocumentLens")] ''LSP.SignatureHelpParams
 instance LSP.HasTextDocument LSP.SignatureHelpParams LSP.TextDocumentIdentifier where
   textDocument = signatureHelpParamsTextDocumentLens
-
-type ResponseCombiner (m :: LSP.Method 'LSP.FromClient 'LSP.Request) =
-  [(FilePath, Either LSP.ResponseError (LSP.ResponseResult m))] -> Either LSP.ResponseError (LSP.ResponseResult m)
 
 pullMonadThroughTuple :: Monad m => (a, m b) -> m (a, b)
 pullMonadThroughTuple (a, mb) = (a,) <$> mb
@@ -55,60 +53,6 @@ assumeSuccessCombiner
   .  ([(FilePath, LSP.ResponseResult m)] -> LSP.ResponseResult m)
   -> ResponseCombiner m
 assumeSuccessCombiner f res = f <$> sequence (pullMonadThroughTuple <$> res)
-
-{-
-Types of behaviour we want:
-
-Regularly handling by a single IDE - works for requests and notifications
-  e.g. TextDocumentDidOpen
-Ignore it
-  e.g. Initialize
-Forward a notification to all IDEs
-  e.g. workspace folders changed, exit
-Forward a request to all IDEs and somehow combine the result
-  e.g.
-    symbol lookup -> combine monoidically
-    shutdown -> response is empty, so identity after all responses
-  This is the hard one as we need some way to define the combination logic
-    which will ideally wait for all IDEs to reply to the request and apply this function over the (possibly failing) result
-  This mostly covers FromClient requests that we can't pull a filepath from
-
-  Previously thought we would need this more, now we only really use it for shutdown - ensuring all SubIdes shutdown before replying.
-  We'll keep it in though since we'll likely get more capabilities supported when we upgrade ghc/move to HLS
--}
-
--- TODO: Consider splitting this into one data type for request and one for notification
--- rather than reusing the Single constructor over both and restricting via types
-data ForwardingBehaviour (m :: LSP.Method 'LSP.FromClient t) where
-  Single
-    :: forall t (m :: LSP.Method 'LSP.FromClient t)
-    .  FilePath
-    -> ForwardingBehaviour m
-  AllRequest
-    :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
-    .  ResponseCombiner m
-    -> ForwardingBehaviour m
-  AllNotification
-    :: ForwardingBehaviour (m :: LSP.Method 'LSP.FromClient 'LSP.Notification)
-
--- Akin to ClientNotOrReq tagged with ForwardingBehaviour, and CustomMethod realised to req/not
-data Forwarding (m :: LSP.Method 'LSP.FromClient t) where
-  ForwardRequest
-    :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
-    .  LSP.RequestMessage m
-    -> ForwardingBehaviour m
-    -> Forwarding m
-  ForwardNotification
-    :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Notification)
-    .  LSP.NotificationMessage m
-    -> ForwardingBehaviour m
-    -> Forwarding m
-  ExplicitHandler 
-    :: (  (LSP.FromServerMessage -> IO ())
-       -> (FilePath -> LSP.FromClientMessage -> IO ())
-       -> IO ()
-       )
-    -> Forwarding (m :: LSP.Method 'LSP.FromClient t)
 
 ignore :: Forwarding m
 ignore = ExplicitHandler $ \_ _ -> pure ()
@@ -185,7 +129,7 @@ getMessageForwardingBehaviour meth params =
            in ForwardRequest params $ Single path
         cmd -> error $ "Unknown execute command: " <> show cmd
 
-    LSP.SWindowWorkDoneProgressCancel -> ForwardNotification params AllNotification
+    LSP.SWindowWorkDoneProgressCancel -> error "Forwarding of WindowWorkDoneProgressCancel must be handled elsewhere."
     LSP.SCancelRequest -> ForwardNotification params AllNotification
     -- Unsupported by GHCIDE:
     LSP.SWorkspaceSymbol -> unsupported "WorkspaceSymbol"
