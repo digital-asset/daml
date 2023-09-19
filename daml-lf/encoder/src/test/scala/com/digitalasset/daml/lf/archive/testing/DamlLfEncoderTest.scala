@@ -54,7 +54,7 @@ class DamlLfEncoderTest
       val modules_1_dev = modules_1_14 + "InterfaceMod"
 
       val versions = Table(
-        "versions" -> "modules",git log
+        "versions" -> "modules",
         "1.8" -> modules_1_8,
         "1.11" -> modules_1_11,
         "1.13" -> modules_1_13,
