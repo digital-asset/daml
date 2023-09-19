@@ -27,7 +27,7 @@ class DamlLfEncoderTest
 
     "be readable" in {
 
-      val modules_1_6 = Set[DottedName](
+      val modules_1_8 = Set[DottedName](
         "UnitMod",
         "BoolMod",
         "Int64Mod",
@@ -44,10 +44,10 @@ class DamlLfEncoderTest
         "OptionMod",
         "TextMapMod",
         "EnumMod",
+        "NumericMod",
+        "AnyMod",
+        "SynonymMod",
       )
-
-      val modules_1_7 = modules_1_6 + "NumericMod" + "AnyMod"
-      val modules_1_8 = modules_1_7 + "SynonymMod"
       val modules_1_11 = modules_1_8 + "GenMapMod"
       val modules_1_13 = modules_1_11 + "BigNumericMod"
       val modules_1_14 = modules_1_13 + "ExceptionMod"
@@ -56,8 +56,6 @@ class DamlLfEncoderTest
 
       val versions = Table(
         "versions" -> "modules",
-        "1.6" -> modules_1_6,
-        "1.7" -> modules_1_7,
         "1.8" -> modules_1_8,
         "1.11" -> modules_1_11,
         "1.13" -> modules_1_13,
