@@ -15,7 +15,11 @@ import org.junit.runner.RunWith;
 import test.numericmod.Box;
 
 @RunWith(JUnitPlatform.class)
+<<<<<<<< HEAD:language-support/java/codegen/src/test/java/com/digitalasset/testing/NumericTestFor1_7AndFor1_8AndFor1_11AndFor1_12ndFor1_13AndFor1_14AndFor1_dev.java
 public class NumericTestFor1_7AndFor1_8AndFor1_11AndFor1_12ndFor1_13AndFor1_14AndFor1_dev {
+========
+public class NumericTestForAll {
+>>>>>>>> 38bc054f52 (do not test anymore LF 1.6 and 1.7):language-support/java/codegen/src/test/java/com/digitalasset/testing/NumericTestForAll.java
 
   @Test
   void numeric2Value2Numeric() {
