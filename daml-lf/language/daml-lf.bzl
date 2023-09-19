@@ -100,8 +100,6 @@ LF_DEV_VERSIONS = [
 
 # All LF versions
 LF_VERSIONS = [
-    "1.6",
-    "1.7",
     "1.8",
     "1.11",
     "1.12",

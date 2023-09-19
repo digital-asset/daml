@@ -15,8 +15,7 @@ import org.junit.runner.RunWith;
 import test.numericmod.Box;
 
 @RunWith(JUnitPlatform.class)
-public
-class NumericTestFor1_7AndFor1_8AndFor1_11AndFor1_12ndFor1_13AndFor1_14AndFor1_15AndFor1_devAndFor2_dev {
+public class NumericTestForAll {
 
   @Test
   void numeric2Value2Numeric() {
