@@ -164,6 +164,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
               )
             )
           scenario.input
+            .concatMat(Source.maybe[Message])(Keep.left)
             .via(webSocketFlow)
             .runWith(collectResultsAsTextMessageSkipOffsetTicks)
             .flatMap { msgs =>

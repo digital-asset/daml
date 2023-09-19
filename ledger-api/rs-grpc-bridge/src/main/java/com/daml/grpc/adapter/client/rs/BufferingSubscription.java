@@ -31,7 +31,7 @@ class BufferingSubscription<Resp> implements Subscription {
   @Nonnull private final String logPrefix;
   @Nonnull private final DownstreamEventBuffer downstreamEventBuffer;
 
-  private boolean callStarted = false;
+  private boolean hasReceivedElements = false;
 
   /**
    * gRPC upstream will send an element that the subscriber did not ask for. We keep track of that,
@@ -73,9 +73,7 @@ class BufferingSubscription<Resp> implements Subscription {
     this.es = es;
     this.subscriber = subscriber;
     this.logPrefix = logPrefix;
-    downstreamEventBuffer =
-        new DownstreamEventBuffer(
-            this::propagateCancellation, this::propagateIntegerDemand, logPrefix);
+    downstreamEventBuffer = new DownstreamEventBuffer(this::propagateIntegerDemand, logPrefix);
   }
 
   // Getters
@@ -118,9 +116,8 @@ class BufferingSubscription<Resp> implements Subscription {
 
   private void propagateDemandIfNoElemsPending() {
     ClientCallStreamObserver clientCallStreamObserver = requestObserverSupplier.get();
-    if (clientCallStreamObserver != null && callStarted && unsatisfiedDemand == 0) {
-      this.unsatisfiedDemand =
-          downstreamEventBuffer.propagateCancellationOrDemand(clientCallStreamObserver);
+    if (clientCallStreamObserver != null && hasReceivedElements && unsatisfiedDemand == 0) {
+      this.unsatisfiedDemand = downstreamEventBuffer.propagateDemand(clientCallStreamObserver);
     }
   }
 
@@ -151,30 +148,29 @@ class BufferingSubscription<Resp> implements Subscription {
         () -> {
           cancelled = true;
           ClientCallStreamObserver requestObserver = requestObserverSupplier.get();
-          if (requestObserver != null && callStarted) propagateCancellation(requestObserver);
-          else downstreamEventBuffer.bufferCancellation();
+          if (requestObserver != null) propagateCancellation(requestObserver);
         });
   }
 
   private void propagateCancellation(@Nonnull ClientCallStreamObserver requestObserver) {
-    requestObserver.cancel("Client cancelled the call.", null);
+    try {
+      requestObserver.cancel("Client cancelled the call.", null);
+    } catch (IllegalStateException e) {
+      logger.warn("Failed to propagate cancellation.", e);
+    }
   }
 
   /**
-   * Marks the call as started, and if there's no unsatisfied demand signaled to the upstream, it
-   * sends the buffered amount (or the cancellation if this is the first call to this method.)
+   * If there's no unsatisfied demand signaled to the upstream, it sends the buffered amount
    *
    * @param requestObserver Used to signal demand or cancellation to the gRPC upstream if necessary.
    */
   void onNextElement(@Nonnull ClientCallStreamObserver requestObserver) {
-    callStarted = true;
-    if (--unsatisfiedDemand == 0) {
-      this.unsatisfiedDemand = downstreamEventBuffer.propagateCancellationOrDemand(requestObserver);
+    hasReceivedElements = true;
+    if (cancelled) {
+      propagateCancellation(requestObserver);
+    } else if (--unsatisfiedDemand == 0) {
+      this.unsatisfiedDemand = downstreamEventBuffer.propagateDemand(requestObserver);
     }
-  }
-
-  /** Marks the call as started */
-  void onStreamClosure() {
-    callStarted = true;
   }
 }
