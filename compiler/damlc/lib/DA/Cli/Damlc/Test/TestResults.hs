@@ -26,6 +26,8 @@ import qualified Data.Map.Strict as M
 import Data.Maybe (mapMaybe)
 import Data.Foldable (fold)
 import Text.Printf
+import Text.Regex.TDFA
+import Data.Monoid (Endo(..))
 
 class Protobuf a b | a -> b where
     decode :: a -> Maybe b
@@ -403,8 +405,14 @@ scenarioResultsToTestResults allPackages results =
                 | otherwise
                 = Nothing
 
-printTestCoverage ::
-    Bool
+printTestCoverageWithFilters :: Bool -> [Regex] -> TestResults -> IO ()
+printTestCoverageWithFilters showCoverage filters testResults =
+    let filtered = foldMap (Endo . skipMatchingChoices . matchTest) filters `appEndo` testResults
+    in
+    printTestCoverage showCoverage filtered
+
+printTestCoverage
+    :: Bool
     -> TestResults
     -> IO ()
 printTestCoverage showCoverage testResults@TestResults { templates, interfaceInstances, created } =
@@ -522,12 +530,12 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
             , printf "  %d (%5.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
             ] ++ showCoverageReport printInstanceChoiceIdentifier "external interface choices never exercised" neverExercised
 
-        showCoverageReport :: (k -> a -> String) -> String -> M.Map k a -> [String]
+        showCoverageReport :: (k -> String) -> String -> M.Map k a -> [String]
         showCoverageReport printer variety names
           | not showCoverage = []
           | otherwise =
             [ printf "  %s: %d" variety (M.size names)
-            ] ++ [ "    " ++ printer id value | (id, value) <- M.toList names ]
+            ] ++ [ "    " ++ printer id | (id, _value) <- M.toList names ]
     in
     putStrLn $
     unlines $
@@ -546,21 +554,32 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
     , externalImplementationChoicesReport
     ]
 
-    where
+printTemplateChoiceIdentifier :: (T.Text, TemplateIdentifier) -> String
+printTemplateChoiceIdentifier (choice, templateId) =
+    printTemplateIdentifier templateId <> ":" <> T.unpack choice
 
-    printTemplateChoiceIdentifier :: (T.Text, TemplateIdentifier) -> a -> String
-    printTemplateChoiceIdentifier (choice, templateId) _ =
-        printTemplateIdentifier templateId () <> ":" <> T.unpack choice
+printInstanceChoiceIdentifier :: (T.Text, InterfaceInstanceIdentifier) -> String
+printInstanceChoiceIdentifier (choice, InterfaceInstanceIdentifier { instanceTemplate }) =
+    printTemplateIdentifier instanceTemplate <> ":" <> T.unpack choice
 
-    printInstanceChoiceIdentifier :: (T.Text, InterfaceInstanceIdentifier) -> a -> String
-    printInstanceChoiceIdentifier (choice, InterfaceInstanceIdentifier { instanceTemplate }) _ =
-        printTemplateIdentifier instanceTemplate () <> ":" <> T.unpack choice
+printTemplateIdentifier :: TemplateIdentifier -> String
+printTemplateIdentifier TemplateIdentifier { package, qualifiedName } =
+    let prefix =
+            case package of
+              LocalPackageId -> ""
+              ExternalPackageId { name } -> name <> ":"
+    in
+    T.unpack $ prefix <> qualifiedName
 
-    printTemplateIdentifier :: TemplateIdentifier -> a -> String
-    printTemplateIdentifier TemplateIdentifier { package, qualifiedName } _ =
-        let prefix =
-                case package of
-                  LocalPackageId -> ""
-                  ExternalPackageId { name } -> name <> ":"
-        in
-        T.unpack $ prefix <> qualifiedName
+skipMatchingChoices :: (String -> Bool) -> TestResults -> TestResults
+skipMatchingChoices namePred TestResults{..} =
+  TestResults
+    { templates = M.mapWithKey (S.filter . shouldntSkip) templates
+    , interfaces = M.mapWithKey (S.filter . shouldntSkip . unInterfaceIdentifier) interfaces
+    , interfaceInstances
+    , created
+    , exercised = M.mapWithKey (\choiceName -> M.filterWithKey (\tid _ -> shouldntSkip tid choiceName)) exercised
+    }
+  where
+    shouldntSkip :: TemplateIdentifier -> T.Text -> Bool
+    shouldntSkip tid choiceName = not (namePred (printTemplateChoiceIdentifier (choiceName, tid)))

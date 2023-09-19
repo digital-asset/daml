@@ -13,6 +13,7 @@ module DA.Cli.Damlc.Test (
     , TransactionsOutputPath(..)
     , CoveragePaths(..)
     , LoadCoverageOnly(..)
+    , CoverageFilter(..)
     , loadAggregatePrintResults
     -- , Summarize(..)
     ) where
@@ -57,9 +58,11 @@ import System.IO.Error (isPermissionError, isAlreadyExistsError, isDoesNotExistE
 import qualified Text.XML.Light as XML
 import qualified Text.Blaze.Html.Renderer.Text as Blaze
 import qualified Text.Blaze.Html4.Strict as Blaze
+import Text.Regex.TDFA
 
 newtype UseColor = UseColor {getUseColor :: Bool}
 newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
+newtype CoverageFilter = CoverageFilter {getCoverageFilter :: Regex}
 newtype RunAllTests = RunAllTests {getRunAllTests :: Bool}
 newtype TableOutputPath = TableOutputPath {getTableOutputPath :: Maybe String}
 newtype TransactionsOutputPath = TransactionsOutputPath {getTransactionsOutputPath :: Maybe String}
@@ -70,24 +73,25 @@ data CoveragePaths = CoveragePaths
 newtype LoadCoverageOnly = LoadCoverageOnly {getLoadCoverageOnly :: Bool}
 
 -- | Test a Daml file.
-execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> CoveragePaths -> IO ()
-execTest inFiles runAllTests coverage color mbJUnitOutput opts tableOutputPath transactionsOutputPath resultsIO = do
+execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> CoveragePaths -> [CoverageFilter] -> IO ()
+execTest inFiles runAllTests coverage color mbJUnitOutput opts tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
     loggerH <- getLogger opts "test"
     withDamlIdeState opts loggerH diagnosticsLogger $ \h -> do
-        testRun h inFiles (optDamlLfVersion opts) runAllTests coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO
+        testRun h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllTests coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
         diags <- getDiagnostics h
         when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 
-loadAggregatePrintResults :: CoveragePaths -> ShowCoverage -> Maybe TR.TestResults -> IO ()
-loadAggregatePrintResults resultsIO coverage mbNewTestResults = do
+loadAggregatePrintResults :: CoveragePaths -> [CoverageFilter] -> ShowCoverage -> Maybe TR.TestResults -> IO ()
+loadAggregatePrintResults resultsIO coverageFilters coverage mbNewTestResults = do
     loadedTestResults <- forM (loadCoveragePaths resultsIO) $ \trPath -> do
         let np = NamedPath ("Input test result '" ++ trPath ++ "'") trPath
         tryWithPath TR.loadTestResults np
     let aggregatedTestResults = fold mbNewTestResults <> fold (catMaybes (catMaybes loadedTestResults))
 
     -- print total test coverage
-    TR.printTestCoverage
+    TR.printTestCoverageWithFilters
         (getShowCoverage coverage)
+        (map getCoverageFilter coverageFilters)
         aggregatedTestResults
 
     case saveCoveragePath resultsIO of
@@ -108,8 +112,9 @@ testRun ::
     -> TableOutputPath
     -> TransactionsOutputPath
     -> CoveragePaths
+    -> [CoverageFilter]
     -> IO ()
-testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO = do
+testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
     -- make sure none of the files disappear
     liftIO $ setFilesOfInterest h (HashSet.fromList inFiles)
 
@@ -156,7 +161,7 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
     printSummary color (concatMap snd allResults)
 
     let newTestResults = TR.scenarioResultsToTestResults allPackages allResults
-    loadAggregatePrintResults resultsIO coverage (Just newTestResults)
+    loadAggregatePrintResults resultsIO coverageFilters coverage (Just newTestResults)
 
     mbSdkPath <- getEnv sdkPathEnvVar
     let doesOutputTablesOrTransactions =
