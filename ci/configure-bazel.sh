@@ -71,10 +71,10 @@ if is_windows; then
   # three characters.
   echo "Working directory: $PWD"
   SUFFIX="$(echo $PWD $RULES_HASKELL_REV | openssl dgst -md5 -r)"
-  SUFFIX="${SUFFIX:0:12}"
+  SUFFIX="${SUFFIX:0:6}"
   echo "Platform suffix: $SUFFIX"
   # We include an extra version at the end that we can bump manually.
-  CACHE_SUFFIX="$SUFFIX-v13"
+  CACHE_SUFFIX="$SUFFIX-202309"
   CACHE_URL="$CACHE_URL/$CACHE_SUFFIX"
   echo "build:windows-ci --remote_http_cache=https://bazel-cache.da-ext.net/$CACHE_SUFFIX" >> .bazelrc.local
 fi
