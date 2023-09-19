@@ -81,8 +81,6 @@ lf_docs_version = lf_version_configuration.get("preview", lf_version_configurati
 
 # All LF versions
 LF_VERSIONS = [
-    "1.6",
-    "1.7",
     "1.8",
     "1.11",
     "1.12",
