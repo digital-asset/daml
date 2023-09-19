@@ -17,55 +17,120 @@ import DA.Daml.LF.Ast
 import DA.Daml.LF.Proto3.Archive.Encode
 import DA.Daml.UtilLF
 
+allV1StablePackages :: MS.Map PackageId Package
+allV1StablePackages =
+    MS.fromList $
+    map (\pkg  -> (encodePackageHash pkg, pkg)) 
+    [ ghcTypes version1_6
+    , ghcPrim version1_6
+    , ghcTuple version1_6
+    , daTypes version1_6
+    , daInternalTemplate version1_6
+    , daInternalAny version1_7
+    , daTimeTypes version1_6
+    , daNonEmptyTypes version1_6
+    , daDateTypes version1_6
+    , daSemigroupTypes version1_6
+    , daMonoidTypes version1_6
+    , daLogicTypes version1_6
+    , daValidationTypes version1_6 (encodePackageHash (daNonEmptyTypes version1_6))
+    , daInternalDown version1_6
+    , daInternalErased version1_6
+    , daInternalNatSyn version1_14
+    , daInternalPromotedText version1_6
+    , daSetTypes version1_11
+    , daExceptionGeneralError version1_14
+    , daExceptionArithmeticError version1_14
+    , daExceptionAssertionFailed version1_14
+    , daExceptionPreconditionFailed version1_14
+    , daInternalInterfaceAnyViewTypes version1_15
+    , daActionStateType version1_14 (encodePackageHash (daTypes version1_6))
+    , daRandomTypes version1_14
+    , daStackTypes version1_14
+    ]
+
+allV2StablePackages :: MS.Map PackageId Package
+allV2StablePackages =
+    MS.fromList $
+    map (\pkg  -> (encodePackageHash pkg, pkg)) 
+      [ ghcTypes version2_dev
+      , ghcPrim version2_dev
+      , ghcTuple version2_dev
+      , daTypes version2_dev
+      , daInternalTemplate version2_dev
+      , daInternalAny version2_dev
+      , daTimeTypes version2_dev
+      , daNonEmptyTypes version2_dev
+      , daDateTypes version2_dev
+      , daSemigroupTypes version2_dev
+      , daMonoidTypes version2_dev
+      , daLogicTypes version2_dev
+      , daValidationTypes version2_dev (encodePackageHash (daNonEmptyTypes version2_dev))
+      , daInternalDown version2_dev
+      , daInternalErased version2_dev
+      , daInternalNatSyn version2_dev
+      , daInternalPromotedText version2_dev
+      , daSetTypes version2_dev
+      , daExceptionGeneralError version2_dev
+      , daExceptionArithmeticError version2_dev
+      , daExceptionAssertionFailed version2_dev
+      , daExceptionPreconditionFailed version2_dev
+      , daInternalInterfaceAnyViewTypes version2_dev
+      , daActionStateType version2_dev (encodePackageHash (daTypes version2_dev))
+      , daRandomTypes version2_dev
+      , daStackTypes version2_dev
+      ]
+
 allStablePackages :: MS.Map PackageId Package
 allStablePackages =
-    MS.fromList $
-    map (\pkg  -> (encodePackageHash pkg, pkg))
-    [ ghcTypes
-    , ghcPrim
-    , ghcTuple
-    , daTypes
-    , daInternalTemplate
-    , daInternalAny
-    , daTimeTypes
-    , daNonEmptyTypes
-    , daDateTypes
-    , daSemigroupTypes
-    , daMonoidTypes
-    , daLogicTypes
-    , daValidationTypes (encodePackageHash daNonEmptyTypes)
-    , daInternalDown
-    , daInternalErased
-    , daInternalNatSyn
-    , daInternalPromotedText
-    , daSetTypes
-    , daExceptionGeneralError
-    , daExceptionArithmeticError
-    , daExceptionAssertionFailed
-    , daExceptionPreconditionFailed
-    , daInternalInterfaceAnyViewTypes
-    , daActionStateType (encodePackageHash daTypes)
-    , daRandomTypes
-    , daStackTypes
-    ]
+    MS.unionWithKey
+        duplicatePackageIdError
+        allV1StablePackages
+        allV2StablePackages
+  where
+    duplicatePackageIdError pkgId _ _ =
+        error $ "duplicate package ID among stable packages: " <> show pkgId
+
+allStablePackagesForMajorVersion :: MajorVersion -> MS.Map PackageId Package
+allStablePackagesForMajorVersion = \case
+    V1 -> allV1StablePackages
+    V2 -> allV2StablePackages
 
 allStablePackagesForVersion :: Version -> MS.Map PackageId Package
 allStablePackagesForVersion v =
-    MS.filter (\p -> packageLfVersion p <= v) allStablePackages
+    MS.filter
+        (\p -> packageLfVersion p `compatibleWith` v)
+        (allStablePackagesForMajorVersion (versionMajor v))
 
 numStablePackagesForVersion :: Version -> Int
 numStablePackagesForVersion v = MS.size (allStablePackagesForVersion v)
 
-stablePackageByModuleName :: MS.Map ModuleName Package
-stablePackageByModuleName = MS.fromListWithKey
+stablePackageByModuleName :: MajorVersion -> MS.Map ModuleName Package
+stablePackageByModuleName major = MS.fromListWithKey
     (\k -> error $ "Duplicate module among stable packages: " <> show k)
     [ (moduleName m, p)
-    | p <- MS.elems allStablePackages
+    | p <- MS.elems (allStablePackagesForMajorVersion major)
     , m <- NM.toList (packageModules p) ]
 
-ghcTypes :: Package
-ghcTypes = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = NM.fromList [dataOrdering]
+-- | Helper function for optionally adding metadata to stable packages depending
+-- on the LF version of the package.
+ifMetadataRequired :: Version -> PackageMetadata -> Maybe PackageMetadata
+ifMetadataRequired v metadata =
+  if requiresPackageMetadata v
+    then Just metadata
+    else Nothing
+
+ghcTypes :: Version -> Package
+ghcTypes version = Package
+  { packageLfVersion = version 
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = NM.fromList [dataOrdering]
+    }
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "daml-prim-GHC-Types"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing 
+      }
   }
   where
     modName = mkModName ["GHC", "Types"]
@@ -78,11 +143,19 @@ ghcTypes = package version1_6 $ NM.singleton (emptyModule modName)
       , dataCons = DataEnum $ map mkVariantCon cons
       }
 
-ghcPrim :: Package
-ghcPrim = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = NM.fromList [dataVoid]
-  , moduleValues = NM.fromList [valVoid]
-  }
+ghcPrim :: Version -> Package
+ghcPrim version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = NM.fromList [dataVoid]
+    , moduleValues = NM.fromList [valVoid]
+    }
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "daml-prim-GHC-Prim"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
+  }      
   where
     modName = mkModName ["GHC", "Prim"]
     qual = Qualified PRSelf modName
@@ -101,16 +174,19 @@ ghcPrim = package version1_6 $ NM.singleton (emptyModule modName)
       , dvalBody = EEnumCon (qual (dataTypeCon dataVoid)) conName
       }
 
-package :: Version -> NM.NameMap Module -> Package
-package ver mods
-    | ver > version1_7 = error "Packages with LF version >= 1.7 need to have package metadata"
-    | otherwise = Package ver mods Nothing
-
-daTypes :: Package
-daTypes = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = types
-  , moduleValues = values
-  }
+daTypes :: Version -> Package
+daTypes version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    , moduleValues = values
+    }
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "daml-prim-DA-Types"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
+  }      
   where
     modName = mkModName ["DA", "Types"]
     types = NM.fromList $
@@ -146,11 +222,19 @@ daTypes = package version1_6 $ NM.singleton (emptyModule modName)
       ERecCon (tupleTyConApp n) [(mkIndexedField i, EVar $ tupleTmVar i) | i <- [1..n]]
     tupleWorkers = map tupleWorker [2..20]
 
-ghcTuple :: Package
-ghcTuple = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = types
-  , moduleValues = values
-  }
+ghcTuple :: Version -> Package
+ghcTuple version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    , moduleValues = values
+    }
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "daml-prim-GHC-Tuple"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
+  }      
   where
     modName = mkModName ["GHC", "Tuple"]
     tyVar = mkTypeVar "a"
@@ -164,9 +248,17 @@ ghcTuple = package version1_6 $ NM.singleton (emptyModule modName)
       [ mkWorkerDef modName unitTyCon tyVars [(mkIndexedField 1, TVar tyVar)]
       ]
 
-daInternalTemplate :: Package
-daInternalTemplate = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = types
+daInternalTemplate :: Version -> Package
+daInternalTemplate version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+     { moduleDataTypes = types
+     } 
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "ghc-stdlib-DA-Internal-Template"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
   }
   where
     modName = mkModName ["DA", "Internal", "Template"]
@@ -175,9 +267,17 @@ daInternalTemplate = package version1_6 $ NM.singleton (emptyModule modName)
           DataRecord []
       ]
 
-daInternalAny :: Package
-daInternalAny = package version1_7 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = types
+daInternalAny :: Version -> Package
+daInternalAny version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    }
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "ghc-stdlib-DA-Internal-Any"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
   }
   where
     modName = mkModName ["DA", "Internal", "Any"]
@@ -192,14 +292,14 @@ daInternalAny = package version1_7 $ NM.singleton (emptyModule modName)
           DataRecord [(mkField "getAnyContractKey", TAny), (mkField "getAnyContractKeyTemplateTypeRep", TCon (Qualified PRSelf modName (mkTypeCon ["TemplateTypeRep"])))]
       ]
 
-daInternalInterfaceAnyViewTypes :: Package
-daInternalInterfaceAnyViewTypes = Package
-  { packageLfVersion = version1_15
+daInternalInterfaceAnyViewTypes :: Version -> Package
+daInternalInterfaceAnyViewTypes version = Package
+  { packageLfVersion = version
   , packageModules = NM.singleton (emptyModule modName)
       { moduleDataTypes = datatypes
       , moduleValues = values
       }
-  , packageMetadata = Just PackageMetadata
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Internal-Interface-AnyView-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -233,14 +333,14 @@ daInternalInterfaceAnyViewTypes = Package
       , mkWorkerDef modName interfaceTypeRepTyCon [] [(getInterfaceTypeRepField, TTypeRep)]
       ]
 
-daActionStateType :: PackageId -> Package
-daActionStateType daTypesPackageId = Package
-  { packageLfVersion = version1_14
+daActionStateType :: Version -> PackageId -> Package
+daActionStateType version daTypesPackageId = Package
+  { packageLfVersion = version
   , packageModules = NM.singleton (emptyModule modName)
       { moduleDataTypes = types
       , moduleValues = values
       }
-  , packageMetadata = Just PackageMetadata
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Action-State-Type"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -278,14 +378,14 @@ daActionStateType daTypesPackageId = Package
       , mkWorkerDef modName stateTyCon tyVars [(runStateField, runStateFieldType)]
       ]
 
-daRandomTypes :: Package
-daRandomTypes = Package
-  { packageLfVersion = version1_14
+daRandomTypes :: Version -> Package
+daRandomTypes version = Package
+  { packageLfVersion = version
   , packageModules = NM.singleton (emptyModule modName)
       { moduleDataTypes = types
       , moduleValues = values
       }
-  , packageMetadata = Just PackageMetadata
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Random-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -308,14 +408,14 @@ daRandomTypes = Package
       [ mkVariantWorkerDef modName minstdTyCon minstdDataCon [] TInt64
       ]
 
-daStackTypes :: Package
-daStackTypes = Package
-  { packageLfVersion = version1_14
+daStackTypes :: Version -> Package
+daStackTypes version = Package
+  { packageLfVersion = version
   , packageModules = NM.singleton (emptyModule modName)
       { moduleDataTypes = types
       , moduleValues = values
       }
-  , packageMetadata = Just PackageMetadata
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Stack-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -346,11 +446,19 @@ daStackTypes = Package
       $ mkWorkerDef modName srcLocTyCon [] fields
       : fmap (uncurry (mkSelectorDef modName srcLocTyCon [])) fields
 
-daTimeTypes :: Package
-daTimeTypes = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = types
-  , moduleValues = values
-  }
+daTimeTypes :: Version -> Package
+daTimeTypes version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    , moduleValues = values
+    }
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Time-Types"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
+  }      
   where
     modName = mkModName ["DA", "Time", "Types"]
     relTimeTyCon = mkTypeCon ["RelTime"]
@@ -364,11 +472,19 @@ daTimeTypes = package version1_6 $ NM.singleton (emptyModule modName)
       ]
     usField = mkField "microseconds"
 
-daNonEmptyTypes :: Package
-daNonEmptyTypes = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = types
-  , moduleValues = values
-  }
+daNonEmptyTypes :: Version -> Package
+daNonEmptyTypes version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    , moduleValues = values
+    }
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-NonEmpty-Types"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
+  }      
   where
     modName = mkModName ["DA", "NonEmpty", "Types"]
     hdField = mkField "hd"
@@ -386,10 +502,18 @@ daNonEmptyTypes = package version1_6 $ NM.singleton (emptyModule modName)
       , mkSelectorDef modName nonEmptyTyCon tyVars tlField (TList (TVar tyVar))
       ]
 
-daDateTypes :: Package
-daDateTypes = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = types
-  }
+daDateTypes :: Version -> Package
+daDateTypes version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    }
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Date-Types"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
+  } 
   where
     modName = mkModName ["DA", "Date", "Types"]
     types = NM.fromList
@@ -420,10 +544,18 @@ daDateTypes = package version1_6 $ NM.singleton (emptyModule modName)
             ]
       ]
 
-daSemigroupTypes :: Package
-daSemigroupTypes = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = types
-  , moduleValues = values
+daSemigroupTypes :: Version -> Package
+daSemigroupTypes version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    , moduleValues = values
+    }
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Semigroup-Types"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
   }
   where
     modName = mkModName ["DA", "Semigroup", "Types"]
@@ -441,11 +573,19 @@ daSemigroupTypes = package version1_6 $ NM.singleton (emptyModule modName)
       , mkWorkerDef modName maxTyCon tyVars [(unpackField, TVar tyVar)]
       ]
 
-daMonoidTypes :: Package
-daMonoidTypes = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = types
-  , moduleValues = values
-  }
+daMonoidTypes :: Version -> Package
+daMonoidTypes version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    , moduleValues = values
+    }
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Monoid-Types"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
+  }      
   where
     modName = mkModName ["DA", "Monoid", "Types"]
     unpackField = mkField "unpack"
@@ -477,11 +617,19 @@ daMonoidTypes = package version1_6 $ NM.singleton (emptyModule modName)
       , mkWorkerDef modName productTyCon tyVars [(unpackField, TVar tyVar)]
       ]
 
-daValidationTypes :: PackageId -> Package
-daValidationTypes nonEmptyPkgId = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = types
-  , moduleValues = values
-  }
+daValidationTypes :: Version -> PackageId -> Package
+daValidationTypes version nonEmptyPkgId = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    , moduleValues = values
+    }
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Validation-Types"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
+  }      
   where
     nonEmptyModName = mkModName ["DA", "NonEmpty", "Types"]
     nonEmptyTCon = Qualified (PRImport nonEmptyPkgId) nonEmptyModName (mkTypeCon ["NonEmpty"])
@@ -503,10 +651,18 @@ daValidationTypes nonEmptyPkgId = package version1_6 $ NM.singleton (emptyModule
       , mkVariantWorkerDef modName validationTyCon success tyVars (TVar tyVar)
       ]
 
-daLogicTypes :: Package
-daLogicTypes = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = types
-  , moduleValues = values
+daLogicTypes :: Version -> Package
+daLogicTypes version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    , moduleValues = values
+    }
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Logic-Types"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }  
   }
   where
     modName = mkModName ["DA", "Logic", "Types"]
@@ -533,11 +689,19 @@ daLogicTypes = package version1_6 $ NM.singleton (emptyModule modName)
       , mkVariantWorkerDef modName formulaTyCon disjunction tyVars (TList formulaTy)
       ]
 
-daInternalDown :: Package
-daInternalDown = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = types
-  , moduleValues = values
-  }
+daInternalDown :: Version -> Package
+daInternalDown version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    , moduleValues = values
+    }
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Internal-Down"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
+  }      
   where
     modName = mkModName ["DA", "Internal", "Down"]
     downTyCon = mkTypeCon ["Down"]
@@ -551,14 +715,14 @@ daInternalDown = package version1_6 $ NM.singleton (emptyModule modName)
       [ mkWorkerDef modName downTyCon tyVars [(unpackField, TVar tyVar)]
       ]
 
-daSetTypes :: Package
-daSetTypes = Package
-    { packageLfVersion = version1_11
+daSetTypes :: Version -> Package
+daSetTypes version = Package
+    { packageLfVersion = version
     , packageModules = NM.singleton (emptyModule modName)
         { moduleDataTypes = types
         , moduleValues = values
         }
-    , packageMetadata = Just PackageMetadata
+    , packageMetadata = ifMetadataRequired version $ PackageMetadata
         { packageName = PackageName "daml-stdlib-DA-Set-Types"
         , packageVersion = PackageVersion "1.0.0"
         , upgradedPackageId = Nothing
@@ -578,9 +742,17 @@ daSetTypes = Package
       [ mkWorkerDef modName tyCon tyVars [(mapField, mapType)]
       ]
 
-daInternalErased :: Package
-daInternalErased = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = types
+daInternalErased :: Version -> Package
+daInternalErased version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    }
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "daml-prim-DA-Internal-Erased"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
   }
   where
     modName = mkModName ["DA", "Internal", "Erased"]
@@ -589,14 +761,14 @@ daInternalErased = package version1_6 $ NM.singleton (emptyModule modName)
       [ DefDataType Nothing erasedTyCon (IsSerializable False) [] $ DataVariant []
       ]
 
-daInternalNatSyn :: Package
-daInternalNatSyn = Package
-  { packageLfVersion = version1_14
+daInternalNatSyn :: Version -> Package
+daInternalNatSyn version = Package
+  { packageLfVersion = version
   , packageModules = NM.singleton (emptyModule modName)
       { moduleDataTypes = types
       , moduleValues = NM.empty
       }
-  , packageMetadata = Just PackageMetadata
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
       { packageName = PackageName "daml-prim-DA-Internal-NatSyn"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -609,9 +781,17 @@ daInternalNatSyn = Package
       [ DefDataType Nothing natSynTyCon (IsSerializable False) [(mkTypeVar "n", KNat)] $ DataVariant []
       ]
 
-daInternalPromotedText :: Package
-daInternalPromotedText = package version1_6 $ NM.singleton (emptyModule modName)
-  { moduleDataTypes = types
+daInternalPromotedText :: Version -> Package
+daInternalPromotedText version = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    } 
+  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+      { packageName = PackageName "daml-prim-DA-Internal-PromotedText"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
   }
   where
     modName = mkModName ["DA", "Internal", "PromotedText"]
@@ -620,27 +800,27 @@ daInternalPromotedText = package version1_6 $ NM.singleton (emptyModule modName)
       [ DefDataType Nothing ptextTyCon (IsSerializable False) [(mkTypeVar "t", KStar)] $ DataVariant []
       ]
 
-daExceptionGeneralError :: Package
-daExceptionGeneralError = builtinExceptionPackage "GeneralError"
+daExceptionGeneralError :: Version -> Package
+daExceptionGeneralError version = builtinExceptionPackage version "GeneralError"
 
-daExceptionArithmeticError :: Package
-daExceptionArithmeticError = builtinExceptionPackage "ArithmeticError"
+daExceptionArithmeticError :: Version -> Package
+daExceptionArithmeticError version = builtinExceptionPackage version "ArithmeticError"
 
-daExceptionAssertionFailed :: Package
-daExceptionAssertionFailed = builtinExceptionPackage "AssertionFailed"
+daExceptionAssertionFailed :: Version -> Package
+daExceptionAssertionFailed version = builtinExceptionPackage version "AssertionFailed"
 
-daExceptionPreconditionFailed :: Package
-daExceptionPreconditionFailed = builtinExceptionPackage "PreconditionFailed"
+daExceptionPreconditionFailed :: Version -> Package
+daExceptionPreconditionFailed version = builtinExceptionPackage version "PreconditionFailed"
 
-builtinExceptionPackage :: T.Text -> Package
-builtinExceptionPackage name = Package
-    { packageLfVersion = featureMinVersion featureExceptions
+builtinExceptionPackage :: Version -> T.Text -> Package
+builtinExceptionPackage version name = Package
+    { packageLfVersion = version
     , packageModules = NM.singleton (emptyModule modName)
         { moduleDataTypes = types
         , moduleValues = values
         , moduleExceptions = exceptions
         }
-    , packageMetadata = Just PackageMetadata
+    , packageMetadata = ifMetadataRequired version $ PackageMetadata
         { packageName = PackageName ("daml-prim-DA-Exception-" <> name)
         , packageVersion = PackageVersion "1.0.0"
         , upgradedPackageId = Nothing

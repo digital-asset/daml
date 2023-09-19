@@ -114,11 +114,8 @@ data ContextUpdate = ContextUpdate
   }
 
 encodeScenarioModule :: LF.Version -> LF.Module -> BS.ByteString
-encodeScenarioModule version m = case version of
-    LF.V1{} -> mod
-    LF.V2{} -> mod 
-  where
-    mod = BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
+encodeScenarioModule version m =
+    BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
 
 data BackendError
   = BErrorClient ClientError

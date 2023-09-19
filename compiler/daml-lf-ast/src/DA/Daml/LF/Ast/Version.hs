@@ -1,88 +1,127 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DeriveAnyClass #-}
+
 module DA.Daml.LF.Ast.Version(module DA.Daml.LF.Ast.Version) where
 
+import           Data.Char (isDigit)
 import           Data.Data
-import GHC.Generics
+import           Data.List (intercalate)
+import           Data.Maybe (catMaybes)
+import           GHC.Generics
 import           DA.Pretty
+import qualified DA.Daml.LF.Ast.Range as R
 import           Control.DeepSeq
-import qualified Data.Map.Strict as MS
 import qualified Data.Text as T
-import qualified Text.Read as Read
+import           Safe (headMay)
+import           Text.ParserCombinators.ReadP (ReadP, pfail, readP_to_S, (+++), munch1)
+import qualified Text.ParserCombinators.ReadP as ReadP
 
 -- | Daml-LF version of an archive payload.
-data Version
-  = V1{versionMinor :: MinorVersion}
-  | V2{versionMinor :: MinorVersion}
-  -- TODO(#17366): Remove the Ord instance once V2 is backwards incompatible with V1. All code
-  --     relying on the Ord instance should use the supports function instead.
+data Version = Version
+    { versionMajor :: MajorVersion
+    , versionMinor :: MinorVersion
+    }
+    deriving (Eq, Data, Generic, NFData, Show)
+
+data MajorVersion = V1 | V2
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 data MinorVersion = PointStable Int | PointDev
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
+-- | x `compatibleWith` y if dars compiled to version y can depend on dars
+-- compiled to version x.
+-- canDependOn
+compatibleWith :: Version -> Version -> Bool
+compatibleWith (Version major1 minor1) (Version major2 minor2) =
+  major1 == major2 && minor1 <= minor2
+
 -- | Daml-LF version 1.6
 version1_6 :: Version
-version1_6 = V1 $ PointStable 6
+version1_6 = Version V1 (PointStable 6)
 
 -- | Daml-LF version 1.7
 version1_7 :: Version
-version1_7 = V1 $ PointStable 7
+version1_7 = Version V1 (PointStable 7)
 
 -- | Daml-LF version 1.8
 version1_8 :: Version
-version1_8 = V1 $ PointStable 8
+version1_8 = Version V1 (PointStable 8)
 
 -- | Daml-LF version 1.11
 version1_11 :: Version
-version1_11 = V1 $ PointStable 11
+version1_11 = Version V1 (PointStable 11)
 
 -- | Daml-LF version 1.12
 version1_12 :: Version
-version1_12 = V1 $ PointStable 12
+version1_12 = Version V1 (PointStable 12)
 
 -- | Daml-LF version 1.13
 version1_13 :: Version
-version1_13 = V1 $ PointStable 13
+version1_13 = Version V1 (PointStable 13)
 
 -- | Daml-LF version 1.14
 version1_14 :: Version
-version1_14 = V1 $ PointStable 14
+version1_14 = Version V1 (PointStable 14)
 
 -- | Daml-LF version 1.15
 version1_15 :: Version
-version1_15 = V1 $ PointStable 15
+version1_15 = Version V1 (PointStable 15)
 
 -- | The Daml-LF version used by default.
 versionDefault :: Version
 versionDefault = version1_15
 
--- | The Daml-LF development version.
+-- | The Daml-LF 1.x development version.
 version1_dev :: Version
-version1_dev = V1 PointDev
+version1_dev = Version V1 PointDev
 
+-- | The Daml-LF 2.x development version.
 version2_dev :: Version
-version2_dev = V2 PointDev
+version2_dev = Version V2 PointDev
 
 -- Must be kept in sync with COMPILER_LF_VERSION in daml-lf.bzl.
 supportedOutputVersions :: [Version]
 supportedOutputVersions = [version1_14, version1_15, version1_dev, version2_dev]
 
 supportedInputVersions :: [Version]
-supportedInputVersions = [version1_8, version1_11, version1_12, version1_13] ++ supportedOutputVersions
+supportedInputVersions =
+  [version1_8, version1_11, version1_12, version1_13] ++ supportedOutputVersions
 
 isDevVersion :: Version -> Bool
-isDevVersion (V1 PointDev) = True
-isDevVersion (V2 PointDev) = True
+isDevVersion (Version _ PointDev) = True
 isDevVersion _ = False
+
+requiresPackageMetadata :: Version -> Bool
+requiresPackageMetadata = \case
+  Version V1 n -> n > PointStable 7
+  Version V2 _ -> True
+
+newtype VersionReq = VersionReq (MajorVersion -> R.Range MinorVersion)
+
+satisfies :: Version -> VersionReq -> Bool
+satisfies (Version major minor) (VersionReq req) = minor `R.elem` req major
+
+devOnly :: VersionReq
+devOnly = VersionReq (\_ -> R.Inclusive PointDev PointDev)
+
+-- TODO(#17366): Change for (R.inclusive (PointStable 0) PointDev) once 2.0 is
+-- introduced.
+allV2MinorVersions :: R.Range MinorVersion
+allV2MinorVersions = R.Inclusive PointDev PointDev
+
+allMinorVersionsAfter :: MinorVersion -> R.Range MinorVersion
+allMinorVersionsAfter v = R.Inclusive v PointDev
+
+noMinorVersion :: R.Range MinorVersion
+noMinorVersion = R.Empty
 
 data Feature = Feature
     { featureName :: !T.Text
-    -- TODO(#17366): Replace with a richer specification once features can be deprecated after a
-    --     given version. See PR #17334.
-    , featureMinVersion :: !Version
+    , featureVersionReq :: !VersionReq
     , featureCppFlag :: Maybe T.Text
         -- ^ CPP flag to test for availability of the feature.
     } deriving Show
@@ -91,7 +130,9 @@ data Feature = Feature
 featureStringInterning :: Feature
 featureStringInterning = Feature
     { featureName = "String interning"
-    , featureMinVersion = version1_7
+    , featureVersionReq = VersionReq \case
+          V1 -> allMinorVersionsAfter (PointStable 7)
+          V2 -> allV2MinorVersions
     , featureCppFlag = Nothing
     }
 
@@ -99,7 +140,9 @@ featureStringInterning = Feature
 featureTypeInterning :: Feature
 featureTypeInterning = Feature
     { featureName = "Type interning"
-    , featureMinVersion = version1_11
+    , featureVersionReq = VersionReq \case
+          V1 -> allMinorVersionsAfter (PointStable 11)
+          V2 -> allV2MinorVersions
     , featureCppFlag = Nothing
     }
 
@@ -109,84 +152,96 @@ featureTypeInterning = Feature
 featureUnstable :: Feature
 featureUnstable = Feature
     { featureName = "Unstable, experimental features"
-    , featureMinVersion = version1_dev
+    , featureVersionReq = devOnly 
     , featureCppFlag = Just "DAML_UNSTABLE"
     }
 
 featureBigNumeric :: Feature
 featureBigNumeric = Feature
     { featureName = "BigNumeric type"
-    , featureMinVersion = version1_13
+    , featureVersionReq = VersionReq \case
+          V1 -> allMinorVersionsAfter (PointStable 13)
+          V2 -> allV2MinorVersions
     , featureCppFlag = Just "DAML_BIGNUMERIC"
     }
 
 featureExceptions :: Feature
 featureExceptions = Feature
     { featureName = "Daml Exceptions"
-    , featureMinVersion = version1_14
+    , featureVersionReq = VersionReq \case
+          V1 -> allMinorVersionsAfter (PointStable 14)
+          V2 -> allV2MinorVersions
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
 
 featureNatSynonyms :: Feature
 featureNatSynonyms = Feature
     { featureName = "Nat type synonyms"
-    , featureMinVersion = version1_14
+    , featureVersionReq = VersionReq \case
+          V1 -> allMinorVersionsAfter (PointStable 14)
+          V2 -> allV2MinorVersions
     , featureCppFlag = Just "DAML_NAT_SYN"
     }
 
 featureSimpleInterfaces :: Feature
 featureSimpleInterfaces = Feature
     { featureName = "Daml Interfaces"
-    , featureMinVersion = version1_15
+    , featureVersionReq = VersionReq \case
+          V1 -> allMinorVersionsAfter (PointStable 15)
+          V2 -> allV2MinorVersions
     , featureCppFlag = Just "DAML_INTERFACE"
     }
 
 featureExtendedInterfaces :: Feature
 featureExtendedInterfaces = Feature
     { featureName = "Guards in interfaces"
-    , featureMinVersion = version1_dev
+    , featureVersionReq = devOnly
     , featureCppFlag = Just "DAML_INTERFACE_EXTENDED"
     }
 
 featureChoiceFuncs :: Feature
 featureChoiceFuncs = Feature
     { featureName = "choiceController and choiceObserver functions"
-    , featureMinVersion = version1_dev
+    , featureVersionReq = devOnly
     , featureCppFlag = Just "DAML_CHOICE_FUNCS"
     }
 
 featureTemplateTypeRepToText :: Feature
 featureTemplateTypeRepToText = Feature
     { featureName = "templateTypeRepToText function"
-    , featureMinVersion = version1_dev
+    , featureVersionReq = devOnly
     , featureCppFlag = Just "DAML_TEMPLATE_TYPEREP_TO_TEXT"
     }
 
 featureDynamicExercise :: Feature
 featureDynamicExercise = Feature
     { featureName = "dynamicExercise function"
-    , featureMinVersion = version1_dev
+    , featureVersionReq = devOnly
     , featureCppFlag = Just "DAML_DYNAMIC_EXERCISE"
     }
 
 featurePackageUpgrades :: Feature
 featurePackageUpgrades = Feature
     { featureName = "Package upgrades POC"
-    , featureMinVersion = version1_dev
+    , featureVersionReq = devOnly 
     , featureCppFlag = Just "DAML_PACKAGE_UPGRADES"
     }
 
 featureNatTypeErasure :: Feature
 featureNatTypeErasure = Feature
     { featureName = "Erasing types of kind Nat"
-    , featureMinVersion = version1_dev
+    , featureVersionReq = VersionReq \case
+          V1 -> allMinorVersionsAfter PointDev
+          V2 -> allV2MinorVersions
     , featureCppFlag = Just "DAML_NAT_TYPE_ERASURE"
     }
 
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
-    , featureMinVersion = version1_dev
+    , featureVersionReq = VersionReq \case
+          V1 -> allMinorVersionsAfter PointDev
+          V2 -> allV2MinorVersions
     , featureCppFlag = Just "DAML_EXPERIMENTAL"
     }
 
@@ -211,58 +266,152 @@ allFeatures =
     , featureNatTypeErasure
     ]
 
-featureVersionMap :: MS.Map T.Text Version
-featureVersionMap = MS.fromList
-    [ (key, version)
-    | feature <- allFeatures
-    , let version = featureMinVersion feature
-    , Just key <- [featureCppFlag feature]
-    ]
+-- featureVersionMap :: MS.Map T.Text Version
+-- featureVersionMap = MS.fromList
+--     [ (key, version)
+--     | feature <- allFeatures
+--     , let version = featureMinVersion feature
+--     , Just key <- [featureCppFlag feature]
+--     ]
 
--- | Return minimum version associated with a feature flag.
-versionForFeature :: T.Text -> Maybe Version
-versionForFeature key = MS.lookup key featureVersionMap
+-- -- | Return minimum version associated with a feature flag.
+-- versionForFeature :: T.Text -> Maybe Version
+-- versionForFeature key = MS.lookup key featureVersionMap
 
 -- | Same as 'versionForFeature' but errors out if the feature doesn't exist.
 versionForFeaturePartial :: T.Text -> Version
-versionForFeaturePartial key =
-    case versionForFeature key of
-        Just version -> version
-        Nothing ->
-            error . T.unpack . T.concat $
-                [ "Unknown feature: "
-                , key
-                , ". Available features are: "
-                , T.intercalate ", " (MS.keys featureVersionMap)
-                ]
+versionForFeaturePartial _ = undefined
+    -- case versionForFeature key of
+    --     Just version -> version
+    --     Nothing ->
+    --         error . T.unpack . T.concat $
+    --             [ "Unknown feature: "
+    --             , key
+    --             , ". Available features are: "
+    --             , T.intercalate ", " (MS.keys featureVersionMap)
+    --             ]
 
 allFeaturesForVersion :: Version -> [Feature]
 allFeaturesForVersion version = filter (supports version) allFeatures
 
 supports :: Version -> Feature -> Bool
-supports version feature = version >= featureMinVersion feature
+supports version feature = version `satisfies` featureVersionReq feature
+
+renderMajorVersion :: MajorVersion -> String
+renderMajorVersion = \case
+  V1 -> "1"
+  V2 -> "2"
+
+readSimpleInt :: ReadP Int
+readSimpleInt = read <$> munch1 isDigit
+
+readMajorVersion :: ReadP MajorVersion
+readMajorVersion = do
+  n <- readSimpleInt
+  case n of
+    1 -> pure V1
+    2 -> pure V2
+    _ -> pfail
+
+-- >>> parseMajorVersion "1"
+-- Just V1
+-- >>> parseMajorVersion "garbage"
+-- Nothing
+parseMajorVersion :: String -> Maybe MajorVersion
+parseMajorVersion = headMay . map fst . readP_to_S readMajorVersion
 
 renderMinorVersion :: MinorVersion -> String
 renderMinorVersion = \case
   PointStable minor -> show minor
   PointDev -> "dev"
 
+readMinorVersion :: ReadP MinorVersion
+readMinorVersion = readStable +++ readDev
+  where
+    readStable = PointStable <$> readSimpleInt
+    readDev = PointDev <$ ReadP.string "dev"
+
+-- >>> parseMinorVersion "14"
+-- Just (PointStable 14)
+-- >>> parseMinorVersion "dev"
+-- Just PointDev
+-- >>> parseMinorVersion "garbage"
+-- Nothing
 parseMinorVersion :: String -> Maybe MinorVersion
-parseMinorVersion = \case
-  (Read.readMaybe -> Just i) -> Just $ PointStable i
-  "dev" -> Just PointDev
-  _ -> Nothing
+parseMinorVersion = headMay . map fst . readP_to_S readMinorVersion
 
 renderVersion :: Version -> String
-renderVersion = \case
-    V1 minor -> "1." ++ renderMinorVersion minor
-    V2 minor -> "2." ++ renderMinorVersion minor
+renderVersion (Version major minor) =
+    renderMajorVersion major <> "." <> renderMinorVersion minor
 
+readVersion :: ReadP Version
+readVersion = do
+  major <- readMajorVersion
+  _ <- ReadP.char '.'
+  minor <- readMinorVersion
+  pure (Version major minor)
+
+-- >>> parseVersion "1.dev"
+-- Just (Version {versionMajor = V1, versionMinor = PointDev})
+-- >>> parseVersion "1.15"
+-- Just (Version {versionMajor = V1, versionMinor = PointStable 15})
+-- >>> parseVersion "1.garbage"
+-- Nothing
 parseVersion :: String -> Maybe Version
-parseVersion = \case
-    '1':'.':minor -> V1 <$> parseMinorVersion minor
-    '2':'.':minor -> V2 <$> parseMinorVersion minor
-    _ -> Nothing
+parseVersion = headMay . map fst . readP_to_S readVersion
+
+-- >>> show (VersionReq (\case V1 -> noMinorVersion; V2 -> allV2MinorVersions))
+-- "VersionReq (\\case V1 -> Empty; V2 -> Inclusive_ PointDev PointDev)"
+instance Show VersionReq where
+    show (VersionReq req) =
+        concat
+            [ "VersionReq (\\case V1 -> "
+            , show (req V1)
+            , "; V2 -> "
+            , show (req V2)
+            , ")"
+            ]
+
+{-|
+Renders a FeatureVersionReq.
+
+>>> let r1 = R.Inclusive (PointStable 1) (PointStable 2)
+>>> let r2 = R.Inclusive (PointStable 3) PointDev
+
+>>> renderFeatureVersionReq (VersionReq (\case V1 -> R.Empty; V2 ->  R.Empty)) 
+"none"
+>>> renderFeatureVersionReq (VersionReq (\case V1 ->  r1; V2 -> R.Empty))
+"1.1 to 1.2"
+>>> renderFeatureVersionReq (VersionReq (\case V1 -> R.Empty; V2 -> r2))
+"2.3 to 2.dev"
+>>> renderFeatureVersionReq (VersionReq (\case V1 -> r1; V2 -> r2))
+"1.1 to 1.2, or 2.3 to 2.dev"
+-}
+renderFeatureVersionReq :: VersionReq -> String
+renderFeatureVersionReq (VersionReq req) = renderRanges (req V1) (req V2)
+  where
+    renderRanges R.Empty R.Empty = "none"
+    renderRanges v1Range v2Range =
+      intercalate ", or " $
+        catMaybes
+            [ renderRange (Version V1) v1Range
+            , renderRange (Version V2) v2Range
+            ]
+
+    renderRange cons = \case
+        R.Empty -> Nothing
+        R.Inclusive low high
+          | low == high -> Just $ renderVersion (cons low)
+          | otherwise ->
+              Just $
+                unwords
+                    [ renderVersion (cons low)
+                    , "to"
+                    , renderVersion (cons high)
+                    ]
 
 instance Pretty Version where
   pPrint = string . renderVersion
+
+instance Pretty VersionReq where
+  pPrint = string . renderFeatureVersionReq

@@ -24,7 +24,9 @@ data GenPackageListOpts = GenPackageListOpts
   }
 
 data GenPackageOpts = GenPackageOpts
-  { optModule :: ModuleName
+  { optMajorVersion :: MajorVersion
+  -- ^ The major version of LF for which to generate a package
+  , optModule :: ModuleName
   -- ^ The module that we generate as a standalone package
   , optModuleDeps :: [ModuleDep]
   -- ^ Dependencies of this module, i.e., modules that we reference.
@@ -52,10 +54,12 @@ packageListOptsParser =
 packageOptsParser :: Parser GenPackageOpts
 packageOptsParser =
   GenPackageOpts
-    <$> option modNameReader (long "module")
+    <$> option majorVersionReader (long "major-version")
+    <*> option modNameReader (long "module")
     <*> many (option modDepReader (long "module-dep" <> help "Module.Name:packageid"))
     <*> option str (short 'o')
   where
+    majorVersionReader = maybeReader parseMajorVersion
     modNameReader = maybeReader (Just . ModuleName . T.splitOn "." . T.pack)
     modDepReader = maybeReader $ \s ->
       case T.splitOn ":" (T.pack s) of
@@ -73,11 +77,12 @@ main :: IO ()
 main = do
     opts <- execParser (info optParser idm)
     case opts of
-        PackageCmd GenPackageOpts{..} -> case MS.lookup optModule stablePackageByModuleName of
-            Nothing ->
-                fail $ "Unknown module: " <> show optModule
-            Just pkg ->
-                writePackage pkg optOutputPath
+        PackageCmd GenPackageOpts{..} -> 
+            case MS.lookup optModule (stablePackageByModuleName optMajorVersion) of
+                Nothing ->
+                    fail $ "Unknown module: " <> show optModule
+                Just pkg ->
+                    writePackage pkg optOutputPath
         PackageListCmd GenPackageListOpts{..} ->
             writeFileUtf8 optListOutputPath $ T.unlines
               [ "module DA.Daml.StablePackagesList (stablePackages) where"

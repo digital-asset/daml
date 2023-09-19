@@ -477,7 +477,7 @@ instance Pretty Error where
       <> text " should return " <> pretty emtmExpectedType <> text " but instead returns " <> pretty emtmFoundType
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
-      <-> "only supported in Daml-LF version" <-> pretty featureMinVersion <-> "and later"
+      <-> "only supported in Daml-LF versions" <-> pretty featureVersionReq
     EForbiddenNameCollision name names ->
       "name collision between" <-> pretty name <-> "and" <-> pretty (T.intercalate ", " names)
     ESynAppWrongArity DefTypeSyn{synName,synParams} args ->

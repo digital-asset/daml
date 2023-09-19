@@ -8,6 +8,7 @@ import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
+import qualified DA.Daml.LF.Ast.Range as R
 import DA.Daml.LF.Reader (readDalfs, Dalfs(..))
 import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 import DA.Daml.StablePackages (numStablePackagesForVersion)
@@ -34,15 +35,27 @@ main = do
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
     oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
-    testTrees <- forM devScriptDars $ \(devTargetVersion, darPath) -> do
+    testTrees <- forM testArgs $ \(devTargetVersion, exceptionsVersion, darPath) -> do
         scriptDevDar <- locateRunfiles darPath
-        pure $ tests devTargetVersion Tools{..}
+        pure $ tests devTargetVersion exceptionsVersion Tools{..}
     defaultMain (testGroup "Data Dependencies" testTrees)
   where
-    devScriptDars =
-        [ (LF.version1_dev, mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar")
-        , (LF.version2_dev, mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script-2.dev.dar")
+    testArgs =
+        [
+            ( LF.version1_dev
+            , exceptionsMinV1Version
+            , mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar"
+            )
+        ,
+            ( LF.version2_dev
+            , exceptionsMinV2Version
+            , mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script-2.dev.dar"
+            )
         ]
+    (exceptionsMinV1Version, exceptionsMinV2Version) =
+        case LF.featureVersionReq LF.featureExceptions of
+            LF.InRanges (R.Inclusive minV1 _) (R.Inclusive minV2 _) -> (LF.V1 minV1, LF.V2 minV2)
+            _ -> error "unexpected feature version requirements for LF.featureExceptions"
 
 data Tools = Tools -- and places
   { damlc :: FilePath
@@ -76,13 +89,17 @@ darPackageIds fp = do
 --    (2.dev, 2.dev) pairs.
 lfVersionTestPairs :: [(LF.Version, LF.Version)]
 lfVersionTestPairs =
-    let legacyPairs = map (, LF.version1_14) (LF.supportedInputVersions \\ LF.supportedOutputVersions)
+    let supportedV1InputVersions = map LF.V1 $ sort [v | LF.V1 v <- LF.supportedInputVersions]
+        supportedV1OutputVersions = map LF.V1 $ sort [v | LF.V1 v <- LF.supportedOutputVersions]
+        supportedV2OutputVersions = map LF.V2 $ sort [v | LF.V2 v <- LF.supportedOutputVersions]
+        legacyPairs = map (, LF.version1_14) (supportedV1InputVersions \\ supportedV1OutputVersions)
+        v1Pairs = zip supportedV1OutputVersions (tail supportedV1OutputVersions)
+        v2Pairs = zip supportedV2OutputVersions (tail supportedV2OutputVersions)
         selfPairs = [(LF.version1_dev, LF.version1_dev), (LF.version2_dev, LF.version2_dev)]
-        versions = sort LF.supportedOutputVersions
-    in concat [legacyPairs, zip versions (tail versions), selfPairs]
+    in concat [legacyPairs, v1Pairs, v2Pairs, selfPairs]
 
-tests :: LF.Version -> Tools -> TestTree
-tests targetDevVersion tools = testGroup (LF.renderVersion targetDevVersion) $
+tests :: LF.Version -> LF.Version -> Tools -> TestTree
+tests targetDevVersion exceptionsVersion tools = testGroup (LF.renderVersion targetDevVersion) $
     [ testCaseSteps ("Cross Daml-LF version: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
@@ -2490,7 +2507,7 @@ tests targetDevVersion tools = testGroup (LF.renderVersion targetDevVersion) $
             [ "build"
             , "--project-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
-            , "--target", LF.renderVersion (LF.featureMinVersion LF.featureExceptions) ]
+            , "--target", LF.renderVersion exceptionsVersion ]
 
         step "building project that imports it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "main")
@@ -2633,7 +2650,7 @@ tests targetDevVersion tools = testGroup (LF.renderVersion targetDevVersion) $
             [ "build"
             , "--project-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
-            , "--target", LF.renderVersion (LF.featureMinVersion LF.featureExceptions) ]
+            , "--target", LF.renderVersion exceptionsVersion ]
 
         step "building project that imports it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "main")

@@ -182,7 +182,7 @@ decodeVersion mbPkgId minorText = do
     | T.null minorText -> pure $ LF.PointStable 0
     | Just minor <- LF.parseMinorVersion (T.unpack minorText) -> pure minor
     | otherwise -> unsupported
-  let version = V1 minor
+  let version = Version V1 minor
   if  isStablePackage || version `elem` LF.supportedInputVersions then pure version else unsupported
   where
     isStablePackage = maybe False (`elem` stablePackages) mbPkgId

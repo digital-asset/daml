@@ -571,7 +571,7 @@ readFileAnns file = do
             ("IGNORE",_) -> Just Ignore
             ("SINCE-LF", x) -> Just $ SinceLF $ fromJust $ LF.parseVersion $ trim x
             ("UNTIL-LF", x) -> Just $ UntilLF $ fromJust $ LF.parseVersion $ trim x
-            ("SINCE-LF-FEATURE", x) -> Just $ SinceLF $ LF.versionForFeaturePartial $ T.pack $ trim x
+            ("SUPPORTS-LF-FEATURE", x) -> Just $ SinceLF $ LF.versionForFeaturePartial $ T.pack $ trim x
             ("UNTIL-LF-FEATURE", x) -> Just $ UntilLF $ LF.versionForFeaturePartial $ T.pack $ trim x
             ("ERROR",x) -> Just (DiagnosticFields (DSeverity DsError : parseFields x))
             ("WARN",x) -> Just (DiagnosticFields (DSeverity DsWarning : parseFields x))

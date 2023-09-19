@@ -9,7 +9,7 @@ module DA.Daml.Preprocessor
   , isInternal
   ) where
 
-import qualified DA.Daml.LF.Ast as LF (PackageName (..))
+import qualified DA.Daml.LF.Ast as LF (PackageName (..), MajorVersion)
 import           DA.Daml.Preprocessor.Records
 import           DA.Daml.Preprocessor.EnumType
 import           DA.Daml.StablePackages (stablePackageByModuleName)
@@ -50,10 +50,10 @@ isInternal (GHC.moduleNameString -> x)
       , "DA.Time.Types"
       ]
 
-isUnstableInternal :: GHC.ModuleName -> Bool
-isUnstableInternal moduleName =
+isUnstableInternal :: LF.MajorVersion -> GHC.ModuleName -> Bool
+isUnstableInternal majorVersion moduleName =
   isInternal moduleName &&
-    convertModuleName moduleName `Map.notMember` stablePackageByModuleName
+    convertModuleName moduleName `Map.notMember` stablePackageByModuleName majorVersion
 
 preprocessorExceptions :: Set.Set GHC.ModuleName
 preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
@@ -97,8 +97,8 @@ shouldSkipPreprocessor (pkgName, modName) =
         || isExperimental modName)
 
 -- | Apply all necessary preprocessors
-damlPreprocessor :: ES.EnumSet GHC.Extension -> Maybe LF.PackageName -> GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
-damlPreprocessor dataDependableExtensions mPkgName dflags x
+damlPreprocessor :: LF.MajorVersion -> ES.EnumSet GHC.Extension -> Maybe LF.PackageName -> GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
+damlPreprocessor majorVersion dataDependableExtensions mPkgName dflags x
     | maybe False shouldSkipPreprocessor mod = noPreprocessor dflags x
     | otherwise = IdePreprocessedSource
         { preprocWarnings = concat
@@ -108,7 +108,7 @@ damlPreprocessor dataDependableExtensions mPkgName dflags x
             , checkKinds x
             ]
         , preprocErrors = concat
-            [ checkImports x
+            [ checkImports majorVersion x
             , checkDataTypes x
             , checkModuleDefinition x
             , checkRecordConstructor x
@@ -171,10 +171,10 @@ checkModuleName (GHC.L _ m)
     = []
 
 -- | We ban people from importing modules such
-checkImports :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
-checkImports x =
+checkImports :: LF.MajorVersion -> GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkImports majorVersion x =
     [ (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " is not allowed.")
-    | GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x, isUnstableInternal m]
+    | GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x, isUnstableInternal majorVersion m]
 
 -- | Emit a warning if the "daml 1.2" version header is present.
 checkDamlHeader :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
