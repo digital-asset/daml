@@ -120,20 +120,19 @@ main =
                       "  submit p (archiveCmd cid)"
                     ]
                 expectScriptSuccess rs (vr "testCreate") $ \r ->
-                  matchRegex r "Active contracts:  #0:0\n\nReturn value: #0:0\n\n$"
+                  matchRegex r "Active contracts:  #0:0\n\nReturn value: #0:0\n$"
                 expectScriptSuccess rs (vr "testExercise") $ \r ->
-                  matchRegex r "Active contracts: \n\nReturn value: 42\n\n$"
+                  matchRegex r "Active contracts: \n\nReturn value: 42\n$"
                 expectScriptSuccess rs (vr "testCreateAndExercise") $ \r ->
-                  matchRegex r "Active contracts: \n\nReturn value: 42\n\n$"
+                  matchRegex r "Active contracts: \n\nReturn value: 42\n$"
                 expectScriptSuccess rs (vr "testMulti") $ \r ->
                   matchRegex r $
                     T.unlines
-                      [ "Active contracts: ",
-                        "",
-                        "Return value:",
-                        "  DA\\.Types:Tuple2@[a-z0-9]+ with",
-                        "    _1 = 23; _2 = 42",
-                        ""
+                      [ "Active contracts: "
+                      , ""
+                      , "Return value:"
+                      , "  DA\\.Types:Tuple2@[a-z0-9]+ with"
+                      , "    _1 = 23; _2 = 42"
                       ]
                 expectScriptSuccess rs (vr "testArchive") $ \r ->
                   matchRegex r "'p' exercises Archive on #0:0",
@@ -161,7 +160,7 @@ main =
                       "  submit p $ exerciseByKeyCmd @WithKey p C"
                     ]
                 expectScriptSuccess rs (vr "testExerciseByKey") $ \r ->
-                  matchRegex r "Active contracts: \n\nReturn value: 42\n\n$",
+                  matchRegex r "Active contracts: \n\nReturn value: 42\n$",
               testCase "fetch and exercising by key shows key in log" $ do
                 rs <-
                   runScripts
@@ -441,7 +440,7 @@ main =
                         "  pure ()"
                       ]
                   expectScriptSuccess rs (vr "testAssertFail") $ \r ->
-                    matchRegex r "Active contracts:  #0:0, #2:0\n\nReturn value: {}\n\n$"
+                    matchRegex r "Active contracts:  #0:0, #2:0\n\nReturn value: {}\n$"
                   pure (),
               testCase "contract keys" $ do
                 rs <-
@@ -518,18 +517,16 @@ main =
                 expectScriptSuccess rs (vr "testTime") $ \r ->
                     matchRegex r $
                       T.unlines
-                        [ "Return value:",
-                          "  DA\\.Types:Tuple2@[a-z0-9]+ with",
-                          "    _1 = 1970-01-01T00:00:00Z; _2 = 2000-02-02T00:01:02Z",
-                          ""
+                        [ "Return value:"
+                        , "  DA\\.Types:Tuple2@[a-z0-9]+ with"
+                        , "    _1 = 1970-01-01T00:00:00Z; _2 = 2000-02-02T00:01:02Z"
                         ]
                 expectScriptSuccess rs (vr "testChoiceTime") $ \r ->
                     matchRegex r $
                       T.unlines
-                        [ "Return value:",
-                          "  DA\\.Types:Tuple2@[a-z0-9]+ with",
-                          "    _1 = 1970-01-01T00:00:00Z; _2 = 2000-02-02T00:01:02Z",
-                          ""
+                        [ "Return value:"
+                        , "  DA\\.Types:Tuple2@[a-z0-9]+ with"
+                        , "    _1 = 1970-01-01T00:00:00Z; _2 = 2000-02-02T00:01:02Z"
                         ]
                 expectScriptFailure rs (vr "testPassTime") $ \r ->
                     matchRegex r "Attempt to fetch or exercise a contract not yet effective"
@@ -576,11 +573,11 @@ main =
                       "  pure ()"
                     ]
                 expectScriptSuccess rs (vr "partyManagement") $ \r ->
-                  matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n\n$"
+                  matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
                 expectScriptFailure rs (vr "duplicateAllocateWithHint") $ \r ->
                   matchRegex r "Tried to allocate a party that already exists: alice"
                 expectScriptSuccess rs (vr "partyWithEmptyDisplayName") $ \r ->
-                  matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n\n$"
+                  matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
             , testCase "queryContractId/Key" $ do
                 rs <-
                   runScripts
@@ -1219,8 +1216,12 @@ runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do
     prettyResult world (Left err) = case err of
       SS.BackendError err -> assertFailure $ "Unexpected result " <> show err
       SS.ExceptionError err -> assertFailure $ "Unexpected result " <> show err
-      SS.ScenarioError err -> pure $ Left $ renderPlain (prettyScenarioError world err)
-    prettyResult world (Right r) = pure $ Right $ renderPlain (prettyScenarioResult world (S.fromList (V.toList (SS.scenarioResultActiveContracts r))) r)
+      SS.ScenarioError err -> pure $ Left $ renderPlain $
+        prettyScenarioError prettyNormal world err
+          $$ text "" -- add a newline at the end
+    prettyResult world (Right r) = pure $ Right $ renderPlain $
+      prettyScenarioResult prettyNormal world (S.fromList (V.toList (SS.scenarioResultActiveContracts r))) r
+        $$ text "" -- add a newline at the end
     file = toNormalizedFilePath' "Test.daml"
     getIdeState = do
       vfs <- makeVFSHandle
