@@ -472,6 +472,7 @@ alias(
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
             "@maven//:com_lihaoyi_sourcecode",
+            "@maven//:com_typesafe_akka_akka_http",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_akka_akka_http_testkit",
             "@maven//:com_typesafe_akka_akka_parsing",

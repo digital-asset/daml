@@ -7,25 +7,20 @@
 
 package docs.http.scaladsl.server
 
-import akka.http.scaladsl.model.AttributeKeys
 import akka.http.scaladsl.model.ws.{BinaryMessage}
 import akka.stream.scaladsl.{Sink}
-import akka.http.scaladsl.testkit.{WSTestRequestBuilding, WSProbe}
-//import akka.http.scaladsl.client.RequestBuilding._
+import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
 
 //import scala.io.StdIn
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class WebSocketCloseTest extends AnyWordSpec with Matchers with WSTestRequestBuilding {
+class WebSocketCloseTest extends AnyWordSpec with Matchers with ScalatestRouteTest {
   "core-example" in {
     // #websocket-example-using-core
     import akka.actor.ActorSystem
     import akka.stream.scaladsl.{Source, Flow}
-//    import akka.http.scaladsl.Http
     import akka.http.scaladsl.model.ws.{TextMessage, Message}
-    import akka.http.scaladsl.model.{HttpResponse, Uri, HttpRequest}
-    import akka.http.scaladsl.model.HttpMethods._
 
     implicit val system: ActorSystem = ActorSystem()
 
@@ -47,40 +42,17 @@ class WebSocketCloseTest extends AnyWordSpec with Matchers with WSTestRequestBui
         }
     // #websocket-handler
 
-    // #websocket-request-handling
-    val requestHandler: HttpRequest => HttpResponse = {
-      case req @ HttpRequest(GET, Uri.Path("/greeter"), _, _, _) =>
-        req.attribute(AttributeKeys.webSocketUpgrade) match {
-          case Some(upgrade) => upgrade.handleMessages(greeterWebSocketService)
-          case None => HttpResponse(400, entity = "Not a valid websocket request!")
-        }
-      case r: HttpRequest =>
-        val _ = r.discardEntityBytes() // important to drain incoming HTTP Entity stream
-        HttpResponse(404, entity = "Unknown resource!")
+    import akka.http.scaladsl.server.Directives._
+    val route = path("ws") {
+      handleWebSocketMessages(greeterWebSocketService)
     }
-    // #websocket-request-handling
 
     val probe = WSProbe()
 
     val request = WS("/ws", probe.flow)
 
-// HOW DO WE UNCOMMENT THIS?
-//  request ~> requestHandler ~> check {
-//    isWebSocketUpgrade shouldEqual true
-//  }
-
-    val _ = (probe, request, requestHandler)
-    /*
-    val bindingFuture =
-      Http().newServerAt("localhost", 8080).bindSync(requestHandler)
-
-    println(s"Server online at http://localhost:8080/\nPress RETURN to stop...")
-    val _ = StdIn.readLine()
-
-    import system.dispatcher // for the future transformations
-    bindingFuture
-      .flatMap(_.unbind()) // trigger unbinding from the port
-      .onComplete(_ => system.terminate()) // and shutdown when done
-     */
+    val _ = request ~> route ~> check {
+      isWebSocketUpgrade shouldEqual true
+    }
   }
 }
