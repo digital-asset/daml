@@ -122,6 +122,7 @@
     - DA.Daml.Desugar.Tests
     - DA.Daml.Doc.Tests
     - DA.Test.DamlRenamer
+    - DA.Test.DamlcIntegration
     - DA.Signals
     - Development.IDE.Core.Compile
     - Development.IDE.GHC.Compat

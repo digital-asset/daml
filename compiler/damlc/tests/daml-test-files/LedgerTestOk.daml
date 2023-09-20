@@ -1,0 +1,29 @@
+-- Copyright (c) 2023, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module LedgerTestOk where
+
+import Daml.Script
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+    nonconsuming choice Noop : ()
+      controller p
+      do pure ()
+
+-- @LEDGER test LedgerTestOk.EXPECTED.ledger
+test : Script (Int, Bool)
+test = do
+  debugRaw "hello world"
+  alice <- allocateParty "alice"
+  cid <-
+    alice `submit`
+      createCmd T with
+        p = alice
+  () <-
+    alice `submit`
+      exerciseCmd cid Noop
+  pure (42, False)
