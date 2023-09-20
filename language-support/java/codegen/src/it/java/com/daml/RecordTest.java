@@ -8,6 +8,8 @@ import static org.junit.Assert.assertTrue;
 
 import com.daml.ledger.api.v1.ValueOuterClass;
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfReader;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -120,6 +122,44 @@ public class RecordTest {
   }
 
   @Test
+  void fromJsonMyRecord() throws JsonLfDecoder.Error {
+    MyRecord expected =
+        new MyRecord(
+            int64Value,
+            decimalValue,
+            textValue,
+            boolValue,
+            partyValue,
+            LocalDate.ofEpochDay(dateValue),
+            Instant.ofEpochMilli(timestampMicrosValue),
+            boolValue,
+            listValue,
+            nestedListValue,
+            unitValue,
+            nestedRecordValue,
+            nestedVariantValue);
+
+    assertEquals(
+        expected,
+        MyRecord.fromJson(
+            "{"
+                + "\"int_\": 1, "
+                + "\"decimal\": 2, "
+                + "\"text\": \"text\", "
+                + "\"bool\": false, "
+                + "\"party\": \"myparty\", "
+                + "\"date\": \"1970-01-04\", "
+                + "\"time\": \"1970-01-01T00:00:00.004Z\", "
+                + "\"void$\": false, "
+                + "\"list\": [{}, {}], "
+                + "\"nestedList\": [[1,2,3], [1,2,3]], "
+                + "\"unit\": {}, "
+                + "\"nestedRecord\": {\"value\": 42}, "
+                + "\"nestedVariant\": {\"tag\": \"Nested\", \"value\": 42} "
+                + "}"));
+  }
+
+  @Test
   void outerRecordRoundtrip() {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
@@ -204,6 +244,25 @@ public class RecordTest {
     assertEquals(fromConstructor.toValue(Text::new, Bool::new), dataRecord);
     assertEquals(fromConstructor.toValue(Text::new, Bool::new).toProtoRecord(), protoRecord);
     assertEquals(fromRoundTrip, fromConstructor);
+  }
+
+  @Test
+  void fromJsonOuterRecord() throws JsonLfDecoder.Error {
+    OuterRecord<String, Boolean> expected =
+        new OuterRecord<>(
+            new ParametricRecord<String, Boolean>("Text1", "Text2", true, 42L),
+            new ParametricRecord<Long, String>(42L, 69L, "Text2", 69L));
+
+    assertEquals(
+        expected,
+        OuterRecord.fromJson(
+            "{"
+                + "\"inner\": {\"fieldX1\": \"Text1\", \"fieldX2\": \"Text2\", \"fieldY\": true,"
+                + " \"fieldInt\": 42}, "
+                + "\"innerFixed\":  {\"fieldX1\": \"42\", \"fieldX2\": \"69\","
+                + " \"fieldY\": \"Text2\", \"fieldInt\": 69} }",
+            JsonLfReader.Decoders.text,
+            JsonLfReader.Decoders.bool));
   }
 
   Long int64Value = 1L;

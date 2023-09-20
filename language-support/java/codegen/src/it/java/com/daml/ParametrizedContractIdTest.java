@@ -9,6 +9,7 @@ import static org.junit.Assert.assertNotEquals;
 import com.daml.ledger.api.v1.ValueOuterClass;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.codegen.ContractId;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
@@ -47,6 +48,16 @@ public class ParametrizedContractIdTest {
     assertEquals(fromConstructor.toValue(), dataRecord);
     assertEquals(fromConstructor.toValue().toProtoRecord(), protoRecord);
     assertEquals(fromRoundTrip, fromConstructor);
+  }
+
+  @Test
+  void fromJsonFixedContractId() throws JsonLfDecoder.Error {
+    FixedContractId expected =
+        new FixedContractId(new ParametrizedContractId<>(new Foo.ContractId("SomeID")));
+    assertEquals(
+        expected,
+        FixedContractId.fromJson(
+            "{\"fixedContractId\": {\"parametrizedContractId\": \"SomeID\"}}"));
   }
 
   @Test

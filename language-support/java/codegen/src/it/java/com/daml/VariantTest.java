@@ -9,12 +9,15 @@ import com.daml.ledger.api.v1.ValueOuterClass;
 import com.daml.ledger.javaapi.data.Int64;
 import com.daml.ledger.javaapi.data.Unit;
 import com.daml.ledger.javaapi.data.Variant;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfReader;
 import com.google.protobuf.Empty;
 import java.util.Collections;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 import tests.varianttest.Custom;
+import tests.varianttest.VariantItem;
 import tests.varianttest.customparametric.CustomParametricCons;
 import tests.varianttest.variantitem.*;
 
@@ -42,6 +45,15 @@ public class VariantTest {
   }
 
   @Test
+  void fromJsonEmptyVariant() throws JsonLfDecoder.Error {
+    VariantItem<?> expected = new EmptyVariant<>(Unit.getInstance());
+    assertEquals(
+        expected,
+        VariantItem.fromJson(
+            "{\"tag\": \"EmptyVariant\", \"value\": {}}", JsonLfReader.Decoders.unit));
+  }
+
+  @Test
   void primVariant() {
     ValueOuterClass.Variant protoVariant =
         ValueOuterClass.Variant.newBuilder()
@@ -59,6 +71,15 @@ public class VariantTest {
     assertEquals(fromConstructor.toValue(), dataVariant);
     assertEquals(fromConstructor.toValue().toProtoVariant(), protoVariant);
     assertEquals(fromRoundTrip, fromConstructor);
+  }
+
+  @Test
+  void fromJsonPrimVariant() throws JsonLfDecoder.Error {
+    VariantItem<?> expected = new PrimVariant<>(42L);
+    assertEquals(
+        expected,
+        VariantItem.fromJson(
+            "{\"tag\": \"PrimVariant\", \"value\": 42}", JsonLfReader.Decoders.unit));
   }
 
   @Test
@@ -90,6 +111,15 @@ public class VariantTest {
   }
 
   @Test
+  void fromJsonRecordVariant() throws JsonLfDecoder.Error {
+    VariantItem<?> expected = new RecordVariant<Long>(42L);
+    assertEquals(
+        expected,
+        VariantItem.fromJson(
+            "{\"tag\": \"RecordVariant\", \"value\": {\"x\": 42}}", JsonLfReader.Decoders.unit));
+  }
+
+  @Test
   void customVariant() {
     ValueOuterClass.Variant protoVariant =
         ValueOuterClass.Variant.newBuilder()
@@ -110,6 +140,15 @@ public class VariantTest {
     assertEquals(fromConstructor.toValue(), dataVariant);
     assertEquals(fromConstructor.toValue().toProtoVariant(), protoVariant);
     assertEquals(fromRoundTrip, fromConstructor);
+  }
+
+  @Test
+  void fromJsonCustomVariant() throws JsonLfDecoder.Error {
+    VariantItem<?> expected = new CustomVariant<>(new Custom());
+    assertEquals(
+        expected,
+        VariantItem.fromJson(
+            "{\"tag\": \"CustomVariant\", \"value\": {}}", JsonLfReader.Decoders.unit));
   }
 
   @Test
@@ -140,6 +179,17 @@ public class VariantTest {
     assertEquals(
         fromConstructor.toValue(Int64::new).toProtoVariant(), dataVariant.toProtoVariant());
     assertEquals(fromRoundTrip, fromConstructor);
+  }
+
+  @Test
+  void fromJsonCustomParametricVariant() throws JsonLfDecoder.Error {
+    VariantItem<?> expected = new CustomParametricVariant<>(new CustomParametricCons<>(42L));
+    assertEquals(
+        expected,
+        VariantItem.fromJson(
+            "{\"tag\": \"CustomParametricVariant\", \"value\": {\"tag\": \"CustomParametricCons\","
+                + " \"value\": 42}}",
+            JsonLfReader.Decoders.int64));
   }
 
   @Test
@@ -177,6 +227,17 @@ public class VariantTest {
     assertEquals(fromConstructor.toValue(), dataVariant);
     assertEquals(fromConstructor.toValue().toProtoVariant(), protoVariant);
     assertEquals(fromRoundTrip, fromConstructor);
+  }
+
+  @Test
+  void fromJsonRecordVariantRecord() throws JsonLfDecoder.Error {
+    VariantItem<?> expected = new RecordVariantRecord<>(new EmptyVariant<>(Unit.getInstance()));
+    assertEquals(
+        expected,
+        VariantItem.fromJson(
+            "{\"tag\": \"RecordVariantRecord\", \"value\": {\"y\": {\"tag\": \"EmptyVariant\","
+                + " \"value\": {}}}}",
+            JsonLfReader.Decoders.int64));
   }
 
   @Test
@@ -222,5 +283,17 @@ public class VariantTest {
     assertEquals(
         fromConstructor.toValue(Int64::new).toProtoVariant(), dataVariant.toProtoVariant());
     assertEquals(fromRoundTrip, fromConstructor);
+  }
+
+  @Test
+  void fromJsonParameterizedRecordVariant() throws JsonLfDecoder.Error {
+    VariantItem<Long> expected =
+        new ParameterizedRecordVariant<>(42L, 69L, Collections.singletonList(65536L));
+    assertEquals(
+        expected,
+        VariantItem.fromJson(
+            "{\"tag\": \"ParameterizedRecordVariant\", \"value\": {\"x1\": 42, \"x2\": 69, \"x3\":"
+                + " [65536]}}",
+            JsonLfReader.Decoders.int64));
   }
 }

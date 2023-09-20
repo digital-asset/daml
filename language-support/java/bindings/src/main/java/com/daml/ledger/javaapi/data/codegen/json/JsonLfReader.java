@@ -11,9 +11,11 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -78,31 +80,33 @@ public class JsonLfReader {
           return value;
         };
 
-    public static final JsonLfDecoder<BigDecimal> decimal =
-        r -> {
-          r.expectIsAt(
-              "decimal",
-              JsonToken.VALUE_NUMBER_INT,
-              JsonToken.VALUE_NUMBER_FLOAT,
-              JsonToken.VALUE_STRING);
-          BigDecimal value = null;
-          try {
-            value = new BigDecimal(r.parser.getText());
-          } catch (NumberFormatException e) {
-            r.parseExpected("decimal", e);
-          } catch (IOException e) {
-            r.parseExpected("decimal", e);
-          }
-          r.moveNext();
-          return value;
-        };
+    public static JsonLfDecoder<BigDecimal> decimal(int scale) {
+      return r -> {
+        r.expectIsAt(
+            "decimal",
+            JsonToken.VALUE_NUMBER_INT,
+            JsonToken.VALUE_NUMBER_FLOAT,
+            JsonToken.VALUE_STRING);
+        BigDecimal value = null;
+        try {
+          value = new BigDecimal(r.parser.getText());
+          if (value.scale() > scale) value = value.setScale(scale, RoundingMode.HALF_EVEN);
+        } catch (NumberFormatException e) {
+          r.parseExpected("decimal", e);
+        } catch (IOException e) {
+          r.parseExpected("decimal", e);
+        }
+        r.moveNext();
+        return value;
+      };
+    }
 
     public static final JsonLfDecoder<Instant> timestamp =
         r -> {
           r.expectIsAt("timestamp", JsonToken.VALUE_STRING);
           Instant value = null;
           try {
-            value = Instant.parse(r.parser.getText());
+            value = Instant.parse(r.parser.getText()).truncatedTo(ChronoUnit.MICROS);
           } catch (DateTimeParseException e) {
             r.parseExpected("timestamp", e);
           } catch (IOException e) {
@@ -253,7 +257,9 @@ public class JsonLfReader {
             {
               String tagName = text.decode(r);
               if (!r.readFieldName().equals("value")) r.parseExpected("value field");
-              result = decoderByName.apply(tagName).decode(r);
+              var decoder = decoderByName.apply(tagName);
+              if (decoder == null) r.unknownField(tagName, tagNames);
+              result = decoder.decode(r);
               break;
             }
           case "value":
@@ -261,7 +267,9 @@ public class JsonLfReader {
               UnknownValue unknown = UnknownValue.read(r);
               if (!r.readFieldName().equals("tag")) r.parseExpected("tag field");
               String tagName = text.decode(r);
-              result = unknown.decodeWith(decoderByName.apply(tagName));
+              var decoder = decoderByName.apply(tagName);
+              if (decoder == null) r.unknownField(tagName, tagNames);
+              result = unknown.decodeWith(decoder);
               break;
             }
           default:
@@ -310,7 +318,7 @@ public class JsonLfReader {
           while (r.notEndObject()) {
             String fieldName = r.readFieldName();
             var field = fieldsByName.apply(fieldName);
-            if (field == null) r.unknownField(fieldName);
+            if (field == null) r.unknownField(fieldName, fieldNames);
             else args[field.argIndex] = field.decode.decode(r);
           }
           r.readEndObject();
@@ -406,9 +414,10 @@ public class JsonLfReader {
     throw new JsonLfDecoder.Error(String.format("Missing %s at %s", fieldName, location()));
   }
 
-  protected void unknownField(String fieldName) throws JsonLfDecoder.Error {
+  protected void unknownField(String fieldName, List<String> expected) throws JsonLfDecoder.Error {
     UnknownValue.read(this); // Consume the value from the reader.
-    throw new JsonLfDecoder.Error(String.format("Unknown %s at %s", fieldName, location()));
+    throw new JsonLfDecoder.Error(
+        String.format("Unknown %s at %s. Expected one of %s", fieldName, location(), expected));
   }
 
   /// Used for branching and looping on objects and arrays. ///

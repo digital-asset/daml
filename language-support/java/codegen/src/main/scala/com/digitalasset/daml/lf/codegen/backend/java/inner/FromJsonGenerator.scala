@@ -230,7 +230,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
         CodeBlock.of("$T.jsonDecoder($L)", guessClass(ident), typeReaders(typeParams))
       case TypePrim(PrimTypeBool, _) => CodeBlock.of("$T.bool", decodeClass)
       case TypePrim(PrimTypeInt64, _) => CodeBlock.of("$T.int64", decodeClass)
-      case TypeNumeric(_) => CodeBlock.of("$T.decimal", decodeClass)
+      case TypeNumeric(scale) => CodeBlock.of("$T.decimal($L)", decodeClass, scale)
       case TypePrim(PrimTypeText, _) => CodeBlock.of("$T.text", decodeClass)
       case TypePrim(PrimTypeDate, _) => CodeBlock.of("$T.date", decodeClass)
       case TypePrim(PrimTypeTimestamp, _) => CodeBlock.of("$T.timestamp", decodeClass)
@@ -245,9 +245,14 @@ private[inner] object FromJsonGenerator extends StrictLogging {
         CodeBlock.of("$T.contractId($T::new)", decodeClass, contractIdType)
       case TypePrim(PrimTypeList, typeParams) =>
         CodeBlock.of("$T.list($L)", decodeClass, typeReaders(typeParams))
-      case TypePrim(PrimTypeOptional, typeParams) =>
-        // TODO(raphael-speyer-da): Handle nested optionals
-        CodeBlock.of("$T.optional($L)", decodeClass, typeReaders(typeParams))
+      case TypePrim(PrimTypeOptional, Seq(typeParam)) =>
+        def buildNestedOptionals(b: CodeBlock.Builder, typ: Type): CodeBlock.Builder = typ match {
+          case TypePrim(PrimTypeOptional, Seq(innerType)) =>
+            buildNestedOptionals(b.add("$T.optionalNested(", decodeClass), innerType).add(")")
+          case _ =>
+            b.add("$T.optional($L)", decodeClass, typeReaders(Seq(typ)))
+        }
+        buildNestedOptionals(CodeBlock.builder(), typeParam).build()
       case TypePrim(PrimTypeTextMap, typeParams) =>
         CodeBlock.of("$T.textMap($L)", decodeClass, typeReaders(typeParams))
       case TypePrim(PrimTypeGenMap, typeParams) =>
