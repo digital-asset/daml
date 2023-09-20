@@ -369,24 +369,26 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
 newtype TestCase = TestCase ((String -> IO ()) -> IO Result)
 
 instance IsTest TestCase where
-  run _ (TestCase r) _ =
-    withLog \log -> do
+  run _ (TestCase r) _ = do
+    (res, log) <- withLog \log -> do
       res <- r log
       log (resultDescription res)
-      pure \msgs -> res { resultDescription = msgs }
+      pure res
+    pure res { resultDescription = log }
   testOptions = Tagged []
 
--- | 'withLog' takes a function 'f :: (String -> IO ()) -> IO (String -> a)',
--- that is, a function such that given a logger function ':: String -> IO ()'
--- returns (in an IO context) a function ':: String -> a' that constructs
--- the final result in terms of the final state of the log.
-withLog :: ((String -> IO ()) -> IO (String -> a)) -> IO a
+-- | 'withLog' takes a function 'f :: (String -> IO ()) -> IO a'
+-- (that is, a function such that given a logger function ':: String -> IO ()'
+-- returns (in an IO context) a value of type 'a'), so that 'withLog f' is an
+-- IO action that performs all the actions of 'f' and returns the
+-- final value of type 'a' together with the final log.
+withLog :: ((String -> IO ()) -> IO a) -> IO (a, String)
 withLog action = do
   logger <- newIORef DList.empty
   let log msg = unless (null msg) $ modifyIORef logger (`DList.snoc` msg)
-  f <- action log
+  r <- action log
   msgs <- readIORef logger
-  pure (f (unlines (DList.toList msgs)))
+  pure (r, unlines (DList.toList msgs))
 
 data DamlOutput = DamlOutput
   { diagnostics :: [D.FileDiagnostic]
@@ -396,21 +398,21 @@ data DamlOutput = DamlOutput
   }
 
 testSetup :: IO IdeState -> FilePath -> FilePath -> IO DamlOutput
-testSetup getService outdir path =
-  withLog \log -> do
-    service <- getService
-    ex <- try @SomeException $ mainProj service outdir log (toNormalizedFilePath' path)
-    diags0 <- getDiagnostics service
-    pure \msgs -> DamlOutput
-      { diagnostics =
-          [ ideErrorText "" $ T.pack $ show e
-          | Left e <- [ex]
-          , not $ "_IGNORE_" `isInfixOf` show e
-          ] ++ diags0
-      , jsonPackagePath = (\(_, x, _) -> x) <$> eitherToMaybe ex
-      , scriptResults = either (const HashMap.empty) (\(_, _, x) -> x) ex
-      , buildLog = msgs
-      }
+testSetup getService outdir path = do
+  service <- getService
+  (ex, buildLog) <- withLog \log ->
+    try @SomeException $ mainProj service outdir log (toNormalizedFilePath' path)
+  diags0 <- getDiagnostics service
+  pure DamlOutput
+    { diagnostics =
+        [ ideErrorText "" $ T.pack $ show e
+        | Left e <- [ex]
+        , not $ "_IGNORE_" `isInfixOf` show e
+        ] ++ diags0
+    , jsonPackagePath = (\(_, x, _) -> x) <$> eitherToMaybe ex
+    , scriptResults = either (const HashMap.empty) (\(_, _, x) -> x) ex
+    , buildLog
+    }
 
 damlFileTestTree :: LF.Version -> IsScriptV2Opt -> EvaluationOrder -> IO IdeState -> FilePath -> (TODO -> IO ()) -> DamlTestInput -> TestTree
 damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir registerTODO input
