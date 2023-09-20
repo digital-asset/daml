@@ -80,10 +80,11 @@ public class JsonLfReader {
           return value;
         };
 
-    public static JsonLfDecoder<BigDecimal> decimal(int scale) {
+    public static JsonLfDecoder<BigDecimal> numeric(int scale) {
+      assert scale >= 0 : "negative numeric scale " + scale;
       return r -> {
         r.expectIsAt(
-            "decimal",
+            "numeric",
             JsonToken.VALUE_NUMBER_INT,
             JsonToken.VALUE_NUMBER_FLOAT,
             JsonToken.VALUE_STRING);
@@ -92,9 +93,9 @@ public class JsonLfReader {
           value = new BigDecimal(r.parser.getText());
           if (value.scale() > scale) value = value.setScale(scale, RoundingMode.HALF_EVEN);
         } catch (NumberFormatException e) {
-          r.parseExpected("decimal", e);
+          r.parseExpected("numeric", e);
         } catch (IOException e) {
-          r.parseExpected("decimal", e);
+          r.parseExpected("numeric", e);
         }
         r.moveNext();
         return value;
@@ -210,13 +211,11 @@ public class JsonLfReader {
           return Optional.empty();
         } else {
           T some = decodeVal.decode(r);
-          if (some instanceof Optional) {
-            throw new IllegalArgumentException(
+          assert (!(some instanceof Optional)) :
                 "Used `optional` to decode a "
                     + some.getClass()
                     + " but `optionalNested` must be used for the outer decoders of nested"
-                    + " Optional");
-          }
+                    + " Optional";
           return Optional.of(some);
         }
       };

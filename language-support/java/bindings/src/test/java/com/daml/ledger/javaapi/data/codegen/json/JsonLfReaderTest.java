@@ -58,7 +58,7 @@ public class JsonLfReaderTest {
   @Test
   void testDecimal() throws IOException {
     checkReadAll(
-        Decoders.decimal(12),
+        Decoders.numeric(10),
         cmpEq("42", dec("42")),
         cmpEq("42.0", dec("42")),
         cmpEq("\"42\"", dec("42")),
