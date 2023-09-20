@@ -1,0 +1,58 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+/*
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
+ */
+
+package docs.http.scaladsl.server
+
+import akka.http.scaladsl.model.ws.{BinaryMessage}
+import akka.stream.scaladsl.{Sink}
+import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
+
+//import scala.io.StdIn
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+class WebSocketCloseTest extends AnyWordSpec with Matchers with ScalatestRouteTest {
+  "core-example" in {
+    // #websocket-example-using-core
+    import akka.actor.ActorSystem
+    import akka.stream.scaladsl.{Source, Flow}
+    import akka.http.scaladsl.model.ws.{TextMessage, Message}
+
+    implicit val system: ActorSystem = ActorSystem()
+
+    // #websocket-handler
+    // The Greeter WebSocket Service expects a "name" per message and
+    // returns a greeting message for that name
+    val greeterWebSocketService =
+      Flow[Message]
+        .mapConcat {
+          // we match but don't actually consume the text message here,
+          // rather we simply stream it back as the tail of the response
+          // this means we might start sending the response even before the
+          // end of the incoming message has been received
+          case tm: TextMessage => TextMessage(Source.single("Hello ") ++ tm.textStream) :: Nil
+          case bm: BinaryMessage =>
+            // ignore binary messages but drain content to avoid the stream being clogged
+            val _ = bm.dataStream.runWith(Sink.ignore)
+            Nil
+        }
+    // #websocket-handler
+
+    import akka.http.scaladsl.server.Directives._
+    val route = path("ws") {
+      handleWebSocketMessages(greeterWebSocketService)
+    }
+
+    val probe = WSProbe()
+
+    val request = WS("/ws", probe.flow)
+
+    val _ = request ~> route ~> check {
+      isWebSocketUpgrade shouldEqual true
+    }
+  }
+}
