@@ -89,10 +89,10 @@ trait CatGenerators {
     for {
       n <- Gen.choose(0L, maxNumOfCats)
       templateId = Identifier(packageId, QualifiedName.assertFromString("Cats:Cat"))
-      contractId = SContractId(toContractId(s"Cat:$n"))
-      foodCid = SContractId(toContractId(s"Food:$n"))
+      contractId = toContractId(s"Cat:$n")
+      foodCid = toContractId(s"Food:$n")
       choiceId <- Gen.const("Feed")
-      argument = record(templateId, "foodCid" -> foodCid)
+      argument = record(templateId, "foodCid" -> SContractId(foodCid))
     } yield Command.ExerciseTemplate(
       templateId,
       contractId,

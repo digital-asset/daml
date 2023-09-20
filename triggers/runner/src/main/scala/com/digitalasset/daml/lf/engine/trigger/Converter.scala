@@ -60,7 +60,10 @@ final class Converter(
     NoLoggingValueValidator.validateRecord(r).left.map(_.getMessage)
 
   private[this] def translateValue(ty: Type, value: Value): Either[String, SValue] =
-    valueTranslator.translateValue(ty, value).left.map(res => s"Failure to translate value: $res")
+    valueTranslator
+      .strictTranslateValue(ty, value)
+      .left
+      .map(res => s"Failure to translate value: $res")
 
   private[this] val triggerIds: TriggerIds = triggerDef.triggerIds
 
@@ -334,14 +337,14 @@ final class Converter(
     case Command.ExerciseTemplate(_, contractId, _, choiceArg) =>
       record(
         exerciseCommandTy,
-        "contractId" -> contractId,
+        "contractId" -> SContractId(contractId),
         "choiceArg" -> choiceArg,
       )
 
     case Command.ExerciseInterface(_, contractId, _, choiceArg) =>
       record(
         exerciseCommandTy,
-        "contractId" -> contractId,
+        "contractId" -> SContractId(contractId),
         "choiceArg" -> choiceArg,
       )
 

@@ -37,6 +37,7 @@ import scala.annotation.tailrec
 private[engine] final class Preprocessor(
     compiledPackages: MutableCompiledPackages,
     requireV1ContractIdSuffix: Boolean = true,
+    enableContractUpgrading: Boolean = false,
 ) {
 
   import Preprocessor._
@@ -47,7 +48,9 @@ private[engine] final class Preprocessor(
     new CommandPreprocessor(
       pkgInterface = pkgInterface,
       requireV1ContractIdSuffix = requireV1ContractIdSuffix,
+      enableContractUpgrading = enableContractUpgrading,
     )
+
   val transactionPreprocessor = new TransactionPreprocessor(commandPreprocessor)
 
   @tailrec
@@ -131,7 +134,8 @@ private[engine] final class Preprocessor(
     */
   def translateValue(ty0: Ast.Type, v0: Value): Result[SValue] =
     safelyRun(pullTypePackages(ty0)) {
-      commandPreprocessor.valueTranslator.unsafeTranslateValue(ty0, v0)
+      // this is used only by the value enricher, strict translation is the way to go
+      commandPreprocessor.unsafeStrictTranslateValue(ty0, v0)
     }
 
   private[engine] def preprocessApiCommand(

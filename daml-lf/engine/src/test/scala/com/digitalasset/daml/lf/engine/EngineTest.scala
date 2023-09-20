@@ -1647,7 +1647,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     "unused disclosed contracts not saved to ledger" in {
       val fetchTemplateCommand = speedy.Command.FetchTemplate(
         templateId = templateId,
-        coid = SContractId(usedDisclosedContract.contractId),
+        coid = usedDisclosedContract.contractId,
       )
 
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
@@ -1715,7 +1715,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
       val lookupContractMap = Map(fetchedCid -> withKeyContractInst)
 
-      val cmd = speedy.Command.FetchTemplate(BasicTests_WithKey, SValue.SContractId(fetchedCid))
+      val cmd = speedy.Command.FetchTemplate(BasicTests_WithKey, fetchedCid)
 
       val submitters = Set(alice)
 

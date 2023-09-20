@@ -72,6 +72,7 @@ class IdeLedgerClient(
     new preprocessing.CommandPreprocessor(
       compiledPackages.pkgInterface,
       requireV1ContractIdSuffix = false,
+      enableContractUpgrading = true,
     )
 
   private[this] def partialFunctionFilterNot[A](f: A => Boolean): PartialFunction[A, A] = {
@@ -183,7 +184,7 @@ class IdeLedgerClient(
       requireV1ContractIdSuffix = false,
     )
 
-    valueTranslator.translateValue(TTyCon(templateId), arg) match {
+    valueTranslator.strictTranslateValue(TTyCon(templateId), arg) match {
       case Left(_) =>
         sys.error("computeView: translateValue failed")
 

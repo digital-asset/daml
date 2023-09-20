@@ -5,7 +5,6 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.Ref.{Identifier, ChoiceName}
-import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
 
 // ---------------------
@@ -24,7 +23,7 @@ private[lf] object Command {
   /** Exercise a template choice, not by interface */
   final case class ExerciseTemplate(
       templateId: Identifier,
-      contractId: SContractId,
+      contractId: ContractId,
       choiceId: ChoiceName,
       argument: SValue,
   ) extends Command
@@ -34,7 +33,7 @@ private[lf] object Command {
     */
   final case class ExerciseInterface(
       interfaceId: Identifier,
-      contractId: SContractId,
+      contractId: ContractId,
       choiceId: ChoiceName,
       argument: SValue,
   ) extends Command
@@ -49,13 +48,13 @@ private[lf] object Command {
   /** Fetch a template, not by interface */
   final case class FetchTemplate(
       templateId: Identifier,
-      coid: SContractId,
+      coid: ContractId,
   ) extends Command
 
   /** Fetch a template, by interface */
   final case class FetchInterface(
       interfaceId: Identifier,
-      coid: SContractId,
+      coid: ContractId,
   ) extends Command
 
   final case class FetchByKey(
