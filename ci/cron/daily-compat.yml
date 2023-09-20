@@ -210,7 +210,7 @@ jobs:
         os_sha=$(sha256sum $os_tmp | awk '{print $1}')
         os_url_path=canton-stable/$canton_version/$os_sha/canton-open-source-$canton_version.tar.gz
         os_upload_url=gs://daml-binaries/$os_url_path
-        os_download_url=https://storage.googleapis.com/$os_url_path
+        os_download_url=https://storage.googleapis.com/daml-binaries/$os_url_path
         gcs "$GCRED" cp $os_tmp $os_upload_url
 
         ee_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-enterprise-$canton_version.tar.gz"
