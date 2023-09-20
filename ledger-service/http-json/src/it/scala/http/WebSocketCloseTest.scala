@@ -10,17 +10,19 @@ package docs.http.scaladsl.server
 import akka.http.scaladsl.model.AttributeKeys
 import akka.http.scaladsl.model.ws.{BinaryMessage}
 import akka.stream.scaladsl.{Sink}
+import akka.http.scaladsl.testkit.{WSTestRequestBuilding, WSProbe}
+//import akka.http.scaladsl.client.RequestBuilding._
 
-import scala.io.StdIn
+//import scala.io.StdIn
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class WebSocketCloseTest extends AnyWordSpec with Matchers {
+class WebSocketCloseTest extends AnyWordSpec with Matchers with WSTestRequestBuilding {
   "core-example" in {
     // #websocket-example-using-core
     import akka.actor.ActorSystem
     import akka.stream.scaladsl.{Source, Flow}
-    import akka.http.scaladsl.Http
+//    import akka.http.scaladsl.Http
     import akka.http.scaladsl.model.ws.{TextMessage, Message}
     import akka.http.scaladsl.model.{HttpResponse, Uri, HttpRequest}
     import akka.http.scaladsl.model.HttpMethods._
@@ -58,6 +60,17 @@ class WebSocketCloseTest extends AnyWordSpec with Matchers {
     }
     // #websocket-request-handling
 
+    val probe = WSProbe()
+
+    val request = WS("/ws", probe.flow)
+
+// HOW DO WE UNCOMMENT THIS?
+//  request ~> requestHandler ~> check {
+//    isWebSocketUpgrade shouldEqual true
+//  }
+
+    val _ = (probe, request, requestHandler)
+    /*
     val bindingFuture =
       Http().newServerAt("localhost", 8080).bindSync(requestHandler)
 
@@ -68,5 +81,6 @@ class WebSocketCloseTest extends AnyWordSpec with Matchers {
     bindingFuture
       .flatMap(_.unbind()) // trigger unbinding from the port
       .onComplete(_ => system.terminate()) // and shutdown when done
+     */
   }
 }
