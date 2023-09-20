@@ -1,3 +1,6 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 /*
  * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
@@ -9,9 +12,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.AttributeKeys
-import akka.http.scaladsl.model.ws.{ BinaryMessage, Message, WebSocketRequest }
-import akka.http.scaladsl.settings.{ ClientConnectionSettings, ServerSettings }
-import akka.stream.scaladsl.{ Flow, Sink }
+import akka.http.scaladsl.model.ws.{BinaryMessage, Message, WebSocketRequest}
+import akka.http.scaladsl.settings.{ClientConnectionSettings, ServerSettings}
+import akka.stream.scaladsl.{Flow, Sink}
 import akka.util.ByteString
 
 import scala.io.StdIn
@@ -20,18 +23,18 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class WebSocketCloseTest extends AnyWordSpec with Matchers {
   "core-example" in {
-    //#websocket-example-using-core
+    // #websocket-example-using-core
     import akka.actor.ActorSystem
-    import akka.stream.scaladsl.{ Source, Flow }
+    import akka.stream.scaladsl.{Source, Flow}
     import akka.http.scaladsl.Http
     import akka.http.scaladsl.model.AttributeKeys.webSocketUpgrade
-    import akka.http.scaladsl.model.ws.{ TextMessage, Message }
-    import akka.http.scaladsl.model.{ HttpResponse, Uri, HttpRequest }
+    import akka.http.scaladsl.model.ws.{TextMessage, Message}
+    import akka.http.scaladsl.model.{HttpResponse, Uri, HttpRequest}
     import akka.http.scaladsl.model.HttpMethods._
 
     implicit val system = ActorSystem()
 
-    //#websocket-handler
+    // #websocket-handler
     // The Greeter WebSocket Service expects a "name" per message and
     // returns a greeting message for that name
     val greeterWebSocketService =
@@ -47,20 +50,20 @@ class WebSocketCloseTest extends AnyWordSpec with Matchers {
             bm.dataStream.runWith(Sink.ignore)
             Nil
         }
-    //#websocket-handler
+    // #websocket-handler
 
-    //#websocket-request-handling
+    // #websocket-request-handling
     val requestHandler: HttpRequest => HttpResponse = {
       case req @ HttpRequest(GET, Uri.Path("/greeter"), _, _, _) =>
         req.attribute(AttributeKeys.webSocketUpgrade) match {
           case Some(upgrade) => upgrade.handleMessages(greeterWebSocketService)
-          case None          => HttpResponse(400, entity = "Not a valid websocket request!")
+          case None => HttpResponse(400, entity = "Not a valid websocket request!")
         }
       case r: HttpRequest =>
         r.discardEntityBytes() // important to drain incoming HTTP Entity stream
         HttpResponse(404, entity = "Unknown resource!")
     }
-    //#websocket-request-handling
+    // #websocket-request-handling
 
     val bindingFuture =
       Http().newServerAt("localhost", 8080).bindSync(requestHandler)
@@ -75,9 +78,9 @@ class WebSocketCloseTest extends AnyWordSpec with Matchers {
   }
   "routing-example" in {
     import akka.actor.ActorSystem
-    import akka.stream.scaladsl.{ Source, Flow }
+    import akka.stream.scaladsl.{Source, Flow}
     import akka.http.scaladsl.Http
-    import akka.http.scaladsl.model.ws.{ TextMessage, Message }
+    import akka.http.scaladsl.model.ws.{TextMessage, Message}
     import akka.http.scaladsl.server.Directives
 
     implicit val system = ActorSystem()
@@ -88,20 +91,20 @@ class WebSocketCloseTest extends AnyWordSpec with Matchers {
     // returns a greeting message for that name
     val greeterWebSocketService =
       Flow[Message]
-        .collect {
-          case tm: TextMessage => TextMessage(Source.single("Hello ") ++ tm.textStream)
-          // ignore binary messages
-          // TODO #20096 in case a Streamed message comes in, we should runWith(Sink.ignore) its data
+        .collect { case tm: TextMessage =>
+          TextMessage(Source.single("Hello ") ++ tm.textStream)
+        // ignore binary messages
+        // TODO #20096 in case a Streamed message comes in, we should runWith(Sink.ignore) its data
         }
 
-    //#websocket-routing
+    // #websocket-routing
     val route =
       path("greeter") {
         get {
           handleWebSocketMessages(greeterWebSocketService)
         }
       }
-    //#websocket-routing
+    // #websocket-routing
 
     val bindingFuture = Http().newServerAt("localhost", port = 8080).bind(route)
 
@@ -117,20 +120,25 @@ class WebSocketCloseTest extends AnyWordSpec with Matchers {
   "ping-server-example" in {
     implicit val system: ActorSystem = null
     val route = null
-    //#websocket-ping-payload-server
+    // #websocket-ping-payload-server
     val defaultSettings = ServerSettings(system)
 
     val pingCounter = new AtomicInteger()
 
-    Http().newServerAt("127.0.0.1", 0)
-      .adaptSettings(_.mapWebsocketSettings(_.withPeriodicKeepAliveData(() => ByteString(s"debug-${pingCounter.incrementAndGet()}"))))
+    Http()
+      .newServerAt("127.0.0.1", 0)
+      .adaptSettings(
+        _.mapWebsocketSettings(
+          _.withPeriodicKeepAliveData(() => ByteString(s"debug-${pingCounter.incrementAndGet()}"))
+        )
+      )
       .bind(route)
-    //#websocket-ping-payload-server
+    // #websocket-ping-payload-server
   }
 
   "ping-example" in {
     implicit val system: ActorSystem = null
-    //#websocket-client-ping-payload
+    // #websocket-client-ping-payload
     val defaultSettings = ClientConnectionSettings(system)
 
     val pingCounter = new AtomicInteger()
@@ -149,8 +157,8 @@ class WebSocketCloseTest extends AnyWordSpec with Matchers {
       Http().defaultClientHttpsContext,
       None,
       customSettings,
-      system.log
+      system.log,
     )
-    //#websocket-client-ping-payload
+    // #websocket-client-ping-payload
   }
 }
