@@ -574,12 +574,12 @@ printTemplateIdentifier TemplateIdentifier { package, qualifiedName } =
 skipMatchingChoices :: (String -> Bool) -> TestResults -> TestResults
 skipMatchingChoices namePred TestResults{..} =
   TestResults
-    { templates = M.mapWithKey (S.filter . shouldntSkip) templates
-    , interfaces = M.mapWithKey (S.filter . shouldntSkip . unInterfaceIdentifier) interfaces
+    { templates = M.mapWithKey (S.filter . shouldKeep) templates
+    , interfaces = M.mapWithKey (S.filter . shouldKeep . unInterfaceIdentifier) interfaces
     , interfaceInstances
     , created
-    , exercised = M.mapWithKey (\choiceName -> M.filterWithKey (\tid _ -> shouldntSkip tid choiceName)) exercised
+    , exercised = M.mapWithKey (\choiceName -> M.filterWithKey (\tid _ -> shouldKeep tid choiceName)) exercised
     }
   where
-    shouldntSkip :: TemplateIdentifier -> T.Text -> Bool
-    shouldntSkip tid choiceName = not (namePred (printTemplateChoiceIdentifier (choiceName, tid)))
+    shouldKeep :: TemplateIdentifier -> T.Text -> Bool
+    shouldKeep tid choiceName = not (namePred (printTemplateChoiceIdentifier (choiceName, tid)))
