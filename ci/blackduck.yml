@@ -4,8 +4,10 @@
 jobs:
 - job: blackduck_scan
   timeoutInMinutes: 120
-  condition: or(eq(variables['Build.SourceBranchName'], 'main'),
-                startsWith(variables['Build.SourceBranchName'], 'bump-blackduck-script-'))
+  condition: or(and(eq(variables['Build.SourceBranchName'], 'main'),
+                    eq(variables['Build.DefinitionName'], 'digital-asset.daml-daily-compat')),
+                and(eq(variables['Build.DefinitionName'], 'PRs'),
+                    startsWith(variables['Build.SourceBranchName'], 'bump-blackduck-script-')))
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
@@ -154,7 +156,8 @@ jobs:
 
 - job: bump_blackduck_if_needed
   timeoutInMinutes: 10
-  condition: eq(variables['Build.SourceBranchName'], 'main')
+  condition: and(eq(variables['Build.SourceBranchName'], 'main'),
+                 eq(variables['Build.DefinitionName'], 'digital-asset.daml-daily-compat'))
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
