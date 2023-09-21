@@ -4,8 +4,8 @@
 jobs:
 - job: blackduck_scan
   timeoutInMinutes: 120
-  condition: or(eq(variables['Build.SourceBranchName'], 'main'),
-                startsWith(variables['Build.SourceBranchName'], 'bump-blackduck-script-'))
+  condition: or(eq(variables['system.pullRequest.sourceBranch'], 'main'),
+                startsWith(variables['system.pullRequest.sourceBranch'], 'blackduck-'))
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
@@ -35,12 +35,12 @@ jobs:
       BAZEL_DEPENDENCY_TYPE="haskell_cabal_library"
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
-      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      ci-build digital-asset_daml $(system.pullRequest.sourceBranch) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.tools=BAZEL \
       --detect.bazel.target=//... \
       --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
-      --detect.notices.report=true \
+      --detect.notices.report=false \
       --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
       --detect.timeout=1500
     displayName: 'Blackduck Bazel Haskell Scan'
@@ -56,12 +56,12 @@ jobs:
       BAZEL_DEPENDENCY_TYPE="maven_install"
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
-      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      ci-build digital-asset_daml $(system.pullRequest.sourceBranch) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.tools=BAZEL \
       --detect.bazel.target=//... \
       --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
-      --detect.notices.report=true \
+      --detect.notices.report=false \
       --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
       --detect.timeout=1500
     displayName: 'Blackduck Bazel JVM Scan'
@@ -74,16 +74,16 @@ jobs:
       (cd language-support/ts && yarn install)
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
-      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      ci-build digital-asset_daml $(system.pullRequest.sourceBranch) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.tools=DETECTOR \
       --detect.included.detector.types=YARN,NPM,CLANG \
       --detect.npm.dependency.types.excluded=DEV \
       --detect.yarn.dependency.types.excluded=NON_PRODUCTION \
       --detect.follow.symbolic.links=false \
-      --detect.excluded.directories=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
-      --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
-      --detect.detector.search.exclusion.paths=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
+      --detect.excluded.directories=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.detector.search.exclusion.paths=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
       --detect.notices.report=true \
       --detect.code.location.name=digital-asset_daml_npm \
       --detect.timeout=1500
@@ -95,15 +95,15 @@ jobs:
       eval "$(dev-env/bin/dade-assist)"
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
-      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      ci-build digital-asset_daml $(system.pullRequest.sourceBranch) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.tools=DETECTOR \
       --detect.included.detector.types=PIP,POETRY \
       --detect.follow.symbolic.links=false \
-      --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
-      --detect.blackduck.signature.scanner.exclusion.name.patterns=.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*,*_bazel_vsts* \
-      --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*,*_bazel_vsts* \
-      --detect.notices.report=true \
+      --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.blackduck.signature.scanner.exclusion.name.patterns=.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.notices.report=false \
       --detect.code.location.name=digital-asset_daml_python \
       --detect.timeout=1500
     displayName: 'Blackduck Python Scan'
@@ -114,14 +114,15 @@ jobs:
       eval "$(dev-env/bin/dade-assist)"
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
-      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      ci-build digital-asset_daml $(system.pullRequest.sourceBranch) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.tools=DETECTOR \
       --detect.included.detector.types=GIT,GO_MOD,GO_DEP,GO_VNDR,GO_VENDOR,GO_GRADLE \
       --detect.follow.symbolic.links=false \
       --detect.go.path=$(bazel info execution_root)/external/go_sdk/bin/go \
-      --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
-      --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
+      --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.notices.report=true \
       --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
       --detect.code.location.name=digital-asset_daml_go \
       --detect.timeout=1500
@@ -138,7 +139,7 @@ jobs:
 
       branch="notices-update-$(Build.BuildId)"
 
-      tr -d '\015' < digital_asset_daml_$(Build.SourceBranchName)_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml > NOTICES
+      tr -d '\015' < digital_asset_daml_$(system.pullRequest.sourceBranch)_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml > NOTICES
       if git diff --exit-code -- NOTICES; then
           echo "NOTICES file already up-to-date."
           setvar need_to_build false
@@ -150,11 +151,11 @@ jobs:
     displayName: open PR
     name: out
     condition: and(succeeded(),
-                     eq(variables['Build.SourceBranchName'], 'main'))
+                     eq(variables['system.pullRequest.sourceBranch'], 'main'))
 
 - job: bump_blackduck_if_needed
   timeoutInMinutes: 10
-  condition: eq(variables['Build.SourceBranchName'], 'main')
+  condition: eq(variables['system.pullRequest.sourceBranch'], 'main')
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default

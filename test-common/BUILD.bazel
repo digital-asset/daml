@@ -76,7 +76,6 @@ alias(
                 "//libs-scala/timer-utils",
                 "@maven//:ch_qos_logback_logback_classic",
                 "@maven//:ch_qos_logback_logback_core",
-                "@maven//:io_grpc_grpc_context",
                 "@maven//:org_scalatest_scalatest_compatible",
                 "@maven//:org_slf4j_slf4j_api",
             ],
