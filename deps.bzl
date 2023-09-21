@@ -394,7 +394,7 @@ filegroup(
 )""",
             sha256 = "3a6c51868c71b006c33c4bcde63d90927e6fcca8f51c965b8ad62d021614a860",
             strip_prefix = "freefont-20120503",
-            urls = ["http://ftp.gnu.org/gnu/freefont/freefont-otf-20120503.tar.gz"],
+            urls = ["https://storage.googleapis.com/daml-binaries/build-inputs/freefont-otf-20120503.tar.gz"],
         )
 
     if "daml-finance" not in native.existing_rules():
