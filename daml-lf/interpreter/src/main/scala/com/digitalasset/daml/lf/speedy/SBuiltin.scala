@@ -2220,7 +2220,15 @@ private[lf] object SBuiltin {
                     val src: TypeConName = srcTemplateId
                     val dest: TypeConName = destTemplateId
 
-                    if (upgradingIsEnabled && src != dest) {
+                    // In Validation mode, we always call validateContractInfo
+                    // In Submission mode, we only call validateContractInfo when src != dest
+                    val needValidationCall: Boolean =
+                      if (machine.validating) {
+                        upgradingIsEnabled
+                      } else {
+                        upgradingIsEnabled && (src != dest)
+                      }
+                    if (needValidationCall) {
 
                       validateContractInfo(machine, coid, contract) { () =>
                         f(contract.any)
