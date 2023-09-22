@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChildProcess, spawn } from "child_process";
+import { ChildProcess, execFileSync, spawn } from "child_process";
 import { promises as fs } from "fs";
 import waitOn from "wait-on";
 import { encode } from "jwt-simple";
@@ -28,6 +28,9 @@ import _ from "lodash";
 import WebSocket from "ws";
 
 import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
+
+// JSON API expects URL-safe base64 encoding https://en.wikipedia.org/wiki/Base64#URL_applications
+const toUrlBase64 = (s: string) => s.replace(/\+/g, "-").replace(/\//g, "_");
 
 const LEDGER_ID = "build-and-lint-test";
 const APPLICATION_ID = "build-and-lint-test";
@@ -599,6 +602,65 @@ test("create + fetch & exercise", async () => {
     buildAndLint.Lib.Mod.NonTopLevel,
   );
   expect(nonTopLevelContracts).toEqual([nonTopLevelContract]);
+});
+
+test("exercise using explicit disclosure", async () => {
+  const aliceLedger = new Ledger({
+    token: ALICE_TOKEN,
+    httpBaseUrl: httpBaseUrl(),
+  });
+  const bobLedger = new Ledger({
+    token: BOB_TOKEN,
+    httpBaseUrl: httpBaseUrl(),
+  });
+
+  const payload: buildAndLint.Main.ReferenceData = {
+    p: ALICE_PARTY,
+  };
+  const contract = await aliceLedger.create(
+    buildAndLint.Main.ReferenceData,
+    payload,
+  );
+  // TODO(https://digitalasset.atlassian.net/browse/LT-5)
+  // The JSON API does (not) yet expose contract metadata so we read it directly through the gRPC API.
+  // Once this is fixed we should also test payloadBlob (grpcurl does not expose the protobuf
+  // Any in a usable form.
+  const output = execFileSync(
+    "grpcurl",
+    [
+      "-plaintext",
+      "-H",
+      `Authorization: Bearer ${ALICE_TOKEN}`,
+      "-d",
+      `{"contract_id": "${contract.contractId}", "requesting_parties": ["${ALICE_PARTY}"]}`,
+      "localhost:5011",
+      "com.daml.ledger.api.v1.EventQueryService/GetEventsByContractId",
+    ],
+    { encoding: "utf8" },
+  );
+  const jsonOutput = JSON.parse(output);
+  const [result] = await bobLedger.exercise(
+    buildAndLint.Main.ReferenceData.ReferenceData_Fetch,
+    contract.contractId,
+    { fetcher: BOB_PARTY },
+    {
+      disclosedContracts: [
+        {
+          contractId: contract.contractId,
+          templateId: contract.templateId,
+          payload: buildAndLint.Main.ReferenceData.encode(contract.payload),
+          metadata: {
+            createdAt: jsonOutput.create_event.metadata.created_at,
+            contractKeyHash: "",
+            driverMetadata: toUrlBase64(
+              jsonOutput.create_event.metadata.driver_metadata,
+            ),
+          },
+        },
+      ],
+    },
+  );
+  expect(result).toEqual(payload);
 });
 
 describe("interface definition", () => {
