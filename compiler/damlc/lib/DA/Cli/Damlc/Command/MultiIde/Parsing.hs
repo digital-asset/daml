@@ -51,8 +51,7 @@ allBytes hin = fmap BSL.fromChunks go
       rest <- unsafeInterleaveIO go
       pure (first : rest)
 
--- TODO: Feels like this could just be a `takeWhile isDigit >>= read . concat`
--- I'd also be quite surprised if Attoparsec doesn't already have an integer parser...
+-- Missing from Data.Attoparsec.ByteString.Lazy, copied from Data.Attoparsec.ByteString.Char8
 decimal :: Attoparsec.Parser Int
 decimal = B.foldl' step 0 `fmap` Attoparsec.takeWhile1 (\w -> w - 48 <= 9)
   where step a w = a * 10 + fromIntegral (w - 48)
