@@ -5,10 +5,12 @@
 
 module DA.Daml.LF.Ast.Range(
     Range(Inclusive, Empty),
-    elem
+    elem,
+    minBound,
+    maxBound
     ) where
 
-import Prelude hiding (elem)
+import Prelude hiding (elem, minBound, maxBound)
 
 data Range a = Inclusive_ a a | Empty
     deriving (Eq, Show, Functor)
@@ -24,3 +26,11 @@ pattern Inclusive low high <- Inclusive_ low high where
 elem :: Ord a => a -> Range a -> Bool
 elem _ Empty = False
 elem x (Inclusive_ low high) = x >= low && x <= high
+
+minBound :: Ord a => Range a -> Maybe a
+minBound Empty = Nothing
+minBound (Inclusive low _) = Just low
+
+maxBound :: Ord a => Range a -> Maybe a
+maxBound Empty = Nothing
+maxBound (Inclusive _ high) = Just high

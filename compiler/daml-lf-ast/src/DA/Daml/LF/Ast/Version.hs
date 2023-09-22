@@ -126,6 +126,11 @@ data Feature = Feature
         -- ^ CPP flag to test for availability of the feature.
     } deriving Show
 
+-- | The earliest version of a feature for a given major version, if it exists.
+featureMinVersion :: Feature -> MajorVersion -> Maybe Version
+featureMinVersion Feature{featureVersionReq = VersionReq rangeForMajor} major =
+  Version major <$> R.minBound (rangeForMajor major)
+
 -- | Kept for serialization of stable packages.
 featureStringInterning :: Feature
 featureStringInterning = Feature

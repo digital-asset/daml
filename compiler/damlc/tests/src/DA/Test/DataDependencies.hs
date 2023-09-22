@@ -8,16 +8,16 @@ import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Ast.Range as R
 import DA.Daml.LF.Reader (readDalfs, Dalfs(..))
 import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 import DA.Daml.StablePackages (numStablePackagesForVersion)
 import DA.Test.Process
 import DA.Test.Util
 import qualified Data.ByteString.Lazy as BSL
-import Data.List (intercalate, sort, (\\))
+import Data.List (intercalate, sortOn, (\\))
 import qualified Data.NameMap as NM
 import Module (unitIdString)
+import Safe (fromJustNote)
 import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath
@@ -43,19 +43,19 @@ main = do
     testArgs =
         [
             ( LF.version1_dev
-            , exceptionsMinV1Version
+            , minExceptionVersion LF.V1
             , mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar"
             )
         ,
             ( LF.version2_dev
-            , exceptionsMinV2Version
+            , minExceptionVersion LF.V2
             , mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script-2.dev.dar"
             )
         ]
-    (exceptionsMinV1Version, exceptionsMinV2Version) =
-        case LF.featureVersionReq LF.featureExceptions of
-            LF.InRanges (R.Inclusive minV1 _) (R.Inclusive minV2 _) -> (LF.V1 minV1, LF.V2 minV2)
-            _ -> error "unexpected feature version requirements for LF.featureExceptions"
+    minExceptionVersion major =
+        fromJustNote
+            "exceptions should have a minor version for every existing major version"
+            (LF.featureMinVersion LF.featureExceptions major)
 
 data Tools = Tools -- and places
   { damlc :: FilePath
@@ -89,14 +89,16 @@ darPackageIds fp = do
 --    (2.dev, 2.dev) pairs.
 lfVersionTestPairs :: [(LF.Version, LF.Version)]
 lfVersionTestPairs =
-    let supportedV1InputVersions = map LF.V1 $ sort [v | LF.V1 v <- LF.supportedInputVersions]
-        supportedV1OutputVersions = map LF.V1 $ sort [v | LF.V1 v <- LF.supportedOutputVersions]
-        supportedV2OutputVersions = map LF.V2 $ sort [v | LF.V2 v <- LF.supportedOutputVersions]
+    let supportedV1InputVersions = sortOn LF.versionMinor $ filter (hasMajorVersion LF.V1) LF.supportedInputVersions
+        supportedV1OutputVersions = sortOn LF.versionMinor $ filter (hasMajorVersion LF.V2) LF.supportedOutputVersions
+        supportedV2OutputVersions = sortOn LF.versionMinor $ filter (hasMajorVersion LF.V2) LF.supportedOutputVersions
         legacyPairs = map (, LF.version1_14) (supportedV1InputVersions \\ supportedV1OutputVersions)
         v1Pairs = zip supportedV1OutputVersions (tail supportedV1OutputVersions)
         v2Pairs = zip supportedV2OutputVersions (tail supportedV2OutputVersions)
         selfPairs = [(LF.version1_dev, LF.version1_dev), (LF.version2_dev, LF.version2_dev)]
     in concat [legacyPairs, v1Pairs, v2Pairs, selfPairs]
+  where
+    hasMajorVersion major v = LF.versionMajor v == major
 
 tests :: LF.Version -> LF.Version -> Tools -> TestTree
 tests targetDevVersion exceptionsVersion tools = testGroup (LF.renderVersion targetDevVersion) $
