@@ -1199,7 +1199,30 @@ private[lf] object Speedy {
 
                 val values: util.ArrayList[SValue] = {
                   if (numT > numS) {
-                    values0.padTo(numT, SValue.SOptional(None)) // UPGRADE
+
+                    def isOptionalType(typ: Type): Boolean = {
+                      typ match {
+                        case TApp(TBuiltin(BTOptional), _) => true
+                        case _ => false
+                      }
+                    }
+
+                    val extraFieldsWithNonOptionType: List[Name] =
+                      targetFieldsAndTypes.toList
+                        .drop(numS)
+                        .filter { case (_, typ) => !isOptionalType(typ) }
+                        .map { case (name, _) => name }
+
+                    if (extraFieldsWithNonOptionType.length == 0) {
+                      values0.padTo(numT, SValue.SOptional(None)) // UPGRADE
+                    } else {
+                      // TODO: https://github.com/digital-asset/daml/issues/17082
+                      // - Impossible (ill typed) case. Ok to crash here?
+                      throw SErrorCrash(
+                        NameOf.qualifiedNameOfCurrentFunc,
+                        "Unexpected non-optional extra template field type encountered during upgrading: something is very wrong.",
+                      )
+                    }
                   } else {
                     values0
                   }

@@ -237,11 +237,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
       }
     }
 
-    // TODO: https://github.com/digital-asset/daml/issues/17082
-    // - Make this test work!
-    // - Currently a None is manufactured for any missing field.
-    // - but we should reject for non optional types.
-    "missing non-optional field -- should be rejected" ignore {
+    "missing non-optional field -- should be rejected" in {
 
       val v_missingField =
         makeRecord(
@@ -250,9 +246,10 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
         )
 
       val res = go("M1:do_fetch", v_missingField)
-
       inside(res) { case Left(err) =>
-        err.toString should include("can only upgrade fields of Option type")
+        err.toString should include(
+          "Unexpected non-optional extra template field type encountered during upgrading: something is very wrong."
+        )
       }
     }
 
