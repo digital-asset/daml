@@ -983,7 +983,7 @@ private[lf] object SBuiltin {
               }
               case Left((newPtx, err)) => {
                 machine.ptx = newPtx // Seems wrong. But one test in ScriptService requires this.
-                Control.Error(convTxError(templateId, err))
+                Control.Error(convTxError(err))
               }
             }
           }
@@ -1063,7 +1063,7 @@ private[lf] object SBuiltin {
               machine.ptx = ptx
               Control.Value(SUnit)
             case Left(err) =>
-              Control.Error(convTxError(templateId, err))
+              Control.Error(convTxError(err))
           }
         }
 
@@ -1446,7 +1446,7 @@ private[lf] object SBuiltin {
               machine.ptx = ptx
               Control.Value(templateArg)
             case Left(err) =>
-              Control.Error(convTxError(templateId, err))
+              Control.Error(convTxError(err))
           }
         }
       }
@@ -1485,7 +1485,7 @@ private[lf] object SBuiltin {
           machine.ptx = ptx
           Control.Value(SUnit)
         case Left(err) =>
-          Control.Error(convTxError(templateId, err))
+          Control.Error(convTxError(err))
       }
     }
   }
@@ -2028,7 +2028,7 @@ private[lf] object SBuiltin {
     }
   }
 
-  private[speedy] def convTxError(templateId: TypeConName, err: TxErr.TransactionError): IE = {
+  private[speedy] def convTxError(err: TxErr.TransactionError): IE = {
     err match {
       case TxErr.AuthFailureDuringExecutionTxError(AuthFailureDuringExecution(nid, fa)) =>
         IE.FailedAuthorization(nid, fa)
