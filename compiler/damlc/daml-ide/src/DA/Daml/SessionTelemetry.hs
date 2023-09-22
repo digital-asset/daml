@@ -53,7 +53,7 @@ withPlugin lgr f = do
             currentTime <- getTime Monotonic
             lastActive <- readVar lastActive
             when (currentTime - lastActive <= TimeSpec (activeMinutesInterval * 60) 0) $ do
-              --Lgr.logDebug gcpLogger "Sending session ping"
+              Lgr.logDebug gcpLogger "Sending session ping"
               -- We were active in the last 5 minutes so send a ping.
               sendSessionPing gcpLogger
             -- sleep for 5 minutes and then check again

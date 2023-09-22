@@ -33,8 +33,6 @@ import qualified Network.URI                               as URI
 
 import qualified Language.LSP.Server as LSP
 
-import System.IO
-
 textShow :: Show a => a -> T.Text
 textShow = T.pack . show
 
@@ -57,12 +55,10 @@ setHandlersVirtualResource = Plugin
     , pluginCommands = mempty
     , pluginNotificationHandlers = mconcat
           [ pluginNotificationHandler STextDocumentDidOpen $ \ide (DidOpenTextDocumentParams TextDocumentItem{_uri}) ->
-            liftIO $ do
-                hPutStrLn stderr $ "Opened file: " <> T.unpack (getUri _uri)
-                withUriDaml _uri $ \vr -> do
-                    logInfo (ideLogger ide) $ "Opened virtual resource: " <> textShow vr
-                    logTelemetry (ideLogger ide) "Viewed scenario results"
-                    modifyOpenVirtualResources ide (HS.insert vr)
+            liftIO $ withUriDaml _uri $ \vr -> do
+                logInfo (ideLogger ide) $ "Opened virtual resource: " <> textShow vr
+                logTelemetry (ideLogger ide) "Viewed scenario results"
+                modifyOpenVirtualResources ide (HS.insert vr)
 
           , pluginNotificationHandler STextDocumentDidClose $ \ide (DidCloseTextDocumentParams TextDocumentIdentifier{_uri}) ->
             liftIO $ withUriDaml _uri $ \vr -> do

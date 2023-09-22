@@ -22,8 +22,6 @@ import Development.IDE.Plugin.CodeAction as CodeAction
 import qualified Development.IDE.Types.Logger as IdeLogger
 import qualified Language.LSP.Types as LSP
 
-
-
 getDamlIdeState
     :: Options
     -> StudioAutorunAllScenarios
@@ -39,20 +37,7 @@ getDamlIdeState compilerOpts autorunAllScenarios mbScenarioService loggerH debou
     initialise rule lspEnv (toIdeLogger loggerH) debouncer damlEnv (toCompileOpts compilerOpts) vfs
 
 enabledPlugins :: Plugin a
-enabledPlugins = Completions.plugin <> CodeAction.plugin <> additionalPlugin
-    where
-        additionalPlugin =
-            Plugin
-                { pluginCommands = mempty
-                , pluginRules = mempty
-                , pluginHandlers = mempty
-                , pluginNotificationHandlers = mconcat []
-                      --[ pluginNotificationHandler STextDocumentDidOpen $ \ide (DidOpenTextDocumentParams TextDocumentItem{_uri}) ->
-                      --  liftIO $ withUriDaml _uri $ \vr -> do
-                      --      logInfo (ideLogger ide) $ "Opened virtual resource: " <> textShow vr
-                      --      logTelemetry (ideLogger ide) "Viewed scenario results"
-                      --      modifyOpenVirtualResources ide (HS.insert vr)
-                }
+enabledPlugins = Completions.plugin <> CodeAction.plugin
 
 -- Wrapper for the common case where the scenario service
 -- will be started automatically (if enabled)
