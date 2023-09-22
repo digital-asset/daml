@@ -19,12 +19,14 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.STM
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Types as Aeson
 import qualified Data.ByteString as B
 import DA.Cli.Damlc.Command.MultiIde.Forwarding
 import DA.Cli.Damlc.Command.MultiIde.Prefixing
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.Parsing
 import DA.Cli.Damlc.Command.MultiIde.Types
+import DA.Daml.LanguageServer.SplitGotoDefinition
 import Data.Either (lefts)
 import Data.Functor.Product
 import Data.List (find, isPrefixOf)
@@ -52,11 +54,11 @@ import System.Process.Typed (
   setWorkingDir,
   startProcess,
   unsafeProcessHandle,
+  -- useHandleOpen,
  )
 
 {-
 TODO:
-  Goto definition cross boundary
   data deps support
     likely recreate the daml.yaml in the package database and spin an IDE there
     need to ensure the ide path lookup doesn't allow crossing the .daml boundary
@@ -65,12 +67,16 @@ TODO:
     when you simply do ctrl+n, and have an unsaved file, we still want IDE support, but ofc that file has no daml.yaml, so we can only assume bare minimum deps
     we can create an IDE for a project with just those deps in a temp location and forward requests like this to it.
   might need some daml.revealLocation logic
+  seems sometimes we get relative paths, so duplicate subIDEs are made
 -}
 
 {-
 the W approach for STextDocumentDeclaration/STextDocumentDefinition:
-at start, find a multi-package.yaml (discuss how later), create a mapping from package-name and package-version to home directory
+TODO: at start, find a multi-package.yaml (discuss how later), create a mapping from package-name and package-version to home directory
+  Currently, looking up in the existing open SubIDEs. But ideally, we'll create a new SubIDE if we get a request for something within
+  multi-package but without a SubIDE yet (callSubIDE by path will do this for us :))
 
+below is complete:
 client -> coord: STextDocumentDefinition (including a path (pathA) and a position(posA))
 coord -> subIde(pathA): whatIsIt(pathA, posA)
 subIde(pathA) <- coord: identifier(including a name, packageid, might be able to get package name and version)
@@ -88,7 +94,6 @@ else
 
 
 alternatively, "whatIsIt" can return either a location (if its a local def) or a identifier (if its external), and we only continue the lookup if its an identifier
-
 -}
 
 -- Spin-up logic
@@ -114,6 +119,9 @@ addNewSubIDEAndSend stateVars home msg = do
       pure ide
     Nothing -> do
       debugPrint "Making a SubIDE"
+
+      unitId <- either (\cErr -> error $ "Failed to get unit ID from daml.yaml: " <> show cErr) id <$> unitIdFromDamlYaml home
+
       subIdeProcess <- runSubProc home
       let inHandle = getStdin subIdeProcess
           outHandle = getStdout subIdeProcess
@@ -162,6 +170,7 @@ addNewSubIDEAndSend stateVars home msg = do
               , ideHomeDirectory = home
               , ideMessageIdPrefix = T.pack $ show pid
               , ideActive = True
+              , ideUnitId = unitId
               }
 
 
@@ -182,6 +191,7 @@ runSubProc home = do
     proc assistantPath ["ide"] &
       setStdin createPipe &
       setStdout createPipe &
+      -- setStderr (useHandleOpen stderr) &
       setStderr nullStream &
       setWorkingDir home
 
@@ -289,6 +299,11 @@ sendSubIDEByPath stateVars path msg = do
                     _ -> pure Nothing
                 _ -> pure Nothing
 
+parseCustomResult :: Aeson.FromJSON a => String -> Either LSP.ResponseError Aeson.Value -> Either LSP.ResponseError a
+parseCustomResult name =
+  fmap $ either (\err -> error $ "Failed to parse response of " <> name <> ": " <> err) id 
+    . Aeson.parseEither Aeson.parseJSON 
+
 -- Handlers
 
 subIDEMessageHandler :: StateVars -> IO () -> SubIDE -> B.ByteString -> IO ()
@@ -321,6 +336,49 @@ subIDEMessageHandler stateVars unblock ide bs = do
         sendSubIDE ide $ LSP.FromClientMess LSP.SInitialized $ LSP.NotificationMessage "2.0" LSP.SInitialized (Just LSP.InitializedParams)
         unblock
       LSP.FromServerRsp LSP.SShutdown _ -> handleExit stateVars ide
+
+      LSP.FromServerRsp (LSP.SCustomMethod "daml/tryGetDefinition") LSP.ResponseMessage {_id, _result} -> do
+        debugPrint "Got tryGetDefinition response, handling..."
+        let parsedResult = parseCustomResult @(Maybe TryGetDefinitionResult) "daml/tryGetDefinition" _result
+            reply :: Either LSP.ResponseError (LSP.ResponseResult 'LSP.TextDocumentDefinition) -> IO ()
+            reply rsp = do
+              debugPrint $ "Replying directly to client with " <> show rsp
+              sendClient stateVars $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (castLspId <$> _id) rsp
+            replyLocations :: [LSP.Location] -> IO ()
+            replyLocations = reply . Right . LSP.InR . LSP.InL . LSP.List
+        case parsedResult of
+          Left err -> reply $ Left err
+          Right Nothing -> replyLocations []
+          Right (Just (TryGetDefinitionResult loc Nothing)) -> replyLocations [loc]
+          Right (Just (TryGetDefinitionResult loc (Just name))) -> do
+            debugPrint $ "Got name in result! Backup location is " <> show loc
+            idesUnfiltered <- atomically $ takeTMVar (subIDEsVar stateVars)
+            let ides = Map.filter ideActive idesUnfiltered
+                mIde = find (\ide -> ideUnitId ide == tgdnPackageUnitId name) ides
+            case mIde of
+              Nothing -> replyLocations [loc]
+              Just ide -> do
+                debugPrint $ "We have a SubIDE with the given unitId, forwarding to " <> ideHomeDirectory ide
+                let method = LSP.SCustomMethod "daml/gotoDefinitionByName"
+                    lspId = maybe (error "No LspId provided back from tryGetDefinition") castLspId _id
+                    msg = LSP.FromClientMess method $ LSP.ReqMess $ LSP.RequestMessage "2.0" lspId method
+                            $ Aeson.toJSON $ GotoDefinitionByNameParams loc name
+                              
+                putReqMethodSingleFromClient (fromClientMethodTrackerVar stateVars) lspId method
+                sendSubIDE ide msg
+            atomically $ putTMVar (subIDEsVar stateVars) idesUnfiltered
+      
+      LSP.FromServerRsp (LSP.SCustomMethod "daml/gotoDefinitionByName") LSP.ResponseMessage {_id, _result} -> do
+        debugPrint "Got gotoDefinitionByName response, handling..."
+        let parsedResult = parseCustomResult @GotoDefinitionByNameResult "daml/gotoDefinitionByName" _result
+            reply :: Either LSP.ResponseError (LSP.ResponseResult 'LSP.TextDocumentDefinition) -> IO ()
+            reply rsp = do
+              debugPrint $ "Replying directly to client with " <> show rsp
+              sendClient stateVars $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (castLspId <$> _id) rsp
+        case parsedResult of
+          Left err -> reply $ Left err
+          Right loc -> reply $ Right $ LSP.InR $ LSP.InL $ LSP.List [loc]
+
       LSP.FromServerMess method _ -> do
         debugPrint $ "Backwarding request " <> show method
         sendClient stateVars msg
@@ -354,6 +412,17 @@ clientMessageHandler stateVars bs = do
       case mHome of
         Nothing -> void $ sendAllSubIDEs stateVars newMsg
         Just home -> void $ sendSubIDEByPath stateVars home newMsg
+
+    -- Special handing for STextDocumentDefinition to ask multiple IDEs
+    LSP.FromClientMess LSP.STextDocumentDefinition req@LSP.RequestMessage {_id, _method, _params} -> do
+      let path = filePathFromParamsWithTextDocument req
+          lspId = castLspId _id
+          method = LSP.SCustomMethod "daml/tryGetDefinition"
+      putReqMethodSingleFromClient (fromClientMethodTrackerVar stateVars) lspId method
+      sendSubIDEByPath stateVars path $ LSP.FromClientMess method $ LSP.ReqMess $
+        LSP.RequestMessage "2.0" lspId method $ Aeson.toJSON $
+          TryGetDefinitionParams (_params ^. LSP.textDocument) (_params ^. LSP.position)
+
     LSP.FromClientMess meth params ->
       case getMessageForwardingBehaviour meth params of
         ForwardRequest mess (Single path) -> do

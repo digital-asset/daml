@@ -18,8 +18,8 @@ load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 load("//bazel_tools/ghc-lib:repositories.bzl", "ghc_lib_and_dependencies")
 
-GHCIDE_REV = "f05b2ff831daceb43e2e8dc2cda9e4a17d3742de"
-GHCIDE_SHA256 = "4ca395fed1ba7102beb4b9fcb32846a8579ef2bf65145174cb63a31a2c85315a"
+GHCIDE_REV = "f9b68e0137d221fa2f5b5f37c17ba329eed7e0d8"
+GHCIDE_SHA256 = "0b69a9e4ac5f6356622665ec4d6d3eeef53c879d7fa14bf4f08cf65e13bda4d5"
 GHCIDE_LOCAL_PATH = None
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"

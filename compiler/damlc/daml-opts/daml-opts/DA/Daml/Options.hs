@@ -131,6 +131,9 @@ getDamlGhcSession = do
 -- | Find the daml.yaml given a starting file or directory.
 findProjectRoot :: FilePath -> IO (Maybe FilePath)
 findProjectRoot file = do
+    -- TODO: Surely this is always false? We want to check if the path passed in is a file, take directory if it is
+    -- isFile <- doesFileExist file
+    -- no?
     isFile <- doesFileExist (takeDirectory file)
     let dir = if isFile then takeDirectory file else file
     findM hasProjectConfig (ascendants dir)

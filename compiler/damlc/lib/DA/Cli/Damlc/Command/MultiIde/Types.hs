@@ -73,6 +73,9 @@ data SubIDE = SubIDE
     -- ^ Some unique string used to prefix message ids created by the SubIDE, to avoid collisions with other SubIDEs
     -- We use the stringified process ID
   , ideActive :: Bool
+  , ideUnitId :: String
+    -- ^ Unit ID of the package this SubIDE handles
+    -- Of the form "daml-script-0.0.1"
   }
 
 -- SubIDEs placed in a TMVar. The emptyness representents a modification lock.

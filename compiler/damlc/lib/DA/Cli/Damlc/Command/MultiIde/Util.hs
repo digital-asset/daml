@@ -15,7 +15,10 @@ module DA.Cli.Damlc.Command.MultiIde.Util (
 
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TMVar
+import Control.Exception (handle)
 import Control.Monad.STM
+import DA.Daml.Project.Config (readProjectConfig, queryProjectConfigRequired)
+import DA.Daml.Project.Types (ConfigError, ProjectPath (..))
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Capabilities as LSP
 import System.Directory (doesDirectoryExist, listDirectory)
@@ -139,6 +142,10 @@ initializeResult = LSP.InitializeResult
     true = Just (LSP.InL True)
     false = Just (LSP.InL False)
 
+castLspId :: LSP.LspId m -> LSP.LspId m'
+castLspId (LSP.IdString s) = LSP.IdString s
+castLspId (LSP.IdInt i) = LSP.IdInt i
+
 -- Given a file path, move up directory until we find a daml.yaml and give its path (if it exists)
 findHome :: FilePath -> IO (Maybe FilePath)
 findHome path = do
@@ -155,3 +162,12 @@ findHome path = do
           if path == newPath
             then pure Nothing
             else aux newPath
+
+unitIdFromDamlYaml :: FilePath -> IO (Either ConfigError String)
+unitIdFromDamlYaml path = do
+  handle (\(e :: ConfigError) -> return $ Left e) $ do
+    project <- readProjectConfig $ ProjectPath path
+    pure $ do
+      name <- queryProjectConfigRequired ["name"] project
+      version <- queryProjectConfigRequired ["version"] project
+      pure $ name <> "-" <> version

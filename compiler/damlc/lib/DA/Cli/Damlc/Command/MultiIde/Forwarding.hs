@@ -17,6 +17,7 @@
 
 module DA.Cli.Damlc.Command.MultiIde.Forwarding (
   getMessageForwardingBehaviour,
+  filePathFromParamsWithTextDocument,
   Forwarding (..),
   ForwardingBehaviour (..),
   ResponseCombiner,
@@ -78,23 +79,23 @@ getMessageForwardingBehaviour meth params =
     LSP.SWorkspaceDidChangeWorkspaceFolders -> ForwardNotification params AllNotification
     LSP.SWorkspaceDidChangeConfiguration -> ForwardNotification params AllNotification
     LSP.SWorkspaceDidChangeWatchedFiles -> ForwardNotification params AllNotification
-    LSP.STextDocumentDidOpen -> ForwardNotification params $ fromParamsWithTextDocument params
-    LSP.STextDocumentDidChange -> ForwardNotification params $ fromParamsWithTextDocument params
-    LSP.STextDocumentWillSave -> ForwardNotification params $ fromParamsWithTextDocument params
-    LSP.STextDocumentWillSaveWaitUntil -> ForwardRequest params $ fromParamsWithTextDocument params
-    LSP.STextDocumentDidSave -> ForwardNotification params $ fromParamsWithTextDocument params
-    LSP.STextDocumentDidClose -> ForwardNotification params $ fromParamsWithTextDocument params
-    LSP.STextDocumentCompletion -> ForwardRequest params $ fromParamsWithTextDocument params
-    LSP.STextDocumentHover -> ForwardRequest params $ fromParamsWithTextDocument params
-    LSP.STextDocumentSignatureHelp -> ForwardRequest params $ fromParamsWithTextDocument params
-    LSP.STextDocumentDeclaration -> ForwardRequest params $ fromParamsWithTextDocument params
-    LSP.STextDocumentDefinition -> ForwardRequest params $ fromParamsWithTextDocument params
-    LSP.STextDocumentDocumentSymbol -> ForwardRequest params $ fromParamsWithTextDocument params
-    LSP.STextDocumentCodeAction -> ForwardRequest params $ fromParamsWithTextDocument params
-    LSP.STextDocumentCodeLens -> ForwardRequest params $ fromParamsWithTextDocument params
-    LSP.STextDocumentDocumentLink -> ForwardRequest params $ fromParamsWithTextDocument params
-    LSP.STextDocumentColorPresentation -> ForwardRequest params $ fromParamsWithTextDocument params
-    LSP.STextDocumentOnTypeFormatting -> ForwardRequest params $ fromParamsWithTextDocument params
+    LSP.STextDocumentDidOpen -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentDidChange -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentWillSave -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentWillSaveWaitUntil -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentDidSave -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentDidClose -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentCompletion -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentHover -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentSignatureHelp -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentDeclaration -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentDefinition -> error "Forwarding of STextDocumentDefinition must be handled elsewhere."
+    LSP.STextDocumentDocumentSymbol -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentCodeAction -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentCodeLens -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentDocumentLink -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentColorPresentation -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
+    LSP.STextDocumentOnTypeFormatting -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
     
     LSP.SCustomMethod "daml/keepAlive" ->
       case params of
@@ -156,10 +157,13 @@ getMessageForwardingBehaviour meth params =
     LSP.STextDocumentSemanticTokensRange -> unsupported "TextDocumentSemanticTokensRange"
     LSP.SWorkspaceSemanticTokensRefresh -> unsupported "WorkspaceSemanticTokensRefresh"
 
-fromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => p -> ForwardingBehaviour m
-fromParamsWithTextDocument params =
+filePathFromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => p -> FilePath
+filePathFromParamsWithTextDocument params =
   let uri = params ^. LSP.params . LSP.textDocument . LSP.uri
-   in Single $ fromMaybe (error $ "Failed to extract path: " <> show uri) $ filePathFromURI uri
+   in fromMaybe (error $ "Failed to extract path: " <> show uri) $ filePathFromURI uri
+
+forwardingBehaviourFromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => p -> ForwardingBehaviour m
+forwardingBehaviourFromParamsWithTextDocument params = Single $ filePathFromParamsWithTextDocument params
 
 filePathFromURI :: LSP.Uri -> Maybe FilePath
 filePathFromURI uri = 
