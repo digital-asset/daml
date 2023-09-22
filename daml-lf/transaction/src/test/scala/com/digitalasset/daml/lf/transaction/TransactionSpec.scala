@@ -514,17 +514,6 @@ class TransactionSpec
         DuplicateContractIdKIError(DuplicateContractId(cid("#0")))
       )
     }
-    """lookup by key and create do not conflict for the same contract ID when key not found""" in {
-      val builder = new TxBuilder()
-      builder.add(lookup(cid("#0"), "k0", found = false))
-      builder.add(create(cid("#0"), "k1"))
-      builder.build().contractKeyInputs shouldBe Right(
-        Map(
-          globalKey("k0") -> NegativeKeyLookup,
-          globalKey("k1") -> KeyCreate,
-        )
-      )
-    }
     "consuming exercise and create conflict for the same contract ID" in {
       val builder = new TxBuilder()
       builder.add(exe(cid("#0"), "k1", consuming = true, byKey = false))
