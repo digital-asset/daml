@@ -345,6 +345,57 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     )
   }
 
+  def createAfterLookupByKey: TestCase = {
+    // [ LBK key c1, Create c1 ]
+    val builder = new TxBuilder()
+    val _ = builder.add(mkLookupByKey("key1", Some(1)))
+    val _ = builder.add(mkCreate(1, "key2"))
+    val tx = builder.build()
+    val expected = duplicateContractId(1)
+    TestCase(
+      "CreateAfterLookupByKey",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
+  def createAfterConsumingExercise: TestCase = {
+    // [ Exe c1, Create c1 ]
+    val builder = new TxBuilder()
+    val _ = builder.add(mkExercise(1, consuming = true))
+    val _ = builder.add(mkCreate(1, "key"))
+    val tx = builder.build()
+    val expected = duplicateContractId(1)
+    TestCase(
+      "CreateAfterConsumingExercise",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
+  def createAfterNonConsumingExercise: TestCase = {
+    // [ Exe c1, Create c1 ]
+    val builder = new TxBuilder()
+    val _ = builder.add(mkExercise(1, consuming = false))
+    val _ = builder.add(mkCreate(1, "key"))
+    val tx = builder.build()
+    val expected = duplicateContractId(1)
+    TestCase(
+      "CreateAfterNonConsumingExercise",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
   def doubleCreate: TestCase = {
     // [ Create c1, Create c1 ]
     val createNode = mkCreate(1)
@@ -588,6 +639,9 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     rbExeCreateLbkDivulged,
     rbExeCreateFbk,
     createAfterFetch,
+    createAfterLookupByKey,
+    createAfterConsumingExercise,
+    createAfterNonConsumingExercise,
     doubleCreate,
     doubleCreateWithKey,
     divulgedLookup,
