@@ -65,7 +65,7 @@ if [[ $2 = "translate" ]]; then
   RES=$?
 
   #Cleaning everything up
-  rm $FILE_DESTINATION
+  #rm $FILE_DESTINATION
   
   exit $RES
 

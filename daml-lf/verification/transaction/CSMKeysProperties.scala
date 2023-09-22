@@ -19,7 +19,7 @@ import stainless.annotation._
 import scala.annotation.targetName
 import stainless.collection._
 import utils.Value.ContractId
-import utils.Transaction.{DuplicateContractKey, InconsistentContractKey, KeyInputError}
+import utils.TransactionErrors.{CreateError, InconsistentContractKey, KeyInputError}
 import utils._
 
 import ContractStateMachine._
@@ -908,7 +908,7 @@ object CSMKeysProperties {
   @opaque
   @targetName("toKeyInputErrorConcatLeftGlobalKeysDuplicateContractKey")
   def toKeyInputErrorConcatLeftGlobalKeys(
-      e: Either[DuplicateContractKey, State],
+      e: Either[CreateError, State],
       glK: Map[GlobalKey, KeyMapping],
   ): Unit = {
     unfold(concatLeftGlobalKeys(e, glK))
