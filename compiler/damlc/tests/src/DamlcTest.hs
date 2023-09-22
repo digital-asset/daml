@@ -795,6 +795,114 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
              stdout)
           exitCode @?= ExitSuccess
 
+          -- test excluding local package choices
+          (exitCode, stdout, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--coverage-ignore-choice"
+                , "^[^:]*:[^:]*:[^:]*$"
+                , "--show-coverage"
+                , "--all"
+                , "--project-root"
+                , projDir </> "b" ]
+                ""
+          stderr @?= ""
+          assertBool ("Exclude local package choices: Test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
+                 , "a:testMod1: ok, 0 active contracts, 4 transactions."
+                 ] `isInfixOf`
+             stdout)
+          assertBool ("Exclude local package choices: Internal module test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "Modules internal to this package:"
+                 , "- Internal templates"
+                 , "  2 defined"
+                 , "  2 (100.0%) created"
+                 , "  internal templates never created: 0"
+                 , "- Internal template choices"
+                 , "  0 defined"
+                 , "  0 (100.0%) exercised"
+                 , "  internal template choices never exercised: 0"
+                 ] `isInfixOf`
+             stdout)
+          assertBool ("Exclude local package choices: External module test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "Modules external to this package:"
+                 , "- External templates"
+                 , "  2 defined"
+                 , "  2 (100.0%) created in any tests"
+                 , "  0 (  0.0%) created in internal tests"
+                 , "  2 (100.0%) created in external tests"
+                 , "  external templates never created: 0"
+                 , "- External template choices"
+                 , "  5 defined"
+                 , "  2 ( 40.0%) exercised in any tests"
+                 , "  0 (  0.0%) exercised in internal tests"
+                 , "  2 ( 40.0%) exercised in external tests"
+                 , "  external template choices never exercised: 3"
+                 , "    a:Mod1:Mod1T1:Archive"
+                 , "    a:Mod1Dep:Mod1DepT1:Archive"
+                 , "    a:Mod1Dep:Mod1DepT1:Mod1DepT1C2"
+                 ] `isInfixOf`
+             stdout)
+          exitCode @?= ExitSuccess
+
+          -- test excluding external package 'a'
+          (exitCode, stdout, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--coverage-ignore-choice"
+                , "^a:"
+                , "--show-coverage"
+                , "--all"
+                , "--project-root"
+                , projDir </> "b" ]
+                ""
+          stderr @?= ""
+          assertBool ("Exclude external package 'a': Test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
+                 , "a:testMod1: ok, 0 active contracts, 4 transactions."
+                 ] `isInfixOf`
+             stdout)
+          assertBool ("Exclude external package 'a': Internal module test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "Modules internal to this package:"
+                 , "- Internal templates"
+                 , "  2 defined"
+                 , "  2 (100.0%) created"
+                 , "  internal templates never created: 0"
+                 , "- Internal template choices"
+                 , "  5 defined"
+                 , "  2 ( 40.0%) exercised"
+                 , "  internal template choices never exercised: 3"
+                 , "    Mod2:Mod2T1:Archive"
+                 , "    Mod2Dep:Mod2DepT1:Archive"
+                 , "    Mod2Dep:Mod2DepT1:Mod2DepT1C2"
+                 ] `isInfixOf`
+             stdout)
+          assertBool ("Exclude external package 'a': External module test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "Modules external to this package:"
+                 , "- External templates"
+                 , "  2 defined"
+                 , "  2 (100.0%) created in any tests"
+                 , "  0 (  0.0%) created in internal tests"
+                 , "  2 (100.0%) created in external tests"
+                 , "  external templates never created: 0"
+                 , "- External template choices"
+                 , "  0 defined"
+                 , "  0 (100.0%) exercised in any tests"
+                 , "  0 (100.0%) exercised in internal tests"
+                 , "  0 (100.0%) exercised in external tests"
+                 , "  external template choices never exercised: 0"
+                 ] `isInfixOf`
+             stdout)
+          exitCode @?= ExitSuccess
+
           -- test excluding both deps and Archives
           (exitCode, stdout, stderr) <-
             readProcessWithExitCode
