@@ -166,7 +166,7 @@ private[lf] object Speedy {
       override var compiledPackages: CompiledPackages,
       override val profile: Profile,
       override val iterationsBetweenInterruptions: Long,
-      val validating: Boolean,
+      val validating: Boolean, // TODO: Better: Mode = SubmissionMode | ValidationMode
       val submissionTime: Time.Timestamp,
       val contractKeyUniqueness: ContractKeyUniquenessMode,
       /* The current partial transaction */
