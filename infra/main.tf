@@ -59,6 +59,9 @@ provider "azurerm" {
 resource "azurerm_resource_group" "daml-ci" {
   name     = "daml-ci"
   location = "East US"
+  tags = {
+    env = "Production"
+  }
 }
 
 data "google_project" "current" {
