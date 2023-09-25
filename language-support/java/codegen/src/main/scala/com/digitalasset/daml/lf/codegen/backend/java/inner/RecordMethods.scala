@@ -44,7 +44,13 @@ private[inner] object RecordMethods {
       List(deprecatedFromValue, valueDecoder, toValue)
     }
 
-    Vector(constructor) ++ conversionMethods ++
+    val jsonConversionMethods = FromJsonGenerator.forRecordLike(
+      fields,
+      className,
+      typeParameters,
+    )
+
+    Vector(constructor) ++ conversionMethods ++ jsonConversionMethods ++
       ObjectMethods(className, typeParameters, fields.map(_.javaName))
   }
 }

@@ -184,6 +184,7 @@ da_haskell_library(
         "prettyprinter",
         "process",
         "proto3-suite",
+        "regex-tdfa",
         "safe",
         "safe-exceptions",
         "shake",

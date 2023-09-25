@@ -562,6 +562,291 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
                  ] `isInfixOf`
              stdout)
           exitCode @?= ExitSuccess
+    , testCase "Filter test coverage report using --coverage-ignore-choice" $ withTempDir $ \projDir -> do
+          createDirectoryIfMissing True (projDir </> "a")
+          writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+            ]
+          writeFileUTF8 (projDir </> "a" </> "Mod1.daml") $ unlines
+            [ "module Mod1 where"
+            , "import Mod1Dep"
+            , "import Daml.Script"
+            , "template Mod1T1 with p : Party where"
+            , "  signatory p"
+            , "  choice Mod1T1C1 : () with controller p"
+            , "    do pure ()"
+            , "testMod1 = script do"
+            , "  alice <- allocateParty \"Alice\""
+            , "  c <- submit alice $ createCmd Mod1T1 with p = alice"
+            , "  submit alice $ exerciseCmd c Mod1T1C1"
+            , "  c <- submit alice $ createCmd Mod1DepT1 with p = alice"
+            , "  submit alice $ exerciseCmd c Mod1DepT1C1"
+            ]
+          writeFileUTF8 (projDir </> "a" </> "Mod1Dep.daml") $ unlines
+            [ "module Mod1Dep where"
+            , "template Mod1DepT1 with p : Party where"
+            , "  signatory p"
+            , "  choice Mod1DepT1C1 : () with controller p"
+            , "    do pure ()"
+            , "  choice Mod1DepT1C2 : () with controller p"
+            , "    do pure ()"
+            ]
+          callProcessSilent
+            damlc
+            [ "build"
+            , "--project-root"
+            , projDir </> "a"
+            ]
+          createDirectoryIfMissing True (projDir </> "b")
+          writeFileUTF8 (projDir </> "b" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: b"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> ", " <> show scriptDar <> "]"
+            ]
+          writeFileUTF8 (projDir </> "b" </> "Mod2.daml") $ unlines
+            [ "module Mod2 where"
+            , "import Mod2Dep"
+            , "import Daml.Script"
+            , "template Mod2T1 with p : Party where"
+            , "  signatory p"
+            , "  choice Mod2T1C1 : () with controller p"
+            , "    do pure ()"
+            , "testMod1 = script do"
+            , "  alice <- allocateParty \"Alice\""
+            , "  c <- submit alice $ createCmd Mod2T1 with p = alice"
+            , "  submit alice $ exerciseCmd c Mod2T1C1"
+            , "  c <- submit alice $ createCmd Mod2DepT1 with p = alice"
+            , "  submit alice $ exerciseCmd c Mod2DepT1C1"
+            ]
+          writeFileUTF8 (projDir </> "b" </> "Mod2Dep.daml") $ unlines
+            [ "module Mod2Dep where"
+            , "template Mod2DepT1 with p : Party where"
+            , "  signatory p"
+            , "  choice Mod2DepT1C1 : () with controller p"
+            , "    do pure ()"
+            , "  choice Mod2DepT1C2 : () with controller p"
+            , "    do pure ()"
+            ]
+
+          -- test without excluding anything
+          (exitCode, stdout, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--show-coverage"
+                , "--all"
+                , "--project-root"
+                , projDir </> "b" ]
+                ""
+          stderr @?= ""
+          assertBool ("Test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
+                 , "a:testMod1: ok, 0 active contracts, 4 transactions."
+                 ] `isInfixOf`
+             stdout)
+          assertBool ("Internal module test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "Modules internal to this package:"
+                 , "- Internal templates"
+                 , "  2 defined"
+                 , "  2 (100.0%) created"
+                 , "  internal templates never created: 0"
+                 , "- Internal template choices"
+                 , "  5 defined"
+                 , "  2 ( 40.0%) exercised"
+                 , "  internal template choices never exercised: 3"
+                 , "    Mod2:Mod2T1:Archive"
+                 , "    Mod2Dep:Mod2DepT1:Archive"
+                 , "    Mod2Dep:Mod2DepT1:Mod2DepT1C2"
+                 ] `isInfixOf`
+             stdout)
+          assertBool ("External module test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "Modules external to this package:"
+                 , "- External templates"
+                 , "  2 defined"
+                 , "  2 (100.0%) created in any tests"
+                 , "  0 (  0.0%) created in internal tests"
+                 , "  2 (100.0%) created in external tests"
+                 , "  external templates never created: 0"
+                 , "- External template choices"
+                 , "  5 defined"
+                 , "  2 ( 40.0%) exercised in any tests"
+                 , "  0 (  0.0%) exercised in internal tests"
+                 , "  2 ( 40.0%) exercised in external tests"
+                 , "  external template choices never exercised: 3"
+                 , "    a:Mod1:Mod1T1:Archive"
+                 , "    a:Mod1Dep:Mod1DepT1:Archive"
+                 , "    a:Mod1Dep:Mod1DepT1:Mod1DepT1C2"
+                 ] `isInfixOf`
+             stdout)
+          exitCode @?= ExitSuccess
+
+          -- test excluding dependency modules
+          (exitCode, stdout, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--coverage-ignore-choice"
+                , "Dep"
+                , "--show-coverage"
+                , "--all"
+                , "--project-root"
+                , projDir </> "b" ]
+                ""
+          stderr @?= ""
+          assertBool ("Exclude Deps: Test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
+                 , "a:testMod1: ok, 0 active contracts, 4 transactions."
+                 ] `isInfixOf`
+             stdout)
+          assertBool ("Exclude Deps: Internal module test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "Modules internal to this package:"
+                 , "- Internal templates"
+                 , "  2 defined"
+                 , "  2 (100.0%) created"
+                 , "  internal templates never created: 0"
+                 , "- Internal template choices"
+                 , "  2 defined"
+                 , "  1 ( 50.0%) exercised"
+                 , "  internal template choices never exercised: 1"
+                 , "    Mod2:Mod2T1:Archive"
+                 ] `isInfixOf`
+             stdout)
+          assertBool ("Exclude Deps: External module test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "Modules external to this package:"
+                 , "- External templates"
+                 , "  2 defined"
+                 , "  2 (100.0%) created in any tests"
+                 , "  0 (  0.0%) created in internal tests"
+                 , "  2 (100.0%) created in external tests"
+                 , "  external templates never created: 0"
+                 , "- External template choices"
+                 , "  2 defined"
+                 , "  1 ( 50.0%) exercised in any tests"
+                 , "  0 (  0.0%) exercised in internal tests"
+                 , "  1 ( 50.0%) exercised in external tests"
+                 , "  external template choices never exercised: 1"
+                 , "    a:Mod1:Mod1T1:Archive"
+                 ] `isInfixOf`
+             stdout)
+          exitCode @?= ExitSuccess
+
+          -- test excluding Archives
+          (exitCode, stdout, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--coverage-ignore-choice"
+                , ":Archive$"
+                , "--show-coverage"
+                , "--all"
+                , "--project-root"
+                , projDir </> "b" ]
+                ""
+          stderr @?= ""
+          assertBool ("Exclude Archive: Test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
+                 , "a:testMod1: ok, 0 active contracts, 4 transactions."
+                 ] `isInfixOf`
+             stdout)
+          assertBool ("Exclude Archive: Internal module test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "Modules internal to this package:"
+                 , "- Internal templates"
+                 , "  2 defined"
+                 , "  2 (100.0%) created"
+                 , "  internal templates never created: 0"
+                 , "- Internal template choices"
+                 , "  3 defined"
+                 , "  2 ( 66.7%) exercised"
+                 , "  internal template choices never exercised: 1"
+                 , "    Mod2Dep:Mod2DepT1:Mod2DepT1C2"
+                 ] `isInfixOf`
+             stdout)
+          assertBool ("Exclude Archive: External module test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "Modules external to this package:"
+                 , "- External templates"
+                 , "  2 defined"
+                 , "  2 (100.0%) created in any tests"
+                 , "  0 (  0.0%) created in internal tests"
+                 , "  2 (100.0%) created in external tests"
+                 , "  external templates never created: 0"
+                 , "- External template choices"
+                 , "  3 defined"
+                 , "  2 ( 66.7%) exercised in any tests"
+                 , "  0 (  0.0%) exercised in internal tests"
+                 , "  2 ( 66.7%) exercised in external tests"
+                 , "  external template choices never exercised: 1"
+                 , "    a:Mod1Dep:Mod1DepT1:Mod1DepT1C2"
+                 ] `isInfixOf`
+             stdout)
+          exitCode @?= ExitSuccess
+
+          -- test excluding both deps and Archives
+          (exitCode, stdout, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--coverage-ignore-choice"
+                , ":Archive$"
+                , "--coverage-ignore-choice"
+                , "Dep"
+                , "--show-coverage"
+                , "--all"
+                , "--project-root"
+                , projDir </> "b" ]
+                ""
+          stderr @?= ""
+          assertBool ("Exclude Archive and Dep: Test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
+                 , "a:testMod1: ok, 0 active contracts, 4 transactions."
+                 ] `isInfixOf`
+             stdout)
+          assertBool ("Exclude Archive and Dep: Internal module test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "Modules internal to this package:"
+                 , "- Internal templates"
+                 , "  2 defined"
+                 , "  2 (100.0%) created"
+                 , "  internal templates never created: 0"
+                 , "- Internal template choices"
+                 , "  1 defined"
+                 , "  1 (100.0%) exercised"
+                 , "  internal template choices never exercised: 0"
+                 ] `isInfixOf`
+             stdout)
+          assertBool ("Exclude Archive and Dep: External module test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "Modules external to this package:"
+                 , "- External templates"
+                 , "  2 defined"
+                 , "  2 (100.0%) created in any tests"
+                 , "  0 (  0.0%) created in internal tests"
+                 , "  2 (100.0%) created in external tests"
+                 , "  external templates never created: 0"
+                 , "- External template choices"
+                 , "  1 defined"
+                 , "  1 (100.0%) exercised in any tests"
+                 , "  0 (  0.0%) exercised in internal tests"
+                 , "  1 (100.0%) exercised in external tests"
+                 , "  external template choices never exercised: 0"
+                 ] `isInfixOf`
+             stdout)
+          exitCode @?= ExitSuccess
     , testCase "Filter tests with --test-pattern" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
           writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines

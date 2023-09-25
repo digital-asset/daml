@@ -7,7 +7,7 @@ load(
 )
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version")
-load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration", "lf_versions_aggregate")
+load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration", "lf_version_is_dev", "lf_versions_aggregate")
 
 def conformance_test(
         name,
@@ -28,7 +28,7 @@ def conformance_test(
     for lf_version in lf_versions_aggregate(lf_versions):
         daml_lf_dev_mode_args = ["-C ledger.engine.allowed-language-versions=daml-lf-dev-mode-unsafe"] if hocon else [dev_mod_flag]
         daml_lf_preview_mode_args = ["-C ledger.engine.allowed-language-versions=early-access"] if hocon else [preview_mod_flag]
-        extra_server_args = daml_lf_preview_mode_args if lf_version == lf_version_configuration.get("preview") else daml_lf_dev_mode_args if lf_version == lf_version_configuration.get("dev") else []
+        extra_server_args = daml_lf_preview_mode_args if lf_version == lf_version_configuration.get("preview") else daml_lf_dev_mode_args if lf_version_is_dev(lf_version) else []
         if not is_windows:
             test_name = "-".join([name, lf_version])
             hocon_conf_file_name = test_name + ".conf"
@@ -73,21 +73,5 @@ EOF
         visibility = ["//visibility:public"],
     )
 
-def server_conformance_test(name, servers, server_args = [], test_tool_args = [], flaky = False, lf_versions = ["default"], hocon = False, hocon_config = None):
-    for server_name, server in servers.items():
-        test_name = "-".join([name, server_name])
-        conformance_test(
-            name = test_name,
-            extra_data = server.get("extra_data", []),
-            server = server["binary"],
-            server_args = server.get("server_args", []) + server_args,
-            test_tool_args = server.get("test_tool_args", []) + test_tool_args,
-            tags = server.get("tags", []),
-            lf_versions = lf_versions,
-            flaky = flaky,
-            server_hocon_config = hocon_config,
-            hocon = hocon,
-        )
-
 # versions for which we build a test-tool
-testtool_lf_versions = ["1.8", "1.14", "1.15", "1.dev"]
+testtool_lf_versions = ["1.8", "1.14", "1.15", "1.dev", "2.dev"]

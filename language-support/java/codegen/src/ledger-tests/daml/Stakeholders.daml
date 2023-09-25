@@ -1,6 +1,5 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{-# OPTIONS -Wno-controller-can #-}
 
 module Stakeholders where
 
@@ -10,25 +9,6 @@ template OnlySignatories
   where
     signatory owner
 
-    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
-    -- This file tests the various options for defining choices, so we keep it until it is removed.
-    controller owner can
-      OnlySignatories_Choice : ()
-        do return ()
-
-template ImplicitObservers
-  with
-    owner: Party
-    thirdParty: Party
-  where
-    signatory owner
-
-    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
-    -- This file tests the various options for defining choices, so we keep it until it is removed.
-    controller thirdParty can
-      ImplicitObservers_Choice : ()
-        do return ()
-
 template ExplicitObservers
   with
     owner: Party
@@ -36,24 +16,3 @@ template ExplicitObservers
   where
     signatory owner
     observer thirdParty
-
-    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
-    -- This file tests the various options for defining choices, so we keep it until it is removed.
-    controller owner can
-      ExplicitObservers_Choice : ()
-        do return ()
-
-template MixedObservers
-  with
-    owner: Party
-    thirdParty1: Party
-    thirdParty2: Party
-  where
-    signatory owner
-    observer thirdParty1
-
-    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
-    -- This file tests the various options for defining choices, so we keep it until it is removed.
-    controller thirdParty2 can
-      MixedObservers_Choice : ()
-        do return ()

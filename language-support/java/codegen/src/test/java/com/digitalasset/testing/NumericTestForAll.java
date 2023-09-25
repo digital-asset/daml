@@ -15,8 +15,7 @@ import org.junit.runner.RunWith;
 import test.numericmod.Box;
 
 @RunWith(JUnitPlatform.class)
-public
-class NumericTestFor1_7AndFor1_8AndFor1_11AndFor1_12ndFor1_13AndFor1_14AndFor1_15AndFor1_dev {
+public class NumericTestForAll {
 
   @Test
   void numeric2Value2Numeric() {
@@ -41,5 +40,19 @@ class NumericTestFor1_7AndFor1_8AndFor1_11AndFor1_12ndFor1_13AndFor1_14AndFor1_1
             new DamlRecord.Field("x37", new Numeric(new BigDecimal("0.37"))),
             new DamlRecord.Field("party", new Party("alice")));
     assertEquals(Box.fromValue(record).toValue(), record);
+  }
+
+  @Test
+  void testFromJson() throws java.io.IOException {
+    Box expected =
+        new Box(
+            new BigDecimal(0),
+            new BigDecimal(10),
+            new BigDecimal(17),
+            new BigDecimal("0.37"),
+            "alice");
+    assertEquals(
+        expected,
+        Box.fromJson("{\"x0\":0, \"x10\":\"10\", \"x17\":17, \"x37\":0.37, \"party\":\"alice\"}"));
   }
 }

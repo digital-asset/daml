@@ -45,7 +45,8 @@ import scala.concurrent.Future
 private[http] object WebsocketTestFixture extends StrictLogging with Assertions {
   import WebsocketEndpoints._
 
-  def validSubprotocol(jwt: Jwt) = Option(s"""$tokenPrefix${jwt.value},$wsProtocol""")
+  def validSubprotocol(jwt: Jwt) = Option(validSubprotocols(jwt).mkString(","))
+  def validSubprotocols(jwt: Jwt) = Seq(s"${tokenPrefix}${jwt.value}", wsProtocol)
 
   def dummyFlow[A](source: Source[A, NotUsed]): Flow[A, A, NotUsed] =
     Flow.fromSinkAndSource(Sink.foreach(println), source)

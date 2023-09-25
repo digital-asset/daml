@@ -270,7 +270,12 @@ class IdeLedgerClient(
       Future.failed(
         err match {
           case crypto.Hash.HashingError.ForbiddenContractId() =>
-            SError.SErrorDamlException(ContractIdInContractKey(keyValue))
+            new RuntimeException(
+              Pretty
+                .prettyDamlException(ContractIdInContractKey(keyValue))
+                .renderWideStream
+                .mkString
+            )
         }
       )
     GlobalKey

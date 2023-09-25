@@ -147,152 +147,7 @@ jobs:
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
-  - job: blackduck_scan
-    timeoutInMinutes: 1200
-    condition: eq(variables['Build.SourceBranchName'], 'main')
-    pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
-    steps:
-      - checkout: self
-        persistCredentials: true
-      - bash: ci/dev-env-install.sh
-        displayName: 'Build/Install the Developer Environment'
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade assist)"
-          export LC_ALL=en_US.UTF-8
-
-          bazel build //...
-          # Make sure that Bazel query works
-          bazel query 'deps(//...)' >/dev/null
-        displayName: 'Build'
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade-assist)"
-
-          #needs to be specified since blackduck can not scan all bazel
-          #dependency types in one go, haskell has to be scanned separatey and
-          #code location name uniquely identified to avoid stomping
-          BAZEL_DEPENDENCY_TYPE="haskell_cabal_library"
-
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml main \
-          --logging.level.com.synopsys.integration=DEBUG \
-          --detect.tools=BAZEL \
-          --detect.bazel.target=//... \
-          --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
-          --detect.notices.report=true \
-          --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
-          --detect.timeout=1500
-        displayName: 'Blackduck Bazel Haskell Scan'
-        env:
-          BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade-assist)"
-
-          #needs to be specified since blackduck can not scan all bazel
-          #dependency types in one go, java has to be scanned separatey and
-          #code location name uniquely identified to avoid stomping
-          BAZEL_DEPENDENCY_TYPE="maven_install"
-
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml main \
-          --logging.level.com.synopsys.integration=DEBUG \
-          --detect.tools=BAZEL \
-          --detect.bazel.target=//... \
-          --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
-          --detect.notices.report=true \
-          --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
-          --detect.timeout=1500
-        displayName: 'Blackduck Bazel JVM Scan'
-        env:
-          BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade-assist)"
-
-          (cd language-support/ts && yarn install)
-
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml main \
-          --logging.level.com.synopsys.integration=DEBUG \
-          --detect.tools=DETECTOR \
-          --detect.included.detector.types=YARN,NPM,CLANG \
-          --detect.npm.dependency.types.excluded=DEV \
-          --detect.yarn.dependency.types.excluded=NON_PRODUCTION \
-          --detect.follow.symbolic.links=false \
-          --detect.excluded.directories=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
-          --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
-          --detect.detector.search.exclusion.paths=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
-          --detect.notices.report=true \
-          --detect.code.location.name=digital-asset_daml_npm \
-          --detect.timeout=1500
-        displayName: 'Blackduck Npm Scan'
-        env:
-          BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade-assist)"
-
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml main \
-          --logging.level.com.synopsys.integration=DEBUG \
-          --detect.tools=DETECTOR \
-          --detect.included.detector.types=PIP,POETRY \
-          --detect.follow.symbolic.links=false \
-          --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
-          --detect.blackduck.signature.scanner.exclusion.name.patterns=.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*,*_bazel_vsts* \
-          --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*,*_bazel_vsts* \
-          --detect.notices.report=true \
-          --detect.code.location.name=digital-asset_daml_python \
-          --detect.timeout=1500
-        displayName: 'Blackduck Python Scan'
-        env:
-          BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade-assist)"
-
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml main \
-          --logging.level.com.synopsys.integration=DEBUG \
-          --detect.tools=DETECTOR \
-          --detect.included.detector.types=GIT,GO_MOD,GO_DEP,GO_VNDR,GO_VENDOR,GO_GRADLE \
-          --detect.follow.symbolic.links=false \
-          --detect.go.path=$(bazel info execution_root)/external/go_sdk/bin/go \
-          --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
-          --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
-          --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
-          --detect.code.location.name=digital-asset_daml_go \
-          --detect.timeout=1500
-        displayName: 'Blackduck Go Scan'
-        env:
-          BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
-      - template: ../bash-lib.yml
-        parameters:
-          var_name: bash_lib
-      - bash: |
-          set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
-          source $(bash_lib)
-
-          branch="notices-update-$(Build.BuildId)"
-
-          tr -d '\015' < digital_asset_daml_main_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml > NOTICES
-          if git diff --exit-code -- NOTICES; then
-              echo "NOTICES file already up-to-date."
-              setvar need_to_build false
-          else
-              git add NOTICES
-              open_pr "$branch" "update NOTICES file"
-              setvar need_to_build true
-          fi
-        displayName: open PR
-        name: out
-        condition: and(succeeded(),
-                       eq(variables['Build.SourceBranchName'], 'main'))
+  - template: ../blackduck.yml
 
   - job: run_notices_pr_build
     timeoutInMinutes: 60
@@ -338,7 +193,56 @@ jobs:
         git fetch
         git checkout origin/main
 
-        canton_version=$(ci/bump-canton.sh)
+        canton_version=$(curl -u $AUTH \
+                              --fail \
+                              --location \
+                              --silent \
+                              https://digitalasset.jfrog.io/artifactory/api/storage/assembly/canton \
+                         | jq -r '.children[].uri' \
+                         | sed -e 's/^\///' \
+                         | grep -P '^\d+\.\d+\.\d+' \
+                         | sort -V \
+                         | tail -1)
+
+        os_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-open-source-$canton_version.tar.gz"
+        os_tmp=$(mktemp)
+        curl -u $AUTH --fail --location --silent "$os_url" > $os_tmp
+        os_sha=$(sha256sum $os_tmp | awk '{print $1}')
+        os_url_path=canton-stable/$canton_version/$os_sha/canton-open-source-$canton_version.tar.gz
+        os_upload_url=gs://daml-binaries/$os_url_path
+        os_download_url=https://storage.googleapis.com/daml-binaries/$os_url_path
+        gcs "$GCRED" cp $os_tmp $os_upload_url
+
+        ee_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-enterprise-$canton_version.tar.gz"
+        ee_tmp=$(mktemp)
+        curl -u $AUTH --fail --location --silent "$ee_url" > $ee_tmp
+        ee_sha=$(sha256sum $ee_tmp | awk '{print $1}')
+        ee_target_url=https://digitalasset.jfrog.io/artifactory/assembly/daml/canton-backup/$canton_version/$ee_sha/canton-enterprise-$canton_version.tar.gz
+        curl -u $AUTH \
+             -f \
+             -X PUT \
+             -H "X-Checksum-MD5: $(md5sum $ee_tmp | awk '{print $1}')" \
+             -H "X-Checksum-SHA1: $(sha1sum $ee_tmp | awk '{print $1}')" \
+             -H "X-Checksum-SHA256: $(sha256sum $ee_tmp | awk '{print $1}')" \
+             -T $ee_tmp \
+             $ee_target_url
+
+        sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
+        sed -e 's/^/# /' COPY > canton_dep.bzl
+        cat <<EOF >> canton_dep.bzl
+
+        canton = {
+            "sha": "$os_sha",
+            "url": "$os_download_url",
+            "local": False,
+        }
+        EOF
+
+        sed -i "s|CANTON_ENTERPRISE_VERSION=.*|CANTON_ENTERPRISE_VERSION=$canton_version|" canton/BUILD.bazel
+        sed -i "s|CANTON_ENTERPRISE_SHA=.*|CANTON_ENTERPRISE_SHA=$ee_sha|" canton/BUILD.bazel
+        sed -i "s|CANTON_ENTERPRISE_URL=.*|CANTON_ENTERPRISE_URL=$ee_target_url|" canton/BUILD.bazel
+
+        rm -f arbitrary_canton_sha
 
         branch="canton-update-$canton_version"
 
@@ -362,6 +266,7 @@ jobs:
         fi
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
   - job: compat_versions_pr
     condition: eq(variables['Build.SourceBranchName'], 'main')

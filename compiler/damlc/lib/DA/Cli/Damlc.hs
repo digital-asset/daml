@@ -27,6 +27,7 @@ import DA.Cli.Options (Debug(..),
                        ProjectOpts(..),
                        Style(..),
                        Telemetry(..),
+                       cliOptDetailLevel,
                        debugOpt,
                        disabledDlintUsageParser,
                        enabledDlintUsageParser,
@@ -62,7 +63,8 @@ import DA.Cli.Damlc.Test (CoveragePaths(..),
                           UseColor(..),
                           execTest,
                           getRunAllTests,
-                          loadAggregatePrintResults)
+                          loadAggregatePrintResults,
+                          CoverageFilter(..))
 import DA.Daml.Compiler.Dar (FromDalf(..),
                              breakAt72Bytes,
                              buildDar,
@@ -204,6 +206,7 @@ import Options.Applicative ((<|>),
                             switch,
                             value)
 import qualified Options.Applicative (option, strOption)
+import qualified Options.Applicative.Types as Options.Applicative (readerAsk)
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
 import System.Directory.Extra
@@ -223,6 +226,7 @@ import "ghc-lib-parser" HscTypes
 import qualified "ghc-lib-parser" Outputable as GHC
 import qualified SdkVersion
 import "ghc-lib-parser" Util (looksLikePackageName)
+import Text.Regex.TDFA
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -369,6 +373,7 @@ cmdTest numProcessors =
       <*> fmap TableOutputPath tableOutputPathOpt
       <*> fmap TransactionsOutputPath transactionsOutputPathOpt
       <*> coveragePathsOpt
+      <*> many coverageFilterSkipOpt
     filesOpt = optional (flag' () (long "files" <> help filesDoc) *> many inputFileOpt)
     filesDoc = "Only run test declarations in the specified files."
     junitOutput = optional $ strOptionOnce $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
@@ -383,6 +388,9 @@ cmdTest numProcessors =
       in
       CoveragePaths <$> loadCoveragePaths <*> saveCoveragePath
     loadCoverageOnly = switch $ long "load-coverage-only" <> help "Don't run any tests - only load coverage results from files and write the aggregate to a single file."
+    coverageFilterSkipOpt =
+      Options.Applicative.option (Options.Applicative.readerAsk >>= fmap CoverageFilter . makeRegexM) $
+        long "coverage-ignore-choice" <> help "Remove choices matching a regex from the coverage report. The full name of a local choice takes the format '<module>:<template name>:<choice name>', preceded by '<package id>:' for nonlocal packages."
 
 runTestsInProjectOrFiles ::
        ProjectOpts
@@ -397,8 +405,9 @@ runTestsInProjectOrFiles ::
     -> TableOutputPath
     -> TransactionsOutputPath
     -> CoveragePaths
+    -> [CoverageFilter]
     -> Command
-runTestsInProjectOrFiles projectOpts mbInFiles allTests (LoadCoverageOnly True) coverage _ _ _ _ _ _ coveragePaths = Command Test (Just projectOpts) effect
+runTestsInProjectOrFiles projectOpts mbInFiles allTests (LoadCoverageOnly True) coverage _ _ _ _ _ _ coveragePaths coverageFilters = Command Test (Just projectOpts) effect
   where effect = do
           when (getRunAllTests allTests) $ do
             hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
@@ -408,8 +417,8 @@ runTestsInProjectOrFiles projectOpts mbInFiles allTests (LoadCoverageOnly True) 
               hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
               exitFailure
             Nothing -> do
-              loadAggregatePrintResults coveragePaths coverage Nothing
-runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths = Command Test (Just projectOpts) effect
+              loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
+runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just projectOpts) effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath relativize -> do
         installDepsAndInitPackageDb cliOptions initPkgDb
         mbJUnitOutput <- traverse relativize mbJUnitOutput
@@ -419,13 +428,13 @@ runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOu
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
-            execTest files allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath coveragePaths
-runTestsInProjectOrFiles projectOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths = Command Test (Just projectOpts) effect
+            execTest files allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
+runTestsInProjectOrFiles projectOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
         installDepsAndInitPackageDb cliOptions initPkgDb
         mbJUnitOutput <- traverse relativize mbJUnitOutput
         inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
-        execTest inFiles' allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath coveragePaths
+        execTest inFiles' allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
@@ -434,10 +443,7 @@ cmdInspect =
     <> fullDesc
   where
     jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
-    detailOpt =
-        fmap (maybe DA.Pretty.prettyNormal DA.Pretty.PrettyLevel) $
-            optional $ optionOnce auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
-    cmd = execInspect <$> inputFileOptWithExt ".dalf or .dar" <*> outputFileOpt <*> jsonOpt <*> detailOpt
+    cmd = execInspect <$> inputFileOptWithExt ".dalf or .dar" <*> outputFileOpt <*> jsonOpt <*> cliOptDetailLevel
 
 cmdBuild :: Int -> Mod CommandFields Command
 cmdBuild numProcessors =

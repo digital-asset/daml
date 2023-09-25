@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package engine.script
+package engine
+package script
 package test
 
 import com.daml.lf.data.ImmArray
@@ -509,7 +510,7 @@ abstract class AbstractFuncIT
           start,
           end,
         )
-        e.cmd.stackTrace shouldBe StackTrace(
+        e.stackTrace shouldBe StackTrace(
           Vector(loc("submit", (22, 18), (22, 31)), loc("mySubmit", (27, 2), (27, 12)))
         )
       }

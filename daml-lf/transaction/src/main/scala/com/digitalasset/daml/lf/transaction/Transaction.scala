@@ -490,9 +490,8 @@ sealed abstract class HasTxNodes {
     "If a contract key contains a contract id"
   )
   def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
-    val machine = new ContractStateMachine[NodeId](mode = ContractKeyUniquenessMode.Strict)
-    foldInExecutionOrder[Either[KeyInputError, machine.State]](
-      Right(machine.initial)
+    foldInExecutionOrder[Either[KeyInputError, ContractStateMachine.State[NodeId]]](
+      Right(ContractStateMachine.initial[NodeId](ContractKeyUniquenessMode.Strict))
     )(
       exerciseBegin = (acc, nid, exe) =>
         (acc.flatMap(_.handleExercise(nid, exe)), Transaction.ChildrenRecursion.DoRecurse),

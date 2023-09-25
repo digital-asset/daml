@@ -359,6 +359,10 @@ cliOptLogLevel =
         "error" -> Just Logger.Error
         _ -> Nothing
 
+cliOptDetailLevel :: Parser Pretty.PrettyLevel
+cliOptDetailLevel =
+  fmap (maybe Pretty.prettyNormal Pretty.PrettyLevel) $
+    optional $ optionOnce auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
 
 optPackageName :: Parser (Maybe GHC.UnitId)
 optPackageName = optional $ fmap GHC.stringToUnitId $ strOptionOnce $
@@ -386,6 +390,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optThreads <- optShakeThreads
     optDamlLfVersion <- lfVersionOpt
     optLogLevel <- cliOptLogLevel
+    optDetailLevel <- cliOptDetailLevel
     optGhcCustomOpts <- optGhcCustomOptions
     let optScenarioService = enableScenarioService
     let optSkipScenarioValidation = SkipScenarioValidation False

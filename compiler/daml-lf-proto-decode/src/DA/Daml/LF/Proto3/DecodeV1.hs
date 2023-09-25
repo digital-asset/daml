@@ -189,7 +189,7 @@ decodeVersion mbPkgId minorText = do
 
 decodeInternedDottedName :: LF1.InternedDottedName -> Decode ([T.Text], Either String [UnmangledIdentifier])
 decodeInternedDottedName (LF1.InternedDottedName ids) = do
-    (mangled, unmangledOrErr) <- unzip <$> mapM lookupString (V.toList ids)
+    (mangled, unmangledOrErr) <- mapAndUnzipM lookupString (V.toList ids)
     pure (mangled, sequence unmangledOrErr)
 
 -- The package id is optional since we also call this function from decodeScenarioModule

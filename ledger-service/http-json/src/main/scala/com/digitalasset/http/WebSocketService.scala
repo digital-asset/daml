@@ -6,7 +6,7 @@ package com.daml.http
 import akka.NotUsed
 import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
 import akka.stream.scaladsl.{Flow, Sink, Source}
-import akka.stream.Materializer
+import akka.stream.{KillSwitches, Materializer}
 import com.daml.fetchcontracts.util.{
   AbsoluteBookmark,
   BeginBookmark,
@@ -804,7 +804,13 @@ class WebSocketService(
       metrics: HttpJsonApiMetrics,
   ): Flow[Message, Message, NotUsed] = {
     val Q = implicitly[StreamRequestParser[A]]
+    // use a kill-switch to signal upstream completion (i.e web-socket client-side) to infinite substreams
+    val killSwitch = KillSwitches.shared("ws-kill-switch")
     Flow[Message]
+      .watchTermination() { case (_, f) =>
+        f.onComplete(_ => killSwitch.shutdown())
+        NotUsed
+      }
       .mapAsync(1)(parseJson)
       .via(withOptPrefix(ejv => ejv.toOption flatMap readStartingOffset))
       .mapAsync(1) { case (oeso, ejv) =>
@@ -852,7 +858,10 @@ class WebSocketService(
             jwtPayload.parties,
             offPrefix,
             rq.q: q,
-          ) via logTermination("getTransactionSourceForParty")
+          )
+            .via(logTermination("getTransactionSourceForParty"))
+            // flatMapMerge only completes when all consumed substreams complete, hence the kill-switch for otherwise infinite streams
+            .via(killSwitch.flow)
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error

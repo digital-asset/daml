@@ -31,16 +31,23 @@ main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "3" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
-    scriptDar1dev <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar")
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
     oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
-    defaultMain $ tests Tools{..}
+    testTrees <- forM devScriptDars $ \(devTargetVersion, darPath) -> do
+        scriptDevDar <- locateRunfiles darPath
+        pure $ tests devTargetVersion Tools{..} 
+    defaultMain (testGroup "Data Dependencies" testTrees)
+  where
+    devScriptDars =
+        [ (LF.version1_dev, mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar")
+        , (LF.version2_dev, mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar")
+        ]
 
 data Tools = Tools -- and places
   { damlc :: FilePath
   , damlcLegacy :: FilePath
-  , scriptDar1dev :: FilePath
+  , scriptDevDar :: FilePath
   , validate :: FilePath -> IO ()
   , oldProjDar :: FilePath
   }
@@ -65,15 +72,17 @@ darPackageIds fp = do
 -- | We test two sets of versions:
 -- 1. Versions no longer supported as output versions by damlc are tested against
 --    1.14.
--- 2. For all other versions we test them against the next version + an extra (1.dev, 1.dev) pair.
+-- 2. For all other versions we test them against the next version + extra (1.dev, 1.dev) and
+--    (2.dev, 2.dev) pairs.
 lfVersionTestPairs :: [(LF.Version, LF.Version)]
 lfVersionTestPairs =
     let legacyPairs = map (, LF.version1_14) (LF.supportedInputVersions \\ LF.supportedOutputVersions)
-        versions = sort LF.supportedOutputVersions ++ [LF.versionDev]
-    in legacyPairs ++ zip versions (tail versions)
+        selfPairs = [(LF.version1_dev, LF.version1_dev), (LF.version2_dev, LF.version2_dev)]
+        versions = sort LF.supportedOutputVersions
+    in concat [legacyPairs, zip versions (tail versions), selfPairs]
 
-tests :: Tools -> TestTree
-tests tools = testGroup "Data Dependencies" $
+tests :: LF.Version -> Tools -> TestTree
+tests targetDevVersion tools = testGroup (LF.renderVersion targetDevVersion) $
     [ testCaseSteps ("Cross Daml-LF version: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
@@ -654,7 +663,7 @@ tests tools = testGroup "Data Dependencies" $
           , "name: proj"
           , "version: 0.1.0"
           , "source: ."
-          , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar1dev <> "]"
+          , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDevDar <> "]"
           , "data-dependencies: [simple-dalf-1.0.0.dalf]"
           , "build-options: [--package=simple-dalf-1.0.0]"
           ]
@@ -699,13 +708,15 @@ tests tools = testGroup "Data Dependencies" $
         callProcessSilent damlc
             [ "build"
             , "--project-root", projDir
-            , "--target=1.dev"
+            , "--target"
+            , LF.renderVersion targetDevVersion
             , "--generated-src" ]
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertFileExists dar
         callProcessSilent damlc
             [ "test"
-            , "--target=1.dev"
+            , "--target"
+            , LF.renderVersion targetDevVersion
             , "--project-root"
             , projDir
             , "--generated-src" ]
@@ -905,7 +916,7 @@ tests tools = testGroup "Data Dependencies" $
               , "data-dependencies:"
               , "  - " <> show oldProjDar
               , "build-options:"
-              , " - --target=1.dev"
+              , " - --target=" <> LF.renderVersion targetDevVersion
               , " - --package=daml-prim"
               , " - --package=" <> unitIdString damlStdlib
               , " - --package=old-proj-0.0.1"
@@ -945,7 +956,7 @@ tests tools = testGroup "Data Dependencies" $
               , "source: ."
               , "version: 0.1.0"
               , "dependencies: [daml-prim, daml-stdlib]"
-              , "build-options: [--target=1.dev]"
+              , "build-options: [--target=" <> LF.renderVersion targetDevVersion <> "]"
               ]
           writeFileUTF8 (tmpDir </> "type" </> "Proxy.daml") $ unlines
               [ "module Proxy where"
@@ -965,7 +976,7 @@ tests tools = testGroup "Data Dependencies" $
               , "version: 0.1.0"
               , "dependencies: [daml-prim, daml-stdlib]"
               , "data-dependencies: [" <> show (tmpDir </> "type" </> "type.dar") <> "]"
-              , "build-options: [ \"--target=1.dev\" ]"
+              , "build-options: [--target=" <> LF.renderVersion targetDevVersion <> "]"
               ]
           writeFileUTF8 (tmpDir </> "dependency" </> "Dependency.daml") $ unlines
              [ "module Dependency where"
@@ -987,7 +998,7 @@ tests tools = testGroup "Data Dependencies" $
               , "version: 0.1.0"
               , "dependencies: [daml-prim, daml-stdlib]"
               , "data-dependencies: [" <> show (tmpDir </> "type" </> "type.dar") <> "]"
-              , "build-options: [ \"--target=1.dev\" ]"
+              , "build-options: [--target=" <> LF.renderVersion targetDevVersion <> "]"
               ]
           writeFileUTF8 (tmpDir </> "data-dependency" </> "DataDependency.daml") $ unlines
              [ "module DataDependency where"
@@ -1012,7 +1023,7 @@ tests tools = testGroup "Data Dependencies" $
               , "version: 0.1.0"
               , "dependencies: [daml-prim, daml-stdlib, " <> show (tmpDir </> "dependency" </> "dependency.dar") <> ", " <> show (tmpDir </> "type/type.dar") <> "]"
               , "data-dependencies: [" <> show (tmpDir </> "data-dependency" </> "data-dependency.dar") <> "]"
-              , "build-options: [--target=1.dev]"
+              , "build-options: [--target=" <> LF.renderVersion targetDevVersion <> "]"
               ]
           writeFileUTF8 (tmpDir </> "top" </> "Top.daml") $ unlines
               [ "module Top where"
@@ -1661,7 +1672,7 @@ tests tools = testGroup "Data Dependencies" $
         ]
 
     , simpleImportTestOptions "No 'inaccessible RHS' when pattern matching on interface"
-        options1Dev
+        optionsDev
         [ "module Lib where"
 
         , "data EmptyInterfaceView = EmptyInterfaceView {}"
@@ -1700,7 +1711,7 @@ tests tools = testGroup "Data Dependencies" $
         ]
 
     , dataDependenciesTestOptions "Homonymous interface doesn't trigger 'ambiguous occurrence' error"
-        options1Dev
+        optionsDev
         [   (,) "A.daml"
             [ "module A where"
             , "data Instrument = Instrument {}"
@@ -1722,7 +1733,7 @@ tests tools = testGroup "Data Dependencies" $
         ]
 
     , dataDependenciesTestOptions "implement interface from data-dependency"
-        options1DevScript
+        optionsDevScript
         [   (,) "Lib.daml"
             [ "module Lib where"
 
@@ -1852,7 +1863,7 @@ tests tools = testGroup "Data Dependencies" $
         ]
 
     , dataDependenciesTestOptions "use interface from data-dependency"
-        options1DevScript
+        optionsDevScript
         [   (,) "Lib.daml"
             [ "module Lib where"
             , "import DA.Assert"
@@ -1982,7 +1993,7 @@ tests tools = testGroup "Data Dependencies" $
         ]
 
     , dataDependenciesTestOptions "require interface from data-dependency"
-        options1DevScript
+        optionsDevScript
         [   (,) "Lib.daml"
             [ "module Lib where"
 
@@ -2134,7 +2145,7 @@ tests tools = testGroup "Data Dependencies" $
           damlYamlBody name deps dataDeps = unlines
             [ "sdk-version: " <> sdkVersion
             , "name: " <> name
-            , "build-options: [--target=1.dev]"
+            , "build-options: [--target=" <> LF.renderVersion targetDevVersion <> "]"
             , "source: ."
             , "version: 0.1.0"
             , "dependencies: [" <> intercalate ", " (["daml-prim", "daml-stdlib"] <> fmap dar deps) <> "]"
@@ -2208,7 +2219,7 @@ tests tools = testGroup "Data Dependencies" $
           damlYamlBody name extraDeps dataDeps = unlines
             [ "sdk-version: " <> sdkVersion
             , "name: " <> name
-            , "build-options: [--target=1.dev]"
+            , "build-options: [--target="<> LF.renderVersion targetDevVersion <>"]"
             , "source: ."
             , "version: 0.1.0"
             , "dependencies: [" <> intercalate ", " (["daml-prim", "daml-stdlib"] <> fmap show extraDeps) <> "]"
@@ -2339,7 +2350,7 @@ tests tools = testGroup "Data Dependencies" $
 
         step mainProj >> do
           createDirectoryIfMissing True (path mainProj)
-          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj [scriptDar1dev]
+          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj [scriptDevDar]
             [ tokenProj
             , fancyTokenProj
             , assetProj
@@ -2406,7 +2417,7 @@ tests tools = testGroup "Data Dependencies" $
             ]
 
     , simpleImportTestOptions "retroactive interface instance of template from data-dependency"
-        options1Dev
+        optionsDev
         [ "module Lib where"
 
         , "template T with"
@@ -2429,7 +2440,7 @@ tests tools = testGroup "Data Dependencies" $
         ]
 
     , simpleImportTestOptions "retroactive interface instance of qualified template from data-dependency"
-        options1Dev
+        optionsDev
         [ "module Lib where"
 
         , "template T with"
@@ -2512,7 +2523,7 @@ tests tools = testGroup "Data Dependencies" $
         callProcessSilent damlc
             [ "build"
             , "--project-root", tmpDir </> "main"
-            , "--target", LF.renderVersion LF.versionDev ]
+            , "--target", LF.renderVersion targetDevVersion ]
 
     , testCaseSteps "Package ids are stable across rebuilds" $ \step -> withTempDir $ \tmpDir -> do
         step "building lib (project to be imported via data-dependencies)"
@@ -2534,7 +2545,7 @@ tests tools = testGroup "Data Dependencies" $
             [ "build"
             , "--project-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
-            , "--target", LF.renderVersion LF.versionDev
+            , "--target", LF.renderVersion targetDevVersion
             ]
 
         step "building main (project that imports lib via data-dependencies)"
@@ -2559,7 +2570,7 @@ tests tools = testGroup "Data Dependencies" $
             [ "build"
             , "--project-root", tmpDir </> "main"
             , "-o", tmpDir </> "main" </> "main.dar"
-            , "--target", LF.renderVersion LF.versionDev
+            , "--target", LF.renderVersion targetDevVersion
             ]
 
         step "building main again as main2.dar"
@@ -2567,7 +2578,7 @@ tests tools = testGroup "Data Dependencies" $
             [ "build"
             , "--project-root", tmpDir </> "main"
             , "-o", tmpDir </> "main" </> "main2.dar"
-            , "--target", LF.renderVersion LF.versionDev
+            , "--target", LF.renderVersion targetDevVersion
             ]
 
         step "compare package ids in main.dar and main2.dar"
@@ -2631,7 +2642,7 @@ tests tools = testGroup "Data Dependencies" $
             , "name: main"
             , "source: ."
             , "version: 0.1.0"
-            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar1dev <> "]"
+            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDevDar <> "]"
             , "data-dependencies: "
             , "  - " <> (tmpDir </> "lib" </> "lib.dar")
             ]
@@ -2696,29 +2707,32 @@ tests tools = testGroup "Data Dependencies" $
         callProcessSilent damlc
             [ "build"
             , "--project-root", tmpDir </> "main"
-            , "--target", LF.renderVersion LF.versionDev ]
+            , "--target", LF.renderVersion targetDevVersion ]
         step "running damlc test"
         callProcessSilent damlc
             [ "test"
             , "--project-root", tmpDir </> "main"
-            , "--target", LF.renderVersion LF.versionDev ]
+            , "--target", LF.renderVersion targetDevVersion ]
     ]
   where
     Tools
       { damlc
       , validate
       , oldProjDar
-      , scriptDar1dev
+      , scriptDevDar
       } = tools
 
     defTestOptions :: DataDependenciesTestOptions
     defTestOptions = DataDependenciesTestOptions [] []
 
-    options1Dev :: DataDependenciesTestOptions
-    options1Dev = defTestOptions {buildOptions = ["--target=1.dev"]}
+    optionsDev :: DataDependenciesTestOptions
+    optionsDev = defTestOptions {buildOptions = ["--target=" <> LF.renderVersion targetDevVersion]}
 
-    options1DevScript :: DataDependenciesTestOptions
-    options1DevScript = defTestOptions {buildOptions = ["--target=1.dev"], extraDeps = [scriptDar1dev]}
+    optionsDevScript :: DataDependenciesTestOptions
+    optionsDevScript = defTestOptions
+        { buildOptions = ["--target=" <> LF.renderVersion targetDevVersion]
+        , extraDeps = [scriptDevDar]
+        }
 
     simpleImportTest :: String -> [String] -> [String] -> TestTree
     simpleImportTest title = simpleImportTestOptions title defTestOptions

@@ -66,10 +66,11 @@ if [ "{local}" = "true" ]; then
     exit 0
 fi
 
-CANTON_ENTERPRISE_VERSION=2.8.0-snapshot.20230823.11049.0.vbde4ed98
-CANTON_ENTERPRISE_SHA=9e5c88f4447a3d463741fc839cb10be1ef3882a56945e3bff32055e7daa40186
+CANTON_ENTERPRISE_VERSION=2.8.0-snapshot.20230920.11191.0.vbcca12d3
+CANTON_ENTERPRISE_SHA=b9fa3805de03b924e6f6ee935e6eccce481e17ddf87b6b26ddc113dac1e72d57
+CANTON_ENTERPRISE_URL=https://digitalasset.jfrog.io/artifactory/assembly/daml/canton-backup/2.8.0-snapshot.20230920.11191.0.vbcca12d3/b9fa3805de03b924e6f6ee935e6eccce481e17ddf87b6b26ddc113dac1e72d57/canton-enterprise-2.8.0-snapshot.20230920.11191.0.vbcca12d3.tar.gz
 
-url=https://digitalasset.jfrog.io/artifactory/canton-enterprise/canton-enterprise-$$CANTON_ENTERPRISE_VERSION.tar.gz
+url=$$CANTON_ENTERPRISE_URL
 
 curl=$(location {curl})
 
@@ -96,11 +97,11 @@ tar xzf $$tmp
 
 cp canton-*/lib/*.jar $@
 """.format(
-        artif_user = artif_user,
+        src = ":lib/canton-ee.jar" if canton["local"] else "@canton//:jar",  # not used in else case but still must resolve
         artif_pass = artif_pass,
+        artif_user = artif_user,
         curl = "@curl_dev_env//:bin/curl" if not is_windows else "@curl_dev_env//:bin/curl.exe",
         local = "true" if canton["local"] else "",
-        src = ":lib/canton-ee.jar" if canton["local"] else "@canton//:jar",  # not used in else case but still must resolve
     ),
     tags = ["canton-ee"],
     tools = [

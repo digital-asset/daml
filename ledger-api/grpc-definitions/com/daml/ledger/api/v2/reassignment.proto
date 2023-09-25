@@ -84,8 +84,9 @@ message UnassignedEvent {
   string target = 5;
 
   // Party on whose behalf the unassign command was executed.
+  // Empty if the unassignment happened offline via the repair service.
   // Must be a valid PartyIdString (as described in ``value.proto``).
-  // Required
+  // Optional
   string submitter = 6;
 
   // Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases
@@ -126,8 +127,9 @@ message AssignedEvent {
   string unassign_id = 3;
 
   // Party on whose behalf the assign command was executed.
+  // Empty if the assignment happened offline via the repair service.
   // Must be a valid PartyIdString (as described in ``value.proto``).
-  // Required
+  // Optional
   string submitter = 4;
 
   // Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases

@@ -18,14 +18,22 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+// TODO (#17366): Once the LF2 syntax diverges from LF1, code sharing between these two tests is no
+//  longer possible.
+class EncodeV1Spec extends EncodeSpec(LanguageVersion.v1_dev)
+class EncodeV2Spec extends EncodeSpec(LanguageVersion.v2_dev)
 
-  import EncodeV1Spec._
+class EncodeSpec(languageVersion: LanguageVersion)
+    extends AnyWordSpec
+    with Matchers
+    with TableDrivenPropertyChecks {
+
+  import EncodeSpec._
 
   private val pkgId: PackageId = "self"
 
   private val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters(pkgId, LanguageVersion.v1_dev)
+    ParserParameters(pkgId, languageVersion)
 
   "Encode and Decode" should {
     "form a prism" in {
@@ -266,7 +274,7 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
 }
 
-object EncodeV1Spec {
+object EncodeSpec {
 
   private implicit def toPackageId(s: String): PackageId = PackageId.assertFromString(s)
 

@@ -7,7 +7,7 @@ package engine
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, FrontStack, ImmArray}
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value._
 import scalaz.Monad
 
@@ -24,8 +24,6 @@ sealed trait Result[+A] extends Product with Serializable {
     case ResultError(err) => ResultError(err)
     case ResultNeedContract(acoid, resume) =>
       ResultNeedContract(acoid, mbContract => resume(mbContract).map(f))
-    case ResultNeedCreate(acoid, resume) =>
-      ResultNeedCreate(acoid, create => resume(create).map(f))
     case ResultNeedPackage(pkgId, resume) =>
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).map(f))
     case ResultNeedKey(gk, resume) =>
@@ -42,8 +40,6 @@ sealed trait Result[+A] extends Product with Serializable {
     case ResultError(err) => ResultError(err)
     case ResultNeedContract(acoid, resume) =>
       ResultNeedContract(acoid, mbContract => resume(mbContract).flatMap(f))
-    case ResultNeedCreate(acoid, resume) =>
-      ResultNeedCreate(acoid, create => resume(create).flatMap(f))
     case ResultNeedPackage(pkgId, resume) =>
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).flatMap(f))
     case ResultNeedKey(gk, resume) =>
@@ -59,7 +55,6 @@ sealed trait Result[+A] extends Product with Serializable {
       pkgs: PartialFunction[PackageId, Package] = PartialFunction.empty,
       keys: PartialFunction[GlobalKeyWithMaintainers, ContractId] = PartialFunction.empty,
       grantNeedAuthority: Boolean = false,
-      creates: PartialFunction[ContractId, Node.Create] = PartialFunction.empty,
   ): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
@@ -68,7 +63,6 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultInterruption(continue) => go(continue())
         case ResultError(err) => Left(err)
         case ResultNeedContract(acoid, resume) => go(resume(pcs.lift(acoid)))
-        case ResultNeedCreate(acoid, resume) => go(resume(creates.lift(acoid)))
         case ResultNeedPackage(pkgId, resume) => go(resume(pkgs.lift(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys.lift(key)))
         case ResultNeedAuthority(_, _, resume) => go(resume(grantNeedAuthority))
@@ -120,32 +114,6 @@ final case class ResultNeedContract[A](
     resume: Option[VersionedContractInstance] => Result[A],
 ) extends Result[A]
 
-/** Intermediate result indicating that a [[Node.Create]] is required to complete the computation.
-  * To resume the computation, the caller must invoke `resume` with the following argument:
-  * <ul>
-  * <li>`Some(create)`, if the caller can dereference `acoid` to `create`</li>
-  * <li>`None`, if the caller is unable to dereference `acoid`</li>
-  * </ul>
-  *
-  * The caller of `resume` has to ensure that the create passed to `resume` is a create that
-  * has previously been associated with `acoid` by the engine.
-  *
-  * The engine will verify that details provided in the create match the recomputed values based on the
-  * target package template (that may or may not be the package originally associated with the create).
-  *
-  * The details that should be checked are:
-  *
-  *  - signatories
-  *  - observers
-  *  - contract key
-  *  - maintainers
-  *  - agreement
-  */
-final case class ResultNeedCreate[A](
-    acoid: ContractId,
-    resume: Option[Node.Create] => Result[A],
-) extends Result[A]
-
 /** Intermediate result indicating that a [[Package]] is required to complete the computation.
   * To resume the computation, the caller must invoke `resume` with the following argument:
   * <ul>
@@ -194,6 +162,10 @@ final case class ResultNeedAuthority[A](
   *
   * The ledger will callback `resume` with `None` if everything is fine, or callback with
   * `Some(helpfulErrorInfo)` otherwise.
+  *
+  * During submission this callback should only be called where the target template id is different
+  * from the contract template id. During reinterpretation this callback is also used for model conformance
+  * so should be called once for all used contracts even if they are not being upgraded.
   *
   * TODO: https://github.com/digital-asset/daml/issues/17082
   * - The engine must be extended to call `ResultNeedUpgradeVerification`
@@ -281,16 +253,6 @@ object Result {
               )
             case ResultNeedContract(acoid, resume) =>
               ResultNeedContract(
-                acoid,
-                coinst =>
-                  resume(coinst).flatMap(x =>
-                    Result
-                      .sequence(results_)
-                      .map(otherResults => (okResults :+ x) :++ otherResults)
-                  ),
-              )
-            case ResultNeedCreate(acoid, resume) =>
-              ResultNeedCreate(
                 acoid,
                 coinst =>
                   resume(coinst).flatMap(x =>

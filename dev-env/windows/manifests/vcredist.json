@@ -1,18 +1,18 @@
 {
     "homepage": "https://www.visualstudio.com/downloads/",
     "description": "Microsoft Visual C++ Redistributable for Visual Studio 2005/2008/2010/2012/2013/2015-2019.",
-    "version": "14.29.30040",
+    "version": "14.36.32532.0",
     "license": {
         "identifier": "Freeware",
         "url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/default.aspx"
     },
     "url": [
-        "https://download.visualstudio.microsoft.com/download/pr/36e45907-8554-4390-ba70-9f6306924167/97CC5066EB3C7246CF89B735AE0F5A5304A7EE33DC087D65D9DFF3A1A73FE803/VC_redist.x64.exe",
-        "https://download.visualstudio.microsoft.com/download/pr/888b4c07-c602-499a-9efb-411188496ce7/F3A86393234099BEDD558FD35AB538A6E4D9D4F99AD5ADFA13F603D4FF8A42DC/VC_redist.x86.exe"
+        "https://download.visualstudio.microsoft.com/download/pr/eaab1f82-787d-4fd7-8c73-f782341a0c63/5365A927487945ECB040E143EA770ADBB296074ECE4021B1D14213BDE538C490/VC_redist.x86.exe",
+        "https://download.visualstudio.microsoft.com/download/pr/eaab1f82-787d-4fd7-8c73-f782341a0c63/917C37D816488545B70AFFD77D6E486E4DD27E2ECE63F6BBAAF486B178B2B888/VC_redist.x64.exe"
     ],
     "hash": [
-        "97cc5066eb3c7246cf89b735ae0f5a5304a7ee33dc087d65d9dff3a1a73fe803",
-        "f3a86393234099bedd558fd35ab538a6e4d9d4f99ad5adfa13f603d4ff8a42dc"
+        "5365a927487945ecb040e143ea770adbb296074ece4021b1d14213bde538c490",
+        "917c37d816488545b70affd77d6e486e4dd27e2ece63f6bbaaf486b178b2b888"
     ],
     "post_install": [
         "Invoke-ExternalCommand -FilePath \"$dir\\VC_redist.x64.exe\" -ArgumentList \"/fo /quiet /norestart\" -RunAs | Out-Null",

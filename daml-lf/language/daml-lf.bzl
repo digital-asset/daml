@@ -4,11 +4,14 @@
 def mangle_for_java(name):
     return name.replace(".", "_")
 
-def _to_major_minor(v):
-    (majorStr, _, minorStr) = v.partition(".")
-    return (int(majorStr), int(minorStr))
+def mangle_for_damlc(name):
+    return "v{}".format(name.replace(".", ""))
 
-def _cmp(a, b):
+def _to_major_minor_str(v):
+    (major_str, _, minor_str) = v.partition(".")
+    return (major_str, minor_str)
+
+def _cmp_int(a, b):
     if a == b:
         return 0
     elif a > b:
@@ -16,28 +19,38 @@ def _cmp(a, b):
     else:
         return -1
 
-def _cmp_lf_version(a, b):
-    if a == "1.dev" and b == "1.dev":
+def _cmp_minor_version_str(a_str, b_str):
+    if a_str == b_str:
         return 0
-    elif a == "1.dev":
+    elif a_str == "dev":
         return 1
-    elif b == "1.dev":
+    elif b_str == "dev":
         return -1
     else:
-        aVer = _to_major_minor(a)
-        bVer = _to_major_minor(b)
-        return _cmp(aVer, bVer)
+        return _cmp_int(int(a_str), int(b_str))
 
-def _gte(a, b):
-    return _cmp_lf_version(a, b) >= 0
+def _minor_version_in(mv_str, minor_version_range):
+    if minor_version_range == None:
+        return False
+    else:
+        return (
+            _cmp_minor_version_str(mv_str, minor_version_range[0]) >= 0 and
+            _cmp_minor_version_str(mv_str, minor_version_range[1]) <= 0
+        )
 
-def _lte(a, b):
-    return _cmp_lf_version(a, b) <= 0
-
-versions = struct(
-    lte = _lte,
-    gte = _gte,
-)
+# Returns true if v is in the union of [1.x for x in v1_minor_version_range] and
+# [2.y for y in v2_minor_version_range]. None means the empty range.
+def version_in(
+        v,
+        v1_minor_version_range = None,
+        v2_minor_version_range = None):
+    (major_str, minor_str) = _to_major_minor_str(v)
+    if major_str == "1":
+        return _minor_version_in(minor_str, v1_minor_version_range)
+    elif major_str == "2":
+        return _minor_version_in(minor_str, v2_minor_version_range)
+    else:
+        return False
 
 # The following dictionary alias LF versions to keywords:
 # - "legacy" is the keyword for last LF version that supports legacy
@@ -46,12 +59,10 @@ versions = struct(
 # - "latest" is the keyword for the latest stable LF version,
 # - "preview" is the keyword fort he next LF version, *not stable*,
 #    usable for beta testing,
-# - "dev" is the keyword for the development version, *not stable*,
-#    usable for alpha testing.
 # The following dictionary is always defined for "legacy", "stable",
-# "latest", and "dev". It contains "preview" iff a preview version is
-# available.  If exists "preview"'s value is guarantee to be different
-# for all other values.  If we make a new LF release, we bump latest
+# and "latest". It contains "preview" iff a preview version is
+# available.  If it exists, "preview"'s value is guaranteed to be different
+# from all other values. If we make a new LF release, we bump latest
 # and once we make it the compiler default we bump stable.
 
 lf_version_configuration = {
@@ -59,7 +70,8 @@ lf_version_configuration = {
     "default": "1.15",
     "latest": "1.15",
     #    "preview": "",
-    "dev": "1.dev",
+
+    # "dev" is now ambiguous, use either 1.dev or 2.dev explicitly
 }
 
 lf_version_configuration_versions = depset(lf_version_configuration.values()).to_list()
@@ -80,23 +92,32 @@ def lf_versions_aggregate(versions):
 # in a stable LF version.
 lf_docs_version = lf_version_configuration.get("preview", lf_version_configuration.get("latest"))
 
+# All LF dev versions
+LF_DEV_VERSIONS = [
+    "1.dev",
+    "2.dev",
+]
+
 # All LF versions
 LF_VERSIONS = [
-    "1.6",
-    "1.7",
     "1.8",
     "1.11",
     "1.12",
     "1.13",
     "1.14",
     "1.15",
-    "1.dev",
-]
+] + LF_DEV_VERSIONS
 
-PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14")]
+def lf_version_is_dev(versionStr):
+    return versionStr in LF_DEV_VERSIONS
 
-# The subset of LF versions accepted by the compiler in the syntax
-# expected by the --target option.
-COMPILER_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14")]
+# The stable versions for which we have an LF proto definition under daml-lf/archive/src/stable
+# TODO(#17366): add 2.0 once created
+SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["1.14", "1.15"]
 
-LF_MAJOR_VERSIONS = ["1"]
+# The subset of LF versions accepted by the compiler in the syntax, expected by the --target option.
+# Must be kept in sync with supportedOutputVersions in Version.hs.
+# TODO(#17366): add 2.0 once created
+COMPILER_LF_VERSIONS = ["1.14", "1.15"] + LF_DEV_VERSIONS
+
+LF_MAJOR_VERSIONS = ["1", "2"]

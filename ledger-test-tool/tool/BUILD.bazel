@@ -10,6 +10,7 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "LF_DEV_VERSIONS",
     "lf_version_configuration",
     "lf_version_configuration_versions",
 )
@@ -250,10 +251,7 @@ conformance_test(
             "//canton:canton-patched_deploy.jar",
         ],
     extra_runner_args = ["7000"],
-    lf_versions = [
-        "preview",
-        "dev",
-    ],
+    lf_versions = ["preview"] + LF_DEV_VERSIONS,
     ports = conformance_test_ports,
     preview_mod_flag = "",
     runner = "@//bazel_tools/client_server/runner_with_health_check",

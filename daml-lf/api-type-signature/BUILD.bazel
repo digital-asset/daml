@@ -36,8 +36,8 @@ da_scala_library(
         "//navigator:__subpackages__",
     ],
     deps = [
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//libs-scala/nonempty",
@@ -49,7 +49,7 @@ da_scala_library(
 daml_compile(
     name = "InterfaceTestPackage",
     srcs = glob(["src/test/daml/**/*.daml"]),
-    target = lf_version_configuration.get("latest"),  # TODO(#13296) remove when interfaces in default
+    target = lf_version_configuration.get("default"),
 )
 
 da_scala_test(
@@ -67,8 +67,8 @@ da_scala_test(
     deps = [
         ":api-type-signature",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",

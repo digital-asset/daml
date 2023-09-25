@@ -562,7 +562,7 @@ convertPrim _ "EChoiceObserver"
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
-convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
+convertPrim (isDevVersion->True) (L.stripPrefix "$" -> Just builtin) typ =
     pure $
       EExperimental (T.pack builtin) typ
 

@@ -13,6 +13,7 @@ module DA.Cli.Damlc.Test (
     , TransactionsOutputPath(..)
     , CoveragePaths(..)
     , LoadCoverageOnly(..)
+    , CoverageFilter(..)
     , loadAggregatePrintResults
     -- , Summarize(..)
     ) where
@@ -26,6 +27,7 @@ import qualified DA.Daml.LF.PrettyScenario as SS
 import qualified DA.Daml.LF.ScenarioServiceClient as SSC
 import DA.Daml.Options.Types
 import DA.Daml.Project.Consts (sdkPathEnvVar)
+import DA.Pretty (PrettyLevel)
 import qualified DA.Pretty
 import qualified DA.Pretty as Pretty
 import Data.Foldable (fold)
@@ -57,9 +59,11 @@ import System.IO.Error (isPermissionError, isAlreadyExistsError, isDoesNotExistE
 import qualified Text.XML.Light as XML
 import qualified Text.Blaze.Html.Renderer.Text as Blaze
 import qualified Text.Blaze.Html4.Strict as Blaze
+import Text.Regex.TDFA
 
 newtype UseColor = UseColor {getUseColor :: Bool}
 newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
+newtype CoverageFilter = CoverageFilter {getCoverageFilter :: Regex}
 newtype RunAllTests = RunAllTests {getRunAllTests :: Bool}
 newtype TableOutputPath = TableOutputPath {getTableOutputPath :: Maybe String}
 newtype TransactionsOutputPath = TransactionsOutputPath {getTransactionsOutputPath :: Maybe String}
@@ -70,24 +74,25 @@ data CoveragePaths = CoveragePaths
 newtype LoadCoverageOnly = LoadCoverageOnly {getLoadCoverageOnly :: Bool}
 
 -- | Test a Daml file.
-execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> CoveragePaths -> IO ()
-execTest inFiles runAllTests coverage color mbJUnitOutput opts tableOutputPath transactionsOutputPath resultsIO = do
+execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> CoveragePaths -> [CoverageFilter] -> IO ()
+execTest inFiles runAllTests coverage color mbJUnitOutput opts tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
     loggerH <- getLogger opts "test"
     withDamlIdeState opts loggerH diagnosticsLogger $ \h -> do
-        testRun h inFiles (optDamlLfVersion opts) runAllTests coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO
+        testRun h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllTests coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
         diags <- getDiagnostics h
         when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 
-loadAggregatePrintResults :: CoveragePaths -> ShowCoverage -> Maybe TR.TestResults -> IO ()
-loadAggregatePrintResults resultsIO coverage mbNewTestResults = do
+loadAggregatePrintResults :: CoveragePaths -> [CoverageFilter] -> ShowCoverage -> Maybe TR.TestResults -> IO ()
+loadAggregatePrintResults resultsIO coverageFilters coverage mbNewTestResults = do
     loadedTestResults <- forM (loadCoveragePaths resultsIO) $ \trPath -> do
         let np = NamedPath ("Input test result '" ++ trPath ++ "'") trPath
         tryWithPath TR.loadTestResults np
     let aggregatedTestResults = fold mbNewTestResults <> fold (catMaybes (catMaybes loadedTestResults))
 
     -- print total test coverage
-    TR.printTestCoverage
+    TR.printTestCoverageWithFilters
         (getShowCoverage coverage)
+        (map getCoverageFilter coverageFilters)
         aggregatedTestResults
 
     case saveCoveragePath resultsIO of
@@ -100,6 +105,7 @@ loadAggregatePrintResults resultsIO coverage mbNewTestResults = do
 testRun ::
        IdeState
     -> [NormalizedFilePath]
+    -> PrettyLevel
     -> LF.Version
     -> RunAllTests
     -> ShowCoverage
@@ -108,8 +114,9 @@ testRun ::
     -> TableOutputPath
     -> TransactionsOutputPath
     -> CoveragePaths
+    -> [CoverageFilter]
     -> IO ()
-testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO = do
+testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
     -- make sure none of the files disappear
     liftIO $ setFilesOfInterest h (HashSet.fromList inFiles)
 
@@ -156,7 +163,7 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
     printSummary color (concatMap snd allResults)
 
     let newTestResults = TR.scenarioResultsToTestResults allPackages allResults
-    loadAggregatePrintResults resultsIO coverage (Just newTestResults)
+    loadAggregatePrintResults resultsIO coverageFilters coverage (Just newTestResults)
 
     mbSdkPath <- getEnv sdkPathEnvVar
     let doesOutputTablesOrTransactions =
@@ -174,8 +181,8 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
                     (const $ do
                         hPutStrLn stderr $ "Warning: Could not open stylesheet '" <> cssPath <> "' for tables and transactions, will style plainly"
                         pure Nothing)
-            outputTables extensionCss tableOutputPath results
-            outputTransactions extensionCss transactionsOutputPath results
+            outputTables lvl extensionCss tableOutputPath results
+            outputTransactions lvl extensionCss transactionsOutputPath results
 
     whenJust mbJUnitOutput $ \junitOutput -> do
         createDirectoryIfMissing True $ takeDirectory junitOutput
@@ -185,7 +192,7 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
                 Just scenarioResults -> do
                     let render =
                             either
-                                (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion)
+                                (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lvl lfVersion)
                                 (const Nothing)
                     pure (file, map (second render) scenarioResults)
         writeFile junitOutput $ XML.showTopElement $ toJUnit res
@@ -223,14 +230,14 @@ outputUnderDir dir paths = do
             _ <- tryWithPath (flip TIO.writeFile content) file
             pure ()
 
-outputTables :: Maybe String -> TableOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
-outputTables cssSource (TableOutputPath (Just path)) results =
+outputTables :: PrettyLevel -> Maybe String -> TableOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
+outputTables lvl cssSource (TableOutputPath (Just path)) results =
     let outputs :: [(NamedPath, T.Text)]
         outputs = do
             (world, _, _, Just results) <- results
             (vr, Right result) <- results
             let activeContracts = SS.activeContractsFromScenarioResult result
-                tableView = SS.renderTableView world activeContracts (SS.scenarioResultNodes result)
+                tableView = SS.renderTableView lvl world activeContracts (SS.scenarioResultNodes result)
                 tableSource = TL.toStrict $ Blaze.renderHtml $ do
                     foldMap (Blaze.style . Blaze.preEscapedToHtml) cssSource
                     fold tableView
@@ -241,16 +248,16 @@ outputTables cssSource (TableOutputPath (Just path)) results =
     outputUnderDir
         (NamedPath ("Test table output directory '" ++ path ++ "'") path)
         outputs
-outputTables _ _ _ = pure ()
+outputTables _ _ _ _ = pure ()
 
-outputTransactions :: Maybe String -> TransactionsOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
-outputTransactions cssSource (TransactionsOutputPath (Just path)) results =
+outputTransactions :: PrettyLevel -> Maybe String -> TransactionsOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
+outputTransactions lvl cssSource (TransactionsOutputPath (Just path)) results =
     let outputs :: [(NamedPath, T.Text)]
         outputs = do
             (world, _, _, Just results) <- results
             (vr, Right result) <- results
             let activeContracts = SS.activeContractsFromScenarioResult result
-                transView = SS.renderTransactionView world activeContracts result
+                transView = SS.renderTransactionView lvl world activeContracts result
                 transSource = TL.toStrict $ Blaze.renderHtml $ do
                     foldMap (Blaze.style . Blaze.preEscapedToHtml) cssSource
                     transView
@@ -261,7 +268,7 @@ outputTransactions cssSource (TransactionsOutputPath (Just path)) results =
     outputUnderDir
         (NamedPath ("Test transaction output directory '" ++ path ++ "'") path)
         outputs
-outputTransactions _ _ _ = pure ()
+outputTransactions _ _ _ _ = pure ()
 
 -- We didn't get scenario results, so we use the diagnostics as the error message for each scenario.
 failedTestOutput :: IdeState -> NormalizedFilePath -> Action [(VirtualResource, Maybe T.Text)]
@@ -293,12 +300,13 @@ printScenarioResults color results = do
           Right result -> name <> ": " <> prettyResult result
 
 
-prettyErr :: LF.Version -> SSC.Error -> DA.Pretty.Doc Pretty.SyntaxClass
-prettyErr lfVersion err = case err of
+prettyErr :: PrettyLevel -> LF.Version -> SSC.Error -> DA.Pretty.Doc Pretty.SyntaxClass
+prettyErr lvl lfVersion err = case err of
     SSC.BackendError berr ->
         DA.Pretty.string (show berr)
     SSC.ScenarioError serr ->
         SS.prettyBriefScenarioError
+          lvl
           (LF.initWorld [] lfVersion)
           serr
     SSC.ExceptionError e -> DA.Pretty.string $ show e

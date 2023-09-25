@@ -25,6 +25,15 @@ object Decode {
             onlySerializableDataDefs,
           )
           .map(payload.pkgId -> _)
+      case LanguageVersion(LanguageMajorVersion.V2, minor)
+          if LanguageMajorVersion.V2.supportedMinorVersions.contains(minor) =>
+        new DecodeV2(minor)
+          .decodePackage(
+            payload.pkgId,
+            payload.proto.getDamlLf2,
+            onlySerializableDataDefs,
+          )
+          .map(payload.pkgId -> _)
       case v => Left(Error.Parsing(s"$v unsupported"))
     }
 

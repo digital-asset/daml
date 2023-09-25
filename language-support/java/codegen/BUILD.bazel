@@ -53,8 +53,8 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/api-type-signature",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//language-support/codegen-common",
@@ -158,8 +158,7 @@ daml_compile(
         "src/test/daml/Bar.daml",
         "src/test/daml/Retro.daml",
     ],
-    # TODO(#13296) remove when interfaces in default
-    target = lf_version_configuration.get("latest"),
+    target = lf_version_configuration.get("default"),
 )
 
 dar_to_java(

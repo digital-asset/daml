@@ -142,6 +142,7 @@ class TransactionVersionTest
 object TransactionVersionTest {
   val commonVersion: LanguageVersion = LanguageVersion.default
   val oldVersion: LanguageVersion = LanguageVersion.v1_15
+  // TODO(#17366): Revisit this test after 2.x breaks backwards compatibility with 1.x.
   val newVersion: LanguageVersion = LanguageVersion.v1_dev
   val (templatePkgId, templatePkg) =
     PackageId.assertFromString("template-pkg") ->
