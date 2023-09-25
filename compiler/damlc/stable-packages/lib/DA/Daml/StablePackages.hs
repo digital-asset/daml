@@ -20,7 +20,7 @@ import DA.Daml.UtilLF
 allV1StablePackages :: MS.Map PackageId Package
 allV1StablePackages =
     MS.fromList $
-    map (\pkg  -> (encodePackageHash pkg, pkg)) 
+    map (\pkg  -> (encodePackageHash pkg, pkg))
     [ ghcTypes version1_6
     , ghcPrim version1_6
     , ghcTuple version1_6
@@ -52,7 +52,7 @@ allV1StablePackages =
 allV2StablePackages :: MS.Map PackageId Package
 allV2StablePackages =
     MS.fromList $
-    map (\pkg  -> (encodePackageHash pkg, pkg)) 
+    map (\pkg  -> (encodePackageHash pkg, pkg))
       [ ghcTypes version2_dev
       , ghcPrim version2_dev
       , ghcTuple version2_dev
@@ -99,7 +99,7 @@ allStablePackagesForMajorVersion = \case
 allStablePackagesForVersion :: Version -> MS.Map PackageId Package
 allStablePackagesForVersion v =
     MS.filter
-        (\p -> packageLfVersion p `compatibleWith` v)
+        (\p -> v `canDependOn` packageLfVersion p)
         (allStablePackagesForMajorVersion (versionMajor v))
 
 numStablePackagesForVersion :: Version -> Int
@@ -122,14 +122,14 @@ ifMetadataRequired v metadata =
 
 ghcTypes :: Version -> Package
 ghcTypes version = Package
-  { packageLfVersion = version 
+  { packageLfVersion = version
   , packageModules = NM.singleton (emptyModule modName)
     { moduleDataTypes = NM.fromList [dataOrdering]
     }
   , packageMetadata = ifMetadataRequired version $ PackageMetadata
       { packageName = PackageName "daml-prim-GHC-Types"
       , packageVersion = PackageVersion "1.0.0"
-      , upgradedPackageId = Nothing 
+      , upgradedPackageId = Nothing
       }
   }
   where
@@ -155,7 +155,7 @@ ghcPrim version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
-  }      
+  }
   where
     modName = mkModName ["GHC", "Prim"]
     qual = Qualified PRSelf modName
@@ -186,7 +186,7 @@ daTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
-  }      
+  }
   where
     modName = mkModName ["DA", "Types"]
     types = NM.fromList $
@@ -234,7 +234,7 @@ ghcTuple version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
-  }      
+  }
   where
     modName = mkModName ["GHC", "Tuple"]
     tyVar = mkTypeVar "a"
@@ -253,7 +253,7 @@ daInternalTemplate version = Package
   { packageLfVersion = version
   , packageModules = NM.singleton (emptyModule modName)
      { moduleDataTypes = types
-     } 
+     }
   , packageMetadata = ifMetadataRequired version $ PackageMetadata
       { packageName = PackageName "ghc-stdlib-DA-Internal-Template"
       , packageVersion = PackageVersion "1.0.0"
@@ -458,7 +458,7 @@ daTimeTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
-  }      
+  }
   where
     modName = mkModName ["DA", "Time", "Types"]
     relTimeTyCon = mkTypeCon ["RelTime"]
@@ -484,7 +484,7 @@ daNonEmptyTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
-  }      
+  }
   where
     modName = mkModName ["DA", "NonEmpty", "Types"]
     hdField = mkField "hd"
@@ -513,7 +513,7 @@ daDateTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
-  } 
+  }
   where
     modName = mkModName ["DA", "Date", "Types"]
     types = NM.fromList
@@ -585,7 +585,7 @@ daMonoidTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
-  }      
+  }
   where
     modName = mkModName ["DA", "Monoid", "Types"]
     unpackField = mkField "unpack"
@@ -629,7 +629,7 @@ daValidationTypes version nonEmptyPkgId = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
-  }      
+  }
   where
     nonEmptyModName = mkModName ["DA", "NonEmpty", "Types"]
     nonEmptyTCon = Qualified (PRImport nonEmptyPkgId) nonEmptyModName (mkTypeCon ["NonEmpty"])
@@ -662,7 +662,7 @@ daLogicTypes version = Package
       { packageName = PackageName "daml-stdlib-DA-Logic-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
-      }  
+      }
   }
   where
     modName = mkModName ["DA", "Logic", "Types"]
@@ -701,7 +701,7 @@ daInternalDown version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
-  }      
+  }
   where
     modName = mkModName ["DA", "Internal", "Down"]
     downTyCon = mkTypeCon ["Down"]
@@ -786,7 +786,7 @@ daInternalPromotedText version = Package
   { packageLfVersion = version
   , packageModules = NM.singleton (emptyModule modName)
     { moduleDataTypes = types
-    } 
+    }
   , packageMetadata = ifMetadataRequired version $ PackageMetadata
       { packageName = PackageName "daml-prim-DA-Internal-PromotedText"
       , packageVersion = PackageVersion "1.0.0"

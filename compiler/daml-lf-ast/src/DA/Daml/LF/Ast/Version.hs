@@ -32,12 +32,11 @@ data MajorVersion = V1 | V2
 data MinorVersion = PointStable Int | PointDev
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
--- | x `compatibleWith` y if dars compiled to version y can depend on dars
--- compiled to version x.
--- canDependOn
-compatibleWith :: Version -> Version -> Bool
-compatibleWith (Version major1 minor1) (Version major2 minor2) =
-  major1 == major2 && minor1 <= minor2
+-- | x `canDependOn` y if dars compiled to version x can depend on dars compiled
+-- to version y.
+canDependOn :: Version -> Version -> Bool
+canDependOn (Version major1 minor1) (Version major2 minor2) =
+  major1 == major2 && minor1 >= minor2
 
 -- | Daml-LF version 1.6
 version1_6 :: Version
@@ -157,7 +156,7 @@ featureTypeInterning = Feature
 featureUnstable :: Feature
 featureUnstable = Feature
     { featureName = "Unstable, experimental features"
-    , featureVersionReq = devOnly 
+    , featureVersionReq = devOnly
     , featureCppFlag = Just "DAML_UNSTABLE"
     }
 
@@ -228,7 +227,7 @@ featureDynamicExercise = Feature
 featurePackageUpgrades :: Feature
 featurePackageUpgrades = Feature
     { featureName = "Package upgrades POC"
-    , featureVersionReq = devOnly 
+    , featureVersionReq = devOnly
     , featureCppFlag = Just "DAML_PACKAGE_UPGRADES"
     }
 
@@ -383,7 +382,7 @@ Renders a FeatureVersionReq.
 >>> let r1 = R.Inclusive (PointStable 1) (PointStable 2)
 >>> let r2 = R.Inclusive (PointStable 3) PointDev
 
->>> renderFeatureVersionReq (VersionReq (\case V1 -> R.Empty; V2 ->  R.Empty)) 
+>>> renderFeatureVersionReq (VersionReq (\case V1 -> R.Empty; V2 ->  R.Empty))
 "none"
 >>> renderFeatureVersionReq (VersionReq (\case V1 ->  r1; V2 -> R.Empty))
 "1.1 to 1.2"

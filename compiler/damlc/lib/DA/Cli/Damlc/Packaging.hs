@@ -812,7 +812,7 @@ checkForIncompatibleLfVersions lfTarget dalfs
         ]
   where
     incompatibleLfDeps =
-        filter (\(_, ver) -> not (ver `LF.compatibleWith` lfTarget)) $
+        filter (\(_, ver) -> not (lfTarget `LF.canDependOn` ver)) $
             [ ( (LF.dalfPackageId decodedDalfPkg, decodedUnitId)
               , (LF.packageLfVersion . LF.extPackagePkg . LF.dalfPackagePkg) decodedDalfPkg
               )

@@ -1139,7 +1139,7 @@ lfVersionTests damlc = testGroup "LF version dependencies"
           forM_ (zip (mainDalfPath : dalfPaths) (main : other)) $ \(path, bytes) -> do
               Right (_, pkg) <- pure $ LFArchive.decodeArchive LFArchive.DecodeAsMain $ BSL.toStrict bytes
               assertBool ("Expected LF version <=" <> show version <> " but got " <> show (LF.packageLfVersion pkg) <> " in " <> path) $
-                  LF.packageLfVersion pkg `LF.compatibleWith` version
+                  version `LF.canDependOn` LF.packageLfVersion pkg
     | version <- LF.supportedOutputVersions
     ]
 

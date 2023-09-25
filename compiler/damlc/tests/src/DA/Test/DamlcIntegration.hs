@@ -93,6 +93,7 @@ import DA.Cli.Damlc.DependencyDb (installDependencies)
 import DA.Cli.Damlc.Packaging (createProjectPackageDb)
 import Module (stringToUnitId)
 import SdkVersion (sdkVersion, sdkPackageVersion)
+import DA.Daml.LF.Ast.Version (canDependOn)
 
 -- Newtype to avoid mixing up the loging function and the one for registering TODOs.
 newtype TODO = TODO String
@@ -464,7 +465,7 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService o
     DamlTestInput { name, path, anns } = input
     ignoreVersion version = \case
       Ignore -> True
-      SinceLF minVersion -> version < minVersion
+      SinceLF minVersion -> version `canDependOn` minVersion
       UntilLF maxVersion -> version >= maxVersion
       ScriptV2 -> not isScriptV2Opt
       EvaluationOrder evalOrder -> evalOrder /= evalOrderOpt

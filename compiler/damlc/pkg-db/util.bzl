@@ -122,7 +122,6 @@ def _daml_package_rule_impl(ctx):
         --cpp {cpp} \
         --ghc-option=-Werror \
         --disable-warn-large-tuples={disable_warn_large_tuples} \
-        --log-level DEBUG \
         -o {dalf_file} \
         {main}
 
