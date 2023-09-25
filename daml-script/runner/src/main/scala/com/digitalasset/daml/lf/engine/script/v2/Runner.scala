@@ -38,12 +38,13 @@ private[lf] class Runner(
     typeCheckingBehaviour: TypeCheckingBehaviour = TypeCheckingBehaviour.NoTypeChecking,
 ) {
   import Free.Result, SExpr.SExpr
-  if (unversionedRunner.script.scriptIds.scriptPackageId.toString != "daml3scriptlabel")
-    throw new IllegalArgumentException(
-      s"""Expected daml3-script library to have package id 'daml3scriptlabel', but instead got '${unversionedRunner.script.scriptIds.scriptPackageId}'.
-         |Be sure to compile daml3-script library with the '--override-package-id daml3scriptlabel' option.
-         """.stripMargin
-    )
+  // TODO (ticket #17187) Enable this warning once canton has the new decoding logic
+  // if (unversionedRunner.script.scriptIds.scriptPackageId.toString != "daml3scriptlabel")
+  //   throw new IllegalArgumentException(
+  //     s"""Expected daml3-script library to have package id 'daml3scriptlabel', but instead got '${unversionedRunner.script.scriptIds.scriptPackageId}'.
+  //        |Be sure to compile daml3-script library with the '--override-package-id daml3scriptlabel' option.
+  //        """.stripMargin
+  //   )
 
   private def buildLinkedPackages(scriptDar: Dar[ArchivePayload]): CompiledPackages = {
     val mostRecentScriptDar =

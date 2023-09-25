@@ -559,8 +559,10 @@ private[lf] class Runner(
         new v1.Runner(this).runWithClients(initialClients, traceLog, warningLog, profile, canceled)
       }
       case "daml3-script" => {
+        // TODO (ticket #17187) Change to LinkRecent once canton has the new decoding behaviour
+        val realLinkingBehaviour = linkingBehaviour.getOrElse(LinkingBehaviour.NoLinking)
         // Default daml3-script linking is LinkRecent
-        val realLinkingBehaviour = linkingBehaviour.getOrElse(LinkingBehaviour.LinkRecent)
+        // val realLinkingBehaviour = linkingBehaviour.getOrElse(LinkingBehaviour.LinkRecent)
         new v2.Runner(
           this,
           initialClients,

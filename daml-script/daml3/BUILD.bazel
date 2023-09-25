@@ -34,8 +34,9 @@ EOF
             "--log-level=WARNING",
             "--target",
             "2.dev",
-            "--override-package-id",
-            "daml3scriptlabel",
+            # TODO (ticket #17187) Enable this once canton has the new decoding logic
+            # "--override-package-id",
+            # "daml3scriptlabel",
         ]),
         ghc = ghc_version,
         sdk = sdk_version,
