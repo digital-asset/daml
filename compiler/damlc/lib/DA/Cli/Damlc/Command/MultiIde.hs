@@ -15,6 +15,7 @@ import Control.Concurrent.Async (async, cancel, pollSTM)
 import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM.TMVar
 import Control.Concurrent.MVar
+import Control.Exception(AsyncException, handle)
 import Control.Lens
 import Control.Monad
 import Control.Monad.STM
@@ -38,7 +39,6 @@ import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Lens as LSP
 import System.Environment (getEnv)
 import System.IO.Extra
-import System.Posix.Signals (installHandler, sigTERM, Handler (Catch))
 import System.Process (getPid)
 import System.Process.Typed (
   Process,
@@ -474,27 +474,25 @@ runMultiIde sourceDeps = do
 
   let killAll :: IO ()
       killAll = do
+        debugPrint "Killing subIDEs"
         subIDEs <- atomically $ Map.filter ideActive <$> readTMVar (subIDEsVar stateVars)
         forM_ subIDEs (shutdownIde stateVars)
 
-  installHandler sigTERM (Catch killAll) Nothing
+  handle (\(_ :: AsyncException) -> killAll) $ do
+    atomically $ do
+      unsafeIOToSTM $ debugPrint "Running main loop"
+      subIDEs <- readTMVar $ subIDEsVar stateVars
+      let asyncs = concatMap (\subIDE -> [ideInhandleAsync subIDE, ideOutHandleAsync subIDE]) subIDEs
+      errs <- lefts . catMaybes <$> traverse pollSTM (asyncs ++ [toClientThread, clientToCoordThread])
+      when (not $ null errs) $
+        unsafeIOToSTM $ debugPrint $ "A thread handler errored with: " <> show (head errs)
 
-  atomically $ do
-    unsafeIOToSTM $ debugPrint "Running main loop"
-    subIDEs <- readTMVar $ subIDEsVar stateVars
-    let asyncs = concatMap (\subIDE -> [ideInhandleAsync subIDE, ideOutHandleAsync subIDE]) subIDEs
-    errs <- lefts . catMaybes <$> traverse pollSTM (asyncs ++ [toClientThread, clientToCoordThread])
-    when (not $ null errs) $
-      unsafeIOToSTM $ debugPrint $ "A thread handler errored with: " <> show (head errs)
+      let procs = ideProcess <$> subIDEs
+      exits <- catMaybes <$> traverse getExitCodeSTM (Map.elems procs)
+      when (not $ null exits) $
+        unsafeIOToSTM $ debugPrint $ "A subIDE finished with code: " <> show (head exits)
 
-    let procs = ideProcess <$> subIDEs
-    exits <- catMaybes <$> traverse getExitCodeSTM (Map.elems procs)
-    when (not $ null exits) $
-      unsafeIOToSTM $ debugPrint $ "A subIDE finished with code: " <> show (head exits)
+      when (null exits && null errs) retry
 
-    when (null exits && null errs) retry
-
-  -- If we get here, something failed/stopped, so stop everything
-  killAll
-
-  pure ()
+    -- If we get here, something failed/stopped, so stop everything
+    killAll
