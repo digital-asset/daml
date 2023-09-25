@@ -1112,6 +1112,7 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
         unhandled ("Missing required instances in template definition for " <> show tplTypeCon) ()
 
   where
+    majorLfVersion = versionMajor (envLfVersion env)
     wrapPrecondition b
         | envLfVersion env`supports` featureExceptions
         = case tbShow of
@@ -1121,8 +1122,8 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
                 ECase b
                     [ CaseAlternative (CPBool True) ETrue
                     , CaseAlternative (CPBool False)
-                        $ EThrow TBool (TCon preconditionFailedTypeCon)
-                        $ mkPreconditionFailed
+                        $ EThrow TBool (TCon (preconditionFailedTypeCon majorLfVersion))
+                        $ mkPreconditionFailed majorLfVersion
                         $ EBuiltin BEAppendText
                             `ETmApp` EBuiltin (BEText "Template precondition violated: " )
                             `ETmApp`
