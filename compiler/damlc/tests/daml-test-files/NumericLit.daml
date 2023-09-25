@@ -3,7 +3,7 @@
 
 -- Test numeric literals.
 --
--- @SINCE-LF-FEATURE DAML_NAT_TYPE_ERASURE
+-- @SUPPORTS-LF-FEATURE DAML_NAT_TYPE_ERASURE
 
 
 

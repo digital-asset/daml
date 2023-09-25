@@ -93,7 +93,6 @@ import DA.Cli.Damlc.DependencyDb (installDependencies)
 import DA.Cli.Damlc.Packaging (createProjectPackageDb)
 import Module (stringToUnitId)
 import SdkVersion (sdkVersion, sdkPackageVersion)
-import DA.Daml.LF.Ast.Version (canDependOn)
 
 -- Newtype to avoid mixing up the loging function and the one for registering TODOs.
 newtype TODO = TODO String
@@ -417,9 +416,6 @@ testSetup getService outdir path = do
 
 damlFileTestTree :: LF.Version -> IsScriptV2Opt -> EvaluationOrder -> IO IdeState -> FilePath -> (TODO -> IO ()) -> DamlTestInput -> TestTree
 damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir registerTODO input
-  | any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] =
-    singleTest name $ TestCase \_ ->
-      pure $ testFailed "Unsupported Daml-LF version in UNTIL-LF annotation"
   | any (ignoreVersion version) anns =
     singleTest name $ TestCase \_ ->
       pure (testPassed "") { resultShortDescription = "IGNORE" }
@@ -465,8 +461,15 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService o
     DamlTestInput { name, path, anns } = input
     ignoreVersion version = \case
       Ignore -> True
-      SinceLF minVersion -> version `canDependOn` minVersion
-      UntilLF maxVersion -> version >= maxVersion
+      -- Ignores the test only if the SinceLF annotation is for a version with
+      -- the same major version as the target version, and their minor versions
+      -- are incompatible. If the major versions differ then everything is as if
+      -- the annotation didn't exist. This allows to specify version bounds for
+      -- both V1 and V2.
+      SinceLF minVersion ->
+        (versionMajor version == versionMajor minVersion) && not (version `canDependOn` minVersion)
+      SupportsFeature featureName -> not (version `satisfies` versionReqForFeaturePartial featureName)
+      DoesNotSupportFeature featureName -> version `satisfies` versionReqForFeaturePartial featureName
       ScriptV2 -> not isScriptV2Opt
       EvaluationOrder evalOrder -> evalOrder /= evalOrderOpt
       _ -> False
@@ -545,9 +548,11 @@ data Ann
     = Ignore
       -- ^ Don't run this test at all
     | SinceLF LF.Version
-      -- ^ Only run this test since the given Daml-LF version (inclusive)
-    | UntilLF LF.Version
-      -- ^ Only run this test until the given Daml-LF version (exclusive)
+      -- ^ Only run this test if the target Daml-LF version can depend on the given Daml-LF version
+    | SupportsFeature T.Text
+      -- ^ Only run this test if the given feature is supported by the target Daml-LF version
+    | DoesNotSupportFeature T.Text
+      -- ^ Only run this test if the given feature is not supported by the target Daml-LF version
     | DiagnosticFields [DiagnosticField]
       -- ^ I expect a diagnostic that has the given fields
     | QueryLF String Bool
@@ -571,9 +576,8 @@ readFileAnns file = do
         f (stripPrefix "-- @" . trim -> Just x) = case word1 $ trim x of
             ("IGNORE",_) -> Just Ignore
             ("SINCE-LF", x) -> Just $ SinceLF $ fromJust $ LF.parseVersion $ trim x
-            ("UNTIL-LF", x) -> Just $ UntilLF $ fromJust $ LF.parseVersion $ trim x
-            ("SUPPORTS-LF-FEATURE", x) -> Just $ SinceLF $ LF.versionForFeaturePartial $ T.pack $ trim x
-            ("UNTIL-LF-FEATURE", x) -> Just $ UntilLF $ LF.versionForFeaturePartial $ T.pack $ trim x
+            ("SUPPORTS-LF-FEATURE", x) -> Just $ SupportsFeature $ T.pack $ trim x
+            ("DOES-NOT-SUPPORT-LF-FEATURE", x) -> Just $ DoesNotSupportFeature $ T.pack $ trim x
             ("ERROR",x) -> Just (DiagnosticFields (DSeverity DsError : parseFields x))
             ("WARN",x) -> Just (DiagnosticFields (DSeverity DsWarning : parseFields x))
             ("INFO",x) -> Just (DiagnosticFields (DSeverity DsInfo : parseFields x))

@@ -3,7 +3,7 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
--- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @SUPPORTS-LF-FEATURE DAML_INTERFACE
 module RetroactiveInterfaceInstance where
 
 import Daml.Script
@@ -80,7 +80,7 @@ main = script do
       owner = p
       amount = 15
   let cidToken1 = toInterfaceContractId @Token cidAsset1
-  (cidToken2, cidToken3) <- p `submit` do 
+  (cidToken2, cidToken3) <- p `submit` do
     exerciseCmd cidToken1 (Noop ())
     r <- exerciseCmd cidToken1 (Split 10)
     pure r

@@ -18,6 +18,7 @@ import qualified Data.Text as T
 import           Safe (headMay)
 import           Text.ParserCombinators.ReadP (ReadP, pfail, readP_to_S, (+++), munch1)
 import qualified Text.ParserCombinators.ReadP as ReadP
+import qualified Data.Map.Strict as MS
 
 -- | Daml-LF version of an archive payload.
 data Version = Version
@@ -270,30 +271,29 @@ allFeatures =
     , featureNatTypeErasure
     ]
 
--- featureVersionMap :: MS.Map T.Text Version
--- featureVersionMap = MS.fromList
---     [ (key, version)
---     | feature <- allFeatures
---     , let version = featureMinVersion feature
---     , Just key <- [featureCppFlag feature]
---     ]
+featureMap :: MS.Map T.Text Feature
+featureMap = MS.fromList
+    [ (key, feature)
+    | feature <- allFeatures
+    , Just key <- [featureCppFlag feature]
+    ]
 
--- -- | Return minimum version associated with a feature flag.
--- versionForFeature :: T.Text -> Maybe Version
--- versionForFeature key = MS.lookup key featureVersionMap
+-- | Return the version requirements associated with a feature flag.
+versionReqForFeature :: T.Text -> Maybe VersionReq
+versionReqForFeature key = featureVersionReq <$> MS.lookup key featureMap
 
 -- | Same as 'versionForFeature' but errors out if the feature doesn't exist.
-versionForFeaturePartial :: T.Text -> Version
-versionForFeaturePartial _ = undefined
-    -- case versionForFeature key of
-    --     Just version -> version
-    --     Nothing ->
-    --         error . T.unpack . T.concat $
-    --             [ "Unknown feature: "
-    --             , key
-    --             , ". Available features are: "
-    --             , T.intercalate ", " (MS.keys featureVersionMap)
-    --             ]
+versionReqForFeaturePartial :: T.Text -> VersionReq
+versionReqForFeaturePartial key = undefined
+    case versionReqForFeature key of
+        Just version -> version
+        Nothing ->
+            error . T.unpack . T.concat $
+                [ "Unknown feature: "
+                , key
+                , ". Available features are: "
+                , T.intercalate ", " (MS.keys featureMap)
+                ]
 
 allFeaturesForVersion :: Version -> [Feature]
 allFeaturesForVersion version = filter (supports version) allFeatures
