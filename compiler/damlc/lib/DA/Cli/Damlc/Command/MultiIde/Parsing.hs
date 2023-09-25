@@ -30,6 +30,7 @@ import qualified Data.ByteString as B
 import Data.ByteString.Builder.Extra (defaultChunkSize)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
+import Data.Foldable (forM_)
 import DA.Cli.Damlc.Command.MultiIde.Types
 import Data.Functor.Product
 import qualified Data.IxMap as IM
@@ -116,9 +117,7 @@ pickReqMethodTo
 pickReqMethodTo tracker handler = atomically $ do
   im <- readTVar tracker
   let (r, mayNewIM) = handler (flip IM.pickFromIxMap im)
-  case mayNewIM of
-    Just newIM -> writeTVar tracker newIM
-    Nothing -> pure ()
+  forM_ mayNewIM $ writeTVar tracker
   pure r
 
 -- We're forced to give a result of type `(SMethod m, a m)` by parseServerMessage, but we want to include the updated MethodTracker

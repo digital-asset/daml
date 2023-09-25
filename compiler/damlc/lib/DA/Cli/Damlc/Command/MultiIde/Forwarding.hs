@@ -53,7 +53,7 @@ assumeSuccessCombiner
   :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
   .  ([(FilePath, LSP.ResponseResult m)] -> LSP.ResponseResult m)
   -> ResponseCombiner m
-assumeSuccessCombiner f res = f <$> sequence (pullMonadThroughTuple <$> res)
+assumeSuccessCombiner f res = f <$> mapM pullMonadThroughTuple res
 
 ignore :: Forwarding m
 ignore = ExplicitHandler $ \_ _ -> pure ()

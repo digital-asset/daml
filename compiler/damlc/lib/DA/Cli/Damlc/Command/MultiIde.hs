@@ -243,7 +243,7 @@ sendAllSubIDEs :: StateVars -> LSP.FromClientMessage -> IO [FilePath]
 sendAllSubIDEs stateVars msg = atomically $ do
   idesUnfiltered <- takeTMVar (subIDEsVar stateVars)
   let ides = Map.filter ideActive idesUnfiltered
-  if null ides then error "Got a broadcast to nothing :(" else pure ()
+  when (null ides) $ error "Got a broadcast to nothing :("
   homes <- forM (Map.elems ides) $ \ide -> ideHomeDirectory ide <$ writeTChan (ideInHandleChannel ide) (Aeson.encode msg)
   putTMVar (subIDEsVar stateVars) idesUnfiltered
   pure homes
