@@ -180,7 +180,7 @@ object ContractStateMachine {
         byKey: Boolean,
         consuming: Boolean,
     ): Either[InconsistentContractKey, State[Nid]] = {
-      val state = this.copy(inputContractIds = inputContractIds + targetId)
+      val state = witnessContractId(targetId)
       for {
         state <-
           if (byKey || mode == ContractKeyUniquenessMode.Strict)
@@ -235,7 +235,7 @@ object ContractStateMachine {
         keyResolution: Option[ContractId],
     ): Either[InconsistentContractKey, State[Nid]] = {
       val state = keyInput match {
-        case Some(contractId) => this.copy(inputContractIds = inputContractIds + contractId)
+        case Some(contractId) => witnessContractId(contractId)
         case None => this
       }
       val (keyMapping, next) = state.resolveKey(gk) match {
@@ -285,12 +285,16 @@ object ContractStateMachine {
         mbKey: Option[GlobalKey],
         byKey: Boolean,
     ): Either[InconsistentContractKey, State[Nid]] = {
-      val state = this.copy(inputContractIds = inputContractIds + contractId)
+      val state = witnessContractId(contractId)
       if (byKey || mode == ContractKeyUniquenessMode.Strict)
         state.assertKeyMapping(contractId, mbKey)
       else
         Right(state)
     }
+
+    private[lf] def witnessContractId(contractId: ContractId): State[Nid] =
+      if (locallyCreated.contains(contractId)) this
+      else this.copy(inputContractIds = inputContractIds + contractId)
 
     private[lf] def assertKeyMapping(
         cid: Value.ContractId,
@@ -443,7 +447,8 @@ object ContractStateMachine {
 
         this.copy(
           locallyCreated = this.locallyCreated.union(substate.locallyCreated),
-          inputContractIds = this.inputContractIds.union(substate.inputContractIds),
+          inputContractIds =
+            this.inputContractIds.union(substate.inputContractIds.diff(this.locallyCreated)),
           globalKeyInputs = globalKeyInputs,
           activeState = next,
         )
