@@ -284,7 +284,7 @@ versionReqForFeature key = featureVersionReq <$> MS.lookup key featureMap
 
 -- | Same as 'versionForFeature' but errors out if the feature doesn't exist.
 versionReqForFeaturePartial :: T.Text -> VersionReq
-versionReqForFeaturePartial key = undefined
+versionReqForFeaturePartial key =
     case versionReqForFeature key of
         Just version -> version
         Nothing ->
