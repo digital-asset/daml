@@ -24,6 +24,8 @@ import org.scalatest.matchers.should.Matchers
 
 class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
 
+  import SpeedyTestLib.UpgradeVerificationRequest
+
   private def makePP(pid: PackageId): ParserParameters[this.type] = {
     ParserParameters(pid, languageVersion = LanguageVersion.v1_dev)
   }
@@ -86,6 +88,40 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
 
     }
 
+
+    module M3 {
+
+      record @serializable T1 = { one: Party, two: Party };
+      template (this: T1) = {
+        precondition True;
+        signatories Cons @Party [M3:T1 {one} this] Nil @Party;
+        observers Nil @Party;
+        agreement "Agreement";
+      };
+
+      val do_fetch: ContractId M3:T1 -> Update M3:T1 =
+        \(cId: ContractId M3:T1) ->
+          fetch_template @M3:T1 cId;
+
+    }
+
+    module M4 {
+
+      record @serializable T1 = { one: Party, two: Party };
+      template (this: T1) = {
+        precondition True;
+        signatories Cons @Party [M4:T1 {two} this] Nil @Party; // Like M3 but with diff signatories
+        observers Nil @Party;
+        agreement "Agreement";
+      };
+
+      val do_fetch: ContractId M4:T1 -> Update M4:T1 =
+        \(cId: ContractId M4:T1) ->
+          fetch_template @M4:T1 cId;
+
+    }
+
+
   """,
   )
 
@@ -99,11 +135,14 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
     )
   }
 
-  private val List(alice) = List("alice").map(Party.assertFromString)
+  private val alice = Party.assertFromString("alice")
+  private val bob = Party.assertFromString("bob")
 
   val theCid = Value.ContractId.V1(crypto.Hash.hashPrivateKey(s"theCid"))
 
-  def go(entryPoint: String, contractValue: Value): Either[SError, SValue] = {
+  type Success = (Value, List[UpgradeVerificationRequest])
+
+  def go(entryPoint: String, contractValue: Value): Either[SError, Success] = {
 
     val e: Expr = parseExpr(pid1, entryPoint)
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
@@ -112,7 +151,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
 
     implicit def logContext: LoggingContext = LoggingContext.ForTesting
     val seed = crypto.Hash.hashPrivateKey("seed")
-    val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice))
+    val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
 
     val contract: Versioned[Value.ContractInstance] = {
       val tycon: Identifier = parseTyCon(pid1, "Mxxx:Txxx") // ignored
@@ -122,7 +161,12 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
     val getContract: Map[Value.ContractId, Value.VersionedContractInstance] =
       Map(theCid -> contract)
 
-    SpeedyTestLib.run(machine, getContract = getContract)
+    SpeedyTestLib
+      .runCollectRequests(machine, getContract = getContract)
+      .map { case (sv, _, uvs) => // ignoring any AuthRequest
+        val v = sv.toNormalizedValue(VDev)
+        (v, uvs)
+      }
   }
 
   def makeRecord(fields: Value*): Value = {
@@ -148,8 +192,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
 
       val res = go("M1:do_fetch", v1_base)
 
-      inside(res) { case Right(sv) =>
-        val v = sv.toNormalizedValue(VDev)
+      inside(res) { case Right((v, _)) =>
         v shouldBe v1_base
       }
     }
@@ -205,8 +248,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
 
       val res = go("M1:do_fetch", v1_extraNone)
 
-      inside(res) { case Right(sv) =>
-        val v = sv.toNormalizedValue(VDev)
+      inside(res) { case Right((v, _)) =>
         v shouldBe v1_base
       }
     }
@@ -231,8 +273,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
 
       val res = go("M2:do_fetch", v_missingField)
 
-      inside(res) { case Right(sv) =>
-        val v = sv.toNormalizedValue(VDev)
+      inside(res) { case Right((v, _)) =>
         v shouldBe v_extendedWithNone
       }
     }
@@ -250,6 +291,38 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
         err.toString should include(
           "Unexpected non-optional extra template field type encountered during upgrading: something is very wrong."
         )
+      }
+    }
+
+  }
+
+  "Correct calls to ResultNeedUpgradeVerification" - {
+
+    val v_alice_bob =
+      makeRecord(
+        Value.ValueParty(alice),
+        Value.ValueParty(bob),
+      )
+
+    "M3" in {
+      val res = go("M3:do_fetch", v_alice_bob)
+      inside(res) { case Right((v, List(uv))) =>
+        v shouldBe v_alice_bob
+        v shouldBe v_alice_bob
+        uv.coid shouldBe theCid
+        uv.signatories.toList shouldBe List(alice) // note difference with...
+        uv.observers.toList shouldBe List()
+        uv.keyOpt shouldBe None
+      }
+    }
+    "M4" in {
+      val res = go("M4:do_fetch", v_alice_bob)
+      inside(res) { case Right((v, List(uv))) =>
+        v shouldBe v_alice_bob
+        uv.coid shouldBe theCid
+        uv.signatories.toList shouldBe List(bob) // ..this
+        uv.observers.toList shouldBe List()
+        uv.keyOpt shouldBe None
       }
     }
 

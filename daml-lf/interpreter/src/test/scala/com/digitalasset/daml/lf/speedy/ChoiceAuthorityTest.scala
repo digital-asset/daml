@@ -97,7 +97,9 @@ class ChoiceAuthorityTest extends AnyFreeSpec with Inside {
           ),
         )
         val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
-        SpeedyTestLib.buildTransactionCollectAuthRequests(machine)
+        SpeedyTestLib
+          .buildTransactionCollectRequests(machine)
+          .map { case (x, ars, _) => (x, ars) } // ignoring any UpgradeVerificationRequest
       }
 
       "Happy" - {
