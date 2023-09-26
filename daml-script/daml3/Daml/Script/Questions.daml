@@ -12,6 +12,7 @@ module Daml.Script.Questions
   , module Daml.Script.Questions.TransactionTree
   , module Daml.Script.Questions.UserManagement
   , module Daml.Script.Questions.Util
+  , module Daml.Script.Questions.Submission
   ) where
 
 import Daml.Script.Questions.Commands
@@ -24,3 +25,4 @@ import Daml.Script.Questions.Time
 import Daml.Script.Questions.TransactionTree
 import Daml.Script.Questions.UserManagement
 import Daml.Script.Questions.Util
+import Daml.Script.Questions.Submission

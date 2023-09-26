@@ -241,7 +241,7 @@ class Context(
         )
       case Failure(e: Error) => handleFailure(e)
       case Failure(e: Runner.InterpretationError) => handleFailure(Error.RunnerException(e.error))
-      case Failure(e: engine.free.InterpretationError) =>
+      case Failure(e: speedy.free.InterpretationError) =>
         handleFailure(Error.RunnerException(e.error))
       case Failure(Runner.CanceledByRequest) =>
         handleFailure(Error.CanceledByRequest())

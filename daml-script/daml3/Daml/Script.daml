@@ -86,6 +86,10 @@ module Daml.Script
   , unvetPackages
   , listVettedPackages
   , listAllPackages
+  
+  , rootCreate
+  , rootExercise 
+  , rootCreateAndExercise
   ) where
 
 import Daml.Script.Internal

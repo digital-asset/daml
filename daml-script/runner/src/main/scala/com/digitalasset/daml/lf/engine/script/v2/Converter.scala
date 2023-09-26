@@ -14,7 +14,7 @@ import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{ArrayList, SValue}
+import com.daml.lf.speedy.{ArrayList, StackTrace, SValue}
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import scalaz.std.list._

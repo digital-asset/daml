@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package engine
+package speedy
 
 import data.Ref
 
-final case class StackTrace(frames: Vector[Ref.Location]) {
+private[lf] final case class StackTrace(frames: Vector[Ref.Location]) {
   // Return the most recent frame
   def topFrame: Option[Ref.Location] =
     frames.headOption
@@ -16,13 +16,6 @@ final case class StackTrace(frames: Vector[Ref.Location]) {
     frames.view.map(pretty(_)).mkString("\n")
 }
 
-object StackTrace {
+private[lf] object StackTrace {
   val Empty = StackTrace(Vector.empty)
 }
-
-private case class SrcLoc(
-    pkgId: Ref.PackageId,
-    module: Ref.ModuleName,
-    start: (Int, Int),
-    end: (Int, Int),
-)

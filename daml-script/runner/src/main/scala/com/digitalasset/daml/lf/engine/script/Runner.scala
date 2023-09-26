@@ -42,6 +42,7 @@ import com.daml.lf.speedy.{
   SValue,
   Speedy,
   Profile,
+  StackTrace,
   TraceLog,
   WarningLog,
 }
