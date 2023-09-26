@@ -554,7 +554,7 @@ expandSdkPackages logger lfVersion dars = do
     expand mbSdkPath fp
       | fp `elem` basePackages = pure fp
       | isSdkPackage fp = case mbSdkPath of
-            Just _ | isInvalidDaml3Script fp -> fail "Daml3-script may only be used in LF 1.dev, and is unstable."
+            Just _ | isInvalidDaml3Script fp -> fail "Daml3-script may only be used in LF 2.dev, and is unstable."
             Just sdkPath -> do
               when (fp == "daml3-script")
                 $ Logger.logWarning logger
