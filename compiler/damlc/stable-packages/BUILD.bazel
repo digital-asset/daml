@@ -115,41 +115,45 @@ da_haskell_binary(
 ]
 
 # If you change this you also need to update generateStablePackages in Development.IDE.Core.Rules.Daml
-[
-    filegroup(
-        name = "stable-packages-v{}".format(majorLfVersion),
-        srcs = [
-            "lf-v{}/daml-prim/DA-Exception-ArithmeticError.dalf".format(majorLfVersion),
-            "lf-v{}/daml-prim/DA-Exception-AssertionFailed.dalf".format(majorLfVersion),
-            "lf-v{}/daml-prim/DA-Exception-GeneralError.dalf".format(majorLfVersion),
-            "lf-v{}/daml-prim/DA-Exception-PreconditionFailed.dalf".format(majorLfVersion),
-            "lf-v{}/daml-prim/DA-Internal-Erased.dalf".format(majorLfVersion),
-            "lf-v{}/daml-prim/DA-Internal-NatSyn.dalf".format(majorLfVersion),
-            "lf-v{}/daml-prim/DA-Internal-PromotedText.dalf".format(majorLfVersion),
-            "lf-v{}/daml-prim/DA-Types.dalf".format(majorLfVersion),
-            "lf-v{}/daml-prim/GHC-Prim.dalf".format(majorLfVersion),
-            "lf-v{}/daml-prim/GHC-Tuple.dalf".format(majorLfVersion),
-            "lf-v{}/daml-prim/GHC-Types.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-Action-State-Type.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-Date-Types.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-Internal-Any.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-Internal-Down.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-Internal-Interface-AnyView-Types.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-Internal-Template.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-Logic-Types.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-Monoid-Types.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-NonEmpty-Types.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-Random-Types.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-Semigroup-Types.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-Set-Types.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-Stack-Types.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-Time-Types.dalf".format(majorLfVersion),
-            "lf-v{}/daml-stdlib/DA-Validation-Types.dalf".format(majorLfVersion),
-        ],
-        visibility = ["//visibility:public"],
-    )
-    for majorLfVersion in LF_MAJOR_VERSIONS
-]
+filegroup(
+    name = "stable-packages",
+    srcs = [
+        dalf
+        for dalfs in [
+            [
+                "lf-v{}/daml-prim/DA-Exception-ArithmeticError.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/DA-Exception-AssertionFailed.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/DA-Exception-GeneralError.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/DA-Exception-PreconditionFailed.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/DA-Internal-Erased.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/DA-Internal-NatSyn.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/DA-Internal-PromotedText.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/DA-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/GHC-Prim.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/GHC-Tuple.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/GHC-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Action-State-Type.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Date-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Internal-Any.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Internal-Down.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Internal-Interface-AnyView-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Internal-Template.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Logic-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Monoid-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-NonEmpty-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Random-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Semigroup-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Set-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Stack-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Time-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Validation-Types.dalf".format(majorLfVersion),
+            ]
+            for majorLfVersion in LF_MAJOR_VERSIONS
+        ]
+        for dalf in dalfs
+    ],
+    visibility = ["//visibility:public"],
+)
 
 genrule(
     name = "stable-packages-list-srcs",
