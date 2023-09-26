@@ -33,32 +33,39 @@ main = do
     setEnv "TASTY_NUM_THREADS" "3" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
-    oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
-    testTrees <- forM testArgs $ \(devTargetVersion, exceptionsVersion, darPath) -> do
-        scriptDevDar <- locateRunfiles darPath
-        pure $ tests devTargetVersion exceptionsVersion Tools{..}
+    v1TestArgs <- do
+        let targetDevVersion = LF.version1_dev
+        let exceptionsVersion = minExceptionVersion LF.V1
+        let simpleDalfLfVersion = LF.versionDefault
+        scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar")
+        oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
+        let lfVersionTestPairs = lfVersionTestPairsV1
+        return TestArgs{..}
+    v2TestArgs <- do
+        let targetDevVersion = LF.version2_dev
+        let exceptionsVersion = minExceptionVersion LF.V2
+        -- TODO(#17366): replace with the latest stable version of 2.x once it exists
+        let simpleDalfLfVersion = LF.Version LF.V2 LF.PointDev
+        scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script-2.dev.dar")
+        -- TODO(#17366): replace with a dar targetting 2.0 once it exists
+        oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-d2244d1a9a-2.dev.dar")
+        let lfVersionTestPairs = lfVersionTestPairsV2
+        return TestArgs{..}
+    let testTrees = map tests [v1TestArgs, v2TestArgs]
     defaultMain (testGroup "Data Dependencies" testTrees)
   where
-    testArgs =
-        [
-            ( LF.version1_dev
-            , minExceptionVersion LF.V1
-            , mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar"
-            )
-        ,
-            ( LF.version2_dev
-            , minExceptionVersion LF.V2
-            , mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script-2.dev.dar"
-            )
-        ]
     minExceptionVersion major =
         fromJustNote
             "exceptions should have a minor version for every existing major version"
             (LF.featureMinVersion LF.featureExceptions major)
 
-data Tools = Tools -- and places
-  { damlc :: FilePath
+data TestArgs = TestArgs
+  { targetDevVersion :: LF.Version
+  , exceptionsVersion :: LF.Version
+  , simpleDalfLfVersion :: LF.Version
+  , lfVersionTestPairs :: [(LF.Version, LF.Version)]
+  , damlc :: FilePath
   , damlcLegacy :: FilePath
   , scriptDevDar :: FilePath
   , validate :: FilePath -> IO ()
@@ -70,11 +77,6 @@ data DataDependenciesTestOptions = DataDependenciesTestOptions
   , extraDeps :: [FilePath]
   }
 
-damlcForTarget :: Tools -> LF.Version -> FilePath
-damlcForTarget Tools{damlc, damlcLegacy} target
-  | target `elem` LF.supportedOutputVersions = damlc
-  | otherwise = damlcLegacy
-
 darPackageIds :: FilePath -> IO [LF.PackageId]
 darPackageIds fp = do
     archive <- Zip.toArchive <$> BSL.readFile fp
@@ -85,23 +87,37 @@ darPackageIds fp = do
 -- | We test two sets of versions:
 -- 1. Versions no longer supported as output versions by damlc are tested against
 --    1.14.
--- 2. For all other versions we test them against the next version + extra (1.dev, 1.dev) and
---    (2.dev, 2.dev) pairs.
-lfVersionTestPairs :: [(LF.Version, LF.Version)]
-lfVersionTestPairs =
-    let supportedV1InputVersions = sortOn LF.versionMinor $ filter (hasMajorVersion LF.V1) LF.supportedInputVersions
-        supportedV1OutputVersions = sortOn LF.versionMinor $ filter (hasMajorVersion LF.V2) LF.supportedOutputVersions
-        supportedV2OutputVersions = sortOn LF.versionMinor $ filter (hasMajorVersion LF.V2) LF.supportedOutputVersions
-        legacyPairs = map (, LF.version1_14) (supportedV1InputVersions \\ supportedV1OutputVersions)
-        v1Pairs = zip supportedV1OutputVersions (tail supportedV1OutputVersions)
-        v2Pairs = zip supportedV2OutputVersions (tail supportedV2OutputVersions)
-        selfPairs = [(LF.version1_dev, LF.version1_dev), (LF.version2_dev, LF.version2_dev)]
-    in concat [legacyPairs, v1Pairs, v2Pairs, selfPairs]
+-- 2. For all other versions we test them against the next version + extra (1.dev, 1.dev)
+lfVersionTestPairsV1 :: [(LF.Version, LF.Version)]
+lfVersionTestPairsV1 =
+    let supportedInputVersions =
+            sortOn LF.versionMinor $
+                filter (hasMajorVersion LF.V1) LF.supportedInputVersions
+        supportedOutputVersions =
+            sortOn LF.versionMinor $
+                filter (hasMajorVersion LF.V1) LF.supportedOutputVersions
+        legacyPairs = map (,LF.version1_14) (supportedInputVersions \\ supportedOutputVersions)
+        nPlusOnePairs = zip supportedOutputVersions (tail supportedOutputVersions)
+        selfPair = (LF.version1_dev, LF.version1_dev)
+     in selfPair : concat [legacyPairs, nPlusOnePairs]
   where
     hasMajorVersion major v = LF.versionMajor v == major
 
-tests :: LF.Version -> LF.Version -> Tools -> TestTree
-tests targetDevVersion exceptionsVersion tools = testGroup (LF.renderVersion targetDevVersion) $
+-- | We test each version against the next one + extra (2.dev, 2.dev)
+lfVersionTestPairsV2 :: [(LF.Version, LF.Version)]
+lfVersionTestPairsV2 =
+    let supportedOutputVersions =
+            sortOn LF.versionMinor $
+                filter (hasMajorVersion LF.V2) LF.supportedOutputVersions
+        nPlusOnePairs = zip supportedOutputVersions (tail supportedOutputVersions)
+        selfPair = (LF.version2_dev, LF.version2_dev)
+     in selfPair : nPlusOnePairs
+  where
+    hasMajorVersion major v = LF.versionMajor v == major
+
+tests :: TestArgs -> TestTree
+tests TestArgs{..} =
+    testGroup (LF.renderVersion targetDevVersion) $
     [ testCaseSteps ("Cross Daml-LF version: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
@@ -134,7 +150,7 @@ tests targetDevVersion exceptionsVersion tools = testGroup (LF.renderVersion tar
               , "source: src"
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
-          callProcessSilent (damlcForTarget tools depLfVer)
+          callProcessSilent (damlcForTarget depLfVer)
                 ["build"
                 , "--project-root", proja
                 , "--target", LF.renderVersion depLfVer
@@ -205,7 +221,7 @@ tests targetDevVersion exceptionsVersion tools = testGroup (LF.renderVersion tar
               , "source: src"
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
-          callProcessSilent (damlcForTarget tools depLfVer)
+          callProcessSilent (damlcForTarget depLfVer)
                 ["build"
                 , "--project-root", proja
                 , "--target", LF.renderVersion depLfVer
@@ -270,7 +286,7 @@ tests targetDevVersion exceptionsVersion tools = testGroup (LF.renderVersion tar
               , "source: src"
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
-          callProcessSilent (damlcForTarget tools depLfVer)
+          callProcessSilent (damlcForTarget depLfVer)
                 ["build"
                 , "--project-root", proja
                 , "--target", LF.renderVersion depLfVer
@@ -291,7 +307,7 @@ tests targetDevVersion exceptionsVersion tools = testGroup (LF.renderVersion tar
               , "dependencies: [daml-prim, daml-stdlib]"
               , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
               ]
-          callProcessSilent (damlcForTarget tools depLfVer)
+          callProcessSilent (damlcForTarget depLfVer)
             ["build"
             , "--project-root", projb
             , "--target", LF.renderVersion depLfVer
@@ -350,7 +366,7 @@ tests targetDevVersion exceptionsVersion tools = testGroup (LF.renderVersion tar
                 , "data-dependencies:"
                 , " - " <> show oldProjDar
                 ]
-            callProcessSilent (damlcForTarget tools depLfVer)
+            callProcessSilent (damlcForTarget depLfVer)
                 ["build"
                 , "--project-root", proja
                 , "--target", LF.renderVersion depLfVer
@@ -723,7 +739,8 @@ tests targetDevVersion exceptionsVersion tools = testGroup (LF.renderVersion tar
             ]
         callProcessSilent genSimpleDalf $
             ["--with-archive-choice" | withArchiveChoice ] <>
-            [projDir </> "simple-dalf-1.0.0.dalf"]
+            ["--lf-version", LF.renderVersion simpleDalfLfVersion
+            , projDir </> "simple-dalf-1.0.0.dalf"]
         callProcessSilent damlc
             [ "build"
             , "--project-root", projDir
@@ -826,7 +843,7 @@ tests targetDevVersion exceptionsVersion tools = testGroup (LF.renderVersion tar
               , "source: src"
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
-          callProcessSilent (damlcForTarget tools depLfVer)
+          callProcessSilent (damlcForTarget depLfVer)
               [ "build"
               , "--project-root", proja
               , "--target", LF.renderVersion depLfVer
@@ -2734,13 +2751,6 @@ tests targetDevVersion exceptionsVersion tools = testGroup (LF.renderVersion tar
             , "--target", LF.renderVersion targetDevVersion ]
     ]
   where
-    Tools
-      { damlc
-      , validate
-      , oldProjDar
-      , scriptDevDar
-      } = tools
-
     defTestOptions :: DataDependenciesTestOptions
     defTestOptions = DataDependenciesTestOptions [] []
 
@@ -2802,3 +2812,9 @@ tests targetDevVersion exceptionsVersion tools = testGroup (LF.renderVersion tar
                 [ "build"
                 , "--project-root"
                 , tmpDir </> "main" ]
+
+    damlcForTarget :: LF.Version -> FilePath
+    damlcForTarget target
+      | target `elem` LF.supportedOutputVersions = damlc
+      | otherwise = damlcLegacy
+
