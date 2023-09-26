@@ -400,10 +400,9 @@ public class JsonLfReader {
       Location from = r.locationStart();
       try {
         r.parser.skipChildren();
-        r.parser.nextToken();
-        Location to = r.locationStart();
+        Location to = r.locationEnd();
         String repr = r.json.substring(from.charOffset, to.charOffset).trim();
-        if (repr.endsWith(",")) repr = repr.substring(0, repr.length() - 1); // drop trailing comma
+        r.moveNext();
         return new UnknownValue(repr, from);
       } catch (IOException e) {
         throw new JsonLfDecoder.Error("cannot read unknown value", r.locationStart(), e);
@@ -414,7 +413,7 @@ public class JsonLfReader {
       try {
         return decoder.decode(new JsonLfReader(this.jsonRepr));
       } catch (JsonLfDecoder.Error e) {
-        throw e.fromStartLocation(this.start);
+        throw e.fromStartLocation(this.start); // Adjust location to offset by the start position.
       }
     }
   }
@@ -446,7 +445,6 @@ public class JsonLfReader {
   }
 
   private boolean notEndArray() {
-    if (parser.isClosed()) throw new RuntimeException("oh no!, it's closed!");
     return !parser.isClosed() && parser.currentToken() != JsonToken.END_ARRAY;
   }
 
@@ -454,7 +452,7 @@ public class JsonLfReader {
 
   private void readStartObject() throws JsonLfDecoder.Error {
     expectIsAt("{", JsonToken.START_OBJECT);
-    moveNext("}", "field name");
+    moveNext();
   }
 
   private void readEndObject() throws JsonLfDecoder.Error {
@@ -464,7 +462,7 @@ public class JsonLfReader {
 
   private void readStartArray() throws JsonLfDecoder.Error {
     expectIsAt("[", JsonToken.START_ARRAY);
-    moveNext("]", "list item");
+    moveNext();
   }
 
   private void readEndArray() throws JsonLfDecoder.Error {
@@ -472,6 +470,7 @@ public class JsonLfReader {
     moveNext();
   }
 
+  // Read a field name. If any expected values are provided, the field name must match one.
   private String readFieldName(String... expected) throws JsonLfDecoder.Error {
     String want = (expected.length == 0) ? "field name" : "field " + String.join(" or ", expected);
     expectIsAt(want, JsonToken.FIELD_NAME);
@@ -537,15 +536,14 @@ public class JsonLfReader {
     parseExpected(description);
   }
 
-  private void moveNext(String... expected) throws JsonLfDecoder.Error {
+  JsonLfReader moveNext() throws JsonLfDecoder.Error {
     try {
       parser.nextToken();
+      return this;
     } catch (JsonParseException e) {
       throw new JsonLfDecoder.Error("JSON parse error", locationEnd(), e);
     } catch (IOException e) {
-      String want = (expected.length == 0) ? "more input" : String.join(" or ", expected);
-      throw new JsonLfDecoder.Error(
-          String.format("Expected %s but no more input", want), locationEnd(), e);
+      throw new JsonLfDecoder.Error(String.format("Read failed"), locationEnd(), e);
     }
   }
 

@@ -565,6 +565,58 @@ public class JsonLfReaderTest {
         errors("{\"i\":[1],\"b\":true ", "JSON parse error at line: 1, column: 19"));
   }
 
+  @Test
+  void testUnknownValue() throws JsonLfDecoder.Error {
+    JsonLfReader.UnknownValue.read(new JsonLfReader("1")).decodeWith(Decoders.int64);
+
+    JsonLfReader.UnknownValue.read(
+            new JsonLfReader("[1,2]").moveNext() // Skip [
+            )
+        .decodeWith(Decoders.int64);
+
+    JsonLfReader.UnknownValue.read(
+            new JsonLfReader("[1,false , 2]")
+                .moveNext() // Skip [
+                .moveNext() // Skip 1
+            )
+        .decodeWith(Decoders.bool);
+
+    JsonLfReader.UnknownValue.read(
+            new JsonLfReader("{\"a\":{}}")
+                .moveNext() // Skip {
+                .moveNext() // Skip "a"
+            )
+        .decodeWith(Decoders.unit);
+
+    JsonLfReader.UnknownValue.read(
+            new JsonLfReader("[ [\n[ 42]\t] ,[]]").moveNext() // Skip [
+            )
+        .decodeWith(
+            Decoders.optionalNested(Decoders.optionalNested(Decoders.optional(Decoders.int64))));
+  }
+
+  @Test
+  void testUnknownValueErrors() throws JsonLfDecoder.Error {
+    unknownValueDecodeErrors(
+        "42", r -> r, Decoders.bool, "Expected boolean but was 42 at line: 1, column: 1");
+    unknownValueDecodeErrors(
+        "[ 1 , 2, 3]",
+        r -> r.moveNext(),
+        Decoders.bool,
+        "Expected boolean but was 1 at line: 1, column: 3");
+    unknownValueDecodeErrors(
+        "{\n  \"x\": 1,\n  \"y\" : [\n    \"hello\",\n    [ 42]\n    ]\n}",
+        r ->
+            r.moveNext() // Skip {
+                .moveNext() // Skip "x"
+                .moveNext() // Skip 1
+                .moveNext() // Skip "y"
+                .moveNext() // Skip [
+                .moveNext(), // Skip "hello"
+        Decoders.list(Decoders.bool),
+        "Expected boolean but was 42 at line: 5, column: 7");
+  }
+
   private BigDecimal dec(String s) {
     return new BigDecimal(s);
   }
@@ -735,6 +787,11 @@ public class JsonLfReaderTest {
     void check(JsonLfDecoder<T> decoder) throws JsonLfDecoder.Error;
   }
 
+  @FunctionalInterface
+  static interface FunctionThrowsError<In, Out> {
+    Out apply(In in) throws JsonLfDecoder.Error;
+  }
+
   private <T> TestCase<T> eq(String input, T expected) {
     return (JsonLfDecoder<T> decoder) -> {
       T actual = decoder.decode(new JsonLfReader(input));
@@ -769,9 +826,33 @@ public class JsonLfReaderTest {
 
   private <T, E extends Throwable> TestCase<T> errors(
       String input, Pattern errorMessage, Class<E> causeClass) {
+    return (JsonLfDecoder<T> decoder) ->
+        this.<T, E>checkDecodeError(
+                d -> decoder.decode(new JsonLfReader(input)), input, errorMessage, causeClass)
+            .check(decoder);
+  }
+
+  private <T> void unknownValueDecodeErrors(
+      String input,
+      FunctionThrowsError<JsonLfReader, JsonLfReader> updateReader,
+      JsonLfDecoder<T> decoder,
+      String errorMessage)
+      throws JsonLfDecoder.Error {
+    JsonLfReader.UnknownValue unknown =
+        JsonLfReader.UnknownValue.read(updateReader.apply(new JsonLfReader(input)));
+    this.<T, Throwable>checkDecodeError(
+            unknown::decodeWith, input, Pattern.compile(Pattern.quote(errorMessage)), null)
+        .check(decoder);
+  }
+
+  private <T, E extends Throwable> TestCase<T> checkDecodeError(
+      FunctionThrowsError<JsonLfDecoder<T>, T> decodeWith,
+      String input,
+      Pattern errorMessage,
+      Class<E> causeClass) {
     return (JsonLfDecoder<T> decoder) -> {
       try {
-        T actual = decoder.decode(new JsonLfReader(input));
+        T actual = decodeWith.apply(decoder);
         assert false
             : String.format(
                 "input='%s' was successfully decoded to %s but should have failed with error"
