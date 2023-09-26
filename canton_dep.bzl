@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 canton = {
-    "sha": "05ea93e80ab683b25aa910cac7f7974ee0398061c0b106ddec4e6546c90a60f0",
-    "url": "https://storage.googleapis.com/daml-binaries/canton-stable/2.8.0-snapshot.20230922.11210.0.v9c780e2e/05ea93e80ab683b25aa910cac7f7974ee0398061c0b106ddec4e6546c90a60f0/canton-open-source-2.8.0-snapshot.20230922.11210.0.v9c780e2e.tar.gz",
+    "sha": "9d6ec02b1eea69a9b89662c24e4f95bb4f8195846afd0ddd297daec46bc31ab9",
+    "url": "https://storage.googleapis.com/daml-binaries/canton-stable/2.8.0-snapshot.20230925.11215.0.v4f819507/9d6ec02b1eea69a9b89662c24e4f95bb4f8195846afd0ddd297daec46bc31ab9/canton-open-source-2.8.0-snapshot.20230925.11215.0.v4f819507.tar.gz",
     "local": False,
 }
