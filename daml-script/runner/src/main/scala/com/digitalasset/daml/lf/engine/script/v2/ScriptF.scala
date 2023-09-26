@@ -315,8 +315,10 @@ object ScriptF {
     ): Future[SExpr] =
       for {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-        optR <- client.queryContractId(parties, tplId, cid)
-        optR <- Converter.toFuture(optR.traverse(Converter.fromContract(env.valueTranslator, _)))
+        optR <- client.queryContractId(parties, tplId, cid, true)
+        optR <- Converter.toFuture(
+          optR.traverse(Converter.fromContract(env.valueTranslator, _, true))
+        )
       } yield SEValue(SOptional(optR))
   }
 

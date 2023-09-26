@@ -118,10 +118,11 @@ trait ConverterMethods {
       translator: preprocessing.ValueTranslator,
       templateId: Identifier,
       argument: Value,
+      soft: Boolean = false,
   ): Either[String, SValue] = {
     for {
       translated <- translator
-        .translateValue(TTyCon(templateId), argument)
+        .translateValue(TTyCon(templateId), argument, soft)
         .left
         .map(err => s"Failed to translate create argument: $err")
     } yield record(

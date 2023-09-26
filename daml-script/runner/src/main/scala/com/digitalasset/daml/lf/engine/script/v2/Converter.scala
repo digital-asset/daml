@@ -138,7 +138,9 @@ object Converter extends script.ConverterMethods {
   def fromContract(
       translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract,
-  ): Either[String, SValue] = fromAnyTemplate(translator, contract.templateId, contract.argument)
+      soft: Boolean = false,
+  ): Either[String, SValue] =
+    fromAnyTemplate(translator, contract.templateId, contract.argument, soft)
 
   // Convert a Created event to a pair of (ContractId (), AnyTemplate)
   def fromCreated(

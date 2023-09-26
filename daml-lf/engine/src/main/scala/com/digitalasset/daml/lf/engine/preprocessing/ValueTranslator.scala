@@ -60,6 +60,7 @@ private[lf] final class ValueTranslator(
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
       value: Value,
+      allowCompatibilityTransformations: Boolean = false,
   ): SValue = {
 
     def go(ty0: Type, value0: Value, nesting: Int = 0): SValue =
@@ -175,51 +176,130 @@ private[lf] final class ValueTranslator(
                 )
               // records
               case ValueRecord(mbId, flds) =>
+                // Loose protection, as id might not be provided
                 mbId.foreach(id =>
-                  if (id != tyCon)
+                  if (!allowCompatibilityTransformations && id != tyCon)
                     typeError(
                       s"Mismatching record id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
                 val lookupResult = handleLookup(pkgInterface.lookupDataRecord(tyCon))
                 val recordFlds = lookupResult.dataRecord.fields
+
+                // TODO: Bring this behaviour back
                 // note that we check the number of fields _before_ checking if we can do
                 // field reordering by looking at the labels. this means that it's forbidden to
                 // repeat keys even if we provide all the labels, which might be surprising
                 // since in JavaScript / Scala / most languages (but _not_ JSON, interestingly)
                 // it's ok to do `{"a": 1, "a": 2}`, where the second occurrence would just win.
-                if (recordFlds.length != flds.length) {
-                  typeError(
-                    s"Expecting ${recordFlds.length} field for record $tyCon, but got ${flds.length}"
-                  )
-                }
+                // if (recordFlds.length != flds.length) {
+                //   typeError(
+                //     s"Expecting ${recordFlds.length} field for record $tyCon, but got ${flds.length}"
+                //   )
+                // }
+
+                // Steps:
+                // insist all values present with no type are set to None
+                // insist all missing values have a type of Optional something, and set to None
+                //   insist all missing values are at the end of the type
+
+                // Code that takes flds and makes List[mbLbl -> v] but checks nothing
+                //   if flds is labelled, it first puts the expected fields in the correct order, then adds everything else in original order
+                // then the logic is - is this result is greater in length than types, all extras must be None and are dropped
+                // if this result is smaller than types, all extra types must be Optional and result is backfilled
+
+                // TODO: consider using mutable arrays
+
                 val subst = lookupResult.subst(tyArgs)
-                val fields = labeledRecordToMap(flds) match {
-                  case None =>
-                    (recordFlds zip flds).map { case ((lbl, typ), (mbLbl, v)) =>
-                      mbLbl.foreach(lbl_ =>
-                        if (lbl_ != lbl)
-                          typeError(
-                            s"Mismatching record field label '$lbl_' (expecting '$lbl') for record $tyCon"
-                          )
-                      )
-                      val replacedTyp = AstUtil.substitute(typ, subst)
-                      lbl -> go(replacedTyp, v, newNesting)
-                    }
-                  case Some(labeledRecords) =>
-                    recordFlds.map { case (lbl, typ) =>
-                      labeledRecords
-                        .get(lbl)
-                        .fold(typeError(s"Missing record field '$lbl' for record $tyCon")) { v =>
-                          val replacedTyp = AstUtil.substitute(typ, subst)
-                          lbl -> go(replacedTyp, v, newNesting)
-                        }
-                    }
+
+                val orderedFlds = labeledRecordToMap(flds) match {
+                  // Not fully labelled, so we cannot reorder
+                  case None => flds
+                  case Some(labeledFlds) => {
+                    // If fully labelled, we put the fields we know of first (in the correct order), then the rest after
+                    // State is (ordered fields, remaining source fields, is taking known labels)
+                    val initialState: (Seq[(Option[String], Value)], Map[String, Value], Boolean) =
+                      (Seq(), labeledFlds, true)
+
+                    val (backwardsOrderedRecordFlds, remainingLabeledFlds, _) =
+                      recordFlds.foldLeft(initialState) {
+                        // Taking known labels from the type, order retained but backwards, since we need to carry information forwards
+                        case ((fs, labeledFlds, true), (lbl, _)) =>
+                          labeledFlds.get(lbl).fold((fs, labeledFlds, false)) { fld =>
+                            ((Some(lbl) -> fld) +: fs, labeledFlds - lbl, true)
+                          }
+                        // Taking unknown labels from the type, note that all unknown labels must be together at the end, so finding
+                        // a known label at this point means the record is malformed.
+                        // type error here means that whatever missing field caused this switch is genuinely missing
+                        case ((fs, labeledFlds, false), (lbl, _)) =>
+                          labeledFlds.get(lbl).fold(typeError("bad!")) { _ =>
+                            (fs, labeledFlds, false)
+                          }
+                      }
+                    // TODO: This can probably be faster
+                    ImmArray.from(
+                      backwardsOrderedRecordFlds.reverse ++ remainingLabeledFlds.toSeq.map {
+                        case (lbl, v) => (Some(lbl), v)
+                      }
+                    )
+                  }
                 }
+
+                val numS = orderedFlds.length
+                val numT = recordFlds.length
+
+                val fields = (recordFlds zip orderedFlds).map { case ((lbl, typ), (mbLbl, v)) =>
+                  mbLbl.foreach(lbl_ =>
+                    if (lbl_ != lbl)
+                      typeError(
+                        s"Mismatching record field label '$lbl_' (expecting '$lbl') for record $tyCon"
+                      )
+                  )
+                  val replacedTyp = AstUtil.substitute(typ, subst)
+                  lbl -> go(replacedTyp, v, newNesting)
+                }
+
+                val upgradedFields =
+                  if (numS == numT)
+                    fields
+                  else if (allowCompatibilityTransformations) {
+                    if (numS > numT) {
+                      // We have additional fields, orderedFlds[numT .. numS - 1] must be None
+                      // Thus we are downgrading
+                      orderedFlds.strictSlice(numT, numS).foreach {
+                        case (_, ValueOptional(None)) =>
+                        case (_, ValueOptional(Some(_))) =>
+                          typeError(
+                            "An optional contract field with a value of Some may not be dropped during downgrading."
+                          )
+                        case _ =>
+                          typeError(
+                            "Unexpected non-optional extra contract field encountered during downgrading: something is very wrong."
+                          )
+                      }
+                      fields
+                    } else {
+                      // We are missing fields, recordFlds[NumS .. NumT - 1] must be Option, then we fill with None
+                      // Thus we are upgrading
+                      fields slowAppend recordFlds.strictSlice(numS, numT).map {
+                        case (lbl, TApp(TBuiltin(BTOptional), _)) => lbl -> SValue.SOptional(None)
+                        case _ =>
+                          typeError(
+                            "Unexpected non-optional extra template field type encountered during upgrading: something is very wrong."
+                          )
+                      }
+                    }
+                  } else {
+                    if (numS > numT)
+                      typeError("report numT - numS extra fields in record")
+                    else
+                      typeError("report recordFlds(numS) as missing")
+                  }
+
                 SValue.SRecord(
                   tyCon,
-                  fields.map(_._1),
-                  fields.iterator.map(_._2).to(ArrayList),
+                  upgradedFields.map(_._1),
+                  upgradedFields.iterator.map(_._2).to(ArrayList),
                 )
 
               case ValueEnum(mbId, constructor) if tyArgs.isEmpty =>
@@ -246,7 +326,8 @@ private[lf] final class ValueTranslator(
   def translateValue(
       ty: Type,
       value: Value,
+      allowCompatibilityTransformations: Boolean = false,
   ): Either[Error.Preprocessing.Error, SValue] =
-    safelyRun(unsafeTranslateValue(ty, value))
+    safelyRun(unsafeTranslateValue(ty, value, allowCompatibilityTransformations))
 
 }

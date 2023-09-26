@@ -110,7 +110,11 @@ class IdeLedgerClient(
 
   private val userManagementStore = new InMemoryUserManagementStore(createAdmin = false)
 
-  override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
+  override def query(
+      parties: OneAnd[Set, Ref.Party],
+      templateId: Identifier,
+      soft: Boolean = false,
+  )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
@@ -161,6 +165,7 @@ class IdeLedgerClient(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       cid: ContractId,
+      soft: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
