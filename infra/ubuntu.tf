@@ -9,12 +9,14 @@ locals {
         disk_size  = 400,
         size       = 0,
         assignment = "default",
+        nix        = "su --command \"sh <(curl -sSfL https://nixos.org/nix/install) --daemon\" --login vsts"
       },
       {
         name       = "ci-u2",
         disk_size  = 400,
         size       = 0,
         assignment = "default",
+        nix        = "su --command \"sh <(curl -sSfL https://nixos.org/nix/install) --daemon\" --login vsts"
       },
     ],
     azure = [
@@ -23,12 +25,14 @@ locals {
         disk_size  = 400,
         size       = 10,
         assignment = "default",
+        nix        = "su --command \"sh <(curl -sSfL https://releases.nixos.org/nix/nix-2.17.0/install) --daemon\" --login vsts"
       },
       {
         name       = "du2",
         disk_size  = 400,
         size       = 0,
         assignment = "default",
+        nix        = "su --command \"sh <(curl -sSfL https://releases.nixos.org/nix/nix-2.17.0/install) --daemon\" --login vsts"
       },
     ]
   }
