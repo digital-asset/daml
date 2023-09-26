@@ -17,12 +17,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Consumer;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
@@ -31,17 +32,36 @@ import org.junit.runner.RunWith;
 public class JsonLfReaderTest {
 
   @Test
-  void testUnit() throws IOException {
+  void testUnit() throws JsonLfDecoder.Error {
     checkReadAll(Decoders.unit, eq("{}", Unit.getInstance()), eq("\t{\n} ", Unit.getInstance()));
   }
 
   @Test
-  void testBool() throws IOException {
+  void testUnitErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.unit,
+        errors("", "Expected { but was nothing at line: 1, column: 0"),
+        errors("{", "JSON parse error at line: 1, column: 2", IOException.class),
+        errors("}", "JSON parse error at line: 1, column: 1", IOException.class),
+        errors("null", "Expected { but was null at line: 1, column: 1"));
+  }
+
+  @Test
+  void testBool() throws JsonLfDecoder.Error {
     checkReadAll(Decoders.bool, eq("false", false), eq("true", true));
   }
 
   @Test
-  void testInt64() throws IOException {
+  void testBoolErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.bool,
+        errors("1", "Expected boolean but was 1 at line: 1, column: 1"),
+        errors("\"true\"", "Expected boolean but was true at line: 1, column: 1"),
+        errors("True", "JSON parse error at line: 1, column: 1", IOException.class));
+  }
+
+  @Test
+  void testInt64() throws JsonLfDecoder.Error {
     checkReadAll(
         Decoders.int64,
         eq("42", 42L),
@@ -56,7 +76,23 @@ public class JsonLfReaderTest {
   }
 
   @Test
-  void testDecimal() throws IOException {
+  void testInt64Errors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.int64,
+        errors("42.3", "Expected int64 but was 42.3 at line: 1, column: 1"),
+        errors("+42", "JSON parse error at line: 1, column: 1", IOException.class),
+        errors(
+            "9223372036854775808",
+            "Expected int64 but was 9223372036854775808 at line: 1, column: 1"),
+        errors(
+            "-9223372036854775809",
+            "Expected int64 but was -9223372036854775809 at line: 1, column: 1"),
+        errors("\"garbage\"", "Expected int64 but was garbage at line: 1, column: 1"),
+        errors("\"   42 \"", "Expected int64 but was    42  at line: 1, column: 1"));
+  }
+
+  @Test
+  void testNumeric() throws JsonLfDecoder.Error {
     checkReadAll(
         Decoders.numeric(10),
         cmpEq("42", dec("42")),
@@ -69,12 +105,41 @@ public class JsonLfReaderTest {
         cmpEq("0.30000000000000004", dec("0.3")),
         cmpEq("2e3", dec("2000")),
         cmpEq(
+            "-9999999999999999999999999999.9999999999",
+            dec("-9999999999999999999999999999.9999999999")),
+        cmpEq(
             "9999999999999999999999999999.9999999999",
             dec("9999999999999999999999999999.9999999999")));
   }
 
   @Test
-  void testTimestamp() throws IOException {
+  void testNumericErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.numeric(10),
+        errors(
+            "\"  42  \"",
+            "Expected numeric but was   42   at line: 1, column: 1",
+            NumberFormatException.class),
+        errors(
+            "\"blah\"",
+            "Expected numeric but was blah at line: 1, column: 1",
+            NumberFormatException.class),
+        errors(
+            "10000000000000000000000000000",
+            "Expected numeric in range (-10^28, 10^28) but was 10000000000000000000000000000 at"
+                + " line: 1, column: 1"),
+        errors(
+            "-10000000000000000000000000000",
+            "Expected numeric in range (-10^28, 10^28) but was -10000000000000000000000000000 at"
+                + " line: 1, column: 1"),
+        errors(
+            "99999999999999999999999999990",
+            "Expected numeric in range (-10^28, 10^28) but was 99999999999999999999999999990 at"
+                + " line: 1, column: 1"));
+  }
+
+  @Test
+  void testTimestamp() throws JsonLfDecoder.Error {
     checkReadAll(
         Decoders.timestamp,
         eq(
@@ -90,11 +155,49 @@ public class JsonLfReaderTest {
         eq(
             "\"1990-11-09T04:30:23.123Z\"",
             timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 123000)),
+        eq("\"1990-11-09T04:30:23.12Z\"", timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 120000)),
+        eq("\"1990-11-09T04:30:23.1Z\"", timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 100000)),
+        eq("\"1990-11-09T04:30:23Z\"", timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 0)),
         eq("\"0001-01-01T00:00:00Z\"", timestampUTC(1, Month.JANUARY, 1, 0, 0, 0, 0)));
   }
 
   @Test
-  void testDate() throws IOException {
+  void testTimestampErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.timestamp,
+        // 24th hour
+        errors(
+            "\"1990-11-09T24:30:23.123Z\"",
+            "Expected valid ISO 8601 date and time in UTC but was 1990-11-09T24:30:23.123Z at"
+                + " line: 1, column: 1",
+            DateTimeParseException.class),
+        // No Z
+        errors(
+            "\"1990-11-09T04:30:23.123\"",
+            "Expected valid ISO 8601 date and time in UTC but was 1990-11-09T04:30:23.123 at line:"
+                + " 1, column: 1",
+            DateTimeParseException.class),
+        // No time
+        errors(
+            "\"1990-11-09\"",
+            "Expected valid ISO 8601 date and time in UTC but was 1990-11-09 at line: 1, column: 1",
+            DateTimeParseException.class),
+        // Time zone
+        errors(
+            "\"1990-11-09T04:30:23.123-07:00\"",
+            "Expected valid ISO 8601 date and time in UTC but was 1990-11-09T04:30:23.123-07:00 at"
+                + " line: 1, column: 1",
+            DateTimeParseException.class),
+        // No -
+        errors(
+            "\"19901109T043023Z\"",
+            "Expected valid ISO 8601 date and time in UTC but was 19901109T043023Z at line: 1,"
+                + " column: 1",
+            DateTimeParseException.class));
+  }
+
+  @Test
+  void testDate() throws JsonLfDecoder.Error {
     checkReadAll(
         Decoders.date,
         eq("\"2019-06-18\"", date(2019, Month.JUNE, 18)),
@@ -103,22 +206,76 @@ public class JsonLfReaderTest {
   }
 
   @Test
-  void testParty() throws IOException {
+  void testDateErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.date,
+        errors(
+            "\"18/06/2019\"",
+            "Expected valid ISO 8601 date but was 18/06/2019 at line: 1, column: 1",
+            DateTimeParseException.class),
+        errors(
+            "\"06/18/2019\"",
+            "Expected valid ISO 8601 date but was 06/18/2019 at line: 1, column: 1",
+            DateTimeParseException.class),
+        errors(
+            "\"06-18-2019\"",
+            "Expected valid ISO 8601 date but was 06-18-2019 at line: 1, column: 1",
+            DateTimeParseException.class),
+        errors(
+            "\"06-18-19\"",
+            "Expected valid ISO 8601 date but was 06-18-19 at line: 1, column: 1",
+            DateTimeParseException.class),
+        errors(
+            "\"20190618\"",
+            "Expected valid ISO 8601 date but was 20190618 at line: 1, column: 1",
+            DateTimeParseException.class),
+        // Thirty days hath September
+        errors(
+            "\"2019-09-31\"",
+            "Expected valid ISO 8601 date but was 2019-09-31 at line: 1, column: 1",
+            DateTimeParseException.class));
+  }
+
+  @Test
+  void testParty() throws JsonLfDecoder.Error {
     checkReadAll(Decoders.party, eq("\"Alice\"", "Alice"));
   }
 
   @Test
-  void testText() throws IOException {
+  void testPartyErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.party,
+        errors("{\"unwrap\": \"foo\"}", "Expected text but was { at line: 1, column: 1"),
+        errors("42", "Expected text but was 42 at line: 1, column: 1"));
+  }
+
+  @Test
+  void testText() throws JsonLfDecoder.Error {
     checkReadAll(Decoders.text, eq("\"\"", ""), eq("\" \"", " "), eq("\"hello\"", "hello"));
   }
 
   @Test
-  void testContractId() throws IOException {
+  void testTextErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.text,
+        errors("{\"unwrap\": \"foo\"}", "Expected text but was { at line: 1, column: 1"),
+        errors("42", "Expected text but was 42 at line: 1, column: 1"));
+  }
+
+  @Test
+  void testContractId() throws JsonLfDecoder.Error {
     checkReadAll(Decoders.contractId(Tmpl.Cid::new), eq("\"deadbeef\"", new Tmpl.Cid("deadbeef")));
   }
 
   @Test
-  void testEnum() throws IOException {
+  void testContractIdErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.contractId(Tmpl.Cid::new),
+        errors("42", "Expected text but was 42 at line: 1, column: 1"));
+  }
+
+  @Test
+  void testEnum() throws JsonLfDecoder.Error {
     checkReadAll(
         Decoders.enumeration(Suit.damlNames),
         eq("\"Hearts\"", Suit.HEARTS),
@@ -128,12 +285,50 @@ public class JsonLfReaderTest {
   }
 
   @Test
-  void testList() throws IOException {
-    checkReadAll(Decoders.list(Decoders.int64), eq("[]", emptyList()), eq("[1,2]", asList(1L, 2L)));
+  void testEnumErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.enumeration(Suit.damlNames),
+        errors("Hearts", "JSON parse error at line: 1, column: 1", IOException.class),
+        errors(
+            "\"HEARTS\"",
+            "Expected one of [Spades, Hearts, Diamonds, Clubs] but was HEARTS at line: 1,"
+                + " column: 1"),
+        errors(
+            "\"Joker\"",
+            "Expected one of [Spades, Hearts, Diamonds, Clubs] but was Joker at line: 1,"
+                + " column: 1"));
   }
 
   @Test
-  void testTextMap() throws IOException {
+  void testList() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.list(Decoders.int64),
+        eq("[]", emptyList()),
+        eq("[1,2]", asList(1L, 2L)),
+        eq("[1,2,\"3\"]", asList(1L, 2L, 3L)));
+  }
+
+  @Test
+  void testListNested() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.list(Decoders.list(Decoders.int64)),
+        eq("[]", emptyList()),
+        eq("[[1], [], [2, 3]]", asList(asList(1L), emptyList(), asList(2L, 3L))));
+  }
+
+  @Test
+  void testListErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.list(Decoders.int64),
+        errors("[", "JSON parse error at line: 1, column: 2", IOException.class),
+        errors("[ 1", "JSON parse error at line: 1, column: 4", IOException.class),
+        errors("[ 1, ", "JSON parse error at line: 1, column: 6", IOException.class),
+        errors("[1, 2, ]", "JSON parse error at line: 1, column: 9", IOException.class),
+        errors("[1, false ]", "Expected int64 but was false at line: 1, column: 5"));
+  }
+
+  @Test
+  void testTextMap() throws JsonLfDecoder.Error {
     checkReadAll(
         Decoders.textMap(Decoders.int64),
         eq("{}", emptyMap()),
@@ -141,7 +336,17 @@ public class JsonLfReaderTest {
   }
 
   @Test
-  void testGenMap() throws IOException {
+  void testTextMapErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.textMap(Decoders.int64),
+        errors("{1: true}", "JSON parse error at line: 1, column: 3", IOException.class),
+        errors("{x: true}", "JSON parse error at line: 1, column: 3", IOException.class),
+        errors("{\"x\": true}", "Expected int64 but was true at line: 1, column: 7"),
+        errors("[[\"x\", true]]", "Expected { but was [ at line: 1, column: 1"));
+  }
+
+  @Test
+  void testGenMap() throws JsonLfDecoder.Error {
     checkReadAll(
         Decoders.genMap(Decoders.text, Decoders.int64),
         eq("[]", emptyMap()),
@@ -149,7 +354,19 @@ public class JsonLfReaderTest {
   }
 
   @Test
-  void testOptionalNonNested() throws IOException {
+  void testGenMapErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.genMap(Decoders.text, Decoders.int64),
+        errors("{}", "Expected [ but was { at line: 1, column: 1"),
+        errors("{\"x\": 1}", "Expected [ but was { at line: 1, column: 1"),
+        errors("[\"x\", 1]", "Expected [ but was x at line: 1, column: 2"),
+        errors("[[\"x\"], [1]]", "Expected int64 but was ] at line: 1, column: 6"),
+        errors("[[\"x\", 1, true]]", "Expected ] but was true at line: 1, column: 11"),
+        errors("[[1, \"x\"]]", "Expected text but was 1 at line: 1, column: 3"));
+  }
+
+  @Test
+  void testOptionalNonNested() throws JsonLfDecoder.Error {
     checkReadAll(
         Decoders.optional(Decoders.int64),
         eq("null", Optional.empty()),
@@ -157,7 +374,17 @@ public class JsonLfReaderTest {
   }
 
   @Test
-  void testOptionalNested() throws IOException {
+  void testOptionalNonNestedErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.optional(Decoders.int64),
+        errors("undefined", "JSON parse error at line: 1, column: 1", IOException.class),
+        errors("", "Expected int64 but was nothing at line: 1, column: 0"),
+        errors("\"None\"", "Expected int64 but was None at line: 1, column: 1"),
+        errors("[]", "Expected int64 but was [ at line: 1, column: 1"));
+  }
+
+  @Test
+  void testOptionalNested() throws JsonLfDecoder.Error {
     checkReadAll(
         Decoders.optionalNested(Decoders.optional(Decoders.int64)),
         eq("null", Optional.empty()),
@@ -166,7 +393,16 @@ public class JsonLfReaderTest {
   }
 
   @Test
-  void testOptionalNestedDeeper() throws IOException {
+  void testOptionalNestedErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.optionalNested(Decoders.optional(Decoders.int64)),
+        errors("[null]", "Expected ] or item but was null at line: 1, column: 2"),
+        errors("[false]", "Expected int64 but was false at line: 1, column: 2"),
+        errors("[[]]", "Expected int64 but was [ at line: 1, column: 2"));
+  }
+
+  @Test
+  void testOptionalNestedDeeper() throws JsonLfDecoder.Error {
     checkReadAll(
         Decoders.optionalNested(
             Decoders.optionalNested(Decoders.optionalNested(Decoders.optional(Decoders.int64)))),
@@ -178,7 +414,7 @@ public class JsonLfReaderTest {
   }
 
   @Test
-  void testOptionalLists() throws IOException {
+  void testOptionalLists() throws JsonLfDecoder.Error {
     checkReadAll(
         Decoders.optional(Decoders.list(Decoders.list(Decoders.int64))),
         eq("null", Optional.empty()),
@@ -188,7 +424,7 @@ public class JsonLfReaderTest {
   }
 
   @Test
-  void testVariant() throws IOException, JsonLfDecoder.Error {
+  void testVariant() throws JsonLfDecoder.Error {
     checkReadAll(
         Decoders.variant(
             asList("Bar", "Baz", "Quux", "Flarp"),
@@ -215,7 +451,68 @@ public class JsonLfReaderTest {
   }
 
   @Test
-  void testRecord() throws IOException {
+  void testVariantErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.variant(
+            asList("Bar", "Baz", "Quux", "Flarp"),
+            tagName -> {
+              switch (tagName) {
+                case "Bar":
+                  return r -> new SomeVariant.Bar(Decoders.int64.decode(r));
+                case "Baz":
+                  return r -> new SomeVariant.Baz(Decoders.unit.decode(r));
+                case "Quux":
+                  return r -> new SomeVariant.Quux(Decoders.optional(Decoders.int64).decode(r));
+                case "Flarp":
+                  return r -> new SomeVariant.Flarp(Decoders.list(Decoders.int64).decode(r));
+                default:
+                  return null;
+              }
+            }),
+        errors("{}", "Expected field tag or value but was } at line: 1, column: 2"),
+        errors("{\"Bar\": 1}", "Expected field tag or value but was Bar at line: 1, column: 2"),
+        errors("{\"value\": 1}", "Expected field tag but was } at line: 1, column: 12"),
+        errors(
+            "{\"tag\": \"What\"}",
+            "Expected one of [Bar, Baz, Quux, Flarp] but was What at line: 1, column: 9"),
+        errors(
+            "{\"tag\": \"Bar\", \"tag\": \"Baz\"}",
+            "Expected field value but was tag at line: 1, column: 16"),
+        errors(
+            "{\"tag\": \"What\", \"value\": 1}",
+            "Expected one of [Bar, Baz, Quux, Flarp] but was What at line: 1, column: 9"),
+        errors(
+            "{\"value\": 1, \"tag\": \"What\"}",
+            "Expected one of [Bar, Baz, Quux, Flarp] but was What at line: 1, column: 21"),
+        errors(
+            "{\"tag\": \"Bar\", \"tag\": \"What\", \"value\": 1}",
+            "Expected field value but was tag at line: 1, column: 16"),
+        errors(
+            "{\"tag\": \"Bar\", \"value\": false}",
+            "Expected int64 but was false at line: 1, column: 25"),
+        errors(
+            "{\"value\": false, \"tag\": \"Bar\"}",
+            "Expected int64 but was false at line: 1, column: 11"),
+        errors(
+            "{\"x\": 1, \"tag\": \"Bar\", \"y\": 2, \"value\": 1}",
+            "Expected field tag or value but was x at line: 1, column: 2"),
+        errors(
+            "{\"value\": [1,2,false,3], \"tag\": \"Flarp\"}",
+            "Expected int64 but was false at line: 1, column: 16"),
+        errors(
+            "{\"value\": 1, \"tag\": \"Quuz\", \"tag\": \"Bar\"}",
+            "Expected one of [Bar, Baz, Quux, Flarp] but was Quuz at line: 1, column: 21"),
+        errors(
+            "{\"value\": false, \"value\": true, \"tag\": \"Quux\", \"value\": 1, \"tag\":"
+                + " \"Bar\"}",
+            "Expected field tag but was value at line: 1, column: 18"),
+        errors(
+            "{\"tag\": \"Bar\", \"value\": 1, \"tag\": \"Baz\"}",
+            "Expected } but was tag at line: 1, column: 28"));
+  }
+
+  @Test
+  void testRecord() throws JsonLfDecoder.Error {
     checkReadAll(
         Decoders.record(
             asList("i", "b"),
@@ -235,6 +532,37 @@ public class JsonLfReaderTest {
         eq("{\"i\":[1,2],\"b\":true}", new SomeRecord(asList(1L, 2L), true)),
         eq("{\"b\":true,\"i\":[1]}", new SomeRecord(asList(1L), true)),
         eq("{\"i\":[1]}", new SomeRecord(asList(1L), false)));
+  }
+
+  @Test
+  void testRecordErrors() throws JsonLfDecoder.Error {
+    checkReadAll(
+        Decoders.record(
+            asList("i", "b"),
+            name -> {
+              switch (name) {
+                case "i":
+                  return Decoders.Field.at(0, Decoders.list(Decoders.int64));
+                case "b":
+                  return Decoders.Field.at(1, Decoders.bool, false);
+                default:
+                  return null;
+              }
+            },
+            args -> new SomeRecord((List<Long>) args[0], (Boolean) args[1])),
+        errors("[1,true]", "Expected [ but was 1 at line: 1, column: 2"),
+        errors("[true,[1]]", "Expected [ but was true at line: 1, column: 2"),
+        errors("[[1]]", "Expected boolean but was ] at line: 1, column: 5"),
+        errors("{\"i\":1,\"b\":true}", "Expected [ but was 1 at line: 1, column: 6"),
+        errors("{\"i\":[false],\"b\":true}", "Expected int64 but was false at line: 1, column: 7"),
+        errors("{\"b\":false}", "Missing field i at line: 1, column: 11"),
+        errors(
+            "{\"i\":[1],\"b\":true,\"extra\":2}",
+            "Unknown field extra (known fields are [i, b]) at line: 1, column: 19"),
+        errors(
+            "{\"i\":[1],\"extra\":2,\"b\":true}",
+            "Unknown field extra (known fields are [i, b]) at line: 1, column: 10"),
+        errors("{\"i\":[1],\"b\":true ", "JSON parse error at line: 1, column: 19"));
   }
 
   private BigDecimal dec(String s) {
@@ -398,45 +726,67 @@ public class JsonLfReaderTest {
   }
 
   private <T> void checkReadAll(JsonLfDecoder<T> decoder, TestCase<T>... testCases)
-      throws IOException {
-    for (var tc : testCases) {
-      JsonLfReader r = new JsonLfReader(tc.input);
-      T actual = decoder.decode(r);
-      tc.check.accept(actual);
-    }
+      throws JsonLfDecoder.Error {
+    for (var tc : testCases) tc.check(decoder);
   }
 
-  static class TestCase<T> {
-    public String input;
-    public final Consumer<T> check;
-
-    public TestCase(String input, Consumer<T> check) {
-      this.input = input;
-      this.check = check;
-    }
+  @FunctionalInterface
+  static interface TestCase<T> {
+    void check(JsonLfDecoder<T> decoder) throws JsonLfDecoder.Error;
   }
 
   private <T> TestCase<T> eq(String input, T expected) {
-    return new TestCase(
-        input,
-        actual -> {
-          assertEquals(
-              expected,
-              actual,
-              String.format("input=%s, expected=%s, actual=%s", input, expected, actual));
-        });
+    return (JsonLfDecoder<T> decoder) -> {
+      T actual = decoder.decode(new JsonLfReader(input));
+      assertEquals(
+          expected,
+          actual,
+          String.format(
+              "input=%s, expected=%s, actual=%s", input, expected.toString(), actual.toString()));
+    };
   }
 
   private <T extends Comparable> TestCase<T> cmpEq(String input, T expected) {
-    return new TestCase(
-        input,
-        actual -> {
-          assertEquals(
-              0,
-              expected.compareTo(actual),
-              String.format(
-                  "unequal by ordering comparison, input=%s, expected=%s, actual=%s",
-                  input, expected, actual));
-        });
+    return (JsonLfDecoder<T> decoder) -> {
+      T actual = decoder.decode(new JsonLfReader(input));
+      assertEquals(
+          0,
+          expected.compareTo(actual),
+          String.format(
+              "unequal by ordering comparison, input=%s, expected=%s, actual=%s",
+              input, expected, actual));
+    };
+  }
+
+  private <T, E extends Throwable> TestCase<T> errors(String input, String errorMessage) {
+    return errors(input, errorMessage, null);
+  }
+
+  private <T, E extends Throwable> TestCase<T> errors(
+      String input, String errorMessage, Class<E> causeClass) {
+    return errors(input, Pattern.compile(Pattern.quote(errorMessage)), causeClass);
+  }
+
+  private <T, E extends Throwable> TestCase<T> errors(
+      String input, Pattern errorMessage, Class<E> causeClass) {
+    return (JsonLfDecoder<T> decoder) -> {
+      try {
+        T actual = decoder.decode(new JsonLfReader(input));
+        assert false
+            : String.format(
+                "input='%s' was successfully decoded to %s but should have failed with error"
+                    + " message: %s",
+                input, actual, errorMessage);
+      } catch (JsonLfDecoder.Error e) {
+        assert errorMessage.matcher(e.getMessage()).find()
+            : String.format(
+                "input='%s', expected error message matching\n\t/%s/\nbut was\n\t'%s'",
+                input, errorMessage, e.getMessage());
+        Throwable cause = e.getCause();
+        if (causeClass != null)
+          assert cause != null && causeClass.isAssignableFrom(cause.getClass())
+              : String.format("Expected cause of %s, but was %s", causeClass, cause);
+      }
+    };
   }
 }

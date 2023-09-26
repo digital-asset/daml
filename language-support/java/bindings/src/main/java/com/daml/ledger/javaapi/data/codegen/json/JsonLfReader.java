@@ -7,6 +7,7 @@ import com.daml.ledger.javaapi.data.Unit;
 import com.daml.ledger.javaapi.data.codegen.ContractId;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonLocation;
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
@@ -17,6 +18,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,13 +34,18 @@ public class JsonLfReader {
   private static final JsonFactory jsonFactory = new JsonFactory();
   private final JsonParser parser;
 
+  @SuppressWarnings("deprecation")
   public JsonLfReader(String json) throws JsonLfDecoder.Error {
     this.json = json;
     try {
       parser = jsonFactory.createParser(json);
+    } catch (IOException e) {
+      throw new JsonLfDecoder.Error("Failed to create parser", locationStart(), e);
+    }
+    try {
       parser.nextToken();
     } catch (IOException e) {
-      throw new JsonLfDecoder.Error("initialization error", e);
+      throw new JsonLfDecoder.Error("JSON parse error", locationStart(), e);
     }
   }
 
@@ -91,12 +98,16 @@ public class JsonLfReader {
         BigDecimal value = null;
         try {
           value = new BigDecimal(r.parser.getText());
-          if (value.scale() > scale) value = value.setScale(scale, RoundingMode.HALF_EVEN);
         } catch (NumberFormatException e) {
           r.parseExpected("numeric", e);
         } catch (IOException e) {
           r.parseExpected("numeric", e);
         }
+        int orderMag = MAX_NUMERIC_PRECISION - scale; // Available digits on lhs of decimal point
+        if (value.precision() - value.scale() > orderMag) {
+          r.parseExpected(String.format("numeric in range (-10^%s, 10^%s)", orderMag, orderMag));
+        }
+        if (value.scale() > scale) value = value.setScale(scale, RoundingMode.HALF_EVEN);
         r.moveNext();
         return value;
       };
@@ -109,7 +120,7 @@ public class JsonLfReader {
           try {
             value = Instant.parse(r.parser.getText()).truncatedTo(ChronoUnit.MICROS);
           } catch (DateTimeParseException e) {
-            r.parseExpected("timestamp", e);
+            r.parseExpected("valid ISO 8601 date and time in UTC", e);
           } catch (IOException e) {
             r.parseExpected("timestamp", e);
           }
@@ -124,7 +135,7 @@ public class JsonLfReader {
           try {
             value = LocalDate.parse(r.parser.getText());
           } catch (DateTimeParseException e) {
-            r.parseExpected("date", e);
+            r.parseExpected("valid ISO 8601 date", e);
           } catch (IOException e) {
             r.parseExpected("date", e);
           }
@@ -211,11 +222,11 @@ public class JsonLfReader {
           return Optional.empty();
         } else {
           T some = decodeVal.decode(r);
-          assert (!(some instanceof Optional)) :
-                "Used `optional` to decode a "
-                    + some.getClass()
-                    + " but `optionalNested` must be used for the outer decoders of nested"
-                    + " Optional";
+          assert (!(some instanceof Optional))
+              : "Used `optional` to decode a "
+                  + some.getClass()
+                  + " but `optionalNested` must be used for the outer decoders of nested"
+                  + " Optional";
           return Optional.of(some);
         }
       };
@@ -229,6 +240,7 @@ public class JsonLfReader {
           return Optional.empty();
         } else {
           r.readStartArray();
+          if (r.parser.currentToken() == JsonToken.VALUE_NULL) r.parseExpected("] or item");
           Optional<T> val = r.notEndArray() ? decodeVal.decode(r) : Optional.empty();
           r.readEndArray();
           return Optional.of(val);
@@ -237,12 +249,7 @@ public class JsonLfReader {
     }
 
     public static <E extends Enum<E>> JsonLfDecoder<E> enumeration(Map<String, E> damlNameToEnum) {
-      return r -> {
-        String name = text.decode(r);
-        E value = damlNameToEnum.get(name);
-        if (value == null) r.parseExpected(String.format("one of %s", damlNameToEnum.keySet()));
-        return value;
-      };
+      return r -> r.readFromText(damlNameToEnum::get, new ArrayList<>(damlNameToEnum.keySet()));
     }
 
     // Provides a generic way to read a variant type, by specifying each tag.
@@ -251,32 +258,24 @@ public class JsonLfReader {
       return r -> {
         r.readStartObject();
         T result = null;
-        switch (r.readFieldName()) {
+        switch (r.readFieldName("tag", "value")) {
           case "tag":
             {
-              String tagName = text.decode(r);
-              if (!r.readFieldName().equals("value")) r.parseExpected("value field");
-              var decoder = decoderByName.apply(tagName);
-              if (decoder == null) r.unknownField(tagName, tagNames);
+              var decoder = r.readFromText(decoderByName, tagNames);
+              r.readFieldName("value");
               result = decoder.decode(r);
               break;
             }
           case "value":
             {
-              UnknownValue unknown = UnknownValue.read(r);
-              if (!r.readFieldName().equals("tag")) r.parseExpected("tag field");
-              String tagName = text.decode(r);
-              var decoder = decoderByName.apply(tagName);
-              if (decoder == null) r.unknownField(tagName, tagNames);
+              UnknownValue unknown = UnknownValue.read(r); // Can't decode until we know the tag.
+              r.readFieldName("tag");
+              var decoder = r.readFromText(decoderByName, tagNames);
               result = unknown.decodeWith(decoder);
               break;
             }
-          default:
-            r.parseExpected("tag or value");
-            break;
         }
         r.readEndObject();
-        if (result == null) r.parseExpected(String.format("tag %s", String.join(" or ", tagNames)));
         return result;
       };
     }
@@ -308,16 +307,14 @@ public class JsonLfReader {
         Function<String, Field<? extends Object>> fieldsByName,
         Function<Object[], T> constr) {
       return r -> {
-        List<String> missingFields = new ArrayList<>();
-        List<String> unknownFields = new ArrayList<>();
-
         Object[] args = new Object[fieldNames.size()];
         if (r.isStartObject()) {
           r.readStartObject();
           while (r.notEndObject()) {
+            var fieldLoc = r.locationStart();
             String fieldName = r.readFieldName();
             var field = fieldsByName.apply(fieldName);
-            if (field == null) r.unknownField(fieldName, fieldNames);
+            if (field == null) r.unknownField(fieldName, fieldNames, fieldLoc);
             else args[field.argIndex] = field.decode.decode(r);
           }
           r.readEndObject();
@@ -371,52 +368,67 @@ public class JsonLfReader {
     }
   }
 
+  // Represents the current reader location within the input. Not intended for JSON values > 2GB.
+  public static class Location {
+    public final int line;
+    public final int column;
+    public final int charOffset;
+
+    public Location(int line, int column, int charOffset) {
+      this.line = line;
+      this.column = column;
+      this.charOffset = charOffset;
+    }
+
+    public Location advance(Location that) {
+      int col = (that.line == 1) ? this.column + that.column - 1 : that.column;
+      return new Location(this.line + that.line - 1, col, this.charOffset + that.charOffset);
+    }
+  }
+
   // Represents a value whose type is not yet known, but should be preserved for later decoding.
   public static class UnknownValue {
     private final String jsonRepr;
-    private final JsonLocation start;
+    private final Location start;
 
-    private UnknownValue(String jsonRepr, JsonLocation start) {
+    private UnknownValue(String jsonRepr, Location start) {
       this.jsonRepr = jsonRepr;
       this.start = start;
     }
 
     public static UnknownValue read(JsonLfReader r) throws JsonLfDecoder.Error {
-      JsonLocation from = r.parser.currentTokenLocation();
+      Location from = r.locationStart();
       try {
         r.parser.skipChildren();
         r.parser.nextToken();
-        JsonLocation to = r.parser.currentTokenLocation();
-        String repr = r.json.substring((int) from.getCharOffset(), (int) to.getCharOffset()).trim();
+        Location to = r.locationStart();
+        String repr = r.json.substring(from.charOffset, to.charOffset).trim();
         if (repr.endsWith(",")) repr = repr.substring(0, repr.length() - 1); // drop trailing comma
         return new UnknownValue(repr, from);
       } catch (IOException e) {
-        throw new JsonLfDecoder.Error("cannot read unknown value", e);
+        throw new JsonLfDecoder.Error("cannot read unknown value", r.locationStart(), e);
       }
     }
 
     public <T> T decodeWith(JsonLfDecoder<T> decoder) throws JsonLfDecoder.Error {
       try {
         return decoder.decode(new JsonLfReader(this.jsonRepr));
-        // TODO(raphael-speyer-da): fix the location on parse errors by adding start offset, e.g.
-        // catch (JsonLfDecoder.Error e) { throw new JsonLfDecoder.Error(e.message, add(start,
-        // e.location)); }
-      } catch (IOException e) {
-        throw new JsonLfDecoder.Error(
-            String.format("cannot decode unknown value '%s'", this.jsonRepr), e);
+      } catch (JsonLfDecoder.Error e) {
+        throw e.fromStartLocation(this.start);
       }
     }
   }
 
   // Can override these two for different handling of these cases.
   protected void missingField(String fieldName) throws JsonLfDecoder.Error {
-    throw new JsonLfDecoder.Error(String.format("Missing %s at %s", fieldName, location()));
+    throw new JsonLfDecoder.Error(String.format("Missing field %s", fieldName), locationStart());
   }
 
-  protected void unknownField(String fieldName, List<String> expected) throws JsonLfDecoder.Error {
+  protected void unknownField(String fieldName, List<String> expected, Location loc)
+      throws JsonLfDecoder.Error {
     UnknownValue.read(this); // Consume the value from the reader.
     throw new JsonLfDecoder.Error(
-        String.format("Unknown %s at %s. Expected one of %s", fieldName, location(), expected));
+        String.format("Unknown field %s (known fields are %s)", fieldName, expected), loc);
   }
 
   /// Used for branching and looping on objects and arrays. ///
@@ -434,6 +446,7 @@ public class JsonLfReader {
   }
 
   private boolean notEndArray() {
+    if (parser.isClosed()) throw new RuntimeException("oh no!, it's closed!");
     return !parser.isClosed() && parser.currentToken() != JsonToken.END_ARRAY;
   }
 
@@ -441,7 +454,7 @@ public class JsonLfReader {
 
   private void readStartObject() throws JsonLfDecoder.Error {
     expectIsAt("{", JsonToken.START_OBJECT);
-    moveNext();
+    moveNext("}", "field name");
   }
 
   private void readEndObject() throws JsonLfDecoder.Error {
@@ -451,7 +464,7 @@ public class JsonLfReader {
 
   private void readStartArray() throws JsonLfDecoder.Error {
     expectIsAt("[", JsonToken.START_ARRAY);
-    moveNext();
+    moveNext("]", "list item");
   }
 
   private void readEndArray() throws JsonLfDecoder.Error {
@@ -459,25 +472,45 @@ public class JsonLfReader {
     moveNext();
   }
 
-  private String readFieldName() throws JsonLfDecoder.Error {
-    expectIsAt("field name", JsonToken.FIELD_NAME);
+  private String readFieldName(String... expected) throws JsonLfDecoder.Error {
+    String want = (expected.length == 0) ? "field name" : "field " + String.join(" or ", expected);
+    expectIsAt(want, JsonToken.FIELD_NAME);
     String fieldName = null;
     try {
       fieldName = parser.getText();
     } catch (IOException e) {
       parseExpected("textual field name", e);
     }
+    if (expected.length > 0 && !Arrays.asList(expected).contains(fieldName)) {
+      parseExpected(want, null, fieldName, locationStart());
+    }
     moveNext();
     return fieldName;
   }
 
-  private String location() {
-    return parser.currentTokenLocation().offsetDescription();
+  private <T> T readFromText(Function<String, T> interpreter, List<String> expected)
+      throws JsonLfDecoder.Error {
+    Location textLoc = locationStart();
+    String got = Decoders.text.decode(this);
+    T result = interpreter.apply(got);
+    if (result == null) parseExpected("one of " + expected, null, got, textLoc);
+    return result;
+  }
+
+  private Location locationStart() {
+    JsonLocation loc = parser.currentTokenLocation();
+    return new Location(loc.getLineNr(), loc.getColumnNr(), (int) loc.getCharOffset());
+  }
+
+  private Location locationEnd() {
+    JsonLocation loc = parser.currentLocation();
+    return new Location(loc.getLineNr(), loc.getColumnNr(), (int) loc.getCharOffset());
   }
 
   private String currentText() {
     try {
-      return parser.getText();
+      String text = parser.getText();
+      return (text == null) ? "nothing" : text;
     } catch (IOException e) {
       return "? (" + e.getMessage() + ")";
     }
@@ -488,11 +521,13 @@ public class JsonLfReader {
   }
 
   private void parseExpected(String expected, Throwable cause) throws JsonLfDecoder.Error {
-    String message =
-        String.format("Expected %s but was %s at %s", expected, currentText(), location());
-    throw (cause == null
-        ? new JsonLfDecoder.Error(message)
-        : new JsonLfDecoder.Error(message, cause));
+    parseExpected(expected, cause, currentText(), locationStart());
+  }
+
+  private void parseExpected(String expected, Throwable cause, String actual, Location location)
+      throws JsonLfDecoder.Error {
+    String message = String.format("Expected %s but was %s", expected, actual);
+    throw new JsonLfDecoder.Error(message, location, cause);
   }
 
   private void expectIsAt(String description, JsonToken... expected) throws JsonLfDecoder.Error {
@@ -502,11 +537,17 @@ public class JsonLfReader {
     parseExpected(description);
   }
 
-  private void moveNext() throws JsonLfDecoder.Error {
+  private void moveNext(String... expected) throws JsonLfDecoder.Error {
     try {
       parser.nextToken();
+    } catch (JsonParseException e) {
+      throw new JsonLfDecoder.Error("JSON parse error", locationEnd(), e);
     } catch (IOException e) {
-      parseExpected("more input", e);
+      String want = (expected.length == 0) ? "more input" : String.join(" or ", expected);
+      throw new JsonLfDecoder.Error(
+          String.format("Expected %s but no more input", want), locationEnd(), e);
     }
   }
+
+  private static final int MAX_NUMERIC_PRECISION = 38;
 }
