@@ -34,7 +34,6 @@ public class JsonLfReader {
   private static final JsonFactory jsonFactory = new JsonFactory();
   private final JsonParser parser;
 
-  @SuppressWarnings("deprecation")
   public JsonLfReader(String json) throws JsonLfDecoder.Error {
     this.json = json;
     try {
