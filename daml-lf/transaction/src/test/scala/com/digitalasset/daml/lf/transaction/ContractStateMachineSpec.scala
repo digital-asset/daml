@@ -16,12 +16,15 @@ import com.daml.lf.transaction.ContractStateMachine.{
 import com.daml.lf.transaction.ContractStateMachineSpec._
 import com.daml.lf.transaction.Transaction.{
   ChildrenRecursion,
-  DuplicateContractKey,
-  InconsistentContractKey,
   KeyCreate,
   KeyInput,
-  KeyInputError,
   NegativeKeyLookup,
+}
+import com.daml.lf.transaction.TransactionErrors.{
+  DuplicateContractId,
+  DuplicateContractKey,
+  InconsistentContractKey,
+  KeyInputError,
 }
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{
@@ -145,10 +148,13 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     )
 
   def inconsistentContractKey[X](key: GlobalKey): Left[KeyInputError, X] =
-    Left(Left(InconsistentContractKey(key)))
+    Left(KeyInputError.inject(InconsistentContractKey(key)))
 
   def duplicateContractKey[X](key: GlobalKey): Left[KeyInputError, X] =
-    Left(Right(DuplicateContractKey(key)))
+    Left(KeyInputError.inject(DuplicateContractKey(key)))
+
+  def duplicateContractId[X](contractId: ContractId): Left[KeyInputError, X] =
+    Left(KeyInputError.inject(DuplicateContractId(contractId)))
 
   def createRbExLbkLbk: TestCase = {
     // [ Create c1 (key=k1), Rollback [ Exe c1 [ LBK k1 -> None ]], LBK k1 -> c1 ]
@@ -161,8 +167,11 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkLookupByKey("key1", Some(1)))
     val tx = builder.build()
     val expected = Right(
-      Map(gkey("key1") -> KeyCreate) ->
-        ActiveLedgerState[Unit](Set(1), Map.empty, Map(gkey("key1") -> 1))
+      (
+        Map(gkey("key1") -> KeyCreate),
+        ActiveLedgerState[Unit](Set(1), Map.empty, Map(gkey("key1") -> 1)),
+        Set.empty[ContractId],
+      )
     )
     TestCase(
       "Create|Rb-Ex-LBK|LBK",
@@ -191,12 +200,15 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkLookupByKey("key1", None), exercise0Nid)
     val tx = builder.build()
     val expected = Right(
-      Map(gkey("key1") -> Transaction.KeyActive(cid(1))) ->
+      (
+        Map(gkey("key1") -> Transaction.KeyActive(cid(1))),
         ActiveLedgerState(
           Set.empty,
           Map(cid(0) -> (), cid(1) -> ()),
           Map.empty,
-        )
+        ),
+        Set(cid(0), cid(1)),
+      )
     )
     TestCase(
       "multiple rollback",
@@ -225,8 +237,11 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkExercise(1, consuming = true, "key1", byKey = true))
     val tx = builder.build()
     val expected = Right(
-      Map(gkey("key1") -> Transaction.KeyActive(1), gkey("key2") -> Transaction.KeyActive(2)) ->
-        ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map.empty)
+      (
+        Map(gkey("key1") -> Transaction.KeyActive(1), gkey("key2") -> Transaction.KeyActive(2)),
+        ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map.empty),
+        Set(cid(1), cid(2)),
+      )
     )
     TestCase(
       "nested rollback",
@@ -254,10 +269,14 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     builder.add(mkCreate(3, "key"), exerciseNid)
     val tx = builder.build()
     val expected: TestResult = Right(
-      Map(gkey("key") -> Transaction.KeyActive(2)) -> ActiveLedgerState(
-        Set(3),
-        Map(cid(1) -> (), cid(2) -> ()),
-        Map(gkey("key") -> cid(3)),
+      (
+        Map(gkey("key") -> Transaction.KeyActive(2)),
+        ActiveLedgerState(
+          Set(3),
+          Map(cid(1) -> (), cid(2) -> ()),
+          Map(gkey("key") -> cid(3)),
+        ),
+        Set(cid(1), cid(2)),
       )
     )
     TestCase(
@@ -283,8 +302,11 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     // Custom resolver for visibility restriction due to divulgence
     val resolver = Map(gkey("key1") -> None)
     val expected = Right(
-      Map(gkey("key1") -> KeyCreate) ->
-        ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map.empty)
+      (
+        Map(gkey("key1") -> KeyCreate),
+        ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map.empty),
+        Set(cid(1), cid(2)),
+      )
     )
     TestCase(
       "RbExeCreateLbkDivulged",
@@ -307,8 +329,11 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkFetch(2, "key1", byKey = true), exercise1Nid)
     val tx = builder.build()
     val expected = Right(
-      Map(gkey("key1") -> Transaction.KeyActive(2)) ->
-        ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map.empty)
+      (
+        Map(gkey("key1") -> Transaction.KeyActive(2)),
+        ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map.empty),
+        Set(cid(1), cid(2)),
+      )
     )
     TestCase(
       "RbExeCreateFbk",
@@ -322,7 +347,96 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
 
   }
 
+  def createAfterFetch: TestCase = {
+    // [ Fetch c1, Create c1 ]
+    val builder = new TxBuilder()
+    val _ = builder.add(mkFetch(1, "key1", byKey = false))
+    val _ = builder.add(mkCreate(1, "key2"))
+    val tx = builder.build()
+    val expected = duplicateContractId(1)
+    TestCase(
+      "CreateAfterFetch",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
+  def createAfterLookupByKey: TestCase = {
+    // [ LBK key c1, Create c1 ]
+    val builder = new TxBuilder()
+    val _ = builder.add(mkLookupByKey("key1", Some(1)))
+    val _ = builder.add(mkCreate(1, "key2"))
+    val tx = builder.build()
+    val expected = duplicateContractId(1)
+    TestCase(
+      "CreateAfterLookupByKey",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
+  def createAfterConsumingExercise: TestCase = {
+    // [ Exe c1, Create c1 ]
+    val builder = new TxBuilder()
+    val _ = builder.add(mkExercise(1, consuming = true))
+    val _ = builder.add(mkCreate(1, "key"))
+    val tx = builder.build()
+    val expected = duplicateContractId(1)
+    TestCase(
+      "CreateAfterConsumingExercise",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
+  def createAfterNonConsumingExercise: TestCase = {
+    // [ Exe c1, Create c1 ]
+    val builder = new TxBuilder()
+    val _ = builder.add(mkExercise(1, consuming = false))
+    val _ = builder.add(mkCreate(1, "key"))
+    val tx = builder.build()
+    val expected = duplicateContractId(1)
+    TestCase(
+      "CreateAfterNonConsumingExercise",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
   def doubleCreate: TestCase = {
+    // [ Create c1, Create c1 ]
+    val createNode = mkCreate(1)
+    // We can't use TxBuilder to build this transaction because the builder ensures the unicity of
+    // of contract IDs.
+    val tx = VersionedTransaction(
+      txVersion,
+      nodes = Map(NodeId(0) -> createNode, NodeId(1) -> createNode),
+      roots = ImmArray(NodeId(0), NodeId(1)),
+    )
+    val expected = duplicateContractId(1)
+    TestCase(
+      "DoubleCreate",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
+  def doubleCreateWithKey: TestCase = {
     // [ ExeN c1 [ Create c2 (key=k1), Create c3 (key=k1) ] ]
     val builder = new TxBuilder()
     val exerciseNid = builder.add(mkExercise(1, consuming = false))
@@ -330,17 +444,20 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkCreate(3, "key1"), exerciseNid)
     val tx = builder.build()
     val expectedOff = Right(
-      Map(gkey("key1") -> KeyCreate) ->
+      (
+        Map(gkey("key1") -> KeyCreate),
         ActiveLedgerState[Unit](
           Set(2, 3),
           Map.empty,
           Map(
             gkey("key1") -> cid(3) // Latest create wins
           ),
-        )
+        ),
+        Set(cid(1)),
+      )
     )
     TestCase(
-      "DoubleCreate",
+      "DoubleCreateWithKey",
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> duplicateContractKey(gkey("key1")),
@@ -357,8 +474,11 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkLookupByKey("key1", None), exerciseNid)
     val tx = builder.build()
     val expected = Right(
-      Map(gkey("key1") -> NegativeKeyLookup) ->
-        ActiveLedgerState[Unit](Set.empty, Map.empty, Map.empty)
+      (
+        Map(gkey("key1") -> NegativeKeyLookup),
+        ActiveLedgerState[Unit](Set.empty, Map.empty, Map.empty),
+        Set(cid(1)),
+      )
     )
     TestCase(
       "DivulgedLookup",
@@ -381,8 +501,11 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkFetch(3, "key1"), exerciseNid)
     val tx = builder.build()
     val expected = Right(
-      Map(gkey("key1") -> Transaction.KeyActive(2)) ->
-        ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map.empty)
+      (
+        Map(gkey("key1") -> Transaction.KeyActive(2)),
+        ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map.empty),
+        Set(cid(1), cid(2), cid(3)),
+      )
     )
     TestCase(
       "FetchByKey-then-Fetch",
@@ -404,8 +527,11 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkLookupByKey("key1", Some(2)), exercise2Nid)
     val tx = builder.build()
     val expected = Right(
-      Map(gkey("key1") -> Transaction.KeyActive(2)) ->
-        ActiveLedgerState(Set.empty, Map(cid(3) -> ()), Map.empty)
+      (
+        Map(gkey("key1") -> Transaction.KeyActive(2)),
+        ActiveLedgerState(Set.empty, Map(cid(3) -> ()), Map.empty),
+        Set(cid(1), cid(2), cid(3)),
+      )
     )
     TestCase(
       "Archive other contract with key",
@@ -426,8 +552,11 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkCreate(3, "key1"))
     val tx = builder.build()
     val expected = Right(
-      Map(gkey("key1") -> KeyCreate) ->
-        ActiveLedgerState[Unit](Set(3), Map.empty, Map(gkey("key1") -> cid(3)))
+      (
+        Map(gkey("key1") -> KeyCreate),
+        ActiveLedgerState[Unit](Set(3), Map.empty, Map(gkey("key1") -> cid(3))),
+        Set(cid(1)),
+      )
     )
     TestCase(
       "CreateAfterRbExercise",
@@ -474,12 +603,15 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkCreate(5, "key2"), exerciseNid)
     val tx = builder.build()
     val expectedOff = Right(
-      Map(gkey("key1") -> KeyCreate, gkey("key2") -> KeyCreate) ->
+      (
+        Map(gkey("key1") -> KeyCreate, gkey("key2") -> KeyCreate),
         ActiveLedgerState[Unit](
           Set(1, 3, 4, 5),
           Map.empty,
           Map(gkey("key1") -> cid(4), gkey("key2") -> cid(5)),
-        )
+        ),
+        Set(cid(2)),
+      )
     )
     TestCase(
       "differing cause 2",
@@ -519,8 +651,11 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     builder.add(mkCreate(1), rollbackNid)
     val tx = builder.build()
     val expected = Right(
-      Map[GlobalKey, KeyInput]() ->
-        ActiveLedgerState(Set.empty, Map(cid(0) -> ()), Map.empty)
+      (
+        Map[GlobalKey, KeyInput](),
+        ActiveLedgerState(Set.empty, Map(cid(0) -> ()), Map.empty),
+        Set(cid(0)),
+      )
     )
     TestCase(
       "rbCreate",
@@ -543,7 +678,12 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     archiveRbLookupCreate,
     rbExeCreateLbkDivulged,
     rbExeCreateFbk,
+    createAfterFetch,
+    createAfterLookupByKey,
+    createAfterConsumingExercise,
+    createAfterNonConsumingExercise,
     doubleCreate,
+    doubleCreateWithKey,
     divulgedLookup,
     rbFbkFetch,
     archiveOtherKeyContract,
@@ -572,12 +712,15 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
 
             (result, expectedResult) match {
               case (Left(err1), Left(err2)) => err1 shouldBe err2
-              case (Right(state), Right((gkI, activeState))) =>
+              case (Right(state), Right((gkI, activeState, contractsI))) =>
                 withClue("global key inputs") {
                   state.globalKeyInputs shouldBe gkI
                 }
                 withClue("active state") {
                   state.activeState shouldBe activeState
+                }
+                withClue("input contract IDs") {
+                  state.inputContractIds shouldBe contractsI
                 }
                 state.rollbackStack shouldBe List.empty
               case _ => fail(s"$result was not equal to $expectedResult")
@@ -661,7 +804,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       root: NodeId,
       resolver: KeyResolver,
       state: ContractStateMachine.State[Unit],
-  ): Either[Transaction.KeyInputError, ContractStateMachine.State[Unit]] = {
+  ): Either[KeyInputError, ContractStateMachine.State[Unit]] = {
     val node = nodes(root)
     for {
       next <- node match {
@@ -691,7 +834,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       roots: Seq[NodeId],
       resolver: KeyResolver,
       state: ContractStateMachine.State[Unit],
-  ): Either[Transaction.KeyInputError, ContractStateMachine.State[Unit]] = {
+  ): Either[KeyInputError, ContractStateMachine.State[Unit]] = {
     roots match {
       case Seq() => Right(state)
       case root +: tail =>
@@ -716,7 +859,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
             case (Left(_), Left(_)) =>
             // We can't really make sure that we get the same errors.
             // There may be multiple key conflicts and advancing non-deterministically picks one of them
-            case _ => fail(s"$directVisit was knot equal to $advanced")
+            case _ => fail(s"$directVisit was not equal to $advanced")
           }
         }
         directVisit.flatMap(next => visitSubtrees(nodes, tail, resolver, next))
@@ -725,7 +868,8 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
 }
 
 object ContractStateMachineSpec {
-  type TestResult = Either[KeyInputError, (Map[GlobalKey, KeyInput], ActiveLedgerState[Unit])]
+  type TestResult =
+    Either[KeyInputError, (Map[GlobalKey, KeyInput], ActiveLedgerState[Unit], Set[ContractId])]
   case class TestCase(
       name: String,
       transaction: HasTxNodes,

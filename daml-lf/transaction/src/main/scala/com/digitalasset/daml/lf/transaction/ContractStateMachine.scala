@@ -4,13 +4,13 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.transaction.Transaction.{
+import com.daml.lf.transaction.Transaction.{KeyCreate, KeyInput, NegativeKeyLookup}
+import com.daml.lf.transaction.TransactionErrors.{
+  CreateError,
+  DuplicateContractId,
   DuplicateContractKey,
   InconsistentContractKey,
-  KeyCreate,
-  KeyInput,
   KeyInputError,
-  NegativeKeyLookup,
 }
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -81,6 +81,7 @@ object ContractStateMachine {
     */
   case class State[Nid] private[lf] (
       locallyCreated: Set[ContractId],
+      inputContractIds: Set[ContractId],
       globalKeyInputs: Map[GlobalKey, KeyInput],
       activeState: ContractStateMachine.ActiveLedgerState[Nid],
       rollbackStack: List[ContractStateMachine.ActiveLedgerState[Nid]],
@@ -121,38 +122,41 @@ object ContractStateMachine {
 
     /** Visit a create node */
     def handleCreate(node: Node.Create): Either[KeyInputError, State[Nid]] =
-      visitCreate(node.coid, node.gkeyOpt).left.map(Right(_))
+      visitCreate(node.coid, node.gkeyOpt).left.map(KeyInputError.from)
 
     private[lf] def visitCreate(
         contractId: ContractId,
         mbKey: Option[GlobalKey],
-    ): Either[DuplicateContractKey, State[Nid]] = {
-      val me =
-        this.copy(
-          locallyCreated = locallyCreated + contractId,
-          activeState = this.activeState
-            .copy(locallyCreatedThisTimeline =
-              this.activeState.locallyCreatedThisTimeline + contractId
-            ),
-        )
-      // if we have a contract key being added, include it in the list of
-      // active keys
-      mbKey match {
-        case None => Right(me)
-        case Some(gk) =>
-          val conflict = lookupActiveKey(gk).exists(_ != KeyInactive)
-
-          val newKeyInputs =
-            if (globalKeyInputs.contains(gk)) globalKeyInputs
-            else globalKeyInputs.updated(gk, KeyCreate)
-          Either.cond(
-            !conflict || mode == ContractKeyUniquenessMode.Off,
-            me.copy(
-              activeState = me.activeState.createKey(gk, contractId),
-              globalKeyInputs = newKeyInputs,
-            ),
-            DuplicateContractKey(gk),
+    ): Either[CreateError, State[Nid]] = {
+      if (locallyCreated.union(inputContractIds).contains(contractId)) {
+        Left(CreateError.inject(DuplicateContractId(contractId)))
+      } else {
+        val me =
+          this.copy(
+            locallyCreated = locallyCreated + contractId,
+            activeState = this.activeState
+              .copy(locallyCreatedThisTimeline =
+                this.activeState.locallyCreatedThisTimeline + contractId
+              ),
           )
+        // if we have a contract key being added, include it in the list of
+        // active keys
+        mbKey match {
+          case None => Right(me)
+          case Some(gk) =>
+            val conflict = lookupActiveKey(gk).exists(_ != KeyInactive)
+            val newKeyInputs =
+              if (globalKeyInputs.contains(gk)) globalKeyInputs
+              else globalKeyInputs.updated(gk, KeyCreate)
+            Either.cond(
+              !conflict || mode == ContractKeyUniquenessMode.Off,
+              me.copy(
+                activeState = me.activeState.createKey(gk, contractId),
+                globalKeyInputs = newKeyInputs,
+              ),
+              CreateError.inject(DuplicateContractKey(gk)),
+            )
+        }
       }
     }
 
@@ -163,8 +167,7 @@ object ContractStateMachine {
         exe.gkeyOpt,
         exe.byKey,
         exe.consuming,
-      ).left
-        .map(Left(_))
+      ).left.map(KeyInputError.inject)
 
     /** Omits the key lookup that are done in [[com.daml.lf.speedy.Compiler.compileChoiceByKey]] for by-bey nodes,
       * which translates to a [[resolveKey]] below.
@@ -177,12 +180,13 @@ object ContractStateMachine {
         byKey: Boolean,
         consuming: Boolean,
     ): Either[InconsistentContractKey, State[Nid]] = {
+      val state = witnessContractId(targetId)
       for {
         state <-
           if (byKey || mode == ContractKeyUniquenessMode.Strict)
-            assertKeyMapping(targetId, mbKey)
+            state.assertKeyMapping(targetId, mbKey)
           else
-            Right(this)
+            Right(state)
       } yield {
         if (consuming) {
           val consumedState = state.activeState.consume(targetId, nodeId)
@@ -200,7 +204,7 @@ object ContractStateMachine {
         throw new UnsupportedOperationException(
           "handleLookup can only be used if all key nodes are considered"
         )
-      visitLookup(lookup.gkey, lookup.result, lookup.result).left.map(Left(_))
+      visitLookup(lookup.gkey, lookup.result, lookup.result).left.map(KeyInputError.inject)
     }
 
     /** Must be used to handle lookups iff in [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]] mode
@@ -222,7 +226,7 @@ object ContractStateMachine {
         throw new UnsupportedOperationException(
           "handleLookupWith can only be used if only by-key nodes are considered"
         )
-      visitLookup(lookup.gkey, keyInput, lookup.result).left.map(Left(_))
+      visitLookup(lookup.gkey, keyInput, lookup.result).left.map(KeyInputError.inject)
     }
 
     private[lf] def visitLookup(
@@ -230,7 +234,11 @@ object ContractStateMachine {
         keyInput: Option[ContractId],
         keyResolution: Option[ContractId],
     ): Either[InconsistentContractKey, State[Nid]] = {
-      val (keyMapping, next) = resolveKey(gk) match {
+      val state = keyInput match {
+        case Some(contractId) => witnessContractId(contractId)
+        case None => this
+      }
+      val (keyMapping, next) = state.resolveKey(gk) match {
         case Right(result) => result
         case Left(handle) => handle(keyInput)
       }
@@ -270,17 +278,23 @@ object ContractStateMachine {
     }
 
     def handleFetch(node: Node.Fetch): Either[KeyInputError, State[Nid]] =
-      visitFetch(node.coid, node.gkeyOpt, node.byKey).left.map(Left(_))
+      visitFetch(node.coid, node.gkeyOpt, node.byKey).left.map(KeyInputError.inject)
 
     private[lf] def visitFetch(
         contractId: ContractId,
         mbKey: Option[GlobalKey],
         byKey: Boolean,
-    ): Either[InconsistentContractKey, State[Nid]] =
+    ): Either[InconsistentContractKey, State[Nid]] = {
+      val state = witnessContractId(contractId)
       if (byKey || mode == ContractKeyUniquenessMode.Strict)
-        assertKeyMapping(contractId, mbKey)
+        state.assertKeyMapping(contractId, mbKey)
       else
-        Right(this)
+        Right(state)
+    }
+
+    private[lf] def witnessContractId(contractId: ContractId): State[Nid] =
+      if (locallyCreated.contains(contractId)) this
+      else this.copy(inputContractIds = inputContractIds + contractId)
 
     private[lf] def assertKeyMapping(
         cid: Value.ContractId,
@@ -371,25 +385,32 @@ object ContractStateMachine {
       )
 
       // We want consistent key lookups within an action in any contract key mode.
-      def consistentGlobalKeyInputs: Either[KeyInputError, Unit] =
-        substate.globalKeyInputs
-          .find {
-            case (key, KeyCreate) =>
-              lookupActiveKey(key).exists(
-                _ != KeyInactive
-              ) && mode == ContractKeyUniquenessMode.Strict
-            case (key, NegativeKeyLookup) => lookupActiveKey(key).exists(_ != KeyInactive)
-            case (key, Transaction.KeyActive(cid)) =>
-              lookupActiveKey(key).exists(_ != KeyActive(cid))
-            case _ => false
-          } match {
-          case Some((key, KeyCreate)) => Left[KeyInputError, Unit](Right(DuplicateContractKey(key)))
-          case Some((key, NegativeKeyLookup)) =>
-            Left[KeyInputError, Unit](Left(InconsistentContractKey(key)))
-          case Some((key, Transaction.KeyActive(_))) =>
-            Left[KeyInputError, Unit](Left(InconsistentContractKey(key)))
-          case _ => Right[KeyInputError, Unit](())
+      def consistentGlobalKeyInputs: Either[KeyInputError, Unit] = {
+        substate.locallyCreated.find(locallyCreated.union(inputContractIds).contains) match {
+          case Some(contractId) =>
+            Left[KeyInputError, Unit](KeyInputError.inject(DuplicateContractId(contractId)))
+          case None =>
+            substate.globalKeyInputs
+              .find {
+                case (key, KeyCreate) =>
+                  lookupActiveKey(key).exists(
+                    _ != KeyInactive
+                  ) && mode == ContractKeyUniquenessMode.Strict
+                case (key, NegativeKeyLookup) => lookupActiveKey(key).exists(_ != KeyInactive)
+                case (key, Transaction.KeyActive(cid)) =>
+                  lookupActiveKey(key).exists(_ != KeyActive(cid))
+                case _ => false
+              } match {
+              case Some((key, KeyCreate)) =>
+                Left[KeyInputError, Unit](KeyInputError.inject(DuplicateContractKey(key)))
+              case Some((key, NegativeKeyLookup)) =>
+                Left[KeyInputError, Unit](KeyInputError.inject(InconsistentContractKey(key)))
+              case Some((key, Transaction.KeyActive(_))) =>
+                Left[KeyInputError, Unit](KeyInputError.inject(InconsistentContractKey(key)))
+              case _ => Right[KeyInputError, Unit](())
+            }
         }
+      }
 
       for {
         _ <- consistentGlobalKeyInputs
@@ -426,6 +447,8 @@ object ContractStateMachine {
 
         this.copy(
           locallyCreated = this.locallyCreated.union(substate.locallyCreated),
+          inputContractIds =
+            this.inputContractIds.union(substate.inputContractIds.diff(this.locallyCreated)),
           globalKeyInputs = globalKeyInputs,
           activeState = next,
         )
@@ -447,6 +470,7 @@ object ContractStateMachine {
 
   object State {
     def empty[Nid](mode: ContractKeyUniquenessMode): State[Nid] = new State(
+      Set.empty,
       Set.empty,
       Map.empty,
       ContractStateMachine.ActiveLedgerState.empty,
