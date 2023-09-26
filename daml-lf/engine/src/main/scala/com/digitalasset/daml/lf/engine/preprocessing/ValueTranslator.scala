@@ -24,15 +24,18 @@ private[lf] final class ValueTranslator(
   @throws[Error.Preprocessing.Error]
   private def labeledRecordToMap(
       fields: ImmArray[(Option[String], Value)]
-  ): Option[Map[String, Value]] = {
+  ): Either[String, Option[Map[String, Value]]] = {
     @tailrec
     def go(
         fields: FrontStack[(Option[String], Value)],
         map: Map[String, Value],
-    ): Option[Map[String, Value]] = {
+    ): Either[String, Option[Map[String, Value]]] = {
       fields.pop match {
-        case None => Some(map)
-        case Some(((None, _), _)) => None
+        case None => Right(Some(map))
+        case Some(((None, _), _)) => Right(None)
+        // Retain error on duplicate label behaviour from pre-upgrades
+        case Some(((Some(label), _), _)) if map.contains(label) =>
+          Left(s"Duplicate label $label in record")
         case Some(((Some(label), value), tail)) =>
           go(tail, map + (label -> value))
       }
@@ -186,33 +189,13 @@ private[lf] final class ValueTranslator(
                 val lookupResult = handleLookup(pkgInterface.lookupDataRecord(tyCon))
                 val recordFlds = lookupResult.dataRecord.fields
 
-                // TODO: Bring this behaviour back
-                // note that we check the number of fields _before_ checking if we can do
-                // field reordering by looking at the labels. this means that it's forbidden to
-                // repeat keys even if we provide all the labels, which might be surprising
-                // since in JavaScript / Scala / most languages (but _not_ JSON, interestingly)
-                // it's ok to do `{"a": 1, "a": 2}`, where the second occurrence would just win.
-                // if (recordFlds.length != flds.length) {
-                //   typeError(
-                //     s"Expecting ${recordFlds.length} field for record $tyCon, but got ${flds.length}"
-                //   )
-                // }
-
-                // Steps:
-                // insist all values present with no type are set to None
-                // insist all missing values have a type of Optional something, and set to None
-                //   insist all missing values are at the end of the type
-
-                // Code that takes flds and makes List[mbLbl -> v] but checks nothing
-                //   if flds is labelled, it first puts the expected fields in the correct order, then adds everything else in original order
-                // then the logic is - is this result is greater in length than types, all extras must be None and are dropped
-                // if this result is smaller than types, all extra types must be Optional and result is backfilled
-
                 // TODO: consider using mutable arrays
 
                 val subst = lookupResult.subst(tyArgs)
 
-                val orderedFlds = labeledRecordToMap(flds) match {
+                val oLabeledFlds = labeledRecordToMap(flds).fold(typeError, identity)
+
+                val orderedFlds = oLabeledFlds match {
                   // Not fully labelled, so we cannot reorder
                   case None => flds
                   case Some(labeledFlds) => {
