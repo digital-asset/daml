@@ -300,9 +300,9 @@ public class JsonLfReader {
     //        name -> {
     //          switch (name) {
     //            case "i":
-    //              return JsonLfReader.ConstrArg.at(0, r.list(r.int64()));
+    //              return JsonLfReader.JavaArg.at(0, r.list(r.int64()));
     //            case "b":
-    //              return JsonLfReader.ConstrArg.at(1, r.bool(), false);
+    //              return JsonLfReader.JavaArg.at(1, r.bool(), false);
     //            default:
     //              return null;
     //          }
@@ -311,7 +311,7 @@ public class JsonLfReader {
     //     )
     public static <T> JsonLfDecoder<T> record(
         List<String> argNames,
-        Function<String, ConstrArg<? extends Object>> argsByName,
+        Function<String, JavaArg<? extends Object>> argsByName,
         Function<Object[], T> constr) {
       return r -> {
         Object[] args = new Object[argNames.size()];
@@ -337,7 +337,7 @@ public class JsonLfReader {
 
         // Handle missing fields.
         for (String argName : argNames) {
-          ConstrArg<? extends Object> arg = argsByName.apply(argName);
+          JavaArg<? extends Object> arg = argsByName.apply(argName);
           if (args[arg.index] != null) continue;
           if (arg.defaultVal == null) r.missingField(argName);
           args[arg.index] = arg.defaultVal;
@@ -347,24 +347,24 @@ public class JsonLfReader {
       };
     }
 
-    // Represents an argument to the code-gen constructor.
-    public static class ConstrArg<T> {
+    // Represents an argument to the constructor of the code-gen class.
+    public static class JavaArg<T> {
       final int index;
       final JsonLfDecoder<T> decode;
       final T defaultVal; // If non-null, used to populate value of missing fields.
 
-      private ConstrArg(int index, JsonLfDecoder<T> decode, T defaultVal) {
+      private JavaArg(int index, JsonLfDecoder<T> decode, T defaultVal) {
         this.index = index;
         this.decode = decode;
         this.defaultVal = defaultVal;
       }
 
-      public static <T> ConstrArg<T> at(int index, JsonLfDecoder<T> decode, T defaultVal) {
-        return new ConstrArg<T>(index, decode, defaultVal);
+      public static <T> JavaArg<T> at(int index, JsonLfDecoder<T> decode, T defaultVal) {
+        return new JavaArg<T>(index, decode, defaultVal);
       }
 
-      public static <T> ConstrArg<T> at(int index, JsonLfDecoder<T> decode) {
-        return new ConstrArg<T>(index, decode, null);
+      public static <T> JavaArg<T> at(int index, JsonLfDecoder<T> decode) {
+        return new JavaArg<T>(index, decode, null);
       }
     }
 

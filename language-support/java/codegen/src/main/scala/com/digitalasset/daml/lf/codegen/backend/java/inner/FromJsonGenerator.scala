@@ -72,7 +72,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
         .beginControlFlow("switch (name)")
       fields.zipWithIndex.foreach { case (f, i) =>
         block.addStatement(
-          "case $S: return JsonLfReader.Decoders.ConstrArg.at($L, $L)",
+          "case $S: return JsonLfReader.Decoders.JavaArg.at($L, $L)",
           f.javaName,
           i,
           jsonDecoderForType(f.damlType),

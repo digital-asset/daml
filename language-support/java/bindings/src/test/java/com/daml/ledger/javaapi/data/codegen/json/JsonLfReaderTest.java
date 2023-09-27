@@ -519,9 +519,9 @@ public class JsonLfReaderTest {
             name -> {
               switch (name) {
                 case "i":
-                  return Decoders.ConstrArg.at(0, Decoders.list(Decoders.int64));
+                  return Decoders.JavaArg.at(0, Decoders.list(Decoders.int64));
                 case "b":
-                  return Decoders.ConstrArg.at(1, Decoders.bool, false);
+                  return Decoders.JavaArg.at(1, Decoders.bool, false);
                 default:
                   return null;
               }
@@ -542,9 +542,9 @@ public class JsonLfReaderTest {
             name -> {
               switch (name) {
                 case "i":
-                  return Decoders.ConstrArg.at(0, Decoders.list(Decoders.int64));
+                  return Decoders.JavaArg.at(0, Decoders.list(Decoders.int64));
                 case "b":
-                  return Decoders.ConstrArg.at(1, Decoders.bool, false);
+                  return Decoders.JavaArg.at(1, Decoders.bool, false);
                 default:
                   return null;
               }
