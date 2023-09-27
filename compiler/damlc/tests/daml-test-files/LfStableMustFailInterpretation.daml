@@ -1,11 +1,9 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+module LfStableMustFailInterpretation where
 
-module Test where
-
-import DA.Date
-import DA.Time
+import Daml.Script
 
 template Keyed
   with
@@ -26,12 +24,13 @@ template Helper
       do create (Keyed p 0)
          abort ""
 
+-- @LEDGER run LfStableMustFailInterpretation.EXPECTED.ledger
 run = do
-  p <- getParty "p"
-  submit p $ create (Keyed p 0)
+  p <- allocateParty "p"
+  submit p $ createCmd (Keyed p 0)
   -- This fails during interpretation so it never hits
   -- the duplicate key error during commit. See
-  -- mustfailcommit which should produce the same
+  -- LfStableMustFailCommit.daml which should produce the same
   -- contract id for the following submit but fails during commit.
-  submitMustFail p $ createAndExercise (Helper p) C
-  submit p $ create (Keyed p 1)
+  submitMustFail p $ createAndExerciseCmd (Helper p) C
+  submit p $ createCmd (Keyed p 1)
