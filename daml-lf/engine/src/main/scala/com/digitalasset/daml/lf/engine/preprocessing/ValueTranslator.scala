@@ -50,6 +50,12 @@ private[lf] final class ValueTranslator(
     }
     else { _ => () }
 
+  @throws[Error.Preprocessing.Error]
+  private[preprocessing] def unsafeTranslateCid(cid: ContractId): SValue.SContractId = {
+    validateCid(cid)
+    SValue.SContractId(cid)
+  }
+
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.
   @throws[Error.Preprocessing.Error]
@@ -118,8 +124,7 @@ private[lf] final class ValueTranslator(
                         typeError()
                     }
                   case (BTContractId, ValueContractId(c)) =>
-                    validateCid(c)
-                    SValue.SContractId(c)
+                    unsafeTranslateCid(c)
                   case (BTOptional, ValueOptional(mbValue)) =>
                     mbValue match {
                       case Some(v) =>

@@ -1088,22 +1088,19 @@ private[lf] final class Compiler(
     case Command.Create(templateId, argument) =>
       t.CreateDefRef(templateId)(s.SEValue(argument))
     case Command.ExerciseTemplate(templateId, contractId, choiceId, argument) =>
-      t.TemplateChoiceDefRef(templateId, choiceId)(
-        s.SEValue(SContractId(contractId)),
-        s.SEValue(argument),
-      )
+      t.TemplateChoiceDefRef(templateId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseInterface(interfaceId, contractId, choiceId, argument) =>
       t.InterfaceChoiceDefRef(interfaceId, choiceId)(
         s.SEBuiltin(SBGuardConstTrue),
-        s.SEValue(SContractId(contractId)),
+        s.SEValue(contractId),
         s.SEValue(argument),
       )
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
       t.ChoiceByKeyDefRef(templateId, choiceId)(s.SEValue(contractKey), s.SEValue(argument))
     case Command.FetchTemplate(templateId, coid) =>
-      t.FetchTemplateDefRef(templateId)(s.SEValue(SContractId(coid)))
+      t.FetchTemplateDefRef(templateId)(s.SEValue(coid))
     case Command.FetchInterface(interfaceId, coid) =>
-      t.FetchInterfaceDefRef(interfaceId)(s.SEValue(SContractId(coid)))
+      t.FetchInterfaceDefRef(interfaceId)(s.SEValue(coid))
     case Command.FetchByKey(templateId, key) =>
       t.FetchByKeyDefRef(templateId)(s.SEValue(key))
     case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>

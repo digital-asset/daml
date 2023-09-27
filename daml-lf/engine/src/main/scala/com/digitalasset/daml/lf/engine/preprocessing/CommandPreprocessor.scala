@@ -155,10 +155,9 @@ private[lf] final class CommandPreprocessor(
       strict: Boolean,
   ): speedy.Command = {
     val choice = handleLookup(pkgInterface.lookupTemplateChoice(templateId, choiceId))
-    validateCid(contractId)
     speedy.Command.ExerciseTemplate(
       templateId = templateId,
-      contractId = contractId,
+      contractId = valueTranslator.unsafeTranslateCid(contractId),
       choiceId = choiceId,
       argument = translateNonCreateArg(
         choice.argBinder._2,
@@ -176,10 +175,9 @@ private[lf] final class CommandPreprocessor(
       strict: Boolean,
   ): speedy.Command = {
     val choice = handleLookup(pkgInterface.lookupInterfaceChoice(ifaceId, choiceId))
-    validateCid(contractId)
     speedy.Command.ExerciseInterface(
       interfaceId = ifaceId,
-      contractId = contractId,
+      contractId = valueTranslator.unsafeTranslateCid(contractId),
       choiceId = choiceId,
       argument = translateNonCreateArg(
         choice.argBinder._2,
@@ -301,12 +299,12 @@ private[lf] final class CommandPreprocessor(
           ) =>
         unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument, strict = true)
       case command.ReplayCommand.Fetch(typeId, coid) =>
-        validateCid(coid)
+        val cid = valueTranslator.unsafeTranslateCid(coid)
         handleLookup(pkgInterface.lookupTemplateOrInterface(typeId)) match {
           case TemplateOrInterface.Template(_) =>
-            speedy.Command.FetchTemplate(typeId, coid)
+            speedy.Command.FetchTemplate(typeId, cid)
           case TemplateOrInterface.Interface(_) =>
-            speedy.Command.FetchInterface(typeId, coid)
+            speedy.Command.FetchInterface(typeId, cid)
         }
       case command.ReplayCommand.FetchByKey(templateId, key) =>
         val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ

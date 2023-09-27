@@ -337,14 +337,14 @@ final class Converter(
     case Command.ExerciseTemplate(_, contractId, _, choiceArg) =>
       record(
         exerciseCommandTy,
-        "contractId" -> SContractId(contractId),
+        "contractId" -> contractId,
         "choiceArg" -> choiceArg,
       )
 
     case Command.ExerciseInterface(_, contractId, _, choiceArg) =>
       record(
         exerciseCommandTy,
-        "contractId" -> SContractId(contractId),
+        "contractId" -> contractId,
         "choiceArg" -> choiceArg,
       )
 
