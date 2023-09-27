@@ -1,11 +1,13 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Test where
+module LfStableNoContractIdsInKeys where
+
+import Daml.Script
 
 -- The SimpleContractId newtype has to be defined in a separate module so
 -- this circumvents the partial compile-time check on template keys.
-import Simple
+import LfStableNoContractIdsInKeys.Simple
 
 template KeyWithContractId
   with
@@ -16,8 +18,10 @@ template KeyWithContractId
     key (p, k): (Party, SimpleContractId)
     maintainer key._1
 
-run = scenario do
-  alice <- getParty "alice"
-  cid <- submit alice $ create Simple with p = alice
+-- @ERROR range=23:1-23:4; Contract IDs are not supported in contract key
+-- @LEDGER run LfStableNoContractIdsInKeys.EXPECTED.ledger
+run = script do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd Simple with p = alice
   -- This should fail
-  submit alice $ create KeyWithContractId with p = alice, k = SimpleContractId cid
+  submit alice $ createCmd KeyWithContractId with p = alice, k = SimpleContractId cid
