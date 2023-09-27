@@ -1105,6 +1105,12 @@ private[lf] object SBuiltin {
       } else {
         assert(actualTemplateId != templateId)
         val coid = getSContractId(args, 0)
+
+        println("WronglyTypedContract(from SBCastAnyContract)") // NICK
+        println(s"- coid = $coid")
+        println(s"- templateId = $templateId")
+        println(s"- actualTemplateId = $actualTemplateId")
+
         Control.Error(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
       }
     }
