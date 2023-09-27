@@ -60,20 +60,19 @@ private[inner] object FromJsonGenerator extends StrictLogging {
   )(implicit packagePrefixes: PackagePrefixes): MethodSpec = {
     val typeName = className.parameterized(typeParams)
 
-    val fieldNames = {
+    val argNames = {
       val names = fields.map(f => CodeBlock.of("$S", f.javaName))
       CodeBlock.of("$T.asList($L)", classOf[java.util.Arrays], CodeBlock.join(names.asJava, ", "))
     }
 
-    val fieldsByName = {
+    val argsByName = {
       val block = CodeBlock
         .builder()
         .beginControlFlow("name ->")
         .beginControlFlow("switch (name)")
       fields.zipWithIndex.foreach { case (f, i) =>
-        // We generate `JsonLfReader.Field` as a literal as $T seems to always use fully qualified name.
         block.addStatement(
-          "case $S: return JsonLfReader.Decoders.Field.at($L, $L)",
+          "case $S: return JsonLfReader.Decoders.ConstrArg.at($L, $L)",
           f.javaName,
           i,
           jsonDecoderForType(f.damlType),
@@ -101,8 +100,8 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .addStatement(
         "return $T.record($L, $L, $L)",
         decodeClass,
-        fieldNames,
-        fieldsByName.toString(),
+        argNames,
+        argsByName.toString(),
         constr,
       )
       .build()

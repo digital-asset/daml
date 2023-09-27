@@ -469,9 +469,9 @@ public class JsonLfReaderTest {
                   return null;
               }
             }),
-        errors("{}", "Expected field tag or value but was } at line: 1, column: 2"),
+        errors("{}", "Expected field but was } at line: 1, column: 2"),
         errors("{\"Bar\": 1}", "Expected field tag or value but was Bar at line: 1, column: 2"),
-        errors("{\"value\": 1}", "Expected field tag but was } at line: 1, column: 12"),
+        errors("{\"value\": 1}", "Expected field but was } at line: 1, column: 12"),
         errors(
             "{\"tag\": \"What\"}",
             "Expected one of [Bar, Baz, Quux, Flarp] but was What at line: 1, column: 9"),
@@ -519,9 +519,9 @@ public class JsonLfReaderTest {
             name -> {
               switch (name) {
                 case "i":
-                  return Decoders.Field.at(0, Decoders.list(Decoders.int64));
+                  return Decoders.ConstrArg.at(0, Decoders.list(Decoders.int64));
                 case "b":
-                  return Decoders.Field.at(1, Decoders.bool, false);
+                  return Decoders.ConstrArg.at(1, Decoders.bool, false);
                 default:
                   return null;
               }
@@ -542,9 +542,9 @@ public class JsonLfReaderTest {
             name -> {
               switch (name) {
                 case "i":
-                  return Decoders.Field.at(0, Decoders.list(Decoders.int64));
+                  return Decoders.ConstrArg.at(0, Decoders.list(Decoders.int64));
                 case "b":
-                  return Decoders.Field.at(1, Decoders.bool, false);
+                  return Decoders.ConstrArg.at(1, Decoders.bool, false);
                 default:
                   return null;
               }
@@ -568,6 +568,9 @@ public class JsonLfReaderTest {
   @Test
   void testUnknownValue() throws JsonLfDecoder.Error {
     JsonLfReader.UnknownValue.read(new JsonLfReader("1")).decodeWith(Decoders.int64);
+    JsonLfReader.UnknownValue.read(new JsonLfReader("\"88\"")).decodeWith(Decoders.numeric(2));
+    JsonLfReader.UnknownValue.read(new JsonLfReader("[\"hi\", \"there\"]"))
+        .decodeWith(Decoders.list(Decoders.text));
 
     JsonLfReader.UnknownValue.read(
             new JsonLfReader("[1,2]").moveNext() // Skip [
@@ -593,6 +596,11 @@ public class JsonLfReaderTest {
             )
         .decodeWith(
             Decoders.optionalNested(Decoders.optionalNested(Decoders.optional(Decoders.int64))));
+
+    JsonLfReader.UnknownValue.read(
+            new JsonLfReader("[ \"hello\", \"world\" ]").moveNext() // Skip [
+            )
+        .decodeWith(Decoders.text);
   }
 
   @Test

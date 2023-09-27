@@ -18,7 +18,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -185,7 +184,7 @@ public class JsonLfReader {
         Map<String, V> map = new LinkedHashMap<>();
         r.readStartObject();
         while (r.notEndObject()) {
-          String key = r.readFieldName();
+          String key = r.readFieldName().name;
           V val = decodeValue.decode(r);
           map.put(key, val);
         }
@@ -257,22 +256,31 @@ public class JsonLfReader {
       return r -> {
         r.readStartObject();
         T result = null;
-        switch (r.readFieldName("tag", "value")) {
+        FieldName field = r.readFieldName();
+        switch (field.name) {
           case "tag":
             {
               var decoder = r.readFromText(decoderByName, tagNames);
-              r.readFieldName("value");
+              FieldName valueField = r.readFieldName();
+              if (!valueField.name.equals("value")) {
+                r.parseExpected("field value", null, valueField.name, valueField.loc);
+              }
               result = decoder.decode(r);
               break;
             }
           case "value":
             {
               UnknownValue unknown = UnknownValue.read(r); // Can't decode until we know the tag.
-              r.readFieldName("tag");
+              FieldName tagField = r.readFieldName();
+              if (!tagField.name.equals("tag")) {
+                r.parseExpected("field tag", null, tagField.name, tagField.loc);
+              }
               var decoder = r.readFromText(decoderByName, tagNames);
               result = unknown.decodeWith(decoder);
               break;
             }
+          default:
+            r.parseExpected("field tag or value", null, field.name, field.loc);
         }
         r.readEndObject();
         return result;
@@ -282,9 +290,9 @@ public class JsonLfReader {
     // Provides a generic way to read a record type, with a constructor arg for each field.
     // This is a little fragile, so is better used by code-gen. Specifically:
     // - The constructor must cast the elements and pass them to the T's constructor appropriately.
-    // - The elements of fieldNames should all evaluate to non non-null when applied to
-    // fieldsByName.
-    // - The argIndex field values should correspond to the args passed to the constructor.
+    // - The elements of argNames should all evaluate to non non-null when applied to
+    // argsByName.
+    // - The index field values should correspond to the args passed to the constructor.
     //
     // e.g.
     //     r.record(
@@ -292,9 +300,9 @@ public class JsonLfReader {
     //        name -> {
     //          switch (name) {
     //            case "i":
-    //              return JsonLfReader.Field.at(0, r.list(r.int64()));
+    //              return JsonLfReader.ConstrArg.at(0, r.list(r.int64()));
     //            case "b":
-    //              return JsonLfReader.Field.at(1, r.bool(), false);
+    //              return JsonLfReader.ConstrArg.at(1, r.bool(), false);
     //            default:
     //              return null;
     //          }
@@ -302,26 +310,25 @@ public class JsonLfReader {
     //        args -> new Foo((List<Long>) args[0], (Boolean) args[1]))
     //     )
     public static <T> JsonLfDecoder<T> record(
-        List<String> fieldNames,
-        Function<String, Field<? extends Object>> fieldsByName,
+        List<String> argNames,
+        Function<String, ConstrArg<? extends Object>> argsByName,
         Function<Object[], T> constr) {
       return r -> {
-        Object[] args = new Object[fieldNames.size()];
+        Object[] args = new Object[argNames.size()];
         if (r.isStartObject()) {
           r.readStartObject();
           while (r.notEndObject()) {
-            var fieldLoc = r.locationStart();
-            String fieldName = r.readFieldName();
-            var field = fieldsByName.apply(fieldName);
-            if (field == null) r.unknownField(fieldName, fieldNames, fieldLoc);
-            else args[field.argIndex] = field.decode.decode(r);
+            FieldName field = r.readFieldName();
+            var constrArg = argsByName.apply(field.name);
+            if (constrArg == null) r.unknownField(field.name, argNames, field.loc);
+            else args[constrArg.index] = constrArg.decode.decode(r);
           }
           r.readEndObject();
         } else if (r.isStartArray()) {
           r.readStartArray();
-          for (String fieldName : fieldNames) {
-            var field = fieldsByName.apply(fieldName);
-            args[field.argIndex] = field.decode.decode(r);
+          for (String fieldName : argNames) {
+            var field = argsByName.apply(fieldName);
+            args[field.index] = field.decode.decode(r);
           }
           r.readEndArray();
         } else {
@@ -329,34 +336,35 @@ public class JsonLfReader {
         }
 
         // Handle missing fields.
-        for (String fieldName : fieldNames) {
-          Field<? extends Object> field = fieldsByName.apply(fieldName);
-          if (args[field.argIndex] != null) continue;
-          if (field.defaultVal == null) r.missingField(fieldName);
-          args[field.argIndex] = field.defaultVal;
+        for (String argName : argNames) {
+          ConstrArg<? extends Object> arg = argsByName.apply(argName);
+          if (args[arg.index] != null) continue;
+          if (arg.defaultVal == null) r.missingField(argName);
+          args[arg.index] = arg.defaultVal;
         }
 
         return constr.apply(args);
       };
     }
 
-    public static class Field<T> {
-      final int argIndex;
+    // Represents an argument to the code-gen constructor.
+    public static class ConstrArg<T> {
+      final int index;
       final JsonLfDecoder<T> decode;
       final T defaultVal; // If non-null, used to populate value of missing fields.
 
-      private Field(int argIndex, JsonLfDecoder<T> decode, T defaultVal) {
-        this.argIndex = argIndex;
+      private ConstrArg(int index, JsonLfDecoder<T> decode, T defaultVal) {
+        this.index = index;
         this.decode = decode;
         this.defaultVal = defaultVal;
       }
 
-      public static <T> Field<T> at(int argIndex, JsonLfDecoder<T> decode, T defaultVal) {
-        return new Field<T>(argIndex, decode, defaultVal);
+      public static <T> ConstrArg<T> at(int index, JsonLfDecoder<T> decode, T defaultVal) {
+        return new ConstrArg<T>(index, decode, defaultVal);
       }
 
-      public static <T> Field<T> at(int argIndex, JsonLfDecoder<T> decode) {
-        return new Field<T>(argIndex, decode, null);
+      public static <T> ConstrArg<T> at(int index, JsonLfDecoder<T> decode) {
+        return new ConstrArg<T>(index, decode, null);
       }
     }
 
@@ -400,7 +408,7 @@ public class JsonLfReader {
       try {
         r.parser.skipChildren();
         Location to = r.locationEnd();
-        String repr = r.json.substring(from.charOffset, to.charOffset).trim();
+        String repr = r.json.substring(from.charOffset, to.charOffset);
         r.moveNext();
         return new UnknownValue(repr, from);
       } catch (IOException e) {
@@ -469,21 +477,27 @@ public class JsonLfReader {
     moveNext();
   }
 
-  // Read a field name. If any expected values are provided, the field name must match one.
-  private String readFieldName(String... expected) throws JsonLfDecoder.Error {
-    String want = (expected.length == 0) ? "field name" : "field " + String.join(" or ", expected);
-    expectIsAt(want, JsonToken.FIELD_NAME);
-    String fieldName = null;
+  private class FieldName {
+    final String name;
+    final Location loc;
+
+    private FieldName(String name, Location loc) {
+      this.name = name;
+      this.loc = loc;
+    }
+  }
+
+  private FieldName readFieldName() throws JsonLfDecoder.Error {
+    expectIsAt("field", JsonToken.FIELD_NAME);
+    String name = null;
     try {
-      fieldName = parser.getText();
+      name = parser.getText();
     } catch (IOException e) {
       parseExpected("textual field name", e);
     }
-    if (expected.length > 0 && !Arrays.asList(expected).contains(fieldName)) {
-      parseExpected(want, null, fieldName, locationStart());
-    }
+    Location loc = locationStart();
     moveNext();
-    return fieldName;
+    return new FieldName(name, loc);
   }
 
   private <T> T readFromText(Function<String, T> interpreter, List<String> expected)
@@ -501,6 +515,11 @@ public class JsonLfReader {
   }
 
   private Location locationEnd() {
+    // First request the parser to retrieve the whole token.
+    try {
+      parser.finishToken();
+    } catch (IOException e) {
+    }
     JsonLocation loc = parser.currentLocation();
     return new Location(loc.getLineNr(), loc.getColumnNr(), (int) loc.getCharOffset());
   }
