@@ -9,7 +9,9 @@
 -- adapting the corresponding Expected.ledger file. In any case ask
 -- for review to Moritz and/or Remy.
 
-module Test where
+module LfStableManyFields where
+
+import Daml.Script
 
 template BigTemplate
   with
@@ -37,9 +39,10 @@ template BigTemplate
   where
     signatory p
 
+-- @LEDGER run LfStableManyFields.EXPECTED.ledger
 run = do
-  alice <- getParty "Alice"
-  submit alice do create $
+  alice <- allocateParty "Alice"
+  submit alice do createCmd $
                     BigTemplate
                       alice
                       000 001 002 003 004 005 006 007 008 009
@@ -62,5 +65,3 @@ run = do
 --                      170 171 172 173 174 175 176 177 178 179
 --                      180 181 182 183 184 185 186 187 188 189
 --                      190 191 192 193 194 195 196 197 198 199
-
-
