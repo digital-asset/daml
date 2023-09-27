@@ -1,45 +1,42 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{- DLINT ignore -}
 
-module Test where
+module LfStablePatternMatching where
 
-testMatchBool = scenario do
+import Daml.Script
+
+testMatchBool = script do
   case True of
     False -> abort "expected true"
     True -> case False of
       True -> abort "expected false"
       False -> pure ()
 
-data ThisOrThat = This | That  
+data ThisOrThat = This | That
 
-testMatchVariant = scenario do
+testMatchVariant = script do
   case This of
     That -> abort "expected This"
     This -> case That of
       This -> abort "expected That"
       That -> pure ()
 
-testMatchList = scenario do
+testMatchList = script do
   case [1, 2] of
-    (x :: xs) -> scenario do
+    (x :: xs) -> script do
       assert (x == 1)
       case xs of
-        (y :: ys) -> scenario do
+        (y :: ys) -> script do
           assert (y == 2)
           case ys of
             [] -> pure ()
 
-testMatchUnit = scenario do
+testMatchUnit = script do
   case () of
     -- NOTE(JM): I couldn't actually figure
     -- out how to match unit, but since this
     -- reproduced the bug I was fixing I'll stop
     -- here.
     _ -> pure ()
-
-run = scenario do
-  testMatchBool
-  testMatchVariant
-  testMatchList
-  testMatchUnit
