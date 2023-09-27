@@ -49,6 +49,7 @@ allV1StablePackages =
     , daStackTypes version1_14
     ]
 
+-- TODO(#17366): use version2_0 everywhere once we introduce LF 2.0
 allV2StablePackages :: MS.Map PackageId Package
 allV2StablePackages =
     MS.fromList $
