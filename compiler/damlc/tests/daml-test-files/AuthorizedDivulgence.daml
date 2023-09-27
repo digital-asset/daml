@@ -31,7 +31,6 @@ template SecretFetchHelper with
       do
         fetch cid
 
--- This scenario succeeds only if the flag +DontDivulgeContractIdsInCreateArguments is turned on
 test_authorizedFetch : Script ()
 test_authorizedFetch = script do
   me <- allocateParty "Me"
@@ -95,8 +94,7 @@ template Swap2 with
           pure ()
 
 -- We're testing the classic swap example.
--- This scenario should fail now if the DontDivulgeContractIdsInCreateArguments flag is set because
--- the cidIouAlice is not divulged to Bob.
+-- This scenario should fail because the cidIouAlice is not divulged to Bob.
 test_noDivulgenceOfCreateArguments : Script ()
 test_noDivulgenceOfCreateArguments = script do
   alice <- allocateParty "Alice"
@@ -109,7 +107,7 @@ test_noDivulgenceOfCreateArguments = script do
 
 -- If we fetch the contract in the GoSwap1 choice, then the contract will be divulged to Bob and the
 -- swap scenario passes.
--- @WARN range=121:3-121:13; Use of divulged contracts is deprecated
+-- @WARN range=119:3-119:13; Use of divulged contracts is deprecated
 test_noDivulgenceForFetch : Script ()
 test_noDivulgenceForFetch = script do
   alice <- allocateParty "Alice"
@@ -174,8 +172,7 @@ template EFetchHelper with
       do
         fetch cid
 
--- We test that target contract id's of choices are divulged to parties. This will only pass if the
--- DontDivulgeContractIdsInCreateArguments flag is turned on.
+-- We test that target contract id's of choices are divulged to parties.
 test_divulgeChoiceTargetContractId : Script E
 test_divulgeChoiceTargetContractId = script do
   alice <- allocateParty "alice"
