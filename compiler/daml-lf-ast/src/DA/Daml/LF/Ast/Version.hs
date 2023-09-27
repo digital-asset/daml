@@ -28,7 +28,7 @@ data Version = Version
     deriving (Eq, Data, Generic, NFData, Show)
 
 data MajorVersion = V1 | V2
-  deriving (Eq, Data, Generic, NFData, Ord, Show)
+  deriving (Eq, Data, Generic, NFData, Ord, Show, Enum, Bounded)
 
 data MinorVersion = PointStable Int | PointDev
   deriving (Eq, Data, Generic, NFData, Ord, Show)

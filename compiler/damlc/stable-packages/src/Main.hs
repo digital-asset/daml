@@ -77,11 +77,11 @@ main :: IO ()
 main = do
     opts <- execParser (info optParser idm)
     case opts of
-        PackageCmd GenPackageOpts{..} -> 
-            case MS.lookup optModule (stablePackageByModuleName optMajorVersion) of
+        PackageCmd GenPackageOpts{..} ->
+            case (optMajorVersion, optModule) `MS.lookup` stablePackageByModuleName of
                 Nothing ->
                     fail $ "Unknown module: " <> show optModule
-                Just pkg ->
+                Just (_, pkg) ->
                     writePackage pkg optOutputPath
         PackageListCmd GenPackageListOpts{..} ->
             writeFileUtf8 optListOutputPath $ T.unlines

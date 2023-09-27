@@ -105,12 +105,14 @@ allStablePackagesForVersion v =
 numStablePackagesForVersion :: Version -> Int
 numStablePackagesForVersion v = MS.size (allStablePackagesForVersion v)
 
-stablePackageByModuleName :: MajorVersion -> MS.Map ModuleName Package
-stablePackageByModuleName major = MS.fromListWithKey
+stablePackageByModuleName :: MS.Map (MajorVersion, ModuleName) (PackageId, Package)
+stablePackageByModuleName = MS.fromListWithKey
     (\k -> error $ "Duplicate module among stable packages: " <> show k)
-    [ (moduleName m, p)
-    | p <- MS.elems (allStablePackagesForMajorVersion major)
-    , m <- NM.toList (packageModules p) ]
+    [ ((major, moduleName m), (pid, p))
+    | major <- [minBound .. maxBound]
+    , (pid, p) <- MS.toList (allStablePackagesForMajorVersion major)
+    , m <- NM.toList (packageModules p)
+    ]
 
 -- | Helper function for optionally adding metadata to stable packages depending
 -- on the LF version of the package.

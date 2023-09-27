@@ -53,7 +53,7 @@ isInternal (GHC.moduleNameString -> x)
 isUnstableInternal :: LF.MajorVersion -> GHC.ModuleName -> Bool
 isUnstableInternal majorVersion moduleName =
   isInternal moduleName &&
-    convertModuleName moduleName `Map.notMember` stablePackageByModuleName majorVersion
+    (majorVersion, convertModuleName moduleName) `Map.notMember` stablePackageByModuleName
 
 preprocessorExceptions :: Set.Set GHC.ModuleName
 preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
