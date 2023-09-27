@@ -647,7 +647,7 @@ tests Tools{damlc} = testGroup "Packaging" $
               [ "module B where"
               , "import A ()"
               ]
-          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.14 but dependencies have newer LF versions"
+          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.14 but dependencies have incompatible LF versions"
 
     , testCaseSteps "Error on newer LF dependency" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'a"
