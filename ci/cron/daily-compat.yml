@@ -211,21 +211,25 @@ jobs:
         os_url_path=canton-stable/$canton_version/$os_sha/canton-open-source-$canton_version.tar.gz
         os_upload_url=gs://daml-binaries/$os_url_path
         os_download_url=https://storage.googleapis.com/daml-binaries/$os_url_path
-        gcs "$GCRED" cp $os_tmp $os_upload_url
+        if ! gcs "$GCRED" ls $os_upload_url; then
+            gcs "$GCRED" cp $os_tmp $os_upload_url
+        fi
 
         ee_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-enterprise-$canton_version.tar.gz"
         ee_tmp=$(mktemp)
         curl -u $AUTH --fail --location --silent "$ee_url" > $ee_tmp
         ee_sha=$(sha256sum $ee_tmp | awk '{print $1}')
         ee_target_url=https://digitalasset.jfrog.io/artifactory/assembly/daml/canton-backup/$canton_version/$ee_sha/canton-enterprise-$canton_version.tar.gz
-        curl -u $AUTH \
-             -f \
-             -X PUT \
-             -H "X-Checksum-MD5: $(md5sum $ee_tmp | awk '{print $1}')" \
-             -H "X-Checksum-SHA1: $(sha1sum $ee_tmp | awk '{print $1}')" \
-             -H "X-Checksum-SHA256: $(sha256sum $ee_tmp | awk '{print $1}')" \
-             -T $ee_tmp \
-             $ee_target_url
+        if ! curl -u $AUTH -f -I $ee_target_url; then
+            curl -u $AUTH \
+                 -f \
+                 -X PUT \
+                 -H "X-Checksum-MD5: $(md5sum $ee_tmp | awk '{print $1}')" \
+                 -H "X-Checksum-SHA1: $(sha1sum $ee_tmp | awk '{print $1}')" \
+                 -H "X-Checksum-SHA256: $(sha256sum $ee_tmp | awk '{print $1}')" \
+                 -T $ee_tmp \
+                 $ee_target_url
+        fi
 
         sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
         sed -e 's/^/# /' COPY > canton_dep.bzl
