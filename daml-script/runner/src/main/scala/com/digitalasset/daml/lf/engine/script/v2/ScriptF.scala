@@ -23,7 +23,7 @@ import com.daml.lf.data.Ref.{
 }
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
-import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
+import com.daml.lf.engine.script.v2.ledgerinteraction.{ScriptLedgerClient, SubmitError}
 import com.daml.lf.language.{Ast, StablePackagesV2}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SBuiltin.SBVariantCon
@@ -152,6 +152,41 @@ object ScriptF {
     ): Future[SExpr] = Future.failed(new NotImplementedError)
   }
 
+  final case class TrySubmitConcurrently(data: SubmitConcurrentlyData) extends Cmd {
+
+    override def execute(
+        env: Env
+    )(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- Converter.toFuture(
+          env.clients
+            .getPartiesParticipant(data.actAs)
+        )
+        resItems <- Future.traverse(data.cmdss)(
+          client.trySubmit(
+            data.actAs,
+            data.readAs,
+            _,
+            data.stackTrace.topFrame,
+          )
+        )
+        res <- Converter.toFuture(
+          Converter
+            .fromSubmitResultList[SubmitError](
+              env.lookupChoice,
+              env.valueTranslator,
+              _.toDamlSubmitError(env),
+              env.scriptIds,
+              resItems,
+            )
+        )
+      } yield SEValue(res)
+  }
+
   final case class TrySubmit(data: SubmitData) extends Cmd {
 
     override def execute(
@@ -168,30 +203,17 @@ object ScriptF {
           data.cmds,
           data.stackTrace.topFrame,
         )
-        res <- submitRes match {
-          case Right(results) =>
-            Converter.toFuture(
-              results
-                .to(FrontStack)
-                .traverse(
-                  Converter
-                    .fromCommandResult(env.lookupChoice, env.valueTranslator, env.scriptIds, _)
-                )
-                .map(results => SEAppAtomic(right, Array(SEValue(SList(results)))))
+        res <- Converter.toFuture(
+          Converter
+            .fromSubmitResult[SubmitError](
+              env.lookupChoice,
+              env.valueTranslator,
+              _.toDamlSubmitError(env),
+              env.scriptIds,
+              submitRes,
             )
-          case Left(submitError) =>
-            Future.successful(
-              SEAppAtomic(
-                left,
-                Array(
-                  SEValue(
-                    submitError.toDamlSubmitError(env)
-                  )
-                ),
-              )
-            )
-        }
-      } yield res
+        )
+      } yield SEValue(res)
   }
 
   final case class Submit(data: SubmitData) extends Cmd {
@@ -778,6 +800,46 @@ object ScriptF {
     }
   }
 
+  final case class SubmitConcurrentlyData(
+      actAs: OneAnd[Set, Party],
+      readAs: Set[Party],
+      cmdss: List[List[command.ApiCommand]],
+      stackTrace: StackTrace,
+  )
+
+  private def parseSubmitConcurrently(
+      v: SValue,
+      stackTrace: StackTrace,
+  ): Either[String, SubmitConcurrentlyData] = {
+    def convert(
+        actAs: OneAnd[List, SValue],
+        readAs: List[SValue],
+        cmdss: List[List[SValue]],
+    ) =
+      for {
+        actAs <- actAs.traverse(Converter.toParty(_)).map(toOneAndSet(_))
+        readAs <- readAs.traverse(Converter.toParty(_))
+        cmdss <- cmdss.traverse(_.traverse(Converter.toCommand(_)))
+      } yield SubmitConcurrentlyData(actAs, readAs.toSet, cmdss, stackTrace)
+    v match {
+      case SRecord(
+            _,
+            _,
+            ArrayList(
+              SRecord(_, _, ArrayList(hdAct, SList(tlAct))),
+              SList(read),
+              cmdss,
+            ),
+          ) =>
+        Converter.toList(cmdss, (Converter.toList(_, Right(_)))) match {
+          case Right(cmdss) => convert(OneAnd(hdAct, tlAct.toList), read.toList, cmdss)
+          case _ => Left(s"Expected SubmitConcurrently payload but got $v")
+        }
+
+      case _ => Left(s"Expected SubmitConcurrently payload but got $v")
+    }
+  }
+
   private def parseQuery(v: SValue): Either[String, Query] =
     v match {
       case SRecord(_, _, ArrayList(readAs, tplId)) =>
@@ -996,6 +1058,8 @@ object ScriptF {
       case ("SubmitMustFail", 1) => parseSubmit(v, stackTrace).map(SubmitMustFail(_))
       case ("SubmitTree", 1) => parseSubmit(v, stackTrace).map(SubmitTree(_))
       case ("TrySubmit", 1) => parseSubmit(v, stackTrace).map(TrySubmit(_))
+      case ("TrySubmitConcurrently", 1) =>
+        parseSubmitConcurrently(v, stackTrace).map(TrySubmitConcurrently(_))
       case ("Query", 1) => parseQuery(v)
       case ("QueryContractId", 1) => parseQueryContractId(v)
       case ("QueryInterface", 1) => parseQueryInterface(v)

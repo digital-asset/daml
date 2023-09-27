@@ -129,3 +129,26 @@ trySubmit p cmds = trySubmitInternal [p] [] cmds
 -- | Alternate version of `trySubmit` that allows specifying the actAs and readAs parties.
 trySubmitMulti : HasCallStack => [Party] -> [Party] -> Commands a -> Script (Either SubmitError a)
 trySubmitMulti = trySubmitInternal
+
+-- New TrySubmitConcurrently logic
+
+data TrySubmitConcurrently = TrySubmitConcurrently with
+  actAs : NonEmpty Party
+  readAs : [Party]
+  commands : [[Command]]
+instance IsQuestion TrySubmitConcurrently [Either SubmitError [CommandResult]] where command = "TrySubmitConcurrently"
+
+trySubmitConcurrentlyInternal : HasCallStack => [Party] -> [Party] -> [Commands a] -> Script [Either SubmitError a]
+trySubmitConcurrentlyInternal actAs readAs cmdss =
+  let (continues, commands) = unzip (fmap (\c -> (c.continue, c.commands)) cmdss)
+  in
+    fmap @Script (zipWith (fmap @(Either SubmitError)) continues) $ lift $ TrySubmitConcurrently with
+      actAs = actAsNonEmpty actAs
+      readAs = readAs
+      commands = commands
+
+trySubmitConcurrently : HasCallStack => Party -> [Commands a] -> Script [Either SubmitError a]
+trySubmitConcurrently p = trySubmitConcurrentlyInternal [p] []
+
+trySubmitMultiConcurrently : HasCallStack => [Party] -> [Party] -> [Commands a] -> Script [Either SubmitError a]
+trySubmitMultiConcurrently = trySubmitConcurrentlyInternal

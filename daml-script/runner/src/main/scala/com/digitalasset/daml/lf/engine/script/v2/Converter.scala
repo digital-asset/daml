@@ -134,6 +134,55 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
     }
   }
 
+  def fromSubmitResult[T](
+      lookupChoice: (
+          Identifier,
+          Option[Identifier],
+          ChoiceName,
+      ) => Either[String, TemplateChoiceSignature],
+      translator: preprocessing.ValueTranslator,
+      translateError: T => SValue,
+      scriptIds: ScriptIds,
+      submitResult: Either[T, Seq[ScriptLedgerClient.CommandResult]],
+  ): Either[String, SValue] = submitResult match {
+    case Right(commandResults) =>
+      commandResults
+        .to(FrontStack)
+        .traverse(fromCommandResult(lookupChoice, translator, scriptIds, _))
+        .map { rs =>
+          SVariant(
+            StablePackagesV2.Either,
+            Ref.Name.assertFromString("Right"),
+            1,
+            SList(rs),
+          )
+        }
+    case Left(submitError) =>
+      Right(
+        SVariant(
+          StablePackagesV2.Either,
+          Ref.Name.assertFromString("Left"),
+          0,
+          translateError(submitError),
+        )
+      )
+  }
+
+  def fromSubmitResultList[T](
+      lookupChoice: (
+          Identifier,
+          Option[Identifier],
+          ChoiceName,
+      ) => Either[String, TemplateChoiceSignature],
+      translator: preprocessing.ValueTranslator,
+      translateError: T => SValue,
+      scriptIds: ScriptIds,
+      submitResultList: List[Either[T, Seq[ScriptLedgerClient.CommandResult]]],
+  ): Either[String, SValue] =
+    submitResultList
+      .traverse(fromSubmitResult(lookupChoice, translator, translateError, scriptIds, _))
+      .map { xs => SList(xs.to(FrontStack)) }
+
   // Convert an active contract to AnyTemplate
   def fromContract(
       translator: preprocessing.ValueTranslator,
