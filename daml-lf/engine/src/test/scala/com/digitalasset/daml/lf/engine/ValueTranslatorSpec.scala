@@ -30,6 +30,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     with Matchers
     with TableDrivenPropertyChecks {
 
+  import ValueTranslator.Config
   import com.daml.lf.testing.parser.Implicits.SyntaxHelper
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 
