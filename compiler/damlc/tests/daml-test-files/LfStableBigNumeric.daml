@@ -1,9 +1,9 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+module LfStableBigNumeric where
 
-module Test where
-
+import Daml.Script
 import qualified DA.BigNumeric as BigNumeric
 
 template BigNumericResults
@@ -16,10 +16,11 @@ template BigNumericResults
 x : BigNumeric
 x = 0.5
 
-run = scenario do
-  alice <- getParty "Alice"
+-- @LEDGER run LfStableBigNumeric.EXPECTED.ledger
+run = script do
+  alice <- allocateParty "Alice"
   submit alice do
-     create BigNumericResults with
+     createCmd BigNumericResults with
         party = alice
         values = map fromBigNumeric [
               x + x
