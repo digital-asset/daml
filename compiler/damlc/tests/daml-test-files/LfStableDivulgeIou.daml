@@ -1,27 +1,29 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+module LfStableDivulgeIou where
 
-module Test where
+import Daml.Script
 
-run = scenario do
-  payer <- getParty "AlicesBank"
-  owner <- getParty "Alice"
-  divulgee <- getParty "Bob"
+-- @LEDGER run LfStableDivulgeIou.EXPECTED.ledger
+run = script do
+  payer <- allocateParty "AlicesBank"
+  owner <- allocateParty "Alice"
+  divulgee <- allocateParty "Bob"
   iouCid <-
-    submit payer do create Iou with
+    submit payer do createCmd Iou with
                          owner = owner
                          payer = payer
                          amount = Amount {value = 1.0; currency = "USD"}
   divulgeeCid <-
-    submit divulgee do create DivulgeIouByExercise with
+    submit divulgee do createCmd DivulgeIouByExercise with
                          payer = payer
                          divulgee = divulgee
-  submit payer do exercise divulgeeCid Divulge with ref = iouCid
+  submit payer do exerciseCmd divulgeeCid Divulge with ref = iouCid
 
 data Amount = Amount {value: Decimal; currency: Text} deriving (Eq, Show)
 
-amountAsText (amount : Amount) : Text = show amount.value <> amount.currency 
+amountAsText (amount : Amount) : Text = show amount.value <> amount.currency
 
 template GetCash
  with
