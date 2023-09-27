@@ -1,8 +1,12 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE ApplicativeDo #-}
 
-module Test where
+module LfStableContractKeys where
+
+import Daml.Script
+import DA.Optional (isNone)
 
 template TextKey
   with
@@ -42,7 +46,7 @@ template CreateAndLookup
          assertMsg ("Some cid == mbCid") (Some cid == mbCid)
          (fCid, c) <- fetchByKey @TextKey (p, k)
          assertMsg ("fCid == cid") (fCid == cid)
-         assertMsg ("contract fetched by key has correct values") (c.p == p && c.k == k && c.disclosedTo == [])
+         assertMsg ("contract fetched by key has correct values") (c.p == p && c.k == k && null c.disclosedTo)
 
     nonconsuming choice Dupe : ()
       controller p
@@ -67,96 +71,120 @@ template MaintainerNotSignatory
     key q: Party
     maintainer key
 
-run = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
+template Helper
+  with
+    p : Party
+  where
+    signatory p
+
+    choice LookupByKey : Optional (ContractId TextKey)
+      with key : (Party, Text)
+      controller p
+      do
+        lookupByKey @TextKey key
+
+    choice FetchByKey : (ContractId TextKey, TextKey)
+      with key : (Party, Text)
+      controller p
+      do
+        fetchByKey @TextKey key
+
+-- @LEDGER run LfStableContractKeys.EXPECTED.ledger
+run = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
 
   cid1 <- submit alice do
-    create TextKey with
+    createCmd TextKey with
       p = alice
       k = "some-key"
       disclosedTo = [bob]
 
   -- duplicate keys are not OK
   submitMustFail alice do
-    create TextKey with
+    createCmd TextKey with
       p = alice
       k = "some-key"
       disclosedTo = [bob]
 
   -- unauthorized lookups are not OK
   submitMustFail bob do
-    lookupByKey @TextKey (alice, "some-key")
+    createAndExerciseCmd (Helper bob) (LookupByKey (alice, "some-key"))
   submitMustFail bob do
-    lookupByKey @TextKey (alice, "non-existant-key")
+    createAndExerciseCmd (Helper bob) (LookupByKey (alice, "non-existent-key"))
 
   cid2 <- submit alice do
-    lookupByKey @TextKey (alice, "some-key")
+    createAndExerciseCmd (Helper alice) (LookupByKey (alice, "some-key"))
   assertMsg "Some cid1 == cid2" (Some cid1 == cid2)
 
   (cid3, _tk) <- submit alice do
-    fetchByKey @TextKey (alice, "some-key")
+    createAndExerciseCmd (Helper alice) (FetchByKey (alice, "some-key"))
   assertMsg "cid1 == cid3" (cid1 == cid3)
 
   noCid1 <- submit alice do
-    lookupByKey @TextKey (alice, "blah")
-  assertMsg "None == noCid1" (None == noCid1)
+    createAndExerciseCmd (Helper alice) (LookupByKey (alice, "blah"))
+  assertMsg "None == noCid1" (isNone noCid1)
 
   noCid2 <- submit bob do
-    lookupByKey @TextKey (bob, "some-key")
-  assertMsg "None == noCid2" (None == noCid2)
+    createAndExerciseCmd (Helper bob) (LookupByKey (bob, "some-key"))
+  assertMsg "None == noCid2" (isNone noCid2)
 
   submit alice do
-    exercise cid1 TextKeyChoice
+    exerciseCmd cid1 TextKeyChoice
 
   noCid3 <- submit alice do
-    lookupByKey @TextKey (alice, "some-key")
-  assertMsg "None == noCid3" (None == noCid3)
+    createAndExerciseCmd (Helper alice) (LookupByKey (alice, "some-key"))
+  assertMsg "None == noCid3" (isNone noCid3)
 
   -- if we consume an absolute CID within a single
   -- submission, we witness that it does not exist
   cid4 <- submit alice do
-    create TextKey with
+    createCmd TextKey with
       p = alice
       k = "some-key-2"
       disclosedTo = [bob]
   noCid4 <- submit alice do
-    exercise cid4 TextKeyChoice
-    lookupByKey @TextKey (alice, "some-key-2")
-  assertMsg "None == noCid4" (None == noCid4)
+    exerciseCmd cid4 TextKeyChoice
+      *> createAndExerciseCmd (Helper alice) (LookupByKey (alice, "some-key-2"))
+  assertMsg "None == noCid4" (isNone noCid4)
 
-  -- we should be able to wintness keys within a single submit
-  submit alice do
-    cid <- create TextKey with
+  -- we should be able to witness keys within a single submit
+  (cid, mbCid) <- submit alice do
+    cid <- createCmd TextKey with
       p = alice
       k = "same-submit-key"
       disclosedTo = []
-    mbCid <- lookupByKey @TextKey (alice, "same-submit-key")
-    assertMsg ("Some cid == mbCid") (Some cid == mbCid)
+    mbCid <- createAndExerciseCmd (Helper alice) (LookupByKey (alice, "same-submit-key"))
+    pure (cid, mbCid)
+  assertMsg ("Some cid == mbCid") (Some cid == mbCid)
+
   -- and a single choice
   createAndLookupCid <- submit alice do
-    create CreateAndLookup with
+    createCmd CreateAndLookup with
       p = alice
       k = "same-choice-key"
   submit alice do
-    exercise createAndLookupCid Good
+    exerciseCmd createAndLookupCid Good
   -- creating a dupe in a single choice should fail
   submitMustFail alice do
-    exercise createAndLookupCid Dupe
+    exerciseCmd createAndLookupCid Dupe
 
   -- nonconsuming choices should not affect key activeness
-  submit alice $ do
-    cid <- create TextKey with
+  cid <- submit alice do
+    createCmd TextKey with
       p = alice
       k = "non-consuming-choice"
       disclosedTo = []
-    exercise cid TextKeyNonconsumingChoice
-    mbCid <- lookupByKey @TextKey (alice, "non-consuming-choice")
-    assertMsg ("Some cid == mbCid") (Some cid == mbCid)
+  submit alice do
+    exerciseCmd cid TextKeyNonconsumingChoice
+  mbCid <- submit alice do
+    createAndExerciseCmd (Helper alice) (LookupByKey (alice, "non-consuming-choice"))
+  assertMsg ("Some cid == mbCid") (Some cid == mbCid)
 
   -- maintainers must be signatories
   submitMustFail alice $ do
-    create MaintainerNotSignatory with
+    createCmd MaintainerNotSignatory with
       p = alice
       q = bob
 
+  pure ()
