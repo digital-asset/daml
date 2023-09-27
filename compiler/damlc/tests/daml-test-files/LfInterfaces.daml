@@ -3,8 +3,9 @@
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 
-module Test where
+module LfInterfaces where
 
+import Daml.Script
 import DA.Assert ((===))
 
 -- | An interface comment.
@@ -78,15 +79,25 @@ template Asset
         [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism.
         pure ()
 
-run = do
-  p <- getParty "alice"
-  p `submit` do
-    cidAsset1 <- create Asset with
-      issuer = p
-      owner = p
-      amount = 15
-    let cidToken1 = toInterfaceContractId @Token cidAsset1
-    cid <- exercise cidToken1 (Noop ())
-    _ <- fetch cidToken1
-    exercise cidToken1 $ GetRich with byHowMuch = 20
-    pure ()
+template Helper
+  with
+    p : Party
+  where
+    signatory p
+    choice Exe : ()
+      controller p
+      do
+        cidAsset1 <- create Asset with
+          issuer = p
+          owner = p
+          amount = 15
+        let cidToken1 = toInterfaceContractId @Token cidAsset1
+        cid <- exercise cidToken1 (Noop ())
+        _ <- fetch cidToken1
+        exercise cidToken1 $ GetRich with byHowMuch = 20
+        pure ()
+
+-- @LEDGER run LfInterfaces.EXPECTED.ledger
+run = script do
+  p <- allocateParty "alice"
+  p `submit` createAndExerciseCmd (Helper p) Exe
