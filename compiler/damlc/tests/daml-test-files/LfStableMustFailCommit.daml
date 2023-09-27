@@ -1,11 +1,9 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+module LfStableMustFailCommit where
 
-module Test where
-
-import DA.Date
-import DA.Time
+import Daml.Script
 
 template Keyed
   with
@@ -25,12 +23,13 @@ template Helper
       controller p
       do create (Keyed p 0)
 
+-- @LEDGER run LfStableMustFailCommit.EXPECTED.ledger
 run = do
-  p <- getParty "p"
-  submit p $ create (Keyed p 0)
+  p <- allocateParty "p"
+  submit p $ createCmd (Keyed p 0)
   -- This fails when committing the transaction but it
   -- passes Speedy without error.
-  -- See mustfailinterpretation which should produce the same
+  -- See LfStableMustFailInterpretation.daml which should produce the same
   -- contract id for the following submit but fails during commit.
-  submitMustFail p $ createAndExercise (Helper p) C
-  submit p $ create (Keyed p 1)
+  submitMustFail p $ createAndExerciseCmd (Helper p) C
+  submit p $ createCmd (Keyed p 1)
