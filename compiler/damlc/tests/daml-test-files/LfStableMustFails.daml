@@ -203,6 +203,7 @@ exerciseInExercise = script do
 --    foldl (\e ix -> "Nesting" ++ show (ix - 1) ++ "{x = " ++ e ++ "}") "Nesting{x = 42}" [1..150]
 {-
 These tests are disabled since daml-script fails with an uncatchable timeout.
+-- TODO: https://github.com/digital-asset/daml/issues/17508
 
 data Nesting0 = Nesting0 {x0: Nesting1} deriving (Eq, Show)
 data Nesting1 = Nesting1 {x1: Nesting2} deriving (Eq, Show)
