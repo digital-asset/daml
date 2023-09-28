@@ -1,11 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.error.definitions
-
-import com.daml.error.{ContextualizedError, ContextualizedErrorLogger, ErrorCode}
-
-import scala.jdk.CollectionConverters._
+package com.daml.error
 
 class DamlError(
     override val cause: String,
@@ -21,18 +17,6 @@ class DamlError(
 
   override def context: Map[String, String] =
     super.context ++ extraContext.view.mapValues(_.toString)
-
-  def rpcStatus(): com.google.rpc.status.Status = {
-    val status0: com.google.rpc.Status = code.asGrpcStatus(this)
-    val details: Seq[com.google.protobuf.Any] = status0.getDetailsList.asScala.toSeq
-    val detailsScalapb = details.map(com.google.protobuf.any.Any.fromJavaProto)
-    com.google.rpc.status.Status(
-      status0.getCode,
-      status0.getMessage,
-      detailsScalapb,
-    )
-  }
-
 }
 
 /** @param definiteAnswer Determines the value of the `definite_answer` key in the error details

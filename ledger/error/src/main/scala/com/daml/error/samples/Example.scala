@@ -5,7 +5,7 @@ package com.daml.error.samples
 
 import scala.concurrent.duration._
 
-import com.daml.error.definitions.DamlError
+import com.daml.error.DamlError
 
 object DummmyServer {
 

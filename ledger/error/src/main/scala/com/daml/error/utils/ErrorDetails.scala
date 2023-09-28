@@ -3,10 +3,10 @@
 
 package com.daml.error.utils
 
-import com.daml.error.{BaseError, ErrorCode}
+import com.daml.error.ErrorCode
 import com.google.protobuf
 import com.google.rpc.{ErrorInfo, RequestInfo, ResourceInfo, RetryInfo}
-import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
 
 import scala.jdk.CollectionConverters._
@@ -95,20 +95,10 @@ object ErrorDetails {
     case any => throw new IllegalStateException(s"Could not unpack value of: |$any|")
   }
 
-  def isInternalError(t: Throwable): Boolean = t match {
-    case e: StatusRuntimeException => isInternalError(e)
-    case _ => false
-  }
-
-  def isInternalError(e: StatusRuntimeException): Boolean =
-    e.getStatus.getCode == Status.Code.INTERNAL && e.getStatus.getDescription.startsWith(
-      BaseError.SecuritySensitiveMessageOnApiPrefix
-    )
-
   /** @return whether a status runtime exception matches the error code.
     *
     * NOTE: This method is not suitable for:
-    * 1) security sensitive error codes (e.g. internal or authentication related) as they are stripped from all the details when being converted to instances of [[StatusRuntimeException]],
+    * 1) security sensitive error codes (e.g. internal or authentication related) as they are stripped from all the details when being converted to instances of [[io.grpc.StatusRuntimeException]],
     * 2) error codes that do not translate to gRPC level errors (i.e. error codes that don't have a corresponding gRPC status)
     */
   def matches(e: StatusRuntimeException, errorCode: ErrorCode): Boolean = {
@@ -125,7 +115,4 @@ object ErrorDetails {
     case e: StatusRuntimeException => matches(e, errorCode)
     case _ => false
   }
-
-  def matchesOneOf(t: Throwable, errorCodes: ErrorCode*): Boolean =
-    errorCodes.exists(matches(t, _))
 }

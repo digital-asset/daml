@@ -4,10 +4,10 @@
 package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.util.UUID
-
-import com.daml.error.ErrorCode
+import com.daml.error.{BaseError, ErrorCode}
 import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.utils.ErrorDetails
+import com.daml.error.utils.ErrorDetails.matches
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertEquals, _}
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
@@ -33,6 +33,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
 }
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.ledger.client.binding.Primitive
+import io.grpc.{Status, StatusRuntimeException}
 import scalaz.Tag
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -48,6 +49,19 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     Permission(Permission.Kind.CanReadAs(Permission.CanReadAs(party)))
 
   private val AdminUserId = "participant_admin"
+
+  def matchesOneOf(t: Throwable, errorCodes: ErrorCode*): Boolean =
+    errorCodes.exists(matches(t, _))
+
+  def isInternalError(t: Throwable): Boolean = t match {
+    case e: StatusRuntimeException => isInternalError(e)
+    case _ => false
+  }
+
+  def isInternalError(e: StatusRuntimeException): Boolean =
+    e.getStatus.getCode == Status.Code.INTERNAL && e.getStatus.getDescription.startsWith(
+      BaseError.SecuritySensitiveMessage.Prefix
+    )
 
   test(
     "UserManagementUpdateUserIdpWithNonDefaultIdps",
@@ -457,12 +471,12 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
           )
           val unexpectedErrors = results.collect {
             case Failure(t)
-                if !ErrorDetails.matchesOneOf(
+                if !matchesOneOf(
                   t,
                   IndexErrors.DatabaseErrors.SqlTransientError,
                   LedgerApiErrors.Admin.UserManagement.UserAlreadyExists,
                 )
-                  && !ErrorDetails.isInternalError(t) =>
+                  && !isInternalError(t) =>
               t
           }
           assertIsEmpty(unexpectedErrors)
@@ -496,11 +510,11 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
           val unexpectedErrors = results
             .collect {
               case Failure(t)
-                  if !ErrorDetails.matchesOneOf(
+                  if !matchesOneOf(
                     t,
                     IndexErrors.DatabaseErrors.SqlTransientError,
                     LedgerApiErrors.Admin.UserManagement.UserNotFound,
-                  ) && !ErrorDetails.isInternalError(t) =>
+                  ) && !isInternalError(t) =>
                 t
             }
           assertIsEmpty(unexpectedErrors)
@@ -544,7 +558,7 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
                   !ErrorDetails.matches(t, IndexErrors.DatabaseErrors.SqlTransientError)
                     &&
                       // Internal error caused by unique constraint violation on Postgres
-                      !ErrorDetails.isInternalError(t) =>
+                      !isInternalError(t) =>
                 t
             }
           assertIsEmpty(unexpectedErrors)

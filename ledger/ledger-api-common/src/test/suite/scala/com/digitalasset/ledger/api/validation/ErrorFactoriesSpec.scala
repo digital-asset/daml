@@ -9,11 +9,12 @@ import java.util.regex.Pattern
 
 import ch.qos.logback.classic.Level
 import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
-import com.daml.error.definitions.{CommonErrors, DamlError, IndexErrors, LedgerApiErrors}
+import com.daml.error.definitions.{CommonErrors, IndexErrors, LedgerApiErrors}
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
+  DamlError,
   ErrorAssertionsWithLogCollectorAssertions,
   ErrorCode,
 }

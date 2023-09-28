@@ -3,9 +3,16 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.definitions.{DamlErrorWithDefiniteAnswer, LedgerApiErrors}
+import com.daml.error.definitions.{LedgerApiErrors}
 import com.daml.error.definitions.groups
-import com.daml.error.{ContextualizedErrorLogger, ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlErrorWithDefiniteAnswer,
+  ErrorCategory,
+  ErrorCode,
+  Explanation,
+  Resolution,
+}
 
 @Explanation("Errors raised by Ledger API admin services.")
 object AdminServices extends LedgerApiErrors.AdminServicesErrorGroup {

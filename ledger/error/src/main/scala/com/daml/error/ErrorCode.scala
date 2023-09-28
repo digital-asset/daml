@@ -4,9 +4,7 @@
 package com.daml.error
 
 import com.daml.error.ErrorCode.MaxCauseLogLength
-import com.daml.error.definitions.DamlError
 import com.daml.error.utils.ErrorDetails
-import com.google.rpc.Status
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
@@ -56,7 +54,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     * e.g. NO_DOMAINS_CONNECTED(2,ABC234)
     */
   def codeStr(correlationId: Option[String]): String =
-    s"$id(${category.asInt},${correlationId.getOrElse("0").take(8)})"
+    ErrorCodeMsg.codeStr(code.id, category.asInt, correlationId)
 
   /** @return message including error category id, error code id, correlation id and cause
     */
@@ -66,10 +64,12 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
         cause.take(MaxCauseLogLength) + "..."
       else
         cause
-    s"${codeStr(correlationId)}: $truncatedCause"
+    ErrorCodeMsg(id, category.asInt, correlationId, truncatedCause)
   }
 
-  def asGrpcStatus(err: BaseError)(implicit loggingContext: ContextualizedErrorLogger): Status = {
+  def asGrpcStatus(
+      err: BaseError
+  )(implicit loggingContext: ContextualizedErrorLogger): com.google.rpc.Status = {
     val statusInfo = getStatusInfo(err)(loggingContext)
     // Provide error id and context via ErrorInfo
     val errorInfo =
@@ -80,7 +80,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
           errorCodeId = id,
           metadata = statusInfo.contextMap ++
             err.definiteAnswerO.fold(Map.empty[String, String])(value =>
-              Map(ErrorCode.DefiniteAnswerKey -> value.toString)
+              Map(GrpcStatuses.DefiniteAnswerKey -> value.toString)
             ),
         )
         Some(errorInfo)
@@ -92,10 +92,8 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       )
     )
     // Build request info
-    val requestInfo = statusInfo.correlationId.map { correlationId =>
-      ErrorDetails.RequestInfoDetail(
-        correlationId = correlationId
-      )
+    val requestInfo = statusInfo.correlationId.orElse(statusInfo.traceId).map { correlationId =>
+      ErrorDetails.RequestInfoDetail(correlationId = correlationId)
     }
     // Build resource infos
     val resourceInfos =
@@ -149,11 +147,12 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       err: BaseError
   )(implicit loggingContext: ContextualizedErrorLogger): ErrorCode.StatusInfo = {
     val correlationId = loggingContext.correlationId
+    val traceId = loggingContext.traceId
     val message =
-      if (code.category.securitySensitive)
-        s"${BaseError.SecuritySensitiveMessageOnApiPrefix} ${correlationId.getOrElse("<no-correlation-id>")}"
-      else
-        code.toMsg(err.cause, loggingContext.correlationId)
+      if (code.category.securitySensitive) {
+        BaseError.SecuritySensitiveMessage(correlationId, traceId)
+      } else
+        code.toMsg(err.cause, correlationId)
     val grpcStatusCode = category.grpcCode
       .getOrElse {
         loggingContext.warn(s"Passing non-grpc error via grpc $id ")
@@ -166,6 +165,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       message = message,
       contextMap = contextMap,
       correlationId = correlationId,
+      traceId = traceId,
     )
   }
 
@@ -184,12 +184,35 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   }
 }
 
+object ErrorCodeMsg {
+  private val ErrorCodeMsgRegex = """([A-Z_]+)\((\d+),(.+?)\): (.*)""".r
+
+  def apply(
+      errorCodeId: String,
+      errorCategoryInt: Int,
+      maybeCorrelationId: Option[String],
+      cause: String,
+  ): String =
+    s"${codeStr(errorCodeId, errorCategoryInt, maybeCorrelationId)}: $cause"
+
+  def codeStr(
+      errorCodeId: String,
+      errorCategoryInt: Int,
+      maybeCorrelationId: Option[String],
+  ): String = s"$errorCodeId($errorCategoryInt,${maybeCorrelationId.getOrElse("0").take(8)})"
+
+  def extract(errorCodeMsg: String): Either[String, (String, Int, String, String)] =
+    errorCodeMsg match {
+      case ErrorCodeMsgRegex(errorCodeId, errorCategoryIdIntAsString, corrId, cause) =>
+        Right((errorCodeId, errorCategoryIdIntAsString.toInt, corrId, cause))
+      case other => Left(s"Could not extract error code constituents from $other")
+    }
+}
+
 object ErrorCode {
   private val ValidMetadataKeyRegex: Regex = "[^(a-zA-Z0-9-_)]".r
-  private[error] val MaxContentBytes = 2000
-  private[error] val MaxCauseLogLength = 512
-
-  val DefiniteAnswerKey = "definite_answer"
+  val MaxContentBytes = 2000
+  val MaxCauseLogLength = 512
 
   class ApiException(status: io.grpc.Status, metadata: io.grpc.Metadata)
       extends StatusRuntimeException(status, metadata)
@@ -200,18 +223,23 @@ object ErrorCode {
   class LoggedApiException(status: io.grpc.Status, metadata: io.grpc.Metadata)
       extends ApiException(status, metadata)
 
-  case class StatusInfo(
+  final case class StatusInfo(
       grpcStatusCode: io.grpc.Status.Code,
       message: String,
       contextMap: Map[String, String],
       correlationId: Option[String],
+      traceId: Option[String],
   )
 
   private def truncateContext(
       error: BaseError
   )(implicit loggingContext: ContextualizedErrorLogger): Map[String, String] = {
     val raw: Seq[(String, String)] =
-      (error.context ++ loggingContext.properties).toSeq.filter(_._2.nonEmpty).sortBy(_._2.length)
+      (error.context ++ loggingContext.properties
+        + ("tid" -> loggingContext.traceId.getOrElse(""))).toSeq
+        .filter(_._2.nonEmpty)
+        .sortBy(_._2.length)
+
     val maxPerEntry = ErrorCode.MaxContentBytes / Math.max(1, raw.size)
     // truncate smart, starting with the smallest value strings such that likely only truncate the largest args
     raw
@@ -253,7 +281,7 @@ object ErrorCode {
 }
 
 // Use these annotations to add more information to the documentation for an error on the website
-case class Explanation(explanation: String) extends StaticAnnotation
-case class Resolution(resolution: String) extends StaticAnnotation
-case class Description(description: String) extends StaticAnnotation
-case class RetryStrategy(retryStrategy: String) extends StaticAnnotation
+final case class Explanation(explanation: String) extends StaticAnnotation
+final case class Resolution(resolution: String) extends StaticAnnotation
+final case class Description(description: String) extends StaticAnnotation
+final case class RetryStrategy(retryStrategy: String) extends StaticAnnotation

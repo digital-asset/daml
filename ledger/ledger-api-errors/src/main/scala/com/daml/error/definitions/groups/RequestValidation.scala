@@ -6,9 +6,11 @@ package com.daml.error.definitions.groups
 import java.time.Duration
 
 import com.daml.error.definitions.LedgerApiErrors.EarliestOffsetMetadataKey
-import com.daml.error.definitions.{DamlError, DamlErrorWithDefiniteAnswer, LedgerApiErrors}
+import com.daml.error.definitions.{LedgerApiErrors}
 import com.daml.error.{
   ContextualizedErrorLogger,
+  DamlError,
+  DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
   ErrorGroup,
