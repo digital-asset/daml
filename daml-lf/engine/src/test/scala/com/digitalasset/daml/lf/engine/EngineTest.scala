@@ -2388,15 +2388,15 @@ object EngineTest {
     Name.assertFromString(s)
 
   val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
-    "daml-lf/tests/BasicTests.dar"
+    "daml-lf/engine/BasicTests.dar"
   )
 
   val (_, _, allPackages1Dev) = loadPackage(
-    "daml-lf/tests/BasicTests-v1dev.dar"
+    "daml-lf/engine/BasicTests-v1dev.dar"
   )
 
   val (_, _, allPackages2Dev) = loadPackage(
-    "daml-lf/tests/BasicTests-v2dev.dar"
+    "daml-lf/engine/BasicTests-v2dev.dar"
   )
 
   val basicTestsSignatures: PackageInterface =

@@ -1,0 +1,12 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_UNSTABLE
+module LfExperimental where
+
+import Daml.Script (script)
+import DA.Experimental.Example (answer)
+import DA.Assert ((===))
+
+run = script do
+    answer () === 42

@@ -48,7 +48,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   }
 
   private val (packageId, _, allPackages) = loadPackage(
-    "daml-lf/tests/AuthTests.dar"
+    "daml-lf/engine/AuthTests.dar"
   )
 
   implicit private def toIdentifier(s: String): Identifier =

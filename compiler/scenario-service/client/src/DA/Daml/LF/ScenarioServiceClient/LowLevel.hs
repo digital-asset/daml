@@ -230,7 +230,6 @@ withScenarioService opts@Options{..} f = do
     [ optJvmOptions
     , ["-jar" , optServerJar]
     , ["--max-inbound-message-size=" <> show size | Just size <- [optGrpcMaxMessageSize]]
-    , ["--enable-scenarios=" <> show b | EnableScenarios b <- [optEnableScenarios]]
     , ["--evaluation-order=" <> show optEvaluationOrder]
     ]
 

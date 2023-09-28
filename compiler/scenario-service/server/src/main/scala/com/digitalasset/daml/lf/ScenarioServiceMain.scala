@@ -36,7 +36,6 @@ import scala.util.control.NonFatal
 
 private final case class ScenarioServiceConfig(
     maxInboundMessageSize: Int,
-    enableScenarios: Boolean,
     evaluationOrder: EvaluationOrder,
 )
 
@@ -53,13 +52,6 @@ private object ScenarioServiceConfig {
       .optional()
       .text(
         s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}."
-      )
-
-    opt[Boolean]("enable-scenarios")
-      .optional()
-      .action((x, c) => c.copy(enableScenarios = x))
-      .text(
-        "Enable/disable support for running scenarios. Defaults to true."
       )
 
     val evaluationOrderRead: Read[EvaluationOrder] = Read.reads {
@@ -80,7 +72,6 @@ private object ScenarioServiceConfig {
       args,
       ScenarioServiceConfig(
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
-        enableScenarios = true,
         evaluationOrder = LeftToRight,
       ),
     )
@@ -101,7 +92,7 @@ object ScenarioServiceMain extends App {
         val server =
           NettyServerBuilder
             .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
-            .addService(new ScenarioService(config.enableScenarios, config.evaluationOrder))
+            .addService(new ScenarioService(config.evaluationOrder))
             .maxInboundMessageSize(config.maxInboundMessageSize)
             .build
         server.start()
@@ -197,8 +188,7 @@ object ScriptStream {
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class ScenarioService(
-    enableScenarios: Boolean,
-    evaluationOrder: EvaluationOrder,
+    evaluationOrder: EvaluationOrder
 )(implicit
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
@@ -217,20 +207,8 @@ class ScenarioService(
       req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponse],
   ): Unit = {
-    if (enableScenarios) {
-      if (req.hasStart) {
-        runLive(
-          req.getStart,
-          ScriptStream.WithoutStatus(respObs),
-          { case (ctx, pkgId, name) =>
-            Future(ctx.interpretScenario(pkgId, name))
-          },
-        )
-      }
-    } else {
-      log("Rejected scenario gRPC request.")
-      respObs.onError(new UnsupportedOperationException("Scenarios are disabled"))
-    }
+    log("Rejected scenario gRPC request.")
+    respObs.onError(new UnsupportedOperationException("Scenarios are not supported"))
   }
 
   override def runLiveScenario(
@@ -238,18 +216,8 @@ class ScenarioService(
       respObs: StreamObserver[RunScenarioResponseOrStatus],
   ): Unit = {
     val stream = ScriptStream.WithStatus(respObs)
-    if (enableScenarios) {
-      if (req.hasStart) {
-        runLive(
-          req.getStart,
-          stream,
-          { case (ctx, pkgId, name) => Future(ctx.interpretScenario(pkgId, name)) },
-        )
-      }
-    } else {
-      log("Rejected scenario gRPC request.")
-      stream.sendError(new UnsupportedOperationException("Scenarios are disabled"))
-    }
+    log("Rejected scenario gRPC request.")
+    stream.sendError(new UnsupportedOperationException("Scenarios are not supported"))
   }
 
   override def runScript(

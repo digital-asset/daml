@@ -94,7 +94,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   }
 
   private[this] val (largeTxId, largeTxPkg, allPackages) = loadPackage(
-    "daml-lf/tests/LargeTransaction.dar"
+    "daml-lf/engine/LargeTransaction.dar"
   )
   private[this] val largeTx = (largeTxId, largeTxPkg)
 

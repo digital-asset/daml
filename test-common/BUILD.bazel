@@ -121,7 +121,6 @@ da_scala_dar_resources_library(
         "carbonv3": ["//test-common:carbonv2-tests-%s.build"],
         "modelext": ["//test-common:model-tests-%s.build"],
     },
-    enable_scenarios = True,
     exclusions = {
         "1.8": [
             "**/*Exception*.daml",
