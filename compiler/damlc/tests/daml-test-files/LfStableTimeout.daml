@@ -1,6 +1,8 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE ApplicativeDo #-}
+
 module LfStableTimeout where
 
 import Daml.Script
@@ -8,14 +10,24 @@ import Daml.Script
 loop : Int -> ()
 loop x = loop (x + 1)
 
--- @ERROR range=13:1-13:15; Evaluation timed out
+-- @ERROR range=15:1-15:15; Evaluation timed out
 -- @LEDGER testScriptLoop LfStableTimeout.testScriptLoop.EXPECTED.ledger
 testScriptLoop = script do
   alice <- allocateParty "p"
   submit alice do
-     pure $ loop 1
+    -- note that the `Witness` contract is created (see EXPECTED.ledger),
+    -- which means that `loop 1` below isn't evaluated sooner than necessary by
+    -- the script interpreter
+    _ <- createCmd (Witness alice)
+    pure $ loop 1
 
--- @ERROR range=20:1-20:15; Evaluation timed out
+template Witness
+  with
+    p : Party
+  where
+    signatory p
+
+-- @ERROR range=32:1-32:15; Evaluation timed out
 -- @LEDGER testUpdateLoop LfStableTimeout.testUpdateLoop.EXPECTED.ledger
 testUpdateLoop = script do
   alice <- allocateParty "p"
