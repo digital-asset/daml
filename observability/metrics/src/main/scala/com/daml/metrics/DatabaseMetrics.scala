@@ -8,7 +8,7 @@ import com.daml.metrics.api.MetricHandle.{LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
-class DatabaseMetrics private[metrics] (
+class DatabaseMetrics(
     val name: String,
     val factory: LabeledMetricsFactory,
 ) {
