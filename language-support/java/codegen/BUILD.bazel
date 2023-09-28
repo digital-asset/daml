@@ -3,6 +3,7 @@
 
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
@@ -426,6 +427,16 @@ da_scala_test(
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_reactivex_rxjava2_rxjava",
         "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_benchmark_jmh(
+    name = "from-json-bench",
+    srcs = glob(["src/bench/**/*.scala"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":test-model-2.dev.jar",
+        "//language-support/java/bindings:bindings-java",
     ],
 )
 
