@@ -6,7 +6,7 @@ package com.daml.lf.data
 import scalaz.{@@, Equal, Order, Tag}
 import scalaz.syntax.order._
 
-private[daml] object ScalazEqual {
+object ScalazEqual {
   def withNatural[A](isNatural: Boolean)(c: (A, A) => Boolean): Equal[A] =
     if (isNatural) Equal.equalA else Equal.equal(c)
 
