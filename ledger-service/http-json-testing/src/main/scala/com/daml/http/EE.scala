@@ -8,5 +8,5 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import java.nio.file.{Path, Paths}
 
 object Edition {
-  lazy val cantonJar: Path = Paths.get(rlocation("canton/canton-ee_deploy.jar"))
+  lazy val cantonJar: Path = Paths.get(rlocation("test-common/canton/canton-ee_deploy.jar"))
 }
