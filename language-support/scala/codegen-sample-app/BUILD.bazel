@@ -137,7 +137,7 @@ da_scala_test(
     deps = [
         ":daml-lf-codegen-sample-app",
         ":daml-lf-codegen-sample-app-testing",
-        "//canton/it-lib",
+        "//test-common/canton/it-lib",
         "//daml-lf/data",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",

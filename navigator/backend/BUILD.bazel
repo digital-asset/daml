@@ -182,7 +182,7 @@ da_scala_test_suite(
         ":navigator-tests-library",
         ":test-resources",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton/it-lib",
+        "//test-common/canton/it-lib",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/transaction",

@@ -96,7 +96,7 @@ da_scala_test_suite(
     deps = [
         ":ledger-api-client",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton/it-lib",
+        "//test-common/canton/it-lib",
         "//daml-lf/engine",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",

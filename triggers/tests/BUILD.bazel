@@ -37,7 +37,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton/it-lib",
+        "//test-common/canton/it-lib",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/interpreter",
@@ -144,7 +144,7 @@ EOF
             deps = [
                 ":test-utils",
                 "//bazel_tools/runfiles:scala_runfiles",
-                "//canton/it-lib",
+                "//test-common/canton/it-lib",
                 "//daml-lf/archive:daml_lf_archive_reader",
                 "//daml-lf/data",
                 "//daml-lf/engine",
@@ -188,7 +188,7 @@ EOF
             deps = [
                 ":test-utils",
                 "//bazel_tools/runfiles:scala_runfiles",
-                "//canton/it-lib",
+                "//test-common/canton/it-lib",
                 "//daml-lf/archive:daml_lf_archive_reader",
                 "//daml-lf/data",
                 "//daml-lf/engine",
@@ -236,7 +236,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         ":test-utils",
-        "//canton/it-lib",
+        "//test-common/canton/it-lib",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
@@ -279,7 +279,7 @@ da_scala_test_suite(
         ":test-utils",
         ":trigger-simulation-lib",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton/it-lib",
+        "//test-common/canton/it-lib",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
@@ -327,7 +327,7 @@ da_scala_test_suite(
         ":test-utils",
         ":trigger-simulation-lib",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton/it-lib",
+        "//test-common/canton/it-lib",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",

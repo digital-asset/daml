@@ -35,7 +35,7 @@ da_scala_library(
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
     deps = [
-        "//canton/it-lib",
+        "//test-common/canton/it-lib",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/transaction",
@@ -99,7 +99,7 @@ da_scala_test_suite(
     ],
     deps = [
         ":integration-tests-lib",
-        "//canton/it-lib",
+        "//test-common/canton/it-lib",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/transaction",

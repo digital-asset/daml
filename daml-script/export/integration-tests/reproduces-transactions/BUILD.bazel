@@ -33,7 +33,7 @@ da_scala_test(
     deps = [
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton/it-lib",
+        "//test-common/canton/it-lib",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/interpreter",
         "//daml-lf/language",
