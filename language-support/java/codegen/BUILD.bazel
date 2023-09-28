@@ -409,7 +409,6 @@ da_scala_test(
     deps = [
         ":ledger-tests-model.jar",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//test-common/canton/it-lib",
         "//daml-lf/data",
         "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings-akka",
@@ -421,6 +420,7 @@ da_scala_test(
         "//libs-scala/ledger-resources:ledger-resources-test-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "//test-common/canton/it-lib",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",

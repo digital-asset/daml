@@ -137,7 +137,6 @@ da_scala_test(
     deps = [
         ":daml-lf-codegen-sample-app",
         ":daml-lf-codegen-sample-app-testing",
-        "//test-common/canton/it-lib",
         "//daml-lf/data",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
@@ -150,5 +149,6 @@ da_scala_test(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//observability/tracing",
+        "//test-common/canton/it-lib",
     ],
 )

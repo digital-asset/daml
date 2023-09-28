@@ -182,7 +182,6 @@ da_scala_test_suite(
         ":navigator-tests-library",
         ":test-resources",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//test-common/canton/it-lib",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/transaction",
@@ -199,6 +198,7 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/timer-utils",
+        "//test-common/canton/it-lib",
         "@maven//:com_typesafe_config",
     ],
 )

@@ -153,7 +153,6 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
-        "//test-common/canton/it-lib",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
@@ -170,6 +169,7 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/scala-utils",
+        "//test-common/canton/it-lib",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -313,7 +313,6 @@ da_scala_test_suite(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//test-common/canton/it-lib",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -342,6 +341,7 @@ da_scala_test_suite(
         "//libs-scala/resources",
         "//libs-scala/scala-utils",
         "//observability/metrics",
+        "//test-common/canton/it-lib",
     ],
 )
 
@@ -377,7 +377,6 @@ da_scala_test_suite(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//test-common/canton/it-lib",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -413,6 +412,7 @@ da_scala_test_suite(
         "//libs-scala/scala-utils",
         "//observability/metrics",
         "//test-common",
+        "//test-common/canton/it-lib",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_dropwizard_metrics_metrics_core",
     ],
