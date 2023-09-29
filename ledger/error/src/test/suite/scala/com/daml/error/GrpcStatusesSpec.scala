@@ -1,10 +1,9 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.client
+package com.daml.error
 
-import com.daml.error.ErrorCode
-import com.daml.error.ErrorCode.DefiniteAnswerKey
+import com.daml.error.GrpcStatuses.DefiniteAnswerKey
 import com.google.protobuf.any
 import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
@@ -20,7 +19,7 @@ class GrpcStatusesSpec extends AnyWordSpec with Matchers {
         ("Description", "Error Info", "Expected"),
         (
           "ErrorInfo contains definite answer key and its value is true",
-          Some(anErrorInfo.copy(metadata = Map(ErrorCode.DefiniteAnswerKey -> "true"))),
+          Some(anErrorInfo.copy(metadata = Map(DefiniteAnswerKey -> "true"))),
           true,
         ),
         (

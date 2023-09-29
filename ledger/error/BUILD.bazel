@@ -35,6 +35,7 @@ da_scala_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":error",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -86,6 +87,7 @@ da_scala_test_suite(
         ":error",
         ":error-test-lib",
         ":error-test-utils",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "//test-common",

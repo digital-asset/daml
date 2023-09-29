@@ -96,7 +96,7 @@ SecurityAlert
 
     **Default log level**: WARN
 
-    **Description**: A potential attack or a faulty peer component has been detected.  This error is exposed on the API with grpc-status INVALID_ARGUMENT without any details for security reasons.
+    **Description**: A potential attack or a faulty peer component has been detected. This error is exposed on the API with grpc-status INVALID_ARGUMENT without any details for security reasons.
 
     **Resolution**: Expectation: this can be a severe issue that requires operator attention or intervention, and potentially vendor support. It means that the system has detected invalid information that can be attributed to either faulty or malicious manipulation of data coming from a peer source.
 

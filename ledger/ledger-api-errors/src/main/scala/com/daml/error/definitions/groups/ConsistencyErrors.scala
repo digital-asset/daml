@@ -3,9 +3,10 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.definitions.{ChangeId, DamlErrorWithDefiniteAnswer, LedgerApiErrors}
+import com.daml.error.definitions.{ChangeId, LedgerApiErrors}
 import com.daml.error.{
   ContextualizedErrorLogger,
+  DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
   ErrorGroup,

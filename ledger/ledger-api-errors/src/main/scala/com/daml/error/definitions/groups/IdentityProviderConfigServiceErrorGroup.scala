@@ -3,8 +3,7 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error._
-import com.daml.error.definitions.{DamlError, DamlErrorWithDefiniteAnswer}
+import com.daml.error.{DamlError, DamlErrorWithDefiniteAnswer, _}
 
 object IdentityProviderConfigServiceErrorGroup
     extends AdminServices.IdentityProviderConfigServiceErrorGroup {

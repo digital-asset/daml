@@ -5,13 +5,14 @@ package com.daml.error.definitions.groups
 
 import com.daml.error.{
   ContextualizedErrorLogger,
+  DamlError,
+  DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
   ErrorResource,
   Explanation,
   Resolution,
 }
-import com.daml.error.definitions.{DamlError, DamlErrorWithDefiniteAnswer}
 
 object PartyManagementServiceErrorGroup extends AdminServices.PartyManagementServiceErrorGroup {
 

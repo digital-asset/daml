@@ -3,9 +3,10 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.definitions.{DamlError, DamlErrorWithDefiniteAnswer}
 import com.daml.error.{
   ContextualizedErrorLogger,
+  DamlError,
+  DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
   ErrorResource,

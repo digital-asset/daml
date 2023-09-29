@@ -9,11 +9,12 @@ import java.util.regex.Pattern
 
 import ch.qos.logback.classic.Level
 import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
-import com.daml.error.definitions.{CommonErrors, DamlError, IndexErrors, LedgerApiErrors}
+import com.daml.error.definitions.{CommonErrors, IndexErrors, LedgerApiErrors}
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
+  DamlError,
   ErrorAssertionsWithLogCollectorAssertions,
   ErrorCode,
 }
@@ -51,7 +52,7 @@ class ErrorFactoriesSpec
   private val expectedLocationLogMarkerRegex =
     "\\{err-context: \"\\{location=ErrorFactoriesSpec.scala:\\d+\\}\"\\}"
   private val expectedInternalErrorMessage =
-    s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId"
+    s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId with tid <no-tid>"
   private val expectedInternalErrorDetails =
     Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo)
 
