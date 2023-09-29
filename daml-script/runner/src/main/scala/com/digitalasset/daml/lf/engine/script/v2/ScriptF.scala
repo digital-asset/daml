@@ -744,6 +744,17 @@ object ScriptF {
       )
   }
 
+  final case class TransformTemplate(
+      tpl: AnyTemplate,
+      desiredTplId: Identifier,
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = Future.successful(SEValue(SUnit))
+  }
+
   // Shared between Submit, SubmitMustFail and SubmitTree
   final case class SubmitData(
       actAs: OneAnd[Set, Party],
@@ -987,6 +998,16 @@ object ScriptF {
     }
   }
 
+  private def parseTransformTemplate(v: SValue): Either[String, TransformTemplate] =
+    v match {
+      case SRecord(_, _, ArrayList(tpl, desiredTplId)) =>
+        for {
+          tpl <- Converter.toAnyTemplate(tpl)
+          desiredTplId <- Converter.typeRepToIdentifier(desiredTplId)
+        } yield TransformTemplate(tpl, desiredTplId)
+      case _ => Left(s"Expected TransformTemplate payload but got $v")
+    }
+
   def parse(
       commandName: String,
       version: Long,
@@ -1022,6 +1043,7 @@ object ScriptF {
       case ("UnvetPackages", 1) => parseChangePackages(v).map(UnvetPackages)
       case ("ListVettedPackages", 1) => parseEmpty(ListVettedPackages())(v)
       case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
+      case ("TransformTemplate", 1) => parseTransformTemplate(v)
       case _ => Left(s"Unknown command $commandName - Version $version")
     }
 
