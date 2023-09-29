@@ -115,9 +115,16 @@ def lf_version_is_dev(versionStr):
 # TODO(#17366): add 2.0 once created
 SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["1.14", "1.15"]
 
-# The subset of LF versions accepted by the compiler in the syntax, expected by the --target option.
+# The subset of LF versions accepted by the compiler's --target option.
 # Must be kept in sync with supportedOutputVersions in Version.hs.
 # TODO(#17366): add 2.0 once created
 COMPILER_LF_VERSIONS = ["1.14", "1.15"] + LF_DEV_VERSIONS
+
+# The subset of COMPILER_LF_VERSIONS with major version 2.
+COMPILER_LF2_VERSIONS = [
+    v
+    for v in COMPILER_LF_VERSIONS
+    if version_in(v, v2_minor_version_range = ("0", "dev"))
+]
 
 LF_MAJOR_VERSIONS = ["1", "2"]
