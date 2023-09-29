@@ -376,7 +376,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
       // This is the SValue equivalent of v1_base
       val sv1_base: SValue = {
-        def id: Identifier = parseTyCon(pid1, "M1:T1")
+        def id: Identifier = parseTyCon(pid1, "M1:T1") // NICK can make it diff in new code-path
         def fields: ImmArray[Name] = ImmArray(
           n"theSig", // This one get checked during contract-info computation.
           n"aNumber",
@@ -394,6 +394,34 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(res) { case Right((v, _)) =>
         v shouldBe v1_base
       }
+    }
+
+    "requires downgrade" in {
+
+      val sv1_base: SValue = {
+        def id: Identifier = parseTyCon(pid1, "M1:T1xx")
+        def fields: ImmArray[Name] = ImmArray(
+          n"theSig",
+          n"aNumber",
+          n"someText",
+          n"extraField",
+        )
+        def values: util.ArrayList[SValue] = ArrayList(
+          SValue.SParty(alice), // And it needs to be a party
+          SValue.SInt64(100),
+          SValue.SText("lala"),
+          // SValue.SText("extra-info-should-have-optional-type"),
+          // SValue.SOptional(Some(SValue.SText("Some cant be lost"))),
+          SValue.SOptional(None),
+        )
+        SValue.SRecord(id, fields, values)
+      }
+      val res = goDisclosed("M1:do_fetch", sv1_base)
+      // println(s"res=$res") // NICK
+      val _ = res // NICK
+      /*inside(res) { case Right((v, _)) => // NICK
+        v shouldBe v1_base
+      }*/
     }
 
   }

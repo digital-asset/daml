@@ -2185,17 +2185,14 @@ private[lf] object SBuiltin {
         ensureContractActive(machine, coid, templateId) {
           f(SValue.SAnyContract(templateId, templateArg))
         }
-
       case None =>
-        machine.disclosedContracts.get(coid) match {
-          case Some(contract) =>
-            ensureContractActive(machine, coid, contract.templateId) {
-              machine.markDisclosedcontractAsUsed(coid)
-              f(contract.any)
-            }
+        lookupContractSomewhere(machine, coid) { either =>
+          either match {
 
-          case None =>
-            machine.lookupContractOnLedger(coid) { coinst =>
+            case Left(contractInfo) =>
+              f(contractInfo.any)
+
+            case Right(coinst) =>
               val V.ContractInstance(srcTemplateId, coinstArg) = coinst
 
               val (upgradingIsEnabled, destTemplateId) = optTargetTemplateId match {
@@ -2229,17 +2226,54 @@ private[lf] object SBuiltin {
                         }
                       if (needValidationCall) {
 
-                        validateContractInfo(machine, coid, contract) { () =>
-                          f(contract.any)
-                        }
-                      } else {
+                      validateContractInfo(machine, coid, contract) { () =>
                         f(contract.any)
                       }
+                    } else {
+                      f(contract.any)
                     }
                   }
                 }
               }
-            }
+
+          }
+        }
+
+    }
+  }
+
+  private def lookupContractSomewhere(machine: UpdateMachine, coid: V.ContractId)(
+      f: Either[ContractInfo, V.ContractInstance] // Left:disclosd; Right:fetched
+      => Control[Question.Update]
+  ): Control[Question.Update] = {
+
+    machine.disclosedContracts.get(coid) match {
+      case Some(contractInfo) =>
+        ensureContractActive(machine, coid, contractInfo.templateId) {
+          machine.markDisclosedcontractAsUsed(coid)
+
+          val resOLD = Left(contractInfo) // NICK: kill OLD/Left when NEW/Right works always
+
+          // Make disclosed-contracts go viw same execution path as fetched-contracts
+          // - convert the contract payload back from SValue to Value
+          // - so it can be re-imported at the desired dest-type
+
+          val coinst =
+            V.ContractInstance(
+              contractInfo.templateId,
+              contractInfo.value.toUnnormalizedValue, // NICK, note in PR desc
+            )
+
+          val resNEW = Right(coinst)
+
+          val _ = (resOLD, resNEW)
+
+          f(resNEW) // NICK, pick here
+        }
+
+      case None =>
+        lookupContractOnLedger(machine, coid) { coinst =>
+          f(Right(coinst))
         }
     }
   }
