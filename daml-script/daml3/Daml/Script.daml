@@ -86,6 +86,9 @@ module Daml.Script
   , unvetPackages
   , listVettedPackages
   , listAllPackages
+
+  , transformTemplate
+  , transformAnyTemplate
   ) where
 
 import Daml.Script.Internal

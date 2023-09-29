@@ -19,6 +19,7 @@ import com.daml.lf.data.Ref.{
   PackageName,
   PackageVersion,
   Party,
+  TypeConName,
   UserId,
 }
 import com.daml.lf.data.Time.Timestamp
@@ -746,13 +747,36 @@ object ScriptF {
 
   final case class TransformTemplate(
       tpl: AnyTemplate,
-      desiredTplId: Identifier,
+      desiredTplId: TypeConName,
   ) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
-    ): Future[SExpr] = Future.successful(SEValue(SUnit))
+    ): Future[SExpr] = {
+      // Error class used simply for extracting the error from postUpgradesTranslateRecordSValue
+      case class UpgradeException(msg: String) extends Exception(msg, null)
+      tpl.arg match {
+        case r: SValue.SRecord =>
+          Future {
+            val upgradedRecord = env.valueTranslator.postUpgradesTranslateRecordSValue(
+              r,
+              desiredTplId,
+              List(),
+              // Throw an error and catch it, convert to Left
+              (msg => throw new UpgradeException(msg)),
+              // TODO: For now, we don't recurse
+              // but we should
+              // Scala won't let me write _._2, it gets angry >:(
+              { case (_, v) => v },
+            )
+            SEAppAtomic(right, Array(SEValue(upgradedRecord)))
+          }.recover { case UpgradeException(msg) =>
+            SEAppAtomic(left, Array(SEValue(SText(msg))))
+          }
+        case _ => Future.failed(new RuntimeException("AnyTemplate did not contain a record"))
+      }
+    }
   }
 
   // Shared between Submit, SubmitMustFail and SubmitTree

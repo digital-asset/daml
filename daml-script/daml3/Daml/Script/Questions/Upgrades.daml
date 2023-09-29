@@ -10,12 +10,14 @@ data TransformTemplate = TransformTemplate with
   desiredTplId : TemplateTypeRep
 instance IsQuestion TransformTemplate (Either Text LedgerValue) where command = "TransformTemplate"
 
-transformTemplate : forall t t'. (Template t, HasAgreement t, Template t', HasAgreement t') => t -> Script (Either Text t')
-transformTemplate t = fmap fromLedgerValue <$> lift TransformTemplate with
-  tpl = toAnyTemplate t
-  desiredTplId = templateTypeRep @t'
+transformTemplate : forall t' t. (Template t, HasAgreement t, Template t', HasAgreement t') => t -> Script (Either Text t')
+transformTemplate = transformAnyTemplate . toAnyTemplate
 
--- transformAnyTemplate : forall t. (Template t, HasAgreement t) => AnyTemplate -> Script (Either Text t)
+transformAnyTemplate : forall t. (Template t, HasAgreement t) => AnyTemplate -> Script (Either Text t)
+transformAnyTemplate t = fmap fromLedgerValue <$> lift TransformTemplate with
+  tpl = t
+  desiredTplId = templateTypeRep @t
+
 -- Consider if theres a way to "tag" an AnyTemplate with the name without package id
 -- akin to `EquivilentTemplate "Main:MyTemplate"`, we can bring the name down to value level using generated typeclasses
 -- but for type level, we'd need to share a data type between the multiple definitions, essentially fool the type system into thinking they're the same

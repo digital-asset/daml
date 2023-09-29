@@ -14,6 +14,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 
 import scala.annotation.tailrec
+import scala.jdk.CollectionConverters._
 
 private[lf] final class ValueTranslator(
     pkgInterface: language.PackageInterface,
@@ -23,14 +24,14 @@ private[lf] final class ValueTranslator(
   import Preprocessor._
 
   @throws[Error.Preprocessing.Error]
-  private def labeledRecordToMap(
-      fields: ImmArray[(Option[Name], Value)]
-  ): Either[String, Option[Map[Name, Value]]] = {
+  private def labeledRecordToMap[V](
+      fields: ImmArray[(Option[Name], V)]
+  ): Either[String, Option[Map[Name, V]]] = {
     @tailrec
     def go(
-        fields: FrontStack[(Option[Name], Value)],
-        map: Map[Name, Value],
-    ): Either[String, Option[Map[Name, Value]]] = {
+        fields: FrontStack[(Option[Name], V)],
+        map: Map[Name, V],
+    ): Either[String, Option[Map[Name, V]]] = {
       fields.pop match {
         case None => Right(Some(map))
         case Some(((None, _), _)) => Right(None)
@@ -108,6 +109,45 @@ private[lf] final class ValueTranslator(
       tyArgs: List[Type],
       typeError: String => Nothing,
       rec: (Type, Value) => SValue,
+  ): SValue.SRecord =
+    postUpgradesTranslateRecordHelper[Value](
+      r.fields,
+      tyCon,
+      tyArgs,
+      typeError,
+      rec,
+      { case (ValueOptional(v)) => v.isEmpty },
+    )
+
+  // For upgrading/downgrading SValues directly. Used by daml script question "TransformTemplate"
+  def postUpgradesTranslateRecordSValue(
+      r: SValue.SRecord,
+      tyCon: TypeConName,
+      tyArgs: List[Type],
+      typeError: String => Nothing,
+      rec: (Type, SValue) => SValue,
+  ): SValue.SRecord =
+    postUpgradesTranslateRecordHelper[SValue](
+      // We pass only values and prefill names are None, this is because we do not want reordering logic in SValues
+      ImmArray.from(r.values.asScala.map(v => (None, v))),
+      tyCon,
+      tyArgs,
+      typeError,
+      rec,
+      { case SValue.SOptional(v) => v.isEmpty },
+    )
+
+  // to reuse: swap ValueRecord for the type of its fields
+  // swap rec: (Type, Value) => SValue, for rec: (Type, V) => SValue, where V is a type parameter
+  // Take an noneCheck: (Name, V) => Option[String] where the string is an error message, and None signifies its fine
+  def postUpgradesTranslateRecordHelper[V](
+      fields: ImmArray[(Option[Name], V)],
+      tyCon: TypeConName,
+      tyArgs: List[Type],
+      typeError: String => Nothing,
+      rec: (Type, V) => SValue,
+      // A check for if the optional value is None. Partial in case the value is not optional.
+      noneCheck: PartialFunction[V, Boolean],
   ): SValue.SRecord = {
     // TODO: Do we need to verify the typeConName matches (without packageid)?
     val lookupResult = handleLookup(pkgInterface.lookupDataRecord(tyCon))
@@ -117,7 +157,7 @@ private[lf] final class ValueTranslator(
 
     val subst = lookupResult.subst(tyArgs)
 
-    val oLabeledFlds = labeledRecordToMap(r.fields).fold(typeError, identity _)
+    val oLabeledFlds = labeledRecordToMap(fields).fold(typeError, identity _)
 
     // correctFields: (correct only by label/position) give the value and type
     // incorrectFields: Left = missing fields, type given. Right = additional fields, value given.
@@ -125,14 +165,14 @@ private[lf] final class ValueTranslator(
     //   but we disallow this. Quoting that the presence of extra fields implies an upgraded contract, and as such
     //   there cannot be missing fields - error
     val (correctFields, incorrectFields): (
-        ImmArray[(Name, Value, Type)],
-        Option[Either[ImmArray[(Name, Type)], ImmArray[(Option[Name], Value)]]],
+        ImmArray[(Name, V, Type)],
+        Option[Either[ImmArray[(Name, Type)], ImmArray[(Option[Name], V)]]],
     ) =
       oLabeledFlds match {
         // Not fully labelled, so order dependent
         // Additional fields should downgrade, missing fields should upgrade
         case None => {
-          val correctFields = (recordFlds zip r.fields).map { case ((lbl, typ), (mbLbl, v)) =>
+          val correctFields = (recordFlds zip fields).map { case ((lbl, typ), (mbLbl, v)) =>
             mbLbl.foreach(lbl_ =>
               if (lbl_ != lbl)
                 typeError(
@@ -141,13 +181,13 @@ private[lf] final class ValueTranslator(
             )
             (lbl, v, typ)
           }
-          val numS = r.fields.length
+          val numS = fields.length
           val numT = recordFlds.length
           val incorrectFields =
             if (numT > numS) // Missing fields
               Some(Left(recordFlds.strictSlice(numS, numT)))
             else if (numS > numT) // Extra fields
-              Some(Right(r.fields.strictSlice(numT, numS)))
+              Some(Right(fields.strictSlice(numT, numS)))
             else
               None
           (correctFields, incorrectFields)
@@ -155,7 +195,7 @@ private[lf] final class ValueTranslator(
         // Fully labelled, so not order dependent
         case Some(labeledFlds) => {
           // State is (correctFields (backwards), remainingSourceFieldsMap, missingFields (backwards))
-          val initialState: (Seq[(Name, Value, Type)], Map[Name, Value], Seq[(Name, Type)]) =
+          val initialState: (Seq[(Name, V, Type)], Map[Name, V], Seq[(Name, Type)]) =
             (Seq(), labeledFlds, Seq())
 
           val (backwardsCorrectFlds, remainingLabeledFlds, backwardsMissingFlds) =
@@ -221,16 +261,18 @@ private[lf] final class ValueTranslator(
             )
         }
       case Some(Right(extraFields)) => {
-        extraFields.foreach {
-          case (_, ValueOptional(None)) =>
-          case (lbl, ValueOptional(Some(_))) =>
-            typeError(
-              s"An optional contract field ($lbl) with a value of Some may not be dropped during downgrading."
-            )
-          case (lbl, _) =>
-            typeError(
-              s"Found non-optional extra field $lbl, cannot remove for downgrading."
-            )
+        extraFields.foreach { case (oLbl, v) =>
+          noneCheck.lift(v) match {
+            case None =>
+              typeError(
+                s"Found non-optional extra field${oLbl.fold("")(lbl => s" \"$lbl\"")}, cannot remove for downgrading."
+              )
+            case Some(false) =>
+              typeError(
+                s"An optional contract field${oLbl.fold("")(lbl => s" (\"$lbl\")")} with a value of Some may not be dropped during downgrading."
+              )
+            case Some(true) =>
+          }
         }
         translatedCorrectFields
       }
