@@ -94,7 +94,7 @@ if [[ "$NAME" == "linux" ]]; then
     bazel build //daml-script/daml:daml-script-dars
     cp bazel-bin/daml-script/daml/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-script/
     bazel build //daml-script/daml3:daml3-script-dars
-    cp bazel-bin/daml3-script/daml/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-script/
+    cp bazel-bin/daml-script/daml3/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-script/
 
     mkdir -p $OUTPUT_DIR/split-release/daml-libs/daml-trigger
     bazel build //triggers/daml:daml-trigger-dars
