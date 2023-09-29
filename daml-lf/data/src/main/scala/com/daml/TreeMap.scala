@@ -15,7 +15,9 @@ object TreeMap {
   // Relies on the fact that immutable.TreeMap.from is linear when its argument
   // is a SortedMap with the same ordering.
   @throws[IllegalArgumentException]
-  def fromOrderedEntries[K, V](entries: Iterable[(K, V)])(implicit order: Ordering[K]): immutable.TreeMap[K, V] =
+  def fromOrderedEntries[K, V](
+      entries: Iterable[(K, V)]
+  )(implicit order: Ordering[K]): immutable.TreeMap[K, V] =
     if (entries.isEmpty)
       immutable.TreeMap.empty
     else {
@@ -25,7 +27,7 @@ object TreeMap {
       val it = entries.iterator
       var previous = it.next()
 
-      while(it.hasNext) {
+      while (it.hasNext) {
         val next = it.next()
         order.compare(previous._1, next._1) match {
           case i if i < 0 =>

@@ -26,12 +26,9 @@ class TreeMapSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
       List("1" -> 1, "0" -> 2),
       List("1" -> 1, "2" -> 2, "3" -> 3, "1" -> 2),
       List("2" -> 2, "3" -> 3, "1" -> 1),
-
     )
 
-    forAll(negativeTestCases)( l =>
-     TreeMap.fromOrderedEntries(l) shouldBe l.toMap
-    )
+    forAll(negativeTestCases)(l => TreeMap.fromOrderedEntries(l) shouldBe l.toMap)
 
     forAll(positiveTestCases)(l =>
       a[IllegalArgumentException] shouldBe thrownBy(TreeMap.fromOrderedEntries(l))
