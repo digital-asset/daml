@@ -17,6 +17,8 @@ class TreeMapSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
         List.empty,
         List("1" -> 1),
         List("1" -> 1, "2" -> 2, "3" -> 3),
+        List("1" -> 1, "1" -> 2),
+        List("1" -> 1, "2" -> 2, "3" -> 3, "3" -> 2),
       )
 
     val positiveTestCases = Table(
@@ -24,14 +26,12 @@ class TreeMapSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
       List("1" -> 1, "0" -> 2),
       List("1" -> 1, "2" -> 2, "3" -> 3, "1" -> 2),
       List("2" -> 2, "3" -> 3, "1" -> 1),
-      List("1" -> 1, "1" -> 2),
-      List("1" -> 1, "2" -> 2, "3" -> 3, "3" -> 2),
+
     )
 
-    forAll(negativeTestCases) { l =>
-      val treeMap = TreeMap.fromOrderedEntries(l)
-      assert(treeMap.iterator sameElements l)
-    }
+    forAll(negativeTestCases)( l =>
+     TreeMap.fromOrderedEntries(l) shouldBe l.toMap
+    )
 
     forAll(positiveTestCases)(l =>
       a[IllegalArgumentException] shouldBe thrownBy(TreeMap.fromOrderedEntries(l))
