@@ -15,6 +15,11 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: N
     with Product
     with Serializable {
 
+  final def dev: LanguageVersion = {
+    require(supportsMinorVersion("dev"), s"Unexpected absence of a 'dev' minor version for major version $this")
+    LanguageVersion(this, LanguageMinorVersion("dev"))
+  }
+
   // do *not* use implicitly unless type `LanguageMinorVersion` becomes
   // indexed by the enclosing major version's singleton type --SC
   final val minorVersionOrdering: Ordering[LanguageMinorVersion] =

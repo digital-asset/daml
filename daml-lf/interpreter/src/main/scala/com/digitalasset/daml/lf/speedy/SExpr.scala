@@ -271,7 +271,7 @@ private[lf] object SExpr {
           machine.pushEnv(value) // use pushEnv not env.add so instrumentation is updated
           Control.Expression(body)
         case None =>
-          machine.handleException(builtin.buildException(actuals))
+          machine.handleException(builtin.buildException(machine, actuals))
       }
     }
   }

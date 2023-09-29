@@ -6,27 +6,30 @@ package speedy
 
 import java.util
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, NoCopy, FrontStack, Time, Ref}
+import com.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, Util => AstUtil}
+import com.daml.lf.language.{LookupError, StablePackages, Util => AstUtil}
+import com.daml.lf.language.LanguageVersionRangeOps._
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.PartialTransaction.NodeSeeds
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.SValue.SArithmeticError
 import com.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.transaction.{
-  SubmittedTransaction,
-  Node,
   ContractKeyUniquenessMode,
-  NodeId,
   GlobalKey,
+  Node,
+  NodeId,
+  SubmittedTransaction,
   IncompleteTransaction => IncompleteTx,
   TransactionVersion => TxVersion,
 }
+import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.lf.value.{Value => V}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
@@ -643,6 +646,18 @@ private[lf] object Speedy {
 
     /* number of iteration between cooperation interruption */
     val iterationsBetweenInterruptions: Long
+
+    /** A constructor/deconstructor of value arithmetic errors. */
+    val valueArithmeticError: ValueArithmeticError = {
+      val stablePackages = StablePackages(
+        compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
+      )
+      new ValueArithmeticError(stablePackages)
+    }
+
+    /** A constructor/deconstructor of svalue arithmetic errors. */
+    val sArithmeticError: SArithmeticError =
+      new SArithmeticError(valueArithmeticError)
 
     private[speedy] def handleException(excep: SValue.SAny): Control[Nothing]
 
@@ -1274,7 +1289,6 @@ private[lf] object Speedy {
 
       Control.Value(go(typ0, value0))
     }
-
   }
 
   object Machine {

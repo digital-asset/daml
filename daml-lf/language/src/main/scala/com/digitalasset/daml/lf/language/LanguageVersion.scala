@@ -112,3 +112,13 @@ object LanguageVersion {
   // This refers to the default output LF version in the compiler
   val default: LanguageVersion = v1_14
 }
+
+/** Operations on [[VersionRange]] that only make sense for ranges of [[LanguageVersion]]. */
+object LanguageVersionRangeOps {
+  implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
+    def majorVersion: LanguageMajorVersion = {
+      require(range.min.major == range.max.major)
+      range.min.major
+    }
+  }
+}

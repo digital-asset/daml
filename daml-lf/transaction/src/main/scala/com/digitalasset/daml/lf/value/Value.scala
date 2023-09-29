@@ -5,12 +5,10 @@ package com.daml.lf
 package value
 
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.{Identifier, Name}
+import com.daml.lf.data.Ref.{Identifier, Name, TypeConName}
 import com.daml.lf.data._
-import com.daml.lf.language.Ast
-import com.daml.lf.language.StablePackage.DA
+import com.daml.lf.language.{Ast, StablePackages}
 import data.ScalazEqual._
-
 import scalaz.{@@, Equal, Order, Tag}
 import scalaz.Ordering.EQ
 import scalaz.std.option._
@@ -101,8 +99,8 @@ object Value {
       fields: ImmArray[(Option[Name], Value)],
   ) extends Value
 
-  object ValueArithmeticError {
-    val tyCon = DA.Exception.ArithmeticError.ArithmeticError
+  class ValueArithmeticError(stablePackages: StablePackages) {
+    val tyCon: TypeConName = stablePackages.ArithmeticError
     val typ: Ast.Type = Ast.TTyCon(tyCon)
     private val someTyCon = Some(tyCon)
     val fieldName: Ref.Name = Ref.Name.assertFromString("message")

@@ -15,7 +15,7 @@ import com.daml.lf.{CompiledPackages, command}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, UserId}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, StablePackagesV1}
 import com.daml.lf.speedy.SExpr.{SEAppAtomic, SEValue}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SExpr.SExpr
@@ -264,9 +264,8 @@ object ScriptF {
     ): Future[SExpr] = {
 
       def makePair(v1: SValue, v2: SValue): SValue = {
-        import com.daml.lf.language.StablePackage.DA
         import com.daml.script.converter.Converter.record
-        record(DA.Types.assertIdentifier("Tuple2"), ("_1", v1), ("_2", v2))
+        record(StablePackagesV1.Tuple2, ("_1", v1), ("_2", v2))
       }
 
       for {

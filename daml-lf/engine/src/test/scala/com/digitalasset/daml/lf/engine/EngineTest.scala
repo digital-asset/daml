@@ -5,7 +5,6 @@ package com.daml.lf
 package engine
 
 import java.io.File
-
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
@@ -34,7 +33,7 @@ import com.daml.lf.command._
 import com.daml.lf.crypto.Hash
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.engine.Error.Interpretation.DamlException
-import com.daml.lf.language.{LanguageVersion, PackageInterface, StablePackage}
+import com.daml.lf.language.{LanguageVersion, PackageInterface, StablePackages}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
@@ -2342,11 +2341,16 @@ class EngineTest
         LanguageVersion.v2_dev -> allPackages2Dev,
       )
     ) {
+      // TODO(#17366): clean up this code after we refactor LanguageVersion
+      val major = devVersion.major
+      val compatibleLanguageVersions = LanguageVersion.All.filter(_.major == major)
+      val stablePackages = StablePackages(major).allPackages
+
       s"accept stable packages from ${devVersion} even if version is smaller than min version" in {
         for {
-          lv <- LanguageVersion.All.filter(_ <= devVersion)
-          eng = engine(min = lv, devVersion)
-          pkg <- StablePackage.values
+          lv <- compatibleLanguageVersions.filter(_ <= devVersion)
+          eng = engine(min = lv, max = devVersion)
+          pkg <- stablePackages
           pkgId = pkg.packageId
           pkg <- allPackagesDev.get(pkgId).toList
         } yield eng.preloadPackage(pkgId, pkg) shouldBe a[ResultDone[_]]
@@ -2354,9 +2358,9 @@ class EngineTest
 
       s"reject stable packages from ${devVersion} if version is greater than max version" in {
         for {
-          lv <- LanguageVersion.All
-          eng = engine(LanguageVersion.v1_6, max = lv)
-          pkg <- StablePackage.values
+          lv <- compatibleLanguageVersions
+          eng = engine(min = LanguageVersion.v1_6, max = lv)
+          pkg <- stablePackages
           pkgId = pkg.packageId
           pkg <- allPackagesDev.get(pkgId).toList
         } yield inside(eng.preloadPackage(pkgId, pkg)) {

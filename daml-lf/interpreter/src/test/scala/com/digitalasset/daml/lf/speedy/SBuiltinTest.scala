@@ -9,14 +9,17 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageVersionRangeOps._
+import com.daml.lf.language.StablePackages
 import com.daml.lf.speedy.SBuiltin.{SBCacheDisclosedContract, SBCrash, SBuildContractInfoStruct}
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
-import com.daml.lf.speedy.Speedy.{ContractInfo, Machine, CachedKey}
+import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo, Machine}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ValueArithmeticError
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
@@ -1642,13 +1645,15 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         ),
       )
 
+      val valueArithmeticError = new ValueArithmeticError(stablePackages)
+
       forAll(cases) { (builtin, args, name) =>
         inside(eval(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).toArray))) {
           case Left(
                 SError.SErrorDamlException(
                   IE.UnhandledException(
-                    Value.ValueArithmeticError.typ,
-                    Value.ValueArithmeticError(msg),
+                    valueArithmeticError.typ,
+                    valueArithmeticError(msg),
                   )
                 )
               ) =>
@@ -1924,6 +1929,8 @@ object SBuiltinTest {
 
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
+
+  val stablePackages = StablePackages(compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion)
 
   private def eval(e: Expr): Either[SError, SValue] =
     Machine.runPureExpr(e, compiledPackages)

@@ -13,7 +13,7 @@ import com.daml.lf.speedy.{Compiler, SDefinition}
   * compiled speedy expressions.
   */
 private[lf] abstract class CompiledPackages(
-    compilerConfig: Compiler.Config
+    val compilerConfig: Compiler.Config
 ) {
   def getDefinition(dref: SDefinitionRef): Option[SDefinition]
   def packageIds: scala.collection.Set[PackageId]
@@ -31,7 +31,7 @@ private[lf] final case class PureCompiledPackages(
     val packageIds: Set[PackageId],
     val pkgInterface: PackageInterface,
     val defns: Map[SDefinitionRef, SDefinition],
-    compilerConfig: Compiler.Config,
+    override val compilerConfig: Compiler.Config,
 ) extends CompiledPackages(compilerConfig) {
   override def getDefinition(dref: SDefinitionRef): Option[SDefinition] = defns.get(dref)
 }

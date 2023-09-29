@@ -89,7 +89,8 @@ object RunnerMain {
 
       dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(config.darPath)
 
-      compiledPackages = PureCompiledPackages.assertBuild(dar.all.toMap, Runner.compilerConfig)
+      majorVersion = dar.main._2.languageVersion.major
+      compiledPackages = PureCompiledPackages.assertBuild(dar.all.toMap, Runner.compilerConfig(majorVersion))
       ifaceDar =
         dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
       envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
@@ -168,7 +169,7 @@ object RunnerMain {
           val scriptId: Identifier =
             Identifier(dar.main._1, QualifiedName.assertFromString(scriptName))
           val converter = (json: JsValue, typ: Type) =>
-            Converter.fromJsonValue(
+            converterFor(majorVersion).fromJsonValue(
               scriptId.qualifiedName,
               envIface,
               compiledPackages,

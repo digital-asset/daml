@@ -28,7 +28,6 @@ import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, Interfa
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.NoLoggingValueValidator
-import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.Command
 import com.daml.lf.value.Value
 import com.daml.platform.participant.util.LfEngineToApi.{
