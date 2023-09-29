@@ -664,9 +664,9 @@ da_haskell_test(
     data = [
         ":repl-multi-test.dar",
         ":repl-test.dar",
-        "//canton:lib",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
+        "//test-common/canton:lib",
         "//test-common/test-certificates",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
@@ -705,11 +705,11 @@ da_haskell_test(
         ":repl-test.dar",
         ":repl-test-two.dar",
         ghc_pkg,
-        "//canton:lib",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/repl-service/server:repl_service_jar",
         "//daml-script/daml:daml-script.dar",
+        "//test-common/canton:lib",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "async",
@@ -1026,8 +1026,8 @@ da_haskell_test(
     srcs = ["src/DamlcPkgManager.hs"],
     data = [
         ":pkg-manager-test.dar",
-        "//canton:lib",
         "//compiler/damlc",
+        "//test-common/canton:lib",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",

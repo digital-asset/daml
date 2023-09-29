@@ -8,7 +8,7 @@ set -o pipefail
 
 JAVA="$(rlocation local_jdk/bin/java)"
 
-command=("$(rlocation com_github_digital_asset_daml/canton/${canton_jar})" daemon "$@")
+command=("$(rlocation com_github_digital_asset_daml/test-common/canton/${canton_jar})" daemon "$@")
 
 # Change HOME since Canton uses ammonite in the default configuration, which tries to write to
 # ~/.ammonite/cache, which is read-only when sandboxing is enabled.
