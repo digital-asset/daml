@@ -109,7 +109,13 @@ private[lf] final class ValueTranslator(
       tyArgs: List[Type],
       typeError: String => Nothing,
       rec: (Type, Value) => SValue,
-  ): SValue.SRecord =
+  ): SValue.SRecord = {
+    r.tycon.foreach(id =>
+      if (id.qualifiedName != tyCon.qualifiedName)
+        typeError(
+          s"Non-matching module path/name. Expected given record to be ${tyCon.qualifiedName}, but got ${id.qualifiedName}"
+        )
+    )
     postUpgradesTranslateRecordHelper[Value](
       r.fields,
       tyCon,
@@ -118,6 +124,7 @@ private[lf] final class ValueTranslator(
       rec,
       { case (ValueOptional(v)) => v.isEmpty },
     )
+  }
 
   // For upgrading/downgrading SValues directly. Used by daml script question "TransformTemplate"
   def postUpgradesTranslateRecordSValue(
@@ -126,7 +133,11 @@ private[lf] final class ValueTranslator(
       tyArgs: List[Type],
       typeError: String => Nothing,
       rec: (Type, SValue) => SValue,
-  ): SValue.SRecord =
+  ): SValue.SRecord = {
+    if (r.id.qualifiedName != tyCon.qualifiedName)
+      typeError(
+        s"Non-matching module path/name. Expected given record to be ${tyCon.qualifiedName}, but got ${r.id.qualifiedName}"
+      )
     postUpgradesTranslateRecordHelper[SValue](
       // We pass only values and prefill names are None, this is because we do not want reordering logic in SValues
       ImmArray.from(r.values.asScala.map(v => (None, v))),
@@ -136,6 +147,7 @@ private[lf] final class ValueTranslator(
       rec,
       { case SValue.SOptional(v) => v.isEmpty },
     )
+  }
 
   // to reuse: swap ValueRecord for the type of its fields
   // swap rec: (Type, Value) => SValue, for rec: (Type, V) => SValue, where V is a type parameter
@@ -149,7 +161,6 @@ private[lf] final class ValueTranslator(
       // A check for if the optional value is None. Partial in case the value is not optional.
       noneCheck: PartialFunction[V, Boolean],
   ): SValue.SRecord = {
-    // TODO: Do we need to verify the typeConName matches (without packageid)?
     val lookupResult = handleLookup(pkgInterface.lookupDataRecord(tyCon))
     val recordFlds = lookupResult.dataRecord.fields
 
