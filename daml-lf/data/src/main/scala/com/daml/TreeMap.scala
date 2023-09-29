@@ -4,20 +4,20 @@
 package com.daml.lf
 package data
 
+import scala.collection.immutable
+
 object TreeMap {
 
   import Ordering.Implicits._
 
   // Linear time builder for immutable TreeMap.
   // Requires the entries to be strictly ordered, crashes if not.
-  // Relies on the fact that collection.immutable.TreeMap.from is linear when
-  // its argument is a SortedMap with the same ordering.
+  // Relies on the fact that immutable.TreeMap.from is linear when its argument
+  // is a SortedMap with the same ordering.
   @throws[IllegalArgumentException]
-  def fromOrderedEntries[K: Ordering, V](
-      entries: Iterable[(K, V)]
-  ): collection.immutable.TreeMap[K, V] =
+  def fromOrderedEntries[K: Ordering, V](entries: Iterable[(K, V)]): immutable.TreeMap[K, V] =
     if (entries.isEmpty)
-      collection.immutable.TreeMap.empty
+      immutable.TreeMap.empty
     else {
 
       val _ = entries.tail.foldLeft(entries.head._1) { case (previousKey, (k, _)) =>
@@ -25,12 +25,12 @@ object TreeMap {
         k
       }
 
-      val fakeSortedMap = new collection.immutable.SortedMap[K, V] {
+      val fakeSortedMap = new immutable.SortedMap[K, V] {
         override def ordering: Ordering[K] = implicitly
         override val iterator: Iterator[(K, V)] = entries.iterator
         override def size: Int = entries.size
 
-        // As for scala 2.12.10 collection.immutable.TreeMap.from does not use the following methods
+        // As for scala 2.12.10 immutable.TreeMap.from does not use the following methods
         override def removed(key: K): Nothing = ???
         override def updated[V1 >: V](key: K, value: V1): Nothing = ???
         override def iteratorFrom(start: K): Nothing = ???
@@ -39,6 +39,6 @@ object TreeMap {
         override def get(key: K): Nothing = ???
       }
 
-      collection.immutable.TreeMap.from(fakeSortedMap)
+      immutable.TreeMap.from(fakeSortedMap)
     }
 }

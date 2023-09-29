@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import java.util
-import com.daml.lf.data._
+import com.daml.lf.data.{TreeMap => _, _}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SExpr.SExpr
@@ -15,9 +15,8 @@ import com.daml.lf.value.{Value => V}
 import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 
-import scala.collection.IndexedSeqView
 import scala.jdk.CollectionConverters._
-import scala.collection.immutable.{SortedMap, TreeMap}
+import scala.collection.immutable.TreeMap
 import scala.util.hashing.MurmurHash3
 
 /** Speedy values. These are the value types recognized by the
@@ -269,6 +268,7 @@ object SValue {
     /** Build an SMap from an iterator over SValue key/value pairs.
       *
       * SValue keys are not assumed to be ordered - hence the SMap will be built in time O(n log(n)).
+      * If keys are duplicate, the last overrides the firsts
       */
     def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap =
       SMap(
