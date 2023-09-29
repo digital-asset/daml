@@ -27,7 +27,7 @@ object TreeMap {
 
       val fakeSortedMap = new immutable.SortedMap[K, V] {
         override def ordering: Ordering[K] = implicitly
-        override val iterator: Iterator[(K, V)] = entries.iterator
+        override def iterator: Iterator[(K, V)] = entries.iterator
         override def size: Int = entries.size
 
         // As for scala 2.12.10 immutable.TreeMap.from does not use the following methods
