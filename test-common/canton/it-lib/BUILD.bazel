@@ -11,8 +11,8 @@ da_scala_library(
     name = "it-lib",
     srcs = glob(["src/main/**/*.scala"]),
     data = [
-        "//canton:canton-patched_deploy.jar",
-        "//canton:canton_deploy.jar",
+        "//test-common/canton:canton-patched_deploy.jar",
+        "//test-common/canton:canton_deploy.jar",
         "//test-common/test-certificates",
     ],
     scala_deps = [

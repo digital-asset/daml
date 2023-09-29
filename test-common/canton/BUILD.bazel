@@ -16,7 +16,7 @@ java_binary(
     visibility = ["//visibility:public"],
     runtime_deps = [
         # Do not sort
-        "//canton:lib",
+        "//test-common/canton:lib",
     ],
 )
 
@@ -31,7 +31,7 @@ java_binary(
         # Do not sort
         "//daml-lf/engine",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//canton:lib",
+        "//test-common/canton:lib",
     ],
 )
 
@@ -121,5 +121,5 @@ java_binary(
     main_class = "com.digitalasset.canton.CantonEnterpriseApp",
     tags = ["canton-ee"],
     visibility = ["//ledger-service:__subpackages__"],
-    runtime_deps = ["//canton:lib-ee"],
+    runtime_deps = ["//test-common/canton:lib-ee"],
 )

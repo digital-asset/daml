@@ -242,19 +242,19 @@ jobs:
         }
         EOF
 
-        sed -i "s|CANTON_ENTERPRISE_VERSION=.*|CANTON_ENTERPRISE_VERSION=$canton_version|" canton/BUILD.bazel
-        sed -i "s|CANTON_ENTERPRISE_SHA=.*|CANTON_ENTERPRISE_SHA=$ee_sha|" canton/BUILD.bazel
-        sed -i "s|CANTON_ENTERPRISE_URL=.*|CANTON_ENTERPRISE_URL=$ee_target_url|" canton/BUILD.bazel
+        sed -i "s|CANTON_ENTERPRISE_VERSION=.*|CANTON_ENTERPRISE_VERSION=$canton_version|" test-common/canton/BUILD.bazel
+        sed -i "s|CANTON_ENTERPRISE_SHA=.*|CANTON_ENTERPRISE_SHA=$ee_sha|" test-common/canton/BUILD.bazel
+        sed -i "s|CANTON_ENTERPRISE_URL=.*|CANTON_ENTERPRISE_URL=$ee_target_url|" test-common/canton/BUILD.bazel
 
         rm -f arbitrary_canton_sha
 
         branch="canton-update-$canton_version"
 
-        if git diff --exit-code -- canton_dep.bzl build.sh arbitrary_canton_sha canton/BUILD.bazel; then
+        if git diff --exit-code -- canton_dep.bzl build.sh arbitrary_canton_sha test-common/canton/BUILD.bazel; then
             echo "Already up-to-date with latest Canton snapshot."
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
-                git add canton_dep.bzl build.sh canton/BUILD.bazel
+                git add canton_dep.bzl build.sh test-common/canton/BUILD.bazel
                 git ls-files | grep arbitrary_canton_sha >&2 && git rm -f arbitrary_canton_sha
                 open_pr "$branch" "bump canton to $canton_version"
                 az extension add --name azure-devops

@@ -30,7 +30,6 @@ da_scala_test_suite(
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton/it-lib",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
@@ -54,6 +53,7 @@ da_scala_test_suite(
         "//libs-scala/scalatest-utils",
         "//observability/tracing",
         "//test-common",
+        "//test-common/canton/it-lib",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/tests:test-utils",
         "//triggers/tests:trigger-simulation-lib",

@@ -16,7 +16,7 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             ["src/main/scala/**/*.scala"],
             exclude = ["src/main/scala/**/CE.scala"] if edition == "ee" else ["src/main/scala/**/EE.scala"],
         ),
-        data = ["//canton:canton-ee_deploy.jar"] if edition == "ee" else [],
+        data = ["//test-common/canton:canton-ee_deploy.jar"] if edition == "ee" else [],
         plugins = [
             kind_projector_plugin,
         ],
@@ -39,12 +39,12 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
         ],
         deps = [
             "//bazel_tools/runfiles:scala_runfiles",
-            "//canton/it-lib",
             "//daml-lf/transaction",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-api/testing-utils",
             "//ledger-service/fetch-contracts",
+            "//test-common/canton/it-lib",
             "@maven//:org_scalatest_scalatest_compatible",
             "//ledger-service/http-json:http-json-{}".format(edition),
             "//ledger-service/http-json-cli:{}".format(edition),
