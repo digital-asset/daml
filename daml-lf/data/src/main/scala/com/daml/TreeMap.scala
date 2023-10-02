@@ -27,10 +27,9 @@ object TreeMap {
       val it = entries.iterator
       var previous = it.next()
 
-      while (it.hasNext) {
-        val next = it.next()
-        order.compare(previous._1, next._1) match {
-          case i if i < 0 =>
+      it.foreach { next =>
+        order.compare(previous._1, next._1).sign match {
+          case -1 =>
             val _ = buffer.addOne(previous)
           case 0 =>
           case _ =>
