@@ -16,7 +16,13 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
-import com.daml.ledger.api.v1.commands.{CreateAndExerciseCommand, CreateCommand, ExerciseByKeyCommand, ExerciseCommand, Command => ApiCommand}
+import com.daml.ledger.api.v1.commands.{
+  CreateAndExerciseCommand,
+  CreateCommand,
+  ExerciseByKeyCommand,
+  ExerciseCommand,
+  Command => ApiCommand,
+}
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, InterfaceView}
 import com.daml.ledger.api.v1.transaction.Transaction
@@ -25,7 +31,11 @@ import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.lf.language.StablePackagesV1
 import com.daml.lf.speedy.Command
 import com.daml.lf.value.Value
-import com.daml.platform.participant.util.LfEngineToApi.{lfValueToApiRecord, lfValueToApiValue, toApiIdentifier}
+import com.daml.platform.participant.util.LfEngineToApi.{
+  lfValueToApiRecord,
+  lfValueToApiValue,
+  toApiIdentifier,
+}
 import com.daml.script.converter.ConverterException
 import com.daml.script.converter.Converter._
 import com.daml.script.converter.Converter.Implicits._

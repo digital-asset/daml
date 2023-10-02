@@ -10,7 +10,19 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, NodeId, Normalization, ReplayMismatch, SubmittedTransaction, Validation, VersionedTransaction, Transaction => Tx, TransactionVersion => TxVersions}
+import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
+  NodeId,
+  Normalization,
+  ReplayMismatch,
+  SubmittedTransaction,
+  Validation,
+  VersionedTransaction,
+  Transaction => Tx,
+  TransactionVersion => TxVersions,
+}
 import com.daml.lf.value.Value
 import Value._
 import com.daml.bazeltools.BazelRunfiles.rlocation
@@ -21,7 +33,12 @@ import com.daml.lf.command._
 import com.daml.lf.crypto.Hash
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.engine.Error.Interpretation.DamlException
-import com.daml.lf.language.{LanguageVersion, StablePackages, LanguageMajorVersion,  PackageInterface}
+import com.daml.lf.language.{
+  LanguageVersion,
+  StablePackages,
+  LanguageMajorVersion,
+  PackageInterface,
+}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
@@ -44,9 +61,7 @@ class EngineTestV1 extends EngineTest(LanguageMajorVersion.V1)
 
 class EngineTestV2 extends EngineTest(LanguageMajorVersion.V2)
 
-class EngineTestAllVersions extends AnyWordSpec
-  with Matchers
-  with TableDrivenPropertyChecks {
+class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   "Engine.preloadPackage" should {
 
@@ -2052,7 +2067,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "exceptions" should {
-    val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
+    val (exceptionsPkgId, _, allExceptionsPkgs) =
+      loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:T")
     val let = Time.Timestamp.now()
@@ -2199,7 +2215,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "action node seeds" should {
-    val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
+    val (exceptionsPkgId, _, allExceptionsPkgs) =
+      loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val seedId = Identifier(exceptionsPkgId, "Exceptions:NodeSeeds")
     val let = Time.Timestamp.now()
@@ -2274,7 +2291,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "global key lookups" should {
-    val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
+    val (exceptionsPkgId, _, allExceptionsPkgs) =
+      loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:GlobalLookups")
     val let = Time.Timestamp.now()

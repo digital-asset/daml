@@ -5,18 +5,19 @@ package com.daml.lf.language
 
 import com.daml.lf.LfVersions
 
-import scalaz.NonEmptyList
-
 // an ADT version of the Daml-LF version
-sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: NonEmptyList[String])
-    extends LfVersions(minorAscending.map[LanguageMinorVersion](LanguageMinorVersion))(
+sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: List[String])
+    extends LfVersions((minorAscending :+ "dev").map[LanguageMinorVersion](LanguageMinorVersion))(
       _.toProtoIdentifier
     )
     with Product
     with Serializable {
 
+  // TODO(#17366): 2.dev is currently the only 2.x version, but as soon as 2.0 is introduced this
+  //   code should be cleaned up.
+  val latestStable = LanguageVersion(this, LanguageMinorVersion(minorAscending.lastOption.getOrElse("dev")))
+
   final def dev: LanguageVersion = {
-    require(supportsMinorVersion("dev"), s"Unexpected absence of a 'dev' minor version for major version $this")
     LanguageVersion(this, LanguageMinorVersion("dev"))
   }
 
@@ -46,13 +47,13 @@ object LanguageMajorVersion {
   case object V1
       extends LanguageMajorVersion(
         pretty = "1",
-        minorAscending = NonEmptyList("6", "7", "8", "11", "12", "13", "14", "15", "dev"),
+        minorAscending = List("6", "7", "8", "11", "12", "13", "14", "15"),
       )
 
   case object V2
       extends LanguageMajorVersion(
         pretty = "2",
-        minorAscending = NonEmptyList("dev"),
+        minorAscending = List(),
       )
 
   val All: List[LanguageMajorVersion] = List(V1, V2)

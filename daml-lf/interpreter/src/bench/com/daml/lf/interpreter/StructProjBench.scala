@@ -54,7 +54,9 @@ class StructProjBench {
     assert(m >= n)
     println(s"M = $M, N = $N")
     // TODO(#17366): port the bench to LF v2
-    val config = Compiler.Config.Dev(LanguageMajorVersion.V1).copy(packageValidation = Compiler.NoPackageValidation)
+    val config = Compiler.Config
+      .Dev(LanguageMajorVersion.V1)
+      .copy(packageValidation = Compiler.NoPackageValidation)
     compiledPackages = PureCompiledPackages.assertBuild(Map(defaultPackageId -> pkg), config)
     sexpr = compiledPackages.compiler.unsafeCompile(e"Mod:bench Mod:struct")
     val value = bench()

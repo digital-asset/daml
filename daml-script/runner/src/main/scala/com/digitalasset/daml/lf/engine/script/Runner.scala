@@ -13,11 +13,21 @@ import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerClientChannelConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement,
+}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ParticipantsJsonProtocol.ContractIdFormat
-import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, IdeLedgerClient, JsonLedgerClient, ScriptLedgerClient}
+import com.daml.lf.engine.script.ledgerinteraction.{
+  GrpcLedgerClient,
+  IdeLedgerClient,
+  JsonLedgerClient,
+  ScriptLedgerClient,
+}
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.language.Ast._
@@ -25,7 +35,17 @@ import com.daml.lf.language.{LanguageMajorVersion, PackageInterface}
 import com.daml.lf.language.LanguageVersionRangeOps._
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.{Compiler, Pretty, Profile, SDefinition, SError, SValue, Speedy, TraceLog, WarningLog}
+import com.daml.lf.speedy.{
+  Compiler,
+  Pretty,
+  Profile,
+  SDefinition,
+  SError,
+  SValue,
+  Speedy,
+  TraceLog,
+  WarningLog,
+}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContext
@@ -218,7 +238,8 @@ object Runner {
   private[script] def compilerConfig(majorLanguageVersion: LanguageMajorVersion) = {
     import Compiler._
     Config(
-      allowedLanguageVersions = VersionRange(min = majorLanguageVersion.dev, max = majorLanguageVersion.dev),
+      allowedLanguageVersions =
+        VersionRange(min = majorLanguageVersion.dev, max = majorLanguageVersion.dev),
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = FullStackTrace,
@@ -336,7 +357,8 @@ object Runner {
   ): Future[SValue] = {
     val darMap = dar.all.toMap
     val majorVersion = dar.main._2.languageVersion.major
-    val compiledPackages = PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig(majorVersion))
+    val compiledPackages =
+      PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig(majorVersion))
     def convert(json: JsValue, typ: Type) = {
       val ifaceDar = dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
       val envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
@@ -491,7 +513,9 @@ private[lf] class Runner(
       case LfDefRef(id) if id == script.scriptIds.damlScript("castCatchPayload") =>
         SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
     }
-    new CompiledPackages(Runner.compilerConfig(compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion)) {
+    new CompiledPackages(
+      Runner.compilerConfig(compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion)
+    ) {
       override def getDefinition(dref: SDefinitionRef): Option[SDefinition] =
         damlScriptDefs.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
       // FIXME: avoid override of non abstract method

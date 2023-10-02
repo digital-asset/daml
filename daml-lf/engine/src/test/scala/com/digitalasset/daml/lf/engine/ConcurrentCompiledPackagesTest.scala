@@ -17,13 +17,15 @@ class ConcurrentCompiledPackagesTest extends AnyWordSpec with Matchers with Insi
   for (majorLanguageVersion <- LanguageMajorVersion.All) {
 
     implicit val parserParameters: parser.ParserParameters[this.type] =
-      parser.ParserParameters(parser.defaultPackageId,
-      // TODO(#17366): use something like LanguageVersion.default(major) after the refactoring of
-      //  LanguageVersion
-      majorLanguageVersion match {
-        case LanguageMajorVersion.V1 => LanguageVersion.default
-        case LanguageMajorVersion.V2 => LanguageVersion.v2_dev
-      })
+      parser.ParserParameters(
+        parser.defaultPackageId,
+        // TODO(#17366): use something like LanguageVersion.default(major) after the refactoring of
+        //  LanguageVersion
+        majorLanguageVersion match {
+          case LanguageMajorVersion.V1 => LanguageVersion.default
+          case LanguageMajorVersion.V2 => LanguageVersion.v2_dev
+        },
+      )
 
     s"LF $majorLanguageVersion" should {
 

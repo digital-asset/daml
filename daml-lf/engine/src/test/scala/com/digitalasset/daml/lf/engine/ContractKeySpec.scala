@@ -15,7 +15,15 @@ import com.daml.lf.speedy.InitialSeeding
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.lf.transaction.{ContractKeyUniquenessMode, GlobalKey, GlobalKeyWithMaintainers}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueContractId, ValueInt64, ValueParty, ValueRecord, VersionedContractInstance}
+import com.daml.lf.value.Value.{
+  ContractId,
+  ContractInstance,
+  ValueContractId,
+  ValueInt64,
+  ValueParty,
+  ValueRecord,
+  VersionedContractInstance,
+}
 import com.daml.logging.LoggingContext
 
 import java.io.File
@@ -111,17 +119,17 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion, darVersionSuff
       ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
     )
       ->
-      toContractId("BasicTests:WithKey:1")
+        toContractId("BasicTests:WithKey:1")
   )
 
   private[this] val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
     case GlobalKeyWithMaintainers(
-    GlobalKey(
-    BasicTests_WithKey,
-    ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
-    ),
-    _,
-    ) =>
+          GlobalKey(
+            BasicTests_WithKey,
+            ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
+          ),
+          _,
+        ) =>
       toContractId("BasicTests:WithKey:1")
   }
 
@@ -260,7 +268,8 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion, darVersionSuff
           requireSuffixedGlobalContractId = true,
         )
       )
-      val (multiKeysPkgId, _, allMultiKeysPkgs) = loadPackage(s"daml-lf/tests/MultiKeys${darVersionSuffix}.dar")
+      val (multiKeysPkgId, _, allMultiKeysPkgs) =
+        loadPackage(s"daml-lf/tests/MultiKeys${darVersionSuffix}.dar")
       val keyedId = Identifier(multiKeysPkgId, "MultiKeys:Keyed")
       val opsId = Identifier(multiKeysPkgId, "MultiKeys:KeyOperations")
       val let = Time.Timestamp.now()

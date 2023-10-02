@@ -133,10 +133,14 @@ da_scala_test_suite(
     ],
 )
 
-daml_compile(
-    name = "LargeTransaction",
-    srcs = ["src/test/daml/LargeTransaction.daml"],
-)
+[
+    daml_compile(
+        name = "LargeTransaction-v{}".format(major),
+        srcs = ["src/test/daml/LargeTransaction.daml"],
+        target = lf_version_latest.get(major),
+    )
+    for major in LF_MAJOR_VERSIONS
+]
 
 da_scala_test(
     name = "test-large-transaction",
@@ -146,7 +150,8 @@ da_scala_test(
         "src/test/**/InMemoryPrivateLedgerData.scala",
     ]),
     data = [
-        ":LargeTransaction.dar",
+        ":LargeTransaction-v{}.dar".format(major)
+        for major in LF_MAJOR_VERSIONS
     ],
     # We setup a large heap size to reduce as much as possible GC overheads.
     initial_heap_size = "2g",

@@ -7,6 +7,7 @@ package engine
 import com.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits._
 import com.daml.lf.transaction.test.{TestIdFactory, TestNodeBuilder, TreeTransactionBuilder}
 import com.daml.lf.transaction.{Node, TransactionVersion}
@@ -15,13 +16,17 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class MetaDataTest
+class MetaDataTestV1 extends MetaDataTest(LanguageMajorVersion.V1)
+class MetaDataTestV2 extends MetaDataTest(LanguageMajorVersion.V2)
+
+class MetaDataTest(majorVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
     with TestIdFactory {
 
-  import MetaDataTest._
+  val helpers = new MetaDataTestHelper(majorVersion)
+  import helpers._
   import TreeTransactionBuilder._
 
   "Engine#desp" should {
@@ -141,18 +146,18 @@ class MetaDataTest
 
 }
 
-object MetaDataTest {
+class MetaDataTestHelper(majorLanguageVersion: LanguageMajorVersion) {
 
-  private[this] val langVersion = language.LanguageVersion.v1_15
+  val langVersion = majorLanguageVersion.latestStable
 
-  private object langNodeBuilder extends TestNodeBuilder {
+  object langNodeBuilder extends TestNodeBuilder {
     override def packageVersion(packageId: PackageId): Option[TransactionVersion] =
       Some(TransactionVersion.assignNodeVersion(langVersion))
   }
 
-  private val engine = Engine.DevEngine()
+  val engine = Engine.DevEngine(majorLanguageVersion)
 
-  private[this] val emptyPkg = language.Ast.Package(Map.empty, Set.empty, langVersion, None)
+  val emptyPkg = language.Ast.Package(Map.empty, Set.empty, langVersion, None)
 
   // For the sake of simplicity we load the engine with empty packages where only the directDeps is set.
   List(
@@ -168,7 +173,7 @@ object MetaDataTest {
     require(engine.preloadPackage(pkgId, pkg).isInstanceOf[ResultDone[_]])
   }
 
-  private val parties = Set[Ref.Party]("alice")
-  private val noOne = Set.empty
+  val parties = Set[Ref.Party]("alice")
+  val noOne = Set.empty
 
 }

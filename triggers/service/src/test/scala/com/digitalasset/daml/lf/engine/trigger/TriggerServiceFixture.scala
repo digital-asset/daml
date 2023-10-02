@@ -12,7 +12,11 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.JWTVerifier.BaseVerification
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.auth.middleware.api.{Client => AuthClient}
-import com.daml.auth.middleware.oauth2.{SecretString, Config => MiddlewareConfig, Server => MiddlewareServer}
+import com.daml.auth.middleware.oauth2.{
+  SecretString,
+  Config => MiddlewareConfig,
+  Server => MiddlewareServer,
+}
 import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.clock.AdjustableClock
@@ -21,7 +25,12 @@ import com.daml.dbutils.{ConnectionPool, JdbcConfig}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{JwtSigner, JwtVerifier, JwtVerifierBase}
 import com.daml.ledger.api.auth
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload, StandardJWTTokenFormat}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWTCodec,
+  CustomDamlJWTPayload,
+  StandardJWTPayload,
+  StandardJWTTokenFormat,
+}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}

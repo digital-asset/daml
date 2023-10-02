@@ -1930,7 +1930,9 @@ object SBuiltinTest {
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
 
-  val stablePackages = StablePackages(compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion)
+  val stablePackages = StablePackages(
+    compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
+  )
 
   private def eval(e: Expr): Either[SError, SValue] =
     Machine.runPureExpr(e, compiledPackages)

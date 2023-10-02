@@ -108,7 +108,7 @@ object LanguageVersion {
   // All the versions
   def DevVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] = {
     majorLanguageVersion match {
-      case Major.V1 => EarlyAccessVersions.copy (max = v1_dev)
+      case Major.V1 => EarlyAccessVersions.copy(max = v1_dev)
       case Major.V2 => VersionRange(v2_dev, v2_dev)
     }
   }
