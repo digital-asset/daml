@@ -106,8 +106,12 @@ object LanguageVersion {
     StableVersions
 
   // All the versions
-  val DevVersions: VersionRange[LanguageVersion] =
-    EarlyAccessVersions.copy(max = v2_dev)
+  def DevVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] = {
+    majorLanguageVersion match {
+      case Major.V1 => EarlyAccessVersions.copy (max = v1_dev)
+      case Major.V2 => VersionRange(v2_dev, v2_dev)
+    }
+  }
 
   // This refers to the default output LF version in the compiler
   val default: LanguageVersion = v1_14

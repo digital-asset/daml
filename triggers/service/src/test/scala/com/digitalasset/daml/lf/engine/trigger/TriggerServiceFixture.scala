@@ -12,11 +12,7 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.JWTVerifier.BaseVerification
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.auth.middleware.api.{Client => AuthClient}
-import com.daml.auth.middleware.oauth2.{
-  SecretString,
-  Config => MiddlewareConfig,
-  Server => MiddlewareServer,
-}
+import com.daml.auth.middleware.oauth2.{SecretString, Config => MiddlewareConfig, Server => MiddlewareServer}
 import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.clock.AdjustableClock
@@ -25,12 +21,7 @@ import com.daml.dbutils.{ConnectionPool, JdbcConfig}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{JwtSigner, JwtVerifier, JwtVerifierBase}
 import com.daml.ledger.api.auth
-import com.daml.ledger.api.auth.{
-  AuthServiceJWTCodec,
-  CustomDamlJWTPayload,
-  StandardJWTPayload,
-  StandardJWTTokenFormat,
-}
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload, StandardJWTTokenFormat}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -39,6 +30,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.integrationtest.CantonFixture
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
@@ -506,7 +498,8 @@ trait TriggerServiceFixture
                 jdbcConfig,
                 false,
                 config.tlsClientConfig,
-                Compiler.Config.Dev,
+                // TODO(#17366) support both LF v1 and v2 in triggers
+                Compiler.Config.Dev(LanguageMajorVersion.V1),
                 triggerRunnerConfig.getOrElse(DefaultTriggerRunnerConfig),
                 logTriggerStatus,
               )

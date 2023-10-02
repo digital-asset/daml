@@ -16,6 +16,8 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "LF_DEV_VERSIONS",
+    "LF_MAJOR_VERSIONS",
+    "lf_version_latest",
     "mangle_for_damlc",
 )
 
@@ -51,10 +53,15 @@ ENGINE_TEST_FILES = \
 
 [
     daml_compile(
-        name = name,
+        name = "{name}-v{major}".format(
+            name = name,
+            major = major,
+        ),
         srcs = ["src/test/daml/%s.daml" % name],
+        target = lf_version_latest.get(major),
     )
     for name in ENGINE_TEST_FILES
+    for major in LF_MAJOR_VERSIONS
 ]
 
 [
@@ -79,15 +86,19 @@ da_scala_test_suite(
         ],
     ),
     data = [
-        "//daml-lf/tests:Exceptions.dar",
         "//daml-lf/tests:InterfaceRetro.dar",
         "//daml-lf/tests:InterfaceViews.dar",
         "//daml-lf/tests:Interfaces.dar",
-        "//daml-lf/tests:MultiKeys.dar",
+        "//daml-lf/tests:MultiKeys-v1.dar",
+        "//daml-lf/tests:MultiKeys-v2.dar",
         "//daml-lf/tests:ReinterpretTests.dar",
     ] + [
-        ":%s.dar" % name
+        "//daml-lf/tests:Exceptions-v%s.dar" % major
+        for major in LF_MAJOR_VERSIONS
+    ] + [
+        ":%s-v%s.dar" % (name, major)
         for name in ENGINE_TEST_FILES
+        for major in LF_MAJOR_VERSIONS
     ] + [
         ":BasicTests-{}.dar".format(mangle_for_damlc(version))
         for version in LF_DEV_VERSIONS

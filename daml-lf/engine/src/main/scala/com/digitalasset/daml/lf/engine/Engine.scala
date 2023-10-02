@@ -12,18 +12,12 @@ import com.daml.lf.speedy.{InitialSeeding, Pretty, Question, SError, SResult, SV
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{
-  Node,
-  SubmittedTransaction,
-  Versioned,
-  VersionedTransaction,
-  Transaction => Tx,
-}
+import com.daml.lf.transaction.{Node, SubmittedTransaction, Versioned, VersionedTransaction, Transaction => Tx}
 
 import java.nio.file.Files
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackages}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, LookupError, PackageInterface, StablePackages}
 import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
@@ -623,7 +617,7 @@ object Engine {
 
   def StableEngine(): Engine = new Engine(StableConfig)
 
-  def DevEngine(): Engine = new Engine(
-    StableConfig.copy(allowedLanguageVersions = LanguageVersion.DevVersions)
+  def DevEngine(majorLanguageVersion: LanguageMajorVersion): Engine = new Engine(
+    StableConfig.copy(allowedLanguageVersions = LanguageVersion.DevVersions(majorLanguageVersion))
   )
 }

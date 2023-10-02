@@ -169,7 +169,7 @@ object RunnerMain {
           val scriptId: Identifier =
             Identifier(dar.main._1, QualifiedName.assertFromString(scriptName))
           val converter = (json: JsValue, typ: Type) =>
-            converterFor(majorVersion).fromJsonValue(
+            Converter(majorVersion).fromJsonValue(
               scriptId.qualifiedName,
               envIface,
               compiledPackages,

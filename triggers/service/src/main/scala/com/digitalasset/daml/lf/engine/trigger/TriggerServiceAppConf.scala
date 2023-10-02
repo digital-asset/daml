@@ -12,6 +12,7 @@ import pureconfig.{ConfigReader, ConvertHelpers}
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.metrics.MetricsConfig
 import com.daml.pureconfigutils.LedgerApiConfig
 import com.daml.pureconfigutils.SharedConfigReaders._
@@ -61,7 +62,8 @@ private[trigger] object TriggerServiceAppConf {
     ConfigReader.fromString[Compiler.Config](ConvertHelpers.catchReadError { s =>
       s.toLowerCase() match {
         case "default" => Compiler.Config.Default
-        case "dev" => Compiler.Config.Dev
+        // TODO(#17366) support both LF v1 and v2 in triggers
+        case "dev" => Compiler.Config.Dev(LanguageMajorVersion.V1)
         case s =>
           throw new IllegalArgumentException(
             s"Value '$s' for compiler-config is not one of 'default' or 'dev'"

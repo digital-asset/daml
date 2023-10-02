@@ -18,6 +18,7 @@ import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.dbutils.{DBConfig, JdbcConfig}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.typesafe.scalalogging.StrictLogging
 import pureconfig.ConfigSource
@@ -430,7 +431,8 @@ private[trigger] object Cli {
       )
 
     opt[Unit]("dev-mode-unsafe")
-      .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev))
+      // TODO(#17366) support both LF v1 and v2 in triggers
+      .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev(LanguageMajorVersion.V1)))
       .optional()
       .text(
         "Turns on development mode. Development mode allows development versions of Daml-LF language."

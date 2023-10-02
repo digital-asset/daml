@@ -6,12 +6,21 @@ load(
     "daml_build_test",
     "daml_compile",
 )
-
-daml_compile(
-    name = "Exceptions",
-    srcs = ["Exceptions.daml"],
-    visibility = ["//daml-lf:__subpackages__"],
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "LF_MAJOR_VERSIONS",
+    "lf_version_latest",
 )
+
+[
+    daml_compile(
+        name = "Exceptions-v{}".format(major),
+        srcs = ["Exceptions.daml"],
+        target = lf_version_latest.get(major),
+        visibility = ["//daml-lf:__subpackages__"],
+    )
+    for major in LF_MAJOR_VERSIONS
+]
 
 daml_compile(
     name = "Interfaces",
@@ -58,8 +67,12 @@ daml_compile(
     visibility = ["//daml-lf:__subpackages__"],
 )
 
-daml_compile(
-    name = "MultiKeys",
-    srcs = ["MultiKeys.daml"],
-    visibility = ["//daml-lf:__subpackages__"],
-)
+[
+    daml_compile(
+        name = "MultiKeys-v{}".format(major),
+        srcs = ["MultiKeys.daml"],
+        target = lf_version_latest.get(major),
+        visibility = ["//daml-lf:__subpackages__"],
+    )
+    for major in LF_MAJOR_VERSIONS
+]

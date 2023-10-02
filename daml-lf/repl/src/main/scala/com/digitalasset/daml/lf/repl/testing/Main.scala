@@ -17,12 +17,12 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
-import com.daml.lf.language.{PackageInterface, LanguageVersion => LV}
+import com.daml.lf.language.{LanguageMajorVersion, PackageInterface, LanguageVersion => LV}
 import com.daml.logging.LoggingContext
+
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
-
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
 import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, StringsCompleter}
@@ -94,7 +94,7 @@ object Repl {
 
   val devCompilerConfig: Compiler.Config =
     defaultCompilerConfig.copy(
-      allowedLanguageVersions = LV.DevVersions
+      allowedLanguageVersions = LV.DevVersions(LanguageMajorVersion.V1)
     )
 
   private val nextSeed =
@@ -197,7 +197,7 @@ object Repl {
     private val seed = nextSeed()
 
     val transactionVersions =
-      if (compilerConfig.allowedLanguageVersions.intersects(DevVersions)) {
+      if (compilerConfig.allowedLanguageVersions.intersects(DevVersions(LanguageMajorVersion.V1))) {
         transaction.TransactionVersion.DevVersions
       } else {
         transaction.TransactionVersion.StableVersions

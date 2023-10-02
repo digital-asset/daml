@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
-import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackages}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, LookupError, PackageInterface, StablePackages}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.PhaseOne.{Env, Position}
@@ -81,8 +81,8 @@ private[lf] object Compiler {
       profiling = NoProfile,
       stacktracing = NoStackTrace,
     )
-    val Dev = Config(
-      allowedLanguageVersions = LanguageVersion.DevVersions,
+    def Dev(majorLanguageVersion: LanguageMajorVersion) = Config(
+      allowedLanguageVersions = LanguageVersion.DevVersions(majorLanguageVersion),
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
@@ -463,7 +463,7 @@ private[lf] final class Compiler(
           throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
 
         if (
-          config.evaluationOrder == RightToLeft && !LanguageVersion.DevVersions.contains(
+          config.evaluationOrder == RightToLeft && !List(LanguageVersion.v1_dev, LanguageVersion.v2_dev).contains(
             pkg.languageVersion
           )
         )

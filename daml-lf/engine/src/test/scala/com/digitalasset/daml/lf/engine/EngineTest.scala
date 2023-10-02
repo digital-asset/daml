@@ -10,19 +10,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-  NodeId,
-  Normalization,
-  ReplayMismatch,
-  SubmittedTransaction,
-  Validation,
-  VersionedTransaction,
-  Transaction => Tx,
-  TransactionVersion => TxVersions,
-}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, NodeId, Normalization, ReplayMismatch, SubmittedTransaction, Validation, VersionedTransaction, Transaction => Tx, TransactionVersion => TxVersions}
 import com.daml.lf.value.Value
 import Value._
 import com.daml.bazeltools.BazelRunfiles.rlocation
@@ -33,7 +21,7 @@ import com.daml.lf.command._
 import com.daml.lf.crypto.Hash
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.engine.Error.Interpretation.DamlException
-import com.daml.lf.language.{LanguageVersion, PackageInterface, StablePackages}
+import com.daml.lf.language.{LanguageVersion, StablePackages, LanguageMajorVersion,  PackageInterface}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
@@ -52,6 +40,95 @@ import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 import scala.math.Ordered.orderingToOrdered
 
+class EngineTestV1 extends EngineTest(LanguageMajorVersion.V1)
+
+class EngineTestV2 extends EngineTest(LanguageMajorVersion.V2)
+
+class EngineTestAllVersions extends AnyWordSpec
+  with Matchers
+  with TableDrivenPropertyChecks {
+
+  "Engine.preloadPackage" should {
+
+    import com.daml.lf.language.{LanguageVersion => LV}
+
+    def engine(min: LV, max: LV) =
+      new Engine(
+        EngineConfig(
+          allowedLanguageVersions = VersionRange(min, max),
+          requireSuffixedGlobalContractId = true,
+        )
+      )
+
+    val pkgId = Ref.PackageId.assertFromString("-pkg-")
+
+    def pkg(version: LV) =
+      language.Ast.Package(Map.empty, Set.empty, version, None)
+
+    "reject disallowed packages" in {
+      val negativeTestCases = Table(
+        ("pkg version", "minVersion", "maxversion"),
+        (LV.v1_6, LV.v1_6, LV.v1_8),
+        (LV.v1_7, LV.v1_6, LV.v1_8),
+        (LV.v1_8, LV.v1_6, LV.v1_8),
+        (LV.v1_dev, LV.v1_6, LV.v1_dev),
+        (LV.v2_dev, LV.v2_dev, LV.v2_dev),
+      )
+      val positiveTestCases = Table(
+        ("pkg version", "minVersion", "maxversion"),
+        (LV.v1_6, LV.v1_7, LV.v1_dev),
+        (LV.v1_7, LV.v1_8, LV.v1_8),
+        (LV.v1_8, LV.v1_6, LV.v1_7),
+        (LV.v1_dev, LV.v1_6, LV.v1_8),
+        (LV.v2_dev, LV.v1_6, LV.v1_8),
+        (LV.v2_dev, LV.v1_6, LV.v1_dev),
+        (LV.v1_6, LV.v2_dev, LV.v2_dev),
+        (LV.v1_dev, LV.v2_dev, LV.v2_dev),
+      )
+
+      forEvery(negativeTestCases)((v, min, max) =>
+        engine(min, max).preloadPackage(pkgId, pkg(v)) shouldBe a[ResultDone[_]]
+      )
+
+      forEvery(positiveTestCases)((v, min, max) =>
+        engine(min, max).preloadPackage(pkgId, pkg(v)) shouldBe a[ResultError]
+      )
+    }
+
+    for (majorVersion <- LanguageMajorVersion.All) {
+      val devVersion = majorVersion.dev
+      val (_, _, allPackagesDev) = new EngineTestHelpers(majorVersion).loadPackage(
+        s"daml-lf/engine/BasicTests-v${majorVersion.pretty}dev.dar"
+      )
+      val compatibleLanguageVersions = LanguageVersion.All.filter(_.major == majorVersion)
+      val stablePackages = StablePackages(majorVersion).allPackages
+
+      s"accept stable packages from ${devVersion} even if version is smaller than min version" in {
+        for {
+          lv <- compatibleLanguageVersions.filter(_ <= devVersion)
+          eng = engine(min = lv, max = devVersion)
+          pkg <- stablePackages
+          pkgId = pkg.packageId
+          pkg <- allPackagesDev.get(pkgId).toList
+        } yield eng.preloadPackage(pkgId, pkg) shouldBe a[ResultDone[_]]
+      }
+
+      s"reject stable packages from ${devVersion} if version is greater than max version" in {
+        for {
+          lv <- compatibleLanguageVersions
+          eng = engine(min = compatibleLanguageVersions.min, max = lv)
+          pkg <- stablePackages
+          pkgId = pkg.packageId
+          pkg <- allPackagesDev.get(pkgId).toList
+        } yield inside(eng.preloadPackage(pkgId, pkg)) {
+          case ResultDone(_) => pkg.languageVersion shouldBe <=(lv)
+          case ResultError(_) => pkg.languageVersion shouldBe >(lv)
+        }
+      }
+    }
+  }
+}
+
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any",
@@ -59,14 +136,15 @@ import scala.math.Ordered.orderingToOrdered
     "org.wartremover.warts.Product",
   )
 )
-class EngineTest
+class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
     with EitherValues
     with SecurityTestSuite {
 
-  import EngineTest._
+  val helpers = new EngineTestHelpers(majorLanguageVersion)
+  import helpers._
 
   "minimal create command" should {
     val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
@@ -1974,7 +2052,7 @@ class EngineTest
   }
 
   "exceptions" should {
-    val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
+    val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:T")
     val let = Time.Timestamp.now()
@@ -2121,7 +2199,7 @@ class EngineTest
   }
 
   "action node seeds" should {
-    val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
+    val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val seedId = Identifier(exceptionsPkgId, "Exceptions:NodeSeeds")
     val let = Time.Timestamp.now()
@@ -2196,7 +2274,7 @@ class EngineTest
   }
 
   "global key lookups" should {
-    val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
+    val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:GlobalLookups")
     val let = Time.Timestamp.now()
@@ -2286,93 +2364,9 @@ class EngineTest
       }
     }
   }
-
-  "Engine.preloadPackage" should {
-
-    import com.daml.lf.language.{LanguageVersion => LV}
-
-    def engine(min: LV, max: LV) =
-      new Engine(
-        EngineConfig(
-          allowedLanguageVersions = VersionRange(min, max),
-          requireSuffixedGlobalContractId = true,
-        )
-      )
-
-    val pkgId = Ref.PackageId.assertFromString("-pkg-")
-
-    def pkg(version: LV) =
-      language.Ast.Package(Map.empty, Set.empty, version, None)
-
-    "reject disallow packages" in {
-      val negativeTestCases = Table(
-        ("pkg version", "minVersion", "maxversion"),
-        (LV.v1_6, LV.v1_6, LV.v1_8),
-        (LV.v1_7, LV.v1_6, LV.v1_8),
-        (LV.v1_8, LV.v1_6, LV.v1_8),
-        (LV.v1_dev, LV.v1_6, LV.v1_dev),
-        (LV.v2_dev, LV.v1_6, LV.v2_dev),
-      )
-      val positiveTestCases = Table(
-        ("pkg version", "minVersion", "maxversion"),
-        (LV.v1_6, LV.v1_7, LV.v1_dev),
-        (LV.v1_7, LV.v1_8, LV.v1_8),
-        (LV.v1_8, LV.v1_6, LV.v1_7),
-        (LV.v1_dev, LV.v1_6, LV.v1_8),
-        (LV.v2_dev, LV.v1_6, LV.v1_8),
-        (LV.v2_dev, LV.v1_6, LV.v1_dev),
-      )
-
-      forEvery(negativeTestCases)((v, min, max) =>
-        engine(min, max).preloadPackage(pkgId, pkg(v)) shouldBe a[ResultDone[_]]
-      )
-
-      forEvery(positiveTestCases)((v, min, max) =>
-        engine(min, max).preloadPackage(pkgId, pkg(v)) shouldBe a[ResultError]
-      )
-
-    }
-
-    // TODO(#17366): For now both 1.dev and 2.dev contain the same stable packages. Once 2.dev
-    //    diverges from 1.dev and <= is no longer available, we will need to update this test.
-    for (
-      (devVersion, allPackagesDev) <- Seq(
-        LanguageVersion.v1_dev -> allPackages1Dev,
-        LanguageVersion.v2_dev -> allPackages2Dev,
-      )
-    ) {
-      // TODO(#17366): clean up this code after we refactor LanguageVersion
-      val major = devVersion.major
-      val compatibleLanguageVersions = LanguageVersion.All.filter(_.major == major)
-      val stablePackages = StablePackages(major).allPackages
-
-      s"accept stable packages from ${devVersion} even if version is smaller than min version" in {
-        for {
-          lv <- compatibleLanguageVersions.filter(_ <= devVersion)
-          eng = engine(min = lv, max = devVersion)
-          pkg <- stablePackages
-          pkgId = pkg.packageId
-          pkg <- allPackagesDev.get(pkgId).toList
-        } yield eng.preloadPackage(pkgId, pkg) shouldBe a[ResultDone[_]]
-      }
-
-      s"reject stable packages from ${devVersion} if version is greater than max version" in {
-        for {
-          lv <- compatibleLanguageVersions
-          eng = engine(min = LanguageVersion.v1_6, max = lv)
-          pkg <- stablePackages
-          pkgId = pkg.packageId
-          pkg <- allPackagesDev.get(pkgId).toList
-        } yield inside(eng.preloadPackage(pkgId, pkg)) {
-          case ResultDone(_) => pkg.languageVersion shouldBe <=(lv)
-          case ResultError(_) => pkg.languageVersion shouldBe >(lv)
-        }
-      }
-    }
-  }
 }
 
-object EngineTest {
+class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   import Matchers._
 
@@ -2392,15 +2386,7 @@ object EngineTest {
     Name.assertFromString(s)
 
   val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
-    "daml-lf/engine/BasicTests.dar"
-  )
-
-  val (_, _, allPackages1Dev) = loadPackage(
-    "daml-lf/engine/BasicTests-v1dev.dar"
-  )
-
-  val (_, _, allPackages2Dev) = loadPackage(
-    "daml-lf/engine/BasicTests-v2dev.dar"
+    s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}.dar"
   )
 
   val basicTestsSignatures: PackageInterface =
@@ -2470,7 +2456,7 @@ object EngineTest {
         toContractId("BasicTests:WithKey:1")
   )
 
-  private val lookupContract = defaultContracts
+  val lookupContract = defaultContracts
 
   val suffixLenientEngine: Engine = newEngine()
   val suffixStrictEngine: Engine = newEngine(requireCidSuffixes = true)
@@ -2506,7 +2492,7 @@ object EngineTest {
   def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(
       EngineConfig(
-        allowedLanguageVersions = language.LanguageVersion.DevVersions,
+        allowedLanguageVersions = language.LanguageVersion.DevVersions(majorLanguageVersion),
         requireSuffixedGlobalContractId = requireCidSuffixes,
       )
     )

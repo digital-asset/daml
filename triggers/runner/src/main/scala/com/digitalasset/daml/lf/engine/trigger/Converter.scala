@@ -16,25 +16,16 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
-import com.daml.ledger.api.v1.commands.{
-  CreateAndExerciseCommand,
-  CreateCommand,
-  ExerciseByKeyCommand,
-  ExerciseCommand,
-  Command => ApiCommand,
-}
+import com.daml.ledger.api.v1.commands.{CreateAndExerciseCommand, CreateCommand, ExerciseByKeyCommand, ExerciseCommand, Command => ApiCommand}
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, InterfaceView}
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.NoLoggingValueValidator
+import com.daml.lf.language.StablePackagesV1
 import com.daml.lf.speedy.Command
 import com.daml.lf.value.Value
-import com.daml.platform.participant.util.LfEngineToApi.{
-  lfValueToApiRecord,
-  lfValueToApiValue,
-  toApiIdentifier,
-}
+import com.daml.platform.participant.util.LfEngineToApi.{lfValueToApiRecord, lfValueToApiValue, toApiIdentifier}
 import com.daml.script.converter.ConverterException
 import com.daml.script.converter.Converter._
 import com.daml.script.converter.Converter.Implicits._
@@ -63,9 +54,10 @@ final class Converter(
 
   private[this] val triggerIds: TriggerIds = triggerDef.triggerIds
 
-  private[this] val templateTypeRepTyCon = DA.Internal.Any.TemplateTypeRep
-  private[this] val anyTemplateTyCon = DA.Internal.Any.AnyTemplate
-  private[this] val anyViewTyCon = DA.Internal.Interface.AnyView.Types.AnyView
+  // TODO(#17366): support both LF v1 and v2 in triggers
+  private[this] val templateTypeRepTyCon = StablePackagesV1.TemplateTypeRep
+  private[this] val anyTemplateTyCon = StablePackagesV1.AnyTemplate
+  private[this] val anyViewTyCon = StablePackagesV1.AnyView
   private[this] val activeContractsTy = triggerIds.damlTriggerLowLevel("ActiveContracts")
   private[this] val triggerConfigTy = triggerIds.damlTriggerLowLevel("TriggerConfig")
   private[this] val triggerSetupArgumentsTy =

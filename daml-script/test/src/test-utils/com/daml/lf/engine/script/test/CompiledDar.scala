@@ -16,7 +16,7 @@ final case class CompiledDar(
 object CompiledDar {
   def read(
       path: Path,
-      compilerConfig: speedy.Compiler.Config = speedy.Compiler.Config.Dev,
+      compilerConfig: speedy.Compiler.Config,
   ): CompiledDar = {
     val dar = archive.DarDecoder.assertReadArchiveFromFile(path.toFile)
     val pkgs = PureCompiledPackages.assertBuild(dar.all.toMap, compilerConfig)
