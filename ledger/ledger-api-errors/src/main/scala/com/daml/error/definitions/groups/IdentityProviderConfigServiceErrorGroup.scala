@@ -52,22 +52,6 @@ object IdentityProviderConfigServiceErrorGroup
     }
   }
 
-  @Explanation("The identity provider config referred to by the request was not found.")
-  @Resolution(
-    "Check that you are connecting to the right participant node and the identity provider config is spelled correctly, or create the configuration."
-  )
-  object IdentityProviderConfigByIssuerNotFound
-      extends ErrorCode(
-        id = "IDP_CONFIG_BY_ISSUER_NOT_FOUND",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-      ) {
-    case class Reject(operation: String, issuer: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"${operation} failed for unknown identity provider issuer=\"${issuer}\""
-        )
-  }
-
   @Explanation(
     "There already exists an identity provider configuration with the same identity provider id."
   )
@@ -114,23 +98,4 @@ object IdentityProviderConfigServiceErrorGroup
     }
   }
 
-  @Explanation(
-    """|A system can have only a limited number of identity provider configurations.
-       |There was an attempt to create an identity provider configuration."""
-  )
-  @Resolution(
-    """|Delete some of the already existing identity provider configurations.
-       |Contact the participant operator if the limit is too low."""
-  )
-  object TooManyIdentityProviderConfigs
-      extends ErrorCode(
-        id = "TOO_MANY_IDENTITY_PROVIDER_CONFIGS",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    case class Reject(operation: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"${operation} failed."
-        ) {}
-  }
 }

@@ -38,29 +38,6 @@ object PartyManagementServiceErrorGroup extends AdminServices.PartyManagementSer
   }
 
   @Explanation(
-    """|A party can have at most 256kb worth of annotations in total measured in number of bytes in UTF-8 encoding.
-                  |There was an attempt to allocate or update a party such that this limit would have been exceeded."""
-  )
-  @Resolution(
-    "Retry with fewer annotations or delete some of the party's existing annotations."
-  )
-  object MaxPartyAnnotationsSizeExceeded
-      extends ErrorCode(
-        id = "MAX_PARTY_DETAILS_ANNOTATIONS_SIZE_EXCEEDED",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    case class Reject(party: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlError(
-          cause = s"Maximum annotations size for party '$party' has been exceeded"
-        ) {
-      override def resources: Seq[(ErrorResource, String)] = Seq(
-        ErrorResource.Party -> party
-      )
-    }
-  }
-
-  @Explanation(
     """|Concurrent updates to a party can be controlled by supplying an update request with a resource version (this is optional).
                   |A party's resource version can be obtained by reading the party on the Ledger API.
                   |There was attempt to update a party using a stale resource version, indicating that a different process had updated the party earlier."""
@@ -99,52 +76,6 @@ object PartyManagementServiceErrorGroup extends AdminServices.PartyManagementSer
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"Party: '$party' was not found when $operation"
-        ) {
-      override def resources: Seq[(ErrorResource, String)] = Seq(
-        ErrorResource.Party -> party
-      )
-    }
-  }
-
-  @Explanation(
-    """|Each on-ledger party known to this participant node can have a participant's local metadata assigned to it.
-               |The local information about a party referred to by this request was not found when it should have been found."""
-  )
-  @Resolution(
-    "This error can indicate a problem with the server's storage or implementation."
-  )
-  object InternalPartyRecordNotFound
-      extends ErrorCode(
-        id = "INTERNAL_PARTY_RECORD_NOT_FOUND",
-        ErrorCategory.SystemInternalAssumptionViolated,
-      ) {
-    case class Reject(operation: String, party: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"Party record for party: '$party' was not found when $operation"
-        ) {
-      override def resources: Seq[(ErrorResource, String)] = Seq(
-        ErrorResource.Party -> party
-      )
-    }
-  }
-
-  @Explanation(
-    """|Each on-ledger party known to this participant node can have a participant's local metadata assigned to it.
-                  |The local information about a party referred to by this request was found when it should have been not found."""
-  )
-  @Resolution(
-    "This error can indicate a problem with the server's storage or implementation."
-  )
-  object InternalPartyRecordAlreadyExists
-      extends ErrorCode(
-        id = "INTERNAL_PARTY_RECORD_ALREADY_EXISTS",
-        ErrorCategory.SystemInternalAssumptionViolated,
-      ) {
-    case class Reject(operation: String, party: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"Party record for party: '$party' already exists when $operation"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.Party -> party
