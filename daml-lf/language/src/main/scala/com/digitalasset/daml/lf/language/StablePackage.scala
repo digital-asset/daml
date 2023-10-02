@@ -93,7 +93,7 @@ private[daml] object StablePackagesV1 extends StablePackages {
   )
   val DA_Internal_Any: StablePackage = new StablePackage(
     "DA.Internal.Interface.AnyView.Types",
-    "6df2d1fd8ea994ed048a79587b2722e3a887ac7592abf31ecf46fe09ac02d689",
+    "cc348d369011362a5190fe96dd1f0dfbc697fdfd10e382b9e9666f0da05961b7",
     "daml-stdlib",
     v1_15,
   )
@@ -259,7 +259,7 @@ private[daml] object StablePackagesV1 extends StablePackages {
   override val AnyView: Ref.TypeConName =
     DA_Internal_Interface_AnyView_Types.assertIdentifier("AnyView")
   override val NonEmpty: Ref.TypeConName = DA_NonEmpty_Types.assertIdentifier("NonEmpty")
-  override val Tuple2: Ref.TypeConName = GHC_Tuple.assertIdentifier("Tuple2")
+  override val Tuple2: Ref.TypeConName = DA_Types.assertIdentifier("Tuple2")
   override val Either: Ref.TypeConName = GHC_Tuple.assertIdentifier("Either")
 }
 
@@ -462,6 +462,6 @@ private[daml] object StablePackagesV2 extends StablePackages {
   override val AnyView: Ref.TypeConName =
     DA_Internal_Interface_AnyView_Types.assertIdentifier("AnyView")
   override val NonEmpty: Ref.TypeConName = DA_NonEmpty_Types.assertIdentifier("NonEmpty")
-  override val Tuple2: Ref.TypeConName = GHC_Tuple.assertIdentifier("Tuple2")
+  override val Tuple2: Ref.TypeConName = DA_Types.assertIdentifier("Tuple2")
   override val Either: Ref.TypeConName = GHC_Tuple.assertIdentifier("Either")
 }

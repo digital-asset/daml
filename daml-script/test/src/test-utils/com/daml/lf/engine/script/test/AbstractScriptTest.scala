@@ -21,8 +21,10 @@ import scala.concurrent.{ExecutionContext, Future}
 
 
 // Fixture for a set of participants used in Daml Script tests
-trait AbstractScriptTest(majorLanguageVersion: LanguageMajorVersion) extends CantonFixture with AkkaBeforeAndAfterAll {
+trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
   self: Suite =>
+
+  val majorLanguageVersion: LanguageMajorVersion;
 
   def tuple(a: SValue, b: SValue) =
     SValue.SRecord(
@@ -31,7 +33,7 @@ trait AbstractScriptTest(majorLanguageVersion: LanguageMajorVersion) extends Can
       values = ArrayList(a, b),
     )
 
-  lazy val darPath: Path = rlocation(Paths.get("daml-script/test/script-test.dar"))
+  lazy val darPath: Path = rlocation(Paths.get(s"daml-script/test/script-test-v${majorLanguageVersion.pretty}.dar"))
   lazy val dar: CompiledDar = CompiledDar.read(darPath, Runner.compilerConfig(majorLanguageVersion))
 
   protected def timeMode: ScriptTimeMode

@@ -15,7 +15,7 @@ class EngineValidatePackagesTest extends AnyWordSpec with Matchers with Inside {
 
   import defaultParserParameters.{defaultPackageId => pkgId, languageVersion => langVersion}
 
-  private def newEngine = new Engine(EngineConfig(LanguageVersion.DevVersions))
+  private def newEngine = new Engine(EngineConfig(LanguageVersion.AllVersions))
 
   "Engine.validatePackages" should {
 

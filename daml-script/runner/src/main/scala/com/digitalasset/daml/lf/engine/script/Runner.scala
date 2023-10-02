@@ -239,7 +239,7 @@ object Runner {
     import Compiler._
     Config(
       allowedLanguageVersions =
-        VersionRange(min = majorLanguageVersion.dev, max = majorLanguageVersion.dev),
+        VersionRange(min = majorLanguageVersion.minStableVersion, max = majorLanguageVersion.dev),
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = FullStackTrace,

@@ -92,7 +92,7 @@ private[snapshot] object TransactionSnapshot {
   def compile(pkgs: Map[Ref.PackageId, Ast.Package], profileDir: Option[Path] = None): Engine = {
     println(s"%%% compile ${pkgs.size} packages ...")
     val engine = new Engine(
-      EngineConfig(allowedLanguageVersions = LanguageVersion.DevVersions, profileDir = profileDir)
+      EngineConfig(allowedLanguageVersions = LanguageVersion.AllVersions, profileDir = profileDir)
     )
     AstUtil.dependenciesInTopologicalOrder(pkgs.keys.toList, pkgs).foreach { pkgId =>
       val r = engine

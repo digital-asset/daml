@@ -2510,7 +2510,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(
       EngineConfig(
-        allowedLanguageVersions = language.LanguageVersion.DevVersions(majorLanguageVersion),
+        allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
         requireSuffixedGlobalContractId = requireCidSuffixes,
       )
     )

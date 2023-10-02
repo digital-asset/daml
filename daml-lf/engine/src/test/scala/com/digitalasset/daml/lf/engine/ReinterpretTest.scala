@@ -61,7 +61,7 @@ class ReinterpretTest
 
   private val engine = new Engine(
     EngineConfig(
-      allowedLanguageVersions = language.LanguageVersion.DevVersions,
+      allowedLanguageVersions = language.LanguageVersion.AllVersions,
       requireSuffixedGlobalContractId = true,
     )
   )

@@ -88,7 +88,7 @@ private[lf] object Compiler {
       stacktracing = NoStackTrace,
     )
     def Dev(majorLanguageVersion: LanguageMajorVersion) = Config(
-      allowedLanguageVersions = LanguageVersion.DevVersions(majorLanguageVersion),
+      allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion),
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,

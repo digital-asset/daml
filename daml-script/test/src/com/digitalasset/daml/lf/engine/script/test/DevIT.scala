@@ -9,20 +9,22 @@ import com.daml.integrationtest.CantonConfig
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.language.LanguageMajorVersion.{V1, V2}
+import com.daml.lf.language.LanguageMajorVersion.{V1}
 import com.daml.lf.speedy.SValue._
 
 import java.nio.file.Paths
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.wordspec.{AsyncWordSpec}
 
 // TODO(#17366): Once daml3-script diverges from script, V1DevIT and V2DevIT may not be able to
 //     share the same code anymore.
-class V1DevIT extends DevIT(V1) {}
-class V2DevIT extends DevIT(V2) {}
+class DevITV1 extends DevIT(V1)
+// TODO(#17366): Uncomment once we can ask Canton to use a particular dev version. For now it
+//   defaults to 1.dev.
+//class DevITV2 extends DevIT(V2)
 
-class DevIT(val majorVersion: LanguageMajorVersion)
+class DevIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec
     with AbstractScriptTest
     with Inside
@@ -30,11 +32,11 @@ class DevIT(val majorVersion: LanguageMajorVersion)
   final override protected lazy val devMode = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
-  val prettyLfVersion = s"${majorVersion.pretty}.dev"
+  val prettyLfVersion = s"${majorLanguageVersion.pretty}.dev"
 
   lazy val devDarPath =
     BazelRunfiles.rlocation(Paths.get(s"daml-script/test/script-test-$prettyLfVersion.dar"))
-  lazy val devDar = CompiledDar.read(devDarPath, Runner.compilerConfig)
+  lazy val devDar = CompiledDar.read(devDarPath, Runner.compilerConfig(majorLanguageVersion))
 
   lazy val coinV1DarPath =
     BazelRunfiles.rlocation(Paths.get(s"daml-script/test/coin-v1-$prettyLfVersion.dar"))
@@ -53,11 +55,11 @@ class DevIT(val majorVersion: LanguageMajorVersion)
   lazy val coinUpgradeV1V3DarPath =
     BazelRunfiles.rlocation(Paths.get(s"daml-script/test/coin-upgrade-v1-v3-$prettyLfVersion.dar"))
   lazy val coinUpgradeV1V2Dar: CompiledDar =
-    CompiledDar.read(coinUpgradeV1V2DarPath, Runner.compilerConfig)
+    CompiledDar.read(coinUpgradeV1V2DarPath, Runner.compilerConfig(majorLanguageVersion))
   lazy val coinUpgradeV1V2NewFieldDar: CompiledDar =
-    CompiledDar.read(coinUpgradeV1V2NewFieldDarPath, Runner.compilerConfig)
+    CompiledDar.read(coinUpgradeV1V2NewFieldDarPath, Runner.compilerConfig(majorLanguageVersion))
   lazy val coinUpgradeV1V3Dar: CompiledDar =
-    CompiledDar.read(coinUpgradeV1V3DarPath, Runner.compilerConfig)
+    CompiledDar.read(coinUpgradeV1V3DarPath, Runner.compilerConfig(majorLanguageVersion))
 
   // TODO: https://github.com/digital-asset/daml/issues/17082
   // We override the config, to enableUpgrade

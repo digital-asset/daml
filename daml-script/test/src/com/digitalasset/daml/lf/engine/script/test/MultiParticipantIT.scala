@@ -7,17 +7,22 @@ package test
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue._
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-final class MultiParticipantIT
+class MultiParticipantITV1 extends MultiParticipantIT(LanguageMajorVersion.V1)
+// TODO(#17366): Uncomment once we can ask Canton to use a particular dev version. For now it
+//   defaults to 1.dev.
+//class MultiParticipantITV2 extends MultiParticipantIT(LanguageMajorVersion.V2)
+
+class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec
     with AbstractScriptTest
     with Inside
     with Matchers {
-  import AbstractScriptTest._
 
   final override protected lazy val nParticipants = 2
   final override protected lazy val timeMode = ScriptTimeMode.WallClock

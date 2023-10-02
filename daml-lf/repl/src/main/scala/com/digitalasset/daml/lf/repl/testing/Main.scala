@@ -9,7 +9,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.lf.language.LanguageVersion.DevVersions
+import com.daml.lf.language.LanguageVersion.AllVersions
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.Pretty._
 import com.daml.lf.scenario.{ScenarioRunner, Pretty => PrettyScenario}
@@ -94,7 +94,7 @@ object Repl {
 
   val devCompilerConfig: Compiler.Config =
     defaultCompilerConfig.copy(
-      allowedLanguageVersions = LV.DevVersions(LanguageMajorVersion.V1)
+      allowedLanguageVersions = LV.AllVersions(LanguageMajorVersion.V1)
     )
 
   private val nextSeed =
@@ -197,7 +197,7 @@ object Repl {
     private val seed = nextSeed()
 
     val transactionVersions =
-      if (compilerConfig.allowedLanguageVersions.intersects(DevVersions(LanguageMajorVersion.V1))) {
+      if (compilerConfig.allowedLanguageVersions.intersects(AllVersions(LanguageMajorVersion.V1))) {
         transaction.TransactionVersion.DevVersions
       } else {
         transaction.TransactionVersion.StableVersions

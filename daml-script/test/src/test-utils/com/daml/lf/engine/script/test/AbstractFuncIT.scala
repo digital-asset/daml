@@ -27,8 +27,6 @@ abstract class AbstractFuncIT
     with Matchers
     with Inside {
 
-  import AbstractScriptTest._
-
   final override protected lazy val devMode = false
 
   def assertSTimestamp(v: SValue) =

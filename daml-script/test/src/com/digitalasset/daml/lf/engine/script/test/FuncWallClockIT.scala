@@ -6,11 +6,15 @@ package com.daml.lf.engine.script.test
 import java.time.Duration
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.script.ScriptTimeMode
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue.SRecord
 
-final class FuncWallClockIT extends AbstractFuncIT {
-  import AbstractScriptTest._
+class FuncWallClockITV1 extends FuncWallClockIT(LanguageMajorVersion.V1)
+// TODO(#17366): Uncomment once we can ask Canton to use a particular dev version. For now it
+//   defaults to 1.dev.
+//class FuncWallClockITV2 extends FuncWallClockIT(LanguageMajorVersion.V2)
 
+class FuncWallClockIT(override val majorLanguageVersion: LanguageMajorVersion) extends AbstractFuncIT {
   protected override lazy val timeMode = ScriptTimeMode.WallClock
 
   "testSleep" should {

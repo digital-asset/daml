@@ -630,6 +630,6 @@ object Engine {
   def StableEngine(): Engine = new Engine(StableConfig)
 
   def DevEngine(majorLanguageVersion: LanguageMajorVersion): Engine = new Engine(
-    StableConfig.copy(allowedLanguageVersions = LanguageVersion.DevVersions(majorLanguageVersion))
+    StableConfig.copy(allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion))
   )
 }

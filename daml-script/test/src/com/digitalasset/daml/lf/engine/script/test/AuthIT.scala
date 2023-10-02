@@ -8,6 +8,7 @@ import com.daml.ledger.api.domain
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.integrationtest._
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.value.Value
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -15,8 +16,12 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-final class AuthIT extends AsyncWordSpec with AbstractScriptTest with Matchers {
-  import AbstractScriptTest._
+class AuthITV1 extends AuthIT(LanguageMajorVersion.V1)
+// TODO(#17366): Uncomment once we can ask Canton to use a particular dev version. For now it
+//   defaults to 1.dev.
+//class AuthITV2 extends AuthIT(LanguageMajorVersion.V2)
+
+class AuthIT(override val majorLanguageVersion: LanguageMajorVersion) extends AsyncWordSpec with AbstractScriptTest with Matchers {
 
   final override protected lazy val authSecret = Some("secret")
   final override protected lazy val timeMode = ScriptTimeMode.WallClock

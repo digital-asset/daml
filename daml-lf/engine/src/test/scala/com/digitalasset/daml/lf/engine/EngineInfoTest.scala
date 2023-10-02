@@ -16,7 +16,7 @@ class EngineInfoTest extends AnyWordSpec with Matchers {
         LanguageVersion.LegacyVersions,
         LanguageVersion.StableVersions,
         LanguageVersion.EarlyAccessVersions,
-        LanguageVersion.DevVersions,
+        LanguageVersion.AllVersions,
       ).map(versions => new EngineInfo(EngineConfig(allowedLanguageVersions = versions)))
 
     "show supported LF, Transaction and Value versions" in {

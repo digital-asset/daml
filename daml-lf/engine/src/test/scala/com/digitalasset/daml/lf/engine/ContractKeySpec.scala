@@ -256,14 +256,14 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion, darVersionSuff
       import com.daml.lf.language.{LanguageVersion => LV}
       val nonUckEngine = new Engine(
         EngineConfig(
-          allowedLanguageVersions = LV.DevVersions(majorLanguageVersion),
+          allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),
           contractKeyUniqueness = ContractKeyUniquenessMode.Off,
           requireSuffixedGlobalContractId = true,
         )
       )
       val uckEngine = new Engine(
         EngineConfig(
-          allowedLanguageVersions = LV.DevVersions(majorLanguageVersion),
+          allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),
           contractKeyUniqueness = ContractKeyUniquenessMode.Strict,
           requireSuffixedGlobalContractId = true,
         )

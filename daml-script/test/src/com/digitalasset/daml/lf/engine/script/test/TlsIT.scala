@@ -6,12 +6,16 @@ package test
 
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.script.ScriptTimeMode
+import com.daml.lf.language.LanguageMajorVersion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-final class TlsIT extends AsyncWordSpec with AbstractScriptTest with Matchers {
+class TlsITV1 extends TlsIT(LanguageMajorVersion.V1)
+// TODO(#17366): Uncomment once we can ask Canton to use a particular dev version. For now it
+//   defaults to 1.dev.
+//class TlsITV2 extends TlsIT(LanguageMajorVersion.V2)
 
-  import AbstractScriptTest._
+class TlsIT(override val majorLanguageVersion: LanguageMajorVersion) extends AsyncWordSpec with AbstractScriptTest with Matchers {
 
   final override protected lazy val tlsEnable = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
