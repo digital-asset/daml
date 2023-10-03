@@ -6,12 +6,13 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Main entry-point of the Daml compiler
 module DA.Cli.Damlc (main) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception (bracket, catch, handle)
+import Control.Exception (bracket, catch, handle, throwIO)
 import Control.Exception.Safe (catchIO)
 import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
 import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
@@ -22,24 +23,26 @@ import DA.Bazel.Runfiles (Resource(..),
                           runfilesPathPrefix,
                           setRunfilesEnv)
 import qualified DA.Cli.Args as ParseArgs
-import DA.Cli.Options (BuildAll(..),
+import DA.Cli.Options (MultiBuildAll(..),
                        Debug(..),
+                       EnableMultiBuild(..),
                        InitPkgDb(..),
-                       NoCache(..),
+                       MultiBuildNoCache(..),
                        ProjectOpts(..),
                        Style(..),
                        Telemetry(..),
-                       buildAllOpt,
+                       multiBuildAllOpt,
                        debugOpt,
                        disabledDlintUsageParser,
                        enabledDlintUsageParser,
+                       enableMultiBuildOpt,
                        enableScenarioServiceOpt,
                        incrementalBuildOpt,
                        initPkgDbOpt,
                        inputDarOpt,
                        inputFileOpt,
                        inputFileOptWithExt,
-                       noCacheOpt,
+                       multiBuildNoCacheOpt,
                        optionalDlintUsageParser,
                        optionalOutputFileOpt,
                        optionsParser,
@@ -152,6 +155,7 @@ import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Either (fromRight, partitionEithers)
 import Data.FileEmbed (embedFile)
 import qualified Data.HashSet as HashSet
+import Data.List (isPrefixOf)
 import Data.List.Extra (elemIndices, nubOrd, nubSort, nubSortOn)
 import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as Map
@@ -161,6 +165,7 @@ import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text.Lazy.IO as TL
 import qualified Data.Text.IO as T
 import Data.Traversable (for)
+import qualified Data.Yaml as Y
 import Development.IDE.Core.API (getDalf, makeVFSHandle, runActionSync, setFilesOfInterest)
 import Development.IDE.Core.Debouncer (newAsyncDebouncer, noopDebouncer)
 import Development.IDE.Core.IdeState.Daml (getDamlIdeState,
@@ -264,7 +269,6 @@ import qualified Development.IDE.Types.Logger as IDELogger
 
 data CommandName =
     Build
-  | MultiBuild
   | Clean
   | Compile
   | DamlDoc
@@ -491,23 +495,9 @@ cmdBuild numProcessors =
             <*> optionalOutputFileOpt
             <*> incrementalBuildOpt
             <*> initPkgDbOpt
-
-cmdMultiBuild :: Int -> Mod CommandFields Command
-cmdMultiBuild numProcessors =
-    command "multi-build" $
-    info (helper <*> cmd) $
-    progDesc "Initialize and build a package with auto-build" <> fullDesc
-  where
-    cmd =
-        execMultiBuild
-            <$> projectOpts "daml multi-build"
-            <*> optionsParser
-                  numProcessors
-                  (EnableScenarioService False)
-                  (pure Nothing)
-                  disabledDlintUsageParser
-            <*> buildAllOpt
-            <*> noCacheOpt
+            <*> enableMultiBuildOpt
+            <*> multiBuildAllOpt
+            <*> multiBuildNoCacheOpt
 
 cmdRepl :: Int -> Mod CommandFields Command
 cmdRepl numProcessors =
@@ -899,40 +889,123 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
                   pDataDependencies
               createProjectPackageDb (toNormalizedFilePath' projRoot) opts pModulePrefixes
 
-execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
-execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
-  Command Build (Just projectOpts) effect
-  where effect = withProjectRoot' projectOpts $ \relativize -> do
-            installDepsAndInitPackageDb opts initPkgDb
-            withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
-                loggerH <- getLogger opts "build"
-                Logger.logInfo loggerH $ "Compiling " <> LF.unPackageName pName <> " to a DAR."
-                let errors = checkPkgConfig pkgConfig
-                unless (null errors) $ do
-                    mapM_ (Logger.logError loggerH) errors
-                    exitFailure
-                withDamlIdeState
-                    opts
-                      { optMbPackageName = Just pName
-                      , optMbPackageVersion = pVersion
-                      , optIncrementalBuild = incrementalBuild
-                      }
-                    loggerH
-                    diagnosticsLogger $ \compilerH -> do
-                    mbDar <-
-                        buildDar
-                            compilerH
-                            pkgConfig
-                            (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
-                            (FromDalf False)
-                    dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
-                    fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
-                    createDarFile loggerH fp dar
-            where
-                targetFilePath rel name =
-                  case mbOutFile of
-                    Nothing -> pure $ distDir </> name <.> "dar"
-                    Just out -> rel out
+execBuild
+  :: ProjectOpts
+  -> Options
+  -> Maybe FilePath
+  -> IncrementalBuild
+  -> InitPkgDb
+  -> EnableMultiBuild
+  -> MultiBuildAll
+  -> MultiBuildNoCache
+  -> MultiBuildDoSearch
+  -> MultiBuildPath
+  -> Command
+execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiBuild buildAll noCache doSearch multiBuildPath =
+  Command Build (Just projectOpts) $ evalContT $ do
+    relativize <- ContT $ withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False})
+    let buildSingle = buildSingle' relativize
+        buildMulti = buildMulti' relativize
+    mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig defaultProjectPath
+    if getEnableMultiBuild enableMultiBuild
+      let searchPath = maybe defaultProjectPath ProjectPath $ getMultiBuildPath multiBuildPath
+      mMultiBuildConfig <- ContT $ withMaybeConfig $ withMultiPackageConfig searchPath
+      -- TODO: fill these out
+      -- TODO: pass the single build arguments to multi build to be used for the top level package ONLY
+      --   Likely the top level package should be envoked locally, not by a call to daml assistant, so we can forward this information
+      -- TODO: Handle the --all logic, it cares only for the existence of the multiBuild config, and should not allow any non-default Options
+      case (mPkgConfig, mMultiBuildConfig) of
+        -- We know the package we want and we have a multi-package.yaml in the same directory
+        (Just pkgConfig, Just (multiBuild, Nothing)) -> buildMulti pkgConfig multiBuild
+        -- We know the package we want and we found a multi-package.yaml above WITH the do search flag set
+        (Just pkgConfig, Just (multiBuild, Just _)) | getMultiBuildDoSearch doSearch -> buildMulti pkgConfig multiBuild
+        -- We know the package we want and we found a multi-package.yaml above BUT we didn't have the search flag.
+        (Just pkgConfig, Just (multiBuild, Just multiBuildPath)) -> ???
+          -- build normal, if multiBuildPath is set, error about the multi build was found above.
+          -- otherwise, show an info print saying where the multi build is
+        -- We know the package we want but we do not have a multi-package. The user has provided no reason they would want a multi-build.
+        (Just pkgConfig, Nothing) | not (getMultiBuildDoSearch doSearch) && getMultiBuildPath == Nothing -> buildSingle pkgConfig
+          -- build normal
+        -- We have no package context, but we have found a multi build at the current directory
+        (Nothing, Just (multiBuild, Nothing)) ->
+          -- Error saying no package found, but suggest that given a multi-build.yaml was found, the user can try `daml build --all`
+        -- We have no package context, and found a multi build yaml above the current directory
+        (Nothing, Just (multiBuild, Just multiBuildPath))
+          -- Error saying no package found, but mention the found multibuild path, and suggest the user perhaps want `daml build --all --search-multi-build`
+        -- We have nothing, we're lost
+        (Nothing, Nothing) -> -- Some error about no daml.yaml found
+
+        multiBuildEffect projectOpts opts buildAll noCache
+    else do
+      -- TODO: Error if any of the multi build options are provided
+      case mPkgConfig of
+        Nothing -> -- Error, no package found, throw the same error we usually catch
+        Just pkgConfig -> buildSingle pkgConfig
+  where
+    -- TODO: pass the configs through
+    buildSingle' :: (FilePath -> IO FilePath) -> PackageConfigFields -> IO ()
+    buildSingle' relativize pkgConfig = buildEffect projectOpts opts mbOutFile incrementalBuild initPkgDb
+    buildMulti' :: (FilePath -> IO FilePath) -> PackageConfigFields -> MultiPackageConfigFields -> IO ()
+    buildMulti' relativize pkgConfig multiBuildConfig = multiBuildEffect projectOpts opts buildAll noCache
+
+-- Takes the withPackageConfig style functions and changes the continuation
+-- to give a Maybe, where Nothing signifies a missing file. Parse errors are still thrown
+withMaybeConfig
+  :: forall config x
+  .  (forall y. (config -> IO y) -> IO y)
+  -> (Maybe config -> IO x)
+  -> IO x
+withMaybeConfig withConfig handler = do
+  mConfig <-
+    handle (\case
+      ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "Yaml file not found: " `isPrefixOf` exc ->
+        pure Nothing
+      e -> throwIO e
+    ) (withConfig $ pure . Just)
+  handler mConfig
+
+-- We'll use withProjectRoot still
+-- version of withPackageConfig that gives us a maybe
+-- version of withMultiPackageConfig that gives us a maybe
+--   and perhaps a flag that says if its in current root or not
+--   then we add a flag that says "search for multi-package"
+--   maybe another that lets you explicitly set the multi-package
+--     if either of these are set and no multi-package found, we error
+-- 
+
+buildEffect :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> IO ()
+buildEffect projectOpts opts mbOutFile incrementalBuild initPkgDb =
+  withProjectRoot' projectOpts $ \relativize -> do
+    installDepsAndInitPackageDb opts initPkgDb
+    withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
+        loggerH <- getLogger opts "build"
+        Logger.logInfo loggerH $ "Compiling " <> LF.unPackageName pName <> " to a DAR."
+        let errors = checkPkgConfig pkgConfig
+        unless (null errors) $ do
+            mapM_ (Logger.logError loggerH) errors
+            exitFailure
+        withDamlIdeState
+            opts
+              { optMbPackageName = Just pName
+              , optMbPackageVersion = pVersion
+              , optIncrementalBuild = incrementalBuild
+              }
+            loggerH
+            diagnosticsLogger $ \compilerH -> do
+            mbDar <-
+                buildDar
+                    compilerH
+                    pkgConfig
+                    (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
+                    (FromDalf False)
+            dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
+            fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
+            createDarFile loggerH fp dar
+    where
+        targetFilePath rel name =
+          case mbOutFile of
+            Nothing -> pure $ distDir </> name <.> "dar"
+            Just out -> rel out
 
 
 {- | Multi Build! (the multi-package.yaml approach)
@@ -966,45 +1039,42 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
   
   We currently rely on shake to find cycles, how its errors includes too much information about internals, so we'll need to implement our own cycle detection.
 -}
-execMultiBuild :: ProjectOpts -> Options -> BuildAll -> NoCache -> Command
-execMultiBuild projectOpts opts (BuildAll buildAll) noCache =
-  Command MultiBuild (Just projectOpts) effect
-  where effect =
-          -- withProjectRoot' projectOpts $ \relativize ->
-            withMultiPackageConfig defaultProjectPath $ \multiPackageConfig -> do
-              vfs <- makeVFSHandle
-              loggerH <- getLogger opts "multi-build"
-              cDir <- getCurrentDirectory
-              assistantPath <- getEnv "DAML_ASSISTANT"
-              -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
-              assistantEnv <- filter ((/="DAML_PROJECT") . fst) <$> getEnvironment
+multiBuildEffect :: ProjectOpts -> Options -> MultiBuildAll -> MultiBuildNoCache -> IO ()
+multiBuildEffect projectOpts opts (MultiBuildAll buildAll) noCache =
+  withMultiPackageConfig defaultProjectPath $ \multiPackageConfig -> do
+    vfs <- makeVFSHandle
+    loggerH <- getLogger opts "multi-build"
+    cDir <- getCurrentDirectory
+    assistantPath <- getEnv "DAML_ASSISTANT"
+    -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
+    assistantEnv <- filter ((/="DAML_PROJECT") . fst) <$> getEnvironment
 
-              -- This isn't fully correct, it should also look for build options that change the dar location
-              buildableDataDepsMapping <- fmap Map.fromList $ for (mpPackagePaths multiPackageConfig) $ \path -> do
-                darPath <- darPathFromDamlYaml path
-                pure (darPath, path)
+    -- This isn't fully correct, it should also look for build options that change the dar location
+    buildableDataDepsMapping <- fmap Map.fromList $ for (mpPackagePaths multiPackageConfig) $ \path -> do
+      darPath <- darPathFromDamlYaml path
+      pure (darPath, path)
 
-              let assistantRunner = AssistantRunner $ \location args ->
-                    withCreateProcess ((proc assistantPath args) {cwd = Just location, env = Just assistantEnv})
-                      $ \_ _ _ p -> void $ waitForProcess p
-                  buildableDataDeps = BuildableDataDeps $ flip Map.lookup buildableDataDepsMapping
-                  buildMultiRules = do
-                    addIdeGlobal assistantRunner
-                    addIdeGlobal buildableDataDeps
-                    addIdeGlobal noCache
-                    buildMultiRule
+    let assistantRunner = AssistantRunner $ \location args ->
+          withCreateProcess ((proc assistantPath args) {cwd = Just location, env = Just assistantEnv})
+            $ \_ _ _ p -> void $ waitForProcess p
+        buildableDataDeps = BuildableDataDeps $ flip Map.lookup buildableDataDepsMapping
+        buildMultiRules = do
+          addIdeGlobal assistantRunner
+          addIdeGlobal buildableDataDeps
+          addIdeGlobal noCache
+          buildMultiRule
 
-              -- Set up a near empty shake environment, with just the buildMulti rule
-              bracket
-                (IDE.initialise buildMultiRules (DummyLspEnv diagnosticsLogger) (toIdeLogger loggerH) noopDebouncer (toCompileOpts opts) vfs)
-                IDE.shutdown
-                $ \ideState -> runActionSync ideState
-                  $ if buildAll
-                      then
-                        void $ uses_ BuildMulti $ toNormalizedFilePath' <$> mpPackagePaths multiPackageConfig
-                      else
-                        void $ use_ BuildMulti $ toNormalizedFilePath'
-                          $ maybe cDir unwrapProjectPath $ projectRoot projectOpts
+    -- Set up a near empty shake environment, with just the buildMulti rule
+    bracket
+      (IDE.initialise buildMultiRules (DummyLspEnv diagnosticsLogger) (toIdeLogger loggerH) noopDebouncer (toCompileOpts opts) vfs)
+      IDE.shutdown
+      $ \ideState -> runActionSync ideState
+        $ if buildAll
+            then
+              void $ uses_ BuildMulti $ toNormalizedFilePath' <$> mpPackagePaths multiPackageConfig
+            else
+              void $ use_ BuildMulti $ toNormalizedFilePath'
+                $ maybe cDir unwrapProjectPath $ projectRoot projectOpts
 
 data AssistantRunner = AssistantRunner { runAssistant :: FilePath -> [String] -> IO ()}
   deriving Typeable
@@ -1112,7 +1182,7 @@ buildMultiRule = defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
 
   assistantRunner <- getIdeGlobalAction @AssistantRunner
   buildableDataDeps <- getIdeGlobalAction @BuildableDataDeps
-  (NoCache noCache) <- getIdeGlobalAction @NoCache
+  (MultiBuildNoCache noCache) <- getIdeGlobalAction @MultiBuildNoCache
 
   -- Make an IO action that takes a path and args and call env var DAML_ASSISTANT with it, put it in as a global under a newtype
   -- pull that out here and call it via `damlc`
@@ -1154,6 +1224,7 @@ buildMultiRule = defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
         -- Invoke damlc with the following flags. For now we call to `main`, but later we'll defer to the assistant to find the right version of damlc
         -- and defer to that instead.
 
+        -- TODO: pass no multibuild here if the sdk version is higher than when we added this!
         runAssistant assistantRunner (fromNormalizedFilePath path) ["build"]
 
         -- Extract the new package ID from the dar we just built, by reading the DAR and looking for the dalf that matches our package name/version
@@ -1445,7 +1516,6 @@ options numProcessors =
       -- cmdPackage can go away once we kill the old assistant.
       <> cmdPackage numProcessors
       <> cmdBuild numProcessors
-      <> cmdMultiBuild numProcessors
       <> cmdTest numProcessors
       <> Damldoc.cmd numProcessors (\cli -> Command DamlDoc Nothing $ Damldoc.exec cli)
       <> cmdInspectDar
@@ -1550,7 +1620,6 @@ main = do
 cmdUseDamlYamlArgs :: CommandName -> Bool
 cmdUseDamlYamlArgs = \case
   Build -> True
-  MultiBuild -> False
   Clean -> False -- don't need any flags to remove files
   Compile -> True
   DamlDoc -> True

@@ -187,12 +187,14 @@ fullParseMultiPackageConfig = cyclelessIOFix loopShow $ \loop projectPath -> do
     loopShow :: [ProjectPath] -> String
     loopShow = ("\n" <>) . unlines . fmap ((" - " <>) . unwrapProjectPath)
 
-withMultiPackageConfig :: ProjectPath -> (MultiPackageConfigFields -> IO a) -> IO a
+-- Gives the filepath where the multipackage was found if its not the same as project path.
+withMultiPackageConfig :: ProjectPath -> ((MultiPackageConfigFields, Maybe FilePath) -> IO a) -> IO a
 withMultiPackageConfig projectPath f = do
     canonProjectFilePath <- canonicalizePath $ unwrapProjectPath projectPath
     multiPackageProjectPath <- findMultiPackageConfigProjectPath canonProjectFilePath
     multiPackageConfig <- fullParseMultiPackageConfig multiPackageProjectPath
-    f multiPackageConfig
+    let mPath = if unwrapProjectPath multiPackageProjectPath == canonProjectFilePath then Nothing else Just $ unwrapProjectPath multiPackageProjectPath
+    f (multiPackageConfig, mPath)
 
 -- | Orphans because I’m too lazy to newtype everything.
 instance A.FromJSON Ghc.ModuleName where

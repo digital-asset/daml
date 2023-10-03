@@ -156,15 +156,32 @@ newtype InitPkgDb = InitPkgDb Bool
 initPkgDbOpt :: Parser InitPkgDb
 initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database" idm
 
-newtype BuildAll = BuildAll Bool
-buildAllOpt :: Parser BuildAll
-buildAllOpt = BuildAll <$> flagYesNoAuto "all" False "Build all packages in multi-package.daml" idm
+newtype EnableMultiBuild = EnableMultiBuild {getEnableMultiBuild :: Bool}
+enableMultiBuildOpt :: Parser EnableMultiBuild
+enableMultiBuildOpt = EnableMultiBuild <$> flagYesNoAuto "enable-multi-build" False "Experimental multi-build/multi-package.yaml support" internal
 
-newtype NoCache = NoCache Bool
+newtype MultiBuildAll = MultiBuildAll {getMultiBuildAll :: Bool}
+multiBuildAllOpt :: Parser MultiBuildAll
+multiBuildAllOpt = MultiBuildAll <$> flagYesNoAuto "all" False "Build all packages in multi-package.daml" internal
+
+newtype MultiBuildNoCache = MultiBuildNoCache {getMultiBuildNoCache :: Bool}
   deriving Typeable
-instance IsIdeGlobal NoCache
-noCacheOpt :: Parser NoCache
-noCacheOpt = NoCache <$> flagYesNoAuto "no-cache" False "Disables cache checking, rebuilding all dependencies" idm
+instance IsIdeGlobal MultiBuildNoCache
+multiBuildNoCacheOpt :: Parser MultiBuildNoCache
+multiBuildNoCacheOpt = MultiBuildNoCache <$> flagYesNoAuto "no-cache" False "Disables cache checking, rebuilding all dependencies" internal
+
+newtype MultiBuildDoSearch = MultiBuildDoSearch {getMultiBuildDoSearch :: Bool}
+multiBuildDoSearchOpt :: Parser MultiBuildDoSearch
+multiBuildDoSearchOpt = MultiBuildDoSearch <$> flagYesNoAuto "search-multi-build" False "Allows daml build to search up the directory tree for a multi-build.yaml" internal
+
+newtype MultiBuildPath = MultiBuildPath {getMultiBuildPath :: Maybe FilePath}
+multiBuildPathOpt :: Parser MultiBuildPath
+multiBuildPathOpt =
+  MultiBuildPath <$> optionOnce (Just <$> str) $
+       metavar "FILE"
+    <> help "Path to the multi-build.yaml file."
+    <> long "multi-build-path"
+    <> value Nothing
 
 data Telemetry
     = TelemetryOptedIn -- ^ User has explicitly opted in
