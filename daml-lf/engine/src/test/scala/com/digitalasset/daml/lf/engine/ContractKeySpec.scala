@@ -35,8 +35,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class ContractKeySpecV1 extends ContractKeySpec(LanguageMajorVersion.V1, "-v1dev")
-class ContractKeySpecV2 extends ContractKeySpec(LanguageMajorVersion.V2, "-v2dev")
+class ContractKeySpecV1 extends ContractKeySpec(LanguageMajorVersion.V1)
+class ContractKeySpecV2 extends ContractKeySpec(LanguageMajorVersion.V2)
 
 @SuppressWarnings(
   Array(
@@ -45,7 +45,7 @@ class ContractKeySpecV2 extends ContractKeySpec(LanguageMajorVersion.V2, "-v2dev
     "org.wartremover.warts.Product",
   )
 )
-class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion, darVersionSuffix: String)
+class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -63,7 +63,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion, darVersionSuff
   }
 
   private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
-    s"daml-lf/engine/BasicTests${darVersionSuffix}.dar"
+    s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}.dar"
   )
 
   val basicTestsSignatures = language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
@@ -269,7 +269,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion, darVersionSuff
         )
       )
       val (multiKeysPkgId, _, allMultiKeysPkgs) =
-        loadPackage(s"daml-lf/tests/MultiKeys${darVersionSuffix}.dar")
+        loadPackage(s"daml-lf/tests/MultiKeys-v${majorLanguageVersion.pretty}.dar")
       val keyedId = Identifier(multiKeysPkgId, "MultiKeys:Keyed")
       val opsId = Identifier(multiKeysPkgId, "MultiKeys:KeyOperations")
       val let = Time.Timestamp.now()

@@ -89,11 +89,13 @@ da_scala_test_suite(
         "//daml-lf/tests:InterfaceRetro.dar",
         "//daml-lf/tests:InterfaceViews.dar",
         "//daml-lf/tests:Interfaces.dar",
-        "//daml-lf/tests:MultiKeys-v1.dar",
-        "//daml-lf/tests:MultiKeys-v2.dar",
         "//daml-lf/tests:ReinterpretTests.dar",
     ] + [
-        "//daml-lf/tests:Exceptions-v%s.dar" % major
+        "%s-v%s.dar" % (name, major)
+        for name in [
+            "//daml-lf/tests:Exceptions",
+            "//daml-lf/tests:MultiKeys",
+        ]
         for major in LF_MAJOR_VERSIONS
     ] + [
         ":%s-v%s.dar" % (name, major)
