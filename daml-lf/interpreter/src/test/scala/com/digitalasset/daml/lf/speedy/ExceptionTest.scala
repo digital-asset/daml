@@ -8,27 +8,44 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
-import com.daml.lf.language.StablePackage.DA
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, StablePackages}
+import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SParty, SUnit}
 import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
-import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.testing.parser.ParserParameters
+import com.daml.lf.testing.parser
+import com.daml.lf.testing.parser.Implicits.{SyntaxHelper}
 import com.daml.lf.value.Value.{ValueRecord, ValueText}
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 
-// TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
-class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDrivenPropertyChecks {
+class ExceptionTestV1 extends ExceptionTest(LanguageMajorVersion.V1)
+class ExceptionTestV2 extends ExceptionTest(LanguageMajorVersion.V2)
 
-  import com.daml.lf.testing.parser.Implicits.defaultParserParameters.defaultPackageId
+// TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
+class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Inside
+    with Matchers
+    with TableDrivenPropertyChecks {
+
+  import parser.defaultPackageId
   import SpeedyTestLib.loggingContext
+
+  implicit val defaultParserParameters: parser.ParserParameters[this.type] =
+    parser.ParserParameters(
+      parser.defaultPackageId,
+      // TODO(#17366): use something like LanguageVersion.default(major) after the refactoring of
+      //  LanguageVersion
+      majorLanguageVersion match {
+        case LanguageMajorVersion.V1 => LanguageVersion.default
+        case LanguageMajorVersion.V2 => LanguageVersion.v2_dev
+      },
+    )
 
   private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Party): SExpr = {
     val se = pkgs.compiler.unsafeCompile(e)
@@ -43,7 +60,18 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
     Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, Set(party)).run()
   }
 
-  for (evaluationOrder <- EvaluationOrder.values) {
+  // We can't test RightToLeft evaluation order with V1 because it only works in dev and V1 tests
+  // will build packages for versions 1.14 and 1.15. It works by accident in V2 at the moment
+  // because there's only one V2 version: 2.dev. Eventually, right-to-left evaluation will not be
+  // dev-only but instead 2.x-only, for all V2 versions. Once we've done this refactoring we can
+  // remove explicit evaluation orders from the tests.
+  // TODO(#17366): make RightToLeft a v2.x feature and remove evaluation order flags everywhere
+  val evaluationOrders = majorLanguageVersion match {
+    case LanguageMajorVersion.V1 => List(LeftToRight)
+    case LanguageMajorVersion.V2 => List(LeftToRight, RightToLeft)
+  }
+
+  for (evaluationOrder <- evaluationOrders) {
 
     evaluationOrder.toString - {
 
@@ -86,7 +114,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
             .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.Empty))
         val divZeroE =
           ValueRecord(
-            Some(DA.Exception.ArithmeticError.ArithmeticError),
+            Some(StablePackages(majorLanguageVersion).ArithmeticError),
             data.ImmArray(
               Some(data.Ref.Name.assertFromString("message")) ->
                 ValueText("ArithmeticError while evaluating (DIV_INT64 1 0).")
@@ -102,7 +130,10 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
           (
             "M:divZero",
             SErrorDamlException(
-              IE.UnhandledException(TTyCon(DA.Exception.ArithmeticError.ArithmeticError), divZeroE)
+              IE.UnhandledException(
+                TTyCon(StablePackages(majorLanguageVersion).ArithmeticError),
+                divZeroE,
+              )
             ),
           ),
         )
@@ -668,26 +699,22 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
 
         "works as expected for a contract version POST-dating exceptions" - {
 
-          // TODO(#17366): split this test when exception behavior change in 2.x
-          for (languageVersion <- Seq(LanguageVersion.v1_dev, LanguageVersion.v2_dev)) {
-            languageVersion.pretty in {
-
-              val pkgs = mkPackagesAtVersion(languageVersion)
-              val res = Speedy.Machine
-                .fromUpdateSExpr(
-                  pkgs,
-                  transactionSeed,
-                  applyToParty(pkgs, example, party),
-                  Set(party),
-                )
-                .run()
-              inside(res) { case SResultFinal(SUnit) =>
-              }
-            }
+          val pkgs = mkPackagesAtVersion(majorLanguageVersion.dev)
+          val res = Speedy.Machine
+            .fromUpdateSExpr(
+              pkgs,
+              transactionSeed,
+              applyToParty(pkgs, example, party),
+              Set(party),
+            )
+            .run()
+          inside(res) { case SResultFinal(SUnit) =>
           }
         }
 
         "causes an uncatchable exception to be thrown for a contract version PRE-dating exceptions" in {
+          // This test makes no sense for V2 as V2 supports exceptions
+          assume(majorLanguageVersion == LanguageMajorVersion.V1)
 
           val id = "M:AnException"
           val tyCon =
@@ -704,8 +731,8 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
 
         def mkPackagesAtVersion(languageVersion: LanguageVersion): PureCompiledPackages = {
 
-          implicit val defaultParserParameters: ParserParameters[this.type] =
-            ParserParameters(defaultPackageId, languageVersion)
+          val parserParameters: parser.ParserParameters[this.type] =
+            parser.ParserParameters(defaultPackageId, languageVersion)
 
           typeAndCompile(
             p"""
@@ -743,180 +770,176 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
               x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
             in upure @Unit ();
 
-      } """,
+      } """ (parserParameters),
             evaluationOrder,
           )
         }
 
       }
 
-      "rollback of creates (mixed versions)" - {
+      // These tests only make sense for V1 as all V2 versions support exceptions.
+      if (majorLanguageVersion == LanguageMajorVersion.V1) {
+        "rollback of creates (mixed versions)" - {
 
-        // TODO(#17366): split these tests when exception behavior change in 2.x
-        for (devLanguageVersion <- Seq(LanguageVersion.v1_dev, LanguageVersion.v2_dev)) {
+          val oldPid: PackageId = Ref.PackageId.assertFromString("OldPackage")
+          val newPid: PackageId = Ref.PackageId.assertFromString("Newpackage")
 
-          devLanguageVersion.pretty - {
-
-            val oldPid: PackageId = Ref.PackageId.assertFromString("OldPackage")
-            val newPid: PackageId = Ref.PackageId.assertFromString("Newpackage")
-
-            val oldPackage = {
-              implicit val defaultParserParameters: ParserParameters[this.type] = {
-                ParserParameters(
-                  defaultPackageId = oldPid,
-                  languageVersion = LanguageVersion.v1_11, // version pre-dating exceptions
-                )
-              }
-              p"""
-      module OldM {
-        record @serializable OldT = { party: Party } ;
-        template (record : OldT) = {
-          precondition True;
-          signatories Cons @Party [OldM:OldT {party} record] (Nil @Party);
-          observers Nil @Party;
-          agreement "Agreement";
-        };
-      } """
-            }
-            val newPackage = {
-              implicit val defaultParserParameters: ParserParameters[this.type] = {
-                ParserParameters(
-                  defaultPackageId = newPid,
-                  languageVersion = devLanguageVersion,
-                )
-              }
-              p"""
-      module NewM {
-        record @serializable AnException = { } ;
-        exception AnException = { message \(e: NewM:AnException) -> "AnException" };
-
-        record @serializable NewT = { party: Party } ;
-        template (record : NewT) = {
-          precondition True;
-          signatories Cons @Party [NewM:NewT {party} record] (Nil @Party);
-          observers Nil @Party;
-          agreement "Agreement";
-          choice MyChoiceCreateJustNew (self) (i : Unit) : Unit,
-            controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
-            to
-              ubind
-                new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
-                new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record }
-              in upure @Unit ();
-          choice MyChoiceCreateOldAndNew (self) (i : Unit) : Unit,
-            controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
-            to
-              ubind
-                new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
-                old: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = NewM:NewT {party} record };
-                new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record }
-              in upure @Unit ();
-          choice MyChoiceCreateOldAndNewThenThrow (self) (i : Unit) : Unit,
-            controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
-            to
-              ubind
-                new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
-                old: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = NewM:NewT {party} record };
-                new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
-                u: Unit <- throw @(Update Unit) @NewM:AnException (NewM:AnException {})
-              in upure @Unit ();
-        };
-
-        val causeRollback : Party -> Update Unit = \(party: Party) ->
-            ubind
-              // OK TO CREATE AN OLD VERSION CREATE OUT SIDE THE SCOPE OF THE ROLLBACK
-              x1: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = party };
-              u1: Unit <-
-                try @Unit
-                  ubind
-                    x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
-                    u: Unit <- exercise @NewM:NewT MyChoiceCreateJustNew x2 ()
-                  in throw @(Update Unit) @NewM:AnException (NewM:AnException {})
-                catch e -> Some @(Update Unit) (upure @Unit ())
-              ;
-              x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
-            in upure @Unit ();
-
-        val causeUncatchable : Party -> Update Unit = \(party: Party) ->
-            ubind
-              u1: Unit <-
-                try @Unit
-                  ubind
-                    x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
-                    // THIS EXERCISE CREATES AN OLD VERSION CONTRACT, AND SO CANNOT BE NESTED IN A ROLLBACK
-                    u: Unit <- exercise @NewM:NewT MyChoiceCreateOldAndNew x2 ()
-                  in throw @(Update Unit) @NewM:AnException (NewM:AnException {})
-                catch e -> Some @(Update Unit) (upure @Unit ())
-              ;
-              x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
-            in upure @Unit ();
-
-        val causeUncatchable2 : Party -> Update Unit = \(party: Party) ->
-            ubind
-              u1: Unit <-
-                try @Unit
-                  ubind
-                    x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
-                    // THIS EXERCISE CREATES AN OLD VERSION CONTRACT, THEN THROWS, AND SO CANNOT BE NESTED IN A ROLLBACK
-                    u: Unit <- exercise @NewM:NewT MyChoiceCreateOldAndNewThenThrow x2 ()
-                  in upure @Unit ()
-                catch e -> Some @(Update Unit) (upure @Unit ())
-              ;
-              x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
-            in upure @Unit ();
-
-      } """
-            }
-            val pkgs =
-              SpeedyTestLib.typeAndCompile(
-                Map(oldPid -> oldPackage, newPid -> newPackage),
-                evaluationOrder,
+          val oldPackage = {
+            val parserParameters: parser.ParserParameters[this.type] = {
+              parser.ParserParameters(
+                defaultPackageId = oldPid,
+                languageVersion = LanguageVersion.v1_11, // version pre-dating exceptions
               )
-
-            implicit val defaultParserParameters: ParserParameters[this.type] = {
-              ParserParameters(
+            }
+            p"""
+  module OldM {
+    record @serializable OldT = { party: Party } ;
+    template (record : OldT) = {
+      precondition True;
+      signatories Cons @Party [OldM:OldT {party} record] (Nil @Party);
+      observers Nil @Party;
+      agreement "Agreement";
+    };
+  } """ (parserParameters)
+          }
+          val newPackage = {
+            val parserParameters: parser.ParserParameters[this.type] = {
+              parser.ParserParameters(
                 defaultPackageId = newPid,
-                languageVersion = devLanguageVersion,
+                languageVersion = majorLanguageVersion.dev,
               )
             }
+            p"""
+  module NewM {
+    record @serializable AnException = { } ;
+    exception AnException = { message \(e: NewM:AnException) -> "AnException" };
 
-            val anException = {
-              val id = "NewM:AnException"
-              val tyCon = data.Ref.Identifier.assertFromString(s"$newPid:$id")
-              IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
+    record @serializable NewT = { party: Party } ;
+    template (record : NewT) = {
+      precondition True;
+      signatories Cons @Party [NewM:NewT {party} record] (Nil @Party);
+      observers Nil @Party;
+      agreement "Agreement";
+      choice MyChoiceCreateJustNew (self) (i : Unit) : Unit,
+        controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+        to
+          ubind
+            new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
+            new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record }
+          in upure @Unit ();
+      choice MyChoiceCreateOldAndNew (self) (i : Unit) : Unit,
+        controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+        to
+          ubind
+            new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
+            old: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = NewM:NewT {party} record };
+            new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record }
+          in upure @Unit ();
+      choice MyChoiceCreateOldAndNewThenThrow (self) (i : Unit) : Unit,
+        controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+        to
+          ubind
+            new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
+            old: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = NewM:NewT {party} record };
+            new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
+            u: Unit <- throw @(Update Unit) @NewM:AnException (NewM:AnException {})
+          in upure @Unit ();
+    };
+
+    val causeRollback : Party -> Update Unit = \(party: Party) ->
+        ubind
+          // OK TO CREATE AN OLD VERSION CREATE OUT SIDE THE SCOPE OF THE ROLLBACK
+          x1: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = party };
+          u1: Unit <-
+            try @Unit
+              ubind
+                x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
+                u: Unit <- exercise @NewM:NewT MyChoiceCreateJustNew x2 ()
+              in throw @(Update Unit) @NewM:AnException (NewM:AnException {})
+            catch e -> Some @(Update Unit) (upure @Unit ())
+          ;
+          x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
+        in upure @Unit ();
+
+    val causeUncatchable : Party -> Update Unit = \(party: Party) ->
+        ubind
+          u1: Unit <-
+            try @Unit
+              ubind
+                x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
+                // THIS EXERCISE CREATES AN OLD VERSION CONTRACT, AND SO CANNOT BE NESTED IN A ROLLBACK
+                u: Unit <- exercise @NewM:NewT MyChoiceCreateOldAndNew x2 ()
+              in throw @(Update Unit) @NewM:AnException (NewM:AnException {})
+            catch e -> Some @(Update Unit) (upure @Unit ())
+          ;
+          x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
+        in upure @Unit ();
+
+    val causeUncatchable2 : Party -> Update Unit = \(party: Party) ->
+        ubind
+          u1: Unit <-
+            try @Unit
+              ubind
+                x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
+                // THIS EXERCISE CREATES AN OLD VERSION CONTRACT, THEN THROWS, AND SO CANNOT BE NESTED IN A ROLLBACK
+                u: Unit <- exercise @NewM:NewT MyChoiceCreateOldAndNewThenThrow x2 ()
+              in upure @Unit ()
+            catch e -> Some @(Update Unit) (upure @Unit ())
+          ;
+          x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
+        in upure @Unit ();
+
+  } """(parserParameters)
+          }
+          val pkgs =
+            SpeedyTestLib.typeAndCompile(
+              majorLanguageVersion,
+              Map(oldPid -> oldPackage, newPid -> newPackage),
+              evaluationOrder,
+            )
+
+          val parserParameters: parser.ParserParameters[this.type] = {
+            parser.ParserParameters(
+              defaultPackageId = newPid,
+              languageVersion = majorLanguageVersion.dev,
+            )
+          }
+
+          val anException = {
+            val id = "NewM:AnException"
+            val tyCon = data.Ref.Identifier.assertFromString(s"$newPid:$id")
+            IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
+          }
+
+          def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
+
+          val causeRollback: SExpr = applyToParty(pkgs, e"NewM:causeRollback"(parserParameters), party)
+          val causeUncatchable: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable"(parserParameters), party)
+          val causeUncatchable2: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable2"(parserParameters), party)
+
+          "create rollback when old contacts are not within try-catch context" in {
+            val res =
+              Speedy.Machine
+                .fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party))
+                .run()
+            inside(res) { case SResultFinal(SUnit) =>
             }
+          }
 
-            def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
+          "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {
+            val res =
+              Speedy.Machine
+                .fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable, Set(party))
+                .run()
+            res shouldBe SResultError(SErrorDamlException(anException))
+          }
 
-            val causeRollback: SExpr = applyToParty(pkgs, e"NewM:causeRollback", party)
-            val causeUncatchable: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable", party)
-            val causeUncatchable2: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable2", party)
-
-            "create rollback when old contacts are not within try-catch context" in {
-              val res =
-                Speedy.Machine
-                  .fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party))
-                  .run()
-              inside(res) { case SResultFinal(SUnit) =>
-              }
-            }
-
-            "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {
-              val res =
-                Speedy.Machine
-                  .fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable, Set(party))
-                  .run()
-              res shouldBe SResultError(SErrorDamlException(anException))
-            }
-
-            "causes uncatchable exception when an old contract is within a new-exercise which aborts" in {
-              val res =
-                Speedy.Machine
-                  .fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable2, Set(party))
-                  .run()
-              res shouldBe SResultError(SErrorDamlException(anException))
-            }
-
+          "causes uncatchable exception when an old contract is within a new-exercise which aborts" in {
+            val res =
+              Speedy.Machine
+                .fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable2, Set(party))
+                .run()
+            res shouldBe SResultError(SErrorDamlException(anException))
           }
         }
       }

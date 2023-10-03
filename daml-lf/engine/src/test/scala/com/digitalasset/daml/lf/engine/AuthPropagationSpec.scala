@@ -11,10 +11,21 @@ import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Time}
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId, ParticipantId, Party, QualifiedName}
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.ledger.FailedAuthorization.{CreateMissingAuthorization, ExerciseMissingAuthorization}
+import com.daml.lf.ledger.FailedAuthorization.{
+  CreateMissingAuthorization,
+  ExerciseMissingAuthorization,
+}
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
 import com.daml.lf.transaction.Transaction.Metadata
-import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueContractId, ValueList, ValueParty, ValueRecord, VersionedContractInstance}
+import com.daml.lf.value.Value.{
+  ContractId,
+  ContractInstance,
+  ValueContractId,
+  ValueList,
+  ValueParty,
+  ValueRecord,
+  VersionedContractInstance,
+}
 import com.daml.logging.LoggingContext
 
 import java.io.File
@@ -27,7 +38,11 @@ import scala.language.implicitConversions
 class AuthPropagationSpecV1 extends AuthPropagationSpec(LanguageMajorVersion.V1)
 class AuthPropagationSpecV2 extends AuthPropagationSpec(LanguageMajorVersion.V2)
 
-class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion) extends AnyFreeSpec with Matchers with Inside with BazelRunfiles {
+class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with Inside
+    with BazelRunfiles {
 
   private[this] implicit def loggingContext: LoggingContext = LoggingContext.ForTesting
 

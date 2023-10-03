@@ -198,17 +198,24 @@ private[speedy] object SpeedyTestLib {
       pkgs: Map[PackageId, Ast.Package],
       evaluationOrder: EvaluationOrder,
   ): PureCompiledPackages = {
-    require(pkgs.values.forall(pkg => pkg.languageVersion.major == majorLanguageVersion), {
-      val wrongPackages = pkgs.view.mapValues(_.languageVersion).filter {case (_,v) => v.major != majorLanguageVersion}.toList
-      s"thes packages don't have the expected major language version $majorLanguageVersion: $wrongPackages"
-    })
+    require(
+      pkgs.values.forall(pkg => pkg.languageVersion.major == majorLanguageVersion), {
+        val wrongPackages = pkgs.view
+          .mapValues(_.languageVersion)
+          .filter { case (_, v) => v.major != majorLanguageVersion }
+          .toList
+        s"thes packages don't have the expected major language version $majorLanguageVersion: $wrongPackages"
+      },
+    )
     Validation.unsafeCheckPackages(PackageInterface(pkgs), pkgs)
     PureCompiledPackages.assertBuild(
       pkgs,
-      Compiler.Config.Dev(majorLanguageVersion).copy(
-        evaluationOrder = evaluationOrder,
-        stacktracing = Compiler.FullStackTrace,
-      ),
+      Compiler.Config
+        .Dev(majorLanguageVersion)
+        .copy(
+          evaluationOrder = evaluationOrder,
+          stacktracing = Compiler.FullStackTrace,
+        ),
     )
   }
 
@@ -216,7 +223,11 @@ private[speedy] object SpeedyTestLib {
   def typeAndCompile[X](pkg: Ast.Package, evaluationOrder: EvaluationOrder)(implicit
       parserParameter: ParserParameters[X]
   ): PureCompiledPackages =
-    typeAndCompile(pkg.languageVersion.major, Map(parserParameter.defaultPackageId -> pkg), evaluationOrder)
+    typeAndCompile(
+      pkg.languageVersion.major,
+      Map(parserParameter.defaultPackageId -> pkg),
+      evaluationOrder,
+    )
 
   private[speedy] object Implicits {
 

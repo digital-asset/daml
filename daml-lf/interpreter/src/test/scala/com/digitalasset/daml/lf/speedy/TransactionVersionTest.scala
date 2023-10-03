@@ -169,13 +169,11 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
     case V2 => (LanguageVersion.v2_dev, LanguageVersion.v2_dev, LanguageVersion.v2_dev)
   }
 
-  
   implicit val parserParameters: parser.ParserParameters[this.type] =
     parser.ParserParameters(
       parser.defaultPackageId,
-      commonVersion
-      )
-
+      commonVersion,
+    )
 
   val (templatePkgId, templatePkg) =
     PackageId.assertFromString("template-pkg") ->
