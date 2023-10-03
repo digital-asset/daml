@@ -28,9 +28,6 @@ while [ "$PWD" != "/" ]; do
   fi
   if [[ -e dev-env/lib/dade-common && "$PWD" != "$DADE_BASE_ROOT" ]]; then
     errcho "Fatal: Using dev-env from $DADE_BASE_ROOT, but running under $PWD."
-    errcho "Please source the right dev-env profile:"
-    errcho "  bash: 'source $PWD/dev-env/profile_bash.sh'"
-    errcho "  zsh:  'source $PWD/dev-env/profile_zsh.sh'"
 
     exit 1
   fi
@@ -138,7 +135,7 @@ execTool() {
   local binary=$3
   shift 3
   [[ $PATH =~ (^|.*:)$DADE_DEVENV_DIR/bin($|:.*) ]] || \
-    eval "$(${DADE_DEVENV_DIR}/bin/dade assist)"
+    eval "$(${DADE_DEVENV_DIR}/bin/dade-assist)"
   buildTool $attribute $outputName 0
   exec "$(readlink "$DADE_BUILD_RESULT")/bin/$binary" "$@"
 }
