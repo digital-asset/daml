@@ -74,17 +74,18 @@ abstract class HttpServiceIntegrationTest
   private def httpsContextForSelfSignedCert = {
     import javax.net.ssl.{SSLContext, X509TrustManager}
     import java.security.cert.X509Certificate
+    import akka.http.scaladsl.ConnectionContext
 
     object Gullible extends X509TrustManager {
       override def checkClientTrusted(chain: Array[X509Certificate], authType: String) = ()
       override def checkServerTrusted(chain: Array[X509Certificate], authType: String) = ()
-      override def getAcceptedIssuers = Array[X509Certificate]()
+      override def getAcceptedIssuers = Array()
     }
 
     val context = SSLContext.getInstance("TLS")
-    context.init(Array(), Array(Gullible), null)
+    context.init(null, Array(Gullible), null)
 
-    akka.http.scaladsl.ConnectionContext.httpsClient(context)
+    ConnectionContext.httpsClient(context)
   }
 
   "should serve HTTPS requests" in withHttpService(useHttps = UseHttps.Https) { fixture =>

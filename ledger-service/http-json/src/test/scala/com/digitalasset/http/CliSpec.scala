@@ -311,7 +311,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
             enabled = true,
             Some(new File("cert-chain.crt")),
             Some(new File("pvt-key.pem")),
-            None,
+            Some(new File("root-ca.crt")),
           )
         ),
         tlsConfig = TlsConfiguration(

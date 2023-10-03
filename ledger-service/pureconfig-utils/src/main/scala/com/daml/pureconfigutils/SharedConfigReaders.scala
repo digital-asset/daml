@@ -26,9 +26,13 @@ final case class HttpServerConfig(
     portFile: Option[Path] = None,
     https: Option[HttpsConfig] = None,
 )
-final case class HttpsConfig(certChainFile: File, privateKeyFile: File) {
+final case class HttpsConfig(
+    certChainFile: File,
+    privateKeyFile: File,
+    trustCollectionFile: Option[File] = None,
+) {
   def tlsConfiguration: TlsConfiguration =
-    TlsConfiguration(true, Some(certChainFile), Some(privateKeyFile), None)
+    TlsConfiguration(true, Some(certChainFile), Some(privateKeyFile), trustCollectionFile)
 }
 final case class LedgerTlsConfig(
     enabled: Boolean = false,

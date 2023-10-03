@@ -272,7 +272,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     }
   }
 
-  final val serverTlsConfig = TlsConfiguration(enabled = true, serverCrt, serverPem, None)
+  final val serverTlsConfig = TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)
   final val clientTlsConfig = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt)
   private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)
 
