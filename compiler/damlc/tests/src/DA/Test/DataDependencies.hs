@@ -36,12 +36,12 @@ main = do
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     testTrees <- forM devScriptDars $ \(devTargetVersion, darPath) -> do
         scriptDevDar <- locateRunfiles darPath
-        pure $ tests devTargetVersion Tools{..} 
+        pure $ tests devTargetVersion Tools{..}
     defaultMain (testGroup "Data Dependencies" testTrees)
   where
     devScriptDars =
         [ (LF.version1_dev, mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar")
-        , (LF.version2_dev, mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar")
+        , (LF.version2_dev, mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script-2.dev.dar")
         ]
 
 data Tools = Tools -- and places
