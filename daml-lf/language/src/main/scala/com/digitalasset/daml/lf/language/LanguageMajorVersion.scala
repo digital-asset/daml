@@ -4,10 +4,14 @@
 package com.daml.lf.language
 
 import com.daml.lf.LfVersions
+import scalaz.{IList, NonEmptyList}
 
 // an ADT version of the Daml-LF version
 sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: List[String])
-    extends LfVersions((minorAscending :+ "dev").map[LanguageMinorVersion](LanguageMinorVersion))(
+    extends LfVersions(
+      (IList.fromList(minorAscending) <::: NonEmptyList("dev"))
+        .map[LanguageMinorVersion](LanguageMinorVersion)
+    )(
       _.toProtoIdentifier
     )
     with Product
