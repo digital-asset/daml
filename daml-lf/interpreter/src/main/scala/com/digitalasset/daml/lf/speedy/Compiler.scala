@@ -468,14 +468,7 @@ private[lf] final class Compiler(
         )
           throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
 
-        if (
-          config.evaluationOrder == RightToLeft && !List(
-            LanguageVersion.v1_dev,
-            LanguageVersion.v2_dev,
-          ).contains(
-            pkg.languageVersion
-          )
-        )
+        if (config.evaluationOrder == RightToLeft && !pkg.languageVersion.isDevVersion)
           throw CompilationError("Right-to-left evaluation is only available in dev")
       }
       case _ =>
