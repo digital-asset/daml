@@ -1,7 +1,0 @@
--- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
--- All rights reserved.
-
-
-module Bad where -- Used by test `Import.daml`
-
-data T = T {}

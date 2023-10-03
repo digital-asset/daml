@@ -1,7 +1,0 @@
-# Every line of this file is a regex. Each regex is ignored when checking unpaired quotes.
-# You can add comments to this file if the comment line is unlikely to match.
-# Just do not add too generic patterns (such as empty line) because they would filter out too many lines.
-_\\ \\/ _ `/ _ \\/ _  / _ \\/ _ \\\\ \\ /
-/    / _ `/ |/ / / _ `/ _ `/ __/ _ \\/ __/
--- ```
-\^\$\.!`-#+

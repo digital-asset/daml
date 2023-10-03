@@ -1,6 +1,0 @@
-module ExceptionImport where
-import (implicit) qualified DA.Internal.Record
-import (implicit) qualified GHC.Types
-import (implicit) qualified DA.Internal.Desugar
-import (implicit) DA.Internal.RebindableSyntax
-import DA.Exception ()

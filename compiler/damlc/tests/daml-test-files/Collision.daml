@@ -1,6 +1,0 @@
--- @ERROR name collision between record Collision:Record and record Collision:RECORD
-
-module Collision where
-
-data Record = Record {}
-data RECORD = RECORD {}

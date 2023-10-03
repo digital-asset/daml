@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-set -e
-THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-cat $THIS_DIR/../version.sbt | head -1 | sed -n 's/.*\"\(.*\)".*/\1/p'

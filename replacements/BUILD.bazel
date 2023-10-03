@@ -1,7 +1,0 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
-# This file defines custom targets that are referenced in replacements in
-# dependencies.yaml.
-
-load("@io_bazel_rules_scala//scala:scala_import.bzl", "scala_import")

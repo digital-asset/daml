@@ -1,1 +1,0 @@
-{"Command":["CreateCommand","ExerciseCommand"],"CommandStatus":["CommandStatusError","CommandStatusSuccess","CommandStatusUnknown","CommandStatusWaiting"],"DamlLfNode":["DamlLfDefDataType","Template"],"Event":["CreatedEvent","ExercisedEvent"],"Node":["Contract","CreateCommand","CreatedEvent","DamlLfDefDataType","ExerciseCommand","ExercisedEvent","Template","Transaction"]}

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-    <!-- Not logging anything on purpose -->
-    <!-- If there is an error, other tests with more precise feedback will log it -->
-    <appender name="nop" class="ch.qos.logback.core.helpers.NOPAppender" />
-    <root>
-        <appender-ref ref="nop"/>
-    </root>
-</configuration>

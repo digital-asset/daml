@@ -1,7 +1,0 @@
--- | My documented module
-module DamlDocsScriptImport where
-
-import Daml.Script
-
--- | My documented script
-main = script $ pure ()
