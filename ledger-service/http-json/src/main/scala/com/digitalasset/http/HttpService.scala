@@ -261,15 +261,13 @@ object HttpService {
   }
 
   private[http] def httpsConnectionContext(config: TlsConfiguration): HttpsConnectionContext = {
-    val javaxSslContext =
+    import io.netty.buffer.ByteBufAllocator
+    val sslContext =
       config.server
         .getOrElse(
-          // If a config was provided, we should hard-fail if we cannot successfully use it.
           throw new IllegalArgumentException(s"$config could not be built as a server ssl context")
         )
-        .asInstanceOf[io.netty.handler.ssl.JdkSslContext]
-        .context
-    ConnectionContext.httpsServer(javaxSslContext)
+    ConnectionContext.httpsServer(() => sslContext.newEngine(ByteBufAllocator.DEFAULT))
   }
 
   private[http] def doLoad(

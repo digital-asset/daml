@@ -9,6 +9,7 @@ import com.daml.dbutils.JdbcConfig
 import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, JwtVerifierBase, RSA256Verifier}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.platform.services.time.TimeProviderType
+import io.netty.handler.ssl.ClientAuth
 import pureconfig.error.{CannotConvert, ConvertFailure, FailureReason}
 import pureconfig.{ConfigObjectCursor, ConfigReader, ConvertHelpers}
 import pureconfig.generic.semiauto.deriveReader
@@ -32,7 +33,13 @@ final case class HttpsConfig(
     trustCollectionFile: Option[File] = None,
 ) {
   def tlsConfiguration: TlsConfiguration =
-    TlsConfiguration(true, Some(certChainFile), Some(privateKeyFile), trustCollectionFile)
+    TlsConfiguration(
+      enabled = true,
+      certChainFile = Some(certChainFile),
+      privateKeyFile = Some(privateKeyFile),
+      trustCollectionFile = trustCollectionFile,
+      clientAuth = ClientAuth.NONE,
+    )
 }
 final case class LedgerTlsConfig(
     enabled: Boolean = false,
