@@ -306,6 +306,14 @@ final class CliSpec extends AnyFreeSpec with Matchers {
         address = "127.0.0.1",
         httpPort = 7500,
         portFile = Some(Paths.get("port-file")),
+        https = Some(
+          TlsConfiguration(
+            enabled = true,
+            Some(new File("cert-chain.crt")),
+            Some(new File("pvt-key.pem")),
+            None,
+          )
+        ),
         tlsConfig = TlsConfiguration(
           enabled = true,
           Some(new File("cert-chain.crt")),

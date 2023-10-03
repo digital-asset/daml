@@ -9,6 +9,7 @@ import java.nio.file.Files
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
 import AbstractHttpServiceIntegrationTestFuns.HttpServiceTestFixtureData
+import HttpServiceTestFixture.UseHttps
 import dbbackend.JdbcConfig
 import json.JsonError
 import util.Logging.instanceUUIDLogCtx
@@ -68,6 +69,36 @@ abstract class HttpServiceIntegrationTest
     discard { dummyFile.delete() }
     discard { staticContentDir.delete() }
     super.afterAll()
+  }
+
+  private def httpsContextForSelfSignedCert = {
+    import javax.net.ssl.{SSLContext, X509TrustManager}
+    import java.security.cert.X509Certificate
+
+    object Gullible extends X509TrustManager {
+      override def checkClientTrusted(chain: Array[X509Certificate], authType: String) = ()
+      override def checkServerTrusted(chain: Array[X509Certificate], authType: String) = ()
+      override def getAcceptedIssuers = Array[X509Certificate]()
+    }
+
+    val context = SSLContext.getInstance("TLS")
+    context.init(Array(), Array(Gullible), null)
+
+    akka.http.scaladsl.ConnectionContext.httpsClient(context)
+  }
+
+  "should serve HTTPS requests" in withHttpService(useHttps = UseHttps.Https) { fixture =>
+    Http()
+      .singleRequest(
+        HttpRequest(
+          method = HttpMethods.GET,
+          uri = fixture.uri.withScheme("https").withPath(Uri.Path("/livez")),
+        ),
+        httpsContextForSelfSignedCert,
+      )
+      .flatMap {
+        _.status shouldBe StatusCodes.OK
+      }: Future[Assertion]
   }
 
   "query with invalid JSON query should return error" in withHttpService { fixture =>

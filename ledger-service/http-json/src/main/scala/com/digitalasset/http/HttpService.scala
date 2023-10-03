@@ -4,8 +4,10 @@
 package com.daml.http
 
 import akka.actor.ActorSystem
+import akka.http.scaladsl.ConnectionContext
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.HttpsConnectionContext
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
@@ -45,6 +47,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.ledger.api.tls.TlsConfiguration
 
 object HttpService {
 
@@ -240,18 +243,33 @@ object HttpService {
         EndpointsCompanion.notFound,
       )
 
-      binding <- liftET[Error](
-        Http()
-          .newServerAt(address, httpPort)
-          .withSettings(settings)
+      binding <- liftET[Error] {
+        val builder = Http().newServerAt(address, httpPort).withSettings(settings)
+        https
+          .fold(builder) { config =>
+            logger.info(s"Enabling HTTPS with $config")
+            builder.enableHttps(httpsConnectionContext(config))
+          }
           .bind(allEndpoints)
-      )
+      }
 
       _ <- either(portFile.cata(f => createPortFile(f, binding), \/-(()))): ET[Unit]
 
     } yield (binding, contractDao)
 
     bindingEt.run: Future[Error \/ (ServerBinding, Option[ContractDao])]
+  }
+
+  private[http] def httpsConnectionContext(config: TlsConfiguration): HttpsConnectionContext = {
+    val javaxSslContext =
+      config.server
+        .getOrElse(
+          // If a config was provided, we should hard-fail if we cannot successfully use it.
+          throw new IllegalArgumentException(s"$config could not be built as a server ssl context")
+        )
+        .asInstanceOf[io.netty.handler.ssl.JdkSslContext]
+        .context
+    ConnectionContext.httpsServer(javaxSslContext)
   }
 
   private[http] def doLoad(

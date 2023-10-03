@@ -75,6 +75,7 @@ object Main {
     logger.info(
       s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
         s", address=${config.address: String}, httpPort=${config.httpPort: Int}" +
+        s", https=${config.https}" +
         s", portFile=${config.portFile: Option[Path]}" +
         s", packageReloadInterval=${config.packageReloadInterval: FiniteDuration}" +
         s", packageMaxInboundMessageSize=${config.packageMaxInboundMessageSize: Option[Int]}" +
