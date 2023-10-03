@@ -3,6 +3,4 @@
 DADE_CURRENT_SCRIPT_DIR="$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )"
 source "$DADE_CURRENT_SCRIPT_DIR/../lib/dade-common"
 
-linkTool java out "${DADE_DEVENV_DIR}/jdk"
-
 exec "${DADE_DEVENV_DIR}/lib/dade-dump-profile"
