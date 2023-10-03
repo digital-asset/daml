@@ -5,8 +5,6 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.speedy.PartialTransaction
-import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
 import com.daml.lf.value.Value
@@ -84,10 +82,8 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     def endExercises_ : PartialTransaction =
       ptx.endExercises(_ => Value.ValueNone)
 
-    private val dummyException = SArithmeticError("Dummy", ImmArray.Empty)
-
     def rollbackTry_ : PartialTransaction =
-      ptx.rollbackTry(dummyException)
+      ptx.rollbackTry(null /* dummy exception, never read */)
   }
 
   private[this] val outputCids =
