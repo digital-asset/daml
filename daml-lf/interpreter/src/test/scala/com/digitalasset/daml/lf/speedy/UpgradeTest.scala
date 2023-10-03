@@ -5,11 +5,11 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{PackageId, Party, Identifier}
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageMajorVersion}
 import com.daml.lf.speedy.SError.SError
-import com.daml.lf.speedy.SExpr.{SExpr, SEApp}
+import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.SValue.SContractId
 import com.daml.lf.testing.parser.Implicits.{defaultParserParameters => _, _}
 import com.daml.lf.testing.parser.ParserParameters
@@ -17,17 +17,19 @@ import com.daml.lf.transaction.TransactionVersion.VDev
 import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
-
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
+class UpgradeTestV1 extends UpgradeTest(LanguageMajorVersion.V1)
+class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
+
+class UpgradeTest(majorLanguageVersion: LanguageMajorVersion) extends AnyFreeSpec with Matchers with Inside {
 
   import SpeedyTestLib.UpgradeVerificationRequest
 
   private def makePP(pid: PackageId): ParserParameters[this.type] = {
-    ParserParameters(pid, languageVersion = LanguageVersion.v1_dev)
+    ParserParameters(pid, languageVersion = majorLanguageVersion.dev)
   }
 
   private def parseType(pid: PackageId, s: String): Type = {
@@ -131,7 +133,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with Inside {
 
     PureCompiledPackages.assertBuild(
       packageMap,
-      Compiler.Config.Dev.copy(enableContractUpgrading = true),
+      Compiler.Config.Dev(majorLanguageVersion).copy(enableContractUpgrading = true),
     )
   }
 
