@@ -24,7 +24,10 @@ import org.scalatest.matchers.should.Matchers
 class UpgradeTestV1 extends UpgradeTest(LanguageMajorVersion.V1)
 class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
 
-class UpgradeTest(majorLanguageVersion: LanguageMajorVersion) extends AnyFreeSpec with Matchers with Inside {
+class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with Inside {
 
   import SpeedyTestLib.UpgradeVerificationRequest
 

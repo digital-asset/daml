@@ -11,13 +11,19 @@ class EngineInfoTest extends AnyWordSpec with Matchers {
 
   "EngineInfo" should {
 
-    val Seq(engineInfoLegacy, engineInfoStable, engineEarlyAccess, engineInfoV1Dev, engineInfoV2Dev) =
+    val Seq(
+      engineInfoLegacy,
+      engineInfoStable,
+      engineEarlyAccess,
+      engineInfoV1Dev,
+      engineInfoV2Dev,
+    ) =
       List(
         LanguageVersion.LegacyVersions,
         LanguageVersion.StableVersions,
         LanguageVersion.EarlyAccessVersions,
         LanguageVersion.AllVersions(LanguageMajorVersion.V1),
-        LanguageVersion.AllVersions(LanguageMajorVersion.V2)
+        LanguageVersion.AllVersions(LanguageMajorVersion.V2),
       ).map(versions => new EngineInfo(EngineConfig(allowedLanguageVersions = versions)))
 
     "show supported LF, Transaction and Value versions" in {
