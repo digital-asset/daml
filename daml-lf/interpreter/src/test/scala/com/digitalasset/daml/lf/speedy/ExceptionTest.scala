@@ -889,7 +889,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
           x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
         in upure @Unit ();
 
-  } """(parserParameters)
+  } """ (parserParameters)
           }
           val pkgs =
             SpeedyTestLib.typeAndCompile(
@@ -913,9 +913,12 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
           def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
-          val causeRollback: SExpr = applyToParty(pkgs, e"NewM:causeRollback"(parserParameters), party)
-          val causeUncatchable: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable"(parserParameters), party)
-          val causeUncatchable2: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable2"(parserParameters), party)
+          val causeRollback: SExpr =
+            applyToParty(pkgs, e"NewM:causeRollback" (parserParameters), party)
+          val causeUncatchable: SExpr =
+            applyToParty(pkgs, e"NewM:causeUncatchable" (parserParameters), party)
+          val causeUncatchable2: SExpr =
+            applyToParty(pkgs, e"NewM:causeUncatchable2" (parserParameters), party)
 
           "create rollback when old contacts are not within try-catch context" in {
             val res =
