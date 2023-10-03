@@ -1,6 +1,308 @@
 #!/usr/bin/env bash
 
 DADE_CURRENT_SCRIPT_DIR="$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )"
-source "$DADE_CURRENT_SCRIPT_DIR/../lib/dade-common"
 
-exec "${DADE_DEVENV_DIR}/lib/dade-dump-profile"
+# -*- shell-script -*-
+# Common development environment definitions
+#
+
+# Check if DADE_DEBUG is set. In cases when outside shell has set -u,
+# and DADE_DEBUG is not set, then -z "${DADE_DEBUG}" would fail.
+# This form ensures that it is not the case
+if [[ -n "${DADE_DEBUG+x}" ]]; then
+    set -x
+fi
+
+DADE_CURRENT_SCRIPT_DIR="$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )"
+DADE_BASE_ROOT="$( readlink -f "${DADE_CURRENT_SCRIPT_DIR}/../../" )"
+
+errcho() {
+  >&2 echo "[dev-env] $@"
+}
+
+readAbsolutePath() {
+  perl -MCwd -e 'print Cwd::abs_path shift' $1
+}
+
+# Detect if we are being used within another working tree and bail out.
+OLD_PWD="$PWD"
+while [ "$PWD" != "/" ]; do
+  if [ -h "$PWD" ]; then # follow symlink if PWD is one
+    cd $(readAbsolutePath "$PWD")
+  fi
+  if [[ -e dev-env/lib/dade-common && "$PWD" != "$DADE_BASE_ROOT" ]]; then
+    errcho "Fatal: Using dev-env from $DADE_BASE_ROOT, but running under $PWD."
+
+    exit 1
+  fi
+  cd ..
+done
+cd "$OLD_PWD"
+
+export DADE_REPO_ROOT="${DADE_REPO_ROOT:-$DADE_BASE_ROOT}"
+export DADE_DEVENV_DIR="${DADE_BASE_ROOT}/dev-env"
+export DADE_LIB_DIR="${DADE_DEVENV_DIR}/lib"
+# If specified, use the outer layer, e.g. dev-env bootstrap script in another
+# repository, special var director.
+export DADE_VAR_DIR="${DADE_VAR_DIR:-$DADE_DEVENV_DIR/var}"
+# DADE_GC_ROOTS_ROOT is used by the CI builds on shared nfs
+DADE_GC_ROOTS="${DADE_GC_ROOTS_ROOT:-}${DADE_VAR_DIR}/gc-roots"
+
+# Make sure that Nix is available
+source "${DADE_CURRENT_SCRIPT_DIR}/../lib/ensure-nix"
+
+# Compute expected dade base hash
+dadeBaseHash() {
+    nix-hash "$DADE_DEVENV_DIR/../nix"
+}
+
+# List tools defined in dade
+dadeListTools() {
+    cat $(nix-build --no-out-link $DADE_BASE_ROOT/nix -A dade.tools-list)
+}
+
+# dadeGetOutput get output of a target
+#
+#   target: Attribute in the $DADE_BASE_ROOT/nix/default.nix tools attrset to
+#     realize.
+#   outputName: the output name of the Nix derivation, where the derivation is
+#     relalized into. This is necessary, since Nix's --add-root produces a
+#     unpredictable symlink name.
+dadeGetOutput() {
+    local target=$1
+    local outputName=$2
+    local output="$target"
+    if [[ "$outputName" != "out" ]]; then
+        output="${output}-${outputName}"
+    fi
+    echo $output
+}
+
+# buildTool <attribute> <outputName> <force>
+#
+#   attribute: Attribute in the $DADE_BASE_ROOT/nix/default.nix tools attrset to
+#     realize.
+#   outputName: the output name of the Nix derivation, where the derivation is
+#     relalized into. This is necessary, since Nix's --add-root produces a
+#     unpredictable symlink name.
+#   force: if set to 1, forces re-initialization of the tool.
+#   target: the output location (defaults to "$DADE_GC_ROOTS/$attribute").
+buildTool() {
+  local attribute=$1
+  local outputName=$2
+  local force=$3
+  shift 3
+  if [[ $# -gt 0 ]]; then
+      local target=$1
+      local customTarget=1
+      shift 1
+  else
+      local target="$DADE_GC_ROOTS/$attribute"
+      local customTarget=0
+  fi
+  local hashfile="${target}.hash"
+  local hash="nope"
+  local currentHash="$(dadeBaseHash)"
+  local forced=""
+  test -e "$hashfile" && hash="$(cat "$hashfile")"
+
+  # Build the tool if no the garbage collector root exists or if the
+  # hash of the definitions is different.
+  # We depend on the behavior of nix-build to name a gc root as target-foo, for
+  # a non-out output.
+  DADE_BUILD_RESULT="$(dadeGetOutput $target $outputName)"
+  if [[ ! -e "$DADE_BUILD_RESULT" || "$force" -eq 1 || "$hash" != "$currentHash" ]]; then
+    set -e
+    test "$force" -eq 1 && forced=" (forced)"
+    errcho "Building tools.${attribute}${forced}..."
+    # Allow to fail, so we can capture outpath and to capture the exit code too.
+    set +e
+    outpath=$(nix-build "${DADE_BASE_ROOT}/nix/default.nix" -A "tools.${attribute}" -Q -o "${target}")
+    local dade_build_exit_code=$?
+    set -e
+    if [[ "$dade_build_exit_code" != "0" ]]; then
+      errcho "Build of tools.$attribute has failed!"
+      exit 1
+    fi
+    errcho "Built tools.$attribute in $outpath and linked to $DADE_BUILD_RESULT"
+    if [[ $customTarget -eq 0 ]]; then
+        printf "$currentHash" >| "$hashfile"
+    fi
+    set +e
+  fi
+}
+
+# execTool <attribute> <outputName> <binary>
+execTool() {
+  local attribute=$1
+  local outputName=$2
+  local binary=$3
+  shift 3
+  [[ $PATH =~ (^|.*:)$DADE_DEVENV_DIR/bin($|:.*) ]] || \
+    eval "$(${DADE_DEVENV_DIR}/bin/dade-assist)"
+  buildTool $attribute $outputName 0
+  exec "$(readlink "$DADE_BUILD_RESULT")/bin/$binary" "$@"
+}
+
+# linkTool <attribute> <outputName> <target>
+linkTool() {
+  local attribute=$1
+  local outputName=$2
+  local target=$3
+  shift 3
+  buildTool $attribute $outputName 1 $target
+}
+
+#!/usr/bin/env bash
+
+# Prints out commands to set up profile for both bash and zsh.
+#
+# Requires:
+# - DADE_DEVENV_DIR correctly set, DADE_BASE is accepted for compatibility
+# Optional:
+# - DADE_VAR_DIR to use separate directory for mutable persisted state.
+
+# Reset locale to ensure no warnings from the nix-build calls below.
+# The nix-build Perl script will use a Nix glibc, which comes without
+# any locales. We can therefore not make any assumptions about the
+# available locales at this point (DEL-2851).
+unset LC_ALL
+unset LANG
+
+unset NIX_CONF_DIR
+unset NIX_PATH
+
+set -Eeuo pipefail
+
+if [[ -n "${DADE_DEBUG+x}" ]]; then
+  set -x
+fi
+
+errcho() {
+  >&2 echo "[dev-env] $*"
+}
+
+get_nix_version() {
+  local current
+  current="$(nix-env --version)"
+  if [[ "$current" =~ ([0-9])[.]([0-9]+)([.]([0-9]+))?$ ]]; then
+    echo "${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[4]:-0}"
+  else
+    errcho "WARNING: Unexpected output of 'nix-env --version' ($current), dev-env might not work properly."
+    return 1
+  fi
+}
+
+check_nix_version() {
+  # Keep in sync with dade-nix-install.
+  NIX_MAJOR="$1"
+  NIX_MINOR="$2"
+  NIX_PATCH="$3"
+  if current="$(get_nix_version)"; then
+    [[ "$current" =~ ([0-9])[.]([0-9]+)[.]([0-9]+)$ ]]
+    local current_major="${BASH_REMATCH[1]}"
+    local current_minor="${BASH_REMATCH[2]}"
+    local current_patch="${BASH_REMATCH[3]}"
+    if [[ $current_major -lt $NIX_MAJOR ]] ||
+      [[ $current_major -eq $NIX_MAJOR && $current_minor -lt $NIX_MINOR ]] ||
+      [[ $current_major -eq $NIX_MAJOR && $current_minor -eq $NIX_MINOR && $current_patch -lt $NIX_PATCH ]];
+        then
+          errcho "WARNING: Version ${current_major}.${current_minor}.${current_patch} detected, but ${NIX_MAJOR}.${NIX_MINOR}.${NIX_PATCH} or higher required."
+          errcho "Please run 'nix upgrade-nix' or 'curl -sSfL https://nixos.org/nix/install | sh' to update Nix."
+    fi
+  fi
+}
+
+nix_tool() {
+  echo "$(nix-build ./nix/default.nix -A "tools.$1" -Q --no-out-link)/$2"
+}
+
+# TODO(gleber): Compatibility mode until JBH is ugraded.
+DADE_DEVENV_DIR="${DADE_DEVENV_DIR:-${DADE_BASE:-}}"
+if [ -z "$DADE_DEVENV_DIR" ]; then
+    DADE_DEVENV_DIR="$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )"
+fi
+export DADE_DEVENV_DIR="${DADE_DEVENV_DIR}"
+export DADE_REPO_ROOT="${DADE_REPO_ROOT:-${DADE_DEVENV_DIR}/..}"
+
+# If used from another repository, DADE_VAR_DIR should already point to a
+# mutable `var/` directory to store gc-roots.
+DADE_VAR_DIR="${DADE_VAR_DIR:-$DADE_DEVENV_DIR/var}"
+DADE_NIXPKGS="${DADE_VAR_DIR}/gc-roots/nixpkgs-snapshot"
+
+# shellcheck source=./ensure-nix
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/ensure-nix"
+
+# In a sub-shell, source in the nix-profile and preload nixpkgs-snapshot.
+(
+  # shellcheck source=./ensure-nix
+  source "$(dirname "${BASH_SOURCE[0]}")/../lib/ensure-nix"
+
+  : "${DADE_DESIRED_NIX_VERSION:=2 1 3}"
+  check_nix_version $DADE_DESIRED_NIX_VERSION
+
+  # If the user has no channels configured, then NIX_PATH might point
+  # to non-existing location. Add a backup snapshot to use as fallback
+  # for the bootstrapping.
+  export NIX_PATH=${NIX_PATH:+$NIX_PATH:}nixpkgs=https://github.com/NixOS/nixpkgs-channels/archive/nixos-18.03.tar.gz
+
+  # Load nixpkgs-snapshot.
+  hashfile="${DADE_NIXPKGS}.hash"
+  currentHash="$(nix-hash "$DADE_DEVENV_DIR/../nix/nixpkgs.nix")"
+  test -e "$hashfile" && hash="$(cat "$hashfile")"
+  if [[ ! -e "$DADE_NIXPKGS" || "$hash" != "$currentHash" ]]; then
+    errcho "Loading outdated or missing nixpkgs snapshot..."
+    outpath="$(
+      nix-store -Q --realise --indirect --add-root "$DADE_NIXPKGS" \
+        "$(nix-instantiate -Q --eval "${DADE_DEVENV_DIR}/../nix/nixpkgs.nix" -A path \
+          | sed 's/^\"//;s/\"$//')"
+    )"
+    printf "$currentHash" >| "$hashfile"
+    errcho "Done loading the nixpkgs snapshot to $outpath"
+  fi
+)
+
+# Make sure nix gets ensured in main shell
+echo "source $(dirname "${BASH_SOURCE[0]}")/../lib/ensure-nix"
+
+# Expose our tools in /dev-env/bin and our version of nixpkgs
+semver="$(nix_tool semver bin/semver)"
+if [[ "$("$semver" compare "$(get_nix_version)" '2.4.0')" -ge 0 ]]; then
+  echo "export NIX_USER_CONF_FILES=\"${DADE_DEVENV_DIR}/etc/nix.conf:\${NIX_USER_CONF_FILES:-}:\${XDG_CONFIG_HOME:-\${HOME}/.config}/nix/nix.conf\""
+else
+  # On an old version of Nix, overwrite the system config, as we can't support multiple config files.
+  echo "export NIX_CONF_DIR=\"${DADE_DEVENV_DIR}/etc\""
+fi
+echo "export NIX_PATH=nixpkgs=\"${DADE_NIXPKGS}\""
+echo "export PATH=\"${DADE_DEVENV_DIR}/bin:\$PATH\""
+echo "export PYTHONPATH=\".\${PYTHONPATH:+:\$PYTHONPATH}\""
+echo "export DADE_REPO_ROOT=${DADE_REPO_ROOT}"
+echo "export DADE_VAR_DIR=${DADE_VAR_DIR}"
+echo "export DADE_DEVENV_DIR=${DADE_DEVENV_DIR}"
+
+# Make sure the locale is UTF-8 capable. Setting LOCALE_ARCHIVE is
+# necessary on Ubuntu (but not on CentOS) to make the Nix glibc find
+# the en_US.UTF-8 locale (DEL-2851).
+if [[ $(uname -v) =~ 'Ubuntu' ]]; then
+    # If the user has no channels configured, then NIX_PATH might point
+    # to non-existing location. Add a backup snapshot to use as fallback
+    # for the bootstrapping.
+    TMP_NIX_PATH=nixpkgs=${DADE_NIXPKGS}
+
+    # since we need to set LC_ALL=C to prevent any messages about missing locale
+    # until we fetch the locale, we start in a separate shell
+    (
+        export LC_ALL=C
+        unset NIX_PATH
+        out=$(nix-build --no-out-link -Q "${DADE_DEVENV_DIR}/../nix" -I "${TMP_NIX_PATH}" -A pkgs.glibcLocales)
+        echo "export LOCALE_ARCHIVE=\"${out}/lib/locale/locale-archive\""
+    )
+fi
+echo "export LC_ALL=en_US.UTF-8"
+echo "export LANG=en_US.UTF-8"
+
+echo "# Used when running Bazel commands with --config=oracle"
+echo "export ORACLE_USERNAME=system"
+echo "export ORACLE_PWD=hunter2"
+echo "export ORACLE_PORT=1521"
+
