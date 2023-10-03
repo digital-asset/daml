@@ -103,22 +103,6 @@ Errors raised by the Participant Index persistence layer.
 
 
 
-.. _error_code_INDEX_DB_INVALID_RESULT_SET:
-
-INDEX_DB_INVALID_RESULT_SET
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error occurs if the result set returned by a query against the Index database is invalid.
-
-    **Category**: SystemInternalAssumptionViolated
-
-    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
-
-    **Resolution**: Contact support.
-
-
-
-
 .. _error_code_INDEX_DB_SQL_NON_TRANSIENT_ERROR:
 
 INDEX_DB_SQL_NON_TRANSIENT_ERROR
@@ -157,22 +141,6 @@ Errors raised by or forwarded by the Ledger API.
 
 
 
-.. _error_code_HEAP_MEMORY_OVER_LIMIT:
-
-HEAP_MEMORY_OVER_LIMIT
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error happens when the JVM heap memory pool exceeds a pre-configured limit.
-
-    **Category**: ContentionOnSharedResources
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
-
-    **Resolution**: The following actions can be taken: 1. Review the historical use of heap space by inspecting the metric given in the message. 2. Review the current heap space limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require a large amount of memory to process.
-
-
-
-
 .. _error_code_LEDGER_API_INTERNAL_ERROR:
 
 LEDGER_API_INTERNAL_ERROR
@@ -185,54 +153,6 @@ LEDGER_API_INTERNAL_ERROR
     **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: Contact support.
-
-
-
-
-.. _error_code_MAXIMUM_NUMBER_OF_STREAMS:
-
-MAXIMUM_NUMBER_OF_STREAMS
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error happens when the number of concurrent gRPC streaming requests exceeds the configured limit.
-
-    **Category**: ContentionOnSharedResources
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
-
-    **Resolution**: The following actions can be taken: 1. Review the historical need for concurrent streaming by inspecting the metric given in the message. 2. Review the maximum streams limit configured in the rate limiting configuration. 3. Try to space out streaming requests such that they do not need to run in parallel with each other.
-
-
-
-
-.. _error_code_PARTICIPANT_BACKPRESSURE:
-
-PARTICIPANT_BACKPRESSURE
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error occurs when a participant rejects a command due to excessive load. Load can be caused by the following factors: 1. when commands are submitted to the participant through its Ledger API, 2. when the participant receives requests from other participants through a connected domain.
-
-    **Category**: ContentionOnSharedResources
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
-
-    **Resolution**: Wait a bit and retry, preferably with some backoff factor. If possible, ask other participants to send fewer requests; the domain operator can enforce this by imposing a rate limit.
-
-
-
-
-.. _error_code_THREADPOOL_OVERLOADED:
-
-THREADPOOL_OVERLOADED
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This happens when the rate of submitted gRPC requests requires more CPU or database power than is available.
-
-    **Category**: ContentionOnSharedResources
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
-
-    **Resolution**: The following actions can be taken: Here the 'queue size' for the threadpool is considered as reported by the executor itself. 1. Review the historical 'queue size' growth by inspecting the metric given in the message. 2. Review the maximum 'queue size' limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require a lot of CPU or database power.      
 
 
 
@@ -258,38 +178,6 @@ CONFIGURATION_ENTRY_REJECTED
 
 
 
-
-.. _error_code_INTERNALLY_INVALID_KEY:
-
-INTERNALLY_INVALID_KEY
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: A cryptographic key used by the configured system is not valid
-
-    **Category**: SystemInternalAssumptionViolated
-
-    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
-
-    **Resolution**: Contact support.
-
-
-
-
-.. _error_code_PACKAGE_UPLOAD_REJECTED:
-
-PACKAGE_UPLOAD_REJECTED
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This rejection is given when a package upload is rejected.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: Refer to the detailed message of the received error.
-
-
-
 1.3.1.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices / IdentityProviderConfigServiceErrorGroup
 ===================================================================================================================
 
@@ -309,22 +197,6 @@ IDP_CONFIG_ALREADY_EXISTS
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message.
 
     **Resolution**: Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use an identity provider that already exists.
-
-
-
-
-.. _error_code_IDP_CONFIG_BY_ISSUER_NOT_FOUND:
-
-IDP_CONFIG_BY_ISSUER_NOT_FOUND
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: The identity provider config referred to by the request was not found.
-
-    **Category**: InvalidGivenCurrentSystemStateResourceMissing
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
-
-    **Resolution**: Check that you are connecting to the right participant node and the identity provider config is spelled correctly, or create the configuration.
 
 
 
@@ -376,22 +248,6 @@ INVALID_IDENTITY_PROVIDER_UPDATE_REQUEST
 
 
 
-
-.. _error_code_TOO_MANY_IDENTITY_PROVIDER_CONFIGS:
-
-TOO_MANY_IDENTITY_PROVIDER_CONFIGS
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: A system can have only a limited number of identity provider configurations. There was an attempt to create an identity provider configuration.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: Delete some of the already existing identity provider configurations. Contact the participant operator if the limit is too low.
-
-
-
 1.3.1.2. ParticipantErrorGroup / LedgerApiErrors / AdminServices / PartyManagementServiceErrorGroup
 ===================================================================================================================
 
@@ -415,38 +271,6 @@ CONCURRENT_PARTY_DETAILS_UPDATE_DETECTED
 
 
 
-.. _error_code_INTERNAL_PARTY_RECORD_ALREADY_EXISTS:
-
-INTERNAL_PARTY_RECORD_ALREADY_EXISTS
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: Each on-ledger party known to this participant node can have a participant's local metadata assigned to it. The local information about a party referred to by this request was found when it should have been not found.
-
-    **Category**: SystemInternalAssumptionViolated
-
-    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
-
-    **Resolution**: This error can indicate a problem with the server's storage or implementation.
-
-
-
-
-.. _error_code_INTERNAL_PARTY_RECORD_NOT_FOUND:
-
-INTERNAL_PARTY_RECORD_NOT_FOUND
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: Each on-ledger party known to this participant node can have a participant's local metadata assigned to it. The local information about a party referred to by this request was not found when it should have been found.
-
-    **Category**: SystemInternalAssumptionViolated
-
-    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
-
-    **Resolution**: This error can indicate a problem with the server's storage or implementation.
-
-
-
-
 .. _error_code_INVALID_PARTY_DETAILS_UPDATE_REQUEST:
 
 INVALID_PARTY_DETAILS_UPDATE_REQUEST
@@ -459,22 +283,6 @@ INVALID_PARTY_DETAILS_UPDATE_REQUEST
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the error details for specific information on what made the request invalid. Retry with an adjusted update request.
-
-
-
-
-.. _error_code_MAX_PARTY_DETAILS_ANNOTATIONS_SIZE_EXCEEDED:
-
-MAX_PARTY_DETAILS_ANNOTATIONS_SIZE_EXCEEDED
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: A party can have at most 256kb worth of annotations in total measured in number of bytes in UTF-8 encoding. There was an attempt to allocate or update a party such that this limit would have been exceeded.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: Retry with fewer annotations or delete some of the party's existing annotations.
 
 
 
@@ -529,22 +337,6 @@ INVALID_USER_UPDATE_REQUEST
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the error details for specific information on what made the request invalid. Retry with an adjusted update request.
-
-
-
-
-.. _error_code_MAX_USER_ANNOTATIONS_SIZE_EXCEEDED:
-
-MAX_USER_ANNOTATIONS_SIZE_EXCEEDED
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: A user can have at most 256kb worth of annotations in total measured in number of bytes in UTF-8 encoding. There was an attempt to create or update a user such that this limit would have been exceeded.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: Retry with fewer annotations or delete some of the user's existing annotations.
 
 
 
@@ -672,22 +464,6 @@ UNAUTHENTICATED
 Errors raised during the command execution phase of the command submission evaluation.
 
 
-
-.. _error_code_FAILED_TO_DETERMINE_LEDGER_TIME:
-
-FAILED_TO_DETERMINE_LEDGER_TIME
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error occurs if the participant fails to determine the max ledger time of the used contracts. Most likely, this means that one of the contracts is not active anymore which can happen under contention. It can also happen with contract keys. 
-
-    **Category**: ContentionOnSharedResources
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
-
-    **Resolution**: Retry the transaction submission.
-
-
-
 1.3.3.1. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Interpreter
 ===================================================================================================================
 
@@ -807,38 +583,6 @@ DAML_AUTHORIZATION_ERROR
 
 
 
-.. _error_code_DAML_INTERPRETATION_ERROR:
-
-DAML_INTERPRETATION_ERROR
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error occurs if a Daml transaction fails during interpretation.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: This error type occurs if there is an application error.
-
-
-
-
-.. _error_code_DAML_INTERPRETER_INVALID_ARGUMENT:
-
-DAML_INTERPRETER_INVALID_ARGUMENT
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error occurs if a Daml transaction fails during interpretation due to an invalid argument.
-
-    **Category**: InvalidIndependentOfSystemState
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
-
-    **Resolution**: This error type occurs if there is an application error.
-
-
-
-
 .. _error_code_DISCLOSED_CONTRACT_KEY_HASHING_ERROR:
 
 DISCLOSED_CONTRACT_KEY_HASHING_ERROR
@@ -867,38 +611,6 @@ FETCH_EMPTY_CONTRACT_KEY_MAINTAINERS
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Check the definition of the contract key's maintainers, and ensure this list won't be empty given the contract key you are fetching.
-
-
-
-
-.. _error_code_INTERPRETATION_DEV_ERROR:
-
-INTERPRETATION_DEV_ERROR
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error is a catch-all for errors thrown by in-development features, and should never be thrown in production.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: See the error message for details of the specific in-development feature error. If this is production, avoid using development features.
-
-
-
-
-.. _error_code_INTERPRETATION_USER_ERROR:
-
-INTERPRETATION_USER_ERROR
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error occurs when a user calls abort or error on an LF version before native exceptions were introduced.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: Either remove the call to abort, error or perhaps assert, or ensure you are exercising your contract choice as the author expects.
 
 
 
@@ -1004,45 +716,7 @@ CONTRACT_KEY_NOT_FOUND
 
 
 
-1.3.3.2. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Package
-===================================================================================================================
-
-Command execution errors raised due to invalid packages.
-
-
-
-.. _error_code_ALLOWED_LANGUAGE_VERSIONS:
-
-ALLOWED_LANGUAGE_VERSIONS
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error indicates that the uploaded DAR is based on an unsupported language version.
-
-    **Category**: InvalidIndependentOfSystemState
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
-
-    **Resolution**: Use a DAR compiled with a language version that this participant supports.
-
-
-
-
-.. _error_code_PACKAGE_VALIDATION_FAILED:
-
-PACKAGE_VALIDATION_FAILED
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error occurs if a package referred to by a command fails validation. This should not happen as packages are validated when being uploaded.
-
-    **Category**: SecurityAlert
-
-    **Conveyance**: This error is logged with log-level WARN on the server side. It is exposed on the API with grpc-status INVALID_ARGUMENT without any details for security reasons.
-
-    **Resolution**: Contact support.
-
-
-
-1.3.3.3. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Preprocessing
+1.3.3.2. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Preprocessing
 ===================================================================================================================
 
 Errors raised during command conversion to the internal data representation.
@@ -1087,22 +761,6 @@ CONTRACT_NOT_FOUND
 
 
 
-.. _error_code_DISCLOSED_CONTRACT_INVALID:
-
-DISCLOSED_CONTRACT_INVALID
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error occurs if the disclosed payload or metadata of one of the contracts does not match the actual payload or metadata of the contract.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: Re-submit the command using valid disclosed contract payload and metadata.
-
-
-
-
 .. _error_code_DUPLICATE_COMMAND:
 
 DUPLICATE_COMMAND
@@ -1135,60 +793,12 @@ DUPLICATE_CONTRACT_KEY
 
 
 
-.. _error_code_INCONSISTENT:
-
-INCONSISTENT
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: At least one input has been altered by a concurrent transaction submission.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: The correct resolution depends on the business flow, for example it may be possible to proceed without an archived contract as an input, or the transaction submission may be retried to load the up-to-date value of a contract key.
-
-
-
-
-.. _error_code_INCONSISTENT_CONTRACTS:
-
-INCONSISTENT_CONTRACTS
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: An input contract has been archived by a concurrent transaction submission.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: The correct resolution depends on the business flow, for example it may be possible to proceed without the archived contract as an input, or a different contract could be used.
-
-
-
-
 .. _error_code_INCONSISTENT_CONTRACT_KEY:
 
 INCONSISTENT_CONTRACT_KEY
 ---------------------------------------------------------------------------------------------------------------------------------------
     
     **Explanation**: An input contract key was re-assigned to a different contract by a concurrent transaction submission.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: Retry the transaction submission.
-
-
-
-
-.. _error_code_INVALID_LEDGER_TIME:
-
-INVALID_LEDGER_TIME
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: The ledger time of the submission violated some constraint on the ledger time.
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
@@ -1275,22 +885,6 @@ Package parsing errors raised during package upload.
 
 
 
-.. _error_code_DAR_PARSE_ERROR:
-
-DAR_PARSE_ERROR
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error indicates that the content of the Dar file could not be parsed successfully.
-
-    **Category**: InvalidIndependentOfSystemState
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
-
-    **Resolution**: Inspect the error message and contact support.
-
-
-
-
 .. _error_code_INVALID_DAR:
 
 INVALID_DAR
@@ -1303,38 +897,6 @@ INVALID_DAR
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the error message for details and contact support.
-
-
-
-
-.. _error_code_INVALID_DAR_FILE_NAME:
-
-INVALID_DAR_FILE_NAME
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error indicates that the supplied dar file name did not meet the requirements to be stored in the persistence store.
-
-    **Category**: InvalidIndependentOfSystemState
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
-
-    **Resolution**: Inspect error message for details and change the file name accordingly
-
-
-
-
-.. _error_code_INVALID_LEGACY_DAR:
-
-INVALID_LEGACY_DAR
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error indicates that the supplied zipped dar is an unsupported legacy Dar.
-
-    **Category**: InvalidIndependentOfSystemState
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
-
-    **Resolution**: Please use a more recent dar version.
 
 
 
@@ -1645,74 +1207,4 @@ PARTY_NOT_KNOWN_ON_LEDGER
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: Check that all the informee party identifiers are correct, allocate all the informee parties, request their allocation or wait for them to be allocated before retrying the transaction submission.
-
-
-
-
-.. _error_code_SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT:
-
-SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: A submitting party is not authorized to act through the participant.
-
-    **Category**: InsufficientPermission
-
-    **Conveyance**: This error is logged with log-level WARN on the server side. It is exposed on the API with grpc-status PERMISSION_DENIED without any details for security reasons.
-
-    **Resolution**: Contact the participant operator or re-submit with an authorized party.
-
-
-
-
-.. _error_code_SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER:
-
-SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: The submitting party has not been allocated.
-
-    **Category**: InvalidGivenCurrentSystemStateResourceMissing
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
-
-    **Resolution**: Check that the party identifier is correct, allocate the submitting party, request its allocation or wait for it to be allocated before retrying the transaction submission.
-
-
-
-1.3.7.1. ParticipantErrorGroup / LedgerApiErrors / WriteServiceRejections / Internal
-===================================================================================================================
-
-Errors that arise from an internal system misbehavior.
-
-
-
-.. _error_code_INTERNALLY_DUPLICATE_KEYS:
-
-INTERNALLY_DUPLICATE_KEYS
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: The participant didn't detect an attempt by the transaction submission to use the same key for two active contracts.
-
-    **Category**: SystemInternalAssumptionViolated
-
-    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
-
-    **Resolution**: Contact support.
-
-
-
-
-.. _error_code_INTERNALLY_INCONSISTENT_KEYS:
-
-INTERNALLY_INCONSISTENT_KEYS
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: The participant didn't detect an inconsistent key usage in the transaction. Within the transaction, an exercise, fetch or lookupByKey failed because the mapping of `key -> contract ID` was inconsistent with earlier actions.
-
-    **Category**: SystemInternalAssumptionViolated
-
-    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
-
-    **Resolution**: Contact support.
 
