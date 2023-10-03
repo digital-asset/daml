@@ -19,7 +19,6 @@ import org.scalatest.Suite
 
 import scala.concurrent.{ExecutionContext, Future}
 
-
 // Fixture for a set of participants used in Daml Script tests
 trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
   self: Suite =>
@@ -33,7 +32,9 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
       values = ArrayList(a, b),
     )
 
-  lazy val darPath: Path = rlocation(Paths.get(s"daml-script/test/script-test-v${majorLanguageVersion.pretty}.dar"))
+  lazy val darPath: Path = rlocation(
+    Paths.get(s"daml-script/test/script-test-v${majorLanguageVersion.pretty}.dar")
+  )
   lazy val dar: CompiledDar = CompiledDar.read(darPath, Runner.compilerConfig(majorLanguageVersion))
 
   protected def timeMode: ScriptTimeMode

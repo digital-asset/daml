@@ -58,9 +58,9 @@ EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-v{major}.dar)
       rm -rf $$TMP_DIR
     """.format(
+            major = major,
             sdk = sdk_version,
             target = target,
-            major = major,
         ),
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],

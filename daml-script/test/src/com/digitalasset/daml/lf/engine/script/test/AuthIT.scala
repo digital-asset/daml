@@ -21,7 +21,10 @@ class AuthITV1 extends AuthIT(LanguageMajorVersion.V1)
 //   defaults to 1.dev.
 //class AuthITV2 extends AuthIT(LanguageMajorVersion.V2)
 
-class AuthIT(override val majorLanguageVersion: LanguageMajorVersion) extends AsyncWordSpec with AbstractScriptTest with Matchers {
+class AuthIT(override val majorLanguageVersion: LanguageMajorVersion)
+    extends AsyncWordSpec
+    with AbstractScriptTest
+    with Matchers {
 
   final override protected lazy val authSecret = Some("secret")
   final override protected lazy val timeMode = ScriptTimeMode.WallClock

@@ -14,7 +14,8 @@ class FuncWallClockITV1 extends FuncWallClockIT(LanguageMajorVersion.V1)
 //   defaults to 1.dev.
 //class FuncWallClockITV2 extends FuncWallClockIT(LanguageMajorVersion.V2)
 
-class FuncWallClockIT(override val majorLanguageVersion: LanguageMajorVersion) extends AbstractFuncIT {
+class FuncWallClockIT(override val majorLanguageVersion: LanguageMajorVersion)
+    extends AbstractFuncIT {
   protected override lazy val timeMode = ScriptTimeMode.WallClock
 
   "testSleep" should {

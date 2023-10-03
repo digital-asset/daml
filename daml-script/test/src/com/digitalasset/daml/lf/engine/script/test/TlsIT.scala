@@ -15,7 +15,10 @@ class TlsITV1 extends TlsIT(LanguageMajorVersion.V1)
 //   defaults to 1.dev.
 //class TlsITV2 extends TlsIT(LanguageMajorVersion.V2)
 
-class TlsIT(override val majorLanguageVersion: LanguageMajorVersion) extends AsyncWordSpec with AbstractScriptTest with Matchers {
+class TlsIT(override val majorLanguageVersion: LanguageMajorVersion)
+    extends AsyncWordSpec
+    with AbstractScriptTest
+    with Matchers {
 
   final override protected lazy val tlsEnable = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
