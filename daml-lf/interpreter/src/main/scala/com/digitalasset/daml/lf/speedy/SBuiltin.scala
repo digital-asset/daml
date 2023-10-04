@@ -2206,7 +2206,7 @@ private[lf] object SBuiltin {
             }
 
           case None =>
-            lookupContractOnLedger(machine, coid) { coinst =>
+            machine.lookupContractOnLedger(coid) { coinst =>
               val V.ContractInstance(srcTemplateId, coinstArg) = coinst
 
               val (upgradingIsEnabled, destTemplateId) = optTargetTemplateId match {
@@ -2250,21 +2250,6 @@ private[lf] object SBuiltin {
         }
       }
     }
-  }
-
-  private def lookupContractOnLedger[Q](machine: UpdateMachine, coid: V.ContractId)(
-      continue: V.ContractInstance => Control[Question.Update]
-  ): Control[Question.Update] = {
-    Control.Question(
-      Question.Update.NeedContract(
-        coid,
-        machine.committers,
-        callback = { res =>
-          val control = continue(res)
-          machine.setControl(control)
-        },
-      )
-    )
   }
 
   private def validateContractInfo(
