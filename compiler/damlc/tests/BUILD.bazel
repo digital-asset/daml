@@ -217,7 +217,7 @@ da_haskell_library(
 
 [
     da_haskell_test(
-        name = "integration{order}-v1dev-script2".format(
+        name = "integration{order}-v2dev-script2".format(
             order = "-r2l" if eval_order == "RightToLeft" else "",
         ),
         size = "large",
@@ -1086,13 +1086,13 @@ sh_test(
 
 # Generate a simple DALF for plain DALF import testing
 
-genrule(
-    name = "simple-dalf",
-    outs = ["simple-dalf.dalf"],
-    cmd = "$(location :generate-simple-dalf) $@",
-    tools = [":generate-simple-dalf"],
-    visibility = ["//visibility:public"],
-)
+# genrule(
+#     name = "simple-dalf",
+#     outs = ["simple-dalf.dalf"],
+#     cmd = "$(location :generate-simple-dalf) $@",
+#     tools = [":generate-simple-dalf"],
+#     visibility = ["//visibility:public"],
+# )
 
 da_haskell_binary(
     name = "generate-simple-dalf",
