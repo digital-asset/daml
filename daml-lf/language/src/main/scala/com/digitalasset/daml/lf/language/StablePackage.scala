@@ -92,10 +92,10 @@ private[daml] object StablePackagesV1 extends StablePackages {
     v1_14,
   )
   val DA_Internal_Any: StablePackage = new StablePackage(
-    "DA.Internal.Interface.AnyView.Types",
+    "DA.Internal.Any",
     "cc348d369011362a5190fe96dd1f0dfbc697fdfd10e382b9e9666f0da05961b7",
     "daml-stdlib",
-    v1_15,
+    v1_7,
   )
   val DA_Internal_Down: StablePackage = new StablePackage(
     "DA.Internal.Down",
