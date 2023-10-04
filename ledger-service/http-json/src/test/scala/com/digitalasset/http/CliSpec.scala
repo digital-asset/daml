@@ -12,7 +12,7 @@ import com.daml.dbutils.{JdbcConfig => DbUtilsJdbcConfig}
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
-import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authenticity
 import com.daml.test.evidence.tag.Security.SecurityTest
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
@@ -314,6 +314,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
             Some(new File("pvt-key.pem")),
             Some(new File("root-ca.crt")),
             clientAuth = ClientAuth.NONE,
+            minimumServerProtocolVersion = Some(TlsVersion.V1_2),
           )
         ),
         tlsConfig = TlsConfiguration(

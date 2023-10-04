@@ -99,7 +99,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         address = "localhost",
         httpPort = 0,
         portFile = None,
-        https = if (useHttps) Some(serverHttpsConfig) else None,
+        https = useHttps.config,
         tlsConfig = if (useTls) clientTlsConfig else noTlsConfig,
         wsConfig = wsConfig,
         maxInboundMessageSize = maxInboundMessageSize,
@@ -261,11 +261,17 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
   type LeakPasswords = LeakPasswords.T
 
-  object UseHttps extends NewBoolean.Named {
-    val Https: UseHttps = True
-    val NoHttps: UseHttps = False
+  object UseHttps {
+    sealed abstract class UseHttps {
+      def config: Option[TlsConfiguration] = this match {
+        case UseHttps.Https(update) => Some(update(serverHttpsConfig).tlsConfiguration)
+        case UseHttps.NoHttps => None
+      }
+    }
+    final case class Https(update: HttpsConfig => HttpsConfig) extends UseHttps
+    final case object NoHttps extends UseHttps
   }
-  type UseHttps = UseHttps.T
+  type UseHttps = UseHttps.UseHttps
 
   private val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) = {
     List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
@@ -273,7 +279,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     }
   }
 
-  final val serverHttpsConfig = HttpsConfig(serverCrt, serverPem, Some(caCrt)).tlsConfiguration
+  final val serverHttpsConfig = HttpsConfig(serverCrt, serverPem, Some(caCrt))
   final val clientTlsConfig =
     TlsConfiguration(enabled = true, Some(clientCrt), Some(clientPem), Some(caCrt))
   private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)
