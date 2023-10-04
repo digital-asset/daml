@@ -37,11 +37,15 @@ daml_build_test(
     visibility = ["//daml-lf:__subpackages__"],
 )
 
-daml_compile(
-    name = "InterfaceViews",
-    srcs = ["InterfaceViews.daml"],
-    visibility = ["//daml-lf:__subpackages__"],
-)
+[
+    daml_compile(
+        name = "InterfaceViews-v{}".format(major),
+        srcs = ["InterfaceViews.daml"],
+        target = lf_version_latest.get(major),
+        visibility = ["//daml-lf:__subpackages__"],
+    )
+    for major in LF_MAJOR_VERSIONS
+]
 
 daml_build_test(
     name = "ReinterpretTests-v1",
