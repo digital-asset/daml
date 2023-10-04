@@ -49,10 +49,10 @@ final class CacheMetrics(name: String, factory: LabeledMetricsFactory) {
   val evictionWeight: Counter = factory.counter(prefix :+ "evicted_weight")
 
   def registerSizeGauge(sizeSupplier: () => Long): Unit = discard {
-    factory.gaugeWithSupplier(prefix :+ "size", sizeSupplier)(MetricsContext.Empty)
+    factory.gaugeWithSupplier(prefix :+ "size", sizeSupplier)
   }
   def registerWeightGauge(weightSupplier: () => Long): Unit = discard {
-    factory.gaugeWithSupplier(prefix :+ "weight", weightSupplier)(MetricsContext.Empty)
+    factory.gaugeWithSupplier(prefix :+ "weight", weightSupplier)
   }
 
 }

@@ -28,6 +28,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "ubuntu" {
     size         = local.ubuntu.azure[count.index].disk_size
     gcp_logging  = ""
     assignment   = local.ubuntu.azure[count.index].assignment
+    nix          = local.ubuntu.azure[count.index].nix
   }))
 
   source_image_reference {

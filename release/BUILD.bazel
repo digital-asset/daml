@@ -6,21 +6,7 @@ load("util.bzl", "protos_zip", "sdk_tarball")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
-genrule(
-    name = "LICENSE",
-    srcs = [":ee-license.txt"],
-    outs = ["LICENSE.txt"],
-    cmd = """
-    cp $(location :ee-license.txt) $@
-    """,
-)
-
-java_library(
-    name = "ee-license",
-    resource_strip_prefix = "release/",
-    resources = [":LICENSE.txt"],
-    visibility = ["//visibility:public"],
-)
+exports_files(["ee-license.txt"])
 
 da_haskell_binary(
     name = "release",

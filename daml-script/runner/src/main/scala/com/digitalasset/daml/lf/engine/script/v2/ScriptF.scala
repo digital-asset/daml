@@ -30,7 +30,6 @@ import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SBuiltin.SBVariantCon
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.Speedy.PureMachine
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import scalaz.{Foldable, OneAnd}
@@ -47,6 +46,13 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object ScriptF {
+  val left = SEBuiltin(
+    SBVariantCon(StablePackage.DA.Types.Either, Name.assertFromString("Left"), 0)
+  )
+  val right = SEBuiltin(
+    SBVariantCon(StablePackage.DA.Types.Either, Name.assertFromString("Right"), 1)
+  )
+
   sealed trait Cmd {
     private[lf] def executeWithRunner(env: Env, @annotation.unused runner: v2.Runner)(implicit
         ec: ExecutionContext,
@@ -65,10 +71,9 @@ object ScriptF {
       val scriptIds: ScriptIds,
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
-      machine: PureMachine,
+      compiledPackages: CompiledPackages,
   ) {
     def clients = _clients
-    def compiledPackages = machine.compiledPackages
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
       requireV1ContractIdSuffix = false,
@@ -107,7 +112,7 @@ object ScriptF {
         env: Env
     )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
       Future.failed(
-        script.Runner.InterpretationError(
+        free.InterpretationError(
           SError
             .SErrorDamlException(IE.UnhandledException(exc.ty, exc.value.toUnnormalizedValue))
         )
@@ -115,29 +120,22 @@ object ScriptF {
   }
 
   final case class Catch(act: SValue) extends Cmd {
-
-    val left = SEBuiltin(
-      SBVariantCon(StablePackage.DA.Types.Either, Name.assertFromString("Left"), 0)
-    )
-    val right = SEBuiltin(
-      SBVariantCon(StablePackage.DA.Types.Either, Name.assertFromString("Right"), 1)
-    )
-
     override def executeWithRunner(env: Env, runner: v2.Runner)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
-      runner.runExpr(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
+      runner.run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
         case Success(v) =>
           Future.successful(SEAppAtomic(right, Array(SEValue(v))))
         case Failure(
-              script.Runner.InterpretationError(
+              free.InterpretationError(
                 SError.SErrorDamlException(IE.UnhandledException(typ, value))
               )
             ) =>
           Future.successful(
             SELet1(
+              // Consider using env.translateValue to reduce what we're building here
               SEImportValue(typ, value),
               SELet1(
                 SEAppAtomic(SEBuiltin(SBToAny(typ)), Array(SELocS(1))),
@@ -153,6 +151,48 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = Future.failed(new NotImplementedError)
+  }
+
+  final case class TrySubmit(data: SubmitData) extends Cmd {
+
+    override def execute(
+        env: Env
+    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
+      for {
+        client <- Converter.toFuture(
+          env.clients
+            .getPartiesParticipant(data.actAs)
+        )
+        submitRes <- client.trySubmit(
+          data.actAs,
+          data.readAs,
+          data.cmds,
+          data.stackTrace.topFrame,
+        )
+        res <- submitRes match {
+          case Right(results) =>
+            Converter.toFuture(
+              results
+                .to(FrontStack)
+                .traverse(
+                  Converter
+                    .fromCommandResult(env.lookupChoice, env.valueTranslator, env.scriptIds, _)
+                )
+                .map(results => SEAppAtomic(right, Array(SEValue(SList(results)))))
+            )
+          case Left(submitError) =>
+            Future.successful(
+              SEAppAtomic(
+                left,
+                Array(
+                  SEValue(
+                    submitError.toDamlSubmitError(env)
+                  )
+                ),
+              )
+            )
+        }
+      } yield res
   }
 
   final case class Submit(data: SubmitData) extends Cmd {
@@ -434,7 +474,7 @@ object ScriptF {
           }
           case ScriptTimeMode.WallClock =>
             Future {
-              Timestamp.assertLenientFromInstant(env.utcClock.instant())
+              Timestamp.assertFromInstant(env.utcClock.instant())
             }
         }
       } yield SEValue(STimestamp(time))
@@ -945,36 +985,42 @@ object ScriptF {
     }
   }
 
-  def parse(constr: Ast.VariantConName, v: SValue, stackTrace: StackTrace): Either[String, Cmd] =
-    constr match {
-      case "Submit" => parseSubmit(v, stackTrace).map(Submit(_))
-      case "SubmitMustFail" => parseSubmit(v, stackTrace).map(SubmitMustFail(_))
-      case "SubmitTree" => parseSubmit(v, stackTrace).map(SubmitTree(_))
-      case "Query" => parseQuery(v)
-      case "QueryContractId" => parseQueryContractId(v)
-      case "QueryInterface" => parseQueryInterface(v)
-      case "QueryInterfaceContractId" => parseQueryInterfaceContractId(v)
-      case "QueryContractKey" => parseQueryContractKey(v)
-      case "AllocateParty" => parseAllocParty(v)
-      case "ListKnownParties" => parseListKnownParties(v)
-      case "GetTime" => parseEmpty(GetTime())(v)
-      case "SetTime" => parseSetTime(v)
-      case "Sleep" => parseSleep(v)
-      case "Catch" => parseCatch(v)
-      case "Throw" => parseThrow(v)
-      case "ValidateUserId" => parseValidateUserId(v)
-      case "CreateUser" => parseCreateUser(v)
-      case "GetUser" => parseGetUser(v)
-      case "DeleteUser" => parseDeleteUser(v)
-      case "ListAllUsers" => parseListAllUsers(v)
-      case "GrantUserRights" => parseGrantUserRights(v)
-      case "RevokeUserRights" => parseRevokeUserRights(v)
-      case "ListUserRights" => parseListUserRights(v)
-      case "VetPackages" => parseChangePackages(v).map(VetPackages)
-      case "UnvetPackages" => parseChangePackages(v).map(UnvetPackages)
-      case "ListVettedPackages" => parseEmpty(ListVettedPackages())(v)
-      case "ListAllPackages" => parseEmpty(ListAllPackages())(v)
-      case _ => Left(s"Unknown constructor $constr")
+  def parse(
+      commandName: String,
+      version: Long,
+      v: SValue,
+      stackTrace: StackTrace,
+  ): Either[String, Cmd] =
+    (commandName, version) match {
+      case ("Submit", 1) => parseSubmit(v, stackTrace).map(Submit(_))
+      case ("SubmitMustFail", 1) => parseSubmit(v, stackTrace).map(SubmitMustFail(_))
+      case ("SubmitTree", 1) => parseSubmit(v, stackTrace).map(SubmitTree(_))
+      case ("TrySubmit", 1) => parseSubmit(v, stackTrace).map(TrySubmit(_))
+      case ("Query", 1) => parseQuery(v)
+      case ("QueryContractId", 1) => parseQueryContractId(v)
+      case ("QueryInterface", 1) => parseQueryInterface(v)
+      case ("QueryInterfaceContractId", 1) => parseQueryInterfaceContractId(v)
+      case ("QueryContractKey", 1) => parseQueryContractKey(v)
+      case ("AllocateParty", 1) => parseAllocParty(v)
+      case ("ListKnownParties", 1) => parseListKnownParties(v)
+      case ("GetTime", 1) => parseEmpty(GetTime())(v)
+      case ("SetTime", 1) => parseSetTime(v)
+      case ("Sleep", 1) => parseSleep(v)
+      case ("Catch", 1) => parseCatch(v)
+      case ("Throw", 1) => parseThrow(v)
+      case ("ValidateUserId", 1) => parseValidateUserId(v)
+      case ("CreateUser", 1) => parseCreateUser(v)
+      case ("GetUser", 1) => parseGetUser(v)
+      case ("DeleteUser", 1) => parseDeleteUser(v)
+      case ("ListAllUsers", 1) => parseListAllUsers(v)
+      case ("GrantUserRights", 1) => parseGrantUserRights(v)
+      case ("RevokeUserRights", 1) => parseRevokeUserRights(v)
+      case ("ListUserRights", 1) => parseListUserRights(v)
+      case ("VetPackages", 1) => parseChangePackages(v).map(VetPackages)
+      case ("UnvetPackages", 1) => parseChangePackages(v).map(UnvetPackages)
+      case ("ListVettedPackages", 1) => parseEmpty(ListVettedPackages())(v)
+      case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
+      case _ => Left(s"Unknown command $commandName - Version $version")
     }
 
   private def toOneAndSet[F[_], A](x: OneAnd[F, A])(implicit fF: Foldable[F]): OneAnd[Set, A] =

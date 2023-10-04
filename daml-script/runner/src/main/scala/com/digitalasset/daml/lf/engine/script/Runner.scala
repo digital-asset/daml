@@ -41,6 +41,7 @@ import com.daml.lf.speedy.{
   SError,
   SValue,
   Speedy,
+  Profile,
   TraceLog,
   WarningLog,
 }
@@ -216,11 +217,11 @@ object Script {
     def description: String
   }
 
-  final class FailedCmd(val cmd: FailableCmd, val cause: Throwable)
+  final case class FailedCmd(description: String, stackTrace: StackTrace, cause: Throwable)
       extends RuntimeException(
-        s"""Command ${cmd.description} failed: ${cause.getMessage}
+        s"""Command ${description} failed: ${cause.getMessage}
           |Daml stacktrace:
-          |${cmd.stackTrace.pretty()}""".stripMargin,
+          |${stackTrace.pretty()}""".stripMargin,
         cause,
       )
 }
@@ -373,7 +374,7 @@ object Runner {
       inputValue,
       initialClients,
       timeMode,
-    )._2
+    )
   }
 
   // Executes a Daml script
@@ -390,13 +391,14 @@ object Runner {
       timeMode: ScriptTimeMode,
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
+      profile: Profile = Speedy.Machine.newProfile,
       canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.PureMachine, Future[SValue]) = {
-    val (machine, resultF, _) = runWithOptionalIdeContext(
+  ): Future[SValue] =
+    runWithOptionalIdeContext(
       compiledPackages,
       scriptId,
       convertInputValue,
@@ -405,10 +407,9 @@ object Runner {
       timeMode,
       traceLog,
       warningLog,
+      profile,
       canceled,
-    )
-    (machine, resultF)
-  }
+    )._1
 
   // Same as run above but requires use of IdeLedgerClient, gives additional context back
   def runIdeLedgerClient[X](
@@ -420,14 +421,15 @@ object Runner {
       timeMode: ScriptTimeMode,
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
+      profile: Profile = Speedy.Machine.newProfile,
       canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.PureMachine, Future[SValue], IdeLedgerContext) = {
+  ): (Future[SValue], IdeLedgerContext) = {
     val initialClients = Participants(Some(initialClient), Map.empty, Map.empty)
-    val (machine, resultF, oIdeLedgerContext) = runWithOptionalIdeContext(
+    val (resultF, oIdeLedgerContext) = runWithOptionalIdeContext(
       compiledPackages,
       scriptId,
       convertInputValue,
@@ -436,9 +438,10 @@ object Runner {
       timeMode,
       traceLog,
       warningLog,
+      profile,
       canceled,
     )
-    (machine, resultF, oIdeLedgerContext.get)
+    (resultF, oIdeLedgerContext.get)
   }
 
   private def runWithOptionalIdeContext[X](
@@ -450,12 +453,13 @@ object Runner {
       timeMode: ScriptTimeMode,
       traceLog: TraceLog,
       warningLog: WarningLog,
+      profile: Profile,
       canceled: () => Option[RuntimeException],
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.PureMachine, Future[SValue], Option[IdeLedgerContext]) = {
+  ): (Future[SValue], Option[IdeLedgerContext]) = {
     val script = data.assertRight(Script.fromIdentifier(compiledPackages, scriptId))
     val scriptAction: Script.Action = (script, inputValue) match {
       case (script: Script.Action, None) => script
@@ -477,7 +481,7 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
-    runner.runWithClients(initialClients, traceLog, warningLog, canceled)
+    runner.runWithClients(initialClients, traceLog, warningLog, profile, canceled)
   }
 }
 
@@ -535,21 +539,22 @@ private[lf] class Runner(
       initialClients: Participants[ScriptLedgerClient],
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
+      profile: Profile = Speedy.Machine.newProfile,
       canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.PureMachine, Future[SValue], Option[Runner.IdeLedgerContext]) = {
+  ): (Future[SValue], Option[Runner.IdeLedgerContext]) = {
     val damlScriptName = getPackageName(script.scriptIds.scriptPackageId)
 
     damlScriptName.getOrElse(
       throw new IllegalArgumentException("Couldn't get daml script package name")
     ) match {
       case "daml-script" =>
-        new v1.Runner(this).runWithClients(initialClients, traceLog, warningLog, canceled)
+        new v1.Runner(this).runWithClients(initialClients, traceLog, warningLog, profile, canceled)
       case "daml3-script" =>
-        new v2.Runner(this, initialClients, traceLog, warningLog, canceled).getResult()
+        new v2.Runner(this, initialClients, traceLog, warningLog, profile, canceled).getResult()
       case pkgName =>
         throw new IllegalArgumentException(
           "Invalid daml script package name. Expected daml-script or daml3-script, got " + pkgName

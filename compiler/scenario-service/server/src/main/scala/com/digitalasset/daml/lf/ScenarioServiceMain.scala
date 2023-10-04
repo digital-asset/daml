@@ -6,6 +6,7 @@ package com.daml.lf.scenario
 import akka.actor.ActorSystem
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import akka.stream.Materializer
+
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.logging.{Level, Logger}
 import scalaz.std.option._
@@ -15,17 +16,19 @@ import com.daml.lf.archive
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ModuleName
+import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.scenario.api.v1.{Map => _, _}
 import com.daml.logging.LoggingContext
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.netty.NettyServerBuilder
+import scopt.Read
 
 import java.time.Instant
 import scala.util.Random
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Success, Failure}
+import scala.util.{Failure, Success}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
@@ -33,7 +36,7 @@ import scala.util.control.NonFatal
 
 private final case class ScenarioServiceConfig(
     maxInboundMessageSize: Int,
-    enableScenarios: Boolean,
+    evaluationOrder: EvaluationOrder,
 )
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -51,11 +54,16 @@ private object ScenarioServiceConfig {
         s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}."
       )
 
-    opt[Boolean]("enable-scenarios")
+    val evaluationOrderRead: Read[EvaluationOrder] = Read.reads {
+      case "LeftToRight" => LeftToRight
+      case "RightToLeft" => RightToLeft
+      case s => throw new IllegalArgumentException(s"$s is not an EvaluationOrder")
+    }
+    opt[EvaluationOrder]("evaluation-order")(evaluationOrderRead)
       .optional()
-      .action((x, c) => c.copy(enableScenarios = x))
+      .action((x, c) => c.copy(evaluationOrder = x))
       .text(
-        "Enable/disable support for running scenarios. Defaults to true."
+        "The evaluation order of expressions: LeftToRight or RightToLeft. Defaults to LeftToRight."
       )
   }
 
@@ -64,7 +72,7 @@ private object ScenarioServiceConfig {
       args,
       ScenarioServiceConfig(
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
-        enableScenarios = true,
+        evaluationOrder = LeftToRight,
       ),
     )
 }
@@ -84,7 +92,7 @@ object ScenarioServiceMain extends App {
         val server =
           NettyServerBuilder
             .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
-            .addService(new ScenarioService(config.enableScenarios))
+            .addService(new ScenarioService(config.evaluationOrder))
             .maxInboundMessageSize(config.maxInboundMessageSize)
             .build
         server.start()
@@ -180,7 +188,7 @@ object ScriptStream {
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class ScenarioService(
-    enableScenarios: Boolean
+    evaluationOrder: EvaluationOrder
 )(implicit
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
@@ -199,20 +207,8 @@ class ScenarioService(
       req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponse],
   ): Unit = {
-    if (enableScenarios) {
-      if (req.hasStart) {
-        runLive(
-          req.getStart,
-          ScriptStream.WithoutStatus(respObs),
-          { case (ctx, pkgId, name) =>
-            Future(ctx.interpretScenario(pkgId, name))
-          },
-        )
-      }
-    } else {
-      log("Rejected scenario gRPC request.")
-      respObs.onError(new UnsupportedOperationException("Scenarios are disabled"))
-    }
+    log("Rejected scenario gRPC request.")
+    respObs.onError(new UnsupportedOperationException("Scenarios are not supported"))
   }
 
   override def runLiveScenario(
@@ -220,18 +216,8 @@ class ScenarioService(
       respObs: StreamObserver[RunScenarioResponseOrStatus],
   ): Unit = {
     val stream = ScriptStream.WithStatus(respObs)
-    if (enableScenarios) {
-      if (req.hasStart) {
-        runLive(
-          req.getStart,
-          stream,
-          { case (ctx, pkgId, name) => Future(ctx.interpretScenario(pkgId, name)) },
-        )
-      }
-    } else {
-      log("Rejected scenario gRPC request.")
-      stream.sendError(new UnsupportedOperationException("Scenarios are disabled"))
-    }
+    log("Rejected scenario gRPC request.")
+    stream.sendError(new UnsupportedOperationException("Scenarios are not supported"))
   }
 
   override def runScript(
@@ -371,7 +357,7 @@ class ScenarioService(
       LanguageVersion.Major.V1,
       LanguageVersion.Minor(req.getLfMinor),
     )
-    val ctx = Context.newContext(lfVersion, req.getEvaluationTimeout.seconds)
+    val ctx = Context.newContext(lfVersion, req.getEvaluationTimeout.seconds, evaluationOrder)
     contexts += (ctx.contextId -> ctx)
     val response = NewContextResponse.newBuilder.setContextId(ctx.contextId).build
     respObs.onNext(response)

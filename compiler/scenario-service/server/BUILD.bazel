@@ -5,7 +5,7 @@ load("//bazel_tools:scala.bzl", "da_scala_binary", "lf_scalacopts_stricter")
 
 genrule(
     name = "scenario_service_jar",
-    srcs = [":scenario-service-raw_deploy.jar"],
+    srcs = [":scenario-service-raw_distribute.jar"],
     outs = ["scenario-service.jar"],
     cmd = "cp $< $@",
     visibility = ["//visibility:public"],

@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package engine.script
+package engine
+package script
 package v1
 
 import java.time.Clock
@@ -424,7 +425,7 @@ object ScriptF {
           }
           case ScriptTimeMode.WallClock =>
             Future {
-              Timestamp.assertLenientFromInstant(env.utcClock.instant())
+              Timestamp.assertFromInstant(env.utcClock.instant())
             }
         }
       } yield SEAppAtomic(SEValue(continue), Array(SEValue(STimestamp(time))))
@@ -678,7 +679,7 @@ object ScriptF {
 
   private def toStackTrace(ctx: Ctx, stackTrace: Option[SValue]): Either[String, StackTrace] =
     stackTrace match {
-      case None => Right(StackTrace.empty)
+      case None => Right(StackTrace.Empty)
       case Some(stackTrace) => Converter.toStackTrace(ctx.knownPackages, stackTrace)
     }
 

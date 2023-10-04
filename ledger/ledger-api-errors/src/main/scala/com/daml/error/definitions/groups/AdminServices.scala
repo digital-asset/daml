@@ -3,9 +3,16 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.definitions.{DamlErrorWithDefiniteAnswer, LedgerApiErrors}
+import com.daml.error.definitions.{LedgerApiErrors}
 import com.daml.error.definitions.groups
-import com.daml.error.{ContextualizedErrorLogger, ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlErrorWithDefiniteAnswer,
+  ErrorCategory,
+  ErrorCode,
+  Explanation,
+  Resolution,
+}
 
 @Explanation("Errors raised by Ledger API admin services.")
 object AdminServices extends LedgerApiErrors.AdminServicesErrorGroup {
@@ -31,38 +38,6 @@ object AdminServices extends LedgerApiErrors.AdminServicesErrorGroup {
           cause = _message
         )
 
-  }
-
-  @Explanation("This rejection is given when a package upload is rejected.")
-  @Resolution("Refer to the detailed message of the received error.")
-  object PackageUploadRejected
-      extends ErrorCode(
-        id = "PACKAGE_UPLOAD_REJECTED",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-
-    case class Reject(_message: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = _message
-        )
-
-  }
-
-  @Explanation(
-    "A cryptographic key used by the configured system is not valid"
-  )
-  @Resolution("Contact support.")
-  object InternallyInvalidKey
-      extends ErrorCode(
-        id = "INTERNALLY_INVALID_KEY",
-        ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
-      ) {
-    case class Reject(_message: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = _message
-        )
   }
 
 }

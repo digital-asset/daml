@@ -3,6 +3,7 @@
 
 package com.daml.lf.engine.script.v2.ledgerinteraction
 
+import java.time.Instant
 import akka.util.ByteString
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -382,7 +383,7 @@ class JsonLedgerClient(
       mat: Materializer,
   ): Future[Time.Timestamp] = {
     // There is no time service in the JSON API so we default to the Unix epoch.
-    Future { Time.Timestamp.Epoch }
+    Future { Time.Timestamp.assertFromInstant(Instant.EPOCH) }
   }
 
   override def setStaticTime(time: Time.Timestamp)(implicit
@@ -670,6 +671,16 @@ class JsonLedgerClient(
         UserIdRequest(id),
       )
     }
+
+  def trySubmit(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commands: List[command.ApiCommand],
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]] = unsupportedOn("trySubmit")
 
   override def vetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,

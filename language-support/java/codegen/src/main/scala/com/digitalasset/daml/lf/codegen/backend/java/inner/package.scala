@@ -47,15 +47,17 @@ package object inner {
       toJavaTypeName(fwt._2),
     )
 
+  private[inner] def guessClass(ident: Identifier)(implicit packagePrefixes: PackagePrefixes) =
+    ClassName.bestGuess(fullyQualifiedName(ident))
+
   private[inner] def toJavaTypeName(
       damlType: Type
   )(implicit packagePrefixes: PackagePrefixes): TypeName =
     damlType match {
-      case TypeCon(TypeConName(ident), Seq()) =>
-        ClassName.bestGuess(fullyQualifiedName(ident)).box()
+      case TypeCon(TypeConName(ident), Seq()) => guessClass(ident).box()
       case TypeCon(TypeConName(ident), typeParameters) =>
         ParameterizedTypeName.get(
-          ClassName.bestGuess(fullyQualifiedName(ident)),
+          guessClass(ident),
           typeParameters.map(toJavaTypeName(_)): _*
         )
       case TypePrim(PrimTypeBool, _) => ClassName.get(classOf[java.lang.Boolean])

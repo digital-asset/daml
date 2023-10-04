@@ -5,21 +5,25 @@ package com.daml.lf
 package speedy
 
 import java.util
-
 import com.daml.lf.language.Ast
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.speedy.SResult.SResultFinal
 import com.daml.lf.testing.parser.Implicits._
+import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
 
 // TEST_EVIDENCE: Availability: Tail call optimization: Tail recursion does not blow the scala JVM stack.
-class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class TailCallTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
-  val pkgs = SpeedyTestLib.typeAndCompile(
-    p"""
+  for (evaluationOrder <- EvaluationOrder.values) {
+
+    evaluationOrder.toString - {
+
+      val pkgs = SpeedyTestLib.typeAndCompile(
+        p"""
        module F {
 
          // *Non* tail-recursive definition
@@ -54,82 +58,85 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
              | _    -> F:generate (Cons @Int64 [x] acc) (SUB_INT64 x 1);
 
        }
-      """
-  )
+      """,
+        evaluationOrder,
+      )
 
-  val small: Option[Int] = Some(5)
-  val unbounded: Option[Int] = None
+      val small: Option[Int] = Some(5)
+      val unbounded: Option[Int] = None
 
-  "A *non* tail-recursive definition requires an unbounded env-stack, and an unbounded kont-stack" in {
-    val exp = e"F:triangle 100"
-    val expected = SValue.SInt64(5050)
-    // The point of this test is to prove that the bounded-evaluation checking really works.
-    runExpr(exp, envBound = unbounded, kontBound = unbounded) shouldBe expected
-
-    the[RuntimeException]
-      .thrownBy {
-        runExpr(exp, envBound = small, kontBound = unbounded)
+      // Evaluate an expression with optionally bounded env and kont stacks
+      def runExpr(e: Ast.Expr, envBound: Option[Int], kontBound: Option[Int]): SValue = {
+        // create the machine
+        val machine = Speedy.Machine.fromPureExpr(pkgs, e)
+        // maybe replace the env-stack with a bounded version
+        envBound match {
+          case None => ()
+          case Some(bound) =>
+            machine.env = new BoundedArrayList[SValue](bound)
+        }
+        // maybe replace the kont-stack with a bounded version
+        kontBound match {
+          case None => ()
+          case Some(bound) =>
+            val onlyKont: Speedy.Kont[Nothing] =
+              if (machine.kontDepth() != 1) {
+                crash(s"setBoundedKontStack, unexpected size of kont-stack: ${machine.kontDepth()}")
+              } else {
+                machine.peekKontStackTop()
+              }
+            machine.kontStack = new BoundedArrayList[Speedy.Kont[Nothing]](bound)
+            machine.pushKont(onlyKont)
+        }
+        // run the machine
+        machine.run() match {
+          case SResultFinal(v) => v
+          case res => crash(s"runExpr, unexpected result $res")
+        }
       }
-      .toString() should include("BoundExceeded")
 
-    the[RuntimeException]
-      .thrownBy {
-        runExpr(exp, envBound = unbounded, kontBound = small)
-      }
-      .toString() should include("BoundExceeded")
-  }
+      "A *non* tail-recursive definition requires an unbounded env-stack, and an unbounded kont-stack" in {
+        val exp = e"F:triangle 100"
+        val expected = SValue.SInt64(5050)
+        // The point of this test is to prove that the bounded-evaluation checking really works.
+        runExpr(exp, envBound = unbounded, kontBound = unbounded) shouldBe expected
 
-  "A tail-recursive definition executes with a small env-stack, and a small kont-stack" in {
-    val exp = e"F:triangleTR 100"
-    val expected = SValue.SInt64(5050)
-    runExpr(exp, envBound = small, kontBound = small) shouldBe expected
-  }
-
-  "fold-left executes with a small env-stack, and a small kont-stack" in {
-    val exp = e"F:triangle_viaFoldLeft 100"
-    val expected = SValue.SInt64(5050)
-    runExpr(exp, envBound = small, kontBound = small) shouldBe expected
-  }
-
-  "fold-right executes with a small env-stack, and a small kont-stack" in {
-    val exp = e"F:triangle_viaFoldRight 100"
-    val expected = SValue.SInt64(5050)
-    runExpr(exp, envBound = small, kontBound = small) shouldBe expected
-  }
-
-  "fold-right (KFoldr1Map/Reduce case) executes with a small env-stack, and a small kont-stack" in {
-    val exp = e"F:triangle_viaFoldRight2 100"
-    val expected = SValue.SInt64(5050)
-    runExpr(exp, envBound = small, kontBound = small) shouldBe expected
-  }
-
-  // Evaluate an expression with optionally bounded env and kont stacks
-  private def runExpr(e: Ast.Expr, envBound: Option[Int], kontBound: Option[Int]): SValue = {
-    // create the machine
-    val machine = Speedy.Machine.fromPureExpr(pkgs, e)
-    // maybe replace the env-stack with a bounded version
-    envBound match {
-      case None => ()
-      case Some(bound) =>
-        machine.env = new BoundedArrayList[SValue](bound)
-    }
-    // maybe replace the kont-stack with a bounded version
-    kontBound match {
-      case None => ()
-      case Some(bound) =>
-        val onlyKont: Speedy.Kont =
-          if (machine.kontDepth() != 1) {
-            crash(s"setBoundedKontStack, unexpected size of kont-stack: ${machine.kontDepth()}")
-          } else {
-            machine.peekKontStackTop()
+        the[RuntimeException]
+          .thrownBy {
+            runExpr(exp, envBound = small, kontBound = unbounded)
           }
-        machine.kontStack = new BoundedArrayList[Speedy.Kont](bound)
-        machine.pushKont(onlyKont)
-    }
-    // run the machine
-    machine.run() match {
-      case SResultFinal(v) => v
-      case res => crash(s"runExpr, unexpected result $res")
+          .toString() should include("BoundExceeded")
+
+        the[RuntimeException]
+          .thrownBy {
+            runExpr(exp, envBound = unbounded, kontBound = small)
+          }
+          .toString() should include("BoundExceeded")
+      }
+
+      "A tail-recursive definition executes with a small env-stack, and a small kont-stack" in {
+        val exp = e"F:triangleTR 100"
+        val expected = SValue.SInt64(5050)
+        runExpr(exp, envBound = small, kontBound = small) shouldBe expected
+      }
+
+      "fold-left executes with a small env-stack, and a small kont-stack" in {
+        val exp = e"F:triangle_viaFoldLeft 100"
+        val expected = SValue.SInt64(5050)
+        runExpr(exp, envBound = small, kontBound = small) shouldBe expected
+      }
+
+      "fold-right executes with a small env-stack, and a small kont-stack" in {
+        val exp = e"F:triangle_viaFoldRight 100"
+        val expected = SValue.SInt64(5050)
+        runExpr(exp, envBound = small, kontBound = small) shouldBe expected
+      }
+
+      "fold-right (KFoldr1Map/Reduce case) executes with a small env-stack, and a small kont-stack" in {
+        val exp = e"F:triangle_viaFoldRight2 100"
+        val expected = SValue.SInt64(5050)
+        runExpr(exp, envBound = small, kontBound = small) shouldBe expected
+      }
     }
   }
 

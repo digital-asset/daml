@@ -66,12 +66,11 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
         clients,
         timeMode,
       )
-      ._2
   }
 
   final protected def scriptClients(
       token: Option[String] = None,
-      maxInboundMessageSize: Int = ScriptConfig.DefaultMaxInboundMessageSize,
+      maxInboundMessageSize: Int = RunnerMainConfig.DefaultMaxInboundMessageSize,
   ): Future[Participants[GrpcLedgerClient]] = {
     implicit val ec: ExecutionContext = system.dispatcher
     val participants = ports.zipWithIndex.map { case (port, i) =>

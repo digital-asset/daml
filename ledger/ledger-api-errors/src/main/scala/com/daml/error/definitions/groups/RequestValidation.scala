@@ -6,9 +6,11 @@ package com.daml.error.definitions.groups
 import java.time.Duration
 
 import com.daml.error.definitions.LedgerApiErrors.EarliestOffsetMetadataKey
-import com.daml.error.definitions.{DamlError, DamlErrorWithDefiniteAnswer, LedgerApiErrors}
+import com.daml.error.definitions.{LedgerApiErrors}
 import com.daml.error.{
   ContextualizedErrorLogger,
+  DamlError,
+  DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
   ErrorGroup,
@@ -16,8 +18,7 @@ import com.daml.error.{
   Explanation,
   Resolution,
 }
-import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.language.{LookupError, Reference}
+import com.daml.lf.data.Ref.Identifier
 
 @Explanation(
   "Validation errors raised when evaluating requests in the Ledger API."
@@ -43,15 +44,6 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
           super.resources :+ ((ErrorResource.DalfPackage, packageId))
         }
       }
-
-      case class InterpretationReject(
-          packageId: PackageId,
-          reference: Reference,
-      )(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = LookupError.MissingPackage.pretty(packageId, reference)
-          )
     }
 
     @Explanation(
@@ -89,12 +81,6 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
             cause = "The ledger configuration could not be retrieved."
-          )
-
-      case class RejectWithMessage(message: String)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = s"The ledger configuration could not be retrieved: ${message}."
           )
     }
 

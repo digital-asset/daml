@@ -91,7 +91,7 @@ genrule(
     srcs = [
         "test_results.proto",
         "scenario_service.proto",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_srcs",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_srcs",
     ],
     outs = ["TestResults.hs"],
     cmd = """

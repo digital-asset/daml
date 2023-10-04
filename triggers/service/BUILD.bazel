@@ -3,8 +3,7 @@
 
 load("@oracle//:index.bzl", "oracle_tags")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "lf_versions_aggregate")
-load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")
+load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "lf_version_configuration", "lf_versions_aggregate")
 load("@os_info//:os_info.bzl", "is_windows")
 load(
     "//bazel_tools:scala.bzl",
@@ -17,10 +16,7 @@ load(
 
 triggerMain = "src/main/scala/com/digitalasset/daml/lf/engine/trigger/ServiceMain.scala"
 
-target_lf_versions = lf_versions_aggregate([
-    "default",
-    "dev",
-])
+target_lf_versions = lf_versions_aggregate(["default"] + LF_DEV_VERSIONS)
 
 da_scala_library(
     name = "trigger-service",
@@ -66,8 +62,8 @@ da_scala_library(
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
@@ -94,6 +90,7 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_typesafe_config",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_netty_netty_handler",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_slf4j_slf4j_api",
@@ -108,10 +105,10 @@ scala_binary_deps = [
     "@maven//:org_scalaz_scalaz_core",
 ]
 
-common_binary_deps = [
+binary_deps = [
     ":trigger-service",
+    "//daml-lf/archive:daml_lf_dev_archive_proto_java",
     "//daml-lf/archive:daml_lf_archive_reader",
-    "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
     "//daml-lf/data",
     "//daml-lf/interpreter",
     "//language-support/scala/bindings",
@@ -120,16 +117,12 @@ common_binary_deps = [
     "//libs-scala/db-utils",
     "//libs-scala/ports",
     "//libs-scala/scala-utils",
+    "//observability/metrics",
     "//triggers/runner:trigger-runner-lib",
     "//triggers/service/auth:middleware-api",
     "@maven//:org_slf4j_slf4j_api",
     "@maven//:ch_qos_logback_logback_classic",
 ]
-
-binary_deps = {
-    "ce": common_binary_deps,
-    "ee": common_binary_deps + ["//release:ee-license"],
-}
 
 trigger_service_runtime_deps = {
     "ce": [],
@@ -145,10 +138,10 @@ trigger_service_runtime_deps = {
         resources = ["release/trigger-service-logback.xml"],
         scala_deps = scala_binary_deps,
         scalacopts = lf_scalacopts_stricter,
+        tags = ["ee-jar-license"] if edition == "ee" else [],
         visibility = ["//visibility:public"],
         runtime_deps = trigger_service_runtime_deps.get(edition),
-        deps = binary_deps.get(edition) + [
-            "//observability/metrics",
+        deps = binary_deps + [
             "//runtime-components/jdbc-drivers:jdbc-drivers-{}".format(edition),
         ],
     )
@@ -190,9 +183,8 @@ da_scala_library(
         ":trigger-service",
         ":trigger-service-binary-ce",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton/it-lib",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//language-support/scala/bindings-akka",
@@ -214,6 +206,7 @@ da_scala_library(
         "//libs-scala/test-evidence/tag:test-evidence-tag",
         "//libs-scala/timer-utils",
         "//observability/metrics",
+        "//test-common/canton/it-lib",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-middleware",
@@ -252,9 +245,8 @@ da_scala_test_suite(
         ":trigger-service",
         ":trigger-service-tests",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton/it-lib",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//language-support/scala/bindings-akka",
@@ -273,6 +265,8 @@ da_scala_test_suite(
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "//libs-scala/timer-utils",
+        "//test-common/canton/it-lib",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-test-server",
@@ -301,9 +295,8 @@ da_scala_test_suite(
     deps = [
         ":trigger-service",
         ":trigger-service-tests",
-        "//canton/it-lib",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
@@ -318,6 +311,7 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "//test-common/canton/it-lib",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
@@ -365,9 +359,9 @@ EOF
                 "--target",
                 lf_version,
             ]),
-            sdk = sdk_version,
             daml_script = "//daml-script/daml:daml-script-{}".format(lf_version),
             daml_trigger = "//triggers/daml:daml-trigger-{}".format(lf_version),
+            sdk = sdk_version,
         ),
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],

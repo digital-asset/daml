@@ -34,34 +34,34 @@ if [[ "$NAME" == "linux" ]]; then
 
     JSON_API=http-json-$RELEASE_TAG.jar
     JSON_API_EE=http-json-$RELEASE_TAG-ee.jar
-    bazel build //ledger-service/http-json:http-json-binary_deploy.jar
-    cp bazel-bin/ledger-service/http-json/http-json-binary_deploy.jar $OUTPUT_DIR/github/$JSON_API
-    bazel build //ledger-service/http-json:http-json-binary-ee_deploy.jar
-    cp bazel-bin/ledger-service/http-json/http-json-binary-ee_deploy.jar $OUTPUT_DIR/artifactory/$JSON_API_EE
+    bazel build //ledger-service/http-json:http-json-binary_distribute.jar
+    cp bazel-bin/ledger-service/http-json/http-json-binary_distribute.jar $OUTPUT_DIR/github/$JSON_API
+    bazel build //ledger-service/http-json:http-json-binary-ee_distribute.jar
+    cp bazel-bin/ledger-service/http-json/http-json-binary-ee_distribute.jar $OUTPUT_DIR/artifactory/$JSON_API_EE
 
     TRIGGER_SERVICE=trigger-service-$RELEASE_TAG.jar
     TRIGGER_SERVICE_EE=trigger-service-$RELEASE_TAG-ee.jar
-    bazel build //triggers/service:trigger-service-binary-ce_deploy.jar
-    cp bazel-bin/triggers/service/trigger-service-binary-ce_deploy.jar $OUTPUT_DIR/github/$TRIGGER_SERVICE
-    bazel build //triggers/service:trigger-service-binary-ee_deploy.jar
-    cp bazel-bin/triggers/service/trigger-service-binary-ee_deploy.jar $OUTPUT_DIR/artifactory/$TRIGGER_SERVICE_EE
+    bazel build //triggers/service:trigger-service-binary-ce_distribute.jar
+    cp bazel-bin/triggers/service/trigger-service-binary-ce_distribute.jar $OUTPUT_DIR/github/$TRIGGER_SERVICE
+    bazel build //triggers/service:trigger-service-binary-ee_distribute.jar
+    cp bazel-bin/triggers/service/trigger-service-binary-ee_distribute.jar $OUTPUT_DIR/artifactory/$TRIGGER_SERVICE_EE
 
     OAUTH2_MIDDLEWARE=oauth2-middleware-$RELEASE_TAG.jar
-    bazel build //triggers/service/auth:oauth2-middleware-binary_deploy.jar
-    cp bazel-bin/triggers/service/auth/oauth2-middleware-binary_deploy.jar $OUTPUT_DIR/github/$OAUTH2_MIDDLEWARE
+    bazel build //triggers/service/auth:oauth2-middleware-binary_distribute.jar
+    cp bazel-bin/triggers/service/auth/oauth2-middleware-binary_distribute.jar $OUTPUT_DIR/github/$OAUTH2_MIDDLEWARE
 
 
     TRIGGER=daml-trigger-runner-$RELEASE_TAG.jar
-    bazel build //triggers/runner:trigger-runner_deploy.jar
-    cp bazel-bin/triggers/runner/trigger-runner_deploy.jar $OUTPUT_DIR/artifactory/$TRIGGER
+    bazel build //triggers/runner:trigger-runner_distribute.jar
+    cp bazel-bin/triggers/runner/trigger-runner_distribute.jar $OUTPUT_DIR/artifactory/$TRIGGER
 
     SCRIPT=daml-script-$RELEASE_TAG.jar
-    bazel build //daml-script/runner:daml-script-binary_deploy.jar
-    cp bazel-bin/daml-script/runner/daml-script-binary_deploy.jar $OUTPUT_DIR/artifactory/$SCRIPT
+    bazel build //daml-script/runner:daml-script-binary_distribute.jar
+    cp bazel-bin/daml-script/runner/daml-script-binary_distribute.jar $OUTPUT_DIR/artifactory/$SCRIPT
 
     NON_REPUDIATION=non-repudiation-$RELEASE_TAG-ee.jar
-    bazel build //runtime-components/non-repudiation-app:non-repudiation-app_deploy.jar
-    cp bazel-bin/runtime-components/non-repudiation-app/non-repudiation-app_deploy.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION
+    bazel build //runtime-components/non-repudiation-app:non-repudiation-app_distribute.jar
+    cp bazel-bin/runtime-components/non-repudiation-app/non-repudiation-app_distribute.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION
 
     NON_REPUDIATION_CORE_JAR=non-repudiation-core-$RELEASE_TAG.jar
     NON_REPUDIATION_CORE_POM=non-repudiation-core-$RELEASE_TAG.pom
@@ -93,6 +93,8 @@ if [[ "$NAME" == "linux" ]]; then
     mkdir -p $OUTPUT_DIR/split-release/daml-libs/daml-script
     bazel build //daml-script/daml:daml-script-dars
     cp bazel-bin/daml-script/daml/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-script/
+    bazel build //daml-script/daml3:daml3-script-dars
+    cp bazel-bin/daml-script/daml3/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-script/
 
     mkdir -p $OUTPUT_DIR/split-release/daml-libs/daml-trigger
     bazel build //triggers/daml:daml-trigger-dars

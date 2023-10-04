@@ -3,9 +3,10 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.definitions.{DamlError, DamlErrorWithDefiniteAnswer}
 import com.daml.error.{
   ContextualizedErrorLogger,
+  DamlError,
+  DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
   ErrorResource,
@@ -29,29 +30,6 @@ object UserManagementServiceErrorGroup extends AdminServices.UserManagementServi
         loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
           cause = s"Update operation for user id '$userId' failed due to: $reason"
-        ) {
-      override def resources: Seq[(ErrorResource, String)] = Seq(
-        ErrorResource.User -> userId
-      )
-    }
-  }
-
-  @Explanation(
-    """|A user can have at most 256kb worth of annotations in total measured in number of bytes in UTF-8 encoding.
-                  |There was an attempt to create or update a user such that this limit would have been exceeded."""
-  )
-  @Resolution(
-    "Retry with fewer annotations or delete some of the user's existing annotations."
-  )
-  object MaxUserAnnotationsSizeExceeded
-      extends ErrorCode(
-        id = "MAX_USER_ANNOTATIONS_SIZE_EXCEEDED",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    case class Reject(userId: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlError(
-          cause = s"Maximum annotations size for user '$userId' has been exceeded"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.User -> userId

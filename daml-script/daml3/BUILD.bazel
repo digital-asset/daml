@@ -4,18 +4,19 @@
 # TODO Once daml_compile uses build instead of package we should use
 # daml_compile instead of a genrule.
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF2_VERSIONS")
 
-genrule(
-    name = "daml-script",
-    srcs = glob(["**/*.daml"]),
-    outs = ["daml3-script.dar"],
-    cmd = """
-      set -eou pipefail
-      TMP_DIR=$$(mktemp -d)
-      mkdir -p $$TMP_DIR/daml/Daml
-      cp -rL $$(dirname $(location Daml/Script.daml)) $$TMP_DIR/daml
-      cat << EOF > $$TMP_DIR/daml.yaml
+[
+    genrule(
+        name = "daml-script",
+        srcs = glob(["**/*.daml"]),
+        outs = ["daml3-script-{}.dar".format(lf_version)],
+        cmd = """
+            set -eou pipefail
+            TMP_DIR=$$(mktemp -d)
+            mkdir -p $$TMP_DIR/daml/Daml
+            cp -rL $$(dirname $(location Daml/Script.daml)) $$TMP_DIR/daml
+            cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: daml3-script
 source: daml
@@ -25,20 +26,31 @@ dependencies:
   - daml-prim
 build-options: {build_options}
 EOF
-          $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$@
-          rm -rf $$TMP_DIR
+            $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$@
+            rm -rf $$TMP_DIR
     """.format(
-        build_options = str([
-            "--ghc-option",
-            "-Werror",
-            "--log-level=WARNING",
-            "--target",
-            "1.dev",
-        ]),
-        sdk = sdk_version,
-        ghc = ghc_version,
-    ),
-    tools = ["//compiler/damlc"],
+            build_options = str([
+                "--ghc-option",
+                "-Werror",
+                "--log-level=WARNING",
+                "--target",
+                lf_version,
+            ]),
+            ghc = ghc_version,
+            sdk = sdk_version,
+        ),
+        tools = ["//compiler/damlc"],
+        visibility = ["//visibility:public"],
+    )
+    for lf_version in COMPILER_LF2_VERSIONS
+]
+
+filegroup(
+    name = "daml3-script-dars",
+    srcs = [
+        "daml3-script-{}.dar".format(lf_version)
+        for lf_version in COMPILER_LF2_VERSIONS
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -85,6 +97,7 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml3-script \
             --format=Json \
+            --target=2.dev \
             $(location Daml/Script.daml)
     """,
     tools = [

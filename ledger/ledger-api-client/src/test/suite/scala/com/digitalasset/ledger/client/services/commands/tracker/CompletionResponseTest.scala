@@ -3,7 +3,8 @@
 
 package com.daml.ledger.client.services.commands.tracker
 
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCode}
+import com.daml.error.GrpcStatuses.DefiniteAnswerKey
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
@@ -112,12 +113,12 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         )
         val status = protobuf.StatusProto.fromThrowable(exception)
         val packedErrorInfo = status.getDetails(0).unpack(classOf[JavaErrorInfo])
-        packedErrorInfo.getMetadataOrThrow(ErrorCode.DefiniteAnswerKey) shouldEqual "false"
+        packedErrorInfo.getMetadataOrThrow(DefiniteAnswerKey) shouldEqual "false"
       }
 
       "include metadata for status not ok" in {
         val errorInfo = ErrorInfo(
-          metadata = Map(ErrorCode.DefiniteAnswerKey -> "true")
+          metadata = Map(DefiniteAnswerKey -> "true")
         )
         val exception = CompletionResponse.toException(
           QueueCompletionFailure(
@@ -141,12 +142,12 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         )
         val status = protobuf.StatusProto.fromThrowable(exception)
         val packedErrorInfo = status.getDetails(0).unpack(classOf[JavaErrorInfo])
-        packedErrorInfo.getMetadataOrThrow(ErrorCode.DefiniteAnswerKey) shouldEqual "true"
+        packedErrorInfo.getMetadataOrThrow(DefiniteAnswerKey) shouldEqual "true"
       }
 
       "merge metadata for status not ok" in {
         val errorInfo = ErrorInfo(
-          metadata = Map(ErrorCode.DefiniteAnswerKey -> "true")
+          metadata = Map(DefiniteAnswerKey -> "true")
         )
         val requestInfo = RequestInfo(requestId = "aRequestId")
         val exception = CompletionResponse.toException(
@@ -176,7 +177,7 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         details.exists { detail =>
           detail.is(classOf[JavaErrorInfo]) && detail
             .unpack(classOf[JavaErrorInfo])
-            .getMetadataOrThrow(ErrorCode.DefiniteAnswerKey) == "true"
+            .getMetadataOrThrow(DefiniteAnswerKey) == "true"
         } shouldEqual true
         details.exists { detail =>
           detail.is(classOf[JavaRequestInfo]) && detail

@@ -22,7 +22,7 @@ module Util (
     copyToReleaseDir,
     getBazelLocations,
     isScalaJar,
-    isDeployJar,
+    isDeployableJar,
     loggedProcess_,
     mavenArtifactCoords,
     resolvePomData,
@@ -79,6 +79,9 @@ data JarType
       -- ^ A java library jar, with source and javadoc jars.
     | Deploy
       -- ^ Deploy jar, e.g. a fat jar containing transitive deps.
+    | Distribute
+      -- ^ Same as Deploy but includes corrected licenses.
+      -- only works for artefacts build with `da_scala_binary`.
     | Proto
       -- ^ A java protobuf library (*-speed.jar).
     | Scala
@@ -93,6 +96,7 @@ instance FromJSON ReleaseType where
         case t of
             "jar-lib" -> pure $ Jar Lib
             "jar-deploy" -> pure $ Jar Deploy
+            "jar-distribute" -> pure $ Jar Distribute
             "jar-proto" -> pure $ Jar Proto
             "jar-scala" -> pure $ Jar Scala
             "jar-jarjar" -> pure $ Jar JarJar
@@ -139,6 +143,7 @@ buildTargets (IncludeDocs includeDocs) art@Artifact{..} =
         Jar jarTy ->
             let pomTar = BazelTarget (getBazelTarget artTarget <> "_pom")
                 jarTarget | jarTy == Deploy = BazelTarget (getBazelTarget artTarget <> "_deploy.jar")
+                          | jarTy == Distribute = BazelTarget (getBazelTarget artTarget <> "_distribute.jar")
                           | otherwise = artTarget
                 (directory, _) = splitBazelTarget artTarget
             in [jarTarget, pomTar] <>
@@ -221,6 +226,7 @@ mainFileName :: ReleaseType -> Text -> Text
 mainFileName (Jar jarTy) name = case jarTy of
     Lib -> "lib" <> name <> ".jar"
     Deploy -> name <> "_deploy.jar"
+    Distribute -> name <> "_distribute.jar"
     Proto -> "lib" <> T.replace "_java" "" name <> "-speed.jar"
     Scala -> name <> ".jar"
     JarJar -> name <> ".jar"
@@ -238,6 +244,7 @@ scalaSourceJarName Artifact{..}
 deploySourceJarName :: Artifact a -> Maybe Text
 deploySourceJarName Artifact{..}
   | Jar Deploy <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
+  | Jar Distribute <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
   | otherwise = Nothing
 
 protoSourceJarName :: Artifact a -> Maybe Text
@@ -256,6 +263,7 @@ scaladocJarName Artifact{..}
 javadocDeployJarName :: Artifact a -> Maybe Text
 javadocDeployJarName Artifact{..}
   | Jar Deploy <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_javadoc.jar"
+  | Jar Distribute <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_javadoc.jar"
   | otherwise = Nothing
 
 javadocProtoJarName :: Artifact a -> Maybe Text
@@ -371,8 +379,10 @@ copyToReleaseDir BazelLocations{..} releaseDir inp out = do
     createDirIfMissing True (parent absOut)
     copyFile absIn absOut
 
-isDeployJar :: ReleaseType -> Bool
-isDeployJar = (Jar Deploy ==)
+isDeployableJar :: ReleaseType -> Bool
+isDeployableJar (Jar Deploy) = True
+isDeployableJar (Jar Distribute) = True
+isDeployableJar _ = False
 
 isScalaJar :: ReleaseType -> Bool
 isScalaJar = (Jar Scala ==)

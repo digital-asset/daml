@@ -20,9 +20,13 @@ HEAD_TARGET_DIR=${1:-compatibility/head_sdk}
 git clean -fxd -e 'daml-*.tgz' $HEAD_TARGET_DIR
 
 bazel build \
+  --java_language_version=11 \
+  --java_runtime_version=nixpkgs_java_11 \
+  --tool_java_runtime_version=nixpkgs_java_11 \
+  --tool_java_language_version=11 \
   //release:sdk-release-tarball \
-  //ledger-test-tool/tool:ledger-api-test-tool_deploy.jar
+  //ledger-test-tool/tool:ledger-api-test-tool_distribute.jar
 
 cp -f bazel-bin/release/sdk-release-tarball-ce.tar.gz "$HEAD_TARGET_DIR"
-cp -f bazel-bin/ledger-test-tool/tool/ledger-api-test-tool_deploy.jar "$HEAD_TARGET_DIR"
+cp -f bazel-bin/ledger-test-tool/tool/ledger-api-test-tool_distribute.jar "$HEAD_TARGET_DIR"
 cp -f templates/create-daml-app-test-resources/messaging.patch "$HEAD_TARGET_DIR"

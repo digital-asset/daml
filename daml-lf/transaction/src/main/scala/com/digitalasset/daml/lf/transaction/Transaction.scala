@@ -6,10 +6,10 @@ package transaction
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.transaction.ContractStateMachine.KeyMapping
+import com.daml.lf.transaction.TransactionErrors.KeyInputError
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
@@ -249,7 +249,7 @@ final case class Transaction(
 
 sealed abstract class HasTxNodes {
 
-  import Transaction.{KeyInput, KeyInputError, ChildrenRecursion}
+  import Transaction.{KeyInput, ChildrenRecursion}
 
   def nodes: Map[NodeId, Node]
 
@@ -490,9 +490,8 @@ sealed abstract class HasTxNodes {
     "If a contract key contains a contract id"
   )
   def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
-    val machine = new ContractStateMachine[NodeId](mode = ContractKeyUniquenessMode.Strict)
-    foldInExecutionOrder[Either[KeyInputError, machine.State]](
-      Right(machine.initial)
+    foldInExecutionOrder[Either[KeyInputError, ContractStateMachine.State[NodeId]]](
+      Right(ContractStateMachine.initial[NodeId](ContractKeyUniquenessMode.Strict))
     )(
       exerciseBegin = (acc, nid, exe) =>
         (acc.flatMap(_.handleExercise(nid, exe)), Transaction.ChildrenRecursion.DoRecurse),
@@ -702,34 +701,6 @@ object Transaction {
   ): Either[String, CommittedTransaction] =
     submittedTransaction.suffixCid(f).map(CommittedTransaction(_))
 
-  /** Errors that can happen during building transactions. */
-  sealed abstract class TransactionError extends Product with Serializable
-
-  /** Signals that within the transaction we got to a point where
-    * two contracts with the same key were active.
-    *
-    * Note that speedy only detects duplicate key collisions
-    * if both contracts are used in the transaction in by-key operations
-    * meaning lookup, fetch or exercise-by-key or local creates.
-    *
-    * Two notable cases that will never produce duplicate key errors
-    * is a standalone create or a create and a fetch (but not fetch-by-key)
-    * with the same key.
-    *
-    * For ledger implementors this means that (for contract key uniqueness)
-    * it is sufficient to only look at the inputs and the outputs of the
-    * transaction while leaving all internal checks within the transaction
-    *  to the engine.
-    */
-  final case class DuplicateContractKey(
-      key: GlobalKey
-  ) extends TransactionError
-
-  final case class AuthFailureDuringExecution(
-      nid: NodeId,
-      fa: FailedAuthorization,
-  ) extends TransactionError
-
   /** The state of a key at the beginning of the transaction.
     */
   sealed trait KeyInput extends Product with Serializable {
@@ -759,21 +730,9 @@ object Transaction {
     override def isActive: Boolean = true
   }
 
-  /** An exercise, fetch or lookupByKey failed because the mapping of key -> contract id
-    * was inconsistent with earlier nodes (in execution order). This can happened in case
-    * of a race condition between the contract and the contract keys queried to the ledger
-    * during an interpretation.
-    */
-  final case class InconsistentContractKey(key: GlobalKey)
-
-  /** contractKeyInputs failed to produce an input due to an error for the given key.
-    */
-  type KeyInputError = Either[InconsistentContractKey, DuplicateContractKey]
-
   sealed abstract class ChildrenRecursion
   object ChildrenRecursion {
     case object DoRecurse extends ChildrenRecursion
     case object DoNotRecurse extends ChildrenRecursion
   }
-
 }

@@ -112,6 +112,7 @@ ledger_api_haskellpb_sources = [
     "LedgerIdentityService.hs",
     "LedgerOffset.hs",
     "PackageService.hs",
+    "TraceContext.hs",
     "Transaction.hs",
     "TransactionFilter.hs",
     "TransactionService.hs",

@@ -8,6 +8,11 @@ module Daml.Script
   , submitMultiMustFail
   , submitTree
   , submitTreeMulti
+  , trySubmit
+  , trySubmitMulti
+  , SubmitError (..)
+  , DevErrorType (..)
+
   , query
   , queryInterface
   , queryContractId

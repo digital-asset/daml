@@ -1,0 +1,47 @@
+Transactions: 
+  TX 0 1970-01-01T00:00:00Z (LfInterfaces:103:3)
+  #0:0
+  │   consumed by: #0:1
+  │   referenced by #0:1
+  │   disclosed to (since): 'alice' (0)
+  └─> 'alice' creates LfInterfaces:Helper
+              with
+                p = 'alice'
+  
+  #0:1
+  │   disclosed to (since): 'alice' (0)
+  └─> 'alice' exercises Exe on #0:0 (LfInterfaces:Helper)
+      children:
+      #0:2
+      │   consumed by: #0:5
+      │   referenced by #0:3, #0:4, #0:5
+      │   disclosed to (since): 'alice' (0)
+      └─> 'alice' creates LfInterfaces:Asset
+                  with
+                    issuer = 'alice'; owner = 'alice'; amount = 15
+      
+      #0:3
+      │   disclosed to (since): 'alice' (0)
+      └─> 'alice' exercises Noop on #0:2 (LfInterfaces:Asset)
+                  with
+                    nothing = {}
+      
+      #0:4
+      │   disclosed to (since): 'alice' (0)
+      └─> 'alice' fetches #0:2 (LfInterfaces:Asset)
+      
+      #0:5
+      │   disclosed to (since): 'alice' (0)
+      └─> 'alice' exercises GetRich on #0:2 (LfInterfaces:Asset)
+                  with
+                    byHowMuch = 20
+          children:
+          #0:6
+          │   disclosed to (since): 'alice' (0)
+          └─> 'alice' creates LfInterfaces:Asset
+                      with
+                        issuer = 'alice'; owner = 'alice'; amount = 35
+
+Active contracts:  #0:6
+
+Return value: {}

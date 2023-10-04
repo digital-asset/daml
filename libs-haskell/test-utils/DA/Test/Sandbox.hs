@@ -223,7 +223,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
 
 getCantonSandboxProc :: FilePath -> FilePath -> IO CreateProcess
 getCantonSandboxProc configPath bootstrapPath = do
-    canton <- locateRunfiles $ mainWorkspace </> "canton" </> "canton-lib.jar"
+    canton <- locateRunfiles $ mainWorkspace </> "test-common" </> "canton" </> "canton-lib.jar"
     java <- getJava
     pure $ proc java $ concat
       [ ["-jar", canton]

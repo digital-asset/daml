@@ -69,7 +69,7 @@ object Converter extends script.ConverterMethods {
           0,
           record(
             scriptIds.damlScript("Created"),
-            ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId.coid)),
+            ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId)),
             ("argument", anyTemplate),
           ),
         )
@@ -90,7 +90,7 @@ object Converter extends script.ConverterMethods {
           1,
           record(
             scriptIds.damlScript("Exercised"),
-            ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId.coid)),
+            ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId)),
             ("choice", SText(choiceName)),
             ("argument", anyChoice),
             ("childEvents", SList(evs.to(FrontStack))),

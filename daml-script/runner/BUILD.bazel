@@ -8,10 +8,14 @@ load(
     "da_scala_test",
     "lf_scalacopts_stricter",
 )
+load("//rules_daml:daml.bzl", "daml_compile")
 
 test_script_sources = [
     "src/main/scala/com/digitalasset/daml/lf/engine/script/TestMain.scala",
 ]
+
+# Should match RunnerMainTestBase.DAR_COUNT
+test_dar_count = 5
 
 da_scala_library(
     name = "script-runner-lib",
@@ -34,8 +38,8 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/api-type-signature",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
@@ -48,6 +52,7 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/cli-opts",
         "//ledger-service/lf-value-json",
+        "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
@@ -55,6 +60,8 @@ da_scala_library(
         "//libs-scala/auth-utils",
         "//libs-scala/contextualized-logging",
         "//libs-scala/jwt",
+        "//libs-scala/nonempty",
+        "@maven//:com_google_guava_guava",
     ],
 )
 
@@ -63,15 +70,41 @@ da_scala_test(
     srcs = glob(
         ["src/test/scala/**/*.scala"],
     ),
-    data = glob(["src/test/resources/**/*"]),
+    data =
+        glob(["src/test/resources/**/*"]) + [
+            ":daml-script-binary",
+            ":failing-test-script.dar",
+            "//test-common/test-certificates",
+        ] + [":test-script{n}.dar".format(n = n) for n in range(
+            1,
+            test_dar_count + 1,
+        )],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     visibility = ["//visibility:public"],
     deps = [
-        ":script-runner-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger-service/http-json:http-json-ce",
+        "//ledger-service/http-json-cli:ce",
+        "//ledger-service/http-json-testing:ce",
         "//ledger/ledger-api-common",
+        "//libs-scala/jwt",
+        "//libs-scala/ledger-resources",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/scala-utils",
+        "//test-common/canton/it-lib",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -83,14 +116,32 @@ da_scala_binary(
         "@maven//:com_typesafe_akka_akka_slf4j",
     ],
     scalacopts = lf_scalacopts_stricter,
+    tags = ["ee-jar-license"],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
         ":script-runner-lib",
-        "//release:ee-license",
     ],
+)
+
+[
+    daml_compile(
+        name = "test-script{n}".format(n = n),
+        srcs = glob(["src/test/resources/TestScript.daml"]),
+        dependencies = ["//daml-script/daml:daml-script.dar"],
+    )
+    for n in range(
+        1,
+        test_dar_count + 1,
+    )
+]
+
+daml_compile(
+    name = "failing-test-script",
+    srcs = glob(["src/test/resources/FailingTestScript.daml"]),
+    dependencies = ["//daml-script/daml:daml-script.dar"],
 )
 
 exports_files(["src/main/resources/logback.xml"])

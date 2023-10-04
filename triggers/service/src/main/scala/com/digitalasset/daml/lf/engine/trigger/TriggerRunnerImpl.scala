@@ -9,6 +9,7 @@ import akka.stream.{KillSwitch, KillSwitches, Materializer}
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.LedgerClient
@@ -42,6 +43,7 @@ object TriggerRunnerImpl {
       refreshToken: Option[RefreshToken],
       compiledPackages: CompiledPackages,
       trigger: Trigger,
+      tlsConfig: TlsConfiguration,
       triggerConfig: TriggerRunnerConfig,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
@@ -88,7 +90,7 @@ object TriggerRunnerImpl {
       )
 
       val channelConfig = LedgerClientChannelConfiguration(
-        sslContext = None,
+        sslContext = config.tlsConfig.client(),
         maxInboundMessageSize = config.ledgerConfig.maxInboundMessageSize,
       )
 

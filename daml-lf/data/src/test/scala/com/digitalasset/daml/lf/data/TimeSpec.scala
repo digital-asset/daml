@@ -7,16 +7,13 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoField
 import java.time.{Duration, Instant, LocalDate}
 import java.util.concurrent.TimeUnit
+
 import com.daml.lf.data.Time._
-import org.scalatest.Inside
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
 
-import scala.annotation.nowarn
-
-@nowarn("msg=deprecated")
-class TimeSpec extends AnyFreeSpec with Inside with Matchers with TableDrivenPropertyChecks {
+class TimeSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
 
   "Date operations" - {
 
@@ -69,7 +66,7 @@ class TimeSpec extends AnyFreeSpec with Inside with Matchers with TableDrivenPro
     }
 
     "Timestamp.Epoch is 1970-01-01T00:00:00Z" in {
-      Timestamp.Epoch shouldBe Timestamp.assertStrictFromString("1970-01-01T00:00:00Z")
+      Timestamp.Epoch shouldBe Timestamp.assertFromString("1970-01-01T00:00:00Z")
     }
 
     "Timestamp.fromLong fails if it overflows" in {
@@ -81,8 +78,17 @@ class TimeSpec extends AnyFreeSpec with Inside with Matchers with TableDrivenPro
       Timestamp.fromLong(min - 1) shouldBe a[Left[_, _]]
     }
 
+    "Timestamp.fromString fails if it overflows" in {
+      val max = Timestamp.MaxValue.toString
+      val min = Timestamp.MinValue.toString
+      Timestamp.fromString(max) shouldBe a[Right[_, _]]
+      Timestamp.fromString(Instant.parse(max).plusMillis(1).toString) shouldBe a[Left[_, _]]
+      Timestamp.fromString(min) shouldBe a[Right[_, _]]
+      Timestamp.fromString(Instant.parse(min).plusMillis(-1).toString) shouldBe a[Left[_, _]]
+    }
+
     "add increments the timestamp" in {
-      val timestamp = Timestamp.assertStrictFromString("2019-04-04T08:33:38.123456Z")
+      val timestamp = Timestamp.assertFromString("2019-04-04T08:33:38.123456Z")
       val incrementedTimestamp = timestamp.add(Duration.ofNanos(1234567000))
       incrementedTimestamp.toString shouldBe "2019-04-04T08:33:39.358023Z"
     }
@@ -94,7 +100,7 @@ class TimeSpec extends AnyFreeSpec with Inside with Matchers with TableDrivenPro
     }
 
     "addMicros increments the timestamp" in {
-      val timestamp = Timestamp.assertStrictFromString("2019-04-04T08:33:38.123456Z")
+      val timestamp = Timestamp.assertFromString("2019-04-04T08:33:38.123456Z")
       val incrementedTimestamp = timestamp.addMicros(1234567)
       incrementedTimestamp.toString shouldBe "2019-04-04T08:33:39.358023Z"
     }
@@ -104,192 +110,28 @@ class TimeSpec extends AnyFreeSpec with Inside with Matchers with TableDrivenPro
       an[IllegalArgumentException] should be thrownBy Timestamp.MaxValue.addMicros(1)
     }
 
-    "toString produces a UTC ISO 8601 compliant string without nano seconds" in {
+    "toString produces an ISO 8601 compliant string" in {
       val testCases = Table(
-        "timestamp",
+        "timeStamp",
         Timestamp.MinValue,
         Timestamp.Epoch,
-        Timestamp.assertStrictFromString("1969-07-20T20:17:00Z"),
-        Timestamp.assertStrictFromString("1969-07-20T20:17:00.1Z"),
-        Timestamp.assertStrictFromString("1969-07-20T20:17:00.12Z"),
-        Timestamp.assertStrictFromString("1969-07-20T20:17:00.123Z"),
-        Timestamp.assertStrictFromString("1969-07-20T20:17:00.1234Z"),
-        Timestamp.assertStrictFromString("1969-07-20T20:17:00.12345Z"),
-        Timestamp.assertStrictFromString("1969-07-20T20:17:00.123456Z"),
+        Timestamp.assertFromString("1969-07-20T20:17:00Z"),
+        Timestamp.assertFromString("1969-07-20T20:17:00.1Z"),
+        Timestamp.assertFromString("1969-07-20T20:17:00.12Z"),
+        Timestamp.assertFromString("1969-07-20T20:17:00.123Z"),
+        Timestamp.assertFromString("1969-07-20T20:17:00.1234Z"),
+        Timestamp.assertFromString("1969-07-20T20:17:00.12345Z"),
+        Timestamp.assertFromString("1969-07-20T20:17:00.123456Z"),
         Timestamp.MaxValue,
       )
-      forEvery(testCases) { timestamp =>
-        val i = Instant.parse(timestamp.toString)
+
+      forEvery(testCases) { date =>
+        val i = Instant.parse(date.toString)
         val micros =
           TimeUnit.SECONDS.toMicros(i.getEpochSecond) +
             TimeUnit.NANOSECONDS.toMicros(i.getNano.toLong)
 
-        micros shouldBe timestamp.micros
-      }
-    }
-
-    val fromStringFunctions = Table(
-      "function",
-      Timestamp.fromString(_),
-      Timestamp.strictFromString(_),
-      Timestamp.lenientFromString(_),
-    )
-
-    val lenientFromStringFunctions = Table(
-      "function",
-      Timestamp.fromString(_),
-      Timestamp.lenientFromString(_),
-    )
-
-    "fromString functions convert a UTC ISO 8601 compliant string without nano without loss of precision" in {
-      val testCases = Table(
-        "timestamp",
-        "0001-01-01T00:00:00Z",
-        "1970-01-01T01:00:00Z",
-        "2023-06-28T07:19:12Z",
-        "1969-07-20T20:17:00Z",
-        "1969-07-20T20:17:00z",
-        "1969-07-20T20:17:00.100Z",
-        "1969-07-20T20:17:00.120Z",
-        "1969-07-20T20:17:00.123Z",
-        "1969-07-20T20:17:00.123400Z",
-        "1969-07-20T20:17:00.123450Z",
-        "1969-07-20T20:17:00.123456Z",
-        "9999-12-31T23:59:59.999999Z",
-      )
-      forEvery(fromStringFunctions)(f =>
-        forEvery(testCases)(str =>
-          inside(f(str)) { case Right(timestamp) =>
-            timestamp.toString shouldBe str.toUpperCase
-          }
-        )
-      )
-    }
-
-    "lenient FromString convert a UTC ISO 8601 compliant string with nanos while dropping nanos" in {
-      val testCases = Table(
-        ("withoutNanos", "withNanos"),
-        "0001-01-01T00:00:00Z" ->
-          "0001-01-01T00:00:00.000000009Z",
-        "1970-01-01T01:00:00Z" ->
-          "1970-01-01T01:00:00.000000099Z",
-        "2023-06-28T07:19:12Z" ->
-          "2023-06-28T07:19:12.000000090Z",
-        "1969-07-20T20:17:00Z" ->
-          "1969-07-20T20:17:00.000000990Z",
-        "1969-07-20T20:17:00.100Z" ->
-          "1969-07-20T20:17:00.100000999Z",
-        "1969-07-20T20:17:00.120Z" ->
-          "1969-07-20T20:17:00.120000909Z",
-        "1969-07-20T20:17:00.123Z" ->
-          "1969-07-20T20:17:00.123000900Z",
-        "1969-07-20T20:17:00.123400Z" ->
-          "1969-07-20T20:17:00.123400500Z",
-        "1969-07-20T20:17:00.123450Z" ->
-          "1969-07-20T20:17:00.123450499Z",
-        "1969-07-20T20:17:00.123456Z" ->
-          "1969-07-20T20:17:00.123456501Z",
-        "9999-12-31T23:59:59.999999Z" ->
-          "9999-12-31T23:59:59.999999999Z",
-      )
-      forEvery(lenientFromStringFunctions)(f =>
-        forEvery(testCases)((withoutNanos, withNanos) =>
-          inside(f(withNanos)) { case Right(timestamp) =>
-            timestamp.toString shouldBe withoutNanos
-          }
-        )
-      )
-    }
-
-    "strictFromString reject a UTC ISO 8601 compliant string with significant nanos" in {
-      val testCases = Table(
-        "withNanos",
-        "0001-01-01T00:00:00.000000009Z",
-        "1970-01-01T01:00:00.000000099Z",
-        "2023-06-28T07:19:12.000000090Z",
-        "1969-07-20T20:17:00.000000990Z",
-        "1969-07-20T20:17:00.100000999Z",
-        "1969-07-20T20:17:00.120000909Z",
-        "1969-07-20T20:17:00.123000900Z",
-        "1969-07-20T20:17:00.123400500Z",
-        "1969-07-20T20:17:00.123450499Z",
-        "1969-07-20T20:17:00.123456501Z",
-        "9999-12-31T23:59:59.999999999Z",
-      )
-      forEvery(testCases)(str => Timestamp.strictFromString(str) shouldBe a[Left[_, _]])
-    }
-
-    "FromString functions ignore non significant zeros" in {
-      val testCases = Table(
-        ("normal form", "not normal form"),
-        "0001-01-01T00:00:00Z" ->
-          "0001-01-01T00:00:00.0Z",
-        "1970-01-01T01:00:00Z" ->
-          "1970-01-01T01:00:00.00Z",
-        "2023-06-28T07:19:12Z" ->
-          "2023-06-28T07:19:12.000Z",
-        "1969-07-20T20:17:00Z" ->
-          "1969-07-20T20:17:00.0000Z",
-        "1969-07-20T20:17:00.100Z" ->
-          "1969-07-20T20:17:00.10000Z",
-        "1969-07-20T20:17:00.120Z" ->
-          "1969-07-20T20:17:00.120000Z",
-        "1969-07-20T20:17:00.123Z" ->
-          "1969-07-20T20:17:00.1230000Z",
-        "1969-07-20T20:17:00.123400Z" ->
-          "1969-07-20T20:17:00.12340000Z",
-        "1969-07-20T20:17:00.123450Z" ->
-          "1969-07-20T20:17:00.123450000Z",
-        "1969-07-20T20:17:00.123456Z" ->
-          "1969-07-20T20:17:00.12345600Z",
-        "9999-12-31T23:59:59.999999Z" ->
-          "9999-12-31T23:59:59.9999990Z",
-      )
-      forEvery(fromStringFunctions)(f =>
-        forEvery(testCases)((normal, nonNormal) =>
-          inside(f(nonNormal)) { case Right(timestamp) =>
-            timestamp.toString shouldBe normal
-          }
-        )
-      )
-    }
-
-    "fromString functions reject non UTC ISO 8601 compliant time strings" in {
-      val testCases = Table(
-        "string",
-        "",
-        "001-01-01Z",
-        "0001-01-01Z",
-        "1970-01-01T01",
-        "2023-06-28T07:19",
-        "1969-07-20T20:17:00.0000000000Z",
-        "01969-07-20T20:17:00.0000000000Z",
-        "1969-13-20T20:17:00",
-        "1969-07-20T20:17:00Z ",
-        " 1969-07-20T20:17:00Z",
-        "1969-13-20T20:17:00Z",
-        "1969-07-32T20:17:00Z",
-        "1969-07-20T20:17:00+00:00",
-        "1969-07-20T20:17:00-00:00",
-        "1969-07-20T20:17:00−07:01",
-        "1969-07-20T20:17:00−0700",
-        "1969-07-20T20:17:00−07",
-        "1969-07-20T20:17:00+07:00",
-        "1969-07-20T20:17:00+0701",
-        "1969-07-20T20:17:00+07",
-        "Last friday",
-      )
-      forEvery(fromStringFunctions)(f => forEvery(testCases)(str => f(str) shouldBe a[Left[_, _]]))
-    }
-
-    "fromString functions fail in case of overflows" in {
-      val max = Timestamp.MaxValue.toString
-      val min = Timestamp.MinValue.toString
-      forEvery(fromStringFunctions) { f =>
-        f(max) shouldBe a[Right[_, _]]
-        f(Instant.parse(max).plusMillis(1).toString) shouldBe a[Left[_, _]]
-        f(min) shouldBe a[Right[_, _]]
-        f(Instant.parse(min).plusMillis(-1).toString) shouldBe a[Left[_, _]]
+        micros shouldBe date.micros
       }
     }
   }

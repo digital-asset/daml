@@ -44,7 +44,13 @@ object LanguageMajorVersion {
         minorAscending = NonEmptyList("6", "7", "8", "11", "12", "13", "14", "15", "dev"),
       )
 
-  val All: List[LanguageMajorVersion] = List(V1)
+  case object V2
+      extends LanguageMajorVersion(
+        pretty = "2",
+        minorAscending = NonEmptyList("dev"),
+      )
+
+  val All: List[LanguageMajorVersion] = List(V1, V2)
 
   implicit val Ordering: scala.Ordering[LanguageMajorVersion] =
     scala.Ordering.by(All.zipWithIndex.toMap)

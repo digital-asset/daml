@@ -7,19 +7,19 @@
 module Daml.Script.Questions.Exceptions where
 
 #ifdef DAML_EXCEPTIONS
-import DA.Bifunctor (first)
 import DA.Exception
 import DA.Optional
 import Daml.Script.Internal
-import Daml.Script.Free (Free (..))
 
 data Catch = Catch with
-  act : () -> Free ScriptF (LedgerValue, ())
+  act : () -> LedgerValue
   dummy : ()
-instance IsQuestion Catch (Either AnyException x)
+instance IsQuestion Catch (Either AnyException x) where command = "Catch"
 
 tryToEither : forall t. (() -> Script t) -> Script (Either AnyException t)
-tryToEither act = lift Catch with act = \() -> fmap (first toLedgerValue) $ runScript (act ()) (), dummy = ()
+tryToEither act = lift Catch with
+  act = \() -> toLedgerValue $ act ()
+  dummy = ()
 
 instance ActionCatch Script where
   _tryCatch : forall t. (() -> Script t) -> (AnyException -> Optional (Script t)) -> Script t
@@ -33,7 +33,7 @@ instance ActionCatch Script where
 -- Consider reworking how the ghc stack traces are passed around in this file
 data Throw = Throw with
   exc: AnyException
-instance IsQuestion Throw t
+instance IsQuestion Throw t where command = "Throw"
 
 instance ActionThrow Script where
   throw e = throwAnyException $ toAnyException e

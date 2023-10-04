@@ -1,7 +1,7 @@
 # Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//daml-lf/language:daml-lf.bzl", "PROTO_LF_VERSIONS")
+load("//daml-lf/language:daml-lf.bzl", "SUPPORTED_PROTO_STABLE_LF_VERSIONS")
 load("@build_environment//:configuration.bzl", "sdk_version")
 
 inputs = {
@@ -26,10 +26,11 @@ inputs = {
     "templates": "//templates:templates-tarball.tar.gz",
     "trigger_dars": "//triggers/daml:daml-trigger-dars",
     "script_dars": "//daml-script/daml:daml-script-dars",
-    "canton": "//canton:lib",
+    "script3_dars": "//daml-script/daml3:daml3-script-dars",
+    "canton": "//test-common/canton:lib",
     "sdk_deploy_jar": {
-        "ce": "//daml-assistant/daml-sdk:sdk_deploy.jar",
-        "ee": "//daml-assistant/daml-sdk:sdk_ee_deploy.jar",
+        "ce": "//daml-assistant/daml-sdk:sdk_distribute.jar",
+        "ee": "//daml-assistant/daml-sdk:sdk_ee_distribute.jar",
     },
     "license": ":ee-license.txt",
 }
@@ -77,6 +78,7 @@ def sdk_tarball(name, version, config):
           mkdir -p $$OUT/daml-libs
           cp -t $$OUT/daml-libs $(locations {trigger_dars})
           cp -t $$OUT/daml-libs $(locations {script_dars})
+          cp -t $$OUT/daml-libs $(locations {script3_dars})
 
           mkdir -p $$OUT/daml-helper
           tar xf $(location {daml_helper_dist}) --strip-components=1 -C $$OUT/daml-helper
@@ -174,7 +176,7 @@ protos_zip = rule(
             allow_files = True,
             default = [
                 Label("//daml-lf/archive:daml_lf_{}_archive_proto_tar.tar.gz".format(version))
-                for version in PROTO_LF_VERSIONS
+                for version in SUPPORTED_PROTO_STABLE_LF_VERSIONS + ["dev"]
             ],
         ),
         "ledger_api_tarball": attr.label(

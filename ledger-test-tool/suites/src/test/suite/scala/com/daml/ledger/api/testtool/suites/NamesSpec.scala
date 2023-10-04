@@ -3,12 +3,28 @@
 
 package com.daml.ledger.api.testtool.suites
 
-import com.daml.ledger.api.testtool.suites.NamesSpec._
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import org.scalatest.AppendedClues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class NamesSpec extends AnyWordSpec with Matchers with AppendedClues {
+class NamesSpec_V1Dev
+    extends NamesSpec(v1_dev.default(timeoutScaleFactor = 1) ++ v1_dev.optional(tlsConfig = None))
+class NamesSpec_V2Dev
+    extends NamesSpec(v2_dev.default(timeoutScaleFactor = 1) ++ v2_dev.optional(tlsConfig = None))
+
+class NamesSpec(val allTestSuites: Vector[LedgerTestSuite])
+    extends AnyWordSpec
+    with Matchers
+    with AppendedClues {
+  private val allTestSuiteNames = allTestSuites.map(_.name).sorted
+
+  private val allTests = allTestSuites.flatMap(_.tests)
+  private val allTestIdentifiers = allTests.map(_.shortIdentifier)
+  private val allTestIdentifiersPerTestSuite =
+    allTestSuites.map(suite => suite.name -> suite.tests.map(_.shortIdentifier))
+  private val allTestNames = allTests.map(_.name).sorted
+
   "test suite names" should {
     "only contain letters" in {
       all(allTestSuiteNames) should fullyMatch regex """[A-Za-z]+""".r
@@ -44,16 +60,4 @@ class NamesSpec extends AnyWordSpec with Matchers with AppendedClues {
       }
     }
   }
-}
-
-object NamesSpec {
-  private val allTestSuites =
-    v1_dev.default(timeoutScaleFactor = 1) ++ v1_dev.optional(tlsConfig = None)
-  private val allTestSuiteNames = allTestSuites.map(_.name).sorted
-
-  private val allTests = allTestSuites.flatMap(_.tests)
-  private val allTestIdentifiers = allTests.map(_.shortIdentifier)
-  private val allTestIdentifiersPerTestSuite =
-    allTestSuites.map(suite => suite.name -> suite.tests.map(_.shortIdentifier))
-  private val allTestNames = allTests.map(_.name).sorted
 }

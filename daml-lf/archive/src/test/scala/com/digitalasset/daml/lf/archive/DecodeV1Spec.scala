@@ -1118,7 +1118,7 @@ class DecodeV1Spec
       }
     }
 
-    s"decode extended TypeRep iff version < ${LV.v1_dev}" in {
+    s"decode extended TypeRep iff version < ${LV.Features.templateTypeRepToText}" in {
       val testCases = {
         val typeRepTyConName = DamlLf1.Expr
           .newBuilder()
@@ -1136,7 +1136,7 @@ class DecodeV1Spec
       forEveryVersion { version =>
         forEvery(testCases) { (proto, scala) =>
           val result = Try(interfacePrimitivesDecoder(version).decodeExprForTest(proto, "test"))
-          if (version < LV.v1_dev)
+          if (version < LV.Features.templateTypeRepToText)
             inside(result) { case Failure(error) => error shouldBe a[Error.Parsing] }
           else
             result shouldBe Success(scala)
@@ -1204,7 +1204,7 @@ class DecodeV1Spec
       }
     }
 
-    s"translate interface exercise guard iff version >= ${LV.v1_dev}" in {
+    s"translate interface exercise guard iff version >= ${LV.Features.extendedInterfaces}" in {
 
       val unit = DamlLf1.Unit.newBuilder().build()
       val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
@@ -1233,7 +1233,7 @@ class DecodeV1Spec
         Some(EUnit),
       )
 
-      forEveryVersionSuchThat(_ >= LV.v1_dev) { version =>
+      forEveryVersionSuchThat(_ >= LV.Features.extendedInterfaces) { version =>
         val decoder =
           moduleDecoder(version, ImmArraySeq("Choice"), interfaceDottedNameTable, typeTable)
         val proto = DamlLf1.Expr.newBuilder().setUpdate(exerciseInterfaceProto).build()
@@ -1811,7 +1811,7 @@ class DecodeV1Spec
     }
   }
 
-  s"reject experiment expression if LF version < ${LV.v1_dev}" in {
+  s"reject experiment expression if LF version < ${LV.Features.unstable}" in {
 
     val expr = DamlLf1.Expr
       .newBuilder()
@@ -1829,7 +1829,7 @@ class DecodeV1Spec
       )
       .build()
 
-    forEveryVersionSuchThat(_ < LV.v1_dev) { version =>
+    forEveryVersionSuchThat(_ < LV.Features.unstable) { version =>
       val decoder = moduleDecoder(version)
       an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(expr, "test"))
     }

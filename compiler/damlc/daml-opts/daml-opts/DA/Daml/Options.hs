@@ -59,8 +59,10 @@ import DA.Daml.Project.Util
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor
 import Development.IDE.GHC.Util
+import qualified DA.Service.Logger as Logger
 import qualified Development.IDE.Types.Options as Ghcide
 import SdkVersion (damlStdlib)
+import DA.Daml.LF.Ast.Version (isDevVersion)
 
 -- | Convert to ghcide’s IdeOptions type.
 toCompileOpts :: Options -> Ghcide.IdeOptions
@@ -539,17 +541,25 @@ checkDFlags Options {..} dflags@DynFlags {..}
 -- When invoked outside of the SDK, we will only error out
 -- if there is actually an SDK package so that
 -- When there is no SDK
-expandSdkPackages :: LF.Version -> [FilePath] -> IO [FilePath]
-expandSdkPackages lfVersion dars = do
+expandSdkPackages :: Logger.Handle IO -> LF.Version -> [FilePath] -> IO [FilePath]
+expandSdkPackages logger lfVersion dars = do
     mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
     mapM (expand mbSdkPath) (nubOrd $ concatMap addDep dars)
   where
     isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
+    isInvalidDaml3Script = \case
+      "daml3-script" | not (isDevVersion lfVersion) -> True
+      _ -> False
     sdkSuffix = "-" <> LF.renderVersion lfVersion
     expand mbSdkPath fp
       | fp `elem` basePackages = pure fp
       | isSdkPackage fp = case mbSdkPath of
-            Just sdkPath -> pure $ sdkPath </> "daml-libs" </> fp <> sdkSuffix <.> "dar"
+            Just _ | isInvalidDaml3Script fp -> fail "Daml3-script may only be used in LF 2.dev, and is unstable."
+            Just sdkPath -> do
+              when (fp == "daml3-script")
+                $ Logger.logWarning logger
+                    "You are using an unreleased and unstable version of daml-script intended for daml3. This will break without warning."
+              pure $ sdkPath </> "daml-libs" </> fp <> sdkSuffix <.> "dar"
             Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
       | otherwise = pure fp
     -- For `dependencies` you need to specify all transitive dependencies.

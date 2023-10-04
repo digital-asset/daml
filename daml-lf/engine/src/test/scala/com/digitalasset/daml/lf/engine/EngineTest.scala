@@ -51,6 +51,7 @@ import org.scalatest.matchers.{MatchResult, Matcher}
 import scala.annotation.nowarn
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
+import scala.math.Ordered.orderingToOrdered
 
 @SuppressWarnings(
   Array(
@@ -1033,7 +1034,7 @@ class EngineTest
     val originalCoid = toContractId("BasicTests:CallablePayout:1")
     val templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
     // we need to fix time as cid are depending on it
-    val let = Time.Timestamp.assertStrictFromString("1969-07-20T20:17:00Z")
+    val let = Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")
     val command = ApiCommand.Exercise(
       templateId,
       originalCoid,
@@ -2311,6 +2312,7 @@ class EngineTest
         (LV.v1_7, LV.v1_6, LV.v1_8),
         (LV.v1_8, LV.v1_6, LV.v1_8),
         (LV.v1_dev, LV.v1_6, LV.v1_dev),
+        (LV.v2_dev, LV.v1_6, LV.v2_dev),
       )
       val positiveTestCases = Table(
         ("pkg version", "minVersion", "maxversion"),
@@ -2318,6 +2320,8 @@ class EngineTest
         (LV.v1_7, LV.v1_8, LV.v1_8),
         (LV.v1_8, LV.v1_6, LV.v1_7),
         (LV.v1_dev, LV.v1_6, LV.v1_8),
+        (LV.v2_dev, LV.v1_6, LV.v1_8),
+        (LV.v2_dev, LV.v1_6, LV.v1_dev),
       )
 
       forEvery(negativeTestCases)((v, min, max) =>
@@ -2330,26 +2334,35 @@ class EngineTest
 
     }
 
-    "accept stable packages even if version is smaller than min version" in {
-      for {
-        lv <- LanguageVersion.All
-        eng = engine(min = lv, LanguageVersion.v1_dev)
-        pkg <- StablePackage.values
-        pkgId = pkg.packageId
-        pkg <- allPackagesDev.get(pkgId).toList
-      } yield eng.preloadPackage(pkgId, pkg) shouldBe a[ResultDone[_]]
-    }
+    // TODO(#17366): For now both 1.dev and 2.dev contain the same stable packages. Once 2.dev
+    //    diverges from 1.dev and <= is no longer available, we will need to update this test.
+    for (
+      (devVersion, allPackagesDev) <- Seq(
+        LanguageVersion.v1_dev -> allPackages1Dev,
+        LanguageVersion.v2_dev -> allPackages2Dev,
+      )
+    ) {
+      s"accept stable packages from ${devVersion} even if version is smaller than min version" in {
+        for {
+          lv <- LanguageVersion.All.filter(_ <= devVersion)
+          eng = engine(min = lv, devVersion)
+          pkg <- StablePackage.values
+          pkgId = pkg.packageId
+          pkg <- allPackagesDev.get(pkgId).toList
+        } yield eng.preloadPackage(pkgId, pkg) shouldBe a[ResultDone[_]]
+      }
 
-    "reject stable packages if version is greater than max version" in {
-      for {
-        lv <- LanguageVersion.All
-        eng = engine(LanguageVersion.v1_6, max = lv)
-        pkg <- StablePackage.values
-        pkgId = pkg.packageId
-        pkg <- allPackagesDev.get(pkgId).toList
-      } yield inside(eng.preloadPackage(pkgId, pkg)) {
-        case ResultDone(_) => pkg.languageVersion shouldBe <=(lv)
-        case ResultError(_) => pkg.languageVersion shouldBe >(lv)
+      s"reject stable packages from ${devVersion} if version is greater than max version" in {
+        for {
+          lv <- LanguageVersion.All
+          eng = engine(LanguageVersion.v1_6, max = lv)
+          pkg <- StablePackage.values
+          pkgId = pkg.packageId
+          pkg <- allPackagesDev.get(pkgId).toList
+        } yield inside(eng.preloadPackage(pkgId, pkg)) {
+          case ResultDone(_) => pkg.languageVersion shouldBe <=(lv)
+          case ResultError(_) => pkg.languageVersion shouldBe >(lv)
+        }
       }
     }
   }
@@ -2375,11 +2388,15 @@ object EngineTest {
     Name.assertFromString(s)
 
   val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
-    "daml-lf/tests/BasicTests.dar"
+    "daml-lf/engine/BasicTests.dar"
   )
 
-  val (_, _, allPackagesDev) = loadPackage(
-    "daml-lf/tests/BasicTests-dev.dar"
+  val (_, _, allPackages1Dev) = loadPackage(
+    "daml-lf/engine/BasicTests-v1dev.dar"
+  )
+
+  val (_, _, allPackages2Dev) = loadPackage(
+    "daml-lf/engine/BasicTests-v2dev.dar"
   )
 
   val basicTestsSignatures: PackageInterface =

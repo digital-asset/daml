@@ -505,6 +505,7 @@ trait TriggerServiceFixture
                 encodedDars,
                 jdbcConfig,
                 false,
+                config.tlsClientConfig,
                 Compiler.Config.Dev,
                 triggerRunnerConfig.getOrElse(DefaultTriggerRunnerConfig),
                 logTriggerStatus,

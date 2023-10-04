@@ -41,7 +41,7 @@ jobs:
     - name: is_release
       value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     - template: job-variables.yml
-  timeoutInMinutes: 180
+  timeoutInMinutes: 240
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -84,6 +84,8 @@ jobs:
     name: m1
     assignment: m1-builds
 
+- template: blackduck.yml
+
 - job: Windows
   dependsOn:
     - check_for_release
@@ -103,7 +105,7 @@ jobs:
       value: $[ and(eq(variables.is_release, 'true'),
                        eq(variables['Build.SourceBranchName'], 'main')) ]
     - template: job-variables.yml
-  timeoutInMinutes: 180
+  timeoutInMinutes: 240
   pool:
     name: 'windows-pool'
     demands: assignment -equals default
@@ -140,15 +142,6 @@ jobs:
         is_release: variables.is_release
         is_split_release: $(is_split_release)
     - template: upload-bazel-metrics.yml
-    - bash: |
-        set -euo pipefail
-        cd '$(Build.StagingDirectory)/logs'
-        gzip -9 *
-    - task: PublishBuildArtifacts@1
-      condition: succeededOrFailed()
-      inputs:
-        pathtoPublish: '$(Build.StagingDirectory)/logs'
-        artifactName: 'Bazel Logs'
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
@@ -157,7 +150,7 @@ jobs:
 - job: Linux_oracle
   dependsOn:
   - build_canton
-  timeoutInMinutes: 180
+  timeoutInMinutes: 240
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -212,7 +205,6 @@ jobs:
         # Actually run some tests
         # Note: Oracle tests all run sequentially because they all access the same Oracle instance,
         # and we sometimes observe transient connection issues when running tests in parallel.
-        export ARTIFACTORY_AUTH=$(echo -n "$ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD" | base64 -w0)
         bazel test \
           --config=oracle \
           --test_strategy=exclusive \
@@ -302,7 +294,7 @@ jobs:
     - check_for_release
   condition: and(succeeded(),
                  not(eq(dependencies.check_for_release.outputs['out.is_release'], 'true')))
-  timeoutInMinutes: 180
+  timeoutInMinutes: 240
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
@@ -319,7 +311,7 @@ jobs:
     - check_for_release
     - compatibility_ts_libs
     - build_canton
-  timeoutInMinutes: 180
+  timeoutInMinutes: 240
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default

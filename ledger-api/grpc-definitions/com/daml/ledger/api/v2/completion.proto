@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
+import "com/daml/ledger/api/v1/trace_context.proto";
 import "google/protobuf/duration.proto";
 import "google/rpc/status.proto";
 
@@ -66,4 +67,15 @@ message Completion {
     // Must be non-negative.
     google.protobuf.Duration deduplication_duration = 8;
   }
+
+  // Optional; ledger api trace context
+  //
+  // The trace context transported in this message corresponds to the trace context supplied
+  // by the client application in a HTTP2 header of the original command submission.
+  // We typically use a header to transfer this type of information. Here we use message
+  // body, because it is used in gRPC streams which do not support per message headers.
+  // This field will be populated with the trace context contained in the original submission.
+  // If that was not provided, a unique ledger-api-server generated trace context will be used
+  // instead.
+  com.daml.ledger.api.v1.TraceContext trace_context = 9;
 }

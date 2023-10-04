@@ -34,7 +34,7 @@ class AuthorizationInterceptorSpec
   it should "close the ServerCall with a V2 status code on decoding failure" in {
     testServerCloseError { case (actualStatus, actualMetadata) =>
       actualStatus.getCode shouldBe Status.Code.INTERNAL
-      actualStatus.getDescription shouldBe "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>"
+      actualStatus.getDescription shouldBe "An error occurred. Please contact the operator and inquire about the request <no-correlation-id> with tid <no-tid>"
 
       val actualRpcStatus = StatusProto.fromStatusAndTrailers(actualStatus, actualMetadata)
       actualRpcStatus.getDetailsList.size() shouldBe 0

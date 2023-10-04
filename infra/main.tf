@@ -14,15 +14,15 @@ terraform {
     }
     google = {
       source  = "hashicorp/google"
-      version = "4.43.0"
+      version = "4.46.0"
     }
     google-beta = {
       source  = "hashicorp/google-beta"
-      version = "4.43.0"
+      version = "4.46.0"
     }
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "3.31.0"
+      version = "3.35.0"
     }
     random = {
       source  = "hashicorp/random"
@@ -59,6 +59,9 @@ provider "azurerm" {
 resource "azurerm_resource_group" "daml-ci" {
   name     = "daml-ci"
   location = "East US"
+  tags = {
+    env = "Production"
+  }
 }
 
 data "google_project" "current" {

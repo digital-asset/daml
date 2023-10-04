@@ -328,6 +328,13 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
   )(implicit log: LogHandler): ConnectionIO[Int]
 
+  final def deleteTemplate(tpid: SurrogateTpId)(implicit log: LogHandler): ConnectionIO[Unit] = {
+    for {
+      _ <- sql"DELETE FROM $contractTableName WHERE tpid = $tpid".update.run
+      _ <- sql"DELETE FROM $ledgerOffsetTableName WHERE tpid = $tpid".update.run
+    } yield {}
+  }
+
   // ContractTypeId -> CId[String]
   final def deleteContracts(
       cids: Map[SurrogateTpId, Set[String]]

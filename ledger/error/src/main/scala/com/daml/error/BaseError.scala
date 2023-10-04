@@ -64,6 +64,22 @@ trait BaseError extends LocationMixin {
 
   /** Controls whether a `definite_answer` error detail is added to the gRPC status code */
   def definiteAnswerO: Option[Boolean] = None
+
+  def rpcStatus(
+      overrideCode: Option[io.grpc.Status.Code] = None
+  )(implicit loggingContext: ContextualizedErrorLogger): com.google.rpc.status.Status = {
+    import scala.jdk.CollectionConverters._
+    val status0: com.google.rpc.Status = code.asGrpcStatus(this)
+
+    val details: Seq[com.google.protobuf.Any] = status0.getDetailsList.asScala.toSeq
+    val detailsScalapb = details.map(com.google.protobuf.any.Any.fromJavaProto)
+
+    com.google.rpc.status.Status(
+      code = overrideCode.map(_.value()).getOrElse(status0.getCode),
+      message = status0.getMessage,
+      details = detailsScalapb,
+    )
+  }
 }
 
 /** Base class for errors for which error context is known at creation.
@@ -95,14 +111,44 @@ trait LocationMixin {
 }
 
 object BaseError {
-  val SecuritySensitiveMessageOnApiPrefix =
-    "An error occurred. Please contact the operator and inquire about the request"
+  object SecuritySensitiveMessage {
+    val Prefix = "An error occurred. Please contact the operator and inquire about the request"
+    private val regex = s"$Prefix (.+) with tid (.+)".r
 
-  def isSanitizedSecuritySensitiveMessage(msg: String): Boolean = {
-    // NOTE: Currently we can't be much more precise than checking only the message prefix
-    // as the suffix is a correlation id which is unbounded as ledger implementations
-    // are free to choose whatever kind of value is most appropriate for them.
-    msg.startsWith(SecuritySensitiveMessageOnApiPrefix)
+    def apply(correlationId: Option[String] = None, traceId: Option[String] = None): String =
+      s"$Prefix ${correlationId.getOrElse("<no-correlation-id>")} with tid ${traceId
+          .getOrElse("<no-tid>")}"
+
+    def unapply(msg: String): Option[(Option[String], Option[String])] =
+      msg match {
+        case regex(corrIdO, tIdO) =>
+          val checkedCorrelationId = Option(corrIdO).filter(_ != "<no-correlation-id>")
+          val checkedTraceId = Option(tIdO).filter(_ != "<no-tid>")
+          Some(checkedCorrelationId -> checkedTraceId)
+        case _ => None
+      }
   }
 
+  val isSanitizedSecuritySensitiveMessage: String => Boolean =
+    _.startsWith(SecuritySensitiveMessage.Prefix)
+
+  private val ignoreFields =
+    Set(
+      "cause",
+      "throwable",
+      "loggingContext",
+      "definiteAnswer",
+      "representativeProtocolVersion",
+      "companionObj",
+    )
+
+  def extractContext[D](obj: D): Map[String, String] = {
+    obj.getClass.getDeclaredFields
+      .filterNot(x => ignoreFields.contains(x.getName) || x.getName.startsWith("_"))
+      .map { field =>
+        field.setAccessible(true)
+        (field.getName, field.get(obj).toString)
+      }
+      .toMap
+  }
 }

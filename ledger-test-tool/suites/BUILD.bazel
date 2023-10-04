@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_library_suite", "da_scala_test_suite")
-load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")
+load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "lf_version_configuration")
 load(":deps.bzl", "deps")
 
 versions = {
@@ -50,6 +50,22 @@ versions = {
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_dev.scala",
         ],
     },
+    "2.dev": {
+        "srcs": glob([
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/**/*",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14/**/*",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_15/**/*",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_dev/**/*",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v2_dev/**/*",
+        ]),
+        "entrypoints": [
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8.scala",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14.scala",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_15.scala",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_dev.scala",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v2_dev.scala",
+        ],
+    },
 }
 
 [
@@ -80,12 +96,14 @@ da_scala_test_suite(
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
-        ":suites-1.dev",
         "//daml-lf/data",
         "//ledger-test-tool/infrastructure",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
         "//libs-scala/timer-utils",
         "@maven//:org_scalatest_scalatest_compatible",
+    ] + [
+        ":suites-{}".format(version)
+        for version in LF_DEV_VERSIONS
     ],
 )
 

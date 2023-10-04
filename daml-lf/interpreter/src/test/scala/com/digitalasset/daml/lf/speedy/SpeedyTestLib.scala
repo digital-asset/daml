@@ -9,8 +9,9 @@ import data.Ref.PackageId
 import data.Time
 import SResult._
 import com.daml.lf.data.Ref.Party
+import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.language.{Ast, PackageInterface}
-import com.daml.lf.speedy.Speedy.{CachedContract, UpdateMachine}
+import com.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.lf.value.Value.ContractId
@@ -46,9 +47,9 @@ private[speedy] object SpeedyTestLib {
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SValue] = {
-    runCollectAuthRequests(machine, getPkg, getContract, getKey, getTime) match {
+    runCollectRequests(machine, getPkg, getContract, getKey, getTime) match {
       case Left(e) => Left(e)
-      case Right((v, _)) => Right(v)
+      case Right((v, _, _)) => Right(v)
     }
   }
 
@@ -61,8 +62,8 @@ private[speedy] object SpeedyTestLib {
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SubmittedTransaction] =
-    buildTransactionCollectAuthRequests(machine, getPkg, getContract, getKey, getTime) match {
-      case Right((tx, _)) =>
+    buildTransactionCollectRequests(machine, getPkg, getContract, getKey, getTime) match {
+      case Right((tx, _, _)) =>
         Right(tx)
       case Left(err) =>
         Left(err)
@@ -73,37 +74,49 @@ private[speedy] object SpeedyTestLib {
       requesting: Set[Party],
   )
 
+  case class UpgradeVerificationRequest(
+      coid: ContractId,
+      signatories: Set[Party],
+      observers: Set[Party],
+      keyOpt: Option[GlobalKeyWithMaintainers],
+  )
+
   @throws[SError.SErrorCrash]
-  def buildTransactionCollectAuthRequests(
+  def buildTransactionCollectRequests(
       machine: Speedy.UpdateMachine,
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
-  ): Either[SError.SError, (SubmittedTransaction, List[AuthRequest])] =
-    runCollectAuthRequests(machine, getPkg, getContract, getKey, getTime) match {
-      case Right((_, authRequests)) =>
+  ): Either[
+    SError.SError,
+    (SubmittedTransaction, List[AuthRequest], List[UpgradeVerificationRequest]),
+  ] =
+    runCollectRequests(machine, getPkg, getContract, getKey, getTime) match {
+      case Right((_, authRequests, upgradeVerificationrequests)) =>
         machine.finish.map(_.tx) match {
           case Left(err) =>
             Left(err)
           case Right(tx) =>
-            Right((tx, authRequests))
+            Right((tx, authRequests, upgradeVerificationrequests))
         }
       case Left(err) =>
         Left(err)
     }
 
   @throws[SError.SErrorCrash]
-  private def runCollectAuthRequests(
+  def runCollectRequests(
       machine: Speedy.Machine[Question.Update],
-      getPkg: PartialFunction[PackageId, CompiledPackages],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
-      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
-      getTime: PartialFunction[Unit, Time.Timestamp],
-  ): Either[SError.SError, (SValue, List[AuthRequest])] = {
+      getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
+        PartialFunction.empty,
+      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
+      getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
+  ): Either[SError.SError, (SValue, List[AuthRequest], List[UpgradeVerificationRequest])] = {
 
     var authRequests: List[AuthRequest] = List.empty
+    var upgradeVerificationRequests: List[UpgradeVerificationRequest] = List.empty
 
     def onQuestion(question: Question.Update): Unit = question match {
       case Question.Update.NeedAuthority(holding @ _, requesting @ _, callback) =>
@@ -123,6 +136,20 @@ private[speedy] object SpeedyTestLib {
           case None =>
             throw UnknownContract(contractId)
         }
+      case Question.Update.NeedUpgradeVerification(
+            coid,
+            signatories,
+            observers,
+            keyOpt,
+            callback,
+          ) =>
+        upgradeVerificationRequests = UpgradeVerificationRequest(
+          coid,
+          signatories,
+          observers,
+          keyOpt,
+        ) :: upgradeVerificationRequests
+        callback()
 
       case Question.Update.NeedPackage(pkg, _, callback) =>
         getPkg.lift(pkg) match {
@@ -139,7 +166,7 @@ private[speedy] object SpeedyTestLib {
     }
     runTxQ(onQuestion, machine) match {
       case Left(e) => Left(e)
-      case Right(fv) => Right((fv, authRequests.reverse))
+      case Right(fv) => Right((fv, authRequests.reverse, upgradeVerificationRequests.reverse))
     }
   }
 
@@ -166,19 +193,25 @@ private[speedy] object SpeedyTestLib {
   }
 
   @throws[ValidationError]
-  def typeAndCompile(pkgs: Map[PackageId, Ast.Package]): PureCompiledPackages = {
+  def typeAndCompile(
+      pkgs: Map[PackageId, Ast.Package],
+      evaluationOrder: EvaluationOrder,
+  ): PureCompiledPackages = {
     Validation.unsafeCheckPackages(PackageInterface(pkgs), pkgs)
     PureCompiledPackages.assertBuild(
       pkgs,
-      Compiler.Config.Dev.copy(stacktracing = Compiler.FullStackTrace),
+      Compiler.Config.Dev.copy(
+        evaluationOrder = evaluationOrder,
+        stacktracing = Compiler.FullStackTrace,
+      ),
     )
   }
 
   @throws[ValidationError]
-  def typeAndCompile[X](pkg: Ast.Package)(implicit
+  def typeAndCompile[X](pkg: Ast.Package, evaluationOrder: EvaluationOrder)(implicit
       parserParameter: ParserParameters[X]
   ): PureCompiledPackages =
-    typeAndCompile(Map(parserParameter.defaultPackageId -> pkg))
+    typeAndCompile(Map(parserParameter.defaultPackageId -> pkg), evaluationOrder)
 
   private[speedy] object Implicits {
 
@@ -202,14 +235,6 @@ private[speedy] object SpeedyTestLib {
           iterationsBetweenInterruptions = machine.iterationsBetweenInterruptions,
         )
 
-      def withCachedContracts(cachedContracts: (ContractId, CachedContract)*): UpdateMachine = {
-        for {
-          entry <- cachedContracts
-          (contractId, cachedContract) = entry
-        } machine.updateCachedContracts(contractId, cachedContract)
-        machine
-      }
-
       private[speedy] def withLocalContractKey(
           contractId: ContractId,
           key: GlobalKey,
@@ -224,7 +249,7 @@ private[speedy] object SpeedyTestLib {
       }
 
       private[speedy] def withDisclosedContractKeys(
-          disclosedContractKeys: (ContractId, CachedContract)*
+          disclosedContractKeys: (ContractId, ContractInfo)*
       ): UpdateMachine = {
         disclosedContractKeys.foreach { case (contractId, contract) =>
           machine.addDisclosedContracts(contractId, contract)
