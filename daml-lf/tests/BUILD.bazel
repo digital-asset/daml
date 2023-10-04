@@ -44,25 +44,31 @@ daml_compile(
 )
 
 daml_build_test(
-    name = "ReinterpretTests",
+    name = "ReinterpretTests-v1",
     dar_dict = {
         "//daml-lf/tests:AtVersion13.dar": "at-version-13.dar",
         "//daml-lf/tests:AtVersion14.dar": "at-version-14.dar",
     },
-    project_dir = "reinterpret",
+    project_dir = "reinterpret-v1",
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
+daml_build_test(
+    name = "ReinterpretTests-v2",
+    project_dir = "reinterpret-v2",
     visibility = ["//daml-lf:__subpackages__"],
 )
 
 daml_compile(
     name = "AtVersion13",
-    srcs = ["reinterpret/AtVersion13.daml"],
+    srcs = ["reinterpret-v1/AtVersion13.daml"],
     target = "1.13",
     visibility = ["//daml-lf:__subpackages__"],
 )
 
 daml_compile(
     name = "AtVersion14",
-    srcs = ["reinterpret/AtVersion14.daml"],
+    srcs = ["reinterpret-v1/AtVersion14.daml"],
     target = "1.14",
     visibility = ["//daml-lf:__subpackages__"],
 )
