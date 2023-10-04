@@ -33,7 +33,11 @@ class InterfaceViewSpecV2 extends InterfaceViewSpec(LanguageMajorVersion.V2)
     "org.wartremover.warts.Product",
   )
 )
-class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec with Matchers with EitherValues with BazelRunfiles {
+class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with Matchers
+    with EitherValues
+    with BazelRunfiles {
 
   import InterfaceViewSpec._
 

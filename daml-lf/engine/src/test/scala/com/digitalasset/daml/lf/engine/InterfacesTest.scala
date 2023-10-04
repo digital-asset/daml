@@ -59,7 +59,8 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     )
 
   "interfaces" should {
-    val (interfacesPkgId, _, _) = loadPackage(s"daml-lf/tests/Interfaces-v${majorLanguageVersion.pretty}.dar")
+    val (interfacesPkgId, _, _) =
+      loadPackage(s"daml-lf/tests/Interfaces-v${majorLanguageVersion.pretty}.dar")
     val (interfaceRetroPkgId, _, allInterfacesPkgs) =
       loadPackage(s"daml-lf/tests/InterfaceRetro-v${majorLanguageVersion.pretty}.dar")
     val idI1 = Identifier(interfacesPkgId, "Interfaces:I1")

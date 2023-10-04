@@ -45,7 +45,8 @@ class StablePackageTest
           stablePackages.allPackages.foreach(pkg =>
             withClue(s"in ${pkg.name} ${pkg.moduleName}") {
               pkgIdsInDar should contain(pkg.packageId)
-            })
+            }
+          )
         }
 
         "lists the stable packages with their proper version" in {
