@@ -17,7 +17,7 @@ private[daml] object ParserParameters {
     ParserParameters(
       defaultPackageId = com.daml.lf.testing.parser.defaultPackageId,
       // TODO(#17366): use something like LanguageVersion.default(major) after the refactoring of
-      //  LanguageVersion
+      //  LanguageVersion and the introduction of v2.0
       majorLanguageVersion match {
         case LanguageMajorVersion.V1 => com.daml.lf.testing.parser.defaultLanguageVersion
         case LanguageMajorVersion.V2 => LanguageVersion.v2_dev

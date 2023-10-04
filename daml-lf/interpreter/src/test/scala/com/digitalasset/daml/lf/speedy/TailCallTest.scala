@@ -18,7 +18,10 @@ class TailCallTestV1 extends TailCallTest(LanguageMajorVersion.V1)
 class TailCallTestV2 extends TailCallTest(LanguageMajorVersion.V2)
 
 // TEST_EVIDENCE: Availability: Tail call optimization: Tail recursion does not blow the scala JVM stack.
-class TailCallTest(majorLanguageVersion: LanguageMajorVersion) extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
+class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 

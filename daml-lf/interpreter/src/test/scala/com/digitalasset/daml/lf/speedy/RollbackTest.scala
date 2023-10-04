@@ -24,7 +24,10 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 class RollbackTestV1 extends RollbackTest(LanguageMajorVersion.V1)
 class RollbackTestV2 extends RollbackTest(LanguageMajorVersion.V2)
 
-class RollbackTest(majorLanguageVersion: LanguageMajorVersion) extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
+class RollbackTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 

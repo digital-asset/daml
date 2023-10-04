@@ -20,7 +20,11 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 class LimitsSpecV1 extends LimitsSpec(LanguageMajorVersion.V1)
 class LimitsSpecV2 extends LimitsSpec(LanguageMajorVersion.V2)
 
-class LimitsSpec(majorLanguageVersion: LanguageMajorVersion) extends AnyFreeSpec with Matchers with Inside with TableDrivenPropertyChecks {
+class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with Inside
+    with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
