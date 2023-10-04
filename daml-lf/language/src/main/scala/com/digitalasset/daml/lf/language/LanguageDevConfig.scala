@@ -17,6 +17,7 @@ object LanguageDevConfig {
   case object RightToLeft extends EvaluationOrder
 
   object EvaluationOrder {
+
     // We can't test RightToLeft evaluation order with V1 because it only works in dev and V1 tests
     // will build packages for versions 1.14 and 1.15. It works by accident in V2 at the moment
     // because there's only one V2 version: 2.dev. Eventually, right-to-left evaluation will not be

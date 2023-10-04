@@ -113,8 +113,8 @@ object LanguageVersion {
     }
   }
 
-  // To preserve compatibility, which queries DevVersions.max.
-  // TODO(#17366): deprecate or refactor
+  // To preserve compatibility with Canton which uses `DevVersions.max`.
+  // TODO(#17366): deprecate
   def DevVersions: VersionRange[LanguageVersion] =
     AllVersions(Major.V1)
 

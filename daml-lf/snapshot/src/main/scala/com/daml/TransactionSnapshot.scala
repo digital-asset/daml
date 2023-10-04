@@ -90,7 +90,7 @@ private[snapshot] object TransactionSnapshot {
   }
 
   def compile(pkgs: Map[Ref.PackageId, Ast.Package], profileDir: Option[Path] = None): Engine = {
-    require(pkgs.size > 0, "expected at least on package, got none")
+    require(pkgs.size > 0, "expected at least one package, got none")
     println(s"%%% compile ${pkgs.size} packages ...")
     val engine = new Engine(
       EngineConfig(

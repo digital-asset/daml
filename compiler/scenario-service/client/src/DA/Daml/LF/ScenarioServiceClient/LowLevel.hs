@@ -115,6 +115,7 @@ data ContextUpdate = ContextUpdate
 
 encodeScenarioModule :: LF.Version -> LF.Module -> BS.ByteString
 encodeScenarioModule version m =
+    -- TODO(#17366): encode V2 separately once the formats diverge
     BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
 
 data BackendError
