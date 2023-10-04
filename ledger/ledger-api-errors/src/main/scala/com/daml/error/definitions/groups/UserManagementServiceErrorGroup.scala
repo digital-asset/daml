@@ -38,29 +38,6 @@ object UserManagementServiceErrorGroup extends AdminServices.UserManagementServi
   }
 
   @Explanation(
-    """|A user can have at most 256kb worth of annotations in total measured in number of bytes in UTF-8 encoding.
-                  |There was an attempt to create or update a user such that this limit would have been exceeded."""
-  )
-  @Resolution(
-    "Retry with fewer annotations or delete some of the user's existing annotations."
-  )
-  object MaxUserAnnotationsSizeExceeded
-      extends ErrorCode(
-        id = "MAX_USER_ANNOTATIONS_SIZE_EXCEEDED",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    case class Reject(userId: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlError(
-          cause = s"Maximum annotations size for user '$userId' has been exceeded"
-        ) {
-      override def resources: Seq[(ErrorResource, String)] = Seq(
-        ErrorResource.User -> userId
-      )
-    }
-  }
-
-  @Explanation(
     """|Concurrent updates to a user can be controlled by supplying an update request with a resource version (this is optional).
                   |A user's resource version can be obtained by reading the user on the Ledger API.
                   |There was attempt to update a user using a stale resource version, indicating that a different process had updated the user earlier."""

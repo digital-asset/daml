@@ -109,55 +109,6 @@ class ErrorFactoriesSpec
     }
 
     "TrackerErrors" should {
-      "return failedToEnqueueCommandSubmission" in {
-        val t = new Exception("message123")
-        assertStatus(
-          LedgerApiErrors.InternalError
-            .Generic("some message", Some(t))(
-              contextualizedErrorLogger
-            )
-            .asGrpcStatus
-        )(
-          code = Code.INTERNAL,
-          message = expectedInternalErrorMessage,
-          details = expectedInternalErrorDetails,
-          logEntry = ExpectedLogEntry(
-            Level.ERROR,
-            s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): some message",
-            expectedMarkerRegex("throwableO=Some(java.lang.Exception: message123)"),
-          ),
-        )
-      }
-
-      "return bufferFul" in {
-        val msg =
-          s"PARTICIPANT_BACKPRESSURE(2,$truncatedCorrelationId): The participant is overloaded: Some buffer is full"
-        assertStatus(
-          LedgerApiErrors.ParticipantBackpressure
-            .Rejection("Some buffer is full")(contextualizedErrorLogger)
-            .asGrpcStatus
-        )(
-          code = Code.ABORTED,
-          message = msg,
-          details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail(
-              "PARTICIPANT_BACKPRESSURE",
-              Map(
-                "category" -> "2",
-                "definite_answer" -> "false",
-                "reason" -> "Some buffer is full",
-              ),
-            ),
-            expectedCorrelationIdRequestInfo,
-            ErrorDetails.RetryInfoDetail(1.second),
-          ),
-          logEntry = ExpectedLogEntry(
-            Level.INFO,
-            msg,
-            expectedMarkerRegex("reason=Some buffer is full"),
-          ),
-        )
-      }
 
       "return queueClosed" in {
         val msg =
@@ -221,26 +172,6 @@ class ErrorFactoriesSpec
           ),
         )
       }
-      "return noStatusInResponse" in {
-        assertStatus(
-          LedgerApiErrors.InternalError
-            .Generic(
-              "Missing status in completion response.",
-              throwableO = None,
-            )
-            .asGrpcStatus
-        )(
-          code = Code.INTERNAL,
-          message = expectedInternalErrorMessage,
-          details = expectedInternalErrorDetails,
-          logEntry = ExpectedLogEntry(
-            Level.ERROR,
-            s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): Missing status in completion response.",
-            expectedMarkerRegex("throwableO=None"),
-          ),
-        )
-
-      }
 
     }
 
@@ -263,19 +194,6 @@ class ErrorFactoriesSpec
         logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(expectedLocationLogMarkerRegex),
-        ),
-      )
-    }
-
-    "return the a versioned service internal error" in {
-      assertError(LedgerApiErrors.InternalError.VersionService("message123"))(
-        code = Code.INTERNAL,
-        message = expectedInternalErrorMessage,
-        details = expectedInternalErrorDetails,
-        logEntry = ExpectedLogEntry(
-          Level.ERROR,
-          s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): message123",
           Some(expectedLocationLogMarkerRegex),
         ),
       )
@@ -494,30 +412,6 @@ class ErrorFactoriesSpec
       )
     }
 
-    "return a missingLedgerConfig error" in {
-      val msg =
-        s"LEDGER_CONFIGURATION_NOT_FOUND(11,$truncatedCorrelationId): The ledger configuration could not be retrieved."
-      assertError(
-        LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
-          .Reject()
-      )(
-        code = Code.NOT_FOUND,
-        message = msg,
-        details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail(
-            "LEDGER_CONFIGURATION_NOT_FOUND",
-            Map("category" -> "11", "definite_answer" -> "false"),
-          ),
-          expectedCorrelationIdRequestInfo,
-        ),
-        logEntry = ExpectedLogEntry(
-          Level.INFO,
-          msg,
-          Some(expectedLocationLogMarkerRegex),
-        ),
-      )
-    }
-
     "return an invalid deduplication period error" in {
       val errorDetailMessage = "message"
       val maxDeduplicationDuration = Duration.ofSeconds(5)
@@ -627,19 +521,6 @@ class ErrorFactoriesSpec
           Level.INFO,
           msg,
           expectedMarkerRegex(s"${LedgerApiErrors.EarliestOffsetMetadataKey}=00"),
-        ),
-      )
-    }
-
-    "return a trackerFailure error" in {
-      assertError(LedgerApiErrors.InternalError.Generic("message123"))(
-        code = Code.INTERNAL,
-        message = expectedInternalErrorMessage,
-        details = expectedInternalErrorDetails,
-        logEntry = ExpectedLogEntry(
-          Level.ERROR,
-          s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): message123",
-          expectedMarkerRegex("throwableO=None"),
         ),
       )
     }

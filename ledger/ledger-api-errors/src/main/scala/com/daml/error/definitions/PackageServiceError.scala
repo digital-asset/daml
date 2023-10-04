@@ -4,11 +4,9 @@
 package com.daml.error.definitions
 
 import com.daml.error._
-import com.daml.lf.archive.{Error => LfArchiveError}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.Error
-import com.daml.lf.{VersionRange, language, validation}
+import com.daml.lf.validation
 
 @Explanation(
   "Errors raised by the Package Management Service on package uploads."
@@ -16,22 +14,6 @@ import com.daml.lf.{VersionRange, language, validation}
 object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
   @Explanation("Package parsing errors raised during package upload.")
   object Reading extends ErrorGroup {
-    @Explanation(
-      """This error indicates that the supplied dar file name did not meet the requirements to be stored in the persistence store."""
-    )
-    @Resolution("Inspect error message for details and change the file name accordingly")
-    object InvalidDarFileName
-        extends ErrorCode(
-          id = "INVALID_DAR_FILE_NAME",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
-      final case class Error(reason: String)(implicit
-          val loggingContext: ContextualizedErrorLogger
-      ) extends DamlError(
-            cause = "Dar file name is invalid",
-            extraContext = Map("reason" -> reason),
-          )
-    }
 
     @Explanation("""This error indicates that the supplied dar file was invalid.""")
     @Resolution("Inspect the error message for details and contact support.")
@@ -63,23 +45,6 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
           )
     }
 
-    @Explanation(
-      """This error indicates that the supplied zipped dar is an unsupported legacy Dar."""
-    )
-    @Resolution("Please use a more recent dar version.")
-    object InvalidLegacyDar
-        extends ErrorCode(
-          id = "INVALID_LEGACY_DAR",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
-      final case class Error(entries: Seq[String])(implicit
-          val loggingContext: ContextualizedErrorLogger
-      ) extends DamlError(
-            cause = "Unsupported legacy Dar zip file",
-            extraContext = Map("entries" -> entries),
-          )
-    }
-
     @Explanation("""This error indicates that the supplied zipped dar is regarded as zip-bomb.""")
     @Resolution("Inspect the dar and contact support.")
     object ZipBomb
@@ -89,20 +54,6 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
       ) extends DamlError(
             cause = "Dar zip file seems to be a zip bomb.",
             extraContext = Map("msg" -> msg),
-          )
-    }
-
-    @Explanation(
-      """This error indicates that the content of the Dar file could not be parsed successfully."""
-    )
-    @Resolution("Inspect the error message and contact support.")
-    object ParseError
-        extends ErrorCode(id = "DAR_PARSE_ERROR", ErrorCategory.InvalidIndependentOfSystemState) {
-      final case class Error(reason: String)(implicit
-          val loggingContext: ContextualizedErrorLogger
-      ) extends DamlError(
-            cause = "Failed to parse the dar file content.",
-            extraContext = Map(reason -> reason),
           )
     }
 
@@ -147,47 +98,6 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
   }
 
   object Validation {
-    def handleLfArchiveError(
-        lfArchiveError: LfArchiveError
-    )(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
-    ): DamlError =
-      lfArchiveError match {
-        case LfArchiveError.InvalidDar(entries, cause) =>
-          PackageServiceError.Reading.InvalidDar
-            .Error(entries.entries.keys.toSeq, cause)
-        case LfArchiveError.InvalidZipEntry(name, entries) =>
-          PackageServiceError.Reading.InvalidZipEntry
-            .Error(name, entries.entries.keys.toSeq)
-        case LfArchiveError.InvalidLegacyDar(entries) =>
-          PackageServiceError.Reading.InvalidLegacyDar.Error(entries.entries.keys.toSeq)
-        case LfArchiveError.ZipBomb =>
-          PackageServiceError.Reading.ZipBomb.Error(LfArchiveError.ZipBomb.getMessage)
-        case e: LfArchiveError =>
-          PackageServiceError.Reading.ParseError.Error(e.msg)
-        case e =>
-          PackageServiceError.InternalError.Unhandled(e)
-      }
-
-    def handleLfEnginePackageError(err: Error.Package.Error)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ): DamlError = err match {
-      case Error.Package.Internal(nameOfFunc, msg, _) =>
-        PackageServiceError.InternalError.Validation(nameOfFunc, msg)
-      case Error.Package.Validation(validationError) =>
-        ValidationError.Error(validationError)
-      case Error.Package.MissingPackage(packageId, _) =>
-        PackageServiceError.InternalError.Error(Set(packageId))
-      case Error.Package
-            .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions) =>
-        AllowedLanguageMismatchError(
-          packageId,
-          languageVersion,
-          allowedLanguageVersions,
-        )
-      case Error.Package.SelfConsistency(packageIds, missingDependencies) =>
-        SelfConsistency.Error(packageIds, missingDependencies)
-    }
 
     @Explanation("""This error indicates that the validation of the uploaded dar failed.""")
     @Resolution("Inspect the error message and contact support.")
@@ -203,25 +113,6 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
             extraContext = Map("validationError" -> validationError),
           )
     }
-
-    final case class AllowedLanguageMismatchError(
-        packageId: Ref.PackageId,
-        languageVersion: language.LanguageVersion,
-        allowedLanguageVersions: VersionRange[language.LanguageVersion],
-    )(implicit
-        val loggingContext: ContextualizedErrorLogger
-    ) extends DamlError(
-          cause = LedgerApiErrors.CommandExecution.Package.AllowedLanguageVersions
-            .buildCause(packageId, languageVersion, allowedLanguageVersions),
-          extraContext = Map(
-            "packageId" -> packageId,
-            "languageVersion" -> languageVersion.toString,
-            "allowedLanguageVersions" -> allowedLanguageVersions.toString,
-          ),
-        )(
-          LedgerApiErrors.CommandExecution.Package.AllowedLanguageVersions,
-          loggingContext,
-        ) // reuse error code of ledger api server
 
     @Explanation(
       """This error indicates that the uploaded Dar is broken because it is missing internal dependencies."""

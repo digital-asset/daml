@@ -14,10 +14,7 @@ import com.daml.error.{
   Explanation,
   Resolution,
 }
-import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
-
-import java.time.Instant
 
 @Explanation(
   "Potential consistency errors raised due to race conditions during command submission or returned as submission rejections by the backing ledger."
@@ -56,44 +53,6 @@ object ConsistencyErrors extends ErrorGroup()(LedgerApiErrors.errorClass) {
     }
   }
 
-  @Explanation("An input contract has been archived by a concurrent transaction submission.")
-  @Resolution(
-    "The correct resolution depends on the business flow, for example it may be possible to " +
-      "proceed without the archived contract as an input, or a different contract could be used."
-  )
-  object InconsistentContracts
-      extends ErrorCode(
-        id = "INCONSISTENT_CONTRACTS",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-
-    final case class Reject(override val cause: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(cause = cause)
-
-  }
-
-  @Explanation("At least one input has been altered by a concurrent transaction submission.")
-  @Resolution(
-    "The correct resolution depends on the business flow, for example it may be possible to proceed " +
-      "without an archived contract as an input, or the transaction submission may be retried " +
-      "to load the up-to-date value of a contract key."
-  )
-  object Inconsistent
-      extends ErrorCode(
-        id = "INCONSISTENT",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-
-    final case class Reject(
-        details: String
-    )(implicit loggingContext: ContextualizedErrorLogger)
-        extends DamlErrorWithDefiniteAnswer(
-          cause = s"Inconsistent: $details"
-        )
-
-  }
-
   @Explanation(
     """This error occurs if the Daml engine can not find a referenced contract. This
       |can be caused by either the contract not being known to the participant, or not being known to
@@ -105,16 +64,6 @@ object ConsistencyErrors extends ErrorGroup()(LedgerApiErrors.errorClass) {
         id = "CONTRACT_NOT_FOUND",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
-
-    final case class MultipleContractsNotFound(notFoundContractIds: Set[String])(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"Unknown contracts: ${notFoundContractIds.mkString("[", ", ", "]")}"
-        ) {
-      override def resources: Seq[(ErrorResource, String)] = Seq(
-        (ErrorResource.ContractIds, notFoundContractIds.mkString("[", ", ", "]"))
-      )
-    }
 
     final case class Reject(
         override val cause: String,
@@ -141,51 +90,10 @@ object ConsistencyErrors extends ErrorGroup()(LedgerApiErrors.errorClass) {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
 
-    final case class RejectWithContractKeyArg(
-        override val cause: String,
-        key: GlobalKey,
-    )(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = cause
-        ) {
-      override def resources: Seq[(ErrorResource, String)] =
-        CommandExecution.withEncodedValue(key.key) { encodedKey =>
-          Seq(
-            // TODO(i12763): Reconsider the transport format for the contract key.
-            //                   If the key is big, it can force chunking other resources.
-            (ErrorResource.TemplateId, key.templateId.toString),
-            (ErrorResource.ContractKey, encodedKey),
-          )
-        }
-    }
-
     final case class Reject(reason: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(cause = reason)
 
-  }
-
-  @Explanation(
-    """This error occurs if the disclosed payload or metadata of one of the contracts
-      |does not match the actual payload or metadata of the contract."""
-  )
-  @Resolution("Re-submit the command using valid disclosed contract payload and metadata.")
-  object DisclosedContractInvalid
-      extends ErrorCode(
-        id = "DISCLOSED_CONTRACT_INVALID",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-
-    final case class Reject(cid: Value.ContractId)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"Invalid disclosed contract: ${cid.coid}"
-        ) {
-      override def resources: Seq[(ErrorResource, String)] = Seq(
-        (ErrorResource.ContractId, cid.coid)
-      )
-    }
   }
 
   @Explanation(
@@ -198,59 +106,9 @@ object ConsistencyErrors extends ErrorGroup()(LedgerApiErrors.errorClass) {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
       ) {
 
-    final case class RejectWithContractKeyArg(
-        override val cause: String,
-        key: GlobalKey,
-    )(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = cause
-        ) {
-      override def resources: Seq[(ErrorResource, String)] =
-        CommandExecution.withEncodedValue(key.key) { encodedKey =>
-          Seq(
-            // TODO(i12763): Reconsider the transport format for the contract key.
-            //                   If the key is big, it can force chunking other resources.
-            (ErrorResource.TemplateId, key.templateId.toString),
-            (ErrorResource.ContractKey, encodedKey),
-          )
-        }
-    }
-
     final case class Reject(override val cause: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(cause = cause)
-
-  }
-
-  @Explanation(
-    "The ledger time of the submission violated some constraint on the ledger time."
-  )
-  @Resolution("Retry the transaction submission.")
-  object InvalidLedgerTime
-      extends ErrorCode(
-        id = "INVALID_LEDGER_TIME",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
-      ) {
-
-    final case class RejectEnriched(
-        override val cause: String,
-        ledgerTime: Instant,
-        ledgerTimeLowerBound: Instant,
-        ledgerTimeUpperBound: Instant,
-    )(implicit loggingContext: ContextualizedErrorLogger)
-        extends DamlErrorWithDefiniteAnswer(cause = cause) {
-      override def context: Map[String, String] = super.context ++ Map(
-        "ledger_time" -> ledgerTime.toString,
-        "ledger_time_lower_bound" -> ledgerTimeLowerBound.toString,
-        "ledger_time_upper_bound" -> ledgerTimeUpperBound.toString,
-      )
-    }
-
-    final case class RejectSimple(
-        override val cause: String
-    )(implicit loggingContext: ContextualizedErrorLogger)
-        extends DamlErrorWithDefiniteAnswer(cause = cause)
 
   }
 
