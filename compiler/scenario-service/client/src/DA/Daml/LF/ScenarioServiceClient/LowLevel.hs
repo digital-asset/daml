@@ -289,6 +289,7 @@ newCtx Handle{..} = do
       (SS.scenarioServiceNewContext hClient)
       (optGrpcTimeout hOptions)
       (SS.NewContextRequest
+         (TL.pack $ LF.renderMajorVersion $ LF.versionMajor $ optDamlLfVersion hOptions)
          (TL.pack $ LF.renderMinorVersion $ LF.versionMinor $ optDamlLfVersion hOptions)
          (optEvaluationTimeout hOptions)
       )

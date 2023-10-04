@@ -67,4 +67,10 @@ object LanguageMajorVersion {
 
   implicit val Ordering: scala.Ordering[LanguageMajorVersion] =
     scala.Ordering.by(All.zipWithIndex.toMap)
+
+  def fromString(str: String): Option[LanguageMajorVersion] = str match {
+    case "1" => Some(V1)
+    case "2" => Some(V2)
+    case _ => None
+  }
 }

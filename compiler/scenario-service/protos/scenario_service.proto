@@ -46,6 +46,7 @@ service ScenarioService {
 //
 
 message NewContextRequest {
+  string lf_major = 3;
   string lf_minor = 1;
   int64 evaluation_timeout = 2;
 }
