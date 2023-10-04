@@ -46,6 +46,7 @@ ENGINE_TEST_FILES = \
     [
         "BasicTests",
         "AuthTests",
+        "Demonstrator",
     ]
 
 [
