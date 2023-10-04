@@ -7,7 +7,7 @@ package engine
 import com.daml.lf.data.Ref
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.testing.parser
-import com.daml.lf.testing.parser.Implicits.{SyntaxHelper}
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -20,7 +20,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
     with Matchers
     with Inside {
 
-  val pkgId = parser.Implicits.defaultParserParameters.defaultPackageId
+  val pkgId = parser.defaultPackageId
 
   // TODO(#17366): use something like LanguageVersion.default(major) after the refactoring of
   //  LanguageVersion

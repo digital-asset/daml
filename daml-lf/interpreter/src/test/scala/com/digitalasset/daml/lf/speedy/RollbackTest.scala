@@ -8,9 +8,11 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.Ast.Expr
 import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.transaction.SubmittedTransaction
@@ -19,11 +21,17 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-class RollbackTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
+class RollbackTestV1 extends RollbackTest(LanguageMajorVersion.V1)
+class RollbackTestV2 extends RollbackTest(LanguageMajorVersion.V2)
+
+class RollbackTest(majorLanguageVersion: LanguageMajorVersion) extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
   import RollbackTest._
+
+  private[this] implicit val defaultParserParameters: ParserParameters[RollbackTest.this.type] =
+    ParserParameters.defaultFor(majorLanguageVersion)
 
   private[this] val transactionSeed = crypto.Hash.hashPrivateKey("RollbackTest.scala")
 
@@ -38,7 +46,7 @@ class RollbackTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       .fold(e => fail(Pretty.prettyError(e).render(80)), identity)
   }
 
-  for (evaluationOrder <- EvaluationOrder.values) {
+  for (evaluationOrder <- EvaluationOrder.valuesFor(majorLanguageVersion)) {
 
     evaluationOrder.toString - {
 

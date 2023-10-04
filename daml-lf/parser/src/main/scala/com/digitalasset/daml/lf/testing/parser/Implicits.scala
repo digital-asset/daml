@@ -6,13 +6,12 @@ package parser
 
 import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.language.Ast.{Expr, Kind, Module, Package, Type}
+import com.daml.lf.language.LanguageMajorVersion
 
 object Implicits {
 
-  implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
-    defaultPackageId,
-    defaultLanguageVersion,
-  )
+  implicit val defaultParserParameters: ParserParameters[this.type] =
+    ParserParameters.defaultFor(LanguageMajorVersion.V1)
 
   implicit class SyntaxHelper(val sc: StringContext) extends AnyVal {
     def k(args: Any*): Kind = interpolate(KindParser.kind)(args)

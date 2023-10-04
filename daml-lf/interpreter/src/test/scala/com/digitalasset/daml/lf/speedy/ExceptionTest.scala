@@ -9,14 +9,15 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, StablePackages}
-import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
+import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SParty, SUnit}
 import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.daml.lf.testing.parser
-import com.daml.lf.testing.parser.Implicits.{SyntaxHelper}
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.value.Value.{ValueRecord, ValueText}
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
@@ -36,16 +37,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
   import parser.defaultPackageId
   import SpeedyTestLib.loggingContext
 
-  implicit val defaultParserParameters: parser.ParserParameters[this.type] =
-    parser.ParserParameters(
-      parser.defaultPackageId,
-      // TODO(#17366): use something like LanguageVersion.default(major) after the refactoring of
-      //  LanguageVersion
-      majorLanguageVersion match {
-        case LanguageMajorVersion.V1 => LanguageVersion.default
-        case LanguageMajorVersion.V2 => LanguageVersion.v2_dev
-      },
-    )
+  implicit val defaultParserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Party): SExpr = {
     val se = pkgs.compiler.unsafeCompile(e)
@@ -60,18 +53,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, Set(party)).run()
   }
 
-  // We can't test RightToLeft evaluation order with V1 because it only works in dev and V1 tests
-  // will build packages for versions 1.14 and 1.15. It works by accident in V2 at the moment
-  // because there's only one V2 version: 2.dev. Eventually, right-to-left evaluation will not be
-  // dev-only but instead 2.x-only, for all V2 versions. Once we've done this refactoring we can
-  // remove explicit evaluation orders from the tests.
-  // TODO(#17366): make RightToLeft a v2.x feature and remove evaluation order flags everywhere
-  val evaluationOrders = majorLanguageVersion match {
-    case LanguageMajorVersion.V1 => List(LeftToRight)
-    case LanguageMajorVersion.V2 => List(LeftToRight, RightToLeft)
-  }
-
-  for (evaluationOrder <- evaluationOrders) {
+  for (evaluationOrder <- EvaluationOrder.valuesFor(majorLanguageVersion)) {
 
     evaluationOrder.toString - {
 

@@ -8,10 +8,11 @@ import com.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateTransactio
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data._
 import com.daml.lf.language.Ast.{TNat, TTyCon, Type}
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.language.{LanguageMajorVersion}
 import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder, TreeTransactionBuilder}
 import com.daml.lf.transaction.{CommittedTransaction, NodeId, TransactionVersion}
 import com.daml.lf.value.Value
@@ -33,16 +34,8 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
   private[this] implicit val defaultPackageId: Ref.PackageId =
     parser.defaultPackageId
 
-  implicit val parserParameters: parser.ParserParameters[this.type] =
-    parser.ParserParameters(
-      defaultPackageId,
-      // TODO(#17366): use something like LanguageVersion.default(major) after the refactoring of
-      //  LanguageVersion
-      majorLanguageVersion match {
-        case LanguageMajorVersion.V1 => LanguageVersion.default
-        case LanguageMajorVersion.V2 => LanguageVersion.v2_dev
-      },
-    )
+  implicit val defaultParserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   private def cid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
 

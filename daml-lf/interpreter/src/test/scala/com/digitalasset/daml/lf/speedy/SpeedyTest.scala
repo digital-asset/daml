@@ -18,7 +18,9 @@ import org.scalatest.matchers.should.Matchers
 import defaultParserParameters.{defaultPackageId => pkgId}
 import SpeedyTestLib.loggingContext
 import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.Speedy.ContractInfo
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.ContextualizedLogger
@@ -27,11 +29,20 @@ import org.scalatest.freespec.AnyFreeSpec
 
 import scala.util.{Failure, Success, Try}
 
-class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
+class SpeedyTestV1 extends SpeedyTest(LanguageMajorVersion.V1)
+class SpeedyTestV2 extends SpeedyTest(LanguageMajorVersion.V2)
+
+class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with Inside {
 
   import SpeedyTest._
 
-  for (evaluationOrder <- EvaluationOrder.values) {
+  implicit val defaultParserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+
+  for (evaluationOrder <- EvaluationOrder.valuesFor(majorLanguageVersion)) {
 
     evaluationOrder.toString - {
 
@@ -543,6 +554,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
       "checkContractVisibility" - {
 
         "warn about non-visible local contracts" in new VisibilityChecking(
+          majorLanguageVersion,
           evaluationOrder
         ) {
           machine.checkContractVisibility(localContractId, localContractInfo)
@@ -551,6 +563,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         "accept non-visible disclosed contracts" in new VisibilityChecking(
+          majorLanguageVersion,
           evaluationOrder
         ) {
           machine.checkContractVisibility(disclosedContractId, disclosedContractInfo)
@@ -559,6 +572,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         "warn about non-visible global contracts" in new VisibilityChecking(
+          majorLanguageVersion,
           evaluationOrder
         ) {
           machine.checkContractVisibility(globalContractId, globalContractInfo)
@@ -572,6 +586,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
           (contractId: ContractId) => Speedy.Control.Value(SContractId(contractId))
 
         "accept non-visible local contract keys" in new VisibilityChecking(
+          majorLanguageVersion,
           evaluationOrder
         ) {
           val result = Try {
@@ -589,6 +604,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         "accept non-visible disclosed contract keys" in new VisibilityChecking(
+          majorLanguageVersion,
           evaluationOrder
         ) {
           val result = Try {
@@ -606,6 +622,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         "reject non-visible global contract keys" in new VisibilityChecking(
+          majorLanguageVersion,
           evaluationOrder
         ) {
           val result = Try {
@@ -695,8 +712,8 @@ object SpeedyTest {
     case _ => false
   }
 
-  abstract class VisibilityChecking(evaluationOrder: EvaluationOrder) {
-    val explicitDisclosureLib = new ExplicitDisclosureLib(evaluationOrder)
+  abstract class VisibilityChecking(majorLanguageVersion: LanguageMajorVersion, evaluationOrder: EvaluationOrder) {
+    val explicitDisclosureLib = new ExplicitDisclosureLib(majorLanguageVersion, evaluationOrder)
     import explicitDisclosureLib._
     import SpeedyTestLib.Implicits._
 
