@@ -7,7 +7,8 @@ import akka.http.scaladsl.model.Uri
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.dbutils.JdbcConfig
 import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, JwtVerifierBase, RSA256Verifier}
-import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
+import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.platform.services.time.TimeProviderType
 import io.netty.handler.ssl.ClientAuth
 import pureconfig.error.{CannotConvert, ConvertFailure, FailureReason}
@@ -31,6 +32,7 @@ final case class HttpsConfig(
     certChainFile: File,
     privateKeyFile: File,
     trustCollectionFile: Option[File] = None,
+    minimumServerProtocolVersion: Option[TlsVersion] = None,
 ) {
   def tlsConfiguration: TlsConfiguration =
     TlsConfiguration(
@@ -125,6 +127,16 @@ object SharedConfigReaders {
         case "static" => Right(TimeProviderType.Static)
         case "wall-clock" => Right(TimeProviderType.WallClock)
         case _ => Left("not one of 'static' or 'wall-clock'")
+      }
+    })
+  }
+
+  implicit val tlsVersionCfgReader: ConfigReader[TlsVersion] = {
+    val fromString: Map[String, TlsVersion] = TlsVersion.allVersions.map(v => (v.toString, v)).toMap
+    ConfigReader.fromString[TlsVersion](catchConvertError { s =>
+      fromString.get(s) match {
+        case Some(v) => Right(v)
+        case None => Left("not one of {" + fromString.keys.mkString(", ") + "}")
       }
     })
   }

@@ -514,6 +514,7 @@ alias(
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/metrics",
+            "//ledger-service/pureconfig-utils",
             "//ledger-service/utils",
             "//libs-scala/contextualized-logging",
             "//libs-scala/db-utils",

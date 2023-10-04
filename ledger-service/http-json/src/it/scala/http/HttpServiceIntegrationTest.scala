@@ -14,6 +14,7 @@ import dbbackend.JdbcConfig
 import json.JsonError
 import util.Logging.instanceUUIDLogCtx
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.tls.TlsVersion.{TlsVersion, V1_2, V1_3}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
 import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
@@ -71,7 +72,7 @@ abstract class HttpServiceIntegrationTest
     super.afterAll()
   }
 
-  private def httpsContextForSelfSignedCert = {
+  private def httpsContextForSelfSignedCert(tlsVersion: TlsVersion) = {
     import javax.net.ssl.{SSLContext, X509TrustManager}
     import java.security.cert.X509Certificate
     import akka.http.scaladsl.ConnectionContext
@@ -82,24 +83,39 @@ abstract class HttpServiceIntegrationTest
       override def getAcceptedIssuers = Array()
     }
 
-    val context = SSLContext.getInstance("TLS")
+    val context = SSLContext.getInstance(tlsVersion.toString)
     context.init(null, Array(Gullible), null)
 
     ConnectionContext.httpsClient(context)
   }
 
-  "should serve HTTPS requests" in withHttpService(useHttps = UseHttps.Https) { fixture =>
+  "should serve HTTPS requests" in withHttpService(useHttps = UseHttps.Https(c => c)) { fixture =>
     Http()
       .singleRequest(
         HttpRequest(
           method = HttpMethods.GET,
           uri = fixture.uri.withScheme("https").withPath(Uri.Path("/livez")),
         ),
-        httpsContextForSelfSignedCert,
+        httpsContextForSelfSignedCert(V1_3),
       )
       .flatMap {
         _.status shouldBe StatusCodes.OK
       }: Future[Assertion]
+  }
+
+  "should reject HTTPS requests with tls version 1.2 when configured to require >= 1.3" in withHttpService(
+    useHttps = UseHttps.Https(_.copy(minimumServerProtocolVersion = Some(V1_3)))
+  ) { fixture =>
+    recoverToSucceededIf[javax.net.ssl.SSLHandshakeException] {
+      Http()
+        .singleRequest(
+          HttpRequest(
+            method = HttpMethods.GET,
+            uri = fixture.uri.withScheme("https").withPath(Uri.Path("/livez")),
+          ),
+          httpsContextForSelfSignedCert(V1_2),
+        )
+    }
   }
 
   "query with invalid JSON query should return error" in withHttpService { fixture =>
