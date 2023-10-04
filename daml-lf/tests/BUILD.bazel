@@ -22,20 +22,27 @@ load(
     for major in LF_MAJOR_VERSIONS
 ]
 
-daml_compile(
-    name = "Interfaces",
-    srcs = ["Interfaces.daml"],
-    visibility = ["//daml-lf:__subpackages__"],
-)
+[
+    daml_compile(
+        name = "Interfaces-v{}".format(major),
+        srcs = ["Interfaces.daml"],
+        target = lf_version_latest.get(major),
+        visibility = ["//daml-lf:__subpackages__"],
+    )
+    for major in LF_MAJOR_VERSIONS
+]
 
-daml_build_test(
-    name = "InterfaceRetro",
-    dar_dict = {
-        "//daml-lf/tests:Interfaces.dar": "interfaces.dar",
-    },
-    project_dir = "interface-retro",
-    visibility = ["//daml-lf:__subpackages__"],
-)
+[
+    daml_build_test(
+        name = "InterfaceRetro-v{}".format(major),
+        dar_dict = {
+            "//daml-lf/tests:Interfaces-v{}.dar".format(major): "interfaces.dar",
+        },
+        project_dir = "interface-retro-v{}".format(major),
+        visibility = ["//daml-lf:__subpackages__"],
+    )
+    for major in LF_MAJOR_VERSIONS
+]
 
 [
     daml_compile(
