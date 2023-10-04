@@ -7,23 +7,50 @@ package speedy
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.interpretation.Error.FailedAuthorization
-import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
+import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.ledger.FailedAuthorization.{CreateMissingAuthorization, NoAuthorizers}
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr.SEApp
 import com.daml.lf.speedy.SValue.{SList, SParty}
+import com.daml.lf.testing.parser
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.SubmittedTransaction
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers._
 
-class ChoiceAuthorityTest extends AnyFreeSpec with Inside {
+class ChoiceAuthorityTestV1 extends ChoiceAuthorityTest(LanguageMajorVersion.V1)
+class ChoiceAuthorityTestV2 extends ChoiceAuthorityTest(LanguageMajorVersion.V2)
+
+class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion) extends AnyFreeSpec with Inside {
   import SpeedyTestLib.AuthRequest
 
   val transactionSeed = crypto.Hash.hashPrivateKey("ChoiceAuthorityTest.scala")
 
-  for (evaluationOrder <- EvaluationOrder.values) {
+  implicit val defaultParserParameters: parser.ParserParameters[this.type] =
+    parser.ParserParameters(
+      parser.defaultPackageId,
+      // TODO(#17366): use something like LanguageVersion.default(major) after the refactoring of
+      //  LanguageVersion
+      majorLanguageVersion match {
+        case LanguageMajorVersion.V1 => LanguageVersion.default
+        case LanguageMajorVersion.V2 => LanguageVersion.v2_dev
+      },
+    )
+
+  // We can't test RightToLeft evaluation order with V1 because it only works in dev and V1 tests
+  // will build packages for versions 1.14 and 1.15. It works by accident in V2 at the moment
+  // because there's only one V2 version: 2.dev. Eventually, right-to-left evaluation will not be
+  // dev-only but instead 2.x-only, for all V2 versions. Once we've done this refactoring we can
+  // remove explicit evaluation orders from the tests.
+  // TODO(#17366): make RightToLeft a v2.x feature and remove evaluation order flags everywhere
+  val evaluationOrders = majorLanguageVersion match {
+    case LanguageMajorVersion.V1 => List(LeftToRight)
+    case LanguageMajorVersion.V2 => List(LeftToRight, RightToLeft)
+  }
+
+  for (evaluationOrder <- evaluationOrders) {
 
     evaluationOrder.toString - {
 
