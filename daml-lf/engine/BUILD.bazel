@@ -155,4 +155,3 @@ da_scala_test(
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
-

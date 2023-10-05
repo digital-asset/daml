@@ -538,13 +538,10 @@ private[speedy] case class PartialTransaction(
       case ec: ExercisesContextInfo =>
         val exerciseNode = makeExNode(ec).copy(children = context.children.toImmArray)
         val nodeId = ec.nodeId
-        val actionNodeSeed = context.nextActionChildSeed
         copy(
           context =
             ec.parent.addActionChild(nodeId, exerciseNode.version min context.minChildVersion),
           nodes = nodes.updated(nodeId, exerciseNode),
-          actionNodeSeeds =
-            actionNodeSeeds :+ actionNodeSeed, // (NC) pushed by 'beginExercises'; why push again?
         )
       case _ =>
         InternalError.runtimeException(
