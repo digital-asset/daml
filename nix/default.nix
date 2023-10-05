@@ -1,6 +1,12 @@
 let
   system = builtins.currentSystem;
-  pkgs = import ./nixpkgs.nix { inherit system; };
+  src = import ./nixpkgs;
+  pkgs = import src {
+    inherit system;
+
+    config.allowUnfree = true;
+    config.allowBroken = true;
+  };
   selectBin = pkg:
     if pkg == null then
       null
