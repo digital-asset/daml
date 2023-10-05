@@ -67,11 +67,6 @@ class TreeMapBench {
     assert(TreeMap.fromOrderedEntries(smallEntries) == immutable.TreeMap.from(smallEntries))
     bigEntries = example1(n).toArray.sorted
     assert(TreeMap.fromOrderedEntries(bigEntries) == immutable.TreeMap.from(bigEntries))
-    remy.log(
-      n -> TreeMap.fromOrderedEntries(smallEntries).size -> TreeMap
-        .fromOrderedEntries(bigEntries)
-        .size
-    )
   }
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MICROSECONDS)
