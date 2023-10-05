@@ -107,7 +107,7 @@ buildDar ::
     -> PackageConfigFields
     -> NormalizedFilePath
     -> FromDalf
-    -> IO (Maybe (Zip.ZipArchive ()))
+    -> IO (Maybe (Zip.ZipArchive (), LF.PackageId))
 buildDar service PackageConfigFields {..} ifDir dalfInput = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
@@ -117,7 +117,10 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
             bytes <- BSL.readFile pSrc
             -- in the dalfInput case we interpret pSrc as the filepath pointing to the dalf.
             -- Note that the package id is obviously wrong but this feature is not something we expose to users.
-            pure $ Just $ createArchive pName pVersion pSdkVersion (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] []
+            pure $ Just
+              ( createArchive pName pVersion pSdkVersion (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] []
+              , LF.PackageId ""
+              )
         -- We need runActionSync here to ensure that diagnostics are printed to the terminal.
         -- Otherwise runAction can return before the diagnostics have been printed and we might die
         -- without ever seeing diagnostics.
@@ -169,16 +172,18 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                  let confFile = mkConfFile pName pVersion (Map.keys unstableDeps) pExposedModules pkgModuleNames pkgId
                  let dataFiles = [confFile]
                  srcRoot <- getSrcRoot pSrc
-                 pure $
-                     createArchive
-                         pName pVersion pSdkVersion
-                         pkgId
-                         dalf
-                         dalfDependencies
-                         srcRoot
-                         files
-                         dataFiles
-                         ifaces
+                 pure
+                   ( createArchive
+                       pName pVersion pSdkVersion
+                       pkgId
+                       dalf
+                       dalfDependencies
+                       srcRoot
+                       files
+                       dataFiles
+                       ifaces
+                   , pkgId
+                   )
 
 validateExposedModules :: Maybe [ModuleName] -> [ModuleName] -> MaybeT Action ()
 validateExposedModules mbExposedModules pkgModuleNames = do

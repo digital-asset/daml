@@ -11,6 +11,7 @@ module DA.Daml.Package.Config
     , parseProjectConfig
     , overrideSdkVersion
     , withPackageConfig
+    , findMultiPackageConfig
     , withMultiPackageConfig
     , checkPkgConfig
     ) where
@@ -34,8 +35,8 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Data.Yaml as Y
 import qualified Module as Ghc
-import System.Directory (canonicalizePath, listDirectory, withCurrentDirectory)
-import System.FilePath (takeDirectory)
+import System.Directory (canonicalizePath, doesFileExist, withCurrentDirectory)
+import System.FilePath (takeDirectory, (</>))
 import System.IO (hPutStrLn, stderr)
 import Text.Regex.TDFA
 
@@ -146,17 +147,17 @@ withPackageConfig projectPath f = do
     f pkgConfig'
 
 -- Traverses up the directory tree from current project path and returns the project path of the "nearest" project.yaml
--- Stops at root, errors on failure to find.
-findMultiPackageConfigProjectPath :: FilePath -> IO ProjectPath
-findMultiPackageConfigProjectPath filePath = flip loopM filePath $ \path -> do
-  hasMultiPackage <- elem multiPackageConfigName <$> listDirectory path
-  if hasMultiPackage
-    then pure $ Right $ ProjectPath path
-    else
-      let newPath = takeDirectory path
-       in if path == newPath
-            then throwIO (ConfigFileInvalid "multi-package" (Y.InvalidYaml (Just (Y.YamlException $ "Yaml file not found: " <> multiPackageConfigName))))
-            else pure $ Left newPath
+-- Stops at root, but also won't pick any files it doesn't have permission to search
+findMultiPackageConfig :: ProjectPath -> IO (Maybe ProjectPath)
+findMultiPackageConfig projectPath = do
+  filePath <- canonicalizePath $ unwrapProjectPath projectPath
+  flip loopM filePath $ \path -> do
+    hasMultiPackage <- doesFileExist $ path </> multiPackageConfigName
+    if hasMultiPackage
+      then pure $ Right $ Just $ ProjectPath path
+      else
+        let newPath = takeDirectory path
+        in pure $ if path == newPath then Right Nothing else Left newPath
 
 canonicalizeMultiPackageConfigIntermediate :: ProjectPath -> MultiPackageConfigFieldsIntermediate -> IO MultiPackageConfigFieldsIntermediate
 canonicalizeMultiPackageConfigIntermediate projectPath (MultiPackageConfigFieldsIntermediate (MultiPackageConfigFields packagePaths) multiPackagePaths) =
@@ -188,13 +189,8 @@ fullParseMultiPackageConfig = cyclelessIOFix loopShow $ \loop projectPath -> do
     loopShow = ("\n" <>) . unlines . fmap ((" - " <>) . unwrapProjectPath)
 
 -- Gives the filepath where the multipackage was found if its not the same as project path.
-withMultiPackageConfig :: ProjectPath -> ((MultiPackageConfigFields, Maybe FilePath) -> IO a) -> IO a
-withMultiPackageConfig projectPath f = do
-    canonProjectFilePath <- canonicalizePath $ unwrapProjectPath projectPath
-    multiPackageProjectPath <- findMultiPackageConfigProjectPath canonProjectFilePath
-    multiPackageConfig <- fullParseMultiPackageConfig multiPackageProjectPath
-    let mPath = if unwrapProjectPath multiPackageProjectPath == canonProjectFilePath then Nothing else Just $ unwrapProjectPath multiPackageProjectPath
-    f (multiPackageConfig, mPath)
+withMultiPackageConfig :: ProjectPath -> (MultiPackageConfigFields -> IO a) -> IO a
+withMultiPackageConfig projectPath f = fullParseMultiPackageConfig projectPath >>= f
 
 -- | Orphans because I’m too lazy to newtype everything.
 instance A.FromJSON Ghc.ModuleName where
