@@ -249,6 +249,3 @@ fi
 echo "export NIX_PATH=nixpkgs=\"${DADE_NIXPKGS}\""
 echo "export PATH=\"${DADE_DEVENV_DIR}/bin:\$PATH\""
 echo "export PYTHONPATH=\".\${PYTHONPATH:+:\$PYTHONPATH}\""
-echo "export DADE_REPO_ROOT=${DADE_REPO_ROOT}"
-echo "export DADE_VAR_DIR=${DADE_VAR_DIR}"
-echo "export DADE_DEVENV_DIR=${DADE_DEVENV_DIR}"
