@@ -210,7 +210,6 @@ export DADE_REPO_ROOT="${DADE_REPO_ROOT:-${DADE_DEVENV_DIR}/..}"
 # If used from another repository, DADE_VAR_DIR should already point to a
 # mutable `var/` directory to store gc-roots.
 DADE_VAR_DIR="${DADE_VAR_DIR:-$DADE_DEVENV_DIR/var}"
-DADE_NIXPKGS="${DADE_VAR_DIR}/gc-roots/nixpkgs-snapshot"
 
 # Expose our tools in /dev-env/bin and our version of nixpkgs
 semver="$(nix_tool semver bin/semver)"
