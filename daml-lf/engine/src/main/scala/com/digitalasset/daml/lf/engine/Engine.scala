@@ -385,9 +385,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           handleError(err)
       }
 
-    // for use in non tail contexts
-    def loopOuter: Result[(SubmittedTransaction, Tx.Metadata)] = loop
-
     @scala.annotation.tailrec
     def loop: Result[(SubmittedTransaction, Tx.Metadata)] = {
       machine.run() match {
@@ -401,7 +398,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 { granted: Boolean =>
                   if (granted) {
                     callback()
-                    loopOuter
+                    interpretLoop(machine, time)
                   } else {
                     ResultError(
                       Error.Interpretation.DamlException(
@@ -430,7 +427,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 { pkg: Package =>
                   compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
                     callback(compiledPackages)
-                    loopOuter
+                    interpretLoop(machine, time)
                   }
                 },
               )
@@ -440,7 +437,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 coid,
                 { coinst =>
                   callback(coinst.unversioned)
-                  loopOuter
+                  interpretLoop(machine, time)
                 },
               )
 
@@ -459,7 +456,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 {
                   case None =>
                     callback()
-                    loopOuter
+                    interpretLoop(machine, time)
                   case Some(mes) =>
                     // TODO: https://github.com/digital-asset/daml/issues/17082
                     // - we need a new interpretation.Error for this
@@ -478,13 +475,13 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 gk,
                 { coid: Option[ContractId] =>
                   discard[Boolean](callback(coid))
-                  loopOuter
+                  interpretLoop(machine, time)
                 },
               )
           }
 
         case SResultInterruption =>
-          ResultInterruption(() => loopOuter)
+          ResultInterruption(() => interpretLoop(machine, time))
 
         case _: SResultFinal =>
           finish
