@@ -33,9 +33,6 @@ export DADE_VAR_DIR="${DADE_VAR_DIR:-$DADE_DEVENV_DIR/var}"
 # DADE_GC_ROOTS_ROOT is used by the CI builds on shared nfs
 DADE_GC_ROOTS="${DADE_GC_ROOTS_ROOT:-}${DADE_VAR_DIR}/gc-roots"
 
-# Make sure that Nix is available
-source "${DADE_CURRENT_SCRIPT_DIR}/../lib/ensure-nix"
-
 # Compute expected dade base hash
 dadeBaseHash() {
     nix-hash "$DADE_DEVENV_DIR/../nix"
@@ -215,14 +212,8 @@ export DADE_REPO_ROOT="${DADE_REPO_ROOT:-${DADE_DEVENV_DIR}/..}"
 DADE_VAR_DIR="${DADE_VAR_DIR:-$DADE_DEVENV_DIR/var}"
 DADE_NIXPKGS="${DADE_VAR_DIR}/gc-roots/nixpkgs-snapshot"
 
-# shellcheck source=./ensure-nix
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/ensure-nix"
-
 # In a sub-shell, source in the nix-profile and preload nixpkgs-snapshot.
 (
-  # shellcheck source=./ensure-nix
-  source "$(dirname "${BASH_SOURCE[0]}")/../lib/ensure-nix"
-
   : "${DADE_DESIRED_NIX_VERSION:=2 1 3}"
   check_nix_version $DADE_DESIRED_NIX_VERSION
 
@@ -246,9 +237,6 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib/ensure-nix"
     errcho "Done loading the nixpkgs snapshot to $outpath"
   fi
 )
-
-# Make sure nix gets ensured in main shell
-echo "source $(dirname "${BASH_SOURCE[0]}")/../lib/ensure-nix"
 
 # Expose our tools in /dev-env/bin and our version of nixpkgs
 semver="$(nix_tool semver bin/semver)"
