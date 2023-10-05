@@ -344,11 +344,21 @@ private[lf] object Speedy {
         }
         .to(ImmArray)
 
+    @throws[IllegalArgumentException]
+    private[this] def zipSameLength[X, Y](xs: ImmArray[X], ys: ImmArray[Y]): ImmArray[(X, Y)] = {
+      val n1 = xs.length
+      val n2 = ys.length
+      if (n1 != n2) {
+        throw new IllegalArgumentException(s"sameLengthZip, $n1 /= $n2")
+      }
+      xs.zip(ys)
+    }
+
     def finish: Either[SErrorCrash, UpdateMachine.Result] = ptx.finish.map { case (tx, seeds) =>
       UpdateMachine.Result(
         tx,
         ptx.locationInfo(),
-        seeds zip ptx.actionNodeSeeds.toImmArray,
+        zipSameLength(seeds, ptx.actionNodeSeeds.toImmArray),
         ptx.contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
         disclosedCreateEvents,
       )

@@ -1,10 +1,6 @@
 # Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-################################################################################
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
@@ -40,7 +36,6 @@ da_scala_library(
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
-
 
 ENGINE_TEST_FILES = \
     [
@@ -78,9 +73,9 @@ da_scala_test_suite(
         "//daml-lf/tests:MultiKeys.dar",
         "//daml-lf/tests:Optional.dar",
         "//daml-lf/tests:ReinterpretTests.dar",
-         ] + [
-                ":%s.dar" % name
-                for name in ENGINE_TEST_FILES
+    ] + [
+        ":%s.dar" % name
+        for name in ENGINE_TEST_FILES
     ],
     scala_deps = [
         "@maven//:com_storm_enroute_scalameter_core",
@@ -182,4 +177,3 @@ da_scala_test(
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
-

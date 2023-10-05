@@ -1,9 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 
-//import com.daml.bazeltools.BazelRunfiles
+import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.{Ref, ImmArray, Time}
 import com.daml.lf.engine.Engine
@@ -22,8 +22,7 @@ class NodeSeedsTest extends AnyWordSpec with Matchers {
 
   val (mainPkgId, packages) = {
     val packages = UniversalArchiveDecoder.assertReadFile(
-      //     new File(BazelRunfiles.rlocation("daml-lf/engine/Demonstrator.dar"))
-      new File("/tmp/Demonstrator.dar")
+      new File(BazelRunfiles.rlocation("daml-lf/engine/Demonstrator.dar"))
     )
     (packages.main._1, packages.all.toMap)
   }
@@ -99,7 +98,7 @@ class NodeSeedsTest extends AnyWordSpec with Matchers {
       rollbackBegin = { case ((collecting, creates), nodeId, _) =>
         ((collecting || nodeId == rootId, creates), ChildrenRecursion.DoRecurse)
       },
-      authorityBegin = { case _ => ???},
+      authorityBegin = { case _ => ??? },
       leaf = {
         case ((collecting, creates), nodeId, create: Node.Create)
             if collecting || nodeId == rootId =>
@@ -112,7 +111,7 @@ class NodeSeedsTest extends AnyWordSpec with Matchers {
       rollbackEnd = { case ((collecting, creates), nodeId, _) =>
         (collecting && rootId != nodeId, creates)
       },
-      authorityEnd = { case _ => ???},
+      authorityEnd = { case _ => ??? },
     )._2
 
   def replay(nodeId: NodeId) = {
