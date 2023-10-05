@@ -248,4 +248,3 @@ else
 fi
 echo "export NIX_PATH=nixpkgs=\"${DADE_NIXPKGS}\""
 echo "export PATH=\"${DADE_DEVENV_DIR}/bin:\$PATH\""
-echo "export PYTHONPATH=\".\${PYTHONPATH:+:\$PYTHONPATH}\""
