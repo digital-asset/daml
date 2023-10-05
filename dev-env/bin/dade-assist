@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
-nix-build ./nix/default.nix -A "tools.semver"
+nix-build ./nix/default.nix -A "semver"
 echo "export NIX_USER_CONF_FILES=\"$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )/../etc/nix.conf:\${NIX_USER_CONF_FILES:-}:\${XDG_CONFIG_HOME:-\${HOME}/.config}/nix/nix.conf\""
