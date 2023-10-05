@@ -4,6 +4,8 @@
 package com.daml.lf
 package language
 
+import org.slf4j.LoggerFactory
+
 import scala.annotation.nowarn
 
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
@@ -109,14 +111,19 @@ object LanguageVersion {
   def AllVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] = {
     majorLanguageVersion match {
       case Major.V1 => EarlyAccessVersions.copy(max = v1_dev)
-      case Major.V2 => VersionRange(v2_dev, v2_dev)
+      case Major.V2 =>
+        //TODO(#17366): change for 2.0-2.dev once 2.0 is introduced
+        VersionRange(v2_dev, v2_dev)
     }
   }
 
-  // To preserve compatibility with Canton which uses `DevVersions.max`.
-  // TODO(#17366): deprecate
+  // To temporarily preserve compatibility with Canton which creates an engine
+  // for the range (1.14, DevVersions.max) when running in dev mode and doesn't
+  // distinguish between LF1 and LF2. Usage in the daml repository is forbidden.
+  // TODO(#17366): delete and get Canton to use AllVersions.
+  @deprecated("use LanguageVersion.AllVersions", since = "2.8.0")
   def DevVersions: VersionRange[LanguageVersion] =
-    AllVersions(Major.V1)
+    VersionRange(v1_dev, v2_dev)
 
   // This refers to the default output LF version in the compiler
   val default: LanguageVersion = v1_14
@@ -124,10 +131,15 @@ object LanguageVersion {
 
 /** Operations on [[VersionRange]] that only make sense for ranges of [[LanguageVersion]]. */
 object LanguageVersionRangeOps {
+  private[this] val logger = LoggerFactory.getLogger(this.getClass)
+
   implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
     def majorVersion: LanguageMajorVersion = {
-      require(range.min.major == range.max.major)
-      range.min.major
+      // TODO(#17366): turn this into a precondition once Canton stops using DevVersions.
+      if(range.min.major != range.max.major) {
+        logger.warn(s"version range ${range} spans over multiple version LF versions")
+      }
+      range.max.major
     }
   }
 }
