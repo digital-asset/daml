@@ -11,9 +11,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 class TlsITV1 extends TlsIT(LanguageMajorVersion.V1)
-// TODO(#17366): Uncomment once we can ask Canton to use a particular dev version. For now it
-//   defaults to 1.dev.
-//class TlsITV2 extends TlsIT(LanguageMajorVersion.V2)
+class TlsITV2 extends TlsIT(LanguageMajorVersion.V2)
 
 class TlsIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec
@@ -22,6 +20,9 @@ class TlsIT(override val majorLanguageVersion: LanguageMajorVersion)
 
   final override protected lazy val tlsEnable = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
+
+  // TODO(#17366): Delete once 2.0 is introduced and Canton supports LF v2 in non-dev mode.
+  final override protected lazy val devMode = (majorLanguageVersion == LanguageMajorVersion.V2)
 
   "Daml Script against ledger with TLS" can {
     "test0" should {

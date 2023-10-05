@@ -9,20 +9,18 @@ import com.daml.integrationtest.CantonConfig
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.language.LanguageMajorVersion.{V1}
+import com.daml.lf.language.LanguageMajorVersion.{V1, V2}
 import com.daml.lf.speedy.SValue._
 
 import java.nio.file.Paths
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.{AsyncWordSpec}
+import org.scalatest.wordspec.AsyncWordSpec
 
 // TODO(#17366): Once daml3-script diverges from script, V1DevIT and V2DevIT may not be able to
 //     share the same code anymore.
 class DevITV1 extends DevIT(V1)
-// TODO(#17366): Uncomment once we can ask Canton to use a particular dev version. For now it
-//   defaults to 1.dev.
-//class DevITV2 extends DevIT(V2)
+class DevITV2 extends DevIT(V2)
 
 class DevIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec

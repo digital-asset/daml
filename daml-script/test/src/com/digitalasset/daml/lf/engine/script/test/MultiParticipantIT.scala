@@ -14,9 +14,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 class MultiParticipantITV1 extends MultiParticipantIT(LanguageMajorVersion.V1)
-// TODO(#17366): Uncomment once we can ask Canton to use a particular dev version. For now it
-//   defaults to 1.dev.
-//class MultiParticipantITV2 extends MultiParticipantIT(LanguageMajorVersion.V2)
+class MultiParticipantITV2 extends MultiParticipantIT(LanguageMajorVersion.V2)
 
 class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec
@@ -26,6 +24,9 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
 
   final override protected lazy val nParticipants = 2
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
+
+  // TODO(#17366): Delete once 2.0 is introduced and Canton supports LF v2 in non-dev mode.
+  final override protected lazy val devMode = (majorLanguageVersion == LanguageMajorVersion.V2)
 
   "Multi-participant Daml Script" can {
     "multiTest" should {

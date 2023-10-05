@@ -17,9 +17,7 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 class AuthITV1 extends AuthIT(LanguageMajorVersion.V1)
-// TODO(#17366): Uncomment once we can ask Canton to use a particular dev version. For now it
-//   defaults to 1.dev.
-//class AuthITV2 extends AuthIT(LanguageMajorVersion.V2)
+class AuthITV2 extends AuthIT(LanguageMajorVersion.V2)
 
 class AuthIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec
@@ -28,6 +26,9 @@ class AuthIT(override val majorLanguageVersion: LanguageMajorVersion)
 
   final override protected lazy val authSecret = Some("secret")
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
+
+  // TODO(#17366): Delete once 2.0 is introduced and Canton supports LF v2 in non-dev mode.
+  final override protected lazy val devMode = (majorLanguageVersion == LanguageMajorVersion.V2)
 
   "Daml Script against authorized ledger" can {
     "auth" should {
