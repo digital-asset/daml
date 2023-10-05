@@ -252,24 +252,3 @@ echo "export PYTHONPATH=\".\${PYTHONPATH:+:\$PYTHONPATH}\""
 echo "export DADE_REPO_ROOT=${DADE_REPO_ROOT}"
 echo "export DADE_VAR_DIR=${DADE_VAR_DIR}"
 echo "export DADE_DEVENV_DIR=${DADE_DEVENV_DIR}"
-
-# Make sure the locale is UTF-8 capable. Setting LOCALE_ARCHIVE is
-# necessary on Ubuntu (but not on CentOS) to make the Nix glibc find
-# the en_US.UTF-8 locale (DEL-2851).
-if [[ $(uname -v) =~ 'Ubuntu' ]]; then
-    # If the user has no channels configured, then NIX_PATH might point
-    # to non-existing location. Add a backup snapshot to use as fallback
-    # for the bootstrapping.
-    TMP_NIX_PATH=nixpkgs=${DADE_NIXPKGS}
-
-    # since we need to set LC_ALL=C to prevent any messages about missing locale
-    # until we fetch the locale, we start in a separate shell
-    (
-        export LC_ALL=C
-        unset NIX_PATH
-        out=$(nix-build --no-out-link -Q "${DADE_DEVENV_DIR}/../nix" -I "${TMP_NIX_PATH}" -A pkgs.glibcLocales)
-        echo "export LOCALE_ARCHIVE=\"${out}/lib/locale/locale-archive\""
-    )
-fi
-echo "export LC_ALL=en_US.UTF-8"
-echo "export LANG=en_US.UTF-8"
