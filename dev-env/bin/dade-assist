@@ -207,10 +207,6 @@ fi
 export DADE_DEVENV_DIR="${DADE_DEVENV_DIR}"
 export DADE_REPO_ROOT="${DADE_REPO_ROOT:-${DADE_DEVENV_DIR}/..}"
 
-# If used from another repository, DADE_VAR_DIR should already point to a
-# mutable `var/` directory to store gc-roots.
-DADE_VAR_DIR="${DADE_VAR_DIR:-$DADE_DEVENV_DIR/var}"
-
 # Expose our tools in /dev-env/bin and our version of nixpkgs
 semver="$(nix_tool semver bin/semver)"
 if [[ "$("$semver" compare "$(get_nix_version)" '2.4.0')" -ge 0 ]]; then
