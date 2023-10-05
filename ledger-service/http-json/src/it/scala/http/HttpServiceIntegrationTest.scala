@@ -72,9 +72,10 @@ abstract class HttpServiceIntegrationTest
   }
 
   private def httpsContextForSelfSignedCert = {
-    import javax.net.ssl.{SSLContext, X509TrustManager}
-    import java.security.cert.X509Certificate
     import akka.http.scaladsl.ConnectionContext
+    import java.security.SecureRandom
+    import java.security.cert.X509Certificate
+    import javax.net.ssl.{SSLContext, X509TrustManager}
 
     object Gullible extends X509TrustManager {
       override def checkClientTrusted(chain: Array[X509Certificate], authType: String) = ()
@@ -83,7 +84,7 @@ abstract class HttpServiceIntegrationTest
     }
 
     val context = SSLContext.getInstance("TLSv1.2")
-    context.init(null, Array(Gullible), null)
+    context.init(Array(), Array(Gullible), new SecureRandom())
 
     ConnectionContext.httpsClient(context)
   }
