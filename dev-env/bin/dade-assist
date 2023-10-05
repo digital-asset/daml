@@ -17,9 +17,4 @@ nix_tool() {
 
 # Expose our tools in /dev-env/bin and our version of nixpkgs
 semver="$(nix_tool semver bin/semver)"
-if [[ "$("$semver" compare "$(get_nix_version)" '2.4.0')" -ge 0 ]]; then
-    echo "export NIX_USER_CONF_FILES=\"$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )/../etc/nix.conf:\${NIX_USER_CONF_FILES:-}:\${XDG_CONFIG_HOME:-\${HOME}/.config}/nix/nix.conf\""
-else
-  # On an old version of Nix, overwrite the system config, as we can't support multiple config files.
-  echo "export NIX_CONF_DIR=\"$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )/../etc\""
-fi
+echo "export NIX_USER_CONF_FILES=\"$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )/../etc/nix.conf:\${NIX_USER_CONF_FILES:-}:\${XDG_CONFIG_HOME:-\${HOME}/.config}/nix/nix.conf\""
