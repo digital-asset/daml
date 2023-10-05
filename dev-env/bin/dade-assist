@@ -212,32 +212,6 @@ export DADE_REPO_ROOT="${DADE_REPO_ROOT:-${DADE_DEVENV_DIR}/..}"
 DADE_VAR_DIR="${DADE_VAR_DIR:-$DADE_DEVENV_DIR/var}"
 DADE_NIXPKGS="${DADE_VAR_DIR}/gc-roots/nixpkgs-snapshot"
 
-# In a sub-shell, source in the nix-profile and preload nixpkgs-snapshot.
-(
-  : "${DADE_DESIRED_NIX_VERSION:=2 1 3}"
-  check_nix_version $DADE_DESIRED_NIX_VERSION
-
-  # If the user has no channels configured, then NIX_PATH might point
-  # to non-existing location. Add a backup snapshot to use as fallback
-  # for the bootstrapping.
-  export NIX_PATH=${NIX_PATH:+$NIX_PATH:}nixpkgs=https://github.com/NixOS/nixpkgs-channels/archive/nixos-18.03.tar.gz
-
-  # Load nixpkgs-snapshot.
-  hashfile="${DADE_NIXPKGS}.hash"
-  currentHash="$(nix-hash "$DADE_DEVENV_DIR/../nix/nixpkgs.nix")"
-  test -e "$hashfile" && hash="$(cat "$hashfile")"
-  if [[ ! -e "$DADE_NIXPKGS" || "$hash" != "$currentHash" ]]; then
-    errcho "Loading outdated or missing nixpkgs snapshot..."
-    outpath="$(
-      nix-store -Q --realise --indirect --add-root "$DADE_NIXPKGS" \
-        "$(nix-instantiate -Q --eval "${DADE_DEVENV_DIR}/../nix/nixpkgs.nix" -A path \
-          | sed 's/^\"//;s/\"$//')"
-    )"
-    printf "$currentHash" >| "$hashfile"
-    errcho "Done loading the nixpkgs snapshot to $outpath"
-  fi
-)
-
 # Expose our tools in /dev-env/bin and our version of nixpkgs
 semver="$(nix_tool semver bin/semver)"
 if [[ "$("$semver" compare "$(get_nix_version)" '2.4.0')" -ge 0 ]]; then
