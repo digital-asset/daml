@@ -112,7 +112,7 @@ object LanguageVersion {
     majorLanguageVersion match {
       case Major.V1 => EarlyAccessVersions.copy(max = v1_dev)
       case Major.V2 =>
-        //TODO(#17366): change for 2.0-2.dev once 2.0 is introduced
+        // TODO(#17366): change for 2.0-2.dev once 2.0 is introduced
         VersionRange(v2_dev, v2_dev)
     }
   }
@@ -136,7 +136,7 @@ object LanguageVersionRangeOps {
   implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
     def majorVersion: LanguageMajorVersion = {
       // TODO(#17366): turn this into a precondition once Canton stops using DevVersions.
-      if(range.min.major != range.max.major) {
+      if (range.min.major != range.max.major) {
         logger.warn(s"version range ${range} spans over multiple version LF versions")
       }
       range.max.major

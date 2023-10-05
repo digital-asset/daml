@@ -10,7 +10,7 @@ import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue.SRecord
 
 class FuncStaticTimeITV1 extends FuncStaticTimeIT(LanguageMajorVersion.V1)
-class FuncStaticTimeITV2 extends  FuncStaticTimeIT(LanguageMajorVersion.V2)
+class FuncStaticTimeITV2 extends FuncStaticTimeIT(LanguageMajorVersion.V2)
 
 class FuncStaticTimeIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AbstractFuncIT {
