@@ -1,16 +1,5 @@
 #!/usr/bin/env bash
 
-get_nix_version() {
-  local current
-  current="$(nix-env --version)"
-  if [[ "$current" =~ ([0-9])[.]([0-9]+)([.]([0-9]+))?$ ]]; then
-    echo "${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[4]:-0}"
-  else
-    echo "WARNING: Unexpected output of 'nix-env --version' ($current), dev-env might not work properly."
-    return 1
-  fi
-}
-
 nix_tool() {
   echo "$(nix-build ./nix/default.nix -A "tools.$1" -Q --no-out-link)/$2"
 }
