@@ -1,8 +1,6 @@
-{ system ? import ./system.nix
-, pkgs ? import ./nixpkgs.nix { inherit system; }
-}:
-
 let
+  system = builtins.currentSystem;
+  pkgs = import ./nixpkgs.nix { inherit system; };
   selectBin = pkg:
     if pkg == null then
       null
@@ -12,7 +10,6 @@ let
       builtins.getAttr (builtins.elemAt pkg.outputs 0) pkg
     else
       pkg;
-
 in rec {
   inherit pkgs;
 
