@@ -18,4 +18,6 @@ package object data {
 
   type Relation[A, B] = Map[A, Set[B]]
 
+  def hey: String = "Hey"
+
 }
