@@ -247,4 +247,3 @@ else
   echo "export NIX_CONF_DIR=\"${DADE_DEVENV_DIR}/etc\""
 fi
 echo "export NIX_PATH=nixpkgs=\"${DADE_NIXPKGS}\""
-echo "export PATH=\"${DADE_DEVENV_DIR}/bin:\$PATH\""
