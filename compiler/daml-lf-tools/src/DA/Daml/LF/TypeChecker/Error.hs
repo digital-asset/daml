@@ -8,6 +8,7 @@ module DA.Daml.LF.TypeChecker.Error(
     InterfacePart(..),
     UnserializabilityReason(..),
     SerializabilityRequirement(..),
+    UpgradedRecordOrigin(..),
     errorLocation,
     toDiagnostic,
     ) where
@@ -161,12 +162,20 @@ data Error
   | EMissingMethodInInterfaceInstance !MethodName
   | EUnknownMethodInInterfaceInstance { eumiiIface :: !(Qualified TypeConName), eumiiTpl :: !(Qualified TypeConName), eumiiMethodName :: !MethodName }
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
-  | EUpgradeMissing
+  | EUpgradeMissingModule !ModuleName
+  | EUpgradeMissingTemplate !TypeConName
+  | EUpgradeMissingChoice !ChoiceName
+  | EUpgradeMissingDataCon !TypeConName
   | EUpgradeMismatchDataConsVariety !TypeConName
-  | EUpgradeRecordFieldsMissing
-  | EUpgradeRecordFieldsExistingChanged
-  | EUpgradeRecordFieldsNewNonOptional
+  | EUpgradeRecordFieldsMissing !UpgradedRecordOrigin
+  | EUpgradeRecordFieldsExistingChanged !UpgradedRecordOrigin
+  | EUpgradeRecordFieldsNewNonOptional !UpgradedRecordOrigin
   | EUnknownExperimental !T.Text !Type
+
+data UpgradedRecordOrigin
+  = TemplateBody TypeConName
+  | TemplateChoiceInput ChoiceName TypeConName
+  | TemplateChoiceOutput ChoiceName TypeConName
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -533,13 +542,22 @@ instance Pretty Error where
       text "Tried to implement method " <> quotes (pretty eumiiMethodName) <> text ", but interface " <> pretty eumiiIface <> text " does not have a method with that name."
     EWrongInterfaceRequirement requiringIface requiredIface ->
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
-    EUpgradeMissing {} -> "EUpgradeMissing"
+    EUpgradeMissingModule moduleName -> "Module " <> pPrint moduleName <> " appears in package that is being upgraded, but does not appear in this package."
+    EUpgradeMissingTemplate templateName -> "Template " <> pPrint templateName <> " appears in package that is being upgraded, but does not appear in this package."
+    EUpgradeMissingChoice templateName -> "Choice " <> pPrint templateName <> " appears in package that is being upgraded, but does not appear in this package."
+    EUpgradeMissingDataCon dataConName -> "Data type " <> pPrint dataConName <> " appears in package that is being upgraded, but does not appear in this package."
     EUpgradeMismatchDataConsVariety dataConName -> "EUpgradeMismatchDataConsVariety " <> pretty dataConName
-    EUpgradeRecordFieldsMissing {} -> "EUpgradeRecordFieldsMissing"
-    EUpgradeRecordFieldsExistingChanged {} -> "EUpgradeRecordFieldsExistingChanged"
-    EUpgradeRecordFieldsNewNonOptional {} -> "EUpgradeRecordFieldsNewNonOptional"
+    EUpgradeRecordFieldsMissing origin -> "The upgraded " <> pPrint origin <> " is missing some of its original fields."
+    EUpgradeRecordFieldsExistingChanged origin -> "The upgraded " <> pPrint origin <> " has changed the types of some of its original fields."
+    EUpgradeRecordFieldsNewNonOptional origin -> "The upgraded " <> pPrint origin <> " has added new fields, but those fields are not Optional."
     EUnknownExperimental name ty ->
       "Unknown experimental primitive " <> string (show name) <> " : " <> pretty ty
+
+instance Pretty UpgradedRecordOrigin where
+  pPrint = \case
+    TemplateBody tcon -> "template " <> pPrint tcon
+    TemplateChoiceInput tcon chcName -> "input type of choice " <> pPrint chcName <> " on template " <> pPrint tcon
+    TemplateChoiceOutput tcon chcName -> "return type of choice " <> pPrint chcName <> " on template " <> pPrint tcon
 
 instance Pretty Context where
   pPrint = \case
