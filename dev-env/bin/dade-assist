@@ -24,21 +24,6 @@ readAbsolutePath() {
   perl -MCwd -e 'print Cwd::abs_path shift' $1
 }
 
-# Detect if we are being used within another working tree and bail out.
-OLD_PWD="$PWD"
-while [ "$PWD" != "/" ]; do
-  if [ -h "$PWD" ]; then # follow symlink if PWD is one
-    cd $(readAbsolutePath "$PWD")
-  fi
-  if [[ -e dev-env/lib/dade-common && "$PWD" != "$DADE_BASE_ROOT" ]]; then
-    errcho "Fatal: Using dev-env from $DADE_BASE_ROOT, but running under $PWD."
-
-    exit 1
-  fi
-  cd ..
-done
-cd "$OLD_PWD"
-
 export DADE_REPO_ROOT="${DADE_REPO_ROOT:-$DADE_BASE_ROOT}"
 export DADE_DEVENV_DIR="${DADE_BASE_ROOT}/dev-env"
 export DADE_LIB_DIR="${DADE_DEVENV_DIR}/lib"
