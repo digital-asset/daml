@@ -16,15 +16,14 @@ object TreeMap {
   // is a SortedMap with the same ordering.
   @throws[IllegalArgumentException]
   def fromOrderedEntries[K, V](
-      entries: Iterable[(K, V)]
-  )(implicit order: Ordering[K]): immutable.TreeMap[K, V] =
-    if (entries.isEmpty)
+      entries: IterableOnce[(K, V)]
+  )(implicit order: Ordering[K]): immutable.TreeMap[K, V] = {
+    val it = entries.iterator
+    if (it.isEmpty)
       immutable.TreeMap.empty
     else {
-
       val buffer = new ArrayBuffer[(K, V)]()
       buffer.sizeHint(entries.knownSize)
-      val it = entries.iterator
       var previous = it.next()
 
       it.foreach { next =>
@@ -55,4 +54,5 @@ object TreeMap {
 
       immutable.TreeMap.from(fakeSortedMap)
     }
+  }
 }
