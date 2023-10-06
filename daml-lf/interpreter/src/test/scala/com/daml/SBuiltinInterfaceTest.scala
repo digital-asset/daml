@@ -63,9 +63,7 @@ class SBuiltinInterfaceTest
 
     "fetch_interface" - {
 
-      // TODO: https://github.com/digital-asset/daml/issues/17082
-      // - Dont understand why we need to test this.
-      "should request unknown package before everything else" ignore {
+      "should request unknown package before everything else" in {
 
         val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
 
