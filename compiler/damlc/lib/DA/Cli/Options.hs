@@ -160,11 +160,11 @@ enableMultiPackageOpt = EnableMultiPackage <$> flagYesNoAuto "enable-multi-packa
 
 newtype MultiPackageBuildAll = MultiPackageBuildAll {getMultiPackageBuildAll :: Bool}
 multiPackageBuildAllOpt :: Parser MultiPackageBuildAll
-multiPackageBuildAllOpt = MultiPackageBuildAll <$> flagYesNoAuto "all" False "Build all packages in multi-package.daml" internal
+multiPackageBuildAllOpt = MultiPackageBuildAll <$> switch (long "all" <> help "Build all packages in multi-package.daml" <> internal)
 
 newtype MultiPackageNoCache = MultiPackageNoCache {getMultiPackageNoCache :: Bool}
 multiPackageNoCacheOpt :: Parser MultiPackageNoCache
-multiPackageNoCacheOpt = MultiPackageNoCache <$> flagYesNoAuto "no-cache" False "Disables cache checking, rebuilding all dependencies" internal
+multiPackageNoCacheOpt = MultiPackageNoCache <$> switch (long "no-cache" <> help "Disables cache checking, rebuilding all dependencies" <> internal)
 
 data MultiPackageLocation
   -- | Search for the multi-package.yaml above the current directory
