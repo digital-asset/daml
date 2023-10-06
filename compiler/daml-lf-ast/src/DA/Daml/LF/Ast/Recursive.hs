@@ -11,6 +11,7 @@ module DA.Daml.LF.Ast.Recursive(
     UpdateF(..),
     ScenarioF(..),
     BindingF(..),
+    TypeF(..),
     retrieveByKeyFKey
     ) where
 
@@ -18,6 +19,7 @@ import Data.Functor.Foldable
 import qualified Data.Text as T
 
 import DA.Daml.LF.Ast.Base
+import DA.Daml.LF.Ast.TypeLevelNat
 
 data ExprF expr
   = EVarF        !ExprVarName
@@ -284,3 +286,38 @@ instance Corecursive Expr where
     EChoiceControllerF a b c d -> EChoiceController a b c d
     EChoiceObserverF a b c d -> EChoiceObserver a b c d
     EExperimentalF a b -> EExperimental a b
+
+data TypeF type_
+  = TVarF       !TypeVarName
+  | TConF       !(Qualified TypeConName)
+  | TSynAppF    !(Qualified TypeSynName) ![type_]
+  | TAppF       !type_ !type_
+  | TBuiltinF   !BuiltinType
+  | TForallF !(TypeVarName, Kind) !type_
+  | TStructF     ![(FieldName, type_)]
+  | TNatF !TypeLevelNat
+  deriving (Foldable, Functor, Traversable)
+
+type instance Base Type = TypeF
+
+instance Recursive Type where
+  project = \case
+    TVar a -> TVarF a
+    TCon a -> TConF a
+    TSynApp a b -> TSynAppF a b
+    TApp a b -> TAppF a b
+    TBuiltin a -> TBuiltinF a
+    TForall a b -> TForallF a b
+    TStruct a -> TStructF a
+    TNat a -> TNatF a
+
+instance Corecursive Type where
+  embed = \case
+    TVarF a -> TVar a
+    TConF a -> TCon a
+    TSynAppF a b -> TSynApp a b
+    TAppF a b -> TApp a b
+    TBuiltinF a -> TBuiltin a
+    TForallF a b -> TForall a b
+    TStructF a -> TStruct a
+    TNatF a -> TNat a

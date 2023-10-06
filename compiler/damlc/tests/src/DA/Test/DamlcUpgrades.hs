@@ -235,7 +235,7 @@ tests damlc =
               ]
         , test
               "Fails when new field is added to template choice without Optional type"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded type of choice C on template A has added new fields, but those fields are not Optional.")
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A has added new fields, but those fields are not Optional.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -271,7 +271,7 @@ tests damlc =
               ]
         , test
               "Fails when old field is deleted from template choice"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded type of choice C on template A is missing some of its original fields.")
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A is missing some of its original fields.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -305,7 +305,7 @@ tests damlc =
               ]
         , test
               "Fails when existing field in template choice is changed"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded type of choice C on template A has changed the types of some of its original fields.")
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A has changed the types of some of its original fields.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -399,6 +399,41 @@ tests damlc =
                       , "      observer p, q"
                       , "      controller p"
                       , "      do pure ()"
+                      ]
+                )
+              ]
+        , test
+              "Fails when template choice changes its return type"
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded choice C cannot change its return type.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      with"
+                      , "        existing1 : Int"
+                      , "        existing2 : Int"
+                      , "      controller p"
+                      , "      do pure ()"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : Int"
+                      , "      with"
+                      , "        existing1 : Int"
+                      , "        existing2 : Int"
+                      , "      controller p"
+                      , "      do pure 1"
                       ]
                 )
               ]

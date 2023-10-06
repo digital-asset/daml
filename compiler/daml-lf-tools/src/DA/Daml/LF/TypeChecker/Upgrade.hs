@@ -7,7 +7,10 @@ module DA.Daml.LF.TypeChecker.Upgrade (checkUpgrade, Upgrading(..)) where
 import           Control.DeepSeq
 import           Control.Monad (unless, forM_)
 import           DA.Daml.LF.Ast as LF
-import           DA.Daml.LF.Ast.Alpha (alphaExpr)
+import           DA.Daml.LF.Ast.Recursive (TypeF(..))
+import           Data.Functor.Foldable (cata)
+import           Data.Foldable (fold)
+import           DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
 import           Data.Data
@@ -96,6 +99,14 @@ checkModule module_ = do
             choice <- NM.toList (tplChoices template)
             TCon dtName <- [snd (chcArgBinder choice)] -- Choice inputs should always be a list
             pure (qualObject dtName, (template, choice))
+        allChoiceReturnTCons :: LF.Module -> HMS.HashMap LF.TypeConName (LF.Template, LF.TemplateChoice)
+        allChoiceReturnTCons module_ = HMS.fromList $ do
+            template <- NM.toList (moduleTemplates module_)
+            choice <- NM.toList (tplChoices template)
+            dtName <- flip cata (chcReturnType choice) $ \case
+                TConF dtName -> [dtName]
+                rest -> fold rest
+            pure (qualObject dtName, (template, choice))
         dataTypeOrigin
             :: DefDataType -> Module
             -> (UpgradedRecordOrigin, Context)
@@ -106,6 +117,10 @@ checkModule module_ = do
                 )
             | Just (template, choice) <- NM.name dt `HMS.lookup` deriveChoiceInfo module_ =
                 ( TemplateChoiceInput (NM.name template) (NM.name choice)
+                , ContextTemplate module_ template (TPChoice choice)
+                )
+            | Just (template, choice) <- NM.name dt `HMS.lookup` allChoiceReturnTCons module_ =
+                ( TemplateChoiceOutput (NM.name template) (NM.name choice) (NM.name dt)
                 , ContextTemplate module_ template (TPChoice choice)
                 )
             | otherwise = (TopLevel, ContextDefDataType module_ dt)
@@ -132,6 +147,10 @@ checkTemplate module_ template = do
     (existingChoices, _existingNew) <- checkDeleted (EUpgradeMissingChoice . NM.name) $ NM.toHashMap . tplChoices <$> template
     forM_ existingChoices $ \choice -> do
         withContext (ContextTemplate (present module_) (present template) (TPChoice (present choice))) $ do
+            let returnTypesMatch = foldU alphaType (fmap chcReturnType choice)
+            unless returnTypesMatch $
+                throwWithContext (EUpgradeChoiceChangedReturnType (NM.name (present choice)))
+
             throwIfDifferent "controllers" (extractFuncFromFuncThisArg . chcControllers <$> choice) $
                 EUpgradeChoiceChangedControllers $ NM.name $ present choice
 

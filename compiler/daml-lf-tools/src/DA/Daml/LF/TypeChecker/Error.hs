@@ -178,11 +178,13 @@ data Error
   | EUpgradeChoiceChangedControllers !ChoiceName
   | EUpgradeChoiceChangedObservers !ChoiceName
   | EUpgradeChoiceChangedAuthorizers !ChoiceName
+  | EUpgradeChoiceChangedReturnType !ChoiceName
   | EUnknownExperimental !T.Text !Type
 
 data UpgradedRecordOrigin
   = TemplateBody TypeConName
   | TemplateChoiceInput TypeConName ChoiceName
+  | TemplateChoiceOutput TypeConName ChoiceName TypeConName
   | TopLevel
   deriving (Eq, Ord, Show)
 
@@ -567,13 +569,15 @@ instance Pretty Error where
     EUpgradeChoiceChangedControllers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of controllers."
     EUpgradeChoiceChangedObservers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of observers."
     EUpgradeChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of authorizers."
+    EUpgradeChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
     EUnknownExperimental name ty ->
       "Unknown experimental primitive " <> string (show name) <> " : " <> pretty ty
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
-    TemplateBody tcon -> "template " <> pPrint tcon
-    TemplateChoiceInput tcon chcName -> "type of choice " <> pPrint chcName <> " on template " <> pPrint tcon
+    TemplateBody tpl -> "template " <> pPrint tpl
+    TemplateChoiceInput tpl chcName -> "input type of choice " <> pPrint chcName <> " on template " <> pPrint tpl
+    TemplateChoiceOutput tpl chcName rec -> "record " <> pPrint tpl <> " (used in output type of choice " <> pPrint chcName <> " on template " <> pPrint rec <> ")"
     TopLevel -> "record"
 
 instance Pretty Context where
