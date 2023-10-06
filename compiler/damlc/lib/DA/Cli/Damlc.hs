@@ -1593,6 +1593,12 @@ parserInfo numProcessors =
         ])
     )
 
+-- | Attempts to find the --output flag in the given build-options for a package
+-- Given the many ways --output can be specified, we invoke the parser directly
+-- Sadly, optparse-applicative gives no way to "ignore" flags it doesn't know about
+-- so we must provide all the other flags we might expect.
+-- Note: if we ever fully remove a flag in future, an "ignore" parser will need to be added here so
+-- that old packages with that flag specified don't trigger an error.
 scrapeOutputFlag :: [String] -> Maybe FilePath
 scrapeOutputFlag args = 
   case execParserPure (prefs mempty) (info mbOutFileParser mempty) args of
@@ -1600,7 +1606,6 @@ scrapeOutputFlag args =
     Failure err -> error $ fst $ renderFailure err "daml build"
     CompletionInvoked _ -> error "Impossible internal completion invoked."
   where
-    -- Other parsers provided so optparse doesn't error if it finds them.
     mbOutFileParser :: Parser (Maybe FilePath)
     mbOutFileParser = do
       void $ optionsParser
@@ -1613,17 +1618,19 @@ scrapeOutputFlag args =
       void initPkgDbOpt
       pure mbOutFile
 
+-- | Query the optional `--output` flag from the daml.yaml build-options
 queryProjectConfigBuildOutput :: ProjectConfig -> Either ConfigError (Maybe FilePath)
 queryProjectConfigBuildOutput project = do
   mBuildOptions <- queryProjectConfig ["build-options"] project
   pure $ mBuildOptions >>= scrapeOutputFlag
 
--- Calculates the canonical path to the DAR for a given package, overriding with a given mOutput if needed
+-- | Calculates the canonical path to the DAR for a given package, overriding with a given mOutput if needed
 deriveDarPath :: FilePath -> LF.PackageName -> LF.PackageVersion -> Maybe FilePath -> IO FilePath
 deriveDarPath path name version mOutput = case mOutput of
   Just output -> withCurrentDirectory path $ canonicalizePath output
   Nothing -> pure $ path </> distDir </> unitIdString (pkgNameVersion name (Just version)) <> ".dar"
 
+-- | Derive the dar path from the daml.yaml, using either the --output override, or the default path derived from name and version
 darPathFromDamlYaml :: FilePath -> IO FilePath
 darPathFromDamlYaml path = do
   (name, version, mOutput) <- 
@@ -1637,7 +1644,7 @@ darPathFromDamlYaml path = do
   where
     mbProjectOpts = Just $ ProjectOpts (Just $ ProjectPath path) (ProjectCheck "" False)
 
--- Subset of parseProjectConfig to get only what we need for differring to the correct build call with multi-package build
+-- | Subset of parseProjectConfig to get only what we need for differring to the correct build call with multi-package build
 buildMultiPackageConfigFromDamlYaml :: FilePath -> IO BuildMultiPackageConfig
 buildMultiPackageConfigFromDamlYaml path =
   onDamlYaml
@@ -1655,6 +1662,7 @@ buildMultiPackageConfigFromDamlYaml path =
   where
     mbProjectOpts = Just $ ProjectOpts (Just $ ProjectPath path) (ProjectCheck "" False)
 
+-- | Extract some value from a daml.yaml via a projection function. Return a default value if the file doesn't exist
 onDamlYaml :: t -> (ProjectConfig -> t) -> Maybe ProjectOpts -> IO t
 onDamlYaml def f mbProjectOpts = do
     -- This is the same logic used in withProjectRoot but we don’t need to change CWD here
