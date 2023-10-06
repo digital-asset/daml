@@ -107,16 +107,20 @@ private[lf] object Speedy {
   sealed abstract class LedgerMode extends Product with Serializable
 
   final case class CachedKey(
+      templateId: TypeConName,
       globalKeyWithMaintainers: GlobalKeyWithMaintainers,
       key: SValue,
   ) {
     def globalKey: GlobalKey = globalKeyWithMaintainers.globalKey
-    def templateId: TypeConName = globalKey.templateId
     def maintainers: Set[Party] = globalKeyWithMaintainers.maintainers
     val lfValue: V = globalKey.key
     def renormalizedGlobalKeyWithMaintainers(version: TxVersion) = {
       globalKeyWithMaintainers.copy(
-        globalKey = GlobalKey.assertBuild(templateId, key.toNormalizedValue(version))
+        globalKey = GlobalKey.assertBuild(
+          globalKey.packageId,
+          globalKey.qualifiedName,
+          key.toNormalizedValue(version),
+        )
       )
     }
   }

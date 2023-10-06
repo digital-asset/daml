@@ -201,7 +201,7 @@ object Node {
   }
 
   final case class LookupByKey(
-      override val templateId: TypeConName,
+      override val templateId: TypeConName, // The template that defines the lookup key type
       key: GlobalKeyWithMaintainers,
       result: Option[ContractId],
       // For the sake of consistency between types with a version field, keep this field the last.

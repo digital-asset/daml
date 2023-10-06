@@ -5,14 +5,14 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.TypeConName
 import com.daml.lf.value.Value
 
 /** Useful in various circumstances -- basically this is what a ledger implementation must use as
   * a key. The 'hash' is guaranteed to be stable over time.
   */
 final class GlobalKey private (
-    val templateId: Ref.TypeConName,
+    val packageId: Option[Ref.PackageId],
+    val qualifiedName: Ref.QualifiedName,
     val key: Value,
     val hash: crypto.Hash,
 ) extends data.NoCopy {
@@ -23,22 +23,40 @@ final class GlobalKey private (
 
   override def hashCode(): Int = hash.hashCode()
 
-  override def toString: String = s"GlobalKey($templateId, $key)"
+  override def toString: String = s"GlobalKey($qualifiedName, $key)"
 }
 
 object GlobalKey {
 
   // Will fail if key contains contract ids
+  def build(
+      packageId: Option[Ref.PackageId],
+      qualifiedName: Ref.QualifiedName,
+      key: Value,
+  ): Either[crypto.Hash.HashingError, GlobalKey] =
+    crypto.Hash
+      .hashContractKey(packageId, qualifiedName, key)
+      .map(new GlobalKey(packageId, qualifiedName, key, _))
+
   def build(templateId: Ref.TypeConName, key: Value): Either[crypto.Hash.HashingError, GlobalKey] =
-    crypto.Hash.hashContractKey(templateId, key).map(new GlobalKey(templateId, key, _))
+    build(Some(templateId.packageId), templateId.qualifiedName, key)
 
   // Like `build` but,  in case of error, throws an exception instead of returning a message.
   @throws[IllegalArgumentException]
+  def assertBuild(
+      packageId: Option[Ref.PackageId],
+      qualifiedName: Ref.QualifiedName,
+      key: Value,
+  ): GlobalKey =
+    data.assertRight(build(packageId, qualifiedName, key).left.map(_.msg))
+
   def assertBuild(templateId: Ref.TypeConName, key: Value): GlobalKey =
     data.assertRight(build(templateId, key).left.map(_.msg))
 
-  private[lf] def unapply(globalKey: GlobalKey): Some[(TypeConName, Value)] =
-    Some((globalKey.templateId, globalKey.key))
+  private[lf] def unapply(
+      globalKey: GlobalKey
+  ): Some[(Option[Ref.PackageId], Ref.QualifiedName, Value)] =
+    Some((globalKey.packageId, globalKey.qualifiedName, globalKey.key))
 }
 
 final case class GlobalKeyWithMaintainers(

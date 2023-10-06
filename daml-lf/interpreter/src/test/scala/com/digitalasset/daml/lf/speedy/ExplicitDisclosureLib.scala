@@ -128,6 +128,7 @@ private[lf] class ExplicitDisclosureLib(evaluationOrder: EvaluationOrder) {
       if (withKey)
         Some(
           Speedy.CachedKey(
+            templateId,
             globalKeyWithMaintainers =
               GlobalKeyWithMaintainers(buildContractKey(maintainer, label), Set(maintainer)),
             key = buildContractSKey(maintainer),
@@ -245,6 +246,7 @@ private[lf] class ExplicitDisclosureLib(evaluationOrder: EvaluationOrder) {
       if (withKey)
         Some(
           CachedKey(
+            templateId,
             GlobalKeyWithMaintainers
               .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer)),
             contract,

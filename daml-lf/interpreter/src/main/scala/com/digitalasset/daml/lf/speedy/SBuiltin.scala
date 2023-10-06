@@ -1548,7 +1548,7 @@ private[lf] object SBuiltin {
       if (cachedKey.maintainers.isEmpty) {
         Control.Error(
           IE.FetchEmptyContractKeyMaintainers(
-            cachedKey.templateId,
+            templateId,
             cachedKey.lfValue,
           )
         )
@@ -2081,6 +2081,7 @@ private[lf] object SBuiltin {
             throw SErrorDamlException(IE.ContractIdInContractKey(keyValue.toUnnormalizedValue))
           )
         CachedKey(
+          templateId,
           GlobalKeyWithMaintainers(
             gkey,
             extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),

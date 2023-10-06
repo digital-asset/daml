@@ -123,33 +123,41 @@ final class ValueEnricher(
   private val ResultNone = ResultDone(None)
 
   def enrichContractKey(
-      key: GlobalKeyWithMaintainers
+      templateId: Identifier,
+      key: GlobalKeyWithMaintainers,
   ): Result[GlobalKeyWithMaintainers] =
-    enrichContractKey(key.globalKey.templateId, key.globalKey.key).map(normalizedKey =>
-      key.copy(globalKey = GlobalKey.assertBuild(key.globalKey.templateId, normalizedKey))
+    enrichContractKey(templateId, key.globalKey.key).map(normalizedKey =>
+      key.copy(globalKey =
+        GlobalKey.assertBuild(key.globalKey.packageId, key.globalKey.qualifiedName, normalizedKey)
+      )
     )
 
   def enrichContractKey(
-      key: Option[GlobalKeyWithMaintainers]
+      templateId: Identifier,
+      key: Option[GlobalKeyWithMaintainers],
   ): Result[Option[GlobalKeyWithMaintainers]] =
     key match {
       case Some(k) =>
-        enrichContractKey(k).map(Some(_))
+        enrichContractKey(templateId, k).map(Some(_))
       case None =>
         ResultNone
     }
 
   def enrichVersionedContractKey(
-      key: Versioned[GlobalKeyWithMaintainers]
+      templateId: Identifier,
+      key: Versioned[GlobalKeyWithMaintainers],
   ): Result[Versioned[GlobalKeyWithMaintainers]] =
-    enrichContractKey(key.unversioned).map(normalizedValue => key.map(_ => normalizedValue))
+    enrichContractKey(templateId, key.unversioned).map(normalizedValue =>
+      key.map(_ => normalizedValue)
+    )
 
   def enrichVersionedContractKey(
-      key: Option[Versioned[GlobalKeyWithMaintainers]]
+      templateId: Identifier,
+      key: Option[Versioned[GlobalKeyWithMaintainers]],
   ): Result[Option[Versioned[GlobalKeyWithMaintainers]]] =
     key match {
       case Some(k) =>
-        enrichVersionedContractKey(k).map(Some(_))
+        enrichVersionedContractKey(templateId, k).map(Some(_))
       case None =>
         ResultNone
     }
@@ -161,15 +169,15 @@ final class ValueEnricher(
       case create: Node.Create =>
         for {
           arg <- enrichValue(Ast.TTyCon(create.templateId), create.arg)
-          key <- enrichContractKey(create.keyOpt)
+          key <- enrichContractKey(create.templateId, create.keyOpt)
         } yield create.copy(arg = arg, keyOpt = key)
       case fetch: Node.Fetch =>
         for {
-          key <- enrichContractKey(fetch.keyOpt)
+          key <- enrichContractKey(fetch.templateId, fetch.keyOpt)
         } yield fetch.copy(keyOpt = key)
       case lookup: Node.LookupByKey =>
         for {
-          key <- enrichContractKey(lookup.key)
+          key <- enrichContractKey(lookup.templateId, lookup.key)
         } yield lookup.copy(key = key)
       case exe: Node.Exercise =>
         for {
@@ -187,7 +195,7 @@ final class ValueEnricher(
             case None =>
               ResultNone
           }
-          key <- enrichContractKey(exe.keyOpt)
+          key <- enrichContractKey(exe.templateId, exe.keyOpt)
         } yield exe.copy(chosenValue = choiceArg, exerciseResult = result, keyOpt = key)
     }
 

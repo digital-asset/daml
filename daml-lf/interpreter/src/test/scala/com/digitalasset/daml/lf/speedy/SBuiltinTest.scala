@@ -1798,6 +1798,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val (disclosedContract, Some((key, keyWithMaintainers))) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
         val cachedKey = CachedKey(
+          templateId,
           GlobalKeyWithMaintainers.assertBuild(templateId, key.toUnnormalizedValue, Set(alice)),
           key,
         )

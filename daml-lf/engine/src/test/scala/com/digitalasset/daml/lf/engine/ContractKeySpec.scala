@@ -63,7 +63,7 @@ class ContractKeySpec
 
   val basicTestsSignatures = language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
 
-  val withKeyTemplate = "BasicTests:WithKey"
+  val withKeyTemplate: QualifiedName = "BasicTests:WithKey"
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: VersionedContractInstance =
     assertAsVersionedContract(
@@ -120,7 +120,8 @@ class ContractKeySpec
   private[this] val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
     case GlobalKeyWithMaintainers(
           GlobalKey(
-            BasicTests_WithKey,
+            Some(`basicTestsPkgId`),
+            `withKeyTemplate`,
             ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
           ),
           _,
@@ -264,7 +265,7 @@ class ContractKeySpec
         )
       )
       val (multiKeysPkgId, _, allMultiKeysPkgs) = loadPackage("daml-lf/tests/MultiKeys.dar")
-      val keyedId = Identifier(multiKeysPkgId, "MultiKeys:Keyed")
+      val keyedIdQName: QualifiedName = "MultiKeys:Keyed"
       val opsId = Identifier(multiKeysPkgId, "MultiKeys:KeyOperations")
       val let = Time.Timestamp.now()
       val submissionSeed = hash("multikeys")
@@ -280,7 +281,11 @@ class ContractKeySpec
       )
       val contracts = Map(cid1 -> keyedInst, cid2 -> keyedInst)
       val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
-        case GlobalKeyWithMaintainers(GlobalKey(`keyedId`, ValueParty(`party`)), _) => cid1
+        case GlobalKeyWithMaintainers(
+              GlobalKey(Some(`multiKeysPkgId`), `keyedIdQName`, ValueParty(`party`)),
+              _,
+            ) =>
+          cid1
       }
       def run(engine: Engine, choice: String, argument: Value) = {
         val cmd = ApiCommand.CreateAndExercise(

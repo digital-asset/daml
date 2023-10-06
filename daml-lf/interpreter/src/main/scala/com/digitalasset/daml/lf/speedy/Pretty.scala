@@ -9,9 +9,10 @@ import org.typelevel.paiges.Doc._
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
 import Value._
+import com.daml.lf.data.Ref
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
-import com.daml.lf.scenario.ScenarioLedger.{TransactionId, Disclosure}
+import com.daml.lf.scenario.ScenarioLedger.{Disclosure, TransactionId}
 import com.daml.lf.scenario._
 import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
@@ -61,13 +62,15 @@ private[lf] object Pretty {
           text(s"The contract had been consumed in sub-transaction #$consumedBy:")
       case DisclosedContractKeyHashingError(coid, gkey, declaredHash) =>
         text("Mismatched disclosed contract key hash for contract") & prettyContractId(coid) &
-          char('(') + prettyTypeConName(gkey.templateId) + text(").") / text("declared hash:") &
-          text(declaredHash.toHexString) & text("found hash:") & text(gkey.hash.toHexString)
+          char('(') + prettyNameAtPackage(gkey.qualifiedName, gkey.packageId) + text(").") /
+          text("declared hash:") & text(declaredHash.toHexString) &
+          text("found hash:") & text(gkey.hash.toHexString)
       case ContractKeyNotFound(gk) =>
         text(
           "Update failed due to fetch-by-key or exercise-by-key which did not find a contract with key"
         ) &
-          prettyValue(false)(gk.key) & char('(') + prettyIdentifier(gk.templateId) + char(')')
+          prettyValue(false)(gk.key) &
+          char('(') + prettyNameAtPackage(gk.qualifiedName, gk.packageId) + char(')')
       case RejectedAuthorityRequest(holding, requesting) =>
         text("Update failed due to rejected authority request") &
           text("holding:") & intercalate(comma + space, holding.map(prettyParty)) &
@@ -76,7 +79,9 @@ private[lf] object Pretty {
         text(
           "Update failed due to a fetch, lookup or exercise by key of contract not visible to the reading parties"
         ) & prettyContractId(coid) &
-          char('(') + (prettyIdentifier(gk.templateId)) + text(") associated with key ") +
+          char('(') + prettyNameAtPackage(gk.qualifiedName, gk.packageId) + text(
+            ") associated with key "
+          ) +
           prettyValue(false)(gk.key) &
           text("No reading party is a stakeholder:") &
           text("actAs:") & intercalate(comma + space, actAs.map(prettyParty))
@@ -438,6 +443,9 @@ private[lf] object Pretty {
 
   def prettyIdentifier(id: Identifier): Doc =
     text(id.qualifiedName.toString) + char('@') + prettyPackageId(id.packageId)
+
+  def prettyNameAtPackage(qualifiedName: Ref.QualifiedName, packageId: Option[Ref.PackageId]): Doc =
+    text(qualifiedName.toString) + packageId.fold(Doc.empty)(p => char('@') + prettyPackageId(p))
 
   def prettyVersionedValue(verbose: Boolean)(v: VersionedValue): Doc =
     prettyValue(verbose)(v.unversioned)

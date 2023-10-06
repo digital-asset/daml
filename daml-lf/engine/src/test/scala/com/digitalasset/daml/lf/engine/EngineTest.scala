@@ -5,7 +5,6 @@ package com.daml.lf
 package engine
 
 import java.io.File
-
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
@@ -1389,7 +1388,8 @@ class EngineTest
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
       case GlobalKeyWithMaintainers(
             GlobalKey(
-              BasicTests_WithKey,
+              Some(`basicTestsPkgId`),
+              `withKeyTemplate`,
               ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
             ),
             _,
@@ -1749,7 +1749,8 @@ class EngineTest
       val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
         case GlobalKeyWithMaintainers(
               GlobalKey(
-                BasicTests_WithKey,
+                Some(`basicTestsPkgId`),
+                `withKeyTemplate`,
                 ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
               ),
               _,
@@ -1976,7 +1977,7 @@ class EngineTest
 
   "exceptions" should {
     val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
-    val kId = Identifier(exceptionsPkgId, "Exceptions:K")
+    val kIdQName: QualifiedName = "Exceptions:K"
     val tId = Identifier(exceptionsPkgId, "Exceptions:T")
     val let = Time.Timestamp.now()
     val submissionSeed = hash("rollback")
@@ -2000,7 +2001,8 @@ class EngineTest
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
       case GlobalKeyWithMaintainers(
             GlobalKey(
-              `kId`,
+              Some(`exceptionsPkgId`),
+              `kIdQName`,
               ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(0)))),
             ),
             _,
@@ -2123,7 +2125,7 @@ class EngineTest
 
   "action node seeds" should {
     val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
-    val kId = Identifier(exceptionsPkgId, "Exceptions:K")
+    val kIdQName: QualifiedName = "Exceptions:K"
     val seedId = Identifier(exceptionsPkgId, "Exceptions:NodeSeeds")
     val let = Time.Timestamp.now()
     val submissionSeed = hash("rollback")
@@ -2147,7 +2149,8 @@ class EngineTest
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
       case GlobalKeyWithMaintainers(
             GlobalKey(
-              `kId`,
+              Some(`exceptionsPkgId`),
+              `kIdQName`,
               ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
             ),
             _,
@@ -2198,7 +2201,8 @@ class EngineTest
 
   "global key lookups" should {
     val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
-    val kId = Identifier(exceptionsPkgId, "Exceptions:K")
+
+    val kIdQName: QualifiedName = "Exceptions:K"
     val tId = Identifier(exceptionsPkgId, "Exceptions:GlobalLookups")
     val let = Time.Timestamp.now()
     val submissionSeed = hash("global-keys")
@@ -2222,7 +2226,8 @@ class EngineTest
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
       case GlobalKeyWithMaintainers(
             GlobalKey(
-              `kId`,
+              Some(`exceptionsPkgId`),
+              `kIdQName`,
               ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
             ),
             _,
@@ -2409,7 +2414,7 @@ object EngineTest {
 
   val dummySuffix: Bytes = Bytes.assertFromString("00")
 
-  val withKeyTemplate = "BasicTests:WithKey"
+  val withKeyTemplate: QualifiedName = "BasicTests:WithKey"
   val BasicTests_WithKey: lf.data.Ref.ValueRef = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: VersionedContractInstance =
     assertAsVersionedContract(
@@ -2486,7 +2491,8 @@ object EngineTest {
   val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
     case GlobalKeyWithMaintainers(
           GlobalKey(
-            BasicTests_WithKey,
+            Some(`basicTestsPkgId`),
+            `withKeyTemplate`,
             ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
           ),
           _,
