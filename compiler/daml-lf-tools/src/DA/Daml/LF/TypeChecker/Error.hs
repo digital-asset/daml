@@ -170,12 +170,21 @@ data Error
   | EUpgradeRecordFieldsMissing !UpgradedRecordOrigin
   | EUpgradeRecordFieldsExistingChanged !UpgradedRecordOrigin
   | EUpgradeRecordFieldsNewNonOptional !UpgradedRecordOrigin
+  | EUpgradeRecordChangedOrigin !TypeConName !UpgradedRecordOrigin !UpgradedRecordOrigin
+  | EUpgradeTemplateChangedPrecondition !TypeConName
+  | EUpgradeTemplateChangedSignatories !TypeConName
+  | EUpgradeTemplateChangedObservers !TypeConName
+  | EUpgradeTemplateChangedAgreement !TypeConName
+  | EUpgradeChoiceChangedControllers !ChoiceName
+  | EUpgradeChoiceChangedObservers !ChoiceName
+  | EUpgradeChoiceChangedAuthorizers !ChoiceName
   | EUnknownExperimental !T.Text !Type
 
 data UpgradedRecordOrigin
   = TemplateBody TypeConName
-  | TemplateChoiceInput ChoiceName TypeConName
-  | TemplateChoiceOutput ChoiceName TypeConName
+  | TemplateChoiceInput TypeConName ChoiceName
+  | TopLevel
+  deriving (Eq, Ord, Show)
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -550,14 +559,22 @@ instance Pretty Error where
     EUpgradeRecordFieldsMissing origin -> "The upgraded " <> pPrint origin <> " is missing some of its original fields."
     EUpgradeRecordFieldsExistingChanged origin -> "The upgraded " <> pPrint origin <> " has changed the types of some of its original fields."
     EUpgradeRecordFieldsNewNonOptional origin -> "The upgraded " <> pPrint origin <> " has added new fields, but those fields are not Optional."
+    EUpgradeRecordChangedOrigin dataConName past present -> "The record " <> pPrint dataConName <> " has changed origin from " <> pPrint past <> " to " <> pPrint present
+    EUpgradeTemplateChangedPrecondition template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its precondition."
+    EUpgradeTemplateChangedSignatories template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its signatories."
+    EUpgradeTemplateChangedObservers template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its observers."
+    EUpgradeTemplateChangedAgreement template -> "The upgraded template " <> pPrint template <> " cannot change the definition of agreement."
+    EUpgradeChoiceChangedControllers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of controllers."
+    EUpgradeChoiceChangedObservers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of observers."
+    EUpgradeChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of authorizers."
     EUnknownExperimental name ty ->
       "Unknown experimental primitive " <> string (show name) <> " : " <> pretty ty
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
     TemplateBody tcon -> "template " <> pPrint tcon
-    TemplateChoiceInput tcon chcName -> "input type of choice " <> pPrint chcName <> " on template " <> pPrint tcon
-    TemplateChoiceOutput tcon chcName -> "return type of choice " <> pPrint chcName <> " on template " <> pPrint tcon
+    TemplateChoiceInput tcon chcName -> "type of choice " <> pPrint chcName <> " on template " <> pPrint tcon
+    TopLevel -> "record"
 
 instance Pretty Context where
   pPrint = \case

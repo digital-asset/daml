@@ -29,95 +29,412 @@ tests damlc =
     testGroup
         "Upgrade"
         [ test
-              "Fails when new field is added without Optional type"
-              (Just "Message: \n\ESC\\[0;91merror type checking data type MyLib.A:\n  EUpgradeRecordFieldsNewNonOptional")
+              "Fails when template changes signatories"
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A signatories:\n  The upgraded template A cannot change the definition of its signatories.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
-                      , "data A = A"
-                      , "  { existing1 : Int"
-                      , "  , existing2 : Int"
-                      , "  }"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where signatory [p]"
                       ]
                 )
               ]
               [ ("daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
-                      , "data A = A"
-                      , "  { existing1 : Int"
-                      , "  , existing2 : Int"
-                      , "  , new : Int"
-                      , "  }"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where signatory [p, q]"
                       ]
                 )
               ]
         , test
-              "Fails when old field is deleted"
-              (Just "Message: \n\ESC\\[0;91merror type checking data type MyLib.A:\n  EUpgradeRecordFieldsMissing")
+              "Fails when template changes observers"
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A observers:\n  The upgraded template A cannot change the definition of its observers.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
-                      , "data A = A"
-                      , "  { existing1 : Int"
-                      , "  , existing2 : Int"
-                      , "  }"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    observer p"
                       ]
                 )
               ]
               [ ("daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
-                      , "data A = A"
-                      , "  { existing2 : Int"
-                      , "  }"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    observer p, q"
                       ]
                 )
               ]
         , test
-              "Fails when existing field is changed"
-              (Just "Message: \n\ESC\\[0;91merror type checking data type MyLib.A:\n  EUpgradeRecordFieldsExistingChanged")
+              "Fails when template changes ensure"
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A precondition:\n  The upgraded template A cannot change the definition of its precondition.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
-                      , "data A = A"
-                      , "  { existing1 : Int"
-                      , "  , existing2 : Int"
-                      , "  }"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    ensure True"
                       ]
                 )
               ]
               [ ("daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
-                      , "data A = A"
-                      , "  { existing1 : Text"
-                      , "  , existing2 : Int"
-                      , "  }"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    ensure True == True"
                       ]
                 )
               ]
         , test
-              "Succeeds when new field is added with optional type"
+              "Fails when template changes agreement"
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A agreement:\n  The upgraded template A cannot change the definition of agreement.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    agreement \"agreement1\""
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    agreement \"agreement2\""
+                      ]
+                )
+              ]
+        , test
+              "Fails when new field is added to template without Optional type"
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has added new fields, but those fields are not Optional.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    existing1 : Int"
+                      , "    existing2 : Int"
+                      , "  where signatory p"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    existing1 : Int"
+                      , "    existing2 : Int"
+                      , "    new : Int"
+                      , "  where signatory p"
+                      ]
+                )
+              ]
+        , test
+              "Fails when old field is deleted from template"
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A is missing some of its original fields.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    existing1 : Int"
+                      , "    existing2 : Int"
+                      , "  where signatory p"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    existing2 : Int"
+                      , "  where signatory p"
+                      ]
+                )
+              ]
+        , test
+              "Fails when existing field in template is changed"
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has changed the types of some of its original fields.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    existing1 : Int"
+                      , "    existing2 : Int"
+                      , "  where signatory p"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    existing1 : Text"
+                      , "    existing2 : Int"
+                      , "  where signatory p"
+                      ]
+                )
+              ]
+        , test
+              "Succeeds when new field with optional type is added to template"
               Nothing
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
-                      , "data A = A"
-                      , "  { existing1 : Int"
-                      , "  , existing2 : Int"
-                      , "  }"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    existing1 : Int"
+                      , "    existing2 : Int"
+                      , "  where signatory p"
                       ]
                 )
               ]
               [ ("daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
-                      , "data A = A"
-                      , "  { existing1 : Int"
-                      , "  , existing2 : Int"
-                      , "  , new : Optional Int"
-                      , "  }"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    existing1 : Int"
+                      , "    existing2 : Int"
+                      , "    new : Optional Int"
+                      , "  where signatory p"
+                      ]
+                )
+              ]
+        , test
+              "Fails when new field is added to template choice without Optional type"
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded type of choice C on template A has added new fields, but those fields are not Optional.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      with"
+                      , "        existing1 : Int"
+                      , "        existing2 : Int"
+                      , "      controller p"
+                      , "      do pure ()"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      with"
+                      , "        existing1 : Int"
+                      , "        existing2 : Int"
+                      , "        new : Int"
+                      , "      controller p"
+                      , "      do pure ()"
+                      ]
+                )
+              ]
+        , test
+              "Fails when old field is deleted from template choice"
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded type of choice C on template A is missing some of its original fields.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      with"
+                      , "        existing1 : Int"
+                      , "        existing2 : Int"
+                      , "      controller p"
+                      , "      do pure ()"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      with"
+                      , "        existing2 : Int"
+                      , "      controller p"
+                      , "      do pure ()"
+                      ]
+                )
+              ]
+        , test
+              "Fails when existing field in template choice is changed"
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded type of choice C on template A has changed the types of some of its original fields.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      with"
+                      , "        existing1 : Int"
+                      , "        existing2 : Int"
+                      , "      controller p"
+                      , "      do pure ()"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      with"
+                      , "        existing1 : Text"
+                      , "        existing2 : Int"
+                      , "      controller p"
+                      , "      do pure ()"
+                      ]
+                )
+              ]
+        , test
+              "Fails when controllers of template choice are changed"
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded choice C cannot change the definition of controllers.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      controller p"
+                      , "      do pure ()"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      controller p, q"
+                      , "      do pure ()"
+                      ]
+                )
+              ]
+        , test
+              "Fails when observers of template choice are changed"
+              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded choice C cannot change the definition of observers.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      observer p"
+                      , "      controller p"
+                      , "      do pure ()"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      observer p, q"
+                      , "      controller p"
+                      , "      do pure ()"
+                      ]
+                )
+              ]
+        , test
+              "Succeeds when new field with optional type is added to template choice"
+              Nothing
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      with"
+                      , "        existing1 : Int"
+                      , "        existing2 : Int"
+                      , "      controller p"
+                      , "      do pure ()"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      with"
+                      , "        existing1 : Int"
+                      , "        existing2 : Int"
+                      , "        new : Optional Int"
+                      , "      controller p"
+                      , "      do pure ()"
                       ]
                 )
               ]
