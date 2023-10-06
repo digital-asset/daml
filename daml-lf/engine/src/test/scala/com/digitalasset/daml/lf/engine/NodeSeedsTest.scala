@@ -22,7 +22,7 @@ class NodeSeedsTest extends AnyWordSpec with Matchers {
 
   val (mainPkgId, packages) = {
     val packages = UniversalArchiveDecoder.assertReadFile(
-      new File(BazelRunfiles.rlocation("daml-lf/engine/Demonstrator.dar"))
+      new File(BazelRunfiles.rlocation("daml-lf/tests/Demonstrator.dar"))
     )
     (packages.main._1, packages.all.toMap)
   }
