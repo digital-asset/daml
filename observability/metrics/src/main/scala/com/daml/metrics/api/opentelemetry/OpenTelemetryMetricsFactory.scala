@@ -296,8 +296,8 @@ private object AttributesHelper {
     // expensive given how often instrumentation methods get executed
     if (extraLabels.isEmpty) rootContext.asAttributes
     else
-      extraLabels
-        .foldLeft(rootContext.asAttributesBuilder) { case (builder, (key, value)) =>
+      (rootContext.labels.toList ++ extraLabels)
+        .foldLeft(Attributes.builder()) { case (builder, (key, value)) =>
           builder.put(key, value)
           builder
         }

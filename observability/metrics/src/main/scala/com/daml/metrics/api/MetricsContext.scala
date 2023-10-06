@@ -3,7 +3,7 @@
 
 package com.daml.metrics.api
 
-import io.opentelemetry.api.common.{Attributes, AttributesBuilder}
+import io.opentelemetry.api.common.Attributes
 
 /** *
   * Represents labels that are added to metrics.
@@ -12,14 +12,13 @@ import io.opentelemetry.api.common.{Attributes, AttributesBuilder}
   */
 case class MetricsContext(labels: Map[String, String]) {
 
-  lazy val asAttributesBuilder: AttributesBuilder = {
+  lazy val asAttributes: Attributes = {
     labels
       .foldLeft(Attributes.builder()) { case (builder, (key, value)) =>
         builder.put(key, value)
       }
+      .build()
   }
-
-  lazy val asAttributes: Attributes = asAttributesBuilder.build()
 
   /** Merges the current metric context with the given context.
     * The produced labels represent a union of the labels defined by the two contexts,
