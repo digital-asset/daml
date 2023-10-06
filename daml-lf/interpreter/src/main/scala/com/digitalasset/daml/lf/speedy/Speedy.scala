@@ -181,6 +181,26 @@ private[lf] object Speedy {
   )(implicit loggingContext: LoggingContext)
       extends Machine[Question.Update] {
 
+    private[this] var contractsCache = Map.empty[V.ContractId, V.ContractInstance]
+
+    def lookupContractOnLedger[Q](coid: V.ContractId)(
+        continue: V.ContractInstance => Control[Question.Update]
+    ): Control[Question.Update] =
+      contractsCache.get(coid) match {
+        case Some(contract) => continue(contract)
+        case None =>
+          Control.Question(
+            Question.Update.NeedContract(
+              coid,
+              committers,
+              callback = { res =>
+                contractsCache = contractsCache.updated(coid, res)
+                setControl(continue(res))
+              },
+            )
+          )
+      }
+
     private[speedy] override def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
     ): Control[Question.Update] =

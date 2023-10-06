@@ -22,7 +22,7 @@ import com.daml.lf.transaction.{
 
 import java.nio.file.Files
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackage}
 import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
@@ -385,14 +385,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           handleError(err)
       }
 
-    // This cache is a pure optimization to avoid repeated calls to Result.needcontract
-    type CoinstCache = Map[ContractId, VersionedContractInstance]
-
-    // for use in non tail contexts
-    def loopOuter(cache: CoinstCache): Result[(SubmittedTransaction, Tx.Metadata)] = loop(cache)
-
     @scala.annotation.tailrec
-    def loop(cache: CoinstCache): Result[(SubmittedTransaction, Tx.Metadata)] = {
+    def loop: Result[(SubmittedTransaction, Tx.Metadata)] = {
       machine.run() match {
 
         case SResultQuestion(question) =>
@@ -404,7 +398,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 { granted: Boolean =>
                   if (granted) {
                     callback()
-                    loopOuter(cache)
+                    interpretLoop(machine, time)
                   } else {
                     ResultError(
                       Error.Interpretation.DamlException(
@@ -420,11 +414,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               // TODO https://github.com/digital-asset/daml/issues/16154 (dynamic-exercise)
               // For now this just continues with the input package id
               callback(pid0)
-              loop(cache)
+              loop
 
             case Question.Update.NeedTime(callback) =>
               callback(time)
-              loop(cache)
+              loop
 
             case Question.Update.NeedPackage(pkgId, context, callback) =>
               Result.needPackage(
@@ -433,25 +427,19 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 { pkg: Package =>
                   compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
                     callback(compiledPackages)
-                    loopOuter(cache)
+                    interpretLoop(machine, time)
                   }
                 },
               )
 
             case Question.Update.NeedContract(coid, _, callback) =>
-              cache.get(coid) match {
-                case Some(coinst) => // cache hit
+              Result.needContract(
+                coid,
+                { coinst =>
                   callback(coinst.unversioned)
-                  loop(cache)
-                case None =>
-                  Result.needContract(
-                    coid,
-                    { coinst: VersionedContractInstance =>
-                      callback(coinst.unversioned)
-                      loopOuter(cache.updated(coid, coinst))
-                    },
-                  )
-              }
+                  interpretLoop(machine, time)
+                },
+              )
 
             case Question.Update.NeedUpgradeVerification(
                   coid,
@@ -465,22 +453,20 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 signatories,
                 observers,
                 keyOpt,
-                { failureMessageOpt: Option[String] =>
-                  failureMessageOpt match {
-                    case None =>
-                      callback()
-                      loopOuter(cache)
-                    case Some(mes) =>
-                      // TODO: https://github.com/digital-asset/daml/issues/17082
-                      // - we need a new interpretation.Error for this
-                      ResultError(
-                        Error.Interpretation.Internal(
-                          NameOf.qualifiedNameOfCurrentFunc,
-                          s"Ledger refused upgrade verification with message: $mes",
-                          None,
-                        )
+                {
+                  case None =>
+                    callback()
+                    interpretLoop(machine, time)
+                  case Some(mes) =>
+                    // TODO: https://github.com/digital-asset/daml/issues/17082
+                    // - we need a new interpretation.Error for this
+                    ResultError(
+                      Error.Interpretation.Internal(
+                        NameOf.qualifiedNameOfCurrentFunc,
+                        s"Ledger refused upgrade verification with message: $mes",
+                        None,
                       )
-                  }
+                    )
                 },
               )
 
@@ -489,13 +475,13 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 gk,
                 { coid: Option[ContractId] =>
                   discard[Boolean](callback(coid))
-                  loopOuter(cache)
+                  interpretLoop(machine, time)
                 },
               )
           }
 
         case SResultInterruption =>
-          ResultInterruption(() => loopOuter(cache))
+          ResultInterruption(() => interpretLoop(machine, time))
 
         case _: SResultFinal =>
           finish
@@ -505,7 +491,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       }
     }
 
-    loop(cache = Map.empty)
+    loop
   }
 
   def clearPackages(): Unit = compiledPackages.clear()

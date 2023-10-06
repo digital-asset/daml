@@ -456,7 +456,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
     val res = Try(
       SpeedyTestLib.run(
         machine,
-        getContract = getContract,
+        getContract = traceLog.tracePF("queries contract", getContract),
         getKey = traceLog.tracePF("queries key", getKey),
       )
     )
@@ -899,6 +899,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               inside(res) { case Success(Right(_)) =>
                 msgs shouldBe Seq(
                   "starts test",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -924,7 +925,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               )
               inside(res) {
                 case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
-                  msgs shouldBe Seq("starts test")
+                  msgs shouldBe Seq("starts test", "queries contract")
               }
             }
 
@@ -941,6 +942,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
                 msgs shouldBe Seq(
                   "starts test",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -971,6 +973,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                 case Success(Left(SErrorDamlException(IE.InconsistentContractKey(_)))) =>
                   msgs shouldBe Seq(
                     "starts test",
+                    "queries contract",
                     "contract agreement",
                     "contract signatories",
                     "contract observers",
@@ -1206,7 +1209,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               getContract = PartialFunction.empty,
             )
             inside(res) { case Failure(SpeedyTestLib.UnknownContract(`cId`)) =>
-              msgs shouldBe Seq("starts test")
+              msgs shouldBe Seq("starts test", "queries contract")
             }
           }
 
@@ -1225,6 +1228,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                   ) =>
                 msgs shouldBe Seq(
                   "starts test",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -1252,6 +1256,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                   ) =>
                 msgs shouldBe Seq(
                   "starts test",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -1285,6 +1290,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                   "starts test",
                   "maintainers",
                   "queries key",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -1309,7 +1315,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               )
               inside(res) {
                 case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
-                  msgs shouldBe Seq("starts test", "maintainers", "queries key")
+                  msgs shouldBe Seq("starts test", "maintainers", "queries key", "queries contract")
               }
             }
 
@@ -1329,6 +1335,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                   "starts test",
                   "maintainers",
                   "queries key",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -1359,6 +1366,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                     "starts test",
                     "maintainers",
                     "queries key",
+                    "queries contract",
                     "contract agreement",
                     "contract signatories",
                     "contract observers",
@@ -1618,6 +1626,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                   "starts test",
                   "maintainers",
                   "queries key",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -1646,6 +1655,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                   "starts test",
                   "maintainers",
                   "queries key",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -1708,6 +1718,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                 inside(res) { case Success(Right(_)) =>
                   msgs shouldBe buildLog(
                     "starts test",
+                    "queries contract",
                     "contract agreement",
                     "contract signatories",
                     "contract observers",
@@ -1737,7 +1748,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                   case Success(
                         Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(_, _, _)))
                       ) =>
-                    msgs shouldBe buildLog("starts test")
+                    msgs shouldBe buildLog("starts test", "queries contract")
                 }
               }
 
@@ -1755,6 +1766,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                   case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
                     msgs shouldBe buildLog(
                       "starts test",
+                      "queries contract",
                       "contract agreement",
                       "contract signatories",
                       "contract observers",
@@ -2023,6 +2035,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               inside(res) { case Success(Right(_)) =>
                 msgs shouldBe Seq(
                   "starts test",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -2044,7 +2057,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               )
               inside(res) {
                 case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
-                  msgs shouldBe Seq("starts test")
+                  msgs shouldBe Seq("starts test", "queries contract")
               }
             }
 
@@ -2061,6 +2074,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
                 msgs shouldBe Seq(
                   "starts test",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -2088,6 +2102,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                 case Success(Left(SErrorDamlException(IE.InconsistentContractKey(_)))) =>
                   msgs shouldBe Seq(
                     "starts test",
+                    "queries contract",
                     "contract agreement",
                     "contract signatories",
                     "contract observers",
@@ -2305,7 +2320,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               getContract = PartialFunction.empty,
             )
             inside(res) { case Failure(SpeedyTestLib.UnknownContract(`cId`)) =>
-              msgs shouldBe Seq("starts test")
+              msgs shouldBe Seq("starts test", "queries contract")
             }
           }
         }
@@ -2329,6 +2344,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                   "starts test",
                   "maintainers",
                   "queries key",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -2353,6 +2369,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                     "starts test",
                     "maintainers",
                     "queries key",
+                    "queries contract",
                   )
               }
             }
@@ -2372,6 +2389,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                   "starts test",
                   "maintainers",
                   "queries key",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -2399,6 +2417,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                     "starts test",
                     "maintainers",
                     "queries key",
+                    "queries contract",
                     "contract agreement",
                     "contract signatories",
                     "contract observers",
@@ -2627,6 +2646,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               inside(res) { case Success(Right(_)) =>
                 msgs shouldBe Seq(
                   "starts test",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -2653,7 +2673,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                         SErrorDamlException(IE.ContractDoesNotImplementInterface(Person, _, Dummy))
                       )
                     ) =>
-                  msgs shouldBe Seq("starts test")
+                  msgs shouldBe Seq("starts test", "queries contract")
               }
             }
 
@@ -2670,6 +2690,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
                 msgs shouldBe Seq(
                   "starts test",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -2873,7 +2894,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               getContract = PartialFunction.empty,
             )
             inside(res) { case Failure(SpeedyTestLib.UnknownContract(`cId`)) =>
-              msgs shouldBe Seq("starts test")
+              msgs shouldBe Seq("starts test", "queries contract")
             }
           }
 
@@ -2898,6 +2919,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                   "starts test",
                   "maintainers",
                   "queries key",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -2921,6 +2943,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                   "starts test",
                   "maintainers",
                   "queries key",
+                  "queries contract",
                   "contract agreement",
                   "contract signatories",
                   "contract observers",
@@ -2948,6 +2971,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                     "starts test",
                     "maintainers",
                     "queries key",
+                    "queries contract",
                     "contract agreement",
                     "contract signatories",
                     "contract observers",
