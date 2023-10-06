@@ -17,7 +17,7 @@ uhoh() {
 trap uhoh EXIT
 
 STABLE_REGEX="\d+\.\d+\.\d+"
-SNAPSHOT_REGEX="^${STABLE_REGEX}-snapshot\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8}$"
+SNAPSHOT_REGEX="^${STABLE_REGEX}-snapshot\.\d{8}.v[0-9a-f]{8}$"
 RC_REGEX="^${STABLE_REGEX}-rc\d+$"
 VERSION_REGEX="(^$STABLE_REGEX$)|($SNAPSHOT_REGEX)|($RC_REGEX)"
 
@@ -70,7 +70,7 @@ make_snapshot() {
     commit_date=$(git log -n1 --format=%cd --date=format:%Y%m%d $sha)
     number_of_commits=$(git rev-list --count $sha)
     commit_sha_8=$(git log -n1 --format=%h --abbrev=8 $sha)
-    echo "$1 $2-snapshot.$commit_date.$number_of_commits.0.v$commit_sha_8 SPLIT_RELEASE"
+    echo "$1 $2.$number_of_commits-snapshot.$commit_date.v$commit_sha_8 SPLIT_RELEASE"
 }
 
 display_help() {
@@ -81,8 +81,8 @@ $0 snapshot SHA PREFIX
         Prints the snapshot line for commit SHA as a release candidate for
         version PREFIX. For example:
 
-        $ $0 snapshot cc880e2 0.1.2
-        cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29 SPLIT_RELEASE
+        $ $0 snapshot cc880e2 0.1
+        cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.4174-snapshot.20200513.vcc880e29 SPLIT_RELEASE
 
         Any non-ambiguous git commit reference can be given as SHA.
 
