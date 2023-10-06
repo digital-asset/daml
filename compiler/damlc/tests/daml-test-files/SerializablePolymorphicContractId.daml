@@ -1,5 +1,5 @@
 -- Check that `ContractId a` is serializable whenever `a` is serializable.
--- @SINCE-LF 1.5
+-- @SINCE-LF 1.5 2.0
 
 module SerializablePolymorphicContractId where
 
