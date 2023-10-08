@@ -212,7 +212,7 @@ public final class SubmitCommandsRequest {
 
   // TODO: Refactor this to take CommmandsSubmission when deprecated methods using it below are
   // removed
-  private static CommandsOuterClass.Commands toProto(
+  private static CommandsOuterClass.Commands deprecatedToProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -274,6 +274,10 @@ public final class SubmitCommandsRequest {
     List<Command> commands = toCommands(submission.getCommands());
     List<CommandsOuterClass.Command> commandsConverted =
         commands.stream().map(Command::toProtoCommand).collect(Collectors.toList());
+    List<CommandsOuterClass.DisclosedContract> disclosedContracts =
+        submission.getDisclosedContracts().stream()
+            .map(DisclosedContract::toProto)
+            .collect(Collectors.toList());
 
     CommandsOuterClass.Commands.Builder builder =
         CommandsOuterClass.Commands.newBuilder()
@@ -283,7 +287,8 @@ public final class SubmitCommandsRequest {
             .setParty(submission.getActAs().get(0))
             .addAllActAs(submission.getActAs())
             .addAllReadAs(submission.getReadAs())
-            .addAllCommands(commandsConverted);
+            .addAllCommands(commandsConverted)
+            .addAllDisclosedContracts(disclosedContracts);
 
     submission
         .getMinLedgerTimeAbs()
@@ -323,18 +328,7 @@ public final class SubmitCommandsRequest {
 
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId, @NonNull CommandsSubmission submission) {
-    return toProto(
-        ledgerId,
-        submission.getWorkflowId().orElse(""),
-        submission.getApplicationId(),
-        submission.getCommandId(),
-        submission.getActAs(),
-        submission.getReadAs(),
-        submission.getMinLedgerTimeAbs(),
-        submission.getMinLedgerTimeRel(),
-        submission.getDeduplicationTime(),
-        Optional.empty(),
-        toCommands(submission.getCommands()));
+    return toProto(ledgerId, submission.getWorkflowId(), submission);
   }
 
   /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
@@ -350,7 +344,7 @@ public final class SubmitCommandsRequest {
       @NonNull Optional<Duration> minLedgerTimeRelative,
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull List<@NonNull Command> commands) {
-    return toProto(
+    return deprecatedToProto(
         ledgerId,
         workflowId,
         applicationId,
@@ -368,18 +362,7 @@ public final class SubmitCommandsRequest {
       @NonNull String ledgerId,
       @NonNull String submissionId,
       @NonNull CommandsSubmission submission) {
-    return toProto(
-        ledgerId,
-        submission.getWorkflowId().orElse(""),
-        submission.getApplicationId(),
-        submission.getCommandId(),
-        submission.getActAs(),
-        submission.getReadAs(),
-        submission.getMinLedgerTimeAbs(),
-        submission.getMinLedgerTimeRel(),
-        submission.getDeduplicationTime(),
-        Optional.of(submissionId),
-        toCommands(submission.getCommands()));
+    return toProto(ledgerId, Optional.of(submissionId), submission);
   }
 
   /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
@@ -396,7 +379,7 @@ public final class SubmitCommandsRequest {
       @NonNull Optional<Duration> minLedgerTimeRelative,
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull List<@NonNull Command> commands) {
-    return toProto(
+    return deprecatedToProto(
         ledgerId,
         workflowId,
         applicationId,
@@ -426,7 +409,7 @@ public final class SubmitCommandsRequest {
     List<String> empty_read_as = new ArrayList<>();
     List<String> act_as = new ArrayList<>();
     act_as.add(party);
-    return toProto(
+    return deprecatedToProto(
         ledgerId,
         workflowId,
         applicationId,
@@ -455,7 +438,7 @@ public final class SubmitCommandsRequest {
     List<String> empty_read_as = new ArrayList<>();
     List<String> act_as = new ArrayList<>();
     act_as.add(party);
-    return toProto(
+    return deprecatedToProto(
         ledgerId,
         workflowId,
         applicationId,
