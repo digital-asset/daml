@@ -50,6 +50,7 @@ private[lf] class CollectAuthorityState {
     val darFile = new File(if (dar.startsWith("//")) rlocation(dar.substring(2)) else dar)
     val packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
+    // TODO(#17366): port the benchmark to LF v2 if that makes sense
     val compilerConfig =
       Compiler.Config
         .Default(LanguageMajorVersion.V1)

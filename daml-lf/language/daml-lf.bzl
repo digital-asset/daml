@@ -75,6 +75,7 @@ lf_version_configuration = {
 }
 
 # TODO(#17366): rework lf_version_configuration to be indexed by major version
+#  and delete this dictionary
 lf_version_latest = {
     "1": lf_version_configuration.get("latest"),
     "2": "2.dev",

@@ -4,16 +4,26 @@
 package com.daml.lf.validation
 
 import com.daml.lf.language.Ast.Package
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.testing.parser.defaultPackageId
+import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class CollisionSpecV1 extends CollisionSpec(LanguageMajorVersion.V1)
+class CollisionSpecV2 extends CollisionSpec(LanguageMajorVersion.V2)
+
+class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with Matchers
+    with TableDrivenPropertyChecks {
+
+  private[this] implicit val parserParameters: ParserParameters[this.type] =
+    ParserParameters.defaultFor(majorLanguageVersion)
 
   def check(pkg: Package): Unit =
-    Collision.checkPackage(defaultPackageId, pkg)
+    Collision.checkPackage(parserParameters.defaultPackageId, pkg)
 
   // TODO https://github.com/digital-asset/daml/issues/12051
   //   Add test for collision of interface names, interface choices, and methods.

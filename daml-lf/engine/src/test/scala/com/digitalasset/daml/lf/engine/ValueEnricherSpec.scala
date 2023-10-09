@@ -8,9 +8,8 @@ import com.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateTransactio
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data._
 import com.daml.lf.language.Ast.{TNat, TTyCon, Type}
-import com.daml.lf.language.{LanguageMajorVersion}
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.language.Util._
-import com.daml.lf.testing.parser
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder, TreeTransactionBuilder}
@@ -31,11 +30,11 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
 
   import TransactionBuilder.Implicits.{defaultPackageId => _, _}
 
-  private[this] implicit val defaultPackageId: Ref.PackageId =
-    parser.defaultPackageId
-
   implicit val defaultParserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
+
+  implicit val defaultPackageId: Ref.PackageId =
+    defaultParserParameters.defaultPackageId
 
   private def cid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
 

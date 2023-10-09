@@ -160,7 +160,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
 
   implicit val parserParameters: parser.ParserParameters[this.type] =
     parser.ParserParameters(
-      parser.defaultPackageId,
+      Ref.PackageId.assertFromString("-pkg-"),
       commonVersion,
     )
 

@@ -90,7 +90,8 @@ private[lf] object Compiler {
             profiling = NoProfile,
             stacktracing = NoStackTrace,
           )
-        // TODO(#17366): once 2.0 is introduced, remove match and use StableVersions(majorLanguageVersion) or similar
+        // TODO(#17366): once 2.0 is introduced, remove match on major language
+        //  version and use StableVersions(majorLanguageVersion) or similar.
         case LanguageMajorVersion.V2 => Dev(LanguageMajorVersion.V2)
       }
     }

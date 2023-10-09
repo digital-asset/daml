@@ -204,7 +204,7 @@ private[speedy] object SpeedyTestLib {
           .mapValues(_.languageVersion)
           .filter { case (_, v) => v.major != majorLanguageVersion }
           .toList
-        s"thes packages don't have the expected major language version $majorLanguageVersion: $wrongPackages"
+        s"these packages don't have the expected major language version $majorLanguageVersion: $wrongPackages"
       },
     )
     Validation.unsafeCheckPackages(PackageInterface(pkgs), pkgs)

@@ -3,6 +3,7 @@
 
 package com.daml.lf.testing.parser
 
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 
@@ -15,11 +16,11 @@ private[daml] object ParserParameters {
 
   def defaultFor[P](majorLanguageVersion: LanguageMajorVersion): ParserParameters[P] =
     ParserParameters(
-      defaultPackageId = com.daml.lf.testing.parser.defaultPackageId,
+      defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
       // TODO(#17366): use something like LanguageVersion.default(major) after the refactoring of
       //  LanguageVersion and the introduction of v2.0
       majorLanguageVersion match {
-        case LanguageMajorVersion.V1 => com.daml.lf.testing.parser.defaultLanguageVersion
+        case LanguageMajorVersion.V1 => LanguageVersion.default
         case LanguageMajorVersion.V2 => LanguageVersion.v2_dev
       },
     )

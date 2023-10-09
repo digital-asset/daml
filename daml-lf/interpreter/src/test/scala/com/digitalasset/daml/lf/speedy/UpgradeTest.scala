@@ -11,7 +11,7 @@ import com.daml.lf.language.{LanguageMajorVersion}
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.SValue.SContractId
-import com.daml.lf.testing.parser.Implicits.{defaultParserParameters => _, _}
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.TransactionVersion.VDev
 import com.daml.lf.transaction.Versioned

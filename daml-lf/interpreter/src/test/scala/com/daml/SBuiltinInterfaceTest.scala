@@ -37,6 +37,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
 
   implicit val parserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  val defaultPackageId = parserParameters.defaultPackageId
 
   "Interface operations" - {
     val iouTypeRep = Ref.TypeConName.assertFromString("-pkgId-:Mod:Iou")
@@ -273,19 +274,19 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
           val aliceOwesBobIface : Mod:Iface = to_interface @Mod:Iface @Mod:Iou Mod:aliceOwesBob;
         }
     """
-    Map(parser.defaultPackageId -> pkg)
+    Map(basePkgId -> pkg)
   }
   lazy val compiledBasePkgs = PureCompiledPackages.assertBuild(basePkgs, compilerConfig)
 
   val Ast.TTyCon(iouId) = t"'$basePkgId':Mod:Iou"
 
   val extraPkgId = Ref.PackageId.assertFromString("-extra-package-")
-  assume(extraPkgId != basePkgId)
+  require(extraPkgId != basePkgId)
 
   lazy val extendedPkgs = {
 
-    val defaultParserParameters: parser.ParserParameters[this.type] =
-      parser.Implicits.defaultParserParameters.copy(defaultPackageId = extraPkgId)
+    val modifiedParserParameters: parser.ParserParameters[this.type] =
+      parserParameters.copy(defaultPackageId = extraPkgId)
 
     val pkg =
       p"""
@@ -307,8 +308,8 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
           val bob : Party = Mod:mkParty "bob";
 
         }
-    """ (defaultParserParameters)
-    basePkgs + (defaultParserParameters.defaultPackageId -> pkg)
+    """ (modifiedParserParameters)
+    basePkgs + (modifiedParserParameters.defaultPackageId -> pkg)
   }
   lazy val compiledExtendedPkgs = PureCompiledPackages.assertBuild(extendedPkgs, compilerConfig)
 

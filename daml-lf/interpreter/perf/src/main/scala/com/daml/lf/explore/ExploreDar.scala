@@ -77,7 +77,7 @@ object PlaySpeedy {
     val packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
     println(s"Compiling packages... ${config.stacktracing}")
-    // TODO(#17366): Add support for LF v1 if we keep this in daml3
+    // TODO(#17366): Add support for LF v2 if we keep this in daml3
     val compilerConfig =
       Compiler.Config.Default(LanguageMajorVersion.V1).copy(stacktracing = config.stacktracing)
     val compiledPackages =

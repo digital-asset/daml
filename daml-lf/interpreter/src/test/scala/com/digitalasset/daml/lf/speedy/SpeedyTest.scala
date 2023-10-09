@@ -15,7 +15,6 @@ import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.daml.lf.testing.parser.Implicits._
 import org.scalactic.Equality
 import org.scalatest.matchers.should.Matchers
-import defaultParserParameters.{defaultPackageId => pkgId}
 import SpeedyTestLib.loggingContext
 import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
 import com.daml.lf.language.LanguageMajorVersion
@@ -39,8 +38,13 @@ class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
 
   import SpeedyTest._
 
-  implicit val defaultParserParameters =
+  implicit val parserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
+
+  val pkgId = parserParameters.defaultPackageId
+
+  def qualify(name: String): Ref.ValueRef =
+    Identifier(parserParameters.defaultPackageId, QualifiedName.assertFromString(name))
 
   for (evaluationOrder <- EvaluationOrder.valuesFor(majorLanguageVersion)) {
 
@@ -680,9 +684,6 @@ class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
 object SpeedyTest {
 
   val alice: SParty = SParty(Party.assertFromString("Alice"))
-
-  def qualify(name: String): Ref.ValueRef =
-    Identifier(pkgId, QualifiedName.assertFromString(name))
 
   def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] =
     evalSExpr(packages.compiler.unsafeCompile(e), packages)

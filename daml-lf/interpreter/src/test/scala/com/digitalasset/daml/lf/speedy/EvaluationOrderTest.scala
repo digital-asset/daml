@@ -13,7 +13,7 @@ import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.testing.parser.Implicits.{defaultParserParameters => _, _}
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.ledger.FailedAuthorization.{
@@ -21,7 +21,7 @@ import com.daml.lf.ledger.FailedAuthorization.{
   FetchMissingAuthorization,
   LookupByKeyMissingAuthorization,
 }
-import com.daml.lf.testing.parser.{ParserParameters, defaultPackageId}
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ValueParty, ValueRecord}
 import com.daml.logging.LoggingContext
@@ -63,7 +63,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private[this] implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters(defaultPackageId, languageVersion = languageVersion)
+    ParserParameters(Ref.PackageId.assertFromString("-pkg-"), languageVersion = languageVersion)
 
   private val pkgsAst: Package =
     p"""

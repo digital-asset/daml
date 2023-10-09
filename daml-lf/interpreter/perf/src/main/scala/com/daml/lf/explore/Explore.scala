@@ -22,7 +22,7 @@ object PlaySpeedy {
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
-  // TODO(#17366): Add support for LF v1 if we keep this in daml3
+  // TODO(#17366): Add support for LF v2 if we keep this in daml3
   private[this] val compilerConfig =
     Compiler.Config.Default(LanguageMajorVersion.V1).copy(stacktracing = Compiler.FullStackTrace)
 

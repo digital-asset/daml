@@ -4,13 +4,25 @@
 package com.daml.lf.validation
 
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.validation.SpecUtil._
+import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class TypeSubstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
+class TypeSubstSpecV1 extends TypeSubstSpec(LanguageMajorVersion.V1)
+class TypeSubstSpecV2 extends TypeSubstSpec(LanguageMajorVersion.V2)
+
+class TypeSubstSpec(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with TableDrivenPropertyChecks
+    with Matchers {
+
+  private[this] implicit val parserParameters: ParserParameters[this.type] =
+    ParserParameters.defaultFor(majorLanguageVersion)
+
+  import SpecUtil._
 
   "A TypeSubst" should {
     "should be idempotent on terms that do not contain variable from its domain." in {

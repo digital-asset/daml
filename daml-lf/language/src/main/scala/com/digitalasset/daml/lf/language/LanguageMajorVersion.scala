@@ -18,7 +18,7 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: L
     with Serializable {
 
   // TODO(#17366): 2.dev is currently the only 2.x version, but as soon as 2.0 is introduced this
-  //   code should be cleaned up.
+  //   code should be simplified.
   val minStableVersion =
     LanguageVersion(this, LanguageMinorVersion(minorAscending.headOption.getOrElse("dev")))
   val maxStableVersion =

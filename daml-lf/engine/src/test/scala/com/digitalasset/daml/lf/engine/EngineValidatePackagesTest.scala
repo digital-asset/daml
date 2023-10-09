@@ -20,7 +20,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
     with Matchers
     with Inside {
 
-  val pkgId = parser.defaultPackageId
+  val pkgId = Ref.PackageId.assertFromString("-pkg-")
 
   // TODO(#17366): use something like LanguageVersion.default(major) after the refactoring of
   //  LanguageVersion

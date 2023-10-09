@@ -24,7 +24,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
   import SpeedyTestLib.loggingContext
 
-  import com.daml.lf.testing.parser.Implicits.{defaultParserParameters => _, _}
+  import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 
   private[this] val pkgId1 = Ref.PackageId.assertFromString("-packageId1-")
   private[this] val pkgId2 = Ref.PackageId.assertFromString("-packageId2-")

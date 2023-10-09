@@ -9,11 +9,19 @@ import com.daml.lf.data.BackStack
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.language.{Ast => Pkg, Util => PkgUtil}
+import com.daml.lf.language.{LanguageMajorVersion, Ast => Pkg, Util => PkgUtil}
+import com.daml.lf.testing.parser.ParserParameters
 
 import scala.language.implicitConversions
 
-class TypeSpec extends AnyWordSpec with Matchers {
+class TypeSpecV1 extends TypeSpec(LanguageMajorVersion.V1)
+class TypeSpecV2 extends TypeSpec(LanguageMajorVersion.V2)
+
+class TypeSpec(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec with Matchers {
+
+  implicit val parserParameters: ParserParameters[this.type] =
+    ParserParameters.defaultFor(majorLanguageVersion)
+
   implicit def packageId(s: String): PackageId = PackageId.assertFromString(s)
   implicit def qualifiedName(s: String): QualifiedName = QualifiedName.assertFromString(s)
 

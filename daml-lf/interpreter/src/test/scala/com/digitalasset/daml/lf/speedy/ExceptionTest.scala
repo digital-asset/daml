@@ -34,11 +34,11 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     with Matchers
     with TableDrivenPropertyChecks {
 
-  import parser.defaultPackageId
   import SpeedyTestLib.loggingContext
 
   implicit val defaultParserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  val defaultPackageId = defaultParserParameters.defaultPackageId
 
   private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Party): SExpr = {
     val se = pkgs.compiler.unsafeCompile(e)

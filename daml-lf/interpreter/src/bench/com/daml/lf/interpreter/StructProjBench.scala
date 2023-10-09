@@ -12,7 +12,12 @@ import org.openjdk.jmh.annotations._
 @State(Scope.Benchmark)
 class StructProjBench {
 
-  import com.daml.lf.testing.parser.Implicits._
+  import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+
+  // TODO(#17366): port the bench to LF v2
+  private[this] implicit val parserParameters: ParserParameters[this.type] =
+    ParserParameters.defaultFor(LanguageMajorVersion.V1)
+  private[this] val defaultPackageId = parserParameters.defaultPackageId
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 

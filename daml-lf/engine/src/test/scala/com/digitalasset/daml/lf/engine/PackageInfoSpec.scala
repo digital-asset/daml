@@ -7,6 +7,7 @@ package language
 package util
 
 import com.daml.lf.data.Ref.{PackageId, TypeConName}
+import com.daml.lf.testing.parser.ParserParameters
 import data.{Ref, Relation}
 import testing.parser
 import org.scalatest.wordspec.AnyWordSpec
@@ -14,13 +15,18 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class PackageInfoSpec extends AnyWordSpec with Matchers {
+class PackageInfoSpecV1 extends PackageInfoSpec(LanguageMajorVersion.V1)
+class PackageInfoSpecV2 extends PackageInfoSpec(LanguageMajorVersion.V2)
 
-  import parser.Implicits.{defaultParserParameters => _, _}
+class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with Matchers {
+
+  import parser.Implicits.SyntaxHelper
 
   lazy val pkg0 = {
     implicit val parseParameters: parser.ParserParameters[this.type] =
-      parser.ParserParameters("-pkg0-", parser.defaultLanguageVersion)
+      ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg0-")
 
     p"""
         module Mod0 {
@@ -38,7 +44,7 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
 
   lazy val pkg1 = {
     implicit val parseParameters: parser.ParserParameters[this.type] =
-      parser.ParserParameters("-pkg1-", parser.defaultLanguageVersion)
+      ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg1-")
 
     p"""
         module Mod11 {
@@ -69,7 +75,7 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
 
   lazy val pkg2 = {
     implicit val parseParameters: parser.ParserParameters[this.type] =
-      parser.ParserParameters("-pkg2-", parser.defaultLanguageVersion)
+      ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg2-")
 
     p"""
          module Mod {
@@ -104,7 +110,7 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
 
   lazy val pkg3 = {
     implicit val parseParameters: parser.ParserParameters[this.type] =
-      parser.ParserParameters("-pkg3-", parser.defaultLanguageVersion)
+      ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg3-")
 
     p"""
 
