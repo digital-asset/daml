@@ -7,23 +7,35 @@ package engine
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.speedy.{ArrayList, DisclosedContract, SValue}
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueList, ValueParty, ValueRecord}
 import org.scalatest.{Assertion, Inside, Inspectors}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 import com.daml.lf.value.Value
+import com.daml.lf.speedy.Compiler
 
-class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspectors {
+class PreprocessorSpecV1 extends PreprocessorSpec(LanguageMajorVersion.V1)
+class PreprocessorSpecV2 extends PreprocessorSpec(LanguageMajorVersion.V2)
 
-  import PreprocessorSpec._
+class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with Inside
+    with Matchers
+    with Inspectors {
+
+  val helpers = new PreprocessorSpecHelpers(majorLanguageVersion)
+  import helpers._
+
+  val compilerConfig = Compiler.Config.forTest(majorLanguageVersion)
 
   "preprocessor" should {
     "returns correct result when resuming" in {
-      val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+      val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
       val intermediaryResult = preprocessor
         .translateValue(
           Ast.TTyCon("Mod:WithoutKey"),
@@ -35,7 +47,7 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
     }
 
     "returns correct error when resuming" in {
-      val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+      val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
       val intermediaryResult = preprocessor
         .translateValue(
           Ast.TTyCon("Mod:WithoutKey"),
@@ -54,7 +66,8 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
     "preprocessDisclosedContracts" should {
       "normalized contracts" should {
         "accepted if fields are correctly ordered" in {
-          val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+          val preprocessor =
+            new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
           val normalizedContract =
             buildDisclosedContract(withNormalization = true, withFieldsReversed = false)
 
@@ -66,7 +79,8 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
         }
 
         "rejected if fields are incorrectly ordered" in {
-          val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+          val preprocessor =
+            new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
           val altNormalizedContract =
             buildDisclosedContract(withNormalization = true, withFieldsReversed = true)
           val finalResult = preprocessor
@@ -85,7 +99,8 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
         val altNonNormalizedContract =
           buildDisclosedContract(withNormalization = false, withFieldsReversed = true)
         forAll(Seq(nonNormalizedContract, altNonNormalizedContract)) { contract =>
-          val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+          val preprocessor =
+            new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
           val result =
             preprocessor
               .preprocessDisclosedContracts(ImmArray(contract))
@@ -96,7 +111,8 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
       }
 
       "reject duplicate disclosed contract IDs" in {
-        val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+        val preprocessor =
+          new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
         val contract1 = buildDisclosedContract(contractId)
         val contract2 =
           buildDisclosedContract(contractId, templateId = withKeyTmplId, keyHash = Some(keyHash))
@@ -113,7 +129,8 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
       }
 
       "reject duplicate disclosed contract key hash" in {
-        val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+        val preprocessor =
+          new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
         val contract1 =
           buildDisclosedContract(contractId, templateId = withKeyTmplId, keyHash = Some(keyHash))
         val contractId2 =
@@ -136,7 +153,8 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
       }
 
       "reject disclosed contract of a type without key but with a key hash " in {
-        val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+        val preprocessor =
+          new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
         val contract =
           buildDisclosedContract(contractId, templateId = withoutKeyTmplId, keyHash = Some(keyHash))
         val finalResult = preprocessor
@@ -158,7 +176,8 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
       }
 
       "reject disclosed contract of a type with key but without key hash " in {
-        val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+        val preprocessor =
+          new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
         val contract =
           buildDisclosedContract(contractId, templateId = withKeyTmplId, keyHash = None)
         val finalResult = preprocessor
@@ -180,9 +199,12 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
   }
 }
 
-object PreprocessorSpec {
+final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
-  implicit val defaultPackageId: Ref.PackageId = defaultParserParameters.defaultPackageId
+  implicit val parserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+
+  implicit val defaultPackageId: Ref.PackageId = parserParameters.defaultPackageId
 
   lazy val pkg =
     p"""
