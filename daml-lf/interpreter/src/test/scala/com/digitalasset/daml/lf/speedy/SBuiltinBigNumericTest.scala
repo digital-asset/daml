@@ -391,7 +391,7 @@ final class SBuiltinBigNumericTestHelpers(majorLanguageVersion: LanguageMajorVer
   val compiledPackages =
     PureCompiledPackages.assertBuild(
       Map(parserParameters.defaultPackageId -> pkg),
-      Compiler.Config.forTest(majorLanguageVersion),
+      Compiler.Config.Default(majorLanguageVersion),
     )
 
   def eval(e: Expr): Either[SError.SError, SValue] =

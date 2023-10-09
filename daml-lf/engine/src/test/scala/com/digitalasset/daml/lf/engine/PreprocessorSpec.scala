@@ -31,7 +31,7 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
   val helpers = new PreprocessorSpecHelpers(majorLanguageVersion)
   import helpers._
 
-  val compilerConfig = Compiler.Config.forTest(majorLanguageVersion)
+  val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
 
   "preprocessor" should {
     "returns correct result when resuming" in {

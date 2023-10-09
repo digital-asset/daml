@@ -127,7 +127,8 @@ private[trigger] object Cli {
   val DefaultAuthCallbackTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
   val DefaultMaxHttpEntityUploadSize: Long = RunnerConfig.DefaultMaxInboundMessageSize.toLong
   val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
-  val DefaultCompilerConfig: Compiler.Config = Compiler.Config.Default
+  // TODO(#17366): support both LF v1 and v2 in triggers
+  val DefaultCompilerConfig: Compiler.Config = Compiler.Config.Default(LanguageMajorVersion.V1)
   val DefaultCommandTtl: FiniteDuration = FiniteDuration(30, duration.SECONDS)
   val DefaultTlsConfiguration: TlsConfiguration =
     TlsConfiguration(enabled = false, None, None, None)

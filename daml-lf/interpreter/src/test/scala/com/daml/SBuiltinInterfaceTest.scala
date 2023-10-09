@@ -142,7 +142,7 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
   implicit val parserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
   val basePkgId = parserParameters.defaultPackageId
-  val compilerConfig = Compiler.Config.forTest(majorLanguageVersion)
+  val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
 
   lazy val basePkgs = {
     val pkg =

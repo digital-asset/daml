@@ -37,7 +37,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
   private implicit val parserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
-  private val compilerConfig = Compiler.Config.forTest(majorLanguageVersion)
+  private val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
   private val languageVersion = compilerConfig.allowedLanguageVersions.max
 
   private def runExpr(e: Expr): SValue = {

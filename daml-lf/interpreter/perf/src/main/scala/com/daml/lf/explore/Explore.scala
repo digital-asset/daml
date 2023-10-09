@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 package explore
 
-import com.daml.lf.language.PackageInterface
+import com.daml.lf.language.{LanguageMajorVersion, PackageInterface}
 import com.daml.lf.speedy.SExpr0._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
@@ -22,9 +22,9 @@ object PlaySpeedy {
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
-  // TODO(#17366): port this to LF v2?
+  // TODO(#17366): Add support for LF v1 if we keep this in daml3
   private[this] val compilerConfig =
-    Compiler.Config.Default.copy(stacktracing = Compiler.FullStackTrace)
+    Compiler.Config.Default(LanguageMajorVersion.V1).copy(stacktracing = Compiler.FullStackTrace)
 
   def main(args0: List[String]) = {
     val config: Config = parseArgs(args0)

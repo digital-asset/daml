@@ -1945,7 +1945,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(
       Map(parserParameters.defaultPackageId -> pkg),
-      Compiler.Config.forTest(majorLanguageVersion),
+      Compiler.Config.Default(majorLanguageVersion),
     )
 
   val stablePackages = StablePackages(majorLanguageVersion)

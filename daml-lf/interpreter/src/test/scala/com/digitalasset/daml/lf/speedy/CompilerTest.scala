@@ -507,7 +507,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(
       Map(pkgId -> pkg),
-      Compiler.Config.forTest(majorLanguageVersion),
+      Compiler.Config.Default(majorLanguageVersion),
     )
   val alice: Party = Ref.Party.assertFromString("Alice")
 

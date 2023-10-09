@@ -60,9 +60,9 @@ private[trigger] final case class AuthorizationConfig(
 private[trigger] object TriggerServiceAppConf {
   implicit val compilerCfgReader: ConfigReader[Compiler.Config] =
     ConfigReader.fromString[Compiler.Config](ConvertHelpers.catchReadError { s =>
+      // TODO(#17366) support both LF v1 and v2 in triggers
       s.toLowerCase() match {
-        case "default" => Compiler.Config.Default
-        // TODO(#17366) support both LF v1 and v2 in triggers
+        case "default" => Compiler.Config.Default(LanguageMajorVersion.V1)
         case "dev" => Compiler.Config.Dev(LanguageMajorVersion.V1)
         case s =>
           throw new IllegalArgumentException(
@@ -135,7 +135,8 @@ private[trigger] final case class TriggerServiceAppConf(
     triggerStore: Option[JdbcConfig] = None,
     allowExistingSchema: Boolean = false,
     tlsConfig: TlsConfiguration = Cli.DefaultTlsConfiguration,
-    compilerConfig: Compiler.Config = Compiler.Config.Default,
+    // TODO(#17366): support both LF v1 and v2 in triggers
+    compilerConfig: Compiler.Config = Compiler.Config.Default(LanguageMajorVersion.V1),
     triggerConfig: TriggerRunnerConfig = DefaultTriggerRunnerConfig,
     rootLoggingLevel: Option[Level] = None,
     logEncoder: LogEncoder = LogEncoder.Plain,

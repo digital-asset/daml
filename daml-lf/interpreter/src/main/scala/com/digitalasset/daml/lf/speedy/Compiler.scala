@@ -81,12 +81,19 @@ private[lf] object Compiler {
   )
 
   object Config {
-    val Default = Config(
-      allowedLanguageVersions = LanguageVersion.StableVersions,
-      packageValidation = FullPackageValidation,
-      profiling = NoProfile,
-      stacktracing = NoStackTrace,
-    )
+    def Default(majorLanguageVersion: LanguageMajorVersion) = {
+      majorLanguageVersion match {
+        case LanguageMajorVersion.V1 =>
+          Config(
+            allowedLanguageVersions = LanguageVersion.StableVersions,
+            packageValidation = FullPackageValidation,
+            profiling = NoProfile,
+            stacktracing = NoStackTrace,
+          )
+        // TODO(#17366): once 2.0 is introduced, remove match and use StableVersions(majorLanguageVersion) or similar
+        case LanguageMajorVersion.V2 => Dev(LanguageMajorVersion.V2)
+      }
+    }
 
     def Dev(majorLanguageVersion: LanguageMajorVersion) = Config(
       allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion),
@@ -94,14 +101,6 @@ private[lf] object Compiler {
       profiling = NoProfile,
       stacktracing = NoStackTrace,
     )
-
-    // TODO(#17366): once 2.0 is introduced and Default accepts a major language version, remove and
-    //  replace usages with calls to Default
-    def forTest(majorLanguageVersion: LanguageMajorVersion) =
-      majorLanguageVersion match {
-        case LanguageMajorVersion.V1 => Default
-        case LanguageMajorVersion.V2 => Dev(LanguageMajorVersion.V2)
-      }
   }
 
   /** Validates and Compiles all the definitions in the packages provided. Returns them in a Map.

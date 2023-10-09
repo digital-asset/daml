@@ -405,7 +405,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
 
             val compiledPackages = PureCompiledPackages.assertBuild(
               state.packages,
-              Compiler.Config.forTest(majorLanguageVersion),
+              Compiler.Config.Default(majorLanguageVersion),
             )
             val machine = Speedy.Machine.fromPureExpr(compiledPackages, expr)
             val startTime = System.nanoTime()

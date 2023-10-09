@@ -66,7 +66,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     """
 
   private[this] val compiledPackage = ConcurrentCompiledPackages(
-    Compiler.Config.forTest(majorLanguageVersion)
+    Compiler.Config.Default(majorLanguageVersion)
   )
   assert(compiledPackage.addPackage(defaultPackageId, pkg) == ResultDone.Unit)
 

@@ -190,7 +190,7 @@ class OrderingSpec(majorLanguageVersion: LanguageMajorVersion)
   private def translatePrimValue(typ: typesig.Type, v: Value) = {
 
     val machine = Speedy.Machine.fromUpdateSExpr(
-      PureCompiledPackages.Empty(Compiler.Config.forTest(majorLanguageVersion)),
+      PureCompiledPackages.Empty(Compiler.Config.Default(majorLanguageVersion)),
       transactionSeed = txSeed,
       updateSE =
         SELet1(SEImportValue(toAstType(typ), v), SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),

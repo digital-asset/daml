@@ -138,7 +138,9 @@ object RunnerConfig {
   private[trigger] val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
   private[trigger] val DefaultApplicationId: ApplicationId =
     ApplicationId("daml-trigger")
-  private[trigger] val DefaultCompilerConfig: Compiler.Config = Compiler.Config.Default
+  // TODO(#17366): support both LF v1 and v2 in triggers
+  private[trigger] val DefaultCompilerConfig: Compiler.Config =
+    Compiler.Config.Default(LanguageMajorVersion.V1)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[RunnerConfig]("trigger-runner") {

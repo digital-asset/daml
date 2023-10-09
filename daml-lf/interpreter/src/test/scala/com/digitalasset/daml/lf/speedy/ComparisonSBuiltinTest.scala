@@ -627,7 +627,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   private[this] val compiledPackages =
     PureCompiledPackages.assertBuild(
       Map(pkgId1 -> pkg1, pkgId2 -> pkg2),
-      Compiler.Config.forTest(majorLanguageVersion),
+      Compiler.Config.Default(majorLanguageVersion),
     )
 
   private[this] val cidBinderType = {
