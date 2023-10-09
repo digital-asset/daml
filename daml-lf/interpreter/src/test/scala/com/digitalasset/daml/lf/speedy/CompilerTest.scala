@@ -8,10 +8,12 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.interpretation.Error.TemplatePreconditionViolated
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.Speedy.ContractInfo
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
@@ -21,9 +23,13 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class CompilerTest extends AnyWordSpec with Matchers with Inside {
+class CompilerTestV1 extends CompilerTest(LanguageMajorVersion.V1)
+class CompilerTestV2 extends CompilerTest(LanguageMajorVersion.V2)
 
-  import CompilerTest._
+class CompilerTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec with Matchers with Inside {
+
+  val helpers = new CompilerTestHelpers(majorLanguageVersion)
+  import helpers._
 
   "unsafeCompile" should {
     "handle 10k commands" in {
@@ -447,10 +453,13 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
   }
 }
 
-object CompilerTest {
+final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
-  import defaultParserParameters.{defaultPackageId => pkgId}
   import SpeedyTestLib.loggingContext
+
+  implicit val parserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  val pkgId = parserParameters.defaultPackageId
 
   implicit val contractIdOrder: Ordering[ContractId] = `Cid Order`.toScalaOrdering
   implicit val contractIdV1Order: Ordering[ContractId.V1] = `V1 Order`.toScalaOrdering
@@ -493,7 +502,7 @@ object CompilerTest {
         }
     """
   val compiledPackages: PureCompiledPackages =
-    PureCompiledPackages.assertBuild(Map(pkgId -> pkg))
+    PureCompiledPackages.assertBuild(Map(pkgId -> pkg), Compiler.Config.forTest(majorLanguageVersion))
   val alice: Party = Ref.Party.assertFromString("Alice")
 
   def contract(label: String = ""): SValue.SRecord = SValue.SRecord(

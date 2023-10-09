@@ -50,7 +50,7 @@ private[lf] object PureCompiledPackages {
 
   def build(
       packages: Map[PackageId, Package],
-      compilerConfig: Compiler.Config = Compiler.Config.Default,
+      compilerConfig: Compiler.Config,
   ): Either[String, PureCompiledPackages] = {
     Compiler
       .compilePackages(PackageInterface(packages), packages, compilerConfig)
@@ -59,11 +59,11 @@ private[lf] object PureCompiledPackages {
 
   def assertBuild(
       packages: Map[PackageId, Package],
-      compilerConfig: Compiler.Config = Compiler.Config.Default,
+      compilerConfig: Compiler.Config,
   ): PureCompiledPackages =
     data.assertRight(build(packages, compilerConfig))
 
-  lazy val Empty: PureCompiledPackages =
-    PureCompiledPackages(Map.empty, Map.empty, Compiler.Config.Default)
+  def Empty(compilerConfig: Compiler.Config): PureCompiledPackages =
+    PureCompiledPackages(Map.empty, Map.empty, compilerConfig)
 
 }

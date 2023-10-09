@@ -1418,7 +1418,7 @@ private[lf] object Speedy {
     @throws[CompilationError]
     def runPureExpr(
         expr: Expr,
-        compiledPackages: CompiledPackages = PureCompiledPackages.Empty,
+        compiledPackages: CompiledPackages,
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureExpr(compiledPackages, expr).runPure()
 
@@ -1426,7 +1426,7 @@ private[lf] object Speedy {
     @throws[CompilationError]
     def runPureSExpr(
         expr: SExpr,
-        compiledPackages: CompiledPackages = PureCompiledPackages.Empty,
+        compiledPackages: CompiledPackages,
         iterationsBetweenInterruptions: Long = Long.MaxValue,
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()

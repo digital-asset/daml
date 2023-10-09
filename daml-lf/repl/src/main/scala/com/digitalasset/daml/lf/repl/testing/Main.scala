@@ -403,7 +403,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
           case Some(DValue(_, body, _)) =>
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
-            val compiledPackages = PureCompiledPackages.assertBuild(state.packages)
+            val compiledPackages = PureCompiledPackages.assertBuild(state.packages, Compiler.Config.forTest(majorLanguageVersion))
             val machine = Speedy.Machine.fromPureExpr(compiledPackages, expr)
             val startTime = System.nanoTime()
             val valueOpt = machine.run() match {

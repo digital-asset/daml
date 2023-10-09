@@ -22,6 +22,7 @@ object PlaySpeedy {
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
+  // TODO(#17366): port this to LF v2?
   private[this] val compilerConfig =
     Compiler.Config.Default.copy(stacktracing = Compiler.FullStackTrace)
 
@@ -37,7 +38,7 @@ object PlaySpeedy {
     names.foreach { name =>
       val (expected, expr) = examples(name)
       val converted = compiler.unsafeClosureConvert(expr)
-      val machine = Machine.fromPureSExpr(PureCompiledPackages.Empty, converted)
+      val machine = Machine.fromPureSExpr(PureCompiledPackages.Empty(compilerConfig), converted)
       runMachine(machine, expected)
     }
   }

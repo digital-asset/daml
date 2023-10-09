@@ -9,14 +9,14 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersionRangeOps._
-import com.daml.lf.language.StablePackages
+import com.daml.lf.language.{LanguageMajorVersion, StablePackages}
 import com.daml.lf.speedy.SBuiltin.{SBCacheDisclosedContract, SBCrash, SBuildContractInfoStruct}
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo, Machine}
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ValueArithmeticError
@@ -29,19 +29,26 @@ import java.util
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 
-class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with Inside {
+class SBuiltinTestV1 extends SBuiltinTest(LanguageMajorVersion.V1)
+class SBuiltinTestV2 extends SBuiltinTest(LanguageMajorVersion.V2)
 
-  import SBuiltinTest._
+class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion) extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with Inside {
 
-  private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
+  val helpers = new SBuiltinTestHelpers(majorLanguageVersion)
+  import helpers.{parserParameters => _, _}
 
-  private def n(scale: Int, x: BigDecimal): Numeric = Numeric.assertFromBigDecimal(scale, x)
-  private def n(scale: Int, str: String): Numeric = n(scale, BigDecimal(str))
-  private def s(scale: Int, x: BigDecimal): String = Numeric.toString(n(scale, x))
-  private def s(scale: Int, str: String): String = s(scale, BigDecimal(str))
-  private def w(scale: Int): String = s(scale, 1)
+  implicit val parserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
-  private def tenPowerOf(i: Int, scale: Int = 10) =
+  implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
+
+  def n(scale: Int, x: BigDecimal): Numeric = Numeric.assertFromBigDecimal(scale, x)
+  def n(scale: Int, str: String): Numeric = n(scale, BigDecimal(str))
+  def s(scale: Int, x: BigDecimal): String = Numeric.toString(n(scale, x))
+  def s(scale: Int, str: String): String = s(scale, BigDecimal(str))
+  def w(scale: Int): String = s(scale, 1)
+
+  def tenPowerOf(i: Int, scale: Int = 10) =
     if (i == 0)
       "1." + "0" * scale
     else if (i > 0)
@@ -1701,8 +1708,10 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     }
 
     "should not request package for ArithmeticError" in {
+      val tyCon = StablePackages(majorLanguageVersion).ArithmeticError
+      val prettyTyCon = s"'${tyCon.packageId}':${tyCon.qualifiedName}"
       eval(
-        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a':DA.Exception.ArithmeticError:ArithmeticError ('cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a':DA.Exception.ArithmeticError:ArithmeticError { message = "Arithmetic error" }))"""
+        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @$prettyTyCon ($prettyTyCon { message = "Arithmetic error" }))"""
       ) shouldBe Right(SText("Arithmetic error"))
     }
 
@@ -1850,11 +1859,13 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   }
 }
 
-object SBuiltinTest {
+final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   import SpeedyTestLib.loggingContext
 
-  private lazy val pkg =
+  implicit val parserParameters = ParserParameters.defaultFor(majorLanguageVersion)
+
+  lazy val pkg =
     p"""
         module Mod {
           variant Either a b = Left : a | Right : b ;
@@ -1925,19 +1936,17 @@ object SBuiltinTest {
 
     """
 
-  private val txVersion = TransactionVersion.assignNodeVersion(pkg.languageVersion)
+  val txVersion = TransactionVersion.assignNodeVersion(pkg.languageVersion)
 
   val compiledPackages: PureCompiledPackages =
-    PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
+    PureCompiledPackages.assertBuild(Map(parserParameters.defaultPackageId -> pkg), Compiler.Config.forTest(majorLanguageVersion))
 
-  val stablePackages = StablePackages(
-    compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
-  )
+  val stablePackages = StablePackages(majorLanguageVersion)
 
-  private def eval(e: Expr): Either[SError, SValue] =
+  def eval(e: Expr): Either[SError, SValue] =
     Machine.runPureExpr(e, compiledPackages)
 
-  private def evalApp(
+  def evalApp(
       e: Expr,
       args: Array[SValue],
   ): Either[SError, SValue] =
@@ -1946,23 +1955,23 @@ object SBuiltinTest {
   val alice: Party = Ref.Party.assertFromString("Alice")
   val committers: Set[Party] = Set(alice)
 
-  private def eval(sexpr: SExpr): Either[SError, SValue] =
+  def eval(sexpr: SExpr): Either[SError, SValue] =
     Machine.runPureSExpr(sexpr, compiledPackages)
 
-  private def evalAppOnLedger(
+  def evalAppOnLedger(
       e: Expr,
       args: Array[SValue],
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract).map(_._1)
 
-  private def evalOnLedger(
+  def evalOnLedger(
       e: Expr,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract).map(_._1)
 
-  private def evalOnLedger(
+  def evalOnLedger(
       sexpr: SExpr,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
   ): Either[
@@ -1992,11 +2001,11 @@ object SBuiltinTest {
     if (xs.isEmpty) "(Nil @Int64)"
     else xs.mkString(s"(Cons @Int64 [", ", ", s"] (Nil @Int64))")
 
-  private val entryFields = Struct.assertFromNameSeq(List(keyFieldName, valueFieldName))
+  val entryFields = Struct.assertFromNameSeq(List(keyFieldName, valueFieldName))
 
-  private def mapEntry(k: String, v: SValue) = SStruct(entryFields, ArrayList(SText(k), v))
+  def mapEntry(k: String, v: SValue) = SStruct(entryFields, ArrayList(SText(k), v))
 
-  private def lit2string(x: SValue): String =
+  def lit2string(x: SValue): String =
     x match {
       case SBool(b) => b.toString
       case SInt64(i) => i.toString
