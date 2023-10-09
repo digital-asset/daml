@@ -107,7 +107,7 @@ buildDar ::
     -> PackageConfigFields
     -> NormalizedFilePath
     -> FromDalf
-    -> IO (Maybe (Zip.ZipArchive (), LF.PackageId))
+    -> IO (Maybe (Zip.ZipArchive (), Maybe LF.PackageId))
 buildDar service PackageConfigFields {..} ifDir dalfInput = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
@@ -119,7 +119,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
             -- Note that the package id is obviously wrong but this feature is not something we expose to users.
             pure $ Just
               ( createArchive pName pVersion pSdkVersion (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] []
-              , LF.PackageId ""
+              , Nothing
               )
         -- We need runActionSync here to ensure that diagnostics are printed to the terminal.
         -- Otherwise runAction can return before the diagnostics have been printed and we might die
@@ -182,7 +182,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                        files
                        dataFiles
                        ifaces
-                   , pkgId
+                   , Just pkgId
                    )
 
 validateExposedModules :: Maybe [ModuleName] -> [ModuleName] -> MaybeT Action ()

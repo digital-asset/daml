@@ -166,7 +166,8 @@ canonicalizeMultiPackageConfigIntermediate projectPath (MultiPackageConfigFields
       <$> (MultiPackageConfigFields <$> traverse canonicalizePath packagePaths)
       <*> traverse canonicalizePath multiPackagePaths
 
--- Fix for single argument that checks for loops over that single argument in the recursion
+-- | Finds the fixpoint for a single argument IO computation without allowing it to call itself with the same argument
+-- Takes a function to display the cycle in an error message
 cyclelessIOFix :: forall a b. Eq a => ([a] -> String) -> ((a -> IO b) -> a -> IO b) -> a -> IO b
 cyclelessIOFix loopShow f = loop []
   where

@@ -916,8 +916,14 @@ execBuild
 execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPackage buildAll noCache multiPackageLocation =
   Command Build (Just projectOpts) $ evalContT $ do
     relativize <- ContT $ withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False})
-    let buildSingle = buildSingle' relativize
-        buildMulti = buildMulti' relativize
+
+    let buildSingle :: PackageConfigFields -> IO ()
+        buildSingle pkgConfig = void $ buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb
+        buildMulti :: Maybe PackageConfigFields -> ProjectPath -> IO ()
+        buildMulti mPkgConfig multiPackageConfigPath =
+          withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig ->
+            multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opts mbOutFile incrementalBuild initPkgDb noCache
+
     -- TODO: This throws if you have the sdk-version only daml.yaml, ideally it should return Nothing
     mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig defaultProjectPath
     liftIO $ if getEnableMultiPackage enableMultiPackage then do
@@ -985,13 +991,6 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
               hPutStrLn stderr "Multi-package build option used without enabling multi-package via the --enable-multi-package flag."
               exitFailure
             else buildSingle pkgConfig
-  where
-    buildSingle' :: (FilePath -> IO FilePath) -> PackageConfigFields -> IO ()
-    buildSingle' relativize pkgConfig = void $ buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb
-    buildMulti' :: (FilePath -> IO FilePath) -> Maybe PackageConfigFields -> ProjectPath -> IO ()
-    buildMulti' relativize mPkgConfig multiPackageConfigPath =
-      withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig ->
-        multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opts mbOutFile incrementalBuild initPkgDb noCache
 
 -- Takes the withPackageConfig style functions and changes the continuation
 -- to give a Maybe, where Nothing signifies a missing file. Parse errors are still thrown
@@ -1009,7 +1008,7 @@ withMaybeConfig withConfig handler = do
     ) (withConfig $ pure . Just)
   handler mConfig
 
-buildEffect :: (FilePath -> IO FilePath) -> PackageConfigFields -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> IO LF.PackageId
+buildEffect :: (FilePath -> IO FilePath) -> PackageConfigFields -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> IO (Maybe LF.PackageId)
 buildEffect relativize pkgConfig@PackageConfigFields{..} opts mbOutFile incrementalBuild initPkgDb = do
   installDepsAndInitPackageDb opts initPkgDb
   loggerH <- getLogger opts "build"
@@ -1032,10 +1031,10 @@ buildEffect relativize pkgConfig@PackageConfigFields{..} opts mbOutFile incremen
               pkgConfig
               (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
               (FromDalf False)
-      (dar, pkgId) <- mbErr "ERROR: Creation of DAR file failed." mbDar
+      (dar, mPkgId) <- mbErr "ERROR: Creation of DAR file failed." mbDar
       fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
       createDarFile loggerH fp dar
-      pure pkgId
+      pure mPkgId
     where
         targetFilePath rel name =
           case mbOutFile of
@@ -1101,7 +1100,11 @@ multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opt
         withCreateProcess ((proc assistantPath args) {cwd = Just location, env = Just assistantEnv})
           $ \_ _ _ p -> void $ waitForProcess p
       buildableDataDeps = BuildableDataDeps $ flip Map.lookup buildableDataDepsMapping
-      mRootPkgBuilder = (\pkgConfig -> buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb) <$> mPkgConfig
+      mRootPkgBuilder = flip fmap mPkgConfig $ \pkgConfig -> do
+        mPkgId <- buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb
+        pure $ fromMaybe
+          (error "Internal error: root package was built from dalf, giving no package-id. This is incompatible with multi-package")
+          mPkgId
       mRootPkgData = (toNormalizedFilePath' $ maybe cDir unwrapProjectPath $ projectRoot projectOpts,) <$> mRootPkgBuilder
       rule = buildMultiRule assistantRunner buildableDataDeps noCache mRootPkgData
  
@@ -1178,8 +1181,8 @@ readDarStalenessData archive =
         _ -> Nothing
 
 -- | Gets the package id of a Dar in the given project ONLY if it is not stale.
-getValidPackageId :: IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
-getValidPackageId logger path BuildMultiPackageConfig {..} sourceDepPids = do
+getPackageIdIfFresh :: IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
+getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
   let log str = IDELogger.logDebug logger $ T.pack $ path <> ": " <> str
   darPath <- deriveDarPath path bmName bmVersion bmOutput
   exists <- doesFileExist darPath
@@ -1260,7 +1263,7 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
         ownValidPid <- 
           if noCache
             then pure Nothing
-            else getValidPackageId logger filePath bmPkgConfig sourceDepsData
+            else getPackageIdIfFresh logger filePath bmPkgConfig sourceDepsData
 
         case ownValidPid of
           Just pid -> do
@@ -1268,9 +1271,8 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
             pure $ makeReturn pid False
           Nothing -> do
             IDELogger.logInfo logger $ T.pack $ "Building " <> filePath
-            -- Invoke damlc with the following flags. For now we call to `main`, but later we'll defer to the assistant to find the right version of damlc
-            -- and defer to that instead.
 
+            -- Call build via daml assistant so it selects the correct SDK version.
             -- TODO[SW]: Update this check to compare version to most recent snapshot, once a snapshot is released that won't error with --enable-multi-package.
             runAssistant assistantRunner filePath $
               ["build"] <> (["--enable-multi-package=no" | unPackageSdkVersion bmSdkVersion == "0.0.0"])
