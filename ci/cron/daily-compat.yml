@@ -203,7 +203,7 @@ jobs:
             if [ "main" = "$(Build.SourceBranchName)" ]; then
                 git add canton_dep.bzl build.sh test-common/canton/BUILD.bazel
                 git ls-files | grep arbitrary_canton_sha >&2 && git rm -f arbitrary_canton_sha
-                open_pr "$branch" "update canton drop to $canton_version"
+                open_pr "$branch" "update canton to $canton_version"
                 az extension add --name azure-devops
                 trap "az devops logout" EXIT
                 echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
