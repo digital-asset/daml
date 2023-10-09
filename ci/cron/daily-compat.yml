@@ -173,7 +173,7 @@ jobs:
                                        --project daml
           fi
 
-  - job: drop canton
+  - job: update canton community source
     timeoutInMinutes: 60
     pool:
       name: ubuntu_20_04
@@ -193,11 +193,11 @@ jobs:
         git fetch
         git checkout origin/main
 
-        canton_version=ci/drop_canton.sh
+        canton_version=ci/update_canton_community.sh
 
         branch="canton-drop-${canton_version}"
 
-        if [ "$(git rev-parse HEAD)" = x"$(git rev-parse origin/main)" ]; then
+        if [ x"$(git rev-parse HEAD)" = x"$(git rev-parse origin/main)" ]; then
             echo "Already up-to-date with latest Canton source."
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
