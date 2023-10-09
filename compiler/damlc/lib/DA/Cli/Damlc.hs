@@ -1097,8 +1097,10 @@ multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opt
     pure (darPath, path)
 
   let assistantRunner = AssistantRunner $ \location args ->
-        withCreateProcess ((proc assistantPath args) {cwd = Just location, env = Just assistantEnv})
-          $ \_ _ _ p -> void $ waitForProcess p
+        withCreateProcess ((proc assistantPath args) {cwd = Just location, env = Just assistantEnv}) $ \_ _ _ p -> do
+          exitCode <- waitForProcess p
+          when (exitCode /= ExitSuccess) $ error $ "Failed to build package at " <> location <> "."
+
       buildableDataDeps = BuildableDataDeps $ flip Map.lookup buildableDataDepsMapping
       mRootPkgBuilder = flip fmap mPkgConfig $ \pkgConfig -> do
         mPkgId <- buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb
