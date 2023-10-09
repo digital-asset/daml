@@ -1146,15 +1146,20 @@ data BuildMultiPackageConfig = BuildMultiPackageConfig
 
 -- Version of getDamlFiles from Dar.hs that assumes source is a folder, and runs in IO rather than action
 -- Throws an error if its a path to a file
-getDamlFilesBuildMulti :: FilePath -> IO (Map.Map FilePath BSL.ByteString)
-getDamlFilesBuildMulti path = do
+getDamlFilesBuildMulti :: (String -> IO ()) -> FilePath -> FilePath -> IO (Map.Map FilePath BSL.ByteString)
+getDamlFilesBuildMulti log packagePath srcDir = do
+  let path = normalise $ packagePath </> srcDir
   exists <- doesDirectoryExist path
-  -- TODO[SW]: find a way to fix this
-  -- It isn't fully possible, since we need to be able to parse the files to check their imports, and we can't parse other sdk versions.
-  -- The best we can probably do is find all daml files in the daml.yaml directory?
-  unless exists $ error "multi-package build does not support daml file source paths. Please specify a directory containing your daml files instead."
-  files <- fmap fromNormalizedFilePath <$> damlFilesInDir path
-  Map.fromList <$> traverse (\file -> (makeRelative path file,) <$> BSL.readFile file) files
+  if exists then do
+    files <- fmap fromNormalizedFilePath <$> damlFilesInDir path
+    Map.fromList <$> traverse (\file -> (makeRelative path file,) <$> BSL.readFile file) files
+  else do
+    log $ "WARNING: Multi-package caching does not support setting the daml.yaml source value to a daml file. This package will always rebuild.\n"
+      <> "Change the source value in "
+      <> (packagePath </> projectConfigName)
+      <> " to a directory to allow correct caching.\n"
+    pure Map.empty
+    
 
 -- Extract the name/version string and package ID of a given dalf in a dar.
 entryToDalfData :: ZipArchive.Entry -> Maybe (String, LF.PackageId)
@@ -1183,17 +1188,18 @@ readDarStalenessData archive =
 -- | Gets the package id of a Dar in the given project ONLY if it is not stale.
 getPackageIdIfFresh :: IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
 getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
-  let log str = IDELogger.logDebug logger $ T.pack $ path <> ": " <> str
+  let logDebug str = IDELogger.logDebug logger $ T.pack $ path <> ": " <> str
+      logInfo str = IDELogger.logInfo logger $ T.pack str
   darPath <- deriveDarPath path bmName bmVersion bmOutput
   exists <- doesFileExist darPath
   if not exists
     then do
-      log "No DAR found, build is stale."
+      logDebug "No DAR found, build is stale."
       pure Nothing
     else do
-      log "DAR found, checking staleness."
+      logDebug "DAR found, checking staleness."
       -- Get the real source files we expect to be included in the dar
-      sourceFiles <- getDamlFilesBuildMulti $ normalise $ path </> bmSourceDaml
+      sourceFiles <- getDamlFilesBuildMulti logInfo path bmSourceDaml
 
       -- Pull all information we need from the dar.
       (archiveDalfPids, archiveSourceFiles) <-
@@ -1210,15 +1216,15 @@ getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
           let archiveDalfPid = getArchiveDalfPid name version
               valid = archiveDalfPid == Just pid
 
-          when (not valid) $ log $ 
+          when (not valid) $ logDebug $ 
             "Source dependency \"" <> dalfDataKey name version <> "\" is stale. Expected PackageId "
               <> T.unpack (LF.unPackageId pid) <> " but got " <> (show $ LF.unPackageId <$> archiveDalfPid) <> "."
 
           pure valid
         ) sourceDepPids
 
-      log $ "Source dependencies are " <> (if sourceDepsCorrect then "not " else "") <> "stale."
-      log $ "Source files are " <> (if sourceFilesCorrect then "not " else "") <> "stale."
+      logDebug $ "Source dependencies are " <> (if sourceDepsCorrect then "not " else "") <> "stale."
+      logDebug $ "Source files are " <> (if sourceFilesCorrect then "not " else "") <> "stale."
       pure $ if sourceDepsCorrect && sourceFilesCorrect then getArchiveDalfPid bmName bmVersion else Nothing
 
 buildMultiRule
