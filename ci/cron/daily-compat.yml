@@ -173,6 +173,49 @@ jobs:
                                        --project daml
           fi
 
+  - job: drop canton
+    timeoutInMinutes: 60
+    pool:
+      name: ubuntu_20_04
+      demands: assignment -equals default
+    steps:
+    - checkout: self
+      persistCredentials: true
+    - template: ../bash-lib.yml
+      parameters:
+        var_name: bash_lib
+    - bash: |
+        set -euo pipefail
+
+        eval "$(./dev-env/bin/dade-assist)"
+        source $(bash_lib)
+
+        git fetch
+        git checkout origin/main
+
+        canton_version=ci/drop_canton.sh
+
+        branch="canton-drop-${canton_version}"
+
+        if [ "$(git rev-parse HEAD)" = x"$(git rev-parse origin/main)" ]; then
+            echo "Already up-to-date with latest Canton source."
+        else
+            if [ "main" = "$(Build.SourceBranchName)" ]; then
+                git add canton_dep.bzl build.sh test-common/canton/BUILD.bazel
+                git ls-files | grep arbitrary_canton_sha >&2 && git rm -f arbitrary_canton_sha
+                open_pr "$branch" "update canton drop to $canton_version"
+                az extension add --name azure-devops
+                trap "az devops logout" EXIT
+                echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
+                az pipelines build queue --branch "$branch" \
+                                         --definition-name "PRs" \
+                                         --org "https://dev.azure.com/digitalasset" \
+                                         --project daml
+            else
+                echo "Would open PR if this were running on main."
+            fi
+        fi
+
   - job: bump_canton
     timeoutInMinutes: 60
     pool:
