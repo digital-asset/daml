@@ -918,6 +918,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
     relativize <- ContT $ withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False})
     let buildSingle = buildSingle' relativize
         buildMulti = buildMulti' relativize
+    -- TODO: This throws if you have the sdk-version only daml.yaml, ideally it should return Nothing
     mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig defaultProjectPath
     liftIO $ if getEnableMultiPackage enableMultiPackage then do
       mMultiPackagePath <- case multiPackageLocation of
@@ -1189,7 +1190,7 @@ getValidPackageId logger path BuildMultiPackageConfig {..} sourceDepPids = do
     else do
       log "DAR found, checking staleness."
       -- Get the real source files we expect to be included in the dar
-      sourceFiles <- getDamlFilesBuildMulti $ path </> bmSourceDaml
+      sourceFiles <- getDamlFilesBuildMulti $ normalise $ path </> bmSourceDaml
 
       -- Pull all information we need from the dar.
       (archiveDalfPids, archiveSourceFiles) <-
