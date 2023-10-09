@@ -4,32 +4,24 @@
 
 set -euo pipefail
 
-date=$(date -u "+%Y-%m-%d %H:%M")
-canton_dir=canton
-canton_repo="git@github.com:DACH-NY/canton.git"
-root_canton=$(mktemp -d)
+tmp=$(mktemp -d)
+#trap "rm -rf ${tmp}" EXIT
 
-trap "rm -rf ${root_canton}" EXIT
+git clone git@github.com:DACH-NY/canton.git --depth 1  $tmp
 
-git clone ${canton_repo} --depth 1 ${root_canton}
-
-canton_sha=$(git -C $root_canton rev-parse HEAD)
+canton_sha=$(git -C $tmp rev-parse HEAD)
 
 for path in community daml-common-staging; do
-  src=${root_canton}/${path}
-  dst=${canton_dir}/${path}
+  src=$tmp/$path
+  dst=canton/$path
   rm -rf $dst
-  mkdir -p $(dirname ${dst})
-  cp -rf ${src} ${dst}
+  mkdir -p $(dirname $dst)
+  cp -rf $src $dst
   git add $dst
 done
 
-if git diff-index --quiet HEAD ${canton_dir}; then
-  echo "No code changes (we skip)"
-else
-    message="Update Canton Community source at ${date}"
-    ref_commit="Reference commit: ${canton_sha}"
-    git commit -m "${message}" -m "${ref_commit}"
+if git diff --exit-code -- canton; then
+  git commit -m "update canton to $canton_sha"
 fi
 
-echo ${canton_sha}
+echo $canton_sha

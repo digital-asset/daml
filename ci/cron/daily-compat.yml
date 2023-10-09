@@ -193,9 +193,9 @@ jobs:
         git fetch
         git checkout origin/main
 
-        canton_version=ci/update_canton_community.sh
+        canton_sha=ci/update_canton_community.sh
 
-        branch="canton-drop-${canton_version}"
+        branch="canton-update-${canton_sha}"
 
         if [ x"$(git rev-parse HEAD)" = x"$(git rev-parse origin/main)" ]; then
             echo "Already up-to-date with latest Canton source."
@@ -203,7 +203,7 @@ jobs:
             if [ "main" = "$(Build.SourceBranchName)" ]; then
                 git add canton_dep.bzl build.sh test-common/canton/BUILD.bazel
                 git ls-files | grep arbitrary_canton_sha >&2 && git rm -f arbitrary_canton_sha
-                open_pr "$branch" "update canton to $canton_version"
+                open_pr "$branch" "update canton to $canton_sha"
                 az extension add --name azure-devops
                 trap "az devops logout" EXIT
                 echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
