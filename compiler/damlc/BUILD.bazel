@@ -18,7 +18,7 @@ damlc_data = [
     "//compiler/damlc:ghcversion",
     "@stackage-exe//hpp",
     "//compiler/damlc/pkg-db",
-    "//compiler/damlc/stable-packages:stable-packages",
+    "//compiler/damlc/stable-packages",
     "//compiler/damlc:daml-base-anchors.json",
     "//compiler/repl-service/server:repl_service_jar",
     "//compiler/scenario-service/server:scenario_service_jar",

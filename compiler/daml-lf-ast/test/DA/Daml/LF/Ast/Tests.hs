@@ -302,7 +302,7 @@ typeSynTests =
     , testGroup "bad" (map (mkBadTestcase version) badDefSets)
     , testGroup "bigger" (map (mkBiggerTestcase version) biggerExamples)
     ]
-    | version <- [Version V1 PointDev, Version V2 PointDev]
+    | version <- [version1_dev, version2_dev]
   ]
   where
 

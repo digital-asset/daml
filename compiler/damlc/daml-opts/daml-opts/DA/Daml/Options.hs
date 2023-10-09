@@ -85,9 +85,13 @@ toCompileOpts Options{..} =
       }
   where
     optPreprocessor =
-      if optIsGenerated
-        then generatedPreprocessor
-        else damlPreprocessor (versionMajor optDamlLfVersion) dataDependableExtensions optMbPackageName
+        if optIsGenerated
+            then generatedPreprocessor
+            else
+                damlPreprocessor
+                    (versionMajor optDamlLfVersion)
+                    dataDependableExtensions
+                    optMbPackageName
 
     locateInPkgDb :: String -> PackageConfig -> GHC.Module -> IO (Maybe FilePath)
     locateInPkgDb ext pkgConfig mod

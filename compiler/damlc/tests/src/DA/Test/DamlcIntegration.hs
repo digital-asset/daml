@@ -552,7 +552,9 @@ data Ann
     = Ignore
       -- ^ Don't run this test at all
     | SinceLF (MS.Map LF.MajorVersion LF.MinorVersion)
-      -- ^ Only run this test if the target Daml-LF version can depend on the given Daml-LF versions
+      -- ^ Only run this test if the target Daml-LF version can depend on the
+      -- given Daml-LF version with the same major version as the target LF
+      -- version.
     | SupportsFeature T.Text
       -- ^ Only run this test if the given feature is supported by the target Daml-LF version
     | DoesNotSupportFeature T.Text

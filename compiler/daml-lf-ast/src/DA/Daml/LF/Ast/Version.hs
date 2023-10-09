@@ -95,27 +95,39 @@ isDevVersion :: Version -> Bool
 isDevVersion (Version _ PointDev) = True
 isDevVersion _ = False
 
+-- | True iff package metata is required for this LF version.
 requiresPackageMetadata :: Version -> Bool
 requiresPackageMetadata = \case
   Version V1 n -> n > PointStable 7
   Version V2 _ -> True
 
+-- | A datatype describing a set of language versions. Used in the definition of
+-- 'Feature' below.
 newtype VersionReq = VersionReq (MajorVersion -> R.Range MinorVersion)
 
+-- | @version `satisfies` versionReq@ iff version is part of the set of versions
+-- described by versionReq.
 satisfies :: Version -> VersionReq -> Bool
 satisfies (Version major minor) (VersionReq req) = minor `R.elem` req major
 
+-- | The set of language versions made of only dev versions.
 devOnly :: VersionReq
 devOnly = VersionReq (\_ -> R.Inclusive PointDev PointDev)
 
+-- | The minor version range [0 .. dev]. Shorthand used in the definition of
+-- features below.
+allV2MinorVersions :: R.Range MinorVersion
 -- TODO(#17366): Change for (R.inclusive (PointStable 0) PointDev) once 2.0 is
 -- introduced.
-allV2MinorVersions :: R.Range MinorVersion
 allV2MinorVersions = R.Inclusive PointDev PointDev
 
+-- | The minor version range [v .. dev]. Shorthand used in the definition of
+-- features below.
 allMinorVersionsAfter :: MinorVersion -> R.Range MinorVersion
 allMinorVersionsAfter v = R.Inclusive v PointDev
 
+-- | The empty minor version range. Shorthand used in the definition of features
+-- below.
 noMinorVersion :: R.Range MinorVersion
 noMinorVersion = R.Empty
 
@@ -271,6 +283,7 @@ allFeatures =
     , featureNatTypeErasure
     ]
 
+-- | A map from feature CPP flags to features.
 featureMap :: MS.Map T.Text Feature
 featureMap = MS.fromList
     [ (key, feature)
@@ -295,9 +308,11 @@ versionReqForFeaturePartial key =
                 , T.intercalate ", " (MS.keys featureMap)
                 ]
 
+-- | All the language features that the given language version supports.
 allFeaturesForVersion :: Version -> [Feature]
 allFeaturesForVersion version = filter (supports version) allFeatures
 
+-- | Whether the given language version supports the given language feature.
 supports :: Version -> Feature -> Bool
 supports version feature = version `satisfies` featureVersionReq feature
 

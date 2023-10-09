@@ -86,7 +86,7 @@ da_scala_test_suite(
         ],
     ),
     data = [
-        "%s-v%s.dar" % (name, major)
+        "{name}-v{major}.dar".format(name=name, major=major)
         for name in [
             "//daml-lf/tests:Exceptions",
             "//daml-lf/tests:Interfaces",
@@ -97,7 +97,7 @@ da_scala_test_suite(
         ]
         for major in LF_MAJOR_VERSIONS
     ] + [
-        ":%s-v%s.dar" % (name, major)
+        ":{name}-v{major}.dar".format(name=name, major=major)
         for name in ENGINE_TEST_FILES
         for major in LF_MAJOR_VERSIONS
     ] + [

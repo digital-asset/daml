@@ -2298,6 +2298,48 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
   }
+
+  "Engine.preloadPackage" should {
+    import com.daml.lf.language.{LanguageVersion => LV}
+
+    def engine(min: LV, max: LV) =
+      new Engine(
+        EngineConfig(
+          allowedLanguageVersions = VersionRange(min, max),
+          requireSuffixedGlobalContractId = true,
+        )
+      )
+
+    val devVersion = majorLanguageVersion.dev
+    val (_, _, allPackagesDev) = new EngineTestHelpers(majorLanguageVersion).loadPackage(
+      s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
+    )
+    val compatibleLanguageVersions = LanguageVersion.All.filter(_.major == majorLanguageVersion)
+    val stablePackages = StablePackages(majorLanguageVersion).allPackages
+
+    s"accept stable packages from ${devVersion} even if version is smaller than min version" in {
+      for {
+        lv <- compatibleLanguageVersions.filter(_ <= devVersion)
+        eng = engine(min = lv, max = devVersion)
+        pkg <- stablePackages
+        pkgId = pkg.packageId
+        pkg <- allPackagesDev.get(pkgId).toList
+      } yield eng.preloadPackage(pkgId, pkg) shouldBe a[ResultDone[_]]
+    }
+
+    s"reject stable packages from ${devVersion} if version is greater than max version" in {
+      for {
+        lv <- compatibleLanguageVersions
+        eng = engine(min = compatibleLanguageVersions.min, max = lv)
+        pkg <- stablePackages
+        pkgId = pkg.packageId
+        pkg <- allPackagesDev.get(pkgId).toList
+      } yield inside(eng.preloadPackage(pkgId, pkg)) {
+        case ResultDone(_) => pkg.languageVersion shouldBe <=(lv)
+        case ResultError(_) => pkg.languageVersion shouldBe >(lv)
+      }
+    }
+  }
 }
 
 class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
@@ -2347,38 +2389,6 @@ class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPr
       forEvery(positiveTestCases)((v, min, max) =>
         engine(min, max).preloadPackage(pkgId, pkg(v)) shouldBe a[ResultError]
       )
-    }
-
-    for (majorVersion <- LanguageMajorVersion.All) {
-      val devVersion = majorVersion.dev
-      val (_, _, allPackagesDev) = new EngineTestHelpers(majorVersion).loadPackage(
-        s"daml-lf/engine/BasicTests-v${majorVersion.pretty}dev.dar"
-      )
-      val compatibleLanguageVersions = LanguageVersion.All.filter(_.major == majorVersion)
-      val stablePackages = StablePackages(majorVersion).allPackages
-
-      s"accept stable packages from ${devVersion} even if version is smaller than min version" in {
-        for {
-          lv <- compatibleLanguageVersions.filter(_ <= devVersion)
-          eng = engine(min = lv, max = devVersion)
-          pkg <- stablePackages
-          pkgId = pkg.packageId
-          pkg <- allPackagesDev.get(pkgId).toList
-        } yield eng.preloadPackage(pkgId, pkg) shouldBe a[ResultDone[_]]
-      }
-
-      s"reject stable packages from ${devVersion} if version is greater than max version" in {
-        for {
-          lv <- compatibleLanguageVersions
-          eng = engine(min = compatibleLanguageVersions.min, max = lv)
-          pkg <- stablePackages
-          pkgId = pkg.packageId
-          pkg <- allPackagesDev.get(pkgId).toList
-        } yield inside(eng.preloadPackage(pkgId, pkg)) {
-          case ResultDone(_) => pkg.languageVersion shouldBe <=(lv)
-          case ResultError(_) => pkg.languageVersion shouldBe >(lv)
-        }
-      }
     }
   }
 }

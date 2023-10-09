@@ -58,8 +58,8 @@ import qualified DA.Daml.LF.TypeChecker.Env as LF
 import qualified DA.Daml.LF.TypeChecker.Error as LF
 import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options
-import DA.Daml.UtilGHC (fsFromText)
 import DA.Daml.StablePackages (stablePackageByModuleName)
+import DA.Daml.UtilGHC (fsFromText)
 
 import SdkVersion
 
@@ -1275,10 +1275,14 @@ refsFromDataCons = \case
     LF.DataInterface -> mempty
 
 rootRefs :: Config -> LF.World -> DL.DList Ref
-rootRefs config world = fold
-    [ modRootRefs (LF.versionMajor (worldLfVersion world)) (configSelfPkgId config) mod
-    | mod <- NM.toList (LF.packageModules (LF.getWorldSelf world))
-    ]
+rootRefs config world =
+    fold
+        [ modRootRefs
+            (LF.versionMajor (worldLfVersion world))
+            (configSelfPkgId config)
+            mod
+        | mod <- NM.toList (LF.packageModules (LF.getWorldSelf world))
+        ]
 
 modRootRefs :: LF.MajorVersion -> LF.PackageId -> LF.Module -> DL.DList Ref
 modRootRefs major pkgId mod = fold
@@ -1521,38 +1525,39 @@ getPromotedText major = \case
                     error ("Unexpected argument type to DA.Internal.PromotedText: " <> show argTy)
     _ -> Nothing
 
-stableTCon :: T.Text -> [T.Text] -> T.Text -> LF.Qualified LF.TypeConName
-stableTCon packageId moduleName tconName = LF.Qualified
-    { qualPackage = LF.PRImport (LF.PackageId packageId)
-    , qualModule = LF.ModuleName moduleName
-    , qualObject = LF.TypeConName [tconName]
-    }
+stableTCon ::
+    LF.MajorVersion -> [T.Text] -> T.Text -> LF.Qualified LF.TypeConName
+stableTCon major moduleName tconName =
+    LF.Qualified
+        { qualPackage = LF.PRImport (stablePackageIdByModuleNamePartial major qualModule)
+        , qualModule = qualModule
+        , qualObject = LF.TypeConName [tconName]
+        }
+  where
+    qualModule = LF.ModuleName moduleName
 
 erasedTCon :: LF.MajorVersion -> LF.Qualified LF.TypeConName
 erasedTCon major =
     stableTCon
-        (stablePackageIdPartial major moduleName)
-        moduleName
+        major
+        ["DA", "Internal", "Erased"]
         "Erased"
-  where
-    moduleName = ["DA", "Internal", "Erased"]
 
 promotedTextTCon :: LF.MajorVersion -> LF.Qualified LF.TypeConName
 promotedTextTCon major =
     stableTCon
-        (stablePackageIdPartial major moduleName)
-        moduleName
+        major
+        ["DA", "Internal", "PromotedText"]
         "PromotedText"
-  where
-    moduleName = ["DA", "Internal", "PromotedText"]
 
-stablePackageIdPartial :: LF.MajorVersion -> [T.Text] -> T.Text
-stablePackageIdPartial major mod =
-    LF.unPackageId $
-        fst $
-            fromJustNote
-                errorMsg
-                ((major, LF.ModuleName mod) `MS.lookup` stablePackageByModuleName)
+-- | Returns the ID of the stable package for the given major version and module
+-- name, throws if it doesn't exist.
+stablePackageIdByModuleNamePartial :: LF.MajorVersion -> LF.ModuleName -> LF.PackageId
+stablePackageIdByModuleNamePartial major mod =
+    fst $
+        fromJustNote
+            errorMsg
+            ((major, mod) `MS.lookup` stablePackageByModuleName)
   where
     errorMsg =
         concat

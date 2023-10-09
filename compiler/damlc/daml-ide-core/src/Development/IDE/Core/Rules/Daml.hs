@@ -642,14 +642,11 @@ generateStablePackages lfVersion fp = do
     -- Packages should remain stable as we move to newer LF versions. Changing the LF version would change the hash.
     pure
         ( diags
-        , Map.fromList $
-            filter
-                ( \(_, pkg) ->
-                    lfVersion
-                        `LF.canDependOn` LF.packageLfVersion (LF.extPackagePkg $ LF.dalfPackagePkg pkg)
-                )
-                pkgs
+        , Map.fromList $ filter (pkgCompatibleWith lfVersion . snd) pkgs
         )
+  where
+    pkgCompatibleWith lfVersion pkg = lfVersion `LF.canDependOn` dalfPackageVersion pkg
+    dalfPackageVersion pkg = LF.packageLfVersion (LF.extPackagePkg $ LF.dalfPackagePkg pkg)
 
 
 -- | Find the directory containing the stable packages if it exists.
