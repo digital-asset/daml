@@ -34,8 +34,9 @@ run() {
 }
 
 function refresh() {
-  file=$1
-  src=${root_private}/${file}
+  root_canton=$1
+  file=$2
+  src=${root_canton}/${file}
   dst=${canton_dir}/${file}
   dir_dst=$(dirname $dst)
   if [ -e ${dst} ]; then
@@ -76,8 +77,8 @@ run "clone canton private repo" git clone --branch main ${canton_repo} --depth 1
 hash_private=$(cd $root_canton; git rev-parse HEAD)
 
 # Canton Community directories and files inherited from private repo
-for artifact in community; do
-  run "Refreshing $artifact" refresh $artifact
+for artifact in community daml-common-staging; do
+  run "Refreshing $artifact" refresh ${root_canton} $artifact
 done
 
 commit ${hash_private}
