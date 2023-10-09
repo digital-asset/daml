@@ -193,16 +193,27 @@ jobs:
         git fetch
         git checkout origin/main
 
-        canton_sha=ci/update_canton_community.sh
+        tmp=$(mktemp -d)
+        trap "rm -rf ${tmp}" EXIT
 
+        git clone git@github.com:DACH-NY/canton.git --depth 1  $tmp
+
+        for path in community daml-common-staging; do
+          src=$tmp/$path
+          dst=canton/$path
+          rm -rf $dst
+          mkdir -p $(dirname $dst)
+          cp -rf $src $dst
+          git add $dst
+        done
+
+        canton_sha=$(git -C $tmp rev-parse HEAD)"
         branch="canton-update-${canton_sha}"
 
-        if [ x"$(git rev-parse HEAD)" = x"$(git rev-parse origin/main)" ]; then
+        if git diff --exit-code -- canton; then
             echo "Already up-to-date with latest Canton source."
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
-                git add canton_dep.bzl build.sh test-common/canton/BUILD.bazel
-                git ls-files | grep arbitrary_canton_sha >&2 && git rm -f arbitrary_canton_sha
                 open_pr "$branch" "update canton to $canton_sha"
                 az extension add --name azure-devops
                 trap "az devops logout" EXIT
