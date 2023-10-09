@@ -307,7 +307,7 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
           val bob : Party = Mod:mkParty "bob";
 
         }
-    """(defaultParserParameters)
+    """ (defaultParserParameters)
     basePkgs + (defaultParserParameters.defaultPackageId -> pkg)
   }
   lazy val compiledExtendedPkgs = PureCompiledPackages.assertBuild(extendedPkgs, compilerConfig)

@@ -19,7 +19,11 @@ import com.daml.lf.language.{Ast, LanguageMajorVersion, Util => AstUtil}
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.Inside
 import org.scalatest.prop.TableFor2
-import org.scalatestplus.scalacheck.{Checkers, ScalaCheckDrivenPropertyChecks, ScalaCheckPropertyChecks}
+import org.scalatestplus.scalacheck.{
+  Checkers,
+  ScalaCheckDrivenPropertyChecks,
+  ScalaCheckPropertyChecks,
+}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.{Order, Tag}

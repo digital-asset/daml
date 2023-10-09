@@ -32,7 +32,11 @@ import scala.util.{Failure, Try}
 class SBuiltinTestV1 extends SBuiltinTest(LanguageMajorVersion.V1)
 class SBuiltinTestV2 extends SBuiltinTest(LanguageMajorVersion.V2)
 
-class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion) extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with Inside {
+class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with TableDrivenPropertyChecks
+    with Inside {
 
   val helpers = new SBuiltinTestHelpers(majorLanguageVersion)
   import helpers.{parserParameters => _, _}
@@ -1939,7 +1943,10 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val txVersion = TransactionVersion.assignNodeVersion(pkg.languageVersion)
 
   val compiledPackages: PureCompiledPackages =
-    PureCompiledPackages.assertBuild(Map(parserParameters.defaultPackageId -> pkg), Compiler.Config.forTest(majorLanguageVersion))
+    PureCompiledPackages.assertBuild(
+      Map(parserParameters.defaultPackageId -> pkg),
+      Compiler.Config.forTest(majorLanguageVersion),
+    )
 
   val stablePackages = StablePackages(majorLanguageVersion)
 

@@ -17,7 +17,10 @@ import org.scalatest.wordspec.AnyWordSpec
 class ComparisonSBuiltinTestV1 extends ComparisonSBuiltinTest(LanguageMajorVersion.V1)
 class ComparisonSBuiltinTestV2 extends ComparisonSBuiltinTest(LanguageMajorVersion.V2)
 
-class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
@@ -622,7 +625,10 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion) extends
   }
 
   private[this] val compiledPackages =
-    PureCompiledPackages.assertBuild(Map(pkgId1 -> pkg1, pkgId2 -> pkg2), Compiler.Config.forTest(majorLanguageVersion))
+    PureCompiledPackages.assertBuild(
+      Map(pkgId1 -> pkg1, pkgId2 -> pkg2),
+      Compiler.Config.forTest(majorLanguageVersion),
+    )
 
   private[this] val cidBinderType = {
     implicit def parserParameters: ParserParameters[this.type] = parserParameters1

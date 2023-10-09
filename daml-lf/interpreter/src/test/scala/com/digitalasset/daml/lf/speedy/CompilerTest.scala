@@ -26,7 +26,10 @@ import org.scalatest.wordspec.AnyWordSpec
 class CompilerTestV1 extends CompilerTest(LanguageMajorVersion.V1)
 class CompilerTestV2 extends CompilerTest(LanguageMajorVersion.V2)
 
-class CompilerTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec with Matchers with Inside {
+class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with Matchers
+    with Inside {
 
   val helpers = new CompilerTestHelpers(majorLanguageVersion)
   import helpers._
@@ -502,7 +505,10 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         }
     """
   val compiledPackages: PureCompiledPackages =
-    PureCompiledPackages.assertBuild(Map(pkgId -> pkg), Compiler.Config.forTest(majorLanguageVersion))
+    PureCompiledPackages.assertBuild(
+      Map(pkgId -> pkg),
+      Compiler.Config.forTest(majorLanguageVersion),
+    )
   val alice: Party = Ref.Party.assertFromString("Alice")
 
   def contract(label: String = ""): SValue.SRecord = SValue.SRecord(

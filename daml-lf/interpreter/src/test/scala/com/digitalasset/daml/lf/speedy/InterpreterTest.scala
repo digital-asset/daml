@@ -24,7 +24,11 @@ import scala.language.implicitConversions
 class InterpreterTestV1 extends InterpreterTest(LanguageMajorVersion.V1)
 class InterpreterTestV2 extends InterpreterTest(LanguageMajorVersion.V2)
 
-class InterpreterTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec with Inside with Matchers with TableDrivenPropertyChecks {
+class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with Inside
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
@@ -220,7 +224,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWor
               None,
             )
         ),
-        compilerConfig
+        compilerConfig,
       )
     val pkgs3 = PureCompiledPackages.assertBuild(
       Map(
@@ -241,7 +245,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWor
             None,
           )
       ),
-      compilerConfig
+      compilerConfig,
     )
 
     val seed = crypto.Hash.hashPrivateKey("test")

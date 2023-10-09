@@ -20,7 +20,10 @@ import scala.language.implicitConversions
 class SBuiltinBigNumericTestV1 extends SBuiltinBigNumericTest(LanguageMajorVersion.V1)
 class SBuiltinBigNumericTestV2 extends SBuiltinBigNumericTest(LanguageMajorVersion.V2)
 
-class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion) extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
+class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   val helpers = new SBuiltinBigNumericTestHelpers(majorLanguageVersion)
   import helpers.{parserParameters => _, _}
@@ -386,7 +389,10 @@ final class SBuiltinBigNumericTestHelpers(majorLanguageVersion: LanguageMajorVer
     """
 
   val compiledPackages =
-    PureCompiledPackages.assertBuild(Map(parserParameters.defaultPackageId -> pkg), Compiler.Config.forTest(majorLanguageVersion))
+    PureCompiledPackages.assertBuild(
+      Map(parserParameters.defaultPackageId -> pkg),
+      Compiler.Config.forTest(majorLanguageVersion),
+    )
 
   def eval(e: Expr): Either[SError.SError, SValue] =
     Speedy.Machine.runPureExpr(e, compiledPackages)
