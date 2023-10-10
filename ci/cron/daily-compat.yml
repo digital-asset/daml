@@ -173,6 +173,60 @@ jobs:
                                        --project daml
           fi
 
+  - job: update canton community source
+    timeoutInMinutes: 60
+    pool:
+      name: ubuntu_20_04
+      demands: assignment -equals default
+    steps:
+    - checkout: self
+      persistCredentials: true
+    - template: ../bash-lib.yml
+      parameters:
+        var_name: bash_lib
+    - bash: |
+        set -euo pipefail
+
+        eval "$(./dev-env/bin/dade-assist)"
+        source $(bash_lib)
+
+        git fetch
+        git checkout origin/main
+
+        tmp=$(mktemp -d)
+        trap "rm -rf ${tmp}" EXIT
+
+        git clone git@github.com:DACH-NY/canton.git --depth 1  $tmp
+
+        for path in community daml-common-staging; do
+          src=$tmp/$path
+          dst=canton/$path
+          rm -rf $dst
+          mkdir -p $(dirname $dst)
+          cp -rf $src $dst
+          git add $dst
+        done
+
+        canton_sha=$(git -C $tmp rev-parse HEAD)"
+        branch="canton-update-${canton_sha}"
+
+        if git diff --exit-code -- canton; then
+            echo "Already up-to-date with latest Canton source."
+        else
+            if [ "main" = "$(Build.SourceBranchName)" ]; then
+                open_pr "$branch" "update canton to ${canton_sha:0:8}"
+                az extension add --name azure-devops
+                trap "az devops logout" EXIT
+                echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
+                az pipelines build queue --branch "$branch" \
+                                         --definition-name "PRs" \
+                                         --org "https://dev.azure.com/digitalasset" \
+                                         --project daml
+            else
+                echo "Would open PR if this were running on main."
+            fi
+        fi
+
   - job: bump_canton
     timeoutInMinutes: 60
     pool:
