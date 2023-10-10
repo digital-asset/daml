@@ -70,11 +70,12 @@ da_scala_binary(
             "@maven//:ch_qos_logback_logback_classic",
         ],
         deps = [
+            "//ledger-test-tool/infrastructure",
+            "//ledger-test-tool/runner",
             "//ledger/ledger-api-common",
-            "//ledger-test-tool/infrastructure:infrastructure-%s" % lf_version,
-            "//ledger-test-tool/runner:runner-%s" % lf_version,
             "//ledger-test-tool/suites:suites-%s" % lf_version,
             "//libs-scala/build-info",
+            "//test-common:dar-files-%s-lib" % lf_version,
             "@maven//:io_netty_netty_handler",
         ],
     )

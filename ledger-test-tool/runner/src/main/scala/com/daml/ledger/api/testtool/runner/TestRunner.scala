@@ -6,7 +6,6 @@ package com.daml.ledger.api.testtool.runner
 import java.io.File
 import java.nio.file.{Files, Paths, StandardCopyOption}
 import java.util.concurrent.Executors
-
 import com.daml.ledger.api.testtool.infrastructure._
 import com.daml.ledger.api.testtool.runner.TestRunner._
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -75,7 +74,7 @@ object TestRunner {
     prefixes.exists(test.name.startsWith)
 }
 
-final class TestRunner(availableTests: AvailableTests, config: Config) {
+final class TestRunner(availableTests: AvailableTests, config: Config, testDarPaths: List[String]) {
   def runAndExit(): Unit = {
     val tests = new ConfiguredTests(availableTests, config)
 
@@ -98,7 +97,7 @@ final class TestRunner(availableTests: AvailableTests, config: Config) {
     }
 
     if (config.extract) {
-      extractResources(Dars.resources)
+      extractResources(testDarPaths)
       sys.exit(0)
     }
 
@@ -185,7 +184,7 @@ final class TestRunner(availableTests: AvailableTests, config: Config) {
           shuffleParticipants = config.shuffleParticipants,
           timeoutScaleFactor = config.timeoutScaleFactor,
           concurrentTestRuns = concurrentTestRuns,
-          uploadDars = config.uploadDars,
+          uploadDars = Option.when(config.uploadDars)(testDarPaths),
           identifierSuffix = identifierSuffix,
         )
       )
