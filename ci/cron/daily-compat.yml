@@ -214,7 +214,7 @@ jobs:
             echo "Already up-to-date with latest Canton source."
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
-                open_pr "$branch" "update canton to $canton_sha"
+                open_pr "$branch" "update canton to ${canton_sha:0:8}"
                 az extension add --name azure-devops
                 trap "az devops logout" EXIT
                 echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
