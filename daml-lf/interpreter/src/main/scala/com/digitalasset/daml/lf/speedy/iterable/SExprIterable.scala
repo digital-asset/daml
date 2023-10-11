@@ -34,6 +34,7 @@ private[speedy] object SExprIterable {
     case SExpr.SELocS(_) => Iterator.empty
     case SExpr.SEValue(v) => iterator(v)
     case SExpr.SELocF(_) => Iterator.empty
+    case SExpr.SEDelayedCrash(_, _) => Iterator.empty
   }
   private[this] def iterator(v: SValue): Iterator[SExpr] = v match {
     case SValue.SPAP(prim, actuals, _) =>

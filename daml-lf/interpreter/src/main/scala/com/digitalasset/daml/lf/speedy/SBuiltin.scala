@@ -1078,15 +1078,11 @@ private[lf] object SBuiltin {
             doExe(Some(authorizers))
           } else {
             // additional authority *is* required; ask the ledger
-            Control.Question[Question.Update](
-              Question.Update.NeedAuthority(
-                holding = holding,
-                requesting = requesting,
-                callback = { () =>
-                  val control = doExe(Some(authorizers))
-                  machine.setControl(control)
-                },
-              )
+            machine.needAuthority(
+              NameOf.qualifiedNameOfCurrentFunc,
+              holding = holding,
+              requesting = requesting,
+              continue = () => doExe(Some(authorizers)),
             )
           }
         } else {
@@ -1601,16 +1597,10 @@ private[lf] object SBuiltin {
                 continue(someCid)._1
 
               case None =>
-                Control.Question(
-                  Question.Update.NeedKey(
-                    GlobalKeyWithMaintainers(gkey, cachedKey.maintainers),
-                    machine.committers,
-                    callback = { res =>
-                      val (control, bool) = continue(res)
-                      machine.setControl(control)
-                      bool
-                    },
-                  )
+                machine.needKey(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  GlobalKeyWithMaintainers(gkey, cachedKey.maintainers),
+                  continue,
                 )
             }
         }
@@ -1639,12 +1629,7 @@ private[lf] object SBuiltin {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       checkToken(args, 0)
-      machine.setDependsOnTime()
-      Control.Question(
-        Question.Update.NeedTime(timestamp =>
-          machine.setControl(Control.Value(STimestamp(timestamp)))
-        )
-      )
+      machine.needTime()
     }
   }
 
@@ -2011,18 +1996,17 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
-      Control.Question(
-        Question.Update.NeedPackageId(
-          module = templateId.qualifiedName.module,
-          pid0 = templateId.packageId,
-          callback = pid => {
-            val e = SEApp(
+      machine.needPackageId(
+        NameOf.qualifiedNameOfCurrentFunc,
+        module = templateId.qualifiedName.module,
+        pid0 = templateId.packageId,
+        continue = pid =>
+          Control.Expression(
+            SEApp(
               SEVal(TemplateChoiceDefRef(templateId.copy(packageId = pid), choice)),
               args.asScala.toArray,
             )
-            machine.setControl(Control.Expression(e))
-          },
-        )
+          ),
       )
     }
   }
@@ -2267,17 +2251,13 @@ private[lf] object SBuiltin {
       case Some(cachedKey) =>
         Some(cachedKey.globalKeyWithMaintainers)
     }
-    Control.Question(
-      Question.Update.NeedUpgradeVerification(
-        coid,
-        contract.signatories,
-        contract.observers,
-        keyOpt,
-        callback = { () =>
-          val control = continue()
-          machine.setControl(control)
-        },
-      )
+    machine.needUpgradeVerification(
+      NameOf.qualifiedNameOfCurrentFunc,
+      coid,
+      contract.signatories,
+      contract.observers,
+      keyOpt,
+      continue,
     )
   }
 

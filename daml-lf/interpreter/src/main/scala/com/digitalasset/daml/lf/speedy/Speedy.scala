@@ -35,7 +35,8 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.{tailrec, nowarn}
+import scala.util.control.NonFatal
 
 private[lf] object Speedy {
 
@@ -186,21 +187,170 @@ private[lf] object Speedy {
 
     private[this] var contractsCache = Map.empty[V.ContractId, V.ContractInstance]
 
+    // To hanle continuation exceptions, as continuation are un outside the interpreter loop.
+    protected def safelyContinue(
+        location: => String,
+        question: => String,
+        continue: => Control[Question.Update],
+    ): Unit = {
+      val control =
+        try {
+          continue
+        } catch {
+          case NonFatal(e) =>
+            Control.Expression(
+              SExpr.SEDelayedCrash(
+                location = location,
+                reason = s"unexpected exception $e when running continuation of question $question",
+              )
+            )
+        }
+      setControl(control)
+    }
+
+    // The following needXXXX methods take care to emit question while ensuring no exceptions are
+    // thrown during the question callbacks execution
+
+    final def needTime(): Control[Question.Update] = {
+      setDependsOnTime()
+      Control.Question(
+        Question.Update.NeedTime(time =>
+          safelyContinue(
+            NameOf.qualifiedNameOfCurrentFunc,
+            "NeedTime",
+            Control.Value(SValue.STimestamp(time)),
+          )
+        )
+      )
+    }
+
+    final def needContract(
+        location: => String,
+        contractId: V.ContractId,
+        continue: V.ContractInstance => Control[Question.Update],
+    ): Control.Question[Question.Update] =
+      Control.Question(
+        Question.Update.NeedContract(
+          contractId,
+          committers,
+          x => safelyContinue(location, "NeedContract", continue(x)),
+        )
+      )
+
+    final def needUpgradeVerification(
+        location: => String,
+        coid: V.ContractId,
+        signatories: Set[Party],
+        observers: Set[Party],
+        keyOpt: Option[GlobalKeyWithMaintainers],
+        continue: () => Control[Question.Update],
+    ): Control.Question[Question.Update] =
+      Control.Question(
+        Question.Update.NeedUpgradeVerification(
+          coid,
+          signatories,
+          observers,
+          keyOpt,
+          () => safelyContinue(location, "NeedUpgradeVerification", continue()),
+        )
+      )
+
+    final def needPackage(
+        location: => String,
+        packageId: PackageId,
+        context: language.Reference,
+        continue: () => Control[Question.Update],
+    ): Control.Question[Question.Update] =
+      Control.Question(
+        Question.Update.NeedPackage(
+          packageId,
+          context,
+          packages =>
+            safelyContinue(
+              location,
+              "NeedPackage", {
+                this.compiledPackages = packages
+                // To avoid infinite loop in case the packages are not updated properly by the caller
+                assert(compiledPackages.packageIds.contains(packageId))
+                continue()
+              },
+            ),
+        )
+      )
+
+    final def needKey(
+        location: => String,
+        key: GlobalKeyWithMaintainers,
+        continue: Option[V.ContractId] => (Control[Question.Update], Boolean),
+    ): Control.Question[Question.Update] =
+      Control.Question(
+        Question.Update.NeedKey(
+          key,
+          committers,
+          { result =>
+            try {
+              val (control, bool) = continue(result)
+              setControl(control)
+              bool
+            } catch {
+              case NonFatal(e) =>
+                setControl(
+                  Control.Expression(
+                    SExpr.SEDelayedCrash(
+                      location = location,
+                      reason =
+                        s"unexpected exception $e when running continuation of question NeedKey",
+                    )
+                  )
+                )
+                false
+            }
+          },
+        )
+      )
+
+    final def needAuthority(
+        location: => String,
+        holding: Set[Party],
+        requesting: Set[Party],
+        // Callback only when the request is granted
+        continue: () => Control[Question.Update],
+    ): Control.Question[Question.Update] =
+      Control.Question(
+        Question.Update.NeedAuthority(
+          holding,
+          requesting,
+          () => safelyContinue(location, "NeedAuthority", continue()),
+        )
+      )
+
+    final def needPackageId(
+        location: => String,
+        module: ModuleName,
+        pid0: PackageId,
+        continue: PackageId => Control[Question.Update],
+    ): Control.Question[Question.Update] =
+      Control.Question(
+        Question.Update.NeedPackageId(
+          module,
+          pid0,
+          pkgId => safelyContinue(location, "NeedPackageId", continue(pkgId)),
+        )
+      )
+
     def lookupContractOnLedger[Q](coid: V.ContractId)(
         continue: V.ContractInstance => Control[Question.Update]
     ): Control[Question.Update] =
       contractsCache.get(coid) match {
         case Some(contract) => continue(contract)
         case None =>
-          Control.Question(
-            Question.Update.NeedContract(
-              coid,
-              committers,
-              callback = { res =>
-                contractsCache = contractsCache.updated(coid, res)
-                setControl(continue(res))
-              },
-            )
+          needContract(
+            NameOf.qualifiedNameOfCurrentFunc,
+            coid,
+            { res =>
+              contractsCache = contractsCache.updated(coid, res)
+              continue(res)
+            },
           )
       }
 
@@ -282,7 +432,7 @@ private[lf] object Speedy {
     private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
       disclosedContracts.isDefinedAt(contractId)
 
-    private[speedy] def setDependsOnTime(): Unit =
+    private[this] def setDependsOnTime(): Unit =
       dependsOnTime = true
 
     def getDependsOnTime: Boolean =
@@ -872,8 +1022,8 @@ private[lf] object Speedy {
     }
 
     /** Reuse an existing speedy machine to evaluate a new expression.
-      *      Do not use if the machine is partway though an existing evaluation.
-      *      i.e. run() has returned an `SResult` requiring a callback.
+      * Do not use if the machine is partway though an existing evaluation.
+      * i.e. run() has returned an `SResult` requiring a callback.
       */
     final def setExpressionToEvaluate(expr: SExpr): Unit = {
       setControl(Control.Expression(expr))
@@ -922,6 +1072,7 @@ private[lf] object Speedy {
             }
           }
         }
+
         loop()
       } catch {
         case serr: SError => // TODO: prefer Control over throw for SError
@@ -957,6 +1108,7 @@ private[lf] object Speedy {
               else {
                 asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc)(
                   _.needPackage(
+                    NameOf.qualifiedNameOfCurrentFunc,
                     ref.packageId,
                     language.Reference.Package(ref.packageId),
                     () => Control.Expression(eval),
@@ -968,7 +1120,7 @@ private[lf] object Speedy {
     }
 
     /** This function is used to enter an ANF application.  The function has been evaluated to
-      *      a value, and so have the arguments - they just need looking up
+      * a value, and so have the arguments - they just need looking up
       */
     // TODO: share common code with executeApplication
     private[speedy] final def enterApplication(
@@ -1076,11 +1228,11 @@ private[lf] object Speedy {
     }
 
     /** Evaluate the first 'n' arguments in 'args'.
-      *      'args' will contain at least 'n' expressions, but it may contain more(!)
+      * 'args' will contain at least 'n' expressions, but it may contain more(!)
       *
-      *      This is because, in the call from 'executeApplication' below, although over-applied
-      *      arguments are pushed into a continuation, they are not removed from the original array
-      *      which is passed here as 'args'.
+      * This is because, in the call from 'executeApplication' below, although over-applied
+      * arguments are pushed into a continuation, they are not removed from the original array
+      * which is passed here as 'args'.
       */
     private[speedy] final def evaluateArguments(
         actuals: util.ArrayList[SValue],
