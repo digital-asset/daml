@@ -5,15 +5,18 @@
 {-# LANGUAGE ApplicativeDo       #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Main entry-point of the Daml compiler
 module DA.Cli.Damlc (main) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception (catch, handle)
+import Control.Exception (bracket, catch, handle, throwIO)
 import Control.Exception.Safe (catchIO)
 import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
-import Control.Monad.Extra (whenM, whenJust)
+import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
+import Control.Monad.Trans.Cont (ContT (..), evalContT)
 import DA.Bazel.Runfiles (Resource(..),
                           locateResource,
                           mainWorkspace,
@@ -22,7 +25,11 @@ import DA.Bazel.Runfiles (Resource(..),
                           setRunfilesEnv)
 import qualified DA.Cli.Args as ParseArgs
 import DA.Cli.Options (Debug(..),
+                       EnableMultiPackage(..),
                        InitPkgDb(..),
+                       MultiPackageBuildAll(..),
+                       MultiPackageLocation(..),
+                       MultiPackageNoCache(..),
                        ProjectOpts(..),
                        Style(..),
                        Telemetry(..),
@@ -30,12 +37,16 @@ import DA.Cli.Options (Debug(..),
                        debugOpt,
                        disabledDlintUsageParser,
                        enabledDlintUsageParser,
+                       enableMultiPackageOpt,
                        enableScenarioServiceOpt,
                        incrementalBuildOpt,
                        initPkgDbOpt,
                        inputDarOpt,
                        inputFileOpt,
                        inputFileOptWithExt,
+                       multiPackageBuildAllOpt,
+                       multiPackageLocationOpt,
+                       multiPackageNoCacheOpt,
                        optionalDlintUsageParser,
                        optionalOutputFileOpt,
                        optionsParser,
@@ -67,6 +78,7 @@ import DA.Daml.Compiler.Dar (FromDalf(..),
                              breakAt72Bytes,
                              buildDar,
                              createDarFile,
+                             damlFilesInDir,
                              getDamlRootFiles,
                              writeIfacesAndHie)
 import DA.Daml.Compiler.Output (diagnosticsLogger, writeOutput, writeOutputBSL)
@@ -87,9 +99,10 @@ import DA.Daml.LF.Reader (dalfPaths,
                           readDalfs,
                           readManifest)
 import DA.Daml.LanguageServer (runLanguageServer)
+import DA.Daml.Options (toCompileOpts)
 import DA.Daml.Options.Types (EnableScenarioService(..),
                               Haddock(..),
-                              IncrementalBuild,
+                              IncrementalBuild (..),
                               Options,
                               SkipScenarioValidation(..),
                               StudioAutorunAllScenarios,
@@ -113,21 +126,25 @@ import DA.Daml.Options.Types (EnableScenarioService(..),
                               optThreads,
                               pkgNameVersion,
                               projectPackageDatabase)
-import DA.Daml.Package.Config (PackageConfigFields(..),
+import DA.Daml.Package.Config (MultiPackageConfigFields(..),
+                               PackageConfigFields(..),
                                PackageSdkVersion(..),
                                checkPkgConfig,
-                               withPackageConfig)
-import DA.Daml.Project.Config (queryProjectConfigRequired, readProjectConfig)
+                               findMultiPackageConfig,
+                               withPackageConfig,
+                               withMultiPackageConfig)
+import DA.Daml.Project.Config (queryProjectConfig, queryProjectConfigRequired, readProjectConfig)
 import DA.Daml.Project.Consts (ProjectCheck(..),
                                damlCacheEnvVar,
                                damlPathEnvVar,
                                getProjectPath,
                                getSdkVersion,
+                               multiPackageConfigName,
                                projectConfigName,
                                sdkVersionEnvVar,
                                withExpectProjectRoot,
                                withProjectRoot)
-import DA.Daml.Project.Types (ConfigError(..), ProjectPath(..))
+import DA.Daml.Project.Types (ConfigError(..), ProjectPath(..), ProjectConfig)
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
@@ -136,36 +153,48 @@ import DA.Signals (installSignalHandlers)
 import qualified Com.Daml.DamlLfDev.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.Aeson.Text as Aeson
+import Data.Bifunctor (bimap, second)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.ByteString.UTF8 as BSUTF8
+import Data.Either (fromRight, partitionEithers)
 import Data.FileEmbed (embedFile)
 import qualified Data.HashSet as HashSet
-import Data.List.Extra (nubOrd, nubSort, nubSortOn)
+import Data.List (isPrefixOf)
+import Data.List.Extra (elemIndices, nubOrd, nubSort, nubSortOn)
 import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as Map
-import Data.Maybe (catMaybes, fromMaybe, mapMaybe)
+import Data.Maybe (catMaybes, fromMaybe, listToMaybe, mapMaybe)
 import qualified Data.Text.Extended as T
+import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text.Lazy.IO as TL
 import qualified Data.Text.IO as T
-import Development.IDE.Core.API (getDalf, runActionSync, setFilesOfInterest)
-import Development.IDE.Core.Debouncer (newAsyncDebouncer)
+import Data.Traversable (for)
+import Data.Typeable (Typeable)
+import qualified Data.Yaml as Y
+import Development.IDE.Core.API (getDalf, makeVFSHandle, runActionSync, setFilesOfInterest)
+import Development.IDE.Core.Debouncer (newAsyncDebouncer, noopDebouncer)
 import Development.IDE.Core.IdeState.Daml (getDamlIdeState,
                                            enabledPlugins,
-                                           withDamlIdeState)
+                                           withDamlIdeState,
+                                           toIdeLogger)
 import Development.IDE.Core.Rules (transitiveModuleDeps)
 import Development.IDE.Core.Rules.Daml (getDlintIdeas, getSpanInfo)
 import Development.IDE.Core.Shake (Config(..),
+                                   IdeResult,
                                    NotificationHandler(..),
                                    ShakeLspEnv(..),
+                                   actionLogger,
+                                   defineEarlyCutoffWithDefaultRunChanged,
                                    getDiagnostics,
                                    use,
                                    use_,
-                                   uses)
+                                   uses,
+                                   uses_)
 import Development.IDE.GHC.Util (hscEnv, moduleImportPath)
-import Development.IDE.Types.Location (toNormalizedFilePath')
+import Development.IDE.Types.Location (NormalizedFilePath, fromNormalizedFilePath, toNormalizedFilePath')
 import "ghc-lib-parser" DynFlags (DumpFlag(..),
                                   ModRenaming(..),
                                   PackageArg(..),
@@ -179,9 +208,11 @@ import Options.Applicative ((<|>),
                             Mod,
                             Parser,
                             ParserInfo,
+                            ParserResult(..),
                             auto,
                             command,
                             eitherReader,
+                            execParserPure,
                             flag,
                             flag',
                             fullDesc,
@@ -196,7 +227,9 @@ import Options.Applicative ((<|>),
                             many,
                             metavar,
                             optional,
+                            prefs,
                             progDesc,
+                            renderFailure,
                             short,
                             str,
                             strArgument,
@@ -212,7 +245,12 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
-import System.Process (StdStream(..))
+import System.Process (StdStream(..),
+                      CreateProcess(..),
+                      proc,
+                      withCreateProcess,
+                      waitForProcess,
+                      )
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
 import Development.IDE.Core.RuleTypes
 import "ghc-lib-parser" ErrUtils
@@ -225,6 +263,15 @@ import qualified "ghc-lib-parser" Outputable as GHC
 import qualified SdkVersion
 import "ghc-lib-parser" Util (looksLikePackageName)
 import Text.Regex.TDFA
+
+import qualified Development.IDE.Core.Service as IDE
+import Control.DeepSeq
+import Data.Binary
+import Data.Hashable
+import GHC.Generics (Generic)
+import Development.Shake (Rules, RuleResult)
+import Development.Shake.Rule (RunChanged (ChangedRecomputeDiff, ChangedRecomputeSame))
+import qualified Development.IDE.Types.Logger as IDELogger
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -460,6 +507,10 @@ cmdBuild numProcessors =
             <*> optionalOutputFileOpt
             <*> incrementalBuildOpt
             <*> initPkgDbOpt
+            <*> enableMultiPackageOpt
+            <*> multiPackageBuildAllOpt
+            <*> multiPackageNoCacheOpt
+            <*> multiPackageLocationOpt
 
 cmdRepl :: Int -> Mod CommandFields Command
 cmdRepl numProcessors =
@@ -851,40 +902,398 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
                   pDataDependencies
               createProjectPackageDb (toNormalizedFilePath' projRoot) opts pModulePrefixes
 
-execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
-execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
-  Command Build (Just projectOpts) effect
-  where effect = withProjectRoot' projectOpts $ \relativize -> do
-            installDepsAndInitPackageDb opts initPkgDb
-            withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
-                loggerH <- getLogger opts "build"
-                Logger.logInfo loggerH $ "Compiling " <> LF.unPackageName pName <> " to a DAR."
-                let errors = checkPkgConfig pkgConfig
-                unless (null errors) $ do
-                    mapM_ (Logger.logError loggerH) errors
-                    exitFailure
-                withDamlIdeState
-                    opts
-                      { optMbPackageName = Just pName
-                      , optMbPackageVersion = pVersion
-                      , optIncrementalBuild = incrementalBuild
-                      }
-                    loggerH
-                    diagnosticsLogger $ \compilerH -> do
-                    mbDar <-
-                        buildDar
-                            compilerH
-                            pkgConfig
-                            (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
-                            (FromDalf False)
-                    dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
-                    fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
-                    createDarFile loggerH fp dar
-            where
-                targetFilePath rel name =
-                  case mbOutFile of
-                    Nothing -> pure $ distDir </> name <.> "dar"
-                    Just out -> rel out
+execBuild
+  :: ProjectOpts
+  -> Options
+  -> Maybe FilePath
+  -> IncrementalBuild
+  -> InitPkgDb
+  -> EnableMultiPackage
+  -> MultiPackageBuildAll
+  -> MultiPackageNoCache
+  -> MultiPackageLocation
+  -> Command
+execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPackage buildAll noCache multiPackageLocation =
+  Command Build (Just projectOpts) $ evalContT $ do
+    relativize <- ContT $ withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False})
+
+    let buildSingle :: PackageConfigFields -> IO ()
+        buildSingle pkgConfig = void $ buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb
+        buildMulti :: Maybe PackageConfigFields -> ProjectPath -> IO ()
+        buildMulti mPkgConfig multiPackageConfigPath =
+          withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig ->
+            multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opts mbOutFile incrementalBuild initPkgDb noCache
+
+    -- TODO: This throws if you have the sdk-version only daml.yaml, ideally it should return Nothing
+    mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig defaultProjectPath
+    liftIO $ if getEnableMultiPackage enableMultiPackage then do
+      mMultiPackagePath <- case multiPackageLocation of
+        MPLSearch -> do
+          mPath <- findMultiPackageConfig defaultProjectPath
+          case mPath of
+            Nothing -> do
+              hPutStrLn stderr $ "Couldn't find multi-package.yaml at or above the current directory.\n"
+                <> "Use --multi-package-path to specify the multi-package.yaml path."
+              exitFailure
+            Just path -> pure $ Just path
+        MPLPath path -> do
+          hasMultiPackage <- doesFileExist $ path </> multiPackageConfigName
+          unless hasMultiPackage $ do
+            hPutStrLn stderr $ (path </> multiPackageConfigName) <> " does not exist."
+            exitFailure
+          pure $ Just $ ProjectPath path
+        MPLCurrent -> do
+          hasMultiPackage <- doesFileExist $ unwrapProjectPath defaultProjectPath </> multiPackageConfigName
+          pure $ if hasMultiPackage then Just defaultProjectPath else Nothing
+      -- At this point, if mMultiPackagePath is Just, we know it points to a multi-package.yaml
+      
+      case (getMultiPackageBuildAll buildAll, mPkgConfig, mMultiPackagePath) of
+        -- We're attempting to multi-package build --all, so we require that we have a multi-package.yaml, but do not care if we have a daml.yaml
+        (True, _, Just multiPackagePath) ->
+          -- TODO[SW]: Ideally we would error here if any of the flags that change `opts` has been set, as it won't be propagated
+          -- Its unclear how to implement this.
+          buildMulti Nothing multiPackagePath
+
+        -- We're attempting to multi-package build --all but we don't have a multi-package.yaml
+        (True, _, Nothing) -> do
+          hPutStrLn stderr
+            "Attempted to build all packages, but could not find a multi-package.yaml. Use --multi-package-search or --multi-package-path to specify its location."
+          exitFailure
+
+        -- We know the package we want and we have a multi-package.yaml
+        (False, Just pkgConfig, Just multiPackagePath) -> buildMulti (Just pkgConfig) multiPackagePath
+
+        -- We know the package we want but we do not have a multi-package. The user has provided no reason they would want a multi-package build.
+        (False, Just pkgConfig, Nothing) -> buildSingle pkgConfig
+
+        -- We have no package context, but we have found a multi package at the current directory
+        (False, Nothing, Just _) -> do
+          hPutStrLn stderr $ "No daml.yaml found, but a multi-package.yaml was found instead.\n"
+            <> "If you intended to build everything within this multi-package.yaml, use the --all flag"
+          exitFailure
+
+        -- We have nothing, we're lost
+        (False, Nothing, Nothing) -> do
+          hPutStrLn stderr "No daml.yaml or multi-package.yaml could be found."
+          exitFailure
+    else
+      case mPkgConfig of
+        Nothing -> do
+          hPutStrLn stderr "daml build: Not in project."
+          exitFailure
+        Just pkgConfig -> do
+          let usedMultiPackageOption =
+                getMultiPackageBuildAll buildAll
+                  || getMultiPackageNoCache noCache
+                  || multiPackageLocation /= MPLCurrent
+          if usedMultiPackageOption
+            then do
+              hPutStrLn stderr "Multi-package build option used without enabling multi-package via the --enable-multi-package flag."
+              exitFailure
+            else buildSingle pkgConfig
+
+-- Takes the withPackageConfig style functions and changes the continuation
+-- to give a Maybe, where Nothing signifies a missing file. Parse errors are still thrown
+withMaybeConfig
+  :: forall config x
+  .  (forall y. (config -> IO y) -> IO y)
+  -> (Maybe config -> IO x)
+  -> IO x
+withMaybeConfig withConfig handler = do
+  mConfig <-
+    handle (\case
+      ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "Yaml file not found: " `isPrefixOf` exc ->
+        pure Nothing
+      e -> throwIO e
+    ) (withConfig $ pure . Just)
+  handler mConfig
+
+buildEffect :: (FilePath -> IO FilePath) -> PackageConfigFields -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> IO (Maybe LF.PackageId)
+buildEffect relativize pkgConfig@PackageConfigFields{..} opts mbOutFile incrementalBuild initPkgDb = do
+  installDepsAndInitPackageDb opts initPkgDb
+  loggerH <- getLogger opts "build"
+  Logger.logInfo loggerH $ "Compiling " <> LF.unPackageName pName <> " to a DAR."
+  let errors = checkPkgConfig pkgConfig
+  unless (null errors) $ do
+      mapM_ (Logger.logError loggerH) errors
+      exitFailure
+  withDamlIdeState
+      opts
+        { optMbPackageName = Just pName
+        , optMbPackageVersion = pVersion
+        , optIncrementalBuild = incrementalBuild
+        }
+      loggerH
+      diagnosticsLogger $ \compilerH -> do
+      mbDar <-
+          buildDar
+              compilerH
+              pkgConfig
+              (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
+              (FromDalf False)
+      (dar, mPkgId) <- mbErr "ERROR: Creation of DAR file failed." mbDar
+      fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
+      createDarFile loggerH fp dar
+      pure mPkgId
+    where
+        targetFilePath rel name =
+          case mbOutFile of
+            Nothing -> pure $ distDir </> name <.> "dar"
+            Just out -> rel out
+
+
+{- | Multi Build! (the multi-package.yaml approach)
+  This is currently separate to build, but won't be in future.
+  Multi build is a light wrapper over the top of the existing build, and does not interact with the internals of the build process at all
+  It spins up its own empty shake environment purely for the caching behaviour, and defers as soon as possible to the usual build process
+  We strictly defer via the CLI interface, to support different versions of the SDK in future.
+
+  The general idea is taken somewhat from cabal, in which we define some kind of project file (currently multi-package.yaml)
+  which lists directories to packages (folders containing a daml.yaml) that are in our project, and we'd like to rebuild together.
+  Then, any data-dependency on one of these packages will first ensure the dar artefact is up to date with the source, and rebuild if not.
+  As such, any set of packages with these relations will continue to be buildable without the multi-package.yaml.
+  Given we may want to build specific packages within our dependency multi-tree (be that a sub tree, or an alternate root),
+  the multi-package.yaml is not required to be in the same directory as any given package. We only require it is at or above
+  (in the directory tree) the package you are building. multi-build will first look for this file before attempting to build.
+
+  The process is as follows:
+  - Search for the multi-package.yaml file by traversing up the directory tree to root until we are at a directory containing the file.
+  - Set up own shake environment, defer to it immediately with the project path
+  - Within the shake rule:
+  - Partially read the daml.yaml file, looking for data dependencies, and some other details needed for caching
+  - Intercept the packages data dependencies with the packages we have listed in multi-package.yaml.
+  - Call to shake to build all the above subset of data-dependencies, each will return data about the DAR that exists (or was built)
+  - If we already have a DAR, check its staleness. Staleness is defined by any source files being different
+      or any of the package ids of souce dependencies being different between what is currently built, and what is embedded in our dar.
+  - If either are different, call to the SDK via CLI to build our own DAR.
+  - Get the package ID of the DAR we have created, and return it to shake, which can use it as a caching key.
+
+  Due to shakes caching behaviour, this will automatically discover the build order for free, by doing a depth first search over the tree then
+    caching any "nodes" we've already seen entirely within Shake - our rule will not be called twice for any package within the tree for any given multi-build.
+  
+  We currently rely on shake to find cycles, how its errors includes too much information about internals, so we'll need to implement our own cycle detection.
+-}
+multiPackageBuildEffect
+  :: (FilePath -> IO FilePath)
+  -> Maybe PackageConfigFields -- Nothing signifies build all
+  -> MultiPackageConfigFields
+  -> ProjectOpts
+  -> Options
+  -> Maybe FilePath
+  -> IncrementalBuild
+  -> InitPkgDb
+  -> MultiPackageNoCache
+  -> IO ()
+multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opts mbOutFile incrementalBuild initPkgDb noCache = do
+  vfs <- makeVFSHandle
+  loggerH <- getLogger opts "multi-package build"
+  cDir <- getCurrentDirectory
+  assistantPath <- getEnv "DAML_ASSISTANT"
+  -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
+  assistantEnv <- filter ((/="DAML_PROJECT") . fst) <$> getEnvironment
+
+  buildableDataDepsMapping <- fmap Map.fromList $ for (mpPackagePaths multiPackageConfig) $ \path -> do
+    darPath <- darPathFromDamlYaml path
+    pure (darPath, path)
+
+  let assistantRunner = AssistantRunner $ \location args ->
+        withCreateProcess ((proc assistantPath args) {cwd = Just location, env = Just assistantEnv}) $ \_ _ _ p -> do
+          exitCode <- waitForProcess p
+          when (exitCode /= ExitSuccess) $ error $ "Failed to build package at " <> location <> "."
+
+      buildableDataDeps = BuildableDataDeps $ flip Map.lookup buildableDataDepsMapping
+      mRootPkgBuilder = flip fmap mPkgConfig $ \pkgConfig -> do
+        mPkgId <- buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb
+        pure $ fromMaybe
+          (error "Internal error: root package was built from dalf, giving no package-id. This is incompatible with multi-package")
+          mPkgId
+      mRootPkgData = (toNormalizedFilePath' $ maybe cDir unwrapProjectPath $ projectRoot projectOpts,) <$> mRootPkgBuilder
+      rule = buildMultiRule assistantRunner buildableDataDeps noCache mRootPkgData
+ 
+  -- Set up a near empty shake environment, with just the buildMulti rule
+  bracket
+    (IDE.initialise rule (DummyLspEnv diagnosticsLogger) (toIdeLogger loggerH) noopDebouncer (toCompileOpts opts) vfs)
+    IDE.shutdown
+    $ \ideState -> runActionSync ideState
+      $ case mRootPkgData of
+          Nothing -> void $ uses_ BuildMulti $ toNormalizedFilePath' <$> mpPackagePaths multiPackageConfig
+          Just (rootPkgPath, _) -> void $ use_ BuildMulti rootPkgPath
+
+data AssistantRunner = AssistantRunner { runAssistant :: FilePath -> [String] -> IO ()}
+
+-- Stores a mapping from dar path to project path
+data BuildableDataDeps = BuildableDataDeps { getDataDepSource :: FilePath -> Maybe FilePath }
+
+data BuildMulti = BuildMulti
+    deriving (Eq, Show, Typeable, Generic)
+instance Binary BuildMulti
+instance Hashable BuildMulti
+instance NFData BuildMulti
+
+-- We return all the information needed to derive the dalf name
+type instance RuleResult BuildMulti = (LF.PackageName, LF.PackageVersion, LF.PackageId)
+
+-- Subset of PackageConfig needed for multi-package build deferring.
+data BuildMultiPackageConfig = BuildMultiPackageConfig
+  { bmSdkVersion :: PackageSdkVersion
+  , bmName :: LF.PackageName
+  , bmVersion :: LF.PackageVersion
+  , bmDataDeps :: [FilePath]
+      -- ^ not canonicalized
+  , bmSourceDaml :: FilePath
+      -- ^ not canonicalized
+  , bmOutput :: Maybe FilePath
+      -- ^ not canonicalized
+  }
+
+-- Version of getDamlFiles from Dar.hs that assumes source is a folder, and runs in IO rather than action
+-- Throws an error if its a path to a file
+getDamlFilesBuildMulti :: (String -> IO ()) -> FilePath -> FilePath -> IO (Map.Map FilePath BSL.ByteString)
+getDamlFilesBuildMulti log packagePath srcDir = do
+  let path = normalise $ packagePath </> srcDir
+  exists <- doesDirectoryExist path
+  if exists then do
+    files <- fmap fromNormalizedFilePath <$> damlFilesInDir path
+    Map.fromList <$> traverse (\file -> (makeRelative path file,) <$> BSL.readFile file) files
+  else do
+    log $ "WARNING: Multi-package caching does not support setting the daml.yaml source value to a daml file. This package will always rebuild.\n"
+      <> "Change the source value in "
+      <> (packagePath </> projectConfigName)
+      <> " to a directory to allow correct caching.\n"
+    pure Map.empty
+    
+
+-- Extract the name/version string and package ID of a given dalf in a dar.
+entryToDalfData :: ZipArchive.Entry -> Maybe (String, LF.PackageId)
+entryToDalfData entry = do
+  let fileName = takeBaseName $ ZipArchive.eRelativePath entry
+  lastDash <- listToMaybe $ reverse $ elemIndices '-' fileName
+  pure $ second (LF.PackageId . T.pack . tail) $ splitAt lastDash fileName
+
+dalfDataKey :: LF.PackageName -> LF.PackageVersion -> String
+dalfDataKey name version = T.unpack (LF.unPackageName name <> "-" <> LF.unPackageVersion version)
+
+-- Given an archive, returns the packagename-packageversion string with package ID for all dalfs, and the file path and file contents for all daml files.
+readDarStalenessData :: ZipArchive.Archive -> (Map.Map String LF.PackageId, Map.Map FilePath BSL.ByteString)
+readDarStalenessData archive =
+  bimap Map.fromList Map.fromList . partitionEithers $
+    flip mapMaybe (ZipArchive.zEntries archive) $ \entry ->
+      case takeExtension $ ZipArchive.eRelativePath entry of
+        ".dalf" -> Left <$> entryToDalfData entry
+        ".daml" ->
+          -- Drop the first directory in the path, as thats the folder containing the entire package contents.
+          -- Previously structured this way to support multiple packages in one dar.
+          let relPackagePath = joinPath $ tail $ splitPath $ ZipArchive.eRelativePath entry
+           in Just $ Right (relPackagePath, ZipArchive.fromEntry entry)
+        _ -> Nothing
+
+-- | Gets the package id of a Dar in the given project ONLY if it is not stale.
+getPackageIdIfFresh :: IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
+getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
+  let logDebug str = IDELogger.logDebug logger $ T.pack $ path <> ": " <> str
+      logInfo str = IDELogger.logInfo logger $ T.pack str
+  darPath <- deriveDarPath path bmName bmVersion bmOutput
+  exists <- doesFileExist darPath
+  if not exists
+    then do
+      logDebug "No DAR found, build is stale."
+      pure Nothing
+    else do
+      logDebug "DAR found, checking staleness."
+      -- Get the real source files we expect to be included in the dar
+      sourceFiles <- getDamlFilesBuildMulti logInfo path bmSourceDaml
+
+      -- Pull all information we need from the dar.
+      (archiveDalfPids, archiveSourceFiles) <-
+        readDarStalenessData . ZipArchive.toArchive <$> BSL.readFile darPath
+
+      let getArchiveDalfPid :: LF.PackageName -> LF.PackageVersion -> Maybe LF.PackageId
+          getArchiveDalfPid name version = dalfDataKey name version `Map.lookup` archiveDalfPids
+          -- We check source files by comparing the maps, any extra, missing or changed files will be covered by this, regardless of order
+          sourceFilesCorrect = sourceFiles == archiveSourceFiles
+
+      -- Expanded `all` check that allows us to log specific dependencies being stale. Useful for debugging, maybe we can remove it.
+      sourceDepsCorrect <-
+        allM (\(name, version, pid) -> do
+          let archiveDalfPid = getArchiveDalfPid name version
+              valid = archiveDalfPid == Just pid
+
+          when (not valid) $ logDebug $ 
+            "Source dependency \"" <> dalfDataKey name version <> "\" is stale. Expected PackageId "
+              <> T.unpack (LF.unPackageId pid) <> " but got " <> (show $ LF.unPackageId <$> archiveDalfPid) <> "."
+
+          pure valid
+        ) sourceDepPids
+
+      logDebug $ "Source dependencies are " <> (if sourceDepsCorrect then "not " else "") <> "stale."
+      logDebug $ "Source files are " <> (if sourceFilesCorrect then "not " else "") <> "stale."
+      pure $ if sourceDepsCorrect && sourceFilesCorrect then getArchiveDalfPid bmName bmVersion else Nothing
+
+buildMultiRule
+  :: AssistantRunner
+  -> BuildableDataDeps
+  -> MultiPackageNoCache
+  -> Maybe (NormalizedFilePath, IO LF.PackageId)
+  -> Rules ()
+buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) mRootPackage =
+  defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
+    logger <- actionLogger
+
+    liftIO $ IDELogger.logDebug logger $ T.pack $ "Considering building: " <> fromNormalizedFilePath path
+
+    let filePath = fromNormalizedFilePath path
+    bmPkgConfig@BuildMultiPackageConfig {..} <- liftIO $ buildMultiPackageConfigFromDamlYaml filePath
+
+    -- Wrap up a PackageId and changed flag into the expected Shake return structure
+    let makeReturn :: LF.PackageId -> Bool -> (Maybe B.ByteString, RunChanged, IdeResult (LF.PackageName, LF.PackageVersion, LF.PackageId))
+        makeReturn pid changed = 
+          ( Just $ encodeUtf8 $ LF.unPackageId pid
+          , if changed then ChangedRecomputeDiff else ChangedRecomputeSame
+          , ([], Just (bmName, bmVersion, pid))
+          )
+
+    toBuild <- liftIO $ withCurrentDirectory filePath $ flip mapMaybeM bmDataDeps $ \darPath -> do
+      canonDarPath <- canonicalizePath darPath
+      pure $ getDataDepSource buildableDataDeps canonDarPath
+
+    -- Build all our deps!
+    sourceDepsData <- uses_ BuildMulti $ toNormalizedFilePath' <$> toBuild
+
+    liftIO $ case mRootPackage of
+      -- We're building the root package, we'll envoke the normal builder directly with the Options already applied
+      Just (pkgRootPath, builder) | path == pkgRootPath -> do
+        IDELogger.logInfo logger $ T.pack $ "Building " <> filePath
+        pkgId <- builder
+        pure $ makeReturn pkgId True
+      _ -> do
+        -- Check our own staleness, if we're not stale, give the package ID to return to shake.
+        -- If caching disabled, we fail this check pre-emtively
+        ownValidPid <- 
+          if noCache
+            then pure Nothing
+            else getPackageIdIfFresh logger filePath bmPkgConfig sourceDepsData
+
+        case ownValidPid of
+          Just pid -> do
+            IDELogger.logInfo logger $ T.pack $ filePath <> " is unchanged."
+            pure $ makeReturn pid False
+          Nothing -> do
+            IDELogger.logInfo logger $ T.pack $ "Building " <> filePath
+
+            -- Call build via daml assistant so it selects the correct SDK version.
+            -- TODO[SW]: Update this check to compare version to most recent snapshot, once a snapshot is released that won't error with --enable-multi-package.
+            runAssistant assistantRunner filePath $
+              ["build"] <> (["--enable-multi-package=no" | unPackageSdkVersion bmSdkVersion == "0.0.0"])
+            
+            darPath <- deriveDarPath filePath bmName bmVersion bmOutput
+            -- Extract the new package ID from the dar we just built, by reading the DAR and looking for the dalf that matches our package name/version
+            archive <- ZipArchive.toArchive <$> BSL.readFile darPath
+            let archiveDalfPids = Map.fromList $ mapMaybe entryToDalfData $ ZipArchive.zEntries archive
+                mOwnPid = dalfDataKey bmName bmVersion `Map.lookup` archiveDalfPids
+                ownPid = fromMaybe (error "Failed to get PID of own package - implies a DAR was built without its own dalf, something broke!") mOwnPid
+
+            pure $ makeReturn ownPid True
+
 execRepl
     :: [FilePath]
     -> [(LF.PackageName, Maybe LF.PackageVersion)]
@@ -1005,7 +1414,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
             Nothing -> do
                 hPutStrLn stderr "ERROR: Creation of DAR file failed."
                 exitFailure
-            Just dar -> createDarFile loggerH targetFilePath dar
+            Just (dar, _) -> createDarFile loggerH targetFilePath dar
     -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
     -- We could parametrize CliOptions by whether the package name is optional
     -- but I don’t think that is worth the complexity of carrying around a type parameter.
@@ -1195,18 +1604,92 @@ parserInfo numProcessors =
         ])
     )
 
-cliArgsFromDamlYaml :: Maybe ProjectOpts -> IO [String]
-cliArgsFromDamlYaml mbProjectOpts = do
+-- | Attempts to find the --output flag in the given build-options for a package
+-- Given the many ways --output can be specified, we invoke the parser directly
+-- Sadly, optparse-applicative gives no way to "ignore" flags it doesn't know about
+-- so we must provide all the other flags we might expect.
+-- Note: if we ever fully remove a flag in future, an "ignore" parser will need to be added here so
+-- that old packages with that flag specified don't trigger an error.
+scrapeOutputFlag :: [String] -> Maybe FilePath
+scrapeOutputFlag args = 
+  case execParserPure (prefs mempty) (info mbOutFileParser mempty) args of
+    Success mPath -> mPath
+    Failure err -> error $ fst $ renderFailure err "daml build"
+    CompletionInvoked _ -> error "Impossible internal completion invoked."
+  where
+    mbOutFileParser :: Parser (Maybe FilePath)
+    mbOutFileParser = do
+      void $ optionsParser
+        0
+        (EnableScenarioService False)
+        (pure Nothing)
+        disabledDlintUsageParser
+      mbOutFile <- optionalOutputFileOpt
+      void incrementalBuildOpt
+      void initPkgDbOpt
+      pure mbOutFile
+
+-- | Query the optional `--output` flag from the daml.yaml build-options
+queryProjectConfigBuildOutput :: ProjectConfig -> Either ConfigError (Maybe FilePath)
+queryProjectConfigBuildOutput project = do
+  mBuildOptions <- queryProjectConfig ["build-options"] project
+  pure $ mBuildOptions >>= scrapeOutputFlag
+
+-- | Calculates the canonical path to the DAR for a given package, overriding with a given mOutput if needed
+deriveDarPath :: FilePath -> LF.PackageName -> LF.PackageVersion -> Maybe FilePath -> IO FilePath
+deriveDarPath path name version mOutput = case mOutput of
+  Just output -> withCurrentDirectory path $ canonicalizePath output
+  Nothing -> pure $ path </> distDir </> unitIdString (pkgNameVersion name (Just version)) <> ".dar"
+
+-- | Derive the dar path from the daml.yaml, using either the --output override, or the default path derived from name and version
+darPathFromDamlYaml :: FilePath -> IO FilePath
+darPathFromDamlYaml path = do
+  (name, version, mOutput) <- 
+    onDamlYaml (error "Failed to read daml.yaml") (\project -> fromRight (error "Failed to get project info") $ do
+      name <- queryProjectConfigRequired ["name"] project
+      version <- queryProjectConfigRequired ["version"] project
+      mOutput <- queryProjectConfigBuildOutput project
+      pure (name, version, mOutput)
+    ) mbProjectOpts
+  deriveDarPath path name version mOutput
+  where
+    mbProjectOpts = Just $ ProjectOpts (Just $ ProjectPath path) (ProjectCheck "" False)
+
+-- | Subset of parseProjectConfig to get only what we need for differring to the correct build call with multi-package build
+buildMultiPackageConfigFromDamlYaml :: FilePath -> IO BuildMultiPackageConfig
+buildMultiPackageConfigFromDamlYaml path =
+  onDamlYaml
+    (error "Failed to parse daml.yaml for build-multi")
+    (\project -> fromRight (error "Failed to get project info") $ do
+      bmSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
+      bmName <- queryProjectConfigRequired ["name"] project
+      bmVersion <- queryProjectConfigRequired ["version"] project
+      bmSourceDaml <- queryProjectConfigRequired ["source"] project
+      bmDataDeps <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
+      bmOutput <- queryProjectConfigBuildOutput project
+      pure $ BuildMultiPackageConfig {..}
+    )
+    mbProjectOpts
+  where
+    mbProjectOpts = Just $ ProjectOpts (Just $ ProjectPath path) (ProjectCheck "" False)
+
+-- | Extract some value from a daml.yaml via a projection function. Return a default value if the file doesn't exist
+onDamlYaml :: t -> (ProjectConfig -> t) -> Maybe ProjectOpts -> IO t
+onDamlYaml def f mbProjectOpts = do
     -- This is the same logic used in withProjectRoot but we don’t need to change CWD here
     -- and this is simple enough so we inline it here.
     mbEnvProjectPath <- fmap ProjectPath <$> getProjectPath
     let mbProjectPath = projectRoot =<< mbProjectOpts
     let projectPath = fromMaybe (ProjectPath ".") (mbProjectPath <|> mbEnvProjectPath)
-    handle (\(_ :: ConfigError) -> return []) $ do
+    handle (\(_ :: ConfigError) -> pure def) $ do
         project <- readProjectConfig projectPath
-        case queryProjectConfigRequired ["build-options"] project of
-            Left _ -> pure []
-            Right xs -> pure xs
+        pure $ f project
+
+cliArgsFromDamlYaml :: Maybe ProjectOpts -> IO [String]
+cliArgsFromDamlYaml = 
+  onDamlYaml [] $ \project -> case queryProjectConfigRequired ["build-options"] project of
+    Left _ -> []
+    Right xs -> xs
 
 main :: IO ()
 main = do

@@ -9,15 +9,18 @@ module DA.Daml.Project.Config
     , readSdkConfig
     , readProjectConfig
     , readDamlConfig
+    , readMultiPackageConfig
     , sdkVersionFromProjectConfig
     , sdkVersionFromSdkConfig
     , listSdkCommands
     , queryDamlConfig
     , queryProjectConfig
     , querySdkConfig
+    , queryMultiPackageConfig
     , queryDamlConfigRequired
     , queryProjectConfigRequired
     , querySdkConfigRequired
+    , queryMultiPackageConfigRequired
     ) where
 
 import DA.Daml.Project.Consts
@@ -47,6 +50,11 @@ readProjectConfig (ProjectPath path) = readConfig "project" (path </> projectCon
 -- Throws a ConfigError if reading or parsing fails.
 readSdkConfig :: SdkPath -> IO SdkConfig
 readSdkConfig (SdkPath path) = readConfig "SDK" (path </> sdkConfigName)
+
+-- | Read multi package config file.
+-- Throws a ConfigError if reading or parsing fails.
+readMultiPackageConfig :: ProjectPath -> IO MultiPackageConfig
+readMultiPackageConfig (ProjectPath path) = readConfig "multi-package" (path </> multiPackageConfigName)
 
 -- | (internal) Helper function for defining 'readXConfig' functions.
 -- Throws a ConfigError if reading or parsing fails.
@@ -82,6 +90,11 @@ queryProjectConfig path = queryConfig "project" "ProjectConfig" path . unwrapPro
 querySdkConfig :: Y.FromJSON t => [Text] -> SdkConfig -> Either ConfigError (Maybe t)
 querySdkConfig path = queryConfig "SDK" "SdkConfig" path . unwrapSdkConfig
 
+-- | Query the multi-package config by passing a list of members to the desired property.
+-- See 'queryConfig' for more details.
+queryMultiPackageConfig :: Y.FromJSON t => [Text] -> MultiPackageConfig -> Either ConfigError (Maybe t)
+queryMultiPackageConfig path = queryConfig "multi-package" "MultiPackageConfig" path . unwrapMultiPackageConfig
+
 -- | Like 'queryDamlConfig' but returns an error if the property is missing.
 queryDamlConfigRequired :: Y.FromJSON t => [Text] -> DamlConfig -> Either ConfigError t
 queryDamlConfigRequired path = queryConfigRequired "daml" "DamlConfig" path . unwrapDamlConfig
@@ -93,6 +106,10 @@ queryProjectConfigRequired path = queryConfigRequired "project" "ProjectConfig" 
 -- | Like 'querySdkConfig' but returns an error if the property is missing.
 querySdkConfigRequired :: Y.FromJSON t => [Text] -> SdkConfig -> Either ConfigError t
 querySdkConfigRequired path = queryConfigRequired "SDK" "SdkConfig" path . unwrapSdkConfig
+
+-- | Like 'queryMultiPackageConfig' but returns an error if the property is missing.
+queryMultiPackageConfigRequired :: Y.FromJSON t => [Text] -> MultiPackageConfig -> Either ConfigError t
+queryMultiPackageConfigRequired path = queryConfigRequired "multi-package" "MultiPackageConfig" path . unwrapMultiPackageConfig
 
 -- | (internal) Helper function for querying config data. The 'path' argument
 -- represents the location of the desired property within the config file.

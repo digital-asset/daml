@@ -5,11 +5,14 @@
 
 -- | Types and functions for dealing with package config in daml.yaml
 module DA.Daml.Package.Config
-    ( PackageConfigFields (..)
+    ( MultiPackageConfigFields (..)
+    , PackageConfigFields (..)
     , PackageSdkVersion (..)
     , parseProjectConfig
     , overrideSdkVersion
     , withPackageConfig
+    , findMultiPackageConfig
+    , withMultiPackageConfig
     , checkPkgConfig
     ) where
 
@@ -20,15 +23,20 @@ import DA.Daml.Project.Types
 
 import Control.Exception.Safe (throwIO)
 import Control.Monad (when)
+import Control.Monad.Extra (loopM)
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Key as A
 import qualified Data.Aeson.Encoding as A
+import Data.List (elemIndex)
+import Data.List.Extra (nubOrd)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Data.Yaml as Y
 import qualified Module as Ghc
+import System.Directory (canonicalizePath, doesFileExist, withCurrentDirectory)
+import System.FilePath (takeDirectory, (</>))
 import System.IO (hPutStrLn, stderr)
 import Text.Regex.TDFA
 
@@ -93,6 +101,23 @@ checkPkgConfig PackageConfigFields {pName, pVersion} =
     versionRegex = "^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))*$" :: T.Text
     packageNameRegex = "^[A-Za-z][A-Za-z0-9]*(\\-[A-Za-z][A-Za-z0-9]*)*$" :: T.Text
 
+data MultiPackageConfigFields = MultiPackageConfigFields
+    { mpPackagePaths :: [FilePath]
+    }
+
+-- | Intermediate of MultiPackageConfigFields that carries links to other config files, before being flattened into a single MultiPackageConfigFields
+data MultiPackageConfigFieldsIntermediate = MultiPackageConfigFieldsIntermediate
+    { mpiConfigFields :: MultiPackageConfigFields
+    , mpiOtherConfigFiles :: [FilePath]
+    }
+
+-- | Parse the multi-package.yaml file for auto rebuilds/IDE intelligence in multi-package projects
+parseMultiPackageConfig :: MultiPackageConfig -> Either ConfigError MultiPackageConfigFieldsIntermediate
+parseMultiPackageConfig multiPackage = do
+    mpiConfigFields <- MultiPackageConfigFields . fromMaybe [] <$> queryMultiPackageConfig ["packages"] multiPackage
+    mpiOtherConfigFiles <- fromMaybe [] <$> queryMultiPackageConfig ["projects"] multiPackage
+    Right MultiPackageConfigFieldsIntermediate {..}
+
 overrideSdkVersion :: PackageConfigFields -> IO PackageConfigFields
 overrideSdkVersion pkgConfig = do
     sdkVersionM <- getSdkVersionMaybe
@@ -120,6 +145,53 @@ withPackageConfig projectPath f = do
     pkgConfig <- either throwIO pure (parseProjectConfig project)
     pkgConfig' <- overrideSdkVersion pkgConfig
     f pkgConfig'
+
+-- Traverses up the directory tree from current project path and returns the project path of the "nearest" project.yaml
+-- Stops at root, but also won't pick any files it doesn't have permission to search
+findMultiPackageConfig :: ProjectPath -> IO (Maybe ProjectPath)
+findMultiPackageConfig projectPath = do
+  filePath <- canonicalizePath $ unwrapProjectPath projectPath
+  flip loopM filePath $ \path -> do
+    hasMultiPackage <- doesFileExist $ path </> multiPackageConfigName
+    if hasMultiPackage
+      then pure $ Right $ Just $ ProjectPath path
+      else
+        let newPath = takeDirectory path
+        in pure $ if path == newPath then Right Nothing else Left newPath
+
+canonicalizeMultiPackageConfigIntermediate :: ProjectPath -> MultiPackageConfigFieldsIntermediate -> IO MultiPackageConfigFieldsIntermediate
+canonicalizeMultiPackageConfigIntermediate projectPath (MultiPackageConfigFieldsIntermediate (MultiPackageConfigFields packagePaths) multiPackagePaths) =
+  withCurrentDirectory (unwrapProjectPath projectPath) $ do
+    MultiPackageConfigFieldsIntermediate
+      <$> (MultiPackageConfigFields <$> traverse canonicalizePath packagePaths)
+      <*> traverse canonicalizePath multiPackagePaths
+
+-- | Runs an IO action that takes its own fixpoint, but aborts if the IO action would recurse infinitely by passing itself the same argument over and over.
+-- Takes a function to display the cycle in an error message
+cyclelessIOFix :: forall a b. Eq a => ([a] -> String) -> ((a -> IO b) -> a -> IO b) -> a -> IO b
+cyclelessIOFix loopShow f = loop []
+  where
+    loop :: [a] -> a -> IO b
+    loop seen cur = do
+      case cur `elemIndex` seen of
+        Nothing -> f (loop (cur : seen)) cur
+        Just i -> error $ "Cycle detected: " <> loopShow (reverse $ cur : take (i + 1) seen)
+
+fullParseMultiPackageConfig :: ProjectPath -> IO MultiPackageConfigFields
+fullParseMultiPackageConfig = cyclelessIOFix loopShow $ \loop projectPath -> do
+    multiPackage <- readMultiPackageConfig projectPath
+    multiPackageConfigI <- either throwIO pure (parseMultiPackageConfig multiPackage)
+    canonMultiPackageConfigI <- canonicalizeMultiPackageConfigIntermediate projectPath multiPackageConfigI
+    otherMultiPackageConfigs <- traverse loop (ProjectPath <$> mpiOtherConfigFiles canonMultiPackageConfigI)
+
+    pure $ MultiPackageConfigFields $ nubOrd $ concatMap mpPackagePaths $ mpiConfigFields canonMultiPackageConfigI : otherMultiPackageConfigs
+  where
+    loopShow :: [ProjectPath] -> String
+    loopShow = ("\n" <>) . unlines . fmap ((" - " <>) . unwrapProjectPath)
+
+-- Gives the filepath where the multipackage was found if its not the same as project path.
+withMultiPackageConfig :: ProjectPath -> (MultiPackageConfigFields -> IO a) -> IO a
+withMultiPackageConfig projectPath f = fullParseMultiPackageConfig projectPath >>= f
 
 -- | Orphans because I’m too lazy to newtype everything.
 instance A.FromJSON Ghc.ModuleName where
