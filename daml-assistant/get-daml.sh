@@ -108,10 +108,23 @@ fi
 #
 # Download SDK tarball
 #
-readonly TARBALL="daml-sdk-$VERSION-$OS.tar.gz"
-readonly URL="https://github.com/digital-asset/daml/releases/download/v$VERSION/$TARBALL"
+# Can't assume jq
+release_id=$(curl --silent \
+                  --location \
+                  https://api.github.com/repos/digital-asset/daml/releases/tags/v$VERSION \
+              | grep '"id":' \
+              | head -1 \
+              | sed 's|.*: \([0-9]\+\),|\1|')
+URL=$(curl --silent \
+           --location \
+           https://api.github.com/repos/digital-asset/daml/releases/$release_id/assets \
+       | grep browser_download_url \
+       | grep "daml-sdk-.*-$OS.tar.gz\"" \
+       | sed 's|.*: "\(https://[^"]*\)"|\1|')
+readonly TARBALL=$(basename $URL)
+sdk_version=$(echo $TARBALL | sed 's|daml-sdk-\(.*\)-[^-]*.tar.gz|\1|')
 
-echo "$(tput setaf 3)Downloading SDK $VERSION. This may take a while.$(tput sgr 0)"
+echo "$(tput setaf 3)Downloading SDK $sdk_version for Daml $VERSION. This may take a while.$(tput sgr 0)"
 curl -SLf $URL --output $TMPDIR/$TARBALL --progress-bar
 if [ ! -f $TMPDIR/$TARBALL ] ; then
   echo "Failed to download SDK tarball."
