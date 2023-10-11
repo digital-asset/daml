@@ -7,12 +7,16 @@ module DA.Daml.Assistant.Install.Github
     ( versionLocation
     , tagToVersion
     , osName
+    , getSdkVersionFromEnterpriseVersion
     ) where
 
+import Control.Exception.Safe
 import DA.Daml.Assistant.Types
 import Data.Aeson
-import Control.Exception.Safe
+import Data.Aeson.Types (explicitParseField, listParser)
 import Data.Either.Extra
+import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
+import Network.HTTP.Simple (getResponseBody, httpJSON, parseRequest, setRequestHeaders)
 import qualified System.Info
 import qualified Data.Text as T
 
@@ -47,16 +51,39 @@ osName = case System.Info.os of
     p -> error ("daml: Unknown operating system " ++ p)
 
 -- | Install location for particular version.
-versionLocation :: SdkVersion -> InstallLocation
-versionLocation v = InstallLocation
+versionLocation :: SdkVersion -> SdkVersion -> InstallLocation
+versionLocation releaseVersion sdkVersion = InstallLocation
     { ilUrl = T.concat
         [ "https://github.com/digital-asset/daml/releases/download/"
-        , unTag (versionToTag v)
+        , unTag (versionToTag releaseVersion)
         , "/daml-sdk-"
-        , versionToText v
+        , versionToText sdkVersion
         , "-"
         , osName
         , ".tar.gz"
         ]
     , ilHeaders = []
     }
+
+-- | Subset of the github release response that we care about
+data GithubReleaseResponseSubset = GithubReleaseResponseSubset
+  { assetNames :: [T.Text] }
+
+instance FromJSON GithubReleaseResponseSubset where
+  -- Akin to `GithubReleaseResponseSubset . fmap name . assets` but lifted into a parser over json
+  parseJSON = withObject "GithubReleaseResponse" $ \v ->
+    GithubReleaseResponseSubset <$> explicitParseField (listParser (withObject "GithubRelease" (.: "name"))) v "assets"
+
+-- | Since ~2.8.snapshot, the "enterprise version" (the version the user inputs) and the daml sdk version (the version of the daml repo) can differ
+-- As such, we derive the latter via the github api `assets` endpoint, looking for a file matching the expected `daml-sdk-$VERSION-$OS.tar.gz`
+getSdkVersionFromEnterpriseVersion :: SdkVersion -> IO SdkVersion
+getSdkVersionFromEnterpriseVersion v = do
+  req <- parseRequest $ "https://api.github.com/repos/digital-asset/daml/releases/tags/" <> T.unpack (unTag $ versionToTag v)
+  res <- httpJSON $ setRequestHeaders [("User-Agent", "request")] req
+  let mSdkVersionStr =
+        listToMaybe $ flip mapMaybe (assetNames $ getResponseBody res) $ \name -> do
+          withoutExt <- T.stripSuffix "-linux.tar.gz" name
+          T.stripPrefix "daml-sdk-" withoutExt
+      sdkVersionStr = fromMaybe (error "Failed to find linux sdk in release") mSdkVersionStr
+  either throwIO pure $ parseVersion sdkVersionStr
+  

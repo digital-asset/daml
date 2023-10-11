@@ -310,16 +310,18 @@ extractAndInstall env source =
 
 -- | Download an sdk tarball and install it.
 httpInstall :: InstallEnv -> SdkVersion -> IO ()
-httpInstall env@InstallEnv{..} version = do
+httpInstall env@InstallEnv{..} releaseVersion = do
     unlessQuiet env $ output "Downloading SDK release."
-    requiredAny "Failed to download SDK release." $
-        downloadLocation location
+    requiredAny "Failed to download SDK release." $ do
+        sdkVersion <- Github.getSdkVersionFromEnterpriseVersion releaseVersion
+        downloadLocation $ getLocation sdkVersion
     where
-        location = case artifactoryApiKeyM of
-            Nothing -> Github.versionLocation version
+        getLocation :: SdkVersion -> InstallLocation
+        getLocation sdkVersion = case artifactoryApiKeyM of
+            Nothing -> Github.versionLocation releaseVersion sdkVersion
             Just apiKey
-              | version >= firstEEVersion -> Artifactory.versionLocation version apiKey
-              | otherwise -> Github.versionLocation version
+              | releaseVersion >= firstEEVersion -> Artifactory.versionLocation releaseVersion sdkVersion apiKey
+              | otherwise -> Github.versionLocation releaseVersion sdkVersion
         !firstEEVersion =
             let verStr = "1.12.0-snapshot.20210312.6498.0.707c86aa"
             in SdkVersion (either error id (SemVer.fromText verStr))

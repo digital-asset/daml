@@ -26,13 +26,13 @@ queryArtifactoryApiKey damlConfig =
      eitherToMaybe (queryDamlConfigRequired ["artifactory-api-key"] damlConfig)
 
 -- | Install location for particular version.
-versionLocation :: SdkVersion -> ArtifactoryApiKey -> InstallLocation
-versionLocation v apiKey = InstallLocation
+versionLocation :: SdkVersion -> SdkVersion -> ArtifactoryApiKey -> InstallLocation
+versionLocation releaseVersion sdkVersion apiKey = InstallLocation
     { ilUrl = T.concat
         [ "https://digitalasset.jfrog.io/artifactory/sdk-ee/"
-        , versionToText v
+        , versionToText releaseVersion
         , "/daml-sdk-"
-        , versionToText v
+        , versionToText sdkVersion
         , "-"
         , osName
         , "-ee.tar.gz"
