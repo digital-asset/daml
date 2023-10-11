@@ -10,7 +10,6 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
-{-# LANGUAGE RankNTypes #-}
 
 -- | Main entry-point of the Daml compiler
 module DA.Cli.Damlc (main) where
@@ -18,7 +17,7 @@ module DA.Cli.Damlc (main) where
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception (bracket, catch, handle, throwIO)
 import Control.Exception.Safe (catchIO)
-import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
+import Control.Monad.Except (liftIO)
 import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
 import Control.Monad.Trans.Cont (ContT (..), evalContT)
 import DA.Bazel.Runfiles (Resource(..),
