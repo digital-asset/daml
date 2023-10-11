@@ -121,7 +121,7 @@ object TestUtil {
   )(channel: Channel, partyName: String): List[Optional[K]] =
     readActiveContracts(companion.fromCreatedEvent)(channel, partyName).map(_.key)
 
-  def readActiveContractPayloads[T, C <: jcg.Contract[_, T]](
+  def readActiveContractPayloads[T <: jcg.DamlRecord[_], C <: jcg.Contract[_, T]](
       companion: jcg.ContractCompanion[C, _, T]
   )(channel: Channel, partyName: String): List[T] =
     readActiveContracts(companion.fromCreatedEvent)(channel, partyName).map(_.data)

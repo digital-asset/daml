@@ -4,6 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data._
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
 import com.daml.ledger.javaapi.data.codegen.ContractDecoder
 import com.squareup.javapoet._
 
@@ -23,6 +24,7 @@ object DecoderClass {
       .addField(decodersField)
       .addMethod(fromCreatedEvent)
       .addMethod(getDecoder)
+      .addMethod(getJsonDecoder)
       .addStaticBlock(generateStaticInitializer(templateNames))
       .build()
   }
@@ -57,6 +59,29 @@ object DecoderClass {
     .addParameter(ClassName.get(classOf[Identifier]), "templateId")
     .addStatement("return contractDecoder.getDecoder(templateId)")
     .build()
+
+  private val getJsonDecoder = {
+    // Optional<ContractCompanion.FromJson<? extends DamlRecord<?>>>
+    val returnType = ParameterizedTypeName.get(
+      ClassName.get(classOf[java.util.Optional[_]]),
+      ParameterizedTypeName.get(
+        ClassName.get(classOf[ContractCompanion.FromJson[_]]),
+        WildcardTypeName.subtypeOf(
+          ParameterizedTypeName.get(
+            ClassName.get(classOf[com.daml.ledger.javaapi.data.codegen.DamlRecord[_]]),
+            WildcardTypeName.subtypeOf(classOf[Object]),
+          )
+        ),
+      ),
+    )
+    MethodSpec
+      .methodBuilder("getJsonDecoder")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(returnType)
+      .addParameter(ClassName.get(classOf[Identifier]), "templateId")
+      .addStatement("return contractDecoder.getJsonDecoder(templateId)")
+      .build()
+  }
 
   private val decodersField = FieldSpec
     .builder(contractDecoderType, "contractDecoder")

@@ -12,11 +12,14 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 public class ContractDecoder {
-  private final Map<Identifier, ? extends ContractCompanion<? extends Contract<?, ?>, ?, ?>>
+  private final Map<
+          Identifier,
+          ? extends ContractCompanion<? extends Contract<?, ?>, ?, ? extends DamlRecord<?>>>
       companions;
 
   public ContractDecoder(
-      Iterable<? extends ContractCompanion<? extends Contract<?, ?>, ?, ?>> companions) {
+      Iterable<? extends ContractCompanion<? extends Contract<?, ?>, ?, ? extends DamlRecord<?>>>
+          companions) {
     this.companions =
         StreamSupport.stream(companions.spliterator(), false)
             .collect(Collectors.toMap(c -> c.TEMPLATE_ID, Function.identity()));
@@ -32,14 +35,18 @@ public class ContractDecoder {
     return companion.fromCreatedEvent(event);
   }
 
-  public Optional<? extends ContractCompanion<? extends Contract<?, ?>, ?, ?>> getContractCompanion(
-      Identifier templateId) {
+  public Optional<? extends ContractCompanion<? extends Contract<?, ?>, ?, ? extends DamlRecord<?>>>
+      getContractCompanion(Identifier templateId) {
     return Optional.ofNullable(companions.get(templateId));
   }
 
   public Optional<Function<CreatedEvent, com.daml.ledger.javaapi.data.Contract>> getDecoder(
       Identifier templateId) {
-    return Optional.ofNullable(companions.get(templateId))
-        .map(companion -> companion::fromCreatedEvent);
+    return getContractCompanion(templateId).map(companion -> companion::fromCreatedEvent);
+  }
+
+  public Optional<ContractCompanion.FromJson<? extends DamlRecord<?>>> getJsonDecoder(
+      Identifier templateId) {
+    return getContractCompanion(templateId).map(companion -> companion::fromJson);
   }
 }
