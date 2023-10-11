@@ -188,7 +188,7 @@ private[lf] object Speedy {
     private[this] var contractsCache = Map.empty[V.ContractId, V.ContractInstance]
 
     // To handle continuation exceptions, as continuation are run outside the interpreter loop.
-    protected def safelyContinue(
+    private[this] def safelyContinue(
         location: => String,
         question: => String,
         continue: => Control[Question.Update],
@@ -211,7 +211,7 @@ private[lf] object Speedy {
     // The following needXXXX methods take care to emit question while ensuring no exceptions are
     // thrown during the question callbacks execution
 
-    final def needTime(): Control[Question.Update] = {
+    final private[speedy] def needTime(): Control[Question.Update] = {
       setDependsOnTime()
       Control.Question(
         Question.Update.NeedTime(time =>
@@ -224,7 +224,7 @@ private[lf] object Speedy {
       )
     }
 
-    final def needContract(
+    final private[speedy] def needContract(
         location: => String,
         contractId: V.ContractId,
         continue: V.ContractInstance => Control[Question.Update],
@@ -237,7 +237,7 @@ private[lf] object Speedy {
         )
       )
 
-    final def needUpgradeVerification(
+    final private[speedy] def needUpgradeVerification(
         location: => String,
         coid: V.ContractId,
         signatories: Set[Party],
@@ -255,7 +255,7 @@ private[lf] object Speedy {
         )
       )
 
-    final def needPackage(
+    final private[speedy] def needPackage(
         location: => String,
         packageId: PackageId,
         context: language.Reference,
@@ -278,7 +278,7 @@ private[lf] object Speedy {
         )
       )
 
-    final def needKey(
+    final private[speedy] def needKey(
         location: => String,
         key: GlobalKeyWithMaintainers,
         continue: Option[V.ContractId] => (Control[Question.Update], Boolean),
@@ -309,7 +309,7 @@ private[lf] object Speedy {
         )
       )
 
-    final def needAuthority(
+    final private[speedy] def needAuthority(
         location: => String,
         holding: Set[Party],
         requesting: Set[Party],
@@ -324,7 +324,7 @@ private[lf] object Speedy {
         )
       )
 
-    final def needPackageId(
+    final private[speedy] def needPackageId(
         location: => String,
         module: ModuleName,
         pid0: PackageId,
@@ -338,7 +338,7 @@ private[lf] object Speedy {
         )
       )
 
-    def lookupContractOnLedger[Q](coid: V.ContractId)(
+    final private[speedy] def lookupContractOnLedger[Q](coid: V.ContractId)(
         continue: V.ContractInstance => Control[Question.Update]
     ): Control[Question.Update] =
       contractsCache.get(coid) match {
