@@ -173,7 +173,7 @@ jobs:
                                        --project daml
           fi
 
-  - job: update canton community source
+  - job: update_canton_sources
     timeoutInMinutes: 60
     pool:
       name: ubuntu_20_04
