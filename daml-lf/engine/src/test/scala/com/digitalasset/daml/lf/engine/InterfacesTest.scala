@@ -13,6 +13,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.command.ApiCommand
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.Transaction
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
@@ -26,6 +27,9 @@ import interpretation.{Error => IE}
 
 import scala.language.implicitConversions
 
+class InterfacesTestV1 extends InterfacesTest(LanguageMajorVersion.V1)
+class InterfacesTestV2 extends InterfacesTest(LanguageMajorVersion.V2)
+
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any",
@@ -33,7 +37,7 @@ import scala.language.implicitConversions
     "org.wartremover.warts.Product",
   )
 )
-class InterfacesTest
+class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -48,16 +52,17 @@ class InterfacesTest
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
-  private[this] val engine = Engine.DevEngine()
+  private[this] val engine = Engine.DevEngine(majorLanguageVersion)
   private[this] val preprocessor =
     new preprocessing.Preprocessor(
       ConcurrentCompiledPackages(engine.config.getCompilerConfig)
     )
 
   "interfaces" should {
-    val (interfacesPkgId, _, _) = loadPackage("daml-lf/tests/Interfaces.dar")
+    val (interfacesPkgId, _, _) =
+      loadPackage(s"daml-lf/tests/Interfaces-v${majorLanguageVersion.pretty}.dar")
     val (interfaceRetroPkgId, _, allInterfacesPkgs) =
-      loadPackage("daml-lf/tests/InterfaceRetro.dar")
+      loadPackage(s"daml-lf/tests/InterfaceRetro-v${majorLanguageVersion.pretty}.dar")
     val idI1 = Identifier(interfacesPkgId, "Interfaces:I1")
     val idI2 = Identifier(interfacesPkgId, "Interfaces:I2")
     val idI5 = Identifier(interfaceRetroPkgId, "InterfaceRetro:I5")

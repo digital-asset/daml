@@ -6,20 +6,27 @@ package speedy
 
 import com.daml.lf.data.Ref.{IdString, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.speedy.SExpr.SEMakeClo
 import com.daml.lf.speedy.SValue.SToken
 import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo}
+import com.daml.lf.testing.parser.ParserParameters
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import org.scalatest.matchers.{MatchResult, Matcher}
-import com.daml.lf.testing.parser.Implicits._
 
 /** Shared test data and functions for testing explicit disclosure.
   */
-private[lf] class ExplicitDisclosureLib(evaluationOrder: EvaluationOrder) {
+private[lf] class ExplicitDisclosureLib(
+    majorLanguageVersion: LanguageMajorVersion,
+    evaluationOrder: EvaluationOrder,
+) {
+
+  implicit val defaultParserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   val testKeyName: String = "test-key"
   val pkg: PureCompiledPackages = SpeedyTestLib.typeAndCompile(

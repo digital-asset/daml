@@ -107,6 +107,7 @@ import SdkVersion (damlStdlib)
 import Language.Haskell.HLint4
 
 import Development.IDE.Core.Rules.Daml.SpanInfo
+import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor))
 
 -- | Get thr URI that corresponds to a virtual resource. The VS Code has a
 -- document provider that will handle our special documents.
@@ -591,12 +592,13 @@ damlGhcSessionRule opts@Options{..} = do
 generateStablePackages :: LF.Version -> FilePath -> IO ([FileDiagnostic], Map.Map (UnitId, LF.ModuleName) LF.DalfPackage)
 generateStablePackages lfVersion fp = do
     (diags, pkgs) <- fmap partitionEithers $ do
+        let prefix = fp </> ("lf-v" <> renderMajorVersion (versionMajor lfVersion))
         -- It is very tempting to just use a listFilesRecursive here.
         -- However, that has broken CI several times on Windows due to the lack of
         -- sandboxing which resulted in newly added files being picked up from other PRs.
         -- Given that this list doesn’t change too often and you will get a compile error
         -- if you forget to update it, we hardcode it here.
-        let dalfs = map (fp </>) $ concat
+            dalfs = map (prefix </>) $ concat
                 [ map ("daml-prim" </>)
                     [ "DA-Internal-Erased.dalf"
                     , "DA-Internal-NatSyn.dalf"
@@ -638,7 +640,13 @@ generateStablePackages lfVersion fp = do
     -- We filter out stable packages for newer LF versions, e.g., the stable packages for wrappers around Any.
     -- It might seem tempting to make stable packages per LF version but this makes no sense at all.
     -- Packages should remain stable as we move to newer LF versions. Changing the LF version would change the hash.
-    pure (diags, Map.fromList $ filter (\(_, pkg) -> lfVersion >= LF.packageLfVersion (LF.extPackagePkg $ LF.dalfPackagePkg pkg)) pkgs)
+    pure
+        ( diags
+        , Map.fromList $ filter (pkgCompatibleWith lfVersion . snd) pkgs
+        )
+  where
+    pkgCompatibleWith lfVersion pkg = lfVersion `LF.canDependOn` dalfPackageVersion pkg
+    dalfPackageVersion pkg = LF.packageLfVersion (LF.extPackagePkg $ LF.dalfPackagePkg pkg)
 
 
 -- | Find the directory containing the stable packages if it exists.

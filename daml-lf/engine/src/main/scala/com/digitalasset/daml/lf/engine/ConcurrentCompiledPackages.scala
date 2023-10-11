@@ -170,7 +170,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
 }
 
 object ConcurrentCompiledPackages {
-  def apply(compilerConfig: Compiler.Config = Compiler.Config.Default): ConcurrentCompiledPackages =
+  def apply(compilerConfig: Compiler.Config): ConcurrentCompiledPackages =
     new ConcurrentCompiledPackages(compilerConfig)
 
   private case class AddPackageState(

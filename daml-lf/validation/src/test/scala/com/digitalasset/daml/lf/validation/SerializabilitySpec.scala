@@ -6,14 +6,24 @@ package validation
 
 import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.language.Ast.Package
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.testing.parser.{ParserParameters, defaultPackageId}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
+class SerializabilitySpecV1 extends SerializabilitySpec(LanguageMajorVersion.V1)
+class SerializabilitySpecV2 extends SerializabilitySpec(LanguageMajorVersion.V2)
+
+class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with TableDrivenPropertyChecks
+    with Matchers {
+
+  implicit val defaultParserParameters: ParserParameters[this.type] =
+    ParserParameters.defaultFor(majorLanguageVersion)
+  val defaultPackageId = defaultParserParameters.defaultPackageId
 
   "Serializability checking" should {
 
@@ -254,10 +264,9 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
       val pkg14 = {
 
-        implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
-          defaultPackageId,
-          LanguageVersion.v1_14,
-        )
+        implicit val v114ParserParameters: ParserParameters[this.type] =
+          defaultParserParameters.copy(languageVersion = LanguageVersion.v1_14)
+
         p"""
           // well-formed module
           module NegativeTestCase1 {
@@ -300,7 +309,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
           module PositiveTestCase2 {
             record @serializable UnserializableContractId = { cid : ContractId (Int64 -> Int64) };
           }
-         """
+         """ (v114ParserParameters)
       }
 
       val negativeTestCases = Table(
@@ -332,10 +341,8 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
     "reject unserializable interface definitions" in {
 
-      implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
-        defaultPackageId,
-        LanguageVersion.Features.basicInterfaces,
-      )
+      implicit val basicInterfacesParserParameters: ParserParameters[this.type] =
+        defaultParserParameters.copy(languageVersion = LanguageVersion.Features.basicInterfaces)
 
       val pkg =
         p"""
@@ -380,7 +387,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
                 to upure @(PositiveTestCase:Token) this;
             } ;
           }
-        """
+        """ (basicInterfacesParserParameters)
 
       check(pkg, "NegativeTestCase1")
       check(pkg, "NegativeTestCase2")
@@ -390,10 +397,8 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
     "reject unserializable interface view" in {
 
-      implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
-        defaultPackageId,
-        LanguageVersion.Features.basicInterfaces,
-      )
+      implicit val basicInterfacesParserParameters: ParserParameters[this.type] =
+        defaultParserParameters.copy(languageVersion = LanguageVersion.Features.basicInterfaces)
 
       val pkg =
         p"""
@@ -413,7 +418,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
               viewtype Mod:Unserializable;
             } ;
           }
-        """
+        """ (basicInterfacesParserParameters)
 
       check(pkg, "NegativeTestCase")
       an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, "PositiveTestCase"))

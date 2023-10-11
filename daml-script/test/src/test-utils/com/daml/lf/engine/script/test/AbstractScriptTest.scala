@@ -11,8 +11,7 @@ import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedgerClient}
-import com.daml.lf.language.Ast
-import com.daml.lf.language.StablePackage.DA
+import com.daml.lf.language.{Ast, LanguageMajorVersion, StablePackages}
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.value.Value
 import com.daml.platform.services.time.TimeProviderType
@@ -20,25 +19,26 @@ import org.scalatest.Suite
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object AbstractScriptTest {
-
-  def tuple(a: SValue, b: SValue) =
-    SValue.SRecord(
-      id = DA.Types.Tuple2,
-      fields = ImmArray(Ref.Name.assertFromString("_1"), Ref.Name.assertFromString("_2")),
-      values = ArrayList(a, b),
-    )
-
-  lazy val darPath: Path = rlocation(Paths.get("daml-script/test/script-test.dar"))
-  lazy val dar: CompiledDar = CompiledDar.read(darPath, Runner.compilerConfig)
-}
-
 // Fixture for a set of participants used in Daml Script tests
 trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
   self: Suite =>
 
+  val majorLanguageVersion: LanguageMajorVersion;
+
+  def tuple(a: SValue, b: SValue) =
+    SValue.SRecord(
+      id = StablePackages(majorLanguageVersion).Tuple2,
+      fields = ImmArray(Ref.Name.assertFromString("_1"), Ref.Name.assertFromString("_2")),
+      values = ArrayList(a, b),
+    )
+
+  lazy val darPath: Path = rlocation(
+    Paths.get(s"daml-script/test/script-test-v${majorLanguageVersion.pretty}.dar")
+  )
+  lazy val dar: CompiledDar = CompiledDar.read(darPath, Runner.compilerConfig(majorLanguageVersion))
+
   protected def timeMode: ScriptTimeMode
-  override protected lazy val darFiles = List(AbstractScriptTest.darPath)
+  override protected lazy val darFiles = List(darPath)
 
   final override protected lazy val timeProviderType = timeMode match {
     case ScriptTimeMode.Static => TimeProviderType.Static

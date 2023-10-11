@@ -26,7 +26,8 @@ import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails,
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
-import com.daml.lf.engine.script.{Converter, LfValueCodec}
+import com.daml.lf.engine.script.LfValueCodec
+import com.daml.lf.engine.script.v1.Converter
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SValue
 import com.daml.lf.typesig.EnvironmentSignature

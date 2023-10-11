@@ -4,6 +4,7 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.testing.parser._
 import com.daml.logging.LoggingContext
 import org.openjdk.jmh.annotations._
@@ -11,7 +12,12 @@ import org.openjdk.jmh.annotations._
 @State(Scope.Benchmark)
 class StructProjBench {
 
-  import com.daml.lf.testing.parser.Implicits._
+  import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+
+  // TODO(#17366): port the bench to LF v2
+  private[this] implicit val parserParameters: ParserParameters[this.type] =
+    ParserParameters.defaultFor(LanguageMajorVersion.V1)
+  private[this] val defaultPackageId = parserParameters.defaultPackageId
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
@@ -52,7 +58,10 @@ class StructProjBench {
   def init(): Unit = {
     assert(m >= n)
     println(s"M = $M, N = $N")
-    val config = Compiler.Config.Dev.copy(packageValidation = Compiler.NoPackageValidation)
+    // TODO(#17366): port the bench to LF v2
+    val config = Compiler.Config
+      .Dev(LanguageMajorVersion.V1)
+      .copy(packageValidation = Compiler.NoPackageValidation)
     compiledPackages = PureCompiledPackages.assertBuild(Map(defaultPackageId -> pkg), config)
     sexpr = compiledPackages.compiler.unsafeCompile(e"Mod:bench Mod:struct")
     val value = bench()

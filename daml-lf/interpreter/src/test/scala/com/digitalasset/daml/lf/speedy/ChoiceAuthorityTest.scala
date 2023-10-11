@@ -7,23 +7,33 @@ package speedy
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.interpretation.Error.FailedAuthorization
-import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
+import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder}
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.ledger.FailedAuthorization.{CreateMissingAuthorization, NoAuthorizers}
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr.SEApp
 import com.daml.lf.speedy.SValue.{SList, SParty}
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.SubmittedTransaction
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers._
 
-class ChoiceAuthorityTest extends AnyFreeSpec with Inside {
+class ChoiceAuthorityTestV1 extends ChoiceAuthorityTest(LanguageMajorVersion.V1)
+class ChoiceAuthorityTestV2 extends ChoiceAuthorityTest(LanguageMajorVersion.V2)
+
+class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Inside {
   import SpeedyTestLib.AuthRequest
 
   val transactionSeed = crypto.Hash.hashPrivateKey("ChoiceAuthorityTest.scala")
 
-  for (evaluationOrder <- EvaluationOrder.values) {
+  implicit val defaultParserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+
+  for (evaluationOrder <- EvaluationOrder.valuesFor(majorLanguageVersion)) {
 
     evaluationOrder.toString - {
 

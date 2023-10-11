@@ -4,20 +4,30 @@
 package com.daml.lf.testing.parser
 
 import java.math.BigDecimal
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.language.Util._
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import scala.collection.immutable.VectorMap
 
+import scala.collection.immutable.VectorMap
 import scala.language.implicitConversions
 
-class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matchers {
+class ParsersSpecV1 extends ParsersSpec(LanguageMajorVersion.V1)
+class ParsersSpecV2 extends ParsersSpec(LanguageMajorVersion.V2)
+
+class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with ScalaCheckPropertyChecks
+    with Matchers {
+
+  implicit val parserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  val defaultPackageId = parserParameters.defaultPackageId
 
   private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
 

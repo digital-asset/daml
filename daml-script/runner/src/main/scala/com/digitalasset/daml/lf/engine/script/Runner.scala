@@ -24,24 +24,25 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ParticipantsJsonProtocol.ContractIdFormat
 import com.daml.lf.engine.script.ledgerinteraction.{
   GrpcLedgerClient,
-  JsonLedgerClient,
   IdeLedgerClient,
+  JsonLedgerClient,
   ScriptLedgerClient,
 }
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, PackageInterface}
+import com.daml.lf.language.{LanguageMajorVersion, PackageInterface}
+import com.daml.lf.language.LanguageVersionRangeOps._
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.{
   Compiler,
   Pretty,
+  Profile,
   SDefinition,
   SError,
   SValue,
   Speedy,
-  Profile,
   TraceLog,
   WarningLog,
 }
@@ -234,11 +235,11 @@ object Runner {
   final case object CanceledByRequest extends RuntimeException
   final case object TimedOut extends RuntimeException
 
-  private[script] val compilerConfig = {
+  private[script] def compilerConfig(majorLanguageVersion: LanguageMajorVersion) = {
     import Compiler._
     Config(
-      // FIXME: Should probably not include 1.dev by default.
-      allowedLanguageVersions = LanguageVersion.DevVersions,
+      allowedLanguageVersions =
+        VersionRange(min = majorLanguageVersion.minStableVersion, max = majorLanguageVersion.dev),
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = FullStackTrace,
@@ -355,11 +356,13 @@ object Runner {
       mat: Materializer,
   ): Future[SValue] = {
     val darMap = dar.all.toMap
-    val compiledPackages = PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig)
-    def converter(json: JsValue, typ: Type) = {
+    val majorVersion = dar.main._2.languageVersion.major
+    val compiledPackages =
+      PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig(majorVersion))
+    def convert(json: JsValue, typ: Type) = {
       val ifaceDar = dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
       val envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
-      Converter.fromJsonValue(
+      Converter(majorVersion).fromJsonValue(
         scriptId.qualifiedName,
         envIface,
         compiledPackages,
@@ -370,7 +373,7 @@ object Runner {
     run(
       compiledPackages,
       scriptId,
-      Some(converter(_, _)),
+      Some(convert(_, _)),
       inputValue,
       initialClients,
       timeMode,
@@ -510,7 +513,9 @@ private[lf] class Runner(
       case LfDefRef(id) if id == script.scriptIds.damlScript("castCatchPayload") =>
         SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
     }
-    new CompiledPackages(Runner.compilerConfig) {
+    new CompiledPackages(
+      Runner.compilerConfig(compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion)
+    ) {
       override def getDefinition(dref: SDefinitionRef): Option[SDefinition] =
         damlScriptDefs.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
       // FIXME: avoid override of non abstract method

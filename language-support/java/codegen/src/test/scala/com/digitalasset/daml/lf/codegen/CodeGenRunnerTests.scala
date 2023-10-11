@@ -10,8 +10,7 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref._
 import com.daml.lf.typesig._
 import com.daml.lf.codegen.conf.PackageReference
-import com.daml.lf.language.Reference
-import com.daml.lf.language.StablePackage
+import com.daml.lf.language.{Reference, StablePackagesV1}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
@@ -21,7 +20,8 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   behavior of "configureCodeGenScope"
 
-  val stablePackageIds = StablePackage.values.map(_.packageId)
+  // Codegen is no longer supported in daml3, so we can restrict ourselves to testing LF1.
+  val stablePackageIds = StablePackagesV1.allPackages.map(_.packageId)
 
   it should "read interfaces from a single DAR file without a prefix" in {
 

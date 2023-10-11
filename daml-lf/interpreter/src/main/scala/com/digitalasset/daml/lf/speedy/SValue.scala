@@ -322,13 +322,13 @@ object SValue {
     }
   }
 
-  object SArithmeticError {
-    val fields: ImmArray[Ref.Name] = ImmArray(ValueArithmeticError.fieldName)
+  class SArithmeticError(valueArithmeticError: ValueArithmeticError) {
+    val fields: ImmArray[Ref.Name] = ImmArray(valueArithmeticError.fieldName)
     def apply(builtinName: String, args: ImmArray[String]): SAny = {
       val array = ArrayList.single[SValue](
         SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
       )
-      SAny(ValueArithmeticError.typ, SRecord(ValueArithmeticError.tyCon, fields, array))
+      SAny(valueArithmeticError.typ, SRecord(valueArithmeticError.tyCon, fields, array))
     }
   }
 

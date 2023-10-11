@@ -5,17 +5,36 @@ package com.daml.lf
 package engine
 
 import com.daml.lf.data.Ref
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.testing.parser
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class EngineValidatePackagesTest extends AnyWordSpec with Matchers with Inside {
+class EngineValidatePackagesTestV1 extends EngineValidatePackagesTest(LanguageMajorVersion.V1)
+class EngineValidatePackagesTestV2 extends EngineValidatePackagesTest(LanguageMajorVersion.V2)
 
-  import defaultParserParameters.{defaultPackageId => pkgId, languageVersion => langVersion}
+class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with Matchers
+    with Inside {
 
-  private def newEngine = new Engine(EngineConfig(LanguageVersion.DevVersions))
+  val pkgId = Ref.PackageId.assertFromString("-pkg-")
+
+  // TODO(#17366): use something like LanguageVersion.default(major) after the refactoring of
+  //  LanguageVersion
+  val langVersion = majorLanguageVersion match {
+    case LanguageMajorVersion.V1 => LanguageVersion.default
+    case LanguageMajorVersion.V2 => LanguageVersion.v2_dev
+  }
+
+  implicit val parserParameters: parser.ParserParameters[this.type] =
+    parser.ParserParameters(pkgId, langVersion)
+
+  private def newEngine = new Engine(
+    EngineConfig(LanguageVersion.AllVersions(majorLanguageVersion))
+  )
 
   "Engine.validatePackages" should {
 

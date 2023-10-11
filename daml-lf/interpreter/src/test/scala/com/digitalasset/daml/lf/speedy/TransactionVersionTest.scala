@@ -6,12 +6,14 @@ package speedy
 
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConName}
-import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder}
+import com.daml.lf.language.LanguageMajorVersion.{V1, V2}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.SBuiltin.{SBCastAnyContract, SBFetchAny}
 import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
+import com.daml.lf.testing.parser
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
@@ -19,21 +21,27 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-class TransactionVersionTest
+class TransactionVersionTestV1 extends TransactionVersionTest(V1)
+class TransactionVersionTestV2 extends TransactionVersionTest(V2)
+
+class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec
     with Matchers
     with Inside
     with TableDrivenPropertyChecks {
 
-  import TransactionVersionTest._
+  val helpers = new TransactionVersionTestHelpers(majorLanguageVersion)
+  import helpers._
 
-  for (evaluationOrder <- EvaluationOrder.values) {
+  for (evaluationOrder <- EvaluationOrder.valuesFor(majorLanguageVersion)) {
 
     evaluationOrder.toString - {
 
       "interface and transaction versioning" - {
 
         "version testing assumptions" in {
+          // TODO(#17366): remove this assumption once 2.0 is introduced
+          assume(majorLanguageVersion == V1)
           oldVersion should be < newVersion
           Set(
             templatePkg.languageVersion,
@@ -49,6 +57,7 @@ class TransactionVersionTest
           val newPkg1 = implementsPkg.copy(languageVersion = newVersion)
           val newPkg2 = coImplementsPkg.copy(languageVersion = newVersion)
           val pkgs = SpeedyTestLib.typeAndCompile(
+            majorLanguageVersion,
             Map(
               templatePkgId -> oldPkg1,
               interfacesPkgId -> oldPkg2,
@@ -81,6 +90,7 @@ class TransactionVersionTest
           val newPkg1 = templatePkg.copy(languageVersion = newVersion)
           val newPkg2 = interfacesPkg.copy(languageVersion = newVersion)
           val pkgs = SpeedyTestLib.typeAndCompile(
+            majorLanguageVersion,
             Map(
               templatePkgId -> newPkg1,
               interfacesPkgId -> newPkg2,
@@ -109,6 +119,7 @@ class TransactionVersionTest
 
         "template version == interface version" in {
           val pkgs = SpeedyTestLib.typeAndCompile(
+            majorLanguageVersion,
             Map(
               templatePkgId -> templatePkg,
               interfacesPkgId -> interfacesPkg,
@@ -139,11 +150,20 @@ class TransactionVersionTest
   }
 }
 
-object TransactionVersionTest {
-  val commonVersion: LanguageVersion = LanguageVersion.default
-  val oldVersion: LanguageVersion = LanguageVersion.v1_15
-  // TODO(#17366): Revisit this test after 2.x breaks backwards compatibility with 1.x.
-  val newVersion: LanguageVersion = LanguageVersion.v1_dev
+private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
+
+  val (commonVersion, oldVersion, newVersion) = majorLanguageVersion match {
+    case V1 => (LanguageVersion.default, LanguageVersion.v1_15, LanguageVersion.v1_dev)
+    // TODO(#17366): use 2.0 once it is introduced
+    case V2 => (LanguageVersion.v2_dev, LanguageVersion.v2_dev, LanguageVersion.v2_dev)
+  }
+
+  implicit val parserParameters: parser.ParserParameters[this.type] =
+    parser.ParserParameters(
+      Ref.PackageId.assertFromString("-pkg-"),
+      commonVersion,
+    )
+
   val (templatePkgId, templatePkg) =
     PackageId.assertFromString("template-pkg") ->
       p"""

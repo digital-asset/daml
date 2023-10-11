@@ -18,7 +18,7 @@ module DA.Test.DamlcIntegration
 import           DA.Bazel.Runfiles
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
-import           DA.Test.Util (standardizeQuotes)
+import           DA.Test.Util (redactStablePackageIds, standardizeQuotes)
 
 import           DA.Daml.LF.Ast as LF hiding (IsTest)
 import           "ghc-lib-parser" UniqSupply
@@ -62,6 +62,7 @@ import           System.IO
 import           System.IO.Extra
 import           System.Info.Extra (isWindows)
 import           Text.Read
+import qualified Data.Map.Strict as MS
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
 import qualified Data.Set as S
@@ -416,9 +417,6 @@ testSetup getService outdir path = do
 
 damlFileTestTree :: LF.Version -> IsScriptV2Opt -> EvaluationOrder -> IO IdeState -> FilePath -> (TODO -> IO ()) -> DamlTestInput -> TestTree
 damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir registerTODO input
-  | any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] =
-    singleTest name $ TestCase \_ ->
-      pure $ testFailed "Unsupported Daml-LF version in UNTIL-LF annotation"
   | any (ignoreVersion version) anns =
     singleTest name $ TestCase \_ ->
       pure (testPassed "") { resultShortDescription = "IGNORE" }
@@ -464,12 +462,19 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService o
     DamlTestInput { name, path, anns } = input
     ignoreVersion version = \case
       Ignore -> True
-      SinceLF minVersion -> version < minVersion
-      UntilLF maxVersion -> version >= maxVersion
+      SinceLF versionBounds -> not (versionBounds `containsVersion` version)
+      SupportsFeature featureName -> not (version `satisfies` versionReqForFeaturePartial featureName)
+      DoesNotSupportFeature featureName -> version `satisfies` versionReqForFeaturePartial featureName
       ScriptV2 -> not isScriptV2Opt
       EvaluationOrder evalOrder -> evalOrder /= evalOrderOpt
       _ -> False
     diff ref new = [POSIX_DIFF, "--strip-trailing-cr", ref, new]
+
+containsVersion :: MS.Map LF.MajorVersion LF.MinorVersion -> LF.Version -> Bool
+containsVersion bounds (Version major minor) =
+  case major `MS.lookup` bounds of
+    Nothing -> False
+    Just minorMinBound -> minor >= minorMinBound
 
 runJqQuery :: (String -> IO ()) -> Maybe FilePath -> String -> Bool -> IO (Maybe String)
 runJqQuery log mJsonFile q isStream = do
@@ -532,7 +537,10 @@ checkDiagnostics log expected got
             DRange r -> r == _range
             DSeverity s -> Just s == _severity
             DSource s -> Just (T.pack s) == _source
-            DMessage m -> standardizeQuotes(T.pack m) `T.isInfixOf` standardizeQuotes(T.unwords (T.words _message))
+            DMessage m ->
+              standardizeQuotes (T.pack m)
+                  `T.isInfixOf`
+                      standardizeQuotes (redactStablePackageIds (T.unwords (T.words _message)))
           logDiags = log $ T.unpack $ showDiagnostics got
           bad = filter
             (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)
@@ -543,10 +551,14 @@ checkDiagnostics log expected got
 data Ann
     = Ignore
       -- ^ Don't run this test at all
-    | SinceLF LF.Version
-      -- ^ Only run this test since the given Daml-LF version (inclusive)
-    | UntilLF LF.Version
-      -- ^ Only run this test until the given Daml-LF version (exclusive)
+    | SinceLF (MS.Map LF.MajorVersion LF.MinorVersion)
+      -- ^ Only run this test if the target Daml-LF version can depend on the
+      -- given Daml-LF version with the same major version as the target LF
+      -- version.
+    | SupportsFeature T.Text
+      -- ^ Only run this test if the given feature is supported by the target Daml-LF version
+    | DoesNotSupportFeature T.Text
+      -- ^ Only run this test if the given feature is not supported by the target Daml-LF version
     | DiagnosticFields [DiagnosticField]
       -- ^ I expect a diagnostic that has the given fields
     | QueryLF String Bool
@@ -569,10 +581,9 @@ readFileAnns file = do
         f :: String -> Maybe Ann
         f (stripPrefix "-- @" . trim -> Just x) = case word1 $ trim x of
             ("IGNORE",_) -> Just Ignore
-            ("SINCE-LF", x) -> Just $ SinceLF $ fromJust $ LF.parseVersion $ trim x
-            ("UNTIL-LF", x) -> Just $ UntilLF $ fromJust $ LF.parseVersion $ trim x
-            ("SINCE-LF-FEATURE", x) -> Just $ SinceLF $ LF.versionForFeaturePartial $ T.pack $ trim x
-            ("UNTIL-LF-FEATURE", x) -> Just $ UntilLF $ LF.versionForFeaturePartial $ T.pack $ trim x
+            ("SINCE-LF", x) -> Just $ SinceLF $ parseMaybeVersions x
+            ("SUPPORTS-LF-FEATURE", x) -> Just $ SupportsFeature $ T.pack $ trim x
+            ("DOES-NOT-SUPPORT-LF-FEATURE", x) -> Just $ DoesNotSupportFeature $ T.pack $ trim x
             ("ERROR",x) -> Just (DiagnosticFields (DSeverity DsError : parseFields x))
             ("WARN",x) -> Just (DiagnosticFields (DSeverity DsWarning : parseFields x))
             ("INFO",x) -> Just (DiagnosticFields (DSeverity DsInfo : parseFields x))
@@ -584,6 +595,39 @@ readFileAnns file = do
             ("EVALUATION-ORDER", x) -> EvaluationOrder <$> readMaybe x
             _ -> error $ "Can't understand test annotation in " ++ show file ++ ", got " ++ show x
         f _ = Nothing
+
+parseMaybeVersions :: String -> MS.Map LF.MajorVersion LF.MinorVersion
+parseMaybeVersions str = MS.fromList (pairUp sortedMajorVersions parsedMaybeVersions)
+  where
+    sortedMajorVersions :: [LF.MajorVersion]
+    sortedMajorVersions = [minBound .. maxBound]
+
+    parsedMaybeVersions :: [Maybe LF.Version]
+    parsedMaybeVersions = map (parseMaybeVersion . trim) (words str)
+
+    pairUp :: [LF.MajorVersion] -> [Maybe LF.Version] -> [(LF.MajorVersion, LF.MinorVersion)]
+    pairUp (_ : majors) (Nothing : versions) = pairUp majors versions
+    pairUp (major : majors) (Just version : versions)
+        | major /= versionMajor version =
+            error $
+                "expected a version with major version "
+                    <> LF.renderMajorVersion major
+                    <> ", got "
+                    <> LF.renderVersion version
+        | otherwise = (major, versionMinor version) : pairUp majors versions
+    pairUp majors@(_ : _) [] =
+        error $
+            "missing version bounds for major versions "
+                <> intercalate ", " (map LF.renderMajorVersion majors)
+    pairUp [] (_ : _) = error "too many version bounds provided"
+    pairUp [] [] = []
+
+parseMaybeVersion :: String -> Maybe LF.Version
+parseMaybeVersion "None" = Nothing
+parseMaybeVersion s =
+  case LF.parseVersion s of
+    Just v -> Just v
+    Nothing -> error ("couldn't parse version: " <> show s)
 
 parseFields :: String -> [DiagnosticField]
 parseFields = map (parseField . trim) . wordsBy (==';')

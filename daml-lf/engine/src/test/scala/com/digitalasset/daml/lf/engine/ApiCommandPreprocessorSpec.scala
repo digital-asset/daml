@@ -7,6 +7,8 @@ package preprocessing
 
 import com.daml.lf.command.ApiCommand
 import com.daml.lf.data._
+import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.test.TransactionBuilder.newCid
 import com.daml.lf.value.Value._
 import org.scalatest.matchers.dsl.ResultOfATypeInvocation
@@ -14,19 +16,26 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
+import com.daml.lf.speedy.Compiler
 
 import scala.util.{Failure, Success, Try}
 
-class ApiCommandPreprocessorSpec
+class ApiCommandPreprocessorSpecV1 extends ApiCommandPreprocessorSpec(LanguageMajorVersion.V1)
+class ApiCommandPreprocessorSpecV2 extends ApiCommandPreprocessorSpec(LanguageMajorVersion.V2)
+
+class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
     with Inside {
 
-  import com.daml.lf.testing.parser.Implicits._
+  import com.daml.lf.testing.parser.Implicits.SyntaxHelper
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 
-  private implicit val defaultPackageId = defaultParserParameters.defaultPackageId
+  private implicit val parserParameters: ParserParameters[this.type] =
+    ParserParameters.defaultFor(majorLanguageVersion)
+
+  private implicit val defaultPackageId = parserParameters.defaultPackageId
 
   private[this] val pkg =
     p"""
@@ -100,7 +109,9 @@ class ApiCommandPreprocessorSpec
         }
     """
 
-  private[this] val compiledPackage = ConcurrentCompiledPackages()
+  private[this] val compiledPackage = ConcurrentCompiledPackages(
+    Compiler.Config.Default(majorLanguageVersion)
+  )
   assert(compiledPackage.addPackage(defaultPackageId, pkg) == ResultDone.Unit)
 
   private[this] val valueParties = ValueList(FrontStack(ValueParty("Alice")))

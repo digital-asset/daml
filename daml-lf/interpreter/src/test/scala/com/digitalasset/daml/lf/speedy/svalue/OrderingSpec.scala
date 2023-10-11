@@ -8,14 +8,14 @@ import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, FrontStack, Ref}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SExpr.{SELet1, SEImportValue, SELocS, SELocF, SEMakeClo}
+import com.daml.lf.speedy.SExpr.{SEImportValue, SELet1, SELocF, SELocS, SEMakeClo}
 import com.daml.lf.value.Value
 import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.test.ValueGenerators.{comparableCoidsGen, suffixedV1CidGen}
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.typesig
 import com.daml.lf.interpretation.Error.ContractIdComparability
-import com.daml.lf.language.{Ast, Util => AstUtil}
+import com.daml.lf.language.{Ast, LanguageMajorVersion, Util => AstUtil}
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.Inside
 import org.scalatest.prop.TableFor2
@@ -33,7 +33,10 @@ import scalaz.scalacheck.{ScalazProperties => SzP}
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 
-class OrderingSpec
+class OrderingSpecV1 extends OrderingSpec(LanguageMajorVersion.V1)
+class OrderingSpecV2 extends OrderingSpec(LanguageMajorVersion.V2)
+
+class OrderingSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Inside
     with Matchers
@@ -187,7 +190,7 @@ class OrderingSpec
   private def translatePrimValue(typ: typesig.Type, v: Value) = {
 
     val machine = Speedy.Machine.fromUpdateSExpr(
-      PureCompiledPackages.Empty,
+      PureCompiledPackages.Empty(Compiler.Config.Default(majorLanguageVersion)),
       transactionSeed = txSeed,
       updateSE =
         SELet1(SEImportValue(toAstType(typ), v), SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),

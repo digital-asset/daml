@@ -13,7 +13,7 @@ import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.{Graphs, StablePackage}
+import com.daml.lf.language.{Graphs, StablePackagesV1}
 import com.daml.scalautil.Statement.discard
 import scalaz.std.option._
 import scalaz.std.iterable._
@@ -557,8 +557,8 @@ object TreeUtils {
   }
 
   def isTupleId(id: Identifier): Boolean = {
-    id.packageId == StablePackage.DA.Types.packageId &&
-    id.moduleName == StablePackage.DA.Types.moduleName.toString &&
+    id.packageId == StablePackagesV1.DA_Types.packageId &&
+    id.moduleName == StablePackagesV1.DA_Types.moduleName.toString &&
     id.entityName.startsWith("Tuple")
   }
 

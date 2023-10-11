@@ -3,7 +3,7 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
--- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @SUPPORTS-LF-FEATURE DAML_INTERFACE
 module InterfaceDoubleSpend where
 
 import Daml.Script

@@ -30,7 +30,6 @@ import com.daml.lf.transaction.{
   TransactionErrors => TxErr,
 }
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
@@ -341,8 +340,8 @@ private[lf] object SBuiltin {
   sealed abstract class SBuiltinArithmetic(val name: String, arity: Int) extends SBuiltin(arity) {
     private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue]
 
-    private[speedy] def buildException(args: util.ArrayList[SValue]) =
-      SArithmeticError(
+    private[speedy] def buildException[Q](machine: Machine[Q], args: util.ArrayList[SValue]) =
+      machine.sArithmeticError(
         name,
         args.view.map(litToText(getClass.getCanonicalName, _)).to(ImmArray),
       )
@@ -355,7 +354,7 @@ private[lf] object SBuiltin {
         case Some(value) =>
           Control.Value(value)
         case None =>
-          machine.handleException(buildException(args))
+          machine.handleException(buildException(machine, args))
       }
   }
 
@@ -1817,7 +1816,7 @@ private[lf] object SBuiltin {
     ): Control[Nothing] = {
       val exception = getSAnyException(args, 0)
       exception.id match {
-        case ValueArithmeticError.tyCon =>
+        case machine.valueArithmeticError.tyCon =>
           Control.Value(exception.lookupField(fieldNum = 0, field))
         case tyCon =>
           val e = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(exception))

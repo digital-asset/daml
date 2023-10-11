@@ -6,20 +6,31 @@ package speedy
 
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.testing.parser.Implicits._
-
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import org.scalatestplus.scalacheck.{ScalaCheckDrivenPropertyChecks}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+
 import scala.jdk.CollectionConverters._
 
-class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
+class ProfilerTestV1 extends ProfilerTest(LanguageMajorVersion.V1)
+class ProfilerTestV2 extends ProfilerTest(LanguageMajorVersion.V2)
+
+class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with Matchers
+    with ScalaCheckDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
-  import defaultParserParameters.{defaultPackageId => pkgId}
+
+  private implicit val parserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  private val pkgId = parserParameters.defaultPackageId
 
   private[this] val pkg =
     p"""
@@ -55,7 +66,7 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
         }
     """
 
-  val config = Compiler.Config.Default.copy(profiling = Compiler.FullProfile)
+  val config = Compiler.Config.Default(majorLanguageVersion).copy(profiling = Compiler.FullProfile)
   val compiledPackages = PureCompiledPackages.assertBuild(Map(pkgId -> pkg), config)
 
   private def id(s: String) =

@@ -15,10 +15,11 @@ import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.daml.lf.testing.parser.Implicits._
 import org.scalactic.Equality
 import org.scalatest.matchers.should.Matchers
-import defaultParserParameters.{defaultPackageId => pkgId}
 import SpeedyTestLib.loggingContext
 import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.Speedy.ContractInfo
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.ContextualizedLogger
@@ -27,15 +28,52 @@ import org.scalatest.freespec.AnyFreeSpec
 
 import scala.util.{Failure, Success, Try}
 
-class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
+class SpeedyTestV1 extends SpeedyTest(LanguageMajorVersion.V1)
+class SpeedyTestV2 extends SpeedyTest(LanguageMajorVersion.V2)
+
+class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with Inside {
 
   import SpeedyTest._
 
-  for (evaluationOrder <- EvaluationOrder.values) {
+  implicit val parserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+
+  val pkgId = parserParameters.defaultPackageId
+
+  def qualify(name: String): Ref.ValueRef =
+    Identifier(parserParameters.defaultPackageId, QualifiedName.assertFromString(name))
+
+  for (evaluationOrder <- EvaluationOrder.valuesFor(majorLanguageVersion)) {
 
     evaluationOrder.toString - {
 
-      val anyPkgs: PureCompiledPackages = typeAndCompile(anyPkg, evaluationOrder)
+      val anyPkgs: PureCompiledPackages = typeAndCompile(
+        p"""
+          module Test {
+            record @serializable T1 = { party: Party };
+            template (record : T1) = {
+              precondition True;
+              signatories Cons @Party [(Test:T1 {party} record)] (Nil @Party);
+              observers Nil @Party;
+              agreement "Agreement";
+            };
+
+            record @serializable T2 = { party: Party };
+            template (record : T2) = {
+              precondition True;
+              signatories Cons @Party [(Test:T2 {party} record)] (Nil @Party);
+              observers Nil @Party;
+              agreement "Agreement";
+            };
+
+            record T3 (a: *) = { party: Party };
+         }
+        """,
+        evaluationOrder,
+      )
       val pkgs: PureCompiledPackages = typeAndCompile(p"", evaluationOrder)
       val recUpdPkgs: PureCompiledPackages = typeAndCompile(
         p"""
@@ -543,7 +581,8 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
       "checkContractVisibility" - {
 
         "warn about non-visible local contracts" in new VisibilityChecking(
-          evaluationOrder
+          majorLanguageVersion,
+          evaluationOrder,
         ) {
           machine.checkContractVisibility(localContractId, localContractInfo)
 
@@ -551,7 +590,8 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         "accept non-visible disclosed contracts" in new VisibilityChecking(
-          evaluationOrder
+          majorLanguageVersion,
+          evaluationOrder,
         ) {
           machine.checkContractVisibility(disclosedContractId, disclosedContractInfo)
 
@@ -559,7 +599,8 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         "warn about non-visible global contracts" in new VisibilityChecking(
-          evaluationOrder
+          majorLanguageVersion,
+          evaluationOrder,
         ) {
           machine.checkContractVisibility(globalContractId, globalContractInfo)
 
@@ -572,7 +613,8 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
           (contractId: ContractId) => Speedy.Control.Value(SContractId(contractId))
 
         "accept non-visible local contract keys" in new VisibilityChecking(
-          evaluationOrder
+          majorLanguageVersion,
+          evaluationOrder,
         ) {
           val result = Try {
             machine.checkKeyVisibility(
@@ -589,7 +631,8 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         "accept non-visible disclosed contract keys" in new VisibilityChecking(
-          evaluationOrder
+          majorLanguageVersion,
+          evaluationOrder,
         ) {
           val result = Try {
             machine.checkKeyVisibility(
@@ -606,7 +649,8 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         "reject non-visible global contract keys" in new VisibilityChecking(
-          evaluationOrder
+          majorLanguageVersion,
+          evaluationOrder,
         ) {
           val result = Try {
             machine.checkKeyVisibility(
@@ -639,33 +683,7 @@ class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
 
 object SpeedyTest {
 
-  val anyPkg =
-    p"""
-      module Test {
-        record @serializable T1 = { party: Party };
-        template (record : T1) = {
-          precondition True;
-          signatories Cons @Party [(Test:T1 {party} record)] (Nil @Party);
-          observers Nil @Party;
-          agreement "Agreement";
-        };
-
-        record @serializable T2 = { party: Party };
-        template (record : T2) = {
-          precondition True;
-          signatories Cons @Party [(Test:T2 {party} record)] (Nil @Party);
-          observers Nil @Party;
-          agreement "Agreement";
-        };
-
-        record T3 (a: *) = { party: Party };
-     }
-    """
-
   val alice: SParty = SParty(Party.assertFromString("Alice"))
-
-  def qualify(name: String): Ref.ValueRef =
-    Identifier(pkgId, QualifiedName.assertFromString(name))
 
   def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] =
     evalSExpr(packages.compiler.unsafeCompile(e), packages)
@@ -695,8 +713,11 @@ object SpeedyTest {
     case _ => false
   }
 
-  abstract class VisibilityChecking(evaluationOrder: EvaluationOrder) {
-    val explicitDisclosureLib = new ExplicitDisclosureLib(evaluationOrder)
+  abstract class VisibilityChecking(
+      majorLanguageVersion: LanguageMajorVersion,
+      evaluationOrder: EvaluationOrder,
+  ) {
+    val explicitDisclosureLib = new ExplicitDisclosureLib(majorLanguageVersion, evaluationOrder)
     import explicitDisclosureLib._
     import SpeedyTestLib.Implicits._
 

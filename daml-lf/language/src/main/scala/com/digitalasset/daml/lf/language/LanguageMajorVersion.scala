@@ -4,16 +4,29 @@
 package com.daml.lf.language
 
 import com.daml.lf.LfVersions
-
-import scalaz.NonEmptyList
+import scalaz.{IList, NonEmptyList}
 
 // an ADT version of the Daml-LF version
-sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: NonEmptyList[String])
-    extends LfVersions(minorAscending.map[LanguageMinorVersion](LanguageMinorVersion))(
+sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: List[String])
+    extends LfVersions(
+      (IList.fromList(minorAscending) <::: NonEmptyList("dev"))
+        .map[LanguageMinorVersion](LanguageMinorVersion)
+    )(
       _.toProtoIdentifier
     )
     with Product
     with Serializable {
+
+  // TODO(#17366): 2.dev is currently the only 2.x version, but as soon as 2.0 is introduced this
+  //   code should be simplified.
+  val minStableVersion =
+    LanguageVersion(this, LanguageMinorVersion(minorAscending.headOption.getOrElse("dev")))
+  val maxStableVersion =
+    LanguageVersion(this, LanguageMinorVersion(minorAscending.lastOption.getOrElse("dev")))
+
+  final def dev: LanguageVersion = {
+    LanguageVersion(this, LanguageMinorVersion("dev"))
+  }
 
   // do *not* use implicitly unless type `LanguageMinorVersion` becomes
   // indexed by the enclosing major version's singleton type --SC
@@ -41,17 +54,23 @@ object LanguageMajorVersion {
   case object V1
       extends LanguageMajorVersion(
         pretty = "1",
-        minorAscending = NonEmptyList("6", "7", "8", "11", "12", "13", "14", "15", "dev"),
+        minorAscending = List("6", "7", "8", "11", "12", "13", "14", "15"),
       )
 
   case object V2
       extends LanguageMajorVersion(
         pretty = "2",
-        minorAscending = NonEmptyList("dev"),
+        minorAscending = List(),
       )
 
   val All: List[LanguageMajorVersion] = List(V1, V2)
 
   implicit val Ordering: scala.Ordering[LanguageMajorVersion] =
     scala.Ordering.by(All.zipWithIndex.toMap)
+
+  def fromString(str: String): Option[LanguageMajorVersion] = str match {
+    case "1" => Some(V1)
+    case "2" => Some(V2)
+    case _ => None
+  }
 }

@@ -295,12 +295,16 @@ substitutionTests = testGroup "substitution"
 
 typeSynTests :: TestTree
 typeSynTests =
-  testGroup "type synonyms"
-  [ testGroup "happy" (map mkHappyTestcase happyExamples)
-  , testGroup "sad" (map mkSadTestcase sadExamples)
-  , testGroup "bad" (map mkBadTestcase badDefSets)
-  , testGroup "bigger" (map mkBiggerTestcase biggerExamples)
-  ] where
+  testGroup "type synonyms" $
+  [ testGroup (renderVersion version)
+    [ testGroup "happy" (map (mkHappyTestcase version) happyExamples)
+    , testGroup "sad" (map (mkSadTestcase version) sadExamples)
+    , testGroup "bad" (map (mkBadTestcase version) badDefSets)
+    , testGroup "bigger" (map (mkBiggerTestcase version) biggerExamples)
+    ]
+    | version <- [version1_dev, version2_dev]
+  ]
+  where
 
   happyExamples :: [(Type,Type)]
   happyExamples =
@@ -411,27 +415,27 @@ typeSynTests =
   makeSynDef synName synParams synType = do
     DefTypeSyn { synLocation = Nothing, synName, synParams, synType}
 
-  mkHappyTestcase :: (Type,Type) -> TestTree
-  mkHappyTestcase (ty1,ty2) = do
+  mkHappyTestcase :: Version -> (Type,Type) -> TestTree
+  mkHappyTestcase version (ty1,ty2) = do
     let name = renderPretty ty1 <> " == " <> renderPretty ty2
     let mod = makeModuleToTestTypeSyns ty1 ty2
-    testCase name $ case typeCheck mod of
+    testCase name $ case typeCheck version mod of
       Left s -> assertFailure $ "unexpected type error: " <> s
       Right () -> return ()
 
-  mkSadTestcase :: (Type,Type,String) -> TestTree
-  mkSadTestcase (ty1,ty2,frag) = do
+  mkSadTestcase :: Version -> (Type,Type,String) -> TestTree
+  mkSadTestcase version (ty1,ty2,frag) = do
     let name = renderPretty ty1 <> " =/= " <> renderPretty ty2
     let mod = makeModuleToTestTypeSyns ty1 ty2
-    testCase name $ case typeCheck mod of
+    testCase name $ case typeCheck version mod of
       Left s -> assertInfixOf frag s
       Right () -> assertFailure "expected type error, but got none"
 
-  mkBadTestcase :: ([DefTypeSyn],String) -> TestTree
-  mkBadTestcase (defs,frag) = do
+  mkBadTestcase :: Version -> ([DefTypeSyn],String) -> TestTree
+  mkBadTestcase version (defs,frag) = do
     let name = looseNewlines $ renderPretty defs
     let mod = makeModule defs []
-    testCase name $ case typeCheck mod of
+    testCase name $ case typeCheck version mod of
       Left s -> assertInfixOf frag s
       Right () -> assertFailure "expected type error, but got none"
     where
@@ -461,11 +465,11 @@ typeSynTests =
       , moduleInterfaces = NM.empty
       }
 
-  mkBiggerTestcase :: (String,Module) -> TestTree
-  mkBiggerTestcase (name,mod) = do
+  mkBiggerTestcase :: Version -> (String,Module) -> TestTree
+  mkBiggerTestcase version (name,mod) = do
     testCase name $ do
       let _ = putStrLn (renderPretty mod <> "\n")
-      case typeCheck mod of
+      case typeCheck version mod of
         Left s -> assertFailure $ "unexpected type error: " <> s
         Right () -> return ()
 
@@ -590,8 +594,7 @@ typeSynTests =
       TVar f `TApp` TVar a )
 
 
-typeCheck :: Module -> Either String ()
-typeCheck mod = do
-  let version = V1 (PointStable 7)
+typeCheck :: Version -> Module -> Either String ()
+typeCheck version mod = do
   let diags = checkModule (initWorld [] version) version mod
   if null diags then Right () else Left (show diags)

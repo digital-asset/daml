@@ -9,7 +9,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction}
 import com.daml.lf.value.Value
@@ -24,12 +24,18 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles {
+class LargeTransactionTestV1 extends LargeTransactionTest(LanguageMajorVersion.V1)
+class LargeTransactionTestV2 extends LargeTransactionTest(LanguageMajorVersion.V2)
+
+class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with Matchers
+    with BazelRunfiles {
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   /** Tiny wrapper around ScenarioLedger that provides
-    * a mutable API for eas of use in tests.
+    * a mutable API for ease of use in tests.
     */
   class MutableLedger {
 
@@ -94,7 +100,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   }
 
   private[this] val (largeTxId, largeTxPkg, allPackages) = loadPackage(
-    "daml-lf/engine/LargeTransaction.dar"
+    s"daml-lf/engine/LargeTransaction-v${majorLanguageVersion.pretty}.dar"
   )
   private[this] val largeTx = (largeTxId, largeTxPkg)
 
@@ -103,7 +109,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   private def report(name: String, quantity: Quantity[Double]): Unit =
     println(s"$name: $quantity")
 
-  private val engine = Engine.DevEngine()
+  private val engine = Engine.DevEngine(majorLanguageVersion)
 
   List(5000, 50000, 500000)
     .foreach { txSize =>

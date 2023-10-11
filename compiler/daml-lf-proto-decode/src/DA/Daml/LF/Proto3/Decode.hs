@@ -7,7 +7,7 @@ module DA.Daml.LF.Proto3.Decode
   ) where
 
 import Com.Daml.DamlLfDev.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
-import DA.Daml.LF.Ast (Package, PackageId, PackageRef, packageLfVersion, Version (..), versionMinor)
+import DA.Daml.LF.Ast (Package, PackageId, PackageRef, packageLfVersion, Version (..), versionMinor, MajorVersion(V2))
 import DA.Daml.LF.Proto3.Error
 import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
 import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
@@ -26,7 +26,7 @@ decodePayload pkgId selfPackageRef payload = case archivePayloadSum payload of
       -- TODO(#17366): Introduce a new DamlLf2 decoder once we introduce changes to DamlLf2.
       lf1Package <- first (ParseError . show) (coerceLF2toLF1 package)
       package <- DecodeV1.decodePackage (Just pkgId) minor selfPackageRef lf1Package
-      return (package { packageLfVersion = V2 (versionMinor $ packageLfVersion package) })
+      return (package { packageLfVersion = Version V2 (versionMinor $ packageLfVersion package) })
     Nothing -> Left $ ParseError "Empty payload"
     where
         minor = archivePayloadMinor payload

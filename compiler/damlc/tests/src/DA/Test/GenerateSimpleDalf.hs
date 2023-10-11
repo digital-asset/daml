@@ -5,7 +5,6 @@ module DA.Test.GenerateSimpleDalf (main) where
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.NameMap as NM
 import qualified Data.Text.IO as T
-import System.Environment
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Util
@@ -13,6 +12,26 @@ import DA.Daml.LF.Ast.Version
 import DA.Daml.LF.Ast.World
 import DA.Daml.LF.Proto3.Archive
 import DA.Daml.LF.TypeChecker
+import Options.Applicative
+
+data Opts = Opts
+  { optFile :: FilePath
+  , optWithArchiveChoice :: Bool
+  , optLfVersion :: Version
+  }
+
+
+optsParser :: Parser Opts
+optsParser =
+   Opts
+        <$> argument str (metavar "FILE" <> help "output file")
+        <*> switch
+            ( long "with-archive-choice"
+                <> help "whether the generated dalf will include an 'Archive' choice"
+            )
+        <*> option
+            (maybeReader parseVersion)
+            (long "lf-version" <> help "the LF version of the generated dafl")
 
 -- | This tool generates a simple DALF file and writes it to the first
 -- argument given on the command line. This DALF is intended to be used
@@ -20,13 +39,7 @@ import DA.Daml.LF.TypeChecker
 -- If the flag --with-archive-choice is given, The DALF will contain an "Archive" choice.
 main :: IO ()
 main = do
-    args <- getArgs
-    let (file,withArchiveChoice) =
-            case args of
-                [file] -> (file,False)
-                ["--with-archive-choice",file] -> (file,True)
-                _ -> error $ "unexpected command line args: " <> show args
-    let version = versionDefault
+    Opts{..} <- execParser (info optsParser idm)
     let modName = ModuleName ["Module"]
     let modRef = Qualified PRSelf modName
     let tplFields = map FieldName ["this", "arg"]
@@ -106,7 +119,7 @@ main = do
             , tplSignatories = tplParties
             , tplObservers = ENil TParty
             , tplAgreement = mkEmptyText
-            , tplChoices = NM.fromList ([chc,chc2] <> [arc | withArchiveChoice])
+            , tplChoices = NM.fromList ([chc,chc2] <> [arc | optWithArchiveChoice])
             , tplKey = Nothing
             , tplImplements = NM.empty
             }
@@ -114,22 +127,22 @@ main = do
             { moduleName = ModuleName ["Module"]
             , moduleSource = Nothing
             , moduleSynonyms = NM.fromList []
-            , moduleDataTypes = NM.fromList ([tplRec, chcArg, chcArg2] <> [emptyRec | withArchiveChoice])
+            , moduleDataTypes = NM.fromList ([tplRec, chcArg, chcArg2] <> [emptyRec | optWithArchiveChoice])
             , moduleValues = NM.empty
             , moduleTemplates = NM.fromList [tpl]
             , moduleExceptions = NM.empty
             , moduleInterfaces = NM.empty
             , moduleFeatureFlags = FeatureFlags
             }
-    case checkModule (initWorld [] version) version mod of
+    case checkModule (initWorld [] optLfVersion) optLfVersion mod of
         [] -> pure ()
         diags -> error $ show diags
     let pkg = Package
-            { packageLfVersion = version
+            { packageLfVersion = optLfVersion
             , packageModules = NM.fromList [mod]
             , packageMetadata = Just $ PackageMetadata (PackageName "simple-dalf") (PackageVersion "1.0.0") Nothing
             }
     let (bytes, PackageId hash) = encodeArchiveAndHash pkg
-    BSL.writeFile file bytes
+    BSL.writeFile optFile bytes
     T.putStrLn hash
     pure ()

@@ -90,9 +90,13 @@ private[snapshot] object TransactionSnapshot {
   }
 
   def compile(pkgs: Map[Ref.PackageId, Ast.Package], profileDir: Option[Path] = None): Engine = {
+    require(pkgs.size > 0, "expected at least one package, got none")
     println(s"%%% compile ${pkgs.size} packages ...")
     val engine = new Engine(
-      EngineConfig(allowedLanguageVersions = LanguageVersion.DevVersions, profileDir = profileDir)
+      EngineConfig(
+        allowedLanguageVersions = LanguageVersion.AllVersions(pkgs.head._2.languageVersion.major),
+        profileDir = profileDir,
+      )
     )
     AstUtil.dependenciesInTopologicalOrder(pkgs.keys.toList, pkgs).foreach { pkgId =>
       val r = engine

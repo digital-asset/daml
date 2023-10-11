@@ -74,6 +74,13 @@ lf_version_configuration = {
     # "dev" is now ambiguous, use either 1.dev or 2.dev explicitly
 }
 
+# TODO(#17366): rework lf_version_configuration to be indexed by major version
+#  and delete this dictionary
+lf_version_latest = {
+    "1": lf_version_configuration.get("latest"),
+    "2": "2.dev",
+}
+
 lf_version_configuration_versions = depset(lf_version_configuration.values()).to_list()
 
 # aggregates a list of version keywords and versions:

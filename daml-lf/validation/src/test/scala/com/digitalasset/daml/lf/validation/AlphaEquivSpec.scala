@@ -4,12 +4,23 @@
 package com.daml.lf.validation
 
 import com.daml.lf.language.Ast.Type
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 
-class AlphaEquivSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
+class AlphaEquivSpecV1 extends AlphaEquivSpec(LanguageMajorVersion.V1)
+class AlphaEquivSpecV2 extends AlphaEquivSpec(LanguageMajorVersion.V2)
+
+class AlphaEquivSpec(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with TableDrivenPropertyChecks
+    with Matchers {
+
+  private[this] implicit val parserParameters: ParserParameters[this.type] =
+    ParserParameters.defaultFor(majorLanguageVersion)
 
   import SpecUtil._
 

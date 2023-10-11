@@ -8,7 +8,13 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
-import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackage}
+import com.daml.lf.language.{
+  LanguageMajorVersion,
+  LanguageVersion,
+  LookupError,
+  PackageInterface,
+  StablePackages,
+}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.PhaseOne.{Env, Position}
@@ -75,14 +81,23 @@ private[lf] object Compiler {
   )
 
   object Config {
-    val Default = Config(
-      allowedLanguageVersions = LanguageVersion.StableVersions,
-      packageValidation = FullPackageValidation,
-      profiling = NoProfile,
-      stacktracing = NoStackTrace,
-    )
-    val Dev = Config(
-      allowedLanguageVersions = LanguageVersion.DevVersions,
+    def Default(majorLanguageVersion: LanguageMajorVersion) = {
+      majorLanguageVersion match {
+        case LanguageMajorVersion.V1 =>
+          Config(
+            allowedLanguageVersions = LanguageVersion.StableVersions,
+            packageValidation = FullPackageValidation,
+            profiling = NoProfile,
+            stacktracing = NoStackTrace,
+          )
+        // TODO(#17366): once 2.0 is introduced, remove match on major language
+        //  version and use StableVersions(majorLanguageVersion) or similar.
+        case LanguageMajorVersion.V2 => Dev(LanguageMajorVersion.V2)
+      }
+    }
+
+    def Dev(majorLanguageVersion: LanguageMajorVersion) = Config(
+      allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion),
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
@@ -172,7 +187,7 @@ private[lf] final class Compiler(
     pipeline(e0)
   }
 
-  private[this] val stablePackageIds = StablePackage.ids(config.allowedLanguageVersions)
+  private[this] val stablePackageIds = StablePackages.ids(config.allowedLanguageVersions)
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -462,11 +477,7 @@ private[lf] final class Compiler(
         )
           throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
 
-        if (
-          config.evaluationOrder == RightToLeft && !LanguageVersion.DevVersions.contains(
-            pkg.languageVersion
-          )
-        )
+        if (config.evaluationOrder == RightToLeft && !pkg.languageVersion.isDevVersion)
           throw CompilationError("Right-to-left evaluation is only available in dev")
       }
       case _ =>

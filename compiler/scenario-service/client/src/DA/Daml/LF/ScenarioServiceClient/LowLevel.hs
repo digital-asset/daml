@@ -114,11 +114,9 @@ data ContextUpdate = ContextUpdate
   }
 
 encodeScenarioModule :: LF.Version -> LF.Module -> BS.ByteString
-encodeScenarioModule version m = case version of
-    LF.V1{} -> mod
-    LF.V2{} -> mod 
-  where
-    mod = BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
+encodeScenarioModule version m =
+    -- TODO(#17366): encode V2 separately once the formats diverge
+    BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
 
 data BackendError
   = BErrorClient ClientError
@@ -292,6 +290,7 @@ newCtx Handle{..} = do
       (SS.scenarioServiceNewContext hClient)
       (optGrpcTimeout hOptions)
       (SS.NewContextRequest
+         (TL.pack $ LF.renderMajorVersion $ LF.versionMajor $ optDamlLfVersion hOptions)
          (TL.pack $ LF.renderMinorVersion $ LF.versionMinor $ optDamlLfVersion hOptions)
          (optEvaluationTimeout hOptions)
       )

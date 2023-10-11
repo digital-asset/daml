@@ -7,6 +7,7 @@ import akka.http.scaladsl.model.Uri
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.dbutils.JdbcConfig
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Inside.inside
@@ -61,7 +62,8 @@ class CliSpec extends AsyncWordSpec with Matchers {
         authorization = expectedAuthCfg,
         triggerStore = Some(expectedJdbcConfig),
         timeProviderType = TimeProviderType.Static,
-        compilerConfig = Compiler.Config.Dev,
+        // TODO(#17366): support both LF v1 and v2 in triggers
+        compilerConfig = Compiler.Config.Dev(LanguageMajorVersion.V1),
         initDb = true,
         ttl = 60.seconds,
         allowExistingSchema = true,

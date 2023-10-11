@@ -5,20 +5,30 @@ package com.daml.lf
 package speedy
 
 import java.util
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.speedy.SResult.SResultFinal
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 
+class TailCallTestV1 extends TailCallTest(LanguageMajorVersion.V1)
+class TailCallTestV2 extends TailCallTest(LanguageMajorVersion.V2)
+
 // TEST_EVIDENCE: Availability: Tail call optimization: Tail recursion does not blow the scala JVM stack.
-class TailCallTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
+class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
-  for (evaluationOrder <- EvaluationOrder.values) {
+  implicit val defaultParserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+
+  for (evaluationOrder <- EvaluationOrder.valuesFor(majorLanguageVersion)) {
 
     evaluationOrder.toString - {
 

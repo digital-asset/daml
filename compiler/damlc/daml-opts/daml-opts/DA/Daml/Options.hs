@@ -62,7 +62,7 @@ import Development.IDE.GHC.Util
 import qualified DA.Service.Logger as Logger
 import qualified Development.IDE.Types.Options as Ghcide
 import SdkVersion (damlStdlib)
-import DA.Daml.LF.Ast.Version (isDevVersion)
+import DA.Daml.LF.Ast.Version (isDevVersion, Version (versionMajor))
 
 -- | Convert to ghcide’s IdeOptions type.
 toCompileOpts :: Options -> Ghcide.IdeOptions
@@ -85,9 +85,13 @@ toCompileOpts Options{..} =
       }
   where
     optPreprocessor =
-      if optIsGenerated
-        then generatedPreprocessor
-        else damlPreprocessor dataDependableExtensions optMbPackageName
+        if optIsGenerated
+            then generatedPreprocessor
+            else
+                damlPreprocessor
+                    (versionMajor optDamlLfVersion)
+                    dataDependableExtensions
+                    optMbPackageName
 
     locateInPkgDb :: String -> PackageConfig -> GHC.Module -> IO (Maybe FilePath)
     locateInPkgDb ext pkgConfig mod

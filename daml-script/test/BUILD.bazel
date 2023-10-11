@@ -12,17 +12,18 @@ load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile")
-load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "mangle_for_damlc")
+load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_latest", "mangle_for_damlc")
 
-genrule(
-    name = "script-test",
-    srcs =
-        glob(["**/*.daml"]) + [
-            "//daml-script/daml:daml-script-1.15.dar",
-            "//docs:source/daml-script/template-root/src/ScriptExample.daml",
-        ],
-    outs = ["script-test.dar"],
-    cmd = """
+[
+    genrule(
+        name = "script-test-v{}".format(major),
+        srcs =
+            glob(["**/*.daml"]) + [
+                "//daml-script/daml:daml-script-{}.dar".format(target),
+                "//docs:source/daml-script/template-root/src/ScriptExample.daml",
+            ],
+        outs = ["script-test-v{}.dar".format(major)],
+        cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
@@ -41,7 +42,7 @@ initializeFixed = do
   let parties = LedgerParties{{..}}
   initialize parties
 EOF
-      cp -L $(location //daml-script/daml:daml-script-1.15.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml:daml-script-{target}.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: script-test
@@ -50,16 +51,23 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml-script-1.15.dar
+  - daml-script-{target}.dar
 build-options:
-  - --target=1.15
+  - --target={target}
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-v{major}.dar)
       rm -rf $$TMP_DIR
-    """.format(sdk = sdk_version),
-    tools = ["//compiler/damlc"],
-    visibility = ["//visibility:public"],
-)
+    """.format(
+            major = major,
+            sdk = sdk_version,
+            target = target,
+        ),
+        tools = ["//compiler/damlc"],
+        visibility = ["//visibility:public"],
+    )
+    for major in LF_MAJOR_VERSIONS
+    for target in [lf_version_latest.get(major)]
+]
 
 [
     # Test DAR in x.dev to test new features.
@@ -295,9 +303,11 @@ da_scala_test_suite(
         exclude = ["src/com/**/*Dev*.scala"],
     ),
     data = [
-        ":script-test.dar",
         ":script-test-no-ledger.dar",
         "//daml-script/runner:daml-script-binary",
+    ] + [
+        ":script-test-v{}.dar".format(major)
+        for major in LF_MAJOR_VERSIONS
     ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [

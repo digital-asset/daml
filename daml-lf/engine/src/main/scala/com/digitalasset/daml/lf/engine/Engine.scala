@@ -23,7 +23,13 @@ import com.daml.lf.transaction.{
 import java.nio.file.Files
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackage}
+import com.daml.lf.language.{
+  LanguageMajorVersion,
+  LanguageVersion,
+  LookupError,
+  PackageInterface,
+  StablePackages,
+}
 import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
@@ -64,7 +70,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
   private[this] val compiledPackages = ConcurrentCompiledPackages(config.getCompilerConfig)
 
-  private[this] val stablePackageIds = StablePackage.ids(config.allowedLanguageVersions)
+  private[this] val stablePackageIds = StablePackages.ids(config.allowedLanguageVersions)
 
   private[engine] val preprocessor =
     new preprocessing.Preprocessor(
@@ -623,7 +629,7 @@ object Engine {
 
   def StableEngine(): Engine = new Engine(StableConfig)
 
-  def DevEngine(): Engine = new Engine(
-    StableConfig.copy(allowedLanguageVersions = LanguageVersion.DevVersions)
+  def DevEngine(majorLanguageVersion: LanguageMajorVersion): Engine = new Engine(
+    StableConfig.copy(allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion))
   )
 }

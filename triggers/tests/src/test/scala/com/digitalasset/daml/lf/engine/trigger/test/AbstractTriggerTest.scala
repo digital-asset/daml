@@ -27,6 +27,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import org.scalatest._
@@ -78,8 +79,10 @@ trait AbstractTriggerTest extends CantonFixture {
 
   protected def triggerRunnerConfiguration: TriggerRunnerConfig = DefaultTriggerRunnerConfig
 
-  protected val CompiledDar(packageId, compiledPackages) =
-    CompiledDar.read(darFile.merge, speedy.Compiler.Config.Dev)
+  protected val CompiledDar(packageId, compiledPackages) = {
+    // TODO(#17366): support both LF v1 and v2 in triggers
+    CompiledDar.read(darFile.merge, speedy.Compiler.Config.Dev(LanguageMajorVersion.V1))
+  }
 
   protected def getRunner(
       client: LedgerClient,

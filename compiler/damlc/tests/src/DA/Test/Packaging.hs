@@ -647,7 +647,7 @@ tests Tools{damlc} = testGroup "Packaging" $
               [ "module B where"
               , "import A ()"
               ]
-          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.14 but dependencies have newer LF versions"
+          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.14 but dependencies have incompatible LF versions"
 
     , testCaseSteps "Error on newer LF dependency" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'a"
@@ -1139,7 +1139,7 @@ lfVersionTests damlc = testGroup "LF version dependencies"
           forM_ (zip (mainDalfPath : dalfPaths) (main : other)) $ \(path, bytes) -> do
               Right (_, pkg) <- pure $ LFArchive.decodeArchive LFArchive.DecodeAsMain $ BSL.toStrict bytes
               assertBool ("Expected LF version <=" <> show version <> " but got " <> show (LF.packageLfVersion pkg) <> " in " <> path) $
-                  LF.packageLfVersion pkg <= version
+                  version `LF.canDependOn` LF.packageLfVersion pkg
     | version <- LF.supportedOutputVersions
     ]
 

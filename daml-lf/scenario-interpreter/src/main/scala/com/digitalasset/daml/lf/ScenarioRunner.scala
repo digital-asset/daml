@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, Result, ResultDone, ResultError, ValueEnricher}
 import com.daml.lf.engine.preprocessing.ValueTranslator
-import com.daml.lf.language.{Ast, LookupError}
+import com.daml.lf.language.{Ast, LanguageMajorVersion, LookupError}
 import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.lf.speedy._
@@ -389,7 +389,7 @@ private[lf] object ScenarioRunner {
   }
 
   private[this] class EnricherImpl(compiledPackages: CompiledPackages) extends Enricher {
-    val config = Engine.DevEngine().config
+    val config = Engine.DevEngine(LanguageMajorVersion.V1).config
     val valueTranslator =
       new ValueTranslator(
         pkgInterface = compiledPackages.pkgInterface,

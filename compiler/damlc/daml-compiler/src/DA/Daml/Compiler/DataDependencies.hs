@@ -58,6 +58,7 @@ import qualified DA.Daml.LF.TypeChecker.Env as LF
 import qualified DA.Daml.LF.TypeChecker.Error as LF
 import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options
+import DA.Daml.StablePackages (stablePackageByModuleName)
 import DA.Daml.UtilGHC (fsFromText)
 
 import SdkVersion
@@ -163,7 +164,7 @@ buildDepInstances deps world = MS.fromListWith (<>)
     | LF.ExternalPackage packageId LF.Package{..} <- deps
     , LF.Module{..} <- NM.toList packageModules
     , dval@LF.DefValue{..} <- NM.toList moduleValues
-    , Just dfun <- [getDFunSig dval]
+    , Just dfun <- [getDFunSig (LF.versionMajor packageLfVersion) dval]
     , let clsName = LF.qualObject $ dfhName $ dfsHead dfun
     , let ty = panicOnError $ expandSynonyms world (snd dvalBinder)
     ]
@@ -555,7 +556,7 @@ generateSrcFromLf env = noLoc mod
     instanceDecls :: [Gen (Maybe (LHsDecl GhcPs))]
     instanceDecls = do
         dval@LF.DefValue {..} <- sortOn (Down . nameKey) $ NM.toList $ LF.moduleValues $ envMod env
-        Just dfunSig <- [getDFunSig dval]
+        Just dfunSig <- [getDFunSig (LF.versionMajor (envLfVersion env)) dval]
         guard (shouldExposeInstance dval)
         let clsName = LF.qualObject $ dfhName $ dfsHead dfunSig
         let expandedTy = panicOnError $ expandSynonyms (envWorld env) $ snd dvalBinder
@@ -979,7 +980,7 @@ convType env reexported =
             args <- mapM (convType env reexported) lfArgs
             pure $ HsParTy noExt (noLoc $ foldl' (HsAppTy noExt . noLoc) tyvar (map noLoc args))
 
-        ty | Just text <- getPromotedText ty ->
+        ty | Just text <- getPromotedText (LF.versionMajor (envLfVersion env)) ty ->
             pure $ HsTyLit noExt (HsStrTy NoSourceText (mkFastString $ T.unpack text))
 
         LF.TCon LF.Qualified {..}
@@ -1217,7 +1218,7 @@ buildHiddenRefMap config world =
     visitRef !refGraph ref
         | HMS.member ref refGraph
             = refGraph -- already in the map
-        | ref == RTypeCon erasedTCon
+        | ref == RTypeCon (erasedTCon (LF.versionMajor (worldLfVersion world)))
             = HMS.insert ref (True, []) refGraph -- Erased is always erased
 
         | RTypeCon tcon <- ref
@@ -1235,7 +1236,8 @@ buildHiddenRefMap config world =
 
         | RValue val <- ref
         , Right dval <- LF.lookupValue val world
-        , refs <- if hasDFunSig dval -- we only care about typeclass instances
+        , -- we only care about typeclass instances
+          refs <- if hasDFunSig (LF.versionMajor (worldLfVersion world)) dval
             then DL.toList (refsFromDFun dval)
             else mempty
         , refGraph' <- HMS.insert ref (False, refs) refGraph
@@ -1273,13 +1275,17 @@ refsFromDataCons = \case
     LF.DataInterface -> mempty
 
 rootRefs :: Config -> LF.World -> DL.DList Ref
-rootRefs config world = fold
-    [ modRootRefs (configSelfPkgId config) mod
-    | mod <- NM.toList (LF.packageModules (LF.getWorldSelf world))
-    ]
+rootRefs config world =
+    fold
+        [ modRootRefs
+            (LF.versionMajor (worldLfVersion world))
+            (configSelfPkgId config)
+            mod
+        | mod <- NM.toList (LF.packageModules (LF.getWorldSelf world))
+        ]
 
-modRootRefs :: LF.PackageId -> LF.Module -> DL.DList Ref
-modRootRefs pkgId mod = fold
+modRootRefs :: LF.MajorVersion -> LF.PackageId -> LF.Module -> DL.DList Ref
+modRootRefs major pkgId mod = fold
     [ DL.fromList
         [ RTypeCon (qualify (LF.dataTypeCon defDataType))
         | defDataType <- NM.toList (LF.moduleDataTypes mod)
@@ -1291,12 +1297,12 @@ modRootRefs pkgId mod = fold
     , DL.fromList
         [ RValue (qualify (fst dvalBinder))
         | dval@LF.DefValue{..} <- NM.toList (LF.moduleValues mod)
-        , hasDFunSig dval
+        , hasDFunSig major dval
         ]
     , fold
         [ refsFromType (snd dvalBinder)
         | dval@LF.DefValue{..} <- NM.toList (LF.moduleValues mod)
-        , not (hasDFunSig dval)
+        , not (hasDFunSig major dval)
         ]
     ]
   where
@@ -1414,12 +1420,12 @@ data DFunHead
 -- | Is this the type signature for a dictionary function? Note that this
 -- accepts both generic dictionary functions "$f..." and specialised
 -- dictionary functions "$d...".
-hasDFunSig :: LF.DefValue -> Bool
-hasDFunSig dval = isJust (getDFunSig dval)
+hasDFunSig :: LF.MajorVersion -> LF.DefValue -> Bool
+hasDFunSig major dval = isJust (getDFunSig major dval)
 
 -- | Break a value type signature down into a dictionary function signature.
-getDFunSig :: LF.DefValue -> Maybe DFunSig
-getDFunSig LF.DefValue {..} = do
+getDFunSig :: LF.MajorVersion -> LF.DefValue -> Maybe DFunSig
+getDFunSig major LF.DefValue {..} = do
     let (valName, valType) = dvalBinder
     (dfsBinders, dfsContext, dfhName, dfhArgs) <- go valType
     dfsHead <- if isHasField dfhName
@@ -1427,7 +1433,7 @@ getDFunSig LF.DefValue {..} = do
             (symbolTy : dfhArgs) <- Just dfhArgs
             -- We handle both the old state where symbol was translated to unit
             -- and new state where it is translated to PromotedText.
-            dfhField <- getPromotedText symbolTy <|> getFieldArg valName
+            dfhField <- getPromotedText major symbolTy <|> getFieldArg valName
             guard (not $ T.null dfhField)
             Just DFunHeadHasField {..}
         else do
@@ -1506,10 +1512,10 @@ convDFunSig env reexported DFunSig{..} = do
       . HsQualTy noExt (noLoc (map noLoc context)) . noLoc
       $ foldl' (HsAppTy noExt . noLoc) cls (map noLoc args)
 
-getPromotedText :: LF.Type -> Maybe T.Text
-getPromotedText = \case
+getPromotedText :: LF.MajorVersion -> LF.Type -> Maybe T.Text
+getPromotedText major = \case
     LF.TApp (LF.TCon qtcon) argTy
-        | qtcon == promotedTextTCon
+        | qtcon == promotedTextTCon major
         ->
             case argTy of
                 LF.TStruct [(LF.FieldName text, LF.TUnit)]
@@ -1519,19 +1525,45 @@ getPromotedText = \case
                     error ("Unexpected argument type to DA.Internal.PromotedText: " <> show argTy)
     _ -> Nothing
 
-stableTCon :: T.Text -> [T.Text] -> T.Text -> LF.Qualified LF.TypeConName
-stableTCon packageId moduleName tconName = LF.Qualified
-    { qualPackage = LF.PRImport (LF.PackageId packageId)
-    , qualModule = LF.ModuleName moduleName
-    , qualObject = LF.TypeConName [tconName]
-    }
+stableTCon ::
+    LF.MajorVersion -> [T.Text] -> T.Text -> LF.Qualified LF.TypeConName
+stableTCon major moduleName tconName =
+    LF.Qualified
+        { qualPackage = LF.PRImport (stablePackageIdByModuleNamePartial major qualModule)
+        , qualModule = qualModule
+        , qualObject = LF.TypeConName [tconName]
+        }
+  where
+    qualModule = LF.ModuleName moduleName
 
-erasedTCon, promotedTextTCon :: LF.Qualified LF.TypeConName
-erasedTCon = stableTCon
-    "76bf0fd12bd945762a01f8fc5bbcdfa4d0ff20f8762af490f8f41d6237c6524f"
-    ["DA", "Internal", "Erased"]
-    "Erased"
-promotedTextTCon = stableTCon
-    "d58cf9939847921b2aab78eaa7b427dc4c649d25e6bee3c749ace4c3f52f5c97"
-    ["DA", "Internal", "PromotedText"]
-    "PromotedText"
+erasedTCon :: LF.MajorVersion -> LF.Qualified LF.TypeConName
+erasedTCon major =
+    stableTCon
+        major
+        ["DA", "Internal", "Erased"]
+        "Erased"
+
+promotedTextTCon :: LF.MajorVersion -> LF.Qualified LF.TypeConName
+promotedTextTCon major =
+    stableTCon
+        major
+        ["DA", "Internal", "PromotedText"]
+        "PromotedText"
+
+-- | Returns the ID of the stable package for the given major version and module
+-- name, throws if it doesn't exist.
+stablePackageIdByModuleNamePartial :: LF.MajorVersion -> LF.ModuleName -> LF.PackageId
+stablePackageIdByModuleNamePartial major mod =
+    fst $
+        fromJustNote
+            errorMsg
+            ((major, mod) `MS.lookup` stablePackageByModuleName)
+  where
+    errorMsg =
+        concat
+            [ "expecting stable package "
+            , show mod
+            , " for major LF version "
+            , LF.renderMajorVersion major
+            , " to exist"
+            ]

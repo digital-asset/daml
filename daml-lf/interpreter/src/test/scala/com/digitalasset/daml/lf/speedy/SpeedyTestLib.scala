@@ -10,7 +10,7 @@ import data.Time
 import SResult._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
-import com.daml.lf.language.{Ast, PackageInterface}
+import com.daml.lf.language.{Ast, LanguageMajorVersion, PackageInterface}
 import com.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.{Validation, ValidationError}
@@ -194,16 +194,28 @@ private[speedy] object SpeedyTestLib {
 
   @throws[ValidationError]
   def typeAndCompile(
+      majorLanguageVersion: LanguageMajorVersion,
       pkgs: Map[PackageId, Ast.Package],
       evaluationOrder: EvaluationOrder,
   ): PureCompiledPackages = {
+    require(
+      pkgs.values.forall(pkg => pkg.languageVersion.major == majorLanguageVersion), {
+        val wrongPackages = pkgs.view
+          .mapValues(_.languageVersion)
+          .filter { case (_, v) => v.major != majorLanguageVersion }
+          .toList
+        s"these packages don't have the expected major language version $majorLanguageVersion: $wrongPackages"
+      },
+    )
     Validation.unsafeCheckPackages(PackageInterface(pkgs), pkgs)
     PureCompiledPackages.assertBuild(
       pkgs,
-      Compiler.Config.Dev.copy(
-        evaluationOrder = evaluationOrder,
-        stacktracing = Compiler.FullStackTrace,
-      ),
+      Compiler.Config
+        .Dev(majorLanguageVersion)
+        .copy(
+          evaluationOrder = evaluationOrder,
+          stacktracing = Compiler.FullStackTrace,
+        ),
     )
   }
 
@@ -211,7 +223,11 @@ private[speedy] object SpeedyTestLib {
   def typeAndCompile[X](pkg: Ast.Package, evaluationOrder: EvaluationOrder)(implicit
       parserParameter: ParserParameters[X]
   ): PureCompiledPackages =
-    typeAndCompile(Map(parserParameter.defaultPackageId -> pkg), evaluationOrder)
+    typeAndCompile(
+      pkg.languageVersion.major,
+      Map(parserParameter.defaultPackageId -> pkg),
+      evaluationOrder,
+    )
 
   private[speedy] object Implicits {
 

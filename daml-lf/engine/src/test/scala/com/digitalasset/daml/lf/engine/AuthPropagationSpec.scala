@@ -10,6 +10,7 @@ import com.daml.lf.command.{ApiCommand, ApiCommands}
 import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Time}
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId, ParticipantId, Party, QualifiedName}
 import com.daml.lf.language.Ast.Package
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.ledger.FailedAuthorization.{
   CreateMissingAuthorization,
   ExerciseMissingAuthorization,
@@ -34,7 +35,14 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with BazelRunfiles {
+class AuthPropagationSpecV1 extends AuthPropagationSpec(LanguageMajorVersion.V1)
+class AuthPropagationSpecV2 extends AuthPropagationSpec(LanguageMajorVersion.V2)
+
+class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with Inside
+    with BazelRunfiles {
 
   private[this] implicit def loggingContext: LoggingContext = LoggingContext.ForTesting
 
@@ -48,7 +56,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   }
 
   private val (packageId, _, allPackages) = loadPackage(
-    "daml-lf/engine/AuthTests.dar"
+    s"daml-lf/engine/AuthTests-v${majorLanguageVersion.pretty}.dar"
   )
 
   implicit private def toIdentifier(s: String): Identifier =
@@ -97,7 +105,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   private val submissionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("submissionSeed")
 
   private val testEngine: Engine =
-    Engine.DevEngine()
+    Engine.DevEngine(majorLanguageVersion)
 
   private def go(
       submitters: Set[Party],

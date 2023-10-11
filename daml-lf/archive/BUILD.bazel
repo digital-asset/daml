@@ -13,15 +13,20 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
-load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "SUPPORTED_PROTO_STABLE_LF_VERSIONS", "lf_version_configuration", "mangle_for_damlc", "mangle_for_java")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "LF_DEV_VERSIONS",
+    "LF_MAJOR_VERSIONS",
+    "SUPPORTED_PROTO_STABLE_LF_VERSIONS",
+    "mangle_for_damlc",
+    "mangle_for_java",
+)
 load(
     "//rules_daml:daml.bzl",
     "daml_compile",
     "daml_compile_with_dalf",
 )
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 # The LF protos are stored in two directories:
 #   - src/stable: Snapshot of the LF protos at the time of various releases.

@@ -12,7 +12,13 @@ import com.daml.lf.data.assertRight
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Ast, LanguageVersion, PackageInterface, Util => AstUtil}
+import com.daml.lf.language.{
+  Ast,
+  LanguageMajorVersion,
+  LanguageVersion,
+  PackageInterface,
+  Util => AstUtil,
+}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.{Compiler, SDefinition, SError, SValue}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -22,10 +28,10 @@ import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
+
 import java.net.{InetAddress, InetSocketAddress}
 import java.nio.file.{Files, Path, Paths}
 import java.util.logging.{Level, Logger}
-
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.speedy.iterable.SExprIterable
@@ -183,9 +189,12 @@ object ReplServiceMain extends App {
 }
 
 object ReplService {
-  private val compilerConfig = Compiler.Config.Default.copy(
-    stacktracing = Compiler.FullStackTrace
-  )
+  // TODO(#17366): Support LF v2
+  private val compilerConfig = Compiler.Config
+    .Default(LanguageMajorVersion.V1)
+    .copy(
+      stacktracing = Compiler.FullStackTrace
+    )
   private val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
 
   private def moduleRefs(v: SValue): Set[ModuleName] = {

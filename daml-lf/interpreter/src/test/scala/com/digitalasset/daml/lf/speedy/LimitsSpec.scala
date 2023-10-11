@@ -6,9 +6,10 @@ package speedy
 
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import org.scalatest.Inside
@@ -16,11 +17,21 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-class LimitsSpec extends AnyFreeSpec with Matchers with Inside with TableDrivenPropertyChecks {
+class LimitsSpecV1 extends LimitsSpec(LanguageMajorVersion.V1)
+class LimitsSpecV2 extends LimitsSpec(LanguageMajorVersion.V2)
+
+class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with Inside
+    with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
-  for (evaluationOrder <- EvaluationOrder.values) {
+  implicit val defaultParserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+
+  for (evaluationOrder <- EvaluationOrder.valuesFor(majorLanguageVersion)) {
 
     evaluationOrder.toString - {
 

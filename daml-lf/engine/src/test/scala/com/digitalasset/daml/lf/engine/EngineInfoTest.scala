@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine
 
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -11,12 +11,19 @@ class EngineInfoTest extends AnyWordSpec with Matchers {
 
   "EngineInfo" should {
 
-    val Seq(engineInfoLegacy, engineInfoStable, engineEarlyAccess, engineInfoDev) =
+    val Seq(
+      engineInfoLegacy,
+      engineInfoStable,
+      engineEarlyAccess,
+      engineInfoV1Dev,
+      engineInfoV2Dev,
+    ) =
       List(
         LanguageVersion.LegacyVersions,
         LanguageVersion.StableVersions,
         LanguageVersion.EarlyAccessVersions,
-        LanguageVersion.DevVersions,
+        LanguageVersion.AllVersions(LanguageMajorVersion.V1),
+        LanguageVersion.AllVersions(LanguageMajorVersion.V2),
       ).map(versions => new EngineInfo(EngineConfig(allowedLanguageVersions = versions)))
 
     "show supported LF, Transaction and Value versions" in {
@@ -30,8 +37,11 @@ class EngineInfoTest extends AnyWordSpec with Matchers {
       engineEarlyAccess.show shouldBe
         "Daml-LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.12, 1.13, 1.14, 1.15"
 
-      engineInfoDev.show shouldBe
-        "Daml-LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.12, 1.13, 1.14, 1.15, 1.dev, 2.dev"
+      engineInfoV1Dev.show shouldBe
+        "Daml-LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.12, 1.13, 1.14, 1.15, 1.dev"
+
+      engineInfoV2Dev.show shouldBe
+        "Daml-LF Engine supports LF versions: 2.dev"
     }
 
     "toString returns the same value as show" in {

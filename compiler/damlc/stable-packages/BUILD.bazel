@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "generate_and_track_cabal")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "LF_MAJOR_VERSIONS",
+)
 
 da_haskell_library(
     name = "stable-packages-lib",
@@ -42,101 +46,111 @@ da_haskell_binary(
     ],
 )
 
-genrule(
-    name = "gen-stable-packages",
-    srcs = [],
-    outs = [
-        "daml-prim/GHC-Types.dalf",
-        "daml-prim/GHC-Prim.dalf",
-        "daml-prim/GHC-Tuple.dalf",
-        "daml-prim/DA-Internal-Erased.dalf",
-        "daml-prim/DA-Internal-NatSyn.dalf",
-        "daml-prim/DA-Internal-PromotedText.dalf",
-        "daml-prim/DA-Exception-GeneralError.dalf",
-        "daml-prim/DA-Exception-ArithmeticError.dalf",
-        "daml-prim/DA-Exception-AssertionFailed.dalf",
-        "daml-prim/DA-Exception-PreconditionFailed.dalf",
-        "daml-prim/DA-Types.dalf",
-        "daml-stdlib/DA-Internal-Template.dalf",
-        "daml-stdlib/DA-Internal-Any.dalf",
-        "daml-stdlib/DA-Time-Types.dalf",
-        "daml-stdlib/DA-NonEmpty-Types.dalf",
-        "daml-stdlib/DA-Date-Types.dalf",
-        "daml-stdlib/DA-Semigroup-Types.dalf",
-        "daml-stdlib/DA-Set-Types.dalf",
-        "daml-stdlib/DA-Monoid-Types.dalf",
-        "daml-stdlib/DA-Logic-Types.dalf",
-        "daml-stdlib/DA-Validation-Types.dalf",
-        "daml-stdlib/DA-Internal-Down.dalf",
-        "daml-stdlib/DA-Internal-Interface-AnyView-Types.dalf",
-        "daml-stdlib/DA-Action-State-Type.dalf",
-        "daml-stdlib/DA-Random-Types.dalf",
-        "daml-stdlib/DA-Stack-Types.dalf",
-    ],
-    cmd = """
-      $(location :generate-stable-package) --module GHC.Types -o $(location daml-prim/GHC-Types.dalf)
-      $(location :generate-stable-package) --module GHC.Prim -o $(location daml-prim/GHC-Prim.dalf)
-      $(location :generate-stable-package) --module GHC.Tuple -o $(location daml-prim/GHC-Tuple.dalf)
-      $(location :generate-stable-package) --module DA.Internal.Erased -o $(location daml-prim/DA-Internal-Erased.dalf)
-      $(location :generate-stable-package) --module DA.Internal.NatSyn -o $(location daml-prim/DA-Internal-NatSyn.dalf)
-      $(location :generate-stable-package) --module DA.Internal.PromotedText -o $(location daml-prim/DA-Internal-PromotedText.dalf)
-      $(location :generate-stable-package) --module DA.Exception.GeneralError -o $(location daml-prim/DA-Exception-GeneralError.dalf)
-      $(location :generate-stable-package) --module DA.Exception.ArithmeticError -o $(location daml-prim/DA-Exception-ArithmeticError.dalf)
-      $(location :generate-stable-package) --module DA.Exception.AssertionFailed -o $(location daml-prim/DA-Exception-AssertionFailed.dalf)
-      $(location :generate-stable-package) --module DA.Exception.PreconditionFailed -o $(location daml-prim/DA-Exception-PreconditionFailed.dalf)
-      $(location :generate-stable-package) --module DA.Types -o $(location daml-prim/DA-Types.dalf)
-      $(location :generate-stable-package) --module DA.Time.Types -o $(location daml-stdlib/DA-Time-Types.dalf)
-      $(location :generate-stable-package) --module DA.NonEmpty.Types -o $(location daml-stdlib/DA-NonEmpty-Types.dalf)
-      $(location :generate-stable-package) --module DA.Date.Types -o $(location daml-stdlib/DA-Date-Types.dalf)
-      $(location :generate-stable-package) --module DA.Semigroup.Types -o $(location daml-stdlib/DA-Semigroup-Types.dalf)
-      $(location :generate-stable-package) --module DA.Set.Types -o $(location daml-stdlib/DA-Set-Types.dalf)
-      $(location :generate-stable-package) --module DA.Monoid.Types -o $(location daml-stdlib/DA-Monoid-Types.dalf)
-      $(location :generate-stable-package) --module DA.Logic.Types -o $(location daml-stdlib/DA-Logic-Types.dalf)
-      $(location :generate-stable-package) --module DA.Validation.Types -o $(location daml-stdlib/DA-Validation-Types.dalf)
-      $(location :generate-stable-package) --module DA.Internal.Down -o $(location daml-stdlib/DA-Internal-Down.dalf)
+[
+    genrule(
+        name = "gen-stable-packages-v{}".format(majorLfVersion),
+        srcs = [],
+        outs = [
+            "lf-v{}/daml-prim/GHC-Types.dalf".format(majorLfVersion),
+            "lf-v{}/daml-prim/GHC-Prim.dalf".format(majorLfVersion),
+            "lf-v{}/daml-prim/GHC-Tuple.dalf".format(majorLfVersion),
+            "lf-v{}/daml-prim/DA-Internal-Erased.dalf".format(majorLfVersion),
+            "lf-v{}/daml-prim/DA-Internal-NatSyn.dalf".format(majorLfVersion),
+            "lf-v{}/daml-prim/DA-Internal-PromotedText.dalf".format(majorLfVersion),
+            "lf-v{}/daml-prim/DA-Exception-GeneralError.dalf".format(majorLfVersion),
+            "lf-v{}/daml-prim/DA-Exception-ArithmeticError.dalf".format(majorLfVersion),
+            "lf-v{}/daml-prim/DA-Exception-AssertionFailed.dalf".format(majorLfVersion),
+            "lf-v{}/daml-prim/DA-Exception-PreconditionFailed.dalf".format(majorLfVersion),
+            "lf-v{}/daml-prim/DA-Types.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Internal-Template.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Internal-Any.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Time-Types.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-NonEmpty-Types.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Date-Types.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Semigroup-Types.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Set-Types.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Monoid-Types.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Logic-Types.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Validation-Types.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Internal-Down.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Internal-Interface-AnyView-Types.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Action-State-Type.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Random-Types.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Stack-Types.dalf".format(majorLfVersion),
+        ],
+        cmd = """
+      $(location :generate-stable-package) --major-version {major} --module GHC.Types -o $(location lf-v{major}/daml-prim/GHC-Types.dalf)
+      $(location :generate-stable-package) --major-version {major} --module GHC.Prim -o $(location lf-v{major}/daml-prim/GHC-Prim.dalf)
+      $(location :generate-stable-package) --major-version {major} --module GHC.Tuple -o $(location lf-v{major}/daml-prim/GHC-Tuple.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Internal.Erased -o $(location lf-v{major}/daml-prim/DA-Internal-Erased.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Internal.NatSyn -o $(location lf-v{major}/daml-prim/DA-Internal-NatSyn.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Internal.PromotedText -o $(location lf-v{major}/daml-prim/DA-Internal-PromotedText.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Exception.GeneralError -o $(location lf-v{major}/daml-prim/DA-Exception-GeneralError.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Exception.ArithmeticError -o $(location lf-v{major}/daml-prim/DA-Exception-ArithmeticError.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Exception.AssertionFailed -o $(location lf-v{major}/daml-prim/DA-Exception-AssertionFailed.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Exception.PreconditionFailed -o $(location lf-v{major}/daml-prim/DA-Exception-PreconditionFailed.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Types -o $(location lf-v{major}/daml-prim/DA-Types.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Time.Types -o $(location lf-v{major}/daml-stdlib/DA-Time-Types.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.NonEmpty.Types -o $(location lf-v{major}/daml-stdlib/DA-NonEmpty-Types.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Date.Types -o $(location lf-v{major}/daml-stdlib/DA-Date-Types.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Semigroup.Types -o $(location lf-v{major}/daml-stdlib/DA-Semigroup-Types.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Set.Types -o $(location lf-v{major}/daml-stdlib/DA-Set-Types.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Monoid.Types -o $(location lf-v{major}/daml-stdlib/DA-Monoid-Types.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Logic.Types -o $(location lf-v{major}/daml-stdlib/DA-Logic-Types.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Validation.Types -o $(location lf-v{major}/daml-stdlib/DA-Validation-Types.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Internal.Down -o $(location lf-v{major}/daml-stdlib/DA-Internal-Down.dalf)
       # These types are not serializable but they leak into typeclass methods so they need to be stable.
-      $(location :generate-stable-package) --module DA.Internal.Any -o $(location daml-stdlib/DA-Internal-Any.dalf)
-      $(location :generate-stable-package) --module DA.Internal.Template -o $(location daml-stdlib/DA-Internal-Template.dalf)
-      $(location :generate-stable-package) --module DA.Internal.Interface.AnyView.Types -o $(location daml-stdlib/DA-Internal-Interface-AnyView-Types.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Internal.Any -o $(location lf-v{major}/daml-stdlib/DA-Internal-Any.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Internal.Template -o $(location lf-v{major}/daml-stdlib/DA-Internal-Template.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Internal.Interface.AnyView.Types -o $(location lf-v{major}/daml-stdlib/DA-Internal-Interface-AnyView-Types.dalf)
       # These types are not serializable but they need to be stable so users can reuse functions from data-dependencies.
-      $(location :generate-stable-package) --module DA.Action.State.Type -o $(location daml-stdlib/DA-Action-State-Type.dalf)
-      $(location :generate-stable-package) --module DA.Random.Types -o $(location daml-stdlib/DA-Random-Types.dalf)
-      $(location :generate-stable-package) --module DA.Stack.Types -o $(location daml-stdlib/DA-Stack-Types.dalf)
-    """,
-    tools = [":generate-stable-package"],
-    visibility = ["//visibility:public"],
-)
+      $(location :generate-stable-package) --major-version {major} --module DA.Action.State.Type -o $(location lf-v{major}/daml-stdlib/DA-Action-State-Type.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Random.Types -o $(location lf-v{major}/daml-stdlib/DA-Random-Types.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Stack.Types -o $(location lf-v{major}/daml-stdlib/DA-Stack-Types.dalf)
+    """.format(major = majorLfVersion),
+        tools = [":generate-stable-package"],
+        visibility = ["//visibility:public"],
+    )
+    for majorLfVersion in LF_MAJOR_VERSIONS
+]
 
 # If you change this you also need to update generateStablePackages in Development.IDE.Core.Rules.Daml
 filegroup(
     name = "stable-packages",
     srcs = [
-        "daml-prim/DA-Exception-ArithmeticError.dalf",
-        "daml-prim/DA-Exception-AssertionFailed.dalf",
-        "daml-prim/DA-Exception-GeneralError.dalf",
-        "daml-prim/DA-Exception-PreconditionFailed.dalf",
-        "daml-prim/DA-Internal-Erased.dalf",
-        "daml-prim/DA-Internal-NatSyn.dalf",
-        "daml-prim/DA-Internal-PromotedText.dalf",
-        "daml-prim/DA-Types.dalf",
-        "daml-prim/GHC-Prim.dalf",
-        "daml-prim/GHC-Tuple.dalf",
-        "daml-prim/GHC-Types.dalf",
-        "daml-stdlib/DA-Action-State-Type.dalf",
-        "daml-stdlib/DA-Date-Types.dalf",
-        "daml-stdlib/DA-Internal-Any.dalf",
-        "daml-stdlib/DA-Internal-Down.dalf",
-        "daml-stdlib/DA-Internal-Interface-AnyView-Types.dalf",
-        "daml-stdlib/DA-Internal-Template.dalf",
-        "daml-stdlib/DA-Logic-Types.dalf",
-        "daml-stdlib/DA-Monoid-Types.dalf",
-        "daml-stdlib/DA-NonEmpty-Types.dalf",
-        "daml-stdlib/DA-Random-Types.dalf",
-        "daml-stdlib/DA-Semigroup-Types.dalf",
-        "daml-stdlib/DA-Set-Types.dalf",
-        "daml-stdlib/DA-Stack-Types.dalf",
-        "daml-stdlib/DA-Time-Types.dalf",
-        "daml-stdlib/DA-Validation-Types.dalf",
+        dalf
+        for dalfs in [
+            [
+                "lf-v{}/daml-prim/DA-Exception-ArithmeticError.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/DA-Exception-AssertionFailed.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/DA-Exception-GeneralError.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/DA-Exception-PreconditionFailed.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/DA-Internal-Erased.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/DA-Internal-NatSyn.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/DA-Internal-PromotedText.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/DA-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/GHC-Prim.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/GHC-Tuple.dalf".format(majorLfVersion),
+                "lf-v{}/daml-prim/GHC-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Action-State-Type.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Date-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Internal-Any.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Internal-Down.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Internal-Interface-AnyView-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Internal-Template.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Logic-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Monoid-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-NonEmpty-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Random-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Semigroup-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Set-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Stack-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Time-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Validation-Types.dalf".format(majorLfVersion),
+            ]
+            for majorLfVersion in LF_MAJOR_VERSIONS
+        ]
+        for dalf in dalfs
     ],
     visibility = ["//visibility:public"],
 )

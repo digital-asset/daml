@@ -24,8 +24,7 @@ import com.daml.lf.data.Ref.{
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.daml.lf.language.Ast
-import com.daml.lf.language.StablePackage
+import com.daml.lf.language.{Ast, StablePackagesV2}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SBuiltin.SBVariantCon
 import com.daml.lf.speedy.SExpr._
@@ -38,7 +37,6 @@ import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.option._
 import com.daml.script.converter.Converter.{toContractId, toText}
-
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.speedy.SBuiltin.SBToAny
 
@@ -47,10 +45,10 @@ import scala.util.{Failure, Success}
 
 object ScriptF {
   val left = SEBuiltin(
-    SBVariantCon(StablePackage.DA.Types.Either, Name.assertFromString("Left"), 0)
+    SBVariantCon(StablePackagesV2.Either, Name.assertFromString("Left"), 0)
   )
   val right = SEBuiltin(
-    SBVariantCon(StablePackage.DA.Types.Either, Name.assertFromString("Right"), 1)
+    SBVariantCon(StablePackagesV2.Either, Name.assertFromString("Right"), 1)
   )
 
   sealed trait Cmd {
@@ -331,9 +329,8 @@ object ScriptF {
     ): Future[SExpr] = {
 
       def makePair(v1: SValue, v2: SValue): SValue = {
-        import com.daml.lf.language.StablePackage.DA
         import com.daml.script.converter.Converter.record
-        record(DA.Types.assertIdentifier("Tuple2"), ("_1", v1), ("_2", v2))
+        record(StablePackagesV2.Tuple2, ("_1", v1), ("_2", v2))
       }
 
       for {

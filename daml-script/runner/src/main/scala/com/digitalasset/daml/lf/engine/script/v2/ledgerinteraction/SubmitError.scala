@@ -7,7 +7,7 @@ package ledgerinteraction
 
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref.{Identifier, Name}
-import com.daml.lf.language.{Ast, StablePackage}
+import com.daml.lf.language.{Ast, StablePackagesV2}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.transaction.GlobalKey
@@ -65,7 +65,7 @@ object SubmitError {
   def fromNonEmptySet[A](set: NonEmpty[Seq[A]], conv: A => SValue): SValue = {
     val converted: Seq[SValue] = set.map(conv)
     record(
-      StablePackage.DA.NonEmpty.Types.NonEmpty,
+      StablePackagesV2.NonEmpty,
       ("hd", converted.head),
       ("tl", SList(converted.tail.to(FrontStack))),
     )
