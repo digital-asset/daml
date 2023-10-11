@@ -320,7 +320,7 @@ httpInstall env@InstallEnv{..} releaseVersion = do
         getLocation sdkVersion = case artifactoryApiKeyM of
             Nothing -> Github.versionLocation releaseVersion sdkVersion
             Just apiKey
-              | releaseVersion >= firstEEVersion -> Artifactory.versionLocation releaseVersion sdkVersion apiKey
+              | releaseVersion >= firstEEVersion -> Artifactory.versionLocation sdkVersion apiKey
               | otherwise -> Github.versionLocation releaseVersion sdkVersion
         !firstEEVersion =
             let verStr = "1.12.0-snapshot.20210312.6498.0.707c86aa"

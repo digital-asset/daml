@@ -86,4 +86,3 @@ getSdkVersionFromEnterpriseVersion v = do
           T.stripPrefix "daml-sdk-" withoutExt
       sdkVersionStr = fromMaybe (error "Failed to find linux sdk in release") mSdkVersionStr
   either throwIO pure $ parseVersion sdkVersionStr
-  
