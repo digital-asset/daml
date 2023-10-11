@@ -3,7 +3,7 @@
 
 -- @SUPPORTS-LF-FEATURE DAML_EXCEPTIONS
 -- @ERROR range=132:1-132:23; Unhandled exception: ExceptionSemantics:E
--- @ERROR range=147:1-147:25; Unhandled exception: DA.Exception.ArithmeticError:ArithmeticError@XXXXXX with message = "ArithmeticError while evaluating (DIV_INT64 1 0)."
+-- @ERROR range=147:1-147:25; Unhandled exception: DA.Exception.ArithmeticError:ArithmeticError with message = "ArithmeticError while evaluating (DIV_INT64 1 0)."
 -- @WARN range=181:3-181:12; Use of divulged contracts is deprecated
 -- @ERROR range=184:1-184:11; Attempt to exercise a consumed contract
 module ExceptionSemantics where
