@@ -328,7 +328,7 @@ public final class SubmitCommandsRequest {
 
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId, @NonNull CommandsSubmission submission) {
-    return toProto(ledgerId, submission.getWorkflowId(), submission);
+    return toProto(ledgerId, Optional.empty(), submission);
   }
 
   /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
