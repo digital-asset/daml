@@ -187,7 +187,7 @@ private[lf] object Speedy {
 
     private[this] var contractsCache = Map.empty[V.ContractId, V.ContractInstance]
 
-    // To hanle continuation exceptions, as continuation are un outside the interpreter loop.
+    // To handle continuation exceptions, as continuation are run outside the interpreter loop.
     protected def safelyContinue(
         location: => String,
         question: => String,
