@@ -1,0 +1,18 @@
+<!--
+  ~ Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates
+  ~
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
+<included>
+
+    <!-- using an async appender to move rendering and filtering of log messages to background thread -->
+    <appender name="REWRITE_LOG_LEVEL" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="REWRITE_LOG_LEVEL_SYNC" />
+        <discardingThreshold>0</discardingThreshold>
+        <queueSize>1024</queueSize>
+        <maxFlushTime>0</maxFlushTime>
+    </appender>
+    <!-- not adding a shutdown hook for the async appender, since this is taken care of by canton app graceful shutdown -->
+    <!-- <shutdownHook class="ch.qos.logback.core.hook.DefaultShutdownHook" />  -->
+
+</included>

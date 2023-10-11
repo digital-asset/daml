@@ -1,0 +1,33 @@
+// start all local instances defined in the configuration file
+nodes.local.start()
+
+// Connect participant1 to mydomain using the connect macro.
+// The connect macro will inspect the domain configuration to find the correct URL and Port.
+// The macro is convenient for local testing, but obviously doesn't work in a distributed setup.
+participant1.domains.connect_local(mydomain)
+
+val mydomainPort = Option(System.getProperty("canton-examples.mydomain-port")).getOrElse("5018")
+
+// Connect participant2 to mydomain using just the target URL and a local name we use to refer to this particular
+// connection. This is actually everything Canton requires and this second type of connect call can be used
+// in order to connect to a remote Canton domain.
+//
+// The connect call is just a wrapper that invokes the `domains.register`, `domains.get_agreement` and `domains.accept_agreement` calls.
+//
+// The address can be either HTTP or HTTPS. From a security perspective, we do assume that we either trust TLS to
+// initially introduce the domain. If we don't trust TLS for that, we can also optionally include a so called
+// EssentialState that establishes the trust of the participant to the domain.
+// Whether a domain will let a participant connect or not is at the discretion of the domain and can be configured
+// there. While Canton establishes the connection, we perform a handshake, exchanging keys, authorizing the connection
+// and verifying version compatibility.
+participant2.domains.connect("mydomain", s"http://localhost:$mydomainPort")
+
+// The above connect operation is asynchronous. It is generally at the discretion of the domain
+// to decide if a participant can join and when. Therefore, we need to asynchronously wait here
+// until the participant observes its activation on the domain. As the domain is configured to be
+// permissionless in this example, the approval will be granted immediately.
+utils.retry_until_true {
+    participant2.domains.active("mydomain")
+}
+
+participant2.health.ping(participant1)

@@ -1,0 +1,35 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v2;
+
+import "com/digitalasset/canton/protocol/v1/mediator_response.proto";
+import "google/protobuf/timestamp.proto";
+import "scalapb/scalapb.proto";
+
+// Definition of the MediatorResponse message which is shared between the transaction and transfer protocol
+
+message MediatorResponse {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  google.protobuf.Timestamp request_id = 1;
+  string sender = 2;
+  reserved 3; // Removed view_hash.
+  com.digitalasset.canton.protocol.v1.LocalVerdict local_verdict = 4;
+  bytes root_hash = 5; // May be empty for Malformed verdicts if the participant cannot determine the root hash.
+  repeated string confirming_parties = 6; // Empty iff the verdict is malformed.
+  string domain_id = 7;
+  ViewPosition view_position = 8; // Added view_position. May be empty for Malformed verdicts
+}
+
+// New message
+message ViewPosition {
+  repeated MerkleSeqIndex position = 1;
+}
+
+// New message
+message MerkleSeqIndex {
+  repeated bool is_right = 1;
+}

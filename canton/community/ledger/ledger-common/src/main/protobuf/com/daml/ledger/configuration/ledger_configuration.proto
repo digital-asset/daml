@@ -1,0 +1,59 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+//
+// The Daml Ledger configuration. Please refer to the spec
+// (ledger/participant-state/protobuf/ledger_configuration.rst)
+// for detailed information on versions and semantics.
+//
+// version summary:
+// * 1: initial version
+// * 2: added new fields for the new ledger time model
+//
+
+syntax = "proto3";
+
+package com.digitalasset.canton.ledger.configuration;
+
+import "google/protobuf/duration.proto";
+
+option csharp_namespace = "Com.Digitalasset.Canton.Ledger.Configuration.Protobuf";
+option java_multiple_files = true;
+option java_package = "com.digitalasset.canton.ledger.configuration.protobuf";
+
+message LedgerConfiguration {
+  // The version of the configuration message. Defines the semantics
+  // of how it is decoded and interpreted.
+  int64 version = 1;
+
+  // The configuration generation. If submitting a configuration the new generation
+  // must be one larger than previous configuration. This safe-guards against
+  // configuration changes that are based upon stale data.
+  int64 generation = 2;
+
+  // The ledger time model, specifying the bounds for
+  // ledger effective time and maximum record time of transactions.
+  LedgerTimeModel time_model = 3;
+
+  // The default value for the ``deduplication_duration`` parameter of command submissions
+  // (as described in ``commands.proto``). The ledger SHOULD accept deduplication periods
+  // of length up to the maximum deduplication duration and it MAY accept longer periods.
+  google.protobuf.Duration max_deduplication_duration = 4;
+}
+
+message LedgerTimeModel {
+  reserved 1; // was min_transaction_latency
+  reserved 2; // was max_clock_skew
+  reserved 3; // was max_ttl
+
+  // The expected average latency of a transaction, i.e., the average time
+  // from submitting the transaction to a WriteService and the transaction
+  // being assigned a record time.
+  google.protobuf.Duration avg_transaction_latency = 4;
+
+  // The minimum skew between ledger time and record time: lt_TX >= rt_TX - minSkew
+  google.protobuf.Duration min_skew = 5;
+
+  // The maximum skew between ledger time and record time: lt_TX <= rt_TX + maxSkew
+  google.protobuf.Duration max_skew = 6;
+}

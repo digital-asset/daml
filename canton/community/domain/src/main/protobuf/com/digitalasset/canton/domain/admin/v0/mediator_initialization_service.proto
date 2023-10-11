@@ -1,0 +1,54 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.domain.admin.v0;
+
+import "com/digitalasset/canton/crypto/v0/crypto.proto";
+import "com/digitalasset/canton/domain/api/v0/sequencer_connection.proto";
+import "com/digitalasset/canton/protocol/v0/sequencing.proto";
+import "com/digitalasset/canton/topology/admin/v0/topology_ext.proto";
+import "google/protobuf/wrappers.proto";
+
+service MediatorInitializationService {
+  // Initialize a Mediator service
+  // If the Mediator is uninitialized it should initialize itself with the provided configuration
+  // If the Mediator is already initialized then verify the request is for the domain we're running against,
+  // if correct then just return the current key otherwise fail.
+  rpc Initialize(InitializeMediatorRequest) returns (InitializeMediatorResponse);
+}
+
+message InitializeMediatorRequest {
+  // the domain identifier
+  string domain_id = 1;
+  // the mediator identifier
+  string mediator_id = 2;
+  // topology state required for startup
+  com.digitalasset.canton.protocol.v0.TopologyTransactions current_identity_state = 3;
+  // parameters for the domain (includes the protocol version which needs to match the protocol version the domain
+  // manager is running)
+  com.digitalasset.canton.protocol.v0.StaticDomainParameters domain_parameters = 4;
+  // how should the member connect to the domain sequencer
+  com.digitalasset.canton.domain.api.v0.SequencerConnection sequencer_connection = 5;
+  // Optional fingerprint of the signing key the mediator should use. This key should already exist and have been
+  // authorized during domain bootstrap
+  google.protobuf.StringValue signing_key_fingerprint = 6;
+}
+
+message InitializeMediatorResponse {
+  oneof value {
+    Success success = 1;
+    Failure failure = 2;
+  }
+
+  message Success {
+    // Current signing key
+    com.digitalasset.canton.crypto.v0.SigningPublicKey mediator_key = 1;
+  }
+
+  message Failure {
+    // Reason that can be logged
+    string reason = 1;
+  }
+}
