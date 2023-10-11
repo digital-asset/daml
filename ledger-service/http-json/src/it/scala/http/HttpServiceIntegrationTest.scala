@@ -71,6 +71,11 @@ abstract class HttpServiceIntegrationTest
     super.afterAll()
   }
 
+  override protected def beforeAll() = {
+    super.beforeAll()
+    val _ = System.setProperty("javax.net.debug", "ssl:handshake")
+  }
+
   private def httpsContextForSelfSignedCert = {
     import akka.http.scaladsl.ConnectionContext
     import java.security.SecureRandom
