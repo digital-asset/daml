@@ -104,6 +104,7 @@ import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
 import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 import           DA.Daml.Options.Types (EnableScenarios (..), AllowLargeTuples (..))
+import           DA.Daml.StablePackages (preconditionFailedTCon)
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -1122,7 +1123,7 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
                 ECase b
                     [ CaseAlternative (CPBool True) ETrue
                     , CaseAlternative (CPBool False)
-                        $ EThrow TBool (TCon (preconditionFailedTypeCon majorLfVersion))
+                        $ EThrow TBool (TCon (preconditionFailedTCon majorLfVersion))
                         $ mkPreconditionFailed majorLfVersion
                         $ EBuiltin BEAppendText
                             `ETmApp` EBuiltin (BEText "Template precondition violated: " )
@@ -1136,6 +1137,11 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
         | otherwise
         = b
 
+    mkPreconditionFailed :: LF.MajorVersion -> LF.Expr -> LF.Expr
+    mkPreconditionFailed major msg = ERecCon
+        { recTypeCon = TypeConApp (preconditionFailedTCon major) []
+        , recFields = [(FieldName "message", msg)]
+        }
 
 convertTemplateKey :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (Maybe TemplateKey)
 convertTemplateKey env tname TemplateBinds{..}

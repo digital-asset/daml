@@ -6,6 +6,10 @@ module DA.Daml.StablePackages
     , allStablePackagesForVersion
     , numStablePackagesForVersion
     , stablePackageByModuleName
+
+    , erasedTCon
+    , promotedTextTCon
+    , preconditionFailedTCon
     ) where
 
 import Data.Bifunctor
@@ -16,6 +20,8 @@ import qualified Data.Text as T
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Proto3.Archive.Encode
 import DA.Daml.UtilLF
+import GHC.Stack (HasCallStack)
+import Safe (fromJustNote)
 
 allV1StablePackages :: MS.Map PackageId Package
 allV1StablePackages =
@@ -882,3 +888,53 @@ emptyModule name = Module
   , moduleExceptions = NM.empty
   , moduleInterfaces = NM.empty
   }
+
+stableTCon ::
+    HasCallStack => MajorVersion -> [T.Text] -> T.Text -> Qualified TypeConName
+stableTCon major moduleName tconName =
+    Qualified
+        { qualPackage = PRImport (stablePackageIdByModuleNamePartial major qualModule)
+        , qualModule = qualModule
+        , qualObject = TypeConName [tconName]
+        }
+  where
+    qualModule = ModuleName moduleName
+
+erasedTCon :: HasCallStack => MajorVersion -> Qualified TypeConName
+erasedTCon major =
+    stableTCon
+        major
+        ["DA", "Internal", "Erased"]
+        "Erased"
+
+promotedTextTCon :: HasCallStack => MajorVersion -> Qualified TypeConName
+promotedTextTCon major =
+    stableTCon
+        major
+        ["DA", "Internal", "PromotedText"]
+        "PromotedText"
+
+preconditionFailedTCon :: MajorVersion -> Qualified TypeConName
+preconditionFailedTCon major =
+    stableTCon
+        major
+        ["DA", "Exception", "PreconditionFailed"]
+        "PreconditionFailed"
+
+-- | Returns the ID of the stable package for the given major version and module
+-- name, throws if it doesn't exist.
+stablePackageIdByModuleNamePartial :: HasCallStack => MajorVersion -> ModuleName -> PackageId
+stablePackageIdByModuleNamePartial major mod =
+    fst $
+        fromJustNote
+            errorMsg
+            ((major, mod) `MS.lookup` stablePackageByModuleName)
+  where
+    errorMsg =
+        concat
+            [ "expecting stable package "
+            , show mod
+            , " for major LF version "
+            , renderMajorVersion major
+            , " to exist"
+            ]

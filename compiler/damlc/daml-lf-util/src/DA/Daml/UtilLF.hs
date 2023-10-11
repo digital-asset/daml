@@ -105,21 +105,3 @@ mkBuiltinLess ty = EBuiltin BELessGeneric `ETyApp` TBuiltin ty
 
 mkBuiltinGreater :: BuiltinType -> Expr
 mkBuiltinGreater ty = EBuiltin BEGreaterGeneric `ETyApp` TBuiltin ty
-
-preconditionFailedTypeCon :: MajorVersion -> Qualified TypeConName
-preconditionFailedTypeCon major = Qualified
-    { qualPackage = PRImport (PackageId $ packageId major)
-    , qualModule = ModuleName ["DA", "Exception", "PreconditionFailed"]
-    , qualObject = TypeConName ["PreconditionFailed"]
-    }
- where
-  -- We cannot look up these stable IDs using stablePackageByModuleName because
-  -- it would introduce a cyclic dependency with StablePackages.
-  packageId V1 = "f20de1e4e37b92280264c08bf15eca0be0bc5babd7a7b5e574997f154c00cb78"
-  packageId V2 = "11b13322111b649f3ab3a71ef523ed3167d9a4edbb60f1c5aa48d7173582d841"
-
-mkPreconditionFailed :: MajorVersion -> Expr -> Expr
-mkPreconditionFailed major msg = ERecCon
-    { recTypeCon = TypeConApp (preconditionFailedTypeCon major) []
-    , recFields = [(FieldName "message", msg)]
-    }

@@ -14,6 +14,7 @@ da_haskell_library(
         "base",
         "bytestring",
         "containers",
+        "safe",
         "text",
     ],
     src_strip_prefix = "lib",
