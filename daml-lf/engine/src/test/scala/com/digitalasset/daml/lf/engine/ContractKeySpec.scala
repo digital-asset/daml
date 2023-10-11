@@ -7,23 +7,25 @@ package engine
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.command.ApiCommand
-import com.daml.lf.data.Ref.{PackageId, Name, QualifiedName, Identifier, Party, TypeConName}
+import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, QualifiedName, TypeConName}
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast.Package
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.InitialSeeding
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.lf.transaction.{ContractKeyUniquenessMode, GlobalKey, GlobalKeyWithMaintainers}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{
-  VersionedContractInstance,
-  ContractInstance,
-  ValueRecord,
-  ValueParty,
-  ValueInt64,
-  ValueContractId,
   ContractId,
+  ContractInstance,
+  ValueContractId,
+  ValueInt64,
+  ValueParty,
+  ValueRecord,
+  VersionedContractInstance,
 }
 import com.daml.logging.LoggingContext
+
 import java.io.File
 import org.scalatest.EitherValues
 import org.scalatest.Inside.inside
@@ -33,6 +35,9 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
+class ContractKeySpecV1 extends ContractKeySpec(LanguageMajorVersion.V1)
+class ContractKeySpecV2 extends ContractKeySpec(LanguageMajorVersion.V2)
+
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any",
@@ -40,7 +45,7 @@ import scala.language.implicitConversions
     "org.wartremover.warts.Product",
   )
 )
-class ContractKeySpec
+class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -58,7 +63,7 @@ class ContractKeySpec
   }
 
   private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
-    "daml-lf/tests/BasicTests.dar"
+    s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}.dar"
   )
 
   val basicTestsSignatures = language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
@@ -128,7 +133,7 @@ class ContractKeySpec
       toContractId("BasicTests:WithKey:1")
   }
 
-  private[this] val suffixLenientEngine = Engine.DevEngine()
+  private[this] val suffixLenientEngine = Engine.DevEngine(majorLanguageVersion)
   private[this] val preprocessor =
     new preprocessing.Preprocessor(
       ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
@@ -251,19 +256,20 @@ class ContractKeySpec
       import com.daml.lf.language.{LanguageVersion => LV}
       val nonUckEngine = new Engine(
         EngineConfig(
-          allowedLanguageVersions = LV.DevVersions,
+          allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),
           contractKeyUniqueness = ContractKeyUniquenessMode.Off,
           requireSuffixedGlobalContractId = true,
         )
       )
       val uckEngine = new Engine(
         EngineConfig(
-          allowedLanguageVersions = LV.DevVersions,
+          allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),
           contractKeyUniqueness = ContractKeyUniquenessMode.Strict,
           requireSuffixedGlobalContractId = true,
         )
       )
-      val (multiKeysPkgId, _, allMultiKeysPkgs) = loadPackage("daml-lf/tests/MultiKeys.dar")
+      val (multiKeysPkgId, _, allMultiKeysPkgs) =
+        loadPackage(s"daml-lf/tests/MultiKeys-v${majorLanguageVersion.pretty}.dar")
       val keyedId = Identifier(multiKeysPkgId, "MultiKeys:Keyed")
       val opsId = Identifier(multiKeysPkgId, "MultiKeys:KeyOperations")
       val let = Time.Timestamp.now()
@@ -282,6 +288,7 @@ class ContractKeySpec
       val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
         case GlobalKeyWithMaintainers(GlobalKey(`keyedId`, ValueParty(`party`)), _) => cid1
       }
+
       def run(engine: Engine, choice: String, argument: Value) = {
         val cmd = ApiCommand.CreateAndExercise(
           opsId,
@@ -304,6 +311,7 @@ class ContractKeySpec
           )
           .consume(contracts, pkgs = allMultiKeysPkgs, keys = lookupKey)
       }
+
       val emptyRecord = ValueRecord(None, ImmArray.Empty)
       // The cid returned by a fetchByKey at the beginning
       val keyResultCid = ValueRecord(None, ImmArray((None, ValueContractId(cid1))))

@@ -6,6 +6,7 @@ package com.daml.ledger.javaapi.data.codegen;
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Identifier;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,6 +26,13 @@ public abstract class InterfaceCompanion<I, Id, View>
 
   public final ValueDecoder<View> valueDecoder;
 
+  @FunctionalInterface // Defines the function type which throws.
+  public static interface FromJson<T> {
+    T decode(String s) throws JsonLfDecoder.Error;
+  }
+
+  private final FromJson<View> fromJson;
+
   /**
    * <strong>INTERNAL API</strong>: this is meant for use by <a
    * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
@@ -38,9 +46,15 @@ public abstract class InterfaceCompanion<I, Id, View>
       Identifier templateId,
       Function<String, Id> newContractId,
       ValueDecoder<View> valueDecoder,
+      FromJson<View> fromJson,
       List<Choice<I, ?, ?>> choices) {
     super(templateId, templateClassName, newContractId, choices);
     this.valueDecoder = valueDecoder;
+    this.fromJson = fromJson;
+  }
+
+  public View fromJson(String json) throws JsonLfDecoder.Error {
+    return this.fromJson.decode(json);
   }
 
   private Contract<Id, View> fromIdAndRecord(

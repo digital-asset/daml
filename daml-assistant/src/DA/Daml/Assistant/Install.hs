@@ -435,7 +435,7 @@ projectInstall env projectPath = do
 -- | Determine whether the assistant should be installed.
 shouldInstallAssistant :: InstallEnv -> SdkVersion -> Bool
 shouldInstallAssistant InstallEnv{..} versionToInstall =
-    let isNewer = maybe True (< versionToInstall) (unwrapDamlAssistantSdkVersion <$> assistantVersion)
+    let isNewer = maybe True ((< versionToInstall) . unwrapDamlAssistantSdkVersion) assistantVersion
     in unActivateInstall (iActivate options)
     || determineAuto (isNewer || missingAssistant || installingFromOutside)
         (unwrapInstallAssistant (iAssistant options))

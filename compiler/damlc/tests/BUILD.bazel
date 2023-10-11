@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_compile_with_dalf", "daml_test")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_configuration")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LF_DEV_VERSIONS", "lf_version_configuration")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # Tests for the lax CLI parser
@@ -53,10 +53,6 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
-
-        # TODO https://github.com/digital-asset/daml/issues/12051
-        #   Remove once Daml-LF 1.15 is the default compiler output
-        "//daml-script/daml:daml-script-1.dev.dar",
     ],
     hackage_deps = [
         "base",
@@ -113,10 +109,14 @@ da_haskell_test(
 da_haskell_library(
     name = "integration-lib",
     srcs = ["src/DA/Test/DamlcIntegration.hs"],
+    compiler_flags = [
+        "-DPOSIX_DIFF=\"$(POSIX_DIFF)\"",
+    ],
     hackage_deps = [
         "aeson-pretty",
         "base",
         "bytestring",
+        "containers",
         "data-default",
         "deepseq",
         "directory",
@@ -133,10 +133,15 @@ da_haskell_library(
         "shake",
         "tagged",
         "tasty",
+        "tasty-golden",
         "tasty-hunit",
         "text",
         "time",
         "unordered-containers",
+        "vector",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -150,6 +155,7 @@ da_haskell_library(
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-package-config",
+        "//compiler/damlc/daml-rule-types",
         "//compiler/scenario-service/client",
         "//daml-assistant:daml-project-config",
         "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
@@ -164,8 +170,8 @@ da_haskell_library(
         # NOTE(MH): For some reason, ghc-pkg gets very unhappy if we separate
         # the components of the version number by dot, dash or underscore.
         name = "integration{skip}-v{version}".format(
-            version = version.replace(".", ""),
             skip = "-unvalidated" if skip_validation else "",
+            version = version.replace(".", ""),
         ),
         size = "large",
         srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
@@ -176,6 +182,8 @@ da_haskell_library(
             "true" if skip_validation else "false",
             "--daml-script-v2",
             "false",
+            "--evaluation-order",
+            "LeftToRight",
         ],
         data = [
             ":bond-trading",
@@ -199,54 +207,60 @@ da_haskell_library(
             ":integration-lib",
         ],
     )
-    for version, skip_validation in [(version, False) for version in COMPILER_LF_VERSIONS] + [
-        (
-            lf_version_configuration.get("default"),
-            True,
-        ),
-        (
-            lf_version_configuration.get("dev"),
-            True,
-        ),
-    ]
+    # Test stable versions with validation
+    # Test dev and default versions without validation
+    for version, skip_validation in (
+        [(version, False) for version in COMPILER_LF_VERSIONS] +
+        [(version, True) for version in [lf_version_configuration.get("default")] + LF_DEV_VERSIONS]
+    )
 ]
 
-da_haskell_test(
-    name = "integration-v1dev-script2",
-    size = "large",
-    srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
-    args = [
-        "--daml-lf-version",
-        "1.dev",
-        "--skip-validation",
-        "false",
-        "--daml-script-v2",
-        "true",
-    ],
-    data = [
-        ":bond-trading",
-        ":cant-skip-preprocessor",
-        ":daml-test-files",
-        ":package-vetting-package-a.dar",
-        ":package-vetting-package-b.dar",
-        ":query-lf-lib",
-        "//compiler/damlc/pkg-db",
-        "//compiler/damlc/stable-packages",
-        "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml3:daml3-script.dar",
-        "@jq_dev_env//:jq",
-        ghc_pkg,
-    ],
-    hackage_deps = [
-        "base",
-    ],
-    main_function = "DA.Test.DamlcIntegrationMain.main",
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":integration-lib",
-    ],
-)
+[
+    da_haskell_test(
+        name = "integration{order}-v2dev-script2".format(
+            order = "-r2l" if eval_order == "RightToLeft" else "",
+        ),
+        size = "large",
+        srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
+        args = [
+            "--daml-lf-version",
+            "2.dev",  # script2 only supports 2.x
+            "--skip-validation",
+            "false",
+            "--daml-script-v2",
+            "true",
+            "--evaluation-order",
+            eval_order,
+        ],
+        data = [
+            ":bond-trading",
+            ":cant-skip-preprocessor",
+            ":daml-test-files",
+            ":package-vetting-package-a.dar",
+            ":package-vetting-package-b.dar",
+            ":query-lf-lib",
+            "//compiler/damlc/pkg-db",
+            "//compiler/damlc/stable-packages",
+            "//compiler/scenario-service/server:scenario_service_jar",
+            "//daml-script/daml3:daml3-script-2.dev.dar",
+            "@jq_dev_env//:jq",
+            ghc_pkg,
+        ],
+        hackage_deps = [
+            "base",
+        ],
+        main_function = "DA.Test.DamlcIntegrationMain.main",
+        src_strip_prefix = "src",
+        visibility = ["//visibility:public"],
+        deps = [
+            ":integration-lib",
+        ],
+    )
+    for eval_order in [
+        "LeftToRight",
+        "RightToLeft",
+    ]
+]
 
 # Tests for daml-doc
 da_haskell_test(
@@ -413,7 +427,6 @@ da_haskell_test(
     srcs = ["src/DA/Test/IncrementalPackageDb.hs"],
     data = [
         "//compiler/damlc",
-        "//daml-lf/repl",
     ],
     hackage_deps = [
         "base",
@@ -486,8 +499,11 @@ da_haskell_test(
         "@damlc_legacy",
         "//compiler/damlc/tests:generate-simple-dalf",
         "//daml-script/daml:daml-script-1.dev.dar",
+        "//daml-script/daml3:daml3-script-2.dev.dar",
         # Feel free to update this to 0.13.55 once that is frozen.
         ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
+        # TODO(#17366) replace with a dar targetting 2.0 once it exists
+        ":dars/old-proj-d2244d1a9a-2.dev.dar",
     ],
     hackage_deps = [
         "base",
@@ -496,6 +512,7 @@ da_haskell_test(
         "ghc-lib-parser",
         "filepath",
         "process",
+        "safe",
         "safe-exceptions",
         "tasty",
         "tasty-hunit",
@@ -652,8 +669,8 @@ da_haskell_test(
         ":repl-test.dar",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
+        "//test-common/canton:lib",
         "//test-common/test-certificates",
-        "//canton:lib",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "aeson",
@@ -695,7 +712,7 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/repl-service/server:repl_service_jar",
         "//daml-script/daml:daml-script.dar",
-        "//canton:lib",
+        "//test-common/canton:lib",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "async",
@@ -765,7 +782,6 @@ damlc_compile_test(
 damlc_compile_test(
     name = "memory-examples",
     srcs = [":daml-test-files"],
-    enable_scenarios = True,  # TODO: https://github.com/digital-asset/daml/issues/11316
     enable_scripts = True,
     heap_limit = "200M",
     main = "daml-test-files/Examples.daml",
@@ -1014,7 +1030,7 @@ da_haskell_test(
     data = [
         ":pkg-manager-test.dar",
         "//compiler/damlc",
-        "//canton:lib",
+        "//test-common/canton:lib",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",
@@ -1070,20 +1086,13 @@ sh_test(
 
 # Generate a simple DALF for plain DALF import testing
 
-genrule(
-    name = "simple-dalf",
-    outs = ["simple-dalf.dalf"],
-    cmd = "$(location :generate-simple-dalf) $@",
-    tools = [":generate-simple-dalf"],
-    visibility = ["//visibility:public"],
-)
-
 da_haskell_binary(
     name = "generate-simple-dalf",
     srcs = ["src/DA/Test/GenerateSimpleDalf.hs"],
     hackage_deps = [
         "base",
         "bytestring",
+        "optparse-applicative",
         "text",
     ],
     main_function = "DA.Test.GenerateSimpleDalf.main",
@@ -1169,7 +1178,7 @@ daml_compile(
     name = "package-vetting-package-a",
     srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageAModule.daml"],
     project_name = "package-vetting-package-a",
-    target = "1.dev",
+    target = "2.dev",
     version = "1.0.0",
 )
 
@@ -1177,7 +1186,7 @@ daml_compile(
     name = "package-vetting-package-b",
     srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageBModule.daml"],
     project_name = "package-vetting-package-b",
-    target = "1.dev",
+    target = "2.dev",
     version = "1.0.0",
 )
 
@@ -1185,9 +1194,9 @@ daml_compile(
     name = "try-submit-test",
     srcs = ["daml-test-files/Daml3ScriptTrySubmit.daml"],
     dependencies = [
-        "//daml-script/daml3:daml3-script.dar",
+        "//daml-script/daml3:daml3-script-2.dev.dar",
     ],
     project_name = "try-submit-test",
-    target = "1.dev",
+    target = "2.dev",
     visibility = ["//visibility:public"],
 )

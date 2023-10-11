@@ -33,7 +33,6 @@ da_scala_test(
     deps = [
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton/it-lib",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/interpreter",
         "//daml-lf/language",
@@ -51,6 +50,7 @@ da_scala_test(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//test-common:dar-files-default-lib",
+        "//test-common/canton/it-lib",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

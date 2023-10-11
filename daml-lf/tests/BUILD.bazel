@@ -8,175 +8,88 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "lf_version_configuration",
+    "LF_MAJOR_VERSIONS",
+    "lf_version_latest",
 )
-
-TEST_FILES = \
-    [
-        "BasicTests",
-        "AuthorizedDivulgence",
-        "DontDiscloseNonConsumingExercisesToObservers",
-        "LargeTransaction",
-        "ConjunctionChoices",
-        "ContractKeys",
-        "AuthTests",
-    ]
 
 [
     daml_compile(
-        name = name,
-        srcs = ["%s.daml" % name],
-        enable_scenarios = True,
+        name = "Exceptions-v{}".format(major),
+        srcs = ["Exceptions.daml"],
+        target = lf_version_latest.get(major),
         visibility = ["//daml-lf:__subpackages__"],
     )
-    for name in TEST_FILES
+    for major in LF_MAJOR_VERSIONS
 ]
 
-daml_compile(
-    name = "BasicTests-dev",
-    srcs = ["BasicTests.daml"],
-    enable_scenarios = True,
-    target = "1.dev",
-    visibility = ["//daml-lf:__subpackages__"],
-)
+[
+    daml_compile(
+        name = "Interfaces-v{}".format(major),
+        srcs = ["Interfaces.daml"],
+        target = lf_version_latest.get(major),
+        visibility = ["//daml-lf:__subpackages__"],
+    )
+    for major in LF_MAJOR_VERSIONS
+]
 
-daml_compile(
-    name = "Optional",
-    srcs = ["Optional.daml"],
-    visibility = ["//daml-lf:__subpackages__"],
-)
+[
+    daml_build_test(
+        name = "InterfaceRetro-v{}".format(major),
+        dar_dict = {
+            "//daml-lf/tests:Interfaces-v{}.dar".format(major): "interfaces.dar",
+        },
+        project_dir = "interface-retro-v{}".format(major),
+        visibility = ["//daml-lf:__subpackages__"],
+    )
+    for major in LF_MAJOR_VERSIONS
+]
 
-daml_compile(
-    name = "Exceptions",
-    srcs = ["Exceptions.daml"],
-    visibility = ["//daml-lf:__subpackages__"],
-)
-
-daml_compile(
-    name = "Interfaces",
-    srcs = ["Interfaces.daml"],
-    visibility = ["//daml-lf:__subpackages__"],
-)
-
-daml_build_test(
-    name = "InterfaceRetro",
-    dar_dict = {
-        "//daml-lf/tests:Interfaces.dar": "interfaces.dar",
-    },
-    project_dir = "interface-retro",
-    visibility = ["//daml-lf:__subpackages__"],
-)
-
-daml_compile(
-    name = "InterfaceViews",
-    srcs = ["InterfaceViews.daml"],
-    visibility = ["//daml-lf:__subpackages__"],
-)
+[
+    daml_compile(
+        name = "InterfaceViews-v{}".format(major),
+        srcs = ["InterfaceViews.daml"],
+        target = lf_version_latest.get(major),
+        visibility = ["//daml-lf:__subpackages__"],
+    )
+    for major in LF_MAJOR_VERSIONS
+]
 
 daml_build_test(
-    name = "ReinterpretTests",
+    name = "ReinterpretTests-v1",
     dar_dict = {
         "//daml-lf/tests:AtVersion13.dar": "at-version-13.dar",
         "//daml-lf/tests:AtVersion14.dar": "at-version-14.dar",
     },
-    project_dir = "reinterpret",
+    project_dir = "reinterpret-v1",
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
+daml_build_test(
+    name = "ReinterpretTests-v2",
+    project_dir = "reinterpret-v2",
     visibility = ["//daml-lf:__subpackages__"],
 )
 
 daml_compile(
     name = "AtVersion13",
-    srcs = ["reinterpret/AtVersion13.daml"],
+    srcs = ["reinterpret-v1/AtVersion13.daml"],
     target = "1.13",
     visibility = ["//daml-lf:__subpackages__"],
 )
 
 daml_compile(
     name = "AtVersion14",
-    srcs = ["reinterpret/AtVersion14.daml"],
+    srcs = ["reinterpret-v1/AtVersion14.daml"],
     target = "1.14",
     visibility = ["//daml-lf:__subpackages__"],
 )
 
-daml_compile(
-    name = "MultiKeys",
-    srcs = ["MultiKeys.daml"],
-    visibility = ["//daml-lf:__subpackages__"],
-)
-
 [
-    sh_test(
-        name = name + "-test",
-        size = "small",
-        srcs = ["daml-lf-test.sh"],
-        args = [
-            "$(location //daml-lf/repl:repl)",
-            "$(location //compiler/damlc:damlc-compile-only)",
-            "$(location :%s.dar)" % name,
-        ],
-        data = [
-            "//compiler/damlc:damlc-compile-only",
-            "//daml-lf/repl",
-            ":%s.dar" % name,
-        ],
-        deps = [
-            "@bazel_tools//tools/bash/runfiles",
-        ],
+    daml_compile(
+        name = "MultiKeys-v{}".format(major),
+        srcs = ["MultiKeys.daml"],
+        target = lf_version_latest.get(major),
+        visibility = ["//daml-lf:__subpackages__"],
     )
-    for name in TEST_FILES
-]
-
-[
-    sh_test(
-        name = "test-scenario-stable-" + file.split("/")[2],
-        size = "medium",
-        srcs = ["scenario/test.sh"],
-        args = [
-            "$(location //daml-lf/repl:repl)",
-            "$(location //compiler/damlc:damlc-compile-only)",
-            "$(location :%s)" % file,
-            "$(POSIX_DIFF)",
-            "false",
-        ],
-        data = [
-            "//compiler/damlc:damlc-compile-only",
-            "//daml-lf/repl",
-            file,
-            "%s/EXPECTED.ledger" % "/".join(file.split("/")[0:3]),
-        ] + (["scenario/stable/no-contract-ids-in-keys/Simple.daml"] if "no-contract-ids-in-keys" in file else []),
-        toolchains = [
-            "@rules_sh//sh/posix:make_variables",
-        ],
-        deps = [
-            "@bazel_tools//tools/bash/runfiles",
-        ],
-    )
-    for file in glob(["scenario/stable/*/Test.daml"])
-]
-
-[
-    sh_test(
-        name = "test-scenario-dev-" + file.split("/")[2],
-        size = "medium",
-        srcs = ["scenario/test.sh"],
-        args = [
-            "$(location //daml-lf/repl:repl)",
-            "$(location //compiler/damlc:damlc-compile-only)",
-            "$(location :%s)" % file,
-            "$(POSIX_DIFF)",
-            "true",
-        ],
-        data = [
-            "//compiler/damlc:damlc-compile-only",
-            "//daml-lf/repl",
-            file,
-            "%s/EXPECTED.ledger" % "/".join(file.split("/")[0:3]),
-        ],
-        toolchains = [
-            "@rules_sh//sh/posix:make_variables",
-        ],
-        deps = [
-            "@bazel_tools//tools/bash/runfiles",
-        ],
-    )
-    for file in glob(["scenario/dev/*/Test.daml"])
+    for major in LF_MAJOR_VERSIONS
 ]

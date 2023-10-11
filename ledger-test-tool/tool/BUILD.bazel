@@ -10,6 +10,7 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "LF_DEV_VERSIONS",
     "lf_version_configuration",
     "lf_version_configuration_versions",
 )
@@ -85,10 +86,10 @@ sh_test(
     srcs = ["src/test/test-extract.sh"],
     args = [
         "$(location @local_jdk//:bin/java.exe)" if is_windows else "$(location @local_jdk//:bin/java)",
-        "$(location :ledger-api-test-tool_deploy.jar)",
+        "$(location :ledger-api-test-tool_distribute.jar)",
     ],
     data = [
-        ":ledger-api-test-tool_deploy.jar",
+        ":ledger-api-test-tool_distribute.jar",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
     ],
     deps = [
@@ -198,7 +199,7 @@ conformance_test_excluded_test = [
 #  those test the conformance test it-self for stable features
 conformance_test(
     name = "conformance-test",
-    extra_data = conformance_test_extra_data_base + ["//canton:canton_deploy.jar"],
+    extra_data = conformance_test_extra_data_base + ["//test-common/canton:canton_deploy.jar"],
     extra_runner_args = ["7000"],
     lf_versions = [
         "default",
@@ -223,7 +224,7 @@ conformance_test(
 # this tests TLSAtLeastOnePointTwoIT
 conformance_test(
     name = "conformance-test-tls1.2-or-newer",
-    extra_data = conformance_test_extra_data_base + ["//canton:canton_deploy.jar"],
+    extra_data = conformance_test_extra_data_base + ["//test-common/canton:canton_deploy.jar"],
     extra_runner_args = ["7000"],
     lf_versions = ["latest"],
     ports = conformance_test_ports,
@@ -245,13 +246,10 @@ conformance_test(
     dev_mod_flag = "",
     extra_data =
         conformance_test_extra_data_base + [
-            "//canton:canton-patched_deploy.jar",
+            "//test-common/canton:canton-patched_deploy.jar",
         ],
     extra_runner_args = ["7000"],
-    lf_versions = [
-        "preview",
-        "dev",
-    ],
+    lf_versions = ["preview"] + LF_DEV_VERSIONS,
     ports = conformance_test_ports,
     preview_mod_flag = "",
     runner = "@//bazel_tools/client_server/runner_with_health_check",

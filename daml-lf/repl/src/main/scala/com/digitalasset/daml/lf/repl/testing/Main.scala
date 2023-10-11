@@ -9,6 +9,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.archive.UniversalArchiveDecoder
+import com.daml.lf.language.LanguageVersion.AllVersions
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.Pretty._
 import com.daml.lf.scenario.{ScenarioRunner, Pretty => PrettyScenario}
@@ -16,12 +17,12 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
-import com.daml.lf.language.{PackageInterface, LanguageVersion => LV}
+import com.daml.lf.language.{LanguageMajorVersion, PackageInterface, LanguageVersion => LV}
 import com.daml.logging.LoggingContext
+
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
-
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
 import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, StringsCompleter}
@@ -50,28 +51,37 @@ object Main extends App {
         |  [file]                  Same as 'repl' when all given files exist.
     """.stripMargin)
 
-  val (replArgs, compilerConfig) = args.toList match {
-    case "--dev" :: rest =>
-      rest -> Repl.devCompilerConfig
+  // This is not great as it assumes a certain order of the flags, but this is going away with daml3
+  // daml3 so we don't need to invest time into better flag parsing.
+  val (args1, majorLanguageVersion) = args.toList match {
+    case "--v2" :: rest =>
+      rest -> LanguageMajorVersion.V2
     case list =>
-      list -> Repl.defaultCompilerConfig
+      list -> LanguageMajorVersion.V1
   }
+  val (replArgs, compilerConfig) = args1 match {
+    case "--dev" :: rest =>
+      rest -> Repl.devCompilerConfig(majorLanguageVersion)
+    case list =>
+      list -> Repl.defaultCompilerConfig(majorLanguageVersion)
+  }
+  val repl = new Repl(majorLanguageVersion)
   replArgs match {
     case "-h" :: _ | "--help" :: _ =>
       usage()
     case List("repl", file) =>
-      Repl.repl(compilerConfig, file)
+      repl.repl(compilerConfig, file)
     case List("testAll", file) =>
-      if (!Repl.testAll(compilerConfig, file)._1) System.exit(1)
+      if (!repl.testAll(compilerConfig, file)._1) System.exit(1)
     case List("test", id, file) =>
-      if (!Repl.test(compilerConfig, id, file)._1) System.exit(1)
+      if (!repl.test(compilerConfig, id, file)._1) System.exit(1)
     case List("profile", testId, inputFile, outputFile) =>
-      if (!Repl.profile(compilerConfig, testId, inputFile, Paths.get(outputFile))._1)
+      if (!repl.profile(compilerConfig, testId, inputFile, Paths.get(outputFile))._1)
         System.exit(1)
     case List("validate", file) =>
-      if (!Repl.validate(compilerConfig, file)._1) System.exit(1)
+      if (!repl.validate(compilerConfig, file)._1) System.exit(1)
     case List(possibleFile) if Paths.get(possibleFile).toFile.isFile =>
-      Repl.repl(compilerConfig, possibleFile)
+      repl.repl(compilerConfig, possibleFile)
     case _ =>
       usage()
       System.exit(1)
@@ -79,26 +89,9 @@ object Main extends App {
 }
 
 // The Daml-LF Read-Eval-Print-Loop
-object Repl {
+class Repl(majorLanguageVersion: LanguageMajorVersion) {
 
-  private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
-
-  val defaultCompilerConfig: Compiler.Config =
-    Compiler.Config(
-      allowedLanguageVersions = LV.StableVersions,
-      packageValidation = Compiler.FullPackageValidation,
-      profiling = Compiler.NoProfile,
-      stacktracing = Compiler.FullStackTrace,
-    )
-
-  val devCompilerConfig: Compiler.Config =
-    defaultCompilerConfig.copy(
-      allowedLanguageVersions = LV.DevVersions
-    )
-
-  private val nextSeed =
-    // We use a static seed to get reproducible run
-    crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("lf-repl"))
+  import Repl._
 
   def repl(compilerConfig: Compiler.Config, darFile: String): Unit =
     repl(load(compilerConfig, darFile) getOrElse initialState(compilerConfig))
@@ -116,21 +109,6 @@ object Repl {
       case _: org.jline.reader.EndOfFileException => ()
     }
     state.history.save
-  }
-
-  private implicit class StateOp(val x: (Boolean, State)) extends AnyVal {
-
-    def chain(f: State => (Boolean, State)): (Boolean, State) =
-      x match {
-        case (true, state) => f(state)
-        case _ => x
-      }
-
-    def getOrElse(default: => State) =
-      x match {
-        case (true, state) => state
-        case _ => default
-      }
   }
 
   def testAll(compilerConfig: Compiler.Config, file: String): (Boolean, State) =
@@ -171,50 +149,14 @@ object Repl {
 
   // --------------------------------------------------------
 
-  case class State(
-      packages: Map[PackageId, Package],
-      packageFiles: Seq[String],
-      scenarioRunner: ScenarioRunnerHelper,
-      reader: LineReader,
-      history: History,
-      quit: Boolean,
-  ) {
-    def compilerConfig: Compiler.Config = scenarioRunner.compilerConfig
-  }
-
-  case class ScenarioRunnerHelper(
-      packages: Map[PackageId, Package],
-      compilerConfig: Compiler.Config,
-      timeout: Duration,
-  ) {
-
-    val (compiledPackages, compileTime) =
-      time(PureCompiledPackages.assertBuild(packages, compilerConfig))
-
-    System.err.println(s"${packages.size} package(s) compiled in $compileTime ms.")
-
-    private val seed = nextSeed()
-
-    val transactionVersions =
-      if (compilerConfig.allowedLanguageVersions.contains(LV.v1_dev)) {
-        transaction.TransactionVersion.DevVersions
-      } else {
-        transaction.TransactionVersion.StableVersions
-      }
-
-    def run(expr: Expr): ScenarioRunner.ScenarioResult =
-      ScenarioRunner.run(
-        Speedy.Machine.fromScenarioExpr(compiledPackages, expr),
-        initialSeed = seed,
-        timeout,
-      )
-  }
-
   case class Command(help: String, action: (State, Seq[String]) => State)
 
-  final val commands = ListMap(
+  def commands = ListMap(
     ":help" -> Command("show this help", (s, _) => { usage(); s }),
-    ":reset" -> Command("reset the REPL.", (_, _) => initialState(defaultCompilerConfig)),
+    ":reset" -> Command(
+      "reset the REPL.",
+      (_, _) => initialState(defaultCompilerConfig(majorLanguageVersion)),
+    ),
     ":list" -> Command("list loaded packages.", (s, _) => { list(s); s }),
     ":speedy" -> Command(
       "compile given expression to speedy and print it",
@@ -235,7 +177,7 @@ object Repl {
     ),
     ":devmode" -> Command(
       "switch in devMode. This reset the state of REPL.",
-      (_, _) => initialState(devCompilerConfig),
+      (_, _) => initialState(devCompilerConfig(majorLanguageVersion)),
     ),
     ":validate" -> Command("validate all the packages", (s, _) => { cmdValidate(s); s }),
   )
@@ -386,13 +328,6 @@ object Repl {
     prettyType(typ)
   }
 
-  private def time[R](block: => R): (R, Long) = {
-    val startTime = System.nanoTime()
-    val result = block // call-by-name
-    val endTime = System.nanoTime()
-    result -> Duration.fromNanos(endTime - startTime).toMillis
-  }
-
   // Load Daml-LF packages from a set of files.
   def load(
       compilerConfig: Compiler.Config,
@@ -468,7 +403,10 @@ object Repl {
           case Some(DValue(_, body, _)) =>
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
-            val compiledPackages = PureCompiledPackages.assertBuild(state.packages)
+            val compiledPackages = PureCompiledPackages.assertBuild(
+              state.packages,
+              Compiler.Config.Default(majorLanguageVersion),
+            )
             val machine = Speedy.Machine.fromPureExpr(compiledPackages, expr)
             val startTime = System.nanoTime()
             val valueOpt = machine.run() match {
@@ -665,4 +603,91 @@ object Repl {
 
   private def assertRight[X](e: Either[String, X]): X =
     e.fold(err => throw new RuntimeException(err), identity)
+}
+
+object Repl {
+  implicit def logContext: LoggingContext = LoggingContext.ForTesting
+
+  def defaultCompilerConfig(majorLanguageVersion: LanguageMajorVersion): Compiler.Config =
+    Compiler.Config(
+      // TODO(#17366): change for something like LV.StableVersions(majorLanguageVersion) after the
+      //   refactoring of LanguageVersion and the introduction of 2.0.
+      allowedLanguageVersions = majorLanguageVersion match {
+        case LanguageMajorVersion.V1 => LV.StableVersions
+        case LanguageMajorVersion.V2 => LV.AllVersions(LanguageMajorVersion.V2)
+      },
+      packageValidation = Compiler.FullPackageValidation,
+      profiling = Compiler.NoProfile,
+      stacktracing = Compiler.FullStackTrace,
+    )
+
+  def devCompilerConfig(majorLanguageVersion: LanguageMajorVersion): Compiler.Config =
+    defaultCompilerConfig(majorLanguageVersion).copy(
+      allowedLanguageVersions = LV.AllVersions(majorLanguageVersion)
+    )
+
+  private val nextSeed =
+    // We use a static seed to get reproducible run
+    crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("lf-repl"))
+
+  private implicit class StateOp(val x: (Boolean, State)) extends AnyVal {
+
+    def chain(f: State => (Boolean, State)): (Boolean, State) =
+      x match {
+        case (true, state) => f(state)
+        case _ => x
+      }
+
+    def getOrElse(default: => State) =
+      x match {
+        case (true, state) => state
+        case _ => default
+      }
+  }
+
+  case class State(
+      packages: Map[PackageId, Package],
+      packageFiles: Seq[String],
+      scenarioRunner: ScenarioRunnerHelper,
+      reader: LineReader,
+      history: History,
+      quit: Boolean,
+  ) {
+    def compilerConfig: Compiler.Config = scenarioRunner.compilerConfig
+  }
+
+  case class ScenarioRunnerHelper(
+      packages: Map[PackageId, Package],
+      compilerConfig: Compiler.Config,
+      timeout: Duration,
+  ) {
+
+    val (compiledPackages, compileTime) =
+      time(PureCompiledPackages.assertBuild(packages, compilerConfig))
+
+    System.err.println(s"${packages.size} package(s) compiled in $compileTime ms.")
+
+    private val seed = nextSeed()
+
+    val transactionVersions =
+      if (compilerConfig.allowedLanguageVersions.intersects(AllVersions(LanguageMajorVersion.V1))) {
+        transaction.TransactionVersion.DevVersions
+      } else {
+        transaction.TransactionVersion.StableVersions
+      }
+
+    def run(expr: Expr): ScenarioRunner.ScenarioResult =
+      ScenarioRunner.run(
+        Speedy.Machine.fromScenarioExpr(compiledPackages, expr),
+        initialSeed = seed,
+        timeout,
+      )
+  }
+
+  private def time[R](block: => R): (R, Long) = {
+    val startTime = System.nanoTime()
+    val result = block // call-by-name
+    val endTime = System.nanoTime()
+    result -> Duration.fromNanos(endTime - startTime).toMillis
+  }
 }

@@ -67,6 +67,7 @@ library
       DA.Daml.LF.Ast.Numeric
       DA.Daml.LF.Ast.Optics
       DA.Daml.LF.Ast.Pretty
+      DA.Daml.LF.Ast.Range
       DA.Daml.LF.Ast.Recursive
       DA.Daml.LF.Ast.Subst
       DA.Daml.LF.Ast.Type

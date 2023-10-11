@@ -51,7 +51,15 @@ in rec {
 
     # Haskell development
     ghc             = bazel_dependencies.ghc;
-    ghcid           = pkgs.haskellPackages.ghcid;
+    # current nixpkgs version has broken ghcid on m1; trying to fix that breaks
+    # all sorts of other things.
+    ghcid           = (let
+                         spec = builtins.fromJSON (builtins.readFile ./nixpkgs/ghcid.src.json);
+                       in
+                         import (builtins.fetchTarball {
+                           url = "https://github.com/${spec.owner}/${spec.repo}/archive/${spec.rev}.tar.gz";
+                           sha256 = spec.sha256;
+                       }) {}).haskellPackages.ghcid;
     hlint           = bazel_dependencies.hlint;
     ghci            = bazel_dependencies.ghc;
 
@@ -152,7 +160,7 @@ in rec {
     '' + pkgs.lib.optionalString (pkgs.buildPlatform.libc == "glibc") ''
       export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive"
     '' + ''
-      exec ${pkgs.bazel_4}/bin/bazel --bazelrc "${bazelrc}" "$@"
+      exec ${pkgs.bazel_5}/bin/bazel --bazelrc "${bazelrc}" "$@"
     '');
 
     # System tools

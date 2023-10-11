@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.{ImmArray, Ref, Struct}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.testing.parser.ParserParameters
@@ -14,22 +14,30 @@ import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class ComparisonSBuiltinTestV1 extends ComparisonSBuiltinTest(LanguageMajorVersion.V1)
+class ComparisonSBuiltinTestV2 extends ComparisonSBuiltinTest(LanguageMajorVersion.V2)
+
+class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
-  import com.daml.lf.testing.parser.Implicits.{defaultParserParameters => _, _}
+  import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 
   private[this] val pkgId1 = Ref.PackageId.assertFromString("-packageId1-")
   private[this] val pkgId2 = Ref.PackageId.assertFromString("-packageId2-")
 
+  val defaultParserParameters = ParserParameters.defaultFor[this.type](majorLanguageVersion)
+
   val parserParameters1: ParserParameters[this.type] =
-    com.daml.lf.testing.parser.Implicits.defaultParserParameters.copy(
+    defaultParserParameters.copy(
       defaultPackageId = pkgId1
     )
 
   val parserParameters2: ParserParameters[this.type] =
-    com.daml.lf.testing.parser.Implicits.defaultParserParameters.copy(
+    defaultParserParameters.copy(
       defaultPackageId = pkgId2
     )
 
@@ -63,8 +71,6 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
           enum A = ;
           enum B = ;
         }
-
-
     """
   }
 
@@ -619,7 +625,10 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
   }
 
   private[this] val compiledPackages =
-    PureCompiledPackages.assertBuild(Map(pkgId1 -> pkg1, pkgId2 -> pkg2))
+    PureCompiledPackages.assertBuild(
+      Map(pkgId1 -> pkg1, pkgId2 -> pkg2),
+      Compiler.Config.Default(majorLanguageVersion),
+    )
 
   private[this] val cidBinderType = {
     implicit def parserParameters: ParserParameters[this.type] = parserParameters1

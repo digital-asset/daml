@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v1/event.proto";
+import "com/daml/ledger/api/v1/trace_context.proto";
 import "com/daml/ledger/api/v1/transaction.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -56,6 +57,17 @@ message TransactionTree {
   // Required
   string domain_id = 8;
 
+  // Optional; ledger api trace context
+  //
+  // The trace context transported in this message corresponds to the trace context supplied
+  // by the client application in a HTTP2 header of the original command submission.
+  // We typically use a header to transfer this type of information. Here we use message
+  // body, because it is used in gRPC streams which do not support per message headers.
+  // This field will be populated with the trace context contained in the original submission.
+  // If that was not provided, a unique ledger-api-server generated trace context will be used
+  // instead.
+  com.daml.ledger.api.v1.TraceContext trace_context = 9;
+
 }
 
 // Filtered view of an on-ledger transaction's create and archive events.
@@ -94,4 +106,15 @@ message Transaction {
   // Identifies the domain that synchronized the transaction.
   // Required
   string domain_id = 7;
+
+  // Optional; ledger api trace context
+  //
+  // The trace context transported in this message corresponds to the trace context supplied
+  // by the client application in a HTTP2 header of the original command submission.
+  // We typically use a header to transfer this type of information. Here we use message
+  // body, because it is used in gRPC streams which do not support per message headers.
+  // This field will be populated with the trace context contained in the original submission.
+  // If that was not provided, a unique ledger-api-server generated trace context will be used
+  // instead.
+  com.daml.ledger.api.v1.TraceContext trace_context = 8;
 }

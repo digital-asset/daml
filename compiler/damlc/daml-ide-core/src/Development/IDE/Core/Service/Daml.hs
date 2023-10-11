@@ -39,6 +39,7 @@ import Development.IDE.Types.Options
 import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
+import DA.Pretty (PrettyLevel)
 
 data DamlEnv = DamlEnv
   { envScenarioService :: Maybe SS.Handle
@@ -58,6 +59,7 @@ data DamlEnv = DamlEnv
   , envAllowLargeTuples :: AllowLargeTuples
   , envStudioAutorunAllScenarios :: StudioAutorunAllScenarios
   , envTestFilter :: T.Text -> Bool
+  , envDetailLevel :: PrettyLevel
   }
 
 instance IsIdeGlobal DamlEnv
@@ -78,6 +80,7 @@ mkDamlEnv opts autorunAllScenarios scenarioService = do
         , envAllowLargeTuples = optAllowLargeTuples opts
         , envStudioAutorunAllScenarios = autorunAllScenarios
         , envTestFilter = optTestFilter opts
+        , envDetailLevel = optDetailLevel opts
         }
 
 getDamlServiceEnv :: Action DamlEnv

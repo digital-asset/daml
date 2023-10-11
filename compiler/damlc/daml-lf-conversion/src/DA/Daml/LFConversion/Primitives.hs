@@ -562,7 +562,7 @@ convertPrim _ "EChoiceObserver"
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
-convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
+convertPrim (isDevVersion->True) (L.stripPrefix "$" -> Just builtin) typ =
     pure $
       EExperimental (T.pack builtin) typ
 
@@ -579,5 +579,9 @@ runtimeError :: Type -> T.Text -> Expr
 runtimeError t msg = ETmApp (ETyApp (EBuiltin BEError) t) (EBuiltin (BEText msg))
 
 featureErrorMessage :: Feature -> T.Text
-featureErrorMessage (Feature name version _) =
-  name <> " only supported when compiling to Daml-LF " <> T.pack (renderVersion version) <> " or later"
+featureErrorMessage (Feature name versionReq _) =
+    mconcat
+        [ name
+        , " only supported when compiling to Daml-LF versions "
+        , T.pack (renderFeatureVersionReq versionReq)
+        ]

@@ -3,6 +3,7 @@
 
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
@@ -53,8 +54,8 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/api-type-signature",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//language-support/codegen-common",
@@ -158,8 +159,7 @@ daml_compile(
         "src/test/daml/Bar.daml",
         "src/test/daml/Retro.daml",
     ],
-    # TODO(#13296) remove when interfaces in default
-    target = lf_version_configuration.get("latest"),
+    target = lf_version_configuration.get("default"),
 )
 
 dar_to_java(
@@ -170,7 +170,7 @@ dar_to_java(
 
 jar_jar(
     name = "shaded_binary",
-    input_jar = "//language-support/java/codegen:codegen_deploy.jar",
+    input_jar = "//language-support/java/codegen:codegen_distribute.jar",
     rules = "shade_rule",
     tags = ["maven_coordinates=com.daml:codegen-java:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -378,7 +378,6 @@ java_test(
 daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
-    enable_scenarios = True,
     # FIXME: https://github.com/digital-asset/daml/issues/12051
     # remove target, once interfaces are stable.
     target = lf_version_configuration.get("latest"),
@@ -410,7 +409,6 @@ da_scala_test(
     deps = [
         ":ledger-tests-model.jar",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton/it-lib",
         "//daml-lf/data",
         "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings-akka",
@@ -422,11 +420,22 @@ da_scala_test(
         "//libs-scala/ledger-resources:ledger-resources-test-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "//test-common/canton/it-lib",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_reactivex_rxjava2_rxjava",
         "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_benchmark_jmh(
+    name = "from-json-bench",
+    srcs = glob(["src/bench/**/*.scala"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":test-model-2.dev.jar",
+        "//language-support/java/bindings:bindings-java",
     ],
 )
 

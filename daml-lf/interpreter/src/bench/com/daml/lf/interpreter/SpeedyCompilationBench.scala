@@ -38,7 +38,9 @@ class SpeedyCompilationBench {
 
   @Benchmark
   def bench(): Unit = {
-    val config = Config.Default.copy(packageValidation = NoPackageValidation)
+    val config = Config
+      .Default(dar.main._2.languageVersion.major)
+      .copy(packageValidation = NoPackageValidation)
     val res = compilePackages(pkgInterface, darMap, config)
     assert(res.isRight)
   }

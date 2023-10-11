@@ -37,6 +37,7 @@ load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew", "dev_env_tool")
 load(
     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
     "nixpkgs_cc_configure",
+    "nixpkgs_java_configure",
     "nixpkgs_local_repository",
     "nixpkgs_package",
     "nixpkgs_python_configure",
@@ -561,7 +562,7 @@ load("@rules_haskell//tools:repositories.bzl", "rules_haskell_worker_dependencie
 # Call this after `daml_haskell_deps` to ensure that the right `stack` is used.
 rules_haskell_worker_dependencies()
 
-load("//bazel_tools:java.bzl", "dadew_java_configure", "nixpkgs_java_configure")
+load("//bazel_tools:java.bzl", "dadew_java_configure")
 
 dadew_java_configure(
     name = "dadew_java_runtime",
@@ -573,6 +574,9 @@ nixpkgs_java_configure(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    toolchain = True,
+    toolchain_name = "nixpkgs_java",
+    toolchain_version = "11",
 ) if not is_windows else None
 
 # rules_go used here to compile a wrapper around the protoc-gen-scala plugin

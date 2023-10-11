@@ -22,10 +22,10 @@ cd "$(dirname "$0")/.."
 # detect the OS
 case $(uname) in
 Linux)
-  os=linux
+  os=ubuntu
   ;;
 Darwin)
-  os=darwin
+  os=macos
   ;;
 MINGW*)
   os=windows
@@ -48,7 +48,6 @@ if [ ! -z "${BAZEL_CONFIG_DIR:-}" ]; then
     cd "$BAZEL_CONFIG_DIR"
 fi
 
-CACHE_URL="https://storage.googleapis.com/daml-bazel-cache"
 
 if is_windows; then
   echo "build --config windows" > .bazelrc.local
@@ -71,12 +70,9 @@ if is_windows; then
   # three characters.
   echo "Working directory: $PWD"
   SUFFIX="$(echo $PWD $RULES_HASKELL_REV | openssl dgst -md5 -r)"
-  SUFFIX="${SUFFIX:0:12}"
-  echo "Platform suffix: $SUFFIX"
-  # We include an extra version at the end that we can bump manually.
-  CACHE_SUFFIX="$SUFFIX-v13"
-  CACHE_URL="$CACHE_URL/$CACHE_SUFFIX"
-  echo "build:windows-ci --remote_http_cache=https://bazel-cache.da-ext.net/$CACHE_SUFFIX" >> .bazelrc.local
+  CACHE_URL="https://storage.googleapis.com/daml-bazel-cache/202309/win/${SUFFIX:0:4}"
+  echo "CACHE_URL=$CACHE_URL"
+  echo "build:windows-ci --remote_cache=$CACHE_URL" >> .bazelrc.local
 fi
 
 # sets up write access to the shared remote cache if the branch is not a fork
@@ -86,5 +82,5 @@ if [[ "${IS_FORK}" = False ]]; then
   echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > "$GOOGLE_APPLICATION_CREDENTIALS"
   unset GOOGLE_APPLICATION_CREDENTIALS_CONTENT
   export GOOGLE_APPLICATION_CREDENTIALS
-  echo "build --remote_http_cache=$CACHE_URL --remote_upload_local_results=true --google_credentials=${GOOGLE_APPLICATION_CREDENTIALS}" >> .bazelrc.local
+  echo "build --remote_upload_local_results=true --google_credentials=${GOOGLE_APPLICATION_CREDENTIALS}" >> .bazelrc.local
 fi

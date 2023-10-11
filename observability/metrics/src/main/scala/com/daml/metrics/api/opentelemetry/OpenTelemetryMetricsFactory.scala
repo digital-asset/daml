@@ -286,14 +286,21 @@ private object AttributesHelper {
     * The labels from all the contexts are added as attributes.
     * If the same label key is defined in multiple contexts, the value from the last metric context will be used.
     */
-  private[opentelemetry] def multiContextAsAttributes(context: MetricsContext*): Attributes = {
-    context
-      .foldLeft(Attributes.builder()) { (builder, context) =>
-        context.labels.foreachEntry { (key, value) =>
+  private[opentelemetry] def multiContextAsAttributes(
+      rootContext: MetricsContext,
+      contexts: MetricsContext*
+  ): Attributes = {
+    val extraLabels = contexts.flatMap(_.labels)
+    // Only create a new Attributes object if the non root contexts contains labels.
+    // Creation of an Attributes object causes re-allocation of the labels array twice which can become
+    // expensive given how often instrumentation methods get executed
+    if (extraLabels.isEmpty) rootContext.asAttributes
+    else
+      (rootContext.labels.toList ++ extraLabels)
+        .foldLeft(Attributes.builder()) { case (builder, (key, value)) =>
           builder.put(key, value)
+          builder
         }
-        builder
-      }
-      .build()
+        .build()
   }
 }

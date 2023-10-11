@@ -13,7 +13,7 @@ import com.daml.lf.speedy.{Compiler, SDefinition}
   * compiled speedy expressions.
   */
 private[lf] abstract class CompiledPackages(
-    compilerConfig: Compiler.Config
+    val compilerConfig: Compiler.Config
 ) {
   def getDefinition(dref: SDefinitionRef): Option[SDefinition]
   def packageIds: scala.collection.Set[PackageId]
@@ -31,7 +31,7 @@ private[lf] final case class PureCompiledPackages(
     val packageIds: Set[PackageId],
     val pkgInterface: PackageInterface,
     val defns: Map[SDefinitionRef, SDefinition],
-    compilerConfig: Compiler.Config,
+    override val compilerConfig: Compiler.Config,
 ) extends CompiledPackages(compilerConfig) {
   override def getDefinition(dref: SDefinitionRef): Option[SDefinition] = defns.get(dref)
 }
@@ -50,7 +50,7 @@ private[lf] object PureCompiledPackages {
 
   def build(
       packages: Map[PackageId, Package],
-      compilerConfig: Compiler.Config = Compiler.Config.Default,
+      compilerConfig: Compiler.Config,
   ): Either[String, PureCompiledPackages] = {
     Compiler
       .compilePackages(PackageInterface(packages), packages, compilerConfig)
@@ -59,11 +59,11 @@ private[lf] object PureCompiledPackages {
 
   def assertBuild(
       packages: Map[PackageId, Package],
-      compilerConfig: Compiler.Config = Compiler.Config.Default,
+      compilerConfig: Compiler.Config,
   ): PureCompiledPackages =
     data.assertRight(build(packages, compilerConfig))
 
-  lazy val Empty: PureCompiledPackages =
-    PureCompiledPackages(Map.empty, Map.empty, Compiler.Config.Default)
+  def Empty(compilerConfig: Compiler.Config): PureCompiledPackages =
+    PureCompiledPackages(Map.empty, Map.empty, compilerConfig)
 
 }

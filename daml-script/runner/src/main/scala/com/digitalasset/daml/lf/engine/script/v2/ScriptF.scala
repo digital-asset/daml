@@ -24,13 +24,11 @@ import com.daml.lf.data.Ref.{
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.daml.lf.language.Ast
-import com.daml.lf.language.StablePackage
+import com.daml.lf.language.{Ast, StablePackagesV2}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SBuiltin.SBVariantCon
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.Speedy.PureMachine
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import scalaz.{Foldable, OneAnd}
@@ -39,7 +37,6 @@ import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.option._
 import com.daml.script.converter.Converter.{toContractId, toText}
-
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.speedy.SBuiltin.SBToAny
 
@@ -48,10 +45,10 @@ import scala.util.{Failure, Success}
 
 object ScriptF {
   val left = SEBuiltin(
-    SBVariantCon(StablePackage.DA.Types.Either, Name.assertFromString("Left"), 0)
+    SBVariantCon(StablePackagesV2.Either, Name.assertFromString("Left"), 0)
   )
   val right = SEBuiltin(
-    SBVariantCon(StablePackage.DA.Types.Either, Name.assertFromString("Right"), 1)
+    SBVariantCon(StablePackagesV2.Either, Name.assertFromString("Right"), 1)
   )
 
   sealed trait Cmd {
@@ -72,10 +69,9 @@ object ScriptF {
       val scriptIds: ScriptIds,
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
-      machine: PureMachine,
+      compiledPackages: CompiledPackages,
   ) {
     def clients = _clients
-    def compiledPackages = machine.compiledPackages
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
       requireV1ContractIdSuffix = false,
@@ -114,7 +110,7 @@ object ScriptF {
         env: Env
     )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
       Future.failed(
-        script.Runner.InterpretationError(
+        free.InterpretationError(
           SError
             .SErrorDamlException(IE.UnhandledException(exc.ty, exc.value.toUnnormalizedValue))
         )
@@ -127,11 +123,11 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
-      runner.runExpr(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
+      runner.run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
         case Success(v) =>
           Future.successful(SEAppAtomic(right, Array(SEValue(v))))
         case Failure(
-              script.Runner.InterpretationError(
+              free.InterpretationError(
                 SError.SErrorDamlException(IE.UnhandledException(typ, value))
               )
             ) =>
@@ -333,9 +329,8 @@ object ScriptF {
     ): Future[SExpr] = {
 
       def makePair(v1: SValue, v2: SValue): SValue = {
-        import com.daml.lf.language.StablePackage.DA
         import com.daml.script.converter.Converter.record
-        record(DA.Types.assertIdentifier("Tuple2"), ("_1", v1), ("_2", v2))
+        record(StablePackagesV2.Tuple2, ("_1", v1), ("_2", v2))
       }
 
       for {
@@ -989,7 +984,7 @@ object ScriptF {
 
   def parse(
       commandName: String,
-      version: Int,
+      version: Long,
       v: SValue,
       stackTrace: StackTrace,
   ): Either[String, Cmd] =

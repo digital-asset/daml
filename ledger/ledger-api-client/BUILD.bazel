@@ -96,7 +96,6 @@ da_scala_test_suite(
     deps = [
         ":ledger-api-client",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton/it-lib",
         "//daml-lf/engine",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
@@ -119,6 +118,7 @@ da_scala_test_suite(
         "//observability/tracing",
         "//test-common",
         "//test-common:dar-files-default-lib",
+        "//test-common/canton/it-lib",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:io_netty_netty_handler",
     ],

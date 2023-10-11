@@ -3,9 +3,10 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.definitions.{DamlErrorWithDefiniteAnswer, LedgerApiErrors}
+import com.daml.error.definitions.{LedgerApiErrors}
 import com.daml.error.{
   ContextualizedErrorLogger,
+  DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
   ErrorGroup,
@@ -13,15 +14,13 @@ import com.daml.error.{
   Explanation,
   Resolution,
 }
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, PackageId}
+import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
-import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
 import com.daml.lf.value.ValueCoder.CidEncoder
 import com.daml.lf.value.{Value, ValueCoder}
-import com.daml.lf.{VersionRange, language}
 
 @Explanation(
   "Errors raised during the command execution phase of the command submission evaluation."
@@ -44,76 +43,6 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
       },
       f,
     )
-
-  @Explanation(
-    """This error occurs if the participant fails to determine the max ledger time of the used
-      |contracts. Most likely, this means that one of the contracts is not active anymore which can
-      |happen under contention. It can also happen with contract keys.
-      |"""
-  )
-  @Resolution("Retry the transaction submission.")
-  object FailedToDetermineLedgerTime
-      extends ErrorCode(
-        id = "FAILED_TO_DETERMINE_LEDGER_TIME",
-        ErrorCategory.ContentionOnSharedResources,
-      ) {
-
-    final case class Reject(reason: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause =
-            s"The participant failed to determine the max ledger time for this command: ${reason}"
-        )
-  }
-
-  @Explanation("Command execution errors raised due to invalid packages.")
-  object Package extends ErrorGroup() {
-    @Explanation(
-      """This error indicates that the uploaded DAR is based on an unsupported language version."""
-    )
-    @Resolution("Use a DAR compiled with a language version that this participant supports.")
-    object AllowedLanguageVersions
-        extends ErrorCode(
-          id = "ALLOWED_LANGUAGE_VERSIONS",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
-
-      def buildCause(
-          packageId: PackageId,
-          languageVersion: LanguageVersion,
-          allowedLanguageVersions: VersionRange[LanguageVersion],
-      ): String =
-        LfError.Package
-          .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions)
-          .message
-
-      final case class Error(
-          packageId: Ref.PackageId,
-          languageVersion: language.LanguageVersion,
-          allowedLanguageVersions: VersionRange[language.LanguageVersion],
-      )(implicit
-          val loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = buildCause(packageId, languageVersion, allowedLanguageVersions)
-          )
-    }
-
-    @Explanation(
-      """This error occurs if a package referred to by a command fails validation. This should not happen as packages are validated when being uploaded."""
-    )
-    @Resolution("Contact support.")
-    object PackageValidationFailed
-        extends ErrorCode(
-          id = "PACKAGE_VALIDATION_FAILED",
-          ErrorCategory.SecurityAlert,
-        ) {
-      final case class Reject(validationErrorCause: String)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = validationErrorCause
-          )
-    }
-  }
 
   @Explanation(
     "Errors raised during command conversion to the internal data representation."
@@ -140,39 +69,6 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
     "Errors raised during the command interpretation phase of the command submission evaluation."
   )
   object Interpreter extends ErrorGroup {
-    @Explanation("""This error occurs if a Daml transaction fails during interpretation.""")
-    @Resolution("This error type occurs if there is an application error.")
-    object GenericInterpretationError
-        extends ErrorCode(
-          id = "DAML_INTERPRETATION_ERROR",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-
-      final case class Error(override val cause: String)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = cause
-          )
-    }
-
-    @Explanation(
-      """This error occurs if a Daml transaction fails during interpretation due to an invalid argument."""
-    )
-    @Resolution("This error type occurs if there is an application error.")
-    object InvalidArgumentInterpretationError
-        extends ErrorCode(
-          id = "DAML_INTERPRETER_INVALID_ARGUMENT",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
-
-      final case class Error(override val cause: String)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = cause
-          )
-
-    }
-
     @Explanation(
       """This error occurs if an exercise or fetch happens on a transaction-locally consumed contract."""
     )
@@ -319,33 +215,6 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
               )
               .getOrElse(Nil)
           }
-      }
-    }
-
-    @Explanation(
-      """This error occurs when a user calls abort or error on an LF version before native exceptions were introduced."""
-    )
-    @Resolution(
-      "Either remove the call to abort, error or perhaps assert, or ensure you are exercising your contract choice as the author expects."
-    )
-    object UserError
-        extends ErrorCode(
-          id = "USER_ERROR",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-
-      final case class Reject(
-          override val cause: String,
-          err: LfInterpretationError.UserError,
-      )(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = cause
-          ) {
-        override def resources: Seq[(ErrorResource, String)] =
-          Seq(
-            (ErrorResource.ExceptionText, err.message)
-          )
       }
     }
 
@@ -593,32 +462,15 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
       }
     }
 
-    @Explanation(
-      """This error is a catch-all for errors thrown by in-development features, and should never be thrown in production."""
-    )
-    @Resolution(
-      "See the error message for details of the specific in-development feature error. If this is production, avoid using development features."
-    )
-    object DevError
-        extends ErrorCode(
-          id = "DEV_ERROR",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
+    @Explanation("This error occurs when you nest values too deeply.")
+    @Resolution("Restructure your code and reduce value nesting.")
+    object ValueNesting
+        extends ErrorCode(id = "VALUE_NESTING", ErrorCategory.InvalidIndependentOfSystemState) {
 
-      final case class Reject(
-          override val cause: String,
-          err: LfInterpretationError.Dev.Error,
-      )(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = cause
-          ) {
-
-        override def resources: Seq[(ErrorResource, String)] =
-          Seq(
-            (ErrorResource.DevErrorType, err.getClass.getSimpleName)
-          )
-      }
+      final case class Reject(override val cause: String, err: LfInterpretationError.ValueNesting)(
+          implicit loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
     }
+
   }
 }

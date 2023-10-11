@@ -12,7 +12,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.StablePackage.DA
+import com.daml.lf.language.StablePackagesV2
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.value.Value.ContractId
@@ -22,7 +22,7 @@ import scalaz.std.either._
 import scalaz.std.option._
 import scalaz.syntax.traverse._
 
-object Converter extends script.ConverterMethods {
+object Converter extends script.ConverterMethods(StablePackagesV2) {
   import com.daml.script.converter.Converter._
 
   def translateExerciseResult(
@@ -147,7 +147,11 @@ object Converter extends script.ConverterMethods {
   ): Either[String, SValue] = {
     for {
       anyTpl <- fromContract(translator, contract)
-    } yield record(DA.Types.Tuple2, ("_1", SContractId(contract.contractId)), ("_2", anyTpl))
+    } yield record(
+      StablePackagesV2.Tuple2,
+      ("_1", SContractId(contract.contractId)),
+      ("_2", anyTpl),
+    )
   }
 
   def fromTransactionTree(

@@ -807,12 +807,12 @@ checkForIncompatibleLfVersions lfTarget dalfs
   | otherwise = Left $ concat
         [ "Targeted LF version "
         , DA.Pretty.renderPretty lfTarget
-        , " but dependencies have newer LF versions: "
+        , " but dependencies have incompatible LF versions: "
         , showDeps incompatibleLfDeps
         ]
   where
     incompatibleLfDeps =
-        filter (\(_, ver) -> ver > lfTarget) $
+        filter (\(_, ver) -> not (lfTarget `LF.canDependOn` ver)) $
             [ ( (LF.dalfPackageId decodedDalfPkg, decodedUnitId)
               , (LF.packageLfVersion . LF.extPackagePkg . LF.dalfPackagePkg) decodedDalfPkg
               )

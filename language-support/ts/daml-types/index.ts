@@ -696,3 +696,33 @@ export const Map = <K, V>(
   encode: (m: Map<K, V>): unknown =>
     m.entriesArray().map(e => [kd.encode(e[0]), vd.encode(e[1])]),
 });
+
+/**
+ * A disclosed contract that can be passed on a command submission.
+ * @property contractId the contract id of the contract.
+ * @property templateId the template id of the contract.
+ * @property payload The encoded payload of the contract as
+ *    obtained from the {@link Serializable.encode} method.
+ *    Either this or payloadBlob must be set.
+ * @property payloadBlob The payloadBlob as obtained from an interface subscription.
+ *    Either this or payload must be set.
+ * @property metadata The contract metadata
+ */
+export type DisclosedContract = {
+  contractId: ContractId<unknown>;
+  templateId: string;
+  metadata: ContractMetadata;
+} & DisclosedContractPayload;
+
+export type DisclosedContractPayload =
+  | { payload: unknown }
+  | { payloadBlob: string };
+
+/**
+ * Contract metadata that is required as part of a disclosed contract.
+ */
+export type ContractMetadata = {
+  createdAt: string;
+  contractKeyHash: string;
+  driverMetadata: string;
+};

@@ -10,6 +10,7 @@ import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{Identifier, Location, Party, QualifiedName}
 import com.daml.lf.data.Time
 import com.daml.lf.language.Ast.EVal
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SExpr.{SEValue, SExpr}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
@@ -49,10 +50,13 @@ private[lf] class CollectAuthorityState {
     val darFile = new File(if (dar.startsWith("//")) rlocation(dar.substring(2)) else dar)
     val packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
+    // TODO(#17366): port the benchmark to LF v2 if that makes sense
     val compilerConfig =
-      Compiler.Config.Default.copy(
-        stacktracing = Compiler.NoStackTrace
-      )
+      Compiler.Config
+        .Default(LanguageMajorVersion.V1)
+        .copy(
+          stacktracing = Compiler.NoStackTrace
+        )
 
     val compiledPackages = PureCompiledPackages.assertBuild(packages.all.toMap, compilerConfig)
     val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))

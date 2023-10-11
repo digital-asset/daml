@@ -10,7 +10,8 @@ import com.daml.ledger.api.v1.value
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.StablePackage.DA
+import com.daml.lf.language.LanguageMajorVersion.{V1, V2}
+import com.daml.lf.language.{LanguageMajorVersion, StablePackages}
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
@@ -68,23 +69,17 @@ final case class AnyTemplate(ty: Identifier, arg: SValue)
 final case class AnyChoice(name: ChoiceName, arg: SValue)
 final case class AnyContractKey(templateId: Identifier, ty: Type, key: SValue)
 // frames ordered from most-recent to least-recent
-final case class StackTrace(frames: Vector[Location]) {
-  // Return the most recent frame
-  def topFrame: Option[Location] =
-    frames.headOption
-  def pretty(l: Location) =
-    s"${l.definition} at ${l.packageId}:${l.module}:${l.start._1}"
-  def pretty(): String =
-    frames.map(pretty(_)).mkString("\n")
 
-}
-object StackTrace {
-  val empty: StackTrace = StackTrace(Vector.empty)
+object Converter {
+  def apply(majorLanguageVersion: LanguageMajorVersion): ConverterMethods = {
+    majorLanguageVersion match {
+      case V1 => com.daml.lf.engine.script.v1.Converter
+      case V2 => com.daml.lf.engine.script.v2.Converter
+    }
+  }
 }
 
-object Converter extends ConverterMethods
-
-trait ConverterMethods {
+abstract class ConverterMethods(stablePackages: StablePackages) {
   import com.daml.script.converter.Converter._
 
   private def toNonEmptySet[A](as: OneAnd[FrontStack, A]): OneAnd[Set, A] = {
@@ -107,7 +102,7 @@ trait ConverterMethods {
   }
 
   private[lf] def fromTemplateTypeRep(templateId: value.Identifier): SValue =
-    record(DA.Internal.Any.TemplateTypeRep, ("getTemplateTypeRep", fromIdentifier(templateId)))
+    record(stablePackages.TemplateTypeRep, ("getTemplateTypeRep", fromIdentifier(templateId)))
 
   private[lf] def fromAnyContractId(
       scriptIds: ScriptIds,
@@ -138,7 +133,7 @@ trait ConverterMethods {
         .left
         .map(err => s"Failed to translate create argument: $err")
     } yield record(
-      DA.Internal.Any.AnyTemplate,
+      stablePackages.AnyTemplate,
       ("getAnyTemplate", SAny(TTyCon(templateId), translated)),
     )
   }
@@ -174,7 +169,7 @@ trait ConverterMethods {
         .left
         .map(err => s"Failed to translate exercise argument: $err")
     } yield record(
-      DA.Internal.Any.AnyChoice,
+      stablePackages.AnyChoice,
       ("getAnyChoice", SAny(choice.argBinder._2, translated)),
       (
         "getAnyChoiceTemplateTypeRep",
@@ -232,12 +227,12 @@ trait ConverterMethods {
 
   def fromAnyContractKey(key: AnyContractKey): SValue =
     record(
-      DA.Internal.Any.AnyContractKey,
+      stablePackages.AnyContractKey,
       ("getAnyContractKey", SAny(key.ty, key.key)),
       (
         "getAnyContractKeyTemplateTypeRep",
         record(
-          DA.Internal.Any.TemplateTypeRep,
+          stablePackages.TemplateTypeRep,
           ("getTemplateTypeRep", STypeRep(TTyCon(key.templateId))),
         ),
       ),
@@ -496,10 +491,9 @@ trait ConverterMethods {
     def damlLfTypeLookup(id: Identifier): Option[typesig.DefDataType.FWT] =
       environmentSignature.typeDecls.get(id).map(_.`type`)
     for {
-      paramIface <- Converter
-        .toIfaceType(ctx, ty)
-        .left
-        .map(s => s"Failed to convert $ty: $s")
+      paramIface <-
+        toIfaceType(ctx, ty).left
+          .map(s => s"Failed to convert $ty: $s")
       lfValue <-
         try {
           Right(

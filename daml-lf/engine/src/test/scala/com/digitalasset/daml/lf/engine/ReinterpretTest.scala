@@ -5,15 +5,15 @@ package com.daml.lf
 package engine
 
 import java.io.File
-
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.{Node, NodeId, Transaction, SubmittedTransaction}
+import com.daml.lf.transaction.{Node, NodeId, SubmittedTransaction, Transaction}
 import com.daml.lf.value.Value._
 import com.daml.lf.command.ReplayCommand
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -23,7 +23,10 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class ReinterpretTest
+class ReinterpretTestV1 extends ReinterpretTest(LanguageMajorVersion.V1)
+class ReinterpretTestV2 extends ReinterpretTest(LanguageMajorVersion.V2)
+
+class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -42,7 +45,7 @@ class ReinterpretTest
   }
 
   private val (miniTestsPkgId, allPackages) = loadPackage(
-    "daml-lf/tests/ReinterpretTests.dar"
+    s"daml-lf/tests/ReinterpretTests-v${majorLanguageVersion.pretty}.dar"
   )
 
   private val defaultContracts: Map[ContractId, VersionedContractInstance] =
@@ -61,7 +64,7 @@ class ReinterpretTest
 
   private val engine = new Engine(
     EngineConfig(
-      allowedLanguageVersions = language.LanguageVersion.DevVersions,
+      allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
       requireSuffixedGlobalContractId = true,
     )
   )
@@ -148,6 +151,9 @@ class ReinterpretTest
     }
 
     "rollback version 14 contract creation" in {
+      // LF v2 does not need to ensure compatibility with v1.14
+      assume(majorLanguageVersion == LanguageMajorVersion.V1)
+
       val choiceName = "Contract14ThenThrow"
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
@@ -166,6 +172,9 @@ class ReinterpretTest
     }
 
     "not rollback version 13 contract creation" in {
+      // LF v2 does not need to ensure compatibility with v1.13
+      assume(majorLanguageVersion == LanguageMajorVersion.V1)
+
       val choiceName = "Contract13ThenThrow"
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")

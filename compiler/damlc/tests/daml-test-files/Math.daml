@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @SINCE-LF-FEATURE DAML_NAT_TYPE_ERASURE
+-- @SUPPORTS-LF-FEATURE DAML_NAT_TYPE_ERASURE
 -- @INFO range=49:22-49:32; Use sqrt
 -- @INFO range=68:15-68:25; Use sqrt
 

@@ -316,6 +316,17 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
 }
 
 object TransactionServiceCorrectnessIT {
+
+  // Erase span id from the trace context. It is an element of the trace context that
+  // is different on the different participants that are handling the transaction stream
+  // requests. See https://www.w3.org/TR/trace-context/#header-name for the format details.
+  def eraseSpanId(parentTraceId: String): String =
+    parentTraceId.split("-").toList match {
+      case ver :: traceId :: _ :: rest =>
+        (ver :: traceId :: "0123456789abcdef" :: rest).mkString("-")
+      case _ => parentTraceId
+    }
+
   // Strip command id, offset, event id and transaction id to yield a transaction comparable across participants
   // Furthermore, makes sure that the order is not relevant for witness parties
   // Sort by transactionId as on distributed ledgers updates can occur in different orders
@@ -337,6 +348,7 @@ object TransactionServiceCorrectnessIT {
           events = t.events
             .map(e => e.copy(event = stripEventId(e.event)).modifyWitnessParties(_.sorted)),
           transactionId = "transactionId",
+          traceContext = t.traceContext.map(tc => tc.copy(tc.traceparent.map(eraseSpanId))),
         )
       )
   }
@@ -368,6 +380,7 @@ object TransactionServiceCorrectnessIT {
           }.toMap,
           transactionId = "transactionId",
           rootEventIds = t.rootEventIds.map(_ => "eventId"),
+          traceContext = t.traceContext.map(tc => tc.copy(tc.traceparent.map(eraseSpanId))),
         )
       )
   }

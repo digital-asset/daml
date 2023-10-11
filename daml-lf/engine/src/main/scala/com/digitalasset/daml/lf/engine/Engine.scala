@@ -22,8 +22,14 @@ import com.daml.lf.transaction.{
 
 import java.nio.file.Files
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
-import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackage}
+import com.daml.lf.value.Value.ContractId
+import com.daml.lf.language.{
+  LanguageMajorVersion,
+  LanguageVersion,
+  LookupError,
+  PackageInterface,
+  StablePackages,
+}
 import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
@@ -64,7 +70,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
   private[this] val compiledPackages = ConcurrentCompiledPackages(config.getCompilerConfig)
 
-  private[this] val stablePackageIds = StablePackage.ids(config.allowedLanguageVersions)
+  private[this] val stablePackageIds = StablePackages.ids(config.allowedLanguageVersions)
 
   private[engine] val preprocessor =
     new preprocessing.Preprocessor(
@@ -304,6 +310,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
+
     val machine = UpdateMachine(
       compiledPackages = compiledPackages,
       submissionTime = submissionTime,
@@ -385,7 +392,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       }
 
     @scala.annotation.tailrec
-    def loop(): Result[(SubmittedTransaction, Tx.Metadata)] =
+    def loop: Result[(SubmittedTransaction, Tx.Metadata)] = {
       machine.run() match {
 
         case SResultQuestion(question) =>
@@ -413,11 +420,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               // TODO https://github.com/digital-asset/daml/issues/16154 (dynamic-exercise)
               // For now this just continues with the input package id
               callback(pid0)
-              loop()
+              loop
 
             case Question.Update.NeedTime(callback) =>
               callback(time)
-              loop()
+              loop
 
             case Question.Update.NeedPackage(pkgId, context, callback) =>
               Result.needPackage(
@@ -431,12 +438,41 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 },
               )
 
-            case Question.Update.NeedContract(contractId, _, callback) =>
+            case Question.Update.NeedContract(coid, _, callback) =>
               Result.needContract(
-                contractId,
-                { coinst: VersionedContractInstance =>
+                coid,
+                { coinst =>
                   callback(coinst.unversioned)
                   interpretLoop(machine, time)
+                },
+              )
+
+            case Question.Update.NeedUpgradeVerification(
+                  coid,
+                  signatories,
+                  observers,
+                  keyOpt,
+                  callback,
+                ) =>
+              ResultNeedUpgradeVerification(
+                coid,
+                signatories,
+                observers,
+                keyOpt,
+                {
+                  case None =>
+                    callback()
+                    interpretLoop(machine, time)
+                  case Some(mes) =>
+                    // TODO: https://github.com/digital-asset/daml/issues/17082
+                    // - we need a new interpretation.Error for this
+                    ResultError(
+                      Error.Interpretation.Internal(
+                        NameOf.qualifiedNameOfCurrentFunc,
+                        s"Ledger refused upgrade verification with message: $mes",
+                        None,
+                      )
+                    )
                 },
               )
 
@@ -459,8 +495,9 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         case SResultError(err) =>
           handleError(err, detailMsg)
       }
+    }
 
-    loop()
+    loop
   }
 
   def clearPackages(): Unit = compiledPackages.clear()
@@ -592,7 +629,7 @@ object Engine {
 
   def StableEngine(): Engine = new Engine(StableConfig)
 
-  def DevEngine(): Engine = new Engine(
-    StableConfig.copy(allowedLanguageVersions = LanguageVersion.DevVersions)
+  def DevEngine(majorLanguageVersion: LanguageMajorVersion): Engine = new Engine(
+    StableConfig.copy(allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion))
   )
 }

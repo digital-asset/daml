@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @SUPPORTS-LF-FEATURE DAML_INTERFACE
 
 -- | Test interface conversion functions specifically.
 module InterfaceConversions where
@@ -101,7 +101,7 @@ template Test
         nonconsuming choice ArchiveFromInterface : ()
             controller party
             do useActionFrom party $ \cid -> archive cid
-        
+
         nonconsuming choice VoidCoerceInterface : ()
             controller party
             do useActionCoerce party $ \_cid -> pure ()

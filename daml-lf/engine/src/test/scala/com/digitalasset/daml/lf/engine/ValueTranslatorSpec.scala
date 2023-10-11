@@ -6,30 +6,38 @@ package engine
 package preprocessing
 
 import com.daml.lf.data._
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.ArrayList
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
+import com.daml.lf.speedy.Compiler
 
 import scala.util.{Failure, Success, Try}
 
-class ValueTranslatorSpec
+class ValueTranslatorSpecV1 extends ValueTranslatorSpec(LanguageMajorVersion.V1)
+class ValueTranslatorSpecV2 extends ValueTranslatorSpec(LanguageMajorVersion.V2)
+
+class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Inside
     with Matchers
     with TableDrivenPropertyChecks {
 
-  import com.daml.lf.testing.parser.Implicits._
+  import com.daml.lf.testing.parser.Implicits.SyntaxHelper
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 
+  private[this] implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+    ParserParameters.defaultFor(majorLanguageVersion)
+
   private[this] implicit val defaultPackageId: Ref.PackageId =
-    defaultParserParameters.defaultPackageId
+    parserParameters.defaultPackageId
 
   private[this] val aCid =
     ContractId.V1.assertBuild(
@@ -57,7 +65,9 @@ class ValueTranslatorSpec
         }
     """
 
-  private[this] val compiledPackage = ConcurrentCompiledPackages()
+  private[this] val compiledPackage = ConcurrentCompiledPackages(
+    Compiler.Config.Default(majorLanguageVersion)
+  )
   assert(compiledPackage.addPackage(defaultPackageId, pkg) == ResultDone.Unit)
 
   "translateValue" should {

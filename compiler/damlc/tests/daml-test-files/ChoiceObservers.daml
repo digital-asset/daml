@@ -3,20 +3,20 @@
 
 module ChoiceObservers where
 
--- @SINCE-LF 1.11
+-- @SINCE-LF 1.11 2.0
 
 -- @QUERY-LF [ $pkg | .modules[] | .templates[] | select(lf::get_template_name($pkg) == ["TheTemplate"]) | .choices[] | select(lf::get_name($pkg) == "C1") | .observers | has("nil") ] == [ true ]
 
 -- @QUERY-LF [ $pkg | .modules[] | .templates[] | select(lf::get_template_name($pkg) == ["TheTemplate"]) | .choices[] | select(lf::get_name($pkg) == "C2") | .observers | has("app") ] == [ true ]
 
+another : Party -> Party
+another s = s
 
 template TheTemplate
   with
     s : Party
   where
     signatory s
-
-    let another = s
 
     -- Existing syntax: choice with controller.
     choice C1 : () with xs : [Party]
@@ -35,6 +35,6 @@ template TheTemplate
       do return ()
 
     choice C4 : () with ys : [Party]
-      observer [this.s, s, another] ++ arg.ys ++ ys -- check everything is correctly in scope
+      observer [this.s, s, another s] ++ arg.ys ++ ys -- check everything is correctly in scope
       controller ys
       do return ()

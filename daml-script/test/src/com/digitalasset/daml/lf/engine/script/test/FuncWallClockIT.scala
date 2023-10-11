@@ -6,11 +6,14 @@ package com.daml.lf.engine.script.test
 import java.time.Duration
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.script.ScriptTimeMode
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue.SRecord
 
-final class FuncWallClockIT extends AbstractFuncIT {
-  import AbstractScriptTest._
+class FuncWallClockITV1 extends FuncWallClockIT(LanguageMajorVersion.V1)
+class FuncWallClockITV2 extends FuncWallClockIT(LanguageMajorVersion.V2)
 
+class FuncWallClockIT(override val majorLanguageVersion: LanguageMajorVersion)
+    extends AbstractFuncIT {
   protected override lazy val timeMode = ScriptTimeMode.WallClock
 
   "testSleep" should {

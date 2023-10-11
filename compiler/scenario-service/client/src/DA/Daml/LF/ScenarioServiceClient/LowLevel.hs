@@ -48,7 +48,7 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 import DA.Daml.LF.Mangling
-import DA.Daml.Options.Types (EnableScenarios (..))
+import DA.Daml.Options.Types (EnableScenarios (..), EvaluationOrder (..))
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -88,6 +88,7 @@ data Options = Options
   , optLogError :: String -> IO ()
   , optDamlLfVersion :: LF.Version
   , optEnableScenarios :: EnableScenarios
+  , optEvaluationOrder :: EvaluationOrder
   }
 
 type TimeoutSeconds = Int64
@@ -113,8 +114,9 @@ data ContextUpdate = ContextUpdate
   }
 
 encodeScenarioModule :: LF.Version -> LF.Module -> BS.ByteString
-encodeScenarioModule version m = case version of
-    LF.V1{} -> BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
+encodeScenarioModule version m =
+    -- TODO(#17366): encode V2 separately once the formats diverge
+    BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
 
 data BackendError
   = BErrorClient ClientError
@@ -226,7 +228,7 @@ withScenarioService opts@Options{..} f = do
     [ optJvmOptions
     , ["-jar" , optServerJar]
     , ["--max-inbound-message-size=" <> show size | Just size <- [optGrpcMaxMessageSize]]
-    , ["--enable-scenarios=" <> show b | EnableScenarios b <- [optEnableScenarios]]
+    , ["--evaluation-order=" <> show optEvaluationOrder]
     ]
 
   exitExpected <- newIORef False
@@ -288,6 +290,7 @@ newCtx Handle{..} = do
       (SS.scenarioServiceNewContext hClient)
       (optGrpcTimeout hOptions)
       (SS.NewContextRequest
+         (TL.pack $ LF.renderMajorVersion $ LF.versionMajor $ optDamlLfVersion hOptions)
          (TL.pack $ LF.renderMinorVersion $ LF.versionMinor $ optDamlLfVersion hOptions)
          (optEvaluationTimeout hOptions)
       )

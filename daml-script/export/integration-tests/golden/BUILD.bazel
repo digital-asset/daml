@@ -9,7 +9,7 @@ load("//rules_daml:daml.bzl", "daml_compile", "daml_test")
 # make sure that the documentation stays up-to-date.
 daml_ledger_export_test(
     name = "matches-docs-test",
-    dar = "//daml-script/test:script-test.dar",
+    dar = "//daml-script/test:script-test-v1.dar",
     expected_args_json = "//docs:source/tools/export/output-root/args.json",
     expected_daml = "//docs:source/tools/export/output-root/Export.daml",
     expected_daml_yaml = "//docs:source/tools/export/output-root/daml.yaml",

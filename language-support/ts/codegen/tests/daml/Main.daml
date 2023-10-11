@@ -225,3 +225,15 @@ interface Cloneable where
     controller getCloner this
     do
       cloneSelf this <&> (, "cloned " <> getSelfKind this <> ": " <> echo)
+
+template ReferenceData
+  with
+    p : Party
+  where
+    signatory p
+
+    nonconsuming choice ReferenceData_Fetch : ReferenceData
+      with
+        fetcher : Party
+      controller fetcher
+      do pure this

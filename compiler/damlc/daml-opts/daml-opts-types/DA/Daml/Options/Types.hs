@@ -8,6 +8,7 @@ module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
     , EnableScenarios(..)
+    , EvaluationOrder(..)
     , AllowLargeTuples(..)
     , StudioAutorunAllScenarios(..)
     , SkipScenarioValidation(..)
@@ -81,6 +82,8 @@ data Options = Options
     -- ^ The target Daml-LF version
   , optLogLevel :: Logger.Priority
     -- ^ Min log level that we display
+  , optDetailLevel :: PrettyLevel
+    -- ^ Level of detail in pretty printed output
   , optGhcCustomOpts :: [String]
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   , optScenarioService :: EnableScenarioService
@@ -185,6 +188,11 @@ newtype AllowLargeTuples = AllowLargeTuples { getAllowLargeTuples :: Bool }
 newtype StudioAutorunAllScenarios = StudioAutorunAllScenarios { getStudioAutorunAllScenarios :: Bool }
     deriving Show
 
+data EvaluationOrder
+  = LeftToRight
+  | RightToLeft
+  deriving (Read, Show, Eq)
+
 damlArtifactDir :: FilePath
 damlArtifactDir = ".daml"
 
@@ -245,6 +253,7 @@ defaultOptions mbVersion =
         , optThreads = 1
         , optDamlLfVersion = fromMaybe LF.versionDefault mbVersion
         , optLogLevel = Logger.Info
+        , optDetailLevel = DA.Pretty.prettyNormal
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
         , optEnableScenarios = EnableScenarios False

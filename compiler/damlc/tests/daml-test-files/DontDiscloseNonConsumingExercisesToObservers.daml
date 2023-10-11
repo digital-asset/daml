@@ -1,0 +1,41 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module DontDiscloseNonConsumingExercisesToObservers where
+
+import Daml.Script
+
+template NonObservable with
+    p : Party
+    obs : Party
+  where
+    signatory p
+    observer obs
+
+    nonconsuming choice CreateEvent : ContractId Event
+      controller p
+      do create $ Event p
+
+template Event with
+    p : Party
+  where
+    signatory p
+
+template FetchHelper with
+    p : Party
+  where
+    signatory p
+    choice FetchExe : Event
+      with cid : ContractId Event
+      controller p
+      do fetch cid
+
+-- Bob should not be able to fetch when DontDiscloseNonConsumingExercisesToObservers is set,
+-- because he is only an observer and the choice CreateEvent is non-consuming.
+-- @ERROR range=37:1-37:49; Attempt to fetch or exercise a contract not visible to the reading parties.
+test_DontDiscloseNonConsumingExercisesToObervers : Script Event
+test_DontDiscloseNonConsumingExercisesToObervers = script do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  cid <- submit alice $ createAndExerciseCmd (NonObservable alice bob) CreateEvent
+  submit bob $ createAndExerciseCmd (FetchHelper bob) (FetchExe cid)

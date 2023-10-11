@@ -78,7 +78,7 @@ trait JsonApiFixture
 
   private val secret = "secret"
 
-  val darFile = rlocation(Paths.get("daml-script/test/script-test.dar"))
+  val darFile = rlocation(Paths.get("daml-script/test/script-test-v1.dar"))
 
   val darFileNoLedger = rlocation(Paths.get("daml-script/test/script-test-no-ledger.dar"))
 

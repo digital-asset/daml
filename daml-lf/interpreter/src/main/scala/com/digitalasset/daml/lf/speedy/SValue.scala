@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import java.util
-import com.daml.lf.data._
+import com.daml.lf.data.{TreeMap => _, _}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SExpr.SExpr
@@ -15,9 +15,8 @@ import com.daml.lf.value.{Value => V}
 import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 
-import scala.collection.IndexedSeqView
 import scala.jdk.CollectionConverters._
-import scala.collection.immutable.{SortedMap, TreeMap}
+import scala.collection.immutable.TreeMap
 import scala.util.hashing.MurmurHash3
 
 /** Speedy values. These are the value types recognized by the
@@ -57,9 +56,8 @@ sealed abstract class SValue {
 
     def go(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): V = {
       if (maxNesting < 0)
-        Speedy.throwLimitError(
-          NameOf.qualifiedNameOfCurrentFunc,
-          interpretation.Error.Dev.Limit.ValueNesting(V.MAXIMUM_NESTING),
+        throw SError.SErrorDamlException(
+          interpretation.Error.ValueNesting(V.MAXIMUM_NESTING)
         )
 
       val nextMaxNesting = maxNesting - 1
@@ -75,10 +73,12 @@ sealed abstract class SValue {
         case r: SRecord =>
           V.ValueRecord(
             maybeEraseTypeInfo(r.id),
-            r.fields.map { case field =>
-              val sv = r.lookupField(field)
-              (maybeEraseTypeInfo(field), go(sv, nextMaxNesting))
-            },
+            r.fields.toSeq.zipWithIndex
+              .map { case (field, fieldNum) =>
+                val sv = r.lookupField(fieldNum, field)
+                (maybeEraseTypeInfo(field), go(sv, nextMaxNesting))
+              }
+              .to(ImmArray),
           )
         case SVariant(id, variant, _, sv) =>
           V.ValueVariant(maybeEraseTypeInfo(id), variant, go(sv, nextMaxNesting))
@@ -179,8 +179,8 @@ object SValue {
     def id: Identifier
     def fields: ImmArray[Name]
     def values: util.ArrayList[SValue]
-    def lookupField(field: Name): SValue
-    def updateField(field: Name, value: SValue): SRecord
+    def lookupField(fieldNum: Int, field: Name): SValue
+    def updateField(fieldNum: Int, field: Name, value: SValue): SRecord
   }
 
   object SRecord {
@@ -191,8 +191,7 @@ object SValue {
           s"SRecord.apply(#fields=${fields.length}; #values=${values.size}: mismatch!\n- fields=${fields}\n- values=${values}",
         )
       }
-      val zipped = (fields.toSeq zip values.asScala).toList
-      SRecordRep(id, fields, zipped.toMap)
+      SRecordRep(id, fields, values)
     }
     def unapply(x: SRecord): Option[(Identifier, ImmArray[Name], util.ArrayList[SValue])] = {
       Some((x.id, x.fields, x.values))
@@ -200,26 +199,20 @@ object SValue {
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  final case class SRecordRep(id: Identifier, fields: ImmArray[Name], dict: Map[Name, SValue])
-      extends SRecord {
+  final case class SRecordRep(
+      id: Identifier,
+      fields: ImmArray[Name],
+      values: util.ArrayList[SValue],
+  ) extends SRecord {
 
-    def lookupField(field: Name): SValue = {
-      dict.get(field) match {
-        case Some(v) => v
-        case None =>
-          throw SError.SErrorCrash(
-            NameOf.qualifiedNameOfCurrentFunc,
-            s"SRecord.lookupField($field) : no such field, have:[$fields]",
-          )
-      }
+    def lookupField(fieldNum: Int, field: Name): SValue = {
+      values.get(fieldNum)
     }
 
-    def updateField(field: Name, value: SValue): SRecord = {
-      this.copy(dict = dict + (field -> value))
-    }
-
-    def values: util.ArrayList[SValue] = {
-      fields.toSeq.map(this.lookupField).to(ArrayList)
+    def updateField(fieldNum: Int, field: Name, value: SValue): SRecord = {
+      val values2: util.ArrayList[SValue] = values.clone.asInstanceOf[util.ArrayList[SValue]]
+      discard(values2.set(fieldNum, value))
+      this.copy(values = values2)
     }
   }
 
@@ -269,53 +262,13 @@ object SValue {
       */
     def fromOrderedEntries(
         isTextMap: Boolean,
-        entries: IndexedSeqView[(SValue, SValue)],
-    ): SMap = {
-      require(
-        entries
-          .foldLeft[(Boolean, Option[SValue])]((true, None)) {
-            case ((result, previousKey), (currentKey, _)) =>
-              (result && previousKey.forall(`SMap Ordering`.lteq(_, currentKey)), Some(currentKey))
-          }
-          ._1,
-        "The entries are not in descending order",
-      )
-
-      val sortedEntryMap: SortedMap[SValue, SValue] = new SortedMap[SValue, SValue] {
-        private[this] val encapsulatedSortedMap = SortedMap.from(entries)
-
-        override def iterator: Iterator[(SValue, SValue)] = entries.iterator
-
-        override def size: Int = entries.size
-
-        override def ordering: Ordering[SValue] = `SMap Ordering`
-
-        override def updated[V1 >: SValue](key: SValue, value: V1): SortedMap[SValue, V1] =
-          encapsulatedSortedMap.updated(key, value)
-
-        override def removed(key: SValue): SortedMap[SValue, SValue] =
-          encapsulatedSortedMap.removed(key)
-
-        override def iteratorFrom(start: SValue): Iterator[(SValue, SValue)] =
-          encapsulatedSortedMap.iteratorFrom(start)
-
-        override def keysIteratorFrom(start: SValue): Iterator[SValue] =
-          encapsulatedSortedMap.keysIteratorFrom(start)
-
-        override def rangeImpl(
-            from: Option[SValue],
-            until: Option[SValue],
-        ): SortedMap[SValue, SValue] = encapsulatedSortedMap.rangeImpl(from, until)
-
-        override def get(key: SValue): Option[SValue] = encapsulatedSortedMap.get(key)
-      }
-
-      SMap(isTextMap, TreeMap.from(sortedEntryMap))
-    }
+        entries: Iterable[(SValue, SValue)],
+    ): SMap = SMap(isTextMap, data.TreeMap.fromOrderedEntries(entries))
 
     /** Build an SMap from an iterator over SValue key/value pairs.
       *
       * SValue keys are not assumed to be ordered - hence the SMap will be built in time O(n log(n)).
+      * If keys are duplicate, the last overrides the firsts
       */
     def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap =
       SMap(
@@ -369,13 +322,13 @@ object SValue {
     }
   }
 
-  object SArithmeticError {
-    val fields: ImmArray[Ref.Name] = ImmArray(ValueArithmeticError.fieldName)
+  class SArithmeticError(valueArithmeticError: ValueArithmeticError) {
+    val fields: ImmArray[Ref.Name] = ImmArray(valueArithmeticError.fieldName)
     def apply(builtinName: String, args: ImmArray[String]): SAny = {
       val array = ArrayList.single[SValue](
         SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
       )
-      SAny(ValueArithmeticError.typ, SRecord(ValueArithmeticError.tyCon, fields, array))
+      SAny(valueArithmeticError.typ, SRecord(valueArithmeticError.tyCon, fields, array))
     }
   }
 

@@ -3,6 +3,7 @@
 
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
     "da_scala_library",
     "da_scala_test",
     "kind_projector_plugin",
@@ -51,4 +52,10 @@ da_scala_test(
         "//daml-lf/data-scalacheck",
         "//libs-scala/scalatest-utils",
     ],
+)
+
+da_scala_benchmark_jmh(
+    name = "treemap-bench",
+    srcs = ["src/bench/scala/com/daml/lf/TreeMapBench.scala"],
+    deps = ["//daml-lf/data"],
 )

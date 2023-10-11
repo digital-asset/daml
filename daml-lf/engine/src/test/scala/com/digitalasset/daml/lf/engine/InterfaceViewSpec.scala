@@ -6,13 +6,15 @@ package engine
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.lf.data.Ref.{PackageId, QualifiedName, Identifier, Party}
-import com.daml.lf.data.{ImmArray}
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
+import com.daml.lf.data.ImmArray
 import com.daml.lf.language.Ast.Package
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ValueBool, ValueRecord, ValueParty, ValueInt64}
+import com.daml.lf.value.Value.{ValueBool, ValueInt64, ValueParty, ValueRecord}
 import com.daml.logging.LoggingContext
+
 import java.io.File
 import org.scalatest.EitherValues
 import org.scalatest.Inside.inside
@@ -21,6 +23,9 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
+class InterfaceViewSpecV1 extends InterfaceViewSpec(LanguageMajorVersion.V1)
+class InterfaceViewSpecV2 extends InterfaceViewSpec(LanguageMajorVersion.V2)
+
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any",
@@ -28,7 +33,11 @@ import scala.language.implicitConversions
     "org.wartremover.warts.Product",
   )
 )
-class InterfaceViewSpec extends AnyWordSpec with Matchers with EitherValues with BazelRunfiles {
+class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with Matchers
+    with EitherValues
+    with BazelRunfiles {
 
   import InterfaceViewSpec._
 
@@ -41,12 +50,12 @@ class InterfaceViewSpec extends AnyWordSpec with Matchers with EitherValues with
   }
 
   private val (interfaceviewsPkgId, interfaceviewsPkg, allPackages) = loadPackage(
-    "daml-lf/tests/InterfaceViews.dar"
+    s"daml-lf/tests/InterfaceViews-v${majorLanguageVersion.pretty}.dar"
   )
 
   val interfaceviewsSignatures =
     language.PackageInterface(Map(interfaceviewsPkgId -> interfaceviewsPkg))
-  val engine = Engine.DevEngine()
+  val engine = Engine.DevEngine(majorLanguageVersion)
 
   private def id(s: String) = Identifier(interfaceviewsPkgId, s"InterfaceViews:$s")
 
@@ -141,8 +150,4 @@ object InterfaceViewSpec {
 
   implicit def qualifiedNameStr(s: String): QualifiedName =
     QualifiedName.assertFromString(s)
-
-//  private implicit def toName(s: String): Name =
-//    Name.assertFromString(s)
-
 }

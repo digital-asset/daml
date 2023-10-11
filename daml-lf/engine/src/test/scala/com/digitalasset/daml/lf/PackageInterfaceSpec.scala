@@ -8,25 +8,32 @@ import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface.{DataEnumInfo, DataRecordInfo, DataVariantInfo}
+import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.{Assertion, Inside}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop._
 import org.scalatest.wordspec.AnyWordSpec
 
-class PackageInterfaceSpec
+class PackageInterfaceSpecV1 extends PackageInterfaceSpec(LanguageMajorVersion.V1)
+class PackageInterfaceSpecV2 extends PackageInterfaceSpec(LanguageMajorVersion.V2)
+
+class PackageInterfaceSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
     with Inside {
 
-  import com.daml.lf.testing.parser.Implicits._
+  import com.daml.lf.testing.parser.Implicits.SyntaxHelper
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 
   // TODO https://github.com/digital-asset/daml/issues/12051
   //  test interfaces
 
+  implicit val parserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+
   private[this] implicit val defaultPackageId: Ref.PackageId =
-    defaultParserParameters.defaultPackageId
+    parserParameters.defaultPackageId
 
   private[this] val pkg =
     p"""

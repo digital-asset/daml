@@ -5,7 +5,7 @@ module InterfaceChoiceGuardFailed where
 
 import Daml.Script
 
--- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @SUPPORTS-LF-FEATURE DAML_INTERFACE_EXTENDED
 data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where

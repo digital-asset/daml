@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v1/event.proto";
+import "com/daml/ledger/api/v1/trace_context.proto";
 import "com/daml/ledger/api/v1/value.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -39,6 +40,17 @@ message Reassignment {
     UnassignedEvent unassigned_event = 5;
     AssignedEvent assigned_event = 6;
   }
+
+  // Optional; ledger api trace context
+  //
+  // The trace context transported in this message corresponds to the trace context supplied
+  // by the client application in a HTTP2 header of the original command submission.
+  // We typically use a header to transfer this type of information. Here we use message
+  // body, because it is used in gRPC streams which do not support per message headers.
+  // This field will be populated with the trace context contained in the original submission.
+  // If that was not provided, a unique ledger-api-server generated trace context will be used
+  // instead.
+  com.daml.ledger.api.v1.TraceContext trace_context = 7;
 }
 
 // Records that a contract has been unassigned, and it becomes unusable on the source domain
@@ -70,8 +82,9 @@ message UnassignedEvent {
   string target = 5;
 
   // Party on whose behalf the unassign command was executed.
+  // Empty if the unassignment happened offline via the repair service.
   // Must be a valid PartyIdString (as described in ``value.proto``).
-  // Required
+  // Optional
   string submitter = 6;
 
   // Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases
@@ -112,8 +125,9 @@ message AssignedEvent {
   string unassign_id = 3;
 
   // Party on whose behalf the assign command was executed.
+  // Empty if the assignment happened offline via the repair service.
   // Must be a valid PartyIdString (as described in ``value.proto``).
-  // Required
+  // Optional
   string submitter = 4;
 
   // Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases

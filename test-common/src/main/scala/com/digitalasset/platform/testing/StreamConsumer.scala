@@ -52,4 +52,12 @@ final class StreamConsumer[A](attach: StreamObserver[A] => Unit) {
     observer.result
   }
 
+  def firstNWithin(duration: FiniteDuration, n: Int)(implicit
+      ec: ExecutionContext
+  ): Future[Vector[A]] = {
+    val observer = new FiniteStreamObserver[A]
+    attach(new TimeBoundObserver(duration)(new SizeBoundObserver(sizeCap = n)(observer)))
+    observer.result
+  }
+
 }

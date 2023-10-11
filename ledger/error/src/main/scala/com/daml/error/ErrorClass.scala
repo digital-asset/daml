@@ -8,7 +8,7 @@ package com.daml.error
   * @param docName The name that will appear in the generated documentation for the grouping.
   * @param fullClassName Full class name of the corresponding [[ErrorGroup]].
   */
-case class Grouping(
+final case class Grouping(
     docName: String,
     fullClassName: String,
 ) {
@@ -20,7 +20,7 @@ case class Grouping(
 
 /** Used to hierarchically structure error codes in the official documentation.
   */
-case class ErrorClass(groupings: List[Grouping]) {
+final case class ErrorClass(groupings: List[Grouping]) {
   def extend(grouping: Grouping): ErrorClass =
     ErrorClass(groupings :+ grouping)
 }

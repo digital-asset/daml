@@ -39,6 +39,7 @@ public final class CommandsSubmission {
   private Optional<Duration> minLedgerTimeRel;
   private Optional<Duration> deduplicationTime;
   private Optional<String> accessToken;
+  private List<DisclosedContract> disclosedContracts;
 
   protected CommandsSubmission(
       String applicationId,
@@ -50,7 +51,8 @@ public final class CommandsSubmission {
       Optional<Instant> minLedgerTimeAbs,
       Optional<Duration> minLedgerTimeRel,
       Optional<Duration> deduplicationTime,
-      Optional<String> accessToken) {
+      Optional<String> accessToken,
+      List<@NonNull DisclosedContract> disclosedContracts) {
     this.workflowId = workflowId;
     this.applicationId = applicationId;
     this.commandId = commandId;
@@ -61,6 +63,7 @@ public final class CommandsSubmission {
     this.deduplicationTime = deduplicationTime;
     this.commands = commands;
     this.accessToken = accessToken;
+    this.disclosedContracts = disclosedContracts;
   }
 
   public static CommandsSubmission create(
@@ -75,7 +78,8 @@ public final class CommandsSubmission {
         empty(),
         Optional.empty(),
         empty(),
-        empty());
+        empty(),
+        emptyList());
   }
 
   public Optional<String> getWorkflowId() {
@@ -118,6 +122,10 @@ public final class CommandsSubmission {
     return accessToken;
   }
 
+  public List<DisclosedContract> getDisclosedContracts() {
+    return unmodifiableList(disclosedContracts);
+  }
+
   public CommandsSubmission withWorkflowId(String workflowId) {
     return new CommandsSubmission(
         applicationId,
@@ -129,7 +137,8 @@ public final class CommandsSubmission {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts);
   }
 
   public CommandsSubmission withActAs(String actAs) {
@@ -143,7 +152,8 @@ public final class CommandsSubmission {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts);
   }
 
   public CommandsSubmission withActAs(List<@NonNull String> actAs) {
@@ -157,7 +167,8 @@ public final class CommandsSubmission {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts);
   }
 
   public CommandsSubmission withReadAs(List<@NonNull String> readAs) {
@@ -171,7 +182,8 @@ public final class CommandsSubmission {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts);
   }
 
   public CommandsSubmission withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
@@ -185,7 +197,8 @@ public final class CommandsSubmission {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts);
   }
 
   public CommandsSubmission withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
@@ -199,7 +212,8 @@ public final class CommandsSubmission {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts);
   }
 
   public CommandsSubmission withDeduplicationTime(Optional<Duration> deduplicationTime) {
@@ -213,7 +227,8 @@ public final class CommandsSubmission {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts);
   }
 
   public CommandsSubmission withCommands(List<@NonNull ? extends HasCommands> commands) {
@@ -227,7 +242,8 @@ public final class CommandsSubmission {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts);
   }
 
   public CommandsSubmission withAccessToken(Optional<String> accessToken) {
@@ -241,6 +257,22 @@ public final class CommandsSubmission {
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        accessToken);
+        accessToken,
+        disclosedContracts);
+  }
+
+  public CommandsSubmission withDisclosedContracts(List<DisclosedContract> disclosedContracts) {
+    return new CommandsSubmission(
+        applicationId,
+        commandId,
+        commands,
+        actAs,
+        readAs,
+        workflowId,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        accessToken,
+        disclosedContracts);
   }
 }

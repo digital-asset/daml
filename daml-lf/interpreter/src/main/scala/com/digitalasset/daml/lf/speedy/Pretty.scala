@@ -136,12 +136,12 @@ private[lf] object Pretty {
       case ContractIdInContractKey(key) =>
         text("Contract IDs are not supported in contract keys:") &
           prettyContractId(key.cids.head)
+      case ValueNesting(limit) =>
+        text(s"Value exceeds maximum nesting value of $limit")
       case Dev(_, error) =>
         error match {
           case Dev.Limit(error) =>
             error match {
-              case Dev.Limit.ValueNesting(limit) =>
-                text(s"Value exceeds maximum nesting value of $limit")
               case Dev.Limit.ContractSignatories(
                     cid @ _,
                     templateId,
@@ -562,7 +562,7 @@ private[lf] object Pretty {
               text("$update")
             case _: SBRecUpdMulti =>
               text("$updateMulti")
-            case SBRecProj(id, field) =>
+            case SBRecProj(id, _, field) =>
               text("$project") + char('[') + text(id.qualifiedName.toString) + char(':') + str(
                 field
               ) + char(']')
@@ -572,7 +572,7 @@ private[lf] object Pretty {
               ) + char(
                 ']'
               )
-            case SBUCreate => text("$create")
+            case SBUCreate(id) => text(s"$$create($id)")
             case SBFetchAny(optTargetTemplateId) => text(s"$$fetchAny($optTargetTemplateId)")
             case SBUGetTime | SBSGetTime => text("$getTime")
             case _ => str(x)

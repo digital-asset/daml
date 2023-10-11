@@ -4,14 +4,26 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.Compiler
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class ConcurrentCompiledPackagesTest extends AnyWordSpec with Matchers with Inside {
+class ConcurrentCompiledPackagesTestV1
+    extends ConcurrentCompiledPackagesTest(LanguageMajorVersion.V1)
+class ConcurrentCompiledPackagesTestV2
+    extends ConcurrentCompiledPackagesTest(LanguageMajorVersion.V2)
+
+class ConcurrentCompiledPackagesTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with Matchers
+    with Inside {
+
+  implicit val parserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   "ConcurrentCompiledPackages" should {
 
@@ -24,14 +36,14 @@ class ConcurrentCompiledPackagesTest extends AnyWordSpec with Matchers with Insi
 
     "load valid package" in {
 
-      new ConcurrentCompiledPackages(Compiler.Config.Dev)
-        .addPackage(defaultParserParameters.defaultPackageId, pkg) shouldBe ResultDone(())
+      new ConcurrentCompiledPackages(Compiler.Config.Dev(majorLanguageVersion))
+        .addPackage(parserParameters.defaultPackageId, pkg) shouldBe ResultDone(())
 
     }
 
     "not load of an invalid package" in {
 
-      val packages = new ConcurrentCompiledPackages(Compiler.Config.Dev)
+      val packages = new ConcurrentCompiledPackages(Compiler.Config.Dev(majorLanguageVersion))
 
       val illFormedPackage =
         p"""
@@ -40,27 +52,27 @@ class ConcurrentCompiledPackagesTest extends AnyWordSpec with Matchers with Insi
         }
       """;
 
-      inside(packages.addPackage(defaultParserParameters.defaultPackageId, illFormedPackage)) {
+      inside(packages.addPackage(parserParameters.defaultPackageId, illFormedPackage)) {
         case ResultError(Error.Package(_: Error.Package.Validation)) =>
       }
     }
 
     "not load of a package with disallowed language version" in {
-
       val packages = new ConcurrentCompiledPackages(
-        Compiler.Config.Default.copy(allowedLanguageVersions = LanguageVersion.LegacyVersions)
+        // V1.legacyVersions are disallowed in both v1 and v2
+        Compiler.Config
+          .Default(LanguageMajorVersion.V1)
+          .copy(allowedLanguageVersions = LanguageVersion.LegacyVersions)
       )
 
-      assert(!LanguageVersion.LegacyVersions.contains(defaultParserParameters.languageVersion))
+      assert(!LanguageVersion.LegacyVersions.contains(parserParameters.languageVersion))
 
-      inside(packages.addPackage(defaultParserParameters.defaultPackageId, pkg)) {
+      inside(packages.addPackage(parserParameters.defaultPackageId, pkg)) {
         case ResultError(Error.Package(err: Error.Package.AllowedLanguageVersion)) =>
-          err.packageId shouldBe defaultParserParameters.defaultPackageId
-          err.languageVersion shouldBe defaultParserParameters.languageVersion
+          err.packageId shouldBe parserParameters.defaultPackageId
+          err.languageVersion shouldBe parserParameters.languageVersion
           err.allowedLanguageVersions shouldBe LanguageVersion.LegacyVersions
       }
     }
-
   }
-
 }

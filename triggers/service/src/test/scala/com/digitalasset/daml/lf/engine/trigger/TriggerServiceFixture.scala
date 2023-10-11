@@ -39,6 +39,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.integrationtest.CantonFixture
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
@@ -505,8 +506,9 @@ trait TriggerServiceFixture
                 encodedDars,
                 jdbcConfig,
                 false,
-                Cli.DefaultTlsConfiguration,
-                Compiler.Config.Dev,
+                config.tlsClientConfig,
+                // TODO(#17366) support both LF v1 and v2 in triggers
+                Compiler.Config.Dev(LanguageMajorVersion.V1),
                 triggerRunnerConfig.getOrElse(DefaultTriggerRunnerConfig),
                 logTriggerStatus,
               )

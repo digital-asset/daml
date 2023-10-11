@@ -51,7 +51,7 @@ steps:
   - bash: |
       set -euo pipefail
       p="_${{parameters.name}}"
-      a="_$(System.JobAttempt)"
+      a="_$(Build.BuildNumber)_$(System.JobAttempt)"
       if [ "$p" == "_m1" ]; then
           ./build.sh $p $a || ./build.sh $p $a || ./build.sh $p $a || ./build.sh $p $a
       else
@@ -73,19 +73,6 @@ steps:
       parameters:
         platform: '${{parameters.name}}'
         is_release: '${{parameters.is_release}}'
-
-  - bash: |
-      set -euo pipefail
-      cd '$(Build.StagingDirectory)/logs'
-      find . -type f | xargs gzip -9
-      cd -
-      cd bazel-testlogs
-      find . -type f | xargs gzip -9
-
-    displayName: compress logs
-    condition: and(succeededOrFailed(),
-                   or(eq(${{parameters.is_release}}, 'false'),
-                      ne('${{parameters.name}}', 'm1')))
 
   - task: PublishBuildArtifacts@1
     condition: and(succeededOrFailed(),

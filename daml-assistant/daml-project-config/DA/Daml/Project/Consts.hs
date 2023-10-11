@@ -13,6 +13,7 @@ module DA.Daml.Project.Consts
     , damlConfigName
     , projectConfigName
     , sdkConfigName
+    , multiPackageConfigName
     , damlEnvVars
     , getDamlPath
     , getProjectPath
@@ -98,6 +99,10 @@ projectConfigName = "daml.yaml"
 -- | File name of config file in DAML_SDK (the sdk path)
 sdkConfigName :: FilePath
 sdkConfigName = "sdk-config.yaml"
+
+-- | File name of optional multi-package config file in DAML_PROJECT (the project path).
+multiPackageConfigName :: FilePath
+multiPackageConfigName = "multi-package.yaml"
 
 -- | List of all environment variables handled by daml assistant.
 damlEnvVars :: [String]

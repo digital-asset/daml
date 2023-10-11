@@ -5,7 +5,6 @@
 module Wolpertinger where
 
 import DA.Date
-import DA.Time
 import DA.List (dedup)
 
 data Color = Grey
@@ -51,21 +50,3 @@ template Wolpertinger
                     timeOfBirth = tob
                     parents = [self, mateId]
                     colors = dedup (this.colors ++ mate.colors)
-
-
-primitiveTest =
-    scenario do
-        alice <- getParty "Alice"
-        let dob = date 2001 Feb 02
-        submit alice do
-            create Wolpertinger
-                with
-                    owner = alice
-                    wings = 3
-                    age = 17.42
-                    name = "Crocoduck"
-                    alive = True
-                    dayOfBirth = dob
-                    timeOfBirth = time dob 04 05 06
-                    parents = []
-                    colors = [RGB 17 19 23]

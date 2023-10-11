@@ -3,9 +3,7 @@
 
 package com.daml.lf.testing
 
-import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast.{Expr, Kind, Module, Type}
-import com.daml.lf.language.LanguageVersion
 
 /** The LF Parser library can be used to write Daml-LF Ast using a
   * human-friendly syntax.
@@ -14,9 +12,6 @@ import com.daml.lf.language.LanguageVersion
   * In particular future version may introduce breaking change without notice.
   */
 package object parser {
-
-  val defaultPackageId = Ref.PackageId.assertFromString("-pkgId-")
-  val defaultLanguageVersion = LanguageVersion.default
 
   private def safeParse[T](p: Parsers.Parser[T], s: String): Either[String, T] =
     try {

@@ -13,7 +13,9 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "LF_VERSIONS",
     "lf_version_configuration",
+    "lf_version_is_dev",
     "mangle_for_java",
+    "version_in",
 )
 
 da_scala_library(
@@ -29,8 +31,8 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-encoder:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//libs-scala/crypto",
@@ -55,8 +57,8 @@ da_scala_test_suite(
     deps = [
         ":encoder",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
@@ -79,8 +81,8 @@ da_scala_binary(
     deps = [
         ":encoder",
         "//:sdk-version-scala-lib",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/archive/encoder",
         "//daml-lf/data",
         "//daml-lf/language",
@@ -102,32 +104,38 @@ da_scala_binary(
 ]
 
 [
-    [
-        genrule(
-            name = "testing-dar-%s" % target,
-            srcs = [":lf_%s" % target],
-            outs = ["test-%s.dar" % target],
-            cmd = "$(location :encoder_binary) $(SRCS) --output $@ --target %s" % target,
-            tools = [":encoder_binary"],
-            visibility = ["//visibility:public"],
-        ),
-        sh_test(
-            name = "validate-dar-%s" % target,
-            srcs = ["src/validate.sh"],
-            args = [
-                "$(location //daml-lf/repl:repl)",
-                "$(location :testing-dar-%s)" % target,
-                "--dev" if (lf_version_configuration.get("dev") or target == lf_version_configuration.get("preview")) else "",
-            ],
-            data = [
-                "//daml-lf/repl",
-                "testing-dar-%s" % target,
-            ],
-            deps = [
-                "@bazel_tools//tools/bash/runfiles",
-            ],
-        ),
-    ]
+    genrule(
+        name = "testing-dar-%s" % target,
+        srcs = [":lf_%s" % target],
+        outs = ["test-%s.dar" % target],
+        cmd = "$(location :encoder_binary) $(SRCS) --output $@ --target %s" % target,
+        tools = [":encoder_binary"],
+        visibility = ["//visibility:public"],
+    )
+    for target in LF_VERSIONS
+]
+
+[
+    sh_test(
+        name = "validate-dar-%s" % target,
+        srcs = ["src/validate.sh"],
+        args = [
+            "$(location //daml-lf/repl:repl)",
+            "$(location :testing-dar-%s)" % target,
+            "--v2" if version_in(
+                target,
+                v2_minor_version_range = ("0", "dev"),
+            ) else "",
+            "--dev" if (lf_version_is_dev(target) or target == lf_version_configuration.get("preview")) else "",
+        ],
+        data = [
+            "//daml-lf/repl",
+            "testing-dar-%s" % target,
+        ],
+        deps = [
+            "@bazel_tools//tools/bash/runfiles",
+        ],
+    )
     for target in LF_VERSIONS
 ]
 

@@ -7,6 +7,7 @@ package com.daml.error
 trait ContextualizedErrorLogger {
   def properties: Map[String, String]
   def correlationId: Option[String]
+  def traceId: Option[String]
   def logError(err: BaseError, extra: Map[String, String]): Unit
   def info(message: String): Unit
   def info(message: String, throwable: Throwable): Unit
@@ -30,16 +31,4 @@ object ContextualizedErrorLogger {
       .mkString(", ")
   }
 
-}
-
-object NoLogging extends ContextualizedErrorLogger {
-  override def properties: Map[String, String] = Map.empty
-  override def correlationId: Option[String] = None
-  override def logError(err: BaseError, extra: Map[String, String]): Unit = ()
-  override def info(message: String): Unit = ()
-  override def info(message: String, throwable: Throwable): Unit = ()
-  override def warn(message: String): Unit = ()
-  override def warn(message: String, throwable: Throwable): Unit = ()
-  override def error(message: String): Unit = ()
-  override def error(message: String, throwable: Throwable): Unit = ()
 }

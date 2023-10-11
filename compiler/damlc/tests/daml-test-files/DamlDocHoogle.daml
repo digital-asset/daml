@@ -1,4 +1,4 @@
--- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @SUPPORTS-LF-FEATURE DAML_INTERFACE
 module DamlDocHoogle where
 
 -- | T docs
@@ -21,7 +21,7 @@ interface I where
   viewtype View
   getController : Party
     -- ^ getController docs
-  
+
   choice ICall : Optional Int
     -- ^ ICall docs
     with

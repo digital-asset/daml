@@ -6,15 +6,33 @@ package com.daml.lf.validation
 import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, PackageInterface, Reference, LanguageVersion => LV}
+import com.daml.lf.language.{
+  LanguageMajorVersion,
+  LookupError,
+  PackageInterface,
+  Reference,
+  LanguageVersion => LV,
+}
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.testing.parser.{defaultLanguageVersion, defaultPackageId}
-import com.daml.lf.validation.SpecUtil._
+import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
+class TypingSpecV1 extends TypingSpec(LanguageMajorVersion.V1)
+class TypingSpecV2 extends TypingSpec(LanguageMajorVersion.V2)
+
+class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with TableDrivenPropertyChecks
+    with Matchers {
+
+  private[this] implicit val parserParameters: ParserParameters[this.type] =
+    ParserParameters.defaultFor(majorLanguageVersion)
+  private[this] val defaultPackageId = parserParameters.defaultPackageId
+  private[this] val defaultLanguageVersion = parserParameters.languageVersion
+
+  import SpecUtil._
 
   "checkKind" should {
     // TEST_EVIDENCE: Integrity: ill-formed kinds are rejected

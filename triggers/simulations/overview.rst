@@ -72,8 +72,8 @@ This method is used to define all the components that a given simulation is to t
     override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
       implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
 
-      Behaviors.setup { context =>
-        // Ledger client, trigger and external components could be defined here
+      withLedger { (client, ledger, actAs, controllerContext) =>
+        // Trigger and external components could be defined here
 
         Behaviors.empty
       }
@@ -109,27 +109,7 @@ A ledger process provides trigger components with a strongly consistent data vie
 
   Ledger processes make no attempt at retrying failed command submissions. This is a known limitation.
 
-Each trigger simulation needs to define a single ledger process as follows:
-
-.. code-block:: scala
-  override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
-    implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
-    
-    Behaviors.setup { context =>
-      val setup = for {
-        client <- defaultLedgerClient()
-        party <- allocateParty(client)
-      } yield (client, party)
-      val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
-      // Ledger process (as an Akka typed actor) being defined
-      val ledger: ActorRef[LedgerProcess.Message] =
-        context.spawn(LedgerProcess.create(client), "ledger")
-
-      // Trigger and external components could be defined here
-
-      Behaviors.empty
-    }
-  }
+Each trigger simulation can access the single ledger process using the inherited ``withLedger`` method.
 
 Simulating External Ledger Interactions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -150,14 +130,8 @@ For example, to model an external component that randomly creates instances of a
         val randomCat =
           CreatedEvent(
             templateId = Some("Cats:Cat"),
-            createArguments = Some(SValue.SRecord(
-              "Cats:Cat",
-              fields = ImmArray("owner", "name"),
-              values = ArrayList(
-                SValue.SParty(actAs),
-                SValue.SInt64(Random.nextLong()),
-              ),
-            )),
+            createArguments =
+              Some(unsafeSValueFromLf(s"Cats:Cat { owner = ${actAs}, name = ${Random.nextLong()} }")),
         )
         val createEvent = LedgerProcess.ExternalAction(CreateContract(randomCat, actAs))
 
@@ -179,7 +153,7 @@ where a ``Cat`` template might be defined as:
 .. note::
   Currently, it is not possible to model external components that exercise choices on a contract. This is a known limitation.
 
-  Currently, a good of understanding of the low level Speedy machine ``SValue`` is required when defining create or archive events. This is a known limitation.
+  Currently, a good of understanding of `Daml-LF <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>`_ (which parses to a ``Value``) is required when defining create or archive events. This is a known limitation.
 
 Trigger Process Component
 -------------------------
@@ -315,18 +289,12 @@ So, in order to initialize a trigger process, we simply need to send it an initi
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
     implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
 
-    Behaviors.setup { context =>
-      val setup = for {
-        client <- defaultLedgerClient()
-        party <- allocateParty(client)
-      } yield (client, party)
-      val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
-      val ledger = context.spawn(LedgerProcess.create(client), "ledger")
+    withLedger { (client, ledger, actAs, controllerContext) =>
       val breedingTrigger: Behavior[TriggerProcess.Message] = breedingFactory.create(Seq.empty)
-      val breedingProcess: ActorRef[TriggerProcess.Message] = context.spawn(breedingTrigger, "breedingTrigger")
+      val breedingProcess: ActorRef[TriggerProcess.Message] = controllerContext.spawn(breedingTrigger, "breedingTrigger")
 
       // Initialize the user state to be 0 (coded as an SValue) for the breeding trigger using a message
-      breedingProcess ! TriggerProcess.Initialize(SValue.SInt64(0))
+      breedingProcess ! TriggerProcess.Initialize(unsafeSValueFromLf("0"))
 
       Behaviors.empty
     }
@@ -338,26 +306,37 @@ Initializing trigger processes is a common use case, so an additional helper met
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
     implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
 
-    Behaviors.setup { context =>
-      val setup = for {
-        client <- defaultLedgerClient()
-        party <- allocateParty(client)
-      } yield (client, party)
-      val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
-      val ledger = context.spawn(LedgerProcess.create(client), "ledger")
+    withLedger { (client, ledger, actAs, controllerContext) =>
       // Initialize the user state to be 0 (coded as an SValue) for the breeding trigger at create time
-      val breedingTrigger: Behavior[TriggerProcess.Message] = breedingFactory.create(SValue.SInt64(0), Seq.empty)
+      val breedingTrigger: Behavior[TriggerProcess.Message] = breedingFactory.create(unsafeSValueFromLf("0"), Seq.empty)
       
-      context.spawn(breedingTrigger, "breedingTrigger")
+      controllerContext.spawn(breedingTrigger, "breedingTrigger")
 
       Behaviors.empty
     }
   }  
 
+If a trigger fails at runtime, and we require the simulation to fail, then it is important to `watch <https://doc.akka.io/docs/akka/current/typed/actor-lifecycle.html#watching-actors>`_ the created trigger actor. This may be done using code such as:
+
+.. code-block:: scala
+  override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
+    implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
+
+    withLedger { (client, ledger, actAs, controllerContext) =>
+      // Initialize the user state to be 0 (coded as an SValue) for the breeding trigger at create time
+      val breedingTrigger: Behavior[TriggerProcess.Message] = breedingFactory.create(unsafeSValueFromLf("0"), Seq.empty)
+
+      // Spawn the trigger actor and ensure the current (parent) actor watches it
+      controllerContext.watch(controllerContext.spawn(breedingTrigger, "breedingTrigger"))
+
+      Behaviors.empty
+    }
+  }
+
 .. note::
   Currently, there is no support for extracting and using the Daml trigger ``initialize`` expression when initializing trigger processes. This is a known limitation.
 
-  Currently, a good of understanding of the low level Speedy machine ``SValue`` is required when initializing triggers. This is a known limitation.
+  Currently, a good of understanding of `Daml-LF <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>`_ (which parses to a ``Value``) is required when initializing triggers. This is a known limitation.
 
 Scheduling Heartbeat Messages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -376,7 +355,7 @@ or to have a trigger process receive heartbeat messages every 2 seconds (after a
 
 .. code-block:: scala
   val breedingTrigger: ActorRef[TriggerProcess.Message] =
-    context.spawn(breedingFactory.create(SValue.SInt64(0), Seq.empty), "breedingTrigger")
+    context.spawn(breedingFactory.create(unsafeSValueFromLf("0"), Seq.empty), "breedingTrigger")
   val delayedRegularTrigger: Behavior[TriggerProcess.Message] =
     TriggerTimer.singleMessage(5.seconds, 2.seconds)(breedingTrigger)
 

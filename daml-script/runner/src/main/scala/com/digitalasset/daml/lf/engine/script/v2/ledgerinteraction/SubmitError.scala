@@ -7,7 +7,7 @@ package ledgerinteraction
 
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref.{Identifier, Name}
-import com.daml.lf.language.{Ast, StablePackage}
+import com.daml.lf.language.{Ast, StablePackagesV2}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.transaction.GlobalKey
@@ -25,6 +25,7 @@ sealed abstract class SubmitError
     with NoStackTrace
     with Product
     with Serializable {
+  // Implementing code needs to be kept in sync with daml-script#Error.daml
   def toDamlSubmitError(env: ScriptF.Env): SValue
 }
 
@@ -64,7 +65,7 @@ object SubmitError {
   def fromNonEmptySet[A](set: NonEmpty[Seq[A]], conv: A => SValue): SValue = {
     val converted: Seq[SValue] = set.map(conv)
     record(
-      StablePackage.DA.NonEmpty.Types.NonEmpty,
+      StablePackagesV2.NonEmpty,
       ("hd", converted.head),
       ("tl", SList(converted.tail.to(FrontStack))),
     )
@@ -101,24 +102,28 @@ object SubmitError {
           SubmitErrorConverters(env).damlScriptVariant(
             "ContractNotFoundAdditionalInfo",
             "NotFound",
-            1,
+            0,
           )
       }
 
-      final case class NotActive(tid: Identifier) extends AdditionalInfo {
+      final case class NotActive(
+          cid: ContractId,
+          tid: Identifier,
+      ) extends AdditionalInfo {
         override def toSValue(env: Env) =
           SubmitErrorConverters(env).damlScriptVariant(
             "ContractNotFoundAdditionalInfo",
             "NotActive",
-            2,
+            1,
             (
-              "templateIdentifier",
-              SText(tid.toString),
+              "additionalInfoCid",
+              fromAnyContractId(env.scriptIds, toApiIdentifier(tid), cid),
             ),
           )
       }
 
       final case class NotEffective(
+          cid: ContractId,
           tid: Identifier,
           effectiveAt: Time.Timestamp,
       ) extends AdditionalInfo {
@@ -126,10 +131,10 @@ object SubmitError {
           SubmitErrorConverters(env).damlScriptVariant(
             "ContractNotFoundAdditionalInfo",
             "NotEffective",
-            3,
+            2,
             (
-              "templateIdentifier",
-              SText(tid.toString),
+              "additionalInfoCid",
+              fromAnyContractId(env.scriptIds, toApiIdentifier(tid), cid),
             ),
             (
               "effectiveAt",
@@ -139,6 +144,7 @@ object SubmitError {
       }
 
       final case class NotVisible(
+          cid: ContractId,
           tid: Identifier,
           actAs: Set[Party],
           readAs: Set[Party],
@@ -148,10 +154,10 @@ object SubmitError {
           SubmitErrorConverters(env).damlScriptVariant(
             "ContractNotFoundAdditionalInfo",
             "NotVisible",
-            4,
+            3,
             (
-              "templateIdentifier",
-              SText(tid.toString),
+              "additionalInfoCid",
+              fromAnyContractId(env.scriptIds, toApiIdentifier(tid), cid),
             ),
             (
               "actAs",
@@ -188,16 +194,6 @@ object SubmitError {
       )
   }
 
-  final case class ContractNotActive(templateId: Identifier, contractId: ContractId)
-      extends SubmitError {
-    override def toDamlSubmitError(env: Env): SValue =
-      SubmitErrorConverters(env).damlScriptError(
-        "ContractNotActive",
-        3,
-        ("contractId", fromAnyContractId(env.scriptIds, toApiIdentifier(templateId), contractId)),
-      )
-  }
-
   final case class DisclosedContractKeyHashingError(
       contractId: ContractId,
       key: GlobalKey,
@@ -206,7 +202,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "DisclosedContractKeyHashingError",
-        4,
+        3,
         (
           "contractId",
           fromAnyContractId(env.scriptIds, toApiIdentifier(key.templateId), contractId),
@@ -220,7 +216,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "DuplicateContractKey",
-        5,
+        4,
         ("duplicateContractKey", SOptional(oKey.map(globalKeyToAnyContractKey(env, _)))),
       )
   }
@@ -229,7 +225,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "InconsistentContractKey",
-        6,
+        5,
         ("contractKey", globalKeyToAnyContractKey(env, key)),
       )
   }
@@ -241,7 +237,7 @@ object SubmitError {
       }
       SubmitErrorConverters(env).damlScriptError(
         "UnhandledException",
-        7,
+        6,
         ("exc", SOptional(sValue)),
       )
     }
@@ -251,7 +247,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "UserError",
-        8,
+        7,
         ("userErrorMessage", SText(message)),
       )
   }
@@ -260,7 +256,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "TemplatePreconditionViolated",
-        9,
+        8,
       )
   }
 
@@ -269,7 +265,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "CreateEmptyContractKeyMaintainers",
-        10,
+        9,
         (
           "invalidTemplate",
           fromAnyTemplate(env.valueTranslator, templateId, templateArg).toOption.get,
@@ -281,7 +277,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "FetchEmptyContractKeyMaintainers",
-        11,
+        10,
         ("failedTemplateKey", globalKeyToAnyContractKey(env, key)),
       )
   }
@@ -294,7 +290,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "WronglyTypedContract",
-        12,
+        11,
         (
           "contractId",
           fromAnyContractId(env.scriptIds, toApiIdentifier(actualTemplateId), contractId),
@@ -312,7 +308,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "ContractDoesNotImplementInterface",
-        13,
+        12,
         ("contractId", fromAnyContractId(env.scriptIds, toApiIdentifier(templateId), contractId)),
         ("templateId", fromTemplateTypeRep(toApiIdentifier(templateId))),
         ("interfaceId", fromTemplateTypeRep(toApiIdentifier(interfaceId))),
@@ -328,7 +324,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "ContractDoesNotImplementInterface",
-        14,
+        13,
         ("contractId", fromAnyContractId(env.scriptIds, toApiIdentifier(templateId), contractId)),
         ("templateId", fromTemplateTypeRep(toApiIdentifier(templateId))),
         ("requiredInterfaceId", fromTemplateTypeRep(toApiIdentifier(requiredInterfaceId))),
@@ -340,7 +336,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "NonComparableValues",
-        15,
+        14,
       )
   }
 
@@ -348,7 +344,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "ContractIdInContractKey",
-        16,
+        15,
       )
   }
 
@@ -356,12 +352,22 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "ContractIdComparability",
-        17,
+        16,
         ("globalExistingContractId", SText(contractId)),
       )
   }
 
+  final case class ValueNesting(limit: Int) extends SubmitError {
+    override def toDamlSubmitError(env: Env): SValue =
+      SubmitErrorConverters(env).damlScriptError(
+        "ValueNesting",
+        17,
+        ("limit", SInt64(limit.toLong)),
+      )
+  }
+
   final case class DevError(errorType: String, message: String) extends SubmitError {
+    // This code needs to be kept in sync with daml-script#Error.daml
     override def toDamlSubmitError(env: Env): SValue = {
       val devErrorTypeIdentifier =
         env.scriptIds.damlScriptModule("Daml.Script.Questions.Submit.Error", "DevErrorType")
@@ -370,8 +376,7 @@ object SubmitError {
           SEnum(devErrorTypeIdentifier, Name.assertFromString("ChoiceGuardFailed"), 0)
         case "WronglyTypedContractSoft" =>
           SEnum(devErrorTypeIdentifier, Name.assertFromString("WronglyTypedContractSoft"), 1)
-        case "Limit" => SEnum(devErrorTypeIdentifier, Name.assertFromString("Limit"), 2)
-        case _ => SEnum(devErrorTypeIdentifier, Name.assertFromString("UnknownNewFeature"), 3)
+        case _ => SEnum(devErrorTypeIdentifier, Name.assertFromString("UnknownNewFeature"), 2)
       }
       SubmitErrorConverters(env).damlScriptError(
         "DevError",

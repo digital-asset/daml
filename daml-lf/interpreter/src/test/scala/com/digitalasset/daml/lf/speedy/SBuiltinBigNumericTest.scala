@@ -6,8 +6,10 @@ package speedy
 
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue.{SValue => _, _}
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.{SyntaxHelper}
+import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.Inside.inside
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
@@ -15,9 +17,19 @@ import org.scalatest.freespec.AnyFreeSpec
 
 import scala.language.implicitConversions
 
-class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
+class SBuiltinBigNumericTestV1 extends SBuiltinBigNumericTest(LanguageMajorVersion.V1)
+class SBuiltinBigNumericTestV2 extends SBuiltinBigNumericTest(LanguageMajorVersion.V2)
 
-  import SBuiltinBigNumericTest._
+class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyFreeSpec
+    with Matchers
+    with TableDrivenPropertyChecks {
+
+  val helpers = new SBuiltinBigNumericTestHelpers(majorLanguageVersion)
+  import helpers.{parserParameters => _, _}
+
+  implicit val parserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
 
@@ -326,9 +338,12 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
 
 }
 
-object SBuiltinBigNumericTest {
+final class SBuiltinBigNumericTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   import SpeedyTestLib.loggingContext
+
+  implicit val parserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   private val pkg =
     p"""
@@ -371,12 +386,14 @@ object SBuiltinBigNumericTest {
           val almostX: BigNumeric = SUB_BIGNUMERIC BigNumeric:x BigNumeric:minPositive;
           val minusX: BigNumeric = SUB_BIGNUMERIC BigNumeric:zero BigNumeric:x;
         }
-
     """
 
   val compiledPackages =
-    PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
+    PureCompiledPackages.assertBuild(
+      Map(parserParameters.defaultPackageId -> pkg),
+      Compiler.Config.Default(majorLanguageVersion),
+    )
 
-  private def eval(e: Expr): Either[SError.SError, SValue] =
+  def eval(e: Expr): Either[SError.SError, SValue] =
     Speedy.Machine.runPureExpr(e, compiledPackages)
 }

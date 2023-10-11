@@ -22,7 +22,6 @@ import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
 
-
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
 
@@ -154,6 +153,41 @@ debugOpt = fmap Debug $
 newtype InitPkgDb = InitPkgDb Bool
 initPkgDbOpt :: Parser InitPkgDb
 initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database" idm
+
+newtype EnableMultiPackage = EnableMultiPackage {getEnableMultiPackage :: Bool}
+enableMultiPackageOpt :: Parser EnableMultiPackage
+enableMultiPackageOpt = EnableMultiPackage <$> flagYesNoAuto "enable-multi-package" False "Experimental multi-package.yaml support" internal
+
+newtype MultiPackageBuildAll = MultiPackageBuildAll {getMultiPackageBuildAll :: Bool}
+multiPackageBuildAllOpt :: Parser MultiPackageBuildAll
+multiPackageBuildAllOpt = MultiPackageBuildAll <$> switch (long "all" <> help "Build all packages in multi-package.daml" <> internal)
+
+newtype MultiPackageNoCache = MultiPackageNoCache {getMultiPackageNoCache :: Bool}
+multiPackageNoCacheOpt :: Parser MultiPackageNoCache
+multiPackageNoCacheOpt = MultiPackageNoCache <$> switch (long "no-cache" <> help "Disables cache checking, rebuilding all dependencies" <> internal)
+
+data MultiPackageLocation
+  -- | Search for the multi-package.yaml above the current directory
+  = MPLSearch
+  -- | Expect the multi-package.yaml at the given path
+  | MPLPath FilePath
+  -- | Expect the multi-package.yaml at the current directory
+  | MPLCurrent
+  deriving (Show, Eq)
+
+multiPackageLocationOpt :: Parser MultiPackageLocation
+multiPackageLocationOpt =
+  flag' MPLSearch 
+      (  long "multi-package-search"
+      <> help "Allows daml build to search up the directory tree for a multi-package.yaml. Cannot be used with --multi-package-path"
+      <> internal
+      )
+    <|> optionOnce (MPLPath <$> str)
+      (  metavar "FILE"
+      <> help "Path to the multi-package.yaml file. Cannot be used with --multi-package-search"
+      <> long "multi-package-path"
+      <> value MPLCurrent
+      )
 
 data Telemetry
     = TelemetryOptedIn -- ^ User has explicitly opted in
@@ -350,6 +384,10 @@ cliOptLogLevel =
         "error" -> Just Logger.Error
         _ -> Nothing
 
+cliOptDetailLevel :: Parser Pretty.PrettyLevel
+cliOptDetailLevel =
+  fmap (maybe Pretty.prettyNormal Pretty.PrettyLevel) $
+    optional $ optionOnce auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
 
 optPackageName :: Parser (Maybe GHC.UnitId)
 optPackageName = optional $ fmap GHC.stringToUnitId $ strOptionOnce $
@@ -377,6 +415,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optThreads <- optShakeThreads
     optDamlLfVersion <- lfVersionOpt
     optLogLevel <- cliOptLogLevel
+    optDetailLevel <- cliOptDetailLevel
     optGhcCustomOpts <- optGhcCustomOptions
     let optScenarioService = enableScenarioService
     let optSkipScenarioValidation = SkipScenarioValidation False

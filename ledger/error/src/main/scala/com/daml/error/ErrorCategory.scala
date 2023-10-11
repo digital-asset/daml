@@ -14,7 +14,7 @@ import scala.concurrent.duration._
   * error code is associated with an error category that defines how the error will appear
   * in the log file and on the api level.
   */
-sealed trait ErrorCategory {
+sealed trait ErrorCategory extends Product with Serializable {
 
   /** The Grpc code use to signal this error (in case it is signalled via API) */
   def grpcCode: Option[Code]
@@ -73,7 +73,7 @@ object ErrorCategory {
   @Resolution(
     "Expectation: transient failure that should be handled by retrying the request with appropriate backoff."
   )
-  object TransientServerFailure
+  case object TransientServerFailure
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.UNAVAILABLE),
         logLevel = Level.INFO,
@@ -88,14 +88,14 @@ object ErrorCategory {
     */
   @Description(
     """The request could not be processed due to shared processing resources
-                 |(e.g. locks or rate limits that replenish quickly) being occupied.
-                 |If the resource is known (i.e. locked contract), it will be included as a resource info. (Not known
-                 |resource contentions are e.g. overloaded networks where we just observe timeouts, but can’t pin-point the cause)."""
+      |(e.g. locks or rate limits that replenish quickly) being occupied.
+      |If the resource is known (i.e. locked contract), it will be included as a resource info. (Not known
+      |resource contentions are e.g. overloaded networks where we just observe timeouts, but can’t pin-point the cause)."""
   )
   @RetryStrategy("Retry quickly (indefinitely or limited), but do not retry in load balancer.")
   @Resolution("""Expectation: this is processing-flow level contention that should be handled by
                 |retrying the request with appropriate backoff.""")
-  object ContentionOnSharedResources
+  case object ContentionOnSharedResources
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.ABORTED),
         logLevel = Level.INFO,
@@ -117,11 +117,11 @@ object ErrorCategory {
   @RetryStrategy("Retry for a limited number of times with deduplication.")
   @Resolution(
     """Expectation: the deadline might have been exceeded due to transient resource
-                |congestion or due to a timeout in the request processing pipeline being too low.
-                |The transient errors might be solved by the application retrying.
-                |The non-transient errors will require operator intervention to change the timeouts."""
+      |congestion or due to a timeout in the request processing pipeline being too low.
+      |The transient errors might be solved by the application retrying.
+      |The non-transient errors will require operator intervention to change the timeouts."""
   )
-  object DeadlineExceededRequestStateUnknown
+  case object DeadlineExceededRequestStateUnknown
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.DEADLINE_EXCEEDED),
         logLevel = Level.INFO,
@@ -140,9 +140,9 @@ object ErrorCategory {
   @RetryStrategy("Retry after operator intervention.")
   @Resolution(
     """Expectation: this is due to a bug in the implementation or data corruption in the systems databases.
-                |Resolution will require operator intervention, and potentially vendor support."""
+      |Resolution will require operator intervention, and potentially vendor support."""
   )
-  object SystemInternalAssumptionViolated
+  case object SystemInternalAssumptionViolated
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.INTERNAL),
         logLevel = Level.ERROR,
@@ -154,7 +154,7 @@ object ErrorCategory {
       with ErrorCategory
 
   @Description(
-    """A potential attack or a faulty peer component has been detected. 
+    """A potential attack or a faulty peer component has been detected.
       |This error is exposed on the API with grpc-status INVALID_ARGUMENT without any details for security reasons."""
   )
   @RetryStrategy("Errors in this category are non-retryable.")
@@ -163,7 +163,7 @@ object ErrorCategory {
       |potentially vendor support. It means that the system has detected invalid information that can be attributed
       |to either faulty or malicious manipulation of data coming from a peer source."""
   )
-  object SecurityAlert
+  case object SecurityAlert
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.INVALID_ARGUMENT),
         logLevel = Level.WARN,
@@ -182,9 +182,9 @@ object ErrorCategory {
   @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
     """Expectation: this is an application bug, application misconfiguration or ledger-level
-                |misconfiguration. Resolution requires application and/or ledger operator intervention."""
+      |misconfiguration. Resolution requires application and/or ledger operator intervention."""
   )
-  object AuthInterceptorInvalidAuthenticationCredentials
+  case object AuthInterceptorInvalidAuthenticationCredentials
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.UNAUTHENTICATED),
         logLevel = Level.WARN,
@@ -203,9 +203,9 @@ object ErrorCategory {
   @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
     """Expectation: this is an application bug or application misconfiguration. Resolution requires
-                |application operator intervention."""
+      |application operator intervention."""
   )
-  object InsufficientPermission
+  case object InsufficientPermission
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.PERMISSION_DENIED),
         logLevel = Level.WARN,
@@ -222,9 +222,9 @@ object ErrorCategory {
   @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
     """Expectation: this is an application bug or ledger-level misconfiguration (e.g. request size limits).
-                |Resolution requires application and/or ledger operator intervention."""
+      |Resolution requires application and/or ledger operator intervention."""
   )
-  object InvalidIndependentOfSystemState
+  case object InvalidIndependentOfSystemState
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.INVALID_ARGUMENT),
         logLevel = Level.INFO,
@@ -239,9 +239,9 @@ object ErrorCategory {
     */
   @Description(
     """The mutable state of the system does not satisfy the preconditions required to execute the request.
-                 |We consider the whole Daml ledger including ledger config, parties, packages, users and command
-                 |deduplication to be mutable system state. Thus all Daml interpretation errors are reported
-                 |as this error or one of its specializations."""
+      |We consider the whole Daml ledger including ledger config, parties, packages, users and command
+      |deduplication to be mutable system state. Thus all Daml interpretation errors are reported
+      |as this error or one of its specializations."""
   )
   @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution("""ALREADY_EXISTS and NOT_FOUND are special cases for the existence and non-existence of well-defined
@@ -251,7 +251,7 @@ object ErrorCategory {
                 |application-level bugs, misconfiguration or contention on application-visible resources; and might be
                 |resolved by retrying later, or after changing the state of the system. Handling these errors requires
                 |an application-specific strategy and/or operator intervention.""")
-  object InvalidGivenCurrentSystemStateOther
+  case object InvalidGivenCurrentSystemStateOther
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.FAILED_PRECONDITION),
         logLevel = Level.INFO,
@@ -268,10 +268,10 @@ object ErrorCategory {
                  |resource.""")
   @RetryStrategy(
     """Inspect resource failure and retry after resource failure has been resolved (depends on type of
-                   |resource and application)."""
+      |resource and application)."""
   )
   @Resolution("""Same as [[InvalidGivenCurrentSystemStateOther]].""")
-  object InvalidGivenCurrentSystemStateResourceExists
+  case object InvalidGivenCurrentSystemStateResourceExists
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.ALREADY_EXISTS),
         logLevel = Level.INFO,
@@ -288,10 +288,10 @@ object ErrorCategory {
                  |resource.""")
   @RetryStrategy(
     """Inspect resource failure and retry after resource failure has been resolved (depends on type of
-                   |resource and application)."""
+      |resource and application)."""
   )
   @Resolution("""Same as [[InvalidGivenCurrentSystemStateOther]].""")
-  object InvalidGivenCurrentSystemStateResourceMissing
+  case object InvalidGivenCurrentSystemStateResourceMissing
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.NOT_FOUND),
         logLevel = Level.INFO,
@@ -311,7 +311,7 @@ object ErrorCategory {
   @Resolution(
     """Expectation: this error is only used by the Ledger API server in connection with invalid offsets."""
   )
-  object InvalidGivenCurrentSystemStateSeekAfterEnd
+  case object InvalidGivenCurrentSystemStateSeekAfterEnd
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.OUT_OF_RANGE),
         logLevel = Level.INFO,
@@ -329,7 +329,7 @@ object ErrorCategory {
   )
   @RetryStrategy("""Not an API error, therefore not retryable.""")
   @Resolution("""Inspect details of the specific error for more information.""")
-  object BackgroundProcessDegradationWarning
+  case object BackgroundProcessDegradationWarning
       extends ErrorCategoryImpl(
         grpcCode = None, // should not be used on the API level
         logLevel = Level.WARN,
@@ -348,7 +348,7 @@ object ErrorCategory {
     """This error is caused by a ledger-level misconfiguration or by an implementation bug.
       |Resolution requires participant operator intervention."""
   )
-  object InternalUnsupportedOperation
+  case object InternalUnsupportedOperation
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.UNIMPLEMENTED),
         logLevel = Level.ERROR,
@@ -360,6 +360,29 @@ object ErrorCategory {
       with ErrorCategory
 
   implicit val orderingErrorType: Ordering[ErrorCategory] = Ordering.by[ErrorCategory, Int](_.rank)
+
+  /** Generic error category class meant to be used as a data container for
+    * information deserialized from gRPC statuses (see [[com.daml.error.utils.DeserializedCantonError]]).
+    *
+    * Note: Do NOT use this class for adding error category information to error code instances
+    * but instead re-use existing ones or define new ones (see [[ErrorCategory.all]])
+    */
+  final case class GenericErrorCategory(
+      override val grpcCode: Option[Code],
+      override val logLevel: Level,
+      override val retryable: Option[ErrorCategoryRetry],
+      override val securitySensitive: Boolean,
+      override val asInt: Int,
+      override val rank: Int,
+  ) extends ErrorCategoryImpl(
+        grpcCode = grpcCode,
+        logLevel = logLevel,
+        retryable = retryable,
+        securitySensitive = securitySensitive,
+        asInt = asInt,
+        rank = rank,
+      )
+      with ErrorCategory
 }
 
 /** Default retryability information
@@ -367,4 +390,4 @@ object ErrorCategory {
   * Every error category has a default retryability classification.
   * An error code may adjust the retry duration.
   */
-case class ErrorCategoryRetry(duration: Duration)
+final case class ErrorCategoryRetry(duration: Duration)

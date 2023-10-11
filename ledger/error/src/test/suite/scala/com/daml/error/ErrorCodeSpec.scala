@@ -198,7 +198,7 @@ class ErrorCodeSpec
         val expectedStatus = Status
           .newBuilder()
           .setMessage(
-            "An error occurred. Please contact the operator and inquire about the request 123correlationId"
+            "An error occurred. Please contact the operator and inquire about the request 123correlationId with tid <no-tid>"
           )
           .setCode(testedErrorCode.category.grpcCode.get.value())
           .addDetails(requestInfo.toRpcAny)
@@ -228,7 +228,7 @@ class ErrorCodeSpec
           actual = testedErrorCode.asGrpcError(testedError)(errorLoggerBig),
           expectedStatusCode = testedErrorCode.category.grpcCode.get,
           expectedMessage =
-            "An error occurred. Please contact the operator and inquire about the request 123correlationId",
+            "An error occurred. Please contact the operator and inquire about the request 123correlationId with tid <no-tid>",
           expectedDetails = Seq(requestInfo, retryInfo),
         )
       }

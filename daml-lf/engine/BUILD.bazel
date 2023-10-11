@@ -9,6 +9,17 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "LF_DEV_VERSIONS",
+    "LF_MAJOR_VERSIONS",
+    "lf_version_latest",
+    "mangle_for_damlc",
+)
 
 da_scala_library(
     name = "engine",
@@ -33,6 +44,35 @@ da_scala_library(
     ],
 )
 
+ENGINE_TEST_FILES = \
+    [
+        "BasicTests",
+        "AuthTests",
+        "Demonstrator",
+    ]
+
+[
+    daml_compile(
+        name = "{name}-v{major}".format(
+            name = name,
+            major = major,
+        ),
+        srcs = ["src/test/daml/%s.daml" % name],
+        target = lf_version_latest.get(major),
+    )
+    for name in ENGINE_TEST_FILES
+    for major in LF_MAJOR_VERSIONS
+]
+
+[
+    daml_compile(
+        name = "BasicTests-{}".format(mangle_for_damlc(version)),
+        srcs = ["src/test/daml/BasicTests.daml"],
+        target = version,
+    )
+    for version in LF_DEV_VERSIONS
+]
+
 da_scala_test_suite(
     name = "tests",
     srcs = glob(
@@ -46,16 +86,29 @@ da_scala_test_suite(
         ],
     ),
     data = [
-        "//daml-lf/tests:AuthTests.dar",
-        "//daml-lf/tests:BasicTests.dar",
-        "//daml-lf/tests:BasicTests-dev.dar",
-        "//daml-lf/tests:Exceptions.dar",
-        "//daml-lf/tests:InterfaceRetro.dar",
-        "//daml-lf/tests:InterfaceViews.dar",
-        "//daml-lf/tests:Interfaces.dar",
-        "//daml-lf/tests:MultiKeys.dar",
-        "//daml-lf/tests:Optional.dar",
-        "//daml-lf/tests:ReinterpretTests.dar",
+        "{name}-v{major}.dar".format(
+            name = name,
+            major = major,
+        )
+        for name in [
+            "//daml-lf/tests:Exceptions",
+            "//daml-lf/tests:Interfaces",
+            "//daml-lf/tests:InterfaceRetro",
+            "//daml-lf/tests:InterfaceViews",
+            "//daml-lf/tests:MultiKeys",
+            "//daml-lf/tests:ReinterpretTests",
+        ]
+        for major in LF_MAJOR_VERSIONS
+    ] + [
+        ":{name}-v{major}.dar".format(
+            name = name,
+            major = major,
+        )
+        for name in ENGINE_TEST_FILES
+        for major in LF_MAJOR_VERSIONS
+    ] + [
+        ":BasicTests-{}.dar".format(mangle_for_damlc(version))
+        for version in LF_DEV_VERSIONS
     ],
     scala_deps = [
         "@maven//:com_storm_enroute_scalameter_core",
@@ -70,8 +123,8 @@ da_scala_test_suite(
     deps = [
         ":engine",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
@@ -87,6 +140,15 @@ da_scala_test_suite(
     ],
 )
 
+[
+    daml_compile(
+        name = "LargeTransaction-v{}".format(major),
+        srcs = ["src/test/daml/LargeTransaction.daml"],
+        target = lf_version_latest.get(major),
+    )
+    for major in LF_MAJOR_VERSIONS
+]
+
 da_scala_test(
     name = "test-large-transaction",
     timeout = "moderate",
@@ -95,7 +157,8 @@ da_scala_test(
         "src/test/**/InMemoryPrivateLedgerData.scala",
     ]),
     data = [
-        "//daml-lf/tests:LargeTransaction.dar",
+        ":LargeTransaction-v{}.dar".format(major)
+        for major in LF_MAJOR_VERSIONS
     ],
     # We setup a large heap size to reduce as much as possible GC overheads.
     initial_heap_size = "2g",

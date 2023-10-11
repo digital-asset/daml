@@ -7,11 +7,12 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageMajorVersion}
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -20,14 +21,27 @@ import com.daml.logging.ContextualizedLogger
 
 import scala.language.implicitConversions
 
-class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDrivenPropertyChecks {
+class InterpreterTestV1 extends InterpreterTest(LanguageMajorVersion.V1)
+class InterpreterTestV2 extends InterpreterTest(LanguageMajorVersion.V2)
+
+class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
+    extends AnyWordSpec
+    with Inside
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
+  private implicit val parserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+
+  private val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
+  private val languageVersion = compilerConfig.allowedLanguageVersions.max
+
   private def runExpr(e: Expr): SValue = {
-    val machine = Speedy.Machine.fromPureExpr(PureCompiledPackages.Empty, e)
+    val machine = Speedy.Machine.fromPureExpr(PureCompiledPackages.Empty(compilerConfig), e)
     machine.run() match {
       case SResultFinal(v) => v
       case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
@@ -134,7 +148,7 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
     )
     var machine: Speedy.PureMachine = null
     "compile" in {
-      machine = Speedy.Machine.fromPureExpr(PureCompiledPackages.Empty, list)
+      machine = Speedy.Machine.fromPureExpr(PureCompiledPackages.Empty(compilerConfig), list)
     }
     "interpret" in {
       val value = machine.run() match {
@@ -186,7 +200,7 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
     val dummyPkg = PackageId.assertFromString("dummy")
     val ref = Identifier(dummyPkg, QualifiedName.assertFromString("Foo:bar"))
     val modName = DottedName.assertFromString("Foo")
-    val pkgs1 = PureCompiledPackages.Empty
+    val pkgs1 = PureCompiledPackages.Empty(compilerConfig)
     val pkgs2 =
       PureCompiledPackages.assertBuild(
         Map(
@@ -206,10 +220,11 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
                 )
               ),
               Set.empty[PackageId],
-              LanguageVersion.default,
+              languageVersion,
               None,
             )
-        )
+        ),
+        compilerConfig,
       )
     val pkgs3 = PureCompiledPackages.assertBuild(
       Map(
@@ -226,10 +241,11 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
               )
             ),
             Set.empty[PackageId],
-            LanguageVersion.default,
+            languageVersion,
             None,
           )
-      )
+      ),
+      compilerConfig,
     )
 
     val seed = crypto.Hash.hashPrivateKey("test")

@@ -14,6 +14,7 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.lf.speedy.Compiler
 
@@ -137,7 +138,9 @@ object RunnerConfig {
   private[trigger] val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
   private[trigger] val DefaultApplicationId: ApplicationId =
     ApplicationId("daml-trigger")
-  private[trigger] val DefaultCompilerConfig: Compiler.Config = Compiler.Config.Default
+  // TODO(#17366): support both LF v1 and v2 in triggers
+  private[trigger] val DefaultCompilerConfig: Compiler.Config =
+    Compiler.Config.Default(LanguageMajorVersion.V1)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[RunnerConfig]("trigger-runner") {
@@ -260,7 +263,8 @@ object RunnerConfig {
       )
 
     opt[Unit]("dev-mode-unsafe")
-      .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev))
+      // TODO(#17366) support both LF v1 and v2 in triggers
+      .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev(LanguageMajorVersion.V1)))
       .optional()
       .text(
         "Turns on development mode. Development mode allows development versions of Daml-LF language."

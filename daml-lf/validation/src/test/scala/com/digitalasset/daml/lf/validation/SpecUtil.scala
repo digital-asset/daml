@@ -4,7 +4,8 @@
 package com.daml.lf.validation
 
 import com.daml.lf.language.Ast.{Expr, Kind, Type}
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.ParserParameters
 import org.scalactic.Equality
 
 private[validation] object SpecUtil {
@@ -40,9 +41,9 @@ private[validation] object SpecUtil {
   implicit class SyntaxHelper2(val sc: StringContext) extends AnyVal {
     def K(args: Any*): Kind =
       k"${replace(StringContext.standardInterpolator(identity, args, sc.parts))}"
-    def T(args: Any*): Type =
+    def T[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Type =
       t"${replace(StringContext.standardInterpolator(identity, args, sc.parts))}"
-    def E(args: Any*): Expr =
+    def E[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Expr =
       e"${replace(StringContext.standardInterpolator(identity, args, sc.parts))}"
 
     def replace(s: String): String = {

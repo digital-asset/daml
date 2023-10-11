@@ -5,13 +5,14 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data._
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractInstance
@@ -22,13 +23,21 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import util.{Failure, Success, Try}
 
-class SBuiltinInterfaceTest
+class SBuiltinInterfaceTestV1 extends SBuiltinInterfaceTest(LanguageMajorVersion.V1)
+class SBuiltinInterfaceTestV2 extends SBuiltinInterfaceTest(LanguageMajorVersion.V2)
+
+class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec
     with Matchers
     with TableDrivenPropertyChecks
     with Inside {
 
-  import SBuiltinInterfaceTest._
+  val helpers = new SBuiltinInterfaceTestHelpers(majorLanguageVersion)
+  import helpers.{parserParameters => _, _}
+
+  implicit val parserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  val defaultPackageId = parserParameters.defaultPackageId
 
   "Interface operations" - {
     val iouTypeRep = Ref.TypeConName.assertFromString("-pkgId-:Mod:Iou")
@@ -122,16 +131,19 @@ class SBuiltinInterfaceTest
   }
 }
 
-object SBuiltinInterfaceTest {
+final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   import SpeedyTestLib.loggingContext
 
-  private[this] val alice = Ref.Party.assertFromString("Alice")
-  private[this] val bob = Ref.Party.assertFromString("Bob")
+  val alice = Ref.Party.assertFromString("Alice")
+  val bob = Ref.Party.assertFromString("Bob")
 
-  import defaultParserParameters.{defaultPackageId => basePkgId}
+  implicit val parserParameters =
+    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  val basePkgId = parserParameters.defaultPackageId
+  val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
 
-  private[this] lazy val basePkgs = {
+  lazy val basePkgs = {
     val pkg =
       p"""
         module T_Co0_No1 {
@@ -260,19 +272,19 @@ object SBuiltinInterfaceTest {
           val aliceOwesBobIface : Mod:Iface = to_interface @Mod:Iface @Mod:Iou Mod:aliceOwesBob;
         }
     """
-    Map(defaultParserParameters.defaultPackageId -> pkg)
+    Map(basePkgId -> pkg)
   }
-  lazy val compiledBasePkgs = PureCompiledPackages.assertBuild(basePkgs)
+  lazy val compiledBasePkgs = PureCompiledPackages.assertBuild(basePkgs, compilerConfig)
 
-  private[lf] val Ast.TTyCon(iouId) = t"'$basePkgId':Mod:Iou"
+  val Ast.TTyCon(iouId) = t"'$basePkgId':Mod:Iou"
 
-  private val extraPkgId = Ref.PackageId.assertFromString("-extra-package-")
-  assume(extraPkgId != basePkgId)
+  val extraPkgId = Ref.PackageId.assertFromString("-extra-package-")
+  require(extraPkgId != basePkgId)
 
-  private lazy val extendedPkgs = {
+  lazy val extendedPkgs = {
 
-    implicit val defaultParserParameters: parser.ParserParameters[this.type] =
-      parser.Implicits.defaultParserParameters.copy(defaultPackageId = extraPkgId)
+    val modifiedParserParameters: parser.ParserParameters[this.type] =
+      parserParameters.copy(defaultPackageId = extraPkgId)
 
     val pkg =
       p"""
@@ -294,14 +306,14 @@ object SBuiltinInterfaceTest {
           val bob : Party = Mod:mkParty "bob";
 
         }
-    """
-    basePkgs + (defaultParserParameters.defaultPackageId -> pkg)
+    """ (modifiedParserParameters)
+    basePkgs + (modifiedParserParameters.defaultPackageId -> pkg)
   }
-  lazy val compiledExtendedPkgs = PureCompiledPackages.assertBuild(extendedPkgs)
+  lazy val compiledExtendedPkgs = PureCompiledPackages.assertBuild(extendedPkgs, compilerConfig)
 
-  private val Ast.TTyCon(extraIouId) = t"'$extraPkgId':Mod:Iou"
+  val Ast.TTyCon(extraIouId) = t"'$extraPkgId':Mod:Iou"
 
-  private val iouPayload =
+  val iouPayload =
     Value.ValueRecord(
       None,
       ImmArray(
@@ -311,7 +323,7 @@ object SBuiltinInterfaceTest {
       ),
     )
 
-  private def eval(e: Expr): Try[Either[SError, SValue]] =
+  def eval(e: Expr): Try[Either[SError, SValue]] =
     evalSExpr(
       compiledBasePkgs.compiler.unsafeCompile(e),
       PartialFunction.empty,

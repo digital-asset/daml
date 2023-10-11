@@ -61,7 +61,15 @@ private[inner] object TemplateMethods {
       .addStatement("return $T.of(COMPANION)", classOf[ContractFilter[_]])
       .build()
 
-    Vector(constructor) ++ conversionMethods ++ Vector(contractFilterMethod) ++
+    val jsonConversionMethods = FromJsonGenerator.forRecordLike(
+      fields,
+      className,
+      IndexedSeq(),
+    )
+
+    Vector(constructor) ++ conversionMethods ++ jsonConversionMethods ++ Vector(
+      contractFilterMethod
+    ) ++
       ObjectMethods(className, IndexedSeq.empty[String], fields.map(_.javaName))
   }
 }

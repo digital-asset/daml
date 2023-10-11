@@ -182,14 +182,14 @@ decodeVersion mbPkgId minorText = do
     | T.null minorText -> pure $ LF.PointStable 0
     | Just minor <- LF.parseMinorVersion (T.unpack minorText) -> pure minor
     | otherwise -> unsupported
-  let version = V1 minor
+  let version = Version V1 minor
   if  isStablePackage || version `elem` LF.supportedInputVersions then pure version else unsupported
   where
     isStablePackage = maybe False (`elem` stablePackages) mbPkgId
 
 decodeInternedDottedName :: LF1.InternedDottedName -> Decode ([T.Text], Either String [UnmangledIdentifier])
 decodeInternedDottedName (LF1.InternedDottedName ids) = do
-    (mangled, unmangledOrErr) <- unzip <$> mapM lookupString (V.toList ids)
+    (mangled, unmangledOrErr) <- mapAndUnzipM lookupString (V.toList ids)
     pure (mangled, sequence unmangledOrErr)
 
 -- The package id is optional since we also call this function from decodeScenarioModule

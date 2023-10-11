@@ -6,10 +6,14 @@ package com.daml.lf.engine.script.test
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.script.ScriptTimeMode
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue.SRecord
 
-final class FuncStaticTimeIT extends AbstractFuncIT {
-  import AbstractScriptTest._
+class FuncStaticTimeITV1 extends FuncStaticTimeIT(LanguageMajorVersion.V1)
+class FuncStaticTimeITV2 extends FuncStaticTimeIT(LanguageMajorVersion.V2)
+
+class FuncStaticTimeIT(override val majorLanguageVersion: LanguageMajorVersion)
+    extends AbstractFuncIT {
 
   protected override lazy val timeMode = ScriptTimeMode.Static
 

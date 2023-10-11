@@ -26,7 +26,6 @@ def damlc_compile_test(
         damlc = "//compiler/damlc",
         stack_limit = "",
         heap_limit = "",
-        enable_scenarios = False,
         enable_scripts = False,
         **kwargs):
     stack_opt = "-K" + stack_limit if stack_limit else ""
@@ -47,13 +46,12 @@ trap cleanup EXIT
 importargs=""
 {install_script}
 
-DAML_PROJECT="$$TMP" $$DAMLC compile {scenarios} $$MAIN -o $$TMP/out $$importargs +RTS -s {stack_opt} {heap_opt}
+DAML_PROJECT="$$TMP" $$DAMLC compile $$MAIN -o $$TMP/out $$importargs +RTS -s {stack_opt} {heap_opt}
 """.format(
             damlc = damlc,
             main = main,
             stack_opt = stack_opt,
             heap_opt = heap_opt,
-            scenarios = "--enable-scenarios=yes" if enable_scenarios else "",
             install_script =
                 script_installer.format(
                     sdk_version = sdk_version,

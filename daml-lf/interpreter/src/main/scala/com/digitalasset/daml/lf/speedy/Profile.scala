@@ -273,7 +273,7 @@ object Profile {
           case SignatoriesDefRef(tmplRef) => s"signatories @${tmplRef.qualifiedName}"
           case ObserversDefRef(tmplRef) => s"observers @${tmplRef.qualifiedName}"
           case ContractKeyWithMaintainersDefRef(tmplRef) => s"key @${tmplRef.qualifiedName}"
-          case ToCachedContractDefRef(tmplRef) => s"toAnyContract @${tmplRef.qualifiedName}"
+          case ToContractInfoDefRef(tmplRef) => s"toAnyContract @${tmplRef.qualifiedName}"
           case InterfaceInstanceMethodDefRef(ii, methodName) =>
             s"interfaceInstanceMethod @${ii.parent.qualifiedName} @${ii.interfaceId.qualifiedName} @${ii.templateId.qualifiedName} ${methodName}"
           case InterfaceInstanceViewDefRef(ii) =>

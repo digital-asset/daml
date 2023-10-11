@@ -4,7 +4,7 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 
 sealed abstract class TransactionVersion private (val protoValue: String, private val index: Int)
     extends Product
@@ -66,6 +66,8 @@ object TransactionVersion {
       v1_14 -> V14,
       v1_15 -> V15,
       v1_dev -> VDev,
+      // TODO(#17366): Map to TransactionVersion 2.dev once it exists.
+      v2_dev -> VDev,
     )
   }
 
@@ -88,7 +90,8 @@ object TransactionVersion {
   private[lf] val EarlyAccessVersions: VersionRange[TransactionVersion] =
     LanguageVersion.EarlyAccessVersions.map(assignNodeVersion)
 
+  // TODO(#17366): parameterize by major language version once there's a transaction v2
   private[lf] val DevVersions: VersionRange[TransactionVersion] =
-    LanguageVersion.DevVersions.map(assignNodeVersion)
+    LanguageVersion.AllVersions(LanguageMajorVersion.V1).map(assignNodeVersion)
 
 }
