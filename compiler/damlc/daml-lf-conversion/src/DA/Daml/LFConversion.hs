@@ -104,7 +104,7 @@ import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
 import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 import           DA.Daml.Options.Types (EnableScenarios (..), AllowLargeTuples (..))
-import           DA.Daml.StablePackages (preconditionFailedTCon, tupleNTCon, tupleNWorker)
+import           DA.Daml.StablePackages (erasedTCon, preconditionFailedTCon, tupleNTCon, tupleNWorker)
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -2446,10 +2446,8 @@ qualify env m x = do
 -- | Types of a kind not supported in Daml-LF, e.g., the DataKinds stuff from GHC.Generics
 -- are translated to a special uninhabited Erased type. This allows us to easily catch these
 -- cases in data-dependencies.
-erasedTy :: Env -> ConvertM LF.Type
-erasedTy env = do
-    pkgRef <- packageNameToPkgRef env primUnitId
-    pure $ TCon $ rewriteStableQualified env (Qualified pkgRef (mkModName ["DA", "Internal", "Erased"]) (mkTypeCon ["Erased"]))
+erasedTy :: Env -> LF.Type
+erasedTy = TCon . erasedTCon . versionMajor . envLfVersion
 
 -- | Type-level strings are represented in Daml-LF via the PromotedText type. This is
 -- For example, the type-level string @"foo"@ will be represented by the type
@@ -2532,8 +2530,8 @@ convertTyCon env t
     | t == boolTyCon = pure TBool
     | t == intTyCon || t == intPrimTyCon = pure TInt64
     | t == charTyCon = unsupported "Type GHC.Types.Char" t
-    | t == liftedRepDataConTyCon = erasedTy env
-    | t == typeSymbolKindCon = erasedTy env
+    | t == liftedRepDataConTyCon = pure $ erasedTy env
+    | t == typeSymbolKindCon = pure $ erasedTy env
     | NameIn GHC_Types n <- t =
         case n of
             "Text" -> pure TText
@@ -2575,7 +2573,7 @@ convertType env = go env
             -- not want to translate this back to `()` for `data-dependencies`
             -- and because we never actually have values of type `Any xs` which
             -- is made explicit by translating it to an uninhabited type.
-            erasedTy env
+            pure $ erasedTy env
 
         | t == funTyCon, _:_:ts' <- ts =
             foldl' TApp TArrow <$> mapM (go env) ts'
