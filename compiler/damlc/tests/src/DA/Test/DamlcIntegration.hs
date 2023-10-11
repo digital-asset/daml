@@ -19,7 +19,7 @@ module DA.Test.DamlcIntegration
 import           DA.Bazel.Runfiles
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
-import           DA.Test.Util (redactStablePackageIds, standardizeQuotes)
+import           DA.Test.Util (standardizeQuotes)
 
 import           DA.Daml.LF.Ast as LF hiding (IsTest)
 import           "ghc-lib-parser" UniqSupply
@@ -328,6 +328,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
                     , dlintHintFiles = NoDlintHintFiles
                     }
                 , optPackageImports = packageFlags
+                , optDetailLevel = PrettyLevel (-1)
                 }
 
               mkIde options = do
@@ -522,7 +523,7 @@ checkDiagnostics log expected got
             DMessage m ->
               standardizeQuotes (T.pack m)
                   `T.isInfixOf`
-                      standardizeQuotes (redactStablePackageIds (T.unwords (T.words _message)))
+                      standardizeQuotes (T.unwords (T.words _message))
           logDiags = log $ T.unpack $ showDiagnostics got
           bad = filter
             (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)
