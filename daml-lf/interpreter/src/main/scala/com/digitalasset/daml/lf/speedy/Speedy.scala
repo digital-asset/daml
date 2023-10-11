@@ -333,6 +333,32 @@ private[lf] object Speedy {
       ptx.contractState.locallyCreated.contains(contractId)
     }
 
+    private[speedy] def needPackage(
+        packageId: PackageId,
+        ref: language.Reference,
+        k: () => Control[Question.Update],
+    ): Control[Question.Update] =
+      Control.Question(
+        Question.Update.NeedPackage(
+          packageId,
+          ref,
+          { packages =>
+            this.compiledPackages = packages
+            // To avoid infinite loop in case the packages are not updated properly by the caller
+            assert(compiledPackages.packageIds.contains(packageId))
+            setControl(k())
+          },
+        )
+      )
+
+    private[speedy] def ensurePackageIsLoaded(packageId: PackageId, ref: => language.Reference)(
+        k: () => Control[Question.Update]
+    ): Control[Question.Update] =
+      if (compiledPackages.packageIds.contains(packageId))
+        k()
+      else
+        needPackage(packageId, ref, k)
+
     private[speedy] def enforceLimitSignatoriesAndObservers(
         cid: V.ContractId,
         contract: ContractInfo,
@@ -914,18 +940,11 @@ private[lf] object Speedy {
                   s"definition $ref not found even after caller provided new set of packages",
                 )
               else {
-                asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc)(_ =>
-                  Control.Question(
-                    Question.Update.NeedPackage(
-                      ref.packageId,
-                      language.Reference.Package(ref.packageId),
-                      callback = { packages =>
-                        this.compiledPackages = packages
-                        // To avoid infinite loop in case the packages are not updated properly by the caller
-                        assert(compiledPackages.packageIds.contains(ref.packageId))
-                        setControl(Control.Expression(eval))
-                      },
-                    )
+                asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc)(
+                  _.needPackage(
+                    ref.packageId,
+                    language.Reference.Package(ref.packageId),
+                    () => Control.Expression(eval),
                   )
                 )
               }
