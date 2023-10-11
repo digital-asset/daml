@@ -144,7 +144,7 @@ trait PostgresAround {
     "initialize the PostgreSQL database",
     Tool.initdb,
     s"--username=$userName",
-    "--locale=C.UTF8",
+    "--locale=C.utf8",
     "-E",
     "UNICODE",
     "-A",
