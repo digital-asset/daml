@@ -35,7 +35,7 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
-import scala.annotation.{tailrec, nowarn}
+import scala.annotation.{nowarn, tailrec}
 import scala.util.control.NonFatal
 
 private[lf] object Speedy {
@@ -1022,8 +1022,8 @@ private[lf] object Speedy {
     }
 
     /** Reuse an existing speedy machine to evaluate a new expression.
-      * Do not use if the machine is partway though an existing evaluation.
-      * i.e. run() has returned an `SResult` requiring a callback.
+      *      Do not use if the machine is partway though an existing evaluation.
+      *      i.e. run() has returned an `SResult` requiring a callback.
       */
     final def setExpressionToEvaluate(expr: SExpr): Unit = {
       setControl(Control.Expression(expr))
@@ -1072,7 +1072,6 @@ private[lf] object Speedy {
             }
           }
         }
-
         loop()
       } catch {
         case serr: SError => // TODO: prefer Control over throw for SError
@@ -1120,7 +1119,7 @@ private[lf] object Speedy {
     }
 
     /** This function is used to enter an ANF application.  The function has been evaluated to
-      * a value, and so have the arguments - they just need looking up
+      *      a value, and so have the arguments - they just need looking up
       */
     // TODO: share common code with executeApplication
     private[speedy] final def enterApplication(
@@ -1228,11 +1227,11 @@ private[lf] object Speedy {
     }
 
     /** Evaluate the first 'n' arguments in 'args'.
-      * 'args' will contain at least 'n' expressions, but it may contain more(!)
+      *      'args' will contain at least 'n' expressions, but it may contain more(!)
       *
-      * This is because, in the call from 'executeApplication' below, although over-applied
-      * arguments are pushed into a continuation, they are not removed from the original array
-      * which is passed here as 'args'.
+      *      This is because, in the call from 'executeApplication' below, although over-applied
+      *      arguments are pushed into a continuation, they are not removed from the original array
+      *      which is passed here as 'args'.
       */
     private[speedy] final def evaluateArguments(
         actuals: util.ArrayList[SValue],

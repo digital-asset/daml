@@ -51,6 +51,7 @@ private[lf] object SExpr {
     }
   }
 
+  // This is used to delay error happing during evaluation of question continuations
   private[speedy] final case class SEDelayedCrash(location: String, reason: String) extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control[Nothing] =
       throw SError.SErrorCrash(location, reason)
