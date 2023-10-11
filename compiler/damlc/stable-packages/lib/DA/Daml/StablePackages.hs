@@ -10,6 +10,8 @@ module DA.Daml.StablePackages
     , erasedTCon
     , promotedTextTCon
     , preconditionFailedTCon
+    , tupleNTCon
+    , tupleNWorker
     ) where
 
 import Data.Bifunctor
@@ -889,16 +891,21 @@ emptyModule name = Module
   , moduleInterfaces = NM.empty
   }
 
-stableTCon ::
-    HasCallStack => MajorVersion -> [T.Text] -> T.Text -> Qualified TypeConName
-stableTCon major moduleName tconName =
+stableQualified ::
+    HasCallStack => MajorVersion -> [T.Text] -> a -> Qualified a
+stableQualified major moduleName obj =
     Qualified
         { qualPackage = PRImport (stablePackageIdByModuleNamePartial major qualModule)
-        , qualModule = qualModule
-        , qualObject = TypeConName [tconName]
+        , qualModule
+        , qualObject = obj
         }
   where
     qualModule = ModuleName moduleName
+
+stableTCon ::
+    HasCallStack => MajorVersion -> [T.Text] -> T.Text -> Qualified TypeConName
+stableTCon major moduleName tconName =
+    stableQualified major moduleName (TypeConName [tconName])
 
 erasedTCon :: HasCallStack => MajorVersion -> Qualified TypeConName
 erasedTCon major =
@@ -920,6 +927,20 @@ preconditionFailedTCon major =
         major
         ["DA", "Exception", "PreconditionFailed"]
         "PreconditionFailed"
+
+tupleNTCon :: MajorVersion -> Int -> Qualified TypeConName
+tupleNTCon major n =
+    stableTCon
+        major
+        ["DA", "Types"]
+        ("Tuple" <> T.pack (show n))
+
+tupleNWorker :: MajorVersion -> Int -> Qualified ExprValName
+tupleNWorker major n =
+    stableQualified
+        major
+        ["DA", "Types"]
+        (mkWorkerName ("Tuple" <> T.pack (show n)))
 
 -- | Returns the ID of the stable package for the given major version and module
 -- name, throws if it doesn't exist.

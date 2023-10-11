@@ -74,11 +74,13 @@ pattern DamlStdlib <- (T.stripPrefix "daml-stdlib-" . fsToText . unitIdFS -> Jus
     -- The unit name for daml-stdlib includes the SDK version.
     -- This pattern accepts all SDK versions for daml-stdlib.
 
-pattern IgnoreWorkerPrefix :: T.Text -> T.Text
-pattern IgnoreWorkerPrefix n <- (\w -> fromMaybe w (T.stripPrefix "$W" w) -> n)
+pattern IgnoreWorkerPrefix :: NamedThing a => T.Text -> a
+pattern IgnoreWorkerPrefix n <- (getOccFS -> IgnoreWorkerPrefixFS n)
 
 pattern IgnoreWorkerPrefixFS :: T.Text -> FastString
-pattern IgnoreWorkerPrefixFS n <- (fsToText -> IgnoreWorkerPrefix n)
+pattern IgnoreWorkerPrefixFS n <-
+    (\fs -> let w = fsToText fs
+            in fromMaybe w (T.stripPrefix "$W" w) -> n)
 
 -- daml-prim module patterns
 pattern Control_Exception_Base, Data_String, GHC_Base, GHC_Classes, GHC_CString, GHC_Integer_Type, GHC_Num, GHC_Prim, GHC_Real, GHC_Tuple, GHC_Tuple_Check, GHC_Types, GHC_Show :: GHC.Module

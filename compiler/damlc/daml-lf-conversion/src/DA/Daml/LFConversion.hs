@@ -104,7 +104,7 @@ import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
 import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 import           DA.Daml.Options.Types (EnableScenarios (..), AllowLargeTuples (..))
-import           DA.Daml.StablePackages (preconditionFailedTCon)
+import           DA.Daml.StablePackages (preconditionFailedTCon, tupleNTCon, tupleNWorker)
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -1602,7 +1602,7 @@ convertExpr env0 e = do
             t1 <- convertType env t1
             t2 <- convertType env t2
             let fields = [(mkField f1, t1), (mkField f2, t2)]
-            tupleTyCon <- qDA_Types env $ mkTypeCon ["Tuple" <> T.pack (show $ length fields)]
+            let tupleTyCon = tupleNTCon (versionMajor (envLfVersion env)) (length fields)
             let tupleType = TypeConApp tupleTyCon (map snd fields)
             v <- freshTmVar
             let mkFieldProj i (name, _typ) = (mkIndexedField i, EStructProj name (EVar v))
@@ -2144,13 +2144,13 @@ convertDataCon env m con args
 
     -- Partially applied
     | otherwise = do
-        fmap (\op -> (EVal op, args)) (qual mkWorkerName (getOccText con))
+        fmap (\op -> (EVal op, args)) (qualWorker con)
   where
 
     fullyApplied :: Env -> [LF.Type] -> [LF.Expr] -> ConvertM LF.Expr
     fullyApplied env tyArgs tmArgs = do
         let tycon = dataConTyCon con
-        qTCon <- qual (\x -> mkTypeCon [x]) (getOccText tycon)
+        qTCon <- qualTCon tycon
         let tcon = TypeConApp qTCon tyArgs
             ctorName = mkVariantCon (getOccText con)
             fldNames = ctorLabels con
@@ -2180,11 +2180,19 @@ convertDataCon env m con args
                     EVariantCon tcon ctorName $
                     ERecCon (TypeConApp recTCon tyArgs) (zipExact fldNames tmArgs)
 
-    qual :: (T.Text -> n) -> T.Text -> ConvertM (Qualified n)
-    qual f t
-        | Just xs <- T.stripPrefix "(," t
-        , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
-        | IgnoreWorkerPrefix t' <- t = qualify env m $ f t'
+    qualTCon :: TyCon -> ConvertM (Qualified TypeConName)
+    qualTCon = \case
+        IsTuple arity -> pure $
+            tupleNTCon (versionMajor (envLfVersion env)) arity
+        IgnoreWorkerPrefix t ->
+            qualify env m (TypeConName [t])
+
+    qualWorker :: DataCon -> ConvertM (Qualified ExprValName)
+    qualWorker = \case
+        IsTuple arity -> pure $
+            tupleNWorker (versionMajor (envLfVersion env)) arity
+        IgnoreWorkerPrefix t ->
+            qualify env m (mkWorkerName t)
 
 convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
 convertArg env = \case
@@ -2435,11 +2443,6 @@ qualify env m x = do
     unitId <- convertUnitId (envModuleUnitId env) (envPkgMap env) $ GHC.moduleUnitId m
     pure $ rewriteStableQualified env $ Qualified unitId (convertModuleName $ GHC.moduleName m) x
 
-qDA_Types :: Env -> a -> ConvertM (Qualified a)
-qDA_Types env a = do
-  pkgRef <- packageNameToPkgRef env primUnitId
-  pure $ rewriteStableQualified env $ Qualified pkgRef (mkModName ["DA", "Types"]) a
-
 -- | Types of a kind not supported in Daml-LF, e.g., the DataKinds stuff from GHC.Generics
 -- are translated to a special uninhabited Erased type. This allows us to easily catch these
 -- cases in data-dependencies.
@@ -2524,7 +2527,7 @@ convertTyCon :: Env -> TyCon -> ConvertM LF.Type
 convertTyCon env t
     | t == unitTyCon = pure TUnit
     | isTupleTyCon t, not (isConstraintTupleTyCon t), arity >= 2 =
-        TCon <$> qDA_Types env (mkTypeCon ["Tuple" <> T.pack (show arity)])
+        pure $ TCon $ tupleNTCon (versionMajor (envLfVersion env)) arity
     | t == listTyCon = pure (TBuiltin BTList)
     | t == boolTyCon = pure TBool
     | t == intTyCon || t == intPrimTyCon = pure TInt64
