@@ -196,7 +196,7 @@ jobs:
         tmp=$(mktemp -d)
         trap "rm -rf ${tmp}" EXIT
 
-        git clone git@github.com:DACH-NY/canton.git --depth 1  $tmp
+        git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton $tmp
 
         for path in community daml-common-staging; do
           src=$tmp/$path
@@ -207,10 +207,10 @@ jobs:
           git add $dst
         done
 
-        canton_sha=$(git -C $tmp rev-parse HEAD)"
+        canton_sha=$(git -C $tmp rev-parse HEAD)
         branch="canton-update-${canton_sha}"
 
-        if git diff --exit-code -- canton; then
+        if git diff --exit-code origin/main -- canton >/dev/null; then
             echo "Already up-to-date with latest Canton source."
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
@@ -226,6 +226,8 @@ jobs:
                 echo "Would open PR if this were running on main."
             fi
         fi
+      env:
+        GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
 
   - job: bump_canton
     timeoutInMinutes: 60
