@@ -692,13 +692,12 @@ excluded_test_tool_tests = [
             },
         ],
     },
-    # From 2.7.0snap - 2.7.3 the DeeplyNestedValueIT test was misaligned with the real error
-    # (This was 2 versions as 2.7.2 was skipped)
+    # From 2.7.0snap - 2.7.x the DeeplyNestedValueIT test was misaligned with the real error
     # After this, it had changed on both tests and ledger to be different from <2.7.1
-    # As such, Test tool <2.7.3 cannot run with platform >= 2.7.1
-    # and test tool >= 2.7.1 cannot run with platform <2.7.3
+    # As such, Test tool <2.7.x cannot run with platform >= 2.7.1
+    # and test tool >= 2.7.1 cannot run with platform <2.7.x
     {
-        "end": "2.7.3",
+        "end": "2.7.9",
         "platform_ranges": [
             {
                 "start": "2.7.0-snapshot.20230703.11931.0.vc04c7ac9",
@@ -712,7 +711,7 @@ excluded_test_tool_tests = [
         "start": "2.7.0-snapshot.20230703.11931.0.vc04c7ac9",
         "platform_ranges": [
             {
-                "end": "2.7.3",
+                "end": "2.7.9",
                 "exclusions": [
                     "DeeplyNestedValueIT",
                 ],
