@@ -88,7 +88,7 @@ abstract class HttpServiceIntegrationTest
       override def getAcceptedIssuers = Array()
     }
 
-    val context = SSLContext.getInstance("TLSv1.2")
+    val context = SSLContext.getInstance("TLSv1.3")
     context.init(Array(), Array(Gullible), new SecureRandom())
 
     ConnectionContext.httpsClient(context)
