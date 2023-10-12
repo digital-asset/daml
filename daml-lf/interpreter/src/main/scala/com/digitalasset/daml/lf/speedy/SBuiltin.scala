@@ -1099,20 +1099,12 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
+      val coid = getSContractId(args, 0)
       val (actualTemplateId, record) = getSAnyContract(args, 1)
-      if (actualTemplateId == templateId) {
+      if (actualTemplateId == templateId)
         Control.Value(record)
-      } else {
-        assert(actualTemplateId != templateId)
-        val coid = getSContractId(args, 0)
-
-        println("WronglyTypedContract(from SBCastAnyContract)") // NICK
-        println(s"- coid = $coid")
-        println(s"- templateId = $templateId")
-        println(s"- actualTemplateId = $actualTemplateId")
-
+      else
         Control.Error(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
-      }
     }
   }
 

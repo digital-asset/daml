@@ -390,7 +390,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         SValue.SRecord(id, fields, values)
       }
       val res = goDisclosed("M1:do_fetch", sv1_base)
-      // println(s"res=$res") // NICK
       inside(res) { case Right((v, _)) =>
         v shouldBe v1_base
       }
@@ -410,18 +409,14 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           SValue.SParty(alice), // And it needs to be a party
           SValue.SInt64(100),
           SValue.SText("lala"),
-          // SValue.SText("extra-info-should-have-optional-type"),
-          // SValue.SOptional(Some(SValue.SText("Some cant be lost"))),
           SValue.SOptional(None),
         )
         SValue.SRecord(id, fields, values)
       }
       val res = goDisclosed("M1:do_fetch", sv1_base)
-      // println(s"res=$res") // NICK
-      val _ = res // NICK
-      /*inside(res) { case Right((v, _)) => // NICK
+      inside(res) { case Right((v, _)) =>
         v shouldBe v1_base
-      }*/
+      }
     }
 
   }
