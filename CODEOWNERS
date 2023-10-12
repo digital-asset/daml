@@ -65,6 +65,9 @@ NOTICES     @garyverhaegen-da @dasormeter
 /runtime-components/   @filmackay
 /triggers/service/     @filmackay
 
+# Canton code drop
+/canton/               @remy
+
 # Misc
 /docs/              @digital-asset/daml-docs @hrischuk-da
 /libs-scala/nonempty/src/    @S11001001
