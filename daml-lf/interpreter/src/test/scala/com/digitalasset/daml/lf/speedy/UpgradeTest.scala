@@ -4,8 +4,10 @@
 package com.daml.lf
 package speedy
 
+import java.util
+
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party, Name}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageMajorVersion}
 import com.daml.lf.speedy.SError.SError
@@ -147,6 +149,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   type Success = (Value, List[UpgradeVerificationRequest])
 
+  // The given contractValue is wrapped as a contract available for ledger-fetch
   def go(entryPoint: String, contractValue: Value): Either[SError, Success] = {
 
     val e: Expr = parseExpr(pid1, entryPoint)
@@ -174,6 +177,40 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       }
   }
 
+  // The given contractSValue is wrapped as a disclosedContract
+  def goDisclosed(entryPoint: String, contractSValue: SValue): Either[SError, Success] = {
+
+    val e: Expr = parseExpr(pid1, entryPoint)
+    val se: SExpr = pkgs.compiler.unsafeCompile(e)
+    val args: Array[SValue] = Array(SContractId(theCid))
+    val sexprToEval: SExpr = SEApp(se, args)
+
+    implicit def logContext: LoggingContext = LoggingContext.ForTesting
+    val seed = crypto.Hash.hashPrivateKey("seed")
+    val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
+
+    val contractInfo: Speedy.ContractInfo = {
+      // NICK: where does this contract-info even get used?
+      Speedy.ContractInfo(
+        version = VDev,
+        templateId = parseTyCon(pid1, "Myyy:Tyyy"),
+        value = contractSValue,
+        agreementText = "meh",
+        signatories = Set.empty,
+        observers = Set.empty,
+        keyOpt = None,
+      )
+    }
+    machine.addDisclosedContracts(theCid, contractInfo)
+
+    SpeedyTestLib
+      .runCollectRequests(machine)
+      .map { case (sv, _, uvs) => // ignoring any AuthRequest
+        val v = sv.toNormalizedValue(VDev)
+        (v, uvs)
+      }
+  }
+
   def makeRecord(fields: Value*): Value = {
     Value.ValueRecord(
       None,
@@ -181,17 +218,17 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     )
   }
 
+  val v1_base =
+    makeRecord(
+      Value.ValueParty(alice),
+      Value.ValueInt64(100),
+      Value.ValueText("lala"),
+    )
+
   "downgrade attempted" - {
 
     // These tests check downgrade of differently shaped actual contracts
     // Always expecting a contract of type M1:T1
-
-    val v1_base =
-      makeRecord(
-        Value.ValueParty(alice),
-        Value.ValueInt64(100),
-        Value.ValueText("lala"),
-      )
 
     "correct fields" in {
 
@@ -333,4 +370,54 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   }
 
+  "Dislosed contracts" - {
+
+    "correct fields" in {
+
+      // This is the SValue equivalent of v1_base
+      val sv1_base: SValue = {
+        def id: Identifier = parseTyCon(pid1, "M1:T1") // NICK can make it diff in new code-path
+        def fields: ImmArray[Name] = ImmArray(
+          n"theSig", // This one get checked during contract-info computation.
+          n"aNumber",
+          n"someText",
+        )
+        def values: util.ArrayList[SValue] = ArrayList(
+          SValue.SParty(alice), // And it needs to be a party
+          SValue.SInt64(100),
+          SValue.SText("lala"),
+        )
+        SValue.SRecord(id, fields, values)
+      }
+      val res = goDisclosed("M1:do_fetch", sv1_base)
+      inside(res) { case Right((v, _)) =>
+        v shouldBe v1_base
+      }
+    }
+
+    "requires downgrade" in {
+
+      val sv1_base: SValue = {
+        def id: Identifier = parseTyCon(pid1, "M1:T1xx")
+        def fields: ImmArray[Name] = ImmArray(
+          n"theSig",
+          n"aNumber",
+          n"someText",
+          n"extraField",
+        )
+        def values: util.ArrayList[SValue] = ArrayList(
+          SValue.SParty(alice), // And it needs to be a party
+          SValue.SInt64(100),
+          SValue.SText("lala"),
+          SValue.SOptional(None),
+        )
+        SValue.SRecord(id, fields, values)
+      }
+      val res = goDisclosed("M1:do_fetch", sv1_base)
+      inside(res) { case Right((v, _)) =>
+        v shouldBe v1_base
+      }
+    }
+
+  }
 }

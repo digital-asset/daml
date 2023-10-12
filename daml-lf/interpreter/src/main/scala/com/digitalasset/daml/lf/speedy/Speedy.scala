@@ -342,21 +342,36 @@ private[lf] object Speedy {
         )
       )
 
-    final private[speedy] def lookupContractOnLedger[Q](coid: V.ContractId)(
-        continue: V.ContractInstance => Control[Question.Update]
-    ): Control[Question.Update] =
-      contractsCache.get(coid) match {
-        case Some(contract) => continue(contract)
-        case None =>
-          needContract(
-            NameOf.qualifiedNameOfCurrentFunc,
-            coid,
-            { res =>
-              contractsCache = contractsCache.updated(coid, res)
-              continue(res)
-            },
+    private[speedy] def lookupContract(coid: V.ContractId)(
+        f: V.ContractInstance => Control[Question.Update]
+    ): Control[Question.Update] = {
+
+      disclosedContracts.get(coid) match {
+        case Some(contractInfo) =>
+          markDisclosedcontractAsUsed(coid)
+          f(
+            V.ContractInstance(
+              contractInfo.templateId,
+              contractInfo.value.toUnnormalizedValue,
+            )
           )
+
+        case None =>
+          contractsCache.get(coid) match {
+            case Some(res) =>
+              f(res)
+            case None =>
+              needContract(
+                NameOf.qualifiedNameOfCurrentFunc,
+                coid,
+                { res =>
+                  contractsCache = contractsCache.updated(coid, res)
+                  f(res)
+                },
+              )
+          }
       }
+    }
 
     private[speedy] override def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
@@ -602,7 +617,7 @@ private[lf] object Speedy {
 
     // Track which disclosed contracts are used, so we can report events to the ledger
     private[this] var usedDiclosedContracts: Set[V.ContractId] = Set.empty
-    private[speedy] def markDisclosedcontractAsUsed(coid: V.ContractId): Unit = {
+    private[this] def markDisclosedcontractAsUsed(coid: V.ContractId): Unit = {
       usedDiclosedContracts = usedDiclosedContracts + coid
     }
 
