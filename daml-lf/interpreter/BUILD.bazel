@@ -23,6 +23,7 @@ da_scala_library(
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-interpreter:__VERSION__"],
     visibility = [
+        "//canton:__subpackages__",
         "//compiler/repl-service:__subpackages__",
         "//compiler/scenario-service:__subpackages__",
         "//daml-lf:__subpackages__",
