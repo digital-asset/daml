@@ -342,20 +342,19 @@ private[lf] object Speedy {
         )
       )
 
-
-    private[speedy] def lookupContract( coid: V.ContractId)(
-      f: V.ContractInstance => Control[Question.Update]
+    private[speedy] def lookupContract(coid: V.ContractId)(
+        f: V.ContractInstance => Control[Question.Update]
     ): Control[Question.Update] = {
 
       disclosedContracts.get(coid) match {
         case Some(contractInfo) =>
-            markDisclosedcontractAsUsed(coid)
-            f(
-              V.ContractInstance(
+          markDisclosedcontractAsUsed(coid)
+          f(
+            V.ContractInstance(
               contractInfo.templateId,
               contractInfo.value.toUnnormalizedValue,
             )
-            )
+          )
 
         case None =>
           contractsCache.get(coid) match {
@@ -368,7 +367,7 @@ private[lf] object Speedy {
                 { res =>
                   contractsCache = contractsCache.updated(coid, res)
                   f(res)
-                }
+                },
               )
           }
       }
