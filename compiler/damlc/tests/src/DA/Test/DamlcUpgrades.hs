@@ -18,6 +18,7 @@ import SdkVersion
 import DA.Daml.LF.Ast.Version
 import Text.Regex.TDFA
 import qualified Data.Text as T
+import Data.Maybe (fromMaybe)
 
 main :: IO ()
 main = do
@@ -515,6 +516,10 @@ tests damlc =
           , "  - daml-stdlib"
           , "typecheck-upgrades: true"
           , "build-options:"
-          , "- --target=" <> renderVersion (featureMinVersion featurePackageUpgrades)
+          , "- --target=" <>
+                renderVersion
+                  (fromMaybe
+                    (error "DamlcUpgrades: featureMinVersion should be defined over featurePackageUpgrades")
+                    (featureMinVersion featurePackageUpgrades V1))
           ] ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
         )
