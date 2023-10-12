@@ -104,7 +104,7 @@ import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
 import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 import           DA.Daml.Options.Types (EnableScenarios (..), AllowLargeTuples (..))
-import           DA.Daml.StablePackages (erasedTCon, preconditionFailedTCon, tupleNTCon, tupleNWorker)
+import           DA.Daml.StablePackages (erasedTCon, preconditionFailedTCon, promotedTextTCon, tupleNTCon, tupleNWorker)
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -2458,13 +2458,10 @@ erasedTy = TCon . erasedTCon . versionMajor . envLfVersion
 -- Note: It's fine to put arbitrary non-empty strings in field names, because we mangle
 -- the field names in daml-lf-proto to encode undesired characters. We later reconstruct
 -- the original string during unmangling. See DA.Daml.LF.Mangling for more details.
-promotedTextTy :: Env -> T.Text -> ConvertM LF.Type
-promotedTextTy env text = do
-    pkgRef <- packageNameToPkgRef env primUnitId
-    pure $ TApp
-        (TCon . rewriteStableQualified env $ Qualified pkgRef
-            (mkModName ["DA", "Internal", "PromotedText"])
-            (mkTypeCon ["PromotedText"]))
+promotedTextTy :: Env -> T.Text -> LF.Type
+promotedTextTy env text =
+    TApp
+        (TCon (promotedTextTCon (versionMajor (envLfVersion env))))
         (TStruct [(FieldName ("_" <> text), TUnit)])
 
 qualifyLocally :: Env -> a -> Qualified a
@@ -2604,7 +2601,7 @@ convertType env = go env
         = TVar . fst <$> convTypeVar env v
 
     go env t | Just s <- isStrLitTy t
-        = promotedTextTy env (fsToText s)
+        = pure $ promotedTextTy env (fsToText s)
 
     go env t | Just m <- isNumLitTy t
         = case typeLevelNatE m of
