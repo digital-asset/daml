@@ -188,10 +188,10 @@ private[lf] object Speedy {
     private[this] var contractsCache = Map.empty[V.ContractId, V.ContractInstance]
 
     // To handle continuation exceptions, as continuations run outside the interpreter loop.
-    // Here we delay the throw to the interpreter loop, but it would be probably better 
+    // Here we delay the throw to the interpreter loop, but it would be probably better
     // to delay the whole execution. This would work for all continuation (which have type
     // `X => Unit`)  except `NeedKey` (which have type `X => Bool`) that need to be run
-    // strait away.  
+    // strait away.
     private[this] def safelyContinue(
         location: => String,
         question: => String,
