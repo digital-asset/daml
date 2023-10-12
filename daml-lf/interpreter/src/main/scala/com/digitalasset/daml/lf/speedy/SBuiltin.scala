@@ -2186,45 +2186,39 @@ private[lf] object SBuiltin {
           f(SValue.SAnyContract(templateId, templateArg))
         }
       case None =>
-        lookupContractSomewhere(machine, coid) { either =>
-          either match {
+        machine.lookupContract(coid) {
+          case V.ContractInstance(srcTemplateId, coinstArg) =>
 
-            case Left(contractInfo) =>
-              f(contractInfo.any)
+            val (upgradingIsEnabled, destTemplateId) = optTargetTemplateId match {
+              case Some(tycon) =>
+                (true, tycon)
+              case None =>
+                (false, srcTemplateId) // upgrading not enabled; import at source type
+            }
+            machine.ensurePackageIsLoaded(
+              destTemplateId.packageId,
+              language.Reference.Template(destTemplateId),
+            ) { () =>
+              importValue(machine, destTemplateId, coinstArg) { templateArg =>
+                getContractInfo(machine, coid, destTemplateId, templateArg, keyOpt) { contract =>
+                  ensureContractActive(machine, coid, contract.templateId) {
 
-            case Right(coinst) =>
-              val V.ContractInstance(srcTemplateId, coinstArg) = coinst
+                    machine.checkContractVisibility(coid, contract)
+                    machine.enforceLimitAddInputContract()
+                    machine.enforceLimitSignatoriesAndObservers(coid, contract)
 
-              val (upgradingIsEnabled, destTemplateId) = optTargetTemplateId match {
-                case Some(tycon) =>
-                  (true, tycon)
-                case None =>
-                  (false, srcTemplateId) // upgrading not enabled; import at source type
-              }
-              machine.ensurePackageIsLoaded(
-                destTemplateId.packageId,
-                language.Reference.Template(destTemplateId),
-              ) { () =>
-                importValue(machine, destTemplateId, coinstArg) { templateArg =>
-                  getContractInfo(machine, coid, destTemplateId, templateArg, keyOpt) { contract =>
-                    ensureContractActive(machine, coid, contract.templateId) {
+                    val src: TypeConName = srcTemplateId
+                    val dest: TypeConName = destTemplateId
 
-                      machine.checkContractVisibility(coid, contract)
-                      machine.enforceLimitAddInputContract()
-                      machine.enforceLimitSignatoriesAndObservers(coid, contract)
-
-                      val src: TypeConName = srcTemplateId
-                      val dest: TypeConName = destTemplateId
-
-                      // In Validation mode, we always call validateContractInfo
-                      // In Submission mode, we only call validateContractInfo when src != dest
-                      val needValidationCall: Boolean =
-                        if (machine.validating) {
-                          upgradingIsEnabled
-                        } else {
-                          upgradingIsEnabled && (src != dest)
-                        }
-                      if (needValidationCall) {
+                    // In Validation mode, we always call validateContractInfo
+                    // In Submission mode, we only call validateContractInfo when src != dest
+                    val needValidationCall: Boolean =
+                    if (machine.validating) {
+                      upgradingIsEnabled
+                    } else {
+                      upgradingIsEnabled && (src != dest)
+                    }
+                    if (needValidationCall) {
 
                       validateContractInfo(machine, coid, contract) { () =>
                         f(contract.any)
@@ -2235,45 +2229,7 @@ private[lf] object SBuiltin {
                   }
                 }
               }
-
-          }
-        }
-
-    }
-  }
-
-  private def lookupContractSomewhere(machine: UpdateMachine, coid: V.ContractId)(
-      f: Either[ContractInfo, V.ContractInstance] // Left:disclosd; Right:fetched
-      => Control[Question.Update]
-  ): Control[Question.Update] = {
-
-    machine.disclosedContracts.get(coid) match {
-      case Some(contractInfo) =>
-        ensureContractActive(machine, coid, contractInfo.templateId) {
-          machine.markDisclosedcontractAsUsed(coid)
-
-          val resOLD = Left(contractInfo) // NICK: kill OLD/Left when NEW/Right works always
-
-          // Make disclosed-contracts go viw same execution path as fetched-contracts
-          // - convert the contract payload back from SValue to Value
-          // - so it can be re-imported at the desired dest-type
-
-          val coinst =
-            V.ContractInstance(
-              contractInfo.templateId,
-              contractInfo.value.toUnnormalizedValue, // NICK, note in PR desc
-            )
-
-          val resNEW = Right(coinst)
-
-          val _ = (resOLD, resNEW)
-
-          f(resNEW) // NICK, pick here
-        }
-
-      case None =>
-        lookupContractOnLedger(machine, coid) { coinst =>
-          f(Right(coinst))
+            }
         }
     }
   }
@@ -2362,5 +2318,4 @@ private[lf] object SBuiltin {
         body
     }
   }
-
 }
