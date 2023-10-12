@@ -626,6 +626,9 @@ private[lf] object Pretty {
         case SEPreventCatch(body) =>
           text("prevent_catch") + char('(') + prettySExpr(index)(body) + text(")")
 
+        case SEDelayedCrash(location, reason) =>
+          text("delayed_crash") + char('(') + text(location) + text(",") + text(reason) + text(")")
+
         case x: SEImportValue => str(x)
         case x: SELabelClosure => str(x)
       }

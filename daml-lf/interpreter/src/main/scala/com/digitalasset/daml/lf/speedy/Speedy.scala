@@ -36,6 +36,7 @@ import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.annotation.{nowarn, tailrec}
+import scala.util.control.NonFatal
 
 private[lf] object Speedy {
 
@@ -186,21 +187,174 @@ private[lf] object Speedy {
 
     private[this] var contractsCache = Map.empty[V.ContractId, V.ContractInstance]
 
-    def lookupContractOnLedger[Q](coid: V.ContractId)(
+    // To handle continuation exceptions, as continuations run outside the interpreter loop.
+    // Here we delay the throw to the interpreter loop, but it would be probably better
+    // to delay the whole execution. This would work for all continuation (which have type
+    // `X => Unit`)  except `NeedKey` (which have type `X => Bool`) that need to be run
+    // strait away.
+    private[this] def safelyContinue(
+        location: => String,
+        question: => String,
+        continue: => Control[Question.Update],
+    ): Unit = {
+      val control =
+        try {
+          continue
+        } catch {
+          case NonFatal(e) =>
+            Control.Expression(
+              SExpr.SEDelayedCrash(
+                location = location,
+                reason = s"unexpected exception $e when running continuation of question $question",
+              )
+            )
+        }
+      setControl(control)
+    }
+
+    // The following needXXXX methods take care to emit question while ensuring no exceptions are
+    // thrown during the question callbacks execution
+
+    final private[speedy] def needTime(): Control[Question.Update] = {
+      setDependsOnTime()
+      Control.Question(
+        Question.Update.NeedTime(time =>
+          safelyContinue(
+            NameOf.qualifiedNameOfCurrentFunc,
+            "NeedTime",
+            Control.Value(SValue.STimestamp(time)),
+          )
+        )
+      )
+    }
+
+    final private[speedy] def needContract(
+        location: => String,
+        contractId: V.ContractId,
+        continue: V.ContractInstance => Control[Question.Update],
+    ): Control.Question[Question.Update] =
+      Control.Question(
+        Question.Update.NeedContract(
+          contractId,
+          committers,
+          x => safelyContinue(location, "NeedContract", continue(x)),
+        )
+      )
+
+    final private[speedy] def needUpgradeVerification(
+        location: => String,
+        coid: V.ContractId,
+        signatories: Set[Party],
+        observers: Set[Party],
+        keyOpt: Option[GlobalKeyWithMaintainers],
+        continue: () => Control[Question.Update],
+    ): Control.Question[Question.Update] =
+      Control.Question(
+        Question.Update.NeedUpgradeVerification(
+          coid,
+          signatories,
+          observers,
+          keyOpt,
+          () => safelyContinue(location, "NeedUpgradeVerification", continue()),
+        )
+      )
+
+    final private[speedy] def needPackage(
+        location: => String,
+        packageId: PackageId,
+        context: language.Reference,
+        continue: () => Control[Question.Update],
+    ): Control.Question[Question.Update] =
+      Control.Question(
+        Question.Update.NeedPackage(
+          packageId,
+          context,
+          packages =>
+            safelyContinue(
+              location,
+              "NeedPackage", {
+                this.compiledPackages = packages
+                // To avoid infinite loop in case the packages are not updated properly by the caller
+                assert(compiledPackages.packageIds.contains(packageId))
+                continue()
+              },
+            ),
+        )
+      )
+
+    final private[speedy] def needKey(
+        location: => String,
+        key: GlobalKeyWithMaintainers,
+        continue: Option[V.ContractId] => (Control[Question.Update], Boolean),
+    ): Control.Question[Question.Update] =
+      Control.Question(
+        Question.Update.NeedKey(
+          key,
+          committers,
+          { result =>
+            try {
+              val (control, bool) = continue(result)
+              setControl(control)
+              bool
+            } catch {
+              case NonFatal(e) =>
+                setControl(
+                  Control.Expression(
+                    SExpr.SEDelayedCrash(
+                      location = location,
+                      reason =
+                        s"unexpected exception $e when running continuation of question NeedKey",
+                    )
+                  )
+                )
+                false
+            }
+          },
+        )
+      )
+
+    final private[speedy] def needAuthority(
+        location: => String,
+        holding: Set[Party],
+        requesting: Set[Party],
+        // Callback only when the request is granted
+        continue: () => Control[Question.Update],
+    ): Control.Question[Question.Update] =
+      Control.Question(
+        Question.Update.NeedAuthority(
+          holding,
+          requesting,
+          () => safelyContinue(location, "NeedAuthority", continue()),
+        )
+      )
+
+    final private[speedy] def needPackageId(
+        location: => String,
+        module: ModuleName,
+        pid0: PackageId,
+        continue: PackageId => Control[Question.Update],
+    ): Control.Question[Question.Update] =
+      Control.Question(
+        Question.Update.NeedPackageId(
+          module,
+          pid0,
+          pkgId => safelyContinue(location, "NeedPackageId", continue(pkgId)),
+        )
+      )
+
+    final private[speedy] def lookupContractOnLedger[Q](coid: V.ContractId)(
         continue: V.ContractInstance => Control[Question.Update]
     ): Control[Question.Update] =
       contractsCache.get(coid) match {
         case Some(contract) => continue(contract)
         case None =>
-          Control.Question(
-            Question.Update.NeedContract(
-              coid,
-              committers,
-              callback = { res =>
-                contractsCache = contractsCache.updated(coid, res)
-                setControl(continue(res))
-              },
-            )
+          needContract(
+            NameOf.qualifiedNameOfCurrentFunc,
+            coid,
+            { res =>
+              contractsCache = contractsCache.updated(coid, res)
+              continue(res)
+            },
           )
       }
 
@@ -282,7 +436,7 @@ private[lf] object Speedy {
     private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
       disclosedContracts.isDefinedAt(contractId)
 
-    private[speedy] def setDependsOnTime(): Unit =
+    private[this] def setDependsOnTime(): Unit =
       dependsOnTime = true
 
     def getDependsOnTime: Boolean =
@@ -957,6 +1111,7 @@ private[lf] object Speedy {
               else {
                 asUpdateMachine(NameOf.qualifiedNameOfCurrentFunc)(
                   _.needPackage(
+                    NameOf.qualifiedNameOfCurrentFunc,
                     ref.packageId,
                     language.Reference.Package(ref.packageId),
                     () => Control.Expression(eval),
