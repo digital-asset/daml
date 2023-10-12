@@ -15,7 +15,7 @@ import Control.Concurrent.Async (async, cancel, pollSTM)
 import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM.TMVar
 import Control.Concurrent.MVar
-import Control.Exception(AsyncException, handle)
+import Control.Exception(AsyncException, handle, throwIO)
 import Control.Lens
 import Control.Monad
 import Control.Monad.STM
@@ -28,6 +28,8 @@ import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.Parsing
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Daml.LanguageServer.SplitGotoDefinition
+import DA.Daml.Package.Config (MultiPackageConfigFields(..), findMultiPackageConfig, withMultiPackageConfig)
+import DA.Daml.Project.Types (ProjectPath (..))
 import Data.Either (lefts)
 import Data.Functor.Product
 import Data.List (find, isPrefixOf)
@@ -102,20 +104,20 @@ alternatively, "whatIsIt" can return either a location (if its a local def) or a
 -- we can do this by locking the sending thread, but still allowing the channel to be pushed
 -- we also atomically send a message to the channel, without dropping the lock on the subIDEs var
 addNewSubIDEAndSend
-  :: StateVars
+  :: MultiIdeState
   -> FilePath
   -> LSP.FromClientMessage
   -> IO SubIDE
-addNewSubIDEAndSend stateVars home msg = do
+addNewSubIDEAndSend miState home msg = do
   debugPrint "Trying to make a SubIDE"
-  ides <- atomically $ takeTMVar $ subIDEsVar stateVars
+  ides <- atomically $ takeTMVar $ subIDEsVar miState
 
   let mExistingIde = mfilter ideActive $ Map.lookup home ides
   case mExistingIde of
     Just ide -> do
       debugPrint "SubIDE already exists"
       sendSubIDE ide msg
-      atomically $ putTMVar (subIDEsVar stateVars) ides
+      atomically $ putTMVar (subIDEsVar miState) ides
       pure ide
     Nothing -> do
       debugPrint "Making a SubIDE"
@@ -141,13 +143,13 @@ addNewSubIDEAndSend stateVars home msg = do
       --           Coord <- SubIDE
       subIDEToCoord <- async $ do
         -- Wait until our own IDE exists then pass it forward
-        ide <- atomically $ fromMaybe (error "Failed to get own IDE") . mfilter ideActive . Map.lookup home <$> readTMVar (subIDEsVar stateVars)
+        ide <- atomically $ fromMaybe (error "Failed to get own IDE") . mfilter ideActive . Map.lookup home <$> readTMVar (subIDEsVar miState)
         chunks <- getChunks outHandle
-        mapM_ (subIDEMessageHandler stateVars unblock ide) chunks
+        mapM_ (subIDEMessageHandler miState unblock ide) chunks
 
       pid <- fromMaybe (error "SubIDE has no PID") <$> getPid (unsafeProcessHandle subIdeProcess)
 
-      mInitParams <- tryReadMVar (initParamsVar stateVars)
+      mInitParams <- tryReadMVar (initParamsVar miState)
       let !initParams = fromMaybe (error "Attempted to create a SubIDE before initialization!") mInitParams
           initId = LSP.IdString $ T.pack $ show pid
           (initMsg :: LSP.FromClientMessage) = LSP.FromClientMess LSP.SInitialize LSP.RequestMessage 
@@ -174,12 +176,12 @@ addNewSubIDEAndSend stateVars home msg = do
               }
 
 
-      putReqMethodSingleFromClient (fromClientMethodTrackerVar stateVars) initId LSP.SInitialize
+      putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) initId LSP.SInitialize
       putChunk inHandle $ Aeson.encode initMsg
       -- Dangerous call is okay here because we're already holding the subIDEsVar lock
       sendSubIDE ide msg
 
-      atomically $ putTMVar (subIDEsVar stateVars) $ Map.insert home ide ides
+      atomically $ putTMVar (subIDEsVar miState) $ Map.insert home ide ides
 
       pure ide
 
@@ -199,9 +201,9 @@ runSubProc home = do
 
 -- Sends a shutdown message and sets active to false, disallowing any further messages to be sent to the subIDE
 -- given queue nature of TChan, all other pending messages will be sent first before handling shutdown
-shutdownIde :: StateVars -> SubIDE -> IO ()
-shutdownIde stateVars ide = do
-  ides <- atomically $ takeTMVar (subIDEsVar stateVars)
+shutdownIde :: MultiIdeState -> SubIDE -> IO ()
+shutdownIde miState ide = do
+  ides <- atomically $ takeTMVar (subIDEsVar miState)
   let shutdownId = LSP.IdString $ T.pack $ show (ideProcessID ide) <> "-shutdown"
       (shutdownMsg :: LSP.FromClientMessage) = LSP.FromClientMess LSP.SShutdown LSP.RequestMessage 
         { _id = shutdownId
@@ -210,15 +212,15 @@ shutdownIde stateVars ide = do
         , _jsonrpc = "2.0"
         }
   
-  putReqMethodSingleFromClient (fromClientMethodTrackerVar stateVars) shutdownId LSP.SShutdown
+  putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) shutdownId LSP.SShutdown
   sendSubIDE ide shutdownMsg
 
-  atomically $ putTMVar (subIDEsVar stateVars) $ Map.adjust (\ide' -> ide' {ideActive = False}) (ideHomeDirectory ide) ides
+  atomically $ putTMVar (subIDEsVar miState) $ Map.adjust (\ide' -> ide' {ideActive = False}) (ideHomeDirectory ide) ides
 
 -- To be called once we receive the Shutdown response
 -- Safe to assume that the sending channel is empty, so we can end the thread and send the final notification directly on the handle
-handleExit :: StateVars -> SubIDE -> IO ()
-handleExit stateVars ide = do
+handleExit :: MultiIdeState -> SubIDE -> IO ()
+handleExit miState ide = do
   let (exitMsg :: LSP.FromClientMessage) = LSP.FromClientMess LSP.SExit LSP.NotificationMessage
         { _method = LSP.SExit
         , _params = LSP.Empty
@@ -226,7 +228,7 @@ handleExit stateVars ide = do
         }
   -- This will cause the subIDE process to exit
   putChunk (ideInHandle ide) $ Aeson.encode exitMsg
-  atomically $ modifyTMVar (subIDEsVar stateVars) $ Map.delete (ideHomeDirectory ide)
+  atomically $ modifyTMVar (subIDEsVar miState) $ Map.delete (ideHomeDirectory ide)
   cancel $ ideInhandleAsync ide
   cancel $ ideOutHandleAsync ide
 
@@ -236,34 +238,34 @@ handleExit stateVars ide = do
 sendSubIDE :: SubIDE -> LSP.FromClientMessage -> IO ()
 sendSubIDE ide = atomically . writeTChan (ideInHandleChannel ide) . Aeson.encode
 
-sendClient :: StateVars -> LSP.FromServerMessage -> IO ()
-sendClient stateVars = atomically . writeTChan (toClientChan stateVars) . Aeson.encode
+sendClient :: MultiIdeState -> LSP.FromServerMessage -> IO ()
+sendClient miState = atomically . writeTChan (toClientChan miState) . Aeson.encode
 
-sendAllSubIDEs :: StateVars -> LSP.FromClientMessage -> IO [FilePath]
-sendAllSubIDEs stateVars msg = atomically $ do
-  idesUnfiltered <- takeTMVar (subIDEsVar stateVars)
+sendAllSubIDEs :: MultiIdeState -> LSP.FromClientMessage -> IO [FilePath]
+sendAllSubIDEs miState msg = atomically $ do
+  idesUnfiltered <- takeTMVar (subIDEsVar miState)
   let ides = Map.filter ideActive idesUnfiltered
   when (null ides) $ error "Got a broadcast to nothing :("
   homes <- forM (Map.elems ides) $ \ide -> ideHomeDirectory ide <$ writeTChan (ideInHandleChannel ide) (Aeson.encode msg)
-  putTMVar (subIDEsVar stateVars) idesUnfiltered
+  putTMVar (subIDEsVar miState) idesUnfiltered
   pure homes
 
-sendAllSubIDEs_ :: StateVars -> LSP.FromClientMessage -> IO ()
-sendAllSubIDEs_ stateVars = void . sendAllSubIDEs stateVars
+sendAllSubIDEs_ :: MultiIdeState -> LSP.FromClientMessage -> IO ()
+sendAllSubIDEs_ miState = void . sendAllSubIDEs miState
 
-sendSubIDEByPath :: StateVars -> FilePath -> LSP.FromClientMessage -> IO ()
-sendSubIDEByPath stateVars path msg = do
+sendSubIDEByPath :: MultiIdeState -> FilePath -> LSP.FromClientMessage -> IO ()
+sendSubIDEByPath miState path msg = do
   mHome <- sendSubIDEByPath_ path msg
   -- Lock is dropped then regained here for new IDE. This is acceptable as it's impossible for a shutdown
   -- of the new ide to be sent before its created.
   -- Note that if sendSubIDEByPath is called multiple times concurrently for a new IDE, addNewSubIDEAndSend may be called twice for the same home
   --   addNewSubIDEAndSend handles this internally with its own checks, so this is acceptable.
-  forM_ mHome $ \home -> addNewSubIDEAndSend stateVars home msg
+  forM_ mHome $ \home -> addNewSubIDEAndSend miState home msg
   where
     -- If a SubIDE is needed, returns the path out of the STM transaction
     sendSubIDEByPath_ :: FilePath -> LSP.FromClientMessage -> IO (Maybe FilePath)
     sendSubIDEByPath_ path msg = atomically $ do
-      idesUnfiltered <- takeTMVar (subIDEsVar stateVars)
+      idesUnfiltered <- takeTMVar (subIDEsVar miState)
       let ides = Map.filter ideActive idesUnfiltered
           mHome = find (`isPrefixOf` path) $ Map.keys ides
           mIde = mHome >>= flip Map.lookup ides
@@ -272,10 +274,10 @@ sendSubIDEByPath stateVars path msg = do
         Just ide -> do
           writeTChan (ideInHandleChannel ide) (Aeson.encode msg)
           unsafeIOToSTM $ debugPrint $ "Found relevant SubIDE: " <> ideHomeDirectory ide
-          putTMVar (subIDEsVar stateVars) idesUnfiltered
+          putTMVar (subIDEsVar miState) idesUnfiltered
           pure Nothing
         Nothing -> do
-          putTMVar (subIDEsVar stateVars) idesUnfiltered
+          putTMVar (subIDEsVar miState) idesUnfiltered
           -- Safe as findHome only does reads
           mHome <- unsafeIOToSTM $ findHome path
           case mHome of
@@ -288,7 +290,7 @@ sendSubIDEByPath stateVars path msg = do
               -- if we're sending a notification, ignore it - theres nothing the protocol allows us to do to signify notification failures.
               let replyError :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request). LSP.SMethod m -> LSP.LspId m -> STM ()
                   replyError method id =
-                    writeTChan (toClientChan stateVars) $ Aeson.encode $
+                    writeTChan (toClientChan miState) $ Aeson.encode $
                       LSP.FromServerRsp method $ LSP.ResponseMessage "2.0" (Just id) $ Left $
                         LSP.ResponseError LSP.InvalidParams "Could not find daml.yaml for this file." Nothing
               case msg of
@@ -306,27 +308,27 @@ parseCustomResult name =
 
 -- Handlers
 
-subIDEMessageHandler :: StateVars -> IO () -> SubIDE -> B.ByteString -> IO ()
-subIDEMessageHandler stateVars unblock ide bs = do
+subIDEMessageHandler :: MultiIdeState -> IO () -> SubIDE -> B.ByteString -> IO ()
+subIDEMessageHandler miState unblock ide bs = do
   debugPrint "Called subIDEMessageHandler"
   -- BSC.hPutStrLn stderr bs
 
   -- Decode a value, parse
   let val :: Aeson.Value
       val = er "eitherDecode" $ Aeson.eitherDecodeStrict bs
-  mMsg <- either error id <$> parseServerMessageWithTracker (fromClientMethodTrackerVar stateVars) (ideHomeDirectory ide) val
+  mMsg <- either error id <$> parseServerMessageWithTracker (fromClientMethodTrackerVar miState) (ideHomeDirectory ide) val
 
   -- Adds the various prefixes needed for from server messages to not clash with those from other IDEs
   mPrefixedMsg <-
     mapM 
-      ( addProgressTokenPrefixToServerMessage (serverCreatedProgressTokensVar stateVars) (ideHomeDirectory ide) (ideMessageIdPrefix ide)
+      ( addProgressTokenPrefixToServerMessage (serverCreatedProgressTokensVar miState) (ideHomeDirectory ide) (ideMessageIdPrefix ide)
       . addLspPrefixToServerMessage ide
       )
       mMsg
 
   forM_ mPrefixedMsg $ \msg -> do
     -- If its a request (builtin or custom), save it for response handling.
-    putServerReq (fromServerMethodTrackerVar stateVars) (ideHomeDirectory ide) msg
+    putServerReq (fromServerMethodTrackerVar miState) (ideHomeDirectory ide) msg
 
     debugPrint "About to thunk message"
     case msg of
@@ -335,7 +337,7 @@ subIDEMessageHandler stateVars unblock ide bs = do
         -- Dangerous call here is acceptable as this only happens while the ide is booting, before unblocking
         sendSubIDE ide $ LSP.FromClientMess LSP.SInitialized $ LSP.NotificationMessage "2.0" LSP.SInitialized (Just LSP.InitializedParams)
         unblock
-      LSP.FromServerRsp LSP.SShutdown _ -> handleExit stateVars ide
+      LSP.FromServerRsp LSP.SShutdown _ -> handleExit miState ide
 
       LSP.FromServerRsp (LSP.SCustomMethod "daml/tryGetDefinition") LSP.ResponseMessage {_id, _result} -> do
         debugPrint "Got tryGetDefinition response, handling..."
@@ -343,7 +345,7 @@ subIDEMessageHandler stateVars unblock ide bs = do
             reply :: Either LSP.ResponseError (LSP.ResponseResult 'LSP.TextDocumentDefinition) -> IO ()
             reply rsp = do
               debugPrint $ "Replying directly to client with " <> show rsp
-              sendClient stateVars $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (castLspId <$> _id) rsp
+              sendClient miState $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (castLspId <$> _id) rsp
             replyLocations :: [LSP.Location] -> IO ()
             replyLocations = reply . Right . LSP.InR . LSP.InL . LSP.List
         case parsedResult of
@@ -352,21 +354,17 @@ subIDEMessageHandler stateVars unblock ide bs = do
           Right (Just (TryGetDefinitionResult loc Nothing)) -> replyLocations [loc]
           Right (Just (TryGetDefinitionResult loc (Just name))) -> do
             debugPrint $ "Got name in result! Backup location is " <> show loc
-            idesUnfiltered <- atomically $ takeTMVar (subIDEsVar stateVars)
-            let ides = Map.filter ideActive idesUnfiltered
-                mIde = find (\ide -> ideUnitId ide == tgdnPackageUnitId name) ides
-            case mIde of
+            let mHome = Map.lookup (tgdnPackageUnitId name) $ multiPackageMapping miState
+            case mHome of
               Nothing -> replyLocations [loc]
-              Just ide -> do
-                debugPrint $ "We have a SubIDE with the given unitId, forwarding to " <> ideHomeDirectory ide
+              Just home -> do
+                debugPrint $ "Found unit ID in multi-package mapping, forwarding to " <> home
                 let method = LSP.SCustomMethod "daml/gotoDefinitionByName"
                     lspId = maybe (error "No LspId provided back from tryGetDefinition") castLspId _id
-                    msg = LSP.FromClientMess method $ LSP.ReqMess $ LSP.RequestMessage "2.0" lspId method
-                            $ Aeson.toJSON $ GotoDefinitionByNameParams loc name
-                              
-                putReqMethodSingleFromClient (fromClientMethodTrackerVar stateVars) lspId method
-                sendSubIDE ide msg
-            atomically $ putTMVar (subIDEsVar stateVars) idesUnfiltered
+                putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) lspId method
+                sendSubIDEByPath miState home $ LSP.FromClientMess method $ LSP.ReqMess $
+                  LSP.RequestMessage "2.0" lspId method $ Aeson.toJSON $
+                    GotoDefinitionByNameParams loc name
       
       LSP.FromServerRsp (LSP.SCustomMethod "daml/gotoDefinitionByName") LSP.ResponseMessage {_id, _result} -> do
         debugPrint "Got gotoDefinitionByName response, handling..."
@@ -374,20 +372,20 @@ subIDEMessageHandler stateVars unblock ide bs = do
             reply :: Either LSP.ResponseError (LSP.ResponseResult 'LSP.TextDocumentDefinition) -> IO ()
             reply rsp = do
               debugPrint $ "Replying directly to client with " <> show rsp
-              sendClient stateVars $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (castLspId <$> _id) rsp
+              sendClient miState $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (castLspId <$> _id) rsp
         case parsedResult of
           Left err -> reply $ Left err
           Right loc -> reply $ Right $ LSP.InR $ LSP.InL $ LSP.List [loc]
 
       LSP.FromServerMess method _ -> do
         debugPrint $ "Backwarding request " <> show method
-        sendClient stateVars msg
+        sendClient miState msg
       LSP.FromServerRsp method _ -> do
         debugPrint $ "Backwarding response to " <> show method
-        sendClient stateVars msg
+        sendClient miState msg
 
-clientMessageHandler :: StateVars -> B.ByteString -> IO ()
-clientMessageHandler stateVars bs = do
+clientMessageHandler :: MultiIdeState -> B.ByteString -> IO ()
+clientMessageHandler miState bs = do
   debugPrint "Called clientMessageHandler"
 
   -- Decode a value, parse
@@ -399,27 +397,27 @@ clientMessageHandler stateVars bs = do
       val :: Aeson.Value
       val = er "eitherDecode" $ Aeson.eitherDecodeStrict bs
 
-  msg <- either error id <$> parseClientMessageWithTracker (fromServerMethodTrackerVar stateVars) val
+  msg <- either error id <$> parseClientMessageWithTracker (fromServerMethodTrackerVar miState) val
 
   case msg of
     -- Store the initialize params for starting subIDEs, respond statically with what ghc-ide usually sends.
     LSP.FromClientMess LSP.SInitialize LSP.RequestMessage {_id, _method, _params} -> do
-      putMVar (initParamsVar stateVars) _params
-      sendClient stateVars $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right initializeResult)
+      putMVar (initParamsVar miState) _params
+      sendClient miState $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right initializeResult)
     LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel notif -> do
-      (newNotif, mHome) <- removeWorkDoneProgressCancelTokenPrefix (serverCreatedProgressTokensVar stateVars) notif
+      (newNotif, mHome) <- removeWorkDoneProgressCancelTokenPrefix (serverCreatedProgressTokensVar miState) notif
       let newMsg = LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel newNotif
       case mHome of
-        Nothing -> void $ sendAllSubIDEs stateVars newMsg
-        Just home -> void $ sendSubIDEByPath stateVars home newMsg
+        Nothing -> void $ sendAllSubIDEs miState newMsg
+        Just home -> void $ sendSubIDEByPath miState home newMsg
 
     -- Special handing for STextDocumentDefinition to ask multiple IDEs
     LSP.FromClientMess LSP.STextDocumentDefinition req@LSP.RequestMessage {_id, _method, _params} -> do
       let path = filePathFromParamsWithTextDocument req
           lspId = castLspId _id
           method = LSP.SCustomMethod "daml/tryGetDefinition"
-      putReqMethodSingleFromClient (fromClientMethodTrackerVar stateVars) lspId method
-      sendSubIDEByPath stateVars path $ LSP.FromClientMess method $ LSP.ReqMess $
+      putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) lspId method
+      sendSubIDEByPath miState path $ LSP.FromClientMess method $ LSP.ReqMess $
         LSP.RequestMessage "2.0" lspId method $ Aeson.toJSON $
           TryGetDefinitionParams (_params ^. LSP.textDocument) (_params ^. LSP.position)
 
@@ -428,41 +426,64 @@ clientMessageHandler stateVars bs = do
         ForwardRequest mess (Single path) -> do
           debugPrint $ "single req on method " <> show meth <> " over path " <> path
           let LSP.RequestMessage {_id, _method} = mess
-          putReqMethodSingleFromClient (fromClientMethodTrackerVar stateVars) _id _method
-          sendSubIDEByPath stateVars path (castFromClientMessage msg)
+          putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) _id _method
+          sendSubIDEByPath miState path (castFromClientMessage msg)
 
         ForwardRequest mess (AllRequest combine) -> do
           debugPrint $ "all req on method " <> show meth
           let LSP.RequestMessage {_id, _method} = mess
-          ides <- sendAllSubIDEs stateVars (castFromClientMessage msg)
-          putReqMethodAll (fromClientMethodTrackerVar stateVars) _id _method ides combine
+          ides <- sendAllSubIDEs miState (castFromClientMessage msg)
+          putReqMethodAll (fromClientMethodTrackerVar miState) _id _method ides combine
 
         ForwardNotification _ (Single path) -> do
           debugPrint $ "single not on method " <> show meth <> " over path " <> path
-          sendSubIDEByPath stateVars path (castFromClientMessage msg)
+          sendSubIDEByPath miState path (castFromClientMessage msg)
 
         ForwardNotification _ AllNotification -> do
           debugPrint $ "all not on method " <> show meth
-          sendAllSubIDEs_ stateVars (castFromClientMessage msg)
+          sendAllSubIDEs_ miState (castFromClientMessage msg)
 
         ExplicitHandler handler -> do
-          handler (sendClient stateVars) (sendSubIDEByPath stateVars)
+          handler (sendClient miState) (sendSubIDEByPath miState)
     LSP.FromClientRsp (Pair method (Const home)) rMsg -> 
-      sendSubIDEByPath stateVars home $ LSP.FromClientRsp method $ 
+      sendSubIDEByPath miState home $ LSP.FromClientRsp method $ 
         rMsg & LSP.id %~ fmap removeLspPrefix
+
+getMultiPackageYamlMapping :: IO MultiPackageYamlMapping
+getMultiPackageYamlMapping = do
+  -- TODO: this will find the "closest" multi-package.yaml, but in a case where we have multiple referring to each other, we'll not see the outer one
+  -- in that case, code jump won't work. Its unclear which the user would want, so we may want to prompt them with either closest or furthest (that links up)
+  mPkgConfig <- findMultiPackageConfig $ ProjectPath "."
+  case mPkgConfig of
+    Nothing ->
+      Map.empty <$ debugPrint "No multi-package.yaml found"
+    Just path -> do
+      debugPrint "Found multi-package.yaml"
+      withMultiPackageConfig path $ \multiPackage -> do
+        eUnitIds <- traverse unitIdFromDamlYaml (mpPackagePaths multiPackage)
+        let eMapping = Map.fromList . flip zip (mpPackagePaths multiPackage) <$> sequence eUnitIds
+        either throwIO pure eMapping
+
+{-
+Expect a multi-package.yaml at the workspace root
+If we do not get one, we continue as normal (no popups) until the user attempts to open/use files in a different package to the first one
+  When this occurs, this send a popup:
+    Make a multi-package.yaml at the root and reload the editor please :)
+    OR tell me where the multi-package.yaml(s) is
+      if the user provides multiple, we union that lookup, allowing "cross project boundary" jumps
+-}
 
 -- Main loop logic
 
-runMultiIde :: [String] -> IO ()
-runMultiIde sourceDeps = do
-  hPrint stderr sourceDeps
-
-  stateVars <- newStateVars
+runMultiIde :: IO ()
+runMultiIde = do
+  multiPackageMapping <- getMultiPackageYamlMapping
+  miState <- newMultiIdeState multiPackageMapping
 
   debugPrint "Listening for bytes"
   -- Client <- *****
   toClientThread <- async $ forever $ do
-    msg <- atomically $ readTChan $ toClientChan stateVars
+    msg <- atomically $ readTChan $ toClientChan miState
     debugPrint "Pushing message to client"
     -- BSLC.hPutStrLn stderr msg
     putChunk stdout msg
@@ -470,18 +491,18 @@ runMultiIde sourceDeps = do
   -- Client -> Coord
   clientToCoordThread <- async $ do
     chunks <- getChunks stdin
-    mapM_ (clientMessageHandler stateVars) chunks
+    mapM_ (clientMessageHandler miState) chunks
 
   let killAll :: IO ()
       killAll = do
         debugPrint "Killing subIDEs"
-        subIDEs <- atomically $ Map.filter ideActive <$> readTMVar (subIDEsVar stateVars)
-        forM_ subIDEs (shutdownIde stateVars)
+        subIDEs <- atomically $ Map.filter ideActive <$> readTMVar (subIDEsVar miState)
+        forM_ subIDEs (shutdownIde miState)
 
   handle (\(_ :: AsyncException) -> killAll) $ do
     atomically $ do
       unsafeIOToSTM $ debugPrint "Running main loop"
-      subIDEs <- readTMVar $ subIDEsVar stateVars
+      subIDEs <- readTMVar $ subIDEsVar miState
       let asyncs = concatMap (\subIDE -> [ideInhandleAsync subIDE, ideOutHandleAsync subIDE]) subIDEs
       errs <- lefts . catMaybes <$> traverse pollSTM (asyncs ++ [toClientThread, clientToCoordThread])
       when (not $ null errs) $

@@ -313,8 +313,7 @@ cmdMultiIde _numProcessors =
         "Start the Daml language server on standard input/output."
     <> fullDesc
   where
-    cmd = execMultiIde <$> many (strArgument mempty)
-    execMultiIde args = Command MultiIde Nothing $ runMultiIde args
+    cmd = pure $ Command MultiIde Nothing runMultiIde
 
 cmdIde :: Int -> Mod CommandFields Command
 cmdIde numProcessors =

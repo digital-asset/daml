@@ -97,7 +97,10 @@ type InitParamsVar = MVar InitParams
 type ServerCreatedProgressTokens = Map.Map (LSP.ProgressToken, FilePath) LSP.ProgressToken
 type ServerCreatedProgressTokensVar = MVar ServerCreatedProgressTokens
 
-data StateVars = StateVars
+-- Maps a packages unit id to its source file path, for all packages listed in a multi-package.yaml
+type MultiPackageYamlMapping = Map.Map String FilePath
+
+data MultiIdeState = MultiIdeState
   { fromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient
     -- ^ The client will track its own IDs to ensure they're unique, so no worries about collisions
   , fromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer
@@ -106,17 +109,18 @@ data StateVars = StateVars
   , subIDEsVar :: SubIDEsVar
   , initParamsVar :: InitParamsVar
   , toClientChan :: TChan BSL.ByteString
+  , multiPackageMapping :: MultiPackageYamlMapping
   }
 
-newStateVars :: IO StateVars
-newStateVars = do
+newMultiIdeState :: MultiPackageYamlMapping -> IO MultiIdeState
+newMultiIdeState multiPackageMapping = do
   (fromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
   (fromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
   serverCreatedProgressTokensVar <- newMVar @ServerCreatedProgressTokens mempty
   subIDEsVar <- newTMVarIO @SubIDEs mempty
   initParamsVar <- newEmptyMVar @InitParams
   toClientChan <- atomically newTChan
-  pure StateVars {..}
+  pure MultiIdeState {..}
 
 -- Forwarding
 
