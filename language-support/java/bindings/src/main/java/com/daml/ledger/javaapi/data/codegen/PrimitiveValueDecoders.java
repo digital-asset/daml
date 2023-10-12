@@ -117,7 +117,7 @@ public final class PrimitiveValueDecoders {
    * @hidden
    */
   public static List<com.daml.ledger.javaapi.data.DamlRecord.Field> recordCheck(
-      int expectedFields, int optionalFields, Value maybeRecord) {
+      int expectedFields, int trailingOptionalFields, Value maybeRecord) {
     var record =
         maybeRecord
             .asRecord()
@@ -157,6 +157,7 @@ public final class PrimitiveValueDecoders {
                   + field);
         }
       }
+      logger.debug("Downgrading record, dropping {} trailing optional fields", (numberOfFields - expectedFields));
       return fields.subList(0, expectedFields);
     }
     if (numberOfFields < expectedFields) {
@@ -166,6 +167,7 @@ public final class PrimitiveValueDecoders {
         for (var i = 0; i < expectedFields - numberOfFields; i++) {
           newFields.add(new com.daml.ledger.javaapi.data.DamlRecord.Field(DamlOptional.EMPTY));
         }
+        logger.debug("Upgrading record, appending {} empty optional fields", (expectedFields - numberOfFields));
         return newFields;
       } else {
         throw new IllegalArgumentException(
