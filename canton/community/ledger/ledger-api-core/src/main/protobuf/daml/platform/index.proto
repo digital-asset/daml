@@ -1,0 +1,22 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+// Serialization format for Protocol Buffers values stored in the index.
+//
+// WARNING:
+// As all messages declared here represent values stored to the index database, we MUST ensure that
+// they remain backwards-compatible forever.
+
+syntax = "proto3";
+
+package daml.platform.index;
+
+import "google/protobuf/any.proto";
+
+option java_package = "com.daml.platform.index";
+
+// Serialized status details, conveyed from the driver `ReadService` to the ledger API client.
+// To be combined with a status code and message.
+message StatusDetails {
+  repeated google.protobuf.Any details = 1;
+}

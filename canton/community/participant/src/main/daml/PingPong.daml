@@ -1,0 +1,223 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module PingPong where
+
+import Daml.Script
+import DA.Text
+import DA.List
+
+-- ping proposal for the case where we use more validators than just the initiator
+template PingProposal
+  with
+    id : Text
+    initiator : Party
+    candidates : [Party]
+    validators : [Party]
+    responders : [Party]
+    maxLevel : Int
+  where
+    signatory initiator, validators
+    observer candidates
+
+    ensure (unique candidates) && (unique validators)
+
+    choice Accept : Either (ContractId PingProposal) (ContractId Ping)
+      with
+        validator : Party
+      controller validator
+        do
+          -- check that validator is a candidate
+          assert (validator `elem` candidates)
+          let newCandidates = filter (/= validator) candidates
+          -- if everybody agreed, we will fire up the ping
+          if (Prelude.length newCandidates) == 0 then
+            do
+              cid <- create Ping with id, initiator, validators, responders, maxLevel
+              return (Right cid)
+          else
+            do
+              cid <- create this with candidates = newCandidates, validators = (validator :: validators)
+              return (Left cid)
+
+
+
+template Ping
+  with
+    id : Text
+    initiator : Party
+    validators : [Party]
+    responders : [Party]
+    maxLevel : Int
+  where
+
+    signatory initiator, validators
+    observer responders
+
+    choice Respond : Either (ContractId Pong) (ContractId Explode)
+        with
+        winner : Party
+      controller winner
+        do
+        if maxLevel == 0 then do
+            png <- create Pong with id, initiator, validators, responder = winner, observers = responders
+            return (Left png)
+        else do
+            expl <- create Explode with id, initiator, validators, responders, path = "", maxLevel
+            return (Right expl)
+
+template Pong
+  with
+    id : Text
+    initiator : Party
+    validators : [Party]
+    responder : Party
+    observers : [Party] -- ensures that "losing" responders are notified too
+
+  where
+      signatory initiator, responder
+      observer observers
+
+      choice Ack : ()
+        controller initiator
+          do
+            return ()
+
+template Explode
+  with
+    id : Text
+    initiator : Party
+    validators : [Party]
+    responders : [Party]
+    path : Text
+    maxLevel : Int
+  where
+
+    signatory initiator, validators
+    observer responders
+
+    choice ProcessExplode : (ContractId Merge, Either (ContractId Explode, ContractId Explode) (ContractId Collapse, ContractId Collapse))
+        with
+        winner : Party
+      controller winner
+        do
+          cnt <- if (DA.Text.length path) + 1 < maxLevel then do
+            lft <- create Explode with id, initiator, validators, responders, path = path <> "L", maxLevel
+            rght <- create Explode with id, initiator, validators, responders, path = path <> "R", maxLevel
+            return (Left (lft,rght))
+          else do
+            lft <- create Collapse with id, initiator, validators, responders, path = path
+            rght <- create Collapse with id, initiator, validators, responders, path = path
+            return (Right (lft, rght))
+          mrg <- create Merge with id, initiator, validators, responders, path
+          return (mrg, cnt)
+
+    choice ExpireExplode : ()
+      controller initiator
+        do
+          return ()
+
+template Merge
+  with
+    id : Text
+    initiator : Party
+    validators : [Party]
+    responders : [Party]
+    path : Text
+  where
+    signatory initiator, validators
+    observer responders
+
+    choice ProcessMerge : Either (ContractId Pong) (ContractId Collapse)
+        with
+          winner : Party
+          leftId : ContractId Collapse
+          rightId : ContractId Collapse
+      controller winner
+        do
+        -- ensure we've got the right contracts
+          leftC <- fetch leftId
+          assert (leftC.path == path && id == leftC.id)
+          rightC <- fetch rightId
+          assert (rightC.path == path && id == rightC.id)
+          -- delete contracts
+          exercise leftId ProcessCollapse with winner = winner
+          exercise rightId ProcessCollapse with winner = winner
+          -- respond with Pong if we are done, otherwise continue collapsing
+          if path == "" then do
+            png <- create Pong with id, initiator, validators, responder = winner, observers = responders
+            return (Left png)
+          else let
+              newPath = DA.Text.take (DA.Text.length path - 1) path
+            in do
+            clps <- create Collapse with id, initiator, validators, responders, path = newPath
+            return (Right clps)
+
+    choice ExpireMerge : ()
+      controller initiator
+        do
+          return ()
+template Collapse
+  with
+    id : Text
+    initiator : Party
+    validators : [Party]
+    responders : [Party]
+    path : Text
+  where
+    signatory initiator, validators
+    observer responders
+
+    choice ProcessCollapse : ()
+        with
+        winner : Party
+      controller winner
+        do
+          return ()
+
+    choice ExpireCollapse : ()
+      controller initiator
+        do
+          return ()
+
+template Cycle
+  with
+    id : Text
+    owner: Party
+  where
+    signatory owner
+
+    choice Repeat : ContractId Cycle
+      controller owner
+        do
+          create Cycle with id, owner
+    choice Void : ()
+      controller owner
+        do
+          return ()
+
+main = script do
+    [alice, bob] <- mapA allocateParty ["Alice", "Bob"]
+    pingId <- submit alice $ createCmd Ping with id = "1", initiator = alice, validators = [], responders = [bob], maxLevel = 0
+    pongId <- submit bob $ exerciseCmd pingId Respond with winner = bob
+    case pongId of
+      Left png -> submit alice $ exerciseCmd png Ack
+      Right res -> assert False
+
+explodeScript = script do
+    [alice, bob] <- mapA allocateParty ["Alice", "Bob"]
+    pingId <- submit alice $ createCmd Ping with id = "1", initiator = alice, validators = [], responders = [bob], maxLevel = 1
+    explId <- submit alice $ exerciseCmd pingId Respond with winner = alice
+    case explId of
+      Left png -> do
+        assert False
+      Right expl -> do
+        coll <- submit bob $ exerciseCmd expl ProcessExplode with winner = bob
+        case coll of
+          (mrg, Left explI) -> do
+            assert False
+          (mrg, Right (leftId, rightId)) -> do
+            vs <- submit bob $ exerciseCmd mrg ProcessMerge with winner = bob, leftId, rightId
+            assert True
+        assert True
+

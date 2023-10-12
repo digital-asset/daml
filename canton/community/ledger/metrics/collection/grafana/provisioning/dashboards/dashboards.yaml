@@ -1,0 +1,17 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: 1
+
+providers:
+- name: 'Daml'
+  orgId: 1
+  folder: 'daml'
+  folderUid: ''
+  type: file
+  disableDeletion: false
+  editable: true
+  updateIntervalSeconds: 10
+  allowUiUpdates: true
+  options:
+    path: /var/lib/grafana/dashboards

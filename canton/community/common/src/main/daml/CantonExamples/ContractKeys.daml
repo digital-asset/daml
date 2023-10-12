@@ -1,0 +1,193 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module ContractKeys where
+
+import Daml.Script
+
+-- BEGIN_KEYED
+template Keyed
+  with 
+    sig: Party
+    k: Int
+  where
+    signatory sig
+    key (sig, k): (Party, Int)
+    maintainer key._1
+-- END_KEYED
+
+-- Emulate lookupByKey and fetchByKey via choices in Daml script as explained in 
+-- https://discuss.daml.com/t/in-daml-script-do-we-have-equivalent-command-for-lookupbykey-fetchbykey/919/2
+-- BEGIN_KEYED_HELPER
+template KeyedHelper
+  with
+    p: Party
+  where
+    signatory p
+
+    choice FetchByKey: (ContractId Keyed, Keyed)
+      with keyP: (Party, Int)
+      controller p
+      do fetchByKey @Keyed keyP
+
+    choice LookupByKey: Optional (ContractId Keyed)
+      with keyP: (Party, Int)
+      controller p
+      do lookupByKey @Keyed keyP
+-- END_KEYED_HELPER  
+
+-- BEGIN_MULTIPLE_CREATES
+multiple = script do
+  alice <- allocateParty "alice"
+  submitMustFail alice $ do 
+    createCmd (Keyed with sig = alice, k = 1)
+    createCmd (Keyed with sig = alice, k = 1)
+    pure ()
+-- END_MULTIPLE_CREATES
+
+-- BEGIN_INITIALIZATION
+template Initialization
+  with
+    sig: Party
+    k: Int
+  where
+    signatory sig
+
+template Orchestrator
+  with
+    sig: Party
+  where
+    signatory sig
+
+    nonconsuming choice Initialize: Optional (ContractId Initialization)
+      with
+        k: Int
+      controller sig
+        do
+          optCid <- lookupByKey @Keyed (sig, k)
+          case optCid of
+            None -> do
+              create Keyed with ..
+              time <- getTime
+              cid <- create Initialization with sig, k
+              pure $ Some cid
+            Some _ -> pure None
+-- END_INITIALIZATION
+
+-- BEGIN_LOOKUP_NONE
+lookupNone = script do
+  alice <- allocateParty "alice"
+  orchestratorId <- submit alice do
+    createCmd Orchestrator with sig = alice
+  submit alice do 
+    exerciseCmd orchestratorId Initialize with k = 1
+  submit alice do 
+    exerciseCmd orchestratorId Initialize with k = 1
+-- END_LOOKUP_NONE
+
+-- BEGIN_FETCH_BY_KEY
+fetchSome = script do
+  alice <- allocateParty "alice"
+  keyedId1 <- submit alice do
+    createCmd Keyed with sig = alice, k = 1
+  keyedId2 <- submitMustFail alice do
+    createCmd Keyed with sig = alice, k = 1
+  (foundId, _) <- submit alice do 
+    createAndExerciseCmd (KeyedHelper alice) $ FetchByKey (alice, 1)
+  assert $ foundId == keyedId1
+  optFoundId <- submit alice do 
+    createAndExerciseCmd (KeyedHelper alice) $ LookupByKey (alice, 1)
+  assert $ optFoundId == Some keyedId1
+-- END_FETCH_BY_KEY
+
+-- BEGIN_GENERATOR
+template Generator
+  with
+    sig: Party
+  where
+    signatory sig
+
+    choice Generate : (ContractId Generator, ContractId Keyed)
+      with
+        k: Int
+      controller sig
+        do
+          existing <- lookupByKey @Keyed (sig, k)
+          keyed <- case existing of
+            Some cid -> pure cid
+            None -> 
+              create Keyed with ..
+          gen <- create this
+          pure (gen, keyed)
+-- END_GENERATOR
+
+-- BEGIN_EX_GENERATOR
+generator = script do
+  alice <- allocateParty "Alice"
+  -- Your application must ensure that the following command runs at most once
+  gen <- submit alice $
+    createCmd Generator with sig = alice
+  (gen, keyed) <- submit alice $
+    exerciseCmd gen Generate with k = 1
+  (gen, keyed1) <- submit alice $
+    exerciseCmd gen Generate with k = 1
+  assert $ keyed1 == keyed
+  submit alice $
+    exerciseCmd keyed Archive
+  (gen, keyed2) <- submit alice $
+    exerciseCmd gen Generate with k = 1
+  assert $ keyed2 /= keyed
+-- END_EX_GENERATOR
+
+-- BEGIN_STATE
+template KeyState
+  with
+    sig: Party
+    k: Int
+    allocated: Bool
+  where
+    signatory sig
+
+    choice Allocate : (ContractId KeyState, ContractId Keyed)
+      controller sig
+        do
+          assert $ not allocated
+          newState <- create this with allocated = True
+          keyed <- create Keyed with ..
+          pure (newState, keyed)
+
+    choice Deallocate : ContractId KeyState
+      controller sig
+        do
+          assert $ allocated
+          (cid, _) <- fetchByKey @Keyed (sig, k)
+          exercise cid Archive
+          create this with allocated = False
+-- END_STATE
+
+-- BEGIN_EX_STATE
+state = script do
+  alice <- allocateParty "Alice"
+  -- Your application must ensure that the following command executes at most once
+  state <- submit alice $
+    createCmd KeyState with sig = alice, k = 1, allocated = False
+  (state, keyed) <- submit alice $
+    exerciseCmd state Allocate
+  submitMustFail alice $
+    exerciseCmd state Allocate
+  -- If you archive the keyed contract without going through the
+  -- KeyState, you must also recreate it in the same transaction.
+  -- For example, if Keyed had consuming choices, the choices' bodies
+  -- would have to recreate another Keyed contract with the same key
+  submit alice $ do
+    exerciseCmd keyed Archive
+    createCmd Keyed with sig = alice, k = 1
+    pure ()
+  state <- submit alice $
+    exerciseCmd state Deallocate
+  (state, keyed2) <- submit alice $
+    exerciseCmd state Allocate
+  assert $ keyed2 /= keyed
+-- END_EX_STATE
