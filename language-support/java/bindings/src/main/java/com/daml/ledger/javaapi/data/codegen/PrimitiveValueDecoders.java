@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * {@link ValueDecoder}s for Daml types that are not code-generated.
@@ -17,6 +19,9 @@ import java.util.Optional;
  * @see ValueDecoder
  */
 public final class PrimitiveValueDecoders {
+
+  private static final Logger logger = LoggerFactory.getLogger(PrimitiveValueDecoders.class);
+
   // constructing not allowed
   private PrimitiveValueDecoders() {}
 
@@ -157,17 +162,21 @@ public final class PrimitiveValueDecoders {
                   + field);
         }
       }
-      logger.debug("Downgrading record, dropping {} trailing optional fields", (numberOfFields - expectedFields));
+      logger.trace(
+          "Downgrading record, dropping {} trailing optional fields",
+          numberOfFields - expectedFields);
       return fields.subList(0, expectedFields);
     }
     if (numberOfFields < expectedFields) {
       // Upgrade, add empty optionals to the end.
-      if ((expectedFields - numberOfFields) <= optionalFields) {
+      if ((expectedFields - numberOfFields) <= trailingOptionalFields) {
         final var newFields = new ArrayList<>(fields);
         for (var i = 0; i < expectedFields - numberOfFields; i++) {
           newFields.add(new com.daml.ledger.javaapi.data.DamlRecord.Field(DamlOptional.EMPTY));
         }
-        logger.debug("Upgrading record, appending {} empty optional fields", (expectedFields - numberOfFields));
+        logger.trace(
+            "Upgrading record, appending {} empty optional fields",
+            expectedFields - numberOfFields);
         return newFields;
       } else {
         throw new IllegalArgumentException(
@@ -176,7 +185,7 @@ public final class PrimitiveValueDecoders {
                 + " arguments, got "
                 + numberOfFields
                 + " and only the last "
-                + optionalFields
+                + trailingOptionalFields
                 + " of the expected type are optionals");
       }
     }
