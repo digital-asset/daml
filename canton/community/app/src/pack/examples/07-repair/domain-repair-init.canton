@@ -1,0 +1,29 @@
+// upload the Daml model to all participants
+val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("dars/CantonExamples.dar")
+participants.all.dars.upload(darPath)
+
+val Alice = participant1.parties.enable("Alice")
+val Bob = participant2.parties.enable("Bob", waitForDomain = DomainChoice.All)
+
+// setup parties and connect participants to domain
+Seq(participant1, participant2).foreach(_.domains.connect_local(lostDomain))
+
+utils.retry_until_true {
+    participant1.domains.active("lostDomain") && participant2.domains.active("lostDomain")
+}
+
+import com.digitalasset.canton.console.ParticipantReference
+import com.digitalasset.canton.examples.Iou
+import com.digitalasset.canton.protocol.ContractIdSyntax._
+
+def createIou(participant: ParticipantReference, payer: PartyId, owner: PartyId, value: Int) =
+  participant.ledger_api.commands.submit_flat(Seq(payer), Seq(Iou.Iou(payer = payer.toPrim,
+                                                                 owner = owner.toPrim,
+                                                                 amount = Iou.Amount(value = value, currency = "USD"),
+                                                                 viewers = List.empty
+                                                                ).create.command))
+
+Seq(100, 120, 140).foreach { value =>
+  createIou(participant1, Alice, Bob, value)
+  createIou(participant2, Bob, Alice, value + 10)
+}

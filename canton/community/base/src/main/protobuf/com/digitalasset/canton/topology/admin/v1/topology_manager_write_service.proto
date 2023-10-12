@@ -1,0 +1,127 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.topology.admin.v1;
+
+import "com/digitalasset/canton/protocol/v2/topology.proto";
+
+/**
+ * Write operations on the local topology manager.
+ *
+ * Both, participant and domain run a local topology manager exposing the same write interface.
+ */
+service TopologyManagerWriteServiceX {
+
+  rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse);
+
+  rpc AddTransactions(AddTransactionsRequest) returns (AddTransactionsResponse);
+
+  rpc SignTransactions(SignTransactionsRequest) returns (SignTransactionsResponse);
+
+}
+
+message AuthorizeRequest {
+  message Proposal {
+    /** Replace / Remove */
+    com.digitalasset.canton.protocol.v2.TopologyChangeOpX change = 1;
+
+    /** Optionally, the serial number of this request (auto-determined if omitted) */
+    uint32 serial = 2;
+
+    /** The mapping to be authorized */
+    com.digitalasset.canton.protocol.v2.TopologyMappingX mapping = 3;
+  }
+
+  oneof type {
+    /**
+     * Propose a transaction and distribute it.
+     * If authorize if the node has enough signing keys
+     */
+    Proposal proposal = 1;
+    /**
+     * Authorize a transaction, meaning the node needs to be able to fully sign it locally
+     */
+    string transaction_hash = 2;
+  }
+
+  /**
+   * If true: the transaction is only signed if the new signatures will result in the transaction being fully
+   * authorized. Otherwise returns as an error.
+   * If false: the transaction is signed and the signature distributed. The transaction may still not be fully
+   * authorized and remain as a proposal.
+   */
+  bool must_fully_authorize = 3;
+
+  /** Force change even if dangerous */
+  bool force_change = 4;
+
+  /**
+   * Fingerprint of the keys signing the authorization
+   *
+   * The signing key is used to identify a particular `NamespaceDelegation` or `IdentifierDelegation` certificate,
+   * which is used to justify the given authorization.
+   * Optional, if empty, the signing key be auto-determined.
+   */
+  repeated string signed_by = 5;
+
+  /**
+   * The store that is used as the underlying source for executing this request.
+   * If `store` is a domain store, the resulting topology transaction will only be available on the respective domain.
+   * If `store` is the authorized store, the resulting topology transaction may or may not be synchronized automatically
+   * to all domains that the node is currently connected to or will be connected to in the future.
+   *
+   * Selecting a specific domain store might be necessary, if the transaction to authorize by hash or the previous
+   * generation of the submitted proposal is only available on the domain store and not in the authorized store.
+   */
+  string store = 6;
+}
+
+message AuthorizeResponse {
+  /** the generated signed topology transaction */
+  com.digitalasset.canton.protocol.v2.SignedTopologyTransactionX transaction = 1;
+}
+
+message AddTransactionsRequest {
+  /**
+   * The transactions that should be added to the target store as indicated by the parameter `store`.
+   */
+  repeated com.digitalasset.canton.protocol.v2.SignedTopologyTransactionX transactions = 1;
+
+  /** Force change even if dangerous */
+  bool force_change = 2;
+
+  /**
+   * The store that is used as the underlying source for executing this request.
+   * If `store` is a domain store, the resulting topology transaction will only be available on the respective domain.
+   * If `store` is the authorized store, the resulting topology transaction may or may not be synchronized automatically
+   * to all domains that the node is currently connected to or will be connected to in the future.
+   *
+   * Selecting a specific domain store might be necessary, if the transaction to authorize by hash or the previous
+   * generation of the submitted proposal is only available on the domain store and not in the authorized store.
+   */
+  string store = 3;
+}
+
+message AddTransactionsResponse {
+
+}
+
+message SignTransactionsRequest {
+  /** The transactions to be signed, but will not be stored in the authorized store */
+  repeated com.digitalasset.canton.protocol.v2.SignedTopologyTransactionX transactions = 1;
+  /**
+   * Fingerprint of the keys signing the authorization
+   *
+   * The signing key is used to identify a particular `NamespaceDelegation` or `IdentifierDelegation` certificate,
+   * which is used to justify the given authorization.
+   * Optional, if empty, the signing key be auto-determined.
+   */
+  repeated string signed_by = 2;
+}
+
+message SignTransactionsResponse {
+  /** The transaction with the additional signatures from this node */
+  repeated com.digitalasset.canton.protocol.v2.SignedTopologyTransactionX transactions = 1;
+}

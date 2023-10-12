@@ -1,0 +1,16 @@
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.logging.TracedLogger
+import org.slf4j.LoggerFactory
+import ch.qos.logback.classic.Logger
+
+val logger = TracedLogger(LoggerFactory.getLogger("com.digitalasset.canton").asInstanceOf[Logger])
+
+TraceContext.withNewTraceContext { implicit traceContext =>
+  logger.debug("some logging debug event")
+  logger.error("some logging error")
+  logger.debug("some more logging debug event")
+  logger.error("some more logging error")
+}
+
+nodes.local.stop()
+sys.exit(0)
