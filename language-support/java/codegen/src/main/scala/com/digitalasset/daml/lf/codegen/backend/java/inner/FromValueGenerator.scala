@@ -87,15 +87,24 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .generate(typeParameters)
       .valueDecoderParameterSpecs
 
+    def isOptional(t: Type) =
+      t match {
+        case TypePrim(PrimTypeOptional, _) => true
+        case _ => false
+      }
+
+    val optionalFieldsSize = fields.reverse.takeWhile(f => isOptional(f.damlType)).size
+
     val fromValueCode = CodeBlock
       .builder()
       .add(recordValueExtractor("value$", "recordValue$"))
       .addStatement(
-        "$T fields$$ = $T.recordCheck($L,$WrecordValue$$)",
+        "$T fields$$ = $T.recordCheck($L,$L,$WrecordValue$$)",
         ParameterizedTypeName
           .get(classOf[java.util.List[_]], classOf[javaapi.data.DamlRecord.Field]),
         classOf[PrimitiveValueDecoders],
         fields.size,
+        optionalFieldsSize,
       )
 
     fields.iterator.zip(accessors).foreach { case (FieldInfo(_, damlType, javaName, _), accessor) =>

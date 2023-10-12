@@ -21,5 +21,6 @@ import org.junit.runners.Suite;
   TemplateMethodTest.class,
   TextMapTest.class,
   VariantTest.class,
+  UpgradeTest.class,
 })
 public class AllGenericTests {}

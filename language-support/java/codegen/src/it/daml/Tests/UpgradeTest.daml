@@ -1,0 +1,29 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Tests.UpgradeTest where
+
+data NoOptional = NoOptional
+  with
+    a : Text
+    b : Text
+  deriving (Show, Eq)
+
+data OptionalAtEnd = OptionalAtEnd
+  with
+    a : Text
+    b : Text
+    c : Optional Text
+    d : Optional Text
+  deriving (Show, Eq)
+
+-- Not part of the test but the codegen filters out
+-- data definitions which are not used in a template
+template UpgradeTestTemplate
+    with
+        p : Party
+        noOptional : NoOptional
+        optionalAtEnd : OptionalAtEnd
+    where
+        signatory p

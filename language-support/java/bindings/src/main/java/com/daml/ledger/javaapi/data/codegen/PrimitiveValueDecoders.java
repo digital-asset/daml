@@ -6,9 +6,12 @@ package com.daml.ledger.javaapi.data.codegen;
 import com.daml.ledger.javaapi.data.*;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * {@link ValueDecoder}s for Daml types that are not code-generated.
@@ -16,6 +19,9 @@ import java.util.Optional;
  * @see ValueDecoder
  */
 public final class PrimitiveValueDecoders {
+
+  private static final Logger logger = LoggerFactory.getLogger(PrimitiveValueDecoders.class);
+
   // constructing not allowed
   private PrimitiveValueDecoders() {}
 
@@ -116,7 +122,7 @@ public final class PrimitiveValueDecoders {
    * @hidden
    */
   public static List<com.daml.ledger.javaapi.data.DamlRecord.Field> recordCheck(
-      int expectedFields, Value maybeRecord) {
+      int expectedFields, int trailingOptionalFields, Value maybeRecord) {
     var record =
         maybeRecord
             .asRecord()
@@ -124,9 +130,65 @@ public final class PrimitiveValueDecoders {
                 () -> new IllegalArgumentException("Contracts must be constructed from Records"));
     var fields = record.getFields();
     var numberOfFields = fields.size();
-    if (numberOfFields != expectedFields)
-      throw new IllegalArgumentException(
-          "Expected " + expectedFields + " arguments, got " + numberOfFields);
+    if (numberOfFields == expectedFields) {
+      return fields;
+    }
+    if (numberOfFields > expectedFields) {
+      // Downgrade, check that the additional fields are empty optionals.
+      for (var i = expectedFields; i < numberOfFields; i++) {
+        final var field = fields.get(i);
+        final var optValue = field.getValue().asOptional();
+        if (optValue.isEmpty()) {
+          throw new IllegalArgumentException(
+              "Expected "
+                  + expectedFields
+                  + " arguments, got "
+                  + numberOfFields
+                  + " and field "
+                  + i
+                  + " is not optional: "
+                  + field);
+        }
+        final var value = optValue.get();
+        if (!value.isEmpty()) {
+          throw new IllegalArgumentException(
+              "Expected "
+                  + expectedFields
+                  + " arguments, got "
+                  + numberOfFields
+                  + " and field "
+                  + i
+                  + " is Optional but not empty: "
+                  + field);
+        }
+      }
+      logger.trace(
+          "Downgrading record, dropping {} trailing optional fields",
+          numberOfFields - expectedFields);
+      return fields.subList(0, expectedFields);
+    }
+    if (numberOfFields < expectedFields) {
+      // Upgrade, add empty optionals to the end.
+      if ((expectedFields - numberOfFields) <= trailingOptionalFields) {
+        final var newFields = new ArrayList<>(fields);
+        for (var i = 0; i < expectedFields - numberOfFields; i++) {
+          newFields.add(new com.daml.ledger.javaapi.data.DamlRecord.Field(DamlOptional.EMPTY));
+        }
+        logger.trace(
+            "Upgrading record, appending {} empty optional fields",
+            expectedFields - numberOfFields);
+        return newFields;
+      } else {
+        throw new IllegalArgumentException(
+            "Expected "
+                + expectedFields
+                + " arguments, got "
+                + numberOfFields
+                + " and only the last "
+                + trailingOptionalFields
+                + " of the expected type are optionals");
+      }
+    }
     return fields;
   }
 
