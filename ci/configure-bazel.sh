@@ -22,7 +22,7 @@ cd "$(dirname "$0")/.."
 # detect the OS
 case $(uname) in
 Linux)
-  os=ubuntu
+  os=linux
   ;;
 Darwin)
   os=macos
@@ -48,10 +48,10 @@ if [ ! -z "${BAZEL_CONFIG_DIR:-}" ]; then
     cd "$BAZEL_CONFIG_DIR"
 fi
 
+CACHE_URL=http://10.0.2.10/cache/20231011/$os
 
 if is_windows; then
   echo "build --config windows" > .bazelrc.local
-  echo "build --config windows-ci" >> .bazelrc.local
 
   # Modify the output path to avoid shared action keys.
   # The issue appears to be that GCC produces absolute paths
@@ -70,9 +70,14 @@ if is_windows; then
   # three characters.
   echo "Working directory: $PWD"
   SUFFIX="$(echo $PWD $RULES_HASKELL_REV | openssl dgst -md5 -r)"
-  CACHE_URL="https://storage.googleapis.com/daml-bazel-cache/202309/win/${SUFFIX:0:4}"
+  CACHE_URL=$CACHE_URL/${SUFFIX:0:4}
+fi
+if [ "$os" == "linux" ] || [ "$os" == "windows" ]; then
+  echo "build:$os --remote_cache=$CACHE_URL" >> .bazelrc.local
   echo "CACHE_URL=$CACHE_URL"
-  echo "build:windows-ci --remote_cache=$CACHE_URL" >> .bazelrc.local
+else
+  # macOS is not in the same cluster
+  echo "CACHE_URL=$(cat .bazelrc | grep -o "https://.*$os")"
 fi
 
 # sets up write access to the shared remote cache if the branch is not a fork
