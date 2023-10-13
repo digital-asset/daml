@@ -31,14 +31,37 @@ import DA.Cli.Damlc.Command.MultiIde.Types
 
 -- ProgressToken Prefixing
 
--- We need to ensure all ProgressTokens from different subIDEs are unique to the client, so we prefix them.
--- We do not need to undo this transformation, as we'll store it and backwards lookup later.
+-- Progress tokens are created in 2 ways:
+--   The subIDE sends a CreateToken
+--     In this case, we need to prefix the token, as multiple subIDEs might use the same name 
+--   The client sends any message with a progress token attached
+--     In this case, we can assume the token is unique to the client, and not modify it
+-- There are then 2 messages that can use these tokens:
+--   Progress message from the subIDE
+--     This includes the token id, but we don't know if said token id was created by the subIDE (so needs prefixing) or client
+--     Therefore, whenever we see a token created by the server, we store it in a var (along with the subIde it came from)
+--     Then when we see a progress message with a token, if the token is in the var, we know it needs the prefix, otherwise its unmodified
+--   Cancel message from the client
+--     This has a token id, but again we dont know where it came from, so if it needs its prefix removed
+--     We again lookup in the map, if we find it, we remove the prefix, and send it to the subIDE that created it
+--     If we don't find it, we know its unique to the client, and only exists on one of the SubIDEs
+--     We are then safe to broadcast the cancel message to all IDEs, as those that don't have it will ignore the message
+-- TODO: Verify what happens if the client creates a token and sends to SUbIDE1, then subIDE tries to create one with the same name
+--   This gets prefixed and submitted to client
+--   after this, the client tries to cancel the token it created for SubIDE1, which gets submitted to all SubIDEs
+--   will this cancel the one subIDE2 made - yes
+--   So, can the server and client create clashing token names? Likely :(
+
+-- Adds the prefix, doesn't need to be reversible as we'll keep a backwards lookup
+-- Just needs to be unique
 addProgressTokenPrefix :: T.Text -> LSP.ProgressToken -> LSP.ProgressToken
 addProgressTokenPrefix prefix (LSP.ProgressNumericToken t) = LSP.ProgressTextToken $ prefix <> "-" <> T.pack (show t)
 addProgressTokenPrefix prefix (LSP.ProgressTextToken t) = LSP.ProgressTextToken $ prefix <> "-" <> t
 
 -- Added to WindowWorkDoneProgressCreate and Progress
--- If its create, add to the var, if its progress, read from the var, fall back to current
+-- If its create, add the prefix and store the change (and source IDE) in the mapping var
+-- if its progress, attempt to read the correct prefixed name from the mapping var, on failure, call back to the initial token id
+--   Safe as we assume this was created by client, so is already unique.
 addProgressTokenPrefixToServerMessage :: ServerCreatedProgressTokensVar -> FilePath -> T.Text -> LSP.FromServerMessage -> IO LSP.FromServerMessage
 addProgressTokenPrefixToServerMessage tokensVar home prefix (LSP.FromServerMess LSP.SWindowWorkDoneProgressCreate req) = do
   let unPrefixedToken = req ^. LSP.params . LSP.token
@@ -57,7 +80,7 @@ addProgressTokenPrefixToServerMessage _ _ _ msg = pure msg
 findKeyByValue :: Eq v => v -> Map.Map k v -> Maybe k
 findKeyByValue val = fmap fst . find ((==val) . snd) . Map.toList
 
--- Remove from WindowWorkDoneProgressCancel
+-- Remove the prefix from WindowWorkDoneProgressCancel, and return the source SubIDE if we knew it.
 removeWorkDoneProgressCancelTokenPrefix
   :: ServerCreatedProgressTokensVar
   -> LSP.NotificationMessage 'LSP.WindowWorkDoneProgressCancel

@@ -120,16 +120,16 @@ pickReqMethodTo tracker handler = atomically $ do
   forM_ mayNewIM $ writeTVar tracker
   pure r
 
--- We're forced to give a result of type `(SMethod m, a m)` by parseServerMessage, but we want to include the updated MethodTracker
+-- We're forced to give a result of type `(SMethod m, a m)` by parseServerMessage and parseClientMessage, but we want to include the updated MethodTracker
 -- so we use Product to ensure our result has the SMethod and our MethodTracker
-wrapExtract
+wrapParseMessageLookup
   :: forall (f :: LSP.From) (m :: LSP.Method f 'LSP.Request)
   .  (Maybe (TrackedMethod m), MethodTracker f)
   -> Maybe
       ( LSP.SMethod m
       , Product TrackedMethod (Const (MethodTracker f)) m
       )
-wrapExtract (mayTM, newIM) =
+wrapParseMessageLookup (mayTM, newIM) =
   fmap (\tm -> (tmMethod tm, Pair tm (Const newIM))) mayTM
 
 -- Parses a message from the server providing context about previous requests from client
@@ -137,7 +137,7 @@ wrapExtract (mayTM, newIM) =
 -- Handles TrackedAllMethod by returning Nothing for messages that do not have enough replies yet.
 parseServerMessageWithTracker :: MethodTrackerVar 'LSP.FromClient -> FilePath -> Aeson.Value -> IO (Either String (Maybe LSP.FromServerMessage))
 parseServerMessageWithTracker tracker selfIde val = pickReqMethodTo tracker $ \extract ->
-  case Aeson.parseEither (LSP.parseServerMessage (wrapExtract . extract)) val of
+  case Aeson.parseEither (LSP.parseServerMessage (wrapParseMessageLookup . extract)) val of
     Right (LSP.FromServerMess meth mess) -> (Right (Just $ LSP.FromServerMess meth mess), Nothing)
     Right (LSP.FromServerRsp (Pair (TrackedSingleMethodFromClient method) (Const newIxMap)) rsp) -> (Right (Just (LSP.FromServerRsp method rsp)), Just newIxMap)
     -- Multi reply logic, for requests that are sent to all IDEs with responses unified. Required for some queries
@@ -165,7 +165,7 @@ parseClientMessageWithTracker
   -> Aeson.Value
   -> IO (Either String (LSP.FromClientMessage' (Product LSP.SMethod (Const FilePath))))
 parseClientMessageWithTracker tracker val = pickReqMethodTo tracker $ \extract ->
-  case Aeson.parseEither (LSP.parseClientMessage (wrapExtract . extract)) val of
+  case Aeson.parseEither (LSP.parseClientMessage (wrapParseMessageLookup . extract)) val of
     Right (LSP.FromClientMess meth mess) -> (Right (LSP.FromClientMess meth mess), Nothing)
     Right (LSP.FromClientRsp (Pair (TrackedSingleMethodFromServer method home) (Const newIxMap)) rsp) ->
       (Right (LSP.FromClientRsp (Pair method (Const home)) rsp), Just newIxMap)

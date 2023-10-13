@@ -165,6 +165,8 @@ filePathFromParamsWithTextDocument params =
 forwardingBehaviourFromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => p -> ForwardingBehaviour m
 forwardingBehaviourFromParamsWithTextDocument params = Single $ filePathFromParamsWithTextDocument params
 
+-- Attempts to convert the URI directly to a filepath
+-- If the URI is a virtual resource, we instead parse it as such and extract the file from that
 filePathFromURI :: LSP.Uri -> Maybe FilePath
 filePathFromURI uri = 
   LSP.uriToFilePath uri

@@ -87,6 +87,9 @@ data SubIDE = SubIDE
 type SubIDEs = Map.Map FilePath SubIDE
 type SubIDEsVar = TMVar SubIDEs
 
+onlyActiveSubIdes :: SubIDEs -> SubIDEs
+onlyActiveSubIdes = Map.filter ideActive
+
 -- Stores the initialize messages sent by the client to be forwarded to SubIDEs when they are created.
 type InitParams = LSP.InitializeParams
 type InitParamsVar = MVar InitParams

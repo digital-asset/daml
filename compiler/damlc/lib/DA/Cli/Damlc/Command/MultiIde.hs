@@ -72,7 +72,7 @@ addNewSubIDEAndSend miState home msg = do
   debugPrint "Trying to make a SubIDE"
   ides <- atomically $ takeTMVar $ subIDEsVar miState
 
-  let mExistingIde = mfilter ideActive $ Map.lookup home ides
+  let mExistingIde = Map.lookup home $ onlyActiveSubIdes ides
   case mExistingIde of
     Just ide -> do
       debugPrint "SubIDE already exists"
@@ -103,7 +103,7 @@ addNewSubIDEAndSend miState home msg = do
       --           Coord <- SubIDE
       subIDEToCoord <- async $ do
         -- Wait until our own IDE exists then pass it forward
-        ide <- atomically $ fromMaybe (error "Failed to get own IDE") . mfilter ideActive . Map.lookup home <$> readTMVar (subIDEsVar miState)
+        ide <- atomically $ fromMaybe (error "Failed to get own IDE") . Map.lookup home . onlyActiveSubIdes <$> readTMVar (subIDEsVar miState)
         chunks <- getChunks outHandle
         mapM_ (subIDEMessageHandler miState unblock ide) chunks
 
@@ -204,7 +204,7 @@ sendClient miState = atomically . writeTChan (toClientChan miState) . Aeson.enco
 sendAllSubIDEs :: MultiIdeState -> LSP.FromClientMessage -> IO [FilePath]
 sendAllSubIDEs miState msg = atomically $ do
   idesUnfiltered <- takeTMVar (subIDEsVar miState)
-  let ides = Map.filter ideActive idesUnfiltered
+  let ides = onlyActiveSubIdes idesUnfiltered
   when (null ides) $ error "Got a broadcast to nothing :("
   homes <- forM (Map.elems ides) $ \ide -> ideHomeDirectory ide <$ writeTChan (ideInHandleChannel ide) (Aeson.encode msg)
   putTMVar (subIDEsVar miState) idesUnfiltered
@@ -226,7 +226,7 @@ sendSubIDEByPath miState path msg = do
     sendSubIDEByPath_ :: FilePath -> LSP.FromClientMessage -> IO (Maybe FilePath)
     sendSubIDEByPath_ path msg = atomically $ do
       idesUnfiltered <- takeTMVar (subIDEsVar miState)
-      let ides = Map.filter ideActive idesUnfiltered
+      let ides = onlyActiveSubIdes idesUnfiltered
           mHome = find (`isPrefixOf` path) $ Map.keys ides
           mIde = mHome >>= flip Map.lookup ides
 
@@ -476,7 +476,7 @@ runMultiIde = do
   let killAll :: IO ()
       killAll = do
         debugPrint "Killing subIDEs"
-        subIDEs <- atomically $ Map.filter ideActive <$> readTMVar (subIDEsVar miState)
+        subIDEs <- atomically $ onlyActiveSubIdes <$> readTMVar (subIDEsVar miState)
         forM_ subIDEs (shutdownIde miState)
 
   handle (\(_ :: AsyncException) -> killAll) $ do
