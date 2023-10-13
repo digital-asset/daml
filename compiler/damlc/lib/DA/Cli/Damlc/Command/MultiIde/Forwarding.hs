@@ -58,8 +58,20 @@ assumeSuccessCombiner f res = f <$> mapM pullMonadThroughTuple res
 ignore :: Forwarding m
 ignore = ExplicitHandler $ \_ _ -> pure ()
 
-unsupported :: String -> Forwarding m
-unsupported name = ExplicitHandler $ \_ _ -> error $ "Attempted to call a method that is unsupported by the underlying IDEs: " <> name
+showError :: T.Text -> Forwarding m
+showError err = ExplicitHandler $ \sendClient _ ->
+  sendClient $ LSP.FromServerMess LSP.SWindowShowMessage
+    $ LSP.NotificationMessage "2.0" LSP.SWindowShowMessage
+      $ LSP.ShowMessageParams LSP.MtError err
+
+showFatal :: T.Text -> Forwarding m
+showFatal err = showError $ "FATAL ERROR:\n" <> err <> "\nPlease report this on the daml forums."
+
+handleElsewhere :: T.Text -> Forwarding m
+handleElsewhere name = showFatal $ "Got unexpected " <> name <> " message in forwarding handler, this message should have been handled elsewhere."
+
+unsupported :: T.Text -> Forwarding m
+unsupported name = showFatal $ "Attempted to call a method that is unsupported by the underlying IDEs: " <> name
 
 uriFilePathPrism :: Prism' LSP.Uri FilePath
 uriFilePathPrism = prism' LSP.filePathToUri LSP.uriToFilePath
@@ -71,7 +83,7 @@ getMessageForwardingBehaviour
   -> Forwarding m
 getMessageForwardingBehaviour meth params =
   case meth of
-    LSP.SInitialize -> error "Forwarding of Initialize must be handled elsewhere."
+    LSP.SInitialize -> handleElsewhere "Initialize"
     LSP.SInitialized -> ignore
     -- send to all then const reply
     LSP.SShutdown -> ForwardRequest params $ AllRequest (assumeSuccessCombiner @m $ const LSP.Empty)
@@ -89,7 +101,7 @@ getMessageForwardingBehaviour meth params =
     LSP.STextDocumentHover -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
     LSP.STextDocumentSignatureHelp -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
     LSP.STextDocumentDeclaration -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
-    LSP.STextDocumentDefinition -> error "Forwarding of STextDocumentDefinition must be handled elsewhere."
+    LSP.STextDocumentDefinition -> handleElsewhere "TextDocumentDefinition"
     LSP.STextDocumentDocumentSymbol -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
     LSP.STextDocumentCodeAction -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
     LSP.STextDocumentCodeLens -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument params
@@ -101,7 +113,7 @@ getMessageForwardingBehaviour meth params =
       case params of
         LSP.ReqMess LSP.RequestMessage {_id, _method, _params} -> ExplicitHandler $ \sendClient _ ->
           sendClient $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right Aeson.Null)
-        _ -> error "Got unpexpected daml/keepAlive response from client"
+        _ -> showFatal "Got unpexpected daml/keepAlive response type from client"
 
     -- Other custom messages are notifications from server
     LSP.SCustomMethod _ -> ignore
@@ -128,9 +140,9 @@ getMessageForwardingBehaviour meth params =
                      . _head
                      . uriFilePathPrism
            in ForwardRequest params $ Single path
-        cmd -> error $ "Unknown execute command: " <> show cmd
+        cmd -> showFatal $ "Unknown execute command: " <> cmd
 
-    LSP.SWindowWorkDoneProgressCancel -> error "Forwarding of WindowWorkDoneProgressCancel must be handled elsewhere."
+    LSP.SWindowWorkDoneProgressCancel -> handleElsewhere "WindowWorkDoneProgressCancel"
     LSP.SCancelRequest -> ForwardNotification params AllNotification
     -- Unsupported by GHCIDE:
     LSP.SWorkspaceSymbol -> unsupported "WorkspaceSymbol"
