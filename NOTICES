@@ -640,7 +640,7 @@ js-dgtable 0.5.2 : MIT License
 js-flot 0.8.3 : MIT License
 js-jquery 3.3.1 : MIT License
 js-tokens 4.0.0 : MIT License
-JS-YAML. Native JS port of PyYAML. 3.14.1 : MIT License
+js-yaml 3.14.1 : MIT License
 jsesc v2.5.2 : MIT License
 JSHTTP's negotiator 0.6.2 : MIT License
 JSHTTP's negotiator 0.6.3 : MIT License
@@ -7831,7 +7831,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ---
 
 MIT License
-(JS-YAML. Native JS port of PyYAML. 3.14.1)
+(js-yaml 3.14.1)
 
 (The MIT License)
 
