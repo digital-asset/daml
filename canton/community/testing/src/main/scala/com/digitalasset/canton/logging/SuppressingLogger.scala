@@ -109,6 +109,12 @@ class SuppressingLogger private[logging] (
   )(implicit c: ClassTag[T], pos: source.Position): Assertion =
     assertLogs(checkThrowable[T](the[Throwable] thrownBy within), assertions: _*)
 
+  def assertThrowsAndLogsSuppressing[T <: Throwable](rule: SuppressionRule)(
+      within: => Any,
+      assertions: (LogEntry => Assertion)*
+  )(implicit c: ClassTag[T], pos: source.Position): Assertion =
+    assertLogs(rule)(checkThrowable[T](the[Throwable] thrownBy within), assertions: _*)
+
   def assertThrowsAndLogsAsync[T <: Throwable](
       within: => Future[_],
       assertion: T => Assertion,
