@@ -89,16 +89,21 @@ export async function activate(context: vscode.ExtensionContext) {
     );
     vscode.workspace.onDidChangeConfiguration(
       (event: vscode.ConfigurationChangeEvent) => {
-        if (event.affectsConfiguration("daml.multiIDESupport")) {
-          if (vscode.workspace.getConfiguration("daml").get("multiIDESupport"))
-            window.showWarningMessage(
-              "Multi-IDE Support: WARNING - This feature is experimental, has bugs, and will likely change without warning. Use at your own risk.",
-              { modal: true },
-            );
-          window.showInformationMessage(
-            "Multi-IDE Support: Please reload the window for changes to take effect.",
-            { modal: true },
-          );
+        if (event.affectsConfiguration("daml.multiPackageIdeSupport")) {
+          const enabled = vscode.workspace
+            .getConfiguration("daml")
+            .get("multiPackageIdeSupport");
+          let msg = "VSCode must be reloaded for this change to take effect.";
+          if (enabled)
+            msg =
+              msg +
+              "\nWARNING - The Multi-IDE support is experimental, has bugs, and will likely change without warning. Use at your own risk.";
+          window
+            .showInformationMessage(msg, { modal: true }, "Reload now")
+            .then((option: string | undefined) => {
+              if (option == "Reload now")
+                vscode.commands.executeCommand("workbench.action.reloadWindow");
+            });
         }
       },
     );
@@ -257,7 +262,7 @@ export function createLanguageClient(
     documentSelector: ["daml"],
   };
 
-  const multiIDESupport = config.get("multiIDESupport");
+  const multiIDESupport = config.get("multiPackageIdeSupport");
 
   let command: string;
   let args: string[] = [multiIDESupport ? "multi-ide" : "ide", "--"];

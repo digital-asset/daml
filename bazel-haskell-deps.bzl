@@ -35,8 +35,6 @@ GRPC_HASKELL_PATCHES = [
 XML_CONDUIT_VERSION = "1.9.1.1"
 LSP_TYPES_VERSION = "1.4.0.0"
 LSP_TYPES_SHA256 = "7ae8a3bad0e91d4a2af9b93e3ad207e3f4c3dace40d420e0592f6323ac93fb67"
-LSP_VERSION = "1.4.0.0"
-LSP_SHA256 = "0000000000000000000000000000000000000000000000000000000000000000"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the Daml repository."""
@@ -67,28 +65,6 @@ haskell_cabal_library(
         strip_prefix = "lsp-types-{}".format(LSP_TYPES_VERSION),
         urls = ["http://hackage.haskell.org/package/lsp-types-{version}/lsp-types-{version}.tar.gz".format(version = LSP_TYPES_VERSION)],
     )
-
-    #    http_archive(
-    #        name = "lsp",
-    #        build_file_content = """
-    #load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
-    #load("@stackage//:packages.bzl", "packages")
-    #haskell_cabal_library(
-    #    name = "lsp",
-    #    version = packages["lsp"].version,
-    #    srcs = glob(["**"]),
-    #    deps = packages["lsp"].deps,
-    #    haddock = False,
-    #    visibility = ["//visibility:public"],
-    #)""",
-    #        patch_args = ["-p1"],
-    #        patches = [
-    #            # "@com_github_digital_asset_daml//bazel_tools:lsp-types-normalisation.patch",
-    #        ],
-    #        sha256 = LSP_SHA256,
-    #        strip_prefix = "lsp-{}".format(LSP_VERSION),
-    #        urls = ["http://hackage.haskell.org/package/lsp-{version}/lsp-{version}.tar.gz".format(version = LSP_VERSION)],
-    #    )
 
     # ghc-lib based ghcide - injected into `@stackage` and used for Daml IDE.
     http_archive(

@@ -173,11 +173,11 @@ nameSortExternalModule _ = Nothing
 
 -- daml/tryGetDefinition :: TryGetDefinitionParams -> Maybe TryGetDefinitionResult
 tryGetDefinition :: IdeState -> TryGetDefinitionParams -> LSP.LspM c (Either ResponseError (Maybe TryGetDefinitionResult))
-tryGetDefinition ideState params =
+tryGetDefinition ideState params = Right <$>
   case uriToFilePath' $ tgdpTextDocument params ^. LSP.uri of
-    Nothing -> pure $ Right Nothing
+    Nothing -> pure Nothing
     Just (toNormalizedFilePath' -> file) ->
-      liftIO $ runActionSync ideState $ fmap Right $ runMaybeT $ do
+      liftIO $ runActionSync ideState $ runMaybeT $ do
         (loc, mName) <- MaybeT $ getDefinitionWithName file $ tgdpPosition params
         let tgdName = do
               name <- mName
