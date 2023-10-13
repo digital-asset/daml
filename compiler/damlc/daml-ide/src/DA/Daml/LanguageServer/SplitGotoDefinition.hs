@@ -30,8 +30,8 @@ import qualified Data.Aeson as Aeson
 import Data.Aeson.TH
 import qualified Data.Aeson.Types as Aeson
 import Data.Bifunctor (first)
-import Data.List (find, isSuffixOf)
-import Data.Maybe (listToMaybe, mapMaybe)
+import Data.List (find, isSuffixOf, sortOn)
+import Data.Maybe (listToMaybe)
 import qualified Data.Text as T
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.RuleTypes
@@ -207,15 +207,24 @@ gotoDefinitionByName ideState params = do
     config <- except $ first (Just . show) $ parseProjectConfig projectConfig
 
     srcFiles <- maybeTToExceptT "Failed to get source files" $ getDamlFiles $ root </> pSrc config
-    let moduleSuffix = replaceChar '.' '/' (tgdnModuleName $ gdnpName params) <> ".daml"
-    file <- hoistMaybe (Just "Failed to find module") $ find (isSuffixOf moduleSuffix . fromNormalizedFilePath) srcFiles
+    -- Must be sorted shorted to longest, since we always want the shortest path that matches our suffix
+    -- to avoid accidentally picking Main.A.B.C if we're just looking for A.B.C
+    -- We also prefix all paths with "/" and search for our suffix starting with "/"
+    -- This is avoid incorrectly picking MA.B.C if we were looking for A.B.C and it didnt exist
+    let sortedSrcFiles = sortOn (Prelude.length . fromNormalizedFilePath) srcFiles
+        moduleSuffix = "/" <> replaceChar '.' '/' (tgdnModuleName $ gdnpName params) <> ".daml"
+    file <-
+      hoistMaybe (Just "Failed to find module") $
+        find (isSuffixOf moduleSuffix . ("/" <> ) . fromNormalizedFilePath) sortedSrcFiles
     
     -- It might be better to get the typechecked module and look for the identifier in there?
     spans <- useOrThrow "Failed to get span info" GetSpanInfo file
-    let names = mapMaybe (getNameM . spaninfoSource) $ spansExprs spans
-        expectedOccName = mkOccName (fromTryGetDefinitionNameSpace $ tgdnIdentifierNameSpace $ gdnpName params) (tgdnIdentifierName $ gdnpName params)
-        plausibleNames = filter (\name -> expectedOccName == nameOccName name && isGoodSrcSpan (nameSrcSpan name)) names
-        locations = map (srcSpanToLocation . nameSrcSpan) plausibleNames
+    let expectedOccName = mkOccName (fromTryGetDefinitionNameSpace $ tgdnIdentifierNameSpace $ gdnpName params) (tgdnIdentifierName $ gdnpName params)
+        locations = 
+          [ srcSpanToLocation $ nameSrcSpan name
+          | Just name <- getNameM . spaninfoSource <$> spansExprs spans
+          , expectedOccName == nameOccName name && isGoodSrcSpan (nameSrcSpan name)
+          ]
     
     hoistMaybe Nothing $ listToMaybe locations
   where

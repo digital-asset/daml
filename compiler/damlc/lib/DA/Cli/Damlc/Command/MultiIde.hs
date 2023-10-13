@@ -56,47 +56,7 @@ import System.Process.Typed (
   setWorkingDir,
   startProcess,
   unsafeProcessHandle,
-  -- useHandleOpen,
  )
-
-{-
-TODO:
-  data deps support
-    likely recreate the daml.yaml in the package database and spin an IDE there
-    need to ensure the ide path lookup doesn't allow crossing the .daml boundary
-    also don't want it to install another .daml folder in the .daml folder, so might need more ghcide work?
-  generic ide for temp files
-    when you simply do ctrl+n, and have an unsaved file, we still want IDE support, but ofc that file has no daml.yaml, so we can only assume bare minimum deps
-    we can create an IDE for a project with just those deps in a temp location and forward requests like this to it.
-  might need some daml.revealLocation logic
-  seems sometimes we get relative paths, so duplicate subIDEs are made
--}
-
-{-
-the W approach for STextDocumentDeclaration/STextDocumentDefinition:
-TODO: at start, find a multi-package.yaml (discuss how later), create a mapping from package-name and package-version to home directory
-  Currently, looking up in the existing open SubIDEs. But ideally, we'll create a new SubIDE if we get a request for something within
-  multi-package but without a SubIDE yet (callSubIDE by path will do this for us :))
-
-below is complete:
-client -> coord: STextDocumentDefinition (including a path (pathA) and a position(posA))
-coord -> subIde(pathA): whatIsIt(pathA, posA)
-subIde(pathA) <- coord: identifier(including a name, packageid, might be able to get package name and version)
-(somehow get name + version from packageid if we don't have it)
-(lookup name and version in the mapping from multi-package.yaml)
-if we find a home directory (call it pathB)
-  coord -> subIde(pathB): where is this identifier (consider implementing SWorkspaceSymbol to achieve this)
-  subIde(pathB) -> coord: location(path (pathC) and position (posC))
-  coord -> client: STextDocumentDefinition response(pathC, posC)
-else
-  -- Note using pathA here, we ask the initial IDE where it is, and it'll likely give some location in .daml
-  coord -> subIde(pathA): where is this identifier (consider implementing SWorkspaceSymbol to achieve this)
-  subIde(pathA) -> coord: location(path (pathC) and position (posC))
-  coord -> client: STextDocumentDefinition response(pathC, posC)
-
-
-alternatively, "whatIsIt" can return either a location (if its a local def) or a identifier (if its external), and we only continue the lookup if its an identifier
--}
 
 -- Spin-up logic
 
@@ -116,7 +76,7 @@ addNewSubIDEAndSend miState home msg = do
   case mExistingIde of
     Just ide -> do
       debugPrint "SubIDE already exists"
-      sendSubIDE ide msg
+      unsafeSendSubIDE ide msg
       atomically $ putTMVar (subIDEsVar miState) ides
       pure ide
     Nothing -> do
@@ -179,7 +139,7 @@ addNewSubIDEAndSend miState home msg = do
       putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) initId LSP.SInitialize
       putChunk inHandle $ Aeson.encode initMsg
       -- Dangerous call is okay here because we're already holding the subIDEsVar lock
-      sendSubIDE ide msg
+      unsafeSendSubIDE ide msg
 
       atomically $ putTMVar (subIDEsVar miState) $ Map.insert home ide ides
 
@@ -213,7 +173,7 @@ shutdownIde miState ide = do
         }
   
   putReqMethodSingleFromClient (fromClientMethodTrackerVar miState) shutdownId LSP.SShutdown
-  sendSubIDE ide shutdownMsg
+  unsafeSendSubIDE ide shutdownMsg
 
   atomically $ putTMVar (subIDEsVar miState) $ Map.adjust (\ide' -> ide' {ideActive = False}) (ideHomeDirectory ide) ides
 
@@ -235,8 +195,8 @@ handleExit miState ide = do
 -- Communication logic
 
 -- Dangerous as does not hold the subIDEsVar lock. If a shutdown is called whiled this is running, the message may not be sent.
-sendSubIDE :: SubIDE -> LSP.FromClientMessage -> IO ()
-sendSubIDE ide = atomically . writeTChan (ideInHandleChannel ide) . Aeson.encode
+unsafeSendSubIDE :: SubIDE -> LSP.FromClientMessage -> IO ()
+unsafeSendSubIDE ide = atomically . writeTChan (ideInHandleChannel ide) . Aeson.encode
 
 sendClient :: MultiIdeState -> LSP.FromServerMessage -> IO ()
 sendClient miState = atomically . writeTChan (toClientChan miState) . Aeson.encode
@@ -292,7 +252,7 @@ sendSubIDEByPath miState path msg = do
                   replyError method id =
                     writeTChan (toClientChan miState) $ Aeson.encode $
                       LSP.FromServerRsp method $ LSP.ResponseMessage "2.0" (Just id) $ Left $
-                        LSP.ResponseError LSP.InvalidParams "Could not find daml.yaml for this file." Nothing
+                        LSP.ResponseError LSP.InvalidParams ("Could not find daml.yaml for package containing " <> T.pack path) Nothing
               case msg of
                 LSP.FromClientMess method params ->
                   case (LSP.splitClientMethod method, params) of
@@ -311,7 +271,6 @@ parseCustomResult name =
 subIDEMessageHandler :: MultiIdeState -> IO () -> SubIDE -> B.ByteString -> IO ()
 subIDEMessageHandler miState unblock ide bs = do
   debugPrint "Called subIDEMessageHandler"
-  -- BSC.hPutStrLn stderr bs
 
   -- Decode a value, parse
   let val :: Aeson.Value
@@ -330,15 +289,16 @@ subIDEMessageHandler miState unblock ide bs = do
     -- If its a request (builtin or custom), save it for response handling.
     putServerReq (fromServerMethodTrackerVar miState) (ideHomeDirectory ide) msg
 
-    debugPrint "About to thunk message"
+    debugPrint "Message successfully parsed and prefixed."
     case msg of
       LSP.FromServerRsp LSP.SInitialize LSP.ResponseMessage {_result} -> do
         debugPrint "Got initialization reply, sending initialized and unblocking"
         -- Dangerous call here is acceptable as this only happens while the ide is booting, before unblocking
-        sendSubIDE ide $ LSP.FromClientMess LSP.SInitialized $ LSP.NotificationMessage "2.0" LSP.SInitialized (Just LSP.InitializedParams)
+        unsafeSendSubIDE ide $ LSP.FromClientMess LSP.SInitialized $ LSP.NotificationMessage "2.0" LSP.SInitialized (Just LSP.InitializedParams)
         unblock
       LSP.FromServerRsp LSP.SShutdown _ -> handleExit miState ide
 
+      -- See STextDocumentDefinition in client handle for description of this path
       LSP.FromServerRsp (LSP.SCustomMethod "daml/tryGetDefinition") LSP.ResponseMessage {_id, _result} -> do
         debugPrint "Got tryGetDefinition response, handling..."
         let parsedResult = parseCustomResult @(Maybe TryGetDefinitionResult) "daml/tryGetDefinition" _result
@@ -349,14 +309,24 @@ subIDEMessageHandler miState unblock ide bs = do
             replyLocations :: [LSP.Location] -> IO ()
             replyLocations = reply . Right . LSP.InR . LSP.InL . LSP.List
         case parsedResult of
+          -- Request failed, forwrd error
           Left err -> reply $ Left err
+          -- Request didn't find any location information, forward "nothing"
           Right Nothing -> replyLocations []
+          -- SubIDE containing the reference also contained the definition, so returned no name to lookup
+          -- Simply forward this location
           Right (Just (TryGetDefinitionResult loc Nothing)) -> replyLocations [loc]
+          -- SubIDE containing the reference did not contain the definition, it returns a fake location in .daml and the name
+          -- Send a new request to a new SubIDE to find the source of this name
           Right (Just (TryGetDefinitionResult loc (Just name))) -> do
             debugPrint $ "Got name in result! Backup location is " <> show loc
             let mHome = Map.lookup (tgdnPackageUnitId name) $ multiPackageMapping miState
             case mHome of
+              -- Didn't find a home for this name, we do not know where this is defined, so give back the (known to be wrong)
+              -- .daml data-dependency path
+              -- This is the worst case, we'll later add logic here to unpack and spinup an SubIDE for the read-only dependency
               Nothing -> replyLocations [loc]
+              -- We found a daml.yaml for this definition, send the getDefinitionByName request to its SubIDE
               Just home -> do
                 debugPrint $ "Found unit ID in multi-package mapping, forwarding to " <> home
                 let method = LSP.SCustomMethod "daml/gotoDefinitionByName"
@@ -366,6 +336,7 @@ subIDEMessageHandler miState unblock ide bs = do
                   LSP.RequestMessage "2.0" lspId method $ Aeson.toJSON $
                     GotoDefinitionByNameParams loc name
       
+      -- See STextDocumentDefinition in client handle for description of this path
       LSP.FromServerRsp (LSP.SCustomMethod "daml/gotoDefinitionByName") LSP.ResponseMessage {_id, _result} -> do
         debugPrint "Got gotoDefinitionByName response, handling..."
         let parsedResult = parseCustomResult @GotoDefinitionByNameResult "daml/gotoDefinitionByName" _result
@@ -411,7 +382,16 @@ clientMessageHandler miState bs = do
         Nothing -> void $ sendAllSubIDEs miState newMsg
         Just home -> void $ sendSubIDEByPath miState home newMsg
 
-    -- Special handing for STextDocumentDefinition to ask multiple IDEs
+    -- Special handing for STextDocumentDefinition to ask multiple IDEs (the W approach)
+    -- When a getDefinition is requested, we cast this request into a tryGetDefinition
+    -- This is a method that will take the same logic path as getDefinition, but will also return an
+    -- identifier in the cases where it knows the identifier wasn't defined in the package that referenced it
+    -- When we receive this name, we lookup against the multi-package.yaml for a package that matches where the identifier
+    -- came from. If we find one, we ask (and create if needed) the SubIDE that contains the identifier where its defined.
+    -- (this is via the getDefinitionByName message)
+    -- We also send the backup known incorrect location from the tryGetDefinition, such that if the subIDE containing the identifier
+    -- can't find the definition, it'll fall back to the known incorrect location.
+    -- Once we have this, we return it as a response to the original STextDocumentDefinition request.
     LSP.FromClientMess LSP.STextDocumentDefinition req@LSP.RequestMessage {_id, _method, _params} -> do
       let path = filePathFromParamsWithTextDocument req
           lspId = castLspId _id

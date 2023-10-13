@@ -2,14 +2,11 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE ApplicativeDo       #-}
 {-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DisambiguateRecordFields #-}
 
 -- | Main entry-point of the Daml compiler
 module DA.Cli.Damlc (main) where
