@@ -4,9 +4,7 @@
 package com.digitalasset.canton.ledger.client.services.commands.withoutledgerid
 
 import akka.NotUsed
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import com.codahale.metrics as codahale
+import akka.stream.scaladsl.{Flow, Source}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
 import com.daml.ledger.api.v1.command_completion_service.{
@@ -17,26 +15,17 @@ import com.daml.ledger.api.v1.command_completion_service.{
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.metrics.api.dropwizard.DropwizardCounter
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.domain.LedgerId
-import com.digitalasset.canton.ledger.api.validation.CommandsValidator
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.configuration.CommandClientConfiguration
-import com.digitalasset.canton.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.digitalasset.canton.ledger.client.services.commands.*
-import com.digitalasset.canton.ledger.client.services.commands.tracker.CompletionResponse.{
-  CompletionFailure,
-  CompletionSuccess,
-}
-import com.digitalasset.canton.ledger.client.services.commands.tracker.TrackedCommandKey
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.util.Ctx
-import com.digitalasset.canton.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
 import scalaz.syntax.tag.*
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.Future
 import scala.util.Try
 
 /** Enables easy access to command services and high level operations on top of them.
@@ -55,20 +44,10 @@ final class CommandClient(
 )(implicit esf: ExecutionSequencerFactory)
     extends NamedLogging {
 
-  type TrackCommandFlow[Context] =
-    Flow[
-      Ctx[Context, CommandSubmission],
-      Ctx[Context, Either[CompletionFailure, CompletionSuccess]],
-      Materialized[
-        NotUsed,
-        Context,
-      ],
-    ]
-
   private val submissionIdGenerator: SubmissionIdGenerator = SubmissionIdGenerator.Random
 
   /** Submit a single command. Successful result does not guarantee that the resulting transaction has been written to
-    * the ledger. In order to get that semantic, use [[trackCommands]] or [[trackCommandsUnbounded]].
+    * the ledger.
     */
   def submitSingleCommand(
       submitRequest: SubmitRequest,
@@ -85,103 +64,6 @@ final class CommandClient(
       .stub(commandSubmissionService, token)
       .submit(submitRequest)
   }
-
-  /** Submits and tracks a single command. High frequency usage is discouraged as it causes a dedicated completion
-    * stream to be established and torn down.
-    */
-  def trackSingleCommand(
-      submitRequest: SubmitRequest,
-      ledgerIdToUse: LedgerId,
-      token: Option[String] = None,
-  )(implicit
-      mat: Materializer
-  ): Future[Either[CompletionFailure, CompletionSuccess]] = {
-    implicit val executionContext: ExecutionContextExecutor = mat.executionContext
-    val commands = submitRequest.getCommands
-    val effectiveActAs = CommandsValidator.effectiveSubmitters(commands).actAs
-    for {
-      tracker <- trackCommandsUnbounded[Unit](effectiveActAs.toList, ledgerIdToUse, token)
-      result <- Source
-        .single(Ctx.unit(CommandSubmission(commands)))
-        .via(tracker)
-        .runWith(Sink.head)
-    } yield {
-      result.value
-    }
-  }
-
-  /** Tracks the results (including timeouts) of incoming commands.
-    * Applies a maximum bound for in-flight commands which have been submitted, but not confirmed through command completions.
-    *
-    * The resulting flow will backpressure if downstream backpressures, independently of the number of in-flight commands.
-    *
-    * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
-    */
-  def trackCommands[Context](
-      parties: Seq[String],
-      ledgerIdToUse: LedgerId,
-      token: Option[String] = None,
-  )(implicit
-      ec: ExecutionContext
-  ): Future[TrackCommandFlow[Context]] = {
-    for {
-      tracker <- trackCommandsUnbounded[Context](parties, ledgerIdToUse, token)
-    } yield {
-      // The counters are ignored on the client
-      MaxInFlight(
-        config.maxCommandsInFlight,
-        DropwizardCounter("capacity", new codahale.Counter),
-        DropwizardCounter("name", new codahale.Counter),
-      )
-        .joinMat(tracker)(Keep.right)
-    }
-  }
-
-  /** Tracks the results (including timeouts) of incoming commands.
-    *
-    * The resulting flow will backpressure if downstream backpressures, independently of the number of in-flight commands.
-    *
-    * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
-    */
-  def trackCommandsUnbounded[Context](
-      parties: Seq[String],
-      ledgerIdToUse: LedgerId,
-      token: Option[String] = None,
-  )(implicit
-      ec: ExecutionContext
-  ): Future[TrackCommandFlow[Context]] =
-    for {
-      ledgerEnd <- getCompletionEnd(ledgerIdToUse, token)
-    } yield {
-      partyFilter(parties.toSet)
-        .via(
-          CommandUpdaterFlow[Context](config, submissionIdGenerator, applicationId, ledgerIdToUse)
-        )
-        .viaMat(
-          CommandTrackerFlow[Context, NotUsed](
-            commandSubmissionFlow = CommandSubmissionFlow[(Context, TrackedCommandKey)](
-              submit(token),
-              config.maxParallelSubmissions,
-              loggerFactory,
-            ),
-            createCommandCompletionSource =
-              offset => completionSource(parties, offset, ledgerIdToUse, token),
-            startingOffset = ledgerEnd.getOffset,
-            maximumCommandTimeout = config.defaultDeduplicationTime,
-          )
-        )(Keep.right)
-    }
-
-  private def partyFilter[Context](allowedParties: Set[String]) =
-    Flow[Ctx[Context, CommandSubmission]].map { elem =>
-      val commands = elem.value.commands
-      val effectiveActAs = CommandsValidator.effectiveSubmitters(commands).actAs
-      if (effectiveActAs.subsetOf(allowedParties)) elem
-      else
-        throw new IllegalArgumentException(
-          s"Attempted submission and tracking of command ${commands.commandId} by parties $effectiveActAs while some of those parties are not part of the subscription set $allowedParties."
-        )
-    }
 
   def completionSource(
       parties: Seq[String],

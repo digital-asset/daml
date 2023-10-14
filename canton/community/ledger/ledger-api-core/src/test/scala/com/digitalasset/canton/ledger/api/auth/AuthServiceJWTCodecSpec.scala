@@ -242,6 +242,68 @@ class AuthServiceJWTCodecSpec
         parse(serialized) shouldBe Success(expected)
       }
 
+      "support standard JWT claims with one composite scope" in {
+        val serialized =
+          """{
+            |  "iss": "issuer",
+            |  "aud": "someParticipantId",
+            |  "sub": "someUserId",
+            |  "exp": 100,
+            |  "scope": "resource_server/daml_ledger_api"
+            |}
+          """.stripMargin
+        val expected = StandardJWTPayload(
+          issuer = Some("issuer"),
+          participantId = Some("someParticipantId"),
+          userId = "someUserId",
+          exp = Some(Instant.ofEpochSecond(100)),
+          format = StandardJWTTokenFormat.Scope,
+          audiences = List.empty,
+        )
+        parse(serialized) shouldBe Success(expected)
+      }
+
+      "support standard JWT claims with one composite scope and no audience" in {
+        val serialized =
+          """{
+            |  "iss": "issuer",
+            |  "sub": "someUserId",
+            |  "exp": 100,
+            |  "scope": "resource_server/daml_ledger_api"
+            |}
+          """.stripMargin
+        val expected = StandardJWTPayload(
+          issuer = Some("issuer"),
+          participantId = None,
+          userId = "someUserId",
+          exp = Some(Instant.ofEpochSecond(100)),
+          format = StandardJWTTokenFormat.Scope,
+          audiences = List.empty,
+        )
+        parse(serialized) shouldBe Success(expected)
+      }
+
+      "support standard JWT claims with one composite scope with a dash" in {
+        val serialized =
+          """{
+            |  "iss": "issuer",
+            |  "aud": "someParticipantId",
+            |  "sub": "someUserId",
+            |  "exp": 100,
+            |  "scope": "resource-server/daml_ledger_api"
+            |}
+          """.stripMargin
+        val expected = StandardJWTPayload(
+          issuer = Some("issuer"),
+          participantId = Some("someParticipantId"),
+          userId = "someUserId",
+          exp = Some(Instant.ofEpochSecond(100)),
+          format = StandardJWTTokenFormat.Scope,
+          audiences = List.empty,
+        )
+        parse(serialized) shouldBe Success(expected)
+      }
+
       "support standard JWT claims with extra scopes" in {
         val serialized =
           """{
@@ -249,6 +311,26 @@ class AuthServiceJWTCodecSpec
             |  "sub": "someUserId",
             |  "exp": 100,
             |  "scope": "dummy-scope1 daml_ledger_api dummy-scope2"
+            |}
+          """.stripMargin
+        val expected = StandardJWTPayload(
+          issuer = None,
+          participantId = Some("someParticipantId"),
+          userId = "someUserId",
+          exp = Some(Instant.ofEpochSecond(100)),
+          format = StandardJWTTokenFormat.Scope,
+          audiences = List.empty,
+        )
+        parse(serialized) shouldBe Success(expected)
+      }
+
+      "support standard JWT claims with extra composite scopes" in {
+        val serialized =
+          """{
+            |  "aud": "someParticipantId",
+            |  "sub": "someUserId",
+            |  "exp": 100,
+            |  "scope": "resource_server/dummy-scope1 resource_server/daml_ledger_api resource_server/dummy-scope2"
             |}
           """.stripMargin
         val expected = StandardJWTPayload(
@@ -452,6 +534,21 @@ class AuthServiceJWTCodecSpec
           """.stripMargin
         parse(serialized).failed.get.getMessage
           .contains("must include participantId value prefixed by") shouldBe true
+      }
+
+      "reject token with invalid scope" in {
+        val serialized =
+          """{
+            |  "iss": "issuer",
+            |  "aud": "someParticipantId",
+            |  "sub": "someUserId",
+            |  "exp": 100,
+            |  "scope": "resource-server/daml-ledger-api"
+            |}
+          """.stripMargin
+        parse(serialized).failed.get.getMessage should include(
+          "Access token with unknown scope"
+        )
       }
     }
   }

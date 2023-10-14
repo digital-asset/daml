@@ -318,112 +318,115 @@ final class RepairService(
     logger.info(
       s"Adding ${contracts.length} contracts to domain ${domain} with ignoreAlreadyAdded=${ignoreAlreadyAdded} and ignoreStakeholderCheck=${ignoreStakeholderCheck}"
     )
-    lockAndAwaitEitherT(
-      "repair.add", {
-        for {
-          // Ensure domain is configured but not connected to avoid race conditions.
-          domainId <- aliasToUnconnectedDomainId(domain)
-          _ <- EitherT.cond[Future](contracts.nonEmpty, (), "No contracts to add specified")
+    if (contracts.isEmpty) {
+      Either.right(logger.info("No contracts to add specified"))
+    } else {
+      lockAndAwaitEitherT(
+        "repair.add", {
+          for {
+            // Ensure domain is configured but not connected to avoid race conditions.
+            domainId <- aliasToUnconnectedDomainId(domain)
 
-          domain <- readDomainData(domainId)
+            domain <- readDomainData(domainId)
 
-          filteredContracts <- contracts.parTraverseFilter(
-            readRepairContractCurrentState(domain, _, ignoreAlreadyAdded)
-          )
+            filteredContracts <- contracts.parTraverseFilter(
+              readRepairContractCurrentState(domain, _, ignoreAlreadyAdded)
+            )
 
-          contractsByCreation = filteredContracts
-            .groupBy(_.contract.ledgerCreateTime)
-            .toList
-            .sortBy { case (ts, _) =>
-              ts
-            }
+            contractsByCreation = filteredContracts
+              .groupBy(_.contract.ledgerCreateTime)
+              .toList
+              .sortBy { case (ts, _) =>
+                ts
+              }
 
-          _ <- PositiveInt
-            .create(contractsByCreation.size)
-            .fold(
-              _ => EitherT.rightT[Future, String](logger.info("No contract needs to be added")),
-              requestCountersToAllocate => {
-                for {
-                  repair <- initRepairRequestAndVerifyPreconditions(
-                    domain,
-                    requestCountersToAllocate,
-                  )
-
-                  contractsToAdd = repair.timesOfChange.zip(contractsByCreation)
-
-                  // All referenced templates known and vetted
-                  _packagesVetted <- filteredContracts
-                    .map(
-                      _.contract.rawContractInstance.contractInstance.unversioned.template.packageId
+            _ <- PositiveInt
+              .create(contractsByCreation.size)
+              .fold(
+                _ => EitherT.rightT[Future, String](logger.info("No contract needs to be added")),
+                requestCountersToAllocate => {
+                  for {
+                    repair <- initRepairRequestAndVerifyPreconditions(
+                      domain,
+                      requestCountersToAllocate,
                     )
-                    .distinct
-                    .parTraverse_(packageVetted)
 
-                  _uniqueKeysWithHostedMaintainerInContractsToAdd <- EitherTUtil.ifThenET(
-                    repair.domain.parameters.uniqueContractKeys
-                  ) {
-                    val keysWithContractIdsF = filteredContracts
-                      .parTraverseFilter { repairContractWithCurrentState =>
-                        val contract = repairContractWithCurrentState.contract
-                        // Only check for duplicates where the participant hosts a maintainer
-                        getKeyIfOneMaintainerIsLocal(
-                          repair.domain.topologySnapshot,
-                          contract.metadata.maybeKeyWithMaintainers,
-                          participantId,
-                        ).map { lfKeyO =>
-                          lfKeyO.flatMap(_ => contract.metadata.maybeKeyWithMaintainers).map {
-                            keyWithMaintainers =>
-                              keyWithMaintainers.globalKey -> contract.contractId
+                    contractsToAdd = repair.timesOfChange.zip(contractsByCreation)
+
+                    // All referenced templates known and vetted
+                    _packagesVetted <- filteredContracts
+                      .map(
+                        _.contract.rawContractInstance.contractInstance.unversioned.template.packageId
+                      )
+                      .distinct
+                      .parTraverse_(packageVetted)
+
+                    _uniqueKeysWithHostedMaintainerInContractsToAdd <- EitherTUtil.ifThenET(
+                      repair.domain.parameters.uniqueContractKeys
+                    ) {
+                      val keysWithContractIdsF = filteredContracts
+                        .parTraverseFilter { repairContractWithCurrentState =>
+                          val contract = repairContractWithCurrentState.contract
+                          // Only check for duplicates where the participant hosts a maintainer
+                          getKeyIfOneMaintainerIsLocal(
+                            repair.domain.topologySnapshot,
+                            contract.metadata.maybeKeyWithMaintainers,
+                            participantId,
+                          ).map { lfKeyO =>
+                            lfKeyO.flatMap(_ => contract.metadata.maybeKeyWithMaintainers).map {
+                              keyWithMaintainers =>
+                                keyWithMaintainers.globalKey -> contract.contractId
+                            }
                           }
                         }
-                      }
-                      .map(x => x.groupBy { case (globalKey, _) => globalKey })
-                    EitherT(keysWithContractIdsF.map { keysWithContractIds =>
-                      val duplicates = keysWithContractIds.mapFilter { keyCoids =>
-                        if (keyCoids.lengthCompare(1) > 0) Some(keyCoids.map(_._2)) else None
-                      }
-                      Either.cond(
-                        duplicates.isEmpty,
-                        (),
-                        log(show"Cannot add multiple contracts for the same key(s): $duplicates"),
-                      )
-                    })
-                  }
+                        .map(x => x.groupBy { case (globalKey, _) => globalKey })
+                      EitherT(keysWithContractIdsF.map { keysWithContractIds =>
+                        val duplicates = keysWithContractIds.mapFilter { keyCoids =>
+                          if (keyCoids.lengthCompare(1) > 0) Some(keyCoids.map(_._2)) else None
+                        }
+                        Either.cond(
+                          duplicates.isEmpty,
+                          (),
+                          log(show"Cannot add multiple contracts for the same key(s): $duplicates"),
+                        )
+                      })
+                    }
 
-                  hostedParties <- EitherT.right(
-                    filteredContracts
-                      .flatMap(_.witnesses)
-                      .distinct
-                      .parFilterA(hostsParty(repair.domain.topologySnapshot, participantId))
-                      .map(_.toSet)
-                  )
+                    hostedParties <- EitherT.right(
+                      filteredContracts
+                        .flatMap(_.witnesses)
+                        .distinct
+                        .parFilterA(hostsParty(repair.domain.topologySnapshot, participantId))
+                        .map(_.toSet)
+                    )
 
-                  _ = logger.debug(s"Publishing ${filteredContracts.size} added contracts")
+                    _ = logger.debug(s"Publishing ${filteredContracts.size} added contracts")
 
-                  contractsWithTimeOfChange = contractsToAdd.flatMap { case (toc, (_, cs)) =>
-                    cs.map(_ -> toc)
-                  }
+                    contractsWithTimeOfChange = contractsToAdd.flatMap { case (toc, (_, cs)) =>
+                      cs.map(_ -> toc)
+                    }
 
-                  // Note the following purposely fails if any contract fails which results in not all contracts being processed.
-                  _ <- MonadUtil.sequentialTraverse(contractsWithTimeOfChange) {
-                    case (contract, timeOfChange) =>
-                      addContract(repair, ignoreStakeholderCheck)(contract, timeOfChange)
-                  }
+                    // Note the following purposely fails if any contract fails which results in not all contracts being processed.
+                    _ <- MonadUtil.sequentialTraverse(contractsWithTimeOfChange) {
+                      case (contract, timeOfChange) =>
+                        addContract(repair, ignoreStakeholderCheck)(contract, timeOfChange)
+                    }
 
-                  // Publish added contracts upstream as created via the ledger api.
-                  _ <- EitherT.right(
-                    writeContractsAddedEvents(repair, hostedParties, contractsToAdd)
-                  )
+                    // Publish added contracts upstream as created via the ledger api.
+                    _ <- EitherT.right(
+                      writeContractsAddedEvents(repair, hostedParties, contractsToAdd)
+                    )
 
-                  // If all has gone well, bump the clean head, effectively committing the changes to the domain.
-                  _ <- commitRepairs(repair)
+                    // If all has gone well, bump the clean head, effectively committing the changes to the domain.
+                    _ <- commitRepairs(repair)
 
-                } yield ()
-              },
-            )
-        } yield ()
-      },
-    )
+                  } yield ()
+                },
+              )
+          } yield ()
+        },
+      )
+    }
   }
 
   /** Participant repair utility for manually purging (archiving) contracts in an offline fashion.
