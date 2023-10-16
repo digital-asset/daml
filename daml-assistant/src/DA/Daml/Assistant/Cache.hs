@@ -66,20 +66,22 @@ cacheAvailableSdkVersions DontUseCache getVersions = (, Fresh) <$> getVersions
 cacheAvailableSdkVersions UseCache { overrideTimeout, cachePath, damlPath } getVersions = do
     damlConfigE <- tryConfig $ readDamlConfig damlPath
     let configUpdateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
-        (allowExistingStaleCache, timeout)
+        mbTimeout
             -- A few different things can override the timeout behaviour in
             -- daml-config.yaml, chiefly `daml install latest` and `daml version --force-reload yes`
-          | Just timeout <- overrideTimeout = (False, timeout)
+          | Just timeout <- overrideTimeout = Just timeout
           | Just updateCheck <- configUpdateCheckM =
               case updateCheck of
                 -- When UpdateCheckNever, still refresh the cache if it doesn't exist
-                UpdateCheckNever -> (True, CacheTimeout (1000 * 365 * 86400))
-                UpdateCheckEvery timeout -> (False, timeout)
-          | otherwise = (False, CacheTimeout 86400)
-    cacheWith cachePath versionsKey timeout
-        serializeVersions deserializeVersions
-        getVersions
-        allowExistingStaleCache
+                UpdateCheckNever -> Nothing
+                UpdateCheckEvery timeout -> Just timeout
+          | otherwise = Just (CacheTimeout 86400)
+    case mbTimeout of
+      Nothing -> pure ([], Stale)
+      Just timeout ->
+        cacheWith cachePath versionsKey timeout
+            serializeVersions deserializeVersions
+            getVersions
 
 serializeVersions :: Serialize [SdkVersion]
 serializeVersions =
@@ -99,15 +101,12 @@ cacheWith
     -> Serialize t
     -> Deserialize t
     -> IO t
-    -> Bool
     -> IO (t, CacheAge)
-cacheWith cachePath key timeout serialize deserialize getFresh allowExistingStaleCache = do
+cacheWith cachePath key timeout serialize deserialize getFresh = do
     valueAgeM <- loadFromCacheWith cachePath key timeout deserialize
     case valueAgeM of
         Just (value, Fresh) -> pure (value, Fresh)
-        Just (value, Stale)
-          | allowExistingStaleCache -> pure (value, Stale)
-          | otherwise -> do
+        Just (value, Stale) -> do
             valueE <- tryAny getFresh
             case valueE of
                 Left _ -> pure (value, Stale)
