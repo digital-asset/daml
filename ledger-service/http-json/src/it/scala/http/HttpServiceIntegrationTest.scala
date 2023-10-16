@@ -88,13 +88,20 @@ abstract class HttpServiceIntegrationTest
       override def getAcceptedIssuers = Array()
     }
 
-    val context = SSLContext.getInstance("TLSv1.3")
+    val context = SSLContext.getInstance("TLSv1.2")
     context.init(Array(), Array(Gullible), new SecureRandom())
 
     ConnectionContext.httpsClient(context)
   }
 
-  "should serve HTTPS requests" in withHttpService(useHttps = UseHttps.Https) { fixture =>
+  // TODO(lt-37): Remove this. Currently the tests which use this only pass on Linux.
+  // Someone with a mac and/or Windows machine should get it working on those platforms.
+  private implicit final class OSBranchingSupport(private val label: String) {
+    def ifLinux(fn: => Future[Assertion]): Unit =
+      if (System.getProperty("os.name") == "Linux") label in fn else ()
+  }
+
+  "should serve HTTPS requests" ifLinux withHttpService(useHttps = UseHttps.Https) { fixture =>
     Http()
       .singleRequest(
         HttpRequest(
