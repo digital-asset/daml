@@ -276,7 +276,7 @@ maximumOfNonEmptyVersions :: IO ([SdkVersion], CacheAge) -> IO SdkVersion
 maximumOfNonEmptyVersions getVersions = do
     (versions, _cacheAge) <- getVersions
     case maximumMay versions of
-      Nothing -> throwIO $ assistantError $ pack $ "Version list is empty."
+      Nothing -> throwIO $ assistantError $ pack "Version list is empty."
       Just m -> pure m
 
 -- | Get the latest released SDK version
