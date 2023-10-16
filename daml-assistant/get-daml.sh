@@ -114,7 +114,7 @@ release_id=$(curl --silent \
                   https://api.github.com/repos/digital-asset/daml/releases/tags/v$VERSION \
               | grep '"id":' \
               | head -1 \
-              | sed 's|.*: \([0-9]\+\),|\1|')
+              | sed 's|.*: \([0-9]*\),|\1|')
 URL=$(curl --silent \
            --location \
            https://api.github.com/repos/digital-asset/daml/releases/$release_id/assets \
