@@ -198,7 +198,7 @@ jobs:
 
         git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton $tmp
 
-        for path in community daml-common-staging; do
+        for path in community daml-common-staging README.md; do
           src=$tmp/$path
           dst=canton/$path
           rm -rf $dst
