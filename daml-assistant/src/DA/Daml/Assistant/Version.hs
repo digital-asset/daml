@@ -205,6 +205,10 @@ searchSnapshotsUntil pred SnapshotsList { versions, next } = do
 -- | Get the list of available snapshot versions, until finding a version of
 -- interest. This will fetch https://api.github.com/repos/digital-asset/daml/releases
 -- and parse the obtained JSON.
+-- We do *not* use
+-- https://docs.github.com/en/rest/releases/releases?apiVersion=2022-11-28#get-the-latest-release
+-- because it sorts by time of upload, so a minor version bump like 2.5.15 may
+-- supersede 2.7.2 if the minor release on 2.5.12 was released later
 getAvailableSdkSnapshotVersionsUncached :: IO SnapshotsList
 getAvailableSdkSnapshotVersionsUncached = do
   requestReleasesSnapshotsList "https://api.github.com/repos/digital-asset/daml/releases"
