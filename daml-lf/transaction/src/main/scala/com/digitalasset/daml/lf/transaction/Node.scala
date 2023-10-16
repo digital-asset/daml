@@ -20,6 +20,11 @@ sealed abstract class Node extends Product with Serializable with CidContainer[N
   }
 
   def mapNodeId(f: NodeId => NodeId): Node
+
+  /** String describing the type of node
+    */
+  // Used by Canton to report errors
+  def nodeType: String = productPrefix
 }
 
 object Node {
