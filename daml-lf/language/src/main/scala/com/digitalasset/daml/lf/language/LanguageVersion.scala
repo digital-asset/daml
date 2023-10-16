@@ -4,8 +4,6 @@
 package com.daml.lf
 package language
 
-import org.slf4j.LoggerFactory
-
 import scala.annotation.nowarn
 
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
@@ -123,8 +121,6 @@ object LanguageVersion {
 
 /** Operations on [[VersionRange]] that only make sense for ranges of [[LanguageVersion]]. */
 object LanguageVersionRangeOps {
-  private[this] val logger = LoggerFactory.getLogger(this.getClass)
-
   implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
     def majorVersion: LanguageMajorVersion = {
       // TODO(#17366): uncomment once Canton stops using (1.14, 2.dev) as the version range for dev.
