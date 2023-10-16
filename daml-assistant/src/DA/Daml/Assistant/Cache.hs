@@ -67,10 +67,12 @@ cacheAvailableSdkVersions UseCache { overrideTimeout, cachePath, damlPath } getV
     damlConfigE <- tryConfig $ readDamlConfig damlPath
     let configUpdateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
         (allowExistingStaleCache, timeout)
+            -- A few different things can override the timeout behaviour in
+            -- daml-config.yaml, chiefly `daml install latest` and `daml version --force-reload yes`
           | Just timeout <- overrideTimeout = (False, timeout)
           | Just updateCheck <- configUpdateCheckM =
               case updateCheck of
-                -- When UpdateCheckNever, still refresh the cache if it's completely empty
+                -- When UpdateCheckNever, still refresh the cache if it doesn't exist
                 UpdateCheckNever -> (True, CacheTimeout (1000 * 365 * 86400))
                 UpdateCheckEvery timeout -> (False, timeout)
           | otherwise = (False, CacheTimeout 86400)
