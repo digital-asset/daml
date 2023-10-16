@@ -87,7 +87,7 @@ getLatestStableSdkVersion :: UseCache -> IO (IO (Maybe SdkVersion))
 getLatestStableSdkVersion useCache = do
   val <- getEnv sdkVersionLatestEnvVar
   case val of
-    Nothing -> pure (getLatestSdkVersion useCache)
+    Nothing -> pure (freshMaximumOfVersions (getAvailableReleaseVersions useCache))
     Just "" -> pure (pure Nothing)
     Just value -> do
       parsed <- requiredE

@@ -9,7 +9,6 @@ module DA.Daml.Assistant.Version
     , getAssistantSdkVersion
     , getDefaultSdkVersion
     , getAvailableReleaseVersions
-    , getLatestSdkVersion
     , getAvailableSdkSnapshotVersions
     , getAvailableSdkSnapshotVersionsUncached
     , findAvailableSdkSnapshotVersion
@@ -18,6 +17,7 @@ module DA.Daml.Assistant.Version
     , isReleaseVersion
     , extractReleasesFromSnapshots
     , UseCache (..)
+    , freshMaximumOfVersions
     ) where
 
 import DA.Daml.Assistant.Types
@@ -272,25 +272,26 @@ instance FromJSON ParsedSdkVersion where
         Left (InvalidVersion src msg) -> fail $ "Invalid version string `" <> unpack src <> "` for reason: " <> msg
         Right sdkVersion -> pure ParsedSdkVersion { unParsedSdkVersion = sdkVersion, isPrerelease }
 
+maximumOfNonEmptyVersions :: IO ([SdkVersion], CacheAge) -> IO SdkVersion
+maximumOfNonEmptyVersions getVersions = do
+    (versions, _cacheAge) <- getVersions
+    case maximumMay versions of
+      Nothing -> throwIO $ assistantError $ pack $ "Version list is empty."
+      Just m -> pure m
+
 -- | Get the latest released SDK version
-getLatestSdkVersion :: UseCache -> IO (Maybe SdkVersion)
-getLatestSdkVersion useCache = do
-    versionE <- tryAssistant (getAvailableReleaseVersions useCache)
-    pure $ do
-      (versions, _cacheAge) <- eitherToMaybe versionE
-      maximumMay versions
+freshMaximumOfVersions :: IO ([SdkVersion], CacheAge) -> IO (Maybe SdkVersion)
+freshMaximumOfVersions getVersions = do
+    (versions, cacheAge) <- getVersions
+    case cacheAge of
+      Stale -> pure Nothing
+      Fresh -> pure (maximumMay versions)
 
 -- | Get the latest snapshot SDK version.
-getLatestSdkSnapshotVersion :: UseCache -> IO (Maybe SdkVersion)
+getLatestSdkSnapshotVersion :: UseCache -> IO SdkVersion
 getLatestSdkSnapshotVersion useCache = do
-    versionE <- tryAssistant (getAvailableSdkSnapshotVersions useCache)
-    pure $ do
-      (versions, _cacheAge) <- eitherToMaybe versionE
-      maximumMay versions
+    maximumOfNonEmptyVersions (getAvailableSdkSnapshotVersions useCache)
 
 getLatestReleaseVersion :: UseCache -> IO SdkVersion
-getLatestReleaseVersion useCache = do
-    mbReleaseVersion <- getLatestSdkVersion useCache
-    case mbReleaseVersion of
-      Nothing -> throwIO $ assistantError (pack "Failed to get latest release version from github.com")
-      Just rv -> pure rv
+getLatestReleaseVersion useCache =
+    maximumOfNonEmptyVersions (getAvailableReleaseVersions useCache)
