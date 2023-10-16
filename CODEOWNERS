@@ -54,7 +54,7 @@ NOTICES     @garyverhaegen-da @dasormeter
 /ledger-test-tool/ledger-api-test-tool-on-canton @remyhaemmerle-da @rgugliel-da @digital-asset/kv-participant @digital-asset/kv-committer
 
 # Ecosystems
-/language-support/hs/       @nickchapman-da @remyhaemmerle-da
+/language-support/hs/       @remyhaemmerle-da
 /language-support/java/     @filmackay
 /language-support/scala/    @filmackay
 /language-support/ts/       @garyverhaegen-da @filmackay
