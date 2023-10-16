@@ -20,6 +20,10 @@ sealed abstract class Node extends Product with Serializable with CidContainer[N
   }
 
   def mapNodeId(f: NodeId => NodeId): Node
+
+  /** String describing the type of node
+    */
+  def kind: String
 }
 
 object Node {
@@ -110,6 +114,8 @@ object Node {
 
     override def informeesOfNode: Set[Party] = stakeholders
     override def requiredAuthorizers: Set[Party] = signatories
+
+    override def kind: String = "Create"
   }
 
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
@@ -137,6 +143,8 @@ object Node {
 
     override def informeesOfNode: Set[Party] = signatories | actingParties
     override def requiredAuthorizers: Set[Party] = actingParties
+
+    override def kind: String = "Fetch"
   }
 
   /** Denotes a transaction node for an exercise.
@@ -198,6 +206,8 @@ object Node {
       else
         signatories | actingParties | choiceObservers | choiceAuthorizers.getOrElse(Set.empty)
     override def requiredAuthorizers: Set[Party] = actingParties
+
+    override def kind: String = "Exercise"
   }
 
   final case class LookupByKey(
@@ -231,6 +241,8 @@ object Node {
       // become a Fetch.
       keyMaintainers
     def requiredAuthorizers: Set[Party] = keyMaintainers
+
+    override def kind: String = "LookupByKey"
   }
 
   @deprecated("use GlobalKey", since = "2.6.0")
@@ -250,6 +262,8 @@ object Node {
       copy(children.map(f))
 
     override protected def self: Node = this
+
+    override def kind: String = "Rollback"
   }
 
 }
