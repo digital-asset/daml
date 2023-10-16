@@ -10,7 +10,7 @@ import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Int64;
 import com.daml.ledger.javaapi.data.Variant;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
-import com.daml.ledger.javaapi.data.codegen.json.JsonLfReader;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -332,8 +332,7 @@ public class TextMapTest {
     assertEquals(
         expected,
         MapVariant.fromJson(
-            "{\"tag\": \"TextVariant\", \"value\": {\"key\": \"value\"}}",
-            JsonLfReader.Decoders.unit));
+            "{\"tag\": \"TextVariant\", \"value\": {\"key\": \"value\"}}", JsonLfDecoders.unit));
   }
 
   @Test
@@ -385,7 +384,7 @@ public class TextMapTest {
         expected,
         MapVariant.fromJson(
             "{\"tag\": \"RecordVariant\", \"value\": {\"x\": {\"key\": 42}}}",
-            JsonLfReader.Decoders.unit));
+            JsonLfDecoders.unit));
   }
 
   @Test
@@ -430,8 +429,7 @@ public class TextMapTest {
     assertEquals(
         expected,
         MapVariant.fromJson(
-            "{\"tag\": \"ParameterizedVariant\", \"value\": {\"key\": 42}}",
-            JsonLfReader.Decoders.int64));
+            "{\"tag\": \"ParameterizedVariant\", \"value\": {\"key\": 42}}", JsonLfDecoders.int64));
   }
 
   @Test

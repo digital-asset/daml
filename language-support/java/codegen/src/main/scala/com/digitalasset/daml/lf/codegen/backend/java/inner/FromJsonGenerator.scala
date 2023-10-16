@@ -3,7 +3,7 @@
 
 package com.daml.lf.codegen.backend.java.inner
 
-import com.daml.ledger.javaapi.data.codegen.json.{JsonLfReader, JsonLfDecoder}
+import com.daml.ledger.javaapi.data.codegen.json.{JsonLfReader, JsonLfDecoder, JsonLfDecoders}
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
 import com.squareup.javapoet.{
@@ -18,7 +18,7 @@ import com.squareup.javapoet.{
 import scala.jdk.CollectionConverters._
 
 private[inner] object FromJsonGenerator extends StrictLogging {
-  private def decodeClass = ClassName.get(classOf[JsonLfReader.Decoders])
+  private def decodeClass = ClassName.get(classOf[JsonLfDecoders])
 
   // JsonLfDecoder<T>
   private def decoderTypeName(t: TypeName) =
@@ -72,8 +72,9 @@ private[inner] object FromJsonGenerator extends StrictLogging {
         .beginControlFlow("switch (name)")
       fields.zipWithIndex.foreach { case (f, i) =>
         block.addStatement(
-          "case $S: return JsonLfReader.Decoders.JavaArg.at($L, $L)",
+          "case $S: return $T.at($L, $L)",
           f.javaName,
+          decodeClass.nestedClass("JavaArg"),
           i,
           jsonDecoderForType(f.damlType),
         )

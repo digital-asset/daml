@@ -10,7 +10,7 @@ import com.daml.ledger.javaapi.data.Int64;
 import com.daml.ledger.javaapi.data.Unit;
 import com.daml.ledger.javaapi.data.Variant;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
-import com.daml.ledger.javaapi.data.codegen.json.JsonLfReader;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
 import com.google.protobuf.Empty;
 import java.util.Collections;
 import org.junit.jupiter.api.Test;
@@ -49,8 +49,7 @@ public class VariantTest {
     VariantItem<?> expected = new EmptyVariant<>(Unit.getInstance());
     assertEquals(
         expected,
-        VariantItem.fromJson(
-            "{\"tag\": \"EmptyVariant\", \"value\": {}}", JsonLfReader.Decoders.unit));
+        VariantItem.fromJson("{\"tag\": \"EmptyVariant\", \"value\": {}}", JsonLfDecoders.unit));
   }
 
   @Test
@@ -78,8 +77,7 @@ public class VariantTest {
     VariantItem<?> expected = new PrimVariant<>(42L);
     assertEquals(
         expected,
-        VariantItem.fromJson(
-            "{\"tag\": \"PrimVariant\", \"value\": 42}", JsonLfReader.Decoders.unit));
+        VariantItem.fromJson("{\"tag\": \"PrimVariant\", \"value\": 42}", JsonLfDecoders.unit));
   }
 
   @Test
@@ -116,7 +114,7 @@ public class VariantTest {
     assertEquals(
         expected,
         VariantItem.fromJson(
-            "{\"tag\": \"RecordVariant\", \"value\": {\"x\": 42}}", JsonLfReader.Decoders.unit));
+            "{\"tag\": \"RecordVariant\", \"value\": {\"x\": 42}}", JsonLfDecoders.unit));
   }
 
   @Test
@@ -147,8 +145,7 @@ public class VariantTest {
     VariantItem<?> expected = new CustomVariant<>(new Custom());
     assertEquals(
         expected,
-        VariantItem.fromJson(
-            "{\"tag\": \"CustomVariant\", \"value\": {}}", JsonLfReader.Decoders.unit));
+        VariantItem.fromJson("{\"tag\": \"CustomVariant\", \"value\": {}}", JsonLfDecoders.unit));
   }
 
   @Test
@@ -189,7 +186,7 @@ public class VariantTest {
         VariantItem.fromJson(
             "{\"tag\": \"CustomParametricVariant\", \"value\": {\"tag\": \"CustomParametricCons\","
                 + " \"value\": 42}}",
-            JsonLfReader.Decoders.int64));
+            JsonLfDecoders.int64));
   }
 
   @Test
@@ -237,7 +234,7 @@ public class VariantTest {
         VariantItem.fromJson(
             "{\"tag\": \"RecordVariantRecord\", \"value\": {\"y\": {\"tag\": \"EmptyVariant\","
                 + " \"value\": {}}}}",
-            JsonLfReader.Decoders.int64));
+            JsonLfDecoders.int64));
   }
 
   @Test
@@ -294,6 +291,6 @@ public class VariantTest {
         VariantItem.fromJson(
             "{\"tag\": \"ParameterizedRecordVariant\", \"value\": {\"x1\": 42, \"x2\": 69, \"x3\":"
                 + " [65536]}}",
-            JsonLfReader.Decoders.int64));
+            JsonLfDecoders.int64));
   }
 }
