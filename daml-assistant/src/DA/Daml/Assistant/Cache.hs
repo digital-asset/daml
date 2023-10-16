@@ -51,7 +51,7 @@ versionsKey = "versions.txt"
 
 data UseCache
   = UseCache
-      { forceReload :: Bool
+      { overrideTimeout :: Maybe CacheTimeout
       , cachePath :: CachePath
       , damlPath :: DamlPath
       }
@@ -63,11 +63,11 @@ cacheAvailableSdkVersions
     -> IO [SdkVersion]
     -> IO ([SdkVersion], CacheAge)
 cacheAvailableSdkVersions DontUseCache getVersions = (, Fresh) <$> getVersions
-cacheAvailableSdkVersions UseCache { forceReload, cachePath, damlPath } getVersions = do
+cacheAvailableSdkVersions UseCache { overrideTimeout, cachePath, damlPath } getVersions = do
     damlConfigE <- tryConfig $ readDamlConfig damlPath
     let configUpdateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
         (allowExistingStaleCache, timeout)
-          | forceReload = (False, CacheTimeout 1)
+          | Just timeout <- overrideTimeout = (False, timeout)
           | Just updateCheck <- configUpdateCheckM =
               case updateCheck of
                 -- When UpdateCheckNever, still refresh the cache if it's completely empty

@@ -18,6 +18,7 @@ import DA.Daml.Assistant.Command
 import DA.Daml.Assistant.Version
 import DA.Daml.Assistant.Install
 import DA.Daml.Assistant.Util
+import DA.Daml.Assistant.Cache
 import System.Environment (getArgs, lookupEnv)
 import System.FilePath
 import System.Directory
@@ -196,7 +197,7 @@ runCommand env@Env{..} = \case
               UseCache
                 { cachePath = envCachePath
                 , damlPath = envDamlPath
-                , forceReload = vForceRefresh
+                , overrideTimeout = if vForceRefresh then Just (CacheTimeout 1) else Nothing
                 }
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
         snapshotVersionsEUnfiltered <- tryAssistant $ fst <$> getAvailableSdkSnapshotVersions useCache
