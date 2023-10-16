@@ -4,8 +4,6 @@
 package com.daml.lf
 package language
 
-import org.slf4j.LoggerFactory
-
 import scala.annotation.nowarn
 
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
@@ -117,7 +115,7 @@ object LanguageVersion {
     }
   }
 
-  // To temporarily preserve compatibility with Canton which creates an engine
+// To temporarily preserve compatibility with Canton which creates an engine
   // for the range (1.14, DevVersions.max) when running in dev mode and doesn't
   // distinguish between LF1 and LF2. Usage in the daml repository is forbidden.
   // TODO(#17366): delete and get Canton to use AllVersions.
@@ -131,14 +129,12 @@ object LanguageVersion {
 
 /** Operations on [[VersionRange]] that only make sense for ranges of [[LanguageVersion]]. */
 object LanguageVersionRangeOps {
-  private[this] val logger = LoggerFactory.getLogger(this.getClass)
-
   implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
     def majorVersion: LanguageMajorVersion = {
-      // TODO(#17366): turn this into a precondition once Canton stops using DevVersions.
-      if (range.min.major != range.max.major) {
-        logger.warn(s"version range ${range} spans over multiple version LF versions")
-      }
+      // TODO(#17366): uncomment once Canton stops using (1.14, 2.dev) as the version range for dev.
+      // require(
+      //  range.min.major == range.max.major,
+      //  s"version range ${range} spans over multiple version LF versions")
       range.max.major
     }
   }
