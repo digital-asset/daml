@@ -11,7 +11,7 @@ import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Text;
 import com.daml.ledger.javaapi.data.Unit;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
-import com.daml.ledger.javaapi.data.codegen.json.JsonLfReader;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
 import com.google.protobuf.Empty;
 import java.util.Arrays;
 import java.util.Collections;
@@ -306,7 +306,7 @@ public class ListTest {
     assertEquals(
         expected,
         ParameterizedListRecord.fromJson(
-            "{\"list\":[\"Element1\", \"Element2\"]}", JsonLfReader.Decoders.text));
+            "{\"list\":[\"Element1\", \"Element2\"]}", JsonLfDecoders.text));
   }
 
   @Test
@@ -399,6 +399,6 @@ public class ListTest {
         expected,
         ParameterizedListRecord.fromJson(
             "{\"list\": [[\"Element1\", \"Element2\"], [\"Element3\", \"Element4\"]]}",
-            JsonLfReader.Decoders.list(JsonLfReader.Decoders.text)));
+            JsonLfDecoders.list(JsonLfDecoders.text)));
   }
 }

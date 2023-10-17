@@ -9,7 +9,7 @@ import static org.junit.Assert.assertTrue;
 import com.daml.ledger.api.v1.ValueOuterClass;
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
-import com.daml.ledger.javaapi.data.codegen.json.JsonLfReader;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -261,8 +261,8 @@ public class RecordTest {
                 + " \"fieldInt\": 42}, "
                 + "\"innerFixed\":  {\"fieldX1\": \"42\", \"fieldX2\": \"69\","
                 + " \"fieldY\": \"Text2\", \"fieldInt\": 69} }",
-            JsonLfReader.Decoders.text,
-            JsonLfReader.Decoders.bool));
+            JsonLfDecoders.text,
+            JsonLfDecoders.bool));
   }
 
   Long int64Value = 1L;

@@ -9,7 +9,6 @@ import static java.util.Collections.emptyMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.daml.ledger.javaapi.data.Unit;
-import com.daml.ledger.javaapi.data.codegen.json.JsonLfReader.Decoders;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -33,13 +32,14 @@ public class JsonLfReaderTest {
 
   @Test
   void testUnit() throws JsonLfDecoder.Error {
-    checkReadAll(Decoders.unit, eq("{}", Unit.getInstance()), eq("\t{\n} ", Unit.getInstance()));
+    checkReadAll(
+        JsonLfDecoders.unit, eq("{}", Unit.getInstance()), eq("\t{\n} ", Unit.getInstance()));
   }
 
   @Test
   void testUnitErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.unit,
+        JsonLfDecoders.unit,
         errors("", "Expected { but was nothing at line: 1, column: 0"),
         errors("{", "JSON parse error at line: 1, column: 2", IOException.class),
         errors("}", "JSON parse error at line: 1, column: 1", IOException.class),
@@ -48,13 +48,13 @@ public class JsonLfReaderTest {
 
   @Test
   void testBool() throws JsonLfDecoder.Error {
-    checkReadAll(Decoders.bool, eq("false", false), eq("true", true));
+    checkReadAll(JsonLfDecoders.bool, eq("false", false), eq("true", true));
   }
 
   @Test
   void testBoolErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.bool,
+        JsonLfDecoders.bool,
         errors("1", "Expected boolean but was 1 at line: 1, column: 1"),
         errors("\"true\"", "Expected boolean but was true at line: 1, column: 1"),
         errors("True", "JSON parse error at line: 1, column: 1", IOException.class));
@@ -63,7 +63,7 @@ public class JsonLfReaderTest {
   @Test
   void testInt64() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.int64,
+        JsonLfDecoders.int64,
         eq("42", 42L),
         eq("\"+42\"", 42L),
         eq("-42", -42L),
@@ -78,7 +78,7 @@ public class JsonLfReaderTest {
   @Test
   void testInt64Errors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.int64,
+        JsonLfDecoders.int64,
         errors("42.3", "Expected int64 but was 42.3 at line: 1, column: 1"),
         errors("+42", "JSON parse error at line: 1, column: 1", IOException.class),
         errors(
@@ -94,7 +94,7 @@ public class JsonLfReaderTest {
   @Test
   void testNumeric() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.numeric(10),
+        JsonLfDecoders.numeric(10),
         cmpEq("42", dec("42")),
         cmpEq("42.0", dec("42")),
         cmpEq("\"42\"", dec("42")),
@@ -115,7 +115,7 @@ public class JsonLfReaderTest {
   @Test
   void testNumericErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.numeric(10),
+        JsonLfDecoders.numeric(10),
         errors(
             "\"  42  \"",
             "Expected numeric but was   42   at line: 1, column: 1",
@@ -141,7 +141,7 @@ public class JsonLfReaderTest {
   @Test
   void testTimestamp() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.timestamp,
+        JsonLfDecoders.timestamp,
         eq(
             "\"1990-11-09T04:30:23.123456Z\"",
             timestampUTC(1990, Month.NOVEMBER, 9, 4, 30, 23, 123456)),
@@ -164,7 +164,7 @@ public class JsonLfReaderTest {
   @Test
   void testTimestampErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.timestamp,
+        JsonLfDecoders.timestamp,
         // 24th hour
         errors(
             "\"1990-11-09T24:30:23.123Z\"",
@@ -199,7 +199,7 @@ public class JsonLfReaderTest {
   @Test
   void testDate() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.date,
+        JsonLfDecoders.date,
         eq("\"2019-06-18\"", date(2019, Month.JUNE, 18)),
         eq("\"9999-12-31\"", date(9999, Month.DECEMBER, 31)),
         eq("\"0001-01-01\"", date(1, Month.JANUARY, 1)));
@@ -208,7 +208,7 @@ public class JsonLfReaderTest {
   @Test
   void testDateErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.date,
+        JsonLfDecoders.date,
         errors(
             "\"18/06/2019\"",
             "Expected valid ISO 8601 date but was 18/06/2019 at line: 1, column: 1",
@@ -238,46 +238,47 @@ public class JsonLfReaderTest {
 
   @Test
   void testParty() throws JsonLfDecoder.Error {
-    checkReadAll(Decoders.party, eq("\"Alice\"", "Alice"));
+    checkReadAll(JsonLfDecoders.party, eq("\"Alice\"", "Alice"));
   }
 
   @Test
   void testPartyErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.party,
+        JsonLfDecoders.party,
         errors("{\"unwrap\": \"foo\"}", "Expected text but was { at line: 1, column: 1"),
         errors("42", "Expected text but was 42 at line: 1, column: 1"));
   }
 
   @Test
   void testText() throws JsonLfDecoder.Error {
-    checkReadAll(Decoders.text, eq("\"\"", ""), eq("\" \"", " "), eq("\"hello\"", "hello"));
+    checkReadAll(JsonLfDecoders.text, eq("\"\"", ""), eq("\" \"", " "), eq("\"hello\"", "hello"));
   }
 
   @Test
   void testTextErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.text,
+        JsonLfDecoders.text,
         errors("{\"unwrap\": \"foo\"}", "Expected text but was { at line: 1, column: 1"),
         errors("42", "Expected text but was 42 at line: 1, column: 1"));
   }
 
   @Test
   void testContractId() throws JsonLfDecoder.Error {
-    checkReadAll(Decoders.contractId(Tmpl.Cid::new), eq("\"deadbeef\"", new Tmpl.Cid("deadbeef")));
+    checkReadAll(
+        JsonLfDecoders.contractId(Tmpl.Cid::new), eq("\"deadbeef\"", new Tmpl.Cid("deadbeef")));
   }
 
   @Test
   void testContractIdErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.contractId(Tmpl.Cid::new),
+        JsonLfDecoders.contractId(Tmpl.Cid::new),
         errors("42", "Expected text but was 42 at line: 1, column: 1"));
   }
 
   @Test
   void testEnum() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.enumeration(Suit.damlNames),
+        JsonLfDecoders.enumeration(Suit.damlNames),
         eq("\"Hearts\"", Suit.HEARTS),
         eq("\"Diamonds\"", Suit.DIAMONDS),
         eq("\"Clubs\"", Suit.CLUBS),
@@ -287,7 +288,7 @@ public class JsonLfReaderTest {
   @Test
   void testEnumErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.enumeration(Suit.damlNames),
+        JsonLfDecoders.enumeration(Suit.damlNames),
         errors("Hearts", "JSON parse error at line: 1, column: 1", IOException.class),
         errors(
             "\"HEARTS\"",
@@ -302,7 +303,7 @@ public class JsonLfReaderTest {
   @Test
   void testList() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.list(Decoders.int64),
+        JsonLfDecoders.list(JsonLfDecoders.int64),
         eq("[]", emptyList()),
         eq("[1,2]", asList(1L, 2L)),
         eq("[1,2,\"3\"]", asList(1L, 2L, 3L)));
@@ -311,7 +312,7 @@ public class JsonLfReaderTest {
   @Test
   void testListNested() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.list(Decoders.list(Decoders.int64)),
+        JsonLfDecoders.list(JsonLfDecoders.list(JsonLfDecoders.int64)),
         eq("[]", emptyList()),
         eq("[[1], [], [2, 3]]", asList(asList(1L), emptyList(), asList(2L, 3L))));
   }
@@ -319,7 +320,7 @@ public class JsonLfReaderTest {
   @Test
   void testListErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.list(Decoders.int64),
+        JsonLfDecoders.list(JsonLfDecoders.int64),
         errors("[", "JSON parse error at line: 1, column: 2", IOException.class),
         errors("[ 1", "JSON parse error at line: 1, column: 4", IOException.class),
         errors("[ 1, ", "JSON parse error at line: 1, column: 6", IOException.class),
@@ -330,7 +331,7 @@ public class JsonLfReaderTest {
   @Test
   void testTextMap() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.textMap(Decoders.int64),
+        JsonLfDecoders.textMap(JsonLfDecoders.int64),
         eq("{}", emptyMap()),
         eq("{\"foo\":1, \"bar\": 2}", java.util.Map.of("foo", 1L, "bar", 2L)));
   }
@@ -338,7 +339,7 @@ public class JsonLfReaderTest {
   @Test
   void testTextMapErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.textMap(Decoders.int64),
+        JsonLfDecoders.textMap(JsonLfDecoders.int64),
         errors("{1: true}", "JSON parse error at line: 1, column: 3", IOException.class),
         errors("{x: true}", "JSON parse error at line: 1, column: 3", IOException.class),
         errors("{\"x\": true}", "Expected int64 but was true at line: 1, column: 7"),
@@ -348,7 +349,7 @@ public class JsonLfReaderTest {
   @Test
   void testGenMap() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.genMap(Decoders.text, Decoders.int64),
+        JsonLfDecoders.genMap(JsonLfDecoders.text, JsonLfDecoders.int64),
         eq("[]", emptyMap()),
         eq("[[\"foo\", 1], [\"bar\", 2]]", java.util.Map.of("foo", 1L, "bar", 2L)));
   }
@@ -356,7 +357,7 @@ public class JsonLfReaderTest {
   @Test
   void testGenMapErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.genMap(Decoders.text, Decoders.int64),
+        JsonLfDecoders.genMap(JsonLfDecoders.text, JsonLfDecoders.int64),
         errors("{}", "Expected [ but was { at line: 1, column: 1"),
         errors("{\"x\": 1}", "Expected [ but was { at line: 1, column: 1"),
         errors("[\"x\", 1]", "Expected [ but was x at line: 1, column: 2"),
@@ -368,7 +369,7 @@ public class JsonLfReaderTest {
   @Test
   void testOptionalNonNested() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.optional(Decoders.int64),
+        JsonLfDecoders.optional(JsonLfDecoders.int64),
         eq("null", Optional.empty()),
         eq("42", Optional.of(42L)));
   }
@@ -376,7 +377,7 @@ public class JsonLfReaderTest {
   @Test
   void testOptionalNonNestedErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.optional(Decoders.int64),
+        JsonLfDecoders.optional(JsonLfDecoders.int64),
         errors("undefined", "JSON parse error at line: 1, column: 1", IOException.class),
         errors("", "Expected int64 but was nothing at line: 1, column: 0"),
         errors("\"None\"", "Expected int64 but was None at line: 1, column: 1"),
@@ -386,7 +387,7 @@ public class JsonLfReaderTest {
   @Test
   void testOptionalNested() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.optionalNested(Decoders.optional(Decoders.int64)),
+        JsonLfDecoders.optionalNested(JsonLfDecoders.optional(JsonLfDecoders.int64)),
         eq("null", Optional.empty()),
         eq("[]", Optional.of(Optional.empty())),
         eq("[42]", Optional.of(Optional.of(42L))));
@@ -395,7 +396,7 @@ public class JsonLfReaderTest {
   @Test
   void testOptionalNestedErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.optionalNested(Decoders.optional(Decoders.int64)),
+        JsonLfDecoders.optionalNested(JsonLfDecoders.optional(JsonLfDecoders.int64)),
         errors("[null]", "Expected ] or item but was null at line: 1, column: 2"),
         errors("[false]", "Expected int64 but was false at line: 1, column: 2"),
         errors("[[]]", "Expected int64 but was [ at line: 1, column: 2"));
@@ -404,8 +405,9 @@ public class JsonLfReaderTest {
   @Test
   void testOptionalNestedDeeper() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.optionalNested(
-            Decoders.optionalNested(Decoders.optionalNested(Decoders.optional(Decoders.int64)))),
+        JsonLfDecoders.optionalNested(
+            JsonLfDecoders.optionalNested(
+                JsonLfDecoders.optionalNested(JsonLfDecoders.optional(JsonLfDecoders.int64)))),
         eq("null", Optional.empty()),
         eq("[]", Optional.of(Optional.empty())),
         eq("[[]]", Optional.of(Optional.of(Optional.empty()))),
@@ -416,7 +418,7 @@ public class JsonLfReaderTest {
   @Test
   void testOptionalLists() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.optional(Decoders.list(Decoders.list(Decoders.int64))),
+        JsonLfDecoders.optional(JsonLfDecoders.list(JsonLfDecoders.list(JsonLfDecoders.int64))),
         eq("null", Optional.empty()),
         eq("[]", Optional.of(emptyList())),
         eq("[[]]", Optional.of(asList(emptyList()))),
@@ -426,18 +428,20 @@ public class JsonLfReaderTest {
   @Test
   void testVariant() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.variant(
+        JsonLfDecoders.variant(
             asList("Bar", "Baz", "Quux", "Flarp"),
             tagName -> {
               switch (tagName) {
                 case "Bar":
-                  return r -> new SomeVariant.Bar(Decoders.int64.decode(r));
+                  return r -> new SomeVariant.Bar(JsonLfDecoders.int64.decode(r));
                 case "Baz":
-                  return r -> new SomeVariant.Baz(Decoders.unit.decode(r));
+                  return r -> new SomeVariant.Baz(JsonLfDecoders.unit.decode(r));
                 case "Quux":
-                  return r -> new SomeVariant.Quux(Decoders.optional(Decoders.int64).decode(r));
+                  return r ->
+                      new SomeVariant.Quux(JsonLfDecoders.optional(JsonLfDecoders.int64).decode(r));
                 case "Flarp":
-                  return r -> new SomeVariant.Flarp(Decoders.list(Decoders.int64).decode(r));
+                  return r ->
+                      new SomeVariant.Flarp(JsonLfDecoders.list(JsonLfDecoders.int64).decode(r));
                 default:
                   return null;
               }
@@ -453,18 +457,20 @@ public class JsonLfReaderTest {
   @Test
   void testVariantErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.variant(
+        JsonLfDecoders.variant(
             asList("Bar", "Baz", "Quux", "Flarp"),
             tagName -> {
               switch (tagName) {
                 case "Bar":
-                  return r -> new SomeVariant.Bar(Decoders.int64.decode(r));
+                  return r -> new SomeVariant.Bar(JsonLfDecoders.int64.decode(r));
                 case "Baz":
-                  return r -> new SomeVariant.Baz(Decoders.unit.decode(r));
+                  return r -> new SomeVariant.Baz(JsonLfDecoders.unit.decode(r));
                 case "Quux":
-                  return r -> new SomeVariant.Quux(Decoders.optional(Decoders.int64).decode(r));
+                  return r ->
+                      new SomeVariant.Quux(JsonLfDecoders.optional(JsonLfDecoders.int64).decode(r));
                 case "Flarp":
-                  return r -> new SomeVariant.Flarp(Decoders.list(Decoders.int64).decode(r));
+                  return r ->
+                      new SomeVariant.Flarp(JsonLfDecoders.list(JsonLfDecoders.int64).decode(r));
                 default:
                   return null;
               }
@@ -514,14 +520,14 @@ public class JsonLfReaderTest {
   @Test
   void testRecord() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.record(
+        JsonLfDecoders.record(
             asList("i", "b"),
             name -> {
               switch (name) {
                 case "i":
-                  return Decoders.JavaArg.at(0, Decoders.list(Decoders.int64));
+                  return JsonLfDecoders.JavaArg.at(0, JsonLfDecoders.list(JsonLfDecoders.int64));
                 case "b":
-                  return Decoders.JavaArg.at(1, Decoders.bool, false);
+                  return JsonLfDecoders.JavaArg.at(1, JsonLfDecoders.bool, false);
                 default:
                   return null;
               }
@@ -537,14 +543,14 @@ public class JsonLfReaderTest {
   @Test
   void testRecordErrors() throws JsonLfDecoder.Error {
     checkReadAll(
-        Decoders.record(
+        JsonLfDecoders.record(
             asList("i", "b"),
             name -> {
               switch (name) {
                 case "i":
-                  return Decoders.JavaArg.at(0, Decoders.list(Decoders.int64));
+                  return JsonLfDecoders.JavaArg.at(0, JsonLfDecoders.list(JsonLfDecoders.int64));
                 case "b":
-                  return Decoders.JavaArg.at(1, Decoders.bool, false);
+                  return JsonLfDecoders.JavaArg.at(1, JsonLfDecoders.bool, false);
                 default:
                   return null;
               }
@@ -567,50 +573,52 @@ public class JsonLfReaderTest {
 
   @Test
   void testUnknownValue() throws JsonLfDecoder.Error {
-    JsonLfReader.UnknownValue.read(new JsonLfReader("1")).decodeWith(Decoders.int64);
-    JsonLfReader.UnknownValue.read(new JsonLfReader("\"88\"")).decodeWith(Decoders.numeric(2));
+    JsonLfReader.UnknownValue.read(new JsonLfReader("1")).decodeWith(JsonLfDecoders.int64);
+    JsonLfReader.UnknownValue.read(new JsonLfReader("\"88\""))
+        .decodeWith(JsonLfDecoders.numeric(2));
     JsonLfReader.UnknownValue.read(new JsonLfReader("[\"hi\", \"there\"]"))
-        .decodeWith(Decoders.list(Decoders.text));
+        .decodeWith(JsonLfDecoders.list(JsonLfDecoders.text));
 
     JsonLfReader.UnknownValue.read(
             new JsonLfReader("[1,2]").moveNext() // Skip [
             )
-        .decodeWith(Decoders.int64);
+        .decodeWith(JsonLfDecoders.int64);
 
     JsonLfReader.UnknownValue.read(
             new JsonLfReader("[1,false , 2]")
                 .moveNext() // Skip [
                 .moveNext() // Skip 1
             )
-        .decodeWith(Decoders.bool);
+        .decodeWith(JsonLfDecoders.bool);
 
     JsonLfReader.UnknownValue.read(
             new JsonLfReader("{\"a\":{}}")
                 .moveNext() // Skip {
                 .moveNext() // Skip "a"
             )
-        .decodeWith(Decoders.unit);
+        .decodeWith(JsonLfDecoders.unit);
 
     JsonLfReader.UnknownValue.read(
             new JsonLfReader("[ [\n[ 42]\t] ,[]]").moveNext() // Skip [
             )
         .decodeWith(
-            Decoders.optionalNested(Decoders.optionalNested(Decoders.optional(Decoders.int64))));
+            JsonLfDecoders.optionalNested(
+                JsonLfDecoders.optionalNested(JsonLfDecoders.optional(JsonLfDecoders.int64))));
 
     JsonLfReader.UnknownValue.read(
             new JsonLfReader("[ \"hello\", \"world\" ]").moveNext() // Skip [
             )
-        .decodeWith(Decoders.text);
+        .decodeWith(JsonLfDecoders.text);
   }
 
   @Test
   void testUnknownValueErrors() throws JsonLfDecoder.Error {
     unknownValueDecodeErrors(
-        "42", r -> r, Decoders.bool, "Expected boolean but was 42 at line: 1, column: 1");
+        "42", r -> r, JsonLfDecoders.bool, "Expected boolean but was 42 at line: 1, column: 1");
     unknownValueDecodeErrors(
         "[ 1 , 2, 3]",
         r -> r.moveNext(),
-        Decoders.bool,
+        JsonLfDecoders.bool,
         "Expected boolean but was 1 at line: 1, column: 3");
     unknownValueDecodeErrors(
         "{\n  \"x\": 1,\n  \"y\" : [\n    \"hello\",\n    [ 42]\n    ]\n}",
@@ -621,7 +629,7 @@ public class JsonLfReaderTest {
                 .moveNext() // Skip "y"
                 .moveNext() // Skip [
                 .moveNext(), // Skip "hello"
-        Decoders.list(Decoders.bool),
+        JsonLfDecoders.list(JsonLfDecoders.bool),
         "Expected boolean but was 42 at line: 5, column: 7");
   }
 

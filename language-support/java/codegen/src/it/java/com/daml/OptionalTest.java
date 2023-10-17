@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.daml.ledger.api.v1.ValueOuterClass;
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
-import com.daml.ledger.javaapi.data.codegen.json.JsonLfReader;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
 import com.google.protobuf.Empty;
 import java.util.Arrays;
 import java.util.Optional;
@@ -200,8 +200,7 @@ public class OptionalTest {
     assertEquals(
         expected,
         OptionalVariant.fromJson(
-            "{\"tag\": \"OptionalParametricVariant\", \"value\": 42}",
-            JsonLfReader.Decoders.int64));
+            "{\"tag\": \"OptionalParametricVariant\", \"value\": 42}", JsonLfDecoders.int64));
   }
 
   @Test
@@ -222,6 +221,6 @@ public class OptionalTest {
     assertEquals(
         expected,
         OptionalVariant.fromJson(
-            "{\"tag\": \"OptionalPrimVariant\", \"value\": 42}", JsonLfReader.Decoders.int64));
+            "{\"tag\": \"OptionalPrimVariant\", \"value\": 42}", JsonLfDecoders.int64));
   }
 }
