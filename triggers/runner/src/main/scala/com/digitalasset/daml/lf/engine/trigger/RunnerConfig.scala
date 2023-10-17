@@ -26,6 +26,20 @@ object LogEncoder {
   object Json extends LogEncoder
 }
 
+sealed trait CompilerConfigBuilder extends Product with Serializable {
+  def build(majorLanguageVersion: LanguageMajorVersion): Compiler.Config
+}
+object CompilerConfigBuilder {
+  final case object Default extends CompilerConfigBuilder {
+    override def build(majorLanguageVersion: LanguageMajorVersion): Compiler.Config =
+      Compiler.Config.Default(majorLanguageVersion)
+  }
+  final case object Dev extends CompilerConfigBuilder {
+    override def build(majorLanguageVersion: LanguageMajorVersion): Compiler.Config =
+      Compiler.Config.Dev(majorLanguageVersion)
+  }
+}
+
 case class RunnerConfig(
     darPath: Path,
     // If defined, we will only list the triggers in the DAR and exit.
@@ -41,7 +55,8 @@ case class RunnerConfig(
     accessTokenFile: Option[Path],
     applicationId: ApplicationId,
     tlsConfig: TlsConfiguration,
-    compilerConfig: Compiler.Config,
+    compilerConfigBuilder: CompilerConfigBuilder,
+    majorLanguageVersion: LanguageMajorVersion,
     triggerConfig: TriggerRunnerConfig,
     rootLoggingLevel: Option[Level],
     logEncoder: LogEncoder,
@@ -138,9 +153,9 @@ object RunnerConfig {
   private[trigger] val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
   private[trigger] val DefaultApplicationId: ApplicationId =
     ApplicationId("daml-trigger")
-  // TODO(#17366): support both LF v1 and v2 in triggers
-  private[trigger] val DefaultCompilerConfig: Compiler.Config =
-    Compiler.Config.Default(LanguageMajorVersion.V1)
+  private[trigger] val DefaultCompilerConfigBuilder: CompilerConfigBuilder =
+    CompilerConfigBuilder.Default
+  private[trigger] val DefaultMajorLanguageVersion: LanguageMajorVersion = LanguageMajorVersion.V1
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[RunnerConfig]("trigger-runner") {
@@ -263,12 +278,27 @@ object RunnerConfig {
       )
 
     opt[Unit]("dev-mode-unsafe")
-      // TODO(#17366) support both LF v1 and v2 in triggers
-      .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev(LanguageMajorVersion.V1)))
+      .action((_, c) => c.copy(compilerConfigBuilder = CompilerConfigBuilder.Dev))
       .optional()
       .text(
         "Turns on development mode. Development mode allows development versions of Daml-LF language."
       )
+      .hidden()
+
+    implicit val majorLanguageVersionRead: scopt.Read[LanguageMajorVersion] =
+      scopt.Read.reads(s =>
+        LanguageMajorVersion.fromString(s) match {
+          case Some(v) => v
+          case None => throw new IllegalArgumentException(s"$s is not a valid major LF version")
+        }
+      )
+    opt[LanguageMajorVersion]("lf-major-version")
+      .action((v, c) => c.copy(majorLanguageVersion = v))
+      .optional()
+      .text(
+        "The major version of LF to use."
+      )
+      // TODO(#17366): unhide once LF v2 has a stable version
       .hidden()
 
     TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
@@ -343,7 +373,8 @@ object RunnerConfig {
     accessTokenFile = None,
     tlsConfig = TlsConfiguration(enabled = false, None, None, None),
     applicationId = DefaultApplicationId,
-    compilerConfig = DefaultCompilerConfig,
+    compilerConfigBuilder = DefaultCompilerConfigBuilder,
+    majorLanguageVersion = DefaultMajorLanguageVersion,
     triggerConfig = DefaultTriggerRunnerConfig,
     rootLoggingLevel = None,
     logEncoder = LogEncoder.Plain,

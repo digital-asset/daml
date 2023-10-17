@@ -12,6 +12,7 @@ import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.Trigg
 import com.daml.lf.engine.trigger.simulation.process.ledger.{LedgerExternalAction, LedgerProcess}
 import com.daml.lf.engine.trigger.simulation.process.TriggerProcessFactory
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue
 import org.scalacheck.Gen
 import scalaz.syntax.tag._
@@ -19,7 +20,10 @@ import scalaz.syntax.tag._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class CatAndFoodTriggerSimulation
+class CatAndFoodTriggerSimulationV1 extends CatAndFoodTriggerSimulation(LanguageMajorVersion.V1)
+class CatAndFoodTriggerSimulationV2 extends CatAndFoodTriggerSimulation(LanguageMajorVersion.V2)
+
+class CatAndFoodTriggerSimulation(override val majorLanguageVersion: LanguageMajorVersion)
     extends TriggerMultiProcessSimulation
     with CatTriggerResourceUsageTestGenerators {
 

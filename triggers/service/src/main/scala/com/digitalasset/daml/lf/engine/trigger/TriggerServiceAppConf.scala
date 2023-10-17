@@ -12,6 +12,7 @@ import pureconfig.{ConfigReader, ConvertHelpers}
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
+import com.daml.lf.language
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.metrics.MetricsConfig
 import com.daml.pureconfigutils.LedgerApiConfig
@@ -58,18 +59,39 @@ private[trigger] final case class AuthorizationConfig(
 
 @scala.annotation.nowarn("msg=Block result was adapted via implicit conversion")
 private[trigger] object TriggerServiceAppConf {
-  implicit val compilerCfgReader: ConfigReader[Compiler.Config] =
-    ConfigReader.fromString[Compiler.Config](ConvertHelpers.catchReadError { s =>
-      // TODO(#17366) support both LF v1 and v2 in triggers
-      s.toLowerCase() match {
-        case "default" => Compiler.Config.Default(LanguageMajorVersion.V1)
-        case "dev" => Compiler.Config.Dev(LanguageMajorVersion.V1)
-        case s =>
-          throw new IllegalArgumentException(
-            s"Value '$s' for compiler-config is not one of 'default' or 'dev'"
-          )
+
+  sealed trait CompilerConfigBuilder extends Product with Serializable {
+    def build(majorLanguageVersion: LanguageMajorVersion): Compiler.Config
+  }
+  object CompilerConfigBuilder {
+    final case object Default extends CompilerConfigBuilder {
+      override def build(majorLanguageVersion: LanguageMajorVersion): Compiler.Config =
+        Compiler.Config.Default(majorLanguageVersion)
+    }
+    final case object Dev extends CompilerConfigBuilder {
+      override def build(majorLanguageVersion: LanguageMajorVersion): Compiler.Config =
+        Compiler.Config.Dev(majorLanguageVersion)
+    }
+  }
+
+  implicit val compilerCfgBuilderReader: ConfigReader[CompilerConfigBuilder] =
+    ConfigReader.fromString[CompilerConfigBuilder](
+      ConvertHelpers.catchReadError { s =>
+        s.toLowerCase() match {
+          case "default" => CompilerConfigBuilder.Default
+          case "dev" => CompilerConfigBuilder.Dev
+          case s =>
+            throw new IllegalArgumentException(
+              s"Value '$s' for compiler-config is not one of 'default' or 'dev'"
+            )
+        }
       }
-    })
+    )
+
+  implicit val lfMajorVersionReader: ConfigReader[language.LanguageMajorVersion] =
+    ConfigReader.fromStringOpt[language.LanguageMajorVersion](s =>
+      LanguageMajorVersion.fromString(s)
+    )
 
   implicit val levelReader: ConfigReader[Level] =
     ConfigReader.fromString[Level](level => Right(Level.valueOf(level)))
@@ -135,8 +157,9 @@ private[trigger] final case class TriggerServiceAppConf(
     triggerStore: Option[JdbcConfig] = None,
     allowExistingSchema: Boolean = false,
     tlsConfig: TlsConfiguration = Cli.DefaultTlsConfiguration,
-    // TODO(#17366): support both LF v1 and v2 in triggers
-    compilerConfig: Compiler.Config = Compiler.Config.Default(LanguageMajorVersion.V1),
+    compilerConfig: TriggerServiceAppConf.CompilerConfigBuilder =
+      TriggerServiceAppConf.CompilerConfigBuilder.Default,
+    lfMajorVersion: LanguageMajorVersion = LanguageMajorVersion.V1,
     triggerConfig: TriggerRunnerConfig = DefaultTriggerRunnerConfig,
     rootLoggingLevel: Option[Level] = None,
     logEncoder: LogEncoder = LogEncoder.Plain,
@@ -169,7 +192,7 @@ private[trigger] final case class TriggerServiceAppConf(
       portFile = portFile,
       allowExistingSchema = allowExistingSchema,
       tlsConfig = tlsConfig,
-      compilerConfig = compilerConfig,
+      compilerConfig = compilerConfig.build(lfMajorVersion),
       triggerConfig = triggerConfig,
       rootLoggingLevel = rootLoggingLevel,
       logEncoder = logEncoder,

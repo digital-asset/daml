@@ -118,7 +118,7 @@ object RunnerMain {
             config.timeProviderType.getOrElse(RunnerConfig.DefaultTimeProviderType),
             config.applicationId,
             parties,
-            config.compilerConfig,
+            config.compilerConfigBuilder.build(config.majorLanguageVersion),
             config.triggerConfig,
           )
         } yield ()
