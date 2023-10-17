@@ -51,7 +51,7 @@ versionsKey = "versions.txt"
 
 data UseCache
   = UseCache
-      { forceReload :: Bool
+      { overrideTimeout :: Maybe CacheTimeout
       , cachePath :: CachePath
       , damlPath :: DamlPath
       }
@@ -63,21 +63,25 @@ cacheAvailableSdkVersions
     -> IO [SdkVersion]
     -> IO ([SdkVersion], CacheAge)
 cacheAvailableSdkVersions DontUseCache getVersions = (, Fresh) <$> getVersions
-cacheAvailableSdkVersions UseCache { forceReload, cachePath, damlPath } getVersions = do
+cacheAvailableSdkVersions UseCache { overrideTimeout, cachePath, damlPath } getVersions = do
     damlConfigE <- tryConfig $ readDamlConfig damlPath
     let configUpdateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
-        updateCheck | forceReload = UpdateCheckEvery (CacheTimeout 1)
-                    | Just updateCheck <- configUpdateCheckM = updateCheck
-                    | otherwise = UpdateCheckEvery (CacheTimeout 86400) -- One day, in seconds
-    case updateCheck of
-        UpdateCheckNever -> do
-            valueAgeM <- loadFromCacheWith cachePath versionsKey (CacheTimeout 0) deserializeVersions
-            pure $ fromMaybe ([], Stale) valueAgeM
-
-        UpdateCheckEvery timeout ->
-            cacheWith cachePath versionsKey timeout
-                serializeVersions deserializeVersions
-                getVersions
+        mbTimeout
+            -- A few different things can override the timeout behaviour in
+            -- daml-config.yaml, chiefly `daml install latest` and `daml version --force-reload yes`
+          | Just timeout <- overrideTimeout = Just timeout
+          | Just updateCheck <- configUpdateCheckM =
+              case updateCheck of
+                -- When UpdateCheckNever, still refresh the cache if it doesn't exist
+                UpdateCheckNever -> Nothing
+                UpdateCheckEvery timeout -> Just timeout
+          | otherwise = Just (CacheTimeout 86400)
+    case mbTimeout of
+      Nothing -> pure ([], Stale)
+      Just timeout ->
+        cacheWith cachePath versionsKey timeout
+            serializeVersions deserializeVersions
+            getVersions
 
 serializeVersions :: Serialize [SdkVersion]
 serializeVersions =

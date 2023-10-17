@@ -39,7 +39,7 @@ getDamlEnv envDamlPath lookForProjectPath = do
     envProjectPath <- getProjectPath lookForProjectPath
     (envSdkVersion, envSdkPath) <- getSdk envDamlPath envProjectPath
     envCachePath <- getCachePath
-    envLatestStableSdkVersion <- getLatestStableSdkVersion (mkUseCache envCachePath envDamlPath)
+    envFreshStableSdkVersionForCheck <- getFreshStableSdkVersionForCheck (mkUseCache envCachePath envDamlPath)
     pure Env {..}
 
 envUseCache :: Env -> UseCache
@@ -48,7 +48,7 @@ envUseCache Env {..} =
 
 mkUseCache :: CachePath -> DamlPath -> UseCache
 mkUseCache cachePath damlPath =
-  UseCache { cachePath, damlPath, forceReload = False }
+  UseCache { cachePath, damlPath, overrideTimeout = Nothing }
 
 -- | (internal) Override function with environment variable
 -- if it is available.
@@ -83,11 +83,11 @@ overrideWithEnvVarMaybe envVar normalize parse calculate = do
 
 -- | Get the latest stable SDK version. Can be overriden with
 -- DAML_SDK_LATEST_VERSION environment variable.
-getLatestStableSdkVersion :: UseCache -> IO (IO (Maybe SdkVersion))
-getLatestStableSdkVersion useCache = do
+getFreshStableSdkVersionForCheck :: UseCache -> IO (IO (Maybe SdkVersion))
+getFreshStableSdkVersionForCheck useCache = do
   val <- getEnv sdkVersionLatestEnvVar
   case val of
-    Nothing -> pure (getLatestSdkVersion useCache)
+    Nothing -> pure (freshMaximumOfVersions (getAvailableReleaseVersions useCache))
     Just "" -> pure (pure Nothing)
     Just value -> do
       parsed <- requiredE
@@ -234,14 +234,14 @@ getSdk damlPath projectPathM =
 getDispatchEnv :: Env -> IO [(String, String)]
 getDispatchEnv Env{..} = do
     originalEnv <- getEnvironment
-    envLatestStableSdkVersion <- envLatestStableSdkVersion
+    envFreshStableSdkVersionForCheck <- envFreshStableSdkVersionForCheck
     pure $ filter ((`notElem` damlEnvVars) . fst) originalEnv
         ++ [ (damlPathEnvVar, unwrapDamlPath envDamlPath)
            , (damlCacheEnvVar, unwrapCachePath envCachePath)
            , (projectPathEnvVar, maybe "" unwrapProjectPath envProjectPath)
            , (sdkPathEnvVar, maybe "" unwrapSdkPath envSdkPath)
            , (sdkVersionEnvVar, maybe "" versionToString envSdkVersion)
-           , (sdkVersionLatestEnvVar, maybe "" versionToString envLatestStableSdkVersion)
+           , (sdkVersionLatestEnvVar, maybe "" versionToString envFreshStableSdkVersionForCheck)
            , (damlAssistantEnvVar, unwrapDamlAssistantPath envDamlAssistantPath)
            , (damlAssistantVersionEnvVar, maybe ""
                (versionToString . unwrapDamlAssistantSdkVersion)

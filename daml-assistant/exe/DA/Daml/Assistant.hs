@@ -18,6 +18,7 @@ import DA.Daml.Assistant.Command
 import DA.Daml.Assistant.Version
 import DA.Daml.Assistant.Install
 import DA.Daml.Assistant.Util
+import DA.Daml.Assistant.Cache
 import System.Environment (getArgs, lookupEnv)
 import System.FilePath
 import System.Directory
@@ -100,8 +101,8 @@ commandWantsProjectPath cmd = LookForProjectPath $
 -- versions are out of date with the latest known release.
 versionChecks :: Env -> IO ()
 versionChecks Env{..} = do
-    envLatestStableSdkVersion <- envLatestStableSdkVersion
-    whenJust envLatestStableSdkVersion $ \latestVersion -> do
+    envFreshStableSdkVersionForCheck <- envFreshStableSdkVersionForCheck
+    whenJust envFreshStableSdkVersionForCheck $ \latestVersion -> do
         let isHead = maybe False isHeadVersion envSdkVersion
             projectSdkVersionIsOld = isJust envProjectPath && envSdkVersion < Just latestVersion
             assistantVersionIsOld = isJust envDamlAssistantSdkVersion &&
@@ -196,7 +197,7 @@ runCommand env@Env{..} = \case
               UseCache
                 { cachePath = envCachePath
                 , damlPath = envDamlPath
-                , forceReload = vForceRefresh
+                , overrideTimeout = if vForceRefresh then Just (CacheTimeout 1) else Nothing
                 }
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
         snapshotVersionsEUnfiltered <- tryAssistant $ fst <$> getAvailableSdkSnapshotVersions useCache
