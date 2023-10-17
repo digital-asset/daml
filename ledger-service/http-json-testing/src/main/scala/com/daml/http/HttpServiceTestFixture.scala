@@ -108,6 +108,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         packageReloadInterval = doNotReloadPackages,
         nonRepudiation = nonRepudiation,
       )
+      // Allow plenty of time for requests in testing to avoid flakes.
+      _ = System.setProperty("akka.http.server.request-timeout", "1m")
       httpService <- stripLeft(
         HttpService.start(
           startSettings = config,
