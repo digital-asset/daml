@@ -207,6 +207,7 @@ class TestingIdentityFactoryX(
     val store = new InMemoryTopologyStoreX(
       TopologyStoreId.AuthorizedStore,
       loggerFactory,
+      DefaultProcessingTimeouts.testing,
     )
 
     // Compute default participant permissions to be the highest granted to an individual party

@@ -180,7 +180,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
 
     def mk(
         store: InMemoryTopologyStoreX[TopologyStoreId] =
-          new InMemoryTopologyStoreX(DomainStore(Factory.domainId1), loggerFactory)
+          new InMemoryTopologyStoreX(DomainStore(Factory.domainId1), loggerFactory, timeouts)
     ) = {
       val validator =
         new IncomingTopologyTransactionAuthorizationValidatorX(
@@ -311,7 +311,8 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
         }
       }
       "succeed and use load existing delegations" in {
-        val store = new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory)
+        val store =
+          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
         for {
@@ -414,7 +415,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
       }
       "succeed with loading existing identifier delegations" in {
         val store: InMemoryTopologyStoreX[TopologyStoreId.AuthorizedStore] =
-          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory)
+          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
         for {
@@ -476,7 +477,8 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
 
     "correctly determine cascading update for" should {
       "namespace additions" in {
-        val store = new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory)
+        val store =
+          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
         for {
@@ -499,7 +501,8 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
       }
 
       "namespace removals" in {
-        val store = new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory)
+        val store =
+          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
         val Rns1k1_k1 = mkTrans(ns1k1_k1.transaction.reverse)
@@ -524,7 +527,8 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
       }
 
       "identifier additions and removals" in {
-        val store = new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory)
+        val store =
+          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
         val Rid1ak4_k1 = mkTrans(id1ak4_k1.transaction.reverse)
@@ -556,7 +560,8 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
       }
 
       "cascading invalidation pre-existing identifier uids" in {
-        val store = new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory)
+        val store =
+          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
         import Factory.SigningKeys.{ec as _, *}

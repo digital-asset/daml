@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.client.services.commands
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
@@ -14,16 +13,11 @@ import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.client.configuration.CommandClientConfiguration
-import com.digitalasset.canton.ledger.client.services.commands.CommandTrackerFlow.Materialized
-import com.digitalasset.canton.ledger.client.services.commands.tracker.CompletionResponse.{
-  CompletionFailure,
-  CompletionSuccess,
-}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.util.Ctx
 import com.google.protobuf.empty.Empty
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.Try
 
 /** Enables easy access to command services and high level operations on top of them.
@@ -50,53 +44,14 @@ final class CommandClient(
     loggerFactory,
   )
 
-  type TrackCommandFlow[Context] =
-    Flow[
-      Ctx[Context, CommandSubmission],
-      Ctx[Context, Either[CompletionFailure, CompletionSuccess]],
-      Materialized[
-        NotUsed,
-        Context,
-      ],
-    ]
-
   /** Submit a single command. Successful result does not guarantee that the resulting transaction has been written to
-    * the ledger. In order to get that semantic, use [[trackCommands]] or [[trackCommandsUnbounded]].
+    * the ledger.
     */
   def submitSingleCommand(
       submitRequest: SubmitRequest,
       token: Option[String] = None,
   ): Future[Empty] =
     it.submitSingleCommand(submitRequest, token)
-
-  /** Submits and tracks a single command. High frequency usage is discouraged as it causes a dedicated completion
-    * stream to be established and torn down.
-    */
-  def trackSingleCommand(submitRequest: SubmitRequest, token: Option[String] = None)(implicit
-      mat: Materializer
-  ): Future[Either[CompletionFailure, CompletionSuccess]] =
-    it.trackSingleCommand(submitRequest, ledgerId, token)
-
-  /** Tracks the results (including timeouts) of incoming commands.
-    * Applies a maximum bound for in-flight commands which have been submitted, but not confirmed through command completions.
-    *
-    * The resulting flow will backpressure if downstream backpressures, independently of the number of in-flight commands.
-    *
-    * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
-    */
-  def trackCommands[Context](parties: Seq[String], token: Option[String] = None)(implicit
-      ec: ExecutionContext
-  ): Future[TrackCommandFlow[Context]] = it.trackCommands(parties, ledgerId, token)
-
-  /** Tracks the results (including timeouts) of incoming commands.
-    *
-    * The resulting flow will backpressure if downstream backpressures, independently of the number of in-flight commands.
-    *
-    * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
-    */
-  def trackCommandsUnbounded[Context](parties: Seq[String], token: Option[String] = None)(implicit
-      ec: ExecutionContext
-  ): Future[TrackCommandFlow[Context]] = it.trackCommandsUnbounded(parties, ledgerId, token)
 
   def completionSource(
       parties: Seq[String],

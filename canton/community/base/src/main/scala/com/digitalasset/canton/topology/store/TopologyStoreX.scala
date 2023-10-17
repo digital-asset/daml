@@ -264,7 +264,7 @@ object TopologyStoreX {
     val storeLoggerFactory = loggerFactory.append("store", storeId.toString)
     storage match {
       case _: MemoryStorage =>
-        new InMemoryTopologyStoreX(storeId, storeLoggerFactory)
+        new InMemoryTopologyStoreX(storeId, storeLoggerFactory, timeouts)
       case dbStorage: DbStorage =>
         new DbTopologyStoreX(dbStorage, storeId, maxDbConnections, timeouts, storeLoggerFactory)
     }

@@ -80,10 +80,12 @@ class StoreBasedDomainOutboxXTest
     val source = new InMemoryTopologyStoreX(
       TopologyStoreId.AuthorizedStore,
       loggerFactory,
+      timeouts,
     )
     val target = new InMemoryTopologyStoreX(
       TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
       loggerFactory,
+      timeouts,
     )
     val manager = new AuthorizedTopologyManagerX(
       clock,
