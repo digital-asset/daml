@@ -9,6 +9,7 @@ import java.nio.file.Files
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
 import AbstractHttpServiceIntegrationTestFuns.HttpServiceTestFixtureData
+import HttpServiceTestFixture.UseHttps
 import dbbackend.JdbcConfig
 import json.JsonError
 import util.Logging.instanceUUIDLogCtx
@@ -68,6 +69,50 @@ abstract class HttpServiceIntegrationTest
     discard { dummyFile.delete() }
     discard { staticContentDir.delete() }
     super.afterAll()
+  }
+
+  override protected def beforeAll() = {
+    super.beforeAll()
+    val _ = System.setProperty("javax.net.debug", "ssl:handshake")
+  }
+
+  private def httpsContextForSelfSignedCert = {
+    import akka.http.scaladsl.ConnectionContext
+    import java.security.SecureRandom
+    import java.security.cert.X509Certificate
+    import javax.net.ssl.{SSLContext, X509TrustManager}
+
+    object Gullible extends X509TrustManager {
+      override def checkClientTrusted(chain: Array[X509Certificate], authType: String) = ()
+      override def checkServerTrusted(chain: Array[X509Certificate], authType: String) = ()
+      override def getAcceptedIssuers = Array()
+    }
+
+    val context = SSLContext.getInstance("TLSv1.2")
+    context.init(Array(), Array(Gullible), new SecureRandom())
+
+    ConnectionContext.httpsClient(context)
+  }
+
+  // TODO(lt-37): Remove this. Currently the tests which use this only pass on Linux.
+  // Someone with a mac and/or Windows machine should get it working on those platforms.
+  private implicit final class OSBranchingSupport(private val label: String) {
+    def ifLinux(fn: => Future[Assertion]): Unit =
+      if (System.getProperty("os.name") == "Linux") label in fn else ()
+  }
+
+  "should serve HTTPS requests" ifLinux withHttpService(useHttps = UseHttps.Https) { fixture =>
+    Http()
+      .singleRequest(
+        HttpRequest(
+          method = HttpMethods.GET,
+          uri = fixture.uri.withScheme("https").withPath(Uri.Path("/livez")),
+        ),
+        httpsContextForSelfSignedCert,
+      )
+      .flatMap {
+        _.status shouldBe StatusCodes.OK
+      }: Future[Assertion]
   }
 
   "query with invalid JSON query should return error" in withHttpService { fixture =>

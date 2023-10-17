@@ -164,6 +164,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def withHttpService[A](
       token: Option[Jwt] = None,
       maxInboundMessageSize: Int = StartSettings.DefaultMaxInboundMessageSize,
+      useHttps: UseHttps = UseHttps.NoHttps,
   )(
       testFn: HttpServiceTestFixtureData => Future[A]
   ): Future[A] = usingLedger[A](token map (_.value)) { case (ledgerPort, _, ledgerId) =>
@@ -173,6 +174,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       jdbcConfig,
       staticContentConfig,
       useTls = useTls,
+      useHttps = useHttps,
       wsConfig = wsConfig,
       maxInboundMessageSize = maxInboundMessageSize,
       token = token orElse Some(jwtAdminNoParty),

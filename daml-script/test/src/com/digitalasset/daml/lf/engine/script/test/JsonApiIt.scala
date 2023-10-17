@@ -136,6 +136,7 @@ trait JsonApiFixture
                 override val address = "localhost"
                 override val httpPort = 0
                 override val portFile = None
+                override val https = None
                 override val tlsConfig = TlsConfiguration(enabled = false, None, None, None)
                 override val wsConfig = None
                 override val allowNonHttps = true

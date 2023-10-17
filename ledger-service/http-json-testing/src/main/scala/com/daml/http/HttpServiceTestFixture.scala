@@ -40,6 +40,7 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.LoggingContextOf
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
+import com.daml.pureconfigutils.HttpsConfig
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{Assertions, Inside}
 import org.scalatest.OptionValues._
@@ -72,6 +73,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       leakPasswords: LeakPasswords = LeakPasswords.FiresheepStyle,
       maxInboundMessageSize: Int = StartSettings.DefaultMaxInboundMessageSize,
       useTls: UseTls = UseTls.NoTls,
+      useHttps: UseHttps = UseHttps.NoHttps,
       wsConfig: Option[WebsocketConfig] = None,
       nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
       ledgerIdOverwrite: Option[LedgerId] = None,
@@ -97,6 +99,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         address = "localhost",
         httpPort = 0,
         portFile = None,
+        https = if (useHttps) Some(serverHttpsConfig) else None,
         tlsConfig = if (useTls) clientTlsConfig else noTlsConfig,
         wsConfig = wsConfig,
         maxInboundMessageSize = maxInboundMessageSize,
@@ -258,14 +261,21 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
   type LeakPasswords = LeakPasswords.T
 
+  object UseHttps extends NewBoolean.Named {
+    val Https: UseHttps = True
+    val NoHttps: UseHttps = False
+  }
+  type UseHttps = UseHttps.T
+
   private val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) = {
     List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
-      Some(new File(rlocation("test-common/test-certificates/" + src)))
+      new File(rlocation("test-common/test-certificates/" + src))
     }
   }
 
-  final val serverTlsConfig = TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)
-  final val clientTlsConfig = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt)
+  final val serverHttpsConfig = HttpsConfig(serverCrt, serverPem, Some(caCrt)).tlsConfiguration
+  final val clientTlsConfig =
+    TlsConfiguration(enabled = true, Some(clientCrt), Some(clientPem), Some(caCrt))
   private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)
 
   private[http] val applicationId: domain.ApplicationId = domain.ApplicationId("test")
