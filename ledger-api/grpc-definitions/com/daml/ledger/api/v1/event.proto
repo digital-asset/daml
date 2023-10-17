@@ -68,11 +68,10 @@ message CreatedEvent {
   // Optional
   Record create_arguments = 4;
 
-  // Opaque representation of contract payload intended for forwarding
-  // to an API server as a contract disclosed as part of a command
-  // submission.
+  // Deprecated. Use the data retrieved in ``create_arguments`` field
+  // for submitting as a disclosed contract with future commands.
   // Optional
-  google.protobuf.Any create_arguments_blob = 12;
+  google.protobuf.Any create_arguments_blob = 12 [deprecated = true];
 
   // Interface views specified in the transaction filter.
   // Includes an ``InterfaceView`` for each interface for which there is a ``InterfaceFilter`` with
