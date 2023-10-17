@@ -49,7 +49,7 @@ check_diff() {
   # $1 merge_base
   # $2 regex
   # "${@:3}" command
-  changed_files=$(git diff --name-only --diff-filter=ACMRT "$1" | grep $2 || [[ $? == 1 ]] | grep -v '^canton/')
+  changed_files=$(git diff --name-only --diff-filter=ACMRT "$1" | grep $2 | grep -v '^canton/' || [[ $? == 1 ]])
   if [[ -n "$changed_files" ]]; then
     run "${@:3}" ${changed_files[@]:-}
   else
