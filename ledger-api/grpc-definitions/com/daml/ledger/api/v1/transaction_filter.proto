@@ -47,8 +47,10 @@ message InclusiveFilters {
   // SHOULD NOT contain duplicates.
   // All ``template_ids`` needs to be valid: corresponding template should be defined in one of
   // the available packages at the time of the query.
+  // Deprecated in favor of the `template_filters`.
+  // If the `template_filters` field are set, the `template_ids` field is ignored.
   // Optional
-  repeated Identifier template_ids = 1;
+  repeated Identifier template_ids = 1 [deprecated=true];
 
   // Include an ``InterfaceView`` for every ``InterfaceFilter`` matching a contract.
   // The ``InterfaceFilter``s MUST use unique ``interface_id``s.
@@ -91,7 +93,7 @@ message InterfaceFilter {
   bool include_create_arguments_blob = 3;
 }
 
-// This filter matches contracts that implement a specific interface.
+// This filter matches contracts of a specific template.
 message TemplateFilter {
 
   // A template for which the payload should be included in the response.
