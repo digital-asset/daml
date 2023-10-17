@@ -12,6 +12,7 @@ class InMemoryTopologyStoreXTest extends TopologyStoreXTest {
       new InMemoryTopologyStoreX(
         TopologyStoreId.AuthorizedStore,
         loggerFactory,
+        timeouts,
       )
     )
   }

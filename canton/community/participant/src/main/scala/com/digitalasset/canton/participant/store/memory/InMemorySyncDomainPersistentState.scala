@@ -103,6 +103,7 @@ class InMemorySyncDomainPersistentStateX(
     new InMemoryTopologyStoreX(
       DomainStore(domainId.item),
       loggerFactory,
+      timeouts,
     )
 
   override val domainOutboxQueue = new DomainOutboxQueue(loggerFactory)

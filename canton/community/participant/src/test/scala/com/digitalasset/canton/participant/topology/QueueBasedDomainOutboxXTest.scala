@@ -79,6 +79,7 @@ class QueueBasedDomainOutboxXTest
     val target = new InMemoryTopologyStoreX(
       TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
       loggerFactory,
+      timeouts,
     )
     val queue = new DomainOutboxQueue(loggerFactory)
     val manager = new DomainTopologyManagerX(

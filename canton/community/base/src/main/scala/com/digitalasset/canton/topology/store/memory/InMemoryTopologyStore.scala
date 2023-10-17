@@ -111,7 +111,7 @@ trait InMemoryTopologyStoreCommon[+StoreId <: TopologyStoreId] extends NamedLogg
 class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     val storeId: StoreId,
     val loggerFactory: NamedLoggerFactory,
-    timeouts: ProcessingTimeout,
+    override val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
 )(implicit val ec: ExecutionContext)
     extends TopologyStore[StoreId]
@@ -616,6 +616,6 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       Future.successful(StoredTopologyTransactions(ret.toSeq))
     })
 
-  override def close(): Unit = ()
+  override def onClosed(): Unit = ()
 
 }

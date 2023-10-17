@@ -17,7 +17,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{PublicKey, SignatureCheckError}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
@@ -330,7 +330,7 @@ object TimeQuery {
 }
 
 trait TopologyStoreCommon[+StoreID <: TopologyStoreId, ValidTx, StoredTx, SignedTx]
-    extends AutoCloseable {
+    extends FlagCloseable {
 
   this: NamedLogging =>
 

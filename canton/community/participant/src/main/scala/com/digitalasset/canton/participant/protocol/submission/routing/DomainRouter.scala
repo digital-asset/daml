@@ -44,7 +44,6 @@ import com.digitalasset.canton.participant.sync.{
   ConnectedDomainsLookup,
   SyncDomain,
   TransactionRoutingError,
-  TransactionRoutingErrorWithDomain,
 }
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
@@ -78,7 +77,7 @@ class DomainRouter(
         Map[LfContractId, SerializableContract],
     ) => EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmitted]],
     contractsTransferer: ContractsTransfer,
-    snapshotProvider: DomainId => Either[TransactionRoutingError, TopologySnapshot],
+    snapshotProvider: DomainId => Either[UnableToQueryTopologySnapshot.Failed, TopologySnapshot],
     serializableContractAuthenticator: SerializableContractAuthenticator,
     autoTransferTransaction: Boolean,
     domainSelectorFactory: DomainSelectorFactory,
@@ -193,16 +192,16 @@ class DomainRouter(
   private def allInformeesOnDomain(
       informees: Set[LfPartyId]
   )(domainId: DomainId)(implicit traceContext: TraceContext): Future[Boolean] = {
-    snapshotProvider(domainId) match {
-      case Left(err) =>
+    snapshotProvider(domainId).bimap(
+      (err: UnableToQueryTopologySnapshot.Failed) => {
         logger.warn(
           s"Unable to get topology snapshot to check whether informees are hosted on the domain: $err"
         )
         Future.successful(false)
-      case Right(topologySnapshot) =>
-        topologySnapshot.allHaveActiveParticipants(informees, _.isActive).value.map(_.isRight)
-    }
-  }
+      },
+      _.allHaveActiveParticipants(informees, _.isActive).value.map(_.isRight),
+    )
+  }.merge
 
   private def chooseDomainForMultiDomain(
       domainSelector: DomainSelector
@@ -237,8 +236,10 @@ class DomainRouter(
 
     val allContractsHaveDomainData: Boolean = inputContractsDomainData.withoutDomainData.isEmpty
     val contractData = inputContractsDomainData.withDomainData
-    val contractsDomainNotConnected = contractData.filterNot { contractData =>
-      snapshotProvider(contractData.domain).map(_ => true).getOrElse(false)
+    val contractsDomainNotConnected = contractData.filter { contractData =>
+      snapshotProvider(contractData.domain).left.exists { _: UnableToQueryTopologySnapshot.Failed =>
+        true
+      }
     }
 
     // Check that at least one submitter is a stakeholder so that we can transfer the contract if needed. This check
@@ -378,7 +379,7 @@ object DomainRouter {
 
   private def domainStateProvider(connectedDomains: ConnectedDomainsLookup)(domain: DomainId)(
       implicit traceContext: TraceContext
-  ): Either[TransactionRoutingErrorWithDomain, (TopologySnapshot, ProtocolVersion)] =
+  ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshot, ProtocolVersion)] =
     connectedDomains
       .get(domain)
       .toRight(UnableToQueryTopologySnapshot.Failed(domain))

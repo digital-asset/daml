@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.store.memory
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -32,12 +33,13 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
 class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
     val storeId: StoreId,
     val loggerFactory: NamedLoggerFactory,
+    override val timeouts: ProcessingTimeout,
 )(implicit ec: ExecutionContext)
     extends TopologyStoreX[StoreId]
     with InMemoryTopologyStoreCommon[StoreId]
     with NamedLogging {
 
-  override def close(): Unit = {}
+  override def onClosed(): Unit = ()
 
   private case class TopologyStoreEntry(
       transaction: GenericSignedTopologyTransactionX,

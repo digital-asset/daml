@@ -15,6 +15,6 @@ class InMemoryDownloadTopologyStateForInitializationServiceTest
     extends DownloadTopologyStateForInitializationServiceTest {
   override protected def createTopologyStore(): TopologyStoreX[TopologyStoreId.DomainStore] = {
     val storeId = DomainStore(DefaultTestIdentities.domainId, getClass.getSimpleName.take(40))
-    new InMemoryTopologyStoreX[TopologyStoreId.DomainStore](storeId, loggerFactory)
+    new InMemoryTopologyStoreX[TopologyStoreId.DomainStore](storeId, loggerFactory, timeouts)
   }
 }

@@ -28,9 +28,10 @@ import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 
 import java.util.concurrent.atomic.AtomicReference
+import scala.collection.compat.immutable.ArraySeq
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Random, Success, Try}
 
 class SequencersTransportState(
     initialSequencerTransports: SequencerTransports,
@@ -39,6 +40,8 @@ class SequencersTransportState(
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging
     with FlagCloseable {
+
+  private val random: Random = new Random(1L)
 
   private val closeReasonPromise = Promise[SequencerClient.CloseReason]()
 
@@ -86,34 +89,29 @@ class SequencersTransportState(
       })
     }.flatten
 
-  def transport(implicit traceContext: TraceContext): SequencerClientTransportCommon = blocking(
-    lock.synchronized {
-      val (_, sequencerTransportState) = state.view
-        .filterKeys(subscriptionIsHealthy)
-        .headOption // TODO (i12377): Introduce round robin
-        // TODO (i12377): Can we fallback to first sequencer transport here or should we
-        //                introduce EitherT and propagate error handling?
-        .orElse(state.headOption)
-        .getOrElse(
-          sys.error(
-            "No healthy subscription at the moment. Try again later."
-          ) // TODO (i12377): Error handling
-        )
-      sequencerTransportState.transport.clientTransport
-    }
-  )
-
-  def subscriptionIsHealthy(
-      sequencerId: SequencerId
-  )(implicit traceContext: TraceContext): Boolean =
-    transportState(sequencerId)
-      .map(
-        _.subscription
-          .exists(x =>
-            !x.resilientSequencerSubscription.isFailed && !x.resilientSequencerSubscription.isClosing
-          )
-      )
-      .onShutdown(false)
+  def transport(implicit traceContext: TraceContext): SequencerClientTransportCommon =
+    blocking(lock.synchronized {
+      // Pick a random healthy sequencer to send to.
+      // We can use a plain Random instance across all threads calling this method,
+      // because this method anyway uses locking on its own.
+      // (In general, ThreadLocalRandom would void contention on the random number generation, but
+      // the plain Random has the advantage that we can hard-code the seed so that the chosen sequencers
+      // are easier to reproduce for debugging and tests.)
+      val healthySequencers = state.view
+        .collect { case (_sequencerId, state) if state.isSubscriptionHealthy => state }
+        .to(ArraySeq)
+      val chosenSequencer =
+        if (healthySequencers.isEmpty)
+          // TODO(i12377): Can we fallback to first sequencer transport here or should we
+          //               introduce EitherT and propagate error handling?
+          state.values.headOption
+            .getOrElse(
+              // TODO(i12377): Error handling
+              ErrorUtil.invalidState("No sequencer subscription at the moment. Try again later.")
+            )
+        else healthySequencers(random.nextInt(healthySequencers.size))
+      chosenSequencer.transport.clientTransport
+    })
 
   def transport(sequencerId: SequencerId)(implicit
       traceContext: TraceContext
@@ -321,6 +319,10 @@ final case class SequencerTransportState(
         )
       )
     )
+  }
+
+  def isSubscriptionHealthy: Boolean = subscription.exists { subscription =>
+    !subscription.resilientSequencerSubscription.isFailed && !subscription.resilientSequencerSubscription.isClosing
   }
 
 }

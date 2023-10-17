@@ -35,6 +35,13 @@ abstract class DomainTopologyStoreBase[
           val item = createTopologyStore(storeId)
           store.set(Some(item))
           item
+        case Some(value) if value.isClosing =>
+          loggerFactory
+            .getLogger(getClass)
+            .debug(s"Topology store $storeId exists but is closed. Creating a new one.")
+          val item = createTopologyStore(storeId)
+          store.set(Some(item))
+          item
         case Some(value) =>
           if (storeId != value.storeId) {
             loggerFactory
