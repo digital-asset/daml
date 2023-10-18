@@ -64,7 +64,9 @@ final case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
       isProposal,
     )(representativeProtocolVersion)
 
-  def operation: TopologyChangeOpX = transaction.op
+  def operation: Op = transaction.op
+
+  def mapping: M = transaction.mapping
 
   @transient override protected lazy val companionObj: SignedTopologyTransactionX.type =
     SignedTopologyTransactionX

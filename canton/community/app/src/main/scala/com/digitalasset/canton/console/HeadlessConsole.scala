@@ -46,12 +46,15 @@ class HeadlessConsole(
   def init(): Either[HeadlessConsoleError, Unit] = {
     val options = transformer(baseOptions)
     for {
-      interpreter <- Try(createInterpreter(options)).toEither.leftMap(e =>
-        HeadlessConsole.RuntimeError("Failed to initialize console", e)
+      interpreter <- Try(createInterpreter(options)).toEither.leftMap(
+        HeadlessConsole.RuntimeError("Failed to initialize console", _)
+      )
+      bindings <- consoleEnvironment.bindings.leftMap(
+        HeadlessConsole.RuntimeError("Unable to create the console bindings", _)
       )
       _ <- initializePredef(
         interpreter,
-        consoleEnvironment.bindings.toIndexedSeq,
+        bindings,
         consoleEnvironment.predefCode(_),
         logger,
       )
