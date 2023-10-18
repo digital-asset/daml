@@ -23,7 +23,6 @@ import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissio
 import com.digitalasset.canton.participant.protocol.submission.{
   ChangeIdHash,
   SubmissionTrackingData,
-  UnsequencedSubmission,
 }
 import com.digitalasset.canton.participant.protocol.transfer.TransferInProcessingSteps.PendingTransferIn
 import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcessingSteps.PendingTransferOut
@@ -222,7 +221,7 @@ trait ProcessingSteps[
     def embedInFlightSubmissionTrackerError(error: InFlightSubmissionTrackerError): SubmissionError
 
     /** The submission tracking data to be used in case command deduplication failed */
-    def commandDeduplicationFailure(failure: DeduplicationFailed): UnsequencedSubmission
+    def commandDeduplicationFailure(failure: DeduplicationFailed): SubmissionTrackingData
 
     /** Phase 1, step 1a
       *
@@ -240,7 +239,7 @@ trait ProcessingSteps[
     def prepareBatch(
         actualDeduplicationOffset: DeduplicationPeriod.DeduplicationOffset,
         maxSequencingTime: CantonTimestamp,
-    ): EitherT[Future, UnsequencedSubmission, PreparedBatch]
+    ): EitherT[Future, SubmissionTrackingData, PreparedBatch]
 
     /** Produce a `SubmissionError` to be returned by the [[com.digitalasset.canton.participant.protocol.ProtocolProcessor.submit]] method
       * to indicate that a shutdown has happened during in-flight registration.
@@ -274,7 +273,7 @@ trait ProcessingSteps[
       */
     def submissionErrorTrackingData(error: SubmissionSendError)(implicit
         traceContext: TraceContext
-    ): UnsequencedSubmission
+    ): SubmissionTrackingData
   }
 
   /** Phase 1, step 2:

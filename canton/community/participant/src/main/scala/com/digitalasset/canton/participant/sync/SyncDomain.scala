@@ -76,7 +76,6 @@ import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.PeriodicAcknowledgements
 import com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope, EventWithErrors}
-import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
 import com.digitalasset.canton.time.EnrichedDurations.*
@@ -666,7 +665,7 @@ class SyncDomain(
 
       cleanSequencerCounterTracker = new CleanSequencerCounterTracker(
         persistent.sequencerCounterTrackerStore,
-        notifyInFlightSubmissionTracker,
+        ephemeral.timelyRejectNotifier.notifyAsync,
         loggerFactory,
       )
       trackingHandler = cleanSequencerCounterTracker(eventHandler)
@@ -909,32 +908,6 @@ class SyncDomain(
     )
 
   override def toString: String = s"SyncDomain(domain=$domainId, participant=$participantId)"
-
-  private def notifyInFlightSubmissionTracker(
-      tracedCleanSequencerCounterPrehead: Traced[SequencerCounterCursorPrehead]
-  ): Future[Unit] =
-    tracedCleanSequencerCounterPrehead.withTraceContext {
-      implicit traceContext => cleanSequencerCounterPrehead =>
-        val observedTime = cleanSequencerCounterPrehead.timestamp
-        inFlightSubmissionTracker
-          .timelyReject(domainId, observedTime)
-          .valueOr { case InFlightSubmissionTracker.UnknownDomain(domainId) =>
-            // The CantonSyncService removes the SyncDomain from the connected domains map
-            // before the SyncDomain is closed. So guarding the timely rejections against the SyncDomain being closed
-            // cannot eliminate this possibility.
-            //
-            // It is safe to skip the timely rejects because crash recovery and replay will take care
-            // upon the next reconnection.
-            logger.info(
-              s"Skipping timely rejects for domain $domainId upto $observedTime because domain is being disconnected."
-            )
-          }
-          .onShutdown(
-            logger.debug(
-              s"Aborted timely rejects for domain $domainId upto $observedTime due to shutdown"
-            )
-          )
-    }
 }
 
 object SyncDomain {

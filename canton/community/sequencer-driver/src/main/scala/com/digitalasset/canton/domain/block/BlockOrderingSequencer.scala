@@ -123,4 +123,5 @@ object BlockOrderingSequencer {
   private[domain] val AcknowledgeTag = "acknowledge"
   private[domain] val RegisterMemberTag = "registerMember"
   private[domain] val SendTag = "send"
+  private[domain] val BatchTag = "batch"
 }

@@ -5,10 +5,6 @@ package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.EngineConfig
-import com.daml.lf.language.{LanguageDevConfig, LanguageVersion}
-import com.daml.lf.transaction.ContractKeyUniquenessMode
-import com.daml.lf.{VersionRange, interpretation, language}
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.ports.Port
 import com.digitalasset.canton.ledger.api.tls.TlsVersion.TlsVersion
@@ -70,77 +66,6 @@ class PureConfigReaderWriter(secure: Boolean = true) {
         .map(_.toJava)
         .toRight(CannotConvert(str, Duration.getClass.getName, s"Could not convert $str"))
     }
-
-  implicit val versionRangeReader: ConfigReader[VersionRange[language.LanguageVersion]] =
-    ConfigReader.fromString[VersionRange[LanguageVersion]] {
-      case "daml-lf-dev-mode-unsafe" => Right(LanguageVersion.DevVersions)
-      case "early-access" => Right(LanguageVersion.EarlyAccessVersions)
-      case "stable" => Right(LanguageVersion.StableVersions)
-      case "legacy" => Right(LanguageVersion.LegacyVersions)
-      case value =>
-        value.split("-") match {
-          case Array(min, max) =>
-            val convertedValue: Either[String, VersionRange[LanguageVersion]] = for {
-              min <- language.LanguageVersion.fromString(min)
-              max <- language.LanguageVersion.fromString(max)
-            } yield {
-              VersionRange[language.LanguageVersion](min, max)
-            }
-            convertedValue.left.map { error =>
-              CannotConvert(
-                value,
-                VersionRange.getClass.getName,
-                s"$value is not recognized. " + error,
-              )
-            }
-          case _ =>
-            Left(
-              CannotConvert(value, VersionRange.getClass.getName, s"$value is not recognized. ")
-            )
-        }
-    }
-
-  implicit val versionRangeWriter: ConfigWriter[VersionRange[language.LanguageVersion]] =
-    ConfigWriter.toString {
-      case LanguageVersion.DevVersions => "daml-lf-dev-mode-unsafe"
-      case LanguageVersion.EarlyAccessVersions => "early-access"
-      case LanguageVersion.StableVersions => "stable"
-      case LanguageVersion.LegacyVersions => "legacy"
-      case range => s"${range.min.pretty}-${range.max.pretty}"
-    }
-
-  implicit val interpretationLimitsHint =
-    ProductHint[interpretation.Limits](allowUnknownKeys = false)
-
-  implicit val interpretationLimitsConvert: ConfigConvert[interpretation.Limits] =
-    deriveConvert[interpretation.Limits]
-
-  implicit val contractKeyUniquenessModeConvert: ConfigConvert[ContractKeyUniquenessMode] =
-    deriveEnumerationConvert[ContractKeyUniquenessMode]
-
-  implicit val evaluationOrderReader: ConfigReader[LanguageDevConfig.EvaluationOrder] =
-    ConfigReader.fromString[LanguageDevConfig.EvaluationOrder] {
-      case "left-to-right" => Right(LanguageDevConfig.LeftToRight)
-      case "right-to-left" => Right(LanguageDevConfig.RightToLeft)
-      case value =>
-        Left(
-          CannotConvert(
-            value,
-            LanguageDevConfig.EvaluationOrder.getClass.getName,
-            s"$value is not recognized. ",
-          )
-        )
-    }
-
-  implicit val evaluationOrderWriter: ConfigWriter[LanguageDevConfig.EvaluationOrder] =
-    ConfigWriter.toString {
-      case LanguageDevConfig.LeftToRight => "left-to-right"
-      case LanguageDevConfig.RightToLeft => "right-to-left"
-    }
-
-  implicit val engineHint = ProductHint[EngineConfig](allowUnknownKeys = false)
-
-  implicit val engineConvert: ConfigConvert[EngineConfig] = deriveConvert[EngineConfig]
 
   implicit val metricReporterReader: ConfigReader[MetricsReporter] = {
     ConfigReader.fromString[MetricsReporter](ConvertHelpers.catchReadError { s =>
