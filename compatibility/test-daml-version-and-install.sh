@@ -28,12 +28,14 @@ daml version --force-reload yes --all yes --snapshots yes | tee daml-version-rel
 if ! stat $DAML_CACHE/versions.txt; then
   exit_with_message 'Cached versions.txt should exist after running `daml version --force-reload yes`'
 fi
-
-daml version --all yes --snapshots yes | tee daml-version-all-snapshots-output
-if [[ $(grep -c 'snapshot' daml-version-all-snapshots-output) -lt 10 ]]; then
-  exit_with_message '`daml version --all yes --snapshots yes` displays less than 100 snapshots'
+if [[ $(grep -c 'snapshot' daml-version-reload-all-snapshots-output) -lt 100 ]]; then
+  exit_with_message '`daml version --force-reload yes --all yes --snapshots yes` displays less than 100 snapshots'
+fi
+if [[ $(grep -c 'snapshot' $DAML_CACHE/versions.txt) -lt 100 ]]; then
+  exit_with_message 'Cached versions.txt contains less than 100 snapshots identifiers'
 fi
 
+daml version --all yes --snapshots yes | tee daml-version-all-snapshots-output
 if ! diff daml-version-all-snapshots-output daml-version-reload-all-snapshots-output; then
   exit_with_message '`daml version --all yes --snapshots yes` returns different version list from previous invocation of `daml version --all yes --snapshots yes --force-reload yes`'
 fi
@@ -57,5 +59,28 @@ if [[ $(grep -E '^  [0-9].[0-9]+.[0-9]+' daml-version-output | wc -l) -gt 2 ]]; 
   exit_with_message '`daml version` returns more than two versions when it shouldn'\''t'
 fi
 
-exit 1
+# Delete cache before `daml install latest`
+rm -r $DAML_CACHE
+mkdir $DAML_CACHE
 
+daml install latest
+if ! stat $DAML_CACHE/versions.txt; then
+  exit_with_message 'Cached versions.txt should exist after running `daml install latest`'
+fi
+if [[ $(grep -c 'snapshot' $DAML_CACHE/versions.txt) -lt 100 ]]; then
+  exit_with_message 'Cached versions.txt contains less than 100 snapshots identifiers'
+fi
+
+# Delete cache before `daml install latest --snapshots yes`
+rm -r $DAML_CACHE
+mkdir $DAML_CACHE
+
+daml install latest --snapshots yes
+if ! stat $DAML_CACHE/versions.txt; then
+  exit_with_message 'Cached versions.txt should exist after running `daml install latest --snapshots yes`'
+fi
+if [[ $(grep -c 'snapshot' $daml_cache/versions.txt) -lt 100 ]]; then
+  exit_with_message 'cached versions.txt contains less than 100 snapshots identifiers'
+fi
+
+exit 1
