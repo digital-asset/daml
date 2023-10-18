@@ -16,6 +16,9 @@ da_scala_binary(
     name = "explore",
     srcs = glob(["src/main/**/Explore.scala"]),
     main_class = "com.daml.lf.speedy.explore.Explore",
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+    ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],

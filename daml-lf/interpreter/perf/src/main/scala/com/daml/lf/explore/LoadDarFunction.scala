@@ -24,10 +24,9 @@ object LoadDarFunction extends App {
 
     val packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
-    // TODO(#17366): Add support for LF v2 if we keep this in daml3
     val compilerConfig =
       Compiler.Config
-        .Default(LanguageMajorVersion.V1)
+        .Default(packages.main._2.languageVersion.major)
         .copy(
           stacktracing = Compiler.NoStackTrace
         )
