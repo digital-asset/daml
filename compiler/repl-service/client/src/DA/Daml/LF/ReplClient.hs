@@ -63,6 +63,7 @@ data Options = Options
   , optMbSslConfig :: Maybe ClientSSLConfig
   , optMaxInboundMessageSize :: Maybe MaxInboundMessageSize
   , optTimeMode :: ReplTimeMode
+  , optMajorLfVersion :: LF.MajorVersion
   , optStdout :: StdStream
   -- ^ This is intended for testing so we can redirect stdout there.
   }
@@ -119,6 +120,7 @@ withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
                 ReplWallClock -> "--wall-clock-time"
           ]
         , concat [ ["--max-inbound-message-size", show (getMaxInboundMessageSize size)] | Just size <- [optMaxInboundMessageSize] ]
+        , [ "--major-lf-version", LF.renderMajorVersion optMajorLfVersion]
         ]
     withCreateProcess replServer { std_out = optStdout } $ \_ stdout _ ph -> do
       clientBarrier <- newBarrier
