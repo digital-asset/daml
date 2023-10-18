@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref.{Name, Party}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.daml.scalautil.Statement.discard
-import com.google.protobuf.{ByteString, GeneratedMessageV3, ProtocolStringList}
+import com.google.protobuf.{ByteString, CodedOutputStream, GeneratedMessageV3, ProtocolStringList}
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.HashMap
@@ -888,5 +888,105 @@ object TransactionCoder {
     } else {
       Right(None)
     }
+
+  private[transaction] def encodeVersioned(
+      version: TransactionVersion,
+      unversioned: ByteString,
+  ): ByteString = {
+    val byteStringOutput = ByteString.newOutput
+    val out = CodedOutputStream.newInstance(byteStringOutput)
+    out.writeInt32NoTag(version.index)
+    out.writeBytesNoTag(unversioned)
+    out.flush()
+    byteStringOutput.toByteString
+  }
+
+  private[transaction] def decodeVersioned(
+      bytes: ByteString
+  ): Either[DecodeError, Versioned[ByteString]] =
+    try {
+      val input = bytes.newCodedInput()
+      val vi = input.readInt32()
+      val contains = input.readBytes()
+      for {
+        _ <- Either.cond(
+          input.isAtEnd,
+          (),
+          DecodeError("Unexpected data after the end of the object."),
+        )
+        version <- TransactionVersion.fromInt(vi).left.map(DecodeError)
+      } yield Versioned(version, contains)
+    } catch {
+      case scala.util.control.NonFatal(e) =>
+        Left(DecodeError(s"exception $e while decoding the object"))
+    }
+
+  def encodeFatContractInstance(
+      contractInstance: FatContractInstance
+  ): Either[EncodeError, ByteString] = {
+    import contractInstance._
+    for {
+      encodedArg <- ValueCoder.encodeValue(ValueCoder.CidEncoder, version, arg)
+      encodedKeyOpt <- keyOpt match {
+        case None => Right(None)
+        case Some(value) =>
+          ValueCoder.encodeValue(ValueCoder.UnsafeNoCidEncoder, version, value.key).map(Some(_))
+      }
+    } yield {
+      val builder = TransactionOuterClass.FatContractInstance.newBuilder()
+      contractId match {
+        case cid: Value.ContractId.V1 =>
+          discard(builder.setContractId(cid.toBytes.toByteString))
+      }
+      discard(builder.setTemplateId(ValueCoder.encodeIdentifier(templateId)))
+      discard(builder.setArg(encodedArg))
+      encodedKeyOpt.foreach(builder.setKey)
+      maintainers.foreach(builder.addMaintainers)
+      nonMaintainerSignatories.foreach(builder.addNonMaintainerSignatories)
+      nonSignatoryStakeholders.foreach(builder.addNonSignatoryStakeholders)
+      discard(builder.setCreateTime(createTime.micros))
+      discard(builder.setSalt(salt.toByteString))
+      encodeVersioned(version, builder.build().toByteString)
+    }
+  }
+
+  def decodeFatContractInstance(bytes: ByteString): Either[DecodeError, FatContractInstance] =
+    for {
+      versionedBlob <- decodeVersioned(bytes)
+      Versioned(version, unversioned) = versionedBlob
+      proto <- scala.util
+        .Try(TransactionOuterClass.FatContractInstance.parseFrom(unversioned))
+        .toEither
+        .left
+        .map(e => DecodeError(s"exception $e while decoding the object"))
+      contractId <- Value.ContractId.V1
+        .fromBytes(data.Bytes.fromByteString(proto.getContractId))
+        .left
+        .map(DecodeError)
+      templateId <- ValueCoder.decodeIdentifier(proto.getTemplateId)
+      arg <- ValueCoder.decodeValue(ValueCoder.CidDecoder, version, proto.getArg)
+      keyOpt <-
+        if (proto.getKey.isEmpty) Right(None)
+        else
+          ValueCoder
+            .decodeValue(ValueCoder.NoCidDecoder, version, proto.getKey)
+            .flatMap(GlobalKey.build(templateId, _).map(Some(_)).left.map(e => DecodeError(e.msg)))
+      maintainers <- toPartySet(proto.getMaintainersList)
+      nonMaintainerSignatories <- toPartySet(proto.getNonMaintainerSignatoriesList)
+      nonSignatoryStakeholders <- toPartySet(proto.getNonSignatoryStakeholdersList)
+      createTime <- data.Time.Timestamp.fromLong(proto.getCreateTime).left.map(DecodeError)
+      salt = proto.getSalt
+    } yield FatContractInstance(
+      version = versionedBlob.version,
+      contractId = contractId,
+      templateId = templateId,
+      arg = arg,
+      keyOpt = keyOpt,
+      maintainers = maintainers,
+      nonMaintainerSignatories = nonMaintainerSignatories,
+      nonSignatoryStakeholders = nonSignatoryStakeholders,
+      createTime = createTime,
+      salt = data.Bytes.fromByteString(salt),
+    )
 
 }

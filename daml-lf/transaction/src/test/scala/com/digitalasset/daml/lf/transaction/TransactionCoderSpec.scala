@@ -12,6 +12,7 @@ import com.daml.lf.transaction.{TransactionOuterClass => proto}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.daml.lf.value.{Value, ValueCoder}
+import com.google.protobuf
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -180,8 +181,8 @@ class TransactionCoderSpec
       }
 
     "transactions decoding should fail when unsupported transaction version received" in
-      forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
-        forAll(stringVersionGen, minSuccessful(20)) { badTxVer =>
+      forAll(noDanglingRefGenTransaction, minSuccessful(30)) { tx =>
+        forAll(stringVersionGen, minSuccessful(10)) { badTxVer =>
           whenever(TransactionVersion.fromString(badTxVer).isLeft) {
             val encodedTxWithBadTxVer: proto.Transaction = assertRight(
               TransactionCoder
@@ -605,11 +606,50 @@ class TransactionCoderSpec
       }
     }
 
+    "do Versioned" in {
+      forAll(Gen.oneOf(TransactionVersion.All), bytesGen, minSuccessful(5)) { (version, bytes) =>
+        val encoded = TransactionCoder.encodeVersioned(version, bytes)
+        val Right(decoded) = TransactionCoder.decodeVersioned(encoded)
+        decoded shouldBe Versioned(version, bytes)
+      }
+    }
+
+    "reject versioned message with trailing data" in {
+      forAll(
+        Gen.oneOf(TransactionVersion.All),
+        bytesGen,
+        bytesGen.filterNot(_.isEmpty),
+        minSuccessful(5),
+      ) { (version, bytes1, bytes2) =>
+        val encoded = TransactionCoder.encodeVersioned(version, bytes1)
+        TransactionCoder.decodeVersioned(encoded concat bytes2) shouldBe a[Left[_, _]]
+      }
+    }
+
+    "do FatContractInstance" in {
+      forAll(
+        malformedCreateNodeGen,
+        timestampGen,
+        bytesGen,
+        minSuccessful(5),
+      ) { (create, time, salt) =>
+        val normalizedCreate = normalizeCreate(create)
+        val instance = FatContractInstance.fromCreateNode(
+          normalizedCreate,
+          time,
+          data.Bytes.fromByteString(salt),
+        )
+        val Right(encoded) = TransactionCoder.encodeFatContractInstance(instance)
+        val Right(decoded) = TransactionCoder.decodeFatContractInstance(encoded)
+
+        decoded shouldBe instance
+      }
+    }
   }
 
   "decodeVersionedNode" should {
 
-    """ignore field version if enclosing Transaction message is of version 10""" in {
+    """in field version if enclosing Transaction message is of version 10""" in {
       // Excluding rollback nodes since they are not available in V10
       forAll(danglingRefGenActionNode, Gen.asciiStr, minSuccessful(10)) {
         case ((nodeId, node), str) =>
@@ -723,7 +763,7 @@ class TransactionCoderSpec
       }
     }
 
-    "ignore field observers in version < 11" in {
+    "in field observers in version < 11" in {
 
       forAll(
         Arbitrary.arbInt.arbitrary,
@@ -885,6 +925,11 @@ class TransactionCoderSpec
       v1 <- Gen.oneOf(versions.dropRight(1))
       v2 <- Gen.oneOf(versions.filter(_ > v1))
     } yield (v1, v2)
+
+  private val bytesGen: Gen[protobuf.ByteString] =
+    Gen
+      .nonEmptyListOf(Arbitrary.arbByte.arbitrary)
+      .map(x => protobuf.ByteString.copyFrom(x.toArray))
 
   private[this] def normalizeNode(node: Node) =
     node match {

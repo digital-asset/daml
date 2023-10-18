@@ -126,4 +126,17 @@ message NodeRollback { // *since version 14*
     repeated string children = 1; // node ids
 }
 
+message FatContractInstance {
+  bytes contract_id = 1;
+  com.daml.lf.value.Identifier template_id = 2;
+  bytes arg = 3;
+  bytes key = 4;
+  repeated string maintainers = 5;
+  repeated string nonMaintainerSignatories = 6;
+  repeated string nonSignatoryStakeholders = 7;
+  int64 createTime = 8;
+  bytes salt = 9;
+}
+
+
 // architecture-handbook-entry-end: Nodes
