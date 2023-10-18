@@ -280,7 +280,7 @@ subIDEMessageHandler miState unblock ide bs = do
   -- Adds the various prefixes needed for from server messages to not clash with those from other IDEs
   mPrefixedMsg <-
     mapM 
-      ( addProgressTokenPrefixToServerMessage (serverCreatedProgressTokensVar miState) (ideHomeDirectory ide) (ideMessageIdPrefix ide)
+      ( addProgressTokenPrefixToServerMessage (progessTokenPrefixesVar miState) (ideHomeDirectory ide) (ideMessageIdPrefix ide)
       . addLspPrefixToServerMessage ide
       )
       mMsg
@@ -368,7 +368,8 @@ clientMessageHandler miState bs = do
       val :: Aeson.Value
       val = er "eitherDecode" $ Aeson.eitherDecodeStrict bs
 
-  msg <- either error id <$> parseClientMessageWithTracker (fromServerMethodTrackerVar miState) val
+  unPrefixedMsg <- either error id <$> parseClientMessageWithTracker (fromServerMethodTrackerVar miState) val
+  msg <- addProgressTokenPrefixToClientMessage (progessTokenPrefixesVar miState) unPrefixedMsg
 
   case msg of
     -- Store the initialize params for starting subIDEs, respond statically with what ghc-ide usually sends.
@@ -376,7 +377,7 @@ clientMessageHandler miState bs = do
       putMVar (initParamsVar miState) _params
       sendClient miState $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right initializeResult)
     LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel notif -> do
-      (newNotif, mHome) <- removeWorkDoneProgressCancelTokenPrefix (serverCreatedProgressTokensVar miState) notif
+      (newNotif, mHome) <- removeWorkDoneProgressCancelTokenPrefix (progessTokenPrefixesVar miState) notif
       let newMsg = LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel newNotif
       case mHome of
         Nothing -> void $ sendAllSubIDEs miState newMsg

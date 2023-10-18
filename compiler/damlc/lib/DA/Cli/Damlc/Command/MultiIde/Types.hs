@@ -94,11 +94,12 @@ onlyActiveSubIdes = Map.filter ideActive
 type InitParams = LSP.InitializeParams
 type InitParamsVar = MVar InitParams
 
--- Stores the mapping of server created progress tokens and their IDEs home to their prefixed counterpart 
+-- Stores the mapping of  progress tokens and their IDEs home (or Nothing if client created) to their prefixed counterpart 
 -- We need this so we know which of the Progress messages from the server need to be prefixed
---   since ProgressTokens created by the client are not prefixed.
-type ServerCreatedProgressTokens = Map.Map (LSP.ProgressToken, FilePath) LSP.ProgressToken
-type ServerCreatedProgressTokensVar = MVar ServerCreatedProgressTokens
+--   since ProgressTokens created by the client are prefixed differently
+-- This is a Bimap, keys and values are unique
+type ProgressTokenPrefixes = Map.Map (LSP.ProgressToken, Maybe FilePath) LSP.ProgressToken
+type ProgressTokenPrefixesVar = MVar ProgressTokenPrefixes
 
 -- Maps a packages unit id to its source file path, for all packages listed in a multi-package.yaml
 type MultiPackageYamlMapping = Map.Map String FilePath
@@ -108,7 +109,7 @@ data MultiIdeState = MultiIdeState
     -- ^ The client will track its own IDs to ensure they're unique, so no worries about collisions
   , fromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer
     -- ^ We will prefix LspIds before they get here based on their SubIDE messageIdPrefix, to avoid collisions
-  , serverCreatedProgressTokensVar :: ServerCreatedProgressTokensVar
+  , progessTokenPrefixesVar :: ProgressTokenPrefixesVar
   , subIDEsVar :: SubIDEsVar
   , initParamsVar :: InitParamsVar
   , toClientChan :: TChan BSL.ByteString
@@ -119,7 +120,7 @@ newMultiIdeState :: MultiPackageYamlMapping -> IO MultiIdeState
 newMultiIdeState multiPackageMapping = do
   (fromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
   (fromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
-  serverCreatedProgressTokensVar <- newMVar @ServerCreatedProgressTokens mempty
+  progessTokenPrefixesVar <- newMVar @ProgressTokenPrefixes mempty
   subIDEsVar <- newTMVarIO @SubIDEs mempty
   initParamsVar <- newEmptyMVar @InitParams
   toClientChan <- atomically newTChan
