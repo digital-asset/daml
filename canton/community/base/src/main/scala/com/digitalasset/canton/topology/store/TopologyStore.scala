@@ -237,6 +237,18 @@ object TopologyTransactionRejection {
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.UnauthorizedTransaction.Failure()
   }
+
+  final case class ThresholdTooHigh(actual: Int, mustBeAtMost: Int)
+      extends TopologyTransactionRejection {
+    def asString: String = s"Threshold must not be higher than $mustBeAtMost, but was $actual."
+
+    override def pretty: Pretty[ThresholdTooHigh] = prettyOfString(_ => asString)
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext) = {
+      TopologyManagerError.InternalError.ImplementMe(asString)
+    }
+  }
+
   final case class SignatureCheckFailed(err: SignatureCheckError)
       extends TopologyTransactionRejection {
     def asString: String = err.toString

@@ -34,6 +34,7 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{Identifier, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
+import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.{DomainAlias, LfPartyId}
 import com.typesafe.scalalogging.Logger
 import io.opentelemetry.api.trace.Tracer
@@ -184,17 +185,10 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       topic: Seq[String] = Seq(),
   )(implicit tag: ru.TypeTag[T]) {
 
-    /** The name is surrounded with back-ticks to enforce valid scala identifier.
-      * @throws com.digitalasset.canton.config.CantonRequireTypes$.InstanceName$.InvalidInstanceName
-      *   if `nameUnsafe` is not a valid instance name.
-      *   It is up to the caller to fail more gracefully.
-      */
-    lazy val asBind: Bind[T] = {
-      InstanceName.tryCreate(nameUnsafe).discard
+    // Surround with back-ticks to handle the case that name is a reserved keyword in scala.
+    lazy val asBind: Either[InstanceName.InvalidInstanceName, Bind[T]] =
+      InstanceName.create(nameUnsafe).map(name => Bind(s"`${name.unwrap}`", value))
 
-      // Surround with back-ticks to handle the case that name is a reserved keyword in scala.
-      Bind("`" + nameUnsafe + "`", value)
-    }
     lazy val asHelpItem: Help.Item =
       Help.Item(nameUnsafe, None, Help.Summary(summary), Help.Description(""), Help.Topic(topic))
   }
@@ -457,41 +451,30 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   }
 
   /** Bindings for ammonite
-    * @throws com.digitalasset.canton.config.CantonRequireTypes$.InstanceName$.InvalidInstanceName
-    *   if `nameUnsafe` is not a valid instance name.
-    *   It is up to the caller to fail more gracefully.
-    * @throws java.lang.IllegalStateException if names are not unique.
+    * Add a reference to this instance to resolve implicit references within the console
     */
-  lazy val bindings: Seq[Bind[_]] = {
-    val values = topLevelValues
-    validateNames(values)
-    val binds = topLevelValues.map(_.asBind) :+
-      selfAlias() // secretly add a reference to this instance to resolve implicit references within the console within the console
-    validateNameUniqueness(binds)
-
-    binds
+  lazy val bindings: Either[RuntimeException, IndexedSeq[Bind[_]]] = {
+    import cats.syntax.traverse.*
+    for {
+      bindsWithoutSelfAlias <- topLevelValues.traverse(_.asBind)
+      binds = bindsWithoutSelfAlias :+ selfAlias()
+      _ <- validateNameUniqueness(binds)
+    } yield binds.toIndexedSeq
   }
 
-  private def validateNames(
-      values: Seq[TopLevelValue[_]]
-  ): Unit = values.foreach(v => InstanceName.tryCreate(v.nameUnsafe).discard[InstanceName])
-
-  private def validateNameUniqueness(
-      binds: Seq[Bind[_]]
-  ): Unit = {
-    val names = binds.map(_.name)
-    val nonUniqueNames = {
-      names.groupBy(identity).collect {
-        case (name, occurrences) if occurrences.size > 1 =>
+  private def validateNameUniqueness(binds: Seq[Bind[_]]) = {
+    val nonUniqueNames =
+      binds.map(_.name).groupBy(identity).collect {
+        case (name, occurrences) if occurrences.sizeIs > 1 =>
           s"$name (${occurrences.size} occurrences)"
       }
-    }
-    if (nonUniqueNames.nonEmpty) {
-      throw new IllegalStateException(
+    EitherUtil.condUnitE(
+      nonUniqueNames.isEmpty,
+      new IllegalStateException(
         s"""Node names must be unique and must differ from reserved keywords. Please revisit node names in your config file.
-           |Offending names: ${nonUniqueNames.mkString("(", ", ", ")")}""".stripMargin
-      )
-    }
+         |Offending names: ${nonUniqueNames.mkString("(", ", ", ")")}""".stripMargin
+      ),
+    )
   }
 
   private def createParticipantReference(name: String): LocalParticipantReference =

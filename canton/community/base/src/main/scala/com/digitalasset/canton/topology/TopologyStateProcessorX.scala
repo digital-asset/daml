@@ -24,6 +24,7 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.TopologyMappingX.MappingHash
+import com.digitalasset.canton.topology.transaction.TopologyMappingXChecks
 import com.digitalasset.canton.topology.transaction.TopologyTransactionX.TxHash
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -41,6 +42,7 @@ class TopologyStateProcessorX(
     val store: TopologyStoreX[TopologyStoreId],
     outboxQueue: Option[DomainOutboxQueue],
     enableTopologyTransactionValidation: Boolean,
+    topologyMappingXChecks: TopologyMappingXChecks,
     crypto: Crypto,
     loggerFactoryParent: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -317,13 +319,6 @@ class TopologyStateProcessorX(
     // first, merge a pending proposal with this transaction. we do this as it might
     // subsequently activate the given transaction
     val tx_mergedProposalSignatures = mergeWithPendingProposal(txA)
-    // TODO(#14810) add a check here for consistency. these checks should reject on the mediator / topology
-    //   manager, but only warn on the processor.
-    //   things we need to catch are:
-    //     - a party to participant mapping mentioning a participant who is not on the domain
-    //       (no trust certificate or no owner keys)
-    //     - a mediator or sequencer who doesn't have keys
-    //     - a domain parameter change (in particular changes to the topology change delay) that could confuse the future dating logic.
     val ret = for {
       mergeResult <- EitherT.fromEither[Future](
         deduplicateAndMergeSignatures(tx_inStore, tx_mergedProposalSignatures)
@@ -338,6 +333,10 @@ class TopologyStateProcessorX(
         tx_deduplicatedAndMerged,
         expectFullAuthorization,
       )
+
+      // Run mapping specific semantic checks
+      _ <- topologyMappingXChecks.checkTransaction(effective, tx_authorized, tx_inStore)
+
       // we potentially merge the transaction with the currently active if this is just a signature update
       // now, check if the serial is monotonically increasing
       fullyValidated <-

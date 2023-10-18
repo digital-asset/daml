@@ -47,8 +47,8 @@ object InteractiveConsole extends NoTracing {
     // (such as all, help, participant1, etc.), which are made available only here
     // so we can't run Main.runScript or so as the "result" of the script are lost then
     // in the REPL.
-    def startup(replArgs: Bind[_]*): (Res[Any], Seq[(Watchable, Long)]) = {
-      options.instantiateRepl(replArgs.toIndexedSeq) match {
+    def startup(replArgs: IndexedSeq[Bind[_]]): (Res[Any], Seq[(Watchable, Long)]) = {
+      options.instantiateRepl(replArgs) match {
         case Left(missingPredefInfo) => missingPredefInfo
         case Right(repl) =>
           repl.initializePredef().getOrElse {
@@ -118,19 +118,26 @@ object InteractiveConsole extends NoTracing {
       }
     }
 
-    val (result, _) = startup(consoleEnvironment.bindings: _*)
-
-    result match {
-      // as exceptions are caught when in the REPL this is almost certainly from code in the predef
-      case Res.Exception(exception, _) =>
+    consoleEnvironment.bindings match {
+      case Left(exception) =>
         System.err.println(exception.getMessage)
-        logger.debug("Execution of interactive script returned exception", exception)
+        logger.debug("Unable to initialize the console bindings", exception)
         false
-      case Res.Failure(err) =>
-        System.err.println(err)
-        logger.debug(s"Execution of interactive script returned failure ${err}")
-        false
-      case _ => true
+      case Right(bindings) =>
+        val (result, _) = startup(bindings)
+        result match {
+          // as exceptions are caught when in the REPL this is almost certainly from code in the predef
+          case Res.Exception(exception, _) =>
+            System.err.println(exception.getMessage)
+            logger.debug("Execution of interactive script returned exception", exception)
+            false
+          case Res.Failure(err) =>
+            System.err.println(err)
+            logger.debug(s"Execution of interactive script returned failure ${err}")
+            false
+          case _ =>
+            true
+        }
     }
   }
 

@@ -461,6 +461,8 @@ class TestingOwnerWithKeysX(
   object EncryptionKeys {
     private implicit val ec = initEc
     val key1 = genEncKey("enc-key1")
+    val key2 = genEncKey("enc-key2")
+    val key3 = genEncKey("enc-key3")
   }
 
   object TestingTransactions {
@@ -520,6 +522,19 @@ class TestingOwnerWithKeysX(
 
     val dpc2 =
       mkAdd(DomainParametersStateX(DomainId(uid2), defaultDomainParameters), key2)
+
+    val p1_dtc = mkAdd(DomainTrustCertificateX(participant1, domainId, false, Seq.empty))
+    val p2_dtc = mkAdd(DomainTrustCertificateX(participant2, domainId, false, Seq.empty))
+    val p3_dtc = mkAdd(DomainTrustCertificateX(participant3, domainId, false, Seq.empty))
+    val p1_otk = mkAdd(
+      OwnerToKeyMappingX(participant1, None, NonEmpty(Seq, EncryptionKeys.key1, SigningKeys.key1))
+    )
+    val p2_otk = mkAdd(
+      OwnerToKeyMappingX(participant2, None, NonEmpty(Seq, EncryptionKeys.key2, SigningKeys.key2))
+    )
+    val p3_otk = mkAdd(
+      OwnerToKeyMappingX(participant3, None, NonEmpty(Seq, EncryptionKeys.key3, SigningKeys.key3))
+    )
   }
 
   def mkTrans[Op <: TopologyChangeOpX, M <: TopologyMappingX](
@@ -566,6 +581,23 @@ class TestingOwnerWithKeysX(
     mkTrans(
       TopologyTransactionX(
         TopologyChangeOpX.Replace,
+        serial,
+        mapping,
+        BaseTest.testedProtocolVersion,
+      ),
+      signingKeys,
+      isProposal,
+    )
+
+  def mkRemove[M <: TopologyMappingX](
+      mapping: M,
+      signingKeys: NonEmpty[Set[SigningPublicKey]] = NonEmpty(Set, SigningKeys.key1),
+      serial: PositiveInt = PositiveInt.one,
+      isProposal: Boolean = false,
+  )(implicit ec: ExecutionContext): SignedTopologyTransactionX[TopologyChangeOpX.Remove, M] =
+    mkTrans(
+      TopologyTransactionX(
+        TopologyChangeOpX.Remove,
         serial,
         mapping,
         BaseTest.testedProtocolVersion,

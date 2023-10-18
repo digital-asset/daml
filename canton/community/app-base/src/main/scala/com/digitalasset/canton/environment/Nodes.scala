@@ -276,7 +276,7 @@ class ManagedNodes[
           case Running(current) if node == current =>
             Lifecycle.close(node)(logger)
           case _ =>
-            logger.info(s"Node ${name} has already disappeared.")
+            logger.info(s"Node $name has already disappeared.")
         }
         Right(())
     }
@@ -286,7 +286,7 @@ class ManagedNodes[
     val runningInstances = nodes.toList
     import TraceContext.Implicits.Empty.*
     runningInstances.map { case (name, stage) =>
-      AsyncCloseable(s"node-${name}", stopStage(name)(stage).value, timeouts.closing.duration)
+      AsyncCloseable(s"node-$name", stopStage(name)(stage).value, timeouts.closing.duration)
     }
   }
 

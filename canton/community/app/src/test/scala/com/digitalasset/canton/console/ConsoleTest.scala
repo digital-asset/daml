@@ -297,11 +297,13 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
 
   "Console" must {
     "fail on name clashes in config" in new TestEnvironment(NameClashConfig) {
-      val ex: IllegalStateException = the[IllegalStateException] thrownBy run("1+1")
-      ex.getMessage should startWith(
-        """Node names must be unique and must differ from reserved keywords. Please revisit node names in your config file.
-          |Offending names: (`d1` (2 occurrences), `participants` (2 occurrences))""".stripMargin
-      )
+      inside(run("1+1")) { case (Left(RuntimeError(message, ex)), _) =>
+        message shouldEqual "Unable to create the console bindings"
+        ex.getMessage should startWith(
+          """Node names must be unique and must differ from reserved keywords. Please revisit node names in your config file.
+            |Offending names: (`d1` (2 occurrences), `participants` (2 occurrences))""".stripMargin
+        )
+      }
     }
   }
 }
