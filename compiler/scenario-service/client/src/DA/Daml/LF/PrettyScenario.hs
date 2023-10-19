@@ -349,17 +349,13 @@ prettyScenarioErrorError lvl (Just err) =  do
     ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumUniqueContractKeyViolation gk))) -> do
       pure $ vcat
         [ "Commit error due to unique key violation for key"
-        , nest 2 (prettyMay "<missing key>" (prettyValue' lvl False 0 world) (globalKeyKey gk))
-        , "for template"
-        , nest 2 (prettyMay "<missing template id>" (prettyDefName lvl world) (globalKeyTemplateId gk))
+        , nest 2 (prettyGlobalKey lvl world gk)
         ]
 
     ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumInconsistentContractKey gk))) -> do
       pure $ vcat
         [ "Commit error due to inconsistent key"
-        , nest 2 (prettyMay "<missing key>" (prettyValue' lvl False 0 world) (globalKeyKey gk))
-        , "for template"
-        , nest 2 (prettyMay "<missing template id>" (prettyDefName lvl world) (globalKeyTemplateId gk))
+        , nest 2 (prettyGlobalKey lvl world gk)
         ]
 
     ScenarioErrorErrorUnknownContext ctxId ->
@@ -414,13 +410,9 @@ prettyScenarioErrorError lvl (Just err) =  do
     ScenarioErrorErrorScenarioContractKeyNotFound ScenarioError_ContractKeyNotFound{..} ->
       pure $ vcat
         [ "Attempt to fetch or exercise by key but no contract with that key was found."
-        , label_ "Template:"
-            $ prettyMay "<missing template id>"
-                (prettyDefName lvl world)
-                scenarioError_ContractKeyNotFoundTemplateId
         , label_ "Key: "
           $ prettyMay "<missing key>"
-              (prettyValue' lvl False 0 world)
+              (prettyGlobalKey lvl world)
               scenarioError_ContractKeyNotFoundKey
         ]
     ScenarioErrorErrorWronglyTypedContract ScenarioError_WronglyTypedContract{..} ->
@@ -1014,6 +1006,17 @@ prettyDefName lvl world (Identifier mbPkgId (UnmangledQualifiedName modName defN
     name = LF.moduleNameString modName <> ":" <> defName
     ppName = text name <> ppPkgId
     ppPkgId = maybe mempty (prettyPackageIdentifier lvl) mbPkgId
+
+prettyQualifiedName :: TL.Text -> Doc SyntaxClass
+prettyQualifiedName (UnmangledQualifiedName modName defName) = text $ LF.moduleNameString modName <> ":" <> defName
+
+prettyGlobalKey :: PrettyLevel -> LF.World -> GlobalKey -> Doc SyntaxClass
+prettyGlobalKey lvl world gk = vcat [
+    prettyMay "<no value>" (prettyValue' lvl False 0 world) (globalKeyKey gk),
+    "for template",
+    prettyQualifiedName $ globalKeyName gk,
+    maybe mempty (prettyPackageIdentifier lvl) (globalKeyPackage gk)
+  ]
 
 prettyPackageMetadata :: PackageMetadata -> Doc SyntaxClass
 prettyPackageMetadata (PackageMetadata name version) = text $ TL.toStrict $ name <> "-" <> version

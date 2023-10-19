@@ -169,8 +169,7 @@ final class Conversions(
               case ContractKeyNotFound(gk) =>
                 builder.setScenarioContractKeyNotFound(
                   proto.ScenarioError.ContractKeyNotFound.newBuilder
-                    .setTemplateId(convertIdentifier(gk.templateId))
-                    .setKey(convertValue(gk.key))
+                    .setKey(convertGlobalKey(gk))
                     .build
                 )
               case DuplicateContractKey(key) =>
@@ -367,8 +366,10 @@ final class Conversions(
   }
 
   def convertGlobalKey(globalKey: GlobalKey): proto.GlobalKey = {
-    proto.GlobalKey.newBuilder
-      .setTemplateId(convertIdentifier(globalKey.templateId))
+    val builder = proto.GlobalKey.newBuilder
+    globalKey.packageId.foreach(p => builder.setPackage(convertPackageId(p)))
+    builder
+      .setName(globalKey.qualifiedName.toString)
       .setKey(convertValue(globalKey.key))
       .build
   }

@@ -21,6 +21,10 @@ final class GlobalKey private (
     case _ => false
   }
 
+  // Ready for refactoring where packageId becomes optional (#14486)
+  def packageId: Option[Ref.PackageId] = Some(templateId.packageId)
+  def qualifiedName: Ref.QualifiedName = templateId.qualifiedName
+
   override def hashCode(): Int = hash.hashCode()
 
   override def toString: String = s"GlobalKey($templateId, $key)"
