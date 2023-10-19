@@ -628,7 +628,7 @@ class TransactionCoderSpec
 
     "do FatContractInstance" in {
       forAll(
-        malformedCreateNodeGen,
+        malformedCreateNodeGen.filter(_.version >= TransactionVersion.V14),
         timestampGen,
         bytesGen,
         minSuccessful(5),
@@ -649,7 +649,7 @@ class TransactionCoderSpec
 
   "decodeVersionedNode" should {
 
-    """in field version if enclosing Transaction message is of version 10""" in {
+    """ignore field version if enclosing Transaction message is of version 10""" in {
       // Excluding rollback nodes since they are not available in V10
       forAll(danglingRefGenActionNode, Gen.asciiStr, minSuccessful(10)) {
         case ((nodeId, node), str) =>

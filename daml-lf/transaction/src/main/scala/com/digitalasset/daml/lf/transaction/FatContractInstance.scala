@@ -7,67 +7,55 @@ package transaction
 import data.{Bytes, Ref, Time}
 import value.{CidContainer, Value}
 
-// Should replaces value.ContractInstance in the whole daml/canton codespace
-// TODO: Rename ContractInstance once value.ContractInstance is properly deprecated
-final case class FatContractInstance private (
+// This should replace value.ContractInstance in the whole daml/canton codespace
+// TODO: Rename to ContractInstance once value.ContractInstance is properly deprecated
+sealed abstract class FatContractInstance extends Product with CidContainer[FatContractInstance] {
+  val version: TransactionVersion
+  val contractId: Value.ContractId
+  val templateId: Ref.TypeConName
+  val createArg: Value
+  val contractKey: Option[GlobalKey]
+  val maintainers: Set[Ref.Party]
+  val nonMaintainerSignatories: Set[Ref.Party]
+  val nonSignatoryStakeholders: Set[Ref.Party]
+  val createTime: Time.Timestamp
+  val cantonData: Bytes
+  private[lf] def toImplementation: FatContractInstanceImpl =
+    this.asInstanceOf[FatContractInstanceImpl]
+  require(maintainers.isEmpty || contractKey.isDefined)
+}
+
+private[lf] final case class FatContractInstanceImpl(
     version: TransactionVersion,
     contractId: Value.ContractId,
     templateId: Ref.TypeConName,
-    arg: Value,
-    keyOpt: Option[GlobalKey],
+    createArg: Value,
+    contractKey: Option[GlobalKey],
     maintainers: Set[Ref.Party],
     nonMaintainerSignatories: Set[Ref.Party],
     nonSignatoryStakeholders: Set[Ref.Party],
     createTime: Time.Timestamp,
-    salt: Bytes = Bytes.Empty,
-) extends CidContainer[FatContractInstance] {
+    cantonData: Bytes,
+) extends FatContractInstance
+    with CidContainer[FatContractInstanceImpl] {
   lazy val signatories = maintainers | nonMaintainerSignatories
   lazy val stakeholders = signatories | nonSignatoryStakeholders
 
-  override protected def self: FatContractInstance = this
+  override protected def self: FatContractInstanceImpl = this
 
-  override def mapCid(f: Value.ContractId => Value.ContractId): FatContractInstance =
-    new FatContractInstance(
-      version = version,
+  override def mapCid(f: Value.ContractId => Value.ContractId): FatContractInstanceImpl = {
+    copy(
       contractId = f(contractId),
-      templateId = templateId,
-      arg = arg.mapCid(f),
-      keyOpt = keyOpt,
-      maintainers = maintainers,
-      nonMaintainerSignatories = nonMaintainerSignatories,
-      nonSignatoryStakeholders = nonSignatoryStakeholders,
-      createTime = createTime,
-      salt = salt,
+      createArg = createArg.mapCid(f),
     )
+  }
 
   def updateCreateTime(updatedTime: Time.Timestamp): FatContractInstance =
-    new FatContractInstance(
-      version = version,
-      contractId = contractId,
-      templateId = templateId,
-      arg = arg,
-      keyOpt = keyOpt,
-      maintainers = maintainers,
-      nonMaintainerSignatories = nonMaintainerSignatories,
-      nonSignatoryStakeholders = nonSignatoryStakeholders,
-      createTime = updatedTime,
-      salt = salt,
-    )
+    copy(createTime = updatedTime)
 
-  def setSalt(salt: Bytes): FatContractInstance = {
-    assert(!salt.nonEmpty)
-    new FatContractInstance(
-      version = version,
-      contractId = contractId,
-      templateId = templateId,
-      arg = arg,
-      keyOpt = keyOpt,
-      maintainers = maintainers,
-      nonMaintainerSignatories = nonMaintainerSignatories,
-      nonSignatoryStakeholders = nonSignatoryStakeholders,
-      createTime = createTime,
-      salt = salt,
-    )
+  def setSalt(canton_data: Bytes): FatContractInstance = {
+    assert(canton_data.nonEmpty)
+    copy(cantonData = canton_data)
   }
 }
 
@@ -76,22 +64,22 @@ object FatContractInstance {
   def fromCreateNode(
       create: Node.Create,
       createTime: Time.Timestamp,
-      salt: Bytes,
+      canton_data: Bytes,
   ): FatContractInstance = {
     val maintainers = create.keyOpt.fold(Set.empty[Ref.Party])(_.maintainers)
     val nonMaintainerSignatories = create.signatories -- maintainers
     val nonSignatoryStakeholders = create.stakeholders -- create.signatories
-    new FatContractInstance(
+    FatContractInstanceImpl(
       version = create.version,
       contractId = create.coid,
       templateId = create.templateId,
-      arg = create.arg,
-      keyOpt = create.keyOpt.map(_.globalKey),
+      createArg = create.arg,
+      contractKey = create.keyOpt.map(_.globalKey),
       maintainers = maintainers,
       nonMaintainerSignatories = nonMaintainerSignatories,
       nonSignatoryStakeholders = nonSignatoryStakeholders,
       createTime = createTime,
-      salt = salt,
+      cantonData = canton_data,
     )
   }
 

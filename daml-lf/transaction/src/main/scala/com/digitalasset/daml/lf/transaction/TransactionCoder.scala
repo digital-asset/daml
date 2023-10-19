@@ -926,8 +926,8 @@ object TransactionCoder {
   ): Either[EncodeError, ByteString] = {
     import contractInstance._
     for {
-      encodedArg <- ValueCoder.encodeValue(ValueCoder.CidEncoder, version, arg)
-      encodedKeyOpt <- keyOpt match {
+      encodedArg <- ValueCoder.encodeValue(ValueCoder.CidEncoder, version, createArg)
+      encodedKeyOpt <- contractKey match {
         case None => Right(None)
         case Some(value) =>
           ValueCoder.encodeValue(ValueCoder.UnsafeNoCidEncoder, version, value.key).map(Some(_))
@@ -939,13 +939,13 @@ object TransactionCoder {
           discard(builder.setContractId(cid.toBytes.toByteString))
       }
       discard(builder.setTemplateId(ValueCoder.encodeIdentifier(templateId)))
-      discard(builder.setArg(encodedArg))
-      encodedKeyOpt.foreach(builder.setKey)
+      discard(builder.setCreateArg(encodedArg))
+      encodedKeyOpt.foreach(builder.setContractKey)
       maintainers.foreach(builder.addMaintainers)
       nonMaintainerSignatories.foreach(builder.addNonMaintainerSignatories)
       nonSignatoryStakeholders.foreach(builder.addNonSignatoryStakeholders)
       discard(builder.setCreateTime(createTime.micros))
-      discard(builder.setSalt(salt.toByteString))
+      discard(builder.setCantonData(cantonData.toByteString))
       encodeVersioned(version, builder.build().toByteString)
     }
   }
@@ -954,6 +954,11 @@ object TransactionCoder {
     for {
       versionedBlob <- decodeVersioned(bytes)
       Versioned(version, unversioned) = versionedBlob
+      _ <- Either.cond(
+        version >= TransactionVersion.V14,
+        (),
+        DecodeError(s"version $version does not support FatContractInstance"),
+      )
       proto <- scala.util
         .Try(TransactionOuterClass.FatContractInstance.parseFrom(unversioned))
         .toEither
@@ -964,29 +969,30 @@ object TransactionCoder {
         .left
         .map(DecodeError)
       templateId <- ValueCoder.decodeIdentifier(proto.getTemplateId)
-      arg <- ValueCoder.decodeValue(ValueCoder.CidDecoder, version, proto.getArg)
-      keyOpt <-
-        if (proto.getKey.isEmpty) Right(None)
+      createArg <- ValueCoder.decodeValue(ValueCoder.CidDecoder, version, proto.getCreateArg)
+      contractKey <-
+        if (proto.getContractKey.isEmpty)
+          Right(None)
         else
           ValueCoder
-            .decodeValue(ValueCoder.NoCidDecoder, version, proto.getKey)
+            .decodeValue(ValueCoder.NoCidDecoder, version, proto.getContractKey)
             .flatMap(GlobalKey.build(templateId, _).map(Some(_)).left.map(e => DecodeError(e.msg)))
       maintainers <- toPartySet(proto.getMaintainersList)
       nonMaintainerSignatories <- toPartySet(proto.getNonMaintainerSignatoriesList)
       nonSignatoryStakeholders <- toPartySet(proto.getNonSignatoryStakeholdersList)
       createTime <- data.Time.Timestamp.fromLong(proto.getCreateTime).left.map(DecodeError)
-      salt = proto.getSalt
-    } yield FatContractInstance(
+      cantonData = proto.getCantonData
+    } yield FatContractInstanceImpl(
       version = versionedBlob.version,
       contractId = contractId,
       templateId = templateId,
-      arg = arg,
-      keyOpt = keyOpt,
+      createArg = createArg,
+      contractKey = contractKey,
       maintainers = maintainers,
       nonMaintainerSignatories = nonMaintainerSignatories,
       nonSignatoryStakeholders = nonSignatoryStakeholders,
       createTime = createTime,
-      salt = data.Bytes.fromByteString(salt),
+      cantonData = data.Bytes.fromByteString(cantonData),
     )
 
 }

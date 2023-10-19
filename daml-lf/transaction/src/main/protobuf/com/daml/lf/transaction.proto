@@ -129,13 +129,13 @@ message NodeRollback { // *since version 14*
 message FatContractInstance {
   bytes contract_id = 1;
   com.daml.lf.value.Identifier template_id = 2;
-  bytes arg = 3;
-  bytes key = 4;
+  bytes create_arg = 3;
+  bytes contract_key = 4;
   repeated string maintainers = 5;
-  repeated string nonMaintainerSignatories = 6;
-  repeated string nonSignatoryStakeholders = 7;
+  repeated string non_maintainer_signatories = 6;
+  repeated string non_signatory_stakeholders = 7;
   int64 createTime = 8;
-  bytes salt = 9;
+  bytes canton_data = 9;
 }
 
 
