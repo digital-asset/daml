@@ -439,6 +439,70 @@ tests damlc =
                 )
               ]
         , test
+              "Succeeds when template choice returns a template which has changed"
+              Nothing
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : A"
+                      , "      controller p"
+                      , "      do pure (A p)"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Optional Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : A"
+                      , "      controller p"
+                      , "      do pure (A p (Just p))"
+                      ]
+                )
+              ]
+        , test
+              "Succeeds when template choice input argument has changed"
+              Nothing
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      with"
+                      , "        tpl : A"
+                      , "      controller p"
+                      , "      do pure ()"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Optional Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    choice C : ()"
+                      , "      with"
+                      , "        tpl : A"
+                      , "      controller p"
+                      , "      do pure ()"
+                      ]
+                )
+              ]
+        , test
               "Succeeds when new field with optional type is added to template choice"
               Nothing
               [ ( "daml/MyLib.daml"
