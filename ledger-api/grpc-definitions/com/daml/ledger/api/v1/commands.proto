@@ -223,7 +223,7 @@ message DisclosedContract {
   // Required
   oneof arguments {
     // The contract arguments as typed Record
-    // Deprecated in favor of `contract_create_data`
+    // Deprecated in favor of `contract_create_payload`
     Record create_arguments = 3 [deprecated = true];
 
     // Opaque byte string containing the complete payload required by the Daml engine
@@ -233,7 +233,7 @@ message DisclosedContract {
   }
 
   // The contract metadata from the create event.
-  // Deprecated in favor of `contract_create_data`
+  // Deprecated in favor of `contract_create_payload`
   // Optional
   ContractMetadata metadata = 4 [deprecated = true];
 }
