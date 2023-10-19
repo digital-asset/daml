@@ -41,8 +41,8 @@ checkPackage world version = concatMap (checkModuleInWorld world version) module
 checkModuleInWorld :: World -> Version -> Module -> [Diagnostic]
 checkModuleInWorld world version m =
     case typeCheckResult of
-        Left err -> toDiagnostic DsError err : collisionDiags
-        Right () -> collisionDiags
+        Left err -> toDiagnostic err : collisionDiags
+        Right ((), warnings) -> map toDiagnostic warnings ++ collisionDiags
   where
     collisionDiags = NameCollision.runCheckModuleDeps world m
     typeCheckResult = runGamma world version $ do

@@ -178,6 +178,7 @@ envLookupDepClass synName env =
 expandSynonyms :: LF.World -> LF.Type -> Either LF.Error ExpandedType
 expandSynonyms world ty =
     fmap ExpandedType $
+    fmap fst $ -- Ignore warnings from runGamma
     LF.runGamma world (worldLfVersion world) $
     LF.expandTypeSynonyms ty
 
@@ -603,7 +604,7 @@ generateSrcFromLf env = noLoc mod
         genInstanceBinds :: DFunSig -> Gen (LHsBinds GhcPs)
         genInstanceBinds DFunSig{..}
             | DFunHeadNormal{..} <- dfsHead
-            , Right (LF.TStruct fields) <-
+            , Right (LF.TStruct fields, _warnings) <-
                 LF.runGamma (envWorld env) (envLfVersion env) $
                     LF.introTypeVars dfsBinders $ LF.expandSynApp dfhName dfhArgs
             = listToBag <$> sequence

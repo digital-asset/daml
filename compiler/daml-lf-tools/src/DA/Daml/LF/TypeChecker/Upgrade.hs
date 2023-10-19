@@ -52,8 +52,8 @@ checkUpgrade version package =
                 (checkUpgradeM package)
     in
     case result of
-      Left err -> [toDiagnostic DsError err]
-      Right () -> []
+      Left err -> [toDiagnostic err]
+      Right ((), warnings) -> map toDiagnostic warnings
 
 checkUpgradeM :: MonadGamma m => Upgrading LF.Package -> m ()
 checkUpgradeM package = do

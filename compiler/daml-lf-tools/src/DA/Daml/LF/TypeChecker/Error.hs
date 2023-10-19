@@ -12,6 +12,7 @@ module DA.Daml.LF.TypeChecker.Error(
     UpgradedRecordOrigin(..),
     errorLocation,
     toDiagnostic,
+    Warning(..),
     ) where
 
 import Control.Applicative
@@ -604,13 +605,42 @@ instance Pretty Context where
     ContextDefInterface m i p ->
       hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i), string (show p)]
 
-toDiagnostic :: DiagnosticSeverity -> Error -> Diagnostic
-toDiagnostic sev err = Diagnostic
-    { _range = maybe noRange sourceLocToRange (errorLocation err)
-    , _severity = Just sev
-    , _code = Nothing
-    , _tags = Nothing
-    , _source = Just "Daml-LF typechecker"
-    , _message = renderPretty err
-    , _relatedInformation = Nothing
-    }
+class ToDiagnostic a where
+  toDiagnostic :: a -> Diagnostic
+
+instance ToDiagnostic Error where
+  toDiagnostic err = Diagnostic
+      { _range = maybe noRange sourceLocToRange (errorLocation err)
+      , _severity = Just DsError
+      , _code = Nothing
+      , _tags = Nothing
+      , _source = Just "Daml-LF typechecker"
+      , _message = renderPretty err
+      , _relatedInformation = Nothing
+      }
+
+data Warning
+  = WContext !Context !Warning
+  | WarnChangingEnsure !TypeConName
+  deriving (Show)
+
+warningLocation :: Warning -> Maybe SourceLoc
+warningLocation = \case
+  WContext ctx _ -> contextLocation ctx
+  _ -> Nothing
+
+instance Pretty Warning where
+  pPrint = \case
+    WContext _ w -> pPrint w
+    WarnChangingEnsure template -> "Ensure clause in template " <> pPrint template <> " has changed."
+
+instance ToDiagnostic Warning where
+  toDiagnostic warning = Diagnostic
+      { _range = maybe noRange sourceLocToRange (warningLocation warning)
+      , _severity = Just DsWarning
+      , _code = Nothing
+      , _tags = Nothing
+      , _source = Just "Daml-LF typechecker"
+      , _message = renderPretty warning
+      , _relatedInformation = Nothing
+      }

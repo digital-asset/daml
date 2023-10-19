@@ -341,7 +341,8 @@ liftClosedExpr e = do
             world <- gets sWorldExtended
             version <- gets sVersion
             case runGamma world version (typeOf' e) of
-                Right ty -> do
+                -- ignore warnings, they should have been caught prior and are not relevant here
+                Right (ty, _warnings) -> do
                     name <- freshExprVarNameFor e
                     addDefValue DefValue
                         { dvalBinder = (name, ty)

@@ -10,6 +10,7 @@
 module DA.Daml.LF.TypeChecker.Env(
     MonadGamma,
     throwWithContext,
+    warnWithContext,
     catchAndRethrow,
     inWorld,
     match,
@@ -27,6 +28,7 @@ module DA.Daml.LF.TypeChecker.Env(
 import           Control.Lens hiding (Context)
 import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Monad.Reader
+import           Control.Monad.State
 import           Data.HashMap.Strict (HashMap)
 
 import           DA.Daml.LF.Ast
@@ -56,14 +58,14 @@ getWorld = view world
 
 -- | Type class constraint capturing the needed monadic effects for the
 -- functions manipulating the type checker environment.
-type MonadGamma m = (MonadError Error m, MonadReader Gamma m)
+type MonadGamma m = (MonadError Error m, MonadReader Gamma m, MonadState [Warning] m)
 
 runGamma
   :: World
   -> Version
-  -> ReaderT Gamma (Either Error) a
-  -> Either Error a
-runGamma world0 version act = runReaderT act (emptyGamma world0 version)
+  -> StateT [Warning] (ReaderT Gamma (Either Error)) a
+  -> Either Error (a, [Warning])
+runGamma world0 version act = runReaderT (runStateT act []) (emptyGamma world0 version)
 
 -- | Helper function which tries to match on a prism and fails with a provided
 -- error in case is does not match.
@@ -112,6 +114,11 @@ throwWithContext :: MonadGamma m => Error -> m a
 throwWithContext err = do
   ctx <- view locCtx
   throwError $ EContext ctx err
+
+warnWithContext :: MonadGamma m => Warning -> m ()
+warnWithContext warning = do
+  ctx <- view locCtx
+  modify' (WContext ctx warning :)
 
 withContext :: MonadGamma m => Context -> m b -> m b
 withContext ctx = local (set locCtx ctx)

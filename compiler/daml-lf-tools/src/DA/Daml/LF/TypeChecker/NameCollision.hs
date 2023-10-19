@@ -157,7 +157,7 @@ addName name (NCState nameMap)
         Right . NCState $ M.insert frName (name : oldNames) nameMap
     | otherwise =
         let err = EForbiddenNameCollision (displayName name) (map displayName badNames)
-            diag = toDiagnostic DsError err
+            diag = toDiagnostic err
         in Left diag
   where
     frName = fullyResolve name
