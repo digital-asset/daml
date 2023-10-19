@@ -134,8 +134,8 @@ su -l vsts <<'END'
 cd $(mktemp -d)
 git clone https://github.com/digital-asset/daml.git
 cd daml
+eval "$(dev-env/bin/dade-assist)"
 ./ci/dev-env-install.sh
-./build.sh "_$(uname)"
 cd ..
 rm -rf daml
 exit 0
