@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module DA.Daml.LF.TypeChecker.Upgrade (checkUpgrade, Upgrading(..)) where
 
 import           Control.DeepSeq
@@ -75,11 +76,20 @@ checkDeleted
     => (a -> Error)
     -> Upgrading (HMS.HashMap k a)
     -> m (HMS.HashMap k (Upgrading a), HMS.HashMap k a)
-checkDeleted handle upgrade = do
+checkDeleted handleError upgrade = do
     let (deleted, existing, new) = extractDelExistNew upgrade
-    case HMS.toList deleted of
-      ((_, head):_) -> throwWithContext $ handle head
-      _ -> pure (existing, new)
+    throwIfNonEmpty handleError deleted
+    pure (existing, new)
+
+throwIfNonEmpty
+    :: (Eq k, Hashable k, MonadGamma m)
+    => (a -> Error)
+    -> HMS.HashMap k a
+    -> m ()
+throwIfNonEmpty handleError hm =
+    case HMS.toList hm of
+      ((_, first):_) -> throwWithContext $ handleError first
+      _ -> pure ()
 
 checkModule :: MonadGamma m => Upgrading LF.Module -> m ()
 checkModule module_ = do
@@ -89,8 +99,8 @@ checkModule module_ = do
             (ContextTemplate (present module_) (present template) TPWhole)
             (checkTemplate module_ template)
 
-    -- TODO: Handle deleted datatypes (not belonging to templates or choices)
-    let (_dtDel, dtExisting, _dtNew) = extractDelExistNew $ NM.toHashMap . moduleDataTypes <$> module_
+    -- checkDeleted should only trigger on datatypes not belonging to templates or choices, which we checked above
+    (dtExisting, _dtNew) <- checkDeleted (EUpgradeMissingDataCon . NM.name) $ NM.toHashMap . moduleDataTypes <$> module_
 
     -- For a datatype, derive its context
     let deriveChoiceInfo :: LF.Module -> HMS.HashMap LF.TypeConName (LF.Template, LF.TemplateChoice)
@@ -135,13 +145,13 @@ checkModule module_ = do
                 throwWithContext (EUpgradeRecordChangedOrigin (dataTypeCon (present dt)) (fst (past origin)) (fst (present origin)))
         else
             case present origin of
-              (TopLevel, _) -> pure () -- Ignore top level datatypes
+              (TopLevel, _) -> pure () -- TODO: Handle exported top-level datatypes
               (otherOrigin, context) ->
                   case checkDefDataType otherOrigin dt of
                     Nothing -> pure ()
                     Just e -> withContext context $ throwWithContext e
 
-checkTemplate :: MonadGamma m => Upgrading Module -> Upgrading LF.Template -> m ()
+checkTemplate :: forall m. MonadGamma m => Upgrading Module -> Upgrading LF.Template -> m ()
 checkTemplate module_ template = do
     -- Check that no choices have been removed
     (existingChoices, _existingNew) <- checkDeleted (EUpgradeMissingChoice . NM.name) $ NM.toHashMap . tplChoices <$> template
@@ -190,6 +200,7 @@ checkTemplate module_ template = do
     -- TODO: Check that return type of a choice is compatible
     pure ()
     where
+        extractFuncFromFuncThis :: Expr -> Maybe ExprValName
         extractFuncFromFuncThis expr
             | ETmApp{..} <- expr
             , EVal qualEvn <- tmappFun
@@ -197,6 +208,8 @@ checkTemplate module_ template = do
             = Just (qualObject qualEvn)
             | otherwise
             = Nothing
+
+        extractFuncFromFuncThisArg :: Expr -> Maybe ExprValName
         extractFuncFromFuncThisArg expr
             | outer@ETmApp{} <- expr
             , EVar (ExprVarName "arg") <- tmappArg outer
@@ -206,11 +219,15 @@ checkTemplate module_ template = do
             = Just (qualObject qualEvn)
             | otherwise
             = Nothing
+
+        extractFuncFromCaseFuncThis :: Expr -> Maybe ExprValName
         extractFuncFromCaseFuncThis expr
             | ECase{..} <- expr
             = extractFuncFromFuncThis casScrutinee
             | otherwise
             = Nothing
+
+        resolveExpression :: String -> Maybe ExprValName -> Module -> Expr
         resolveExpression field expr module_ =
             case expr of
               Nothing -> error ("checkTemplate: Could not extract a proper " ++ field ++ ", the structure of the expression must be wrong.")
