@@ -132,7 +132,15 @@ public class JsonLfEncoders {
     return opt -> {
       return w -> {
         if (opt.isEmpty()) w.write("null");
-        else valueEncoder.apply(opt.get()).encode(w);
+        else {
+          T value = opt.get();
+          assert (!(value instanceof Optional))
+              : "Using `optional` to encode a "
+                  + value.getClass()
+                  + " but `optionalNested` must be used for the outer encoders of nested"
+                  + " Optional";
+          valueEncoder.apply(value).encode(w);
+        }
       };
     };
   }
