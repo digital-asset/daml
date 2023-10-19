@@ -9,7 +9,7 @@ import value.{CidContainer, Value}
 
 // This should replace value.ContractInstance in the whole daml/canton codespace
 // TODO: Rename to ContractInstance once value.ContractInstance is properly deprecated
-sealed abstract class FatContractInstance extends Product with CidContainer[FatContractInstance] {
+sealed abstract class FatContractInstance extends CidContainer[FatContractInstance] {
   val version: TransactionVersion
   val contractId: Value.ContractId
   val templateId: Ref.TypeConName
@@ -23,6 +23,8 @@ sealed abstract class FatContractInstance extends Product with CidContainer[FatC
   private[lf] def toImplementation: FatContractInstanceImpl =
     this.asInstanceOf[FatContractInstanceImpl]
   require(maintainers.isEmpty || contractKey.isDefined)
+  def updateCreateTime(updatedTime: Time.Timestamp): FatContractInstance
+  def setSalt(canton_data: Bytes): FatContractInstance
 }
 
 private[lf] final case class FatContractInstanceImpl(
@@ -50,10 +52,10 @@ private[lf] final case class FatContractInstanceImpl(
     )
   }
 
-  def updateCreateTime(updatedTime: Time.Timestamp): FatContractInstance =
+  def updateCreateTime(updatedTime: Time.Timestamp): FatContractInstanceImpl =
     copy(createTime = updatedTime)
 
-  def setSalt(canton_data: Bytes): FatContractInstance = {
+  def setSalt(canton_data: Bytes): FatContractInstanceImpl = {
     assert(canton_data.nonEmpty)
     copy(cantonData = canton_data)
   }
