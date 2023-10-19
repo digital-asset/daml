@@ -189,7 +189,6 @@ data UpgradeError
 data UpgradedRecordOrigin
   = TemplateBody TypeConName
   | TemplateChoiceInput TypeConName ChoiceName
-  | TemplateChoiceOutput TypeConName ChoiceName TypeConName
   | TopLevel
   deriving (Eq, Ord, Show)
 
@@ -586,7 +585,6 @@ instance Pretty UpgradedRecordOrigin where
   pPrint = \case
     TemplateBody tpl -> "template " <> pPrint tpl
     TemplateChoiceInput tpl chcName -> "input type of choice " <> pPrint chcName <> " on template " <> pPrint tpl
-    TemplateChoiceOutput tpl chcName rec -> "record " <> pPrint tpl <> " (used in output type of choice " <> pPrint chcName <> " on template " <> pPrint rec <> ")"
     TopLevel -> "record"
 
 instance Pretty Context where

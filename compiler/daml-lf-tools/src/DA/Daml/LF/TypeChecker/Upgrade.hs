@@ -5,14 +5,14 @@
 module DA.Daml.LF.TypeChecker.Upgrade (checkUpgrade, Upgrading(..)) where
 
 import           Control.DeepSeq
-import           Control.Monad (unless, forM_)
+import           Control.Monad (unless, forM_, when)
 import           DA.Daml.LF.Ast as LF
-import           DA.Daml.LF.Ast.Recursive (TypeF(..))
-import           Data.Functor.Foldable (cata)
-import           Data.Foldable (fold)
 import           DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
+import           DA.Daml.LF.Ast.Recursive (TypeF(..))
+import           Data.Functor.Foldable (cata)
+import           Data.Foldable (fold)
 import           Data.Data
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
@@ -118,21 +118,26 @@ checkModule module_ = do
             pure (qualObject dtName, (template, choice))
         dataTypeOrigin
             :: DefDataType -> Module
-            -> (UpgradedRecordOrigin, Context)
+            -> (UpgradedRecordOrigin, (Context, Bool))
         dataTypeOrigin dt module_
             | Just template <- NM.name dt `NM.lookup` moduleTemplates module_ =
                 ( TemplateBody (NM.name dt)
-                , ContextTemplate module_ template TPWhole
+                , ( ContextTemplate module_ template TPWhole
+                  , True
+                  )
                 )
             | Just (template, choice) <- NM.name dt `HMS.lookup` deriveChoiceInfo module_ =
                 ( TemplateChoiceInput (NM.name template) (NM.name choice)
-                , ContextTemplate module_ template (TPChoice choice)
+                , ( ContextTemplate module_ template (TPChoice choice)
+                  , True
+                  )
                 )
-            | Just (template, choice) <- NM.name dt `HMS.lookup` allChoiceReturnTCons module_ =
-                ( TemplateChoiceOutput (NM.name template) (NM.name choice) (NM.name dt)
-                , ContextTemplate module_ template (TPChoice choice)
+            | otherwise =
+                ( TopLevel
+                , (ContextDefDataType module_ dt
+                  , NM.name dt `HMS.member` allChoiceReturnTCons module_
+                  )
                 )
-            | otherwise = (TopLevel, ContextDefDataType module_ dt)
 
     forM_ dtExisting $ \dt ->
         -- Get origin/context for each datatype in both past and present
@@ -143,12 +148,12 @@ checkModule module_ = do
             withContext (ContextDefDataType (present module_) (present dt)) $
                 throwWithContext (EUpgradeError (RecordChangedOrigin (dataTypeCon (present dt)) (fst (past origin)) (fst (present origin))))
         else
-            case present origin of
-              (TopLevel, _) -> pure () -- TODO: Handle exported top-level datatypes
-              (otherOrigin, context) ->
-                  case checkDefDataType otherOrigin dt of
-                    Nothing -> pure ()
-                    Just e -> withContext context $ throwWithContext e
+            let (presentOrigin, (context, shouldCheck)) = present origin
+            in
+            when shouldCheck $
+                case checkDefDataType presentOrigin dt of
+                  Nothing -> pure ()
+                  Just e -> withContext context $ throwWithContext e
 
 checkTemplate :: forall m. MonadGamma m => Upgrading Module -> Upgrading LF.Template -> m ()
 checkTemplate module_ template = do
