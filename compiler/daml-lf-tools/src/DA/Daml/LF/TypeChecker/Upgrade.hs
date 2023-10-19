@@ -57,7 +57,7 @@ checkUpgrade version package =
 
 checkUpgradeM :: MonadGamma m => Upgrading LF.Package -> m ()
 checkUpgradeM package = do
-    (upgradedModules, _new) <- checkDeleted (EUpgradeMissingModule . NM.name) $ NM.toHashMap . packageModules <$> package
+    (upgradedModules, _new) <- checkDeleted (EUpgradeError . MissingModule . NM.name) $ NM.toHashMap . packageModules <$> package
     forM_ upgradedModules checkModule
 
 extractDelExistNew
@@ -92,14 +92,14 @@ throwIfNonEmpty handleError hm =
 
 checkModule :: MonadGamma m => Upgrading LF.Module -> m ()
 checkModule module_ = do
-    (existingTemplates, _new) <- checkDeleted (EUpgradeMissingTemplate . NM.name) $ NM.toHashMap . moduleTemplates <$> module_
+    (existingTemplates, _new) <- checkDeleted (EUpgradeError . MissingTemplate . NM.name) $ NM.toHashMap . moduleTemplates <$> module_
     forM_ existingTemplates $ \template ->
         withContext
             (ContextTemplate (present module_) (present template) TPWhole)
             (checkTemplate module_ template)
 
     -- checkDeleted should only trigger on datatypes not belonging to templates or choices, which we checked above
-    (dtExisting, _dtNew) <- checkDeleted (EUpgradeMissingDataCon . NM.name) $ NM.toHashMap . moduleDataTypes <$> module_
+    (dtExisting, _dtNew) <- checkDeleted (EUpgradeError . MissingDataCon . NM.name) $ NM.toHashMap . moduleDataTypes <$> module_
 
     -- For a datatype, derive its context
     let deriveChoiceInfo :: LF.Module -> HMS.HashMap LF.TypeConName (LF.Template, LF.TemplateChoice)
@@ -141,7 +141,7 @@ checkModule module_ = do
         -- If origins don't match, record has changed origin
         if foldU (/=) (fst <$> origin) then
             withContext (ContextDefDataType (present module_) (present dt)) $
-                throwWithContext (EUpgradeRecordChangedOrigin (dataTypeCon (present dt)) (fst (past origin)) (fst (present origin)))
+                throwWithContext (EUpgradeError (RecordChangedOrigin (dataTypeCon (present dt)) (fst (past origin)) (fst (present origin))))
         else
             case present origin of
               (TopLevel, _) -> pure () -- TODO: Handle exported top-level datatypes
@@ -153,17 +153,17 @@ checkModule module_ = do
 checkTemplate :: forall m. MonadGamma m => Upgrading Module -> Upgrading LF.Template -> m ()
 checkTemplate module_ template = do
     -- Check that no choices have been removed
-    (existingChoices, _existingNew) <- checkDeleted (EUpgradeMissingChoice . NM.name) $ NM.toHashMap . tplChoices <$> template
+    (existingChoices, _existingNew) <- checkDeleted (EUpgradeError . MissingChoice . NM.name) $ NM.toHashMap . tplChoices <$> template
     forM_ existingChoices $ \choice -> do
         withContext (ContextTemplate (present module_) (present template) (TPChoice (present choice))) $ do
             let returnTypesMatch = foldU alphaType (fmap chcReturnType choice)
             unless returnTypesMatch $
-                throwWithContext (EUpgradeChoiceChangedReturnType (NM.name (present choice)))
+                throwWithContext (EUpgradeError (ChoiceChangedReturnType (NM.name (present choice))))
 
             throwIfDifferent "controllers" (extractFuncFromFuncThisArg . chcControllers <$> choice) $
-                EUpgradeChoiceChangedControllers $ NM.name $ present choice
+                EUpgradeError $ ChoiceChangedControllers $ NM.name $ present choice
 
-            let observersErr = EUpgradeChoiceChangedObservers $ NM.name $ present choice
+            let observersErr = EUpgradeError $ ChoiceChangedObservers $ NM.name $ present choice
             case fmap (mapENilToNothing . chcObservers) choice of
                Upgrading { past = Nothing, present = Nothing } -> do
                    pure ()
@@ -172,7 +172,7 @@ checkTemplate module_ template = do
                _ -> do
                    throwWithContext observersErr
 
-            let authorizersErr = EUpgradeChoiceChangedAuthorizers $ NM.name $ present choice
+            let authorizersErr = EUpgradeError $ ChoiceChangedAuthorizers $ NM.name $ present choice
             case fmap (mapENilToNothing . chcAuthorizers) choice of
                Upgrading { past = Nothing, present = Nothing } -> pure ()
                Upgrading { past = Just past, present = Just present } ->
@@ -186,16 +186,16 @@ checkTemplate module_ template = do
     -- identical.
     withContext (ContextTemplate (present module_) (present template) TPPrecondition) $
         throwIfDifferent "precondition" (extractFuncFromCaseFuncThis . tplPrecondition <$> template) $
-            EUpgradeTemplateChangedPrecondition $ NM.name $ present template
+            EUpgradeError $ TemplateChangedPrecondition $ NM.name $ present template
     withContext (ContextTemplate (present module_) (present template) TPSignatories) $
         throwIfDifferent "signatories" (extractFuncFromFuncThis . tplSignatories <$> template) $
-            EUpgradeTemplateChangedSignatories $ NM.name $ present template
+            EUpgradeError $ TemplateChangedSignatories $ NM.name $ present template
     withContext (ContextTemplate (present module_) (present template) TPObservers) $
         throwIfDifferent "observers" (extractFuncFromFuncThis . tplObservers <$> template) $
-            EUpgradeTemplateChangedObservers $ NM.name $ present template
+            EUpgradeError $ TemplateChangedObservers $ NM.name $ present template
     withContext (ContextTemplate (present module_) (present template) TPAgreement) $
         throwIfDifferent "agreement" (extractFuncFromFuncThis . tplAgreement <$> template) $
-            EUpgradeTemplateChangedAgreement $ NM.name $ present template
+            EUpgradeError $ TemplateChangedAgreement $ NM.name $ present template
     -- TODO: Check that return type of a choice is compatible
     pure ()
     where
@@ -248,20 +248,20 @@ checkDefDataType origin datatype = do
       Upgrading { past = DataVariant {}, present = DataVariant {} } -> Nothing
       Upgrading { past = DataEnum {}, present = DataEnum {} } -> Nothing
       Upgrading { past = DataInterface {}, present = DataInterface {} } -> Nothing
-      _ -> Just (EUpgradeMismatchDataConsVariety (dataTypeCon (past datatype)))
+      _ -> Just (EUpgradeError (MismatchDataConsVariety (dataTypeCon (past datatype))))
 
 checkFields :: UpgradedRecordOrigin -> Upgrading [(FieldName, Type)] -> Maybe Error
 checkFields origin fields =
     let (deleted, existing, new) = extractDelExistNew $ HMS.fromList <$> fields
     in
     if not (HMS.null deleted) then
-        Just (EUpgradeRecordFieldsMissing origin)
+        Just (EUpgradeError (RecordFieldsMissing origin))
     -- If a field from the upgraded package has had its type changed
     else if any matchingFieldDifferentType existing then
-        Just (EUpgradeRecordFieldsExistingChanged origin)
+        Just (EUpgradeError (RecordFieldsExistingChanged origin))
     -- If a new field has a non-optional type
     else if not (all newFieldOptionalType new) then
-        Just (EUpgradeRecordFieldsNewNonOptional origin)
+        Just (EUpgradeError (RecordFieldsNewNonOptional origin))
     else
         Nothing
     where
