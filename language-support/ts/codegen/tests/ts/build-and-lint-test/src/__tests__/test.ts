@@ -915,7 +915,7 @@ describe("interfaces", () => {
     // make a contract whose template is not in the JS image
     // we can't use ledger.create without knowing the exact template ID
     const submittableLedger = ledger as unknown as {
-      submit: typeof ledger["submit"];
+      submit: (typeof ledger)["submit"];
     };
     const {
       templateId: nvitFQTID,
