@@ -72,7 +72,7 @@ message CreatedEvent {
   // to an API server as a contract disclosed as part of a command
   // submission.
   // Optional
-  google.protobuf.Any create_arguments_blob = 12;
+  google.protobuf.Any contract_create_payload = 12;
 
   // Interface views specified in the transaction filter.
   // Includes an ``InterfaceView`` for each interface for which there is a ``InterfaceFilter`` with
@@ -116,7 +116,8 @@ message CreatedEvent {
   // Metadata of the contract. Required for contracts created
   // after the introduction of explicit disclosure.
   // Optional
-  ContractMetadata metadata = 10;
+
+  ContractMetadata metadata = 10 [deprecated = true];
 }
 
 // View of a create event matched by an interface filter.
