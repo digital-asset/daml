@@ -9,6 +9,7 @@ load(
 load("//bazel_tools:proto.bzl", "proto_gen")
 load("//bazel_tools:java.bzl", "da_java_library")
 load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
+load("//bazel_tools/java_testing:java_test_suite.bzl", "java_test_suite")
 
 proto_gen(
     name = "ledger-api-java",
@@ -83,10 +84,10 @@ da_java_library(
     ],
 )
 
-java_test(
+java_test_suite(
     name = "java-tests",
     srcs = glob(["src/test/java/**/*.java"]),
-    test_class = "com.daml.ledger.javaapi.data.codegen.json.JsonLfReaderTest",
+    strip = "src/test/java/",
     deps = [
         ":bindings-java",
         "@maven//:com_google_protobuf_protobuf_java",

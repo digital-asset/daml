@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-/// Readers for built-in LF types. ///
+/// Decoders for built-in LF types. ///
 public class JsonLfDecoders {
 
   public static final JsonLfDecoder<Unit> unit =
