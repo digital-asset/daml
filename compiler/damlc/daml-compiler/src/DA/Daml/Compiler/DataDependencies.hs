@@ -177,8 +177,7 @@ envLookupDepClass synName env =
 
 expandSynonyms :: LF.World -> LF.Type -> Either LF.Error ExpandedType
 expandSynonyms world ty =
-    fmap ExpandedType $
-    fmap fst $ -- Ignore warnings from runGamma
+    fmap (ExpandedType . fst) $ -- Ignore warnings from runGamma
     LF.runGamma world (worldLfVersion world) $
     LF.expandTypeSynonyms ty
 
