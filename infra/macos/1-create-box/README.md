@@ -1,13 +1,15 @@
 # Note on major macOS versions
 
-The instructions below have been tested on a macOS Catalina host to create a
-macOS Catalina guest. While I believe it is possible to _run_ different
-combinations of the guest/host macOS versions, the documentation for the
-macinbox project is pretty clear that it is not possible to _create_ Catalina
-images from earlier OSes, nor earlier OS images from a Catalina host.
+The instructions below have been tested on a macOS Monterey (12.7) host to
+create a macOS Catalina guest.
 
-As I only have access to Catalina host systems, I have not been able to test
-older versions.
+> :warning: Note that the old `macinbox` approach does not work anymore: it is
+> not able to create Catalina images from a Montery host, and does not know
+> about any OS version more recent than Catalina.
+>
+> (If you're not sure what this refers to, see the git history of this file if
+> you're curious, or just ignore it and move on to how things do work as of
+> October 2023.)
 
 # Machine Setup
 
@@ -17,16 +19,7 @@ You should consider the following changes to the MacOS device:
 - Ensure timezone and time sync are set correctly
 - Depending on requirements to manage boxes, enable Screen Share and Remote Access
 
-# Installing tools
-
-## macOS Installer App
-
-First thing to do is start the download of the macOS installer app from the App
-Store. This will take a while as the installer is rather large, but you can do
-most of the other steps below while the download is going on.
-
-I have tested these steps on macOS Catalina 10.15.3 with a Catalina installer
-created on 2020-01-23 (15.1.00).
+# Host tools
 
 ## Homebrew
 
@@ -61,23 +54,16 @@ Alternatively, installing with Homebrew:
 brew cask install vagrant
 ```
 
-These instructions have been tested with 2.2.9.
+These instructions have been tested with 2.3.4.
 
-## Hypervisor Selection
-
-We provide two options for the hypervisor: VirtualBox (open-source) and VMWare Fusion (commercial license). This
-resulted from our testing on large Mac Mini nodes (6 Core, 64Gb, 500Gb drives) where we found VirtualBox to be
-less stable when attempting to use > 6 virtual cores or 32Gb or more of memory. The Guest OS would hang on boot, or
-experience slow processing or network to the extent that it became unusable.
-
-## VMWare Fusion
+## VMware Fusion
 
 Purchase a license for
 
 * [VMware Fusion Pro 11.5.3](http://www.vmware.com/products/fusion.html)
 * [Vagrant VMware Desktop Provider 2.0.3](https://www.vagrantup.com/vmware/)
 
-Download the installer packages for this software. Install VMWare Fusion per vendor instructions and accept
+Download the installer packages for this software. Install VMware Fusion per vendor instructions and accept
 the security settings in Catalina.
 
 In a Terminal, ensure you have vagrant 2.2.9 and upgrade if necessary or you will receive error from vagrant plugin
@@ -101,136 +87,176 @@ To verify the license installation, run:
 vagrant plugin list
 ```
 
-## VirtualBox
-
-Download and install
-[VirtualBox](https://download.virtualbox.org/virtualbox/6.1.6/VirtualBox-6.1.6-137129-OSX.dmg),
-including the [extension
-pack](https://download.virtualbox.org/virtualbox/6.1.6/Oracle_VM_VirtualBox_Extension_Pack-6.1.6.vbox-extpack).
-
-Alternatively, it can be installed from Homebrew using:
-
-```bash
-brew cask install virtualbox
-```
-
-**This will require sudo access.**
-
-The extension pack has to be manually added after the installation of
-VirtualBox; this can be done through the UI, or running:
-
-```bash
-V=$(VBoxManage --version | sed 's/r.*//')
-sudo VBoxManage extpack install /path/to/download/Oracle_VM_VirtualBox_Extension_Pack-$V.vbox-extpack
-```
-
-These instructions have been tested against 6.1.4 and 6.1.6. The extension
-version must match the version of VirtualBox itself. As explained above,
-VirtualBox does not seem to fully support our production configuration, though
-it may still be useful for local testing.
-
-## rbenv
-
-The underlying scripts to create the "blank" macOS guest machine are written in
-Ruby, so we need to install some version of Ruby. Ruby does come with macOS,
-and has installers in Homebrew, but for the sake of stability we are going to
-go with `rbenv`, so we can pin down the exact Ruby version we use. This also
-has the advantage of not needing root access to install the `macinbox` gem.
-(Though `sudo` still needs to be used to run it.)
-
-On the host machine, for the user that is going to manage the guest VM, add the
-following to the relevant shell init file (`~/.zshrc` by default):
-
-```bash
-if [ -d $HOME/.rbenv/shims ]; then
-    export PATH="$HOME/.rbenv/shims:$PATH"
-fi
-if [ -d $HOME/.rbenv/bin ]; then
-    export PATH="$HOME/.rbenv/bin:$PATH"
-fi
-```
-
-then run the following:
-
-```bash
-git clone https://github.com/rbenv/rbenv.git ~/.rbenv
-cd ~/.rbenv
-git checkout c6324ff45af33a194f5658a1c6322a94da145f98
-```
-
-Note: this is the commit I tested these instructions with; I have no reason to
-believe the `master` branch is bad.
-
-In a new terminal (to pick up the new PATH), run:
-
-```bash
-mkdir -p "$(rbenv root)"/plugins
-git clone https://github.com/rbenv/ruby-build.git "$(rbenv root)"/plugins/ruby-build
-cd "$(rbenv root)/plugins/ruby-build"
-git checkout 0ef5e055659230e2fb2ae9b0928f70dc27c1c136
-```
-
-where, again, this is the commit I tested with, so I am providing it for
-maximum reproducibility, but I have no reason to mistrust the `master` branch.
-
-Finally, run:
-```bash
-rbenv install 2.7.0
-rbenv global 2.7.0
-```
-
-which installs Ruby 2.7.0 for the current user.
-
-## macinbox
-
-From this directory, run:
-
-```bash
-gem install macinbox -v 4.0.0
-```
-
-The version I tested with is 4.0.0.
-
-# Creating base image
-
-After all the tools are installed (and the macOS installer has finished
-downloading), you can create the base image ("Vagrant box") using the following
-command:
-
-## VMWare Fusion Variant
-
-```bash
-sudo macinbox --box-format vmware_desktop --disk 250 --memory 57344 --cpu 10 --user-script user-script.sh
-```
-
-## VirtualBox variant
-
-NOTE: Limited use of hardware due to possible bugs in VirtualBox.
-
-```bash
-sudo macinbox --box-format virtualbox --disk 50 --memory 4096 --cpu 1 --user-script user-script.sh
-```
-
-The disk size given here (in GB) will be the disk size used by the individual
-VMs created based on this box; memory and cpu parameters are default values
-that can be overridden in the Vagrantfile.
-
-200GB disk size is the value we arrived at for Windows and Linux nodes by
-progressively incrementing the size each time we had a "disk is full" error.
-
-32GB of RAM and 4 CPU cores are the values I arrived at by running our existing
-build against various virtual instance types on Linux and Windows (see
-[#4520](https://github.com/digital-asset/daml/pull/4520)).
-
-250Gb disk, 56Gb memory and 10 virtual cores was arrived at from testing on Mac Mini 2018 nodes with 6 core
+200Gb disk, 56Gb memory and 10 virtual cores was arrived at from testing on Mac Mini 2018 nodes with 6 core
 processors.
 
-The provided "user script", which can be inspected in the current directory,
-adds a `synthetic.conf` file as part of the base macOS image we are creating,
-such that new VMs will start up with an available mount point on `/nix`.
+
+# Creating the Guest VM
+
+## macOS Installer App
+
+On more recent macOS versions, the UI won't let you get older installers. You
+can still get the Catalina image with the following CLI command:
+
+```
+softwareupdate --fetch-full-installer --full-installer-version 10.15.7
+```
+
+This will save the Catalina installer at `/Applications/Install macOS
+Catalina.app`.
+
+## Creating a VMware Image
+
+Through the VMware Fusion UI, one can start the "New Virtual Machine" wizard,
+then drag-and-drop the Catalina installer from the Applications folder onto the
+first screen of the wizard ("Select the Installation Method").
+
+## Machine settings
+
+On machine startup, the installer will be loaded on a secondary hard drive, as
+if it were a recovery partition. To get the desired settings (200GB hard drive,
+10 processors, 57344MB of RAM), one needs to create the machine, then change
+its settings, and then, at first startup, use the Disk Utility option of the
+Recovery Tools to resize ("Erase") the main hard drive (`Macintosh HD`).
+
+One then needs to go through the Catalina installer, which can take some time.
+Select United States, skip Apple ID. Use the `vagrant` account name and the
+host password. Don't import anything, skip Apple ID, don't enable Siri, etc.
+Basically say no to anyting you can say no to.
+
+## OS Upgrade
+
+Once Catalina is up and running, we want to upgrade to a more recent version.
+Upgrading to Sonoma, as suggested, doesn't work (the installation hangs). But
+we can still get some improved security by upgrading to Monterey by running:
+
+```
+sudo softwareupdate --fetch-full-installer --full-installer-version 12.7
+```
+
+Note that, on my machine at least, the keybpard mappings are all wrong when
+connected to the nested VM, and I had to use the accessibility keyboard.
+
+Also note that the above will print error messages, but seems to still proceed
+with the install. Once the ugrade is finished, we need to turn the VM into a
+Vagrant box.
+
+There are two missing steps for that:
+
+1. Enabling SSH with the [Vagrant insecure key].
+2. Installing the [VMware Tools] inside the VM.
+
+See the [Vagrant documentation] for full details on how to turn a VMware
+machine into a Vagrant box.
+
+[Vagrant insecure key]: https://github.com/hashicorp/vagrant/blob/main/keys/vagrant.pub
+[VMware Tools]: https://kb.vmware.com/s/article/340
+[Vagrant documentation]: https://developer.hashicorp.com/vagrant/docs/providers/vmware/boxes
+
+
+## SSH Server
+
+To enable the SSH server, go to System Preferences -> Sharing and enable Remote
+Login. Make sure to add the vagrant user to the list of users authorized to
+login through SSH.
+
+Next, we need to add the Vagrant insecure key to `$HOME/.ssh/authorized_keys`.
+
+## Installing the VMware Tools
+
+On the host top-bar menu, with the VM running, click on Virtual Machine ->
+Install VMware Tools, then follow the wizard. Let the installer do its thing,
+then go to System Preferences -> Security and Privacy to enable the kernel
+modules VMware Tools just installed. Then restart the VM.
+
+## Sudo Access
+
+For some of the next steps, we'll need sudoer access without a password:
+
+```bash
+sudo bash -c "echo 'vagrant ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers"
+```
+
+Note that Azure Pipelines jobs will run as the `vsts` user, not tha `vagrant`
+user, so they won't have sudoer access.
+
+## Nix Mountpoint
+
+In order for macOS to create the required mountpoint for Nix, we need to add a
+`synthetic.conf` file:
+
+```bash
+sudo bash -c 'echo "nix" > "/etc/synthetic.conf"'
+```
+
+## Memory Settings
+
+It's unclear whether this is still required as we've been doing this for the
+past 5 years without questioning it, but we add these settings on our macOS
+nodes:
+
+```bash
+sudo bash <<BASH
+cat <<SYS > /etc/sysctl.conf
+kern.sysv.shmmax=16777216
+kern.sysv.shmmin=1
+kern.sysv.shmmni=128
+kern.sysv.shmseg=32
+kern.sysv.shmall=4096
+SYS
+BASH
+```
+
+Do a final reboot then properly shut down the VM from within.
+
+# Turning the VMware VM into a Vagrant Box
+
+This is a fairly simple process. First, make sure the VM is properly shut down.
+Assuming the VM is at :
+```
+$HOME/Virtual Machines.localized/base-20231018.vmwarevm
+```
+one can create the Vagrant Box with (on the host):
+
+```bash
+cd $(mktemp -d)
+mkdir tmp
+echo '{"provider": "vmware_desktop"}' > tmp/metadata.json
+cp $HOME/Virtual\ Machines.localized/base-20231018.vmwarevm/{*.vmdk,*.nvram,*.vmsd,*.vmx,*.vmxf} tmp/
+/Applications/VMware\ Fusion.app/Contents/Library/vmware-vdiskmanager -d tmp/*.vmdk
+/Applications/VMware\ Fusion.app/Contents/Library/vmware-vdiskmanager -k tmp/*.vmdk
+cd tmp
+GZIP=-9 tar czf base.box ./*
+```
+
+And that's it, we have a base box.
+
+I (Gary Verhaegen) have ran through these instructions on 2023-10-18 and
+created a base box with the following hash:
+
+```bash
+296ae2b4f78547c4e6e299a4ae9b1cba4873bcadac49a9bc5b3fa4978ae5f834  base.box
+```
+
+which I have pushed to GCS at:
+
+```
+https://console.cloud.google.com/storage/browser/_details/daml-data/manual/gary/macos/base-2023-10-18.box;tab=live_object?project=da-dev-gcp-daml-language
+```
 
 # Sharing the base box
 
 If you want to share this base box (to avoid having to run the above on every
-macOS host), you can copy over the `~/.vagrant.d/boxes/macinbox` directory to
-new machines.
+macOS host), you can copy over the `~/.vagrant.d/boxes/base` directory to new
+machines, or copy over the `base.box` file and do `vagrant box add` on each
+machine. Note that this is not particularly recommended: the box we really want
+to have on each machine is the result of step 2.
+
+# Next
+
+In order for this step to flow seamlessly with the existing step 2, we import
+the machine under the old `macinbox` name:
+
+```
+vagrant box add --name macinbox base.box
+```
