@@ -28,7 +28,7 @@ import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 
 @RunWith(JUnitPlatform.class)
-public class JsonLfReaderTest {
+public class JsonLfDecodersTest {
 
   @Test
   void testUnit() throws JsonLfDecoder.Error {
