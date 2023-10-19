@@ -177,7 +177,9 @@ data UpgradeError
   | RecordFieldsExistingChanged !UpgradedRecordOrigin
   | RecordFieldsNewNonOptional !UpgradedRecordOrigin
   | RecordChangedOrigin !TypeConName !UpgradedRecordOrigin !UpgradedRecordOrigin
+  | TemplateChangedKeyType !TypeConName
   | ChoiceChangedReturnType !ChoiceName
+  | TemplateRemovedKey !TypeConName !TemplateKey
   deriving (Eq, Ord, Show)
 
 data UpgradedRecordOrigin
@@ -567,6 +569,8 @@ instance Pretty UpgradeError where
     RecordFieldsNewNonOptional origin -> "The upgraded " <> pPrint origin <> " has added new fields, but those fields are not Optional."
     RecordChangedOrigin dataConName past present -> "The record " <> pPrint dataConName <> " has changed origin from " <> pPrint past <> " to " <> pPrint present
     ChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
+    TemplateChangedKeyType templateName -> "The upgraded template " <> pPrint templateName <> " cannot change its key type."
+    TemplateRemovedKey templateName key -> "The upgraded template " <> pPrint templateName <> " cannot remove its key " <> pPrint (tplKeyType key) <> "."
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
@@ -614,6 +618,9 @@ data Warning
   | WChoiceChangedControllers !ChoiceName
   | WChoiceChangedObservers !ChoiceName
   | WChoiceChangedAuthorizers !ChoiceName
+  | WTemplateChangedKeyExpression !TypeConName
+  | WTemplateChangedKeyMaintainers !TypeConName
+  | WTemplateAddedKeyDefinition !TypeConName !TemplateKey
   deriving (Show)
 
 warningLocation :: Warning -> Maybe SourceLoc
@@ -631,6 +638,9 @@ instance Pretty Warning where
     WChoiceChangedControllers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of controllers."
     WChoiceChangedObservers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of observers."
     WChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of authorizers."
+    WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " cannot change the expression for computing its key."
+    WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " cannot change the maintainers for its key."
+    WTemplateAddedKeyDefinition template key -> "The upgraded template " <> pPrint template <> " cannot add a key " <> pPrint (tplKeyType key) <> " if it didn't have one previously."
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic

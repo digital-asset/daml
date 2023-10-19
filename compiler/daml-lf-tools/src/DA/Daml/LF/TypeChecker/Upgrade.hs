@@ -205,6 +205,31 @@ checkTemplate module_ template = do
     withContext (ContextTemplate (present module_) (present template) TPAgreement) $
         whenDifferent "agreement" (extractFuncFromFuncThis . tplAgreement <$> template) $
             warnWithContext $ WTemplateChangedAgreement $ NM.name $ present template
+
+    withContext (ContextTemplate (present module_) (present template) TPKey) $ do
+        case fmap tplKey template of
+           Upgrading { past = Nothing, present = Nothing } -> do
+               pure ()
+           Upgrading { past = Just pastKey, present = Just presentKey } -> do
+               let tplKey = Upgrading pastKey presentKey
+
+               -- Key type musn't change
+               let keyTypesMatch = foldU alphaType (fmap tplKeyType tplKey)
+               unless keyTypesMatch $
+                   throwWithContext (EUpgradeError (TemplateChangedKeyType (NM.name (present template))))
+
+               -- But expression for computing it may
+               whenDifferent "key expression"
+                   (extractFuncFromFuncThis . tplKeyBody <$> tplKey)
+                   (warnWithContext $ WTemplateChangedKeyExpression $ NM.name $ present template)
+               whenDifferent "key maintainers"
+                   (extractFuncFromFuncThis . tplKeyMaintainers <$> tplKey)
+                   (warnWithContext $ WTemplateChangedKeyMaintainers $ NM.name $ present template)
+           Upgrading { past = Just pastKey, present = Nothing } ->
+               throwWithContext $ EUpgradeError $ TemplateRemovedKey (NM.name (present template)) pastKey
+           Upgrading { past = Nothing, present = Just presentKey } ->
+               warnWithContext $ WTemplateAddedKeyDefinition (NM.name (present template)) presentKey
+
     -- TODO: Check that return type of a choice is compatible
     pure ()
     where
