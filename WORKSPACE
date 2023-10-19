@@ -701,14 +701,6 @@ node_repositories(
     vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
 )
 
-yarn_install(
-    name = "npm",
-    args = ["--frozen-lockfile"],
-    package_json = "//:package.json",
-    symlink_node_modules = False,
-    yarn_lock = "//:yarn.lock",
-)
-
 # TODO use fine-grained managed dependency
 yarn_install(
     name = "daml_extension_deps",
