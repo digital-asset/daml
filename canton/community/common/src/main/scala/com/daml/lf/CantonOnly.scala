@@ -5,7 +5,7 @@ package com.daml.lf
 
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.speedy.Compiler
 import com.daml.lf.transaction.TransactionCoder.{DecodeNid, EncodeNid}
 import com.daml.lf.transaction.{
@@ -40,9 +40,11 @@ object CantonOnly {
       darMap: Map[PackageId, Ast.Package],
       enableLfDev: Boolean,
   ): PureCompiledPackages = {
+    // TODO(#14706): switch to LF v2 once it becomes the new default major version
     PureCompiledPackages.assertBuild(
       darMap,
-      if (enableLfDev) Compiler.Config.Dev else Compiler.Config.Default,
+      if (enableLfDev) Compiler.Config.Dev(LanguageMajorVersion.V2)
+      else Compiler.Config.Default(LanguageMajorVersion.V1),
     )
   }
 

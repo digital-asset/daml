@@ -22,6 +22,7 @@ import scala.util.Try
 class AuthServiceJWT(
     verifier: JwtVerifierBase,
     targetAudience: Option[String],
+    targetScope: Option[String],
     val loggerFactory: NamedLoggerFactory,
 ) extends AuthService
     with NamedLogging {
@@ -49,25 +50,35 @@ class AuthServiceJWT(
     )
 
   private[this] def parsePayload(jwtPayload: String): Either[Error, AuthServiceJWTPayload] = {
-    val parsed =
-      if (targetAudience.isDefined)
-        Try(parseAudienceBasedPayload(jwtPayload))
-      else
-        Try(parseAuthServicePayload(jwtPayload))
+    val parsed = targetAudience match {
+      case Some(_) => Try(parseAudienceBasedPayload(jwtPayload))
+      case None if targetScope.isDefined => Try(parseScopeBasedPayload(jwtPayload))
+      case _ => Try(parseAuthServicePayload(jwtPayload))
+    }
 
     parsed.toEither.left
       .map(t => Error(Symbol("parsePayload"), "Could not parse JWT token: " + t.getMessage))
-      .flatMap(checkAudience)
+      .flatMap(checkAudienceAndScope)
   }
 
-  private def checkAudience(payload: AuthServiceJWTPayload): Either[Error, AuthServiceJWTPayload] =
-    (payload, targetAudience) match {
-      case (payload: StandardJWTPayload, Some(audience)) if payload.audiences.contains(audience) =>
-        Right(payload)
-      case (payload, None) =>
+  private def checkAudienceAndScope(
+      payload: AuthServiceJWTPayload
+  ): Either[Error, AuthServiceJWTPayload] =
+    (payload, targetAudience, targetScope) match {
+      case (payload: StandardJWTPayload, Some(audience), _) =>
+        if (payload.audiences.contains(audience))
+          Right(payload)
+        else
+          Left(Error(Symbol("checkAudienceAndScope"), "Audience doesn't match the target value"))
+      case (payload: StandardJWTPayload, None, Some(scope)) =>
+        if (payload.scope.toList.flatMap(_.split(' ')).contains(scope))
+          Right(payload)
+        else
+          Left(Error(Symbol("checkAudienceAndScope"), "Scope doesn't match the target value"))
+      case (payload, None, None) =>
         Right(payload)
       case _ =>
-        Left(Error(Symbol("checkAudience"), "Could not check the audience"))
+        Left(Error(Symbol("checkAudienceAndScope"), "Could not check the audience"))
     }
 
   private[this] def parseAuthServicePayload(jwtPayload: String): AuthServiceJWTPayload = {
@@ -79,6 +90,13 @@ class AuthServiceJWT(
       jwtPayload: String
   ): AuthServiceJWTPayload = {
     import AuthServiceJWTCodec.AudienceBasedTokenJsonImplicits.*
+    JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
+  }
+
+  private[this] def parseScopeBasedPayload(
+      jwtPayload: String
+  ): AuthServiceJWTPayload = {
+    import AuthServiceJWTCodec.ScopeBasedTokenJsonImplicits.*
     JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
   }
 
@@ -133,14 +151,16 @@ object AuthServiceJWT {
   def apply(
       verifier: com.auth0.jwt.interfaces.JWTVerifier,
       targetAudience: Option[String],
+      targetScope: Option[String],
       loggerFactory: NamedLoggerFactory,
   ): AuthServiceJWT =
-    new AuthServiceJWT(new JwtVerifier(verifier), targetAudience, loggerFactory)
+    new AuthServiceJWT(new JwtVerifier(verifier), targetAudience, targetScope, loggerFactory)
 
   def apply(
       verifier: JwtVerifierBase,
       targetAudience: Option[String],
+      targetScope: Option[String],
       loggerFactory: NamedLoggerFactory,
   ): AuthServiceJWT =
-    new AuthServiceJWT(verifier, targetAudience, loggerFactory)
+    new AuthServiceJWT(verifier, targetAudience, targetScope, loggerFactory)
 }

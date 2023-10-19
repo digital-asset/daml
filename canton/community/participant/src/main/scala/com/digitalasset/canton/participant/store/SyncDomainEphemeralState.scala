@@ -37,6 +37,7 @@ import com.digitalasset.canton.participant.protocol.{
   SubmissionTracker,
 }
 import com.digitalasset.canton.participant.store.memory.TransferCache
+import com.digitalasset.canton.participant.sync.TimelyRejectNotifier
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.ParticipantId
@@ -165,6 +166,16 @@ class SyncDomainEphemeralState(
   def markAsRecovered()(implicit tc: TraceContext): Unit =
     resolveUnhealthy()
 
+  lazy val inFlightSubmissionTrackerDomainState: InFlightSubmissionTrackerDomainState =
+    InFlightSubmissionTrackerDomainState.fromSyncDomainState(persistentState, this)
+
+  val timelyRejectNotifier = TimelyRejectNotifier(
+    inFlightSubmissionTracker,
+    persistentState.domainId.item,
+    startingPoints.rewoundSequencerCounterPrehead.map(_.timestamp),
+    loggerFactory,
+  )
+
   override def onClosed(): Unit = {
     import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.*
     Lifecycle.close(
@@ -178,9 +189,6 @@ class SyncDomainEphemeralState(
       ),
     )(logger)
   }
-
-  lazy val inFlightSubmissionTrackerDomainState: InFlightSubmissionTrackerDomainState =
-    InFlightSubmissionTrackerDomainState.fromSyncDomainState(persistentState, this)
 
 }
 

@@ -41,7 +41,12 @@ object DAMLe {
       EngineConfig(
         allowedLanguageVersions = VersionRange(
           LanguageVersion.v1_14,
-          if (enableLfDev) LanguageVersion.DevVersions.max else LanguageVersion.StableVersions.max,
+          // TODO(#14706): use LanguageVersion.AllVersions(majorVersion) instead of v2_dev once Canton has a way of
+          //   deciding which major version of LF to use depending on the context. It is currently safe to use v2_dev
+          //   here because the engine temporarily accepts version ranges spanning two major LF versions.
+          //   Similary, use LanguageVersions.StableVersions(majorVersion).max once such a parameterized StableVersions
+          //   is introduced.
+          if (enableLfDev) LanguageVersion.v2_dev else LanguageVersion.StableVersions.max,
         ),
         // The package store contains only validated packages, so we can skip validation upon loading
         packageValidation = false,
