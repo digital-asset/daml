@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 module DA.Daml.LF.TypeChecker.Upgrade (checkUpgrade, Upgrading(..)) where
 
 import           Control.DeepSeq
