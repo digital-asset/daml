@@ -8,6 +8,7 @@ module DA.Test.Repl (main) where
 import Control.Exception
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
+import qualified DA.Daml.LF.Ast as LF
 import DA.Test.Sandbox
 import Data.Aeson
 import qualified Data.Aeson.KeyMap as KM
@@ -34,34 +35,48 @@ testLedgerId = "replledger"
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
-    limitJvmMemory defaultJvmMemoryLimits { maxHeapSize = "1g" }
+    limitJvmMemory defaultJvmMemoryLimits{maxHeapSize = "1g"}
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
-    scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
-    testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test.dar")
-    multiTestDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-multi-test.dar")
-    certDir <- locateRunfiles (mainWorkspace </> "test-common" </> "test-certificates")
-    defaultMain $ withCantonSandbox defaultSandboxConf
-                  { dars = [testDar]
-                  , timeMode = Static
-                  } $ \getSandboxPort ->
-        testGroup "repl"
-            [ withCantonSandbox defaultSandboxConf
-                  { mbSharedSecret = Just testSecret
-                  , mbLedgerId = Just testLedgerId
-                  } $ \getSandboxPort ->
-              withTokenFile $ \getTokenFile ->
-              authTests damlc scriptDar getSandboxPort getTokenFile
-            , withCantonSandbox defaultSandboxConf
-                  { enableTls = True
-                  , mbClientAuth = Just None
-                  } $ \getSandboxPort ->
-              tlsTests damlc scriptDar getSandboxPort certDir
-            , staticTimeTests damlc scriptDar getSandboxPort
-            , inboundMessageSizeTests damlc scriptDar testDar getSandboxPort
-            , noPackageTests damlc scriptDar
-            , importTests damlc scriptDar testDar
-            , multiPackageTests damlc scriptDar multiTestDar
-            ]
+    certDir <- locateRunfiles (mainWorkspace </> "test-common" </> "test-certificates") -- TODO: loop over major versions
+    tests <- forM [minBound @LF.MajorVersion .. maxBound] $ \major -> do
+        let prettyMajor = LF.renderMajorVersion major
+        scriptDar <- locateRunfiles $ case major of
+            LF.V1 -> mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
+            LF.V2 -> mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar"
+        testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test-v" <> prettyMajor <.> "dar")
+        multiTestDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-multi-test-v"<> prettyMajor <.>"dar")
+        pure $ withCantonSandbox
+            defaultSandboxConf
+                { dars = [testDar]
+                , timeMode = Static
+                , devVersionSupport = major == LF.V2
+                }
+            $ \getSandboxPort ->
+                testGroup ("LF v" <> prettyMajor)
+                    [ withCantonSandbox
+                        defaultSandboxConf
+                            { mbSharedSecret = Just testSecret
+                            , mbLedgerId = Just testLedgerId
+                            , devVersionSupport = major == LF.V2
+                            }
+                        $ \getSandboxPort ->
+                            withTokenFile $ \getTokenFile ->
+                                authTests damlc scriptDar getSandboxPort getTokenFile
+                    , withCantonSandbox
+                        defaultSandboxConf
+                            { enableTls = True
+                            , mbClientAuth = Just None
+                            , devVersionSupport = major == LF.V2
+                            }
+                        $ \getSandboxPort ->
+                            tlsTests damlc scriptDar getSandboxPort certDir
+                    , staticTimeTests damlc scriptDar getSandboxPort
+                    , inboundMessageSizeTests damlc scriptDar testDar getSandboxPort
+                    , noPackageTests damlc scriptDar
+                    , importTests damlc scriptDar testDar
+                    , multiPackageTests damlc scriptDar multiTestDar
+                    ]
+    defaultMain $ testGroup "repl" tests
 
 withTokenFile :: (IO FilePath -> TestTree) -> TestTree
 withTokenFile f = withResource acquire release (f . fmap fst)

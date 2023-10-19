@@ -243,7 +243,6 @@ class ReplService(
 
   import ReplService._
 
-  // TODO(#17366): Support LF v2
   private val compilerConfig = Compiler.Config
     .Default(majorLanguageVersion)
     .copy(stacktracing = Compiler.FullStackTrace)

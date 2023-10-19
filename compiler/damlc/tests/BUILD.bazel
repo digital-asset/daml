@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_compile_with_dalf", "daml_test")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LF_DEV_VERSIONS", "lf_version_configuration")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_configuration", "lf_version_latest")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # Tests for the lax CLI parser
@@ -569,13 +569,15 @@ da_haskell_test(
     ],
 )
 
-genrule(
-    name = "repl-test-indirect",
-    srcs = [
-        "ReplTestIndirect.daml",
-    ],
-    outs = ["repl-test-indirect.dar"],
-    cmd = """
+[
+    [
+        genrule(
+            name = "repl-test-indirect-v{}".format(major),
+            srcs = [
+                "ReplTestIndirect.daml",
+            ],
+            outs = ["repl-test-indirect-v{}.dar".format(major)],
+            cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
@@ -590,28 +592,31 @@ dependencies:
   - daml-prim
 build-options: ["--ghc-option", "-Werror"]
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location repl-test-indirect.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --target={lf_version} --ghc-option=-Werror -o $$PWD/$(location repl-test-indirect-v{major}.dar)
       rm -rf $$TMP_DIR
-    """.format(sdk = sdk_version),
-    tools = ["//compiler/damlc"],
-    visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "repl-test",
-    srcs = [
-        "ReplTest.daml",
-        "Colliding.daml",
-        "repl-test-indirect.dar",
-    ],
-    outs = ["repl-test.dar"],
-    cmd = """
+    """.format(
+                sdk = sdk_version,
+                lf_version = lf_version,
+                major = major
+            ),
+            tools = ["//compiler/damlc"],
+            visibility = ["//visibility:public"],
+        ),
+        genrule(
+            name = "repl-test-v{}".format(major),
+            srcs = [
+                "ReplTest.daml",
+                "Colliding.daml",
+                "repl-test-indirect-v{}.dar".format(major),
+            ],
+            outs = ["repl-test-v{}.dar".format(major)],
+            cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location ReplTest.daml) $$TMP_DIR/daml
       cp -L $(location Colliding.daml) $$TMP_DIR/daml
-      cp -L $(location repl-test-indirect.dar) $$TMP_DIR
+      cp -L $(location repl-test-indirect-v{major}.dar) $$TMP_DIR
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: repl-test
@@ -620,23 +625,26 @@ version: 0.1.0
 dependencies:
   - daml-stdlib
   - daml-prim
-  - repl-test-indirect.dar
+  - repl-test-indirect-v{major}.dar
 build-options: ["--ghc-option", "-Werror"]
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location repl-test.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --target={lf_version} --ghc-option=-Werror -o $$PWD/$(location repl-test-v{major}.dar)
       rm -rf $$TMP_DIR
-    """.format(sdk = sdk_version),
-    tools = ["//compiler/damlc"],
-    visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "repl-test-two",
-    srcs = [
-        "ReplTest2.daml",
-    ],
-    outs = ["repl-test-two.dar"],
-    cmd = """
+    """.format(
+                sdk = sdk_version,
+                lf_version = lf_version,
+                major = major
+            ),
+            tools = ["//compiler/damlc"],
+            visibility = ["//visibility:public"],
+        ),
+        genrule(
+            name = "repl-test-two-v{}".format(major),
+            srcs = [
+                "ReplTest2.daml",
+            ],
+            outs = ["repl-test-two-v{}.dar".format(major)],
+            cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
@@ -651,28 +659,31 @@ dependencies:
   - daml-prim
 build-options: ["--ghc-option", "-Werror"]
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location repl-test-two.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --target={lf_version} --ghc-option=-Werror -o $$PWD/$(location repl-test-two-v{major}.dar)
       rm -rf $$TMP_DIR
-    """.format(sdk = sdk_version),
-    tools = ["//compiler/damlc"],
-    visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "repl-multi-test",
-    srcs = [
-        "ReplMulti.daml",
-        ":repl-test.dar",
-        ":repl-test-two.dar",
-    ],
-    outs = ["repl-multi-test.dar"],
-    cmd = """
+    """.format(
+                sdk = sdk_version,
+                lf_version = lf_version,
+                major = major
+            ),
+            tools = ["//compiler/damlc"],
+            visibility = ["//visibility:public"],
+        ),
+        genrule(
+            name = "repl-multi-test-v{}".format(major),
+            srcs = [
+                "ReplMulti.daml",
+                ":repl-test-v{}.dar".format(major),
+                ":repl-test-two-v{}.dar".format(major),
+            ],
+            outs = ["repl-multi-test-v{}.dar".format(major)],
+            cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location ReplMulti.daml) $$TMP_DIR/daml
-      cp -L $(location repl-test-two.dar) $$TMP_DIR
-      cp -L $(location repl-test.dar) $$TMP_DIR
+      cp -L $(location repl-test-two-v{major}.dar) $$TMP_DIR
+      cp -L $(location repl-test-v{major}.dar) $$TMP_DIR
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: repl-multi-test
@@ -682,26 +693,36 @@ dependencies:
   - daml-stdlib
   - daml-prim
 data-dependencies:
-  - repl-test.dar
-  - repl-test-two.dar
+  - repl-test-v{major}.dar
+  - repl-test-two-v{major}.dar
 build-options: ["--ghc-option", "-Werror"]
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location repl-multi-test.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --target={lf_version} --ghc-option=-Werror -o $$PWD/$(location repl-multi-test-v{major}.dar)
       rm -rf $$TMP_DIR
-  """.format(sdk = sdk_version),
-    tools = ["//compiler/damlc"],
-    visibility = ["//visibility:public"],
-)
+  """.format(
+                sdk = sdk_version,
+                lf_version = lf_version,
+                major = major
+            ),
+            tools = ["//compiler/damlc"],
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for major in LF_MAJOR_VERSIONS
+    for lf_version in [lf_version_latest.get(major)]
+]
 
 da_haskell_test(
     name = "repl",
     timeout = "long",
     srcs = ["src/DA/Test/Repl.hs"],
-    data = [
-        ":repl-multi-test.dar",
-        ":repl-test.dar",
+    data = [f for major in LF_MAJOR_VERSIONS for f in [
+        ":repl-multi-test-v{}.dar".format(major),
+        ":repl-test-v{}.dar".format(major),
+    ]] + [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
+        "//daml-script/daml3:daml3-script.dar",
         "//test-common/test-certificates",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
@@ -729,6 +750,7 @@ da_haskell_test(
     deps = [
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//compiler/daml-lf-ast",
         "//libs-haskell/test-utils",
     ],
 )
@@ -736,15 +758,17 @@ da_haskell_test(
 da_haskell_test(
     name = "repl-functests",
     srcs = ["src/DA/Test/Repl/FuncTests.hs"],
-    data = [
-        ":repl-test.dar",
-        ":repl-test-two.dar",
-        ghc_pkg,
-        "//compiler/damlc/pkg-db",
-        "//compiler/damlc/stable-packages",
-        "//compiler/repl-service/server:repl_service_jar",
-        "//daml-script/daml:daml-script.dar",
-    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
+    data =
+        [f for major in LF_MAJOR_VERSIONS for f in [
+            ":repl-test-two-v{}.dar".format(major),
+            ":repl-test-v{}.dar".format(major),
+        ]] + [
+            ghc_pkg,
+            "//compiler/damlc/pkg-db",
+            "//compiler/damlc/stable-packages",
+            "//compiler/repl-service/server:repl_service_jar",
+            "//daml-script/daml:daml-script.dar",
+            ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "async",
         "base",

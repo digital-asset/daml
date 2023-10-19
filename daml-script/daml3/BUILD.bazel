@@ -4,7 +4,7 @@
 # TODO Once daml_compile uses build instead of package we should use
 # daml_compile instead of a genrule.
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF2_VERSIONS")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF2_VERSIONS", "lf_version_latest")
 
 [
     genrule(
@@ -44,6 +44,17 @@ EOF
     )
     for lf_version in COMPILER_LF2_VERSIONS
 ]
+
+# For convenience, we define daml3-script.dar which is always compiled to the
+# default stable version of LF2.
+genrule(
+    name = "daml3-script",
+    # TODO(#17366): use lf_version_default or equivalent once available
+    srcs = [":daml3-script-{}.dar".format(lf_version_latest.get("2"))],
+    outs = ["daml3-script.dar"],
+    cmd = "cp -L $(location :daml3-script-{}.dar) $$PWD/$@".format(lf_version_latest.get("2")),
+    visibility = ["//visibility:public"],
+)
 
 filegroup(
     name = "daml3-script-dars",

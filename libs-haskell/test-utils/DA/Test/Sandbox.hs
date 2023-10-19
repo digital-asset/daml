@@ -68,6 +68,7 @@ data SandboxConfig = SandboxConfig
     , mbClientAuth :: Maybe ClientAuth
     , mbSharedSecret :: Maybe String
     , mbLedgerId :: Maybe String
+    , devVersionSupport :: Bool
     }
 
 defaultSandboxConf :: SandboxConfig
@@ -78,6 +79,7 @@ defaultSandboxConf = SandboxConfig
     , mbClientAuth = Nothing
     , mbSharedSecret = Nothing
     , mbLedgerId = Just "MyLedger"
+    , devVersionSupport = False
     }
 
 getCerts :: IO Certs
@@ -167,6 +169,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
                 , [ "clock" Aeson..= Aeson.object
                         [ "type" Aeson..= ("sim-clock" :: T.Text) ]
                   | Static <- [timeMode] ]
+                , [ "dev-version-support" Aeson..= devVersionSupport]
                 ] )
             , "participants" Aeson..= Aeson.object
                 [ (AesonKey.fromString $ getParticipantName conf) Aeson..= Aeson.object
@@ -179,7 +182,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
                           [ tlsOpts certs
                           | Just certs <- [mCerts]
                           ] <>
-                          [ "auth-services" Aeson..= aesonArray [ Aeson.object 
+                          [ "auth-services" Aeson..= aesonArray [ Aeson.object
                                 [ "type" Aeson..= ("unsafe-jwt-hmac-256" :: T.Text)
                                 , "secret" Aeson..= secret
                                 ] ]
