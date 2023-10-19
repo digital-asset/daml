@@ -6,6 +6,7 @@ package engine.script.ledgerinteraction
 
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.daml.lf.speedy.{TraceLog, WarningLog}
 import akka.http.scaladsl.model._
 import com.daml.jwt.domain.Jwt
@@ -26,8 +27,11 @@ import scala.util.{Failure, Success}
 // Ledger clients before implementation is chosen
 sealed trait ScriptLedgerClient extends Product with Serializable
 
-final case class GrpcLedgerClient(grpcClient: LedgerClient, val applicationId: ApplicationId)
-    extends ScriptLedgerClient
+final case class GrpcLedgerClient(
+    grpcClient: LedgerClient,
+    val applicationId: ApplicationId,
+    val grpcAdminClient: Option[AdminLedgerClient] = None,
+) extends ScriptLedgerClient
 
 final case class JsonLedgerClient(
     uri: Uri,

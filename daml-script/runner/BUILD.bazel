@@ -9,6 +9,20 @@ load(
     "lf_scalacopts_stricter",
 )
 load("//rules_daml:daml.bzl", "daml_compile")
+load("//bazel_tools:proto.bzl", "proto_jars")
+
+proto_jars(
+    name = "admin_package_service_proto",
+    srcs = ["src/main/protobuf/com/daml/lf/engine/script/admin_package_service.proto"],
+    grpc = True,
+    maven_artifact_prefix = "daml-script-",
+    maven_group = "com.daml",
+    strip_import_prefix = "src/main/protobuf/",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_protobuf//:empty_proto",
+    ],
+)
 
 test_script_sources = [
     "src/main/scala/com/digitalasset/daml/lf/engine/script/TestMain.scala",
@@ -37,6 +51,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        ":admin_package_service_proto_scala",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -54,6 +69,7 @@ da_scala_library(
         "//ledger-service/lf-value-json",
         "//ledger/error",
         "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-auth-client",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/participant-local-store",

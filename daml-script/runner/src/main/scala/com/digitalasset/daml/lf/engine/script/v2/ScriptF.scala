@@ -739,6 +739,42 @@ object ScriptF {
       )
   }
 
+  final case class VetDar(
+      darName: String,
+      participant: Option[Participant],
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- env.clients.getParticipant(participant) match {
+          case Right(client) => Future.successful(client)
+          case Left(err) => Future.failed(new RuntimeException(err))
+        }
+        _ <- client.vetDar(darName)
+      } yield SEValue(SUnit)
+  }
+
+  final case class UnvetDar(
+      darName: String,
+      participant: Option[Participant],
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- env.clients.getParticipant(participant) match {
+          case Right(client) => Future.successful(client)
+          case Left(err) => Future.failed(new RuntimeException(err))
+        }
+        _ <- client.unvetDar(darName)
+      } yield SEValue(SUnit)
+  }
+
   // Shared between Submit, SubmitMustFail and SubmitTree
   final case class SubmitData(
       actAs: OneAnd[Set, Party],
@@ -982,6 +1018,18 @@ object ScriptF {
     }
   }
 
+  private def parseDarVettingChange[A](
+      v: SValue,
+      wrap: (String, Option[Participant]) => A,
+  ): Either[String, A] =
+    v match {
+      case SRecord(_, _, ArrayList(SText(name), participant)) =>
+        for {
+          participant <- Converter.toParticipantName(participant)
+        } yield wrap(name, participant)
+      case _ => Left(s"Expected VetDar payload but got $v")
+    }
+
   def parse(
       commandName: String,
       version: Long,
@@ -1017,6 +1065,8 @@ object ScriptF {
       case ("UnvetPackages", 1) => parseChangePackages(v).map(UnvetPackages)
       case ("ListVettedPackages", 1) => parseEmpty(ListVettedPackages())(v)
       case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
+      case ("VetDar", 1) => parseDarVettingChange(v, VetDar)
+      case ("UnvetDar", 1) => parseDarVettingChange(v, UnvetDar)
       case _ => Left(s"Unknown command $commandName - Version $version")
     }
 

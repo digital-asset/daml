@@ -54,7 +54,12 @@ object ScriptLedgerClient {
 
   def realiseScriptLedgerClient(ledger: abstractLedgers.ScriptLedgerClient): ScriptLedgerClient =
     ledger match {
-      case abstractLedgers.GrpcLedgerClient(grpcClient, applicationId) =>
+      case abstractLedgers.GrpcLedgerClient(grpcClient, applicationId, oAdminClient) =>
+        oAdminClient.foreach(_ =>
+          throw new IllegalArgumentException(
+            "Daml2-script does not support the admin api (adminPort)"
+          )
+        )
         new GrpcLedgerClient(grpcClient, applicationId)
       case abstractLedgers.JsonLedgerClient(uri, token, envIface, actorSystem) =>
         new JsonLedgerClient(uri, token, envIface, actorSystem)

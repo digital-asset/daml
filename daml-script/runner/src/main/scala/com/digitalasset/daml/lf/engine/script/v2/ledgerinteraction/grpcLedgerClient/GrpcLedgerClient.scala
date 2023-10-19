@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.v2.ledgerinteraction
+package grpcLedgerClient
 
 import java.util.UUID
 
@@ -52,8 +53,11 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: ApplicationId)
-    extends ScriptLedgerClient {
+class GrpcLedgerClient(
+    val grpcClient: LedgerClient,
+    val applicationId: ApplicationId,
+    val oAdminClient: Option[AdminLedgerClient],
+) extends ScriptLedgerClient {
   override val transport = "gRPC API"
 
   override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
@@ -560,4 +564,26 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
+
+  def vetDar(name: String)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = {
+    val adminClient = oAdminClient.getOrElse(
+      throw new IllegalArgumentException("Attempted to use vetDar without specifying a adminPort")
+    )
+    adminClient.vetDar(name)
+  }
+
+  def unvetDar(name: String)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = {
+    val adminClient = oAdminClient.getOrElse(
+      throw new IllegalArgumentException("Attempted to use unvetDar without specifying a adminPort")
+    )
+    adminClient.unvetDar(name)
+  }
 }

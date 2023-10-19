@@ -6,6 +6,7 @@
 module Daml.Script.Questions.Packages where
 
 import Daml.Script.Internal
+import Daml.Script.Questions.PartyManagement (ParticipantName (..))
 import DA.Stack
 
 data VetPackages = VetPackages with
@@ -42,3 +43,25 @@ listVettedPackages = lift ListVettedPackages
 
 listAllPackages : HasCallStack => Script [PackageName]
 listAllPackages = lift ListAllPackages
+
+data VetDar = VetDar with
+  darName : Text
+  participant : Optional Text
+instance IsQuestion VetDar () where command = "VetDar"
+
+data UnvetDar = UnvetDar with
+  darName : Text
+  participant : Optional Text
+instance IsQuestion UnvetDar () where command = "UnvetDar"
+
+vetDar : HasCallStack => Text -> Script ()
+vetDar darName = lift $ VetDar darName None
+
+vetDarOnParticipant : HasCallStack => Text -> ParticipantName -> Script ()
+vetDarOnParticipant darName (ParticipantName participant) = lift $ VetDar darName (Some participant)
+
+unvetDar : HasCallStack => Text -> Script ()
+unvetDar darName = lift $ UnvetDar darName None
+
+unvetDarOnParticipant : HasCallStack => Text -> ParticipantName -> Script ()
+unvetDarOnParticipant darName (ParticipantName participant) = lift $ UnvetDar darName (Some participant)

@@ -54,8 +54,8 @@ object ScriptLedgerClient {
 
   def realiseScriptLedgerClient(ledger: abstractLedgers.ScriptLedgerClient): ScriptLedgerClient =
     ledger match {
-      case abstractLedgers.GrpcLedgerClient(grpcClient, applicationId) =>
-        new GrpcLedgerClient(grpcClient, applicationId)
+      case abstractLedgers.GrpcLedgerClient(grpcClient, applicationId, oAdminClient) =>
+        new grpcLedgerClient.GrpcLedgerClient(grpcClient, applicationId, oAdminClient)
       case abstractLedgers.JsonLedgerClient(uri, token, envIface, actorSystem) =>
         new JsonLedgerClient(uri, token, envIface, actorSystem)
       case abstractLedgers.IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled) =>
@@ -241,4 +241,16 @@ trait ScriptLedgerClient {
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]]
+
+  def vetDar(name: String)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit]
+
+  def unvetDar(name: String)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit]
 }
