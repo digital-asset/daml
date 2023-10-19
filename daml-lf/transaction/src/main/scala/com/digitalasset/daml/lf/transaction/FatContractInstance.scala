@@ -23,8 +23,12 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   private[lf] def toImplementation: FatContractInstanceImpl =
     this.asInstanceOf[FatContractInstanceImpl]
   require(maintainers.isEmpty || contractKey.isDefined)
+  final lazy val signatories: Set[Ref.Party] = maintainers | nonMaintainerSignatories
+  final lazy val stakeholders: Set[Ref.Party] = signatories | nonSignatoryStakeholders
   def updateCreateTime(updatedTime: Time.Timestamp): FatContractInstance
   def setSalt(canton_data: Bytes): FatContractInstance
+  def keyWithMaintainers: Option[GlobalKeyWithMaintainers] =
+    contractKey.map(GlobalKeyWithMaintainers(_, maintainers))
 }
 
 private[lf] final case class FatContractInstanceImpl(
@@ -40,9 +44,6 @@ private[lf] final case class FatContractInstanceImpl(
     cantonData: Bytes,
 ) extends FatContractInstance
     with CidContainer[FatContractInstanceImpl] {
-  lazy val signatories = maintainers | nonMaintainerSignatories
-  lazy val stakeholders = signatories | nonSignatoryStakeholders
-
   override protected def self: FatContractInstanceImpl = this
 
   override def mapCid(f: Value.ContractId => Value.ContractId): FatContractInstanceImpl = {
@@ -52,10 +53,10 @@ private[lf] final case class FatContractInstanceImpl(
     )
   }
 
-  def updateCreateTime(updatedTime: Time.Timestamp): FatContractInstanceImpl =
+  override def updateCreateTime(updatedTime: Time.Timestamp): FatContractInstanceImpl =
     copy(createTime = updatedTime)
 
-  def setSalt(canton_data: Bytes): FatContractInstanceImpl = {
+  override def setSalt(canton_data: Bytes): FatContractInstanceImpl = {
     assert(canton_data.nonEmpty)
     copy(cantonData = canton_data)
   }

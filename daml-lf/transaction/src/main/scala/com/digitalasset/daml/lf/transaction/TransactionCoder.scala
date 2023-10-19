@@ -950,6 +950,20 @@ object TransactionCoder {
     }
   }
 
+  private[this] def ensureNoUnknownFields(
+      proto: com.google.protobuf.Message,
+      messageType: => String,
+  ) = {
+    val unknownFields = proto.getUnknownFields.asMap()
+    Either.cond(
+      unknownFields.isEmpty,
+      (),
+      DecodeError(
+        s"unexpected field(s) ${unknownFields.keySet().asScala.mkString(", ")}  in ${messageType} message"
+      ),
+    )
+  }
+
   def decodeFatContractInstance(bytes: ByteString): Either[DecodeError, FatContractInstance] =
     for {
       versionedBlob <- decodeVersioned(bytes)
@@ -964,6 +978,7 @@ object TransactionCoder {
         .toEither
         .left
         .map(e => DecodeError(s"exception $e while decoding the object"))
+      _ <- ensureNoUnknownFields(proto, "FatContractInstance")
       contractId <- Value.ContractId.V1
         .fromBytes(data.Bytes.fromByteString(proto.getContractId))
         .left

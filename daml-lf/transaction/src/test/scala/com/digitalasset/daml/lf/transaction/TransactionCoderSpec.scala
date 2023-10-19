@@ -583,7 +583,7 @@ class TransactionCoderSpec
       }
     }
 
-    "ignore node version field when transaction version = 10" in {
+    "innode version field when transaction version = 10" in {
       // Excluding rollback nodes since they are not available in V10
       forAll(danglingRefGenActionNode, Gen.asciiStr, minSuccessful(5)) {
         case ((nodeId, node), str) =>
@@ -645,6 +645,39 @@ class TransactionCoderSpec
         decoded shouldBe instance
       }
     }
+
+    "reject FatContractInstance with unknown fields" in {
+      forAll(
+        malformedCreateNodeGen.filter(_.version >= TransactionVersion.V14),
+        timestampGen,
+        bytesGen,
+        Arbitrary.arbInt.arbitrary,
+        bytesGen.filterNot(_.isEmpty),
+        minSuccessful(5),
+      ) { (create, time, salt, i, extraBytes) =>
+        val normalizedCreate = normalizeCreate(create)
+        val instance = FatContractInstance.fromCreateNode(
+          normalizedCreate,
+          time,
+          data.Bytes.fromByteString(salt),
+        )
+        val Right(encoded) = TransactionCoder.encodeFatContractInstance(instance)
+        val Right(Versioned(v, bytes)) = TransactionCoder.decodeVersioned(encoded)
+        val proto = TransactionOuterClass.FatContractInstance.parseFrom(bytes)
+        val x = addUnknownField(proto, i, extraBytes)
+        assert(proto != x)
+        val protoWithExtraFields = addUnknownField(proto, i, extraBytes).toByteString
+        val reencoded = TransactionCoder.encodeVersioned(v, protoWithExtraFields)
+        assert(reencoded != encoded)
+        inside(TransactionCoder.decodeFatContractInstance(reencoded)) {
+          case Left(DecodeError(errorMessage)) =>
+            errorMessage should include("unexpected field(s)")
+          case Right(_) =>
+            TransactionCoder.decodeFatContractInstance(reencoded) shouldBe a[Left[_, _]]
+        }
+      }
+    }
+
   }
 
   "decodeVersionedNode" should {
@@ -1014,6 +1047,20 @@ class TransactionCoderSpec
   ): Node = node match {
     case node: Node.Action => node.updateVersion(version)
     case node: Node.Rollback => node
+  }
+
+  def addUnknownField(
+      message: com.google.protobuf.Message,
+      i: Int,
+      content: protobuf.ByteString,
+  ): protobuf.Message = {
+    def norm(i: Int) = (i.abs % 536870911) + 1 // valid proto field index are 1 to 536870911
+    val builder = message.toBuilder
+    val knownFieldIndex = builder.getDescriptorForType.getFields.asScala.map(_.getNumber).toSet
+    val j = Iterator.iterate(norm(i))(i => norm(i + 1)).filterNot(knownFieldIndex).next()
+    val field = protobuf.UnknownFieldSet.Field.newBuilder().addLengthDelimited(content).build()
+    val extraFields = protobuf.UnknownFieldSet.newBuilder().addField(j, field).build()
+    builder.setUnknownFields(extraFields).build()
   }
 
 }
