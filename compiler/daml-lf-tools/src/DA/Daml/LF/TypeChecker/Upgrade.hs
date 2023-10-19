@@ -106,7 +106,7 @@ checkModule module_ = do
         deriveChoiceInfo module_ = HMS.fromList $ do
             template <- NM.toList (moduleTemplates module_)
             choice <- NM.toList (tplChoices template)
-            TCon dtName <- [snd (chcArgBinder choice)] -- Choice inputs should always be a list
+            TCon dtName <- [snd (chcArgBinder choice)] -- Choice inputs should always be type constructors
             pure (qualObject dtName, (template, choice))
         allChoiceReturnTCons :: LF.Module -> HMS.HashMap LF.TypeConName (LF.Template, LF.TemplateChoice)
         allChoiceReturnTCons module_ = HMS.fromList $ do
