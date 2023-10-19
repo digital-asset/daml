@@ -165,24 +165,28 @@ checkTemplate module_ template = do
             unless returnTypesMatch $
                 throwWithContext (EUpgradeError (ChoiceChangedReturnType (NM.name (present choice))))
 
-            throwIfDifferent "controllers" (extractFuncFromFuncThisArg . chcControllers <$> choice) $
-                EUpgradeError $ ChoiceChangedControllers $ NM.name $ present choice
+            whenDifferent "controllers" (extractFuncFromFuncThisArg . chcControllers <$> choice) $
+                warnWithContext $ WChoiceChangedControllers $ NM.name $ present choice
 
-            let observersErr = EUpgradeError $ ChoiceChangedObservers $ NM.name $ present choice
+            let observersErr = WChoiceChangedObservers $ NM.name $ present choice
             case fmap (mapENilToNothing . chcObservers) choice of
                Upgrading { past = Nothing, present = Nothing } -> do
                    pure ()
                Upgrading { past = Just past, present = Just present } -> do
-                   throwIfDifferent "observers" (extractFuncFromFuncThisArg <$> Upgrading past present) observersErr
+                   whenDifferent "observers"
+                       (extractFuncFromFuncThisArg <$> Upgrading past present)
+                       (warnWithContext observersErr)
                _ -> do
-                   throwWithContext observersErr
+                   warnWithContext observersErr
 
-            let authorizersErr = EUpgradeError $ ChoiceChangedAuthorizers $ NM.name $ present choice
+            let authorizersErr = WChoiceChangedAuthorizers $ NM.name $ present choice
             case fmap (mapENilToNothing . chcAuthorizers) choice of
                Upgrading { past = Nothing, present = Nothing } -> pure ()
                Upgrading { past = Just past, present = Just present } ->
-                   throwIfDifferent "authorizers" (extractFuncFromFuncThisArg <$> Upgrading past present) authorizersErr
-               _ -> throwWithContext authorizersErr
+                   whenDifferent "authorizers"
+                       (extractFuncFromFuncThisArg <$> Upgrading past present)
+                       (warnWithContext authorizersErr)
+               _ -> warnWithContext authorizersErr
         pure choice
 
     -- This check assumes that we encode signatories etc. on a template as
@@ -190,17 +194,17 @@ checkTemplate module_ template = do
     -- actual definition. We resolve this function and check that it is
     -- identical.
     withContext (ContextTemplate (present module_) (present template) TPPrecondition) $
-        throwIfDifferent "precondition" (extractFuncFromCaseFuncThis . tplPrecondition <$> template) $
-            EUpgradeError $ TemplateChangedPrecondition $ NM.name $ present template
+        whenDifferent "precondition" (extractFuncFromCaseFuncThis . tplPrecondition <$> template) $
+            warnWithContext $ WTemplateChangedPrecondition $ NM.name $ present template
     withContext (ContextTemplate (present module_) (present template) TPSignatories) $
-        throwIfDifferent "signatories" (extractFuncFromFuncThis . tplSignatories <$> template) $
-            EUpgradeError $ TemplateChangedSignatories $ NM.name $ present template
+        whenDifferent "signatories" (extractFuncFromFuncThis . tplSignatories <$> template) $
+            warnWithContext $ WTemplateChangedSignatories $ NM.name $ present template
     withContext (ContextTemplate (present module_) (present template) TPObservers) $
-        throwIfDifferent "observers" (extractFuncFromFuncThis . tplObservers <$> template) $
-            EUpgradeError $ TemplateChangedObservers $ NM.name $ present template
+        whenDifferent "observers" (extractFuncFromFuncThis . tplObservers <$> template) $
+            warnWithContext $ WTemplateChangedObservers $ NM.name $ present template
     withContext (ContextTemplate (present module_) (present template) TPAgreement) $
-        throwIfDifferent "agreement" (extractFuncFromFuncThis . tplAgreement <$> template) $
-            EUpgradeError $ TemplateChangedAgreement $ NM.name $ present template
+        whenDifferent "agreement" (extractFuncFromFuncThis . tplAgreement <$> template) $
+            warnWithContext $ WTemplateChangedAgreement $ NM.name $ present template
     -- TODO: Check that return type of a choice is compatible
     pure ()
     where
@@ -239,10 +243,14 @@ checkTemplate module_ template = do
                 case NM.lookup evn (moduleValues module_) of
                     Nothing -> error ("checkTemplate: Trying to get definition of " ++ T.unpack (unExprValName evn) ++ " but it is not defined!")
                     Just defValue -> dvalBody defValue
-        throwIfDifferent field exprs err = do
+
+        whenDifferent :: String -> Upgrading (Maybe ExprValName) -> m () -> m ()
+        whenDifferent field exprs act = do
             let resolvedExprs = resolveExpression field <$> exprs <*> module_
             let exprsMatch = foldU alphaExpr $ fmap removeLocations resolvedExprs
-            unless exprsMatch (throwWithContext err)
+            unless exprsMatch act
+
+        mapENilToNothing :: Maybe Expr -> Maybe Expr
         mapENilToNothing (Just (LF.ENil (LF.TBuiltin LF.BTParty))) = Nothing
         mapENilToNothing e = e
 

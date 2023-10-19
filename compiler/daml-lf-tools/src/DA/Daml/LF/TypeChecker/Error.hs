@@ -177,13 +177,6 @@ data UpgradeError
   | RecordFieldsExistingChanged !UpgradedRecordOrigin
   | RecordFieldsNewNonOptional !UpgradedRecordOrigin
   | RecordChangedOrigin !TypeConName !UpgradedRecordOrigin !UpgradedRecordOrigin
-  | TemplateChangedPrecondition !TypeConName
-  | TemplateChangedSignatories !TypeConName
-  | TemplateChangedObservers !TypeConName
-  | TemplateChangedAgreement !TypeConName
-  | ChoiceChangedControllers !ChoiceName
-  | ChoiceChangedObservers !ChoiceName
-  | ChoiceChangedAuthorizers !ChoiceName
   | ChoiceChangedReturnType !ChoiceName
   deriving (Eq, Ord, Show)
 
@@ -573,13 +566,6 @@ instance Pretty UpgradeError where
     RecordFieldsExistingChanged origin -> "The upgraded " <> pPrint origin <> " has changed the types of some of its original fields."
     RecordFieldsNewNonOptional origin -> "The upgraded " <> pPrint origin <> " has added new fields, but those fields are not Optional."
     RecordChangedOrigin dataConName past present -> "The record " <> pPrint dataConName <> " has changed origin from " <> pPrint past <> " to " <> pPrint present
-    TemplateChangedPrecondition template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its precondition."
-    TemplateChangedSignatories template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its signatories."
-    TemplateChangedObservers template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its observers."
-    TemplateChangedAgreement template -> "The upgraded template " <> pPrint template <> " cannot change the definition of agreement."
-    ChoiceChangedControllers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of controllers."
-    ChoiceChangedObservers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of observers."
-    ChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of authorizers."
     ChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
 
 instance Pretty UpgradedRecordOrigin where
@@ -621,7 +607,13 @@ instance ToDiagnostic Error where
 
 data Warning
   = WContext !Context !Warning
-  | WarnChangingEnsure !TypeConName
+  | WTemplateChangedPrecondition !TypeConName
+  | WTemplateChangedSignatories !TypeConName
+  | WTemplateChangedObservers !TypeConName
+  | WTemplateChangedAgreement !TypeConName
+  | WChoiceChangedControllers !ChoiceName
+  | WChoiceChangedObservers !ChoiceName
+  | WChoiceChangedAuthorizers !ChoiceName
   deriving (Show)
 
 warningLocation :: Warning -> Maybe SourceLoc
@@ -632,7 +624,13 @@ warningLocation = \case
 instance Pretty Warning where
   pPrint = \case
     WContext _ w -> pPrint w
-    WarnChangingEnsure template -> "Ensure clause in template " <> pPrint template <> " has changed."
+    WTemplateChangedPrecondition template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its precondition."
+    WTemplateChangedSignatories template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its signatories."
+    WTemplateChangedObservers template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its observers."
+    WTemplateChangedAgreement template -> "The upgraded template " <> pPrint template <> " cannot change the definition of agreement."
+    WChoiceChangedControllers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of controllers."
+    WChoiceChangedObservers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of observers."
+    WChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of authorizers."
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic
