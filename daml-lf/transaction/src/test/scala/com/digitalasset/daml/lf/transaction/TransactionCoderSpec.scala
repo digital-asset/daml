@@ -763,7 +763,7 @@ class TransactionCoderSpec
       }
     }
 
-    "in field observers in version < 11" in {
+    "ignore field observers in version < 11" in {
 
       forAll(
         Arbitrary.arbInt.arbitrary,
