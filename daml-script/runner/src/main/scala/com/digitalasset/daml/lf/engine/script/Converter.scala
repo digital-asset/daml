@@ -129,7 +129,7 @@ abstract class ConverterMethods(stablePackages: StablePackages) {
   ): Either[String, SValue] = {
     for {
       translated <- translator
-        .translateValue(TTyCon(templateId), argument)
+        .strictTranslateValue(TTyCon(templateId), argument)
         .left
         .map(err => s"Failed to translate create argument: $err")
     } yield record(
@@ -165,7 +165,7 @@ abstract class ConverterMethods(stablePackages: StablePackages) {
     for {
       choice <- lookupChoice(templateId, interfaceId, choiceName)
       translated <- translator
-        .translateValue(choice.argBinder._2, argument)
+        .strictTranslateValue(choice.argBinder._2, argument)
         .left
         .map(err => s"Failed to translate exercise argument: $err")
     } yield record(
@@ -371,7 +371,7 @@ abstract class ConverterMethods(stablePackages: StablePackages) {
   ): Either[String, SValue] = {
     for {
       translated <- translator
-        .translateValue(viewType, value)
+        .strictTranslateValue(viewType, value)
         .left
         .map(err => s"Failed to translate value of interface view: $err")
     } yield translated
@@ -510,7 +510,7 @@ abstract class ConverterMethods(stablePackages: StablePackages) {
           requireV1ContractIdSuffix = false,
         )
       sValue <- valueTranslator
-        .translateValue(ty, lfValue)
+        .strictTranslateValue(ty, lfValue)
         .left
         .map(_.message)
     } yield sValue

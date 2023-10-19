@@ -1377,10 +1377,9 @@ private[lf] object Speedy {
                 // traverse the sourceElements, "get"ing the corresponding target type
                 // when there is no corresponding type, we must be downgrading, and so we insist the value is None
                 val values0: List[SValue] =
-                  sourceElements.toSeq.zipWithIndex.flatMap { case ((optName, v), i) =>
+                  sourceElements.toSeq.view.zipWithIndex.flatMap { case ((optName, v), i) =>
                     targetFieldsAndTypes.get(i) match {
-                      case Some(x) => {
-                        val (targetField, targetFieldType): (Name, Type) = x
+                      case Some((targetField, targetFieldType)) =>
                         optName match {
                           case None => ()
                           case Some(sourceField) =>
@@ -1390,7 +1389,6 @@ private[lf] object Speedy {
                         val typ: Type = AstUtil.substitute(targetFieldType, subst)
                         val sv: SValue = go(typ, v)
                         List(sv)
-                      }
                       case None => { // DOWNGRADE
                         // i ranges from 0 to numS-1. So i >= numT implies numS > numT
                         assert((numS > i) && (i >= numT))
@@ -1438,7 +1436,7 @@ private[lf] object Speedy {
                         .map { case (name, _) => name }
 
                     if (extraFieldsWithNonOptionType.length == 0) {
-                      values0.padTo(numT, SValue.SOptional(None)) // UPGRADE
+                      values0.padTo(numT, SValue.SValue.None) // UPGRADE
                     } else {
                       // TODO: https://github.com/digital-asset/daml/issues/17082
                       // - Impossible (ill typed) case. Ok to crash here?
