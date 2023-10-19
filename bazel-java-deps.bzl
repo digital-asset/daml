@@ -289,3 +289,12 @@ def install_java_deps():
         # strict_visibility = True,
         version_conflict_policy = "pinned",
     )
+    maven_install(
+        name = "canton_maven",
+        artifacts = ["org.flywaydb:flyway-core:9.15.2"],
+        repositories = [
+            "https://repo1.maven.org/maven2",
+        ],
+        fetch_sources = True,
+        version_conflict_policy = "pinned",
+    )
