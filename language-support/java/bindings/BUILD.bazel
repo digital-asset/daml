@@ -86,15 +86,23 @@ da_java_library(
 
 java_test_suite(
     name = "java-tests",
-    srcs = glob(["src/test/java/**/*.java"]),
+    srcs = glob(["src/test/java/**/*Test.java"]),
     strip = "src/test/java/",
     deps = [
         ":bindings-java",
+        ":bindings-java-test-helpers",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_junit_jupiter_junit_jupiter_api",
         "@maven//:org_junit_jupiter_junit_jupiter_engine",
         "@maven//:org_junit_platform_junit_platform_runner",
     ],
+)
+
+java_library(
+    name = "bindings-java-test-helpers",
+    testonly = True,
+    srcs = glob(["src/test/java/**/TestHelpers.java"]),
+    deps = [":bindings-java"],
 )
 
 da_scala_library(
