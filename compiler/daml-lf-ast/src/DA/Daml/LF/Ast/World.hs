@@ -12,7 +12,7 @@ module DA.Daml.LF.Ast.World(
     initWorldSelf,
     extendWorldSelf,
     ExternalPackage(..),
-    LookupError,
+    LookupError(..),
     lookupTemplate,
     lookupException,
     lookupTypeSyn,
