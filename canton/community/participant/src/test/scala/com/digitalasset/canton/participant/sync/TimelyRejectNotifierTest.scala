@@ -12,7 +12,6 @@ import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.duration.DurationInt
 
 class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
@@ -83,6 +82,8 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
       }
     }
 
+    val timeoutMillis = 50
+
     "notify only if the timestamp is in the correct relation with the current bound" in {
       val rejecter = mock[TimelyRejectNotifier.TimelyRejecter]
       when(rejecter.notify(any[CantonTimestamp])(anyTraceContext))
@@ -90,38 +91,36 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
 
       val notifier = new TimelyRejectNotifier(rejecter, None, loggerFactory)
       notifier.notifyIfInPastAsync(CantonTimestamp.MinValue) shouldBe false
-      always(50.milliseconds) {
-        verify(rejecter, never).notify(eqTo(CantonTimestamp.MinValue))(anyTraceContext)
-        ()
-      }
+      verify(rejecter, after(timeoutMillis).never)
+        .notify(eqTo(CantonTimestamp.MinValue))(anyTraceContext)
 
       notifier.notifyAsync(Traced(CursorPrehead(SequencerCounter.MinValue, CantonTimestamp.Epoch)))
-      verify(rejecter).notify(eqTo(CantonTimestamp.Epoch))(anyTraceContext)
+      verify(rejecter, timeout(timeoutMillis).times(1))
+        .notify(eqTo(CantonTimestamp.Epoch))(anyTraceContext)
 
       notifier.notifyAsync(
         Traced(CursorPrehead(SequencerCounter.MinValue, CantonTimestamp.ofEpochSecond(-2)))
       )
-      always(50.milliseconds) {
-        verify(rejecter, never).notify(eqTo(CantonTimestamp.ofEpochSecond(-2)))(anyTraceContext)
-        ()
-      }
+      verify(rejecter, after(timeoutMillis).never)
+        .notify(eqTo(CantonTimestamp.ofEpochSecond(-2)))(anyTraceContext)
 
       notifier.notifyIfInPastAsync(CantonTimestamp.Epoch) shouldBe true
-      verify(rejecter, times(2)).notify(eqTo(CantonTimestamp.Epoch))(anyTraceContext)
+      verify(rejecter, timeout(timeoutMillis).times(2))
+        .notify(eqTo(CantonTimestamp.Epoch))(anyTraceContext)
 
       notifier.notifyIfInPastAsync(CantonTimestamp.ofEpochSecond(-1)) shouldBe true
-      verify(rejecter).notify(eqTo(CantonTimestamp.ofEpochSecond(-1)))(anyTraceContext)
+      verify(rejecter, timeout(timeoutMillis).times(1))
+        .notify(eqTo(CantonTimestamp.ofEpochSecond(-1)))(anyTraceContext)
 
       notifier.notifyIfInPastAsync(CantonTimestamp.ofEpochSecond(1)) shouldBe false
-      always(50.milliseconds) {
-        verify(rejecter, never).notify(eqTo(CantonTimestamp.ofEpochSecond(1)))(anyTraceContext)
-        ()
-      }
+      verify(rejecter, after(timeoutMillis).never)
+        .notify(eqTo(CantonTimestamp.ofEpochSecond(1)))(anyTraceContext)
 
       notifier.notifyAsync(
         Traced(CursorPrehead(SequencerCounter.Genesis, CantonTimestamp.ofEpochMilli(10)))
       )
-      verify(rejecter).notify(eqTo(CantonTimestamp.ofEpochMilli(10)))(anyTraceContext)
+      verify(rejecter, timeout(timeoutMillis).times(1))
+        .notify(eqTo(CantonTimestamp.ofEpochMilli(10)))(anyTraceContext)
     }
 
     "stop upon AbortedDueToShutdown" in {
@@ -131,17 +130,32 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
       val notifier = new TimelyRejectNotifier(rejecter, None, loggerFactory)
 
       notifier.notifyAsync(Traced(CursorPrehead(SequencerCounter.Genesis, CantonTimestamp.Epoch)))
-      verify(rejecter).notify(eqTo(CantonTimestamp.Epoch))(anyTraceContext)
+      verify(rejecter, timeout(timeoutMillis).times(1))
+        .notify(eqTo(CantonTimestamp.Epoch))(anyTraceContext)
 
       notifier.notifyAsync(
         Traced(CursorPrehead(SequencerCounter.MaxValue, CantonTimestamp.MaxValue))
       )
       notifier.notifyIfInPastAsync(CantonTimestamp.MinValue)
-      always(50.milliseconds) {
-        verify(rejecter, never).notify(eqTo(CantonTimestamp.MaxValue))(anyTraceContext)
-        verify(rejecter).notify(eqTo(CantonTimestamp.Epoch))(anyTraceContext)
-        ()
-      }
+      verify(rejecter, timeout(timeoutMillis).times(1))
+        .notify(eqTo(CantonTimestamp.Epoch))(anyTraceContext)
+      verify(rejecter, after(timeoutMillis).never)
+        .notify(eqTo(CantonTimestamp.MaxValue))(anyTraceContext)
+    }
+
+    "take initial bound into account" in {
+      val rejecter = mock[TimelyRejectNotifier.TimelyRejecter]
+      when(rejecter.notify(any[CantonTimestamp])(anyTraceContext))
+        .thenReturn(FutureUnlessShutdown.abortedDueToShutdown)
+      val notifier =
+        new TimelyRejectNotifier(rejecter, Some(CantonTimestamp.ofEpochSecond(1)), loggerFactory)
+
+      notifier.notifyAsync(Traced(CursorPrehead(SequencerCounter.Genesis, CantonTimestamp.Epoch)))
+      verify(rejecter, after(timeoutMillis).never)
+        .notify(eqTo(CantonTimestamp.Epoch))(anyTraceContext)
+      notifier.notifyIfInPastAsync(CantonTimestamp.ofEpochMilli(1))
+      verify(rejecter, timeout(timeoutMillis).times(1))
+        .notify(eqTo(CantonTimestamp.ofEpochMilli(1)))(anyTraceContext)
     }
   }
 }

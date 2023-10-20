@@ -5,13 +5,19 @@ package com.digitalasset.canton.participant.store
 
 import cats.syntax.option.*
 import com.daml.lf.data.{ImmArray, Time}
+import com.digitalasset.canton.config.RequireTypes.NegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.v2.TransactionMeta
 import com.digitalasset.canton.participant.store.db.DbEventLogTestResources
 import com.digitalasset.canton.participant.sync.LedgerSyncEvent.PublicPackageUploadRejected
 import com.digitalasset.canton.participant.sync.TimestampedEvent.TimelyRejectionEventId
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
-import com.digitalasset.canton.participant.{LedgerSyncRecordTime, LocalOffset, RichRequestCounter}
+import com.digitalasset.canton.participant.{
+  LedgerSyncRecordTime,
+  LocalOffset,
+  RequestOffset,
+  TopologyOffset,
+}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
@@ -35,7 +41,9 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
   this: AsyncWordSpec =>
   import SingleDimensionEventLogTest.*
 
-  private implicit def toLocalOffset(i: Long): LocalOffset = LocalOffset(i)
+  // TODO(#14381) Expand coverage and include topology events in this test
+  private implicit def toLocalOffset(i: Long): RequestOffset =
+    RequestOffset(CantonTimestamp.ofEpochSecond(i), RequestCounter(i))
 
   protected lazy val id: EventLogId = DbEventLogTestResources.dbSingleDimensionEventLogEventLogId
 
@@ -130,7 +138,7 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
       "support deleteSince" in withEventLog { eventLog =>
         logger.debug("Starting 3")
         for {
-          _ <- eventLog.deleteSince(3L)
+          _ <- eventLog.deleteAfter(2L)
           _ <- assertEvents(eventLog, Seq.empty)
         } yield {
           logger.debug("Finished 3")
@@ -160,11 +168,38 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
           succeed
         }
       }
+
+      "have consistent ordering between event log and LocalOffset.ordering" in withEventLog {
+        eventLog =>
+          logger.debug("Starting 5")
+          val domainId = DomainId.tryFromString("domain::id")
+          val eventId1 = TimelyRejectionEventId(domainId, new UUID(0L, 2L))
+
+          val offset1 =
+            TopologyOffset.tryCreate(CantonTimestamp.ofEpochSecond(100), NegativeLong.tryCreate(-1))
+          val offset2 =
+            TopologyOffset.tryCreate(CantonTimestamp.ofEpochSecond(100), NegativeLong.tryCreate(-2))
+
+          val event1 =
+            generateEventWithTransactionId(offset1, "transaction-id").copy(eventId = eventId1.some)
+          val event2 = generateEventWithTransactionId(offset2, "transaction-id")
+
+          val allEvents = Seq(event1, event2).sortBy(_.localOffset) // Use Scala ordering
+
+          for {
+            () <- eventLog.insertUnlessEventIdClash(event1).valueOrFail("First insert")
+            () <- eventLog.insertUnlessEventIdClash(event2).valueOrFail("Second insert")
+            _ <- assertEvents(eventLog, allEvents) // Use event log ordering
+          } yield {
+            logger.debug("Finished 5")
+            succeed
+          }
+      }
     }
 
     "contains events" should {
       "publish an event and read from the ledger end" in withEventLog { eventLog =>
-        logger.debug("Starting 5")
+        logger.debug("Starting 6")
         val ts1 = LedgerSyncRecordTime.Epoch
         val event1 = generateEvent(ts1, 1)
 
@@ -175,13 +210,13 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
           inserts <- eventLog.insertsUnlessEventIdClash(Seq(event1, event2))
           _ <- assertEvents(eventLog, Seq(event1, event2))
         } yield {
-          logger.debug("Finished 5")
+          logger.debug("Finished 6")
           inserts shouldBe Seq(Right(()), Right(()))
         }
       }
 
       "publish events with the same timestamp" in withEventLog { eventLog =>
-        logger.debug("Starting 6")
+        logger.debug("Starting 7")
         val ts = LedgerSyncRecordTime.Epoch
         val event1 = generateEvent(ts, 1)
         val event2 = generateEvent(ts, 2)
@@ -190,13 +225,13 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
           inserts <- eventLog.insertsUnlessEventIdClash(Seq(event1, event2))
           _ <- assertEvents(eventLog, Seq(event1, event2))
         } yield {
-          logger.debug("Finished 6")
+          logger.debug("Finished 7")
           inserts shouldBe Seq(Right(()), Right(()))
         }
       }
 
       "publish events out of order" in withEventLog { eventLog =>
-        logger.debug("Starting 7")
+        logger.debug("Starting 8")
         val ts1 = LedgerSyncRecordTime.Epoch
         val event1 = generateEvent(ts1, 1)
 
@@ -208,13 +243,13 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
           _ <- eventLog.insert(event1)
           _ <- assertEvents(eventLog, Seq(event1, event2))
         } yield {
-          logger.debug("Finished 7")
+          logger.debug("Finished 8")
           succeed
         }
       }
 
       "be idempotent on duplicate publications" in withEventLog { eventLog =>
-        logger.debug("Starting 8")
+        logger.debug("Starting 9")
         val event = generateEvent(LedgerSyncRecordTime.Epoch, 1)
 
         for {
@@ -222,19 +257,28 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
           _ <- eventLog.insert(event)
           _ <- assertEvents(eventLog, Seq(event))
         } yield {
-          logger.debug("Finished 8")
+          logger.debug("Finished 9")
           succeed
         }
       }
 
       "publish events with extreme counters and timestamps" in withEventLog { eventLog =>
-        logger.debug("Starting 9")
-        val event1 =
+        logger.debug("Starting 10")
+        val event1a =
           generateEvent(
             LedgerSyncRecordTime.MinValue,
-            Long.MinValue,
+            RequestOffset(CantonTimestamp.MinValue, RequestCounter(0)),
             Some(SequencerCounter(Long.MinValue)),
           )
+
+        val event1b =
+          generateEvent(
+            LedgerSyncRecordTime.MinValue,
+            TopologyOffset
+              .tryCreate(CantonTimestamp.MinValue, NegativeLong.tryCreate(Long.MinValue + 1)),
+            Some(SequencerCounter(Long.MinValue)),
+          )
+
         val event2 =
           generateEvent(
             LedgerSyncRecordTime.MaxValue,
@@ -242,17 +286,19 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
             Some(SequencerCounter.MaxValue),
           )
 
+        val allEvents = Seq(event1a, event1b, event2)
+
         for {
-          inserts <- eventLog.insertsUnlessEventIdClash(Seq(event1, event2))
-          _ <- assertEvents(eventLog, Seq(event1, event2))
+          inserts <- eventLog.insertsUnlessEventIdClash(allEvents)
+          _ <- assertEvents(eventLog, allEvents)
         } yield {
-          logger.debug("Finished 9")
-          inserts shouldBe Seq(Right(()), Right(()))
+          logger.debug("Finished 10")
+          inserts shouldBe allEvents.map(_ => Right(()))
         }
       }
 
       "reject publication of conflicting events" in withEventLog { eventLog =>
-        logger.debug("Starting 10")
+        logger.debug("Starting 11")
         val ts1 = LedgerSyncRecordTime.Epoch
         val event1 = generateEvent(ts1, 1)
 
@@ -274,13 +320,13 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
           )
           _ <- assertEvents(eventLog, Seq(event1))
         } yield {
-          logger.debug("Finished 10")
+          logger.debug("Finished 11")
           succeed
         }
       }
 
       "reject publication of conflicting event ids" in withEventLog { eventLog =>
-        logger.debug("Starting 11")
+        logger.debug("Starting 12")
         val domainId = DomainId.tryFromString("domain::id")
         val eventId = TimelyRejectionEventId(domainId, new UUID(0L, 1L))
 
@@ -299,13 +345,13 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
           ) // We can still insert it normally without generating an ID
           _ <- assertEvents(eventLog, Seq(event1, event2.copy(eventId = None)))
         } yield {
-          logger.debug("Finished 11")
+          logger.debug("Finished 12")
           clash shouldBe event1
         }
       }
 
       "reject duplicate transaction ids" in withEventLog { eventLog =>
-        logger.debug("Starting 12")
+        logger.debug("Starting 13")
         val event1 = generateEventWithTransactionId(1, "id1")
         val event2 = generateEventWithTransactionId(2, "id2")
         val event3 = generateEventWithTransactionId(3, "id1")
@@ -315,16 +361,16 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
           _ <- eventLog.insert(event2)
           _ <- loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
             eventLog.insert(event3),
-            _.getMessage should fullyMatch regex "Unable to insert event, as the eventId id .* has already been inserted with offset 1\\.",
+            _.getMessage shouldBe s"Unable to insert event, as the eventId id ${event1.eventId.value} has already been inserted with offset ${event1.localOffset}.",
           )
         } yield {
-          logger.debug("Finished 12")
+          logger.debug("Finished 13")
           succeed
         }
       }
 
       "lookup events by transaction id" in withEventLog { eventLog =>
-        logger.debug("Starting 13")
+        logger.debug("Starting 14")
         val event1 = generateEventWithTransactionId(1, "id1")
         val event2 = generateEventWithTransactionId(2, "id2")
         val event3 = generateEvent(LedgerSyncRecordTime.Epoch, 3)
@@ -337,14 +383,14 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
           et2 <- eventLog.eventByTransactionId(LedgerTransactionId.assertFromString("id2")).value
           et3 <- eventLog.eventByTransactionId(LedgerTransactionId.assertFromString("id3")).value
         } yield {
-          logger.debug("Finished 13")
+          logger.debug("Finished 14")
           et1.value.normalized shouldBe event1.normalized
           et2.value.normalized shouldBe event2.normalized
           et3 shouldBe None
         }
       }
       "correctly prune specified events" in withEventLog { eventLog =>
-        logger.debug("Starting 14")
+        logger.debug("Starting 15")
         val ts1 = LedgerSyncRecordTime.Epoch
         val event1 = generateEvent(ts1, 1)
         val ts2 = ts1.addMicros(5000000L)
@@ -357,13 +403,13 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
           _ <- eventLog.prune(2)
           _ <- assertEvents(eventLog, Seq(event3))
         } yield {
-          logger.debug("Finished 14")
+          logger.debug("Finished 15")
           inserts shouldBe Seq(Right(()), Right(()), Right(()))
         }
       }
 
       "existsBetween finds time jumps" in withEventLog { eventLog =>
-        logger.debug("Starting 15")
+        logger.debug("Starting 16")
         val ts1 = LedgerSyncRecordTime.Epoch
         val event1 = generateEvent(ts1, 1L)
         val ts2 = ts1.addMicros(-5000000L)
@@ -378,11 +424,11 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
           q3 <- eventLog.existsBetween(CantonTimestamp(ts2), 0L)
           q4 <- eventLog.existsBetween(
             CantonTimestamp.MaxValue,
-            RequestCounter.MaxValue.asLocalOffset,
+            LocalOffset.MaxValue,
           )
           q5 <- eventLog.existsBetween(CantonTimestamp(ts3), 3L)
         } yield {
-          logger.debug("Finished 15")
+          logger.debug("Finished 16")
           inserts shouldBe Seq(Right(()), Right(()), Right(()))
           q1 shouldBe true
           q2 shouldBe false
@@ -393,7 +439,7 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
       }
 
       "delete events from the given request counter" in withEventLog { eventLog =>
-        logger.debug("Starting 16")
+        logger.debug("Starting 17")
         val ts1 = LedgerSyncRecordTime.Epoch
         val event1 = generateEvent(ts1, 1)
         val ts2 = ts1.addMicros(5000000L)
@@ -405,14 +451,14 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
 
         for {
           inserts <- eventLog.insertsUnlessEventIdClash(Seq(event1, event2, event4))
-          () <- eventLog.deleteSince(3L)
+          () <- eventLog.deleteAfter(2L)
           _ <- assertEvents(eventLog, Seq(event1, event2))
           () <- eventLog.insert(event4a) // can insert deleted event with different timestamp
           _ <- assertEvents(eventLog, Seq(event1, event2, event4a))
-          () <- eventLog.deleteSince(2L)
+          () <- eventLog.deleteAfter(1L)
           _ <- assertEvents(eventLog, Seq(event1))
         } yield {
-          logger.debug("Finished 16")
+          logger.debug("Finished 17")
           inserts shouldBe Seq(Right(()), Right(()), Right(()))
         }
       }
@@ -420,7 +466,7 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
   }
 }
 
-object SingleDimensionEventLogTest {
+private[participant] object SingleDimensionEventLogTest {
   def generateEvent(
       recordTime: LedgerSyncRecordTime,
       localOffset: LocalOffset,

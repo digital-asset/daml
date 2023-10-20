@@ -14,7 +14,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.{
   String256M,
 }
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
 import com.digitalasset.canton.crypto.{PublicKey, SignatureCheckError}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
@@ -231,7 +231,7 @@ sealed trait TopologyTransactionRejection extends PrettyPrinting {
 }
 object TopologyTransactionRejection {
   object NotAuthorized extends TopologyTransactionRejection {
-    def asString: String = "Not authorized"
+    override def asString: String = "Not authorized"
     override def pretty: Pretty[NotAuthorized.type] = prettyOfString(_ => asString)
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
@@ -240,7 +240,8 @@ object TopologyTransactionRejection {
 
   final case class ThresholdTooHigh(actual: Int, mustBeAtMost: Int)
       extends TopologyTransactionRejection {
-    def asString: String = s"Threshold must not be higher than $mustBeAtMost, but was $actual."
+    override def asString: String =
+      s"Threshold must not be higher than $mustBeAtMost, but was $actual."
 
     override def pretty: Pretty[ThresholdTooHigh] = prettyOfString(_ => asString)
 
@@ -251,28 +252,28 @@ object TopologyTransactionRejection {
 
   final case class SignatureCheckFailed(err: SignatureCheckError)
       extends TopologyTransactionRejection {
-    def asString: String = err.toString
+    override def asString: String = err.toString
     override def pretty: Pretty[SignatureCheckFailed] = prettyOfClass(param("err", _.err))
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.InvalidSignatureError.Failure(err)
   }
   final case class WrongDomain(wrong: DomainId) extends TopologyTransactionRejection {
-    def asString: String = show"Wrong domain $wrong"
+    override def asString: String = show"Wrong domain $wrong"
     override def pretty: Pretty[WrongDomain] = prettyOfClass(param("wrong", _.wrong))
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.WrongDomain.Failure(wrong)
   }
   final case class Duplicate(old: CantonTimestamp) extends TopologyTransactionRejection {
-    def asString: String = show"Duplicate transaction from ${old}"
+    override def asString: String = show"Duplicate transaction from ${old}"
     override def pretty: Pretty[Duplicate] = prettyOfClass(param("old", _.old))
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.DuplicateTransaction.ExistsAt(old)
   }
   final case class SerialMismatch(expected: PositiveInt, actual: PositiveInt)
       extends TopologyTransactionRejection {
-    def asString: String =
+    override def asString: String =
       show"The given serial $actual does not match the expected serial $expected"
     override def pretty: Pretty[SerialMismatch] =
       prettyOfClass(param("expected", _.expected), param("actual", _.actual))
@@ -280,11 +281,30 @@ object TopologyTransactionRejection {
       TopologyManagerError.SerialMismatch.Failure(expected, actual)
   }
   final case class Other(str: String) extends TopologyTransactionRejection {
-    def asString: String = str
+    override def asString: String = str
     override def pretty: Pretty[Other] = prettyOfString(_ => asString)
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.InternalError.Other(str)
+  }
+
+  final case class ExtraTrafficLimitTooLow(
+      member: Member,
+      actual: PositiveLong,
+      expectedMinimum: PositiveLong,
+  ) extends TopologyTransactionRejection {
+    override def asString: String =
+      s"Extra traffic limit for $member should be at least $expectedMinimum, but was $actual."
+
+    override def pretty: Pretty[ExtraTrafficLimitTooLow] =
+      prettyOfClass(
+        param("member", _.member),
+        param("actual", _.actual),
+        param("expectedMinimum", _.expectedMinimum),
+      )
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.InvalidTrafficLimit.TrafficLimitTooLow(member, actual, expectedMinimum)
   }
 }
 

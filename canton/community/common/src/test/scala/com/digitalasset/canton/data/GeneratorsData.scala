@@ -12,7 +12,7 @@ import com.digitalasset.canton.data.ActionDescription.{
   FetchActionDescription,
   LookupByKeyActionDescription,
 }
-import com.digitalasset.canton.data.ViewPosition.MerklePathElement
+import com.digitalasset.canton.data.ViewPosition.{MerklePathElement, MerkleSeqIndex}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.protocol.{
   ConfirmationPolicy,
@@ -57,7 +57,23 @@ object GeneratorsData {
     Gen.choose(0, tenYears.getSeconds).map(CantonTimestampSecond.ofEpochSecond)
   )
 
-  implicit val merklePathElementArg: Arbitrary[MerklePathElement] = genArbitrary
+  implicit val viewPositionArb: Arbitrary[ViewPosition] = Arbitrary(
+    Gen.listOf(merklePathElementArg.arbitrary).map(ViewPosition(_))
+  )
+
+  // If this pattern match is not exhaustive anymore, update the generator below
+  {
+    ((_: MerklePathElement) match {
+      case _: ViewPosition.ListIndex =>
+        () // This one is excluded because it is not made to be serialized
+      case _: ViewPosition.MerkleSeqIndex => ()
+      case _: ViewPosition.MerkleSeqIndexFromRoot =>
+        () // This one is excluded because it is not made to be serialized
+    }).discard
+  }
+  implicit val merklePathElementArg: Arbitrary[MerklePathElement] = Arbitrary(
+    Arbitrary.arbitrary[MerkleSeqIndex]
+  )
 
   implicit val commonMetadataArb: Arbitrary[CommonMetadata] = Arbitrary(
     for {
@@ -319,4 +335,21 @@ object GeneratorsData {
       pv,
     )
   )
+
+  // If this pattern match is not exhaustive anymore, update the generator below
+  {
+    ((_: ViewType) match {
+      case ViewType.TransactionViewType => ()
+      case _: ViewType.TransferViewType => ()
+      case _: ViewTypeTest => () // Only for tests, so we don't use it in the generator
+    }).discard
+  }
+  implicit val viewTypeArb: Arbitrary[ViewType] = Arbitrary(
+    Gen.oneOf[ViewType](
+      ViewType.TransactionViewType,
+      ViewType.TransferInViewType,
+      ViewType.TransferOutViewType,
+    )
+  )
+
 }

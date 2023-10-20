@@ -7,11 +7,19 @@ import com.digitalasset.canton.SerializationDeserializationTestHelpers.DefaultVa
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
+import org.reflections.Reflections
 import org.scalacheck.Arbitrary
 import org.scalatest.Assertion
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
+import scala.collection.mutable
+import scala.jdk.CollectionConverters.*
+
 trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPropertyChecks {
+
+  // Classes for which we ran the (de)serialization tests
+  // Populated by the methods `testVersioned` and friends
+  lazy val testedClasses: scala.collection.mutable.Set[String] = mutable.Set.empty
 
   /*
    Test for classes extending `HasVersionedWrapper` (protocol version passed to the serialization method),
@@ -36,12 +44,31 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
 
   /*
    Test for classes extending `HasProtocolVersionedWrapper` (protocol version embedded in the instance),
+   with memoization and without context for deserialization.
+   */
+  protected def testMemoizedProtocolVersioned[T <: HasProtocolVersionedWrapper[T]](
+      companion: HasMemoizedProtocolVersionedWrapperCompanion[T]
+  )(implicit arb: Arbitrary[T]): Assertion =
+    testProtocolVersionedCommon(companion, companion.fromByteString)
+
+  /*
+   Test for classes extending `HasProtocolVersionedWrapper` (protocol version embedded in the instance),
+   with memoization and context for deserialization.
+   */
+  protected def testMemoizedProtocolVersionedWithCtx[T <: HasProtocolVersionedWrapper[T], Context](
+      companion: HasMemoizedProtocolVersionedWithContextCompanion[T, Context],
+      context: Context,
+  )(implicit arb: Arbitrary[T]): Assertion =
+    testProtocolVersionedCommon(companion, companion.fromByteString(context))
+
+  /*
+   Test for classes extending `HasProtocolVersionedWrapper` (protocol version embedded in the instance),
    with context for deserialization.
    */
-  protected def testProtocolVersionedWithContext[T <: HasProtocolVersionedWrapper[
+  protected def testProtocolVersionedWithCtx[T <: HasProtocolVersionedWrapper[
     T
   ], DeserializedValueClass <: HasRepresentativeProtocolVersion, Context](
-      companion: HasMemoizedProtocolVersionedWithContextCompanion[T, Context],
+      companion: HasProtocolVersionedWithContextCompanion[T, Context],
       context: Context,
   )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(companion, companion.fromByteString(context))
@@ -87,8 +114,10 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       companion: HasProtocolVersionedWrapperCompanion[T, DeserializedValueClass],
       deserializer: ByteString => ParsingResult[DeserializedValueClass],
   )(implicit arb: Arbitrary[T]): Assertion = {
+    testedClasses.add(companion.getClass.getName.replace("$", ""))
+
     forAll { instance: T =>
-      val proto = instance.toByteString
+      val proto = clue(s"Serializing instance of ${companion.name}")(instance.toByteString)
 
       val deserializedInstance = clue(s"Deserializing serialized ${companion.name}")(
         deserializer(proto).value
@@ -103,6 +132,23 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       }
     }
   }
+
+  /* Find all subclasses of `parent` in package `packageName` */
+  private def findSubClassesOf[T](parent: Class[T], packageName: String) = {
+    val reflections = new Reflections(packageName)
+
+    val classes: Seq[Class[_ <: T]] =
+      reflections.getSubTypesOf(parent).asScala.toList.filterNot(_.getName.contains("$"))
+
+    // Check if one superclass of `c` is also in the list of classes
+    def hasParent(c: Class[_ <: T]) =
+      classes.exists(p => p.getName != c.getName && p.isAssignableFrom(c))
+
+    classes.filterNot(hasParent)
+  }
+
+  protected def findHasProtocolVersionedWrapperSubClasses(packageName: String): Seq[String] =
+    findSubClassesOf(classOf[HasProtocolVersionedWrapper[_]], packageName).map(_.getName)
 }
 
 object SerializationDeserializationTestHelpers {

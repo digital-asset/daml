@@ -48,8 +48,9 @@ import com.digitalasset.canton.participant.sync.{
 }
 import com.digitalasset.canton.participant.util.DAMLe.ContractWithMetadata
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
-import com.digitalasset.canton.participant.{ParticipantNodeParameters, RichRequestCounter}
+import com.digitalasset.canton.participant.{ParticipantNodeParameters, RequestOffset}
 import com.digitalasset.canton.platform.participant.util.LfEngineToApi
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{LfChoiceName, LfGlobalKey, *}
 import com.digitalasset.canton.resource.TransactionalStoreUpdate
 import com.digitalasset.canton.store.{
@@ -336,9 +337,7 @@ final class RepairService(
             contractsByCreation = filteredContracts
               .groupBy(_.contract.ledgerCreateTime)
               .toList
-              .sortBy { case (ts, _) =>
-                ts
-              }
+              .sortBy { case (ledgerCreateTime, _) => ledgerCreateTime }
 
             _ <- PositiveInt
               .create(contractsByCreation.size)
@@ -948,7 +947,7 @@ final class RepairService(
       repair: RepairRequest,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val transactionId = repair.transactionId.tryAsLedgerTransactionId
-    val offset = repair.tryExactlyOneRequestCounter.asLocalOffset
+    val offset = RequestOffset(repair.timestamp, repair.tryExactlyOneRequestCounter)
     val event =
       TimestampedEvent(
         LedgerSyncEvent.ContractsPurged(
@@ -975,11 +974,11 @@ final class RepairService(
       repair: RepairRequest,
       hostedParties: Set[LfPartyId],
       requestCounter: RequestCounter,
-      timestamp: CantonTimestamp,
+      ledgerCreateTime: LedgerCreateTime,
       contractsAdded: Seq[ContractToAdd],
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val transactionId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId
-    val offset = requestCounter.asLocalOffset
+    val offset = RequestOffset(repair.timestamp, requestCounter)
     val contractMetadata = contractsAdded.view
       .map(c => c.contract.contractId -> c.driverMetadata(repair.domain.parameters.protocolVersion))
       .toMap
@@ -990,7 +989,7 @@ final class RepairService(
           contracts = contractsAdded.map(_.contract.toLf),
           domainId = repair.domain.id,
           recordTime = repair.timestamp.toLf,
-          ledgerTime = timestamp.toLf,
+          ledgerTime = ledgerCreateTime.toLf,
           hostedWitnesses = contractsAdded.flatMap(_.witnesses.intersect(hostedParties)),
           contractMetadata = contractMetadata,
         ),
@@ -1019,7 +1018,7 @@ final class RepairService(
   private def writeContractsAddedEvents(
       repair: RepairRequest,
       hostedParties: Set[LfPartyId],
-      contractsAdded: Seq[(TimeOfChange, (CantonTimestamp, Seq[ContractToAdd]))],
+      contractsAdded: Seq[(TimeOfChange, (LedgerCreateTime, Seq[ContractToAdd]))],
   )(implicit traceContext: TraceContext): Future[Unit] =
     MonadUtil.sequentialTraverse_(contractsAdded) {
       case (timeOfChange, (timestamp, contractsToAdd)) =>
@@ -1157,7 +1156,7 @@ final class RepairService(
         (),
         log(
           s"""Cannot apply a repair command as events have been published up to
-             |${domain.startingPoints.eventPublishingNextLocalOffset} offset exclusive
+             |${domain.startingPoints.lastPublishedLocalOffset} offset inclusive
              |and the repair command would be assigned the offset ${domain.startingPoints.processing.nextRequestCounter}.
              |Reconnect to the domain to reprocess the dirty requests and retry repair afterwards.""".stripMargin
         ),
@@ -1380,7 +1379,7 @@ object RepairService {
           ContractMetadata
             .tryCreate(signatoriesAsParties, signatoriesAsParties ++ observersAsParties, None)
         ),
-        ledgerCreateTime = time,
+        ledgerCreateTime = LedgerCreateTime(time),
         contractSalt = contractSalt,
       )
     }
@@ -1389,7 +1388,7 @@ object RepairService {
         contract: SerializableContract
     ): Either[
       String,
-      (Identifier, Record, Set[String], Set[String], LfContractId, Option[Salt], CantonTimestamp),
+      (Identifier, Record, Set[String], Set[String], LfContractId, Option[Salt], LedgerCreateTime),
     ] = {
       val contractInstance = contract.rawContractInstance.contractInstance
       LfEngineToApi

@@ -19,7 +19,6 @@ import com.digitalasset.canton.ledger.participant.state.v2.{
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.ProcessingSteps
-import com.digitalasset.canton.participant.protocol.ProcessingSteps.RequestType
 import com.digitalasset.canton.protocol.{
   LfCommittedTransaction,
   LfContractId,
@@ -58,7 +57,7 @@ import scala.collection.immutable.HashMap
 sealed trait LedgerSyncEvent extends Product with Serializable with PrettyPrinting {
   def description: String
   def recordTime: LfTimestamp
-  def toDamlUpdate(populateTransfers: Boolean = false): Option[Update]
+  def toDamlUpdate: Update
 
   def setTimestamp(timestamp: LfTimestamp): LedgerSyncEvent =
     this match {
@@ -110,9 +109,8 @@ object LedgerSyncEvent {
         param("submissionId", _.submissionId),
         param("newConfiguration", _.newConfiguration),
       )
-    def toDamlUpdate(populateTransfers: Boolean = false): Option[Update] = Some(
+    def toDamlUpdate: Update =
       this.transformInto[Update.ConfigurationChanged]
-    )
   }
 
   final case class ConfigurationChangeRejected(
@@ -134,9 +132,8 @@ object LedgerSyncEvent {
         param("rejectionReason", _.rejectionReason.doubleQuoted),
         param("proposedConfiguration", _.proposedConfiguration),
       )
-    def toDamlUpdate(populateTransfers: Boolean = false): Option[Update] = Some(
+    def toDamlUpdate: Update =
       this.transformInto[Update.ConfigurationChangeRejected]
-    )
   }
 
   final case class PartyAddedToParticipant(
@@ -157,9 +154,8 @@ object LedgerSyncEvent {
         param("party", _.party),
         param("displayName", _.displayName.singleQuoted),
       )
-    def toDamlUpdate(populateTransfers: Boolean = false): Option[Update] = Some(
+    def toDamlUpdate: Update =
       this.transformInto[Update.PartyAddedToParticipant]
-    )
   }
 
   final case class PartyAllocationRejected(
@@ -179,9 +175,8 @@ object LedgerSyncEvent {
         param("rejectionReason", _.rejectionReason.doubleQuoted),
       )
 
-    def toDamlUpdate(populateTransfers: Boolean = false): Option[Update] = Some(
+    def toDamlUpdate: Update =
       this.transformInto[Update.PartyAllocationRejected]
-    )
   }
 
   final case class PublicPackageUpload(
@@ -201,9 +196,8 @@ object LedgerSyncEvent {
         paramWithoutValue("archives"),
       )
 
-    def toDamlUpdate(populateTransfers: Boolean = false): Option[Update] = Some(
+    def toDamlUpdate: Update =
       this.transformInto[Update.PublicPackageUpload]
-    )
   }
 
   final case class PublicPackageUploadRejected(
@@ -221,9 +215,8 @@ object LedgerSyncEvent {
         param("rejectionReason", _.rejectionReason.doubleQuoted),
       )
 
-    def toDamlUpdate(populateTransfers: Boolean = false): Option[Update] = Some(
+    def toDamlUpdate: Update =
       this.transformInto[Update.PublicPackageUploadRejected]
-    )
   }
 
   final case class TransactionAccepted(
@@ -251,9 +244,8 @@ object LedgerSyncEvent {
         paramWithoutValue("hostedWitnesses"),
         paramWithoutValue("contractMetadata"),
       )
-    def toDamlUpdate(populateTransfers: Boolean = false): Option[Update] = Some(
+    def toDamlUpdate: Update =
       this.transformInto[Update.TransactionAccepted]
-    )
 
     override def domainId: Option[DomainId] = transactionMeta.optDomainId
   }
@@ -283,28 +275,26 @@ object LedgerSyncEvent {
     override def description: String = s"Contracts added $transactionId"
 
     // TODO(i12964) expose the migration event as its own type of event (not as a transaction)
-    override def toDamlUpdate(populateTransfers: Boolean = false): Option[Update] =
-      Option(
-        Update.TransactionAccepted(
-          completionInfoO = None,
-          transactionMeta = TransactionMeta(
-            ledgerEffectiveTime = ledgerTime,
-            workflowId = None,
-            submissionTime = recordTime,
-            submissionSeed = LedgerSyncEvent.noOpSeed,
-            optUsedPackages = None,
-            optNodeSeeds = None,
-            optByKeyNodes = None,
-            optDomainId = Option(domainId),
-          ),
-          transaction = mkTx(contracts),
-          transactionId = transactionId,
-          recordTime = recordTime,
-          divulgedContracts = List.empty,
-          blindingInfoO = None,
-          hostedWitnesses = hostedWitnesses.toList,
-          contractMetadata = contractMetadata,
-        )
+    override def toDamlUpdate: Update =
+      Update.TransactionAccepted(
+        completionInfoO = None,
+        transactionMeta = TransactionMeta(
+          ledgerEffectiveTime = ledgerTime,
+          workflowId = None,
+          submissionTime = recordTime,
+          submissionSeed = LedgerSyncEvent.noOpSeed,
+          optUsedPackages = None,
+          optNodeSeeds = None,
+          optByKeyNodes = None,
+          optDomainId = Option(domainId),
+        ),
+        transaction = mkTx(contracts),
+        transactionId = transactionId,
+        recordTime = recordTime,
+        divulgedContracts = List.empty,
+        blindingInfoO = None,
+        hostedWitnesses = hostedWitnesses.toList,
+        contractMetadata = contractMetadata,
       )
 
     override def pretty: Pretty[ContractsAdded] =
@@ -330,28 +320,26 @@ object LedgerSyncEvent {
     override def description: String = s"Contracts purged $transactionId"
 
     // TODO(i12964) expose the migration event as its own type of event (not as a transaction)
-    override def toDamlUpdate(populateTransfers: Boolean = false): Option[Update] =
-      Option(
-        Update.TransactionAccepted(
-          completionInfoO = None,
-          transactionMeta = TransactionMeta(
-            ledgerEffectiveTime = recordTime,
-            workflowId = None,
-            submissionTime = recordTime,
-            submissionSeed = LedgerSyncEvent.noOpSeed,
-            optUsedPackages = None,
-            optNodeSeeds = None,
-            optByKeyNodes = None,
-            optDomainId = Option(domainId),
-          ),
-          transaction = mkTx(contracts),
-          transactionId = transactionId,
-          recordTime = recordTime,
-          divulgedContracts = List.empty,
-          blindingInfoO = None,
-          hostedWitnesses = hostedWitnesses.toList,
-          contractMetadata = Map.empty,
-        )
+    override def toDamlUpdate: Update =
+      Update.TransactionAccepted(
+        completionInfoO = None,
+        transactionMeta = TransactionMeta(
+          ledgerEffectiveTime = recordTime,
+          workflowId = None,
+          submissionTime = recordTime,
+          submissionSeed = LedgerSyncEvent.noOpSeed,
+          optUsedPackages = None,
+          optNodeSeeds = None,
+          optByKeyNodes = None,
+          optDomainId = Option(domainId),
+        ),
+        transaction = mkTx(contracts),
+        transactionId = transactionId,
+        recordTime = recordTime,
+        divulgedContracts = List.empty,
+        blindingInfoO = None,
+        hostedWitnesses = hostedWitnesses.toList,
+        contractMetadata = Map.empty,
       )
 
     override def pretty: Pretty[ContractsPurged] =
@@ -387,14 +375,8 @@ object LedgerSyncEvent {
         paramIfDefined("domainId", _.domainId),
       )
 
-    def toDamlUpdate(populateTransfers: Boolean = false): Option[Update] = {
-      val selector = kind match {
-        case RequestType.Transaction => Some(())
-        case _: RequestType.Transfer => Option.when(populateTransfers)(())
-      }
-
-      selector.map(_ => this.transformInto[Update.CommandRejected])
-    }
+    def toDamlUpdate: Update =
+      this.transformInto[Update.CommandRejected]
   }
 
   object CommandRejected {
@@ -482,33 +464,31 @@ object LedgerSyncEvent {
       param("transferCounter", _.transferCounter),
     )
 
-    def toDamlUpdate(populateTransfers: Boolean = false): Option[Update] =
-      Option.when(populateTransfers) {
-        Update.ReassignmentAccepted(
-          optCompletionInfo = optCompletionInfo,
-          workflowId = workflowId,
-          updateId = updateId,
-          recordTime = recordTime,
-          reassignmentInfo = ReassignmentInfo(
-            sourceDomain = transferId.sourceDomain,
-            targetDomain = targetDomain,
-            submitter = submitter,
-            reassignmentCounter = transferCounter.v,
-            hostedStakeholders = hostedStakeholders,
-            unassignId = transferId.transferOutTimestamp,
+    def toDamlUpdate: Update =
+      Update.ReassignmentAccepted(
+        optCompletionInfo = optCompletionInfo,
+        workflowId = workflowId,
+        updateId = updateId,
+        recordTime = recordTime,
+        reassignmentInfo = ReassignmentInfo(
+          sourceDomain = transferId.sourceDomain,
+          targetDomain = targetDomain,
+          submitter = submitter,
+          reassignmentCounter = transferCounter.v,
+          hostedStakeholders = hostedStakeholders,
+          unassignId = transferId.transferOutTimestamp,
+        ),
+        reassignment = Reassignment.Unassign(
+          contractId = contractId,
+          templateId = templateId.getOrElse(
+            throw new IllegalStateException(
+              s"templateId should not be empty in transfer-id: $transferId"
+            )
           ),
-          reassignment = Reassignment.Unassign(
-            contractId = contractId,
-            templateId = templateId.getOrElse(
-              throw new IllegalStateException(
-                s"templateId should not be empty in transfer-id: $transferId"
-              )
-            ),
-            stakeholders = contractStakeholders.toList,
-            assignmentExclusivity = transferInExclusivity,
-          ),
-        )
-      }
+          stakeholders = contractStakeholders.toList,
+          assignmentExclusivity = transferInExclusivity,
+        ),
+      )
   }
 
   /**  Signal the transfer-in of a contract from the source domain to the target domain.
@@ -570,69 +550,62 @@ object LedgerSyncEvent {
 
     override def domainId: Option[DomainId] = Option(targetDomain.id)
 
-    private lazy val transactionMeta: TransactionMeta = TransactionMeta(
-      ledgerEffectiveTime = ledgerCreateTime,
-      workflowId = workflowId,
-      submissionTime = recordTime, // TODO(M41): Upstream mismatch, replace with enter/leave view
-      submissionSeed = LedgerSyncEvent.noOpSeed,
-      optUsedPackages = None,
-      optNodeSeeds = None,
-      optByKeyNodes = None,
-      optDomainId = Some(targetDomain.unwrap),
-    )
-
     /** Workaround to create an update for informing the ledger API server about a transferred-in contract.
       * Creates a TransactionAccepted event consisting of a single create action that creates the given contract.
       *
       * The transaction has the same ledger time and transaction id as the creation of the contract.
       */
-    def toDamlUpdate(populateTransfers: Boolean = false): Option[Update] =
-      Option
-        .when(populateTransfers)(
-          Update.ReassignmentAccepted(
-            optCompletionInfo = optCompletionInfo,
+    def asTransactionAccepted: Option[Update] =
+      Option.when(createTransactionAccepted)(
+        Update.TransactionAccepted(
+          completionInfoO = optCompletionInfo,
+          transactionMeta = TransactionMeta(
+            ledgerEffectiveTime = ledgerCreateTime,
             workflowId = workflowId,
-            updateId = updateId,
-            recordTime = recordTime,
-            reassignmentInfo = ReassignmentInfo(
-              sourceDomain = transferId.sourceDomain,
-              targetDomain = targetDomain,
-              submitter = submitter,
-              reassignmentCounter = transferCounter.v,
-              hostedStakeholders = hostedStakeholders,
-              unassignId = transferId.transferOutTimestamp,
-            ),
-            reassignment = Reassignment.Assign(
-              ledgerEffectiveTime = ledgerCreateTime,
-              createNode = createNode,
-              contractMetadata = contractMetadata,
-            ),
-          )
-        )
-        .orElse(
-          Option.when(createTransactionAccepted) {
-            val nodeId = LfNodeId(0)
-            val committedTransaction = LfCommittedTransaction(
-              LfVersionedTransaction(
-                version = createNode.version,
-                nodes = HashMap((nodeId, createNode)),
-                roots = ImmArray(nodeId),
-              )
+            submissionTime =
+              recordTime, // TODO(M41): Upstream mismatch, replace with enter/leave view
+            submissionSeed = LedgerSyncEvent.noOpSeed,
+            optUsedPackages = None,
+            optNodeSeeds = None,
+            optByKeyNodes = None,
+            optDomainId = Some(targetDomain.unwrap),
+          ),
+          transaction = LfCommittedTransaction(
+            LfVersionedTransaction(
+              version = createNode.version,
+              nodes = HashMap((LfNodeId(0), createNode)),
+              roots = ImmArray(LfNodeId(0)),
             )
+          ),
+          transactionId = updateId,
+          recordTime = recordTime,
+          divulgedContracts = Nil,
+          blindingInfoO = None,
+          hostedWitnesses = hostedStakeholders,
+          contractMetadata = Map(createNode.coid -> contractMetadata),
+        )
+      )
 
-            Update.TransactionAccepted(
-              completionInfoO = optCompletionInfo,
-              transactionMeta = transactionMeta,
-              transaction = committedTransaction,
-              transactionId = updateId,
-              recordTime = recordTime,
-              divulgedContracts = Nil,
-              blindingInfoO = None,
-              hostedWitnesses = hostedStakeholders,
-              contractMetadata = Map(createNode.coid -> contractMetadata),
-            )
-          }
-        )
+    def toDamlUpdate: Update =
+      Update.ReassignmentAccepted(
+        optCompletionInfo = optCompletionInfo,
+        workflowId = workflowId,
+        updateId = updateId,
+        recordTime = recordTime,
+        reassignmentInfo = ReassignmentInfo(
+          sourceDomain = transferId.sourceDomain,
+          targetDomain = targetDomain,
+          submitter = submitter,
+          reassignmentCounter = transferCounter.v,
+          hostedStakeholders = hostedStakeholders,
+          unassignId = transferId.transferOutTimestamp,
+        ),
+        reassignment = Reassignment.Assign(
+          ledgerEffectiveTime = ledgerCreateTime,
+          createNode = createNode,
+          contractMetadata = contractMetadata,
+        ),
+      )
 
   }
 }

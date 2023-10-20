@@ -4,10 +4,12 @@
 package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.LocalOffset
+import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.store.EventLogId.ParticipantEventLogId
 import com.digitalasset.canton.participant.store.ParticipantEventLog
 import com.digitalasset.canton.participant.sync.TimestampedEvent
@@ -21,7 +23,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class DbParticipantEventLog(
     id: ParticipantEventLogId,
-    storage: DbStorage,
+    override val storage: DbStorage,
     indexedStringStore: IndexedStringStore,
     releaseProtocolVersion: ReleaseProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
@@ -54,18 +56,18 @@ class DbParticipantEventLog(
         val query = storage.profile match {
           case _: DbStorage.Profile.Oracle =>
             sql"""
-        select local_offset, request_sequencer_counter, event_id, content, trace_context from event_log
+        select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context from event_log
         where (case when log_id = '#${id.index}' then associated_domain end) = $associatedDomainIndex
           and (case when log_id = '#${id.index}' and associated_domain is not null then ts end) >= $atOrAfter
-        order by local_offset asc
+        order by local_offset_effective_time asc, local_offset_discriminator asc, local_offset_tie_breaker asc
         #${storage.limit(1)}
         """.as[TimestampedEvent]
           case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
             sql"""
-        select local_offset, request_sequencer_counter, event_id, content, trace_context from event_log
+        select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context from event_log
         where log_id = '#${id.index}' and associated_domain is not null
           and associated_domain = $associatedDomainIndex and ts >= $atOrAfter
-        order by local_offset asc
+        order by (local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) asc
         #${storage.limit(1)}
         """.as[TimestampedEvent]
         }
@@ -75,23 +77,25 @@ class DbParticipantEventLog(
   }
 
   override def nextLocalOffsets(
-      count: Int
-  )(implicit traceContext: TraceContext): Future[Seq[LocalOffset]] =
-    if (count > 0) {
+      count: NonNegativeInt
+  )(implicit traceContext: TraceContext): Future[Seq[RequestOffset]] =
+    if (count.unwrap > 0) {
       val query = storage.profile match {
         case _: DbStorage.Profile.Postgres =>
-          sql"""select nextval('participant_event_publisher_local_offsets') from generate_series(1, #$count)"""
-            .as[LocalOffset]
+          sql"""select nextval('participant_event_publisher_local_offsets') from generate_series(1, #${count.unwrap})"""
+            .as[RequestCounter]
         case _: DbStorage.Profile.Oracle =>
-          sql"""select participant_event_publisher_local_offsets.nextval from (select level from dual connect by level <= #$count)"""
-            .as[LocalOffset]
+          sql"""select participant_event_publisher_local_offsets.nextval from (select level from dual connect by level <= #${count.unwrap})"""
+            .as[RequestCounter]
         case _: DbStorage.Profile.H2 =>
           import DbStorage.Implicits.BuilderChain.*
           (sql"select nextval('participant_event_publisher_local_offsets') from (values " ++
-            (1 to count).toList.map(i => sql"(#$i)").intercalate(sql", ") ++
+            (1 to count.unwrap).toList.map(i => sql"(#$i)").intercalate(sql", ") ++
             sql")")
-            .as[LocalOffset]
+            .as[RequestCounter]
       }
-      storage.queryAndUpdate(query, functionFullName)
+      storage
+        .queryAndUpdate(query, functionFullName)
+        .map(_.map(RequestOffset(ParticipantEventLog.EffectiveTime, _)))
     } else Future.successful(Seq.empty)
 }

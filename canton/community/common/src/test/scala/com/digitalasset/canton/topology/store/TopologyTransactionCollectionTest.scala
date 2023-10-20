@@ -48,10 +48,7 @@ class TopologyTransactionCollectionTest extends AnyWordSpec with BaseTest with H
       EffectiveTime(tm),
       None,
       addStoredTx.transaction
-        .copy(transaction = reversedTransaction)(
-          addStoredTx.transaction.representativeProtocolVersion,
-          None,
-        )
+        .update(transaction = reversedTransaction)
         .asInstanceOf[SignedTopologyTransaction[Remove]],
     )
   }

@@ -9,12 +9,12 @@ import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorServic
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.transfer.{IncompleteTransferData, TransferData}
 import com.digitalasset.canton.participant.store.TransferStore.*
 import com.digitalasset.canton.participant.store.memory.TransferCacheTest.HookTransferStore
 import com.digitalasset.canton.participant.store.{TransferStore, TransferStoreTest}
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset}
 import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
 import com.digitalasset.canton.protocol.{SourceDomainId, TransferId}
 import com.digitalasset.canton.topology.MediatorRef
@@ -304,20 +304,6 @@ object TransferCacheTest {
     override def findAfter(requestAfter: Option[(CantonTimestamp, SourceDomainId)], limit: Int)(
         implicit traceContext: TraceContext
     ): Future[Seq[TransferData]] = baseStore.findAfter(requestAfter, limit)
-
-    override def findInFlight(
-        sourceDomain: SourceDomainId,
-        onlyCompletedTransferOut: Boolean,
-        transferOutRequestNotAfter: LocalOffset,
-        stakeholders: Option[NonEmpty[Set[LfPartyId]]],
-        limit: NonNegativeInt,
-    )(implicit traceContext: TraceContext): Future[Seq[TransferData]] = baseStore.findInFlight(
-      sourceDomain,
-      onlyCompletedTransferOut,
-      transferOutRequestNotAfter,
-      stakeholders,
-      limit,
-    )
 
     override def findIncomplete(
         sourceDomain: Option[SourceDomainId],

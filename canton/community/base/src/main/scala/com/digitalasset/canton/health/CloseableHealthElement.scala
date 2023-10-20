@@ -12,7 +12,7 @@ import com.digitalasset.canton.lifecycle.FlagCloseable
   * so that the [[com.digitalasset.canton.lifecycle.FlagCloseable]] gets initialized first.
   */
 trait CloseableHealthElement extends FlagCloseable with HealthElement {
-  final override protected def associatedFlagCloseable: FlagCloseable = this
+  final override protected def associatedOnShutdownRunner: FlagCloseable = this
 }
 
 /** Refines the state of a [[CloseableHealthElement]] to something convertible to a [[ComponentHealthState]] */

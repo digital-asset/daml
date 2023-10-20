@@ -27,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 trait SequencerCounterTrackerStore extends FlagCloseable {
   protected[store] val cursorStore: CursorPreheadStore[SequencerCounterDiscriminator]
 
-  /** Gets the prehead clean sequencer counter. All sequencer counters below are assumed to be clean. */
+  /** Gets the prehead clean sequencer counter. This sequencer counter and all the ones below are assumed to be clean. */
   def preheadSequencerCounter(implicit
       traceContext: TraceContext
   ): Future[Option[SequencerCounterCursorPrehead]] =

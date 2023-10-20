@@ -5,7 +5,7 @@ package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.examples.Iou.Iou
+import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AnyWordSpec
 

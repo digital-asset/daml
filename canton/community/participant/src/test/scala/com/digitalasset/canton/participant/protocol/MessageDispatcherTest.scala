@@ -381,7 +381,7 @@ trait MessageDispatcherTest {
           .currentSnapshotApproximation,
         domainId = domainId,
         protocolVersion = testedProtocolVersion,
-        notSequencedAfter = CantonTimestamp.Epoch,
+        notSequencedAfter = Some(CantonTimestamp.Epoch),
       )
       .futureValue
 
@@ -1287,7 +1287,7 @@ private[protocol] object MessageDispatcherTest {
   // The message dispatcher only sees encrypted view trees, so there's no point in implementing the methods.
   sealed trait MockViewTree extends ViewTree with HasVersionedToByteString
 
-  trait AbstractTestViewType extends ViewType {
+  trait AbstractTestViewType extends ViewTypeTest {
     override type View = MockViewTree
 
     override def toProtoEnum: protocolv0.ViewType =

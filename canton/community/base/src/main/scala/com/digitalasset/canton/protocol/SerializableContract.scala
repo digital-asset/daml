@@ -7,16 +7,19 @@ import cats.implicits.toTraverseOps
 import cats.syntax.either.*
 import com.daml.lf.value.ValueCoder
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
-import com.digitalasset.canton.crypto
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
-import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting, PrettyUtil}
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
+import com.digitalasset.canton.{LfTimestamp, crypto}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
+
+import java.time.Instant
 
 /** Represents a serializable contract.
   *
@@ -35,7 +38,7 @@ case class SerializableContract(
     contractId: LfContractId,
     rawContractInstance: SerializableRawContractInstance,
     metadata: ContractMetadata,
-    ledgerCreateTime: CantonTimestamp,
+    ledgerCreateTime: LedgerCreateTime,
     contractSalt: Option[Salt],
 )
 // The class implements `HasVersionedWrapper` because we serialize it to an anonymous binary format (ByteString/Array[Byte]) when
@@ -77,7 +80,7 @@ case class SerializableContract(
       (serContract: SerializableContract) => serContract.rawContractInstance.contractInstance,
     )(adHocPrettyInstance), // TODO(#3269) This may leak confidential data
     param("metadata", _.metadata),
-    param("create time", _.ledgerCreateTime),
+    param("create time", _.ledgerCreateTime.ts),
     paramIfDefined("contract salt", _.contractSalt),
   )
 
@@ -112,6 +115,19 @@ object SerializableContract
 
   override def name: String = "serializable contract"
 
+  // Ledger time of the "repair transaction" creating the contract
+  final case class LedgerCreateTime(ts: CantonTimestamp) extends AnyVal {
+    def toProtoPrimitive: Timestamp = ts.toProtoPrimitive
+    def toInstant: Instant = ts.toInstant
+    def toLf: LfTimestamp = ts.toLf
+  }
+
+  object LedgerCreateTime extends PrettyUtil {
+    implicit val ledgerCreateTimeOrdering: Ordering[LedgerCreateTime] = Ordering.by(_.ts)
+    implicit val prettyLedgerCreateTime: Pretty[LedgerCreateTime] =
+      prettyOfClass[LedgerCreateTime](param("ts", _.ts))
+  }
+
   def apply(
       contractId: LfContractId,
       contractInstance: LfContractInst,
@@ -122,7 +138,9 @@ object SerializableContract
   ): Either[ValueCoder.EncodeError, SerializableContract] =
     SerializableRawContractInstance
       .create(contractInstance, unvalidatedAgreementText)
-      .map(SerializableContract(contractId, _, metadata, ledgerTime, contractSalt))
+      .map(
+        SerializableContract(contractId, _, metadata, LedgerCreateTime(ledgerTime), contractSalt)
+      )
 
   def fromDisclosedContract(
       disclosedContract: ProcessedDisclosedContract
@@ -207,5 +225,11 @@ object SerializableContract
         .required("ledger_create_time", ledgerCreateTime)
         .flatMap(CantonTimestamp.fromProtoPrimitive)
       contractSalt <- contractSaltO.traverse(Salt.fromProtoV0)
-    } yield SerializableContract(contractId, raw, metadata, ledgerTime, contractSalt)
+    } yield SerializableContract(
+      contractId,
+      raw,
+      metadata,
+      LedgerCreateTime(ledgerTime),
+      contractSalt,
+    )
 }

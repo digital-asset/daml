@@ -137,7 +137,7 @@ class DbSequencedEventStore(
     else
       processingTime.event {
         withLock(functionFullName) {
-          CloseContext.withCombinedContextF(closeContext, externalCloseContext, timeouts, logger) {
+          CloseContext.withCombinedContext(closeContext, externalCloseContext, timeouts, logger) {
             combinedCloseContext =>
               storage
                 .queryAndUpdate(bulkInsertQuery(events), functionFullName)(

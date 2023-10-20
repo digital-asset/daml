@@ -25,7 +25,7 @@ class TopologyChangeOpTest extends AnyWordSpec with BaseTest with HasExecutionCo
     val reversedTx = addSignedTx.transaction.reverse
 
     addSignedTx
-      .copy(transaction = reversedTx)(addSignedTx.representativeProtocolVersion, None)
+      .update(transaction = reversedTx)
       .asInstanceOf[SignedTopologyTransaction[Remove]]
   }
 

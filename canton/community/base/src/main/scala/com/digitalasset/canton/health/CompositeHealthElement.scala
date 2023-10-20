@@ -5,7 +5,7 @@ package com.digitalasset.canton.health
 
 import cats.Eval
 import com.digitalasset.canton.DiscardOps
-import com.digitalasset.canton.lifecycle.{RunOnShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.RunOnShutdown
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
@@ -36,15 +36,17 @@ trait CompositeHealthElement[ID, HE <: HealthElement] extends HealthElement {
   // Unregister all dependencies when this element is closed.
   locally {
     import TraceContext.Implicits.Empty.*
-    associatedFlagCloseable.runOnShutdown_(new RunOnShutdown {
+    associatedOnShutdownRunner.runOnShutdown_(new RunOnShutdown {
       override def name: String = s"unregister-$name-from-dependencies"
       override def done: Boolean = false
-      override def run(): Unit = {
-        dependencies.foreachEntry((_, element) =>
-          element.unregisterOnHealthChange(dependencyListener).discard[Boolean]
-        )
-      }
+      override def run(): Unit = unregisterFromAll()
     })
+  }
+
+  private def unregisterFromAll(): Unit = {
+    dependencies.foreachEntry((_, element) =>
+      element.unregisterOnHealthChange(dependencyListener).discard[Boolean]
+    )
   }
 
   protected def getDependencies: Map[ID, HE] = dependencies.readOnlySnapshot().toMap
@@ -67,7 +69,6 @@ trait CompositeHealthElement[ID, HE <: HealthElement] extends HealthElement {
     * This however is only temporary as in this case another state refresh will be triggered at the end.
     */
   protected def alterDependencies(remove: Set[ID], add: Map[ID, HE]): Unit = {
-    import TraceContext.Implicits.Empty.*
     def removeId(id: ID): Boolean =
       if (add.contains(id)) false
       else
@@ -87,13 +88,16 @@ trait CompositeHealthElement[ID, HE <: HealthElement] extends HealthElement {
           true
       }
 
-    associatedFlagCloseable
-      .performUnlessClosing("alter dependencies") {
-        val removedAtLeastOne = remove.map(removeId).exists(Predef.identity)
-        val addedAtLeastOne =
-          add.map { case (id, dependency) => addOrReplace(id, dependency) }.exists(Predef.identity)
-        if (addedAtLeastOne || removedAtLeastOne) dependencyListener.poke()(TraceContext.empty)
-      }
-      .discard[UnlessShutdown[Unit]]
+    if (!associatedOnShutdownRunner.isClosing) {
+      val removedAtLeastOne = remove.map(removeId).exists(Predef.identity)
+      val addedAtLeastOne =
+        add.map { case (id, dependency) => addOrReplace(id, dependency) }.exists(Predef.identity)
+      val dependenciesChanged = addedAtLeastOne || removedAtLeastOne
+      // Since the associatedOnShutdownRunner may have started closing while we've been modifying the dependencies,
+      // query the closing flag again and repeat the unregistration
+      if (associatedOnShutdownRunner.isClosing) {
+        unregisterFromAll()
+      } else if (dependenciesChanged) dependencyListener.poke()(TraceContext.empty)
+    }
   }
 }

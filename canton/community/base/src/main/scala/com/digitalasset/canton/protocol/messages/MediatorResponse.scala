@@ -75,7 +75,7 @@ case class MediatorResponse private (
     with HasDomainId
     with PrettyPrinting {
 
-  // Private copy method so that callers do not trigger exceptions by accident.
+  // Private copy method used by the lenses in the companion object
   private def copy(
       requestId: RequestId = requestId,
       sender: ParticipantId = sender,

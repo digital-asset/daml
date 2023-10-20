@@ -13,6 +13,7 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   packageId,
   transactionId,
 }
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{
   ContractMetadata,
   ExampleTransactionFactory,
@@ -163,7 +164,7 @@ trait ContractStoreTest { this: AsyncWordSpec with BaseTest =>
 
     "succeed when storing a different contract for an existing id" must {
 
-      val updatedContract = contract.copy(ledgerCreateTime = let2)
+      val updatedContract = contract.copy(ledgerCreateTime = LedgerCreateTime(let2))
       val divulgedContract2 =
         StoredContract.fromDivulgedContract(updatedContract, rc2)
       "for divulged contracts" in {
@@ -369,7 +370,10 @@ trait ContractStoreTest { this: AsyncWordSpec with BaseTest =>
         _ <- store.storeCreatedContract(
           rc,
           transactionId2,
-          contract2.copy(contractId = contractId5, ledgerCreateTime = CantonTimestamp.Epoch),
+          contract2.copy(
+            contractId = contractId5,
+            ledgerCreateTime = LedgerCreateTime(CantonTimestamp.Epoch),
+          ),
         )
 
         resId <- store.find(filterId = Some(contractId.coid), None, None, 100)

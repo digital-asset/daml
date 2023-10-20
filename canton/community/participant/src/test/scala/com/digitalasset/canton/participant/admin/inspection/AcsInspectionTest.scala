@@ -19,6 +19,7 @@ import com.digitalasset.canton.participant.store.{
   SyncDomainPersistentState,
 }
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{
   AgreementText,
   ContractMetadata,
@@ -150,7 +151,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
       contractId,
       MockedSerializableRawContractInstance,
       metadata,
-      CantonTimestamp.Epoch,
+      LedgerCreateTime(CantonTimestamp.Epoch),
       None,
     )
     StoredContract(serializableContract, RequestCounter.MaxValue, None)

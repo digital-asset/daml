@@ -4,6 +4,7 @@
 package com.digitalasset.canton.protocol.messages
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.TopologyRequestId
 import com.digitalasset.canton.config.CantonRequireTypes.String255
@@ -42,10 +43,10 @@ final case class DomainTopologyTransactionMessage private (
     with ProtocolMessageV2
     with UnsignedProtocolMessageV3 {
 
-  require(
-    representativeProtocolVersion.representative < ProtocolVersion.v5 || notSequencedAfter.nonEmpty,
-    "Not sequenced after must be non-empty for protocol version v5 and above",
-  )
+  // Ensures the invariants related to default values hold
+  DomainTopologyTransactionMessage
+    .validateInstance(this, representativeProtocolVersion)
+    .valueOr(err => throw new IllegalArgumentException(err))
 
   def hashToSign(hashOps: HashOps): Hash =
     DomainTopologyTransactionMessage.hash(
@@ -53,25 +54,22 @@ final case class DomainTopologyTransactionMessage private (
       domainId,
       notSequencedAfter,
       hashOps,
-      representativeProtocolVersion.representative,
     )
 
-  def toProtoV0: v0.DomainTopologyTransactionMessage = {
+  private[messages] def toProtoV0: v0.DomainTopologyTransactionMessage =
     v0.DomainTopologyTransactionMessage(
       signature = Some(domainTopologyManagerSignature.toProtoV0),
       transactions = transactions.map(_.getCryptographicEvidence),
       domainId = domainId.toProtoPrimitive,
     )
-  }
 
-  def toProtoV1: v1.DomainTopologyTransactionMessage = {
+  private[messages] def toProtoV1: v1.DomainTopologyTransactionMessage =
     v1.DomainTopologyTransactionMessage(
       signature = Some(domainTopologyManagerSignature.toProtoV0),
       transactions = transactions.map(_.getCryptographicEvidence),
       domainId = domainId.toProtoPrimitive,
       notSequencedAfter = notSequencedAfter.map(_.toProtoPrimitive),
     )
-  }
 
   override def toProtoEnvelopeContentV0: v0.EnvelopeContent =
     v0.EnvelopeContent(
@@ -109,7 +107,7 @@ object DomainTopologyTransactionMessage
     ProtocolMessageContentCast.create[DomainTopologyTransactionMessage](
       "DomainTopologyTransactionMessage"
     ) {
-      case ditm: DomainTopologyTransactionMessage => Some(ditm)
+      case dttm: DomainTopologyTransactionMessage => Some(dttm)
       case _ => None
     }
 
@@ -124,8 +122,15 @@ object DomainTopologyTransactionMessage
       v1.DomainTopologyTransactionMessage
     )(
       supportedProtoVersion(_)(fromProtoV1),
-      _.toProtoV0.toByteString,
+      _.toProtoV1.toByteString,
     ),
+  )
+
+  override lazy val invariants = Seq(notSequencedAfterInvariant)
+  lazy val notSequencedAfterInvariant = EmptyOptionExactlyUntilExclusive(
+    _.notSequencedAfter,
+    "notSequencedAfter",
+    protocolVersionRepresentativeFor(ProtocolVersion.v5),
   )
 
   private def hash(
@@ -133,16 +138,15 @@ object DomainTopologyTransactionMessage
       domainId: DomainId,
       notSequencedAfter: Option[CantonTimestamp],
       hashOps: HashOps,
-      protocolVersion: ProtocolVersion,
   ): Hash = {
     val builder = hashOps
       .build(HashPurpose.DomainTopologyTransactionMessageSignature)
       .add(domainId.toProtoPrimitive)
-    if (protocolVersion >= ProtocolVersion.v5) {
-      notSequencedAfter.foreach { ts =>
-        builder.add(ts.toEpochMilli)
-      }
+
+    notSequencedAfter.foreach { ts =>
+      builder.add(ts.toEpochMilli)
     }
+
     transactions.foreach(elem => builder.add(elem.getCryptographicEvidence))
     builder.finish()
   }
@@ -151,54 +155,66 @@ object DomainTopologyTransactionMessage
       transactions: List[SignedTopologyTransaction[TopologyChangeOp]],
       syncCrypto: DomainSnapshotSyncCryptoApi,
       domainId: DomainId,
-      notSequencedAfter: CantonTimestamp,
+      notSequencedAfter: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, SyncCryptoError, DomainTopologyTransactionMessage] = {
-    val hashToSign =
-      hash(
-        transactions,
-        domainId,
-        Some(notSequencedAfter),
-        syncCrypto.crypto.pureCrypto,
-        protocolVersion,
+  ): EitherT[Future, String, DomainTopologyTransactionMessage] = {
+    val notSequencedAfterUpdated =
+      notSequencedAfterInvariant.orValue(notSequencedAfter, protocolVersion)
+
+    val hashToSign = hash(
+      transactions,
+      domainId,
+      notSequencedAfterUpdated,
+      syncCrypto.crypto.pureCrypto,
+    )
+
+    for {
+      signature <- syncCrypto.sign(hashToSign).leftMap(_.toString)
+      domainTopologyTransactionMessageE = Either
+        .catchOnly[IllegalArgumentException](
+          DomainTopologyTransactionMessage(
+            signature,
+            transactions,
+            notSequencedAfter = notSequencedAfterUpdated,
+            domainId,
+          )(protocolVersionRepresentativeFor(protocolVersion))
+        )
+        .leftMap(_.getMessage)
+      domainTopologyTransactionMessage <- EitherT.fromEither[Future](
+        domainTopologyTransactionMessageE
       )
-    syncCrypto
-      .sign(hashToSign)
-      .map(signature =>
-        DomainTopologyTransactionMessage(
-          signature,
-          transactions,
-          notSequencedAfter = Some(notSequencedAfter),
-          domainId,
-        )(protocolVersionRepresentativeFor(protocolVersion))
-      )
+    } yield domainTopologyTransactionMessage
   }
 
   def tryCreate(
       transactions: List[SignedTopologyTransaction[TopologyChangeOp]],
       crypto: DomainSnapshotSyncCryptoApi,
       domainId: DomainId,
-      notSequencedAfter: CantonTimestamp,
+      notSequencedAfter: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): Future[DomainTopologyTransactionMessage] =
-    create(transactions, crypto, domainId, notSequencedAfter, protocolVersion).fold(
+  ): Future[DomainTopologyTransactionMessage] = {
+    val notSequencedAfterUpdated =
+      notSequencedAfterInvariant.orValue(notSequencedAfter, protocolVersion)
+
+    create(transactions, crypto, domainId, notSequencedAfterUpdated, protocolVersion).fold(
       err =>
         throw new IllegalStateException(
           s"Failed to create domain topology transaction message: $err"
         ),
       identity,
     )
+  }
 
-  def fromProtoV0(
+  private[messages] def fromProtoV0(
       message: v0.DomainTopologyTransactionMessage
   ): ParsingResult[DomainTopologyTransactionMessage] = {
-    val v0.DomainTopologyTransactionMessage(signature, domainId, transactions) = message
+    val v0.DomainTopologyTransactionMessage(signature, _domainId, transactions) = message
     for {
       succeededContent <- transactions.toList.traverse(SignedTopologyTransaction.fromByteString)
       signature <- ProtoConverter.parseRequired(Signature.fromProtoV0, "signature", signature)
@@ -211,7 +227,7 @@ object DomainTopologyTransactionMessage
     )(protocolVersionRepresentativeFor(ProtoVersion(0)))
   }
 
-  def fromProtoV1(
+  private[messages] def fromProtoV1(
       message: v1.DomainTopologyTransactionMessage
   ): ParsingResult[DomainTopologyTransactionMessage] = {
     val v1.DomainTopologyTransactionMessage(signature, domainId, timestamp, transactions) = message

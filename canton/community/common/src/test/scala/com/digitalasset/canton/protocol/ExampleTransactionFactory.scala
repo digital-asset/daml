@@ -26,6 +26,7 @@ import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{contractInstance, *}
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
@@ -289,7 +290,7 @@ object ExampleTransactionFactory {
       contractId,
       asSerializableRaw(contractInstance, agreementText),
       metadata,
-      ledgerTime,
+      LedgerCreateTime(ledgerTime),
       salt,
     )
 
@@ -513,7 +514,7 @@ class ExampleTransactionFactory(
         viewPosition,
         viewParticipantDataSalt,
         createIndex,
-        ledgerTime,
+        LedgerCreateTime(ledgerTime),
         metadata,
         asSerializableRaw(suffixedContractInstance, agreementText),
         cantonContractIdVersion,

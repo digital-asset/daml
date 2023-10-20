@@ -210,7 +210,7 @@ object TimelyRejectNotifier {
     *   │  │ notifyInPast if ts>b      │     │ notifyInPast if ts>b
     *   │  │                           │     │
     *   │  │   notify if ts>b          │     │   notify if ts>b
-    * ┌─┴──▼─┐ notifyInPast if ts>=b ┌─┴─────▼─┐ notifyInpast if ts<=b ┌─────────┐
+    * ┌─┴──▼─┐ notifyInPast if ts<=b ┌─┴─────▼─┐ notifyInpast if ts<=b ┌─────────┐
     * │      ├───────────────────────►         ├───────────────────────►         ├───────┐
     * │ Idle │                       │ Running │                       │ Pending │       │ notify
     * │      │                       │         │                       │         │       │ notifyInPast

@@ -203,7 +203,7 @@ private[mediator] class DbFinalizedResponseStore(
                      ) on conflict do nothing"""
       }
 
-      CloseContext.withCombinedContextF(callerCloseContext, closeContext, timeouts, logger) {
+      CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
         closeContext =>
           storage.update_(
             insert,
@@ -217,7 +217,7 @@ private[mediator] class DbFinalizedResponseStore(
       callerCloseContext: CloseContext,
   ): OptionT[Future, FinalizedResponse] =
     processingTime.optionTEvent {
-      CloseContext.withCombinedContextOT(callerCloseContext, closeContext, timeouts, logger) {
+      CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
         closeContext =>
           storage.querySingle(
             sql"""select request_id, mediator_request, version, verdict, request_trace_context
@@ -240,7 +240,7 @@ private[mediator] class DbFinalizedResponseStore(
   override def prune(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit] =
-    CloseContext.withCombinedContextF(callerCloseContext, closeContext, timeouts, logger) {
+    CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
         for {
           removedCount <- storage.update(
@@ -254,7 +254,7 @@ private[mediator] class DbFinalizedResponseStore(
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
   ): Future[Long] = {
-    CloseContext.withCombinedContextF(callerCloseContext, closeContext, timeouts, logger) {
+    CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
         storage.query(
           sql"select count(request_id) from response_aggregations".as[Long].head,
@@ -269,7 +269,7 @@ private[mediator] class DbFinalizedResponseStore(
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
   ): Future[Option[CantonTimestamp]] = {
-    CloseContext.withCombinedContextF(callerCloseContext, closeContext, timeouts, logger) {
+    CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
         storage
           .query(

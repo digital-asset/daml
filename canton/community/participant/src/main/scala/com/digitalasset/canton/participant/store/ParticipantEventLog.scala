@@ -5,13 +5,14 @@ package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.LocalOffset
 import com.digitalasset.canton.participant.store.EventLogId.ParticipantEventLogId
 import com.digitalasset.canton.participant.store.db.DbParticipantEventLog
 import com.digitalasset.canton.participant.store.memory.InMemoryParticipantEventLog
 import com.digitalasset.canton.participant.sync.TimestampedEvent
+import com.digitalasset.canton.participant.{LocalOffset, RequestOffset}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.topology.DomainId
@@ -38,7 +39,7 @@ trait ParticipantEventLog
 
   /** Allocates the next local offset */
   def nextLocalOffset()(implicit traceContext: TraceContext): Future[LocalOffset] =
-    nextLocalOffsets(1).map(
+    nextLocalOffsets(NonNegativeInt.one).map(
       _.headOption.getOrElse(
         ErrorUtil.internalError(
           new RuntimeException("failed to allocate at least one local offset")
@@ -48,11 +49,18 @@ trait ParticipantEventLog
 
   /** Allocates `count` many new offsets and returns all of them.
     */
-  def nextLocalOffsets(count: Int)(implicit traceContext: TraceContext): Future[Seq[LocalOffset]]
+  def nextLocalOffsets(count: NonNegativeInt)(implicit
+      traceContext: TraceContext
+  ): Future[Seq[RequestOffset]]
 }
 
 object ParticipantEventLog {
-  val InitialLocalOffset: LocalOffset = LocalOffset.Genesis
+
+  /** There is no meaningful `effectiveTime` for the RequestOffset: since the participant event log contains
+    *  data related to several domains as well as participant local events, there are several incomparable
+    *  clocks in scope. Thus, we consider all `effectiveTime` to be the same.
+    */
+  private[store] val EffectiveTime: CantonTimestamp = CantonTimestamp.Epoch
 
   val ProductionParticipantEventLogId: ParticipantEventLogId = checked(
     ParticipantEventLogId.tryCreate(0)

@@ -255,11 +255,10 @@ abstract class RetryWithDelay(
                         // Run the task again on the normal execution context as the task might take a long time.
                         // `performUnlessClosingF` guards against closing the execution context.
                         val nextRunUnlessShutdown =
-                          flagCloseable
-                            .performUnlessClosingF(operationName)(runTask())(
-                              executionContext,
-                              traceContext,
-                            )
+                          flagCloseable.performUnlessClosingF(operationName)(runTask())(
+                            executionContext,
+                            traceContext,
+                          )
                         @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
                         val nextRunF = nextRunUnlessShutdown
                           .onShutdown {

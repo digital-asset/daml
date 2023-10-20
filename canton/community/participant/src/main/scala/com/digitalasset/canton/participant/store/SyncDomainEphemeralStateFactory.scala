@@ -9,15 +9,18 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.*
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker
 import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.participant.{LocalOffset, RichRequestCounter}
 import com.digitalasset.canton.sequencing.PossiblyIgnoredSerializedEvent
-import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
+import com.digitalasset.canton.store.CursorPrehead.{
+  RequestCounterCursorPrehead,
+  SequencerCounterCursorPrehead,
+}
 import com.digitalasset.canton.store.SequencedEventStore.{ByTimestamp, LatestUpto}
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.time.DomainTimeTracker
@@ -129,11 +132,6 @@ object SyncDomainEphemeralStateFactory {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     val logger = loggingContext.logger
 
-    def eventLogNextOffset: Future[LocalOffset] =
-      multiDomainEventLog
-        .lastLocalOffset(DomainEventLogId(domainId))
-        .map(_.fold(RequestCounter.Genesis.asLocalOffset)(_ + 1L))
-
     def noEventForRequestTimestamp(rc: RequestCounter)(err: SequencedEventNotFoundError): Nothing =
       ErrorUtil.internalError(
         new IllegalStateException(s"No sequenced event found for request $rc: ${err.criterion}.")
@@ -141,7 +139,7 @@ object SyncDomainEphemeralStateFactory {
 
     def isRepairOnEmptyDomain(requestData: RequestJournal.RequestData): Boolean = {
       val RequestJournal.RequestData(
-        rcProcess,
+        _rcProcess,
         _state,
         requestTimestamp,
         _commitTime,
@@ -152,11 +150,14 @@ object SyncDomainEphemeralStateFactory {
 
     def processingStartingPointAndRewoundSequencerCounterPrehead(
         cleanSequencerCounterPreheadO: Option[SequencerCounterCursorPrehead],
-        firstDirtyRc: RequestCounter,
-        requestTimestampPreheadO: Option[CantonTimestamp],
+        cleanRequestPreheadO: Option[RequestCounterCursorPrehead],
     ): Future[
       (MessageProcessingStartingPoint, Option[SequencerCounterCursorPrehead])
     ] = {
+      val firstDirtyRc = cleanRequestPreheadO.fold(RequestCounter.Genesis)(_.counter + 1)
+      val cleanRequestPreheadLocalOffsetO = cleanRequestPreheadO.map { case CursorPrehead(rc, ts) =>
+        RequestOffset(ts, rc)
+      }
 
       // Cap the rewound sequencer counter prehead by the clean sequencer counter prehead
       // so that we do not skip dirty sequencer counters.
@@ -189,18 +190,21 @@ object SyncDomainEphemeralStateFactory {
                 Future.successful(MessageProcessingStartingPoint.default -> None)
               case Some(CursorPrehead(preheadSc, preheadScTs)) =>
                 val processingStartingPoint =
-                  MessageProcessingStartingPoint(firstDirtyRc, preheadSc + 1L, preheadScTs)
+                  MessageProcessingStartingPoint(
+                    cleanRequestPreheadLocalOffsetO,
+                    firstDirtyRc,
+                    preheadSc + 1L,
+                    preheadScTs,
+                  )
                 Future.successful(processingStartingPoint -> cleanSequencerCounterPreheadO)
             }
 
-          requestTimestampPreheadO match {
+          cleanRequestPreheadLocalOffsetO match {
             case None => startAtCleanSequencerCounterPrehead
-            case Some(requestTimestampPrehead) =>
+            case Some(lastCleanOffset @ RequestOffset(requestTimestampPrehead, rcPrehead)) =>
               if (cleanSequencerCounterPreheadO.exists(_.timestamp >= requestTimestampPrehead)) {
                 startAtCleanSequencerCounterPrehead
               } else {
-                val rcPrehead = firstDirtyRc - 1L
-
                 def noEventForRcPrehead(err: SequencedEventNotFoundError): Future[
                   (
                       MessageProcessingStartingPoint,
@@ -219,9 +223,10 @@ object SyncDomainEphemeralStateFactory {
                   requestDataForRcPreheadF.map { requestData =>
                     if (isRepairOnEmptyDomain(requestData))
                       MessageProcessingStartingPoint(
-                        rcPrehead + 1L,
-                        SequencerCounter.Genesis,
-                        CantonTimestamp.MinValue,
+                        cleanRequestPrehead = Some(lastCleanOffset),
+                        nextRequestCounter = rcPrehead + 1L,
+                        nextSequencerCounter = SequencerCounter.Genesis,
+                        prenextTimestamp = CantonTimestamp.MinValue,
                       ) -> None
                     else
                       ErrorUtil.internalError(
@@ -241,6 +246,7 @@ object SyncDomainEphemeralStateFactory {
                   val sequencerCounter = tracedEvent.counter
                   val processingStartingPoint =
                     MessageProcessingStartingPoint(
+                      Some(lastCleanOffset),
                       rcPrehead + 1L,
                       sequencerCounter + 1L,
                       requestTimestampPrehead,
@@ -262,6 +268,7 @@ object SyncDomainEphemeralStateFactory {
             logger.debug(show"First dirty request is repair request $rcProcess on an empty domain.")
             Future.successful(
               MessageProcessingStartingPoint(
+                cleanRequestPreheadLocalOffsetO,
                 rcProcess,
                 SequencerCounter.Genesis,
                 RepairService.RepairTimestampOnEmptyDomain,
@@ -289,12 +296,14 @@ object SyncDomainEphemeralStateFactory {
                   preStartingEventF.map {
                     case None =>
                       MessageProcessingStartingPoint(
+                        cleanRequestPreheadLocalOffsetO,
                         rcProcess,
                         SequencerCounter.Genesis,
                         CantonTimestamp.MinValue,
                       ) -> None
                     case Some(preStartingEvent) =>
                       val startingPoint = MessageProcessingStartingPoint(
+                        cleanRequestPreheadLocalOffsetO,
                         rcProcess,
                         startingEvent.counter,
                         preStartingEvent.timestamp,
@@ -308,6 +317,7 @@ object SyncDomainEphemeralStateFactory {
                   // as there is no dirty request since the clean request prehead.
                   val startingPoint =
                     MessageProcessingStartingPoint(
+                      cleanRequestPreheadLocalOffsetO,
                       rcProcess,
                       startingEvent.counter + 1L,
                       startingEvent.timestamp,
@@ -325,7 +335,7 @@ object SyncDomainEphemeralStateFactory {
 
     logger.debug(s"Computing starting points for $domainId")
     for {
-      nextLocalOffset <- eventLogNextOffset
+      lastPublishedLocalOffsetO <- multiDomainEventLog.lastLocalOffset(DomainEventLogId(domainId))
       cleanSequencerCounterPrehead <- sequencerCounterTrackerStore.preheadSequencerCounter
       _ = logger.debug(show"Clean sequencer counter prehead is $cleanSequencerCounterPrehead")
       preheadClean <- requestJournalStore.preheadClean
@@ -336,28 +346,26 @@ object SyncDomainEphemeralStateFactory {
           for {
             x <- processingStartingPointAndRewoundSequencerCounterPrehead(
               cleanSequencerCounterPrehead,
-              RequestCounter.Genesis,
               None,
             )
           } yield {
             val (processingStartingPoint, rewoundCleanSequencerCounterPrehead) = x
             checked(
               ProcessingStartingPoints.tryCreate(
-                processingStartingPoint,
-                processingStartingPoint,
-                nextLocalOffset,
-                rewoundCleanSequencerCounterPrehead,
+                cleanReplay = processingStartingPoint.toMessageCleanReplayStartingPoint,
+                processing = processingStartingPoint,
+                lastPublishedLocalOffset = lastPublishedLocalOffsetO,
+                rewoundSequencerCounterPrehead = rewoundCleanSequencerCounterPrehead,
               )
             )
           }
 
-        case Some(cleanRequestPrehead @ CursorPrehead(rcPrehead, requestTimestampPrehead)) =>
+        case Some(cleanRequestPrehead) =>
           logger.debug(show"Found clean request prehead at $cleanRequestPrehead")
           for {
             x <- processingStartingPointAndRewoundSequencerCounterPrehead(
-              cleanSequencerCounterPrehead,
-              rcPrehead + 1L,
-              Some(requestTimestampPrehead),
+              cleanSequencerCounterPreheadO = cleanSequencerCounterPrehead,
+              cleanRequestPreheadO = Some(cleanRequestPrehead),
             )
             (processingStartingPoint, rewoundSequencerCounterPrehead) = x
             firstReplayedRequest <- requestJournalStore.firstRequestWithCommitTimeAfter(
@@ -374,7 +382,7 @@ object SyncDomainEphemeralStateFactory {
                       _commitTime,
                       _repairContext,
                     )
-                  ) if rcReplay <= rcPrehead =>
+                  ) if rcReplay <= cleanRequestPrehead.counter =>
                 // This request cannot be a repair request on an empty domain because a repair request on the empty domain
                 // commits at CantonTimestamp.MinValue, i.e., its commit time cannot be after the prenext timestamp.
                 sequencedEventStore
@@ -383,24 +391,24 @@ object SyncDomainEphemeralStateFactory {
                     noEventForRequestTimestamp(rcReplay),
                     event => {
                       logger.debug(s"Found sequenced event ${event.counter} at ${event.timestamp}")
-                      MessageProcessingStartingPoint(
-                        rcReplay,
-                        event.counter,
-                        requestTimestampReplay.immediatePredecessor,
+                      MessageCleanReplayStartingPoint(
+                        nextRequestCounter = rcReplay,
+                        nextSequencerCounter = event.counter,
+                        prenextTimestamp = requestTimestampReplay.immediatePredecessor,
                       )
                     },
                   )
               case _ =>
                 // No need to replay clean requests
                 // because no requests to be reprocessed were in flight at the processing starting point.
-                Future.successful(processingStartingPoint)
+                Future.successful(processingStartingPoint.toMessageCleanReplayStartingPoint)
             }
           } yield checked(
             ProcessingStartingPoints
               .tryCreate(
                 replayStartingPoint,
                 processingStartingPoint,
-                nextLocalOffset,
+                lastPublishedLocalOffsetO,
                 rewoundSequencerCounterPrehead,
               )
           )
@@ -461,20 +469,25 @@ object SyncDomainEphemeralStateFactory {
       // If there's a dirty repair request, this will delete its unpublished event from the event log,
       //
       // Some tests overwrite the clean request prehead.
-      // We therefore can not delete all events in the SingleDimensionEventLog after the processingStartingPoint
+      // We therefore cannot delete all events in the SingleDimensionEventLog after the processingStartingPoint
       // because some of them may already have been published to the MultiDomainEventLog
       processingStartingPoint = startingPoints.processing
-      unpublishedOffsetAfterCleanPrehead =
+      unpublishedOffsetAfterCleanPreheadO =
         if (startingPoints.processingAfterPublished) {
-          processingStartingPoint.nextRequestCounter.asLocalOffset
+          processingStartingPoint.cleanRequestPrehead
         } else {
           logger.warn(
-            s"The clean request head ${processingStartingPoint.nextRequestCounter} precedes the next local offset at ${startingPoints.eventPublishingNextLocalOffset}. Has the clean request prehead been manipulated?"
+            s"The clean request prehead ${processingStartingPoint.cleanRequestPrehead} precedes the last published event at ${startingPoints.lastPublishedLocalOffset}. Has the clean request prehead been manipulated?"
           )
-          startingPoints.eventPublishingNextLocalOffset
+          startingPoints.lastPublishedLocalOffset
         }
-      _ = logger.debug(s"Deleting unpublished events since $unpublishedOffsetAfterCleanPrehead")
-      _ <- persistentState.eventLog.deleteSince(unpublishedOffsetAfterCleanPrehead)
+      _ <- unpublishedOffsetAfterCleanPreheadO.fold(Future.unit) {
+        unpublishedOffsetAfterCleanPrehead =>
+          logger.debug(
+            s"Deleting unpublished events after $unpublishedOffsetAfterCleanPrehead"
+          )
+          persistentState.eventLog.deleteAfter(unpublishedOffsetAfterCleanPrehead)
+      }
       _ = logger.debug("Deleting dirty requests")
       _ <- persistentState.requestJournalStore.deleteSince(
         processingStartingPoint.nextRequestCounter

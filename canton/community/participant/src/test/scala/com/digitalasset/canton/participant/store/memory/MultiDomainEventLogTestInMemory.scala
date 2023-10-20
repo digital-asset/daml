@@ -14,9 +14,10 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.participant.sync.TimestampedEvent
 import com.digitalasset.canton.participant.sync.TimestampedEvent.EventId
 import com.digitalasset.canton.protocol.TargetDomainId
+import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class MultiDomainEventLogTestInMemory extends MultiDomainEventLogTest {
 
@@ -44,18 +45,27 @@ class MultiDomainEventLogTestInMemory extends MultiDomainEventLogTest {
   private def lookupEvent(id: EventLogId, localOffset: LocalOffset): Future[TimestampedEvent] =
     Future.successful(eventsRef.get()(id -> localOffset))
 
-  private def lookupOffsetsBetween(
-      id: EventLogId
-  )(fromInclusive: LocalOffset, upToInclusive: LocalOffset): Future[Seq[LocalOffset]] =
-    Future.successful {
-      eventsRef
-        .get()
-        .collect {
-          case ((`id`, offset), _) if fromInclusive <= offset && offset <= upToInclusive => offset
-        }
-        .toSeq
-        .sorted
+  private val offsetLooker = new InMemoryOffsetsLookup {
+    override def lookupOffsetsBetween(
+        id: EventLogId
+    )(fromExclusive: Option[LocalOffset], upToInclusive: Option[LocalOffset])(implicit
+        executionContext: ExecutionContext,
+        traceContext: TraceContext,
+    ): Future[Seq[LocalOffset]] = {
+      def offsetFilter(offset: LocalOffset): Boolean =
+        fromExclusive.forall(_ < offset) && upToInclusive.forall(offset <= _)
+
+      Future.successful {
+        eventsRef
+          .get()
+          .collect {
+            case ((`id`, offset), _) if offsetFilter(offset) => offset
+          }
+          .toSeq
+          .sorted
+      }
     }
+  }
 
   private def domainIdOfEventId(eventId: EventId): OptionT[Future, (EventLogId, LocalOffset)] = {
     val resultO = eventsRef.get().collectFirst {
@@ -80,7 +90,7 @@ class MultiDomainEventLogTestInMemory extends MultiDomainEventLogTest {
     behave like multiDomainEventLog {
       new InMemoryMultiDomainEventLog(
         _ => lookupEvent,
-        _ => lookupOffsetsBetween,
+        offsetLooker,
         _ => domainIdOfEventId,
         _,
         ParticipantTestMetrics,

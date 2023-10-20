@@ -5,32 +5,10 @@ package com.digitalasset.canton.version
 
 import com.digitalasset.canton.SerializationDeserializationTestHelpers.DefaultValueUntilExclusive
 import com.digitalasset.canton.crypto.TestHash
-import com.digitalasset.canton.data.{
-  ActionDescription,
-  CommonMetadata,
-  ParticipantMetadata,
-  SubmitterMetadata,
-  TransferInCommonData,
-  TransferInView,
-  TransferOutCommonData,
-  TransferOutView,
-  ViewCommonData,
-  ViewParticipantData,
-}
-import com.digitalasset.canton.protocol.messages.AcsCommitment
-import com.digitalasset.canton.protocol.{
-  ConfirmationPolicy,
-  ContractMetadata,
-  DynamicDomainParameters,
-  GeneratorsProtocol,
-  SerializableContract,
-  StaticDomainParameters,
-}
-import com.digitalasset.canton.sequencing.protocol.{
-  AcknowledgeRequest,
-  AggregationRule,
-  ClosedEnvelope,
-}
+import com.digitalasset.canton.data.*
+import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.topology.transaction.{LegalIdentityClaim, SignedTopologyTransaction}
 import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelpers}
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -44,16 +22,31 @@ class SerializationDeserializationTest
   import com.digitalasset.canton.data.GeneratorsTransferData.*
   import com.digitalasset.canton.protocol.GeneratorsProtocol.*
   import com.digitalasset.canton.sequencing.protocol.GeneratorsProtocol.*
+  import com.digitalasset.canton.topology.transaction.GeneratorsTransaction.*
   import com.digitalasset.canton.protocol.messages.GeneratorsMessages.*
+  import com.digitalasset.canton.protocol.messages.GeneratorsMessages.GeneratorsVerdict.*
+  import com.digitalasset.canton.protocol.messages.GeneratorsMessages.GeneratorsLocalVerdict.*
 
   "Serialization and deserialization methods" should {
     "compose to the identity" in {
       testProtocolVersioned(StaticDomainParameters)
-      testProtocolVersioned(DynamicDomainParameters)
-      testProtocolVersioned(AcknowledgeRequest)
-      testProtocolVersioned(AggregationRule)
+      testProtocolVersioned(com.digitalasset.canton.protocol.DynamicDomainParameters)
+
       testProtocolVersioned(AcsCommitment)
-      testProtocolVersioned(ClosedEnvelope)
+      testProtocolVersioned(Verdict)
+      testProtocolVersioned(MediatorResponse)
+      testMemoizedProtocolVersionedWithCtx(TypedSignedProtocolMessageContent, TestHash)
+      testProtocolVersionedWithCtx(SignedProtocolMessage, TestHash)
+
+      testProtocolVersioned(LocalVerdict)
+      testProtocolVersioned(TransferResult)
+      testProtocolVersioned(MalformedMediatorRequestResult)
+      testProtocolVersionedWithCtx(EnvelopeContent, TestHash)
+      testMemoizedProtocolVersionedWithCtx(TransactionResultMessage, TestHash)
+
+      testProtocolVersioned(com.digitalasset.canton.sequencing.protocol.AcknowledgeRequest)
+      testProtocolVersioned(com.digitalasset.canton.sequencing.protocol.AggregationRule)
+      testProtocolVersioned(com.digitalasset.canton.sequencing.protocol.ClosedEnvelope)
 
       testVersioned(ContractMetadata)(
         GeneratorsProtocol.contractMetadataArb(canHaveEmptyKey = true)
@@ -63,22 +56,44 @@ class SerializationDeserializationTest
         List(DefaultValueUntilExclusive(_.copy(contractSalt = None), ProtocolVersion.v4)),
       )(GeneratorsProtocol.serializableContractArb(canHaveEmptyKey = true))
 
-      testProtocolVersioned(ActionDescription)
+      testProtocolVersioned(com.digitalasset.canton.data.ActionDescription)
 
       // Merkle tree leaves
-      testProtocolVersionedWithContext(CommonMetadata, TestHash)
-      testProtocolVersionedWithContext(ParticipantMetadata, TestHash)
-      testProtocolVersionedWithContext(SubmitterMetadata, TestHash)
-      testProtocolVersionedWithContext(TransferInCommonData, TestHash)
-      testProtocolVersionedWithContext(TransferInView, TestHash)
-      testProtocolVersionedWithContext(TransferOutCommonData, TestHash)
-      testProtocolVersionedWithContext(TransferOutView, TestHash)
+      testMemoizedProtocolVersionedWithCtx(CommonMetadata, TestHash)
+      testMemoizedProtocolVersionedWithCtx(ParticipantMetadata, TestHash)
+      testMemoizedProtocolVersionedWithCtx(SubmitterMetadata, TestHash)
+      testMemoizedProtocolVersionedWithCtx(TransferInCommonData, TestHash)
+      testMemoizedProtocolVersionedWithCtx(TransferInView, TestHash)
+      testMemoizedProtocolVersionedWithCtx(TransferOutCommonData, TestHash)
+      testMemoizedProtocolVersionedWithCtx(TransferOutView, TestHash)
 
       Seq(ConfirmationPolicy.Vip, ConfirmationPolicy.Signatory).map { confirmationPolicy =>
-        testProtocolVersionedWithContext(ViewCommonData, (TestHash, confirmationPolicy))
+        testMemoizedProtocolVersionedWithCtx(
+          com.digitalasset.canton.data.ViewCommonData,
+          (TestHash, confirmationPolicy),
+        )
       }
 
-      testProtocolVersionedWithContext(ViewParticipantData, TestHash)
+      testMemoizedProtocolVersioned(SignedTopologyTransaction)
+      testMemoizedProtocolVersioned(LegalIdentityClaim)
+
+      testMemoizedProtocolVersionedWithCtx(
+        com.digitalasset.canton.data.ViewParticipantData,
+        TestHash,
+      )
+    }
+
+    "be exhaustive" in {
+      val requiredTests =
+        findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton.protocol.messages")
+
+      val missingTests = requiredTests.diff(testedClasses.toList)
+
+      /*
+        If this test fails, it means that one class inheriting from HasProtocolVersionWrapper in the
+        package is not tested in the SerializationDeserializationTests
+       */
+      clue(s"Missing tests should be empty but found: $missingTests")(missingTests shouldBe empty)
     }
   }
 }

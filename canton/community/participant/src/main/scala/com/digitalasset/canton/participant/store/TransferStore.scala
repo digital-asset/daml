@@ -9,11 +9,11 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.transfer.TransferData.*
 import com.digitalasset.canton.participant.protocol.transfer.{IncompleteTransferData, TransferData}
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateLookup
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset}
 import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId, TransferId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -310,25 +310,6 @@ trait TransferLookup {
   def findAfter(requestAfter: Option[(CantonTimestamp, SourceDomainId)], limit: Int)(implicit
       traceContext: TraceContext
   ): Future[Seq[TransferData]]
-
-  /** Find utility to look for in-flight transfers.
-    * Transfers are ordered by request timestamp.
-    *
-    * @param sourceDomain source domain of the transfer
-    * @param onlyCompletedTransferOut select only transfers that are successfully transferred-out
-    * @param transferOutRequestNotAfter select only transfers whose transfer-out request counter `rc`
-    *                                   satisfies `rc <= transferOutRequestNotAfter`.
-    * @param stakeholders if non-empty, select only transfers of contracts whose set of stakeholders
-    *                     intersects `stakeholders`.
-    * @param limit limit the number of results
-    */
-  def findInFlight(
-      sourceDomain: SourceDomainId,
-      onlyCompletedTransferOut: Boolean,
-      transferOutRequestNotAfter: LocalOffset,
-      stakeholders: Option[NonEmpty[Set[LfPartyId]]],
-      limit: NonNegativeInt,
-  )(implicit traceContext: TraceContext): Future[Seq[TransferData]]
 
   /** Find utility to look for incomplete transfers.
     * Transfers are ordered by global offset.

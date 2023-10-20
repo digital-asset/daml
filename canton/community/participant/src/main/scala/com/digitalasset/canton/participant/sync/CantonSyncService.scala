@@ -179,16 +179,10 @@ class CantonSyncService(
     participantNodePersistentState.value.settingsStore.settings.maxDeduplicationDuration
       .getOrElse(throw new RuntimeException("Max deduplication duration is not available"))
 
-  private val excludedPackageIds = if (parameters.excludeInfrastructureTransactions) {
-    Set(
-      workflows.PackageID.PingPong,
-      workflows.PackageID.DarDistribution,
-      workflows.PackageID.PingPongVacuum,
-    )
-      .map(Ref.PackageId.assertFromString)
-  } else {
-    Set.empty[Ref.PackageId]
-  }
+  val eventTranslationStrategy = new EventTranslationStrategy(
+    multiDomainLedgerAPIEnabled = multiDomainLedgerAPIEnabled,
+    excludeInfrastructureTransactions = parameters.excludeInfrastructureTransactions,
+  )
 
   type ConnectionListener = DomainAlias => Unit
 
@@ -576,46 +570,15 @@ class CantonSyncService(
           beginStartingAt =>
             participantNodePersistentState.value.multiDomainEventLog
               .subscribe(beginStartingAt)
-              .map { case (offset, tracedEvent) =>
-                tracedEvent
-                  .map(augmentTransactionStatistics)
-                  .map(_.toDamlUpdate(populateTransfers = multiDomainLedgerAPIEnabled))
-                  .sequence
-                  .map { tracedUpdate =>
-                    implicit val traceContext: TraceContext = tracedEvent.traceContext
-                    logger
-                      .debug(show"Emitting event at offset $offset. Event: ${tracedEvent.value}")
-                    (UpstreamOffsetConvert.fromGlobalOffset(offset), tracedUpdate)
+              .mapConcat { case (offset, event) =>
+                event
+                  .traverse(eventTranslationStrategy.translate)
+                  .map { e =>
+                    logger.debug(show"Emitting event at offset $offset. Event: ${event.value}")
+                    (UpstreamOffsetConvert.fromGlobalOffset(offset), e)
                   }
-              }
-              .collect { case Some(tuple) => tuple },
+              },
         )
-    }
-
-  // Augment event with transaction statistics "as late as possible" as stats are redundant data and so that
-  // we don't need to persist stats and deal with versioning stats changes. Also every event is usually consumed
-  // only once.
-  private[sync] def augmentTransactionStatistics(event: LedgerSyncEvent): LedgerSyncEvent =
-    event match {
-      case ta @ LedgerSyncEvent.TransactionAccepted(
-            Some(completionInfo),
-            _transactionMeta,
-            transaction,
-            _transactionId,
-            _recordTime,
-            _divulgedContracts,
-            _blindingInfo,
-            _hostedWitnesses,
-            _contractMetadata,
-          ) =>
-        ta.copy(completionInfoO =
-          Some(
-            completionInfo.copy(statistics =
-              Some(LedgerTransactionNodeStatistics(transaction, excludedPackageIds))
-            )
-          )
-        )
-      case event => event
     }
 
   override def allocateParty(

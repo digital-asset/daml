@@ -8,7 +8,8 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
+import com.digitalasset.canton.data.ViewPosition
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{DomainId, MediatorId, MediatorRef}
 import com.digitalasset.canton.version.{GeneratorsVersion, ProtocolVersion}
@@ -19,7 +20,7 @@ object GeneratorsProtocol {
 
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.GeneratorsLf.*
-  import com.digitalasset.canton.config.GeneratorsConfig.*
+  import com.digitalasset.canton.config.GeneratorsConfig.{nonNegativeFiniteDurationArb as _, *}
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.data.GeneratorsData.*
   import com.digitalasset.canton.time.GeneratorsTime.*
@@ -70,66 +71,79 @@ object GeneratorsProtocol {
     } yield parameters)
   }
 
+  def dynamicDomainParametersGenFor(pv: ProtocolVersion): Gen[DynamicDomainParameters] =
+    for {
+      participantResponseTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+      mediatorReactionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+      transferExclusivityTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+      topologyChangeDelay <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+
+      mediatorDeduplicationMargin <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+      // Because of the potential multiplication by 2 below, we want a reasonably small value
+      ledgerTimeRecordTimeTolerance <- Gen
+        .choose(0L, 10000L)
+        .map(NonNegativeFiniteDuration.tryOfMicros)
+
+      representativePV = DynamicDomainParameters.protocolVersionRepresentativeFor(pv)
+
+      reconciliationInterval <- defaultValueArb(
+        representativePV,
+        DynamicDomainParameters.defaultReconciliationIntervalUntil,
+      )
+
+      maxRatePerParticipant <- defaultValueArb(
+        representativePV,
+        DynamicDomainParameters.defaultMaxRatePerParticipantUntil,
+      )
+
+      maxRequestSize <- defaultValueArb(
+        representativePV,
+        DynamicDomainParameters.defaultMaxRequestSizeUntil,
+      )
+
+      trafficControlConfig <- defaultValueArb(
+        representativePV,
+        DynamicDomainParameters.defaultTrafficControlParametersUntil,
+      )
+
+      // Starting from pv=4, there is an additional constraint on the mediatorDeduplicationTimeout
+      updatedMediatorDeduplicationTimeout =
+        if (pv > ProtocolVersion.v3)
+          ledgerTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2) + mediatorDeduplicationMargin
+        else
+          ledgerTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2)
+
+      // TODO(#14691) Use generator properly when dynamic domain parameters are properly versioned
+      sequencerAggregateSubmissionTimeout =
+        DynamicDomainParameters.defaultSequencerAggregateSubmissionTimeoutUntilExclusive.defaultValue
+
+      dynamicDomainParameters = DynamicDomainParameters.tryCreate(
+        participantResponseTimeout,
+        mediatorReactionTimeout,
+        transferExclusivityTimeout,
+        topologyChangeDelay,
+        ledgerTimeRecordTimeTolerance,
+        updatedMediatorDeduplicationTimeout,
+        reconciliationInterval,
+        maxRatePerParticipant,
+        maxRequestSize,
+        sequencerAggregateSubmissionTimeout,
+        trafficControlConfig,
+      )(representativePV)
+
+    } yield dynamicDomainParameters
+
   implicit val dynamicDomainParametersArb: Arbitrary[DynamicDomainParameters] = Arbitrary(for {
-    participantResponseTimeout <- nonNegativeFiniteDurationArb.arbitrary
-    mediatorReactionTimeout <- nonNegativeFiniteDurationArb.arbitrary
-    transferExclusivityTimeout <- nonNegativeFiniteDurationArb.arbitrary
-    topologyChangeDelay <- nonNegativeFiniteDurationArb.arbitrary
-
-    mediatorDeduplicationMargin <- nonNegativeFiniteDurationArb.arbitrary
-    // Because of the potential multiplication by 2 below, we want a reasonably small value
-    ledgerTimeRecordTimeTolerance <- Gen
-      .choose(0L, 10000L)
-      .map(NonNegativeFiniteDuration.tryOfMicros)
-
     representativePV <- GeneratorsVersion.representativeProtocolVersionGen(DynamicDomainParameters)
-
-    reconciliationInterval <- defaultValueArb(
-      representativePV,
-      DynamicDomainParameters.defaultReconciliationIntervalUntil,
-    )
-
-    maxRatePerParticipant <- defaultValueArb(
-      representativePV,
-      DynamicDomainParameters.defaultMaxRatePerParticipantUntil,
-    )
-
-    maxRequestSize <- defaultValueArb(
-      representativePV,
-      DynamicDomainParameters.defaultMaxRequestSizeUntil,
-    )
-
-    trafficControlConfig <- defaultValueArb(
-      representativePV,
-      DynamicDomainParameters.defaultTrafficControlParametersUntil,
-    )
-
-    // Starting from pv=4, there is an additional constraint on the mediatorDeduplicationTimeout
-    updatedMediatorDeduplicationTimeout =
-      if (representativePV.representative > ProtocolVersion.v3)
-        ledgerTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2) + mediatorDeduplicationMargin
-      else
-        ledgerTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2)
-
-    // TODO(#14691) Use generator properly when dynamic domain parameters are properly versioned
-    sequencerAggregateSubmissionTimeout =
-      DynamicDomainParameters.defaultSequencerAggregateSubmissionTimeoutUntilExclusive.defaultValue
-
-    dynamicDomainParameters = DynamicDomainParameters.tryCreate(
-      participantResponseTimeout,
-      mediatorReactionTimeout,
-      transferExclusivityTimeout,
-      topologyChangeDelay,
-      ledgerTimeRecordTimeTolerance,
-      updatedMediatorDeduplicationTimeout,
-      reconciliationInterval,
-      maxRatePerParticipant,
-      maxRequestSize,
-      sequencerAggregateSubmissionTimeout,
-      trafficControlConfig,
-    )(representativePV)
-
+    dynamicDomainParameters <- dynamicDomainParametersGenFor(representativePV.representative)
   } yield dynamicDomainParameters)
+
+  implicit val rootHashArb: Arbitrary[RootHash] = Arbitrary(
+    Arbitrary.arbitrary[Hash].map(RootHash(_))
+  )
+  implicit val viewHashArb: Arbitrary[ViewHash] = Arbitrary(
+    Arbitrary.arbitrary[Hash].map(ViewHash(_))
+  )
 
   implicit val confirmationPolicyArb: Arbitrary[ConfirmationPolicy] = genArbitrary
 
@@ -173,7 +187,7 @@ object GeneratorsProtocol {
       for {
         rawContractInstance <- Arbitrary.arbitrary[SerializableRawContractInstance]
         metadata <- contractMetadataArb(canHaveEmptyKey).arbitrary
-        ledgerCreateTime <- Arbitrary.arbitrary[CantonTimestamp]
+        ledgerCreateTime <- Arbitrary.arbitrary[LedgerCreateTime]
 
         contractIdVersion <- Gen.oneOf(contractIdVersions)
 
@@ -190,7 +204,7 @@ object GeneratorsProtocol {
           viewPosition = ViewPosition(List.empty),
           viewParticipantDataSalt = TestSalt.generateSalt(saltIndex),
           createIndex = 0,
-          ledgerTime = ledgerCreateTime,
+          ledgerCreateTime = ledgerCreateTime,
           metadata = metadata,
           suffixedContractInstance = rawContractInstance,
           contractIdVersion = contractIdVersion,

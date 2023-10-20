@@ -13,8 +13,6 @@ sealed trait X509CertificateEncoder[Encoding] {
 
   protected def unwrap(value: Either[String, Encoding]): Encoding =
     value.valueOr(err => throw new IllegalArgumentException(s"Failed to load certificate: $err"))
-
-  def tryFromBytes(encoded: ByteString): Encoding = unwrap(fromBytes(encoded))
 }
 
 /** A X509 Certificate serialized in PEM format. */

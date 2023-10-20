@@ -109,7 +109,7 @@ class InMemorySingleDimensionEventLog[+Id <: EventLogId](
   }
 
   override def lookupEventRange(
-      fromInclusive: Option[LocalOffset],
+      fromExclusive: Option[LocalOffset],
       toInclusive: Option[LocalOffset],
       fromTimestampInclusive: Option[CantonTimestamp],
       toTimestampInclusive: Option[CantonTimestamp],
@@ -119,14 +119,19 @@ class InMemorySingleDimensionEventLog[+Id <: EventLogId](
   ): Future[SortedMap[LocalOffset, TimestampedEvent]] =
     Future.successful {
       val allEvents = state.get().eventsByOffset
-      val filteredEvents = allEvents
-        .rangeFrom(fromInclusive.getOrElse(LocalOffset.MinValue))
+
+      def timestampFilter(event: TimestampedEvent): Boolean =
+        fromTimestampInclusive.forall(_ <= event.timestamp) && toTimestampInclusive.forall(
+          event.timestamp <= _
+        )
+
+      val filteredEvents = fromExclusive
+        .fold(allEvents)(allEvents.rangeFrom)
         .rangeTo(toInclusive.getOrElse(LocalOffset.MaxValue))
-        .filter { case (_, event) =>
-          fromTimestampInclusive.forall(_ <= event.timestamp) && toTimestampInclusive.forall(
-            event.timestamp <= _
-          )
+        .filter { case (_offset, event) =>
+          timestampFilter(event)
         }
+
       limit match {
         case Some(n) => filteredEvents.take(n)
         case None => filteredEvents
@@ -159,15 +164,15 @@ class InMemorySingleDimensionEventLog[+Id <: EventLogId](
     }
   }
 
-  override def deleteSince(
-      inclusive: LocalOffset
+  override def deleteAfter(
+      exclusive: LocalOffset
   )(implicit traceContext: TraceContext): Future[Unit] =
     Future.successful {
-      val _ = state.updateAndGet { case Entries(ledger, _) =>
-        val newLedger = ledger.filter { case (offset, _) => offset < inclusive }
+      state.updateAndGet { case Entries(ledger, _) =>
+        val newLedger = ledger.filter { case (offset, _) => offset <= exclusive }
         val newTransactionIds = byEventIds(newLedger)
         Entries(newLedger, newTransactionIds)
-      }
+      }.discard
     }
 
   private[this] def byEventIds(

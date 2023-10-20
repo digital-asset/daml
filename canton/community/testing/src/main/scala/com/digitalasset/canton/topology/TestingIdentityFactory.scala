@@ -276,7 +276,8 @@ class TestingIdentityFactory(
       ),
       mock[SigningPublicKey],
       Signature.noSignature,
-    )(signedTxProtocolRepresentative, None)
+      signedTxProtocolRepresentative,
+    )
 
   private def mkAdd(
       mapping: TopologyStateUpdateMapping
@@ -289,7 +290,8 @@ class TestingIdentityFactory(
       ),
       mock[SigningPublicKey],
       Signature.noSignature,
-    )(signedTxProtocolRepresentative, None)
+      signedTxProtocolRepresentative,
+    )
 
   private def genKeyCollection(
       owner: KeyOwner

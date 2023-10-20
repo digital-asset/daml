@@ -4,7 +4,7 @@
 package com.digitalasset.canton.topology.transaction
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
@@ -202,6 +202,59 @@ class ValidatingTopologyMappingXChecksTest
           )
         )
 
+      }
+    }
+
+    "validating TrafficControlStateX" should {
+      def trafficControlState(limit: Int): TrafficControlStateX =
+        TrafficControlStateX
+          .create(domainId, participant1, PositiveLong.tryCreate(limit.toLong))
+          .getOrElse(sys.error("Error creating TrafficControlStateX"))
+
+      val limit5 = factory.mkAdd(trafficControlState(5))
+      val limit10 = factory.mkAdd(trafficControlState(10))
+      val removal10 = factory.mkRemove(trafficControlState(10))
+
+      "reject non monotonically increasing extra traffict limits" in {
+        val (checks, _) = mk()
+
+        val result =
+          checks.checkTransaction(
+            EffectiveTime.MaxValue,
+            toValidate = limit5,
+            inStore = Some(limit10),
+          )
+        result.value.futureValue should matchPattern {
+          case Left(TopologyTransactionRejection.ExtraTrafficLimitTooLow(_, _, _)) =>
+        }
+      }
+
+      "report no errors for valid mappings" in {
+        val (checks, _) = mk()
+
+        def runSuccessfulCheck(
+            toValidate: SignedTopologyTransactionX[TopologyChangeOpX, TrafficControlStateX],
+            inStore: Option[SignedTopologyTransactionX[TopologyChangeOpX, TrafficControlStateX]],
+        ) =
+          checks
+            .checkTransaction(EffectiveTime.MaxValue, toValidate, inStore)
+            .value
+            .futureValue shouldBe Right(())
+
+        // first limit for member
+        runSuccessfulCheck(limit10, None)
+
+        // increase limit
+        runSuccessfulCheck(limit10, Some(limit5))
+
+        // same limit
+        runSuccessfulCheck(limit5, Some(limit5))
+
+        // reset monotonicity after removal
+        runSuccessfulCheck(limit5, Some(removal10))
+
+        // remove traffic control state for member
+        runSuccessfulCheck(removal10, Some(limit10))
       }
     }
   }

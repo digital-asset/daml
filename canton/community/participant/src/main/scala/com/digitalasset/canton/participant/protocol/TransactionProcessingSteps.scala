@@ -26,7 +26,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.*
-import com.digitalasset.canton.participant.RichRequestCounter
+import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.metrics.TransactionProcessingMetrics
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   MalformedPayload,
@@ -1167,7 +1167,7 @@ class TransactionProcessingSteps(
             requestType,
             Some(domainId),
           ),
-          rc.asLocalOffset,
+          RequestOffset(ts, rc),
           Some(sc),
         )
     } -> None // Transaction processing doesn't use pending submissions
@@ -1227,7 +1227,7 @@ class TransactionProcessingSteps(
       TimestampedEvent(
         LedgerSyncEvent
           .CommandRejected(requestTime.toLf, info, rejection, requestType, Some(domainId)),
-        requestCounter.asLocalOffset,
+        RequestOffset(requestTime, requestCounter),
         Some(requestSequencerCounter),
       )
     )
@@ -1408,7 +1408,7 @@ class TransactionProcessingSteps(
 
       timestampedEvent = TimestampedEvent(
         acceptedEvent,
-        requestCounter.asLocalOffset,
+        RequestOffset(requestTime, requestCounter),
         Some(requestSequencerCounter),
       )
     } yield CommitAndStoreContractsAndPublishEvent(

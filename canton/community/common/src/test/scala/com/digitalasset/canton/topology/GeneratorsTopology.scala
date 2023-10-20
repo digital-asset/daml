@@ -9,8 +9,7 @@ import magnolify.scalacheck.auto.*
 import org.scalacheck.Arbitrary
 
 object GeneratorsTopology {
-  import com.digitalasset.canton.crypto.GeneratorsCrypto.*
-  import com.digitalasset.canton.sequencing.protocol.GeneratorsProtocol.*
+  import com.digitalasset.canton.config.GeneratorsConfig.*
 
   implicit val identifierArb: Arbitrary[Identifier] = Arbitrary(
     Generators.lengthLimitedStringGen(String185).map(s => Identifier.tryCreate(s.str))
