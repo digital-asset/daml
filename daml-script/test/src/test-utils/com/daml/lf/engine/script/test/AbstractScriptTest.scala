@@ -71,14 +71,16 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
   final protected def scriptClients(
       token: Option[String] = None,
       maxInboundMessageSize: Int = RunnerMainConfig.DefaultMaxInboundMessageSize,
+      provideAdminPorts: Boolean = false,
   ): Future[Participants[GrpcLedgerClient]] = {
     implicit val ec: ExecutionContext = system.dispatcher
-    val participants = ports.zipWithIndex.map { case (port, i) =>
+    val participants = portsWithAdmin.zipWithIndex.map { case ((ledgerPort, adminPort), i) =>
       Participant(s"participant$i") -> ApiParameters(
         host = "localhost",
-        port = port.value,
+        port = ledgerPort.value,
         access_token = token,
         application_id = None,
+        adminPort = if (provideAdminPorts) Some(adminPort.value) else None,
       )
     }
     val params = Participants(

@@ -46,7 +46,7 @@ object CantonFixture {
 }
 
 trait CantonFixtureWithResource[A]
-    extends SuiteResource[(Vector[Port], A)]
+    extends SuiteResource[(Vector[(Port, Port)], A)]
     with AkkaBeforeAndAfterAll
     with SuiteResourceManagementAroundAll {
   self: Suite =>
@@ -82,12 +82,12 @@ trait CantonFixtureWithResource[A]
     super.afterAll()
   }
 
-  protected def makeAdditionalResource(ports: Vector[Port]): ResourceOwner[A]
+  protected def makeAdditionalResource(ports: Vector[(Port, Port)]): ResourceOwner[A]
 
   final override protected lazy val suiteResource
-      : OwnedResource[ResourceContext, (Vector[Port], A)] = {
+      : OwnedResource[ResourceContext, (Vector[(Port, Port)], A)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-    new OwnedResource[ResourceContext, (Vector[Port], A)](
+    new OwnedResource[ResourceContext, (Vector[(Port, Port)], A)](
       for {
         ports <- CantonRunner.run(config, cantonTmpDir, logger, darFiles)
         additional <- makeAdditionalResource(ports)
@@ -120,7 +120,9 @@ trait CantonFixtureWithResource[A]
     else
       com.daml.fs.Utils.deleteRecursively(cantonTmpDir)
 
-  final protected def ports: Vector[Port] = suiteResource.value._1
+  final protected def ports: Vector[Port] = suiteResource.value._1.map(_._1)
+  // List of tuples of ledger api port then admin api port
+  final protected def portsWithAdmin: Vector[(Port, Port)] = suiteResource.value._1
   final protected def additional: A = suiteResource.value._2
 
   final protected def defaultLedgerClient(
@@ -145,7 +147,7 @@ trait CantonFixtureWithResource[A]
 
 trait CantonFixture extends CantonFixtureWithResource[Unit] {
   self: Suite =>
-  override protected def makeAdditionalResource(ports: Vector[Port]): ResourceOwner[Unit] =
+  override protected def makeAdditionalResource(ports: Vector[(Port, Port)]): ResourceOwner[Unit] =
     new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[Unit] =
         Resource(Future.successful(()))(Future.successful(_))

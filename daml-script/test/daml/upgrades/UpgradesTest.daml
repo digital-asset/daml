@@ -1,0 +1,30 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module UpgradesTest where
+
+import Daml.Script
+import qualified V1.MyTemplates as V1
+import qualified V2.MyTemplates as V2
+
+v1DarName : Text
+v1DarName = "upgrades-my-templates-v1"
+
+v2DarName : Text
+v2DarName = "upgrades-my-templates-v2"
+
+participant0 : ParticipantName
+participant0 = ParticipantName "participant0"
+
+participant1 : ParticipantName
+participant1 = ParticipantName "participant1"
+
+main : Script ()
+main = do
+  a <- allocatePartyOn "alice" participant0
+  b <- allocatePartyOn "bob" participant1
+  a `submit` createCmd V1.Name with party = a
+  b `submit` createCmd V2.Name with party = b, newField = Some("hello")
+  unvetDarOnParticipant v1DarName participant0
+  pure ()
+

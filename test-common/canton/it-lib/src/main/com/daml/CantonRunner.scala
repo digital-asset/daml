@@ -5,18 +5,15 @@ package com.daml
 package integrationtest
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.auth
-import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner, Resource}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{Port, LockedFreePort, PortLock}
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
-import com.google.protobuf.ByteString
 import spray.json.JsString
 
 import scala.concurrent.duration.DurationInt
@@ -41,6 +38,7 @@ object CantonRunner {
       configFile: Path,
       cantonLogFile: Path,
       portsFile: Path,
+      completionFile: Path,
   )
 
   object CantonFiles {
@@ -49,6 +47,7 @@ object CantonRunner {
       configFile = dir.resolve("participant.config"),
       cantonLogFile = dir.resolve("canton.log"),
       portsFile = dir.resolve("portsfile"),
+      completionFile = dir.resolve("completion"),
     )
   }
 
@@ -57,7 +56,7 @@ object CantonRunner {
       logger: org.slf4j.Logger,
       darFiles: Seq[Path],
       files: CantonFiles,
-  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[
+  )(implicit ec: ExecutionContext): Future[
     ((PortLock.Locked, PortLock.Locked), Vector[(PortLock.Locked, PortLock.Locked)], Process)
   ] = {
     def info(s: String) = if (config.debug) logger.info(s)
@@ -131,10 +130,20 @@ object CantonRunner {
           """.stripMargin
     discard(Files.write(files.configFile, cantonConfig.getBytes(StandardCharsets.UTF_8)))
 
-    val bootstrapOptions = config.bootstrapScript.fold(List.empty[String]) { case script =>
-      discard { Files.write(files.bootstrapFile, script.getBytes(StandardCharsets.UTF_8)) }
-      List("--bootstrap", files.bootstrapFile.toString)
-    }
+    val bootstrapUploadDar = darFiles
+      .map(darFile => s"participants.all.dars.upload(\"$darFile\", true, true)")
+      .mkString("\n")
+    // Run the given clients bootstrap, upload dars via the console (which internally calls the admin api), then write a non-empty file for us to wait on
+    val bootstrapContent =
+      s"""import java.nio.file.{Files, Paths}
+         |import java.nio.charset.StandardCharsets
+         |${config.bootstrapScript.getOrElse("")}
+         |$bootstrapUploadDar
+         |Files.write(Paths.get("${files.completionFile}"), "Completed".getBytes(StandardCharsets.UTF_8))
+         |""".stripMargin
+
+    discard { Files.write(files.bootstrapFile, bootstrapContent.getBytes(StandardCharsets.UTF_8)) }
+
     val debugOptions =
       if (config.debug) List("--log-file-name", files.cantonLogFile.toString, "--verbose")
       else List.empty
@@ -155,7 +164,8 @@ object CantonRunner {
       "--auto-connect-local" ::
       "-c" ::
       files.configFile.toString ::
-      bootstrapOptions :::
+      "--bootstrap" ::
+      files.bootstrapFile.toString ::
       debugOptions
     info(cmd.mkString("\\\n    "))
     for {
@@ -169,38 +179,35 @@ object CantonRunner {
           outputBuffer += str
         })
       )
-      size <- RetryStrategy.constant(attempts = 240, waitTime = 1.seconds) { (_, _) =>
-        info("waiting for Canton to start")
-        if (proc.isAlive())
-          Future(Files.size(files.portsFile))
-        else
-          Future.successful(-1L)
-      }
+      _ = info("waiting for Canton to start")
+      startedCanton <- waitForFile(proc, files.portsFile)
       _ <-
-        if (size > 0)
+        if (startedCanton)
           Future.successful(info("Canton started"))
         else
           Future.failed(new Error("Canton failed expectedly with logs:\n" + outputBuffer))
+
+      _ = info("waiting for bootstrap/upload to run")
+      ranBootstrap <- waitForFile(proc, files.completionFile)
       _ <-
-        Future.traverse(ports) { case (_, ledgerPort) =>
-          for {
-            client <- config.ledgerClient(
-              ledgerPort.port,
-              config.adminToken,
-              ApiTypes.ApplicationId("CantonRunner"),
-            )
-            // TODO https://github.com/digital-asset/daml/issues/16151
-            // better to sequence the dar-loading in case of dependencies
-            _ <- Future.traverse(darFiles) { file =>
-              client.packageManagementClient.uploadDarFile(
-                ByteString.copyFrom(Files.readAllBytes(file))
-              )
-            }
-          } yield ()
-        }
-      _ = info(s"${darFiles.size} packages loaded to ${ports.size} participants")
+        if (ranBootstrap)
+          Future.successful(info(s"${darFiles.size} packages loaded to ${ports.size} participants"))
+        else
+          Future.failed(new Error("Canton failed expectedly with logs:\n" + outputBuffer))
     } yield ((domainAdminApi, domainPublicApi), ports, proc)
   }
+
+  private def waitForFile(proc: Process, path: Path)(implicit
+      ec: ExecutionContext
+  ): Future[Boolean] =
+    RetryStrategy
+      .constant(attempts = 240, waitTime = 1.seconds) { (_, _) =>
+        if (proc.isAlive())
+          Future(Files.size(path))
+        else
+          Future.successful(-1L)
+      }
+      .map(_ > 0)
 
   def stop(
       r: (
@@ -221,14 +228,17 @@ object CantonRunner {
     Future.unit
   }
 
-  def run(config: CantonConfig, tmpDir: Path, logger: org.slf4j.Logger, darFiles: Seq[Path])(
-      implicit esf: ExecutionSequencerFactory
-  ): ResourceOwner[Vector[Port]] =
-    new ResourceOwner[Vector[Port]] {
-      override def acquire()(implicit context: ResourceContext): Resource[Vector[Port]] = {
+  def run(
+      config: CantonConfig,
+      tmpDir: Path,
+      logger: org.slf4j.Logger,
+      darFiles: Seq[Path],
+  ): ResourceOwner[Vector[(Port, Port)]] =
+    new ResourceOwner[Vector[(Port, Port)]] {
+      override def acquire()(implicit context: ResourceContext): Resource[Vector[(Port, Port)]] = {
         val files = CantonFiles(tmpDir)
         Resource(start(config, logger, darFiles, files))(stop).map({ case (_, ports, _) =>
-          ports.map(_._2.port)
+          ports.map { case (adminPort, ledgerPort) => (ledgerPort.port, adminPort.port) }
         })
       }
     }
