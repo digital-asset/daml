@@ -233,22 +233,4 @@ message DisclosedContract {
   // The contract metadata from the create event.
   // Required
   ContractMetadata metadata = 4;
-
-  // The signatories for this contract as specified by the template.
-  // Required
-  repeated string signatories = 6;
-
-  // The observers for this contract as specified explicitly by the template or implicitly as choice controllers.
-  // This field never contains parties that are signatories.
-  // Optional
-  repeated string observers = 7;
-
-  // The key of the created contract.
-  // This will be set if and only if ``create_arguments`` is set and ``template_id`` defines a contract key.
-  // Optional
-  Value contract_key = 8;
-
-  // Maintainers of the contract key, if defined.
-  // Optional
-  repeated string key_maintainers = 9;
 }
