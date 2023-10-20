@@ -20,6 +20,7 @@ which daml
 
 # Set daml cache
 export DAML_CACHE=$(realpath local_daml_cache)
+rm -r $DAML_CACHE || true
 mkdir $DAML_CACHE
 
 function exit_with_message {
@@ -94,4 +95,4 @@ if [[ $(grep -c 'snapshot' $daml_cache/versions.txt) -lt 100 ]]; then
   exit_with_message 'cached versions.txt contains less than 100 snapshots identifiers'
 fi
 
-exit 1
+exit 0
