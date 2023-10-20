@@ -48,6 +48,14 @@ if [[ $(grep -c 'snapshot' $DAML_CACHE/versions.txt) -lt 100 ]]; then
 fi
 
 daml version --all yes --snapshots yes | tee daml-version-all-snapshots-output
+
+echo report heads
+head daml-version-all-snapshots-output
+head daml-version-reload-all-snapshots-output
+echo report diff start
+diff daml-version-all-snapshots-output daml-version-reload-all-snapshots-output
+echo report diff end
+
 if ! diff daml-version-all-snapshots-output daml-version-reload-all-snapshots-output; then
   exit_with_message '`daml version --all yes --snapshots yes` returns different version list from previous invocation of `daml version --all yes --snapshots yes --force-reload yes`'
 fi
