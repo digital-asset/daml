@@ -45,29 +45,25 @@ message InclusiveFilters {
   // A collection of templates for which the data will be included in the
   // ``create_arguments`` of a matching ``CreatedEvent``.
   // SHOULD NOT contain duplicates.
-  // All ``template_ids`` needs to be valid: corresponding template should be defined in one of
+  // All ``template_ids`` need to be valid: corresponding templates should be defined in one of
   // the available packages at the time of the query.
-  // Deprecated in favor of the `template_filters`.
-  // If the `template_filters` field is set, the `template_ids` field is ignored.
+  // Deprecated in favor of the `template_filters`. If the `template_filters` field is set,
+  // the `template_ids` field is ignored.
   // Optional
   repeated Identifier template_ids = 1 [deprecated = true];
 
   // Include an ``InterfaceView`` for every ``InterfaceFilter`` matching a contract.
   // The ``InterfaceFilter``s MUST use unique ``interface_id``s.
-  // All ``interface_id`` needs to be valid: corresponding interface should be defined in one of
-  // the available packages at the time of the query.
   // Optional
   repeated InterfaceFilter interface_filters = 2;
 
   // A collection of templates for which the data will be included in the
   // ``create_arguments`` of a matching ``CreatedEvent``.
   // SHOULD NOT contain duplicates.
-  // In contrast to the ``template_ids`` field, one can specify whether the create payload should be provided
-  // alongside the create arguments.
+  // In contrast to the ``template_ids`` field, one can specify whether the create payload
+  // should be provided alongside the create arguments.
   // If a contract is simultaneously selected by a template filter and one or more interface filters,
   // the corresponding ``include_contract_create_payload`` are consolidated using an OR operation.
-  // All ``template_id`` inside need to be valid: corresponding template should be defined in one of
-  // the available packages at the time of the query.
   // Optional
   repeated TemplateFilter template_filters = 3;
 }
@@ -76,6 +72,8 @@ message InclusiveFilters {
 message InterfaceFilter {
 
   // The interface that a matching contract must implement.
+  // The ``interface_id`` needs to be valid: corresponding interface should be defined in
+  // one of the available packages at the time of the query.
   // Required
   Identifier interface_id = 1;
 
@@ -84,18 +82,29 @@ message InterfaceFilter {
   // Optional
   bool include_interface_view = 2;
 
+  // Whether to include a ``create_arguments_blob`` in the returned
+  // ``CreateEvent``.
+  // Use this to access the complete contract create argument data in your API client
+  // for submitting it as a disclosed contract with future commands.
+  // Deprecated in favor of ``include_contract_create_payload``. If the latter field
+  // is set, ``include_create_arguments_blob`` is ignored.
+  // Optional
+  bool include_create_arguments_blob = 3 [deprecated = true];
+
   // Whether to include a ``contract_create_payload`` in the returned
   // ``CreateEvent``.
-  // Use this to access the complete contract payload in your API client
+  // Use this to access the complete contract create payload in your API client
   // for submitting it as a disclosed contract with future commands.
   // Optional
-  bool include_contract_create_payload = 3;
+  bool include_contract_create_payload = 4;
 }
 
 // This filter matches contracts of a specific template.
 message TemplateFilter {
 
   // A template for which the payload should be included in the response.
+  // The ``template_id`` needs to be valid: corresponding template should be defined in
+  // one of the available packages at the time of the query.
   // Required
   Identifier template_id = 1;
 
