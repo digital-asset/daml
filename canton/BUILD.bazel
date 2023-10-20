@@ -757,6 +757,9 @@ proto_gen(
     ],
 )
 
+# TODO: we won't get the same package ID as the one that is checked into the canton repository that
+#       way, we need to use the dar that's checked-in instead when building
+#       community_participant_ping-pong-vaccum
 daml_compile(
     name = "community_participant_admin-worklfow",
     srcs = glob(["community/participant/src/main/daml/*.daml"]),
@@ -784,6 +787,14 @@ dar_to_scala(
     srcjar_out = "dar.srcjar",
 )
 
+genrule(
+    name = "AdminWorkflowsWithVacuuming.dar",
+    srcs = [":community_participant_ping-pong-vaccum.dar"],
+    outs = ["community/participant/src/main/resources/dar/AdminWorkflowsWithVacuuming.dar"],
+    cmd = "cp -L $(location :community_participant_ping-pong-vaccum.dar) $$PWD/$@",
+    visibility = ["//visibility:public"],
+)
+
 scala_library(
     name = "community_participant",
     srcs = glob(["community/participant/src/main/scala/**/*.scala"]) + [
@@ -791,8 +802,8 @@ scala_library(
         ":community_participant_proto_scala",
     ],
     plugins = [kind_projector_plugin],
-    resource_strip_prefix = "canton/community/participant/src/main/resources",
-    resources = glob(["community/participant/src/main/resources/**"]),
+    resource_strip_prefix = "canton/community/participant/src/main/resources/dar",
+    resources = glob(["community/participant/src/main/resources/dar/**"]) + [":AdminWorkflowsWithVacuuming.dar"],
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
