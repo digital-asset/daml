@@ -148,7 +148,9 @@ class TimelyRejectNotifier(
         oldState match {
           case Outcome(Running) => Right(())
           case Outcome(Pending(newTraceContext)) =>
-            bound.toLeft(()).leftMap(LoopState(_, newTraceContext))
+            if (notificationOutcome.isOutcome) {
+              bound.toLeft(()).leftMap(LoopState(_, newTraceContext))
+            } else Right(())
           case _ =>
             ErrorUtil.invalidState("getAndUpdate should already have thrown an exception")
         }
