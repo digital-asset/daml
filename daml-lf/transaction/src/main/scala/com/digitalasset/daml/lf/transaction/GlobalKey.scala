@@ -4,6 +4,7 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.TypeConName
 import com.daml.lf.value.Value
@@ -54,7 +55,14 @@ object GlobalKeyWithMaintainers {
       value: Value,
       maintainers: Set[Ref.Party],
   ): GlobalKeyWithMaintainers =
-    GlobalKeyWithMaintainers(GlobalKey.assertBuild(templateId, value), maintainers)
+    data.assertRight(build(templateId, value, maintainers).left.map(_.msg))
+
+  def build(
+      templateId: Ref.TypeConName,
+      value: Value,
+      maintainers: Set[Ref.Party],
+  ): Either[Hash.HashingError, GlobalKeyWithMaintainers] =
+    GlobalKey.build(templateId, value).map(GlobalKeyWithMaintainers(_, maintainers))
 }
 
 /** Controls whether the engine should error out when it encounters duplicate keys.

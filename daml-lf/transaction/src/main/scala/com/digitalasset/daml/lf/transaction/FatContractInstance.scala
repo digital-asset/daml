@@ -7,6 +7,8 @@ package transaction
 import data.{Bytes, Ref, Time}
 import value.{CidContainer, Value}
 
+import scala.collection.immutable.TreeSet
+
 // This should replace value.ContractInstance in the whole daml/canton codespace
 // TODO: Rename to ContractInstance once value.ContractInstance is properly deprecated
 sealed abstract class FatContractInstance extends CidContainer[FatContractInstance] {
@@ -14,21 +16,19 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   val contractId: Value.ContractId
   val templateId: Ref.TypeConName
   val createArg: Value
-  val contractKey: Option[GlobalKey]
-  val maintainers: Set[Ref.Party]
-  val nonMaintainerSignatories: Set[Ref.Party]
-  val nonSignatoryStakeholders: Set[Ref.Party]
-  val createTime: Time.Timestamp
+  val signatories: TreeSet[Ref.Party]
+  val stakeholders: TreeSet[Ref.Party]
+  val contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers]
+  val createAt: Time.Timestamp
   val cantonData: Bytes
   private[lf] def toImplementation: FatContractInstanceImpl =
     this.asInstanceOf[FatContractInstanceImpl]
-  require(maintainers.isEmpty || contractKey.isDefined)
-  final lazy val signatories: Set[Ref.Party] = maintainers | nonMaintainerSignatories
-  final lazy val stakeholders: Set[Ref.Party] = signatories | nonSignatoryStakeholders
-  def updateCreateTime(updatedTime: Time.Timestamp): FatContractInstance
+  final lazy val maintainers: TreeSet[Ref.Party] =
+    contractKeyWithMaintainers.fold(TreeSet.empty[Ref.Party])(k => TreeSet.from(k.maintainers))
+  final lazy val nonMaintainerSignatories: TreeSet[Ref.Party] = signatories -- maintainers
+  final lazy val nonSignatoryStackhodlers: TreeSet[Ref.Party] = stakeholders -- signatories
+  def updateCreateAt(updatedTime: Time.Timestamp): FatContractInstance
   def setSalt(cantonData: Bytes): FatContractInstance
-  def keyWithMaintainers: Option[GlobalKeyWithMaintainers] =
-    contractKey.map(GlobalKeyWithMaintainers(_, maintainers))
 }
 
 private[lf] final case class FatContractInstanceImpl(
@@ -36,14 +36,20 @@ private[lf] final case class FatContractInstanceImpl(
     contractId: Value.ContractId,
     templateId: Ref.TypeConName,
     createArg: Value,
-    contractKey: Option[GlobalKey],
-    maintainers: Set[Ref.Party],
-    nonMaintainerSignatories: Set[Ref.Party],
-    nonSignatoryStakeholders: Set[Ref.Party],
-    createTime: Time.Timestamp,
+    signatories: TreeSet[Ref.Party],
+    stakeholders: TreeSet[Ref.Party],
+    contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers],
+    createAt: Time.Timestamp,
     cantonData: Bytes,
 ) extends FatContractInstance
     with CidContainer[FatContractInstanceImpl] {
+
+  // TODO (change implementation of KeyWithMaintainers.maintainer to TreeSet)
+  require(maintainers.isInstanceOf[TreeSet[Ref.Party]])
+  require(maintainers.subsetOf(signatories))
+  require(signatories.nonEmpty)
+  require(signatories.subsetOf(stakeholders))
+
   override protected def self: FatContractInstanceImpl = this
 
   override def mapCid(f: Value.ContractId => Value.ContractId): FatContractInstanceImpl = {
@@ -53,8 +59,8 @@ private[lf] final case class FatContractInstanceImpl(
     )
   }
 
-  override def updateCreateTime(updatedTime: Time.Timestamp): FatContractInstanceImpl =
-    copy(createTime = updatedTime)
+  override def updateCreateAt(updatedTime: Time.Timestamp): FatContractInstanceImpl =
+    copy(createAt = updatedTime)
 
   override def setSalt(cantonData: Bytes): FatContractInstanceImpl = {
     assert(cantonData.nonEmpty)
@@ -68,22 +74,18 @@ object FatContractInstance {
       create: Node.Create,
       createTime: Time.Timestamp,
       cantonData: Bytes,
-  ): FatContractInstance = {
-    val maintainers = create.keyOpt.fold(Set.empty[Ref.Party])(_.maintainers)
-    val nonMaintainerSignatories = create.signatories -- maintainers
-    val nonSignatoryStakeholders = create.stakeholders -- create.signatories
+  ): FatContractInstance =
     FatContractInstanceImpl(
       version = create.version,
       contractId = create.coid,
       templateId = create.templateId,
       createArg = create.arg,
-      contractKey = create.keyOpt.map(_.globalKey),
-      maintainers = maintainers,
-      nonMaintainerSignatories = nonMaintainerSignatories,
-      nonSignatoryStakeholders = nonSignatoryStakeholders,
-      createTime = createTime,
+      signatories = TreeSet.from(create.signatories),
+      stakeholders = TreeSet.from(create.stakeholders),
+      contractKeyWithMaintainers =
+        create.keyOpt.map(k => k.copy(maintainers = TreeSet.from(k.maintainers))),
+      createAt = createTime,
       cantonData = cantonData,
     )
-  }
 
 }
