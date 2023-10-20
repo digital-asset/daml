@@ -630,7 +630,11 @@ warningLocation = \case
 
 instance Pretty Warning where
   pPrint = \case
-    WContext _ w -> pPrint w
+    WContext ctx err ->
+      vcat
+      [ "warning while type checking " <> pretty ctx <> ":"
+      , nest 2 (pretty err)
+      ]
     WTemplateChangedPrecondition template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its precondition."
     WTemplateChangedSignatories template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its signatories."
     WTemplateChangedObservers template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its observers."
