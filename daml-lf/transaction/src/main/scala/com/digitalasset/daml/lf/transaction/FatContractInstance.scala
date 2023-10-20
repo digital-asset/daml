@@ -19,7 +19,7 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   val signatories: TreeSet[Ref.Party]
   val stakeholders: TreeSet[Ref.Party]
   val contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers]
-  val createAt: Time.Timestamp
+  val createdAt: Time.Timestamp
   val cantonData: Bytes
   private[lf] def toImplementation: FatContractInstanceImpl =
     this.asInstanceOf[FatContractInstanceImpl]
@@ -39,7 +39,7 @@ private[lf] final case class FatContractInstanceImpl(
     signatories: TreeSet[Ref.Party],
     stakeholders: TreeSet[Ref.Party],
     contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers],
-    createAt: Time.Timestamp,
+    createdAt: Time.Timestamp,
     cantonData: Bytes,
 ) extends FatContractInstance
     with CidContainer[FatContractInstanceImpl] {
@@ -60,7 +60,7 @@ private[lf] final case class FatContractInstanceImpl(
   }
 
   override def updateCreateAt(updatedTime: Time.Timestamp): FatContractInstanceImpl =
-    copy(createAt = updatedTime)
+    copy(createdAt = updatedTime)
 
   override def setSalt(cantonData: Bytes): FatContractInstanceImpl = {
     assert(cantonData.nonEmpty)
@@ -84,7 +84,7 @@ object FatContractInstance {
       stakeholders = TreeSet.from(create.stakeholders),
       contractKeyWithMaintainers =
         create.keyOpt.map(k => k.copy(maintainers = TreeSet.from(k.maintainers))),
-      createAt = createTime,
+      createdAt = createTime,
       cantonData = cantonData,
     )
 

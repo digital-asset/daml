@@ -987,7 +987,7 @@ object TransactionCoder {
       encodedKeyOpt.foreach(builder.setContractKeyWithMaintainers)
       nonMaintainerSignatories.foreach(builder.addNonMaintainerSignatories)
       nonSignatoryStakeholders.foreach(builder.addNonSignatoryStakeholders)
-      discard(builder.setCreateAt(createAt.micros))
+      discard(builder.setCreatedAt(createdAt.micros))
       discard(builder.setCantonData(cantonData.toByteString))
       encodeVersioned(version, builder.build().toByteString)
     }
@@ -1038,7 +1038,7 @@ object TransactionCoder {
           Left(DecodeError(s"party $p is declared as signatory and nonSignatoryStakeholder"))
         case None => Right(signatories | nonSignatoryStakeholders)
       }
-      createAt <- data.Time.Timestamp.fromLong(proto.getCreateAt).left.map(DecodeError)
+      createdAt <- data.Time.Timestamp.fromLong(proto.getCreatedAt).left.map(DecodeError)
       cantonData = proto.getCantonData
     } yield FatContractInstanceImpl(
       version = versionedBlob.version,
@@ -1047,7 +1047,7 @@ object TransactionCoder {
       createArg = createArg,
       signatories = signatories,
       stakeholders = stakeholders,
-      createAt = createAt,
+      createdAt = createdAt,
       contractKeyWithMaintainers = keyWithMaintainers,
       cantonData = data.Bytes.fromByteString(cantonData),
     )
