@@ -166,14 +166,14 @@ object ScriptF {
           env.clients
             .getPartiesParticipant(data.actAs)
         )
-        resItems <- Future.traverse(data.cmdss)(
-          client.trySubmit(
+        resItems <- client
+          .trySubmitConcurrently(
             data.actAs,
             data.readAs,
-            _,
+            data.cmdss,
             data.stackTrace.topFrame,
           )
-        )
+          .map(_.toList)
         res <- Converter.toFuture(
           Converter
             .fromSubmitResultList[SubmitError](

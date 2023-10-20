@@ -798,6 +798,26 @@ class IdeLedgerClient(
         Left(fromScenarioError(err))
     }
 
+  override def trySubmitConcurrently(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commandss: List[List[command.ApiCommand]],
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Seq[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]] =
+    // Since the IDE ledger doesn't have a sequencer, we simply lie about the
+    // concurrent part and sequence the commandss manually.
+    commandss.foldLeft(
+      Future.successful(Seq.empty[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]])
+    ) { (fresults, commands) =>
+      for {
+        results <- fresults
+        result <- trySubmit(actAs, readAs, commands, optLocation)
+      } yield results :+ result
+    }
+
   def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
     getPackageIdPairs().toMap
   def getPackageIdReverseMap(): Map[PackageId, ScriptLedgerClient.ReadablePackageId] =
