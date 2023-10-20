@@ -137,9 +137,9 @@ message FatContractInstance {
   bytes contract_id = 1;
   com.daml.lf.value.Identifier template_id = 2;
   bytes create_arg = 3;
-  repeated string non_maintainer_signatories = 4;
-  repeated string non_signatory_stakeholders = 5;
-  int64 create_at = 6;
-  bytes canton_data = 7;
-  KeyWithMaintainers contract_key_with_maintainers = 8;
+  KeyWithMaintainers contract_key_with_maintainers = 4;
+  repeated string non_maintainer_signatories = 5;
+  repeated string non_signatory_stakeholders = 6;
+  int64 create_at = 7;
+  bytes canton_data = 8; // this is used by canton to store the contractId salt.
 }
