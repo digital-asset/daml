@@ -138,7 +138,7 @@ message FatContractInstance {
   com.daml.lf.value.Identifier template_id = 2;
   bytes create_arg = 3;
   repeated string non_maintainer_signatories = 4;
-  repeated string non_signatory_stackhodlers = 5;
+  repeated string non_signatory_stakeholders = 5;
   int64 create_at = 6;
   bytes canton_data = 7;
   KeyWithMaintainers contract_key_with_maintainers = 8;

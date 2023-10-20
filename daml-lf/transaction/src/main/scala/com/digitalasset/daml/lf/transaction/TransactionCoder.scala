@@ -4,18 +4,17 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.data.{Ref, BackStack}
+import com.daml.lf.data.{BackStack, Ref}
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{Party, Name}
-import com.daml.lf.value.{ValueOuterClass, Value, ValueCoder}
-import com.daml.lf.value.ValueCoder.{EncodeError, DecodeError}
+import com.daml.lf.data.Ref.{Name, Party}
+import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
+import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf.{ByteString, GeneratedMessageV3, ProtocolStringList}
 
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection.immutable.HashMap
-import scala.collection.immutable.TreeSet
+import scala.collection.immutable.{HashMap, TreeSet}
 import scala.jdk.CollectionConverters._
 
 object TransactionCoder {
@@ -987,7 +986,7 @@ object TransactionCoder {
       discard(builder.setCreateArg(encodedArg))
       encodedKeyOpt.foreach(builder.setContractKeyWithMaintainers)
       nonMaintainerSignatories.foreach(builder.addNonMaintainerSignatories)
-      nonSignatoryStackhodlers.foreach(builder.addNonSignatoryStackhodlers)
+      nonSignatoryStakeholders.foreach(builder.addNonSignatoryStakeholders)
       discard(builder.setCreateAt(createAt.micros))
       discard(builder.setCantonData(cantonData.toByteString))
       encodeVersioned(version, builder.build().toByteString)
@@ -1028,7 +1027,7 @@ object TransactionCoder {
         (),
         DecodeError("maintainers or non_maintainer_signatories should be non empty"),
       )
-      nonSignatoryStakeholders <- toOrderedPartySet(proto.getNonSignatoryStackhodlersList)
+      nonSignatoryStakeholders <- toOrderedPartySet(proto.getNonSignatoryStakeholdersList)
       signatories <- maintainers.find(nonMaintainerSignatories) match {
         case Some(p) =>
           Left(DecodeError(s"party $p is declared as maintainer and nonMaintainerSignatory"))

@@ -26,7 +26,7 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   final lazy val maintainers: TreeSet[Ref.Party] =
     contractKeyWithMaintainers.fold(TreeSet.empty[Ref.Party])(k => TreeSet.from(k.maintainers))
   final lazy val nonMaintainerSignatories: TreeSet[Ref.Party] = signatories -- maintainers
-  final lazy val nonSignatoryStackhodlers: TreeSet[Ref.Party] = stakeholders -- signatories
+  final lazy val nonSignatoryStakeholders: TreeSet[Ref.Party] = stakeholders -- signatories
   def updateCreateAt(updatedTime: Time.Timestamp): FatContractInstance
   def setSalt(cantonData: Bytes): FatContractInstance
 }
