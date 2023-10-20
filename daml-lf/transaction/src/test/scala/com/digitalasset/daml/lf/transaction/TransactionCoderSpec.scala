@@ -959,7 +959,7 @@ class TransactionCoderSpec
 
   private val bytesGen: Gen[protobuf.ByteString] =
     Gen
-      .nonEmptyListOf(Arbitrary.arbByte.arbitrary)
+      .listOf(Arbitrary.arbByte.arbitrary)
       .map(x => protobuf.ByteString.copyFrom(x.toArray))
 
   private[this] def normalizeNode(node: Node) =
