@@ -240,7 +240,7 @@ checkTemplate module_ template = do
             , EVar (ExprVarName "this") <- tmappArg
             = lookupInModule module_ (qualObject qualEvn)
             | otherwise
-            = Left $ "extractFuncFromFuncThis: Wrong shape"
+            = Left "extractFuncFromFuncThis: Wrong shape"
 
         extractFuncFromFuncThisArg :: Expr -> Module -> Either String Expr
         extractFuncFromFuncThisArg expr module_
@@ -251,14 +251,14 @@ checkTemplate module_ template = do
             , EVal qualEvn <- tmappFun inner
             = lookupInModule module_ (qualObject qualEvn)
             | otherwise
-            = Left $ "extractFuncFromFuncThisArg: Wrong shape"
+            = Left "extractFuncFromFuncThisArg: Wrong shape"
 
         extractFuncFromCaseFuncThis :: Expr -> Module -> Either String Expr
         extractFuncFromCaseFuncThis expr module_
             | ECase{..} <- expr
             = extractFuncFromFuncThis casScrutinee module_
             | otherwise
-            = Left $ "extractFuncFromCaseFuncThis: No ECase found"
+            = Left "extractFuncFromCaseFuncThis: No ECase found"
 
         extractFuncFromTyAppNil :: Expr -> Module -> Either String Expr
         extractFuncFromTyAppNil expr module_
@@ -271,7 +271,7 @@ checkTemplate module_ template = do
                 definition <- lookupInModule module_ (qualObject qualEvn)
                 extractFuncFromProxyApp definition module_
             | otherwise
-            = Left $ "extractFuncFromTyAppNil: Wrong shape"
+            = Left "extractFuncFromTyAppNil: Wrong shape"
 
         extractFuncFromProxyApp :: Expr -> Module -> Either String Expr
         extractFuncFromProxyApp expr module_
@@ -282,7 +282,7 @@ checkTemplate module_ template = do
             , EVal qualEvn <- tmlamBody inner
             = lookupInModule module_ (qualObject qualEvn)
             | otherwise
-            = Left $ "extractFuncFromProxyApp: Wrong shape"
+            = Left "extractFuncFromProxyApp: Wrong shape"
 
         lookupInModule :: Module -> ExprValName -> Either String Expr
         lookupInModule module_ evn =
