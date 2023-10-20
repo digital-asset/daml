@@ -49,6 +49,7 @@ public final class InclusiveFilter extends Filter {
     return interfaceIds;
   }
 
+  @SuppressWarnings("deprecation")
   @Override
   public TransactionFilterOuterClass.Filters toProto() {
     ArrayList<ValueOuterClass.Identifier> templateIds = new ArrayList<>(this.templateIds.size());
@@ -66,6 +67,7 @@ public final class InclusiveFilter extends Filter {
     return TransactionFilterOuterClass.Filters.newBuilder().setInclusive(inclusiveFilter).build();
   }
 
+  @SuppressWarnings("deprecation")
   public static InclusiveFilter fromProto(
       TransactionFilterOuterClass.InclusiveFilters inclusiveFilters) {
     HashSet<Identifier> templateIds = new HashSet<>(inclusiveFilters.getTemplateIdsCount());

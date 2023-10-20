@@ -273,6 +273,7 @@ public final class CreatedEvent implements Event, TreeEvent {
         + '}';
   }
 
+  @SuppressWarnings("deprecation")
   public EventOuterClass.@NonNull CreatedEvent toProto() {
     EventOuterClass.CreatedEvent.Builder builder =
         EventOuterClass.CreatedEvent.newBuilder()
@@ -311,6 +312,7 @@ public final class CreatedEvent implements Event, TreeEvent {
                     .build());
   }
 
+  @SuppressWarnings("deprecation")
   public static CreatedEvent fromProto(EventOuterClass.CreatedEvent createdEvent) {
     var splitInterfaceViews =
         createdEvent.getInterfaceViewsList().stream()

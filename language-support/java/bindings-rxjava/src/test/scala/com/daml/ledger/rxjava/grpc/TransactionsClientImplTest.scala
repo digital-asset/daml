@@ -20,6 +20,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 
 import scala.jdk.CollectionConverters._
 
+// Allows using deprecated Protobuf fields for testing
+@annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
 final class TransactionsClientImplTest
     extends AnyFlatSpec
     with ScalaCheckDrivenPropertyChecks

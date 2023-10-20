@@ -246,6 +246,7 @@ object TransactionGenerator {
         contractKey.map(_._1),
         Some(scalaRecord),
         Some(com.google.protobuf.any.Any.fromJavaProto(createArgumentsBlob)),
+        ByteString.EMPTY,
         interfaceViews.map(_._1),
         signatories ++ observers,
         signatories,

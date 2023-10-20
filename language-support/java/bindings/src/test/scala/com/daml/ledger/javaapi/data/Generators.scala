@@ -11,6 +11,8 @@ import Arbitrary.arbitrary
 
 import scala.jdk.CollectionConverters._
 
+// Allows using deprecated Protobuf fields for testing
+@annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
 object Generators {
 
   def valueGen: Gen[ValueOuterClass.Value] =
