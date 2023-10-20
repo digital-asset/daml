@@ -26,7 +26,7 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   final lazy val signatories: Set[Ref.Party] = maintainers | nonMaintainerSignatories
   final lazy val stakeholders: Set[Ref.Party] = signatories | nonSignatoryStakeholders
   def updateCreateTime(updatedTime: Time.Timestamp): FatContractInstance
-  def setSalt(canton_data: Bytes): FatContractInstance
+  def setSalt(cantonData: Bytes): FatContractInstance
   def keyWithMaintainers: Option[GlobalKeyWithMaintainers] =
     contractKey.map(GlobalKeyWithMaintainers(_, maintainers))
 }
@@ -56,9 +56,9 @@ private[lf] final case class FatContractInstanceImpl(
   override def updateCreateTime(updatedTime: Time.Timestamp): FatContractInstanceImpl =
     copy(createTime = updatedTime)
 
-  override def setSalt(canton_data: Bytes): FatContractInstanceImpl = {
-    assert(canton_data.nonEmpty)
-    copy(cantonData = canton_data)
+  override def setSalt(cantonData: Bytes): FatContractInstanceImpl = {
+    assert(cantonData.nonEmpty)
+    copy(cantonData = cantonData)
   }
 }
 
@@ -67,7 +67,7 @@ object FatContractInstance {
   def fromCreateNode(
       create: Node.Create,
       createTime: Time.Timestamp,
-      canton_data: Bytes,
+      cantonData: Bytes,
   ): FatContractInstance = {
     val maintainers = create.keyOpt.fold(Set.empty[Ref.Party])(_.maintainers)
     val nonMaintainerSignatories = create.signatories -- maintainers
@@ -82,7 +82,7 @@ object FatContractInstance {
       nonMaintainerSignatories = nonMaintainerSignatories,
       nonSignatoryStakeholders = nonSignatoryStakeholders,
       createTime = createTime,
-      cantonData = canton_data,
+      cantonData = cantonData,
     )
   }
 

@@ -951,7 +951,7 @@ object TransactionCoder {
   }
 
   private[this] def ensureNoUnknownFields(
-      proto: com.google.protobuf.Message,
+      proto: com.google.protobuf.Message
   ) = {
     val unknownFields = proto.getUnknownFields.asMap()
     Either.cond(
@@ -977,7 +977,7 @@ object TransactionCoder {
         .toEither
         .left
         .map(e => DecodeError(s"exception $e while decoding the object"))
-      _ <- ensureNoUnknownFields(proto)
+      _ <- ensureNoUnknownFields(proto, "FatContractInstance")
       contractId <- Value.ContractId.V1
         .fromBytes(data.Bytes.fromByteString(proto.getContractId))
         .left
