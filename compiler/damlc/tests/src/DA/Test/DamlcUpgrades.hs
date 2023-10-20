@@ -134,6 +134,93 @@ tests damlc =
                 )
               ]
         , test
+              "Warns when template changes key expression"
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A cannot change the expression for computing its key.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    key (p, \"example\") : (Party, Text)"
+                      , "    maintainer (fst key)"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    key (q, \"example\") : (Party, Text)"
+                      , "    maintainer (fst key)"
+                      ]
+                )
+              ]
+        , test
+              "Warns when template changes key maintainers"
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A cannot change the maintainers for its key.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    key (p, q) : (Party, Party)"
+                      , "    maintainer (fst key)"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    key (p, q) : (Party, Party)"
+                      , "    maintainer (snd key)"
+                      ]
+                )
+              ]
+        , test
+              "Fails when template changes key type"
+              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A key:\n  The upgraded template A cannot change its key type.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    key (p, \"text\") : (Party, Text)"
+                      , "    maintainer (fst key)"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    key (p, 1) : (Party, Int)"
+                      , "    maintainer (fst key)"
+                      ]
+                )
+              ]
+        , test
               "Fails when new field is added to template without Optional type"
               (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has added new fields, but those fields are not Optional.")
               [ ( "daml/MyLib.daml"
