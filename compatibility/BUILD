@@ -53,8 +53,9 @@ last_non_canton_in_ledger_api_tests = "2.7.0-snapshot.20230427.11728.0.1f3c22cf"
     sh_test(
         name = "test-daml-version-and-install-{}".format(sdk_version),
         srcs = ["test-daml-version-and-install.sh"],
+        args = [sdk_version],
         data = ["@daml-sdk-{}//:daml".format(sdk_version)],
-        deps = [],
+        deps = ["@bazel_tools//tools/bash/runfiles"],
     )
     for sdk_version in sdk_versions
 ]
