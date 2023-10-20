@@ -291,7 +291,20 @@ def install_java_deps():
     )
     maven_install(
         name = "canton_maven",
-        artifacts = ["org.flywaydb:flyway-core:9.15.2"],
+        artifacts = [
+            "org.flywaydb:flyway-core:9.15.2",
+            "dev.optics:monocle-core_{}:3.2.0".format(scala_major_version),
+            "dev.optics:monocle-macro_{}:3.2.0".format(scala_major_version),
+            "com.chuusai:shapeless_{}:2.3.6".format(scala_major_version),
+            "org.postgresql:postgresql:42.3.8",
+            "com.oracle.database.jdbc.debug:ojdbc8_g:19.18.0.0",
+            "com.oracle.database.jdbc:ojdbc8:19.18.0.0",
+            "javax.annotation:javax.annotation-api:1.3.2",
+            "org.typelevel:cats-core_{}:2.9.0".format(scala_major_version),
+            "org.typelevel:cats-free_{}:2.9.0".format(scala_major_version),
+            "org.typelevel:cats-kernel_{}:2.9.0".format(scala_major_version),
+            "org.typelevel:cats-laws_{}:2.9.0".format(scala_major_version),
+        ],
         repositories = [
             "https://repo1.maven.org/maven2",
         ],
