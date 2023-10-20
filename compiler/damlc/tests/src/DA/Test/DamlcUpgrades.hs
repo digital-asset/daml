@@ -30,8 +30,8 @@ tests damlc =
     testGroup
         "Upgrade"
         [ test
-              "Fails when template changes signatories"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A signatories:\n  The upgraded template A cannot change the definition of its signatories.")
+              "Warns when template changes signatories"
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A signatories:\n  The upgraded template A cannot change the definition of its signatories.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -53,8 +53,8 @@ tests damlc =
                 )
               ]
         , test
-              "Fails when template changes observers"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A observers:\n  The upgraded template A cannot change the definition of its observers.")
+              "Warns when template changes observers"
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A observers:\n  The upgraded template A cannot change the definition of its observers.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -80,8 +80,8 @@ tests damlc =
                 )
               ]
         , test
-              "Fails when template changes ensure"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A precondition:\n  The upgraded template A cannot change the definition of its precondition.")
+              "Warns when template changes ensure"
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A precondition:\n  The upgraded template A cannot change the definition of its precondition.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -107,8 +107,8 @@ tests damlc =
                 )
               ]
         , test
-              "Fails when template changes agreement"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A agreement:\n  The upgraded template A cannot change the definition of agreement.")
+              "Warns when template changes agreement"
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A agreement:\n  The upgraded template A cannot change the definition of agreement.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -135,7 +135,7 @@ tests damlc =
               ]
         , test
               "Fails when new field is added to template without Optional type"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has added new fields, but those fields are not Optional.")
+              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has added new fields, but those fields are not Optional.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -161,7 +161,7 @@ tests damlc =
               ]
         , test
               "Fails when old field is deleted from template"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A is missing some of its original fields.")
+              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A is missing some of its original fields.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -185,7 +185,7 @@ tests damlc =
               ]
         , test
               "Fails when existing field in template is changed"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has changed the types of some of its original fields.")
+              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has changed the types of some of its original fields.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -210,7 +210,7 @@ tests damlc =
               ]
         , test
               "Succeeds when new field with optional type is added to template"
-              Nothing
+              Succeed
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -236,7 +236,7 @@ tests damlc =
               ]
         , test
               "Fails when new field is added to template choice without Optional type"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A has added new fields, but those fields are not Optional.")
+              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A has added new fields, but those fields are not Optional.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -272,7 +272,7 @@ tests damlc =
               ]
         , test
               "Fails when old field is deleted from template choice"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A is missing some of its original fields.")
+              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A is missing some of its original fields.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -306,7 +306,7 @@ tests damlc =
               ]
         , test
               "Fails when existing field in template choice is changed"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A has changed the types of some of its original fields.")
+              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A has changed the types of some of its original fields.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -340,8 +340,8 @@ tests damlc =
                 )
               ]
         , test
-              "Fails when controllers of template choice are changed"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded choice C cannot change the definition of controllers.")
+              "Warns when controllers of template choice are changed"
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A choice C:\n  The upgraded choice C cannot change the definition of controllers.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -371,8 +371,8 @@ tests damlc =
                 )
               ]
         , test
-              "Fails when observers of template choice are changed"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded choice C cannot change the definition of observers.")
+              "Warns when observers of template choice are changed"
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A choice C:\n  The upgraded choice C cannot change the definition of observers.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -405,7 +405,7 @@ tests damlc =
               ]
         , test
               "Fails when template choice changes its return type"
-              (Just "Message: \n\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded choice C cannot change its return type.")
+              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded choice C cannot change its return type.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -440,7 +440,7 @@ tests damlc =
               ]
         , test
               "Succeeds when template choice returns a template which has changed"
-              Nothing
+              Succeed
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -470,7 +470,7 @@ tests damlc =
               ]
         , test
               "Succeeds when template choice input argument has changed"
-              Nothing
+              Succeed
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -504,7 +504,7 @@ tests damlc =
               ]
         , test
               "Succeeds when new field with optional type is added to template choice"
-              Nothing
+              Succeed
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -542,11 +542,11 @@ tests damlc =
   where
     test ::
            String
-        -> Maybe T.Text
+        -> Expectation
         -> [(FilePath, String)]
         -> [(FilePath, String)]
         -> TestTree
-    test name expectedError oldVersion newVersion =
+    test name expectation oldVersion newVersion =
         testCase name $
         withTempDir $ \dir -> do
             let depDir = dir </> "oldVersion"
@@ -555,13 +555,19 @@ tests damlc =
             writeFiles dir (projectFile "mylib-v2" (Just depDar) : newVersion)
             writeFiles depDir (projectFile "mylib-v1" Nothing : oldVersion)
             callProcessSilent damlc ["build", "--project-root", depDir, "-o", depDar]
-            case expectedError of
-              Nothing ->
+            case expectation of
+              Succeed ->
                   callProcessSilent damlc ["build", "--project-root", dir, "-o", dar]
-              Just regex -> do
+              FailWithError regex -> do
                   stderr <- callProcessForStderr damlc ["build", "--project-root", dir, "-o", dar]
-                  unless (matchTest (makeRegex regex :: Regex) stderr) $
-                      assertFailure ("Regex '" <> show regex <> "' did not match stderr:\n" <> show stderr)
+                  let regexWithSeverity = "Severity: DsError\nMessage: \n" <> regex
+                  unless (matchTest (makeRegex regexWithSeverity :: Regex) stderr) $
+                      assertFailure ("`daml build` failed as expected, but did not give an error matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+              SucceedWithWarning regex -> do
+                  stderr <- callProcessForSuccessfulStderr damlc ["build", "--project-root", dir, "-o", dar]
+                  let regexWithSeverity = "Severity: DsWarning\nMessage: \n" <> regex
+                  unless (matchTest (makeRegex regexWithSeverity :: Regex) stderr) $
+                      assertFailure ("`daml build` succeeded, but did not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
 
     writeFiles dir fs =
         for_ fs $ \(file, content) -> do
@@ -587,3 +593,9 @@ tests damlc =
                     (featureMinVersion featurePackageUpgrades V1))
           ] ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
         )
+
+data Expectation
+  = Succeed
+  | FailWithError T.Text
+  | SucceedWithWarning T.Text
+  deriving (Show, Eq, Ord)

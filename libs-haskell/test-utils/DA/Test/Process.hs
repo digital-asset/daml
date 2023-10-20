@@ -7,6 +7,7 @@ module DA.Test.Process
   , callProcessSilentError
   , callProcessForStdout
   , callProcessForStderr
+  , callProcessForSuccessfulStderr
   , callCommandSilent
   , callCommandSilentIn
   , callCommandSilentWithEnvIn
@@ -37,6 +38,10 @@ callProcessForStdout cmd args =
 callProcessForStderr :: FilePath -> [String] -> IO String
 callProcessForStderr cmd args =
   snd <$> run (ShouldSucceed False) (proc cmd args)
+
+callProcessForSuccessfulStderr :: FilePath -> [String] -> IO String
+callProcessForSuccessfulStderr cmd args =
+  snd <$> run (ShouldSucceed True) (proc cmd args)
 
 callCommandSilent :: String -> IO ()
 callCommandSilent cmd =
