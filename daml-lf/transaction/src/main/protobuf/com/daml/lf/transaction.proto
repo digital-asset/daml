@@ -129,7 +129,7 @@ message NodeRollback { // *since version 14*
 // architecture-handbook-entry-end: Nodes
 
 message Versioned {
-  int32 version = 1;
+  string version = 1;
   bytes payload = 2;
 }
 

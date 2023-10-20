@@ -945,7 +945,7 @@ object TransactionCoder {
       payload: ByteString,
   ): ByteString = {
     val builder = TransactionOuterClass.Versioned.newBuilder()
-    discard(builder.setVersion(version.index))
+    discard(builder.setVersion(version.protoValue))
     discard(builder.setPayload(payload))
     builder.build().toByteString
   }
@@ -960,7 +960,7 @@ object TransactionCoder {
         .left
         .map(e => DecodeError(s"exception $e while decoding the versioned object"))
       _ <- ensureNoUnknownFields(proto)
-      version <- TransactionVersion.fromInt(proto.getVersion).left.map(DecodeError)
+      version <- TransactionVersion.fromString(proto.getVersion).left.map(DecodeError)
       payload = proto.getPayload
     } yield Versioned(version, payload)
 

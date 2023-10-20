@@ -744,7 +744,10 @@ class TransactionCoderSpec
           data.Bytes.fromByteString(salt),
         )
         val bytes =
-          hackProto(instance, _.clearContractKeyWithMaintainers().clearNonMaintainerSignatories().build())
+          hackProto(
+            instance,
+            _.clearContractKeyWithMaintainers().clearNonMaintainerSignatories().build(),
+          )
         inside(TransactionCoder.decodeFatContractInstance(bytes)) {
           case Left(DecodeError(errorMessage)) =>
             errorMessage should include(
@@ -809,7 +812,7 @@ class TransactionCoderSpec
         }
       }
     }
-    
+
     "reject FatContractInstance with nonSignatoryStakeholders containing maintainers" in {
       forAll(
         party,
