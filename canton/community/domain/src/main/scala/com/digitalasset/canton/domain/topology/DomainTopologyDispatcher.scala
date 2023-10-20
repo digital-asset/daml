@@ -855,8 +855,7 @@ object DomainTopologySender extends TopologyDispatchingErrorGroup {
           recipients: Recipients,
       )(maxSequencingTime: CantonTimestamp) =
         DomainTopologyTransactionMessage
-          .create(batch.toList, snapshot, domainId, maxSequencingTime, protocolVersion)
-          .leftMap(_.toString)
+          .create(batch.toList, snapshot, domainId, Some(maxSequencingTime), protocolVersion)
           .map(batchMessage =>
             Batch(
               List(

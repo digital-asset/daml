@@ -85,10 +85,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
       "fail to add if the signature is invalid" in {
         val validator = mk()
         import Factory.*
-        val invalid = ns1k2_k1.copy(signature = ns1k1_k1.signature)(
-          signedTransactionProtocolVersionRepresentative,
-          None,
-        )
+        val invalid = ns1k2_k1.update(signature = ns1k1_k1.signature)
         for {
           (_, validatedTopologyTransactions) <- validator.validateAndUpdateHeadAuthState(
             ts(0),

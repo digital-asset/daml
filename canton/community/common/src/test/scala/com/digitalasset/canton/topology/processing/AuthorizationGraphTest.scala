@@ -160,11 +160,7 @@ class AuthorizationGraphTest extends AnyWordSpec with BaseTestWordSpec {
       graph.add(nsk3k2)
       check(graph, key3, requireRoot = true, should = true)
 
-      graph.remove(
-        nsk3k2.copy(transaction =
-          nsk3k2.transaction.copy(key = key1)(signedTransactionProtocolVersionRepresentative, None)
-        )
-      )
+      graph.remove(nsk3k2.copy(transaction = nsk3k2.transaction.update(key = key1)))
       check(graph, key3, requireRoot = true, should = false)
     }
 
@@ -181,9 +177,7 @@ class AuthorizationGraphTest extends AnyWordSpec with BaseTestWordSpec {
         graph.add(nsk1k1)
         graph.add(nsk2k1)
         check(graph, key2, requireRoot = false, should = true)
-        val fakeRemove = nsk2k1.copy(transaction =
-          nsk2k1.transaction.copy(key = key6)(signedTransactionProtocolVersionRepresentative, None)
-        )
+        val fakeRemove = nsk2k1.copy(transaction = nsk2k1.transaction.update(key = key6))
         graph.remove(fakeRemove) shouldBe false
         check(graph, key2, requireRoot = false, should = true)
         graph.remove(nsk2k1)
@@ -207,10 +201,7 @@ class AuthorizationGraphTest extends AnyWordSpec with BaseTestWordSpec {
         check(graph, key3, requireRoot = false, should = true)
         check(graph, key2, requireRoot = true, should = true)
         graph.remove(
-          nsk2k1.copy(transaction =
-            nsk2k1.transaction
-              .copy(key = key3)(signedTransactionProtocolVersionRepresentative, None)
-          )
+          nsk2k1.copy(transaction = nsk2k1.transaction.update(key = key3))
         ) shouldBe false
         check(graph, key2, requireRoot = true, should = true)
       }

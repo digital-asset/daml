@@ -44,7 +44,8 @@ class ParticipantDomainTopologyServiceTest
     ),
     SymbolicCrypto.signingPublicKey("keyId"),
     SymbolicCrypto.emptySignature,
-  )(signedTransactionProtocolVersionRepresentative, None)
+    signedTransactionProtocolVersionRepresentative,
+  )
   private val request = RegisterTopologyTransactionRequest
     .create(
       participantId,

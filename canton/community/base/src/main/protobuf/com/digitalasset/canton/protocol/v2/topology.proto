@@ -166,7 +166,7 @@ message PartyToParticipantX {
     // the target participant that the party should be mapped to
     string participant = 1;
     // permission of the participant for this particular party (the actual
-    // will be min of ParticipantDomainPermissions and this setting)
+    // will be min of ParticipantDomainPermissionX.ParticipantPermissionX and this setting)
     ParticipantPermissionX permission = 2;
   }
   // the party that is to be represented by the participants

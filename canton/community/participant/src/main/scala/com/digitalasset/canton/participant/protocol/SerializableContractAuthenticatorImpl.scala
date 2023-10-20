@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol
 
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.crypto.Salt
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{
   AuthenticatedContractIdVersion,
   AuthenticatedContractIdVersionV2,
@@ -69,7 +69,7 @@ class SerializableContractAuthenticatorImpl(unicumGenerator: UnicumGenerator)
   def authenticate(
       contractId: LfContractId,
       contractSalt: Option[Salt],
-      ledgerTime: CantonTimestamp,
+      ledgerTime: LedgerCreateTime,
       metadata: ContractMetadata,
       rawContractInstance: SerializableRawContractInstance,
   ): Either[String, Unit] = {
@@ -85,7 +85,7 @@ class SerializableContractAuthenticatorImpl(unicumGenerator: UnicumGenerator)
           recomputedUnicum <- unicumGenerator
             .recomputeUnicum(
               contractSalt = salt,
-              ledgerTime = ledgerTime,
+              ledgerCreateTime = ledgerTime,
               metadata = metadata,
               suffixedContractInstance = rawContractInstance,
               contractIdVersion = contractIdVersion,

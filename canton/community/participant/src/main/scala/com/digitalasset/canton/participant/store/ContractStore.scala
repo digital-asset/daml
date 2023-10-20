@@ -137,7 +137,7 @@ final case class StoredContract(
 
   override def pretty: Pretty[StoredContract] = prettyOfClass(
     param("id", _.contractId),
-    param("let", _.contract.ledgerCreateTime),
+    param("let", _.contract.ledgerCreateTime.ts),
     param("request counter", _.requestCounter),
     paramIfDefined("creating transaction id", _.creatingTransactionIdO),
   )

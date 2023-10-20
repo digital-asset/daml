@@ -16,7 +16,7 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.RichRequestCounter
+import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.PendingRequestData
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessCheck,
@@ -539,7 +539,11 @@ private[transfer] class TransferInProcessingSteps(
             hostedStakeholders.toList,
           )
           timestampEvent = Some(
-            TimestampedEvent(event, requestCounter.asLocalOffset, Some(requestSequencerCounter))
+            TimestampedEvent(
+              event,
+              RequestOffset(requestId.unwrap, requestCounter),
+              Some(requestSequencerCounter),
+            )
           )
         } yield CommitAndStoreContractsAndPublishEvent(
           commitSetO,

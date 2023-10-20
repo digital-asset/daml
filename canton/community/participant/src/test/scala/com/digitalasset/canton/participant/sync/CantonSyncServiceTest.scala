@@ -258,7 +258,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
         contractMetadata = Map(),
       )
 
-      Option(sync.augmentTransactionStatistics(event))
+      Option(sync.eventTranslationStrategy.augmentTransactionStatistics(event))
         .collect({ case ta: TransactionAccepted => ta })
         .flatMap(_.completionInfoO)
         .flatMap(_.statistics)

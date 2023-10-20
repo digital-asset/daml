@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology.transaction
 
 import cats.data.EitherT
 import cats.instances.future.*
-import cats.syntax.parallel.*
+import com.digitalasset.canton.config.RequireTypes.PositiveLong
 import com.digitalasset.canton.crypto.KeyPurpose
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -16,9 +16,9 @@ import com.digitalasset.canton.topology.store.{
   TopologyTransactionRejection,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.TopologyMappingX.Code
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.canton.util.FutureInstances.*
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.math.Ordered.*
@@ -53,17 +53,30 @@ class ValidatingTopologyMappingXChecks(
       inStore: Option[GenericSignedTopologyTransactionX],
   )(implicit traceContext: TraceContext): EitherT[Future, TopologyTransactionRejection, Unit] = {
 
-    val checkDomainTrustCertificateX = toValidate
-      .selectMapping[DomainTrustCertificateX]
-      .map(checkDomainTrustCertificate(effective, _))
-      .getOrElse(EitherTUtil.unit[TopologyTransactionRejection])
+    val checkOpt = (toValidate.mapping.code, inStore.map(_.mapping.code)) match {
+      case (Code.DomainTrustCertificateX, None | Some(Code.DomainTrustCertificateX)) =>
+        toValidate
+          .selectMapping[DomainTrustCertificateX]
+          .map(checkDomainTrustCertificate(effective, _))
 
-    val checkPartyToParticipantX = toValidate
-      .select[TopologyChangeOpX.Replace, PartyToParticipantX]
-      .map(checkPartyToParticipantMapping(_, inStore.flatMap(_.selectMapping[PartyToParticipantX])))
-      .getOrElse(EitherTUtil.unit)
+      case (Code.PartyToParticipantX, None | Some(Code.PartyToParticipantX)) =>
+        toValidate
+          .select[TopologyChangeOpX.Replace, PartyToParticipantX]
+          .map(checkPartyToParticipant(_, inStore.flatMap(_.selectMapping[PartyToParticipantX])))
 
-    Seq(checkDomainTrustCertificateX, checkPartyToParticipantX).parSequence_
+      case (Code.TrafficControlStateX, None | Some(Code.TrafficControlStateX)) =>
+        toValidate
+          .select[TopologyChangeOpX.Replace, TrafficControlStateX]
+          .map(
+            checkTrafficControl(
+              _,
+              inStore.flatMap(_.selectMapping[TrafficControlStateX]),
+            )
+          )
+
+      case otherwise => None
+    }
+    checkOpt.getOrElse(EitherTUtil.unit)
   }
 
   /** Checks that the DTC is not being removed if the participant still hosts a party.
@@ -118,7 +131,7 @@ class ValidatingTopologyMappingXChecks(
     * - new participants have a valid DTC
     * - new participants have an OTK with at least 1 signing key and 1 encryption key
     */
-  private def checkPartyToParticipantMapping(
+  private def checkPartyToParticipant(
       toValidate: SignedTopologyTransactionX[TopologyChangeOpX, PartyToParticipantX],
       inStore: Option[SignedTopologyTransactionX[TopologyChangeOpX, PartyToParticipantX]],
   )(implicit
@@ -186,4 +199,27 @@ class ValidatingTopologyMappingXChecks(
     }
   }
 
+  /** Checks that the extraTrafficLimit is monotonically increasing */
+  private def checkTrafficControl(
+      toValidate: SignedTopologyTransactionX[TopologyChangeOpX.Replace, TrafficControlStateX],
+      inStore: Option[SignedTopologyTransactionX[TopologyChangeOpX, TrafficControlStateX]],
+  ): EitherT[Future, TopologyTransactionRejection, Unit] = {
+    val minimumExtraTrafficLimit = inStore match {
+      case None => PositiveLong.one
+      case Some(TopologyChangeOpX(TopologyChangeOpX.Remove)) =>
+        // if the transaction in the store is a removal, we "reset" the monotonicity requirement
+        PositiveLong.one
+      case Some(tx) => tx.mapping.totalExtraTrafficLimit
+    }
+
+    EitherTUtil.condUnitET(
+      toValidate.mapping.totalExtraTrafficLimit >= minimumExtraTrafficLimit,
+      TopologyTransactionRejection.ExtraTrafficLimitTooLow(
+        toValidate.mapping.member,
+        toValidate.mapping.totalExtraTrafficLimit,
+        minimumExtraTrafficLimit,
+      ),
+    )
+
+  }
 }

@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.protocol
 
-import com.daml.ledger.client.binding
+import com.daml.ledger.javaapi.data.Identifier
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ComparesLfTransactions.{TxTree, buildLfTransaction}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.examples.Iou
+import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.protocol.RollbackContext.RollbackScope
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithSuffixes
 import com.digitalasset.canton.topology.{PartyId, UniqueIdentifier}
@@ -43,10 +43,10 @@ class WellFormedTransactionMergeTest
   import TransactionBuilder.Implicits.*
 
   private val subTxTree0 = TxTree(
-    tb.fetch(create(newLfContractId(), Iou.Iou.id, alice, bob), byKey = false)
+    tb.fetch(create(newLfContractId(), iou.Iou.TEMPLATE_ID, alice, bob), byKey = false)
   )
-  private val subTxTree1 = TxTree(create(newLfContractId(), Iou.Iou.id, alice, bob))
-  private val contractCreate = create(newLfContractId(), Iou.Iou.id, alice, alice)
+  private val subTxTree1 = TxTree(create(newLfContractId(), iou.Iou.TEMPLATE_ID, alice, bob))
+  private val contractCreate = create(newLfContractId(), iou.Iou.TEMPLATE_ID, alice, alice)
   private val subTxTree2 = Seq(
     TxTree(contractCreate),
     TxTree(tb.fetch(contractCreate, byKey = false)),
@@ -64,7 +64,7 @@ class WellFormedTransactionMergeTest
         TxTree(
           create(
             newLfContractId(),
-            Iou.GetCash.id,
+            iou.GetCash.TEMPLATE_ID,
             alice,
             alice,
             arg = args(
@@ -77,10 +77,12 @@ class WellFormedTransactionMergeTest
       ),
     ),
   )
-  private val subTxTree3 = TxTree(create(newLfContractId(), Iou.Iou.id, carol, alice, Seq(bob)))
+  private val subTxTree3 = TxTree(
+    create(newLfContractId(), iou.Iou.TEMPLATE_ID, carol, alice, Seq(bob))
+  )
   private val subTxTree4 = TxTree(
     tb.exercise(
-      contract = create(newLfContractId(), Iou.Iou.id, bob, bob),
+      contract = create(newLfContractId(), iou.Iou.TEMPLATE_ID, bob, bob),
       choice = "Archive",
       consuming = true,
       actingParties = Set(bob.toLf),
@@ -297,7 +299,7 @@ class WellFormedTransactionMergeTest
 
   private def create[T](
       cid: LfContractId,
-      template: binding.Primitive.TemplateId[T],
+      template: Identifier,
       payer: PartyId,
       owner: PartyId,
       viewers: Seq[PartyId] = Seq.empty,
@@ -308,13 +310,13 @@ class WellFormedTransactionMergeTest
     val lfViewers = viewers.map(_.toLf)
     val lfObservers = Set(lfOwner) ++ lfViewers.toSet
 
-    val templateId = templateIdFromTemplate(template)
+    val lfTemplateId = templateIdFromIdentifier(template)
 
     tb.create(
       id = cid,
-      templateId = templateId,
+      templateId = lfTemplateId,
       argument = template match {
-        case Iou.Iou.id =>
+        case iou.Iou.TEMPLATE_ID =>
           require(
             arg == notUsed,
             "For IOUs, this function figures out the sig and obs parameters by itself",

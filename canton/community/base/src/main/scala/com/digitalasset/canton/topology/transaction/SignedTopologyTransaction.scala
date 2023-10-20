@@ -21,6 +21,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
 }
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
@@ -34,7 +35,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * Whether the key is eligible to authorize the topology transaction depends on the topology state
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
-case class SignedTopologyTransaction[+Op <: TopologyChangeOp](
+case class SignedTopologyTransaction[+Op <: TopologyChangeOp] private (
     transaction: TopologyTransaction[Op],
     key: SigningPublicKey,
     signature: Signature,
@@ -67,6 +68,17 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp](
     pureApi.verifySignature(hash, key, signature)
   }
 
+  @VisibleForTesting
+  def update[NewOp >: Op <: TopologyChangeOp](
+      transaction: TopologyTransaction[NewOp] = transaction,
+      key: SigningPublicKey = key,
+      signature: Signature = signature,
+  ): SignedTopologyTransaction[NewOp] =
+    this.copy(transaction = transaction, key = key, signature = signature)(
+      representativeProtocolVersion,
+      None,
+    )
+
   override def pretty: Pretty[SignedTopologyTransaction.this.type] =
     prettyOfClass(unnamedParam(_.transaction), param("key", _.key))
 
@@ -93,6 +105,14 @@ object SignedTopologyTransaction
   )
 
   import com.digitalasset.canton.resource.DbStorage.Implicits.*
+
+  def apply[Op <: TopologyChangeOp](
+      transaction: TopologyTransaction[Op],
+      key: SigningPublicKey,
+      signature: Signature,
+      rpv: RepresentativeProtocolVersion[SignedTopologyTransaction.type],
+  ): SignedTopologyTransaction[Op] =
+    SignedTopologyTransaction(transaction, key, signature)(rpv, None)
 
   /** Sign the given topology transaction. */
   def create[Op <: TopologyChangeOp](

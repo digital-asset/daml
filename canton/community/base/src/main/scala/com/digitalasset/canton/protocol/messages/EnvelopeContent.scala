@@ -117,7 +117,7 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
   ): EnvelopeContent =
     create(message, protocolVersion).valueOr(err => throw new IllegalArgumentException(err))
 
-  def fromProtoV0(
+  private def fromProtoV0(
       hashOps: HashOps,
       envelopeContent: v0.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
@@ -147,7 +147,7 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
     messageE.map(message => new EnvelopeContentV0(message) {})
   }
 
-  def fromProtoV1(
+  private def fromProtoV1(
       hashOps: HashOps,
       envelopeContent: v1.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
@@ -177,7 +177,7 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
     messageE.map(message => new EnvelopeContentV1(message) {})
   }
 
-  def fromProtoV2(
+  private def fromProtoV2(
       hashOps: HashOps,
       envelopeContent: v2.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
@@ -202,8 +202,8 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
       case Content.RegisterTopologyTransactionResponse(messageP) =>
         RegisterTopologyTransactionResponse.fromProtoV1(messageP)
       case Content.Empty => Left(OtherError("Cannot deserialize an empty message content"))
-    }): ParsingResult[ProtocolMessageV1]
-    messageE.map(message => new EnvelopeContentV1(message) {})
+    }): ParsingResult[ProtocolMessageV2]
+    messageE.map(message => new EnvelopeContentV2(message) {})
   }
 
   private def fromProtoV3(

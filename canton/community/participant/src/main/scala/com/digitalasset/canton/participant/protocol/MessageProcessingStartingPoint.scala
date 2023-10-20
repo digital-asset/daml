@@ -8,11 +8,13 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.ProcessingStartingPoints.InvalidStartingPointsException
-import com.digitalasset.canton.participant.{LocalOffset, RichRequestCounter}
+import com.digitalasset.canton.participant.{LocalOffset, RequestOffset}
 import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
+import com.google.common.annotations.VisibleForTesting
 
-/** Summarizes the counters and timestamps where request processing or replay can start
+/** Summarizes the counters and timestamps where request processing
   *
+  * @param cleanRequestPrehead The request offset corresponding to the prehead of the clean request if any.
   * @param nextRequestCounter The request counter for the next request to be replayed or processed.
   * @param nextSequencerCounter The sequencer counter for the next event to be replayed or processed.
   * @param prenextTimestamp A strict lower bound on the timestamp for the `nextSequencerCounter`.
@@ -26,21 +28,62 @@ import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
   *                         and a lower request counter than `nextRequestCounter`.
   */
 final case class MessageProcessingStartingPoint(
+    cleanRequestPrehead: Option[RequestOffset],
+    nextRequestCounter: RequestCounter,
+    nextSequencerCounter: SequencerCounter,
+    prenextTimestamp: CantonTimestamp,
+) extends PrettyPrinting {
+  override def pretty: Pretty[MessageProcessingStartingPoint] = prettyOfClass(
+    paramIfDefined("last clean offset", _.cleanRequestPrehead),
+    param("next request counter", _.nextRequestCounter),
+    param("next sequencer counter", _.nextSequencerCounter),
+    param("prenext timestamp", _.prenextTimestamp),
+  )
+
+  def toMessageCleanReplayStartingPoint: MessageCleanReplayStartingPoint =
+    MessageCleanReplayStartingPoint(nextRequestCounter, nextSequencerCounter, prenextTimestamp)
+}
+
+object MessageProcessingStartingPoint {
+  def default: MessageProcessingStartingPoint =
+    MessageProcessingStartingPoint(
+      None,
+      RequestCounter.Genesis,
+      SequencerCounter.Genesis,
+      CantonTimestamp.MinValue,
+    )
+}
+
+/** Summarizes the counters and timestamps where replay can start
+  *
+  * @param nextRequestCounter The request counter for the next request to be replayed
+  * @param nextSequencerCounter The sequencer counter for the next event to be replayed
+  * @param prenextTimestamp A strict lower bound on the timestamp for the `nextSequencerCounter`.
+  *                         The bound must be tight, i.e., if a sequenced event has sequencer counter lower than
+  *                         `nextSequencerCounter` or request counter lower than `nextRequestCounter`,
+  *                         then the timestamp of the event must be less than or equal to `prenextTimestamp`.
+  *
+  *                         No sequenced event has both a higher timestamp than `prenextTimestamp`
+  *                         and a lower sequencer counter than `nextSequencerCounter`.
+  *                         No request has both a higher timestamp than `prenextTimestamp`
+  *                         and a lower request counter than `nextRequestCounter`.
+  */
+final case class MessageCleanReplayStartingPoint(
     nextRequestCounter: RequestCounter,
     nextSequencerCounter: SequencerCounter,
     prenextTimestamp: CantonTimestamp,
 ) extends PrettyPrinting {
 
-  override def pretty: Pretty[MessageProcessingStartingPoint] = prettyOfClass(
+  override def pretty: Pretty[MessageCleanReplayStartingPoint] = prettyOfClass(
     param("next request counter", _.nextRequestCounter),
     param("next sequencer counter", _.nextSequencerCounter),
     param("prenext timestamp", _.prenextTimestamp),
   )
 }
 
-object MessageProcessingStartingPoint {
-  def default: MessageProcessingStartingPoint =
-    MessageProcessingStartingPoint(
+object MessageCleanReplayStartingPoint {
+  def default: MessageCleanReplayStartingPoint =
+    MessageCleanReplayStartingPoint(
       RequestCounter.Genesis,
       SequencerCounter.Genesis,
       CantonTimestamp.MinValue,
@@ -55,7 +98,7 @@ object MessageProcessingStartingPoint {
   *                                       It refers to the first request that is not known to be clean.
   *                                       The [[MessageProcessingStartingPoint.prenextTimestamp]] be the timestamp of a sequenced event
   *                                       or [[com.digitalasset.canton.data.CantonTimestamp.MinValue]].
-  * @param eventPublishingNextLocalOffset The next local offset that may be published to the
+  * @param lastPublishedLocalOffset       The last local offset that was published to the
   *                                       [[com.digitalasset.canton.participant.store.MultiDomainEventLog]]
   * @param rewoundSequencerCounterPrehead The point to which the sequencer counter prehead needs to be reset as part of the recovery clean-up.
   *                                       This is the minimum of the following:
@@ -64,9 +107,9 @@ object MessageProcessingStartingPoint {
   * @throws ProcessingStartingPoints.InvalidStartingPointsException if `cleanReplay` is after (in any component) `processing`
   */
 final case class ProcessingStartingPoints private (
-    cleanReplay: MessageProcessingStartingPoint,
+    cleanReplay: MessageCleanReplayStartingPoint,
     processing: MessageProcessingStartingPoint,
-    eventPublishingNextLocalOffset: LocalOffset,
+    lastPublishedLocalOffset: Option[LocalOffset],
     rewoundSequencerCounterPrehead: Option[SequencerCounterCursorPrehead],
 ) extends PrettyPrinting {
 
@@ -91,13 +134,20 @@ final case class ProcessingStartingPoints private (
     * Some tests reset the clean request prehead and thus violate this invariant.
     * In such a case, this method returns `false.`
     */
-  def processingAfterPublished: Boolean =
-    processing.nextRequestCounter.asLocalOffset >= eventPublishingNextLocalOffset
+  def processingAfterPublished: Boolean = {
+    (lastPublishedLocalOffset, processing.cleanRequestPrehead) match {
+      case (Some(lastPublishedLocalOffset), Some(lastProcessed)) =>
+        lastProcessed >= lastPublishedLocalOffset
+      case (Some(_lastPublishedLocalOffset), None) => false
+      case (None, Some(_lastProcessed)) => true
+      case (None, None) => true
+    }
+  }
 
   override def pretty: Pretty[ProcessingStartingPoints] = prettyOfClass(
     param("clean replay", _.cleanReplay),
     param("processing", _.processing),
-    param("event publishing next local offset", _.eventPublishingNextLocalOffset),
+    paramIfDefined("last published local offset", _.lastPublishedLocalOffset),
     param("rewound sequencer counter prehead", _.rewoundSequencerCounterPrehead),
   )
 }
@@ -106,22 +156,22 @@ object ProcessingStartingPoints {
   final case class InvalidStartingPointsException(message: String) extends RuntimeException(message)
 
   def tryCreate(
-      cleanReplay: MessageProcessingStartingPoint,
+      cleanReplay: MessageCleanReplayStartingPoint,
       processing: MessageProcessingStartingPoint,
-      eventPublishingNextLocalOffset: LocalOffset,
+      lastPublishedLocalOffset: Option[LocalOffset],
       rewoundSequencerCounterPrehead: Option[SequencerCounterCursorPrehead],
   ): ProcessingStartingPoints =
     new ProcessingStartingPoints(
       cleanReplay,
       processing,
-      eventPublishingNextLocalOffset,
+      lastPublishedLocalOffset,
       rewoundSequencerCounterPrehead,
     )
 
   def create(
-      cleanReplay: MessageProcessingStartingPoint,
+      cleanReplay: MessageCleanReplayStartingPoint,
       processing: MessageProcessingStartingPoint,
-      eventPublishingNextLocalOffset: LocalOffset,
+      lastPublishedLocalOffset: Option[LocalOffset],
       rewoundSequencerCounterPrehead: Option[SequencerCounterCursorPrehead],
   ): Either[String, ProcessingStartingPoints] =
     Either
@@ -129,17 +179,18 @@ object ProcessingStartingPoints {
         tryCreate(
           cleanReplay,
           processing,
-          eventPublishingNextLocalOffset,
+          lastPublishedLocalOffset,
           rewoundSequencerCounterPrehead,
         )
       )
       .leftMap(_.message)
 
-  def default: ProcessingStartingPoints =
+  @VisibleForTesting
+  private[protocol] def default: ProcessingStartingPoints =
     new ProcessingStartingPoints(
-      cleanReplay = MessageProcessingStartingPoint.default,
+      cleanReplay = MessageCleanReplayStartingPoint.default,
       processing = MessageProcessingStartingPoint.default,
-      eventPublishingNextLocalOffset = RequestCounter.Genesis.asLocalOffset,
+      lastPublishedLocalOffset = None,
       rewoundSequencerCounterPrehead = None,
     )
 }

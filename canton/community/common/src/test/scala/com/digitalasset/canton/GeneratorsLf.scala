@@ -46,6 +46,10 @@ object GeneratorsLf {
     Gen.stringOfN(8, Gen.alphaChar).map(LfChoiceName.assertFromString)
   )
 
+  implicit val lfPackageId: Arbitrary[LfPackageId] = Arbitrary(
+    Gen.stringOfN(64, Gen.alphaChar).map(LfPackageId.assertFromString)
+  )
+
   implicit val lfTemplateIdArb: Arbitrary[LfTemplateId] = Arbitrary(for {
     packageName <- Gen.stringOfN(8, Gen.alphaChar)
     moduleName <- Gen.stringOfN(8, Gen.alphaChar)

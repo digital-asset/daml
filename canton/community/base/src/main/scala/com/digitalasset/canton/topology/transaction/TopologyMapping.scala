@@ -16,6 +16,7 @@ import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedM
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfPackageId, ProtoDeserializationError}
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
 import scala.Ordered.orderingToOrdered
@@ -207,7 +208,8 @@ object OwnerToKeyMapping {
 
 }
 
-final case class SignedLegalIdentityClaim(
+// Using private because the `claim` needs to be a `LegalIdentityClaim`
+final case class SignedLegalIdentityClaim private (
     uid: UniqueIdentifier,
     claim: ByteString,
     signature: Signature,
@@ -236,6 +238,10 @@ object SignedLegalIdentityClaim {
 
   def dbType: DomainTopologyTransactionType = DomainTopologyTransactionType.SignedLegalIdentityClaim
 
+  @VisibleForTesting
+  def create(claim: LegalIdentityClaim, signature: Signature): SignedLegalIdentityClaim =
+    SignedLegalIdentityClaim(claim.uid, claim.toByteString, signature)
+
   def fromProtoV0(
       value: v0.SignedLegalIdentityClaim
   ): ParsingResult[SignedLegalIdentityClaim] =
@@ -255,7 +261,6 @@ final case class LegalIdentityClaim private (
     override val deserializedFrom: Option[ByteString],
 ) extends ProtocolVersionedMemoizedEvidence
     with HasProtocolVersionedWrapper[LegalIdentityClaim] {
-
   @transient override protected lazy val companionObj: LegalIdentityClaim.type = LegalIdentityClaim
 
   protected def toProtoV0: v0.LegalIdentityClaim =
@@ -637,12 +642,12 @@ final case class DomainParametersChange(
     domainId: DomainId,
     domainParameters: DynamicDomainParameters,
 ) extends DomainGovernanceMapping {
-  def toProtoV0: v0.DomainParametersChange = v0.DomainParametersChange(
+  private[transaction] def toProtoV0: v0.DomainParametersChange = v0.DomainParametersChange(
     domain = domainId.toProtoPrimitive,
     Option(domainParameters.toProtoV0),
   )
 
-  def toProtoV1: v1.DomainParametersChange = v1.DomainParametersChange(
+  private[transaction] def toProtoV1: v1.DomainParametersChange = v1.DomainParametersChange(
     domain = domainId.toProtoPrimitive,
     Option(domainParameters.toProtoV1),
   )

@@ -9,6 +9,7 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.transfer.{IncompleteTransferData, TransferData}
 import com.digitalasset.canton.participant.store.TransferStore.{
   TransferAlreadyCompleted,
@@ -18,7 +19,6 @@ import com.digitalasset.canton.participant.store.TransferStore.{
 import com.digitalasset.canton.participant.store.memory.TransferCache.PendingTransferCompletion
 import com.digitalasset.canton.participant.store.{TransferLookup, TransferStore}
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset}
 import com.digitalasset.canton.protocol.{SourceDomainId, TransferId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT}
@@ -131,23 +131,6 @@ class TransferCache(transferStore: TransferStore, override val loggerFactory: Na
   ): Future[Seq[TransferData]] = transferStore
     .findAfter(requestAfter, limit)
     .map(_.filter(transferData => !pendingCompletions.contains(transferData.transferId)))
-
-  override def findInFlight(
-      sourceDomain: SourceDomainId,
-      onlyCompletedTransferOut: Boolean,
-      transferOutRequestNotAfter: LocalOffset,
-      stakeholders: Option[NonEmpty[Set[LfPartyId]]],
-      limit: NonNegativeInt,
-  )(implicit traceContext: TraceContext): Future[Seq[TransferData]] =
-    transferStore
-      .findInFlight(
-        sourceDomain,
-        onlyCompletedTransferOut,
-        transferOutRequestNotAfter,
-        stakeholders,
-        limit,
-      )
-      .map(_.filter(transferData => !pendingCompletions.contains(transferData.transferId)))
 
   /** Transfer-out/in global offsets will be updated upon publication in the multi-domain event log, when
     * the global offset is assigned to the event.

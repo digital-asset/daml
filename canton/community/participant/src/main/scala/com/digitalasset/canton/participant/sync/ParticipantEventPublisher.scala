@@ -9,6 +9,7 @@ import cats.syntax.alternative.*
 import cats.syntax.option.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -142,7 +143,7 @@ class ParticipantEventPublisher(
   private[sync] def allocateOffsetsAndInsert(
       events: Seq[Traced[(EventId, LedgerSyncEvent)]]
   )(implicit traceContext: TraceContext): Future[Seq[Either[TimestampedEvent, LocalOffset]]] = {
-    val eventCount = events.size
+    val eventCount = NonNegativeInt.tryCreate(events.size)
     for {
       newOffsets <- participantEventLog.value.nextLocalOffsets(eventCount)
       offsetAndEvent = newOffsets.lazyZip(events)

@@ -18,13 +18,13 @@ import com.digitalasset.canton.data.{CantonTimestamp, FullTransferOutTree}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.TimedLoadGauge
+import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.transfer.TransferData.TransferGlobalOffset
 import com.digitalasset.canton.participant.protocol.transfer.{IncompleteTransferData, TransferData}
 import com.digitalasset.canton.participant.store.TransferStore
 import com.digitalasset.canton.participant.store.TransferStore.*
 import com.digitalasset.canton.participant.store.db.DbTransferStore.RawDeliveredTransferOutResult
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset}
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{
   SerializableContract,
@@ -510,34 +510,6 @@ class DbTransferStore(
       )
     }
 
-  private def findInFlightDbQuery(
-      sourceDomain: SourceDomainId,
-      transferredOutOnly: Boolean,
-      transferOutRequestNotAfter: LocalOffset,
-      start: Long,
-  )(implicit traceContext: TraceContext): Future[Seq[TransferData]] =
-    storage.query(
-      {
-        import DbStorage.Implicits.BuilderChain.*
-
-        val offsetFilter = sql" and transfer_out_request_counter <= $transferOutRequestNotAfter"
-
-        val transferredOutOnlyFilter =
-          if (transferredOutOnly)
-            sql" and transfer_out_result is not null"
-          else sql""
-
-        val order = sql" order by transfer_out_timestamp "
-        val limitSql =
-          storage.limitSql(numberOfItems = DbTransferStore.dbQueryLimit, skipItems = start)
-
-        val base = findPendingBase(sourceDomain, onlyNotFinished = true)
-
-        (base ++ offsetFilter ++ transferredOutOnlyFilter ++ order ++ limitSql).as[TransferData]
-      },
-      functionFullName,
-    )
-
   private def findIncomplete(
       sourceDomain: Option[SourceDomainId],
       validAt: GlobalOffset,
@@ -599,29 +571,6 @@ class DbTransferStore(
         }
       }
     }
-  }
-
-  override def findInFlight(
-      sourceDomain: SourceDomainId,
-      onlyCompletedTransferOut: Boolean,
-      transferOutRequestNotAfter: LocalOffset,
-      stakeholders: Option[NonEmpty[Set[LfPartyId]]],
-      limit: NonNegativeInt,
-  )(implicit traceContext: TraceContext): Future[Seq[TransferData]] = processingTime.event {
-    val queryFrom = (start: Long, traceContext: TraceContext) =>
-      findInFlightDbQuery(
-        sourceDomain,
-        onlyCompletedTransferOut,
-        transferOutRequestNotAfter,
-        start = start,
-      )(traceContext)
-
-    queryWithFiltering(
-      stakeholders = stakeholders,
-      limit = limit,
-      queryFrom = queryFrom,
-      dbQueryLimit = DbTransferStore.dbQueryLimit,
-    )
   }
 
   override def findIncomplete(

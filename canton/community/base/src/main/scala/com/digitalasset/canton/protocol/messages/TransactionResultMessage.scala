@@ -162,7 +162,7 @@ object TransactionResultMessage
       None,
     )
 
-  // TODO(i12171): Remove in 3.0
+  // TODO(i12171): Remove in 3.0 and drop context HashOps
   def apply(
       requestId: RequestId,
       verdict: Verdict,

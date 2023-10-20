@@ -10,9 +10,8 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.HasVersionedToByteString
 
 /** Reifies the subclasses of [[ViewTree]] as values */
-// This trait is not sealed so that we can extend it for unit testing
 // This trait does not extend ProtoSerializable because v0.EncryptedViewMessage.ViewType is an enum, not a message.
-trait ViewType extends Product with Serializable with PrettyPrinting {
+sealed trait ViewType extends Product with Serializable with PrettyPrinting {
 
   /** The subclass of [[ViewTree]] that is reified. */
   type View <: ViewTree with HasVersionedToByteString
@@ -25,6 +24,9 @@ trait ViewType extends Product with Serializable with PrettyPrinting {
 
   override def pretty: Pretty[ViewType.this.type] = prettyOfObject[ViewType.this.type]
 }
+
+// This trait is not sealed so that we can extend it for unit testing
+trait ViewTypeTest extends ViewType
 
 object ViewType {
 

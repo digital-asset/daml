@@ -8,16 +8,21 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.admin.repair.{RepairContext, RepairService}
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
-import com.digitalasset.canton.participant.protocol.MessageProcessingStartingPoint
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestData
+import com.digitalasset.canton.participant.protocol.{
+  MessageCleanReplayStartingPoint,
+  MessageProcessingStartingPoint,
+  ProcessingStartingPoints,
+}
 import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
 import com.digitalasset.canton.participant.store.MultiDomainEventLog.PublicationData
 import com.digitalasset.canton.participant.store.memory.{
   InMemoryMultiDomainEventLog,
+  InMemoryOffsetsLookup,
   InMemoryRequestJournalStore,
 }
 import com.digitalasset.canton.participant.sync.{DefaultLedgerSyncEvent, TimestampedEvent}
-import com.digitalasset.canton.participant.{LocalOffset, RichRequestCounter}
+import com.digitalasset.canton.participant.{LocalOffset, RequestOffset}
 import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, SequencerTestUtils}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
@@ -31,9 +36,10 @@ import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, CloseableTest, RequestCounter, SequencerCounter}
+import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest with CloseableTest {
 
@@ -41,7 +47,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
   private lazy val domainIdF =
     IndexedDomain.indexed(indexedStringStore)(DomainId.tryFromString("domain::da"))
 
-  def dummyEvent(
+  private def dummyEvent(
       domainId: DomainId
   )(sc: SequencerCounter, timestamp: CantonTimestamp): OrdinarySerializedEvent =
     OrdinarySequencedEvent(
@@ -54,7 +60,16 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
       None,
     )(TraceContext.empty)
 
-  def mockMultiDomainEventLog(): MultiDomainEventLog =
+  private def offsetsLookup = new InMemoryOffsetsLookup {
+    override def lookupOffsetsBetween(
+        id: EventLogId
+    )(fromExclusive: Option[LocalOffset], upToInclusive: Option[LocalOffset])(implicit
+        executionContext: ExecutionContext,
+        traceContext: TraceContext,
+    ): Future[Seq[LocalOffset]] = Future.successful(Seq.empty)
+  }
+
+  private def mockMultiDomainEventLog(): MultiDomainEventLog =
     new InMemoryMultiDomainEventLog(
       lookupEvent = _ =>
         (eventLogId, localOffset) =>
@@ -63,7 +78,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
               s"Event lookup for $eventLogId at offset $localOffset not implemented"
             )
           ),
-      lookupOffsetsBetween = _ => _ => (_, _) => Future.successful(Seq.empty),
+      offsetsLookup = offsetsLookup,
       byEventId = _ => _ => OptionT(Future.successful(Option.empty)),
       clock = new SimClock(loggerFactory = loggerFactory),
       metrics = ParticipantTestMetrics,
@@ -74,8 +89,11 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
       loggerFactory = loggerFactory,
     )
 
-  def dummyTimestampedEvent(localOffset: LocalOffset): TimestampedEvent =
+  private def dummyTimestampedEvent(localOffset: LocalOffset): TimestampedEvent =
     TimestampedEvent(DefaultLedgerSyncEvent.dummyStateUpdate(), localOffset, None)
+
+  private def requestOffset(rc: RequestCounter): RequestOffset =
+    RequestOffset(CantonTimestamp.ofEpochSecond(rc.unwrap), rc)
 
   "startingPoints" when {
     "there is no clean request" should {
@@ -95,10 +113,12 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             mdel,
           )
         } yield {
-          startingPoints.cleanReplay shouldBe MessageProcessingStartingPoint.default
-          startingPoints.processing shouldBe MessageProcessingStartingPoint.default
-          startingPoints.eventPublishingNextLocalOffset shouldBe RequestCounter.Genesis.asLocalOffset
-          startingPoints.rewoundSequencerCounterPrehead shouldBe None
+          startingPoints shouldBe ProcessingStartingPoints.tryCreate(
+            MessageCleanReplayStartingPoint.default,
+            MessageProcessingStartingPoint.default,
+            None,
+            None,
+          )
         }
       }
     }
@@ -133,19 +153,23 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             mdel,
           )
         } yield {
-          val cleanReplay = MessageProcessingStartingPoint(rc, sc, ts.immediatePredecessor)
-          val processing = MessageProcessingStartingPoint(rc + 1L, sc + 1L, ts)
-          val localOffset = RequestCounter.Genesis.asLocalOffset
+          val cleanReplay = MessageCleanReplayStartingPoint(rc, sc, ts.immediatePredecessor)
+          val processing =
+            MessageProcessingStartingPoint(Some(requestOffset(rc)), rc + 1L, sc + 1L, ts)
 
-          withDirtySc.cleanReplay shouldBe cleanReplay
-          withDirtySc.processing shouldBe processing
-          withDirtySc.eventPublishingNextLocalOffset shouldBe localOffset
-          withDirtySc.rewoundSequencerCounterPrehead shouldBe None
+          withDirtySc shouldBe ProcessingStartingPoints.tryCreate(
+            cleanReplay,
+            processing,
+            None,
+            None,
+          )
 
-          withCleanSc.cleanReplay shouldBe cleanReplay
-          withCleanSc.processing shouldBe processing
-          withCleanSc.eventPublishingNextLocalOffset shouldBe localOffset
-          withCleanSc.rewoundSequencerCounterPrehead shouldBe Some(CursorPrehead(sc, ts))
+          withCleanSc shouldBe ProcessingStartingPoints.tryCreate(
+            cleanReplay,
+            processing,
+            None,
+            Some(CursorPrehead(sc, ts)),
+          )
         }
       }
     }
@@ -198,46 +222,76 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
         } yield {
           // The clean sequencer counter prehead is ahead of the clean request counter prehead
           sp1.rewoundSequencerCounterPrehead shouldBe Some(CursorPrehead(sc, ts0))
-          sp1.cleanReplay shouldBe MessageProcessingStartingPoint(rc, sc, ts0.immediatePredecessor)
-          sp1.processing shouldBe MessageProcessingStartingPoint(rc + 1L, sc + 1L, ts0)
+          sp1.cleanReplay shouldBe MessageCleanReplayStartingPoint(rc, sc, ts0.immediatePredecessor)
+          sp1.processing shouldBe MessageProcessingStartingPoint(
+            Some(requestOffset(rc)),
+            rc + 1L,
+            sc + 1L,
+            ts0,
+          )
 
           // start with request 0 because its commit time is after ts1
-          sp2.cleanReplay shouldBe MessageProcessingStartingPoint(rc, sc, ts0.immediatePredecessor)
-          sp2.processing shouldBe MessageProcessingStartingPoint(rc + 2L, sc + 2L, ts1)
+          sp2.cleanReplay shouldBe MessageCleanReplayStartingPoint(rc, sc, ts0.immediatePredecessor)
+          sp2.processing shouldBe MessageProcessingStartingPoint(
+            Some(requestOffset(rc + 1)),
+            rc + 2L,
+            sc + 2L,
+            ts1,
+          )
           sp2.rewoundSequencerCounterPrehead shouldBe Some(CursorPrehead(sc + 1L, ts1))
 
           // replay the latest clean request because the clean sequencer counter prehead is before the commit time
-          sp3.cleanReplay shouldBe MessageProcessingStartingPoint(
+          sp3.cleanReplay shouldBe MessageCleanReplayStartingPoint(
             rc + 2L,
             sc + 2L,
             ts2.immediatePredecessor,
           )
-          sp3.processing shouldBe MessageProcessingStartingPoint(rc + 3L, sc + 4L, ts3)
+          sp3.processing shouldBe MessageProcessingStartingPoint(
+            Some(requestOffset(rc + 2)),
+            rc + 3L,
+            sc + 4L,
+            ts3,
+          )
           sp3.rewoundSequencerCounterPrehead shouldBe Some(CursorPrehead(sc + 3L, ts3))
 
           // we still have to replay the latest clean request
           // because we can't be sure that all subsequent requests have already been inserted into the request journal
-          sp3a.cleanReplay shouldBe MessageProcessingStartingPoint(
+          sp3a.cleanReplay shouldBe MessageCleanReplayStartingPoint(
             rc + 2L,
             sc + 2L,
             ts2.immediatePredecessor,
           )
-          sp3a.processing shouldBe MessageProcessingStartingPoint(rc + 3L, sc + 4L, ts3)
+          sp3a.processing shouldBe MessageProcessingStartingPoint(
+            Some(requestOffset(rc + 2)),
+            rc + 3L,
+            sc + 4L,
+            ts3,
+          )
           sp3a.rewoundSequencerCounterPrehead shouldBe Some(CursorPrehead(sc + 3L, ts3))
 
           // we don't have to replay the latest clean request
           // if the next request is known to be after the commit time.
           // As the clean sequencer counter prehead is before the commit time, we start with the next dirty sequencer counter.
-          sp3b.cleanReplay shouldBe MessageProcessingStartingPoint(rc + 3L, sc + 5L, ts4)
-          sp3b.processing shouldBe MessageProcessingStartingPoint(rc + 3L, sc + 5L, ts4)
+          sp3b.cleanReplay shouldBe MessageCleanReplayStartingPoint(rc + 3L, sc + 5L, ts4)
+          sp3b.processing shouldBe MessageProcessingStartingPoint(
+            Some(requestOffset(rc + 2)),
+            rc + 3L,
+            sc + 5L,
+            ts4,
+          )
           sp3b.rewoundSequencerCounterPrehead shouldBe Some(CursorPrehead(sc + 3L, ts3))
 
           // we don't have to replay the latest clean request
           // if the next request is known to be after the commit time.
           // As the clean sequencer counter prehead is after the commit time,
           // we start with the next dirty request and rewind the clean sequencer counter prehead
-          sp3c.cleanReplay shouldBe MessageProcessingStartingPoint(rc + 3L, sc + 5L, ts4)
-          sp3c.processing shouldBe MessageProcessingStartingPoint(rc + 3L, sc + 5L, ts4)
+          sp3c.cleanReplay shouldBe MessageCleanReplayStartingPoint(rc + 3L, sc + 5L, ts4)
+          sp3c.processing shouldBe MessageProcessingStartingPoint(
+            Some(requestOffset(rc + 2)),
+            rc + 3L,
+            sc + 5L,
+            ts4,
+          )
           sp3c.rewoundSequencerCounterPrehead shouldBe Some(CursorPrehead(sc + 4L, ts4))
         }
       }
@@ -269,8 +323,13 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
           _ <- scts.advancePreheadSequencerCounterTo(CursorPrehead(sc, ts0))
           sp1 <- SyncDomainEphemeralStateFactory.startingPoints(domainId, rjs, scts, ses, mdel)
         } yield {
-          sp1.cleanReplay shouldBe MessageProcessingStartingPoint(rc + 2L, sc + 3L, ts2)
-          sp1.processing shouldBe MessageProcessingStartingPoint(rc + 2L, sc + 3L, ts2)
+          sp1.cleanReplay shouldBe MessageCleanReplayStartingPoint(rc + 2L, sc + 3L, ts2)
+          sp1.processing shouldBe MessageProcessingStartingPoint(
+            Some(RequestOffset(ts2, rc + 1)),
+            rc + 2L,
+            sc + 3L,
+            ts2,
+          )
           sp1.rewoundSequencerCounterPrehead shouldBe Some(CursorPrehead(sc, ts0))
         }
       }
@@ -306,11 +365,21 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
           sp2 <- SyncDomainEphemeralStateFactory.startingPoints(domainId, rjs, scts, ses, mdel)
         } yield {
           // start with request 0 because request 1 hasn't yet been marked as clean and request 0 commits after request 1 starts
-          sp0.cleanReplay shouldBe MessageProcessingStartingPoint(rc, sc, ts0.immediatePredecessor)
-          sp0.processing shouldBe MessageProcessingStartingPoint(rc + 1L, sc + 1L, ts0)
+          sp0.cleanReplay shouldBe MessageCleanReplayStartingPoint(rc, sc, ts0.immediatePredecessor)
+          sp0.processing shouldBe MessageProcessingStartingPoint(
+            Some(requestOffset(rc)),
+            rc + 1L,
+            sc + 1L,
+            ts0,
+          )
           // replay from request 0 because request 2 starts before request 0 commits
-          sp2.cleanReplay shouldBe MessageProcessingStartingPoint(rc, sc, ts0.immediatePredecessor)
-          sp2.processing shouldBe MessageProcessingStartingPoint(rc + 2L, sc + 3L, ts1)
+          sp2.cleanReplay shouldBe MessageCleanReplayStartingPoint(rc, sc, ts0.immediatePredecessor)
+          sp2.processing shouldBe MessageProcessingStartingPoint(
+            Some(requestOffset(rc + 1)),
+            rc + 2L,
+            sc + 3L,
+            ts1,
+          )
         }
       }
     }
@@ -327,8 +396,8 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
         val ts1 = CantonTimestamp.ofEpochSecond(1)
         val ts2 = CantonTimestamp.ofEpochSecond(2)
 
-        val firstOffset = rc.asLocalOffset
-        val secondOffset = firstOffset + 2L
+        val firstOffset = requestOffset(rc)
+        val secondOffset = firstOffset.focus(_.requestCounter).modify(_ + 2)
 
         for {
           domainId <- domainIdF
@@ -362,17 +431,22 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             mdel,
           )
         } yield {
-          noCleanReq.cleanReplay shouldBe MessageProcessingStartingPoint.default
+          noCleanReq.cleanReplay shouldBe MessageCleanReplayStartingPoint.default
           noCleanReq.processing shouldBe MessageProcessingStartingPoint.default
-          noCleanReq.eventPublishingNextLocalOffset shouldBe (secondOffset + 1L)
+          noCleanReq.lastPublishedLocalOffset shouldBe Some(secondOffset)
 
-          withCleanReq.cleanReplay shouldBe MessageProcessingStartingPoint(
+          withCleanReq.cleanReplay shouldBe MessageCleanReplayStartingPoint(
             rc + 1L,
             sc,
             ts0.immediatePredecessor,
           )
-          withCleanReq.processing shouldBe MessageProcessingStartingPoint(rc + 5L, sc + 2L, ts1)
-          withCleanReq.eventPublishingNextLocalOffset shouldBe (secondOffset + 1L)
+          withCleanReq.processing shouldBe MessageProcessingStartingPoint(
+            Some(RequestOffset(ts1, rc + 4)),
+            rc + 5L,
+            sc + 2L,
+            ts1,
+          )
+          withCleanReq.lastPublishedLocalOffset shouldBe Some(secondOffset)
         }
       }
     }
@@ -423,24 +497,43 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             mdel,
           )
         } yield {
-          noCleanRepair.cleanReplay shouldBe MessageProcessingStartingPoint(
+          noCleanRepair.cleanReplay shouldBe MessageCleanReplayStartingPoint(
             RequestCounter.Genesis,
             sc + 1L,
             ts0,
           )
           noCleanRepair.processing shouldBe MessageProcessingStartingPoint(
+            None,
             RequestCounter.Genesis,
             sc + 1L,
             ts0,
           )
           noCleanRepair.rewoundSequencerCounterPrehead shouldBe Some(CursorPrehead(sc, ts0))
 
-          withDirtyRepair.cleanReplay shouldBe MessageProcessingStartingPoint(rc + 1L, sc + 2L, ts1)
-          withDirtyRepair.processing shouldBe MessageProcessingStartingPoint(rc + 1L, sc + 2L, ts1)
+          withDirtyRepair.cleanReplay shouldBe MessageCleanReplayStartingPoint(
+            rc + 1L,
+            sc + 2L,
+            ts1,
+          )
+          withDirtyRepair.processing shouldBe MessageProcessingStartingPoint(
+            Some(requestOffset(rc)),
+            rc + 1L,
+            sc + 2L,
+            ts1,
+          )
           withDirtyRepair.rewoundSequencerCounterPrehead shouldBe Some(CursorPrehead(sc + 1L, ts1))
 
-          withCleanRepair.cleanReplay shouldBe MessageProcessingStartingPoint(rc + 2L, sc + 2L, ts1)
-          withCleanRepair.processing shouldBe MessageProcessingStartingPoint(rc + 2L, sc + 2L, ts1)
+          withCleanRepair.cleanReplay shouldBe MessageCleanReplayStartingPoint(
+            rc + 2L,
+            sc + 2L,
+            ts1,
+          )
+          withCleanRepair.processing shouldBe MessageProcessingStartingPoint(
+            Some(requestOffset(rc + 1)),
+            rc + 2L,
+            sc + 2L,
+            ts1,
+          )
           withCleanRepair.rewoundSequencerCounterPrehead shouldBe Some(CursorPrehead(sc + 1L, ts1))
         }
       }
@@ -507,29 +600,36 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
           )
         } yield {
           val startOne = MessageProcessingStartingPoint(
+            Some(RequestOffset(repairTs, RequestCounter.Genesis)),
             RequestCounter.Genesis + 1L,
             SequencerCounter.Genesis,
             CantonTimestamp.MinValue,
           )
-          oneRepair.cleanReplay shouldBe startOne
-          oneRepair.processing shouldBe startOne
-          oneRepair.eventPublishingNextLocalOffset shouldBe RequestCounter.Genesis.asLocalOffset
-          oneRepair.rewoundSequencerCounterPrehead shouldBe None
+
+          oneRepair shouldBe ProcessingStartingPoints.tryCreate(
+            startOne.toMessageCleanReplayStartingPoint,
+            startOne,
+            None,
+            None,
+          )
 
           val startTwo = MessageProcessingStartingPoint(
+            Some(RequestOffset(repairTs, RequestCounter.Genesis + 1)),
             RequestCounter.Genesis + 2L,
             SequencerCounter.Genesis,
             CantonTimestamp.MinValue,
           )
-          twoRepairs.cleanReplay shouldBe startTwo
-          twoRepairs.processing shouldBe startTwo
-          twoRepairs.eventPublishingNextLocalOffset shouldBe RequestCounter.Genesis.asLocalOffset
-          twoRepairs.rewoundSequencerCounterPrehead shouldBe None
+
+          twoRepairs shouldBe ProcessingStartingPoints.tryCreate(
+            startTwo.toMessageCleanReplayStartingPoint,
+            startTwo,
+            None,
+            None,
+          )
 
           crashedRepair shouldBe twoRepairs
         }
       }
     }
   }
-
 }

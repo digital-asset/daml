@@ -18,6 +18,7 @@ import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.store.ContractLookupAndVerification
 import com.digitalasset.canton.participant.util.DAMLe.{ContractWithMetadata, PackageResolver}
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
@@ -194,7 +195,7 @@ class DAMLe(
   def replayCreate(
       submitters: Set[LfPartyId],
       command: LfCreateCommand,
-      ledgerEffectiveTime: CantonTimestamp,
+      ledgerEffectiveTime: LedgerCreateTime,
   )(implicit traceContext: TraceContext): EitherT[Future, Error, LfNodeCreate] = {
     LoggingContextUtil.createLoggingContext(loggerFactory) { implicit loggingContext =>
       val result = engine.reinterpret(
@@ -202,7 +203,7 @@ class DAMLe(
         command = command,
         nodeSeed = Some(DAMLe.zeroSeed),
         submissionTime = Time.Timestamp.Epoch, // Only used to compute contract ids
-        ledgerEffectiveTime = ledgerEffectiveTime.underlying,
+        ledgerEffectiveTime = ledgerEffectiveTime.ts.underlying,
       )
       for {
         txWithMetadata <- EitherT(

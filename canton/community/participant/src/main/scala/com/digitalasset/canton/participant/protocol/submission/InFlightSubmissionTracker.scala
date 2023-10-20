@@ -374,7 +374,7 @@ class InFlightSubmissionTracker(
 
           for {
             foundLocalEvents <- domainState.singleDimensionEventLog.lookupEventRange(
-              fromInclusive = None,
+              fromExclusive = None,
               toInclusive = None,
               fromTimestampInclusive = first.sequencingInfo.sequencingTime.some,
               toTimestampInclusive = last.sequencingInfo.sequencingTime.some,

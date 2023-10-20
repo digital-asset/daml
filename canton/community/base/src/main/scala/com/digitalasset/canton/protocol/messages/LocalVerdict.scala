@@ -46,11 +46,11 @@ object LocalVerdict extends HasProtocolVersionedCompanion[LocalVerdict] {
     SupportedProtoVersions(
       ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.LocalVerdict)(
         supportedProtoVersion(_)(fromProtoV0),
-        _.toByteString,
+        _.toProtoV0.toByteString,
       ),
       ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v4)(v1.LocalVerdict)(
         supportedProtoVersion(_)(fromProtoV1),
-        _.toByteString,
+        _.toProtoV1.toByteString,
       ),
     )
 
@@ -563,9 +563,7 @@ object LocalReject extends LocalRejectionGroup {
           override val representativeProtocolVersion: RepresentativeProtocolVersion[
             LocalVerdict.type
           ]
-      ) extends Malformed(
-            _causePrefix = ""
-          )
+      ) extends Malformed(_causePrefix = "")
 
       object Reject {
         def apply(details: String, protocolVersion: ProtocolVersion): Reject =
@@ -800,6 +798,7 @@ object LocalReject extends LocalRejectionGroup {
   }
 
   /** Fallback for deserializing local rejects that are not known to the current Canton version.
+    * Should not be serialized.
     */
   final case class GenericReject(
       override val _causePrefix: String,

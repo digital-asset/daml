@@ -134,7 +134,7 @@ class DomainTopologyTransactionMessageValidatorTest
           txs,
           mgrCryptoClient.headSnapshot,
           DefaultTestIdentities.domainId,
-          ts.plusMillis(10),
+          Some(ts.plusMillis(10)),
           testedProtocolVersion,
         )
         .futureValue

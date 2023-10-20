@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology
 
 import com.daml.error.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPublicStoreError}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -16,13 +16,7 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyTransactionX.TxHash
-import com.digitalasset.canton.topology.transaction.{
-  TopologyChangeOp,
-  TopologyMapping,
-  TopologyMappingX,
-  TopologyStateElement,
-  TopologyTransaction,
-}
+import com.digitalasset.canton.topology.transaction.*
 
 sealed trait TopologyManagerError extends CantonError
 
@@ -380,6 +374,31 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     ) extends CantonError.Impl(
           cause =
             s"Unable to increase ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance, because it must not be more than half of mediatorDeduplicationTimeout ($mediatorDeduplicationTimeout)."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    "This error indicates that the attempted update of the extra traffic limits for a particular member failed because the new limit is lower than the current limit."
+  )
+  @Resolution(
+    """Extra traffic limits can only be increased. Submit the topology transaction with a higher limit.
+      |The metadata details of this error contain the expected minimum value in the field ``expectedMinimum``."""
+  )
+  object InvalidTrafficLimit
+      extends ErrorCode(
+        id = "INVALID_TRAFFIC_LIMIT",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class TrafficLimitTooLow(
+        member: Member,
+        actual: PositiveLong,
+        expectedMinimum: PositiveLong,
+    )(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"The extra traffic limit for $member should be at least $expectedMinimum, but was $actual."
         )
         with TopologyManagerError
   }

@@ -856,7 +856,7 @@ class DbSequencerStore(
 
     EitherT {
       val CounterCheckpoint(counter, ts, latestTopologyClientTimestamp) = checkpoint
-      CloseContext.withCombinedContextF(closeContext, externalCloseContext, timeouts, logger)(
+      CloseContext.withCombinedContext(closeContext, externalCloseContext, timeouts, logger)(
         combinedCloseContext =>
           storage.queryAndUpdate(
             for {

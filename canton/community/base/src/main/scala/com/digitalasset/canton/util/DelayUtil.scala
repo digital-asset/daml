@@ -6,7 +6,12 @@ package com.digitalasset.canton.util
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  OnShutdownRunner,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -64,17 +69,17 @@ object DelayUtil extends NamedLogging {
     promise.future
   }
 
-  /** Creates a future that succeeds after the given delay provided that `flagCloseable` has not yet been closed then.
-    * The future completes fast with UnlessShutdown.AbortedDueToShutdown if `flagCloseable` is already closing.
+  /** Creates a future that succeeds after the given delay provided that `onShutdownRunner` has not yet been closed then.
+    * The future completes fast with UnlessShutdown.AbortedDueToShutdown if `onShutdownRunner` is already closing.
     */
-  def delayIfNotClosing(name: String, delay: FiniteDuration, flagCloseable: FlagCloseable)(implicit
-      traceContext: TraceContext
+  def delayIfNotClosing(name: String, delay: FiniteDuration, onShutdownRunner: OnShutdownRunner)(
+      implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     val promise = Promise[UnlessShutdown[Unit]]()
     val future = promise.future
 
     import com.digitalasset.canton.lifecycle.RunOnShutdown
-    val cancelToken = flagCloseable.runOnShutdown(new RunOnShutdown() {
+    val cancelToken = onShutdownRunner.runOnShutdown(new RunOnShutdown() {
       val name = s"$functionFullName-shutdown"
       def done = promise.isCompleted
       def run(): Unit = {
@@ -86,7 +91,7 @@ object DelayUtil extends NamedLogging {
       promise.trySuccess(UnlessShutdown.Outcome(())).discard
       // No need to complete the promise on shutdown with an AbortedDueToShutdown since we succeeded, and also
       // keeps the list of shutdown tasks from growing indefinitely with each retry
-      flagCloseable.cancelShutdownTask(cancelToken)
+      onShutdownRunner.cancelShutdownTask(cancelToken)
     }
 
     // TODO(i4245): Use Clock instead

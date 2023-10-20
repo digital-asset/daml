@@ -40,6 +40,13 @@ object TopologyChangeOpX {
   type Remove = Remove.type
   type Replace = Replace.type
 
+  def unapply(
+      tx: TopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
+  ): Option[TopologyChangeOpX] = Some(tx.op)
+  def unapply(
+      tx: SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
+  ): Option[TopologyChangeOpX] = Some(tx.transaction.op)
+
   def fromProtoV2(
       protoOp: v2.TopologyChangeOpX
   ): ParsingResult[TopologyChangeOpX] =

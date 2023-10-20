@@ -178,7 +178,9 @@ object SignedProtocolMessage
     ),
   )
 
-  val multipleSignaturesSupportedSince = protocolVersionRepresentativeFor(ProtoVersion(1))
+  private[messages] val multipleSignaturesSupportedSince = protocolVersionRepresentativeFor(
+    ProtoVersion(1)
+  )
 
   def create[M <: SignedProtocolMessageContent](
       typedMessage: TypedSignedProtocolMessageContent[M],

@@ -24,8 +24,10 @@ import com.digitalasset.canton.health.{
 import com.digitalasset.canton.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.domain.{DomainHandle, DomainRegistryError}
+import com.digitalasset.canton.participant.event.RecordOrderPublisher.PendingPublish
 import com.digitalasset.canton.participant.event.{
   AcsChange,
   ContractMetadataAndTransferCounter,
@@ -68,7 +70,6 @@ import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatche
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.TrafficStateController
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
-import com.digitalasset.canton.participant.{ParticipantNodeParameters, RichRequestCounter}
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
@@ -486,6 +487,7 @@ class SyncDomain(
 
     val startingPoints = ephemeral.startingPoints
     val cleanHeadRc = startingPoints.processing.nextRequestCounter
+    val cleanPreHeadO = startingPoints.processing.cleanRequestPrehead
     val cleanHeadPrets = startingPoints.processing.prenextTimestamp
 
     for {
@@ -494,16 +496,6 @@ class SyncDomain(
 
       // Phase 0: Initialise topology client at current clean head
       _ <- EitherT.right(initializeClientAtCleanHead())
-
-      // Phase 1: publish pending events of the event log up to the prehead clean request
-      // Later events may have already been published before the crash
-      // if someone rewound the clean request prehead (e.g., for testing), so this is only a lower bound!
-      _ = logger.info(s"Publishing pending events up to ${cleanHeadRc - 1L}")
-      lastLocalOffset <- EitherT.right(
-        participantNodePersistentState.value.multiDomainEventLog.lastLocalOffset(
-          persistent.eventLog.id
-        )
-      )
 
       // Phase 1: remove in-flight submissions that have been sequenced and published,
       // but not yet removed from the in-flight submission store
@@ -518,10 +510,17 @@ class SyncDomain(
 
       // Phase 2: recover events that have been published to the single-dimension event log, but were not published at
       // the multi-domain event log before the crash
-      pending <- EitherT.right(
-        participantNodePersistentState.value.multiDomainEventLog
-          .fetchUnpublished(persistent.eventLog.id, Some(cleanHeadRc.asLocalOffset - 1L))
-      )
+      pending <- cleanPreHeadO.fold(
+        EitherT.pure[Future, SyncDomainInitializationError](Seq[PendingPublish]())
+      ) { lastProcessedOffset =>
+        EitherT.right(
+          participantNodePersistentState.value.multiDomainEventLog
+            .fetchUnpublished(
+              id = persistent.eventLog.id,
+              upToInclusiveO = Some(lastProcessedOffset),
+            )
+        )
+      }
 
       _unit = ephemeral.recordOrderPublisher.scheduleRecoveries(pending)
 

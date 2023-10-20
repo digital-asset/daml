@@ -1,0 +1,63 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.digitalasset.canton.participant.sync
+
+import com.digitalasset.canton.LfPackageId
+import com.digitalasset.canton.ledger.participant.state.v2.Update
+import com.digitalasset.canton.participant.admin.workflows.PackageID
+import com.digitalasset.canton.participant.protocol.ProcessingSteps.RequestType
+import com.digitalasset.canton.protocol.LedgerTransactionNodeStatistics
+
+final class EventTranslationStrategy(
+    multiDomainLedgerAPIEnabled: Boolean,
+    excludeInfrastructureTransactions: Boolean,
+) {
+
+  def translate(e: LedgerSyncEvent): Option[Update] =
+    e match {
+      case e: LedgerSyncEvent.TransferredOut =>
+        Option.when(multiDomainLedgerAPIEnabled)(e.toDamlUpdate)
+      case e: LedgerSyncEvent.TransferredIn =>
+        Option
+          .when(multiDomainLedgerAPIEnabled)(e.toDamlUpdate)
+          .orElse(e.asTransactionAccepted)
+      case e: LedgerSyncEvent.CommandRejected =>
+        e.kind match {
+          case RequestType.TransferIn | RequestType.TransferOut =>
+            Option.when(multiDomainLedgerAPIEnabled)(e.toDamlUpdate)
+          case RequestType.Transaction =>
+            Option(e.toDamlUpdate)
+        }
+      case e: LedgerSyncEvent.TransactionAccepted =>
+        Option(augmentTransactionStatistics(e).toDamlUpdate)
+      case e =>
+        Option(e.toDamlUpdate)
+    }
+
+  // Augment event with transaction statistics "as late as possible" as stats are redundant data and so that
+  // we don't need to persist stats and deal with versioning stats changes. Also every event is usually consumed
+  // only once.
+  private[sync] def augmentTransactionStatistics(
+      e: LedgerSyncEvent.TransactionAccepted
+  ): LedgerSyncEvent.TransactionAccepted =
+    e.copy(completionInfoO =
+      e.completionInfoO.map(completionInfo =>
+        completionInfo.copy(statistics =
+          Some(LedgerTransactionNodeStatistics(e.transaction, excludedPackageIds))
+        )
+      )
+    )
+
+  private val excludedPackageIds: Set[LfPackageId] =
+    if (excludeInfrastructureTransactions) {
+      Set(
+        LfPackageId.assertFromString(PackageID.PingPong),
+        LfPackageId.assertFromString(PackageID.DarDistribution),
+        LfPackageId.assertFromString(PackageID.PingPongVacuum),
+      )
+    } else {
+      Set.empty[LfPackageId]
+    }
+
+}

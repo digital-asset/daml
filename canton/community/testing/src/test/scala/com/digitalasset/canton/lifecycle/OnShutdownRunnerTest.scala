@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.lifecycle
 
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import org.scalatest.concurrent.Eventually
@@ -13,14 +12,19 @@ import org.scalatest.wordspec.*
 import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters.*
 
-class TestResource() extends FlagCloseable with NamedLogging {
-  override protected val timeouts: ProcessingTimeout = ProcessingTimeout()
-  override val loggerFactory = NamedLoggerFactory.root
+object OnShutdownRunnerTest {
+  private class TestResource() extends OnShutdownRunner with NamedLogging {
+    override protected def onFirstClose(): Unit = ()
+
+    override val loggerFactory = NamedLoggerFactory.root
+  }
 }
 
-class FlagCloseableTest extends AnyWordSpec with Matchers with NoTracing with Eventually {
-  "FlagCloseable" should {
-    "run shutdown tasks in order they were added" in {
+class OnShutdownRunnerTest extends AnyWordSpec with Matchers with NoTracing with Eventually {
+  import OnShutdownRunnerTest.*
+
+  "OnShutdownRunner" should {
+    "run all shutdown tasks" in {
 
       var shutdownTasks: Seq[String] = Seq.empty
 
@@ -43,7 +47,7 @@ class FlagCloseableTest extends AnyWordSpec with Matchers with NoTracing with Ev
       })
       closeable.close()
 
-      shutdownTasks shouldBe Seq("first", "second")
+      shutdownTasks.toSet shouldBe Set("first", "second")
     }
 
     "behave correctly if races occur during shutdown" in {
@@ -109,7 +113,7 @@ class FlagCloseableTest extends AnyWordSpec with Matchers with NoTracing with Ev
 
       closeable.close()
 
-      shutdownTasks shouldBe Seq("first", "third")
+      shutdownTasks.toSet shouldBe Set("first", "third")
     }
   }
 

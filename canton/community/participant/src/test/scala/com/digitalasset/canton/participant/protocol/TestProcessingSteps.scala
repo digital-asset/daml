@@ -10,7 +10,13 @@ import com.digitalasset.canton.crypto.DecryptionError.FailedToDecrypt
 import com.digitalasset.canton.crypto.SyncCryptoError.SyncCryptoDecryptionError
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Hash, HashOps, Signature}
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex
-import com.digitalasset.canton.data.{CantonTimestamp, Informee, ViewPosition, ViewTree, ViewType}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  Informee,
+  ViewPosition,
+  ViewTree,
+  ViewTypeTest,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
@@ -329,7 +335,7 @@ object TestProcessingSteps {
       throw new UnsupportedOperationException("TestViewTree cannot be serialized")
   }
 
-  case object TestViewType extends ViewType {
+  case object TestViewType extends ViewTypeTest {
     override type View = TestViewTree
     override type FullView = TestViewTree
 

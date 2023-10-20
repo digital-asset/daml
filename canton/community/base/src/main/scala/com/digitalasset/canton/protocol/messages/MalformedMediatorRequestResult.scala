@@ -191,7 +191,7 @@ object MalformedMediatorRequestResult
             rpv == protocolVersionRepresentativeFor(
               MediatorRejectV0.applicableProtocolVersion
             ),
-            Verdict.MediatorRejectV0.wrongProtocolVersion,
+            Verdict.MediatorRejectV0.wrongProtocolVersion(rpv),
           )
         case _: Verdict.MediatorRejectV1 =>
           EitherUtil.condUnitE(
@@ -201,14 +201,14 @@ object MalformedMediatorRequestResult
               rpv <= protocolVersionRepresentativeFor(
                 MediatorRejectV1.lastApplicableProtocolVersion
               ),
-            Verdict.MediatorRejectV1.wrongProtocolVersion,
+            Verdict.MediatorRejectV1.wrongProtocolVersion(rpv),
           )
         case _: Verdict.MediatorRejectV2 =>
           EitherUtil.condUnitE(
             rpv >= protocolVersionRepresentativeFor(
               MediatorRejectV2.firstApplicableProtocolVersion
             ),
-            Verdict.MediatorRejectV2.wrongProtocolVersion,
+            Verdict.MediatorRejectV2.wrongProtocolVersion(rpv),
           )
       }
     }
@@ -249,7 +249,11 @@ object MalformedMediatorRequestResult
         .flatMap(RequestId.fromProtoPrimitive)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
       viewType <- ViewType.fromProtoEnum(viewTypeP)
-      reject <- ProtoConverter.parseRequired(MediatorRejectV1.fromProtoV1, "rejection", rejectionPO)
+      reject <- ProtoConverter.parseRequired(
+        MediatorRejectV1.fromProtoV1(_, Verdict.protocolVersionRepresentativeFor(ProtoVersion(1))),
+        "rejection",
+        rejectionPO,
+      )
     } yield MalformedMediatorRequestResult(requestId, domainId, viewType, reject)(
       protocolVersionRepresentativeFor(ProtoVersion(1)),
       Some(bytes),
@@ -268,7 +272,11 @@ object MalformedMediatorRequestResult
         .flatMap(RequestId.fromProtoPrimitive)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
       viewType <- ViewType.fromProtoEnum(viewTypeP)
-      reject <- ProtoConverter.parseRequired(MediatorRejectV2.fromProtoV2, "rejection", rejectionPO)
+      reject <- ProtoConverter.parseRequired(
+        MediatorRejectV2.fromProtoV2,
+        "rejection",
+        rejectionPO,
+      )
     } yield MalformedMediatorRequestResult(requestId, domainId, viewType, reject)(
       protocolVersionRepresentativeFor(ProtoVersion(2)),
       Some(bytes),
