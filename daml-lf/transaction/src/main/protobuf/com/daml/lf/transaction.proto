@@ -128,6 +128,11 @@ message NodeRollback { // *since version 14*
 
 // architecture-handbook-entry-end: Nodes
 
+message Versioned {
+  int32 version = 1;
+  bytes payload = 2;
+}
+
 message FatContractInstance {
   bytes contract_id = 1;
   com.daml.lf.value.Identifier template_id = 2;

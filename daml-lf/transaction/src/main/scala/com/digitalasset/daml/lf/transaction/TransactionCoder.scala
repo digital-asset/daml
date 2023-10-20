@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref.{Name, Party}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.daml.scalautil.Statement.discard
-import com.google.protobuf.{ByteString, CodedOutputStream, GeneratedMessageV3, ProtocolStringList}
+import com.google.protobuf.{ByteString, GeneratedMessageV3, ProtocolStringList}
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.HashMap
@@ -889,37 +889,43 @@ object TransactionCoder {
       Right(None)
     }
 
+  private[this] def ensureNoUnknownFields(
+      proto: com.google.protobuf.Message,
+      messageType: => String,
+  ) = {
+    val unknownFields = proto.getUnknownFields.asMap()
+    Either.cond(
+      unknownFields.isEmpty,
+      (),
+      DecodeError(
+        s"unexpected field(s) ${unknownFields.keySet().asScala.mkString(", ")}  in ${messageType} message"
+      ),
+    )
+  }
+
   private[transaction] def encodeVersioned(
       version: TransactionVersion,
-      unversioned: ByteString,
+      payload: ByteString,
   ): ByteString = {
-    val byteStringOutput = ByteString.newOutput
-    val out = CodedOutputStream.newInstance(byteStringOutput)
-    out.writeInt32NoTag(version.index)
-    out.writeBytesNoTag(unversioned)
-    out.flush()
-    byteStringOutput.toByteString
+    val builder = TransactionOuterClass.Versioned.newBuilder()
+    discard(builder.setVersion(version.index))
+    discard(builder.setPayload(payload))
+    builder.build().toByteString
   }
 
   private[transaction] def decodeVersioned(
       bytes: ByteString
   ): Either[DecodeError, Versioned[ByteString]] =
-    try {
-      val input = bytes.newCodedInput()
-      val vi = input.readInt32()
-      val contains = input.readBytes()
-      for {
-        _ <- Either.cond(
-          input.isAtEnd,
-          (),
-          DecodeError("Unexpected data after the end of the object."),
-        )
-        version <- TransactionVersion.fromInt(vi).left.map(DecodeError)
-      } yield Versioned(version, contains)
-    } catch {
-      case scala.util.control.NonFatal(e) =>
-        Left(DecodeError(s"exception $e while decoding the object"))
-    }
+    for {
+      proto <- scala.util
+        .Try(TransactionOuterClass.Versioned.parseFrom(bytes))
+        .toEither
+        .left
+        .map(e => DecodeError(s"exception $e while decoding the versioned object"))
+      _ <- ensureNoUnknownFields(proto, "Versioned")
+      version <- TransactionVersion.fromInt(proto.getVersion).left.map(DecodeError)
+      payload = proto.getPayload
+    } yield Versioned(version, payload)
 
   def encodeFatContractInstance(
       contractInstance: FatContractInstance

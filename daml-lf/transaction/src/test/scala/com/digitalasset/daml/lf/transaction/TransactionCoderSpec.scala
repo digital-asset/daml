@@ -626,6 +626,27 @@ class TransactionCoderSpec
       }
     }
 
+    "reject Versioned message with unknown fields" in {
+      forAll(
+        Gen.oneOf(TransactionVersion.All),
+        bytesGen,
+        Arbitrary.arbInt.arbitrary,
+        bytesGen.filterNot(_.isEmpty),
+        minSuccessful(5),
+      ) { (version, payload, i, extraData) =>
+        val encoded = TransactionCoder.encodeVersioned(version, payload)
+        val proto = TransactionOuterClass.Versioned.parseFrom(encoded)
+        val reencoded = addUnknownField(proto, i, extraData).toByteString
+        assert(reencoded != encoded)
+        inside(TransactionCoder.decodeFatContractInstance(reencoded)) {
+          case Left(DecodeError(errorMessage)) =>
+            errorMessage should include("unexpected field(s)")
+          case Right(_) =>
+            TransactionCoder.decodeFatContractInstance(reencoded) shouldBe a[Left[_, _]]
+        }
+      }
+    }
+
     "do FatContractInstance" in {
       forAll(
         malformedCreateNodeGen.filter(_.version >= TransactionVersion.V14),
@@ -1052,6 +1073,7 @@ class TransactionCoderSpec
       i: Int,
       content: protobuf.ByteString,
   ): protobuf.Message = {
+    require(!content.isEmpty)
     def norm(i: Int) = (i.abs % 536870911) + 1 // valid proto field index are 1 to 536870911
     val builder = message.toBuilder
     val knownFieldIndex = builder.getDescriptorForType.getFields.asScala.map(_.getNumber).toSet
