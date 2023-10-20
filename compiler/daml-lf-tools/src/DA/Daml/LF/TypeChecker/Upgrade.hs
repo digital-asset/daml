@@ -5,7 +5,7 @@
 module DA.Daml.LF.TypeChecker.Upgrade (checkUpgrade, Upgrading(..)) where
 
 import           Control.DeepSeq
-import           Control.Monad (unless, forM_, when)
+import           Control.Monad (unless, forM_, when, forM)
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
 import           DA.Daml.LF.TypeChecker.Env
@@ -165,7 +165,7 @@ checkTemplate module_ template = do
             unless returnTypesMatch $
                 throwWithContext (EUpgradeError (ChoiceChangedReturnType (NM.name (present choice))))
 
-            whenDifferent "controllers" (extractFuncFromFuncThisArg . chcControllers <$> choice) $
+            whenDifferent "controllers" (extractFuncFromFuncThisArg . chcControllers) choice $
                 warnWithContext $ WChoiceChangedControllers $ NM.name $ present choice
 
             let observersErr = WChoiceChangedObservers $ NM.name $ present choice
@@ -174,7 +174,7 @@ checkTemplate module_ template = do
                    pure ()
                Upgrading { past = Just past, present = Just present } -> do
                    whenDifferent "observers"
-                       (extractFuncFromFuncThisArg <$> Upgrading past present)
+                       extractFuncFromFuncThisArg (Upgrading past present)
                        (warnWithContext observersErr)
                _ -> do
                    warnWithContext observersErr
@@ -184,7 +184,7 @@ checkTemplate module_ template = do
                Upgrading { past = Nothing, present = Nothing } -> pure ()
                Upgrading { past = Just past, present = Just present } ->
                    whenDifferent "authorizers"
-                       (extractFuncFromFuncThisArg <$> Upgrading past present)
+                       extractFuncFromFuncThisArg (Upgrading past present)
                        (warnWithContext authorizersErr)
                _ -> warnWithContext authorizersErr
         pure choice
@@ -194,16 +194,16 @@ checkTemplate module_ template = do
     -- actual definition. We resolve this function and check that it is
     -- identical.
     withContext (ContextTemplate (present module_) (present template) TPPrecondition) $
-        whenDifferent "precondition" (extractFuncFromCaseFuncThis . tplPrecondition <$> template) $
+        whenDifferent "precondition" (extractFuncFromCaseFuncThis . tplPrecondition) template $
             warnWithContext $ WTemplateChangedPrecondition $ NM.name $ present template
     withContext (ContextTemplate (present module_) (present template) TPSignatories) $
-        whenDifferent "signatories" (extractFuncFromFuncThis . tplSignatories <$> template) $
+        whenDifferent "signatories" (extractFuncFromFuncThis . tplSignatories) template $
             warnWithContext $ WTemplateChangedSignatories $ NM.name $ present template
     withContext (ContextTemplate (present module_) (present template) TPObservers) $
-        whenDifferent "observers" (extractFuncFromFuncThis . tplObservers <$> template) $
+        whenDifferent "observers" (extractFuncFromFuncThis . tplObservers) template $
             warnWithContext $ WTemplateChangedObservers $ NM.name $ present template
     withContext (ContextTemplate (present module_) (present template) TPAgreement) $
-        whenDifferent "agreement" (extractFuncFromFuncThis . tplAgreement <$> template) $
+        whenDifferent "agreement" (extractFuncFromFuncThis . tplAgreement) template $
             warnWithContext $ WTemplateChangedAgreement $ NM.name $ present template
 
     withContext (ContextTemplate (present module_) (present template) TPKey) $ do
@@ -220,10 +220,10 @@ checkTemplate module_ template = do
 
                -- But expression for computing it may
                whenDifferent "key expression"
-                   (extractFuncFromFuncThis . tplKeyBody <$> tplKey)
+                   (extractFuncFromFuncThis . tplKeyBody) tplKey
                    (warnWithContext $ WTemplateChangedKeyExpression $ NM.name $ present template)
                whenDifferent "key maintainers"
-                   (extractFuncFromFuncThis . tplKeyMaintainers <$> tplKey)
+                   (extractFuncFromTyAppNil . tplKeyMaintainers) tplKey
                    (warnWithContext $ WTemplateChangedKeyMaintainers $ NM.name $ present template)
            Upgrading { past = Just pastKey, present = Nothing } ->
                throwWithContext $ EUpgradeError $ TemplateRemovedKey (NM.name (present template)) pastKey
@@ -233,45 +233,71 @@ checkTemplate module_ template = do
     -- TODO: Check that return type of a choice is compatible
     pure ()
     where
-        extractFuncFromFuncThis :: Expr -> Maybe ExprValName
-        extractFuncFromFuncThis expr
+        extractFuncFromFuncThis :: Expr -> Module -> Either String Expr
+        extractFuncFromFuncThis expr module_
             | ETmApp{..} <- expr
             , EVal qualEvn <- tmappFun
             , EVar (ExprVarName "this") <- tmappArg
-            = Just (qualObject qualEvn)
+            = lookupInModule module_ (qualObject qualEvn)
             | otherwise
-            = Nothing
+            = Left $ "extractFuncFromFuncThis: Wrong shape"
 
-        extractFuncFromFuncThisArg :: Expr -> Maybe ExprValName
-        extractFuncFromFuncThisArg expr
+        extractFuncFromFuncThisArg :: Expr -> Module -> Either String Expr
+        extractFuncFromFuncThisArg expr module_
             | outer@ETmApp{} <- expr
             , EVar (ExprVarName "arg") <- tmappArg outer
             , inner@ETmApp{} <- tmappFun outer
             , EVar (ExprVarName "this") <- tmappArg inner
             , EVal qualEvn <- tmappFun inner
-            = Just (qualObject qualEvn)
+            = lookupInModule module_ (qualObject qualEvn)
             | otherwise
-            = Nothing
+            = Left $ "extractFuncFromFuncThisArg: Wrong shape"
 
-        extractFuncFromCaseFuncThis :: Expr -> Maybe ExprValName
-        extractFuncFromCaseFuncThis expr
+        extractFuncFromCaseFuncThis :: Expr -> Module -> Either String Expr
+        extractFuncFromCaseFuncThis expr module_
             | ECase{..} <- expr
-            = extractFuncFromFuncThis casScrutinee
+            = extractFuncFromFuncThis casScrutinee module_
             | otherwise
-            = Nothing
+            = Left $ "extractFuncFromCaseFuncThis: No ECase found"
 
-        resolveExpression :: String -> Maybe ExprValName -> Module -> Expr
-        resolveExpression field expr module_ =
-            case expr of
-              Nothing -> error ("checkTemplate: Could not extract a proper " ++ field ++ ", the structure of the expression must be wrong.")
-              Just evn ->
-                case NM.lookup evn (moduleValues module_) of
-                    Nothing -> error ("checkTemplate: Trying to get definition of " ++ T.unpack (unExprValName evn) ++ " but it is not defined!")
-                    Just defValue -> dvalBody defValue
+        extractFuncFromTyAppNil :: Expr -> Module -> Either String Expr
+        extractFuncFromTyAppNil expr module_
+            | outer@ETmApp{} <- expr
+            , ENil{} <- tmappArg outer
+            , inner@ETyApp{} <- tmappFun outer
+            , TBuiltin BTList <- tyappType inner
+            , EVal qualEvn <- tyappExpr inner
+            = do
+                definition <- lookupInModule module_ (qualObject qualEvn)
+                extractFuncFromProxyApp definition module_
+            | otherwise
+            = Left $ "extractFuncFromTyAppNil: Wrong shape"
 
-        whenDifferent :: String -> Upgrading (Maybe ExprValName) -> m () -> m ()
-        whenDifferent field exprs act = do
-            let resolvedExprs = resolveExpression field <$> exprs <*> module_
+        extractFuncFromProxyApp :: Expr -> Module -> Either String Expr
+        extractFuncFromProxyApp expr module_
+            | outer@ETyLam{} <- expr
+            , (TypeVarName "proxy", KArrow KStar KStar) <- tylamBinder outer
+            , inner@ETmLam{} <- tylamBody outer
+            , (_, TApp (TVar (TypeVarName "proxy")) _) <- tmlamBinder inner
+            , EVal qualEvn <- tmlamBody inner
+            = lookupInModule module_ (qualObject qualEvn)
+            | otherwise
+            = Left $ "extractFuncFromProxyApp: Wrong shape"
+
+        lookupInModule :: Module -> ExprValName -> Either String Expr
+        lookupInModule module_ evn =
+            case NM.lookup evn (moduleValues module_) of
+                Nothing -> Left ("checkTemplate: Trying to get definition of " ++ T.unpack (unExprValName evn) ++ " but it is not defined!")
+                Just defValue -> Right (dvalBody defValue)
+
+        whenDifferent :: Show a => String -> (a -> Module -> Either String Expr) -> Upgrading a -> m () -> m ()
+        whenDifferent field extractor exprs act = do
+            let resolvedWithPossibleErrors = extractor <$> exprs <*> module_
+            resolvedExprs <-
+                forM ((,) <$> resolvedWithPossibleErrors <*> exprs) $
+                    \(resolved, origExpr) -> case resolved of
+                        Left err -> error ("checkTemplate for field " ++ field ++ " gave error: " ++ err ++ "over expression:\n" ++ show origExpr)
+                        Right expr -> pure expr
             let exprsMatch = foldU alphaExpr $ fmap removeLocations resolvedExprs
             unless exprsMatch act
 
