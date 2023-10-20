@@ -664,8 +664,6 @@ class TransactionCoderSpec
         val Right(encoded) = TransactionCoder.encodeFatContractInstance(instance)
         val Right(Versioned(v, bytes)) = TransactionCoder.decodeVersioned(encoded)
         val proto = TransactionOuterClass.FatContractInstance.parseFrom(bytes)
-        val x = addUnknownField(proto, i, extraBytes)
-        assert(proto != x)
         val protoWithExtraFields = addUnknownField(proto, i, extraBytes).toByteString
         val reencoded = TransactionCoder.encodeVersioned(v, protoWithExtraFields)
         assert(reencoded != encoded)
