@@ -300,7 +300,7 @@ package domain {
     sealed abstract class Arguments[+LfV] extends Product with Serializable {
       import lav1.commands.DisclosedContract.Arguments.{CreateArguments, CreateArgumentsBlob}
 
-      // Allows using deprecated Protobuf fields for testing
+      // Allows using deprecated Protobuf fields
       @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
       def toLedgerApi(implicit
           LfV: LfV <:< lav1.value.Record
