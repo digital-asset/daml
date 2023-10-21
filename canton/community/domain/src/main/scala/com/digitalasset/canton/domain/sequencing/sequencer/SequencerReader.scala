@@ -8,6 +8,7 @@ import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Sink, Source, WireTap}
 import akka.{Done, NotUsed}
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
+import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -487,8 +488,8 @@ class SequencerReader(
               messageId,
               _recipients,
               payload,
-              signingTimestampO,
-              traceContext,
+              _signingTimestampO,
+              _traceContext,
             ) =>
           val messageIdO =
             Option(messageId).filter(_ => memberId == sender) // message id only goes to sender
@@ -504,16 +505,16 @@ class SequencerReader(
             filteredBatch,
             protocolVersion,
           )
-        case DeliverErrorStoreEvent(_, messageId, message, traceContext) =>
-          val error = DeliverErrorStoreEvent
-            .deserializeError(message, protocolVersion)
-            .fold(err => throw new DbDeserializationException(err.toString), identity)
+        case DeliverErrorStoreEvent(_, messageId, message, error, _traceContext) =>
+          val status = DeliverErrorStoreEvent
+            .deserializeError(message, error, protocolVersion)
+            .valueOr(err => throw new DbDeserializationException(err.toString))
           DeliverError.tryCreate(
             counter,
             timestamp,
             domainId,
             messageId,
-            error,
+            status,
             protocolVersion,
           )
       }

@@ -40,3 +40,5 @@ CREATE INDEX idx_event_log_local_offset ON event_log (local_offset_effective_tim
 ALTER TABLE linearized_event_log
   ADD CONSTRAINT foreign_key_event_log FOREIGN KEY (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker)
   REFERENCES event_log(log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) ON DELETE CASCADE;
+
+ALTER TABLE sequencer_events ADD COLUMN error bytea;
