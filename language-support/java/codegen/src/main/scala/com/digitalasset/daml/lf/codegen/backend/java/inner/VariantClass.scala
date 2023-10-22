@@ -50,6 +50,9 @@ private[inner] object VariantClass extends StrictLogging {
           FromJsonGenerator.forVariant(variantClassName, typeArguments, constructorInfo).asJava
         )
         .addMethods(
+          ToJsonGenerator.forVariant(variantClassName, typeArguments).asJava
+        )
+        .addMethods(
           VariantValueDecodersMethods(
             typeArguments,
             variant,

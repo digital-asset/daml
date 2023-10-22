@@ -10,6 +10,7 @@ import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Party;
 import com.daml.ledger.javaapi.data.Unit;
 import com.daml.ledger.javaapi.data.Variant;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
@@ -32,6 +33,20 @@ public class EnumTestForForAll {
       assertEquals(Box.fromValue(record.toValue()), record);
       assertEquals(OptionalColor.fromValue(variant.toValue()), variant);
       assertEquals(ColoredTree.fromValue(variantRecord.toValue()), variantRecord);
+    }
+  }
+
+  @Test
+  void enum2Value2EnumJson() throws JsonLfDecoder.Error {
+    for (Color c : new Color[] {Color.RED, Color.GREEN, Color.BLUE}) {
+      Box record = new Box(c, "party");
+      OptionalColor variant = new SomeColor(c);
+      ColoredTree variantRecord =
+          new Node(Color.RED, new Leaf(Unit.getInstance()), new Leaf(Unit.getInstance()));
+      assertEquals(Color.fromJson(c.toJson()), c);
+      assertEquals(Box.fromJson(record.toJson()), record);
+      assertEquals(OptionalColor.fromJson(variant.toJson()), variant);
+      assertEquals(ColoredTree.fromJson(variantRecord.toJson()), variantRecord);
     }
   }
 

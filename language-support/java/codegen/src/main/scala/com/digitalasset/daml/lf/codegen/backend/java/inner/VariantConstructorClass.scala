@@ -70,6 +70,9 @@ object VariantConstructorClass extends StrictLogging {
           .addMethod(constructor)
           .addMethods(conversionMethods.asJava)
           .addMethods(ObjectMethods(className.rawType, typeArgs, Vector(variantFieldName)).asJava)
+          .addMethods(
+            ToJsonGenerator.forVariantSimple(javaName, typeArgs, variantFieldName, body).asJava
+          )
           .build()
 
       logger.info("End")
