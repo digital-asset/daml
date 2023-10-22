@@ -41,8 +41,10 @@ private[inner] object VariantRecordMethods extends StrictLogging {
         )
     }
 
+    val toJsonMethods = ToJsonGenerator.forVariantRecord(constructorName, fields, typeParameters)
+
     Vector(constructor) ++ conversionMethods ++
-      ObjectMethods(className.rawType, typeParameters, fields.map(_.javaName))
+      ObjectMethods(className.rawType, typeParameters, fields.map(_.javaName)) ++ toJsonMethods
   }
 
   private def toValue(constructorName: String, params: IndexedSeq[String], fields: Fields)(implicit

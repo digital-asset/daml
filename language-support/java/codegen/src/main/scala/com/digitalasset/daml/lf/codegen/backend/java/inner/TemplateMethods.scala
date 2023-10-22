@@ -65,7 +65,7 @@ private[inner] object TemplateMethods {
       fields,
       className,
       IndexedSeq(),
-    )
+    ) ++ ToJsonGenerator.forRecordLike(fields, IndexedSeq())
 
     Vector(constructor) ++ conversionMethods ++ jsonConversionMethods ++ Vector(
       contractFilterMethod

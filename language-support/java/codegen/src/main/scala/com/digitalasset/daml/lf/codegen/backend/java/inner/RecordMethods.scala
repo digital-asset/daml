@@ -48,7 +48,7 @@ private[inner] object RecordMethods {
       fields,
       className,
       typeParameters,
-    )
+    ) ++ ToJsonGenerator.forRecordLike(fields, typeParameters)
 
     Vector(constructor) ++ conversionMethods ++ jsonConversionMethods ++
       ObjectMethods(className, typeParameters, fields.map(_.javaName))

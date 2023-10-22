@@ -8,7 +8,7 @@ import org.openjdk.jmh.annotations._
 
 @BenchmarkMode(Array(Mode.Throughput)) @OutputTimeUnit(TimeUnit.SECONDS)
 @Fork(value = 1)
-@Warmup(iterations = 3)
+@Warmup(iterations = 4)
 @Measurement(iterations = 10)
 class FromJsonBench {
 
