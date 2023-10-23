@@ -33,7 +33,7 @@ daml version | tee daml-version-output
 if stat $DAML_CACHE/versions.txt; then
   exit_with_message 'Cached versions.txt should not exist after running `daml version`'
 fi
-if [[ $(grep -E '^  [0-9].[0-9]+.[0-9]+' daml-version-output | wc -l) -gt 1 ]]; then
+if [[ $(grep -E '^  [0-9]+.[0-9]+.[0-9]+' daml-version-output | wc -l) -gt 1 ]]; then
   exit_with_message '`daml version` returns more than one version when it shouldn'\''t'
 fi
 
@@ -50,12 +50,12 @@ fi
 
 daml version --all yes --snapshots yes | tee daml-version-all-snapshots-output
 
-echo report heads
+echo "report heads"
 head daml-version-all-snapshots-output
 head daml-version-reload-all-snapshots-output
-echo report diff start
-diff daml-version-all-snapshots-output daml-version-reload-all-snapshots-output
-echo report diff end
+echo "report diff start"
+diff daml-version-all-snapshots-output daml-version-reload-all-snapshots-output || true
+echo "report diff end"
 
 if ! diff daml-version-all-snapshots-output daml-version-reload-all-snapshots-output; then
   exit_with_message '`daml version --all yes --snapshots yes` returns different version list from previous invocation of `daml version --all yes --snapshots yes --force-reload yes`'

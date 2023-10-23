@@ -109,7 +109,7 @@ filegroup(
     repositories = dev_env_nix_repos,
 ) if is_linux else None
 
-# Curl system dependency
+# diff system dependency
 nixpkgs_package(
     name = "diffutils_nix",
     attribute_path = "diffutils",
