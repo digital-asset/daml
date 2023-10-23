@@ -9,7 +9,6 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.{Functor, Show}
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.CantonRequireTypes.String256M
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
@@ -40,12 +39,13 @@ import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{ProtoDeserializationError, SequencerCounter}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
 import slick.jdbc.{GetResult, SetParameter}
 
-import java.util.{Base64, UUID}
+import java.util.UUID
 import scala.collection.immutable.SortedSet
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -179,12 +179,18 @@ object DeliverStoreEvent {
   }
 }
 
-final case class DeliverErrorStoreEvent(
+final case class DeliverErrorStoreEvent private (
     sender: SequencerMemberId,
     messageId: MessageId,
     message: String256M,
+    error: Option[ByteString],
     override val traceContext: TraceContext,
 ) extends StoreEvent[Nothing] {
+  require(
+    error.isEmpty ^ message.str.isEmpty,
+    "`message` and `error` fields must not be set together or both be empty",
+  )
+
   override val notifies: WriteNotification = WriteNotification.Members(SortedSet(sender))
   override val description: String = show"deliver-error[message-id:$messageId]"
   override def members: NonEmpty[Set[SequencerMemberId]] = NonEmpty(Set, sender)
@@ -193,33 +199,73 @@ final case class DeliverErrorStoreEvent(
 }
 
 object DeliverErrorStoreEvent {
-  def serializeError(error: SequencerDeliverError, protocolVersion: ProtocolVersion): String256M = {
-    String256M(
-      if (protocolVersion >= ProtocolVersion.CNTestNet) {
-        Base64.getUrlEncoder.encodeToString(
+  def serializeError(
+      error: SequencerDeliverError,
+      protocolVersion: ProtocolVersion,
+  ): (String256M, Option[ByteString]) = {
+    if (protocolVersion >= ProtocolVersion.CNTestNet) {
+      (
+        String256M.empty,
+        Some(
           VersionedStatus
             .create(error.rpcStatusWithoutLoggingContext(), protocolVersion)
             .toByteString
-            .toByteArray
-        )
-      } else {
-        error.cause
-      }
-    )()
+        ),
+      )
+    } else {
+      (String256M(error.cause)(), None)
+    }
+  }
+
+  def create(
+      sender: SequencerMemberId,
+      messageId: MessageId,
+      message: String256M,
+      error: Option[ByteString],
+      traceContext: TraceContext,
+  ): Either[String, DeliverErrorStoreEvent] = Either
+    .catchOnly[IllegalArgumentException](
+      DeliverErrorStoreEvent(sender, messageId, message, error, traceContext)
+    )
+    .leftMap(_.getMessage)
+
+  def create(
+      sender: SequencerMemberId,
+      messageId: MessageId,
+      error: SequencerDeliverError,
+      protocolVersion: ProtocolVersion,
+      traceContext: TraceContext,
+  ): DeliverErrorStoreEvent = {
+    val (message, serializedError) =
+      DeliverErrorStoreEvent.serializeError(error, protocolVersion)
+
+    DeliverErrorStoreEvent(
+      sender,
+      messageId,
+      message,
+      serializedError,
+      traceContext,
+    )
   }
 
   def deserializeError(
-      serializedError: String256M,
+      errorMessage: String256M,
+      serializedErrorO: Option[ByteString],
       protocolVersion: ProtocolVersion,
   ): ParsingResult[Status] = {
     if (protocolVersion >= ProtocolVersion.CNTestNet) {
-      VersionedStatus
-        .fromByteArray(Base64.getDecoder.decode(serializedError.unwrap))
-        .map(_.status)
+      serializedErrorO.fold[ParsingResult[Status]](
+        Left(ProtoDeserializationError.FieldNotSet("error"))
+      )(serializedError =>
+        VersionedStatus
+          .fromByteString(serializedError)
+          .map(_.status)
+      )
+
     } else {
       Right(
         SequencerErrors
-          .SubmissionRequestRefused(serializedError.unwrap)
+          .SubmissionRequestRefused(errorMessage.unwrap)
           .rpcStatusWithoutLoggingContext()
       )
     }

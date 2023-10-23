@@ -129,7 +129,7 @@ object AcsChange extends HasLoggerName {
     }
 
     /*
-    Subtracting the transfer counter of transfer outs to correctly match deactivated contracts as explained above
+    Subtracting the transfer counter of transfer-outs to correctly match deactivated contracts as explained above
      */
     val tmpTransferOuts = commitSet.transferOuts.map { case (contractId, data) =>
       (

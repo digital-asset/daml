@@ -359,9 +359,9 @@ class InFlightSubmissionTracker(
       )
     )
 
-    def localOffsetsFor(sequencedInFlight: Seq[InFlightSubmission[SequencedSubmission]]): Future[
-      ArraySeq[InFlightData]
-    ] =
+    def localOffsetsFor(
+        sequencedInFlight: Seq[InFlightSubmission[SequencedSubmission]]
+    ): Future[ArraySeq[InFlightData]] =
       NonEmpty
         .from(sequencedInFlight)
         .fold(

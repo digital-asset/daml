@@ -55,8 +55,8 @@ class DbSequencedEventStore(
     */
   private val semaphore: Semaphore = new Semaphore(1)
 
-  private def withLock[F[_], Content[_], A](caller: String)(body: => F[A])(implicit
-      thereafter: Thereafter[F, Content],
+  private def withLock[F[_], A](caller: String)(body: => F[A])(implicit
+      thereafter: Thereafter[F],
       traceContext: TraceContext,
   ): F[A] = {
     import Thereafter.syntax.*
@@ -307,32 +307,35 @@ class DbSequencedEventStore(
   }
 
   override protected[canton] def doPrune(
-      beforeAndIncluding: CantonTimestamp,
+      untilInclusive: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): Future[Unit] =
     processingTime.event {
       val query =
-        sqlu"delete from sequenced_events where client = $partitionKey and ts <= $beforeAndIncluding"
+        sqlu"delete from sequenced_events where client = $partitionKey and ts <= $untilInclusive"
       storage
         .update(query, functionFullName)
         .map { nrPruned =>
           logger.info(
-            s"Pruned at least $nrPruned entries from the sequenced event store of client $partitionKey older or equal to $beforeAndIncluding"
+            s"Pruned at least $nrPruned entries from the sequenced event store of client $partitionKey older or equal to $untilInclusive"
           )
         }
     }
 
-  override def ignoreEvents(from: SequencerCounter, to: SequencerCounter)(implicit
-      traceContext: TraceContext
+  override def ignoreEvents(fromInclusive: SequencerCounter, untilInclusive: SequencerCounter)(
+      implicit traceContext: TraceContext
   ): EitherT[Future, ChangeWouldResultInGap, Unit] =
     withLock(functionFullName) {
       for {
-        _ <- appendEmptyIgnoredEvents(from, to)
-        _ <- EitherT.right(setIgnoreStatus(from, to, ignore = true))
+        _ <- appendEmptyIgnoredEvents(fromInclusive, untilInclusive)
+        _ <- EitherT.right(setIgnoreStatus(fromInclusive, untilInclusive, ignore = true))
       } yield ()
     }
 
-  private def appendEmptyIgnoredEvents(from: SequencerCounter, to: SequencerCounter)(implicit
+  private def appendEmptyIgnoredEvents(
+      fromInclusive: SequencerCounter,
+      untilInclusive: SequencerCounter,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ChangeWouldResultInGap, Unit] =
     processingTime.eitherTEvent {
@@ -351,16 +354,16 @@ class DbSequencedEventStore(
           case Some((lastSc, lastTs)) => (lastSc + 1, lastTs.immediateSuccessor)
           case None =>
             // Starting with MinValue.immediateSuccessor, because elsewhere we assume that MinValue is a strict lower bound on event timestamps.
-            (from, CantonTimestamp.MinValue.immediateSuccessor)
+            (fromInclusive, CantonTimestamp.MinValue.immediateSuccessor)
         }
 
         _ <- EitherTUtil.condUnitET[Future](
-          from <= firstSc || from > to,
-          ChangeWouldResultInGap(firstSc, from - 1),
+          fromInclusive <= firstSc || fromInclusive > untilInclusive,
+          ChangeWouldResultInGap(firstSc, fromInclusive - 1),
         )
 
-        events = ((firstSc max from) to to).map { sc =>
-          val ts = firstTs.addMicros((sc - firstSc).unwrap)
+        events = ((firstSc max fromInclusive) to untilInclusive).map { sc =>
+          val ts = firstTs.addMicros(sc - firstSc)
           IgnoredSequencedEvent(ts, sc, None, None)(traceContext)
         }
 
@@ -368,11 +371,15 @@ class DbSequencedEventStore(
       } yield ()
     }
 
-  private def setIgnoreStatus(from: SequencerCounter, to: SequencerCounter, ignore: Boolean)(
-      implicit traceContext: TraceContext
+  private def setIgnoreStatus(
+      fromInclusive: SequencerCounter,
+      toInclusive: SequencerCounter,
+      ignore: Boolean,
+  )(implicit
+      traceContext: TraceContext
   ): Future[Unit] = processingTime.event {
     storage.update_(
-      sqlu"update sequenced_events set ignore = $ignore where client = $partitionKey and $from <= sequencer_counter and sequencer_counter <= $to",
+      sqlu"update sequenced_events set ignore = $ignore where client = $partitionKey and $fromInclusive <= sequencer_counter and sequencer_counter <= $toInclusive",
       functionFullName,
     )
   }

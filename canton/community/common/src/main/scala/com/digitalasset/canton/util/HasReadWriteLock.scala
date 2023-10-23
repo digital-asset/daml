@@ -4,7 +4,7 @@
 package com.digitalasset.canton.util
 
 import cats.data.EitherT
-import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
+import com.digitalasset.canton.util.Thereafter.syntax.*
 
 import java.util.concurrent.locks.StampedLock
 import scala.concurrent.{ExecutionContext, Future, blocking}

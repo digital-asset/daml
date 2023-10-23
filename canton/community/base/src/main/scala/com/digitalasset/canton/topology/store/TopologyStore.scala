@@ -246,7 +246,7 @@ object TopologyTransactionRejection {
     override def pretty: Pretty[ThresholdTooHigh] = prettyOfString(_ => asString)
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) = {
-      TopologyManagerError.InternalError.ImplementMe(asString)
+      TopologyManagerError.InvalidThreshold.ThresholdTooHigh(actual, mustBeAtMost)
     }
   }
 
@@ -305,6 +305,43 @@ object TopologyTransactionRejection {
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.InvalidTrafficLimit.TrafficLimitTooLow(member, actual, expectedMinimum)
+  }
+
+  final case class InsufficientKeys(members: Seq[Member]) extends TopologyTransactionRejection {
+    override def asString: String =
+      s"Members ${members.sorted.mkString(", ")} are missing a signing key or an encryption key or both."
+
+    override def pretty: Pretty[InsufficientKeys] = prettyOfClass(
+      param("members", _.members)
+    )
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.InsufficientKeys.Failure(members)
+  }
+
+  final case class UnknownMembers(members: Seq[Member]) extends TopologyTransactionRejection {
+    override def asString: String = s"Members ${members.toSeq.sorted.mkString(", ")} are unknown."
+
+    override def pretty: Pretty[UnknownMembers] = prettyOfClass(param("members", _.members))
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.UnknownMembers.Failure(members)
+  }
+
+  final case class ParticipantStillHostsParties(participantId: ParticipantId, parties: Seq[PartyId])
+      extends TopologyTransactionRejection {
+    override def asString: String =
+      s"Cannot remove domain trust certificate for $participantId because it still hosts parties ${parties
+          .mkString(",")}"
+
+    override def pretty: Pretty[ParticipantStillHostsParties] =
+      prettyOfClass(param("participantId", _.participantId), param("parties", _.parties))
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.IllegalRemovalOfDomainTrustCertificate.ParticipantStillHostsParties(
+        participantId,
+        parties,
+      )
   }
 }
 

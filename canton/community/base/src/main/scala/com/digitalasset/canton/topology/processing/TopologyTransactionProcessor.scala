@@ -24,7 +24,6 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext,
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.sequencing.*
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.client.{
   BaseCachingDomainTopologyClient,
@@ -38,46 +37,8 @@ import com.digitalasset.canton.topology.{DomainId, KeyOwner, Member}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
-import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 
 import scala.concurrent.{ExecutionContext, Future}
-
-final case class EffectiveTime(value: CantonTimestamp) {
-  def toApproximate: ApproximateTime = ApproximateTime(value)
-
-  def toProtoPrimitive: ProtoTimestamp = value.toProtoPrimitive
-
-  def max(that: EffectiveTime): EffectiveTime =
-    EffectiveTime(value.max(that.value))
-
-}
-object EffectiveTime {
-  val MinValue: EffectiveTime = EffectiveTime(CantonTimestamp.MinValue)
-  val MaxValue: EffectiveTime = EffectiveTime(CantonTimestamp.MaxValue)
-  implicit val orderingEffectiveTime: Ordering[EffectiveTime] =
-    Ordering.by[EffectiveTime, CantonTimestamp](_.value)
-  def fromProtoPrimitive(ts: ProtoTimestamp): ParsingResult[EffectiveTime] =
-    CantonTimestamp.fromProtoPrimitive(ts).map(EffectiveTime(_))
-}
-final case class ApproximateTime(value: CantonTimestamp)
-
-object ApproximateTime {
-  val MinValue: ApproximateTime = ApproximateTime(CantonTimestamp.MinValue)
-  val MaxValue: ApproximateTime = ApproximateTime(CantonTimestamp.MaxValue)
-  implicit val orderingApproximateTime: Ordering[ApproximateTime] =
-    Ordering.by[ApproximateTime, CantonTimestamp](_.value)
-}
-
-final case class SequencedTime(value: CantonTimestamp) {
-  def toProtoPrimitive: ProtoTimestamp = value.toProtoPrimitive
-}
-object SequencedTime {
-  val MinValue: SequencedTime = SequencedTime(CantonTimestamp.MinValue)
-  implicit val orderingSequencedTime: Ordering[SequencedTime] =
-    Ordering.by[SequencedTime, CantonTimestamp](_.value)
-  def fromProtoPrimitive(ts: ProtoTimestamp): ParsingResult[SequencedTime] =
-    CantonTimestamp.fromProtoPrimitive(ts).map(SequencedTime(_))
-}
 
 /** Main incoming topology transaction validation and processing
   *
@@ -94,7 +55,7 @@ class TopologyTransactionProcessor(
     validator: DomainTopologyTransactionMessageValidator,
     pureCrypto: CryptoPureApi,
     store: TopologyStore[TopologyStoreId.DomainStore],
-    acsCommitmentScheduleEffectiveTime: Traced[CantonTimestamp] => Unit,
+    acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
     futureSupervisor: FutureSupervisor,
     timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
@@ -218,9 +179,10 @@ class TopologyTransactionProcessor(
     // resynchronize
     for {
       validated <- validatedF
+      (_, validatedTxs) = validated
       _ <- incrementalF
       _ <- cascadingF // does synchronize storeF
-      filtered = validated._2.collect {
+      filtered = validatedTxs.collect {
         case transaction if transaction.rejectionReason.isEmpty => transaction.transaction
       }
       _ <- listeners.toList.parTraverse(
@@ -445,9 +407,7 @@ class TopologyTransactionProcessor(
 
   override def onClosed(): Unit = {
     super.onClosed()
-    Lifecycle.close(
-      store
-    )(logger)
+    Lifecycle.close(store)(logger)
   }
 
 }

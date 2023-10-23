@@ -40,7 +40,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ResourceUtil
-import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionCompatibility}
 import io.opentelemetry.api.trace.Tracer
 

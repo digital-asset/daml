@@ -162,7 +162,7 @@ class InMemorySequencerStore(protected val loggerFactory: NamedLoggerFactory)(im
         recipients.contains(
           member
         ) // only if they're a recipient (sender should already be a recipient)
-      case DeliverErrorStoreEvent(sender, _messageId, _message, _trace) =>
+      case DeliverErrorStoreEvent(sender, _messageId, _message, _error, _trace) =>
         sender == member // only if we're the sender
     }
 
