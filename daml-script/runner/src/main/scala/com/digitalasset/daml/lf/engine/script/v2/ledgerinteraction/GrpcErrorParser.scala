@@ -4,7 +4,7 @@
 package com.daml.lf.engine.script.v2.ledgerinteraction
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
+import com.daml.lf.transaction.{GlobalKey, SharedGlobalKey, TransactionVersion}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder
 import com.daml.lf.value.ValueCoder.CidDecoder
@@ -12,6 +12,7 @@ import com.daml.nonempty.NonEmpty
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import io.grpc.StatusRuntimeException
+
 import scala.reflect.ClassTag
 import scala.util.Try
 
@@ -86,11 +87,23 @@ object GrpcErrorParser {
       case "CONTRACT_KEY_NOT_FOUND" =>
         caseErr {
           case Seq(
-                (ErrorResource.TemplateId, tid),
+                (ErrorResource.PackageId, pid),
+                (ErrorResource.QualifiedName, name),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
               ) =>
             SubmitError.ContractKeyNotFound(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key)
+              SharedGlobalKey.assertBuild(
+                Some(PackageId.assertFromString(pid)),
+                QualifiedName.assertFromString(name),
+                key,
+              )
+            )
+          case Seq(
+                (ErrorResource.QualifiedName, name),
+                (ErrorResource.ContractKey, decodeValue.unlift(key)),
+              ) =>
+            SubmitError.ContractKeyNotFound(
+              SharedGlobalKey.assertBuild(None, QualifiedName.assertFromString(name), key)
             )
         }
       case "DAML_AUTHORIZATION_ERROR" => SubmitError.AuthorizationError(message)
