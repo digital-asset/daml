@@ -19,7 +19,7 @@ def _junit_class_name(test_file, strip):
     return c
 
 # Similar to https://github.com/bazelbuild/rules_scala/blob/2676400bed17b03fdd0fe13a8794eb0ff0129284/scala/scala.bzl#L425
-def java_test_suite(name, srcs = [], strip = "", visibility = None, **kwargs):
+def java_test_suite(name, srcs = [], strip = "", visibility = None, use_short_names = False, **kwargs):
     """Define a Java test-suite.
 
     Generates a java_test for each given source file and bundles them in a
@@ -37,8 +37,10 @@ def java_test_suite(name, srcs = [], strip = "", visibility = None, **kwargs):
       kwargs: Remaining arguments are forwarded to each java_test rule.
     """
     ts = []
+    i = 0
     for test_file in srcs:
-        n = "%s_test_suite_%s" % (name, _sanitize_string_for_usage(test_file))
+        i = i + 1
+        n = ("%s_%s" % (name, i)) if use_short_names else "%s_test_suite_%s" % (name, _sanitize_string_for_usage(test_file))
         native.java_test(
             name = n,
             test_class = _junit_class_name(test_file, strip),
