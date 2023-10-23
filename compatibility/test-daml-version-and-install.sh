@@ -14,9 +14,10 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 
 set -euo pipefail
 
-# Add daml to path
-export PATH="$(rlocation daml-sdk-$1):$PATH"
+# Add diff and daml to path
+export PATH="$(rlocation diffutils_nix)/bin:$(rlocation daml-sdk-$1):$PATH"
 which daml
+which diff
 
 # Set daml cache
 export DAML_CACHE=$(realpath local_daml_cache)
