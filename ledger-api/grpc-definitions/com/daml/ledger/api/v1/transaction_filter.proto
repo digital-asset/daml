@@ -59,11 +59,11 @@ message InclusiveFilters {
 
   // A collection of templates for which the data will be included in the
   // ``create_arguments`` of a matching ``CreatedEvent``.
-  // SHOULD NOT contain duplicates.
-  // In contrast to the ``template_ids`` field, one can specify whether the create payload
+  // SHOULD NOT contain duplicate templates.
+  // In contrast to the ``template_ids`` field, one can specify whether the create event payloads
   // should be provided alongside the create arguments.
   // If a contract is simultaneously selected by a template filter and one or more interface filters,
-  // the corresponding ``include_contract_create_payload`` are consolidated using an OR operation.
+  // the corresponding ``include_create_event_payload`` are consolidated using an OR operation.
   // Optional
   repeated TemplateFilter template_filters = 3;
 }
@@ -86,17 +86,16 @@ message InterfaceFilter {
   // ``CreateEvent``.
   // Use this to access the complete contract create argument data in your API client
   // for submitting it as a disclosed contract with future commands.
-  // Deprecated in favor of ``include_contract_create_payload``. If the latter field
+  // Deprecated in favor of ``include_create_event_payload``. If the latter field
   // is set, ``include_create_arguments_blob`` is ignored.
   // Optional
   bool include_create_arguments_blob = 3 [deprecated = true];
 
-  // Whether to include a ``contract_create_payload`` in the returned
-  // ``CreateEvent``.
-  // Use this to access the complete contract create payload in your API client
+  // Whether to include a ``create_event_payload`` in the returned ``CreateEvent``.
+  // Use this to access the contract create event payload in your API client
   // for submitting it as a disclosed contract with future commands.
   // Optional
-  bool include_contract_create_payload = 4;
+  bool include_create_event_payload = 4;
 }
 
 // This filter matches contracts of a specific template.
@@ -108,10 +107,9 @@ message TemplateFilter {
   // Required
   Identifier template_id = 1;
 
-  // Whether to include a ``contract_create_payload`` in the returned
-  // ``CreateEvent``.
-  // Use this to access the complete contract payload in your API client
+  // Whether to include a ``create_event_payload`` in the returned ``CreateEvent``.
+  // Use this to access the contract event payload in your API client
   // for submitting it as a disclosed contract with future commands.
   // Optional
-  bool include_contract_create_payload = 2;
+  bool include_create_event_payload = 2;
 }
