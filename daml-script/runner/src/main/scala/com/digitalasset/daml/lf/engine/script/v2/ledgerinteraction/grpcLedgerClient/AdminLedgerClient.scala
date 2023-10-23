@@ -36,10 +36,6 @@ final class AdminLedgerClient private (
     packageServiceStub
       .listDars(admin_package_service.ListDarsRequest(1000))
       .map(res => res.dars.map(darDesc => (darDesc.name, darDesc.hash)))
-      .map(s => {
-        println(s)
-        s
-      })
 
   def findDarHash(name: String): Future[String] =
     listDars().map(names =>

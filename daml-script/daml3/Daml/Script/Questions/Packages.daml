@@ -7,7 +7,9 @@ module Daml.Script.Questions.Packages where
 
 import Daml.Script.Internal
 import Daml.Script.Questions.PartyManagement (ParticipantName (..))
+import Daml.Script.Questions.Time (sleep)
 import DA.Stack
+import DA.Time
 
 data VetPackages = VetPackages with
   packages : [PackageName]
@@ -54,14 +56,18 @@ data UnvetDar = UnvetDar with
   participant : Optional Text
 instance IsQuestion UnvetDar () where command = "UnvetDar"
 
+-- Add a wait after performing the action, as vetting/unvetting takes a little bit of time
+thenWait : Script a -> Script a
+thenWait s = s <* sleep (seconds 1)
+
 vetDar : HasCallStack => Text -> Script ()
-vetDar darName = lift $ VetDar darName None
+vetDar darName = thenWait $ lift $ VetDar darName None
 
 vetDarOnParticipant : HasCallStack => Text -> ParticipantName -> Script ()
-vetDarOnParticipant darName (ParticipantName participant) = lift $ VetDar darName (Some participant)
+vetDarOnParticipant darName (ParticipantName participant) = thenWait $ lift $ VetDar darName (Some participant)
 
 unvetDar : HasCallStack => Text -> Script ()
-unvetDar darName = lift $ UnvetDar darName None
+unvetDar darName = thenWait $ lift $ UnvetDar darName None
 
 unvetDarOnParticipant : HasCallStack => Text -> ParticipantName -> Script ()
-unvetDarOnParticipant darName (ParticipantName participant) = lift $ UnvetDar darName (Some participant)
+unvetDarOnParticipant darName (ParticipantName participant) = thenWait $ lift $ UnvetDar darName (Some participant)

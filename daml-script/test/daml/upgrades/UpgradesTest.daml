@@ -6,6 +6,7 @@ module UpgradesTest where
 import Daml.Script
 import qualified V1.MyTemplates as V1
 import qualified V2.MyTemplates as V2
+import DA.Text
 
 v1DarName : Text
 v1DarName = "upgrades-my-templates-v1"
@@ -19,12 +20,28 @@ participant0 = ParticipantName "participant0"
 participant1 : ParticipantName
 participant1 = ParticipantName "participant1"
 
+-- The error we get back if a package is unknown can either be PACKAGE_NOT_FOUND (for packages never uploaded)
+-- or NO_DOMAIN_FOR_SUBMISSION if package uploaded but not vetted
+-- Conveniently, neither of these are in the current SubmitError datatype (TODO: fix that), so we assert by UnknownError
+assertUnknownPackageError : Either SubmitError a -> Script ()
+assertUnknownPackageError (Left (UnknownError msg)) | "PACKAGE_NOT_FOUND" `isInfixOf` msg || "NO_DOMAIN_FOR_SUBMISSION" `isInfixOf` msg = pure ()
+assertUnknownPackageError (Left err) = assertFail $ "Expected missing package error, but got: " <> show err
+assertUnknownPackageError (Right _) = assertFail $ "Expected missing package error, but submission succeeded"
+
+-- Convenient wrapper we can inline with the submit call
+liftAssertUnknownPackageError : Script (Either SubmitError a) -> Script ()
+liftAssertUnknownPackageError s = s >>= assertUnknownPackageError
+
 main : Script ()
 main = do
   a <- allocatePartyOn "alice" participant0
   b <- allocatePartyOn "bob" participant1
-  a `submit` createCmd V1.Name with party = a
+  -- a `submit` createCmd V1.Name with party = a
   b `submit` createCmd V2.Name with party = b, newField = Some("hello")
   unvetDarOnParticipant v1DarName participant0
+  -- unvetDarOnParticipant v2DarName participant0
+  -- unvetDarOnParticipant v1DarName participant1
+  -- unvetDarOnParticipant v2DarName participant1
+  liftAssertUnknownPackageError $ a `trySubmit` createCmd V1.Name with party = a
   pure ()
 
