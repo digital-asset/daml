@@ -589,7 +589,6 @@ Known versions are listed in ascending order in `Version history`_; any
 in same list, and consumers must reject values with such unknown
 versions.
 
-
 (*since version 14*)
 
 message FatContractInstance
@@ -612,7 +611,6 @@ As of version 14 the following fileds are included.
 * repetaed ``string`` non_signatory_stakeholders
 * ``int64`` created_at
 * ``bytes`` canton_data
-
 
 ``contract_id`, ``template_id``, ``create_arg``, ``create_at`` are
 required.
@@ -652,10 +650,3 @@ exists some party identifiers repeated in the concatenation of
 .. _`message Identifier`: value.rst#message-identifier
 .. _`message Value`: value.rst#message-value
 .. _`the contract ID specification`: contract-id.rst#contract-identifiers
-
-
-
-
-
-
-
