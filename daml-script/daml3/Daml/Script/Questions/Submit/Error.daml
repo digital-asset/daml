@@ -76,7 +76,10 @@ data SubmitError
     UserError with
       userErrorMessage : Text -- TODO[SW] Post LF 1.14, only `submitMustFail` can throw this. I'll refactor that later and likely remove this error
   | -- | Failure due to false result from `ensure`, strictly pre-exception.
-    TemplatePreconditionViolated -- According to docs, not throwable with LF >= 1.14, unsure what replaces it
+    -- According to docs, not throwable with LF >= 1.14.
+    -- On LF >= 1.14, a failed `ensure` will result in a `PreconditionFailed`
+    -- exception wrapped in `UnhandledException`.
+    TemplatePreconditionViolated
   | -- | Attempted to create a contract with empty contract key maintainers
     CreateEmptyContractKeyMaintainers with
       invalidTemplate : AnyTemplate
