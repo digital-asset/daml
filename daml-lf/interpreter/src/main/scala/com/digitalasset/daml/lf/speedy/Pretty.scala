@@ -42,6 +42,9 @@ private[lf] object Pretty {
   def prettyParty(p: Party): Doc =
     char('\'') + text(p) + char('\'')
 
+  def prettyParties(p: Set[Party]): Doc =
+    char('{') & intercalate(char(','), p.map(prettyParty)) & char('{')
+
   def prettyDamlException(error: interpretation.Error): Doc = {
     import interpretation.Error._
     error match {
@@ -213,6 +216,32 @@ private[lf] object Pretty {
               ) & prettyTypeConName(
                 actual
               )
+          case Dev.UpgradeValidationFailed(
+                coid,
+                srcTemplateId,
+                dstTemplateId,
+                signatories,
+                observers,
+                keyOpt,
+                _,
+              ) =>
+            text("Validation fails when trying to upgrade the contract") & prettyContractId(
+              coid
+            ) & text("from") & prettyTypeConName(srcTemplateId) & text("to") & prettyTypeConName(
+              dstTemplateId
+            ) /
+              text(
+                "Verify that neither the signatories, nor the observer, nor the contract key have changds"
+              ) /
+              text("recomputed signatories are") & prettyParties(signatories) /
+              text("recomputed observers are") & prettyParties(observers) /
+              (keyOpt match {
+                case None => Doc.empty
+                case Some(key) =>
+                  text("recomputed maintainers are") & prettyParties(key.maintainers) /
+                    text("recomputed key is") & prettyValue(false)(key.value)
+              })
+
         }
     }
   }
