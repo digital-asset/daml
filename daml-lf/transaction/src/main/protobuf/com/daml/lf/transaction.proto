@@ -146,7 +146,7 @@ message FatContractInstance {
 
   repeated string non_maintainer_signatories = 5;
 
-  repeated string non_signatory_observers = 6;
+  repeated string non_signatory_stakeholders = 6;
 
   sfixed64 created_at = 7;
 
