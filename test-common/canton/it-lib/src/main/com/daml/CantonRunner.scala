@@ -244,6 +244,7 @@ object CantonRunner {
       exp = None,
       format = auth.StandardJWTTokenFormat.Scope,
       audiences = List.empty,
+      scope = None,
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt = DecodedJwt[String](header, auth.AuthServiceJWTCodec.writeToString(payload))
