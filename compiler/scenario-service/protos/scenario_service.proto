@@ -176,6 +176,12 @@ message PackageMetadata {
   string package_version = 2;
 }
 
+message GlobalKey {
+  PackageIdentifier package = 1;    // Optional
+  string name = 2;
+  Value key = 3;
+}
+
 message ScenarioError {
   message TemplatePreconditionViolated {
     Identifier template_id = 1;
@@ -224,8 +230,7 @@ message ScenarioError {
   }
 
   message ContractKeyNotFound {
-    Identifier template_id = 1;
-    Value key = 2;
+    GlobalKey key = 1;
   }
 
   message ContractNotEffective {
@@ -602,11 +607,6 @@ message FailedAuthorization {
 
 message FailedAuthorizations {
   repeated FailedAuthorization failed_authorizations = 1; //at most one now
-}
-
-message GlobalKey {
-  Identifier template_id = 1;
-  Value key = 2;
 }
 
 message CommitError {
