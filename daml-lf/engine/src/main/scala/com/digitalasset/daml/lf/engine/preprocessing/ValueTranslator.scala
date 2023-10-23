@@ -345,13 +345,22 @@ private[lf] final class ValueTranslator(
 
   // This does not try to pull missing packages, return an error instead.
   // TODO: https://github.com/digital-asset/daml/issues/17082
-  //  This is used by script and trigger, this should problaby use ValueTranslator.Config.Legacy
+  //  This is used by script and trigger, this should problaby use ValueTranslator.Config.Strict
   def strictTranslateValue(
       ty: Type,
       value: Value,
   ): Either[Error.Preprocessing.Error, SValue] =
     safelyRun(
       unsafeTranslateValue(ty, value, Config.Legacy)
+    )
+
+  def translateValue(
+      ty: Type,
+      value: Value,
+      config: Config,
+  ): Either[Error.Preprocessing.Error, SValue] =
+    safelyRun(
+      unsafeTranslateValue(ty, value, config)
     )
 
 }
@@ -374,6 +383,9 @@ object ValueTranslator {
     // Lenient Legacy config, i.e. pre-upgrade
     val Legacy =
       Config(allowFieldReordering = true, ignorePackageId = false, enableUpgrade = false)
+
+    val Upgradeable =
+      Config(allowFieldReordering = false, ignorePackageId = true, enableUpgrade = true)
   }
 
 }

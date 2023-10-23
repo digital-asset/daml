@@ -56,11 +56,15 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     extends ScriptLedgerClient {
   override val transport = "gRPC API"
 
-  override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
+  override def query(
+      parties: OneAnd[Set, Ref.Party],
+      templateId: Identifier,
+      enableContractUpgrading: Boolean = false,
+  )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Vector[ScriptLedgerClient.ActiveContract]] = {
-    queryWithKey(parties, templateId).map(_.map(_._1))
+    queryWithKey(parties, templateId, enableContractUpgrading).map(_.map(_._1))
   }
 
   private def templateFilter(
@@ -68,6 +72,17 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       templateId: Identifier,
   ): TransactionFilter = {
     val filters = Filters(Some(InclusiveFilters(Seq(toApiIdentifier(templateId)))))
+    TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
+  }
+
+  // Template filter with the package id removed, for upgrades
+  private def upgradeableTemplateFilter(
+      parties: OneAnd[Set, Ref.Party],
+      templateId: Identifier,
+  ): TransactionFilter = {
+    val filters = Filters(
+      Some(InclusiveFilters(Seq(toApiIdentifier(templateId).copy(packageId = ""))))
+    )
     TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
   }
 
@@ -88,11 +103,17 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   }
 
   // Helper shared by query, queryContractId and queryContractKey
-  private def queryWithKey(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
+  private def queryWithKey(
+      parties: OneAnd[Set, Ref.Party],
+      templateId: Identifier,
+      enableContractUpgrading: Boolean = false,
+  )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value])]] = {
-    val filter = templateFilter(parties, templateId)
+    val filter =
+      if (enableContractUpgrading) upgradeableTemplateFilter(parties, templateId)
+      else templateFilter(parties, templateId)
     val acsResponses =
       grpcClient.activeContractSetClient
         .getActiveContracts(filter, verbose = false)
@@ -128,13 +149,14 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       cid: ContractId,
+      enableContractUpgrading: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     // We cannot do better than a linear search over query here.
     for {
-      activeContracts <- query(parties, templateId)
+      activeContracts <- query(parties, templateId, enableContractUpgrading)
     } yield {
       activeContracts.find(c => c.contractId == cid)
     }
