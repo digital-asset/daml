@@ -393,6 +393,7 @@ object Runner {
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
       profile: Profile = Speedy.Machine.newProfile,
       canceled: () => Option[RuntimeException] = () => None,
+      enableContractUpgrading: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -409,6 +410,7 @@ object Runner {
       warningLog,
       profile,
       canceled,
+      enableContractUpgrading,
     )._1
 
   // Same as run above but requires use of IdeLedgerClient, gives additional context back
@@ -455,6 +457,7 @@ object Runner {
       warningLog: WarningLog,
       profile: Profile,
       canceled: () => Option[RuntimeException],
+      enableContractUpgrading: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -480,7 +483,7 @@ object Runner {
       case (_: Script.Function, None) =>
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
-    val runner = new Runner(compiledPackages, scriptAction, timeMode)
+    val runner = new Runner(compiledPackages, scriptAction, timeMode, enableContractUpgrading)
     runner.runWithClients(initialClients, traceLog, warningLog, profile, canceled)
   }
 }
@@ -489,6 +492,7 @@ private[lf] class Runner(
     val compiledPackages: CompiledPackages,
     val script: Script.Action,
     val timeMode: ScriptTimeMode,
+    val enableContractUpgrading: Boolean = false,
 ) extends StrictLogging {
 
   // We overwrite the definition of 'fromLedgerValue' with an identity function.
@@ -552,6 +556,8 @@ private[lf] class Runner(
       throw new IllegalArgumentException("Couldn't get daml script package name")
     ) match {
       case "daml-script" =>
+        if (enableContractUpgrading)
+          throw new IllegalArgumentException("daml2-script does not support Upgrades natively.")
         new v1.Runner(this).runWithClients(initialClients, traceLog, warningLog, profile, canceled)
       case "daml3-script" =>
         new v2.Runner(this, initialClients, traceLog, warningLog, profile, canceled).getResult()

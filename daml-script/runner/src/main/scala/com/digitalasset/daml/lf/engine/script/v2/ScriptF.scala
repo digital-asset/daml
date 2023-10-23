@@ -27,6 +27,7 @@ import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast
 import com.daml.lf.language.StablePackage
+import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SBuiltin.SBVariantCon
 import com.daml.lf.speedy.SExpr._
@@ -73,6 +74,7 @@ object ScriptF {
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
       compiledPackages: CompiledPackages,
+      val enableContractUpgrading: Boolean,
   ) {
     def clients = _clients
     val valueTranslator = new ValueTranslator(
@@ -316,9 +318,9 @@ object ScriptF {
     ): Future[SExpr] =
       for {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-        optR <- client.queryContractId(parties, tplId, cid, true)
+        optR <- client.queryContractId(parties, tplId, cid, env.enableContractUpgrading)
         optR <- Converter.toFuture(
-          optR.traverse(Converter.fromContract(env.valueTranslator, _, true))
+          optR.traverse(Converter.fromContract(env.valueTranslator, _, env.enableContractUpgrading))
         )
       } yield SEValue(SOptional(optR))
   }
@@ -759,17 +761,28 @@ object ScriptF {
       tpl.arg match {
         case r: SValue.SRecord =>
           Future {
-            val upgradedRecord = env.valueTranslator.postUpgradesTranslateRecordSValue(
-              r,
-              desiredTplId,
-              List(),
-              // Throw an error and catch it, convert to Left
-              (msg => throw new UpgradeException(msg)),
-              // TODO: For now, we don't recurse
-              // but we should
-              // Scala won't let me write _._2, it gets angry >:(
-              { case (_, v) => v },
-            )
+            def doUpgrade(
+                r: SValue.SRecord,
+                tyCon: TypeConName,
+                tyArgs: List[Ast.Type],
+            ): SValue.SRecord =
+              env.valueTranslator.postUpgradesTranslateRecordSValue(
+                r,
+                tyCon,
+                tyArgs,
+                // Throw an error and catch it, convert to Left
+                (msg => throw new UpgradeException(msg)),
+                { case (ty, v) =>
+                  val (innerTyHead, innerTyArgs) = AstUtil.destructApp(ty)
+                  (innerTyHead, v) match {
+                    // Recurse on records
+                    case (Ast.TTyCon(innerTyCon), innerR: SValue.SRecord) =>
+                      doUpgrade(innerR, innerTyCon, innerTyArgs)
+                    case (_, v) => v
+                  }
+                },
+              )
+            val upgradedRecord = doUpgrade(r, desiredTplId, List())
             SEAppAtomic(right, Array(SEValue(upgradedRecord)))
           }.recover { case UpgradeException(msg) =>
             SEAppAtomic(left, Array(SEValue(SText(msg))))
