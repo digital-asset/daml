@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveLong
 import com.digitalasset.canton.crypto.KeyPurpose
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.store.{
   TopologyStoreId,
@@ -108,13 +109,13 @@ class ValidatingTopologyMappingXChecks(
             case tx if tx.mapping.participants.exists(_.participantId == participantToOffboard) =>
               tx.mapping.partyId
           }
-          .toSet
+          .toSeq
 
         _ <- EitherTUtil.condUnitET[Future][TopologyTransactionRejection](
           participantHostsParties.isEmpty,
-          TopologyTransactionRejection.Other(
-            s"Cannot remove domain trust certificate for $participantToOffboard because it still hosts parties ${participantHostsParties
-                .mkString(",")}"
+          TopologyTransactionRejection.ParticipantStillHostsParties(
+            participantToOffboard,
+            participantHostsParties,
           ),
         )
       } yield ()
@@ -151,8 +152,8 @@ class ValidatingTopologyMappingXChecks(
         ),
       )
 
-      newParticipants = mapping.participants.map(_.participantId.uid).toSet --
-        inStore.toList.flatMap(_.mapping.participants.map(_.participantId.uid))
+      newParticipants = mapping.participants.map(_.participantId).toSet --
+        inStore.toList.flatMap(_.mapping.participants.map(_.participantId))
       participantTransactions <- EitherT.right[TopologyTransactionRejection](
         store
           .findPositiveTransactions(
@@ -160,7 +161,7 @@ class ValidatingTopologyMappingXChecks(
             asOfInclusive = false,
             isProposal = false,
             types = Seq(DomainTrustCertificateX.code, OwnerToKeyMappingX.code),
-            filterUid = Some(newParticipants.toSeq),
+            filterUid = Some(newParticipants.toSeq.map(_.uid)),
             filterNamespace = None,
           )
       )
@@ -169,12 +170,11 @@ class ValidatingTopologyMappingXChecks(
       missingParticipantCertificates = newParticipants -- participantTransactions
         .collectOfMapping[DomainTrustCertificateX]
         .result
-        .map(_.transaction.transaction.mapping.participantId.uid)
+        .map(_.mapping.participantId)
 
       _ <- EitherTUtil.condUnitET[Future][TopologyTransactionRejection](
         missingParticipantCertificates.isEmpty,
-        TopologyTransactionRejection
-          .Other(s"Participants ${missingParticipantCertificates} are not known"),
+        TopologyTransactionRejection.UnknownMembers(missingParticipantCertificates.toSeq),
       )
 
       // check that all known participants have keys registered
@@ -182,17 +182,18 @@ class ValidatingTopologyMappingXChecks(
         newParticipants -- participantTransactions
           .collectOfMapping[OwnerToKeyMappingX]
           .result
+          .view
           .filter { tx =>
             val keyPurposes = tx.mapping.keys.map(_.purpose).toSet
             requiredKeyPurposes.forall(keyPurposes)
           }
-          .map(_.mapping.member.uid)
+          .map(_.mapping.member)
+          .collect { case pid: ParticipantId => pid }
+          .toSeq
 
       _ <- EitherTUtil.condUnitET[Future][TopologyTransactionRejection](
         participantsWithInsufficientKeys.isEmpty,
-        TopologyTransactionRejection.Other(
-          s"Participants ${participantsWithInsufficientKeys.mkString(",")} are missing a singing key and/or an encryption key"
-        ),
+        TopologyTransactionRejection.InsufficientKeys(participantsWithInsufficientKeys.toSeq),
       )
     } yield {
       ()

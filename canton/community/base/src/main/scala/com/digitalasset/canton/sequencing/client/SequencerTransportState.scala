@@ -24,7 +24,7 @@ import com.digitalasset.canton.sequencing.client.transports.{
 }
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 
 import java.util.concurrent.atomic.AtomicReference

@@ -57,9 +57,9 @@ object ResourceUtil {
   final private[util] class ResourceMonadApplied[M[_]](
       private val dummy: Boolean = true
   ) extends AnyVal {
-    def apply[T <: AutoCloseable, V, Content[_]](r: => T)(
+    def apply[T <: AutoCloseable, V](r: => T)(
         f: T => M[V]
-    )(implicit M: MonadThrow[M], TM: Thereafter[M, Content], executionContext: ExecutionContext) = {
+    )(implicit M: MonadThrow[M], TM: Thereafter[M], executionContext: ExecutionContext): M[V] = {
       import Thereafter.syntax.*
       import cats.syntax.flatMap.*
       MonadThrow[M].fromTry(Try(f(r))).flatten.thereafter(_ => r.close())

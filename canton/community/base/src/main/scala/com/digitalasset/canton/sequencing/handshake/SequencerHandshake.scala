@@ -11,7 +11,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeResponse}
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.retry
 import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
 import com.digitalasset.canton.util.retry.Success

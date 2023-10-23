@@ -24,9 +24,11 @@ import scala.util.{Failure, Success, Try}
   * </pre>
   *
   * @tparam F The computation's type functor.
-  * @tparam Content The container type for computation result. Functionally dependent on `F`.
   */
-trait Thereafter[F[_], Content[_]] extends Any {
+trait Thereafter[F[_]] {
+
+  /** The container type for computation result. */
+  type Content[_]
 
   /** Runs `body` after the computation `f` has completed.
     * @return The computation that results from chaining `f` before `body`. Completes only after `body` has run.
@@ -46,18 +48,26 @@ trait Thereafter[F[_], Content[_]] extends Any {
 }
 
 object Thereafter {
-  def apply[F[_]]: ThereafterSummon[F] = new ThereafterSummon()
-  class ThereafterSummon[F[_]](val dummy: Boolean = false) extends AnyVal {
-    def summon[Content[_]](implicit F: Thereafter[F, Content]): Thereafter[F, Content] = F
-  }
+
+  /** Make the dependent Content type explicit as a type argument to help with type inference.
+    *
+    * The construction is the same as in shapeless.
+    * [The Type Astronaut's Guide to Shapeless Book](https://underscore.io/books/shapeless-guide/)
+    * explains the idea in Chapter 4.2.
+    */
+  type Aux[F[_], C[_]] = Thereafter[F] { type Content[A] = C[A] }
+
+  def apply[F[_]](implicit F: Thereafter[F]): Thereafter.Aux[F, F.Content] = F
 
   /** [[Thereafter]] instance for [[scala.concurrent.Future]]s */
-  object FutureThereafter extends Thereafter[Future, Try] {
+  object FutureThereafter extends Thereafter[Future] {
+    override type Content[A] = Try[A]
+
     override def thereafter[A](
         f: Future[A]
     )(body: Try[A] => Unit)(implicit ec: ExecutionContext): Future[A] =
       f.transform {
-        case result: Success[_] =>
+        case result: Success[?] =>
           body(result)
           result
         case result @ Failure(resultEx) =>
@@ -86,68 +96,70 @@ object Thereafter {
       }
     }
   }
-  implicit val futureThereafter: Thereafter[Future, Try] = FutureThereafter
-
-  /** [[Thereafter]] instance lifted through [[cats.data.EitherT]]. */
-  class EitherTThereafter[F[_], Content[_], E](implicit val F: Thereafter[F, Content])
-      extends Thereafter[EitherT[F, E, *], EitherTThereafterContent[Content, E, *]] {
-    override def thereafter[A](f: EitherT[F, E, A])(body: Content[Either[E, A]] => Unit)(implicit
-        ec: ExecutionContext
-    ): EitherT[F, E, A] =
-      EitherT(F.thereafter(f.value)(body))
-
-    override def thereafterF[A](f: EitherT[F, E, A])(
-        body: Content[Either[E, A]] => Future[Unit]
-    )(implicit ec: ExecutionContext): EitherT[F, E, A] =
-      EitherT(F.thereafterF(f.value)(body))
-  }
+  implicit val futureThereafter: Thereafter.Aux[Future, Try] = FutureThereafter
 
   /** Use a type synonym instead of a type lambda so that the Scala compiler does not get confused during implicit resolution,
     * at least for simple cases.
     */
   type EitherTThereafterContent[Content[_], E, A] = Content[Either[E, A]]
-  implicit def eitherTThereafter[F[_], Content[_], E](implicit
-      F: Thereafter[F, Content]
-  ): EitherTThereafter[F, Content, E] = new EitherTThereafter
 
-  /** [[Thereafter]] instance lifted through [[cats.data.OptionT]]. */
-  class OptionTThereafter[F[_], Content[_], E](implicit val F: Thereafter[F, Content])
-      extends Thereafter[OptionT[F, *], OptionTThereafterContent[Content, *]] {
-    override def thereafter[A](f: OptionT[F, A])(body: Content[Option[A]] => Unit)(implicit
-        ec: ExecutionContext
-    ): OptionT[F, A] =
-      OptionT(F.thereafter(f.value)(body))
+  /** [[Thereafter]] instance lifted through [[cats.data.EitherT]]. */
+  implicit def eitherTThereafter[F[_], E](implicit
+      F: Thereafter[F]
+  ): Thereafter.Aux[EitherT[F, E, *], EitherTThereafterContent[F.Content, E, *]] =
+    new Thereafter[EitherT[F, E, *]] {
+      override type Content[A] = EitherTThereafterContent[F.Content, E, A]
+      override def thereafter[A](f: EitherT[F, E, A])(body: Content[A] => Unit)(implicit
+          ec: ExecutionContext
+      ): EitherT[F, E, A] =
+        EitherT(F.thereafter(f.value)(body))
 
-    override def thereafterF[A](f: OptionT[F, A])(
-        body: Content[Option[A]] => Future[Unit]
-    )(implicit ec: ExecutionContext): OptionT[F, A] =
-      OptionT(F.thereafterF(f.value)(body))
-  }
+      override def thereafterF[A](f: EitherT[F, E, A])(
+          body: Content[A] => Future[Unit]
+      )(implicit ec: ExecutionContext): EitherT[F, E, A] =
+        EitherT(F.thereafterF(f.value)(body))
+    }
 
   /** Use a type synonym instead of a type lambda so that the Scala compiler does not get confused during implicit resolution,
     * at least for simple cases.
     */
   type OptionTThereafterContent[Content[_], A] = Content[Option[A]]
-  implicit def optionTThereafter[F[_], Content[_], E](implicit
-      F: Thereafter[F, Content]
-  ): OptionTThereafter[F, Content, E] = new OptionTThereafter
 
-  trait Ops[F[_], Content[_], A] extends Serializable {
-    def self: F[A]
-    val typeClassInstance: Thereafter[F, Content]
-    def thereafter(body: Content[A] => Unit)(implicit ec: ExecutionContext): F[A] =
+  /** [[Thereafter]] instance lifted through [[cats.data.OptionT]]. */
+  implicit def optionTThereafter[F[_]](implicit
+      F: Thereafter[F]
+  ): Thereafter.Aux[OptionT[F, *], OptionTThereafterContent[F.Content, *]] =
+    new Thereafter[OptionT[F, *]] {
+      override type Content[A] = OptionTThereafterContent[F.Content, A]
+
+      override def thereafter[A](f: OptionT[F, A])(body: Content[A] => Unit)(implicit
+          ec: ExecutionContext
+      ): OptionT[F, A] =
+        OptionT(F.thereafter(f.value)(body))
+
+      override def thereafterF[A](f: OptionT[F, A])(
+          body: Content[A] => Future[Unit]
+      )(implicit ec: ExecutionContext): OptionT[F, A] =
+        OptionT(F.thereafterF(f.value)(body))
+    }
+
+  trait Ops[F[_], C[_], A] extends Serializable {
+    protected def self: F[A]
+    val typeClassInstance: Thereafter.Aux[F, C]
+    def thereafter(body: C[A] => Unit)(implicit ec: ExecutionContext): F[A] =
       typeClassInstance.thereafter(self)(body)
-    def thereafterF(body: Content[A] => Future[Unit])(implicit ec: ExecutionContext): F[A] =
+    def thereafterF(body: C[A] => Future[Unit])(implicit ec: ExecutionContext): F[A] =
       typeClassInstance.thereafterF(self)(body)
   }
 
   /** Extension method for instances of [[Thereafter]]. */
   object syntax {
-    implicit class ThereafterOps[F[_], Content[_], A](target: F[A])(implicit
-        tc: Thereafter[F, Content]
-    ) extends Ops[F, Content, A] {
-      val self: F[A] = target
-      val typeClassInstance: Thereafter[F, Content] = tc
+    import scala.language.implicitConversions
+    implicit def ThereafterOps[F[_], A](target: F[A])(implicit
+        tc: Thereafter[F]
+    ): Ops[F, tc.Content, A] = new Ops[F, tc.Content, A] {
+      override val self: F[A] = target
+      override val typeClassInstance: Thereafter.Aux[F, tc.Content] = tc
     }
   }
 }

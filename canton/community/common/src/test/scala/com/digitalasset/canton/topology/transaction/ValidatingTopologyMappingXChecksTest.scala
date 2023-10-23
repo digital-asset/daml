@@ -106,9 +106,9 @@ class ValidatingTopologyMappingXChecksTest
             )
           )
           val result = checks.checkTransaction(EffectiveTime.MaxValue, ptp, None)
-          result.value.futureValue should matchPattern {
-            case Left(TopologyTransactionRejection.Other(msg)) if msg.contains("not known") =>
-          }
+          result.value.futureValue shouldBe Left(
+            TopologyTransactionRejection.UnknownMembers(Seq(participant1))
+          )
         }
       }
 
@@ -136,12 +136,9 @@ class ValidatingTopologyMappingXChecksTest
             )
           )
           val result = checks.checkTransaction(EffectiveTime.MaxValue, ptp, None)
-          result.value.futureValue should matchPattern {
-            case Left(TopologyTransactionRejection.Other(msg))
-                if msg.contains(
-                  s"${participant.uid} are missing a singing key and/or an encryption key"
-                ) =>
-          }
+          result.value.futureValue shouldBe Left(
+            TopologyTransactionRejection.InsufficientKeys(Seq(participant))
+          )
         }
       }
 
@@ -197,9 +194,7 @@ class ValidatingTopologyMappingXChecksTest
 
         val result = checks.checkTransaction(EffectiveTime.MaxValue, dtc, None)
         result.value.futureValue shouldBe Left(
-          TopologyTransactionRejection.Other(
-            s"Cannot remove domain trust certificate for $participant1 because it still hosts parties $party1"
-          )
+          TopologyTransactionRejection.ParticipantStillHostsParties(participant1, Seq(party1))
         )
 
       }
@@ -224,9 +219,15 @@ class ValidatingTopologyMappingXChecksTest
             toValidate = limit5,
             inStore = Some(limit10),
           )
-        result.value.futureValue should matchPattern {
-          case Left(TopologyTransactionRejection.ExtraTrafficLimitTooLow(_, _, _)) =>
-        }
+        result.value.futureValue shouldBe
+          Left(
+            TopologyTransactionRejection.ExtraTrafficLimitTooLow(
+              participant1,
+              PositiveLong.tryCreate(5),
+              PositiveLong.tryCreate(10),
+            )
+          )
+
       }
 
       "report no errors for valid mappings" in {

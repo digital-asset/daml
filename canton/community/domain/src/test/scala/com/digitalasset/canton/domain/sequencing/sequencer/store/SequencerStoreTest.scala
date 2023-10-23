@@ -182,9 +182,10 @@ trait SequencerStoreTest
       "be able to serialize to and deserialize the error from protobuf" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
         val error = SequencerErrors.SigningTimestampTooEarly("too early!")
         val errorStatus = error.rpcStatusWithoutLoggingContext()
-        val serialized = DeliverErrorStoreEvent.serializeError(error, testedProtocolVersion)
+        val (message, serialized) =
+          DeliverErrorStoreEvent.serializeError(error, testedProtocolVersion)
         val deserialized =
-          DeliverErrorStoreEvent.deserializeError(serialized, testedProtocolVersion)
+          DeliverErrorStoreEvent.deserializeError(message, serialized, testedProtocolVersion)
         deserialized shouldBe Right(errorStatus)
       }
     }
@@ -325,6 +326,7 @@ trait SequencerStoreTest
             aliceId,
             messageId1,
             String256M.tryCreate("Something went wrong".repeat(22000)),
+            None,
             traceContext,
           )
           timestampedError: Sequenced[Nothing] = Sequenced(ts1, error)

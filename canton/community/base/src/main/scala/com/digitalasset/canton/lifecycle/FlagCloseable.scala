@@ -319,7 +319,7 @@ object CloseContext {
     CloseContext(flagCloseable)
   }
 
-  def withCombinedContext[F[_], T, C[_]](
+  def withCombinedContext[F[_], T](
       closeContext1: CloseContext,
       closeContext2: CloseContext,
       processingTimeout: ProcessingTimeout,
@@ -327,7 +327,7 @@ object CloseContext {
   )(func: CloseContext => F[T])(implicit
       traceContext: TraceContext,
       ex: ExecutionContext,
-      F: Thereafter[F, C],
+      F: Thereafter[F],
   ): F[T] = {
     val tmp = combineUnsafe(closeContext1, closeContext2, processingTimeout, tracedLogger)
     func(tmp).thereafter(_ => tmp.flagCloseable.close())
