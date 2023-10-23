@@ -126,10 +126,16 @@ abstract class ConverterMethods(stablePackages: StablePackages) {
       translator: preprocessing.ValueTranslator,
       templateId: Identifier,
       argument: Value,
+      enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
     for {
       translated <- translator
-        .strictTranslateValue(TTyCon(templateId), argument)
+        .translateValue(
+          TTyCon(templateId),
+          argument,
+          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Upgradeable
+          else preprocessing.ValueTranslator.Config.Strict,
+        )
         .left
         .map(err => s"Failed to translate create argument: $err")
     } yield record(

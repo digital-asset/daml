@@ -70,6 +70,7 @@ object ScriptF {
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
       compiledPackages: CompiledPackages,
+      val enableContractUpgrading: Boolean,
   ) {
     def clients = _clients
     val valueTranslator = new ValueTranslator(
@@ -313,8 +314,10 @@ object ScriptF {
     ): Future[SExpr] =
       for {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-        optR <- client.queryContractId(parties, tplId, cid)
-        optR <- Converter.toFuture(optR.traverse(Converter.fromContract(env.valueTranslator, _)))
+        optR <- client.queryContractId(parties, tplId, cid, env.enableContractUpgrading)
+        optR <- Converter.toFuture(
+          optR.traverse(Converter.fromContract(env.valueTranslator, _, env.enableContractUpgrading))
+        )
       } yield SEValue(SOptional(optR))
   }
 
