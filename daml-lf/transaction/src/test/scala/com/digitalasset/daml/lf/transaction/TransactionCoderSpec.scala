@@ -56,7 +56,7 @@ class TransactionCoderSpec
     }
 
     "do Node.Create" in {
-      forAll(malformedCreateNodeGen, versionInIncreasingOrder()) {
+      forAll(malformedCreateNodeGen(), versionInIncreasingOrder()) {
         case (createNode, (nodeVersion, txVersion)) =>
           val versionedNode = createNode.updateVersion(nodeVersion)
           val Right(encodedNode) = TransactionCoder
@@ -649,7 +649,7 @@ class TransactionCoderSpec
 
     "do FatContractInstance" in {
       forAll(
-        malformedCreateNodeGen.filter(_.version >= TransactionVersion.V14),
+        malformedCreateNodeGen(minVersion = V14),
         timestampGen,
         bytesGen,
         minSuccessful(5),
@@ -679,7 +679,7 @@ class TransactionCoderSpec
 
     "reject FatContractInstance with unknown fields" in {
       forAll(
-        malformedCreateNodeGen.filter(_.version >= TransactionVersion.V14),
+        malformedCreateNodeGen(minVersion = V14),
         timestampGen,
         bytesGen,
         Arbitrary.arbInt.arbitrary,
@@ -702,7 +702,7 @@ class TransactionCoderSpec
 
     "reject FatContractInstance with key but empty maintainers" in {
       forAll(
-        malformedCreateNodeGen.filter(_.version >= TransactionVersion.V14),
+        malformedCreateNodeGen(minVersion = V14),
         timestampGen,
         bytesGen,
         minSuccessful(2),
@@ -732,7 +732,7 @@ class TransactionCoderSpec
 
     "reject FatContractInstance with empty signatories" in {
       forAll(
-        malformedCreateNodeGen.filter(_.version >= TransactionVersion.V14),
+        malformedCreateNodeGen(minVersion = V14),
         timestampGen,
         bytesGen,
         minSuccessful(3),
@@ -769,7 +769,7 @@ class TransactionCoderSpec
     "reject FatContractInstance with nonMaintainerSignatories containing maintainers" in {
       forAll(
         party,
-        malformedCreateNodeGen.filter(_.version >= TransactionVersion.V14),
+        malformedCreateNodeGen(minVersion = V14),
         timestampGen,
         bytesGen,
         minSuccessful(2),
@@ -816,7 +816,7 @@ class TransactionCoderSpec
     "reject FatContractInstance with nonSignatoryStakeholders containing maintainers" in {
       forAll(
         party,
-        malformedCreateNodeGen.filter(_.version >= TransactionVersion.V14),
+        malformedCreateNodeGen(minVersion = V14),
         timestampGen,
         bytesGen,
         minSuccessful(2),
@@ -831,8 +831,10 @@ class TransactionCoderSpec
             time,
             data.Bytes.fromByteString(salt),
           )
-          val nonSignatoryStakeholders = instance.nonSignatoryStakeholders + party
           val maintainers = TreeSet.from(key.maintainers + party)
+          val nonMaintainerSignatories =
+            instance.nonMaintainerSignatories -- key.maintainers - party
+          val nonSignatoryStakeholders = instance.nonSignatoryStakeholders + party
           val protoKey = hackKeyProto(
             create.version,
             key,
@@ -846,9 +848,11 @@ class TransactionCoderSpec
           val bytes = hackProto(
             instance,
             { builder =>
+              builder.setContractKeyWithMaintainers(protoKey)
+              builder.clearNonMaintainerSignatories()
+              nonMaintainerSignatories.foreach(builder.addNonMaintainerSignatories)
               builder.clearNonSignatoryStakeholders()
               nonSignatoryStakeholders.foreach(builder.addNonSignatoryStakeholders)
-              builder.setContractKeyWithMaintainers(protoKey)
               builder.build()
             },
           )
@@ -863,7 +867,7 @@ class TransactionCoderSpec
     "reject FatContractInstance with nonSignatoryStakeholders containing nonMaintainerSignatories" in {
       forAll(
         party,
-        malformedCreateNodeGen.filter(_.version >= TransactionVersion.V14),
+        malformedCreateNodeGen(minVersion = V14),
         timestampGen,
         bytesGen,
         minSuccessful(4),
