@@ -788,7 +788,7 @@ genrule(
     name = "AdminWorkflowsWithVacuuming.dar",
     srcs = glob(["community/participant/src/main/daml/ping-pong-vacuum/*"]) + [
         "community/participant/src/main/resources/dar/AdminWorkflows.dar",
-        "//daml-script/daml:daml-script.dar",
+        "//daml-script/daml:daml-script-1.14.dar",
     ],
     outs = ["community/participant/src/main/resources/dar/AdminWorkflowsWithVacuuming.dar"],
     cmd = """
@@ -797,10 +797,13 @@ genrule(
       trap "rm -rf $$tmpdir" EXIT
       cp -r $$project_dir/* $$tmpdir
       cp $(location community/participant/src/main/resources/dar/AdminWorkflows.dar) $$tmpdir
+      cp $(location //daml-script/daml:daml-script-1.14.dar) $$tmpdir
+      sed -i 's/sdk-version:.*/sdk-version: 0.0.0/' $$tmpdir/daml.yaml
       sed -i 's/-.*AdminWorkflows.dar/- AdminWorkflows.dar/' $$tmpdir/daml.yaml
-      $(location //daml-assistant:daml)  build --project-root=$$tmpdir --ghc-option=-Werror -o $$PWD/$@
+      sed -i 's/daml-script/daml-script-1.14.dar/' $$tmpdir/daml.yaml
+      $(location //compiler/damlc) build --project-root=$$tmpdir --ghc-option=-Werror -o $$PWD/$@
     """,
-    tools = ["//daml-assistant:daml"],
+    tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )
 
