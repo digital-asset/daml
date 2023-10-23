@@ -161,9 +161,8 @@ checkTemplate module_ template = do
     (existingChoices, _existingNew) <- checkDeleted (EUpgradeError . MissingChoice . NM.name) $ NM.toHashMap . tplChoices <$> template
     forM_ existingChoices $ \choice -> do
         withContext (ContextTemplate (present module_) (present template) (TPChoice (present choice))) $ do
-            let returnTypesMatch = foldU alphaType (fmap chcReturnType choice)
-            unless returnTypesMatch $
-                throwWithContext (EUpgradeError (ChoiceChangedReturnType (NM.name (present choice))))
+            checkUpgradeType (fmap chcReturnType choice)
+                (EUpgradeError (ChoiceChangedReturnType (NM.name (present choice))))
 
             whenDifferent "controllers" (extractFuncFromFuncThisArg . chcControllers) choice $
                 warnWithContext $ WChoiceChangedControllers $ NM.name $ present choice
@@ -214,9 +213,8 @@ checkTemplate module_ template = do
                let tplKey = Upgrading pastKey presentKey
 
                -- Key type musn't change
-               let keyTypesMatch = foldU alphaType (fmap tplKeyType tplKey)
-               unless keyTypesMatch $
-                   throwWithContext (EUpgradeError (TemplateChangedKeyType (NM.name (present template))))
+               checkUpgradeType (fmap tplKeyType tplKey)
+                   (EUpgradeError (TemplateChangedKeyType (NM.name (present template))))
 
                -- But expression for computing it may
                whenDifferent "key expression"
@@ -355,3 +353,9 @@ checkFields origin fields =
         matchingFieldDifferentType Upgrading{..} = past /= present
         newFieldOptionalType (TOptional _) = True
         newFieldOptionalType _ = False
+
+-- Check type upgradability
+checkUpgradeType :: MonadGamma m => Upgrading Type -> Error -> m [Qualified TypeConName]
+checkUpgradeType type_ err = do
+    unless (foldU alphaType type_) (throwWithContext err)
+    pure ()
