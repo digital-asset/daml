@@ -86,10 +86,10 @@ trait ToxicSandboxFixture
     }
 
   override protected def makeAdditionalResource(
-      ports: Vector[Port]
+      ports: Vector[(Port, Port)]
   ): ResourceOwner[(Channel, Port, ToxiproxyClient, Proxy)] =
     for {
-      channel <- config.channelResource(ports.head)
-      (port, client, proxy) <- makeToxiproxyResource(ports.head)
+      channel <- config.channelResource(ports.head._1)
+      (port, client, proxy) <- makeToxiproxyResource(ports.head._1)
     } yield (channel, port, client, proxy)
 }

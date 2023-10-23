@@ -19,7 +19,7 @@ trait RunnerMainTestBaseCanton extends CantonFixtureWithResource[Port] with Runn
   protected def jsonApiPort: Port = additional
 
   override protected def makeAdditionalResource(
-      ports: Vector[Port]
+      ports: Vector[(Port, Port)]
   ): ResourceOwner[Port] =
     new ResourceOwner[Port] {
       override def acquire()(implicit
@@ -38,7 +38,7 @@ trait RunnerMainTestBaseCanton extends CantonFixtureWithResource[Port] with Runn
           val _ =
             HttpServiceTestFixture.withHttpService(
               "NonTlsRunnerMainTest",
-              ports.head,
+              ports.head._1,
               None,
               None,
               useTls = useTls,
