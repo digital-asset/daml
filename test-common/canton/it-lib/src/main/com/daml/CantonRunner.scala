@@ -97,7 +97,7 @@ object CantonRunner {
          |      storage.type = memory
          |      parameters = {
          |        enable-engine-stack-traces = true
-         |        enable-contract-upgrading = ${config.enableUpgrade}
+        //  |        enable-contract-upgrading = ${config.enableUpgrade}
          |        dev-version-support = ${config.devMode}
          |      }
          |      ${timeType.fold("")(x => "testing-time.type = " + x)}
@@ -131,7 +131,9 @@ object CantonRunner {
     discard(Files.write(files.configFile, cantonConfig.getBytes(StandardCharsets.UTF_8)))
 
     val bootstrapUploadDar = darFiles
-      .map(darFile => s"participants.all.dars.upload(\"$darFile\", true, true)")
+      .map(darFile =>
+        s"participants.all.dars.upload(\"${darFile.toString.replace("\\", "\\\\")}\", true, true)"
+      )
       .mkString("\n")
     // Run the given clients bootstrap, upload dars via the console (which internally calls the admin api), then write a non-empty file for us to wait on
     val bootstrapContent =
