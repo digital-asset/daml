@@ -156,7 +156,7 @@ object TreeSet {
   )(implicit order: Ordering[X]): immutable.TreeSet[X] =
     RedBlackTree.treeSetFromOrderedEntries(entries)
 
-  /** Like fromOrderedEntries but crashes in case of duplicate entrie
+  /** Like fromOrderedEntries but crashes in case of duplicate entries
     */
   @throws[IllegalArgumentException]
   def fromStrictlyOrderedEntries[X](
