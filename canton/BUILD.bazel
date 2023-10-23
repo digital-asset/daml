@@ -758,31 +758,11 @@ proto_gen(
     ],
 )
 
-# TODO: we won't get the same package ID as the one that is checked into the canton repository that
-#       way, we need to use the dar that's checked-in instead when building
-#       community_participant_ping-pong-vaccum
-daml_compile(
-    name = "community_participant_admin-worklfow",
-    srcs = glob(["community/participant/src/main/daml/*.daml"]),
-    dependencies = ["//daml-script/daml:daml-script-1.15.dar"],
-    project_name = "admin-worklfow",
-    version = "1.0.0",
-)
-
-daml_compile(
-    name = "community_participant_ping-pong-vaccum",
-    srcs = glob(["community/participant/src/main/daml/ping-pong-vacuum/*.daml"]),
-    data_dependencies = ["//canton:community_participant_admin-worklfow.dar"],
-    dependencies = ["//daml-script/daml:daml-script-1.15.dar"],
-    project_name = "ping-pong-vaccum",
-    version = "1.0.0",
-)
-
 dar_to_scala(
     name = "community_participant_dar_scala",
-    srcs = glob(["community/participant/src/main/resources/dar/**/*.dar"]) + [
-        ":community_participant_admin-worklfow.dar",
-        ":community_participant_ping-pong-vaccum.dar",
+    srcs = [
+        "community/participant/src/main/resources/dar/AdminWorkflows.dar",
+        "community/participant/src/main/resources/dar/AdminWorkflowsWithVacuuming.dar",
     ],
     package_prefix = "com.digitalasset.canton.participant.admin.workflows",
     srcjar_out = "dar.srcjar",
@@ -790,9 +770,21 @@ dar_to_scala(
 
 genrule(
     name = "AdminWorkflowsWithVacuuming.dar",
-    srcs = [":community_participant_ping-pong-vaccum.dar"],
+    srcs = glob(["community/participant/src/main/daml/ping-pong-vacuum/*"]) + [
+        "community/participant/src/main/resources/dar/AdminWorkflows.dar",
+        "//daml-script/daml:daml-script.dar",
+    ],
     outs = ["community/participant/src/main/resources/dar/AdminWorkflowsWithVacuuming.dar"],
-    cmd = "cp -L $(location :community_participant_ping-pong-vaccum.dar) $$PWD/$@",
+    cmd = """
+      project_dir=$$(dirname $(location community/participant/src/main/daml/ping-pong-vacuum/daml.yaml))
+      tmpdir=$$(mktemp -d)
+      trap "rm -rf $$tmpdir" EXIT
+      cp -r $$project_dir/* $$tmpdir
+      cp $(location community/participant/src/main/resources/dar/AdminWorkflows.dar) $$tmpdir
+      sed -i 's/-.*AdminWorkflows.dar/- AdminWorkflows.dar/' $$tmpdir/daml.yaml
+      $(location //daml-assistant:daml)  build --project-root=$$tmpdir --ghc-option=-Werror -o $$PWD/$@
+    """,
+    tools = ["//daml-assistant:daml"],
     visibility = ["//visibility:public"],
 )
 
