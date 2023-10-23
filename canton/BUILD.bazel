@@ -281,8 +281,8 @@ scala_library(
     name = "community_base",
     srcs = glob(["community/base/src/main/scala/**/*.scala"]) + [":community_base_proto_scala"],
     plugins = [kind_projector_plugin],
-    resource_strip_prefix = "/canton/community/app-base/src/main/resources",
-    resources = glob(["community/app-base/src/main/resources/**"]),
+    resource_strip_prefix = "/canton/community/base/src/main/resources",
+    resources = glob(["community/base/src/main/resources/**"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
@@ -372,6 +372,10 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    runtime_deps = [
+        #  not used at compile time, but required by com.digitalasset.canton.util.AkkaUtil.createActorSystem
+        "@maven//:com_typesafe_akka_akka_slf4j_2_13",
+    ],
     deps = [
         "//canton:community_base",
         "//canton:community_buildinfo",
@@ -975,12 +979,17 @@ scala_library(
 scala_library(
     name = "community_app-lib",
     srcs = glob(["community/app/src/main/scala/**/*.scala"]),
+    resource_strip_prefix = "/canton/community/app/src/main/resources",
+    resources = glob(["community/app/src/main/resources/**"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
     visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:org_codehaus_janino_janino",  # for parsing conditionals in logback configuration
+    ],
     deps = [
         "//canton:community_app-base",
         "//canton:community_base",
