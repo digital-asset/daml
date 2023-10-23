@@ -3,19 +3,11 @@
 
 package com.digitalasset.canton.ledger.error.groups
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlErrorWithDefiniteAnswer,
-  ErrorCategory,
-  ErrorCode,
-  ErrorGroup,
-  ErrorResource,
-  Explanation,
-  Resolution,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer, ErrorCategory, ErrorCode, ErrorGroup, ErrorResource, Explanation, Resolution}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.engine.Error as LfError
+import com.daml.lf.engine.Error
+import com.daml.lf.transaction.GlobalKey.SharedGlobalKey as LfError
 import com.daml.lf.interpretation.Error as LfInterpretationError
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
@@ -217,8 +209,8 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
           ) {
 
         final case class Reject(
-            override val cause: String,
-            key: GlobalKey,
+                                 override val cause: String,
+                                 key: SharedGlobalKey,
         )(implicit
             loggingContext: ContextualizedErrorLogger
         ) extends DamlErrorWithDefiniteAnswer(
