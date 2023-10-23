@@ -3,6 +3,7 @@
 
 package com.daml.ledger.javaapi.data.codegen.json;
 
+import static com.daml.ledger.javaapi.data.codegen.json.TestHelpers.*;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -10,17 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.daml.ledger.javaapi.data.Unit;
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.Month;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
@@ -28,7 +21,7 @@ import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 
 @RunWith(JUnitPlatform.class)
-public class JsonLfReaderTest {
+public class JsonLfDecodersTest {
 
   @Test
   void testUnit() throws JsonLfDecoder.Error {
@@ -631,166 +624,6 @@ public class JsonLfReaderTest {
                 .moveNext(), // Skip "hello"
         JsonLfDecoders.list(JsonLfDecoders.bool),
         "Expected boolean but was 42 at line: 5, column: 7");
-  }
-
-  private BigDecimal dec(String s) {
-    return new BigDecimal(s);
-  }
-
-  private Instant timestampUTC(
-      int year, Month month, int day, int hour, int minute, int second, int micros) {
-    return LocalDateTime.of(year, month, day, hour, minute, second, micros * 1000)
-        .toInstant(ZoneOffset.UTC);
-  }
-
-  private LocalDate date(int year, Month month, int day) {
-    return LocalDate.of(year, month, day);
-  }
-
-  class SomeRecord {
-    private final List<Long> i;
-    private final Boolean b;
-
-    public SomeRecord(List<Long> i, Boolean b) {
-      this.i = i;
-      this.b = b;
-    }
-
-    public String toString() {
-      return String.format("SomeRecord{i=%s,b=%s}", i, b);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      return o != null
-          && (o instanceof SomeRecord)
-          && ((SomeRecord) o).i.equals(i)
-          && (((SomeRecord) o).b.equals(b));
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(i, b);
-    }
-  }
-
-  abstract static class SomeVariant {
-    static class Bar extends SomeVariant {
-      private final Long x;
-
-      public Bar(Long x) {
-        this.x = x;
-      }
-
-      @Override
-      public boolean equals(Object o) {
-        return o != null && (o instanceof Bar) && x == ((Bar) o).x;
-      }
-
-      @Override
-      public int hashCode() {
-        return Objects.hash(x);
-      }
-
-      @Override
-      public String toString() {
-        return String.format("Bar(%s)", x);
-      }
-    }
-
-    static class Baz extends SomeVariant {
-      private final Unit x;
-
-      public Baz(Unit x) {
-        this.x = x;
-      }
-      // All units are the same, and thus so are all Baz's
-      @Override
-      public boolean equals(Object o) {
-        return o != null && (o instanceof Baz);
-      }
-
-      @Override
-      public int hashCode() {
-        return 1;
-      }
-
-      @Override
-      public String toString() {
-        return "Baz()";
-      }
-    }
-
-    static class Quux extends SomeVariant {
-      private final Optional<Long> x;
-
-      public Quux(Optional<Long> x) {
-        this.x = x;
-      }
-
-      @Override
-      public boolean equals(Object o) {
-        return o != null && (o instanceof Quux) && x.equals(((Quux) o).x);
-      }
-
-      @Override
-      public int hashCode() {
-        return Objects.hash(x);
-      }
-
-      @Override
-      public String toString() {
-        return String.format("Quux(%s)", x);
-      }
-    }
-
-    static class Flarp extends SomeVariant {
-      private final List<Long> x;
-
-      public Flarp(List<Long> x) {
-        this.x = x;
-      }
-
-      @Override
-      public boolean equals(Object o) {
-        return o != null && (o instanceof Flarp) && x.equals(((Flarp) o).x);
-      }
-
-      @Override
-      public int hashCode() {
-        return Objects.hash(x);
-      }
-
-      @Override
-      public String toString() {
-        return String.format("Flarp(%s)", x);
-      }
-    }
-  }
-
-  static class Tmpl {
-    public static final class Cid extends com.daml.ledger.javaapi.data.codegen.ContractId<Tmpl> {
-      public Cid(String id) {
-        super(id);
-      }
-    }
-  }
-
-  enum Suit {
-    HEARTS,
-    DIAMONDS,
-    CLUBS,
-    SPADES;
-
-    static final Map<String, Suit> damlNames =
-        new HashMap<>() {
-          {
-            put("Hearts", HEARTS);
-            put("Diamonds", DIAMONDS);
-            put("Clubs", CLUBS);
-            put("Spades", SPADES);
-          }
-        };
   }
 
   private <T> void checkReadAll(JsonLfDecoder<T> decoder, TestCase<T>... testCases)
