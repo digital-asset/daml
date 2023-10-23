@@ -358,4 +358,3 @@ checkFields origin fields =
 checkUpgradeType :: MonadGamma m => Upgrading Type -> Error -> m [Qualified TypeConName]
 checkUpgradeType type_ err = do
     unless (foldU alphaType type_) (throwWithContext err)
-    pure ()
