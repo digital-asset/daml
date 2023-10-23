@@ -2025,6 +2025,8 @@ object Runner {
     implicit def `SValue to LoggingValue`: ToLoggingValue[SValue] = value =>
       PrettyPrint.prettySValue(value).render(80)
 
+    // Allows using deprecated Protobuf fields
+    @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
     implicit def `TransactionFilter to LoggingValue`: ToLoggingValue[TransactionFilter] = filter =>
       LoggingValue.Nested(LoggingEntries(filter.filtersByParty.view.mapValues { value =>
         LoggingValue.Nested(

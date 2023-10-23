@@ -48,6 +48,8 @@ import java.util.regex.Pattern
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
+// Allows using deprecated Protobuf fields in tests
+@annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
 final class ExplicitDisclosureIT extends LedgerTestSuite {
   import ExplicitDisclosureIT._
 
@@ -1073,6 +1075,8 @@ object ExplicitDisclosureIT {
     )
   )
 
+  // Allows using deprecated Protobuf fields for testing
+  @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
   private def createEventToDisclosedContract(ev: CreatedEvent): DisclosedContract = {
     val arguments = (ev.createArguments, ev.createArgumentsBlob) match {
       case (Some(createArguments), _) =>
