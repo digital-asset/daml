@@ -77,7 +77,9 @@ fi
 rm -r $DAML_CACHE
 mkdir $DAML_CACHE
 
-daml install latest || true
+daml install latest || true # daml install fails due to sandboxing, but we can still check that the version list is up to date
+echo '`daml install latest` cache/versions.txt:'
+cat $DAML_CACHE/versions.txt
 if ! stat $DAML_CACHE/versions.txt; then
   exit_with_message 'Cached versions.txt should exist after running `daml install latest`, even if it fails'
 fi
@@ -89,7 +91,9 @@ fi
 rm -r $DAML_CACHE
 mkdir $DAML_CACHE
 
-daml install latest --snapshots yes || true
+daml install latest --snapshots yes || true # daml install fails due to sandboxing, but we can still check that the version list is up to date
+echo '`daml install latest --snapshots yes` cache/versions.txt:'
+cat $DAML_CACHE/versions.txt
 if ! stat $DAML_CACHE/versions.txt; then
   exit_with_message 'Cached versions.txt should exist after running `daml install latest --snapshots yes`, even if it fails'
 fi
