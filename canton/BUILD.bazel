@@ -301,6 +301,7 @@ scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
+        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-api/rs-grpc-akka",
