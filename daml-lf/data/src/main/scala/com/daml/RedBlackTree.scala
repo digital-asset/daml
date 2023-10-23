@@ -46,18 +46,18 @@ private[data] object RedBlackTree {
   }
 
   private[this] def toOrderIndexedSeq[X](
-      f: (X, X) => Boolean,
-      entries: IterableOnce[X],
+      lessThan: (X, X) => Boolean,
+      orderedEntries: IterableOnce[X],
   ): IndexedSeq[X] = {
-    val it = entries.iterator
+    val it = orderedEntries.iterator
     if (it.isEmpty)
       Vector.empty
     else {
       val buffer = new mutable.ArrayBuffer[X]()
-      buffer.sizeHint(entries.knownSize)
+      buffer.sizeHint(orderedEntries.knownSize)
       var previous = it.next()
       it.foreach { next =>
-        if (f(previous, next))
+        if (lessThan(previous, next))
           discard(buffer.addOne(previous))
         previous = next
       }
@@ -65,6 +65,7 @@ private[data] object RedBlackTree {
       buffer
     }
   }
+
   private[this] def lenientBehaviour[X](ordering: Ordering[X])(x1: X, x2: X): Boolean =
     ordering.compare(x1, x2).sign match {
       case -1 => true
