@@ -27,6 +27,7 @@ import com.digitalasset.canton.store.SequencedEventStore.{
   OrdinarySequencedEvent,
 }
 import com.digitalasset.canton.time.TimeProof
+import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.MonadUtil
@@ -47,7 +48,7 @@ class DefaultMessageDispatcher(
     override protected val requestProcessors: RequestProcessors,
     override protected val topologyProcessor: (
         SequencerCounter,
-        CantonTimestamp,
+        SequencedTime,
         Traced[List[DefaultOpenEnvelope]],
     ) => HandlerResult,
     override protected val acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
@@ -134,7 +135,7 @@ class DefaultMessageDispatcher(
       for {
         // Signal to the topology processor that all messages up to timestamp `ts` have arrived
         // Publish the empty ACS change only afterwards as this may trigger an ACS commitment computation which accesses the topology state.
-        _unit <- runAsyncResult(topologyProcessor(sc, ts, Traced(List.empty)))
+        _unit <- runAsyncResult(topologyProcessor(sc, SequencedTime(ts), Traced(List.empty)))
       } yield {
         // Make sure that the tick is not lost
         requestTracker.tick(sc, ts)

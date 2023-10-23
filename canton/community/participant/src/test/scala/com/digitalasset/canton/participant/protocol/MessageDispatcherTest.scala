@@ -31,7 +31,6 @@ import com.digitalasset.canton.protocol.{
   RequestId,
   RequestProcessor,
   RootHash,
-  SourceDomainId,
   VerdictTest,
   ViewHash,
   v0 as protocolv0,
@@ -46,6 +45,7 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.time.TimeProof
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
@@ -74,7 +74,6 @@ trait MessageDispatcherTest {
   import MessageDispatcherTest.*
 
   private val domainId = DomainId.tryFromString("messageDispatcher::domain")
-  private val sourceDomain = SourceDomainId(DomainId.tryFromString("sourceDomain::sourceDomain"))
   private val participantId =
     ParticipantId.tryFromProtoPrimitive("PAR::messageDispatcher::participant")
   private val mediatorId = MediatorId(domainId)
@@ -85,9 +84,9 @@ trait MessageDispatcherTest {
       requestTracker: RequestTracker,
       testProcessor: RequestProcessor[TestViewType],
       otherTestProcessor: RequestProcessor[OtherTestViewType],
-      identityProcessor: (
+      topologyProcessor: (
           SequencerCounter,
-          CantonTimestamp,
+          SequencedTime,
           Traced[List[DefaultOpenEnvelope]],
       ) => HandlerResult,
       acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
@@ -107,7 +106,7 @@ trait MessageDispatcherTest {
             ParticipantId,
             RequestTracker,
             RequestProcessors,
-            (SequencerCounter, CantonTimestamp, Traced[List[DefaultOpenEnvelope]]) => HandlerResult,
+            (SequencerCounter, SequencedTime, Traced[List[DefaultOpenEnvelope]]) => HandlerResult,
             AcsCommitmentProcessor.ProcessorType,
             RequestCounterAllocator,
             RecordOrderPublisher,
@@ -167,12 +166,12 @@ trait MessageDispatcherTest {
 
       val identityProcessor =
         mock[
-          (SequencerCounter, CantonTimestamp, Traced[List[DefaultOpenEnvelope]]) => HandlerResult
+          (SequencerCounter, SequencedTime, Traced[List[DefaultOpenEnvelope]]) => HandlerResult
         ]
       when(
         identityProcessor.apply(
           any[SequencerCounter],
-          any[CantonTimestamp],
+          any[SequencedTime],
           any[Traced[List[DefaultOpenEnvelope]]],
         )
       )
@@ -348,7 +347,7 @@ trait MessageDispatcherTest {
           ParticipantId,
           RequestTracker,
           RequestProcessors,
-          (SequencerCounter, CantonTimestamp, Traced[List[DefaultOpenEnvelope]]) => HandlerResult,
+          (SequencerCounter, SequencedTime, Traced[List[DefaultOpenEnvelope]]) => HandlerResult,
           AcsCommitmentProcessor.ProcessorType,
           RequestCounterAllocator,
           RecordOrderPublisher,
@@ -408,14 +407,14 @@ trait MessageDispatcherTest {
         dummySignature,
       )
 
-    def checkTickIdentityProcessor(
+    def checkTickTopologyProcessor(
         sut: Fixture,
         sc: SequencerCounter = SequencerCounter(0),
         ts: CantonTimestamp = CantonTimestamp.Epoch,
     ): Assertion = {
-      verify(sut.identityProcessor).apply(
+      verify(sut.topologyProcessor).apply(
         isEq(sc),
-        isEq(ts),
+        isEq(SequencedTime(ts)),
         any[Traced[List[DefaultOpenEnvelope]]],
       )
       succeed
@@ -459,7 +458,7 @@ trait MessageDispatcherTest {
         sc: SequencerCounter = SequencerCounter(0),
         ts: CantonTimestamp = CantonTimestamp.Epoch,
     ): Assertion = {
-      checkTickIdentityProcessor(sut, sc, ts)
+      checkTickTopologyProcessor(sut, sc, ts)
       checkTickRequestTracker(sut, sc, ts)
       checkTickRecordOrderPublisher(sut, sc, ts)
     }
@@ -541,11 +540,11 @@ trait MessageDispatcherTest {
           )
         )
           .thenAnswer {
-            checkTickIdentityProcessor(sut, sc, ts).discard
+            checkTickTopologyProcessor(sut, sc, ts).discard
           }
         when(sut.requestTracker.tick(any[SequencerCounter], any[CantonTimestamp])(anyTraceContext))
           .thenAnswer {
-            checkTickIdentityProcessor(sut, sc, ts).discard
+            checkTickTopologyProcessor(sut, sc, ts).discard
           }
 
         handle(sut, deliver) {
@@ -658,10 +657,10 @@ trait MessageDispatcherTest {
 
       // Overwrite the mocked identity processor so that it aborts synchronously
       when(
-        sut.identityProcessor
+        sut.topologyProcessor
           .apply(
             any[SequencerCounter],
-            any[CantonTimestamp],
+            any[SequencedTime],
             any[Traced[List[DefaultOpenEnvelope]]],
           )
       )
@@ -699,10 +698,10 @@ trait MessageDispatcherTest {
 
       // Overwrite the mocked identity processor so that it aborts asynchronously
       when(
-        sut.identityProcessor
+        sut.topologyProcessor
           .apply(
             any[SequencerCounter],
-            any[CantonTimestamp],
+            any[SequencedTime],
             any[Traced[List[DefaultOpenEnvelope]]],
           )
       )
@@ -837,7 +836,7 @@ trait MessageDispatcherTest {
           )
         handle(sut, event) {
           checkProcessRequest(processor(sut), ts, initRc, sc)
-          checkTickIdentityProcessor(sut, sc, ts)
+          checkTickTopologyProcessor(sut, sc, ts)
           checkTickRequestTracker(sut, sc, ts)
           sut.requestCounterAllocator.peek shouldBe initRc + 1
         }.futureValue
@@ -942,7 +941,7 @@ trait MessageDispatcherTest {
                             eqTo(ts),
                             eqTo(mediatorId),
                           )(anyTraceContext)
-                        checkTickIdentityProcessor(sut, sc, ts)
+                        checkTickTopologyProcessor(sut, sc, ts)
                         checkTickRequestTracker(sut, sc, ts)
                       case SendMalformedAndExpectMediatorResult(rootHash, mediatorId, reason) =>
                         verify(sut.badRootHashMessagesRequestProcessor)
@@ -957,7 +956,7 @@ trait MessageDispatcherTest {
                                 .Reject(reason, testedProtocolVersion)
                             ),
                           )(anyTraceContext)
-                        checkTickIdentityProcessor(sut, sc, ts)
+                        checkTickTopologyProcessor(sut, sc, ts)
                         checkTickRequestTracker(sut, sc, ts)
                     }
                     succeed
@@ -1079,7 +1078,7 @@ trait MessageDispatcherTest {
               loggerFactory.assertLogsUnordered(
                 handle(sut, mkDeliver(batch, sc, ts)) {
                   checkProcessRequest(processor(sut), ts, initRc, sc)
-                  checkTickIdentityProcessor(sut, sc, ts)
+                  checkTickTopologyProcessor(sut, sc, ts)
                   checkTickRequestTracker(sut, sc, ts)
                   // do tick the request counter
                   sut.requestCounterAllocator.peek shouldBe initRc + 1
@@ -1122,7 +1121,7 @@ trait MessageDispatcherTest {
           )
         handle(sut, event) {
           checkNotProcessRequest(processor(sut))
-          checkTickIdentityProcessor(sut, sc, ts)
+          checkTickTopologyProcessor(sut, sc, ts)
           checkTickRequestTracker(sut, sc, ts)
           sut.requestCounterAllocator.peek shouldBe initRc
         }.futureValue
@@ -1147,7 +1146,7 @@ trait MessageDispatcherTest {
           val sut = mk()
           val batch = Batch.of(testedProtocolVersion, result -> Recipients.cc(participantId))
           handle(sut, mkDeliver(batch)) {
-            checkTickIdentityProcessor(sut)
+            checkTickTopologyProcessor(sut)
             checkTickRequestTracker(sut)
             checkProcessResult(processor(sut))
           }
@@ -1207,7 +1206,7 @@ trait MessageDispatcherTest {
                   SignedContent[Deliver[DefaultOpenEnvelope]],
                 ]],
               )(anyTraceContext)
-              checkTickIdentityProcessor(sut)
+              checkTickTopologyProcessor(sut)
               checkTickRequestTracker(sut)
             }
           }

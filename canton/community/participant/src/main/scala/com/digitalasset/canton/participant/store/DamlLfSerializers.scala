@@ -83,7 +83,10 @@ private[store] object DamlLfSerializers {
       node <- deserializeNode(proto)
       createNode <- node match {
         case create: Node.Create => Right(create)
-        case _node => Left(DecodeError("Failed to deserialize create node: wrong node type"))
+        case _node =>
+          Left(
+            DecodeError(s"Failed to deserialize create node: wrong node type `${node.nodeType}`")
+          )
       }
     } yield createNode
   }
@@ -95,7 +98,10 @@ private[store] object DamlLfSerializers {
       node <- deserializeNode(proto)
       exerciseNode <- node match {
         case exercise: Node.Exercise => Right(exercise)
-        case _node => Left(DecodeError("Failed to deserialize exercise node: wrong node type"))
+        case _node =>
+          Left(
+            DecodeError(s"Failed to deserialize exercise node: wrong node type `${node.nodeType}`")
+          )
       }
     } yield exerciseNode
   }

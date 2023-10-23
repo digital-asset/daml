@@ -287,11 +287,11 @@ class SendEventGenerator(
         val error = SequencerErrors.UnknownRecipients(unknownRecipients)
         val (message, serializedError) =
           DeliverErrorStoreEvent.serializeError(error, protocolVersion)
-        DeliverErrorStoreEvent(
+        DeliverErrorStoreEvent.create(
           senderId,
           submission.messageId,
-          message,
-          serializedError,
+          error,
+          protocolVersion,
           traceContext,
         )
       }
@@ -407,13 +407,11 @@ object SequenceWritesFlow {
               val reason = SequencerErrors
                 .SigningTimestampAfterSequencingTimestamp(signingTimestamp, timestamp)
                 .forProtocolVersion(protocolVersion)
-              val (message, serializedError) =
-                DeliverErrorStoreEvent.serializeError(reason, protocolVersion)
-              DeliverErrorStoreEvent(
+              DeliverErrorStoreEvent.create(
                 sender,
                 messageId,
-                message,
-                serializedError,
+                reason,
+                protocolVersion,
                 event.traceContext,
               )
             }
