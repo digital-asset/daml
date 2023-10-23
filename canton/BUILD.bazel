@@ -7,6 +7,10 @@ load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
+load(
+    "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
+    "jar_jar",
+)
 
 ### build-info ###
 
@@ -59,7 +63,7 @@ scala_library(
 ### community/lib/akka ###
 
 scala_library(
-    name = "community_lib_akka_akka-fork",
+    name = "akka-stream-patch",
     srcs = glob(["community/lib/akka/src/main/**/*.scala"]),
     scalacopts = [
         "-Xsource:3",
@@ -70,6 +74,12 @@ scala_library(
         "@maven//:com_typesafe_akka_akka_actor_2_13",
         "@maven//:com_typesafe_akka_akka_stream_2_13",
     ],
+)
+
+jar_jar(
+    name = "akka-stream-minus-patched-classes",
+    input_jar = "@maven//:com_typesafe_akka_akka_stream_2_13",
+    rules = "shade_rule",
 )
 
 ### community/lib/Blake2b ###
@@ -124,6 +134,7 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
+        ":akka-stream-minus-patched-classes",
         "//canton:daml-common-staging_daml-errors",
         "//daml-lf/data",
         "//libs-scala/contextualized-logging",
@@ -134,7 +145,6 @@ scala_library(
         "//observability/telemetry",
         "//observability/tracing",
         "@maven//:com_typesafe_akka_akka_actor_2_13",
-        "@maven//:com_typesafe_akka_akka_stream_2_13",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_context",
@@ -210,6 +220,7 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
+        ":akka-stream-minus-patched-classes",
         ":community_ledger_ledger-common_configuration_proto_java",
         "//canton:daml-common-staging_daml-errors",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -234,7 +245,6 @@ scala_library(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
         "@maven//:com_typesafe_akka_akka_actor_2_13",
-        "@maven//:com_typesafe_akka_akka_stream_2_13",
         "@maven//:commons_codec_commons_codec",
         "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
@@ -290,6 +300,7 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
+        ":akka-stream-minus-patched-classes",
         "//canton:community_buildinfo",
         "//canton:community_ledger_ledger-common",
         "//canton:community_lib_slick_slick-fork",
@@ -327,7 +338,6 @@ scala_library(
         "@maven//:com_lihaoyi_pprint_2_13",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
         "@maven//:com_typesafe_akka_akka_actor_2_13",
-        "@maven//:com_typesafe_akka_akka_stream_2_13",
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:com_typesafe_slick_slick_2_13",
@@ -377,6 +387,7 @@ scala_library(
         "@maven//:com_typesafe_akka_akka_slf4j_2_13",
     ],
     deps = [
+        ":akka-stream-minus-patched-classes",
         "//canton:community_base",
         "//canton:community_buildinfo",
         "//canton:community_ledger_ledger-common",
@@ -413,7 +424,6 @@ scala_library(
         "@maven//:com_lihaoyi_pprint_2_13",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
         "@maven//:com_typesafe_akka_akka_actor_2_13",
-        "@maven//:com_typesafe_akka_akka_stream_2_13",
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:com_typesafe_slick_slick_2_13",
@@ -482,6 +492,8 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
+        ":akka-stream-minus-patched-classes",
+        ":akka-stream-patch",
         "//canton:community_base",
         "//canton:community_common",
         "//canton:community_ledger_ledger-common",
@@ -538,7 +550,6 @@ scala_library(
         "@maven//:com_oracle_database_jdbc_ojdbc8",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
         "@maven//:com_typesafe_akka_akka_actor_2_13",
-        "@maven//:com_typesafe_akka_akka_stream_2_13",
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:com_typesafe_slick_slick_2_13",
@@ -584,6 +595,7 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
+        ":akka-stream-minus-patched-classes",
         "//canton:community_base",
         "//canton:community_ledger_ledger-api-core",
         "//canton:community_ledger_ledger-common",
@@ -627,7 +639,6 @@ scala_library(
         "@maven//:com_typesafe_akka_akka_http_2_13",
         "@maven//:com_typesafe_akka_akka_http_core_2_13",
         "@maven//:com_typesafe_akka_akka_parsing_2_13",
-        "@maven//:com_typesafe_akka_akka_stream_2_13",
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:io_github_paoloboni_spray_json_derived_codecs_2_13",
@@ -679,6 +690,8 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
+        ":akka-stream-minus-patched-classes",
+        ":akka-stream-patch",
         "//canton:community_base",
         "//canton:community_common",
         "//canton:community_ledger_ledger-common",
@@ -710,7 +723,6 @@ scala_library(
         "@maven//:com_oracle_database_jdbc_ojdbc8",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
         "@maven//:com_typesafe_akka_akka_actor_2_13",
-        "@maven//:com_typesafe_akka_akka_stream_2_13",
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:com_typesafe_slick_slick_2_13",
@@ -807,6 +819,7 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
+        ":akka-stream-minus-patched-classes",
         "//canton:community_base",
         "//canton:community_common",
         "//canton:community_ledger_ledger-api-core",
@@ -852,7 +865,6 @@ scala_library(
         "@maven//:com_lihaoyi_pprint_2_13",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
         "@maven//:com_typesafe_akka_akka_actor_2_13",
-        "@maven//:com_typesafe_akka_akka_stream_2_13",
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:com_typesafe_slick_slick_2_13",
@@ -893,6 +905,7 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
+        ":akka-stream-minus-patched-classes",
         "//canton:community_base",
         "//canton:community_buildinfo",
         "//canton:community_common",
@@ -941,7 +954,6 @@ scala_library(
         "@maven//:com_typesafe_akka_akka_actor_2_13",
         "@maven//:com_typesafe_akka_akka_http_2_13",
         "@maven//:com_typesafe_akka_akka_http_core_2_13",
-        "@maven//:com_typesafe_akka_akka_stream_2_13",
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:com_typesafe_slick_slick_2_13",
@@ -991,6 +1003,7 @@ scala_library(
         "@maven//:org_codehaus_janino_janino",  # for parsing conditionals in logback configuration
     ],
     deps = [
+        ":akka-stream-minus-patched-classes",
         "//canton:community_app-base",
         "//canton:community_base",
         "//canton:community_buildinfo",
@@ -1024,7 +1037,6 @@ scala_library(
         "@maven//:com_lihaoyi_ammonite_util_2_13",
         "@maven//:com_lihaoyi_os_lib_2_13",
         "@maven//:com_typesafe_akka_akka_actor_2_13",
-        "@maven//:com_typesafe_akka_akka_stream_2_13",
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:io_get_coursier_interface",
