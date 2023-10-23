@@ -127,3 +127,28 @@ message NodeRollback { // *since version 14*
 }
 
 // architecture-handbook-entry-end: Nodes
+
+message Versioned {
+  string version = 1;
+  bytes payload = 2;
+}
+
+
+
+// A self contains representation of a committed contract.
+message FatContractInstance {
+  bytes contract_id = 1;
+  com.daml.lf.value.Identifier template_id = 2;
+
+  bytes create_arg = 3;
+
+  KeyWithMaintainers contract_key_with_maintainers = 4;
+
+  repeated string non_maintainer_signatories = 5;
+
+  repeated string non_signatory_stakeholders = 6;
+
+  sfixed64 created_at = 7;
+
+  bytes canton_data = 8;
+}

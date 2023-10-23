@@ -14,7 +14,7 @@ import com.daml.scalautil.Statement.discard
 import com.google.protobuf.{ByteString, GeneratedMessageV3, ProtocolStringList}
 
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection.immutable.HashMap
+import scala.collection.immutable.{HashMap, TreeSet}
 import scala.jdk.CollectionConverters._
 
 object TransactionCoder {
@@ -180,14 +180,12 @@ object TransactionCoder {
       Value.ContractInstanceWithAgreement(Value.ContractInstance(id, arg), protoCoinst.getAgreement)
     )
 
-  private[this] def encodeKeyWithMaintainers(
+  private[transaction] def encodeKeyWithMaintainers(
       version: TransactionVersion,
       key: GlobalKeyWithMaintainers,
   ): Either[EncodeError, TransactionOuterClass.KeyWithMaintainers] = {
-    val builder =
-      TransactionOuterClass.KeyWithMaintainers
-        .newBuilder()
-        .addAllMaintainers(key.maintainers.toSet[String].asJava)
+    val builder = TransactionOuterClass.KeyWithMaintainers.newBuilder()
+    key.maintainers.foreach(builder.addMaintainers(_))
     if (version < TransactionVersion.minNoVersionValue) {
       ValueCoder
         .encodeVersionedValue(ValueCoder.UnsafeNoCidEncoder, version, key.value)
@@ -428,6 +426,23 @@ object TransactionCoder {
       gkey <- GlobalKey.build(templateId, value).left.map(hashErr => DecodeError(hashErr.msg))
     } yield GlobalKeyWithMaintainers(gkey, maintainers)
   }
+
+  private[transaction] def strictDecodeKeyWithMaintainers(
+      version: TransactionVersion,
+      templateId: Ref.TypeConName,
+      keyWithMaintainers: TransactionOuterClass.KeyWithMaintainers,
+  ): Either[DecodeError, GlobalKeyWithMaintainers] =
+    for {
+      maintainers <- toOrderedPartySet(keyWithMaintainers.getMaintainersList)
+      _ <- Either.cond(maintainers.nonEmpty, (), DecodeError("key without maintainers"))
+      value <- decodeValue(
+        ValueCoder.NoCidDecoder,
+        version,
+        keyWithMaintainers.getKeyVersioned,
+        keyWithMaintainers.getKeyUnversioned,
+      )
+      gkey <- GlobalKey.build(templateId, value).left.map(hashErr => DecodeError(hashErr.msg))
+    } yield GlobalKeyWithMaintainers(gkey, maintainers)
 
   private val RightNone = Right(None)
 
@@ -828,6 +843,29 @@ object TransactionCoder {
     }
   }
 
+  // like toParty but requires entries to be strictly ordered
+  def toOrderedPartySet(strList: ProtocolStringList): Either[DecodeError, TreeSet[Party]] =
+    if (strList.isEmpty)
+      Right(TreeSet.empty)
+    else {
+      val parties = strList
+        .asByteStringList()
+        .asScala
+        .map(bs => Party.fromString(bs.toStringUtf8))
+
+      sequence(parties) match {
+        case Left(err) => Left(DecodeError(s"Cannot decode party: $err"))
+        case Right(ps) =>
+          // TODO. Write a linear function that convert ordered sequences of elements into
+          //  a TreeSet, similarly to what is done for TreeMap with com.data.TreeMap
+          (ps zip ps.tail)
+            .collectFirst {
+              case (p1, p2) if p1 >= p2 => DecodeError("the parties are not strictly ordered ")
+            }
+            .toLeft(TreeSet.from(ps))
+      }
+    }
+
   private def toIdentifier(s: String): Either[DecodeError, Name] =
     Name.fromString(s).left.map(DecodeError)
 
@@ -888,5 +926,131 @@ object TransactionCoder {
     } else {
       Right(None)
     }
+
+  private[this] def ensureNoUnknownFields(
+      proto: com.google.protobuf.Message
+  ): Either[DecodeError, Unit] = {
+    val unknownFields = proto.getUnknownFields.asMap()
+    Either.cond(
+      unknownFields.isEmpty,
+      (),
+      DecodeError(
+        s"unexpected field(s) ${unknownFields.keySet().asScala.mkString(", ")}  in ${proto.getClass.getSimpleName} message"
+      ),
+    )
+  }
+
+  private[transaction] def encodeVersioned(
+      version: TransactionVersion,
+      payload: ByteString,
+  ): ByteString = {
+    val builder = TransactionOuterClass.Versioned.newBuilder()
+    discard(builder.setVersion(version.protoValue))
+    discard(builder.setPayload(payload))
+    builder.build().toByteString
+  }
+
+  private[transaction] def decodeVersioned(
+      bytes: ByteString
+  ): Either[DecodeError, Versioned[ByteString]] =
+    for {
+      proto <- scala.util
+        .Try(TransactionOuterClass.Versioned.parseFrom(bytes))
+        .toEither
+        .left
+        .map(e => DecodeError(s"exception $e while decoding the versioned object"))
+      _ <- ensureNoUnknownFields(proto)
+      version <- TransactionVersion.fromString(proto.getVersion).left.map(DecodeError)
+      payload = proto.getPayload
+    } yield Versioned(version, payload)
+
+  def encodeFatContractInstance(
+      contractInstance: FatContractInstance
+  ): Either[EncodeError, ByteString] = {
+    import contractInstance._
+    for {
+      encodedArg <- ValueCoder.encodeValue(ValueCoder.CidEncoder, version, createArg)
+      encodedKeyOpt <- contractKeyWithMaintainers match {
+        case None =>
+          Right(None)
+        case Some(key) =>
+          encodeKeyWithMaintainers(version, key).map(Some(_))
+      }
+    } yield {
+      val builder = TransactionOuterClass.FatContractInstance.newBuilder()
+      contractId match {
+        case cid: Value.ContractId.V1 =>
+          discard(builder.setContractId(cid.toBytes.toByteString))
+      }
+      discard(builder.setTemplateId(ValueCoder.encodeIdentifier(templateId)))
+      discard(builder.setCreateArg(encodedArg))
+      encodedKeyOpt.foreach(builder.setContractKeyWithMaintainers)
+      nonMaintainerSignatories.foreach(builder.addNonMaintainerSignatories)
+      nonSignatoryStakeholders.foreach(builder.addNonSignatoryStakeholders)
+      discard(builder.setCreatedAt(createdAt.micros))
+      discard(builder.setCreatedAt(createdAt.micros))
+      discard(builder.setCantonData(cantonData.toByteString))
+      encodeVersioned(version, builder.build().toByteString)
+    }
+  }
+
+  def decodeFatContractInstance(bytes: ByteString): Either[DecodeError, FatContractInstance] =
+    for {
+      versionedBlob <- decodeVersioned(bytes)
+      Versioned(version, unversioned) = versionedBlob
+      _ <- Either.cond(
+        version >= TransactionVersion.V14,
+        (),
+        DecodeError(s"version $version does not support FatContractInstance"),
+      )
+      proto <- scala.util
+        .Try(TransactionOuterClass.FatContractInstance.parseFrom(unversioned))
+        .toEither
+        .left
+        .map(e => DecodeError(s"exception $e while decoding the object"))
+      _ <- ensureNoUnknownFields(proto)
+      contractId <- Value.ContractId.V1
+        .fromBytes(data.Bytes.fromByteString(proto.getContractId))
+        .left
+        .map(DecodeError)
+      templateId <- ValueCoder.decodeIdentifier(proto.getTemplateId)
+      createArg <- ValueCoder.decodeValue(ValueCoder.CidDecoder, version, proto.getCreateArg)
+      keyWithMaintainers <-
+        if (proto.hasContractKeyWithMaintainers)
+          strictDecodeKeyWithMaintainers(version, templateId, proto.getContractKeyWithMaintainers)
+            .map(Some(_))
+        else
+          RightNone
+      maintainers = keyWithMaintainers.fold(TreeSet.empty[Party])(k => TreeSet.from(k.maintainers))
+      nonMaintainerSignatories <- toOrderedPartySet(proto.getNonMaintainerSignatoriesList)
+      _ <- Either.cond(
+        maintainers.nonEmpty || nonMaintainerSignatories.nonEmpty,
+        (),
+        DecodeError("maintainers or non_maintainer_signatories should be non empty"),
+      )
+      nonSignatoryStakeholders <- toOrderedPartySet(proto.getNonSignatoryStakeholdersList)
+      signatories <- maintainers.find(nonMaintainerSignatories) match {
+        case Some(p) =>
+          Left(DecodeError(s"party $p is declared as maintainer and nonMaintainerSignatory"))
+        case None => Right(maintainers | nonMaintainerSignatories)
+      }
+      stakeholders <- nonSignatoryStakeholders.find(signatories) match {
+        case Some(p) =>
+          Left(DecodeError(s"party $p is declared as signatory and nonSignatoryStakeholder"))
+        case None => Right(signatories | nonSignatoryStakeholders)
+      }
+      createdAt <- data.Time.Timestamp.fromLong(proto.getCreatedAt).left.map(DecodeError)
+      cantonData = proto.getCantonData
+    } yield FatContractInstanceImpl(
+      version = versionedBlob.version,
+      contractId = contractId,
+      templateId = templateId,
+      createArg = createArg,
+      signatories = signatories,
+      stakeholders = stakeholders,
+      createdAt = createdAt,
+      contractKeyWithMaintainers = keyWithMaintainers,
+      cantonData = data.Bytes.fromByteString(cantonData),
+    )
 
 }

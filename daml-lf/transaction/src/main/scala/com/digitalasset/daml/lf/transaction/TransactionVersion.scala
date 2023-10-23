@@ -6,8 +6,10 @@ package transaction
 
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 
-sealed abstract class TransactionVersion private (val protoValue: String, private val index: Int)
-    extends Product
+sealed abstract class TransactionVersion private (
+    val protoValue: String,
+    private[transaction] val index: Int,
+) extends Product
     with Serializable
 
 /** Currently supported versions of the Daml-LF transaction specification.
@@ -27,17 +29,21 @@ object TransactionVersion {
   implicit val Ordering: scala.Ordering[TransactionVersion] =
     scala.Ordering.by(_.index)
 
-  private[this] val stringMapping = All.iterator.map(v => v.protoValue -> v).toMap
+  private[this] val stringMapping = All.view.map(v => v.protoValue -> v).toMap
+
+  private[this] val intMapping = All.view.map(v => v.index -> v).toMap
 
   def fromString(vs: String): Either[String, TransactionVersion] =
-    stringMapping.get(vs) match {
-      case Some(value) => Right(value)
-      case None =>
-        Left(s"Unsupported transaction version '$vs'")
-    }
+    stringMapping.get(vs).toRight(s"Unsupported transaction version '$vs'")
 
   def assertFromString(vs: String): TransactionVersion =
     data.assertRight(fromString(vs))
+
+  def fromInt(i: Int): Either[String, TransactionVersion] =
+    intMapping.get(i).toRight(s"Unsupported transaction version '$i'")
+
+  def assertFromInt(i: Int): TransactionVersion =
+    data.assertRight(fromInt(i))
 
   val minVersion: TransactionVersion = All.min
   def maxVersion: TransactionVersion = VDev

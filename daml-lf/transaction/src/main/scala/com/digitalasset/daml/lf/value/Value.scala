@@ -164,6 +164,7 @@ object Value {
     new `Value Equal instance`
 
   /** A contract instance is a value plus the template that originated it. */
+  // Prefer to use transaction.FatContractInstance
   final case class ContractInstance(template: Identifier, arg: Value)
       extends CidContainer[ContractInstance] {
 
@@ -241,19 +242,18 @@ object Value {
 
       private val suffixStart: Int = crypto.Hash.underlyingHashLength + prefix.length
 
+      def fromBytes(bytes: Bytes): Either[String, V1] =
+        if (bytes.startsWith(prefix) && bytes.length >= suffixStart)
+          crypto.Hash
+            .fromBytes(bytes.slice(prefix.length, suffixStart))
+            .flatMap(
+              V1.build(_, bytes.slice(suffixStart, bytes.length))
+            )
+        else
+          Left(s"""cannot parse V1 ContractId "${bytes.toHexString}"""")
+
       def fromString(s: String): Either[String, V1] =
-        Bytes
-          .fromString(s)
-          .flatMap(bytes =>
-            if (bytes.startsWith(prefix) && bytes.length >= suffixStart)
-              crypto.Hash
-                .fromBytes(bytes.slice(prefix.length, suffixStart))
-                .flatMap(
-                  V1.build(_, bytes.slice(suffixStart, bytes.length))
-                )
-            else
-              Left(s"""cannot parse V1 ContractId "$s"""")
-          )
+        Bytes.fromString(s).flatMap(fromBytes)
 
       def assertFromString(s: String): V1 = assertRight(fromString(s))
 
