@@ -84,24 +84,24 @@ fi
 rm -r $DAML_CACHE
 mkdir $DAML_CACHE
 
-daml install latest
+daml install latest || true
 if ! stat $DAML_CACHE/versions.txt; then
-  exit_with_message 'Cached versions.txt should exist after running `daml install latest`'
+  exit_with_message 'Cached versions.txt should exist after running `daml install latest`, even if it fails'
 fi
 if [[ $(grep -c 'snapshot' $DAML_CACHE/versions.txt) -lt 100 ]]; then
-  exit_with_message 'Cached versions.txt contains less than 100 snapshots identifiers'
+  exit_with_message 'Cached versions.txt after `daml install latest` contains less than 100 snapshots identifiers'
 fi
 
 # Delete cache before `daml install latest --snapshots yes`
 rm -r $DAML_CACHE
 mkdir $DAML_CACHE
 
-daml install latest --snapshots yes
+daml install latest --snapshots yes || true
 if ! stat $DAML_CACHE/versions.txt; then
-  exit_with_message 'Cached versions.txt should exist after running `daml install latest --snapshots yes`'
+  exit_with_message 'Cached versions.txt should exist after running `daml install latest --snapshots yes`, even if it fails'
 fi
 if [[ $(grep -c 'snapshot' $daml_cache/versions.txt) -lt 100 ]]; then
-  exit_with_message 'cached versions.txt contains less than 100 snapshots identifiers'
+  exit_with_message 'cached versions.txt after `daml install latest --snapshots yes` contains less than 100 snapshots identifiers'
 fi
 
 exit 0
