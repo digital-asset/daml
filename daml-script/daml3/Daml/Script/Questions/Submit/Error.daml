@@ -117,6 +117,15 @@ data SubmitError
     ValueNesting with
         limit : Int
           -- ^ Nesting limit that was exceeded
+  | -- | The transaction refers to locked contracts which are in the process of being created, transferred, or
+    -- archived by another transaction. If the other transaction fails, this transaction could be successfully retried.
+    LocalVerdictLockedContracts with
+      localVerdictLockedContracts : [AnyContractId]
+          -- ^ Locked contract ids
+  | -- | The transaction refers to locked keys which are in the process of being modified by another transaction.
+    LocalVerdictLockedKeys with
+      localVerdictLockedKeys : [AnyContractKey]
+          -- ^ Locked contract keys
   | -- | Development feature exceptions
     DevError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
       devErrorType : DevErrorType
@@ -161,6 +170,8 @@ instance Show SubmitError where
     ContractIdInContractKey {} -> "Illegal contract ID in contract key"
     ContractIdComparability contractId -> "Attempted to compare local and global contract IDs of the same contract - contract ID: " <> contractId
     ValueNesting limit -> "Exceeded maximum nesting depth for values - limit: " <> show limit
+    LocalVerdictLockedContracts cids -> "Attempted to use locked contracts: " <> show cids
+    LocalVerdictLockedKeys keys -> "Attempted to use locked contract keys: " <> show keys
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
     TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""

@@ -127,6 +127,20 @@ object GrpcErrorParser {
           // TODO[SW] Canton can omit the key, unsure why.
           case Seq() => SubmitError.DuplicateContractKey(None)
         }
+      case "LOCAL_VERDICT_LOCKED_KEYS" =>
+        caseErr {
+          // TODO[MA] Canton does not currently provide the template ids so we
+          // can't convert to GlobalContractKeys.
+          // https://github.com/DACH-NY/canton/issues/15071
+          case _ => SubmitError.LocalVerdictLockedKeys(Seq())
+        }
+      case "LOCAL_VERDICT_LOCKED_CONTRACTS" =>
+        caseErr {
+          // TODO[MA] Canton does not currently provide the template ids so we
+          // can't construct the argument to LocalVerdictLockedContracts.
+          // https://github.com/DACH-NY/canton/issues/15071
+          case _ => SubmitError.LocalVerdictLockedContracts(Seq())
+        }
       case "INCONSISTENT_CONTRACT_KEY" =>
         caseErr {
           case Seq(

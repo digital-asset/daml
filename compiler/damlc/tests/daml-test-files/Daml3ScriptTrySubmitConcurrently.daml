@@ -98,6 +98,7 @@ keyCollision = do
     matchDuplicateContractKey p err = case err of
       DuplicateContractKey (Some k)
         | k == expectedKey -> pure ()
+      LocalVerdictLockedKeys _ -> pure () -- TODO: check that the key is present in the argument
       err ->
         assertFail $ "Expected DuplicateContractKey(Some(" <> show expectedKey <> ")) but got: " <> show err
       where
@@ -133,6 +134,7 @@ noDoubleSpend = do
     matchContractNotFound cid err = case err of
       ContractNotFound { unknownContractIds }
         | unknownContractIds == expectedUnknownContractIds -> pure ()
+      LocalVerdictLockedContracts _ -> pure () -- TODO: check that the contract id is present in the argument
       err ->
         assertFail $ "Expected ContractNotFound(unknownContractIds = " <> show expectedUnknownContractIds <> ") but got: " <> show err
       where
