@@ -559,29 +559,16 @@ The rollback of a sub-transaction.
 
 As of version 14, these fields are included:
 
-
-* ``string`` version
-* `message Value`_ value
-
-``version`` is required, and must be a version of this specification.
-For backward compatibility reasons:
-- the version `10` is encoded as the string "6";
-- string "10" is reserved and will be never used to encoded any future version;
-- versions 11 or latter will be encoded as string, for instance version 11 of this specification, ``version`` must be ``"11"``.
-
-Consumers can expect this field to be present and to have the
-semantics defined here without knowing the version of this value in
-advance.
-
+* repeated ``string`` children
 
 message Versioned
 ^^^^^^^^^^^^^^^^^
 
-Generic wrapper to version encode versionned object
+Generic wrapper to version encode versioned object
 
 (*since version 14*)
 
-As of version 14 the following these fields are included:
+As of version 14 the following  fields are included:
 
 * ``string`` version
 * ``bytes``  versioned
@@ -610,9 +597,12 @@ message FatContractInstance
 
 A self contained representation of a committed contract.
 
+The message is assumed ty be wrapped in a `message Versioned`_, which
+dictated the version used for decoding the message.
+
 (* since version 14*)
 
-As of version 14 the following message are included.
+As of version 14 the following fileds are included.
 
 * ``bytes`` contract_id
 * `message Identifier`_ template_id
@@ -649,12 +639,12 @@ identifiers without duplicate.
 not allowed and must be rejected with error by conforming consumers.
 
 The message ``canton_data`` is considered as opaque blob by this
-specification. A conforming consumer must accept the full message
-whatever the contains of this field is.
+specification. A conforming consumer must accept the message whatever
+the contain of this field is.
 
 Additionally a conforming consumer must reject any message such there
 exists some party identifiers repeated in the concatenation of
-``non_maintainer_signatories``, ``non_signatory_stakeholders`` and
+``non_maintainer_signatories``, ``non_signatory_stakeholders``, and
 ``contract_key_with_maintainers.maintainers`` if
 ``contract_key_with_maintainers`` is present.
 
