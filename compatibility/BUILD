@@ -56,7 +56,7 @@ last_non_canton_in_ledger_api_tests = "2.7.0-snapshot.20230427.11728.0.1f3c22cf"
         args = [sdk_version],
         data = [
             "@daml-sdk-{}//:daml".format(sdk_version),
-            "@diffutils_dev_env//:bin/diff" if not is_windows else "@diffutils_dev_env//:bin/diff.exe",
+            "@diffutils_dev_env//:bin/diff" if not is_windows else "@diffutils_dev_env//:usr/bin/diff.exe",
         ],
         deps = ["@bazel_tools//tools/bash/runfiles"],
     )
