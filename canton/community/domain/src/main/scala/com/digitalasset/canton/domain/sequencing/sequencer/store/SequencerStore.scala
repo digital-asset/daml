@@ -179,7 +179,7 @@ object DeliverStoreEvent {
   }
 }
 
-final case class DeliverErrorStoreEvent(
+final case class DeliverErrorStoreEvent private (
     sender: SequencerMemberId,
     messageId: MessageId,
     message: String256M,
@@ -215,6 +215,37 @@ object DeliverErrorStoreEvent {
     } else {
       (String256M(error.cause)(), None)
     }
+  }
+
+  def create(
+      sender: SequencerMemberId,
+      messageId: MessageId,
+      message: String256M,
+      error: Option[ByteString],
+      traceContext: TraceContext,
+  ): Either[String, DeliverErrorStoreEvent] = Either
+    .catchOnly[IllegalArgumentException](
+      DeliverErrorStoreEvent(sender, messageId, message, error, traceContext)
+    )
+    .leftMap(_.getMessage)
+
+  def create(
+      sender: SequencerMemberId,
+      messageId: MessageId,
+      error: SequencerDeliverError,
+      protocolVersion: ProtocolVersion,
+      traceContext: TraceContext,
+  ): DeliverErrorStoreEvent = {
+    val (message, serializedError) =
+      DeliverErrorStoreEvent.serializeError(error, protocolVersion)
+
+    DeliverErrorStoreEvent(
+      sender,
+      messageId,
+      message,
+      serializedError,
+      traceContext,
+    )
   }
 
   def deserializeError(

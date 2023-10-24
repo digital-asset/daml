@@ -35,13 +35,16 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{RequestAndRootHashMessage, RequestProcessor, RootHash}
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.topology.processing.TopologyTransactionProcessorCommon
+import com.digitalasset.canton.topology.processing.{
+  SequencedTime,
+  TopologyTransactionProcessorCommon,
+}
 import com.digitalasset.canton.topology.{DomainId, MediatorId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{RequestCounter, SequencerCounter}
+import com.digitalasset.canton.{DiscardOps, RequestCounter, SequencerCounter}
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace.Tracer
 
@@ -74,7 +77,7 @@ trait MessageDispatcher { this: NamedLogging =>
   protected def requestProcessors: RequestProcessors
 
   protected def topologyProcessor
-      : (SequencerCounter, CantonTimestamp, Traced[List[DefaultOpenEnvelope]]) => HandlerResult
+      : (SequencerCounter, SequencedTime, Traced[List[DefaultOpenEnvelope]]) => HandlerResult
   protected def acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType
   protected def requestCounterAllocator: RequestCounterAllocator
   protected def recordOrderPublisher: RecordOrderPublisher
@@ -204,7 +207,11 @@ trait MessageDispatcher { this: NamedLogging =>
           )
         } else FutureUnlessShutdown.pure(processingResultMonoid.empty)
 
-      identityResult <- processTopologyTransactions(sc, ts, envelopesWithCorrectDomainId)
+      identityResult <- processTopologyTransactions(
+        sc,
+        SequencedTime(ts),
+        envelopesWithCorrectDomainId,
+      )
       acsCommitmentResult <- processAcsCommitmentEnvelope(envelopesWithCorrectDomainId, sc, ts)
       // Make room for the repair requests that have been inserted before the current timestamp.
       //
@@ -233,13 +240,12 @@ trait MessageDispatcher { this: NamedLogging =>
 
   protected def processTopologyTransactions(
       sc: SequencerCounter,
-      ts: CantonTimestamp,
+      ts: SequencedTime,
       envelopes: List[DefaultOpenEnvelope],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] =
     doProcess(
-      TopologyTransaction, {
-        topologyProcessor(sc, ts, Traced(envelopes))
-      },
+      TopologyTransaction,
+      topologyProcessor(sc, ts, Traced(envelopes)),
     )
 
   private def processTransactionAndTransferMessages(
@@ -259,7 +265,7 @@ trait MessageDispatcher { this: NamedLogging =>
     ): Unit =
       if (envelopes.nonEmpty) {
         val requestIds = envelopes.map(_.protocolMessage.message.requestId)
-        val _ = alarm(sc, ts, show"Received unexpected $kind for $requestIds")
+        alarm(sc, ts, show"Received unexpected $kind for $requestIds").discard
       }
 
     // Extract the participant relevant messages from the batch. All other messages are ignored.
@@ -650,11 +656,11 @@ trait MessageDispatcher { this: NamedLogging =>
       batch,
       domainId,
       (wrongMsgs: List[DefaultOpenEnvelope]) => {
-        val _ = alarm(
+        alarm(
           sc,
           ts,
           s"Received messages with wrong domain IDs ${wrongMsgs.map(_.protocolMessage.domainId)}. Discarding them.",
-        )
+        ).discard
         ()
       },
     )
@@ -739,7 +745,7 @@ private[participant] object MessageDispatcher {
         requestProcessors: RequestProcessors,
         topologyProcessor: (
             SequencerCounter,
-            CantonTimestamp,
+            SequencedTime,
             Traced[List[DefaultOpenEnvelope]],
         ) => HandlerResult,
         acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
@@ -784,7 +790,7 @@ private[participant] object MessageDispatcher {
 
       val identityProcessor: (
           SequencerCounter,
-          CantonTimestamp,
+          SequencedTime,
           Traced[List[DefaultOpenEnvelope]],
       ) => HandlerResult =
         (counter, timestamp, envelopes) => {
@@ -826,7 +832,7 @@ private[participant] object MessageDispatcher {
         requestProcessors: RequestProcessors,
         topologyProcessor: (
             SequencerCounter,
-            CantonTimestamp,
+            SequencedTime,
             Traced[List[DefaultOpenEnvelope]],
         ) => HandlerResult,
         acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,

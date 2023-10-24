@@ -7,6 +7,7 @@ import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.topology.processing.EffectiveTime
 
 /** Canton-internal record time
   * @param timestamp ACS change timestamp
@@ -34,4 +35,7 @@ object RecordTime {
     Ordering.by(rt => (rt.timestamp -> rt.tieBreaker))
 
   def fromTimeOfChange(toc: TimeOfChange): RecordTime = RecordTime(toc.timestamp, toc.rc.unwrap)
+
+  def apply(timestamp: EffectiveTime, tieBreaker: Long): RecordTime =
+    RecordTime(timestamp.value, tieBreaker)
 }

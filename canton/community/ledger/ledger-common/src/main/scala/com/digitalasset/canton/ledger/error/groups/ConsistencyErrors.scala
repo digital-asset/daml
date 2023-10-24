@@ -106,16 +106,6 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
 
-    final case class MultipleContractsNotFound(notFoundContractIds: Set[String])(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"Unknown contracts: ${notFoundContractIds.mkString("[", ", ", "]")}"
-        ) {
-      override def resources: Seq[(ErrorResource, String)] = Seq(
-        (ErrorResource.ContractIds, notFoundContractIds.mkString("[", ", ", "]"))
-      )
-    }
-
     final case class Reject(
         override val cause: String,
         cid: Value.ContractId,

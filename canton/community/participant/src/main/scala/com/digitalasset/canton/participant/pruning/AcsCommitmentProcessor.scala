@@ -42,6 +42,7 @@ import com.digitalasset.canton.sequencing.client.SendAsyncClientError.RequestRef
 import com.digitalasset.canton.sequencing.client.{SendType, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients, SendAsyncError}
 import com.digitalasset.canton.store.SequencerCounterTrackerStore
+import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEither
@@ -199,7 +200,7 @@ class AcsCommitmentProcessor(
   }
 
   private val timestampsWithPotentialTopologyChanges =
-    new AtomicReference[List[Traced[CantonTimestamp]]](List())
+    new AtomicReference[List[Traced[EffectiveTime]]](List())
 
   /** Queue to serialize the access to the DB, to avoid serialization failures at SERIALIZABLE level */
   private val dbQueue: SimpleExecutionQueue =
@@ -260,7 +261,7 @@ class AcsCommitmentProcessor(
   @volatile private[this] var lastPublished: Option[RecordTime] = None
 
   def initializeTicksOnStartup(
-      timestamps: List[CantonTimestamp]
+      timestamps: List[EffectiveTime]
   )(implicit traceContext: TraceContext) = {
     // assuming timestamps to be ordered
     val cur = timestampsWithPotentialTopologyChanges.getAndSet(timestamps.map(Traced(_)))
@@ -270,7 +271,7 @@ class AcsCommitmentProcessor(
     )
   }
 
-  def scheduleTopologyTick(effectiveTime: Traced[CantonTimestamp]): Unit =
+  def scheduleTopologyTick(effectiveTime: Traced[EffectiveTime]): Unit =
     timestampsWithPotentialTopologyChanges.updateAndGet { cur =>
       // only append if this timestamp is higher than the last one (relevant during init)
       if (cur.lastOption.forall(_.value < effectiveTime.value)) cur :+ effectiveTime
@@ -286,16 +287,19 @@ class AcsCommitmentProcessor(
         // no upcoming topology change queued
         case None => publishTick(toc, acsChange)
         // pre-insert topology change queued
-        case Some(effectiveTime) if effectiveTime.value <= toc.timestamp =>
+        case Some(traced @ Traced(effectiveTime)) if effectiveTime.value <= toc.timestamp =>
           // remove the tick from our update
           timestampsWithPotentialTopologyChanges.updateAndGet(_.drop(1))
           // only update if this is a separate timestamp
-          val eft = effectiveTime.value
-          if (eft < toc.timestamp && lastPublished.exists(_.timestamp < eft)) {
+          if (
+            effectiveTime.value < toc.timestamp && lastPublished.exists(
+              _.timestamp < effectiveTime.value
+            )
+          ) {
             publishTick(
-              RecordTime(timestamp = eft, tieBreaker = 0),
+              RecordTime(timestamp = effectiveTime, tieBreaker = 0),
               AcsChange.empty,
-            )(effectiveTime.traceContext)
+            )(traced.traceContext)
           }
           // now, iterate (there might have been several effective time updates)
           go()

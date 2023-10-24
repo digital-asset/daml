@@ -321,14 +321,16 @@ trait SequencerStoreTest
 
         for {
           aliceId <- env.store.registerMember(alice, ts1)
-          bobId <- env.store.registerMember(bob, ts1)
-          error: DeliverErrorStoreEvent = DeliverErrorStoreEvent(
-            aliceId,
-            messageId1,
-            String256M.tryCreate("Something went wrong".repeat(22000)),
-            None,
-            traceContext,
-          )
+          _bobId <- env.store.registerMember(bob, ts1)
+          error: DeliverErrorStoreEvent = DeliverErrorStoreEvent
+            .create(
+              aliceId,
+              messageId1,
+              String256M.tryCreate("Something went wrong".repeat(22000)),
+              None,
+              traceContext,
+            )
+            .value
           timestampedError: Sequenced[Nothing] = Sequenced(ts1, error)
           _ <- env.store.saveEvents(instanceIndex, NonEmpty(Seq, timestampedError))
           _ <- env.saveWatermark(timestampedError.timestamp).valueOrFail("saveWatermark")

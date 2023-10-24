@@ -84,6 +84,7 @@ trait SyncDomainPersistentStateManager extends AutoCloseable with SyncDomainPers
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, DomainRegistryError, Option[DomainTopologyInitializationCallback]]
+
   def protocolVersionFor(
       domainId: DomainId
   ): Future[Option[ProtocolVersion]]

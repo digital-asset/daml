@@ -1529,7 +1529,7 @@ abstract class ProtocolProcessor[
         for {
           _unit <- {
             logger.info(
-              show"Finalizing ${steps.requestKind.unquoted} request at $requestId with event ${eventO}."
+              show"Finalizing ${steps.requestKind.unquoted} request at $requestId with event $eventO."
             )
             // Schedule publication of the event with the associated causality update.
             // Note that both fields are optional.

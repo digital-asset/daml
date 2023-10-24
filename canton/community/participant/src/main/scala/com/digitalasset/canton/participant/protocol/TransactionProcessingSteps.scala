@@ -48,6 +48,7 @@ import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissio
   UnknownDomain,
 }
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
+  ContractLookupError,
   SerializableContractOfId,
   UnknownPackageError,
 }
@@ -408,6 +409,9 @@ class TransactionProcessingSteps(
               case TransactionTreeFactoryError(UnknownPackageError(unknownTo)) =>
                 TransactionSubmissionTrackingData
                   .CauseWithTemplate(SubmissionErrors.PackageNotVettedByRecipients.Error(unknownTo))
+              case TransactionTreeFactoryError(ContractLookupError(contractId, _)) =>
+                TransactionSubmissionTrackingData
+                  .CauseWithTemplate(SubmissionErrors.UnknownContractDomain.Error(contractId))
               case creationError =>
                 causeWithTemplate("Confirmation request creation failed", creationError)
             }
