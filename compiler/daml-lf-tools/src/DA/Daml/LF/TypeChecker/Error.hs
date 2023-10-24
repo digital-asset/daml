@@ -621,6 +621,10 @@ data Warning
   | WTemplateChangedKeyExpression !TypeConName
   | WTemplateChangedKeyMaintainers !TypeConName
   | WTemplateAddedKeyDefinition !TypeConName !TemplateKey
+  | WCouldNotExtractForUpgradeChecking !T.Text !(Maybe T.Text)
+    -- ^ When upgrading, we extract relevant expressions for things like
+    -- signatories. If the expression changes shape so that we can't get the
+    -- underlying expression that has changed, this warning is emitted.
   deriving (Show)
 
 warningLocation :: Warning -> Maybe SourceLoc
@@ -645,6 +649,7 @@ instance Pretty Warning where
     WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " cannot change the expression for computing its key."
     WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " cannot change the maintainers for its key."
     WTemplateAddedKeyDefinition template _key -> "The upgraded template " <> pPrint template <> " cannot add a key if it didn't have one previously."
+    WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the wrong shape." <> foldMap (const " Extra context: " <> text) mbExtra
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic

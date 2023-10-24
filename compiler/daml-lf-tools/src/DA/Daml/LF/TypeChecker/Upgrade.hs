@@ -5,7 +5,7 @@
 module DA.Daml.LF.TypeChecker.Upgrade (checkUpgrade, Upgrading(..)) where
 
 import           Control.DeepSeq
-import           Control.Monad (unless, forM_, when, forM)
+import           Control.Monad (unless, forM_, when)
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
 import           DA.Daml.LF.TypeChecker.Env
@@ -291,15 +291,16 @@ checkTemplate module_ template = do
                 Just defValue -> Right (dvalBody defValue)
 
         whenDifferent :: Show a => String -> (a -> Module -> Either String Expr) -> Upgrading a -> m () -> m ()
-        whenDifferent field extractor exprs act = do
-            let resolvedWithPossibleErrors = extractor <$> exprs <*> module_
-            resolvedExprs <-
-                forM ((,) <$> resolvedWithPossibleErrors <*> exprs) $
-                    \(resolved, origExpr) -> case resolved of
-                        Left err -> error ("checkTemplate for field " ++ field ++ " gave error: " ++ err ++ "over expression:\n" ++ show origExpr)
-                        Right expr -> pure expr
-            let exprsMatch = foldU alphaExpr $ fmap removeLocations resolvedExprs
-            unless exprsMatch act
+        whenDifferent field extractor exprs act =
+            let resolvedWithPossibleError = sequence $ extractor <$> exprs <*> module_
+            in
+            case resolvedWithPossibleError of
+                Left err ->
+                    warnWithContext (WCouldNotExtractForUpgradeChecking (T.pack field) (Just (T.pack err)))
+                Right resolvedExprs ->
+                    let exprsMatch = foldU alphaExpr $ fmap removeLocations resolvedExprs
+                    in
+                    unless exprsMatch act
 
         mapENilToNothing :: Maybe Expr -> Maybe Expr
         mapENilToNothing (Just (LF.ENil (LF.TBuiltin LF.BTParty))) = Nothing
