@@ -10,8 +10,6 @@ module Daml.Script
   , submitTreeMulti
   , trySubmit
   , trySubmitMulti
-  , trySubmitConcurrently
-  , trySubmitMultiConcurrently
   , SubmitError (..)
   , DevErrorType (..)
 
