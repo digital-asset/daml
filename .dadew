@@ -5,7 +5,6 @@
         "bazel",
         "cacert",
         "curl",
-        "diffutils-3.6",
         "gcloud",
         "ojdkbuild11",
         "maven-3.6.1",
