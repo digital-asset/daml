@@ -11,6 +11,7 @@ import com.daml.ledger.javaapi.data.Int64;
 import com.daml.ledger.javaapi.data.Variant;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoders;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -75,19 +76,9 @@ public class TextMapTest {
   }
 
   @Test
-  void fromJsonMapRecord() throws JsonLfDecoder.Error {
-    MapRecord expected =
-        new MapRecord(
-            new HashMap<>() {
-              {
-                put("key1", "value1");
-                put("key2", "value2");
-              }
-            });
-
-    assertEquals(
-        expected,
-        MapRecord.fromJson("{\"mapField\": {\"key1\": \"value1\", \"key2\": \"value2\"}}"));
+  void roundtripJsonMapRecord() throws JsonLfDecoder.Error {
+    MapRecord expected = new MapRecord(Map.of("key1", "value1", "key2", "value2"));
+    assertEquals(expected, MapRecord.fromJson(expected.toJson()));
   }
 
   @Test
@@ -260,37 +251,14 @@ public class TextMapTest {
   }
 
   @Test
-  void fromJsonMapItemMapRecord() throws JsonLfDecoder.Error {
+  void roundTripJsonMapItemMapRecord() throws JsonLfDecoder.Error {
     MapItemMapRecord expected =
         new MapItemMapRecord(
-            new HashMap<>() {
-              {
-                put(
-                    "outerkey1",
-                    new HashMap<>() {
-                      {
-                        put("key1", new MapItem<Long>(1L));
-                        put("key2", new MapItem<Long>(2L));
-                      }
-                    });
-                put(
-                    "outerkey2",
-                    new HashMap<>() {
-                      {
-                        put("key1", new MapItem<Long>(3L));
-                        put("key2", new MapItem<Long>(4L));
-                      }
-                    });
-              }
-            });
+            Map.of(
+                "outerkey1", Map.of("key1", new MapItem<Long>(1L), "key2", new MapItem<Long>(2L)),
+                "outerkey2", Map.of("key1", new MapItem<Long>(3L), "key2", new MapItem<Long>(4L))));
 
-    assertEquals(
-        expected,
-        MapItemMapRecord.fromJson(
-            "{\"field\": {"
-                + "\"outerkey1\": {\"key1\": {\"value\": 1}, \"key2\": {\"value\": 2} }, "
-                + "\"outerkey2\": {\"key1\": {\"value\": 3}, \"key2\": {\"value\": 4} } "
-                + "}}"));
+    assertEquals(expected, MapItemMapRecord.fromJson(expected.toJson()));
   }
 
   @Test
@@ -326,13 +294,13 @@ public class TextMapTest {
   }
 
   @Test
-  public void fromJsonTextVariant() throws JsonLfDecoder.Error {
-    MapVariant<?> expected = new TextVariant<>(Collections.singletonMap("key", "value"));
+  public void roundtripJsonTextVariant() throws JsonLfDecoder.Error {
+    MapVariant<Long> expected = new TextVariant<>(Collections.singletonMap("key", "value"));
 
-    assertEquals(
-        expected,
-        MapVariant.fromJson(
-            "{\"tag\": \"TextVariant\", \"value\": {\"key\": \"value\"}}", JsonLfDecoders.unit));
+    String json = expected.toJson(JsonLfEncoders::int64);
+    var actual = MapVariant.fromJson(json, JsonLfDecoders.int64);
+
+    assertEquals(expected, actual);
   }
 
   @Test
@@ -377,14 +345,13 @@ public class TextMapTest {
   }
 
   @Test
-  void fromJsonRecordVariant() throws JsonLfDecoder.Error {
-    MapVariant<?> expected = new RecordVariant<>(Collections.singletonMap("key", 42L));
+  void roundtripJsonRecordVariant() throws JsonLfDecoder.Error {
+    MapVariant<Long> expected = new RecordVariant<>(Collections.singletonMap("key", 42L));
 
-    assertEquals(
-        expected,
-        MapVariant.fromJson(
-            "{\"tag\": \"RecordVariant\", \"value\": {\"x\": {\"key\": 42}}}",
-            JsonLfDecoders.unit));
+    String json = expected.toJson(JsonLfEncoders::int64);
+    var actual = MapVariant.fromJson(json, JsonLfDecoders.int64);
+
+    assertEquals(expected, actual);
   }
 
   @Test
@@ -423,13 +390,13 @@ public class TextMapTest {
   }
 
   @Test
-  void fromJsonParameterizedVariant() throws JsonLfDecoder.Error {
+  void roundtripJsonParameterizedVariant() throws JsonLfDecoder.Error {
     MapVariant<Long> expected = new ParameterizedVariant<>(Collections.singletonMap("key", 42L));
 
-    assertEquals(
-        expected,
-        MapVariant.fromJson(
-            "{\"tag\": \"ParameterizedVariant\", \"value\": {\"key\": 42}}", JsonLfDecoders.int64));
+    String json = expected.toJson(JsonLfEncoders::int64);
+    var actual = MapVariant.fromJson(json, JsonLfDecoders.int64);
+
+    assertEquals(expected, actual);
   }
 
   @Test
@@ -475,10 +442,9 @@ public class TextMapTest {
   }
 
   @Test
-  void fromJsonTemplateWithMap() throws JsonLfDecoder.Error {
+  void roundtripJsonTemplateWithMap() throws JsonLfDecoder.Error {
     TemplateWithMap expected = new TemplateWithMap("party1", Collections.singletonMap("key", 42L));
 
-    assertEquals(
-        expected, TemplateWithMap.fromJson("{\"owner\": \"party1\", \"valueMap\": {\"key\": 42}}"));
+    assertEquals(expected, TemplateWithMap.fromJson(expected.toJson()));
   }
 }

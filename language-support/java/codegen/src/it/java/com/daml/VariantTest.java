@@ -11,6 +11,7 @@ import com.daml.ledger.javaapi.data.Unit;
 import com.daml.ledger.javaapi.data.Variant;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoders;
 import com.google.protobuf.Empty;
 import java.util.Collections;
 import org.junit.jupiter.api.Test;
@@ -45,11 +46,13 @@ public class VariantTest {
   }
 
   @Test
-  void fromJsonEmptyVariant() throws JsonLfDecoder.Error {
-    VariantItem<?> expected = new EmptyVariant<>(Unit.getInstance());
-    assertEquals(
-        expected,
-        VariantItem.fromJson("{\"tag\": \"EmptyVariant\", \"value\": {}}", JsonLfDecoders.unit));
+  void roundtripJsonEmptyVariant() throws JsonLfDecoder.Error {
+    VariantItem<Unit> expected = new EmptyVariant<>(Unit.getInstance());
+
+    String json = expected.toJson(JsonLfEncoders::unit);
+    var actual = VariantItem.fromJson(json, JsonLfDecoders.unit);
+
+    assertEquals(expected, actual);
   }
 
   @Test
@@ -73,11 +76,13 @@ public class VariantTest {
   }
 
   @Test
-  void fromJsonPrimVariant() throws JsonLfDecoder.Error {
-    VariantItem<?> expected = new PrimVariant<>(42L);
-    assertEquals(
-        expected,
-        VariantItem.fromJson("{\"tag\": \"PrimVariant\", \"value\": 42}", JsonLfDecoders.unit));
+  void roundtripJsonPrimVariant() throws JsonLfDecoder.Error {
+    VariantItem<Long> expected = new PrimVariant<>(42L);
+
+    String json = expected.toJson(JsonLfEncoders::int64);
+    var actual = VariantItem.fromJson(json, JsonLfDecoders.int64);
+
+    assertEquals(expected, actual);
   }
 
   @Test
@@ -109,12 +114,13 @@ public class VariantTest {
   }
 
   @Test
-  void fromJsonRecordVariant() throws JsonLfDecoder.Error {
-    VariantItem<?> expected = new RecordVariant<Long>(42L);
-    assertEquals(
-        expected,
-        VariantItem.fromJson(
-            "{\"tag\": \"RecordVariant\", \"value\": {\"x\": 42}}", JsonLfDecoders.unit));
+  void roundtripJsonRecordVariant() throws JsonLfDecoder.Error {
+    VariantItem<Long> expected = new RecordVariant<Long>(42L);
+
+    String json = expected.toJson(JsonLfEncoders::int64);
+    var actual = VariantItem.fromJson(json, JsonLfDecoders.int64);
+
+    assertEquals(expected, actual);
   }
 
   @Test
@@ -141,11 +147,13 @@ public class VariantTest {
   }
 
   @Test
-  void fromJsonCustomVariant() throws JsonLfDecoder.Error {
-    VariantItem<?> expected = new CustomVariant<>(new Custom());
-    assertEquals(
-        expected,
-        VariantItem.fromJson("{\"tag\": \"CustomVariant\", \"value\": {}}", JsonLfDecoders.unit));
+  void roundtripJsonCustomVariant() throws JsonLfDecoder.Error {
+    VariantItem<Unit> expected = new CustomVariant<>(new Custom());
+
+    String json = expected.toJson(JsonLfEncoders::unit);
+    var actual = VariantItem.fromJson(json, JsonLfDecoders.unit);
+
+    assertEquals(expected, actual);
   }
 
   @Test
@@ -179,14 +187,13 @@ public class VariantTest {
   }
 
   @Test
-  void fromJsonCustomParametricVariant() throws JsonLfDecoder.Error {
-    VariantItem<?> expected = new CustomParametricVariant<>(new CustomParametricCons<>(42L));
-    assertEquals(
-        expected,
-        VariantItem.fromJson(
-            "{\"tag\": \"CustomParametricVariant\", \"value\": {\"tag\": \"CustomParametricCons\","
-                + " \"value\": 42}}",
-            JsonLfDecoders.int64));
+  void roundtripJsonCustomParametricVariant() throws JsonLfDecoder.Error {
+    VariantItem<Long> expected = new CustomParametricVariant<>(new CustomParametricCons<>(42L));
+
+    String json = expected.toJson(JsonLfEncoders::int64);
+    var actual = VariantItem.fromJson(json, JsonLfDecoders.int64);
+
+    assertEquals(expected, actual);
   }
 
   @Test
@@ -227,14 +234,13 @@ public class VariantTest {
   }
 
   @Test
-  void fromJsonRecordVariantRecord() throws JsonLfDecoder.Error {
-    VariantItem<?> expected = new RecordVariantRecord<>(new EmptyVariant<>(Unit.getInstance()));
-    assertEquals(
-        expected,
-        VariantItem.fromJson(
-            "{\"tag\": \"RecordVariantRecord\", \"value\": {\"y\": {\"tag\": \"EmptyVariant\","
-                + " \"value\": {}}}}",
-            JsonLfDecoders.int64));
+  void roundtripJsonRecordVariantRecord() throws JsonLfDecoder.Error {
+    VariantItem<Unit> expected = new RecordVariantRecord<>(new EmptyVariant<>(Unit.getInstance()));
+
+    String json = expected.toJson(JsonLfEncoders::unit);
+    var actual = VariantItem.fromJson(json, JsonLfDecoders.unit);
+
+    assertEquals(expected, actual);
   }
 
   @Test
@@ -283,14 +289,13 @@ public class VariantTest {
   }
 
   @Test
-  void fromJsonParameterizedRecordVariant() throws JsonLfDecoder.Error {
+  void roundtripJsonParameterizedRecordVariant() throws JsonLfDecoder.Error {
     VariantItem<Long> expected =
         new ParameterizedRecordVariant<>(42L, 69L, Collections.singletonList(65536L));
-    assertEquals(
-        expected,
-        VariantItem.fromJson(
-            "{\"tag\": \"ParameterizedRecordVariant\", \"value\": {\"x1\": 42, \"x2\": 69, \"x3\":"
-                + " [65536]}}",
-            JsonLfDecoders.int64));
+
+    String json = expected.toJson(JsonLfEncoders::int64);
+    var actual = VariantItem.fromJson(json, JsonLfDecoders.int64);
+
+    assertEquals(expected, actual);
   }
 }

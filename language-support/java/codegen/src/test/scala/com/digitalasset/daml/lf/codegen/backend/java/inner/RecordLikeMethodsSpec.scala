@@ -47,6 +47,14 @@ final class RecordLikeMethodsSpec
     constructor.annotations shouldBe empty
   }
 
+  behavior of "RecordMethods.staticImports"
+
+  import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoders
+
+  it should "have the apply method" in {
+    staticImports shouldBe Seq((ClassName.get(classOf[JsonLfEncoders]), "apply"))
+  }
+
   behavior of "RecordMethods.toValueSpec"
 
   it should "be correctly named" in {
@@ -137,7 +145,7 @@ final class RecordLikeMethodsSpec
   }
 
   private val name = ClassName.bestGuess("Test")
-  private val methods = {
+  private val (methods, staticImports) = {
     implicit val packagePrefixes: PackagePrefixes = PackagePrefixes(Map.empty)
     RecordMethods(
       getFieldsWithTypes(

@@ -6,7 +6,9 @@ package com.daml.ledger.javaapi.data.codegen.json;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.time.temporal.ChronoUnit.SECONDS;
 
+import com.daml.ledger.javaapi.data.Unit;
 import com.daml.ledger.javaapi.data.codegen.ContractId;
+import com.daml.ledger.javaapi.data.codegen.DamlEnum;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -14,6 +16,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -22,11 +25,12 @@ import java.util.function.Function;
 public class JsonLfEncoders {
   private static final JsonStringEncoder stringEncoder = JsonStringEncoder.getInstance();
 
-  public static final JsonLfEncoder unit =
-      w -> {
-        w.writeStartObject();
-        w.writeEndObject();
-      };
+  public static JsonLfEncoder unit(Unit _unit) {
+    return w -> {
+      w.writeStartObject();
+      w.writeEndObject();
+    };
+  }
 
   public static JsonLfEncoder bool(Boolean value) {
     return w -> w.write(String.valueOf(value));
@@ -65,17 +69,16 @@ public class JsonLfEncoders {
     return text(value);
   }
 
-  public static JsonLfEncoder contractId(ContractId<?> value) {
+  public static <Cid extends ContractId<?>> JsonLfEncoder contractId(Cid value) {
     return text(value.toValue().asContractId().get().getValue());
   }
 
-  public static <E extends Enum<E>> Function<E, JsonLfEncoder> enumeration(
+  public static <E extends DamlEnum<E>> Function<E, JsonLfEncoder> enumeration(
       Function<E, String> toDamlName) {
     return value -> text(toDamlName.apply(value));
   }
 
-  public static <T> Function<Iterable<T>, JsonLfEncoder> list(
-      Function<T, JsonLfEncoder> itemEncoder) {
+  public static <T> Function<List<T>, JsonLfEncoder> list(Function<T, JsonLfEncoder> itemEncoder) {
     return items -> {
       return w -> {
         w.writeStartArray();
@@ -202,6 +205,13 @@ public class JsonLfEncoders {
       }
       w.writeEndObject();
     };
+  }
+
+  // This function is used as a static import within code-gen encoder implementations.
+  // It assists the type checker with type inference and unification,
+  // and unifies the call syntax by accepting both method references and Function's as f
+  public static <I, O> O apply(Function<I, O> f, I x) {
+    return f.apply(x);
   }
 
   private static boolean isRoundTo(Instant value, ChronoUnit unit) {

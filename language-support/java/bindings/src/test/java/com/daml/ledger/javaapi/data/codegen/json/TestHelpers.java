@@ -4,6 +4,8 @@
 package com.daml.ledger.javaapi.data.codegen.json;
 
 import com.daml.ledger.javaapi.data.Unit;
+import com.daml.ledger.javaapi.data.codegen.ContractId;
+import com.daml.ledger.javaapi.data.codegen.DamlEnum;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -160,14 +162,14 @@ public class TestHelpers {
   }
 
   static class Tmpl {
-    public static final class Cid extends com.daml.ledger.javaapi.data.codegen.ContractId<Tmpl> {
+    public static final class Cid extends ContractId<Tmpl> {
       public Cid(String id) {
         super(id);
       }
     }
   }
 
-  static enum Suit {
+  static enum Suit implements DamlEnum<Suit> {
     HEARTS,
     DIAMONDS,
     CLUBS,
@@ -197,5 +199,14 @@ public class TestHelpers {
             put("Spades", SPADES);
           }
         };
+
+    @Override
+    public com.daml.ledger.javaapi.data.DamlEnum toValue() {
+      return null;
+    }
+
+    public JsonLfEncoder jsonEncoder() {
+      return null;
+    }
   }
 }

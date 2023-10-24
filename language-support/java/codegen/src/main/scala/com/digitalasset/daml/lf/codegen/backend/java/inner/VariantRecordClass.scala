@@ -20,27 +20,27 @@ private[inner] object VariantRecordClass extends StrictLogging {
       superclass: TypeName,
   )(implicit
       packagePrefixes: PackagePrefixes
-  ): TypeSpec =
+  ): (TypeSpec, Seq[(ClassName, String)]) =
     TrackLineage.of("variant-record", name) {
       logger.info("Start")
       val className = ClassName.bestGuess(name)
+      val (methods, staticImports) = VariantRecordMethods(
+        name,
+        fields,
+        superclass,
+        className.parameterized(typeParameters),
+        typeParameters,
+      )
+
       val typeSpec = TypeSpec
         .classBuilder(name)
         .addModifiers(Modifier.PUBLIC)
         .superclass(superclass)
         .addTypeVariables(typeParameters.map(TypeVariableName.get).asJava)
         .addFields((createPackageIdField(packageId) +: RecordFields(fields)).asJava)
-        .addMethods(
-          VariantRecordMethods(
-            name,
-            fields,
-            superclass,
-            className.parameterized(typeParameters),
-            typeParameters,
-          ).asJava
-        )
+        .addMethods(methods.asJava)
         .build()
       logger.debug("End")
-      typeSpec
+      (typeSpec, staticImports)
     }
 }

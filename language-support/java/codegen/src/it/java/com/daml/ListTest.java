@@ -12,6 +12,7 @@ import com.daml.ledger.javaapi.data.Text;
 import com.daml.ledger.javaapi.data.Unit;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoders;
 import com.google.protobuf.Empty;
 import java.util.Arrays;
 import java.util.Collections;
@@ -101,18 +102,14 @@ public class ListTest {
   }
 
   @Test
-  void fromJsonMyListRecord() throws JsonLfDecoder.Error {
+  void roundtripJsonMyListRecord() throws JsonLfDecoder.Error {
     MyListRecord expected =
         new MyListRecord(
             Arrays.asList(1L, 2L),
             Collections.singletonList(Unit.getInstance()),
             Arrays.asList(new Node<Long>(17L), new Node<Long>(42L)));
 
-    assertEquals(
-        expected,
-        MyListRecord.fromJson(
-            "{\"intList\": [1, 2], \"unitList\": [{}], \"itemList\": "
-                + "[{\"tag\": \"Node\", \"value\": 17}, {\"tag\": \"Node\", \"value\": 42}]}"));
+    assertEquals(expected, MyListRecord.fromJson(expected.toJson()));
   }
 
   @Test
@@ -200,18 +197,13 @@ public class ListTest {
   }
 
   @Test
-  void fromJsonMyListOfListRecord() throws JsonLfDecoder.Error {
+  void roundtripJsonMyListOfListRecord() throws JsonLfDecoder.Error {
     MyListOfListRecord expected =
         new MyListOfListRecord(
             Arrays.asList(
                 Arrays.asList(new Node<>(17L), new Node<>(42L)), Arrays.asList(new Node<>(1337L))));
 
-    assertEquals(
-        expected,
-        MyListOfListRecord.fromJson(
-            "{\"itemList\": ["
-                + "[{\"tag\": \"Node\", \"value\": 17}, {\"tag\": \"Node\", \"value\": 42}], "
-                + "[{\"tag\": \"Node\", \"value\": 1337}]]}"));
+    assertEquals(expected, MyListOfListRecord.fromJson(expected.toJson()));
   }
 
   @Test
@@ -253,10 +245,10 @@ public class ListTest {
   }
 
   @Test
-  void fromJsonColorListRecord() throws JsonLfDecoder.Error {
+  void roundtripJsonColorListRecord() throws JsonLfDecoder.Error {
     ColorListRecord expected = new ColorListRecord(Arrays.asList(Color.GREEN, Color.RED));
 
-    assertEquals(expected, ColorListRecord.fromJson("{\"colors\": [\"Green\", \"Red\"]}"));
+    assertEquals(expected, ColorListRecord.fromJson(expected.toJson()));
   }
 
   @Test
@@ -299,14 +291,14 @@ public class ListTest {
   }
 
   @Test
-  void fromJsonParameterizedListRecordWithString() throws JsonLfDecoder.Error {
+  void roundtripJsonParameterizedListRecordWithString() throws JsonLfDecoder.Error {
     ParameterizedListRecord<String> expected =
         new ParameterizedListRecord<>(Arrays.asList("Element1", "Element2"));
 
-    assertEquals(
-        expected,
-        ParameterizedListRecord.fromJson(
-            "{\"list\":[\"Element1\", \"Element2\"]}", JsonLfDecoders.text));
+    String json = expected.toJson(JsonLfEncoders::text);
+    var actual = ParameterizedListRecord.fromJson(json, JsonLfDecoders.text);
+
+    assertEquals(expected, actual);
   }
 
   @Test
@@ -389,16 +381,15 @@ public class ListTest {
   }
 
   @Test
-  void fromJsonParameterizedListRecordWithListOfString() throws JsonLfDecoder.Error {
+  void roundtripJsonParameterizedListRecordWithListOfString() throws JsonLfDecoder.Error {
     ParameterizedListRecord<List<String>> expected =
         new ParameterizedListRecord<>(
             Arrays.asList(
                 Arrays.asList("Element1", "Element2"), Arrays.asList("Element3", "Element4")));
 
-    assertEquals(
-        expected,
-        ParameterizedListRecord.fromJson(
-            "{\"list\": [[\"Element1\", \"Element2\"], [\"Element3\", \"Element4\"]]}",
-            JsonLfDecoders.list(JsonLfDecoders.text)));
+    String json = expected.toJson(JsonLfEncoders.list(JsonLfEncoders::text));
+    var actual = ParameterizedListRecord.fromJson(json, JsonLfDecoders.list(JsonLfDecoders.text));
+
+    assertEquals(expected, actual);
   }
 }
