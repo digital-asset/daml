@@ -62,7 +62,7 @@ last_non_canton_in_ledger_api_tests = "2.7.0-snapshot.20230427.11728.0.1f3c22cf"
     )
     for sdk_version in sdk_versions
     if versions.is_at_least("2.7.5", sdk_version)
-]
+] if not is_windows else None
 
 [
     [
