@@ -219,7 +219,7 @@ for version 11 of this specification, ``version`` must be ``"11"``
 
 Known versions are listed in ascending order in `Version history`_;
 any ``version`` not in this list should be considered newer than any
-version in same list, and consumers must reject values with such
+version in that list, and consumers must reject values with such
 unknown versions.
 
 message ContractInstance
@@ -564,7 +564,7 @@ As of version 14, these fields are included:
 message Versioned
 ^^^^^^^^^^^^^^^^^
 
-Generic wrapper to version encode versioned object
+Generic wrapper for a versioned object
 
 (*since version 14*)
 
@@ -577,7 +577,7 @@ As of version 14 the following  fields are included:
 ``version`` is required, and must be a version of this
 specification newer than 14.
 
-``versionned`` is the serialization of the versioned object
+``versioned`` is the serialization of the versioned object
 as of version ``version``.
 
 Consumers can expect this field to be present and to have the
@@ -597,11 +597,11 @@ message FatContractInstance
 A self contained representation of a committed contract.
 
 The message is assumed ty be wrapped in a `message Versioned`_, which
-dictated the version used for decoding the message.
+dictates the version used for decoding the message.
 
 (* since version 14*)
 
-As of version 14 the following fileds are included.
+As of version 14 the following fields are included.
 
 * ``bytes`` contract_id
 * `message Identifier`_ template_id
@@ -615,20 +615,20 @@ As of version 14 the following fileds are included.
 ``contract_id`, ``template_id``, ``create_arg``, ``create_at`` are
 required.
 
-``contract_id`` must be a valid Contract Identifiers as described in
+``contract_id`` must be a valid Contract Identifier as described in
 `the contract ID specification`_
 
 ``create_arg`` must be the serialization of the `message Value`_
 
 If the ``contract_key_with_maintainers`` field is present, the
 elements of ``contract_key_with_maintainers.maintainers`` must be
-ordered without duplicate.
+ordered without duplicates.
 
 Elements of ``non_maintainer_signatories`` must be ordered party
-identifiers without duplicate.
+identifiers without duplicates.
 
 Elements ``non_signatory_stakeholders`` must be ordered party
-identifiers without duplicate.
+identifiers without duplicates.
 
 ``sfixed64`` `created_at` is the number of microseconds since
 1970-01-01T00:00:00Z. It must be in the range from
@@ -638,10 +638,10 @@ not allowed and must be rejected with error by conforming consumers.
 
 The message ``canton_data`` is considered as opaque blob by this
 specification. A conforming consumer must accept the message whatever
-the contain of this field is.
+the content of this field is.
 
-Additionally a conforming consumer must reject any message such there
-exists some party identifiers repeated in the concatenation of
+Additionally, a conforming consumer must reject any message such that
+there exists a party identifiers repeated in the concatenation of
 ``non_maintainer_signatories``, ``non_signatory_stakeholders``, and
 ``contract_key_with_maintainers.maintainers`` if
 ``contract_key_with_maintainers`` is present.
