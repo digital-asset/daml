@@ -65,6 +65,10 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       .map(_.result())
   }
 
+  // Allow using deprecated Protobuf fields for backwards compatibility
+  @annotation.nowarn(
+    "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.commands\\.DisclosedContract.*"
+  )
   private def validateDisclosedContractArguments(arguments: ProtoDisclosedContract.Arguments)(
       implicit contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Value] =
@@ -101,6 +105,10 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       .map(err => ValidationErrors.invalidField("blob", err.errorMessage))
   }
 
+  // Allow using deprecated Protobuf fields for backwards compatibility
+  @annotation.nowarn(
+    "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.commands\\.DisclosedContract.*"
+  )
   private def validateDisclosedContract(
       disclosedContract: ProtoDisclosedContract
   )(implicit

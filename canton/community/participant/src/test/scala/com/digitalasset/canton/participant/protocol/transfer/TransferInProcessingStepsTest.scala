@@ -8,7 +8,7 @@ import cats.implicits.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.ViewType.TransferInViewType
@@ -50,7 +50,7 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{submitter, su
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.store.IndexedDomain
+import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
 import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -148,6 +148,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         ProcessingStartingPoints.default,
         _ => mock[DomainTimeTracker],
         ParticipantTestMetrics.domain,
+        CachingConfigs.defaultSessionKeyCache,
         DefaultProcessingTimeouts.testing,
         loggerFactory = loggerFactory,
         FutureSupervisor.Noop,
@@ -434,9 +435,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         targetMediator,
         transferOutResult,
       )
-    val inRequestF = for {
-      inRequest <- encryptFullTransferInTree(inTree)
-    } yield inRequest
 
     def checkSuccessful(
         result: transferInProcessingSteps.CheckActivenessAndWritePendingContracts
@@ -453,13 +451,16 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
       }
 
     "succeed without errors" in {
+      val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCache)
       for {
-        inRequest <- inRequestF
+        inRequest <- encryptFullTransferInTree(inTree, sessionKeyStore)
         envelopes = NonEmpty(
           Seq,
           OpenEnvelope(inRequest, RecipientsTest.testInstance)(testedProtocolVersion),
         )
-        decrypted <- valueOrFail(transferInProcessingSteps.decryptViews(envelopes, cryptoSnapshot))(
+        decrypted <- valueOrFail(
+          transferInProcessingSteps.decryptViews(envelopes, cryptoSnapshot, sessionKeyStore)
+        )(
           "decrypt request failed"
         )
         result <- valueOrFail(
@@ -757,10 +758,11 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
   }
 
   private def encryptFullTransferInTree(
-      tree: FullTransferInTree
+      tree: FullTransferInTree,
+      sessionKeyStore: SessionKeyStore,
   ): Future[EncryptedViewMessage[TransferInViewType]] =
     EncryptedViewMessageFactory
-      .create(TransferInViewType)(tree, cryptoSnapshot, testedProtocolVersion)
+      .create(TransferInViewType)(tree, cryptoSnapshot, sessionKeyStore, testedProtocolVersion)
       .fold(
         error => throw new IllegalArgumentException(s"Cannot encrypt transfer-in request: $error"),
         Predef.identity,

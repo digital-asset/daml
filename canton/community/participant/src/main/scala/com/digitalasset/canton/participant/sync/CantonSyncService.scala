@@ -1125,6 +1125,8 @@ class CantonSyncService(
 
         persistent = domainHandle.domainPersistentState
         domainId = domainHandle.domainId
+        domainCrypto = syncCrypto.tryForDomain(domainId, Some(domainAlias))
+
         ephemeral <- EitherT.right[SyncServiceError](
           FutureUnlessShutdown.outcomeF(
             syncDomainStateFactory
@@ -1142,13 +1144,13 @@ class CantonSyncService(
                     loggerFactory,
                   ),
                 domainMetrics,
+                parameters.cachingConfigs.sessionKeyCache,
                 participantId,
               )
           )
         )
         domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 
-        domainCrypto = syncCrypto.tryForDomain(domainId, Some(domainAlias))
         missingKeysAlerter = new MissingKeysAlerter(
           participantId,
           domainId,

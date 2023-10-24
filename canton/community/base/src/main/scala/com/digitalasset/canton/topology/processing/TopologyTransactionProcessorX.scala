@@ -42,7 +42,7 @@ class TopologyTransactionProcessorX(
     domainId: DomainId,
     crypto: Crypto,
     store: TopologyStoreX[TopologyStoreId.DomainStore],
-    acsCommitmentScheduleEffectiveTime: Traced[CantonTimestamp] => Unit,
+    acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
     enableTopologyTransactionValidation: Boolean,
     futureSupervisor: FutureSupervisor,
     timeouts: ProcessingTimeout,

@@ -12,7 +12,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.Broadcast
-import com.digitalasset.canton.protocol.{v0, v1, v2, v3}
+import com.digitalasset.canton.protocol.{v0, v1, v2, v3, v4}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
@@ -41,7 +41,8 @@ final case class DomainTopologyTransactionMessage private (
     with ProtocolMessageV0
     with ProtocolMessageV1
     with ProtocolMessageV2
-    with UnsignedProtocolMessageV3 {
+    with ProtocolMessageV3
+    with UnsignedProtocolMessageV4 {
 
   // Ensures the invariants related to default values hold
   DomainTopologyTransactionMessage
@@ -86,8 +87,13 @@ final case class DomainTopologyTransactionMessage private (
       v2.EnvelopeContent.SomeEnvelopeContent.DomainTopologyTransactionMessage(toProtoV1)
     )
 
-  override def toProtoSomeEnvelopeContentV3: v3.EnvelopeContent.SomeEnvelopeContent =
-    v3.EnvelopeContent.SomeEnvelopeContent.DomainTopologyTransactionMessage(toProtoV1)
+  override def toProtoEnvelopeContentV3: v3.EnvelopeContent =
+    v3.EnvelopeContent(
+      v3.EnvelopeContent.SomeEnvelopeContent.DomainTopologyTransactionMessage(toProtoV1)
+    )
+
+  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
+    v4.EnvelopeContent.SomeEnvelopeContent.DomainTopologyTransactionMessage(toProtoV1)
 
   @transient override protected lazy val companionObj: DomainTopologyTransactionMessage.type =
     DomainTopologyTransactionMessage
@@ -261,14 +267,14 @@ final case class TopologyTransactionsBroadcastX private (
       TopologyTransactionsBroadcastX.type
     ]
 ) extends UnsignedProtocolMessage
-    with UnsignedProtocolMessageV3 {
+    with UnsignedProtocolMessageV4 {
 
   @transient override protected lazy val companionObj: TopologyTransactionsBroadcastX.type =
     TopologyTransactionsBroadcastX
 
-  override protected[messages] def toProtoSomeEnvelopeContentV3
-      : v3.EnvelopeContent.SomeEnvelopeContent =
-    v3.EnvelopeContent.SomeEnvelopeContent.TopologyTransactionsBroadcast(toProtoV2)
+  override protected[messages] def toProtoSomeEnvelopeContentV4
+      : v4.EnvelopeContent.SomeEnvelopeContent =
+    v4.EnvelopeContent.SomeEnvelopeContent.TopologyTransactionsBroadcast(toProtoV2)
 
   def toProtoV2: v2.TopologyTransactionsBroadcastX = v2.TopologyTransactionsBroadcastX(
     domainId.toProtoPrimitive,

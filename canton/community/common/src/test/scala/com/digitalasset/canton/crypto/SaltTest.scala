@@ -18,7 +18,11 @@ class SaltTest extends AnyWordSpec with BaseTest {
     }
 
     "generate a fresh salt seeds" in {
-      val crypto = SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
+      val crypto = SymbolicCrypto.create(
+        testedReleaseProtocolVersion,
+        timeouts,
+        loggerFactory,
+      )
       val salt1 = SaltSeed.generate()(crypto.pureCrypto)
       val salt2 = SaltSeed.generate()(crypto.pureCrypto)
 

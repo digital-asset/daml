@@ -208,7 +208,12 @@ class CommunityCryptoFactory extends CryptoFactory {
       )
       crypto <- config.provider match {
         case CommunityCryptoProvider.Tink =>
-          TinkCrypto.create(config, storesAndSchemes, timeouts, loggerFactory)
+          TinkCrypto.create(
+            config,
+            storesAndSchemes,
+            timeouts,
+            loggerFactory,
+          )
         case CommunityCryptoProvider.Jce =>
           JceCrypto.create(config, storesAndSchemes, timeouts, loggerFactory)
         case prov =>

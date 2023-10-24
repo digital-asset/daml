@@ -360,3 +360,13 @@ object KeyPurpose {
     }
 
 }
+
+/** Information that is cached for each view and is to be re-used if another view has
+  * the same recipients and transparency can be respected.
+  * @param sessionKeyRandomness the randomness to create the session key that is then used to encrypt the randomness of the view.
+  * @param encryptedSessionKeys the randomness of the session key encrypted for each recipient.
+  */
+final case class SessionKeyInfo(
+    sessionKeyRandomness: SecureRandomness,
+    encryptedSessionKeys: Seq[AsymmetricEncrypted[SecureRandomness]],
+)

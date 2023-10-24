@@ -407,7 +407,7 @@ class SyncDomain(
           logger.debug(
             s"Initialising the acs commitment processor with ${changes.length} effective times starting from: ${head.effective}"
           )
-          acsCommitmentProcessor.initializeTicksOnStartup(changes.map(_.effective.value).toList)
+          acsCommitmentProcessor.initializeTicksOnStartup(changes.map(_.effective).toList)
         }
       })
     }

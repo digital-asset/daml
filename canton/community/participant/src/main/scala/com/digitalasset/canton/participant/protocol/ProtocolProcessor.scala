@@ -394,7 +394,11 @@ abstract class ProtocolProcessor[
           FutureUnlessShutdown.pure(tracked.onFailure)
         } else {
           val batchF = for {
-            batch <- tracked.prepareBatch(actualDeduplicationOffset, maxSequencingTime)
+            batch <- tracked.prepareBatch(
+              actualDeduplicationOffset,
+              maxSequencingTime,
+              ephemeral.sessionKeyStore,
+            )
             _ <- EitherT.right[SubmissionTrackingData](
               inFlightSubmissionTracker.updateRegistration(inFlightSubmission, batch.rootHash)
             )
@@ -690,9 +694,8 @@ abstract class ProtocolProcessor[
         decisionTime <- EitherT.fromEither[FutureUnlessShutdown](
           steps.decisionTimeFor(domainParameters, ts)
         )
-
         decryptedViews <- steps
-          .decryptViews(viewMessages, snapshot)
+          .decryptViews(viewMessages, snapshot, ephemeral.sessionKeyStore)
           .mapK(FutureUnlessShutdown.outcomeK)
       } yield (snapshot, decisionTime, decryptedViews)
 
@@ -1529,7 +1532,7 @@ abstract class ProtocolProcessor[
         for {
           _unit <- {
             logger.info(
-              show"Finalizing ${steps.requestKind.unquoted} request at $requestId with event ${eventO}."
+              show"Finalizing ${steps.requestKind.unquoted} request at $requestId with event $eventO."
             )
             // Schedule publication of the event with the associated causality update.
             // Note that both fields are optional.
@@ -1902,7 +1905,7 @@ object ProtocolProcessor {
   sealed trait MalformedPayload extends Product with Serializable with PrettyPrinting
 
   final case class ViewMessageError[VT <: ViewType](
-      error: EncryptedViewMessageError[VT]
+      error: EncryptedViewMessageError
   ) extends MalformedPayload {
     override def pretty: Pretty[ViewMessageError.this.type] = prettyOfParam(_.error)
   }

@@ -428,7 +428,9 @@ object GeneratorsMessages {
     domainTopologyTransactionMessageGenFor(pv)
   private def protocolMessageV2GenFor(pv: ProtocolVersion): Gen[ProtocolMessageV2] =
     domainTopologyTransactionMessageGenFor(pv)
-  private def unsignedProtocolMessageV3GenFor(pv: ProtocolVersion): Gen[UnsignedProtocolMessageV3] =
+  private def protocolMessageV3GenFor(pv: ProtocolVersion): Gen[ProtocolMessageV3] =
+    domainTopologyTransactionMessageGenFor(pv)
+  private def unsignedProtocolMessageV4GenFor(pv: ProtocolVersion): Gen[UnsignedProtocolMessageV4] =
     domainTopologyTransactionMessageGenFor(pv)
 
   // TODO(#14515) Check that the generator is exhaustive
@@ -441,7 +443,8 @@ object GeneratorsMessages {
     protocolMessageGen = Map(
       EnvelopeContent.representativeV1 -> protocolMessageV1GenFor(pv),
       EnvelopeContent.representativeV2 -> protocolMessageV2GenFor(pv),
-      EnvelopeContent.representativeV3 -> unsignedProtocolMessageV3GenFor(pv),
+      EnvelopeContent.representativeV3 -> protocolMessageV3GenFor(pv),
+      EnvelopeContent.representativeV4 -> unsignedProtocolMessageV4GenFor(pv),
     )(rpv)
     protocolMessage <- protocolMessageGen
   } yield EnvelopeContent.tryCreate(protocolMessage, rpv.representative))

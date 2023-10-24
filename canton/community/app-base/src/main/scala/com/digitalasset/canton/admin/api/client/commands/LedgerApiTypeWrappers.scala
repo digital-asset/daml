@@ -55,6 +55,10 @@ object LedgerApiTypeWrappers {
     def arguments: Map[String, Any] =
       event.createArguments.toList.flatMap(_.fields).flatMap(flatten(Seq(), _)).toMap
 
+    // Allow using deprecated Protobuf fields for backwards compatibility
+    @annotation.nowarn(
+      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.event\\.CreatedEvent.*"
+    )
     def toContractData: ContractData = {
       val templateId = TemplateId.fromIdentifier(
         event.templateId.getOrElse(throw new IllegalArgumentException("Template Id not specified"))

@@ -120,7 +120,30 @@ trait InFlightSubmissionStore extends AutoCloseable {
     * from [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission]]
     * to [[com.digitalasset.canton.participant.protocol.submission.SequencedSubmission]].
     *
-    * If the submission is already sequenced, this call will be ignored.
+    * If a [[com.digitalasset.canton.participant.protocol.submission.SequencedSubmission]] with the given
+    * [[com.digitalasset.canton.protocol.RootHash]] already exists:
+    *
+    *   - if the given submission was sequenced '''earlier''' than the existing one, it replaces it;
+    *   - otherwise, this call will be ignored.
+    *
+    * As this method is called from the asynchronous part of message processing, this behavior ensures that
+    * the in-flight submission tracker always ends up tracking the '''earliest''' request for a given
+    * [[com.digitalasset.canton.protocol.RootHash]], independently of the order in which these calls are made,
+    * in accordance with the replay prevention mechanism.
+    *
+    * If the later request writes first, the [[InFlightSubmissionStore]] contains stale data for the submission
+    * request until the earlier request updates the row. This is fine because the stale information will only be
+    * read by the [[com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker]] after the
+    * corresponding completion event has been published by the [[com.digitalasset.canton.participant.event.RecordOrderPublisher]].
+    * However, this happens only after the earlier request has signalled its tick, i.e., when Phase 3 has finished (via the
+    * [[com.digitalasset.canton.participant.protocol.Phase37Synchronizer]] and either a
+    * [[com.digitalasset.canton.protocol.messages.MediatorResult]] has been processed or the decision time has elapsed.
+    * By this time, the row with the stale data has been overwritten by the earlier request.
+    *
+    * Calls to this method also race with calls to [[observeSequencing]] for later messages, e.g., if a submission
+    * request gets preplayed without a message ID. The argument about the stale data being benign also applies to
+    * those races. There are no races between several calls to [[observeSequencing]] because [[observeSequencing]]
+    * is called sequentially for each batch of sequenced events.
     */
   def observeSequencedRootHash(
       rootHash: RootHash,

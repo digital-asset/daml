@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import cats.Eval
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{CacheConfigWithTimeout, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.{
   AtomicHealthComponent,
@@ -39,6 +39,7 @@ import com.digitalasset.canton.participant.protocol.{
 import com.digitalasset.canton.participant.store.memory.TransferCache
 import com.digitalasset.canton.participant.sync.TimelyRejectNotifier
 import com.digitalasset.canton.protocol.RootHash
+import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
@@ -54,10 +55,11 @@ class SyncDomainEphemeralState(
     participantId: ParticipantId,
     persistentState: SyncDomainPersistentState,
     multiDomainEventLog: Eval[MultiDomainEventLog],
-    inFlightSubmissionTracker: InFlightSubmissionTracker,
+    val inFlightSubmissionTracker: InFlightSubmissionTracker,
     val startingPoints: ProcessingStartingPoints,
     createTimeTracker: NamedLoggerFactory => DomainTimeTracker,
     metrics: SyncDomainMetrics,
+    sessionKeyCacheConfig: CacheConfigWithTimeout,
     override val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
@@ -77,6 +79,9 @@ class SyncDomainEphemeralState(
     TrieMap.empty[RootHash, PendingTransferSubmission]
   val pendingTransferInSubmissions: TrieMap[RootHash, PendingTransferSubmission] =
     TrieMap.empty[RootHash, PendingTransferSubmission]
+
+  val sessionKeyStore: SessionKeyStore =
+    SessionKeyStore(sessionKeyCacheConfig)
 
   val requestJournal =
     new RequestJournal(
@@ -198,6 +203,8 @@ object SyncDomainEphemeralState {
 
 trait SyncDomainEphemeralStateLookup {
   this: SyncDomainEphemeralState =>
+
+  def sessionKeyStoreLookup: SessionKeyStore = sessionKeyStore
 
   def contractLookup: ContractLookup = storedContractManager
 

@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.messages.RootHashMessage.RootHashMessagePayloadCast
-import com.digitalasset.canton.protocol.{RootHash, v0, v1, v2, v3}
+import com.digitalasset.canton.protocol.{RootHash, v0, v1, v2, v3, v4}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
@@ -38,7 +38,8 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
     with ProtocolMessageV0
     with ProtocolMessageV1
     with ProtocolMessageV2
-    with UnsignedProtocolMessageV3
+    with ProtocolMessageV3
+    with UnsignedProtocolMessageV4
     with PrettyPrinting {
 
   override def toProtoEnvelopeContentV0: v0.EnvelopeContent =
@@ -50,8 +51,11 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
   override def toProtoEnvelopeContentV2: v2.EnvelopeContent =
     v2.EnvelopeContent(v2.EnvelopeContent.SomeEnvelopeContent.RootHashMessage(toProtoV0))
 
-  override def toProtoSomeEnvelopeContentV3: v3.EnvelopeContent.SomeEnvelopeContent =
-    v3.EnvelopeContent.SomeEnvelopeContent.RootHashMessage(toProtoV0)
+  override def toProtoEnvelopeContentV3: v3.EnvelopeContent =
+    v3.EnvelopeContent(v3.EnvelopeContent.SomeEnvelopeContent.RootHashMessage(toProtoV0))
+
+  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
+    v4.EnvelopeContent.SomeEnvelopeContent.RootHashMessage(toProtoV0)
 
   def toProtoV0: v0.RootHashMessage = v0.RootHashMessage(
     rootHash = rootHash.toProtoPrimitive,

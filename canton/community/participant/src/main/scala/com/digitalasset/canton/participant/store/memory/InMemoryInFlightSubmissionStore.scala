@@ -104,7 +104,11 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
       traceContext: TraceContext
   ): Future[Unit] = {
     inFlight.mapValuesInPlace { (_changeId, info) =>
-      if (!info.isSequenced && info.rootHashO.contains(rootHash)) {
+      val shouldUpdate = info.rootHashO.contains(rootHash) && (info.sequencingInfo match {
+        case UnsequencedSubmission(_, _) => true
+        case SequencedSubmission(_sc, ts) => submission.sequencingTime < ts
+      })
+      if (shouldUpdate) {
         info.copy(sequencingInfo = submission)
       } else info
     }

@@ -254,7 +254,7 @@ object DomainTopologyTransactionMessageValidator {
       val skipCheck = protocolVersion < ProtocolVersion.v5
       NonEmpty.from(messages) match {
         case None => FutureUnlessShutdown.pure(List.empty)
-        case Some(messages) if messages.size > 1 =>
+        case Some(messages) if messages.sizeCompare(1) > 0 =>
           TopologyManagerAlarm
             .Warn(
               s"Received batch with ${messages.size} envelopes, but I expect only a single one!"
