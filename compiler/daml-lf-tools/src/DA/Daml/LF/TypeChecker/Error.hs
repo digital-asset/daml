@@ -570,7 +570,7 @@ instance Pretty UpgradeError where
     RecordChangedOrigin dataConName past present -> "The record " <> pPrint dataConName <> " has changed origin from " <> pPrint past <> " to " <> pPrint present
     ChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
     TemplateChangedKeyType templateName -> "The upgraded template " <> pPrint templateName <> " cannot change its key type."
-    TemplateRemovedKey templateName key -> "The upgraded template " <> pPrint templateName <> " cannot remove its key " <> pPrint (tplKeyType key) <> "."
+    TemplateRemovedKey templateName _key -> "The upgraded template " <> pPrint templateName <> " cannot remove its key."
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
@@ -644,7 +644,7 @@ instance Pretty Warning where
     WChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of authorizers."
     WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " cannot change the expression for computing its key."
     WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " cannot change the maintainers for its key."
-    WTemplateAddedKeyDefinition template key -> "The upgraded template " <> pPrint template <> " cannot add a key " <> pPrint (tplKeyType key) <> " if it didn't have one previously."
+    WTemplateAddedKeyDefinition template _key -> "The upgraded template " <> pPrint template <> " cannot add a key if it didn't have one previously."
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic

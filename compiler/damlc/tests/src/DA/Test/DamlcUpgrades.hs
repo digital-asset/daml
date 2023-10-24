@@ -221,6 +221,60 @@ tests damlc =
                 )
               ]
         , test
+              "Fails when template removes key type"
+              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A key:\n  The upgraded template A cannot remove its key.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    key (p, \"text\") : (Party, Text)"
+                      , "    maintainer (fst key)"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      ]
+                )
+              ]
+        , test
+              "Fails when template adds key type"
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A cannot add a key if it didn't have one previously.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Party"
+                      , "  where"
+                      , "    signatory p"
+                      , "    key (p, \"text\") : (Party, Text)"
+                      , "    maintainer (fst key)"
+                      ]
+                )
+              ]
+        , test
               "Fails when new field is added to template without Optional type"
               (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has added new fields, but those fields are not Optional.")
               [ ( "daml/MyLib.daml"
