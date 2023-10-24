@@ -4,7 +4,7 @@
 package com.daml.lf
 package interpretation
 
-import com.daml.lf.data.Ref.{Party, TypeConName, ChoiceName, Location}
+import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.transaction.{NodeId, GlobalKey}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
