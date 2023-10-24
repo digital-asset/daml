@@ -988,7 +988,6 @@ object TransactionCoder {
       nonMaintainerSignatories.foreach(builder.addNonMaintainerSignatories)
       nonSignatoryStakeholders.foreach(builder.addNonSignatoryStakeholders)
       discard(builder.setCreatedAt(createdAt.micros))
-      discard(builder.setCreatedAt(createdAt.micros))
       discard(builder.setCantonData(cantonData.toByteString))
       encodeVersioned(version, builder.build().toByteString)
     }
