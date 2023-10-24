@@ -7,7 +7,7 @@ import cats.Eval
 import cats.implicits.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashPurpose}
 import com.digitalasset.canton.data.ViewType.TransferOutViewType
@@ -41,7 +41,7 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.store.IndexedDomain
+import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
 import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -150,6 +150,7 @@ final class TransferOutProcessingStepsTest
       ProcessingStartingPoints.default,
       _ => mock[DomainTimeTracker],
       ParticipantTestMetrics.domain,
+      CachingConfigs.defaultSessionKeyCache,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
       FutureSupervisor.Noop,
@@ -694,10 +695,6 @@ final class TransferOutProcessingStepsTest
     )
     val outTree = makeFullTransferOutTree(outRequest)
 
-    val encryptedOutRequestF = for {
-      encrypted <- encryptTransferOutTree(outTree)
-    } yield encrypted
-
     def checkSuccessful(
         result: outProcessingSteps.CheckActivenessAndWritePendingContracts
     ): Assertion =
@@ -713,14 +710,17 @@ final class TransferOutProcessingStepsTest
       }
 
     "succeed without errors" in {
+      val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCache)
       for {
-        encryptedOutRequest <- encryptedOutRequestF
+        encryptedOutRequest <- encryptTransferOutTree(outTree, sessionKeyStore)
         envelopes =
           NonEmpty(
             Seq,
             OpenEnvelope(encryptedOutRequest, RecipientsTest.testInstance)(testedProtocolVersion),
           )
-        decrypted <- valueOrFail(outProcessingSteps.decryptViews(envelopes, cryptoSnapshot))(
+        decrypted <- valueOrFail(
+          outProcessingSteps.decryptViews(envelopes, cryptoSnapshot, sessionKeyStore)
+        )(
           "decrypt request failed"
         )
         result <- valueOrFail(
@@ -927,10 +927,11 @@ final class TransferOutProcessingStepsTest
   }
 
   def encryptTransferOutTree(
-      tree: FullTransferOutTree
+      tree: FullTransferOutTree,
+      sessionKeyStore: SessionKeyStore,
   ): Future[EncryptedViewMessage[TransferOutViewType]] =
     EncryptedViewMessageFactory
-      .create(TransferOutViewType)(tree, cryptoSnapshot, testedProtocolVersion)(
+      .create(TransferOutViewType)(tree, cryptoSnapshot, sessionKeyStore, testedProtocolVersion)(
         implicitly[TraceContext],
         executorService,
       )

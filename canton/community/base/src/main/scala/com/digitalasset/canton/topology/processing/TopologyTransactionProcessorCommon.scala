@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.processing
 
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -40,7 +41,7 @@ trait TopologyTransactionProcessorCommon extends NamedLogging with FlagCloseable
     */
   def processEnvelopes(
       sc: SequencerCounter,
-      ts: CantonTimestamp,
+      ts: SequencedTime,
       envelopes: Traced[List[DefaultOpenEnvelope]],
   ): HandlerResult
 
@@ -60,7 +61,7 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
     domainId: DomainId,
     futureSupervisor: FutureSupervisor,
     store: TopologyStoreCommon[_, _, _, _],
-    acsCommitmentScheduleEffectiveTime: Traced[CantonTimestamp] => Unit,
+    acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
     override protected val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -116,7 +117,7 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
 
     def initClientFromSequencedTs(
         sequencedTs: SequencedTime
-    ): FutureUnlessShutdown[Seq[(EffectiveTime, ApproximateTime)]] = for {
+    ): FutureUnlessShutdown[NonEmpty[Seq[(EffectiveTime, ApproximateTime)]]] = for {
       // we need to figure out any future effective time. if we had been running, there would be a clock
       // scheduled to poke the domain client at the given time in order to adjust the approximate timestamp up to the
       // effective time at the given point in time. we need to recover these as otherwise, we might be using outdated
@@ -130,10 +131,14 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
       currentEpsilon <- epsilonForTimestamp(sequencedTs.value)
     } yield {
       // we have (ts+e, ts) and quite a few te in the future, so we create list of upcoming changes and sort them
-      ((
+
+      val head = (
         EffectiveTime(sequencedTs.value.plus(currentEpsilon.epsilon.unwrap)),
         ApproximateTime(sequencedTs.value),
-      ) +: upcoming.map(x => (x.effective, x.effective.toApproximate))).sortBy(_._1.value)
+      )
+      val tail = upcoming.map(x => (x.effective, x.effective.toApproximate))
+
+      NonEmpty(Seq, head, tail *).sortBy { case (effectiveTime, _) => effectiveTime.value }
     }
 
     for {
@@ -149,7 +154,7 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
           initClientFromSequencedTs(sequencedTs)
         case Right(effective) =>
           // effective and approximate time are effective time
-          FutureUnlessShutdown.pure(Seq((effective, effective.toApproximate)))
+          FutureUnlessShutdown.pure(NonEmpty(Seq, (effective, effective.toApproximate)))
       }
     } yield {
       logger.debug(
@@ -158,18 +163,12 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
 
       // let our client know about the latest known information right now, but schedule the updating
       // of the approximate time subsequently
-      val maxEffective = clientInitTimes
-        .map { case (effective, _) => effective }
-        .maxOption
-        .getOrElse(EffectiveTime.MinValue)
-      val minApproximate = clientInitTimes
-        .map { case (_, approximate) => approximate }
-        .minOption
-        .getOrElse(ApproximateTime.MaxValue)
+      val maxEffective = clientInitTimes.map { case (effective, _) => effective }.max1
+      val minApproximate = clientInitTimes.map { case (_, approximate) => approximate }.min1
       listenersUpdateHead(maxEffective, minApproximate, potentialChanges = true)
 
       val directExecutionContext = DirectExecutionContext(noTracingLogger)
-      clientInitTimes.foreach { case (effective, approximate) =>
+      clientInitTimes.foreach { case (effective, _approximate) =>
         // if the effective time is in the future, schedule a clock to update the time accordingly
         domainTimeTracker.awaitTick(effective.value) match {
           case None =>
@@ -210,14 +209,14 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
     */
   override def processEnvelopes(
       sc: SequencerCounter,
-      ts: CantonTimestamp,
+      ts: SequencedTime,
       envelopes: Traced[List[DefaultOpenEnvelope]],
   ): HandlerResult =
     envelopes.withTraceContext { implicit traceContext => env =>
       internalProcessEnvelopes(
         sc,
         ts,
-        extractTopologyUpdatesAndValidateEnvelope(SequencedTime(ts), env),
+        extractTopologyUpdatesAndValidateEnvelope(ts, env),
       )
     }
 
@@ -237,28 +236,27 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
 
   protected def internalProcessEnvelopes(
       sc: SequencerCounter,
-      ts: CantonTimestamp,
+      sequencedTime: SequencedTime,
       updatesF: FutureUnlessShutdown[List[M]],
   )(implicit traceContext: TraceContext): HandlerResult = {
-    val sequencedTime = SequencedTime(ts)
     def computeEffectiveTime(
         updates: List[M]
     ): FutureUnlessShutdown[EffectiveTime] = {
       if (updates.nonEmpty) {
-        val tmpF =
-          futureSupervisor.supervisedUS(s"adjust ts=$ts for update")(
+        val effectiveTimeF =
+          futureSupervisor.supervisedUS(s"adjust ts=$sequencedTime for update")(
             timeAdjuster.adjustTimestampForUpdate(sequencedTime)
           )
 
         // we need to inform the acs commitment processor about the incoming change
-        tmpF.map { eft =>
+        effectiveTimeF.map { effectiveTime =>
           // this is safe to do here, as the acs commitment processor `publish` method will only be
           // invoked long after the outer future here has finished processing
-          acsCommitmentScheduleEffectiveTime(Traced(eft.value))
-          eft
+          acsCommitmentScheduleEffectiveTime(Traced(effectiveTime))
+          effectiveTime
         }
       } else {
-        futureSupervisor.supervisedUS(s"adjust ts=$ts for update")(
+        futureSupervisor.supervisedUS(s"adjust ts=$sequencedTime for update")(
           timeAdjuster.adjustTimestampForTick(sequencedTime)
         )
       }
@@ -268,7 +266,7 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
       updates <- updatesF
       _ <- ErrorUtil.requireStateAsyncShutdown(
         initialised.get(),
-        s"Topology client for $domainId is not initialized. Cannot process sequenced event with counter ${sc} at ${ts}",
+        s"Topology client for $domainId is not initialized. Cannot process sequenced event with counter ${sc} at ${sequencedTime}",
       )
       // compute effective time
       effectiveTime <- computeEffectiveTime(updates)
@@ -283,7 +281,7 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
               tickleListeners(sequencedTime, effectiveTime)
             }
           },
-          "processing identity",
+          "processing topology transactions",
         )
       AsyncResult(scheduledF)
     }
@@ -314,8 +312,9 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
             {
               case Deliver(sc, ts, _, _, batch) =>
                 logger.debug(s"Processing sequenced event with counter $sc and timestamp $ts")
+                val sequencedTime = SequencedTime(ts)
                 val transactionsF = extractTopologyUpdatesAndValidateEnvelope(
-                  SequencedTime(ts),
+                  sequencedTime,
                   ProtocolMessage.filterDomainsEnvelopes(
                     batch,
                     domainId,
@@ -327,7 +326,7 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
                         .report(),
                   ),
                 )
-                internalProcessEnvelopes(sc, ts, transactionsF)
+                internalProcessEnvelopes(sc, sequencedTime, transactionsF)
               case _: DeliverError => HandlerResult.done
             }
           }
@@ -355,7 +354,7 @@ object TopologyTransactionProcessorCommon {
 
   abstract class Factory {
     def create(
-        acsCommitmentScheduleEffectiveTime: Traced[CantonTimestamp] => Unit
+        acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
     )(implicit executionContext: ExecutionContext): TopologyTransactionProcessorCommon
   }
 

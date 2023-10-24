@@ -21,7 +21,7 @@ final case class Counter[Discr](v: Long) extends Ordered[Counter[Discr]] with Pr
   def -(i: Int): Counter[Discr] = Counter(v - i)
 
   def +(other: Counter[Discr]): Counter[Discr] = Counter(v + other.v)
-  def -(other: Counter[Discr]): Counter[Discr] = Counter(v - other.v)
+  def -(other: Counter[Discr]): Long = v - other.v
 
   def max(other: Counter[Discr]): Counter[Discr] = Counter[Discr](v.max(other.v))
 

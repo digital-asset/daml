@@ -47,6 +47,7 @@ import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
+import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.time.TimeProof
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -192,7 +193,12 @@ class TransferOutProcessingSteps(
       mediatorMessage = fullTree.mediatorMessage
       rootHash = fullTree.rootHash
       viewMessage <- EncryptedViewMessageFactory
-        .create(TransferOutViewType)(fullTree, sourceRecentSnapshot, sourceDomainProtocolVersion.v)
+        .create(TransferOutViewType)(
+          fullTree,
+          sourceRecentSnapshot,
+          ephemeralState.sessionKeyStoreLookup,
+          sourceDomainProtocolVersion.v,
+        )
         .leftMap[TransferProcessorError](EncryptionError(contractId, _))
         .mapK(FutureUnlessShutdown.outcomeK)
       maybeRecipients = Recipients.ofSet(validated.recipients)
@@ -263,16 +269,20 @@ class TransferOutProcessingSteps(
       .toRight[TransferProcessorError](TransferOutProcessorError.UnknownContract(contractId))
       .mapK(FutureUnlessShutdown.outcomeK)
 
-  override protected def decryptTree(sourceSnapshot: DomainSnapshotSyncCryptoApi)(
+  override protected def decryptTree(
+      sourceSnapshot: DomainSnapshotSyncCryptoApi,
+      sessionKeyStore: SessionKeyStore,
+  )(
       envelope: OpenEnvelope[EncryptedViewMessage[TransferOutViewType]]
   )(implicit
       tc: TraceContext
-  ): EitherT[Future, EncryptedViewMessageError[TransferOutViewType], WithRecipients[
+  ): EitherT[Future, EncryptedViewMessageError, WithRecipients[
     FullTransferOutTree
   ]] = {
     EncryptedViewMessage
       .decryptFor(
         sourceSnapshot,
+        sessionKeyStore,
         envelope.protocolMessage,
         participantId,
         sourceDomainProtocolVersion.v,

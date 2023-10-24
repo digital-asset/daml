@@ -17,7 +17,7 @@ import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.google.protobuf.ByteString
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier
 
-import java.security.{PublicKey as JPublicKey}
+import java.security.PublicKey as JPublicKey
 import scala.concurrent.{ExecutionContext, Future}
 
 object SymbolicCrypto {
@@ -139,7 +139,8 @@ object SymbolicCrypto {
     implicit val loggingContext: ErrorLoggingContext =
       ErrorLoggingContext.fromTracedLogger(loggerFactory.getTracedLogger(this.getClass))
 
-    val crypto = SymbolicCrypto.create(releaseProtocolVersion, timeouts, loggerFactory)
+    val crypto =
+      SymbolicCrypto.create(releaseProtocolVersion, timeouts, loggerFactory)
     val cryptoPrivateStore = crypto.cryptoPrivateStore.toExtended
       .getOrElse(
         throw new RuntimeException(s"Crypto private store does not implement all necessary methods")

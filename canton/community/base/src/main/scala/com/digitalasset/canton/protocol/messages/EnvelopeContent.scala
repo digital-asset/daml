@@ -8,7 +8,7 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.{v0, v1, v2, v3}
+import com.digitalasset.canton.protocol.{v0, v1, v2, v3, v4}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
@@ -48,13 +48,21 @@ sealed abstract case class EnvelopeContentV2(override val message: ProtocolMessa
     EnvelopeContent.representativeV2
 }
 
-sealed abstract case class EnvelopeContentV3(override val message: UnsignedProtocolMessageV3)
+sealed abstract case class EnvelopeContentV3(override val message: ProtocolMessageV3)
     extends EnvelopeContent {
-  override def toByteStringUnversioned: ByteString =
-    v3.EnvelopeContent(message.toProtoSomeEnvelopeContentV3).toByteString
+  override def toByteStringUnversioned: ByteString = message.toProtoEnvelopeContentV3.toByteString
 
   override def representativeProtocolVersion: RepresentativeProtocolVersion[EnvelopeContent.type] =
     EnvelopeContent.representativeV3
+}
+
+sealed abstract case class EnvelopeContentV4(override val message: UnsignedProtocolMessageV4)
+    extends EnvelopeContent {
+  override def toByteStringUnversioned: ByteString =
+    v4.EnvelopeContent(message.toProtoSomeEnvelopeContentV4).toByteString
+
+  override def representativeProtocolVersion: RepresentativeProtocolVersion[EnvelopeContent.type] =
+    EnvelopeContent.representativeV4
 }
 
 object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[EnvelopeContent, HashOps] {
@@ -72,10 +80,14 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
       supportedProtoVersion(_)(fromProtoV2),
       _.toByteStringUnversioned,
     ),
-    ProtoVersion(3) -> VersionedProtoConverter(
-      ProtocolVersion.CNTestNet
-    )(v3.EnvelopeContent)(
+    ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v6)(v3.EnvelopeContent)(
       supportedProtoVersion(_)(fromProtoV3),
+      _.toByteStringUnversioned,
+    ),
+    ProtoVersion(4) -> VersionedProtoConverter(
+      ProtocolVersion.CNTestNet
+    )(v4.EnvelopeContent)(
+      supportedProtoVersion(_)(fromProtoV4),
       _.toByteStringUnversioned,
     ),
   )
@@ -88,6 +100,8 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
     protocolVersionRepresentativeFor(ProtoVersion(2))
   private[messages] val representativeV3: RepresentativeProtocolVersion[EnvelopeContent.type] =
     protocolVersionRepresentativeFor(ProtoVersion(3))
+  private[messages] val representativeV4: RepresentativeProtocolVersion[EnvelopeContent.type] =
+    protocolVersionRepresentativeFor(ProtoVersion(4))
 
   def create(
       message: ProtocolMessage,
@@ -95,7 +109,10 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
   ): Either[String, EnvelopeContent] = {
     val representativeProtocolVersion = protocolVersionRepresentativeFor(protocolVersion)
     message match {
-      case messageV3: UnsignedProtocolMessageV3
+      case messageV4: UnsignedProtocolMessageV4
+          if representativeProtocolVersion == EnvelopeContent.representativeV4 =>
+        Right(new EnvelopeContentV4(messageV4) {})
+      case messageV3: ProtocolMessageV3
           if representativeProtocolVersion == EnvelopeContent.representativeV3 =>
         Right(new EnvelopeContentV3(messageV3) {})
       case messageV2: ProtocolMessageV2
@@ -107,7 +124,8 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
       case messageV0: ProtocolMessageV0
           if representativeProtocolVersion == EnvelopeContent.representativeV0 =>
         Right(new EnvelopeContentV0(messageV0) {})
-      case _ => Left(s"Cannot use message $message in protocol version $protocolVersion")
+      case _ =>
+        Left(s"Cannot use message $message in protocol version $protocolVersion")
     }
   }
 
@@ -206,11 +224,40 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
     messageE.map(message => new EnvelopeContentV2(message) {})
   }
 
-  private def fromProtoV3(
+  def fromProtoV3(
       hashOps: HashOps,
-      contentP: v3.EnvelopeContent,
+      envelopeContent: v3.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
     import v3.EnvelopeContent.SomeEnvelopeContent as Content
+    val messageE = (envelopeContent.someEnvelopeContent match {
+      case Content.InformeeMessage(messageP) =>
+        InformeeMessage.fromProtoV1(hashOps)(messageP)
+      case Content.DomainTopologyTransactionMessage(messageP) =>
+        DomainTopologyTransactionMessage.fromProtoV1(messageP)
+      case Content.EncryptedViewMessage(messageP) =>
+        EncryptedViewMessageV2.fromProto(messageP)
+      case Content.SignedMessage(messageP) =>
+        SignedProtocolMessage.fromProtoV0(hashOps, messageP)
+      case Content.TransferOutMediatorMessage(messageP) =>
+        TransferOutMediatorMessage.fromProtoV1(hashOps)(messageP)
+      case Content.TransferInMediatorMessage(messageP) =>
+        TransferInMediatorMessage.fromProtoV1(hashOps)(messageP)
+      case Content.RootHashMessage(messageP) =>
+        RootHashMessage.fromProtoV0(SerializedRootHashMessagePayload.fromByteString)(messageP)
+      case Content.RegisterTopologyTransactionRequest(messageP) =>
+        RegisterTopologyTransactionRequest.fromProtoV0(messageP)
+      case Content.RegisterTopologyTransactionResponse(messageP) =>
+        RegisterTopologyTransactionResponse.fromProtoV1(messageP)
+      case Content.Empty => Left(OtherError("Cannot deserialize an empty message content"))
+    }): ParsingResult[ProtocolMessageV3]
+    messageE.map(message => new EnvelopeContentV3(message) {})
+  }
+
+  private def fromProtoV4(
+      hashOps: HashOps,
+      contentP: v4.EnvelopeContent,
+  ): ParsingResult[EnvelopeContent] = {
+    import v4.EnvelopeContent.SomeEnvelopeContent as Content
     for {
       content <- (contentP.someEnvelopeContent match {
         case Content.InformeeMessage(messageP) =>
@@ -218,7 +265,7 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
         case Content.DomainTopologyTransactionMessage(messageP) =>
           DomainTopologyTransactionMessage.fromProtoV1(messageP)
         case Content.EncryptedViewMessage(messageP) =>
-          EncryptedViewMessageV1.fromProto(messageP)
+          EncryptedViewMessageV2.fromProto(messageP)
         case Content.TransferOutMediatorMessage(messageP) =>
           TransferOutMediatorMessage.fromProtoV1(hashOps)(messageP)
         case Content.TransferInMediatorMessage(messageP) =>
@@ -232,8 +279,8 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
         case Content.TopologyTransactionsBroadcast(messageP) =>
           TopologyTransactionsBroadcastX.fromProtoV2(messageP)
         case Content.Empty => Left(OtherError("Cannot deserialize an empty message content"))
-      }): ParsingResult[UnsignedProtocolMessageV3]
-    } yield new EnvelopeContentV3(content) {}
+      }): ParsingResult[UnsignedProtocolMessageV4]
+    } yield new EnvelopeContentV4(content) {}
   }
 
   override def name: String = "EnvelopeContent"

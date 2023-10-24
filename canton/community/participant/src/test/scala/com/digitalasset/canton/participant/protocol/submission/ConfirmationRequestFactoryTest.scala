@@ -6,8 +6,10 @@ package com.digitalasset.canton.participant.protocol.submission
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
-import com.digitalasset.canton.config.LoggingConfig
+import com.digitalasset.canton.config.{CachingConfigs, LoggingConfig}
+import com.digitalasset.canton.crypto.SyncCryptoError.KeyNotAvailable
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
 import com.digitalasset.canton.data.ViewType.TransactionViewType
@@ -16,7 +18,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.SubmitterInfo
 import com.digitalasset.canton.participant.DefaultParticipantStateValues
 import com.digitalasset.canton.participant.protocol.submission.ConfirmationRequestFactory.*
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
-  UnableToDetermineKey,
+  FailedToSignViewMessage,
   UnableToDetermineParticipant,
 }
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
@@ -29,25 +31,34 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.{WithSuffixes, Wit
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageV1.RecipientsInfo
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.sequencing.protocol.OpenEnvelope
+import com.digitalasset.canton.sequencing.protocol.{OpenEnvelope, Recipient}
+import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
+import com.digitalasset.canton.store.SessionKeyStoreWithInMemoryCache
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with HasExecutorService {
+class ConfirmationRequestFactoryTest
+    extends AsyncWordSpec
+    with ProtocolVersionChecksAsyncWordSpec
+    with BaseTest
+    with HasExecutorService {
 
   // Parties
   val observerParticipant1: ParticipantId = ParticipantId("observerParticipant1")
   val observerParticipant2: ParticipantId = ParticipantId("observerParticipant2")
+  val observerParticipant3: ParticipantId = ParticipantId("observerParticipant3")
 
   // General dummy parameters
   val domain: DomainId = DefaultTestIdentities.domainId
@@ -68,6 +79,7 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
       partyToParticipant: Map[ParticipantId, Seq[LfPartyId]],
       permission: ParticipantPermission = Submission,
       keyPurposes: Set[KeyPurpose] = KeyPurpose.all,
+      encKeyTag: Option[String] = None,
   ): DomainSnapshotSyncCryptoApi = {
 
     val map = partyToParticipant.fmap(parties => parties.map(_ -> permission).toMap)
@@ -75,6 +87,7 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
       .withReversedTopology(map)
       .withDomains(domain)
       .withKeyPurposes(keyPurposes)
+      .withEncKeyTag(OptionUtil.noneAsEmptyString(encKeyTag))
       .build(loggerFactory)
       .forOwnerAndDomain(submitterParticipant, domain)
       .currentSnapshotApproximation
@@ -89,8 +102,16 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
   // Collaborators
 
   // This is a def (and not a val), as the crypto api has the next symmetric key as internal state
-  // Therefore, it would not make sense to reuse an instance.
-  def newCryptoSnapshot: DomainSnapshotSyncCryptoApi = createCryptoSnapshot(defaultTopology)
+  // Therefore, it would not make sense to reuse an instance. We also force the crypto api to not randomize
+  // asymmetric encryption ciphertexts.
+  def newCryptoSnapshot: DomainSnapshotSyncCryptoApi = {
+    val cryptoSnapshot = createCryptoSnapshot(defaultTopology)
+    cryptoSnapshot.pureCrypto match {
+      case crypto: SymbolicPureCrypto => crypto.setRandomnessFlag(true)
+      case _ => ()
+    }
+    cryptoSnapshot
+  }
 
   val privateCryptoApi: DomainSnapshotSyncCryptoApi =
     TestingTopology()
@@ -98,7 +119,7 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
       .build()
       .forOwnerAndDomain(submitterParticipant, domain)
       .currentSnapshotApproximation
-  val randomOps: RandomOps = new SymbolicPureCrypto
+  val randomOps: RandomOps = new SymbolicPureCrypto()
 
   val transactionUuid: UUID = new UUID(10L, 20L)
 
@@ -165,10 +186,17 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
       override def saltsFromView(view: TransactionView): Iterable[Salt] = ???
     }
 
-    new ConfirmationRequestFactory(submitterParticipant, LoggingConfig(), loggerFactory)(
+    // we force view requests to be handled sequentially, which makes results deterministic and easier to compare
+    // in the end.
+    new ConfirmationRequestFactory(
+      submitterParticipant,
+      LoggingConfig(),
+      loggerFactory,
+      parallel = false,
+    )(
       transactionTreeFactory,
       seedGenerator,
-    )
+    )(executorService)
   }
 
   private val contractInstanceOfId: SerializableContractOfId = { id: LfContractId =>
@@ -185,9 +213,11 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
 
   // Since the ConfirmationRequestFactory signs the envelopes in parallel,
   // we cannot predict the counter that SymbolicCrypto uses to randomize the signatures.
-  // So we simply replace them with a fixed empty signature.
-  def stripSignature(request: ConfirmationRequest): ConfirmationRequest =
-    request
+  // So we simply replace them with a fixed empty signature. When we are using
+  // EncryptedViewMessageV2 we order the sequence of randomness encryption on both the actual
+  // and expected messages so that they match.
+  def stripSignatureAndOrderMap(request: ConfirmationRequest): ConfirmationRequest = {
+    val requestNoSignature = request
       .focus(_.viewEnvelopes)
       .modify(_.map(_.focus(_.protocolMessage).modify {
         case v0: EncryptedViewMessageV0[_] =>
@@ -196,7 +226,31 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
         case v1: EncryptedViewMessageV1[_] =>
           v1.focus(_.submitterParticipantSignature)
             .modify(_.map(_ => SymbolicCrypto.emptySignature))
+        case v2: EncryptedViewMessageV2[_] =>
+          v2.focus(_.submitterParticipantSignature)
+            .modify(_.map(_ => SymbolicCrypto.emptySignature))
       }))
+
+    val orderedTvm = requestNoSignature.viewEnvelopes.map(tvm =>
+      tvm.protocolMessage match {
+        case encViewMessage @ EncryptedViewMessageV2(_, _, _, _, _, _, _) =>
+          val encryptedRandomnessOrdering: Ordering[AsymmetricEncrypted[SecureRandomness]] =
+            Ordering.by(_.encryptedFor.unwrap)
+          tvm.copy(protocolMessage =
+            encViewMessage
+              .copy(sessionKeyRandomness =
+                encViewMessage.sessionKey
+                  .sorted(encryptedRandomnessOrdering)
+              )
+          )
+        case _ => tvm
+      }
+    )
+
+    requestNoSignature
+      .focus(_.viewEnvelopes)
+      .replace(orderedTvm)
+  }
 
   // Expected output factory
   def expectedConfirmationRequest(
@@ -204,6 +258,10 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
       cryptoSnapshot: DomainSnapshotSyncCryptoApi,
   ): ConfirmationRequest = {
     val cryptoPureApi = cryptoSnapshot.pureCrypto
+    val viewEncryptionScheme = cryptoPureApi.defaultSymmetricKeyScheme
+
+    val privateKeysetCache: TrieMap[NonEmpty[Set[Recipient]], SecureRandomness] =
+      TrieMap.empty
 
     val expectedTransactionViewMessages = example.transactionViewTreesWithWitnesses.map {
       case (tree, witnesses) =>
@@ -225,8 +283,6 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
             )
             .valueOr(e => throw new IllegalStateException(s"Failed to derive key: $e"))
         }
-
-        val viewEncryptionScheme = cryptoPureApi.defaultSymmetricKeyScheme
         val symmetricKeyRandomness = cryptoPureApi
           .computeHkdf(
             keySeed.unwrap,
@@ -262,14 +318,46 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
           .futureValue
           .value
 
-        val createdRandomnessMap = randomnessMap(keySeed, participants, cryptoPureApi)
-
         val encryptedViewMessage: EncryptedViewMessage[TransactionViewType] = {
-          if (testedProtocolVersion >= ProtocolVersion.v4)
+          if (testedProtocolVersion >= ProtocolVersion.v6) {
+            // simulates session key cache
+            val keySeedSession = privateKeysetCache.getOrElseUpdate(
+              recipients.leafRecipients,
+              cryptoPureApi
+                .computeHkdf(
+                  cryptoPureApi.generateSecureRandomness(keySeed.unwrap.size()).unwrap,
+                  viewEncryptionScheme.keySizeInBytes,
+                  HkdfInfo.SessionKey,
+                )
+                .valueOrFail("error generating randomness for session key"),
+            )
+            val sessionKey = cryptoPureApi
+              .createSymmetricKey(keySeedSession, viewEncryptionScheme)
+              .valueOrFail("failed to create session key from randomness")
+            val encryptedRandomness = cryptoPureApi
+              .encryptWith(keySeed, sessionKey, testedProtocolVersion)
+              .valueOrFail(
+                "could not encrypt view randomness with session key"
+              )
+
+            val randomnessMapNE = NonEmpty
+              .from(randomnessMap(keySeedSession, participants, cryptoPureApi).values.toSeq)
+              .valueOrFail("session key randomness map is empty")
+
+            EncryptedViewMessageV2(
+              signature,
+              tree.viewHash,
+              encryptedRandomness,
+              randomnessMapNE,
+              encryptedView,
+              transactionFactory.domainId,
+              SymmetricKeyScheme.Aes128Gcm,
+            )(Some(RecipientsInfo(participants, Set.empty, Set.empty)))
+          } else if (testedProtocolVersion >= ProtocolVersion.v4)
             EncryptedViewMessageV1(
               signature,
               tree.viewHash,
-              createdRandomnessMap.values.toSeq,
+              randomnessMap(keySeed, participants, cryptoPureApi).values.toSeq,
               encryptedView,
               transactionFactory.domainId,
               SymmetricKeyScheme.Aes128Gcm,
@@ -278,7 +366,7 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
             EncryptedViewMessageV0(
               signature,
               tree.viewHash,
-              createdRandomnessMap.fmap(_.encrypted),
+              randomnessMap(keySeed, participants, cryptoPureApi).fmap(_.encrypted),
               encryptedView,
               transactionFactory.domainId,
             )
@@ -294,7 +382,9 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
     )
   }
 
-  val testKeySeed = randomOps.generateSecureRandomness(0)
+  val testKeySeed: SecureRandomness = randomOps.generateSecureRandomness(
+    newCryptoSnapshot.crypto.pureCrypto.defaultSymmetricKeyScheme.keySizeInBytes
+  )
 
   def randomnessMap(
       randomness: SecureRandomness,
@@ -315,6 +405,8 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
     randomnessPairs.toMap
   }
 
+  val singleFetch: transactionFactory.SingleFetch = transactionFactory.SingleFetch()
+
   "A ConfirmationRequestFactory" when {
     "everything is ok" can {
 
@@ -332,6 +424,7 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
               example.keyResolver,
               mediator,
               newCryptoSnapshot,
+              new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCache),
               contractInstanceOfId,
               Some(testKeySeed),
               maxSequencingTime,
@@ -340,13 +433,55 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
             .value
             .map { res =>
               val expected = expectedConfirmationRequest(example, newCryptoSnapshot)
-              stripSignature(res.value) shouldBe stripSignature(expected)
+              stripSignatureAndOrderMap(res.value) shouldBe stripSignatureAndOrderMap(expected)
             }
         }
       }
-    }
 
-    val singleFetch = transactionFactory.SingleFetch()
+      s"use different session key after key is revoked between two requests" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+        val factory = confirmationRequestFactory(Right(singleFetch.transactionTree))
+        // we use the same store for two requests to simulate what would happen in a real scenario
+        val store = new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCache)
+        val recipientGroup = RecipientGroup(
+          NonEmpty(Set, submitterParticipant, observerParticipant1, observerParticipant2),
+          newCryptoSnapshot.pureCrypto.defaultSymmetricKeyScheme,
+        )
+
+        def getSessionKeyFromConfirmationRequest(cryptoSnapshot: DomainSnapshotSyncCryptoApi) =
+          factory
+            .createConfirmationRequest(
+              singleFetch.wellFormedUnsuffixedTransaction,
+              ConfirmationPolicy.Vip,
+              submitterInfo,
+              workflowId,
+              singleFetch.keyResolver,
+              mediator,
+              cryptoSnapshot,
+              store,
+              contractInstanceOfId,
+              Some(testKeySeed),
+              maxSequencingTime,
+              testedProtocolVersion,
+            )
+            .map(_ =>
+              store
+                .getSessionKeyInfoIfPresent(recipientGroup)
+                .valueOrFail("session key not found")
+            )
+
+        for {
+          firstSessionKeyInfo <- getSessionKeyFromConfirmationRequest(newCryptoSnapshot)
+          secondSessionKeyInfo <- getSessionKeyFromConfirmationRequest(newCryptoSnapshot)
+          // we add a tag that is to be appended to the encryption key id
+          // (to enforce that the key is different from the previous one, i.e. simulate a key rotation/revocation)
+          anotherCryptoSnapshot = createCryptoSnapshot(defaultTopology, encKeyTag = Some("-new"))
+          thirdSessionKeyInfo <- getSessionKeyFromConfirmationRequest(anotherCryptoSnapshot)
+        } yield {
+          firstSessionKeyInfo shouldBe secondSessionKeyInfo
+          secondSessionKeyInfo should not be thirdSessionKeyInfo
+        }
+      }
+    }
 
     "submitter node does not represent submitter" must {
 
@@ -364,6 +499,7 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
             singleFetch.keyResolver,
             mediator,
             emptyCryptoSnapshot,
+            new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCache),
             contractInstanceOfId,
             Some(testKeySeed),
             maxSequencingTime,
@@ -399,6 +535,7 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
             singleFetch.keyResolver,
             mediator,
             confirmationOnlyCryptoSnapshot,
+            new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCache),
             contractInstanceOfId,
             Some(testKeySeed),
             maxSequencingTime,
@@ -431,6 +568,7 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
             singleFetch.keyResolver,
             mediator,
             newCryptoSnapshot,
+            new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCache),
             contractInstanceOfId,
             Some(testKeySeed),
             maxSequencingTime,
@@ -460,6 +598,7 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
             singleFetch.keyResolver,
             mediator,
             submitterOnlyCryptoSnapshot,
+            new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCache),
             contractInstanceOfId,
             Some(testKeySeed),
             maxSequencingTime,
@@ -494,15 +633,20 @@ class ConfirmationRequestFactoryTest extends AsyncWordSpec with BaseTest with Ha
             singleFetch.keyResolver,
             mediator,
             noKeyCryptoSnapshot,
+            new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCache),
             contractInstanceOfId,
             Some(testKeySeed),
             maxSequencingTime,
             testedProtocolVersion,
           )
           .value
-          .map(_ should matchPattern {
-            case Left(EncryptedViewMessageCreationError(UnableToDetermineKey(_, _, _))) =>
-          })
+          .map {
+            case Left(EncryptedViewMessageCreationError(viewErr)) =>
+              viewErr should matchPattern {
+                case FailedToSignViewMessage(KeyNotAvailable(_, _, _, _)) =>
+              }
+            case _ => fail("should have failed with a view message creation error")
+          }
       }
     }
   }

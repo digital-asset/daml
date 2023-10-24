@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.config
 
-import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.github.blemale.scaffeine.Scaffeine
 import com.google.common.annotations.VisibleForTesting
@@ -23,6 +22,16 @@ final case class CacheConfig(
 
 }
 
+final case class CacheConfigWithTimeout(
+    maximumSize: PositiveNumeric[Long],
+    expireAfterTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(10),
+) {
+
+  def buildScaffeine(): Scaffeine[Any, Any] =
+    Scaffeine().maximumSize(maximumSize.value).expireAfterWrite(expireAfterTimeout.underlying)
+
+}
+
 /** Configuration settings for various internal caches
   *
   * @param indexedStrings cache size configuration for the static string index cache
@@ -38,6 +47,7 @@ final case class CachingConfigs(
     partyCache: CacheConfig = CachingConfigs.defaultPartyCache,
     participantCache: CacheConfig = CachingConfigs.defaultParticipantCache,
     keyCache: CacheConfig = CachingConfigs.defaultKeyCache,
+    sessionKeyCache: CacheConfigWithTimeout = CachingConfigs.defaultSessionKeyCache,
     packageVettingCache: CacheConfig = CachingConfigs.defaultPackageVettingCache,
     mySigningKeyCache: CacheConfig = CachingConfigs.defaultMySigningKeyCache,
     trafficStatusCache: CacheConfig = CachingConfigs.defaultTrafficStatusCache,
@@ -57,6 +67,8 @@ object CachingConfigs {
   val defaultParticipantCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
   val defaultKeyCache: CacheConfig = CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
+  val defaultSessionKeyCache: CacheConfigWithTimeout =
+    CacheConfigWithTimeout(maximumSize = PositiveNumeric.tryCreate(100000))
   val defaultPackageVettingCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultMySigningKeyCache: CacheConfig =

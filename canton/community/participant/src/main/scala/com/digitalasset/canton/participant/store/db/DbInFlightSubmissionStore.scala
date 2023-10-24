@@ -213,12 +213,13 @@ class DbInFlightSubmissionStore(
             pp >> sc
             pp >> ts
             pp >> rootHash
+            pp >> ts
           }
 
           val action = DbStorage.bulkOperation_(
             """update in_flight_submission
                set sequencing_timeout = null, tracking_data = null, sequencer_counter = ?, sequencing_time = ?
-               where root_hash_hex = ? and sequencing_timeout is not null
+               where root_hash_hex = ? and (sequencing_timeout is not null or ? < sequencing_time)
             """,
             items,
             storage.profile,

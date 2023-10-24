@@ -28,11 +28,13 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.OpenEnvelope
+import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -41,11 +43,14 @@ import scala.concurrent.{ExecutionContext, Future}
   *
   * @param transactionTreeFactory used to create the payload
   * @param seedGenerator used to derive the transaction seed
+  * @param parallel to flag if view processing is done in parallel or sequentially. Intended to be set only during tests
+  *                 to enforce determinism, otherwise it is always set to true.
   */
 class ConfirmationRequestFactory(
     submitterNode: ParticipantId,
     loggingConfig: LoggingConfig,
     val loggerFactory: NamedLoggerFactory,
+    parallel: Boolean = true,
 )(val transactionTreeFactory: TransactionTreeFactory, seedGenerator: SeedGenerator)(implicit
     executionContext: ExecutionContext
 ) extends NamedLogging {
@@ -65,6 +70,7 @@ class ConfirmationRequestFactory(
       keyResolver: LfKeyResolver,
       mediator: MediatorRef,
       cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      sessionKeyStore: SessionKeyStore,
       contractInstanceOfId: SerializableContractOfId,
       optKeySeed: Option[SecureRandomness],
       maxSequencingTime: CantonTimestamp,
@@ -112,6 +118,7 @@ class ConfirmationRequestFactory(
       confirmationRequest <- createConfirmationRequest(
         transactionTree,
         cryptoSnapshot,
+        sessionKeyStore,
         keySeed,
         protocolVersion,
       )
@@ -126,6 +133,7 @@ class ConfirmationRequestFactory(
   def createConfirmationRequest(
       transactionTree: GenTransactionTree,
       cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      sessionKeyStore: SessionKeyStore,
       keySeed: SecureRandomness,
       protocolVersion: ProtocolVersion,
   )(implicit
@@ -134,6 +142,7 @@ class ConfirmationRequestFactory(
     transactionViewEnvelopes <- createTransactionViewEnvelopes(
       transactionTree,
       cryptoSnapshot,
+      sessionKeyStore,
       keySeed,
       protocolVersion,
     )
@@ -183,30 +192,51 @@ class ConfirmationRequestFactory(
   private def createTransactionViewEnvelopes(
       transactionTree: GenTransactionTree,
       cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      sessionKeyStore: SessionKeyStore,
       keySeed: SecureRandomness,
       protocolVersion: ProtocolVersion,
   )(implicit traceContext: TraceContext): EitherT[Future, ConfirmationRequestCreationError, List[
     OpenEnvelope[TransactionViewMessage]
   ]] = {
     val pureCrypto = cryptoSnapshot.pureCrypto
+
+    def createOpenEnvelopeWithTransaction(
+        vt: LightTransactionViewTree,
+        seed: SecureRandomness,
+        witnesses: Witnesses,
+    ): EitherT[Future, ConfirmationRequestCreationError, OpenEnvelope[TransactionViewMessage]] =
+      for {
+        viewMessage <- EncryptedViewMessageFactory
+          .create(TransactionViewType)(
+            vt,
+            cryptoSnapshot,
+            sessionKeyStore,
+            protocolVersion,
+            Some(seed),
+          )
+          .leftMap(EncryptedViewMessageCreationError)
+        recipients <- witnesses
+          .toRecipients(cryptoSnapshot.ipsSnapshot)
+          .leftMap[ConfirmationRequestCreationError](e => RecipientsCreationError(e.message))
+      } yield OpenEnvelope(viewMessage, recipients)(protocolVersion)
+
     for {
       lightTreesWithMetadata <- EitherT.fromEither[Future](
         transactionTree
           .allLightTransactionViewTreesWithWitnessesAndSeeds(keySeed, pureCrypto, protocolVersion)
           .leftMap(KeySeedError)
       )
-      res <- lightTreesWithMetadata.toList
-        .parTraverse { case (vt, witnesses, seed) =>
-          for {
-            viewMessage <- EncryptedViewMessageFactory
-              .create(TransactionViewType)(vt, cryptoSnapshot, protocolVersion, Some(seed))
-              .leftMap(EncryptedViewMessageCreationError)
-            recipients <- witnesses
-              .toRecipients(cryptoSnapshot.ipsSnapshot)
-              .leftMap[ConfirmationRequestCreationError](e => RecipientsCreationError(e.message))
-          } yield OpenEnvelope(viewMessage, recipients)(protocolVersion)
-        }
-    } yield res
+
+      res <-
+        if (parallel)
+          lightTreesWithMetadata.toList.parTraverse { case (vt, witnesses, seed) =>
+            createOpenEnvelopeWithTransaction(vt, seed, witnesses)
+          }
+        else
+          MonadUtil.sequentialTraverse(lightTreesWithMetadata) { case (vt, witnesses, seed) =>
+            createOpenEnvelopeWithTransaction(vt, seed, witnesses)
+          }
+    } yield res.toList
   }
 }
 

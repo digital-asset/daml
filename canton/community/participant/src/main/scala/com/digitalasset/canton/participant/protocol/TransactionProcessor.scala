@@ -214,6 +214,27 @@ object TransactionProcessor {
           )
     }
 
+    @Explanation(
+      """This error occurs if a transaction was submitted referring to a contract that
+        |is not known on the domain. This can occur in case of race conditions between a transaction and
+        |an archival or transfer-out."""
+    )
+    @Resolution(
+      """Check domain for submission and/or re-submit the transaction."""
+    )
+    object UnknownContractDomain
+        extends ErrorCode(
+          id = "UNKNOWN_CONTRACT_DOMAIN",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      final case class Error(contractId: LfContractId)
+          extends TransactionErrorImpl(
+            cause = "Not all receiving participants have the contract in their contract store",
+            // Reported asynchronously after in-flight submission checking, so covered by the rank guarantee
+            definiteAnswer = true,
+          )
+    }
+
     // TODO(#7348) Add the submission rank of the in-flight submission
     final case class SubmissionAlreadyInFlight(
         changeId: ChangeId,

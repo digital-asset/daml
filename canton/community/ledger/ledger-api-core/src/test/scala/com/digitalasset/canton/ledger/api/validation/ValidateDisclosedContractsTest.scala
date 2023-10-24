@@ -133,6 +133,10 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
   }
 
   it should "fail validation on invalid create arguments record field" in {
+    // Allow using deprecated Protobuf fields for backwards compatibility
+    @annotation.nowarn(
+      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.commands\\.DisclosedContract.*"
+    )
     def invalidArguments: ProtoArguments =
       ProtoArguments.CreateArguments(
         api.contractArgumentsRecord.update(
@@ -219,6 +223,10 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
   }
 
   it should "fail validation on unexpected create arguments blob" in {
+    // Allow using deprecated Protobuf fields for backwards compatibility
+    @annotation.nowarn(
+      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.commands\\.DisclosedContract.*"
+    )
     val withCrappyArguments =
       ProtoCommands(disclosedContracts =
         scala.Seq(
@@ -261,6 +269,10 @@ object ValidateDisclosedContractsTest {
       createdAt = Some(ProtoTimestamp(seconds = 1337L)),
       contractKeyHash = ByteString.copyFrom(keyHash.bytes.toByteArray),
       driverMetadata = ByteString.copyFromUtf8("SomeDriverMetadata"),
+    )
+    // Allow using deprecated Protobuf fields for backwards compatibility
+    @annotation.nowarn(
+      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.commands\\.DisclosedContract.*"
     )
     val protoDisclosedContract: ProtoDisclosedContract = ProtoDisclosedContract(
       templateId = Some(templateId),

@@ -44,6 +44,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
+import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
@@ -195,9 +196,13 @@ private[transfer] class TransferInProcessingSteps(
           .ofSet(recipientsSet)
           .toRight(NoStakeholders.logAndCreate(transferData.contract.contractId, logger))
       )
-
       viewMessage <- EncryptedViewMessageFactory
-        .create(TransferInViewType)(fullTree, recentSnapshot, targetProtocolVersion.v)
+        .create(TransferInViewType)(
+          fullTree,
+          recentSnapshot,
+          ephemeralState.sessionKeyStoreLookup,
+          targetProtocolVersion.v,
+        )
         .leftMap[TransferProcessorError](EncryptionError(transferData.contract.contractId, _))
     } yield {
       val rootHashMessage =
@@ -249,16 +254,20 @@ private[transfer] class TransferInProcessingSteps(
   ): SubmissionResult =
     SubmissionResult(pendingSubmission.transferCompletion.future)
 
-  override protected def decryptTree(snapshot: DomainSnapshotSyncCryptoApi)(
+  override protected def decryptTree(
+      snapshot: DomainSnapshotSyncCryptoApi,
+      sessionKeyStore: SessionKeyStore,
+  )(
       envelope: OpenEnvelope[EncryptedViewMessage[TransferInViewType]]
   )(implicit
       tc: TraceContext
-  ): EitherT[Future, EncryptedViewMessageError[TransferInViewType], WithRecipients[
+  ): EitherT[Future, EncryptedViewMessageError, WithRecipients[
     FullTransferInTree
   ]] =
     EncryptedViewMessage
       .decryptFor(
         snapshot,
+        sessionKeyStore,
         envelope.protocolMessage,
         participantId,
         targetProtocolVersion.v,

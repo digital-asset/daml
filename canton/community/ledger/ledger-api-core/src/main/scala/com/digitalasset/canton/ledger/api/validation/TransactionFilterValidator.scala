@@ -47,6 +47,8 @@ class TransactionFilterValidator(
     }
   }
 
+  // Allow using deprecated Protobuf fields for backwards compatibility
+  @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.transaction_filter.*")
   private def validateFilters(
       filters: Filters,
       resolvePackageIds: Ref.QualifiedName => Either[StatusRuntimeException, Iterable[
@@ -77,6 +79,8 @@ class TransactionFilterValidator(
       }
   }
 
+  // Allow using deprecated Protobuf fields for backwards compatibility
+  @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.transaction_filter.*")
   private def validateInterfaceFilter(filter: InterfaceFilter)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.InterfaceFilter] = {

@@ -58,6 +58,7 @@ import com.digitalasset.canton.protocol.{
   v0,
 }
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
   DomainId,
@@ -186,6 +187,7 @@ class TestProcessingSteps(
   override def decryptViews(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[TestViewType]]]],
       snapshot: DomainSnapshotSyncCryptoApi,
+      sessionKeyStore: SessionKeyStore,
   )(implicit traceContext: TraceContext): EitherT[Future, TestProcessingError, DecryptedViews] = {
     def treeFor(viewHash: ViewHash, hash: Hash): TestViewTree = {
       val rootHash = RootHash(hash)

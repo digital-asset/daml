@@ -4,19 +4,33 @@
 package com.digitalasset.canton.crypto.provider.symbolic
 
 import cats.syntax.either.*
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.serialization.{DeserializationError, DeterministicEncoding}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ByteStringUtil
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 
 class SymbolicPureCrypto() extends CryptoPureApi {
+
+  /** This flag is used to control the randomness during asymmetric encryption.
+    * This is only intended to be used for testing purposes and it overrides the randomization flag given to
+    * [[encryptWith]].
+    */
+  private val neverRandomizeAsymmetricEncryption = new AtomicBoolean(false)
 
   private val symmetricKeyCounter = new AtomicInteger
   private val randomnessCounter = new AtomicInteger
   private val signatureCounter = new AtomicInteger
+
+  @VisibleForTesting
+  def setRandomnessFlag(newValue: Boolean) = {
+    neverRandomizeAsymmetricEncryption.set(newValue)
+  }
 
   // iv to pre-append to the asymmetric ciphertext
   private val ivForAsymmetricEncryptInBytes = 16
@@ -106,7 +120,8 @@ class SymbolicPureCrypto() extends CryptoPureApi {
           )
         )
       iv =
-        if (randomized) generateRandomByteString(ivForAsymmetricEncryptInBytes)
+        if (randomized && !neverRandomizeAsymmetricEncryption.get())
+          generateRandomByteString(ivForAsymmetricEncryptInBytes)
         else ByteString.copyFrom(new Array[Byte](ivForAsymmetricEncryptInBytes))
 
       encrypted = new AsymmetricEncrypted[M](iv.concat(payload), publicKey.id)
@@ -245,7 +260,16 @@ class SymbolicPureCrypto() extends CryptoPureApi {
       salt: ByteString,
       algorithm: HmacAlgorithm,
   ): Either[HkdfError, SecureRandomness] =
-    Right(SecureRandomness(keyMaterial.concat(salt).concat(info.bytes)))
+    NonNegativeInt.create(outputBytes) match {
+      case Left(_) => Left(HkdfError.HkdfOutputNegative(outputBytes))
+      case Right(size) =>
+        Right(
+          SecureRandomness(
+            ByteStringUtil
+              .padOrTruncate(keyMaterial.concat(salt).concat(info.bytes), size)
+          )
+        )
+    }
 
   override protected def hkdfExpandInternal(
       keyMaterial: SecureRandomness,

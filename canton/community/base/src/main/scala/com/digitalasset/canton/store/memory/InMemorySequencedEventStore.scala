@@ -153,7 +153,7 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
 
     if (from <= firstSc) {
       val timestamps = (firstSc to to).map { sc =>
-        val ts = firstTs.addMicros((sc - firstSc).unwrap)
+        val ts = firstTs.addMicros(sc - firstSc)
         sc -> ts
       }.toMap
       timestampOfCounter.addAll(timestamps)

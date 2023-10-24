@@ -22,7 +22,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
-import com.digitalasset.canton.protocol.{v0, v1, v2}
+import com.digitalasset.canton.protocol.{v0, v1, v2, v3}
 import com.digitalasset.canton.sequencing.protocol.ClosedEnvelope
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -61,6 +61,7 @@ sealed case class SignedProtocolMessage[+M <: SignedProtocolMessageContent] priv
     with ProtocolMessageV0
     with ProtocolMessageV1
     with ProtocolMessageV2
+    with ProtocolMessageV3
     with HasProtocolVersionedWrapper[SignedProtocolMessage[SignedProtocolMessageContent]] {
 
   @transient override protected lazy val companionObj: SignedProtocolMessage.type =
@@ -144,6 +145,9 @@ sealed case class SignedProtocolMessage[+M <: SignedProtocolMessageContent] priv
 
   override def toProtoEnvelopeContentV2: v2.EnvelopeContent =
     v2.EnvelopeContent(v2.EnvelopeContent.SomeEnvelopeContent.SignedMessage(toProtoV0))
+
+  override def toProtoEnvelopeContentV3: v3.EnvelopeContent =
+    v3.EnvelopeContent(v3.EnvelopeContent.SomeEnvelopeContent.SignedMessage(toProtoV0))
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private[SignedProtocolMessage] def traverse[F[_], MM <: SignedProtocolMessageContent](

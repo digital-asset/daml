@@ -7,6 +7,7 @@ import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.digitalasset.canton.platform.store.dao.events.TransactionConversion.removeTransient
+import com.google.protobuf.ByteString
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -23,6 +24,7 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
             None,
             None,
             None,
+            ByteString.EMPTY,
             Seq.empty,
             Seq.empty,
             Seq.empty,

@@ -5,6 +5,7 @@ package com.digitalasset.canton.util
 
 import cats.Order
 import cats.syntax.either.*
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.serialization.{
   DefaultDeserializationError,
   DeserializationError,
@@ -76,6 +77,19 @@ object ByteStringUtil {
       .leftMap(errorMapping)
       .flatten
   }
+
+  /** Based on the final size we either truncate the bytes to fit in that size or pad with 0s
+    */
+  def padOrTruncate(bytes: ByteString, finalSize: NonNegativeInt): ByteString =
+    if (finalSize == NonNegativeInt.zero)
+      ByteString.EMPTY
+    else {
+      val padSize = finalSize.value - bytes.size()
+      if (padSize > 0)
+        bytes.concat(ByteString.copyFrom(new Array[Byte](padSize)))
+      else if (padSize == 0) bytes
+      else bytes.substring(0, bytes.size() + padSize)
+    }
 
   private def errorMapping(err: Throwable): DeserializationError = {
     err match {

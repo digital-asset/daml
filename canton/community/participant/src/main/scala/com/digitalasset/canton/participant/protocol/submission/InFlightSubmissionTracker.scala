@@ -130,16 +130,7 @@ class InFlightSubmissionTracker(
   ): Future[Unit] =
     store.value.observeSequencing(domainId, sequenceds)
 
-  /** @see com.digitalasset.canton.participant.store.InFlightSubmissionStore.observeSequencedRootHash
-    *
-    * This will only update submissions that are marked as unsequenced. The reasoning is:
-    *
-    * - If the request has already been marked as sequenced by [[observeSequencing]], then we don't need to mark it again.
-    * - If it has **not** been sequenced by [[observeSequencing]], this is a preplay attack scenario and we must mark
-    *   it as sequenced to prevent multiple command completions.
-    * - Further requests coming with the same root hash do not need to update the sequencing info; the submission
-    *   tracker ensures that only the first one will be handled.
-    */
+  /** @see com.digitalasset.canton.participant.store.InFlightSubmissionStore.observeSequencedRootHash */
   def observeSequencedRootHash(
       rootHash: RootHash,
       submission: SequencedSubmission,

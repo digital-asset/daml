@@ -461,7 +461,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
         }
       }
 
-      "not update sequenced submissions" in {
+      "not update a sequenced submission with a later one" in {
         val store = mk()
         val rootHash = RootHash(TestHash.digest(1))
 
@@ -479,6 +479,37 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           () <- store.observeSequencedRootHash(
             rootHash,
             sequencedSubmission2,
+          )
+
+          sequenced1 <- valueOrFail(store.lookup(submission1.changeIdHash))("lookup submission1")
+          earliest <- store.lookupEarliest(domainId1)
+        } yield {
+          sequenced1 shouldBe submission1.copy(
+            sequencingInfo = sequencedSubmission1,
+            rootHashO = Some(rootHash),
+          )
+          earliest shouldBe Some(sequencedSubmission1.sequencingTime)
+        }
+      }
+
+      "update a sequenced submission with an earlier one" in {
+        val store = mk()
+        val rootHash = RootHash(TestHash.digest(1))
+
+        for {
+          () <- store.register(submission1).valueOrFailShutdown("register submission1")
+          () <- store.updateRegistration(
+            submission1,
+            rootHash,
+          )
+
+          () <- store.observeSequencedRootHash(
+            rootHash,
+            sequencedSubmission2,
+          )
+          () <- store.observeSequencedRootHash(
+            rootHash,
+            sequencedSubmission1,
           )
 
           sequenced1 <- valueOrFail(store.lookup(submission1.changeIdHash))("lookup submission1")
