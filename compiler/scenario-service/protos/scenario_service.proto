@@ -274,6 +274,14 @@ message ScenarioError {
     Identifier required_interface_id = 3;
   }
 
+  message UpgradeValidationFailed {
+    ContractRef contract_ref = 1;
+    Identifier srcTemplateId =2 ;
+    repeated string signatories = 4;
+    repeated string observers = 5;
+    KeyWithMaintainers key = 6;
+  }
+
   message LookupError {
     message NotFound {
       string not_found = 1;
@@ -368,7 +376,8 @@ message ScenarioError {
     int64 evaluationTimeout = 40;
     Empty cancelledByRequest = 41;
     LookupError lookup_error = 43;
-    // next is 44;
+    UpgradeValidationFailed upgrade_validation_failed = 44;
+    // next is 45;
   }
 }
 
