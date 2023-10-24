@@ -231,7 +231,7 @@ private[lf] object Pretty {
               dstTemplateId
             ) /
               text(
-                "Verify that neither the signatories, nor the observer, nor the contract key have changds"
+                "Verify that neither the signatories, nor the observer, nor the contract key, not key's mattnainer have changed"
               ) /
               text("recomputed signatories are") & prettyParties(signatories) /
               text("recomputed observers are") & prettyParties(observers) /
