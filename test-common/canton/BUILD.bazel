@@ -10,49 +10,6 @@ load("//:canton_dep.bzl", "canton")
 load("@build_environment//:configuration.bzl", "artif_pass", "artif_user")
 load("@os_info//:os_info.bzl", "is_windows")
 
-java_binary(
-    name = "canton",
-    main_class = "com.digitalasset.canton.CantonCommunityApp",
-    visibility = ["//visibility:public"],
-    runtime_deps = [
-        # Do not sort
-        "//test-common/canton:lib",
-    ],
-)
-
-# We replace engine and archive classes in canton
-# This should be used for testing only
-java_binary(
-    name = "canton-patched",
-    main_class = "com.digitalasset.canton.CantonCommunityApp",
-    visibility = ["//visibility:public"],
-    runtime_deps = [
-        # The following prevents buildifier from sorting the deps
-        # Do not sort
-        "//daml-lf/engine",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//test-common/canton:lib",
-    ],
-)
-
-genrule(
-    name = "canton-lib",
-    srcs = [":lib/canton.jar"] if canton["local"] else ["@canton//:jar"],
-    outs = ["canton-lib.jar"],
-    cmd = """
-    set -euo pipefail
-
-    cp $(location {src}) $@
-    """.format(src = ":lib/canton.jar" if canton["local"] else "@canton//:jar"),
-    visibility = ["//visibility:public"],
-)
-
-java_import(
-    name = "lib",
-    jars = [":canton-lib.jar"],
-    visibility = ["//visibility:public"],
-)
-
 genrule(
     name = "canton-lib-ee",
     # We don't use the else branch but we need a resolvable value

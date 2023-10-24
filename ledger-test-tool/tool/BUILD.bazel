@@ -199,7 +199,7 @@ conformance_test_excluded_test = [
 #  those test the conformance test it-self for stable features
 conformance_test(
     name = "conformance-test",
-    extra_data = conformance_test_extra_data_base + ["//test-common/canton:canton_deploy.jar"],
+    extra_data = conformance_test_extra_data_base + ["//canton:community_app_deploy.jar"],
     extra_runner_args = ["7000"],
     lf_versions = [
         "default",
@@ -224,7 +224,7 @@ conformance_test(
 # this tests TLSAtLeastOnePointTwoIT
 conformance_test(
     name = "conformance-test-tls1.2-or-newer",
-    extra_data = conformance_test_extra_data_base + ["//test-common/canton:canton_deploy.jar"],
+    extra_data = conformance_test_extra_data_base + ["//canton:community_app_deploy.jar"],
     extra_runner_args = ["7000"],
     lf_versions = ["latest"],
     ports = conformance_test_ports,
@@ -240,13 +240,13 @@ conformance_test(
 ) if not is_windows else None
 
 # conformance tests for preview and dev
-#  those test the conformance test it-self for preview/dev features and the patched canton jar
+#  those test the conformance test it-self for preview/dev features
 conformance_test(
     name = "conformance-test-dev",
     dev_mod_flag = "",
     extra_data =
         conformance_test_extra_data_base + [
-            "//test-common/canton:canton-patched_deploy.jar",
+            "//canton:community_app_deploy.jar",
         ],
     extra_runner_args = ["7000"],
     lf_versions = ["preview"] + LF_DEV_VERSIONS,
