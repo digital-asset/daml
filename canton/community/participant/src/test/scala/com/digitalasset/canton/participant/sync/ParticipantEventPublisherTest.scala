@@ -5,8 +5,8 @@ package com.digitalasset.canton.participant.sync
 
 import cats.Eval
 import cats.syntax.option.*
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.store.ParticipantEventLog.ProductionParticipantEventLogId
 import com.digitalasset.canton.participant.store.memory.{
@@ -20,11 +20,12 @@ import com.digitalasset.canton.participant.store.{
   TransferStore,
 }
 import com.digitalasset.canton.participant.sync.TimestampedEvent.{EventId, TimelyRejectionEventId}
-import com.digitalasset.canton.participant.{LedgerSyncRecordTime, LocalOffset}
+import com.digitalasset.canton.participant.{LedgerSyncRecordTime, LocalOffset, RequestOffset}
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.canton.{BaseTest, RequestCounter}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -80,11 +81,12 @@ class ParticipantEventPublisherTest extends AsyncWordSpec with BaseTest {
 
       def mkEvent(index: Int): Traced[(EventId, LedgerSyncEvent)] = Traced {
         val eventId = TimelyRejectionEventId(domainId, new UUID(0L, index.toLong))
+        val recordTime = LedgerSyncRecordTime.assertFromLong(index.toLong * 1000 * 1000)
         val event =
           SingleDimensionEventLogTest
             .generateEvent(
-              LedgerSyncRecordTime.assertFromLong(index.toLong * 1000 * 1000),
-              LocalOffset(index.toLong),
+              recordTime,
+              RequestOffset(CantonTimestamp(recordTime), RequestCounter(index.toLong)),
             )
             .event
         eventId -> event

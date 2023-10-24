@@ -161,7 +161,11 @@ class JsonLedgerClient(
       case SuccessResponse(result, _) => Future.successful(result)
     }
 
-  override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
+  override def query(
+      parties: OneAnd[Set, Ref.Party],
+      templateId: Identifier,
+      enableContractUpgrading: Boolean = false,
+  )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ) = {
@@ -190,6 +194,7 @@ class JsonLedgerClient(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       cid: ContractId,
+      enableContractUpgrading: Boolean = false,
   )(implicit ec: ExecutionContext, mat: Materializer) = {
     for {
       parties <- validateTokenParties(parties, "queryContractId")

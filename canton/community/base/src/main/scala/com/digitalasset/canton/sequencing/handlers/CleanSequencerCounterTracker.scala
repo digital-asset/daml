@@ -17,10 +17,10 @@ import com.digitalasset.canton.sequencing.{HandlerResult, PossiblyIgnoredApplica
 import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.digitalasset.canton.store.{CursorPrehead, SequencerCounterTrackerStore}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.FutureUtil
 
 import java.util.concurrent.atomic.AtomicLong
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /** Application handler transformer that tracks the sequencer counters for which the
   * given application handler has successfully completed the asynchronous processing.
@@ -32,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class CleanSequencerCounterTracker(
     store: SequencerCounterTrackerStore,
-    onUpdate: Traced[SequencerCounterCursorPrehead] => Future[Unit],
+    onUpdate: Traced[SequencerCounterCursorPrehead] => Unit,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -52,9 +52,10 @@ class CleanSequencerCounterTracker(
     */
   private val eventBatchQueue
       : PeanoQueue[EventBatchCounter, Traced[SequencerCounterCursorPrehead]] =
-    new SynchronizedPeanoTreeQueue[EventBatchCounterDiscriminator, Traced[
-      SequencerCounterCursorPrehead
-    ]](Counter[EventBatchCounterDiscriminator](0L))
+    new SynchronizedPeanoTreeQueue[
+      EventBatchCounterDiscriminator,
+      Traced[SequencerCounterCursorPrehead],
+    ](Counter[EventBatchCounterDiscriminator](0L))
 
   def apply[E <: Envelope[_]](
       handler: PossiblyIgnoredApplicationHandler[E]
@@ -103,7 +104,9 @@ class CleanSequencerCounterTracker(
         tracedPrehead.withTraceContext { implicit traceContext => prehead =>
           store.advancePreheadSequencerCounterTo(prehead).map { _ =>
             // Signal the new prehead and make sure that the update handler cannot interfere by throwing exceptions
-            FutureUtil.catchAndDoNotAwait(onUpdate(tracedPrehead), "onUpdate handler failed")
+            Try(onUpdate(tracedPrehead)).failed.foreach { ex =>
+              logger.error("onUpdate handler failed", ex)
+            }
           }
         }
     }

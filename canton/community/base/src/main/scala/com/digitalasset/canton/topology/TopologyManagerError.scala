@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology
 
 import com.daml.error.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPublicStoreError}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -16,13 +16,7 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyTransactionX.TxHash
-import com.digitalasset.canton.topology.transaction.{
-  TopologyChangeOp,
-  TopologyMapping,
-  TopologyMappingX,
-  TopologyStateElement,
-  TopologyTransaction,
-}
+import com.digitalasset.canton.topology.transaction.*
 
 sealed trait TopologyManagerError extends CantonError
 
@@ -380,6 +374,115 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     ) extends CantonError.Impl(
           cause =
             s"Unable to increase ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance, because it must not be more than half of mediatorDeduplicationTimeout ($mediatorDeduplicationTimeout)."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    "This error indicates that the attempted update of the extra traffic limits for a particular member failed because the new limit is lower than the current limit."
+  )
+  @Resolution(
+    """Extra traffic limits can only be increased. Submit the topology transaction with a higher limit.
+      |The metadata details of this error contain the expected minimum value in the field ``expectedMinimum``."""
+  )
+  object InvalidTrafficLimit
+      extends ErrorCode(
+        id = "INVALID_TRAFFIC_LIMIT",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class TrafficLimitTooLow(
+        member: Member,
+        actual: PositiveLong,
+        expectedMinimum: PositiveLong,
+    )(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"The extra traffic limit for $member should be at least $expectedMinimum, but was $actual."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    "This error indicates that a threshold in the submitted transaction was higher than the number of members that would have to satisfy that threshold."
+  )
+  @Resolution(
+    """Submit the topology transaction with a lower threshold.
+      |The metadata details of this error contain the expected maximum in the field ``expectedMaximum``."""
+  )
+  object InvalidThreshold
+      extends ErrorCode(id = "INVALID_THRESHOLD", ErrorCategory.InvalidIndependentOfSystemState) {
+    final case class ThresholdTooHigh(actual: Int, expectedMaximum: Int)(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Threshold must not be higher than $expectedMaximum, but was $actual."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    "This error indicates that members referenced in a topology transaction have not declared at least one signing key or at least 1 encryption key or both."
+  )
+  @Resolution(
+    """Ensure that all members referenced in the topology transaction have declared at least one signing key and at least one encryption key, then resubmit the failed transaction.
+      |The metadata details of this error contain the members with the missing keys in the field ``members``."""
+  )
+  object InsufficientKeys
+      extends ErrorCode(
+        id = "INSUFFICIENT_KEYS",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Failure(members: Seq[Member])(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"Members ${members.sorted.mkString(", ")} are missing a signing key or an encryption key or both."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    "This error indicates that the topology transaction references members that are currently unknown."
+  )
+  @Resolution(
+    """Wait for the onboarding of the members to be become active or remove the unknown members from the topology transaction.
+      |The metadata details of this error contain the unknown member in the field ``members``."""
+  )
+  object UnknownMembers
+      extends ErrorCode(
+        id = "UNKNOWN_MEMBERS",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      ) {
+    final case class Failure(members: Seq[Member])(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Members ${members.sorted.mkString(", ")} are unknown."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    """This error indicates that a participant is trying to rescind their domain trust certificate
+      |while still being hosting parties."""
+  )
+  @Resolution(
+    """The participant should work with the owners of the parties mentioned in the ``parties`` field in the
+      |error details metadata to get itself removed from the list of hosting participants of those parties."""
+  )
+  object IllegalRemovalOfDomainTrustCertificate
+      extends ErrorCode(
+        id = "ILLEGAL_REMOVAL_OF_DOMAIN_TRUST_CERTIFICATE",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class ParticipantStillHostsParties(
+        participantId: ParticipantId,
+        parties: Seq[PartyId],
+    )(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"Cannot remove domain trust certificate for $participantId because it still hosts parties ${parties.sorted
+                .mkString(",")}"
         )
         with TopologyManagerError
   }

@@ -8,7 +8,6 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.v1.CommandsOuterClass
 import com.daml.ledger.api.v1.admin.package_management_service.PackageDetails
 import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails as ProtoPartyDetails
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
@@ -23,6 +22,8 @@ import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v1.value.Value
+import com.daml.ledger.api.v1.{CommandsOuterClass, EventQueryServiceOuterClass, ValueOuterClass}
 import com.daml.ledger.api.v2.transaction.{
   Transaction as TransactionV2,
   TransactionTree as TransactionTreeV2,
@@ -1612,6 +1613,36 @@ trait BaseLedgerApiAdministration extends NoTracing {
           )
         }
 
+        @Help.Summary("Submit java codegen command asynchronously", FeatureFlag.Testing)
+        @Help.Description(
+          """Provides access to the command submission service of the Ledger API.
+            |See https://docs.daml.com/app-dev/services.html for documentation of the parameters."""
+        )
+        def submit_async(
+            actAs: Seq[PartyId],
+            commands: Seq[javab.data.Command],
+            workflowId: String = "",
+            commandId: String = "",
+            deduplicationPeriod: Option[DeduplicationPeriod] = None,
+            submissionId: String = "",
+            minLedgerTimeAbs: Option[Instant] = None,
+            readAs: Seq[PartyId] = Seq.empty,
+            disclosedContracts: Seq[DisclosedContract] = Seq.empty,
+            applicationId: String = applicationId,
+        ): Unit =
+          ledger_api.commands.submit_async(
+            actAs,
+            commands.map(c => Command.fromJavaProto(c.toProtoCommand)),
+            workflowId,
+            commandId,
+            deduplicationPeriod,
+            submissionId,
+            minLedgerTimeAbs,
+            readAs,
+            disclosedContracts,
+            applicationId,
+          )
+
       }
 
       @Help.Summary("Read from transaction stream (Java bindings)", FeatureFlag.Testing)
@@ -1739,6 +1770,49 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
             .filter(predicate)
         }
+
+      }
+
+      @Help.Summary("Query event details", FeatureFlag.Testing)
+      @Help.Group("EventQuery")
+      object event_query extends Helpful {
+
+        @Help.Summary("Get events in java codegen by contract Id", FeatureFlag.Testing)
+        @Help.Description("""Return events associated with the given contract Id""")
+        def by_contract_id(
+            contractId: String,
+            requestingParties: Seq[PartyId],
+        ): EventQueryServiceOuterClass.GetEventsByContractIdResponse =
+          check(FeatureFlag.Testing)(
+            GetEventsByContractIdResponse.toJavaProto(consoleEnvironment.run {
+              ledgerApiCommand(
+                LedgerApiCommands.QueryService
+                  .GetEventsByContractId(contractId, requestingParties.map(_.toLf))
+              )
+            })
+          )
+
+        @Help.Summary("Get events in java codegen format by contract key", FeatureFlag.Testing)
+        @Help.Description("""Return events associated with the given contract key""")
+        def by_contract_key(
+            contractKey: ValueOuterClass.Value,
+            requestingParties: Seq[PartyId],
+            templateId: TemplateId,
+            continuationToken: Option[String] = None,
+        ): EventQueryServiceOuterClass.GetEventsByContractKeyResponse =
+          check(FeatureFlag.Testing)(
+            GetEventsByContractKeyResponse.toJavaProto(consoleEnvironment.run {
+              ledgerApiCommand(
+                LedgerApiCommands.QueryService
+                  .GetEventsByContractKey(
+                    Value.fromJavaProto(contractKey),
+                    requestingParties.map(_.toLf),
+                    templateId,
+                    continuationToken,
+                  )
+              )
+            })
+          )
 
       }
 

@@ -31,13 +31,13 @@ import com.digitalasset.canton.participant.{
   DefaultParticipantStateValues,
   GlobalOffset,
   LedgerSyncOffset,
-  LocalOffset,
+  RequestOffset,
 }
 import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, DefaultDamlValues}
+import com.digitalasset.canton.{BaseTest, DefaultDamlValues, RequestCounter}
 import com.google.rpc.Code
 import com.google.rpc.status.Status as RpcStatus
 import org.scalatest.wordspec.AsyncWordSpec
@@ -108,7 +108,9 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
 
   private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
 
-  private implicit def toLocalOffset(i: Long): LocalOffset = LocalOffset(i)
+  // TODO(#14381) Expand coverage and include topology events in this test
+  private implicit def toLocalOffset(i: Long): RequestOffset =
+    RequestOffset(CantonTimestamp.ofEpochSecond(i), RequestCounter(i))
 
   private def mk(lowerBound: CantonTimestamp = CantonTimestamp.MinValue): Fixture = {
     val store = new InMemoryCommandDeduplicationStore(loggerFactory)
@@ -122,13 +124,16 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
 
   private def mkPublication(
       globalOffset: GlobalOffset,
-      localOffset: LocalOffset,
+      localOffset: RequestOffset,
       publicationTime: CantonTimestamp,
       inFlightReference: Option[InFlightReference] = this.inFlightReference.some,
   ): MultiDomainEventLog.OnPublish.Publication = {
     val deduplicationInfo =
-      if (LocalOffset.Genesis <= localOffset && localOffset.unwrap < eventsInLog.size) {
-        DeduplicationInfo.fromEvent(eventsInLog(localOffset.unwrap.toInt), TraceContext.empty)
+      if (localOffset.requestCounter.unwrap < eventsInLog.size) {
+        DeduplicationInfo.fromEvent(
+          eventsInLog(localOffset.requestCounter.unwrap.toInt),
+          TraceContext.empty,
+        )
       } else None
 
     MultiDomainEventLog.OnPublish.Publication(

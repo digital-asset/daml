@@ -11,7 +11,7 @@ import com.daml.lf.data.Bytes
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.RichRequestCounter
+import com.digitalasset.canton.participant.admin.repair.MigrateContracts.MigratedContract
 import com.digitalasset.canton.participant.store.ActiveContractStore.ContractState
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
@@ -186,7 +186,7 @@ private final class MigrateContracts(
   )(implicit executionContext: ExecutionContext, traceContext: TraceContext): EitherT[
     Future,
     String,
-    List[MigrateContracts.Data[(SerializableContract, TransferCounter, Boolean)]],
+    List[MigrateContracts.Data[MigratedContract]],
   ] =
     readContractsFromSource(contractIdsWithTransferCounters).flatMap {
       _.parTraverse {
@@ -210,17 +210,15 @@ private final class MigrateContracts(
               }
               .getOrElse(EitherT.rightT[Future, String](()))
           } yield data.copy(payload =
-            (serializedSource, transferCounter, serializedTargetO.isEmpty)
+            MigratedContract(serializedSource, transferCounter, serializedTargetO.isEmpty)
           )
       }
     }
 
   private def adjustContractKeys(
       request: RepairRequest,
-      timeOfChange: MigrateContracts.Data[
-        (SerializableContract, TransferCounter, Boolean)
-      ] => TimeOfChange,
-      contracts: List[MigrateContracts.Data[(SerializableContract, TransferCounter, Boolean)]],
+      timeOfChange: MigrateContracts.Data[MigratedContract] => TimeOfChange,
+      contracts: List[MigrateContracts.Data[MigratedContract]],
       newStatus: ContractKeyJournal.Status,
   )(implicit
       executionContext: ExecutionContext,
@@ -234,7 +232,7 @@ private final class MigrateContracts(
           contracts.parTraverseFilter(contract =>
             getKeyIfOneMaintainerIsLocal(
               request.domain.topologySnapshot,
-              contract.payload._1.metadata.maybeKeyWithMaintainers,
+              contract.payload.contract.metadata.maybeKeyWithMaintainers,
               participantId,
             ).map(_.map(_ -> timeOfChange(contract)))
           )
@@ -246,7 +244,7 @@ private final class MigrateContracts(
 
   private def persistContracts(
       transactionId: TransactionId,
-      contracts: List[MigrateContracts.Data[(SerializableContract, TransferCounter, Boolean)]],
+      contracts: List[MigrateContracts.Data[MigratedContract]],
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -266,12 +264,12 @@ private final class MigrateContracts(
       )
       _ <- EitherT.right {
         contracts.parTraverse_ { contract =>
-          if (contract.payload._3)
+          if (contract.payload.isNew)
             repairTarget.domain.persistentState.contractStore
               .storeCreatedContract(
                 contract.targetTimeOfChange.rc,
                 transactionId,
-                contract.payload._1,
+                contract.payload.contract,
               )
           else Future.unit
         }
@@ -279,7 +277,7 @@ private final class MigrateContracts(
     } yield ()
 
   private def persistTransferOutAndIn(
-      contracts: List[MigrateContracts.Data[(SerializableContract, TransferCounter, Boolean)]]
+      contracts: List[MigrateContracts.Data[MigratedContract]]
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -292,9 +290,9 @@ private final class MigrateContracts(
       .transferOutContracts(
         contracts.map { contract =>
           (
-            contract.payload._1.contractId,
+            contract.payload.contract.contractId,
             targetDomainId,
-            whenTransferCounterIsSupported(repairSource)(contract.payload._2),
+            whenTransferCounterIsSupported(repairSource)(contract.payload.transferCounter),
             contract.sourceTimeOfChange,
           )
         }
@@ -305,9 +303,9 @@ private final class MigrateContracts(
       .transferInContracts(
         contracts.map { contract =>
           (
-            contract.payload._1.contractId,
+            contract.payload.contract.contractId,
             sourceDomainId,
-            whenTransferCounterIsSupported(repairTarget)(contract.payload._2),
+            whenTransferCounterIsSupported(repairTarget)(contract.payload.transferCounter),
             contract.targetTimeOfChange,
           )
         }
@@ -319,25 +317,25 @@ private final class MigrateContracts(
 
   private def insertTransferEventsInLog(
       transactionId: TransactionId,
-      contracts: List[MigrateContracts.Data[(SerializableContract, TransferCounter, Boolean)]],
+      migratedContracs: List[MigrateContracts.Data[MigratedContract]],
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[Future, String, Unit] = {
 
-    val justContracts = contracts.map(_.payload._1)
+    val contracts = migratedContracs.map(_.payload.contract)
 
     val insertTransferOutEvents =
       for {
-        hostedParties <- EitherT.right(hostedParties(repairSource, justContracts, participantId))
-        transferOutEvents = contracts.map(transferOut(hostedParties))
+        hostedParties <- EitherT.right(hostedParties(repairSource, contracts, participantId))
+        transferOutEvents = migratedContracs.map(transferOut(hostedParties))
         _ <- insertMany(repairSource, transferOutEvents)
       } yield ()
 
     val insertTransferInEvents =
       for {
-        hostedParties <- EitherT.right(hostedParties(repairTarget, justContracts, participantId))
-        transferInEvents = contracts.map(transferIn(transactionId, hostedParties))
+        hostedParties <- EitherT.right(hostedParties(repairTarget, contracts, participantId))
+        transferInEvents = migratedContracs.map(transferIn(transactionId, hostedParties))
         _ <- insertMany(repairTarget, transferInEvents)
       } yield ()
 
@@ -371,31 +369,31 @@ private final class MigrateContracts(
       }
 
   private def transferOut(hostedParties: Set[LfPartyId])(
-      contract: MigrateContracts.Data[(SerializableContract, TransferCounter, Boolean)]
+      contract: MigrateContracts.Data[MigratedContract]
   )(implicit traceContext: TraceContext): TimestampedEvent =
     TimestampedEvent(
       event = LedgerSyncEvent.TransferredOut(
         updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
         optCompletionInfo = None,
         submitter = None,
-        contractId = contract.payload._1.contractId,
-        templateId = Option(contract.payload._1.contractInstance.unversioned.template),
-        contractStakeholders = contract.payload._1.metadata.stakeholders,
+        contractId = contract.payload.contract.contractId,
+        templateId = Option(contract.payload.contract.contractInstance.unversioned.template),
+        contractStakeholders = contract.payload.contract.metadata.stakeholders,
         transferId = transferId,
         targetDomain = targetDomainId,
         transferInExclusivity = None,
         workflowId = None,
         isTransferringParticipant = false,
         hostedStakeholders =
-          hostedParties.intersect(contract.payload._1.metadata.stakeholders).toList,
-        transferCounter = contract.payload._2,
+          hostedParties.intersect(contract.payload.contract.metadata.stakeholders).toList,
+        transferCounter = contract.payload.transferCounter,
       ),
-      localOffset = contract.sourceTimeOfChange.rc.asLocalOffset,
+      localOffset = contract.sourceTimeOfChange.asLocalOffset,
       requestSequencerCounter = None,
     )
 
   private def transferIn(transactionId: TransactionId, hostedParties: Set[LfPartyId])(
-      contract: MigrateContracts.Data[(SerializableContract, TransferCounter, Boolean)]
+      contract: MigrateContracts.Data[MigratedContract]
   )(implicit traceContext: TraceContext) =
     TimestampedEvent(
       event = LedgerSyncEvent.TransferredIn(
@@ -403,11 +401,12 @@ private final class MigrateContracts(
         optCompletionInfo = None,
         submitter = None,
         recordTime = repairTarget.timestamp.toLf,
-        ledgerCreateTime = contract.payload._1.ledgerCreateTime.toLf,
-        createNode = contract.payload._1.toLf,
+        ledgerCreateTime = contract.payload.contract.ledgerCreateTime.toLf,
+        createNode = contract.payload.contract.toLf,
         creatingTransactionId = transactionId.tryAsLedgerTransactionId,
         contractMetadata = Bytes.fromByteString(
-          contract.payload._1.metadata.toByteString(repairTarget.domain.parameters.protocolVersion)
+          contract.payload.contract.metadata
+            .toByteString(repairTarget.domain.parameters.protocolVersion)
         ),
         transferId = transferId,
         targetDomain = targetDomainId,
@@ -415,10 +414,10 @@ private final class MigrateContracts(
         workflowId = None,
         isTransferringParticipant = false,
         hostedStakeholders =
-          hostedParties.intersect(contract.payload._1.metadata.stakeholders).toList,
-        transferCounter = contract.payload._2,
+          hostedParties.intersect(contract.payload.contract.metadata.stakeholders).toList,
+        transferCounter = contract.payload.transferCounter,
       ),
-      localOffset = contract.targetTimeOfChange.rc.asLocalOffset,
+      localOffset = contract.targetTimeOfChange.asLocalOffset,
       requestSequencerCounter = None,
     )
 
@@ -431,6 +430,16 @@ private[repair] object MigrateContracts {
       payload: Payload,
       sourceTimeOfChange: TimeOfChange,
       targetTimeOfChange: TimeOfChange,
+  )
+
+  /** @param contract Contract to be migrated
+    * @param transferCounter Transfer counter
+    * @param isNew true if the contract was not seen before, false if already in the store
+    */
+  final case class MigratedContract(
+      contract: SerializableContract,
+      transferCounter: TransferCounter,
+      isNew: Boolean,
   )
 
   def apply(

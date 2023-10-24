@@ -49,7 +49,8 @@ class DomainTopologyManagerEventHandlerTest extends AsyncWordSpec with BaseTest 
     ),
     SymbolicCrypto.signingPublicKey("keyId"),
     SymbolicCrypto.emptySignature,
-  )(signedTransactionProtocolVersionRepresentative, None)
+    signedTransactionProtocolVersionRepresentative,
+  )
   private val request = RegisterTopologyTransactionRequest
     .create(
       participantId,

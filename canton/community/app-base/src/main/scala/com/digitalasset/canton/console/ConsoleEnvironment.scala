@@ -26,6 +26,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.SerializableContract
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
   SequencerConnection,
@@ -587,6 +588,11 @@ object ConsoleEnvironment {
       * @throws java.lang.IllegalArgumentException if `n` is not positive
       */
     implicit def toPositiveDouble(n: Double): PositiveDouble = PositiveDouble.tryCreate(n)
+
+    /** Implicitly map a `CantonTimestamp` to a `LedgerCreateTime`
+      */
+    implicit def toLedgerCreateTime(ts: CantonTimestamp): SerializableContract.LedgerCreateTime =
+      SerializableContract.LedgerCreateTime(ts)
 
     /** Implicitly convert a duration to a [[com.digitalasset.canton.config.NonNegativeDuration]]
       * @throws java.lang.IllegalArgumentException if `duration` is negative

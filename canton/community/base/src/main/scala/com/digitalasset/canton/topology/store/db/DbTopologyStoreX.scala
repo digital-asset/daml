@@ -157,24 +157,14 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       sql"mapping_key_hash=${mappingHash.hash.toLengthLimitedHexString}"
     ) ++ removeTxs.map(txHash => sql"tx_hash=${txHash.hash.toLengthLimitedHexString}")
 
-    lazy val updateRemovalsF =
-      performBatchedDbOperation(
-        transactionRemovals,
-        "update-topology-transactions",
-        processInParallel = true,
-      ) { transactionRemovalsBatch =>
-        (sql"UPDATE topology_transactions_x SET valid_until = ${Some(effectiveTs)} WHERE store_id=$transactionStoreIdName AND (" ++
-          transactionRemovalsBatch
-            .intercalate(
-              sql" OR "
-            ) ++ sql") AND valid_from < $effectiveTs AND valid_until is null").asUpdate
-      }
+    lazy val updateRemovals =
+      (sql"UPDATE topology_transactions_x SET valid_until = ${Some(effectiveTs)} WHERE store_id=$transactionStoreIdName AND (" ++
+        transactionRemovals
+          .intercalate(
+            sql" OR "
+          ) ++ sql") AND valid_from < $effectiveTs AND valid_until is null").asUpdate
 
-    lazy val additionsF = performBatchedDbOperation(
-      additions,
-      "insert-topology-transactions",
-      processInParallel = false,
-    ) { additionsBatch =>
+    lazy val insertAdditions =
       insertSignedTransaction[GenericValidatedTopologyTransactionX](vtx =>
         TransactionEntry(
           sequenced,
@@ -185,15 +175,16 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
           vtx.transaction,
           vtx.rejectionReason,
         )
-      )(additionsBatch)
-    }
+      )(additions)
 
     updatingTime.event {
-      // Sequential because is done for updateRemovals and additions
-      for {
-        _ <- updateRemovalsF
-        _ <- additionsF
-      } yield ()
+      storage.update_(
+        DBIO.seq(
+          if (transactionRemovals.nonEmpty) updateRemovals else DBIO.successful(0),
+          if (additions.nonEmpty) insertAdditions else DBIO.successful(0),
+        ),
+        operationName = "update-topology-transactions",
+      )
     }
   }
 

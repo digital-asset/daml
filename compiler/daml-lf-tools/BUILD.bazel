@@ -9,6 +9,7 @@ da_haskell_library(
     hackage_deps = [
         "base",
         "containers",
+        "deepseq",
         "either",
         "extra",
         "ghcide",

@@ -149,9 +149,9 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
     result
   }
 
-  private def getErrorMessage(message: String256M): String = {
+  private def getErrorMessage(message: String256M, errorO: Option[ByteString]): String = {
     if (testedProtocolVersion >= ProtocolVersion.CNTestNet) {
-      DeliverErrorStoreEvent.deserializeError(message, testedProtocolVersion).toString
+      DeliverErrorStoreEvent.deserializeError(message, errorO, testedProtocolVersion).toString
     } else {
       message.unwrap
     }
@@ -311,9 +311,10 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
           event.messageId shouldBe messageId1
         }
 
-        inside(sortedEvents(1)) { case DeliverErrorStoreEvent(_, `messageId2`, message, _) =>
-          getErrorMessage(message) should (include("Invalid signing timestamp")
-            and include("The signing timestamp must be before or at "))
+        inside(sortedEvents(1)) {
+          case DeliverErrorStoreEvent(_, `messageId2`, message, errorO, _) =>
+            getErrorMessage(message, errorO) should (include("Invalid signing timestamp")
+              and include("The signing timestamp must be before or at "))
         }
       }
     }
@@ -354,11 +355,13 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
             error = events.payloads.collectFirst {
               case Sequenced(
                     _,
-                    deliverError @ DeliverErrorStoreEvent(`aliceId`, `messageId`, _, _),
+                    deliverError @ DeliverErrorStoreEvent(`aliceId`, `messageId`, _, _, _),
                   ) =>
                 deliverError
             }.value
-          } yield getErrorMessage(error.message) should include(s"Unknown recipients: $bob")
+          } yield getErrorMessage(error.message, error.error) should include(
+            s"Unknown recipients: $bob"
+          )
         }
       } yield succeed
     }

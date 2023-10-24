@@ -22,7 +22,6 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast.Expr
 import com.daml.lf.language.{Ast, LanguageVersion}
-import com.daml.lf.testing.parser.Implicits.defaultParserParameters
 import com.daml.tracing.TelemetrySpecBase.*
 import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
 import com.digitalasset.canton.ledger.api.domain.LedgerOffset.Absolute
@@ -246,8 +245,8 @@ object ApiPackageManagementServiceSpec {
       ),
     )
     Encode.encodeArchive(
-      defaultParserParameters.defaultPackageId -> pkg,
-      defaultParserParameters.languageVersion,
+      Ref.PackageId.assertFromString("-pkgId-") -> pkg,
+      LanguageVersion.default,
     )
   }
 

@@ -11,10 +11,10 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.transfer.{IncompleteTransferData, TransferData}
 import com.digitalasset.canton.participant.store.TransferStore
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset, RichRequestCounter}
 import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId, TransferId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -204,31 +204,6 @@ class InMemoryTransferStore(
         )
       )
       .take(limit)
-  }
-
-  override def findInFlight(
-      sourceDomain: SourceDomainId,
-      onlyCompletedTransferOut: Boolean,
-      transferOutRequestNotAfter: LocalOffset,
-      stakeholders: Option[NonEmpty[Set[LfPartyId]]],
-      limit: NonNegativeInt,
-  )(implicit traceContext: TraceContext): Future[Seq[TransferData]] = {
-    def filter(entry: TransferEntry): Boolean = {
-      entry.transferData.sourceDomain == sourceDomain &&
-      entry.timeOfCompletion.isEmpty && // Always filter out completed transfer-in
-      entry.transferData.transferOutRequestCounter.asLocalOffset <= transferOutRequestNotAfter &&
-      (!onlyCompletedTransferOut || entry.transferData.transferOutResult.isDefined == onlyCompletedTransferOut) && // Transfer-out is completed condition
-      stakeholders.forall(_.exists(entry.transferData.contract.metadata.stakeholders))
-    }
-
-    val values = transferDataMap.values
-      .to(LazyList)
-      .filter(filter)
-      .sortBy(_.transferData.transferOutTimestamp)
-      .take(limit.unwrap)
-      .map(_.transferData)
-
-    Future.successful(values)
   }
 
   override def findIncomplete(

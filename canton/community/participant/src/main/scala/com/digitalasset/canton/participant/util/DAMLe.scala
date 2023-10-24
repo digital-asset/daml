@@ -18,6 +18,7 @@ import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.store.ContractLookupAndVerification
 import com.digitalasset.canton.participant.util.DAMLe.{ContractWithMetadata, PackageResolver}
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
@@ -41,7 +42,12 @@ object DAMLe {
       EngineConfig(
         allowedLanguageVersions = VersionRange(
           LanguageVersion.v1_14,
-          if (enableLfDev) LanguageVersion.DevVersions.max else LanguageVersion.StableVersions.max,
+          // TODO(#14706): use LanguageVersion.AllVersions(majorVersion) instead of v2_dev once Canton has a way of
+          //   deciding which major version of LF to use depending on the context. It is currently safe to use v2_dev
+          //   here because the engine temporarily accepts version ranges spanning two major LF versions.
+          //   Similary, use LanguageVersions.StableVersions(majorVersion).max once such a parameterized StableVersions
+          //   is introduced.
+          if (enableLfDev) LanguageVersion.v2_dev else LanguageVersion.StableVersions.max,
         ),
         // The package store contains only validated packages, so we can skip validation upon loading
         packageValidation = false,
@@ -189,7 +195,7 @@ class DAMLe(
   def replayCreate(
       submitters: Set[LfPartyId],
       command: LfCreateCommand,
-      ledgerEffectiveTime: CantonTimestamp,
+      ledgerEffectiveTime: LedgerCreateTime,
   )(implicit traceContext: TraceContext): EitherT[Future, Error, LfNodeCreate] = {
     LoggingContextUtil.createLoggingContext(loggerFactory) { implicit loggingContext =>
       val result = engine.reinterpret(
@@ -197,7 +203,7 @@ class DAMLe(
         command = command,
         nodeSeed = Some(DAMLe.zeroSeed),
         submissionTime = Time.Timestamp.Epoch, // Only used to compute contract ids
-        ledgerEffectiveTime = ledgerEffectiveTime.underlying,
+        ledgerEffectiveTime = ledgerEffectiveTime.ts.underlying,
       )
       for {
         txWithMetadata <- EitherT(

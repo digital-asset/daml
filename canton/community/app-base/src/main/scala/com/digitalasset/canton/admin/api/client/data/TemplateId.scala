@@ -4,8 +4,9 @@
 package com.digitalasset.canton.admin.api.client.data
 
 import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.v1.ValueOuterClass
 import com.daml.ledger.api.v1.value.Identifier
-import com.daml.ledger.client.binding.Primitive as P
+import com.daml.ledger.javaapi
 
 final case class TemplateId(
     packageId: String,
@@ -18,10 +19,10 @@ final case class TemplateId(
     entityName = entityName,
   )
 
-  def toPrim: P.TemplateId[_] = P.TemplateId(
-    packageId = packageId,
-    moduleName = moduleName,
-    entityName = entityName,
+  def toJavaIdentifier: javaapi.data.Identifier = new javaapi.data.Identifier(
+    packageId,
+    moduleName,
+    entityName,
   )
 
   def isModuleEntity(moduleName: String, entityName: String) =
@@ -45,6 +46,14 @@ object TemplateId {
   def fromPrim(templateId: ApiTypes.TemplateId): TemplateId = {
     import scalaz.syntax.tag.*
     fromIdentifier(templateId.unwrap)
+  }
+
+  def fromJavaProtoIdentifier(templateId: ValueOuterClass.Identifier): TemplateId = {
+    fromIdentifier(Identifier.fromJavaProto(templateId))
+  }
+
+  def fromJavaIdentifier(templateId: javaapi.data.Identifier): TemplateId = {
+    fromJavaProtoIdentifier(templateId.toProto)
   }
 
 }

@@ -157,10 +157,13 @@ private[mediator] class Mediator(
 
   private def onCleanSequencerCounterHandler(
       newTracedPrehead: Traced[SequencerCounterCursorPrehead]
-  ): Future[Unit] = newTracedPrehead.withTraceContext { implicit traceContext => newPrehead =>
-    performUnlessClosingF("prune mediator deduplication store")(
-      state.deduplicationStore.prune(newPrehead.timestamp)
-    ).onShutdown(logger.info("Not pruning the mediator deduplication store due to shutdown"))
+  ): Unit = newTracedPrehead.withTraceContext { implicit traceContext => newPrehead =>
+    FutureUtil.doNotAwait(
+      performUnlessClosingF("prune mediator deduplication store")(
+        state.deduplicationStore.prune(newPrehead.timestamp)
+      ).onShutdown(logger.info("Not pruning the mediator deduplication store due to shutdown")),
+      "pruning the mediator deduplication store failed",
+    )
   }
 
   /** Prune all unnecessary data from the mediator state and sequenced events store.

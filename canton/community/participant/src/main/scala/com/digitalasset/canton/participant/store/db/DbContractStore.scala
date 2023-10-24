@@ -19,6 +19,7 @@ import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.resource.DbStorage.{DbAction, SQLActionBuilderChain}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -27,7 +28,7 @@ import com.digitalasset.canton.store.db.DbBulkUpdateProcessor
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEitherIterable
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, RequestCounter, checked}
@@ -75,7 +76,13 @@ class DbContractStore(
     val contractSalt = r.<<[Option[Salt]]
 
     val contract =
-      SerializableContract(contractId, contractInstance, metadata, ledgerCreateTime, contractSalt)
+      SerializableContract(
+        contractId,
+        contractInstance,
+        metadata,
+        LedgerCreateTime(ledgerCreateTime),
+        contractSalt,
+      )
     StoredContract(contract, requestCounter, creatingTransactionIdO)
   }
 
@@ -268,7 +275,7 @@ class DbContractStore(
               contractId: LfContractId,
               instance: SerializableRawContractInstance,
               metadata: ContractMetadata,
-              ledgerCreateTime: CantonTimestamp,
+              ledgerCreateTime: LedgerCreateTime,
               contractSalt: Option[Salt],
             ),
             requestCounter: RequestCounter,
@@ -282,7 +289,7 @@ class DbContractStore(
           pp >> domainId
           pp >> contractId
           pp >> metadata
-          pp >> ledgerCreateTime
+          pp >> ledgerCreateTime.ts
           pp >> requestCounter
           pp >> creatingTransactionId
           pp >> packageId

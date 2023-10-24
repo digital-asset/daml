@@ -55,8 +55,8 @@ class DbSequencedEventStore(
     */
   private val semaphore: Semaphore = new Semaphore(1)
 
-  private def withLock[F[_], Content[_], A](caller: String)(body: => F[A])(implicit
-      thereafter: Thereafter[F, Content],
+  private def withLock[F[_], A](caller: String)(body: => F[A])(implicit
+      thereafter: Thereafter[F],
       traceContext: TraceContext,
   ): F[A] = {
     import Thereafter.syntax.*
@@ -137,7 +137,7 @@ class DbSequencedEventStore(
     else
       processingTime.event {
         withLock(functionFullName) {
-          CloseContext.withCombinedContextF(closeContext, externalCloseContext, timeouts, logger) {
+          CloseContext.withCombinedContext(closeContext, externalCloseContext, timeouts, logger) {
             combinedCloseContext =>
               storage
                 .queryAndUpdate(bulkInsertQuery(events), functionFullName)(

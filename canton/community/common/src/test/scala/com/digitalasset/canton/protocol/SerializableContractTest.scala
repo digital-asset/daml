@@ -7,6 +7,7 @@ import com.daml.lf.data.Bytes
 import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, LfPartyId, LfTimestamp, LfValue}
 import org.scalatest.wordspec.AnyWordSpec
@@ -96,7 +97,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             )
             .value,
           metadata = ContractMetadata.tryCreate(Set(alice), Set(alice), None),
-          ledgerCreateTime = CantonTimestamp(createdAt),
+          ledgerCreateTime = LedgerCreateTime(CantonTimestamp(createdAt)),
           contractSalt = Some(contractSalt),
         )
       }

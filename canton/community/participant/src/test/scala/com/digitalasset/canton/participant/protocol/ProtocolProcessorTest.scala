@@ -8,14 +8,14 @@ import cats.Eval
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Encrypted, SyncCryptoApi, TestHash}
 import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, NotInserted}
 import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, PeanoQueue}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.participant.RichRequestCounter
+import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.config.ParticipantStoreConfig
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.*
@@ -204,7 +204,7 @@ class ProtocolProcessorTest
       }
     val indexedStringStore = InMemoryIndexedStringStore()
     val clock = new WallClock(timeouts, loggerFactory)
-    implicit val mat = mock[Materializer]
+    implicit val mat: Materializer = mock[Materializer]
     val nodePersistentState = timeouts.default.await("creating node persistent state")(
       ParticipantNodePersistentState
         .create(
@@ -309,33 +309,33 @@ class ProtocolProcessorTest
       ) {
         override def participantId: ParticipantId = participant
 
-        override def timeouts = ProtocolProcessorTest.this.timeouts
+        override def timeouts: ProcessingTimeout = ProtocolProcessorTest.this.timeouts
       }
 
     ephemeralState.get().recordOrderPublisher.scheduleRecoveries(List.empty)
     (sut, persistentState, ephemeralState.get())
   }
 
-  lazy val rootHash = RootHash(TestHash.digest(1))
-  lazy val viewHash = ViewHash(TestHash.digest(2))
-  lazy val encryptedView =
+  private lazy val rootHash = RootHash(TestHash.digest(1))
+  private lazy val viewHash = ViewHash(TestHash.digest(2))
+  private lazy val encryptedView =
     EncryptedView(TestViewType)(Encrypted.fromByteString(rootHash.toProtoPrimitive).value)
-  lazy val viewMessage: EncryptedViewMessage[TestViewType] = EncryptedViewMessageV0(
+  private lazy val viewMessage: EncryptedViewMessage[TestViewType] = EncryptedViewMessageV0(
     submitterParticipantSignature = None,
     viewHash = viewHash,
     randomnessMap = Map.empty,
     encryptedView = encryptedView,
     domainId = DefaultTestIdentities.domainId,
   )
-  lazy val rootHashMessage = RootHashMessage(
+  private lazy val rootHashMessage = RootHashMessage(
     rootHash,
     DefaultTestIdentities.domainId,
     testedProtocolVersion,
     TestViewType,
     SerializedRootHashMessagePayload.empty,
   )
-  lazy val someRecipients = Recipients.cc(participant)
-  lazy val someRequestBatch = RequestAndRootHashMessage(
+  private lazy val someRecipients = Recipients.cc(participant)
+  private lazy val someRequestBatch = RequestAndRootHashMessage(
     NonEmpty(Seq, OpenEnvelope(viewMessage, someRecipients)(testedProtocolVersion)),
     rootHashMessage,
     MediatorRef(DefaultTestIdentities.mediator),
@@ -460,14 +460,19 @@ class ProtocolProcessorTest
         testProcessingSteps(
           overrideConstructedPendingRequestDataO = Some(pendingData),
           startingPoints = ProcessingStartingPoints.tryCreate(
-            MessageProcessingStartingPoint(rc, requestSc, CantonTimestamp.Epoch.minusSeconds(20)),
-            MessageProcessingStartingPoint(
+            cleanReplay = MessageCleanReplayStartingPoint(
+              rc,
+              requestSc,
+              CantonTimestamp.Epoch.minusSeconds(20),
+            ),
+            processing = MessageProcessingStartingPoint(
+              Some(RequestOffset(CantonTimestamp.now(), rc)),
               rc + 1,
               requestSc + 1,
               CantonTimestamp.Epoch.minusSeconds(10),
             ),
-            RequestCounter.Genesis.asLocalOffset,
-            None,
+            lastPublishedLocalOffset = None,
+            rewoundSequencerCounterPrehead = None,
           ),
         )
 
@@ -832,13 +837,14 @@ class ProtocolProcessorTest
 
       val (sut, _persistent, ephemeral) = testProcessingSteps(
         startingPoints = ProcessingStartingPoints.tryCreate(
-          MessageProcessingStartingPoint(rc, requestSc, CantonTimestamp.Epoch.minusSeconds(1)),
+          MessageCleanReplayStartingPoint(rc, requestSc, CantonTimestamp.Epoch.minusSeconds(1)),
           MessageProcessingStartingPoint(
+            Some(RequestOffset(requestId.unwrap, rc + 4)),
             rc + 5,
             requestSc + 10,
             CantonTimestamp.Epoch.plusSeconds(30),
           ),
-          RequestCounter.Genesis.asLocalOffset,
+          None,
           None,
         )
       )
@@ -897,18 +903,19 @@ class ProtocolProcessorTest
     "tick the record order publisher only after the clean request prehead has advanced" in {
       val (sut, persistent, ephemeral) = testProcessingSteps(
         startingPoints = ProcessingStartingPoints.tryCreate(
-          MessageProcessingStartingPoint(
+          cleanReplay = MessageCleanReplayStartingPoint(
             rc - 1L,
             requestSc - 1L,
             CantonTimestamp.Epoch.minusSeconds(11),
           ),
-          MessageProcessingStartingPoint(
+          processing = MessageProcessingStartingPoint(
+            None,
             rc - 1L,
             requestSc - 1L,
             CantonTimestamp.Epoch.minusSeconds(11),
           ),
-          rc.asLocalOffset - 1L,
-          Some(CursorPrehead(requestSc, requestTimestamp)),
+          lastPublishedLocalOffset = None,
+          rewoundSequencerCounterPrehead = Some(CursorPrehead(requestSc, requestTimestamp)),
         )
       )
 

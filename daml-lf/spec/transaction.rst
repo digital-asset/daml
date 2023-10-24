@@ -185,6 +185,8 @@ later.
 +--------------------+-----------------+
 |                 14 |      2021-06-03 |
 +--------------------+-----------------+
+|                 15 |      2022-07-29 |
++--------------------+-----------------+
 |                dev |                 |
 +--------------------+-----------------+
 
@@ -508,6 +510,17 @@ As of version 14, this field is required:
 
 ``bool`` byKey
 
+(* since version 15*)
+
+As of version 15, this field is included.
+
+* `message Identifier`_ interface_id
+
+``interface_id``'s structure is defined by `the value specification`_
+
+
+(*since version dev*)
+
 .. TODO: https://github.com/digital-asset/daml/issues/15882
 .. -- update for choice authorizers
 
@@ -547,3 +560,102 @@ The rollback of a sub-transaction.
 As of version 14, these fields are included:
 
 * repeated ``string`` children
+
+message Versioned
+^^^^^^^^^^^^^^^^^
+
+Generic wrapper to version encode versioned object
+
+(*since version 14*)
+
+As of version 14 the following  fields are included:
+
+* ``string`` version
+* ``bytes``  versioned
+
+
+``version`` is required, and must be a version of this
+specification newer than 14.
+
+``versionned`` is the serialization of the versioned object
+as of version ``version``.
+
+Consumers can expect this field to be present and to have the
+semantics defined here without knowing the version of this versioned
+object.
+
+Known versions are listed in ascending order in `Version history`_; any
+``version`` not in this list should be considered newer than any version
+in same list, and consumers must reject values with such unknown
+versions.
+
+
+(*since version 14*)
+
+message FatContractInstance
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A self contained representation of a committed contract.
+
+The message is assumed ty be wrapped in a `message Versioned`_, which
+dictated the version used for decoding the message.
+
+(* since version 14*)
+
+As of version 14 the following fileds are included.
+
+* ``bytes`` contract_id
+* `message Identifier`_ template_id
+* ``bytes`` create_arg
+*  `message KeyWithMaintainers`_ contract_key_with_maintainers
+* repeated ``string`` non_maintainer_signatories
+* repetaed ``string`` non_signatory_stakeholders
+* ``int64`` created_at
+* ``bytes`` canton_data
+
+
+``contract_id`, ``template_id``, ``create_arg``, ``create_at`` are
+required.
+
+``contract_id`` must be a valid Contract Identifiers as described in
+`the contract ID specification`_
+
+``create_arg`` must be the serialization of the `message Value`_
+
+If the ``contract_key_with_maintainers`` field is present, the
+elements of ``contract_key_with_maintainers.maintainers`` must be
+ordered without duplicate.
+
+Elements of ``non_maintainer_signatories`` must be ordered party
+identifiers without duplicate.
+
+Elements ``non_signatory_stakeholders`` must be ordered party
+identifiers without duplicate.
+
+``sfixed64`` `created_at` is the number of microseconds since
+1970-01-01T00:00:00Z. It must be in the range from
+0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999Z, inclusive; while
+``sfixed64`` supports numbers outside that range, such created_at are
+not allowed and must be rejected with error by conforming consumers.
+
+The message ``canton_data`` is considered as opaque blob by this
+specification. A conforming consumer must accept the message whatever
+the contain of this field is.
+
+Additionally a conforming consumer must reject any message such there
+exists some party identifiers repeated in the concatenation of
+``non_maintainer_signatories``, ``non_signatory_stakeholders``, and
+``contract_key_with_maintainers.maintainers`` if
+``contract_key_with_maintainers`` is present.
+
+
+.. _`message Identifier`: value.rst#message-identifier
+.. _`message Value`: value.rst#message-value
+.. _`the contract ID specification`: contract-id.rst#contract-identifiers
+
+
+
+
+
+
+

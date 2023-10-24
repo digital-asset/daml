@@ -35,6 +35,7 @@ public final class DisclosedContract {
       this.arguments = arguments;
     }
 
+    @SuppressWarnings("deprecation")
     public CommandsOuterClass.DisclosedContract.Builder toProto(
         CommandsOuterClass.DisclosedContract.Builder builder) {
       return builder.setCreateArguments(arguments.toProtoRecord());
@@ -48,6 +49,7 @@ public final class DisclosedContract {
       this.createArgumentsBlob = createArgumentsBlob;
     }
 
+    @SuppressWarnings("deprecation")
     public CommandsOuterClass.DisclosedContract.Builder toProto(
         CommandsOuterClass.DisclosedContract.Builder builder) {
       return builder.setCreateArgumentsBlob(createArgumentsBlob);
@@ -55,6 +57,7 @@ public final class DisclosedContract {
   }
 
   public CommandsOuterClass.DisclosedContract toProto() {
+    @SuppressWarnings("deprecation")
     var builder =
         CommandsOuterClass.DisclosedContract.newBuilder()
             .setTemplateId(this.templateId.toProto())

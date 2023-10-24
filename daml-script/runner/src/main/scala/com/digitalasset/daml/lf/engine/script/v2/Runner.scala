@@ -38,6 +38,7 @@ private[lf] class Runner(
       unversionedRunner.timeMode,
       initialClientsV1,
       unversionedRunner.extendedCompiledPackages,
+      unversionedRunner.enableContractUpgrading,
     )
 
   private val ideLedgerContext: Option[IdeLedgerContext] =

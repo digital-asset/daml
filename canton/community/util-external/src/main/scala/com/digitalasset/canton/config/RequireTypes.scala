@@ -230,6 +230,7 @@ object RequireTypes {
     def create(n: Double): Either[InvariantViolation, PositiveDouble] = PositiveNumeric.create(n)
     def tryCreate(n: Double): PositiveDouble = PositiveNumeric.tryCreate(n)
   }
+
   object PositiveNumeric {
     def tryCreate[T](t: T)(implicit num: Numeric[T]): PositiveNumeric[T] =
       create(t).valueOr(err => throw new IllegalArgumentException(err.message))
@@ -280,6 +281,22 @@ object RequireTypes {
       override def description: String =
         s"The value you gave for this configuration setting ($t) was non-positive, but we require a positive value for this configuration setting"
     }
+  }
+
+  final case class NegativeNumeric[T] private (value: T)(implicit val num: Numeric[T])
+      extends RefinedNumeric[T]
+
+  object NegativeNumeric {
+    def tryCreate[T: Numeric](t: T): NegativeNumeric[T] = NegativeNumeric(t)
+  }
+
+  type NegativeLong = NegativeNumeric[Long]
+
+  object NegativeLong {
+    val MinValue: NegativeLong = NegativeNumeric.tryCreate(Long.MinValue)
+
+    def tryCreate(v: Long): NegativeLong = NegativeNumeric.tryCreate(v)
+    def create(n: Long): Either[InvariantViolation, NonNegativeLong] = NonNegativeNumeric.create(n)
   }
 
   sealed abstract case class ExistingFile(private val file: File) {

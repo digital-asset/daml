@@ -6,6 +6,7 @@ package com.digitalasset.canton.protocol
 import cats.syntax.either.*
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.lf.data.Bytes
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.CantonRequireTypes.String255
@@ -95,6 +96,10 @@ case object AuthenticatedContractIdVersionV2 extends CantonContractIdVersion {
 object ContractIdSyntax {
   implicit class ScalaCodegenContractIdSyntax[T](contractId: ApiTypes.ContractId) {
     def toLf: LfContractId = LfContractId.assertFromString(contractId.toString)
+  }
+
+  implicit class JavaCodegenContractIdSyntax[T](contractId: ContractId[?]) {
+    def toLf: LfContractId = LfContractId.assertFromString(contractId.contractId)
   }
 
   implicit class LfContractIdSyntax(private val contractId: LfContractId) extends AnyVal {

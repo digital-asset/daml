@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.lifecycle
 
-import cats.data.{EitherT, OptionT}
+import cats.data.EitherT
 import cats.syntax.traverse.*
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.Threading
@@ -12,36 +12,21 @@ import com.digitalasset.canton.lifecycle.FlagCloseable.forceShutdownStr
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{Checked, CheckedT}
-import com.google.common.annotations.VisibleForTesting
+import com.digitalasset.canton.util.{Checked, CheckedT, Thereafter}
 
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong, AtomicReference}
-import scala.collection.concurrent.TrieMap
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.immutable.MultiSet
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
-/** Trait that can be registered with a [FlagCloseable] to run on shutdown */
-trait RunOnShutdown {
-
-  /** the name, used for logging during shutdown */
-  def name: String
-
-  /** true if the task has already run (maybe elsewhere) */
-  def done: Boolean
-
-  /** invoked by [FlagCloseable] during shutdown */
-  def run(): Unit
-}
-
 /** Provides a way to synchronize closing with other running tasks in the class, such that new tasks aren't scheduled
   * while closing, and such that closing waits for the scheduled tasks.
   *
   * The component's custom shutdown behaviour should override the `onClosed` method.
   */
-trait FlagCloseable extends AutoCloseable {
+trait FlagCloseable extends OnShutdownRunner {
 
   protected def timeouts: ProcessingTimeout
 
@@ -59,67 +44,8 @@ trait FlagCloseable extends AutoCloseable {
   // count on acquires and releases happening on the same thread, since we support the synchronization of futures.
   private val readerState = new AtomicReference(ReaderState.empty)
 
-  private val incrementor = new AtomicLong(0L)
-  private val onShutdownTasks = TrieMap.empty[Long, RunOnShutdown]
-
-  protected def logger: TracedLogger
-
   // How often to poll to check that all tasks have completed.
   protected def maxSleepMillis: Long = 500
-
-  @VisibleForTesting
-  protected def runStateChanged(waitingState: Boolean = false): Unit = {} // used for unit testing
-
-  /** Register a task to run when shutdown is initiated.
-    *
-    * You can use this for example to register tasks that cancel long-running computations,
-    * whose termination you can then wait for in "closeAsync".
-    */
-  def runOnShutdown_[T](
-      task: RunOnShutdown
-  )(implicit traceContext: TraceContext): Unit = {
-    runOnShutdown(task).discard
-  }
-
-  /** Same as [[runOnShutdown_]] but returns a token that allows you to remove the task explicitly from being run
-    * using [[cancelShutdownTask]]
-    */
-  def runOnShutdown[T](
-      task: RunOnShutdown
-  )(implicit traceContext: TraceContext): Long = {
-    val token = incrementor.getAndIncrement()
-    onShutdownTasks
-      // First remove the tasks that are done
-      .filterInPlace { case (_, run) =>
-        !run.done
-      }
-      // Then add the new one
-      .put(token, task)
-      .discard
-    if (isClosing) runOnShutdownTasks()
-    token
-  }
-
-  /** Removes a shutdown task from the list using a token returned by [[runOnShutdown]]
-    */
-  def cancelShutdownTask(token: Long): Unit = onShutdownTasks.remove(token).discard
-
-  private def runOnShutdownTasks()(implicit traceContext: TraceContext): Unit = {
-    onShutdownTasks.toList.foreach { case (token, task) =>
-      Try {
-        onShutdownTasks
-          .remove(token)
-          .filterNot(_.done)
-          .foreach(_.run())
-      }.failed.foreach(t => logger.warn(s"Task ${task.name} failed on shutdown!", t))
-    }
-  }
-
-  /** Check whether we're closing.
-    * Susceptible to race conditions; unless you're using using this as a flag to the retry lib or you really know
-    * what you're doing, prefer [[performUnlessClosing]] and friends.
-    */
-  def isClosing: Boolean = closingFlag.get()
 
   /** Performs the task given by `f` unless a shutdown has been initiated.
     * The shutdown will only begin after `f` completes, but other tasks may execute concurrently with `f`, if started using this
@@ -276,54 +202,44 @@ trait FlagCloseable extends AutoCloseable {
   /** Blocks until all earlier tasks have completed and then prevents further tasks from being run.
     */
   @SuppressWarnings(Array("org.wartremover.warts.While", "org.wartremover.warts.Var"))
-  final override def close(): Unit = {
+  final override def onFirstClose(): Unit = {
     import TraceContext.Implicits.Empty.*
 
-    /* Setting closingFlag to true first ensures that we can shut down cleanly, unless one of the
+    /* closingFlag has already been set to true. This ensures that we can shut down cleanly, unless one of the
        readers takes longer to complete than the closing timeout. After the flag is set to true, the readerCount
        can only decrease (since it only increases in performUnlessClosingF, and since the || there short-circuits).
      */
-    val firstCallToClose = closingFlag.compareAndSet(false, true)
-    runStateChanged()
-    if (firstCallToClose) {
-      // First run onShutdown tasks.
-      // Important to run them in the beginning as they may be used to cancel long-running tasks.
-      runOnShutdownTasks()
-
-      // Poll for tasks to finish. Inefficient, but we're only doing this during shutdown.
-      val deadline = closingTimeout.fromNow
-      var sleepMillis = 1L
-      while (
-        (readerState.getAndUpdate { current =>
-          if (current == ReaderState.empty) {
-            current.copy(count = -1)
-          } else current
-        }.count != 0) && deadline.hasTimeLeft()
-      ) {
-        val readers = readerState.get()
-        logger.debug(
-          s"${readers.count} active tasks (${readers.readers.mkString(",")}) preventing closing; sleeping for ${sleepMillis}ms"
-        )
-        runStateChanged(true)
-        Threading.sleep(sleepMillis)
-        sleepMillis = (sleepMillis * 2) min maxSleepMillis min deadline.timeLeft.toMillis
-      }
-      if (readerState.get.count >= 0) {
-        logger.warn(
-          s"Timeout ${closingTimeout} expired, but tasks still running. ${forceShutdownStr}"
-        )
-        dumpRunning()
-      }
-      if (keepTrackOfOpenFutures) {
-        logger.warn("Tracking of open futures is enabled, but this is only meant for debugging!")
-      }
-      try {
-        onClosed()
-      } catch {
-        case NonFatal(e) => onCloseFailure(e)
-      }
-    } else {
-      // TODO(i8594): Ensure we call close only once
+    // Poll for tasks to finish. Inefficient, but we're only doing this during shutdown.
+    val deadline = closingTimeout.fromNow
+    var sleepMillis = 1L
+    while (
+      (readerState.getAndUpdate { current =>
+        if (current == ReaderState.empty) {
+          current.copy(count = -1)
+        } else current
+      }.count != 0) && deadline.hasTimeLeft()
+    ) {
+      val readers = readerState.get()
+      logger.debug(
+        s"${readers.count} active tasks (${readers.readers.mkString(",")}) preventing closing; sleeping for ${sleepMillis}ms"
+      )
+      runStateChanged(true)
+      Threading.sleep(sleepMillis)
+      sleepMillis = (sleepMillis * 2) min maxSleepMillis min deadline.timeLeft.toMillis
+    }
+    if (readerState.get.count >= 0) {
+      logger.warn(
+        s"Timeout ${closingTimeout} expired, but tasks still running. ${forceShutdownStr}"
+      )
+      dumpRunning()
+    }
+    if (keepTrackOfOpenFutures) {
+      logger.warn("Tracking of open futures is enabled, but this is only meant for debugging!")
+    }
+    try {
+      onClosed()
+    } catch {
+      case NonFatal(e) => onCloseFailure(e)
     }
   }
 
@@ -379,52 +295,43 @@ object CloseContext {
       closeContext2: CloseContext,
       processingTimeout: ProcessingTimeout,
       tracedLogger: TracedLogger,
-  )(implicit
-      traceContext: TraceContext
-  ): CloseContext = {
+  )(implicit traceContext: TraceContext): CloseContext = {
+    // TODO(#8594) Add a test that this correctly implements the performUnlessClosing semantics
+    //  Currently, this is broken because if both closeContext1 and closeContext2 are closed concurrently,
+    //  then the close of the created flagCloseable will terminate early for the second call to its close method
+    //  and thus not delay that closeContext's closing.
     val flagCloseable = new FlagCloseable {
       override protected def timeouts: ProcessingTimeout = processingTimeout
       override protected def logger: TracedLogger = tracedLogger
     }
     closeContext1.flagCloseable.runOnShutdown_(new RunOnShutdown {
       override def name: String = s"combined-close-ctx1"
-      override def done: Boolean = flagCloseable.isClosing
+      override def done: Boolean =
+        closeContext1.flagCloseable.isClosing && closeContext2.flagCloseable.isClosing
       override def run(): Unit = flagCloseable.close()
     })
     closeContext2.flagCloseable.runOnShutdown_(new RunOnShutdown {
       override def name: String = s"combined-close-ctx2"
-      override def done: Boolean = flagCloseable.isClosing
+      override def done: Boolean =
+        closeContext1.flagCloseable.isClosing && closeContext2.flagCloseable.isClosing
       override def run(): Unit = flagCloseable.close()
     })
     CloseContext(flagCloseable)
   }
 
-  def withCombinedContextF[T](
+  def withCombinedContext[F[_], T](
       closeContext1: CloseContext,
       closeContext2: CloseContext,
       processingTimeout: ProcessingTimeout,
       tracedLogger: TracedLogger,
-  )(func: CloseContext => Future[T])(implicit
+  )(func: CloseContext => F[T])(implicit
       traceContext: TraceContext,
       ex: ExecutionContext,
-  ): Future[T] = {
+      F: Thereafter[F],
+  ): F[T] = {
     val tmp = combineUnsafe(closeContext1, closeContext2, processingTimeout, tracedLogger)
     func(tmp).thereafter(_ => tmp.flagCloseable.close())
   }
-
-  def withCombinedContextOT[T](
-      closeContext1: CloseContext,
-      closeContext2: CloseContext,
-      processingTimeout: ProcessingTimeout,
-      tracedLogger: TracedLogger,
-  )(func: CloseContext => OptionT[Future, T])(implicit
-      traceContext: TraceContext,
-      ex: ExecutionContext,
-  ): OptionT[Future, T] = {
-    val tmp = combineUnsafe(closeContext1, closeContext2, processingTimeout, tracedLogger)
-    func(tmp).thereafter(_ => tmp.flagCloseable.close())
-  }
-
 }
 
 /** Mix-in to obtain a [[CloseContext]] implicit based on the class's [[FlagCloseable]] */

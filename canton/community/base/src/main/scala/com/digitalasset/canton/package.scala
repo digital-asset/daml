@@ -128,11 +128,7 @@ package object canton {
     */
   type TransferCounterO = Option[TransferCounter]
 
-  object RequestCounter extends CounterCompanion[RequestCounterDiscriminator] {
-
-    /** A strict lower bound on all request counters */
-    val LowerBound: RequestCounter = RequestCounter(-1)
-  }
+  object RequestCounter extends CounterCompanion[RequestCounterDiscriminator]
 
   /** Wrap a method call with this method to document that the caller is sure that the callee's preconditions are met. */
   def checked[A](x: => A): A = x

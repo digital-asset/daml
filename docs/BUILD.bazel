@@ -23,57 +23,6 @@ exports_files(
     ],
 )
 
-nodejs_binary(
-    name = "grunt",
-    data = [
-        "@npm//grunt-cli",
-    ],
-    entry_point = "@npm//:node_modules/grunt-cli/bin/grunt",
-)
-
-genrule(
-    name = "theme",
-    srcs = glob(
-        ["theme/**"],
-        exclude = [
-            "theme/bower_components/**",
-            "theme/node_modules/**",
-            "theme/da_theme/**",
-        ],
-    ) + [
-        # we need to list all the transitive dependencies here because of https://github.com/bazelbuild/rules_nodejs/issues/1553
-        "@npm//:node_modules",
-    ],
-    outs = ["da_theme.tar.gz"],
-    cmd = """
-        cp -rL docs/theme theme
-        cd theme
-
-        # Make the node_modules available
-        ln -s ../external/npm/node_modules .
-
-        # Run sass and grunt
-        ../$(execpath @sass_nix//:bin/sass) \\
-            -I bower_components_static/bourbon/dist \\
-            -I bower_components_static/neat/app/assets/stylesheets \\
-            -I bower_components_static/font-awesome/scss \\
-            -I bower_components_static/wyrm/sass \\
-            --style compressed \\
-            --sourcemap=none \\
-            --update \\
-            sass:da_theme/static/css
-        ../$(execpath :grunt) build
-
-        ../$(execpath //bazel_tools/sh:mktgz) ../$@ da_theme
-    """,
-    tools = [
-        ":grunt",
-        "//bazel_tools/sh:mktgz",
-        "@sass_nix//:bin/sass",
-    ],
-    visibility = ["//visibility:public"],
-) if not is_windows else None
-
 genrule(
     name = "hoogle_db",
     srcs = [
@@ -196,14 +145,7 @@ genrule(
         "//ledger-api/grpc-definitions:docs",
         "//:LICENSE",
         "//:NOTICES",
-    ] + glob(
-        ["theme/**"],
-        exclude = [
-            "theme/bower_components/**",
-            "theme/node_modules/**",
-            "theme/da_theme/**",
-        ],
-    ),
+    ],
     outs = ["sphinx-source-tree-deps.tar.gz"],
     cmd = """
     set -eou pipefail
@@ -216,9 +158,6 @@ genrule(
     cp $(location configs/html/conf.py) $$DIR/deps/configs/html
     cp $(location configs/pdf/conf.py) $$DIR/deps/configs/pdf
     cp $(location configs/pdf/logo.png) $$DIR/deps/configs/pdf
-
-    mkdir -p $$DIR/deps/theme
-    cp -rL docs/theme/* $$DIR/deps/theme
 
     cp $(location //templates:templates-tarball) $$DIR/deps/
     cp $(location //templates:create-daml-app-docs) $$DIR/deps/
@@ -253,7 +192,6 @@ genrule(
         "configs/pdf/logo.png",
         ":index",
         ":sources",
-        ":theme",
         "//templates:templates-tarball",
         "//templates:create-daml-app-docs",
         "//templates:create-daml-app-test-resources/index.test.ts",
@@ -278,10 +216,6 @@ genrule(
     cp $(location index) $$DIR/docs/source/index.rst
 
     cp $(location configs/pdf/logo.png) $$DIR/docs/configs/pdf
-
-    # Copy in theme
-    mkdir -p $$DIR/docs/theme
-    tar xf $(location :theme) -C $$DIR/docs/theme
 
     # Copy templates for code snippets in getting started guide
     CODE_DIR=$$DIR/docs/source/getting-started/code/

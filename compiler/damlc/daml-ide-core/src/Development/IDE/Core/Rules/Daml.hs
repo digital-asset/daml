@@ -202,10 +202,13 @@ ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
 
 finalPackageCheck :: NormalizedFilePath -> LF.Package -> Action (Maybe ())
-finalPackageCheck fp pkg = do
+finalPackageCheck fp pkg =
+    runDiagnosticCheck $ diagsToIdeResult fp (LF.nameCheckPackage pkg)
+
+runDiagnosticCheck :: IdeResult a -> Action (Maybe a)
+runDiagnosticCheck (diags, r) = do
     sendFileDiagnostics diags
     pure r
-    where (diags, r) = diagsToIdeResult fp (LF.nameCheckPackage pkg)
 
 diagsToIdeResult :: NormalizedFilePath -> [Diagnostic] -> IdeResult ()
 diagsToIdeResult fp diags = (map (fp, ShowDiag,) diags, r)

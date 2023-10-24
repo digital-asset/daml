@@ -304,10 +304,7 @@ class DomainTopologyManagerRequestServiceTest
                 ns1k3_k2,
                 okm1ak1E_k3,
                 okm1ak5_k3,
-                ps1d1T_k3.copy(signature = okm1ak5_k3.signature)(
-                  ps1d1T_k3.representativeProtocolVersion,
-                  None,
-                ),
+                ps1d1T_k3.update(signature = okm1ak5_k3.signature),
               ),
             )
             .failOnShutdown

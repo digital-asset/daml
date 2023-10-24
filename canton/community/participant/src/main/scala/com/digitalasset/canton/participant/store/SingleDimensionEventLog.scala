@@ -33,7 +33,7 @@ trait SingleDimensionEventLogLookup {
   ): OptionT[Future, TimestampedEvent]
 
   def lookupEventRange(
-      fromInclusive: Option[LocalOffset],
+      fromExclusive: Option[LocalOffset],
       toInclusive: Option[LocalOffset],
       fromTimestampInclusive: Option[CantonTimestamp],
       toTimestampInclusive: Option[CantonTimestamp],
@@ -131,10 +131,10 @@ trait SingleDimensionEventLog[+Id <: EventLogId] extends SingleDimensionEventLog
       traceContext: TraceContext
   ): Future[Boolean]
 
-  /** Deletes all events whose local offset is at least `inclusive`.
+  /** Deletes all events whose local offset is greater than `exclusive`.
     * This operation need not execute atomically.
     */
-  def deleteSince(inclusive: LocalOffset)(implicit traceContext: TraceContext): Future[Unit]
+  def deleteAfter(exclusive: LocalOffset)(implicit traceContext: TraceContext): Future[Unit]
 }
 
 sealed trait EventLogId extends PrettyPrinting with Product with Serializable {

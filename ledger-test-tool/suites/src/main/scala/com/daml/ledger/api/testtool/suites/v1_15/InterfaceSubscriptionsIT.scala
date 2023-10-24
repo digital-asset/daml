@@ -41,6 +41,8 @@ import scalaz.Tag
 import java.util.regex.Pattern
 import scala.concurrent.duration._
 
+// Allows using deprecated Protobuf fields for testing
+@annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
 class InterfaceSubscriptionsIT extends LedgerTestSuite {
 
   test(

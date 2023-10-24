@@ -4,10 +4,6 @@
 package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.lf.interpretation.Limits
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.ContractKeyUniquenessMode
-import com.daml.lf.{VersionRange, language}
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.digitalasset.canton.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.ledger.runner.common
@@ -80,9 +76,6 @@ class PureConfigReaderWriterSpec
     val readerWriter = new PureConfigReaderWriter(secure)
     import readerWriter.*
     testReaderWriterIsomorphism(secure, ArbitraryConfig.duration)
-    testReaderWriterIsomorphism(secure, ArbitraryConfig.versionRange)
-    testReaderWriterIsomorphism(secure, ArbitraryConfig.limits)
-    testReaderWriterIsomorphism(secure, ArbitraryConfig.contractKeyUniquenessMode)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.metricsReporter)
     testReaderWriterIsomorphism(secure, Gen.oneOf(TlsVersion.allVersions))
     testReaderWriterIsomorphism(secure, ArbitraryConfig.tlsConfiguration)
@@ -191,87 +184,6 @@ class PureConfigReaderWriterSpec
       "unknown-key=yes\n" + validJwtTimestampLeewayValue,
     ).left.value
       .prettyPrint(0) should include("Unknown key")
-  }
-
-  behavior of "PureConfigReaderWriter VersionRange[LanguageVersion]"
-
-  it should "read/write against predefined values" in {
-    def compare(
-        range: VersionRange[language.LanguageVersion],
-        expectedString: String,
-    ): Assertion = {
-      versionRangeWriter.to(range) shouldBe fromAnyRef(expectedString)
-      versionRangeReader.from(fromAnyRef(expectedString)).value shouldBe range
-    }
-    compare(LanguageVersion.DevVersions, "daml-lf-dev-mode-unsafe")
-    compare(LanguageVersion.EarlyAccessVersions, "early-access")
-    compare(LanguageVersion.LegacyVersions, "legacy")
-
-    versionRangeReader
-      .from(fromAnyRef("stable"))
-      .value shouldBe LanguageVersion.StableVersions
-  }
-
-  behavior of "Limits"
-
-  val validLimits =
-    """
-      |      choice-authorizers = 2147483647
-      |      choice-controllers = 2147483647
-      |      choice-observers = 2147483647
-      |      contract-observers = 2147483647
-      |      contract-signatories = 2147483647
-      |      transaction-input-contracts = 2147483647""".stripMargin
-
-  it should "support current defaults" in {
-    convert(interpretationLimitsConvert, validLimits).value shouldBe Limits.Lenient
-  }
-
-  it should "validate against odd values" in {
-    val value =
-      s"""
-        |      unknown-key = yes
-        |      $validLimits
-        |""".stripMargin
-    convert(interpretationLimitsConvert, value).left.value
-      .prettyPrint(0) should include("Unknown key")
-  }
-
-  it should "read/write against predefined values" in {
-    val value =
-      ConfigFactory.parseString(
-        """
-        |      choice-controllers = 123
-        |      choice-observers = 234
-        |      contract-observers = 345
-        |      contract-signatories = 456
-        |      transaction-input-contracts = 567
-        |      choice-authorizers = 678
-        |""".stripMargin
-      )
-
-    val expectedValue = Limits(
-      choiceControllers = 123,
-      choiceObservers = 234,
-      contractObservers = 345,
-      contractSignatories = 456,
-      transactionInputContracts = 567,
-      choiceAuthorizers = 678,
-    )
-    val source = ConfigSource.fromConfig(value).cursor().value
-    interpretationLimitsConvert.from(source).value shouldBe expectedValue
-    interpretationLimitsConvert.to(expectedValue) shouldBe value.root()
-  }
-
-  behavior of "ContractKeyUniquenessMode"
-
-  it should "read/write against predefined values" in {
-    def compare(mode: ContractKeyUniquenessMode, expectedString: String): Assertion = {
-      contractKeyUniquenessModeConvert.to(mode) shouldBe fromAnyRef(expectedString)
-      contractKeyUniquenessModeConvert.from(fromAnyRef(expectedString)).value shouldBe mode
-    }
-    compare(ContractKeyUniquenessMode.Off, "off")
-    compare(ContractKeyUniquenessMode.Strict, "strict")
   }
 
   behavior of "TlsConfiguration"

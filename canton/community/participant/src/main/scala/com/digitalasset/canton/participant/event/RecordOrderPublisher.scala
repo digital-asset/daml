@@ -352,9 +352,9 @@ class RecordOrderPublisher(
     override def perform(): FutureUnlessShutdown[Unit] = {
       // If the requestCounterCommitSetPairO is not set, then by default the commit set is empty, and
       // the request counter is the smallest possible value that does not throw an exception in
-      // ActiveContractStore.bulkContractsTransferCounterSnapshot, i.e., lowerBound + 1
+      // ActiveContractStore.bulkContractsTransferCounterSnapshot, i.e., Genesis
       val (requestCounter, commitSet) =
-        requestCounterCommitSetPairO.getOrElse((RequestCounter.LowerBound + 1, CommitSet.empty))
+        requestCounterCommitSetPairO.getOrElse((RequestCounter.Genesis, CommitSet.empty))
       // Augments the commit set with the updated transfer counters for archive events,
       // computes the acs change and publishes it
       logger.debug(

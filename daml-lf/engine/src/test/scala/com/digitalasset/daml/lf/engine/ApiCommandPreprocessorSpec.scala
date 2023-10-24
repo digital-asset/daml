@@ -119,7 +119,11 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
   "preprocessCommand" should {
 
     val defaultPreprocessor =
-      new CommandPreprocessor(compiledPackage.pkgInterface, requireV1ContractIdSuffix = false)
+      new CommandPreprocessor(
+        compiledPackage.pkgInterface,
+        requireV1ContractIdSuffix = false,
+        enableContractUpgrading = false,
+      )
 
     "reject improperly typed ApiCommands" in {
 
@@ -262,6 +266,7 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
       val cmdPreprocessor = new CommandPreprocessor(
         compiledPackage.pkgInterface,
         requireV1ContractIdSuffix = false,
+        enableContractUpgrading = false,
       )
 
       val cids = List(
@@ -287,6 +292,7 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
       val cmdPreprocessor = new CommandPreprocessor(
         compiledPackage.pkgInterface,
         requireV1ContractIdSuffix = true,
+        enableContractUpgrading = false,
       )
       val List(aLegalCid, anotherLegalCid) =
         List("a legal Contract ID", "another legal Contract ID").map(s =>

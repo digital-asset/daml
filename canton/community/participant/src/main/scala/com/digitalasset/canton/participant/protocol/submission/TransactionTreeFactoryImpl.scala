@@ -18,6 +18,7 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.RollbackContext.RollbackScope
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.WellFormedTransaction.{WithSuffixes, WithoutSuffixes}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -435,7 +436,7 @@ abstract class TransactionTreeFactoryImpl(
       viewPosition,
       viewParticipantDataSalt,
       createIndex,
-      state.ledgerTime,
+      LedgerCreateTime(state.ledgerTime),
       contractMetadata,
       serializedCantonContractInst,
       cantonContractIdVersion,
@@ -449,7 +450,7 @@ abstract class TransactionTreeFactoryImpl(
       contractId = contractId,
       rawContractInstance = serializedCantonContractInst,
       metadata = contractMetadata,
-      ledgerCreateTime = state.ledgerTime,
+      ledgerCreateTime = LedgerCreateTime(state.ledgerTime),
       contractSalt = Option.when(protocolVersion >= ProtocolVersion.v4)(contractSalt.unwrap),
     )
     state.setCreatedContractInfo(contractId, createdInfo)

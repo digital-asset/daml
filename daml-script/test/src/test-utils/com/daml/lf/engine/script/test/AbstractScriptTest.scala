@@ -54,7 +54,7 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
     val scriptId = Ref.Identifier(dar.mainPkg, name)
     def converter(input: Value, typ: Ast.Type) =
       new com.daml.lf.engine.preprocessing.ValueTranslator(dar.compiledPackages.pkgInterface, false)
-        .translateValue(typ, input)
+        .strictTranslateValue(typ, input)
         .left
         .map(_.message)
     Runner

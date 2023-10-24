@@ -4,7 +4,7 @@
 package com.digitalasset.canton.health
 
 import cats.Eval
-import com.digitalasset.canton.lifecycle.{FlagCloseable, RunOnShutdown}
+import com.digitalasset.canton.lifecycle.{OnShutdownRunner, RunOnShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.tracing.TraceContext
@@ -71,7 +71,7 @@ trait HealthElement {
   /** The initial state upon creation */
   protected def initialHealthState: State
 
-  /** The state set when the [[associatedFlagCloseable]] closes */
+  /** The state set when the [[associatedOnShutdownRunner]] closes */
   protected def closingState: State
 
   /** The [[com.digitalasset.canton.lifecycle.FlagCloseable]] associated with this object.
@@ -79,11 +79,11 @@ trait HealthElement {
     * When this [[com.digitalasset.canton.lifecycle.FlagCloseable]] closes, the health state permanently becomes [[closingState]]
     * and all listeners are notified about this.
     */
-  protected def associatedFlagCloseable: FlagCloseable
+  protected def associatedOnShutdownRunner: OnShutdownRunner
 
   locally {
     import TraceContext.Implicits.Empty.*
-    associatedFlagCloseable.runOnShutdown_(new RunOnShutdown {
+    associatedOnShutdownRunner.runOnShutdown_(new RunOnShutdown {
       override def name: String = s"set-closing-state-of-${HealthElement.this.name}"
       override def done: Boolean = false
       override def run(): Unit = refreshState(Eval.now(closingState))
@@ -127,7 +127,7 @@ trait HealthElement {
     }
     // When we're closing, force the value to `closingState`.
     // This ensures that `closingState` is sticky.
-    val newStateValue = if (associatedFlagCloseable.isClosing) closingState else newState.value
+    val newStateValue = if (associatedOnShutdownRunner.isClosing) closingState else newState.value
     val previous = internalState.getAndUpdate {
       case InternalState(_, Idle) => errorOnIdle
       case InternalState(_, Refreshing) => InternalState(newStateValue, Idle)

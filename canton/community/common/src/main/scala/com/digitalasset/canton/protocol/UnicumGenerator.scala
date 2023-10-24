@@ -4,7 +4,8 @@
 package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.crypto.{Hash, HashOps, HashPurpose, HmacOps, Salt}
-import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
+import com.digitalasset.canton.data.ViewPosition
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.serialization.DeterministicEncoding
 import com.digitalasset.canton.topology.{DomainId, MediatorRef}
 
@@ -96,7 +97,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
     * @param viewParticipantDataSalt the salt of the [[com.digitalasset.canton.data.ViewParticipantData]] of the view whose core creates the contract
     * @param createIndex the index of the node creating the contract (starting at 0).
     *                        Only create nodes and only nodes that belong to the core of the view with salt `viewActionSalt` have an index.
-    * @param ledgerTime the ledger time at which the contract is created
+    * @param ledgerCreateTime the ledger time at which the contract is created
     * @param metadata contract metadata
     * @param suffixedContractInstance the serializable raw contract instance of the contract where contract IDs have already been suffixed.
     * @param contractIdVersion version of contract ID used
@@ -110,7 +111,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
       viewPosition: ViewPosition,
       viewParticipantDataSalt: Salt,
       createIndex: Int,
-      ledgerTime: CantonTimestamp,
+      ledgerCreateTime: LedgerCreateTime,
       metadata: ContractMetadata,
       suffixedContractInstance: SerializableRawContractInstance,
       contractIdVersion: CantonContractIdVersion,
@@ -128,7 +129,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
     val unicumHash =
       if (contractIdVersion == AuthenticatedContractIdVersionV2) {
         computeUnicumV2Hash(
-          ledgerTime = ledgerTime,
+          ledgerCreateTime = ledgerCreateTime,
           metadata,
           suffixedContractInstance = suffixedContractInstance,
           contractSalt = contractSalt.unwrap,
@@ -136,7 +137,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
         )
       } else {
         computeUnicumV1Hash(
-          ledgerTime = ledgerTime,
+          ledgerCreateTime = ledgerCreateTime,
           suffixedContractInstance = suffixedContractInstance,
           contractSalt = contractSalt.unwrap,
           contractIdVersion = contractIdVersion,
@@ -150,7 +151,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
     * Used for authenticating contracts.
     *
     * @param contractSalt the [[ContractSalt]] computed when the original contract id was generated.
-    * @param ledgerTime the ledger time at which the contract is created
+    * @param ledgerCreateTime the ledger time at which the contract is created
     * @param metadata contract metadata
     * @param suffixedContractInstance the serializable raw contract instance of the contract where contract IDs have already been suffixed.
     * @param contractIdVersion version of contract ID used
@@ -158,7 +159,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
     */
   def recomputeUnicum(
       contractSalt: Salt,
-      ledgerTime: CantonTimestamp,
+      ledgerCreateTime: LedgerCreateTime,
       metadata: ContractMetadata,
       suffixedContractInstance: SerializableRawContractInstance,
       contractIdVersion: CantonContractIdVersion,
@@ -169,7 +170,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
         contractSaltSize.toLong == cryptoOps.defaultHmacAlgorithm.hashAlgorithm.length,
         Unicum(
           computeUnicumV2Hash(
-            ledgerTime,
+            ledgerCreateTime,
             metadata,
             suffixedContractInstance,
             contractSalt,
@@ -182,7 +183,12 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
       Either.cond(
         contractSaltSize.toLong == cryptoOps.defaultHmacAlgorithm.hashAlgorithm.length,
         Unicum(
-          computeUnicumV1Hash(ledgerTime, suffixedContractInstance, contractSalt, contractIdVersion)
+          computeUnicumV1Hash(
+            ledgerCreateTime,
+            suffixedContractInstance,
+            contractSalt,
+            contractIdVersion,
+          )
         ),
         s"Invalid contract salt size ($contractSaltSize)",
       )
@@ -190,7 +196,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
   }
 
   private def computeUnicumV1Hash(
-      ledgerTime: CantonTimestamp,
+      ledgerCreateTime: LedgerCreateTime,
       suffixedContractInstance: SerializableRawContractInstance,
       contractSalt: Salt,
       contractIdVersion: CantonContractIdVersion,
@@ -200,13 +206,13 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
       // The salt's length is determined by the hash algorithm and the contract ID version determines the hash algorithm,
       // so salts have fixed length.
       .addWithoutLengthPrefix(contractSalt.forHashing(contractIdVersion))
-      .addWithoutLengthPrefix(DeterministicEncoding.encodeInstant(ledgerTime.toInstant))
+      .addWithoutLengthPrefix(DeterministicEncoding.encodeInstant(ledgerCreateTime.toInstant))
       // The hash of the contract instance has a fixed length, so we do not need a length prefix
       .addWithoutLengthPrefix(suffixedContractInstance.contractHash.bytes.toByteString)
       .finish()
 
   private def computeUnicumV2Hash(
-      ledgerTime: CantonTimestamp,
+      ledgerCreateTime: LedgerCreateTime,
       metadata: ContractMetadata,
       suffixedContractInstance: SerializableRawContractInstance,
       contractSalt: Salt,
@@ -219,7 +225,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
       // The salt's length is determined by the hash algorithm and the contract ID version determines the hash algorithm,
       // so salts have fixed length.
       .addWithoutLengthPrefix(contractSalt.forHashing(contractIdVersion))
-      .addWithoutLengthPrefix(DeterministicEncoding.encodeInstant(ledgerTime.toInstant))
+      .addWithoutLengthPrefix(DeterministicEncoding.encodeInstant(ledgerCreateTime.toInstant))
       .add(
         DeterministicEncoding.encodeSeqWith(metadata.signatories.toSeq.sorted)(
           DeterministicEncoding.encodeParty

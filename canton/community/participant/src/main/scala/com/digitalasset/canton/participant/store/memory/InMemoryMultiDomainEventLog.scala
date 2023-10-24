@@ -50,7 +50,7 @@ import com.digitalasset.canton.participant.sync.{
   SyncDomainPersistentStateLookup,
   TimestampedEvent,
 }
-import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset}
+import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset, RequestOffset}
 import com.digitalasset.canton.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.canton.protocol.TargetDomainId
@@ -65,16 +65,14 @@ import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, SimpleExecutionQueue
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.immutable.{SortedMap, TreeMap}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.reflect.ClassTag
 
 class InMemoryMultiDomainEventLog(
     lookupEvent: NamedLoggingContext => (
         EventLogId,
         LocalOffset,
     ) => Future[TimestampedEvent],
-    lookupOffsetsBetween: NamedLoggingContext => EventLogId => (
-        LocalOffset,
-        LocalOffset,
-    ) => Future[Seq[LocalOffset]],
+    offsetsLookup: InMemoryOffsetsLookup,
     byEventId: NamedLoggingContext => EventId => OptionT[Future, (EventLogId, LocalOffset)],
     clock: Clock,
     metrics: ParticipantMetrics,
@@ -223,12 +221,11 @@ class InMemoryMultiDomainEventLog(
   override def fetchUnpublished(id: EventLogId, upToInclusiveO: Option[LocalOffset])(implicit
       traceContext: TraceContext
   ): Future[Seq[PendingPublish]] = {
-    val fromExclusive = entriesRef.get().lastLocalOffsets.getOrElse(id, LocalOffset.MinValue)
-    val upToInclusive = upToInclusiveO.getOrElse(LocalOffset.MaxValue)
+    val fromExclusive = entriesRef.get().lastLocalOffsets.get(id)
     for {
-      unpublishedOffsets <- lookupOffsetsBetween(namedLoggingContext)(id)(
-        fromExclusive + 1,
-        upToInclusive,
+      unpublishedOffsets <- offsetsLookup.lookupOffsetsBetween(id)(
+        fromExclusive,
+        upToInclusiveO,
       )
       unpublishedEvents <- unpublishedOffsets.parTraverse(offset =>
         lookupEvent(namedLoggingContext)(id, offset)
@@ -347,11 +344,27 @@ class InMemoryMultiDomainEventLog(
       eventLogId: EventLogId,
       upToInclusive: GlobalOffset,
       timestampInclusive: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] = {
+  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] =
+    lastLocalOffsetBeforeOrAt[LocalOffset](eventLogId, upToInclusive, timestampInclusive)
+
+  override def lastRequestOffsetBeforeOrAt(
+      eventLogId: EventLogId,
+      upToInclusive: GlobalOffset,
+      timestampInclusive: Option[CantonTimestamp],
+  )(implicit traceContext: TraceContext): Future[Option[RequestOffset]] =
+    lastLocalOffsetBeforeOrAt[RequestOffset](eventLogId, upToInclusive, timestampInclusive)
+
+  private def lastLocalOffsetBeforeOrAt[T <: LocalOffset: ClassTag](
+      eventLogId: EventLogId,
+      upToInclusive: GlobalOffset,
+      timestampInclusive: Option[CantonTimestamp],
+  )(implicit traceContext: TraceContext): Future[Option[T]] = {
     val referencesUpTo = entriesRef.get().referencesByOffset.rangeTo(upToInclusive).values
     val reversedLocalOffsets =
       referencesUpTo
-        .collect { case (id, localOffset, _processingTime) if id == eventLogId => localOffset }
+        .collect {
+          case (id, localOffset: T, _processingTime) if id == eventLogId => localOffset
+        }
         .toList
         .reverse
 
@@ -503,9 +516,12 @@ object InMemoryMultiDomainEventLog extends HasLoggerName {
         (eventLog.id: EventLogId) -> eventLog
       } + (participantEventLog.id -> participantEventLog)
 
+    val offsetsLooker =
+      new InMemoryOffsetsLookupImpl(syncDomainPersistentStates, participantEventLog)
+
     new InMemoryMultiDomainEventLog(
       lookupEvent(allEventLogs),
-      lookupOffsetsBetween(allEventLogs),
+      offsetsLooker,
       byEventId(allEventLogs),
       clock,
       metrics,
@@ -532,25 +548,6 @@ object InMemoryMultiDomainEventLog extends HasLoggerName {
           )
         )
       )
-  }
-
-  private def lookupOffsetsBetween(
-      allEventLogs: => Map[EventLogId, SingleDimensionEventLog[EventLogId]]
-  )(namedLoggingContext: NamedLoggingContext)(
-      id: EventLogId
-  )(fromInclusive: LocalOffset, upToInclusive: LocalOffset): Future[Seq[LocalOffset]] = {
-    implicit val loggingContext: NamedLoggingContext = namedLoggingContext
-    implicit val tc: TraceContext = loggingContext.traceContext
-    implicit val ec: ExecutionContext = DirectExecutionContext(loggingContext.tracedLogger)
-    for {
-      events <- allEventLogs(id).lookupEventRange(
-        Some(fromInclusive),
-        Some(upToInclusive),
-        None,
-        None,
-        None,
-      )
-    } yield events.rangeFrom(fromInclusive).rangeTo(upToInclusive).keySet.toSeq
   }
 
   private def byEventId(allEventLogs: => Map[EventLogId, SingleDimensionEventLog[EventLogId]])(

@@ -105,7 +105,7 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
-      onCleanHandler: Traced[SequencerCounterCursorPrehead] => Future[Unit] = _ => Future.unit,
+      onCleanHandler: Traced[SequencerCounterCursorPrehead] => Unit = _ => (),
   )(implicit traceContext: TraceContext): Future[Unit]
 
   /** Create a subscription for sequenced events for this member,
@@ -567,7 +567,7 @@ class SequencerClientImpl(
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
-      onCleanHandler: Traced[SequencerCounterCursorPrehead] => Future[Unit] = _ => Future.unit,
+      onCleanHandler: Traced[SequencerCounterCursorPrehead] => Unit = _ => (),
   )(implicit traceContext: TraceContext): Future[Unit] = {
     sequencerCounterTrackerStore.preheadSequencerCounter.flatMap { cleanPrehead =>
       val priorTimestamp = cleanPrehead.fold(CantonTimestamp.MinValue)(

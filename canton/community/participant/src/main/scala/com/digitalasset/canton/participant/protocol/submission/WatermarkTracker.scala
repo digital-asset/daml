@@ -90,10 +90,10 @@ class WatermarkTracker[Mark: Pretty](
     * @throws java.lang.IllegalStateException
     *   if there are already `Int.MaxValue` tasks running for `mark`
     */
-  def runIfAboveWatermark[F[_], Context[_], A](mark: Mark, register: => F[A])(implicit
+  def runIfAboveWatermark[F[_], A](mark: Mark, register: => F[A])(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-      F: Thereafter[F, Context],
+      F: Thereafter[F],
   ): Either[MarkTooLow[Mark], F[A]] =
     registerBegin(mark).map { _ =>
       register.thereafter { _ =>

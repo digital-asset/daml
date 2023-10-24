@@ -38,7 +38,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       choice <- Name.fromString(result.choice)
       c <- lookupChoice(result.templateId, result.interfaceId, choice)
       translated <- translator
-        .translateValue(c.returnType, result.result)
+        .strictTranslateValue(c.returnType, result.result)
         .left
         .map(err => s"Failed to translate exercise result: $err")
     } yield translated
@@ -138,7 +138,9 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
   def fromContract(
       translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract,
-  ): Either[String, SValue] = fromAnyTemplate(translator, contract.templateId, contract.argument)
+      enableContractUpgrading: Boolean = false,
+  ): Either[String, SValue] =
+    fromAnyTemplate(translator, contract.templateId, contract.argument, enableContractUpgrading)
 
   // Convert a Created event to a pair of (ContractId (), AnyTemplate)
   def fromCreated(

@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import cats.syntax.option.*
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.LedgerSyncRecordTime
 import com.digitalasset.canton.participant.store.EventLogId.ParticipantEventLogId
@@ -46,11 +47,13 @@ trait ParticipantEventLogTest extends AsyncWordSpec with BaseTest {
     "return many new offsets" in {
       val store = newStore
 
+      val size = 10000
+
       for {
-        many <- store.nextLocalOffsets(10000)
+        many <- store.nextLocalOffsets(NonNegativeInt.tryCreate(size))
         anotherOne <- store.nextLocalOffset()
       } yield {
-        many.size shouldBe 10000
+        many.size shouldBe size
         many.sorted shouldBe many // new offsets are ascending
         many.distinct shouldBe many // new offsets are distinct
         forEvery(many) { off =>
@@ -63,7 +66,7 @@ trait ParticipantEventLogTest extends AsyncWordSpec with BaseTest {
       val store = newStore
 
       for {
-        none <- store.nextLocalOffsets(0)
+        none <- store.nextLocalOffsets(NonNegativeInt.tryCreate(0))
       } yield none shouldBe Seq.empty
     }
 
@@ -71,7 +74,7 @@ trait ParticipantEventLogTest extends AsyncWordSpec with BaseTest {
       val store = newStore
 
       for {
-        offsets <- store.nextLocalOffsets(4)
+        offsets <- store.nextLocalOffsets(NonNegativeInt.tryCreate(4))
         event1 = SingleDimensionEventLogTest
           .generateEvent(
             LedgerSyncRecordTime.Epoch.addMicros(2000),

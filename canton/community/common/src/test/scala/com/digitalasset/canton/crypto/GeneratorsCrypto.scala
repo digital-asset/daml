@@ -65,7 +65,7 @@ object GeneratorsCrypto {
   private lazy val loggerFactoryNotUsed =
     NamedLoggerFactory.unnamedKey("test", "NotUsed-GeneratorsCrypto")
 
-  private lazy val cryptoFactory =
+  lazy val cryptoFactory =
     TestingIdentityFactory(loggerFactoryNotUsed).forOwnerAndDomain(
       DefaultTestIdentities.sequencerId
     )
@@ -75,6 +75,25 @@ object GeneratorsCrypto {
       .fingerprint
   private lazy val privateCrypto = cryptoFactory.crypto.privateCrypto
   private lazy val pureCryptoApi: CryptoPureApi = cryptoFactory.pureCrypto
+
+  implicit val signingPublicKeyArb: Arbitrary[SigningPublicKey] = Arbitrary(for {
+    id <- Arbitrary.arbitrary[Fingerprint]
+    format <- Arbitrary.arbitrary[CryptoKeyFormat]
+    key <- Arbitrary.arbitrary[ByteString]
+    scheme <- Arbitrary.arbitrary[SigningKeyScheme]
+  } yield new SigningPublicKey(id, format, key, scheme))
+
+  implicit val encryptionPublicKeyArb: Arbitrary[EncryptionPublicKey] = Arbitrary(for {
+    id <- Arbitrary.arbitrary[Fingerprint]
+    format <- Arbitrary.arbitrary[CryptoKeyFormat]
+    key <- Arbitrary.arbitrary[ByteString]
+    scheme <- Arbitrary.arbitrary[EncryptionKeyScheme]
+  } yield new EncryptionPublicKey(id, format, key, scheme))
+
+  // TODO(#14515) Check that the generator is exhaustive
+  implicit val publicKeyArb: Arbitrary[PublicKey] = Arbitrary(
+    Gen.oneOf(Arbitrary.arbitrary[SigningPublicKey], Arbitrary.arbitrary[EncryptionPublicKey])
+  )
 
   def sign(str: String, purpose: HashPurpose)(implicit
       executionContext: ExecutionContext

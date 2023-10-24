@@ -4,10 +4,12 @@
 module DA.Daml.LF.TypeChecker.Error(
     Context(..),
     Error(..),
+    UpgradeError(..),
     TemplatePart(..),
     InterfacePart(..),
     UnserializabilityReason(..),
     SerializabilityRequirement(..),
+    UpgradedRecordOrigin(..),
     errorLocation,
     toDiagnostic,
     ) where
@@ -161,7 +163,34 @@ data Error
   | EMissingMethodInInterfaceInstance !MethodName
   | EUnknownMethodInInterfaceInstance { eumiiIface :: !(Qualified TypeConName), eumiiTpl :: !(Qualified TypeConName), eumiiMethodName :: !MethodName }
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
+  | EUpgradeError !UpgradeError
   | EUnknownExperimental !T.Text !Type
+
+data UpgradeError
+  = MissingModule !ModuleName
+  | MissingTemplate !TypeConName
+  | MissingChoice !ChoiceName
+  | MissingDataCon !TypeConName
+  | MismatchDataConsVariety !TypeConName
+  | RecordFieldsMissing !UpgradedRecordOrigin
+  | RecordFieldsExistingChanged !UpgradedRecordOrigin
+  | RecordFieldsNewNonOptional !UpgradedRecordOrigin
+  | RecordChangedOrigin !TypeConName !UpgradedRecordOrigin !UpgradedRecordOrigin
+  | TemplateChangedPrecondition !TypeConName
+  | TemplateChangedSignatories !TypeConName
+  | TemplateChangedObservers !TypeConName
+  | TemplateChangedAgreement !TypeConName
+  | ChoiceChangedControllers !ChoiceName
+  | ChoiceChangedObservers !ChoiceName
+  | ChoiceChangedAuthorizers !ChoiceName
+  | ChoiceChangedReturnType !ChoiceName
+  deriving (Eq, Ord, Show)
+
+data UpgradedRecordOrigin
+  = TemplateBody TypeConName
+  | TemplateChoiceInput TypeConName ChoiceName
+  | TopLevel
+  deriving (Eq, Ord, Show)
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -528,8 +557,35 @@ instance Pretty Error where
       text "Tried to implement method " <> quotes (pretty eumiiMethodName) <> text ", but interface " <> pretty eumiiIface <> text " does not have a method with that name."
     EWrongInterfaceRequirement requiringIface requiredIface ->
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
+    EUpgradeError upgradeError -> pPrint upgradeError
     EUnknownExperimental name ty ->
       "Unknown experimental primitive " <> string (show name) <> " : " <> pretty ty
+
+instance Pretty UpgradeError where
+  pPrint = \case
+    MissingModule moduleName -> "Module " <> pPrint moduleName <> " appears in package that is being upgraded, but does not appear in this package."
+    MissingTemplate templateName -> "Template " <> pPrint templateName <> " appears in package that is being upgraded, but does not appear in this package."
+    MissingChoice templateName -> "Choice " <> pPrint templateName <> " appears in package that is being upgraded, but does not appear in this package."
+    MissingDataCon dataConName -> "Data type " <> pPrint dataConName <> " appears in package that is being upgraded, but does not appear in this package."
+    MismatchDataConsVariety dataConName -> "EUpgradeMismatchDataConsVariety " <> pretty dataConName
+    RecordFieldsMissing origin -> "The upgraded " <> pPrint origin <> " is missing some of its original fields."
+    RecordFieldsExistingChanged origin -> "The upgraded " <> pPrint origin <> " has changed the types of some of its original fields."
+    RecordFieldsNewNonOptional origin -> "The upgraded " <> pPrint origin <> " has added new fields, but those fields are not Optional."
+    RecordChangedOrigin dataConName past present -> "The record " <> pPrint dataConName <> " has changed origin from " <> pPrint past <> " to " <> pPrint present
+    TemplateChangedPrecondition template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its precondition."
+    TemplateChangedSignatories template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its signatories."
+    TemplateChangedObservers template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its observers."
+    TemplateChangedAgreement template -> "The upgraded template " <> pPrint template <> " cannot change the definition of agreement."
+    ChoiceChangedControllers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of controllers."
+    ChoiceChangedObservers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of observers."
+    ChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of authorizers."
+    ChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
+
+instance Pretty UpgradedRecordOrigin where
+  pPrint = \case
+    TemplateBody tpl -> "template " <> pPrint tpl
+    TemplateChoiceInput tpl chcName -> "input type of choice " <> pPrint chcName <> " on template " <> pPrint tpl
+    TopLevel -> "record"
 
 instance Pretty Context where
   pPrint = \case

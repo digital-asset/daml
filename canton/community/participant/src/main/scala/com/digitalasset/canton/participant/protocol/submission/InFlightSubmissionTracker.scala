@@ -359,9 +359,9 @@ class InFlightSubmissionTracker(
       )
     )
 
-    def localOffsetsFor(sequencedInFlight: Seq[InFlightSubmission[SequencedSubmission]]): Future[
-      ArraySeq[InFlightData]
-    ] =
+    def localOffsetsFor(
+        sequencedInFlight: Seq[InFlightSubmission[SequencedSubmission]]
+    ): Future[ArraySeq[InFlightData]] =
       NonEmpty
         .from(sequencedInFlight)
         .fold(
@@ -374,7 +374,7 @@ class InFlightSubmissionTracker(
 
           for {
             foundLocalEvents <- domainState.singleDimensionEventLog.lookupEventRange(
-              fromInclusive = None,
+              fromExclusive = None,
               toInclusive = None,
               fromTimestampInclusive = first.sequencingInfo.sequencingTime.some,
               toTimestampInclusive = last.sequencingInfo.sequencingTime.some,

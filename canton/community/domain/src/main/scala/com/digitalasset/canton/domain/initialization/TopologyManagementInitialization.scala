@@ -109,10 +109,10 @@ object TopologyManagementInitialization {
                     transactions.toList,
                     recentSnapshot,
                     id,
-                    maxSequencingTime,
+                    Some(maxSequencingTime),
                     protocolVersion,
                   )
-                  .leftMap(err => SendAsyncClientError.RequestInvalid(err.toString))
+                  .leftMap(SendAsyncClientError.RequestInvalid)
               batch = domainMembers.map(member =>
                 OpenEnvelope(content, Recipients.cc(member))(protocolVersion)
               )

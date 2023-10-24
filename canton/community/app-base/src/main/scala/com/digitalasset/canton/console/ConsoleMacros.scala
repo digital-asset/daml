@@ -36,6 +36,7 @@ import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.config.{AuthServiceConfig, BaseParticipantConfig}
 import com.digitalasset.canton.participant.ledger.api.JwtTokenUtilities
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -327,7 +328,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
               observers,
               contractId,
               contractSaltO,
-              Some(ledgerCreateTime.underlying),
+              Some(ledgerCreateTime.ts.underlying),
             )
         }
       )
@@ -379,7 +380,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
               generate_contract_id(
                 cryptoPureApi = pureCrypto,
                 rawContract = contractInstanceWithUpdatedContractIdReferences,
-                createdAt = contract.ledgerCreateTime,
+                createdAt = contract.ledgerCreateTime.ts,
                 discriminator = discriminator,
                 contractSalt = contractSalt,
                 metadata = contract.metadata,
@@ -423,7 +424,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       val unicum = unicumGenerator
         .recomputeUnicum(
           contractSalt,
-          createdAt,
+          LedgerCreateTime(createdAt),
           metadata,
           rawContract,
           cantonContractIdVersion,
@@ -600,7 +601,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           applicationId: String,
       ): Map[PartyId, String] = {
         val secret = participant.config.ledgerApi.authServices
-          .collectFirst { case AuthServiceConfig.UnsafeJwtHmac256(secret, _) =>
+          .collectFirst { case AuthServiceConfig.UnsafeJwtHmac256(secret, _, _) =>
             secret.unwrap
           }
           .getOrElse("notasecret")

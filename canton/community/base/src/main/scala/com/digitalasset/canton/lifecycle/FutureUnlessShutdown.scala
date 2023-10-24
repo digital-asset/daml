@@ -297,8 +297,8 @@ object FutureUnlessShutdownImpl {
   ): Parallel[FutureUnlessShutdown] =
     Instance.subst[Parallel](parallelInstanceFutureUnlessShutdownOpened)
 
-  class FutureUnlessShutdownThereafter
-      extends Thereafter[FutureUnlessShutdown, FutureUnlessShutdownThereafterContent] {
+  class FutureUnlessShutdownThereafter extends Thereafter[FutureUnlessShutdown] {
+    override type Content[A] = FutureUnlessShutdownThereafterContent[A]
     override def thereafter[A](f: FutureUnlessShutdown[A])(body: Try[UnlessShutdown[A]] => Unit)(
         implicit ec: ExecutionContext
     ): FutureUnlessShutdown[A] =
@@ -307,7 +307,7 @@ object FutureUnlessShutdownImpl {
     override def thereafterF[A](f: FutureUnlessShutdown[A])(
         body: Try[UnlessShutdown[A]] => Future[Unit]
     )(implicit ec: ExecutionContext): FutureUnlessShutdown[A] = {
-      FutureUnlessShutdown(Thereafter[Future].summon.thereafterF(f.unwrap)(body))
+      FutureUnlessShutdown(Thereafter[Future].thereafterF(f.unwrap)(body))
     }
   }
 
@@ -316,7 +316,7 @@ object FutureUnlessShutdownImpl {
     */
   type FutureUnlessShutdownThereafterContent[A] = Try[UnlessShutdown[A]]
   implicit val thereafterFutureUnlessShutdown
-      : Thereafter[FutureUnlessShutdown, FutureUnlessShutdownThereafterContent] =
+      : Thereafter.Aux[FutureUnlessShutdown, FutureUnlessShutdownThereafterContent] =
     new FutureUnlessShutdownThereafter
 
   /** Enable `onShutdown` syntax on [[cats.data.EitherT]]`[`[[FutureUnlessShutdown]]`...]`. */

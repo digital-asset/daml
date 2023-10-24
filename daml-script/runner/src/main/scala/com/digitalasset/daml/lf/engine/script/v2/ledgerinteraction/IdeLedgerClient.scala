@@ -72,6 +72,7 @@ class IdeLedgerClient(
     new preprocessing.CommandPreprocessor(
       compiledPackages.pkgInterface,
       requireV1ContractIdSuffix = false,
+      enableContractUpgrading = true,
     )
 
   private[this] def partialFunctionFilterNot[A](f: A => Boolean): PartialFunction[A, A] = {
@@ -110,7 +111,11 @@ class IdeLedgerClient(
 
   private val userManagementStore = new InMemoryUserManagementStore(createAdmin = false)
 
-  override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
+  override def query(
+      parties: OneAnd[Set, Ref.Party],
+      templateId: Identifier,
+      enableContractUpgrading: Boolean = false,
+  )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
@@ -161,6 +166,7 @@ class IdeLedgerClient(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       cid: ContractId,
+      enableContractUpgrading: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -183,7 +189,7 @@ class IdeLedgerClient(
       requireV1ContractIdSuffix = false,
     )
 
-    valueTranslator.translateValue(TTyCon(templateId), arg) match {
+    valueTranslator.strictTranslateValue(TTyCon(templateId), arg) match {
       case Left(_) =>
         sys.error("computeView: translateValue failed")
 

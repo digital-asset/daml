@@ -290,9 +290,11 @@ object ValueGenerators {
     * 1. stakeholders may not be a superset of signatories
     * 2. key's maintainers may not be a subset of signatories
     */
-  val malformedCreateNodeGen: Gen[Node.Create] = {
+  def malformedCreateNodeGen(
+      minVersion: TransactionVersion = TransactionVersion.V14
+  ): Gen[Node.Create] = {
     for {
-      version <- transactionVersionGen()
+      version <- transactionVersionGen(minVersion)
       node <- malformedCreateNodeGenWithVersion(version)
     } yield node
   }
@@ -523,7 +525,7 @@ object ValueGenerators {
           node <- Gen.frequency(
             exerciseFreq -> danglingRefExerciseNodeGen,
             rollbackFreq -> danglingRefRollbackNodeGen,
-            1 -> malformedCreateNodeGen,
+            1 -> malformedCreateNodeGen(),
             2 -> fetchNodeGen,
           )
           nodeWithChildren <- node match {

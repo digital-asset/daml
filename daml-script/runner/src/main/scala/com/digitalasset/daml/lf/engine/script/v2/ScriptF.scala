@@ -70,6 +70,7 @@ object ScriptF {
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
       compiledPackages: CompiledPackages,
+      val enableContractUpgrading: Boolean,
   ) {
     def clients = _clients
     val valueTranslator = new ValueTranslator(
@@ -101,7 +102,7 @@ object ScriptF {
       }
 
     def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
-      valueTranslator.translateValue(ty, value).left.map(_.toString)
+      valueTranslator.strictTranslateValue(ty, value).left.map(_.toString)
 
   }
 
@@ -313,8 +314,10 @@ object ScriptF {
     ): Future[SExpr] =
       for {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-        optR <- client.queryContractId(parties, tplId, cid)
-        optR <- Converter.toFuture(optR.traverse(Converter.fromContract(env.valueTranslator, _)))
+        optR <- client.queryContractId(parties, tplId, cid, env.enableContractUpgrading)
+        optR <- Converter.toFuture(
+          optR.traverse(Converter.fromContract(env.valueTranslator, _, env.enableContractUpgrading))
+        )
       } yield SEValue(SOptional(optR))
   }
 
@@ -392,7 +395,7 @@ object ScriptF {
     )(id: Identifier, v: Value): Either[String, SValue] =
       for {
         keyTy <- env.lookupKeyTy(id)
-        translated <- env.valueTranslator.translateValue(keyTy, v).left.map(_.message)
+        translated <- env.valueTranslator.strictTranslateValue(keyTy, v).left.map(_.message)
       } yield translated
 
     override def execute(env: Env)(implicit

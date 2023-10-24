@@ -18,7 +18,7 @@ import scala.util.{Failure, Success, Try}
 trait ThereafterTest extends AnyWordSpec with BaseTest {
 
   def thereafter[F[_], Content[_]](
-      sut: Thereafter[F, Content],
+      sut: Thereafter.Aux[F, Content],
       fixture: ThereafterTest.Fixture[F, Content],
   )(implicit ec: ExecutionContext): Unit = {
 
@@ -219,26 +219,18 @@ object ThereafterTest {
     OptionT.pure[Future]("OptionT Future").thereafter(_ => ()).discard
     OptionT.pure[FutureUnlessShutdown]("OptionT FutureUnlessShutdown").thereafter(_ => ()).discard
 
-    // Type inference still cannot cope with several Thereafter transformers :-(
-    // We explicitly have to summon the instance!
-    {
-      implicit val thereafter = Thereafter[EitherT[EitherT[Future, Unit, *], Unit, *]].summon
-      EitherT
-        .rightT[EitherT[Future, Unit, *], Unit]("EitherT EitherT Future")
-        .thereafter(_ => ())
-        .discard
-    }
-    {
-      implicit val thereafter = Thereafter[OptionT[OptionT[Future, *], *]].summon
-      OptionT.pure[OptionT[Future, *]]("OptionT OptionT Future").thereafter(_ => ()).discard
-    }
-
+    // Type inference copes even with several Thereafter transformers
+    EitherT
+      .rightT[EitherT[Future, Unit, *], Unit]("EitherT EitherT Future")
+      .thereafter(_ => ())
+      .discard
+    OptionT.pure[OptionT[Future, *]]("OptionT OptionT Future").thereafter(_ => ()).discard
   }
 }
 
 class FutureThereafterTest extends ThereafterTest with HasExecutionContext {
   "Future" should {
-    behave like thereafter(Thereafter[Future].summon, FutureThereafterTest.fixture)
+    behave like thereafter(Thereafter[Future], FutureThereafterTest.fixture)
   }
 }
 
@@ -264,7 +256,7 @@ object FutureThereafterTest {
 class FutureUnlessShutdownThereafterTest extends ThereafterTest with HasExecutionContext {
   "FutureUnlessShutdown" should {
     behave like thereafter(
-      Thereafter[FutureUnlessShutdown].summon,
+      Thereafter[FutureUnlessShutdown],
       FutureUnlessShutdownThereafterTest.fixture,
     )
   }
@@ -301,7 +293,7 @@ class EitherTThereafterTest extends ThereafterTest with HasExecutionContext {
   "EitherT" when {
     "applied to Future" should {
       behave like thereafter(
-        Thereafter[EitherT[Future, Unit, *]].summon,
+        Thereafter[EitherT[Future, Unit, *]],
         EitherTThereafterTest.fixture(FutureThereafterTest.fixture, Seq(())),
       )
     }
@@ -310,7 +302,7 @@ class EitherTThereafterTest extends ThereafterTest with HasExecutionContext {
       implicit val appTryUnlessShutdown = Applicative[Try].compose[UnlessShutdown]
 
       behave like thereafter(
-        Thereafter[EitherT[FutureUnlessShutdown, String, *]].summon,
+        Thereafter[EitherT[FutureUnlessShutdown, String, *]],
         EitherTThereafterTest.fixture(
           FutureUnlessShutdownThereafterTest.fixture,
           Seq("left", "another left"),
@@ -353,7 +345,7 @@ class OptionTThereafterTest extends ThereafterTest with HasExecutionContext {
   "OptionT" when {
     "applied to Future" should {
       behave like thereafter(
-        Thereafter[OptionT[Future, *]].summon,
+        Thereafter[OptionT[Future, *]],
         OptionTThereafterTest.fixture(FutureThereafterTest.fixture),
       )
     }
@@ -362,7 +354,7 @@ class OptionTThereafterTest extends ThereafterTest with HasExecutionContext {
       implicit val appTryUnlessShutdown = Applicative[Try].compose[UnlessShutdown]
 
       behave like thereafter(
-        Thereafter[OptionT[FutureUnlessShutdown, *]].summon,
+        Thereafter[OptionT[FutureUnlessShutdown, *]],
         OptionTThereafterTest.fixture(FutureUnlessShutdownThereafterTest.fixture),
       )
     }

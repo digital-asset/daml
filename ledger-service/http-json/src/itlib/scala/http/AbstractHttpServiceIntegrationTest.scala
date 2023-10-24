@@ -1085,6 +1085,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           atdCtMetadata: DC.Metadata,
       )
 
+      // Allows using deprecated Protobuf fields for testing
+      @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
       def contractsToDisclose(
           fixture: HttpServiceTestFixtureData,
           junkMessage: String,

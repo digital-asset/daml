@@ -37,7 +37,7 @@ import com.digitalasset.canton.participant.sync.{
   LedgerSyncEvent,
   TimestampedEvent,
 }
-import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset}
+import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset, RequestOffset}
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
@@ -63,7 +63,13 @@ trait MultiDomainEventLogTest
     with BeforeAndAfterAll {
 
   private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
-  private implicit def toLocalOffset(i: Long): LocalOffset = LocalOffset(i)
+
+  // TODO(#14381) Expand coverage and include topology events in this test
+  private implicit def toLocalOffset(i: Long): LocalOffset =
+    RequestOffset(CantonTimestamp.ofEpochSecond(i), RequestCounter(i))
+
+  private def toRequestOffset(i: Long): RequestOffset =
+    RequestOffset(CantonTimestamp.ofEpochSecond(i), RequestCounter(i))
 
   protected lazy val indexedStringStore: InMemoryIndexedStringStore =
     DbEventLogTestResources.dbMultiDomainEventLogTestIndexedStringStore
@@ -83,23 +89,23 @@ trait MultiDomainEventLogTest
   protected def transferStores: Map[TargetDomainId, TransferStore]
 
   private def timestampAtOffset(offset: LocalOffset): CantonTimestamp =
-    CantonTimestamp.assertFromLong(offset.unwrap * 1000)
+    CantonTimestamp.assertFromLong(offset.tieBreaker.abs * 1000)
 
   private def timestampedEvent(
       eventLogIndex: Int,
       localOffset: LocalOffset,
       maybeEventId: Option[EventId] = None,
-  ): TimestampedEvent =
+  ): TimestampedEvent = {
+
+    val id = s"$eventLogIndex-${localOffset.tieBreaker}"
+
     TimestampedEvent(
       DefaultLedgerSyncEvent.dummyStateUpdate(timestampAtOffset(localOffset)),
       localOffset,
       None,
-      Some(
-        maybeEventId.getOrElse(
-          TransactionEventId(LedgerTransactionId.assertFromString(s"$eventLogIndex-$localOffset"))
-        )
-      ),
+      Some(maybeEventId.getOrElse(TransactionEventId(LedgerTransactionId.assertFromString(id)))),
     )
+  }
 
   private lazy val allTestEvents: Seq[(EventLogId, TimestampedEvent, Option[InFlightReference])] =
     Seq(
@@ -143,20 +149,44 @@ trait MultiDomainEventLogTest
     )
 
   private lazy val outdatedEvent: (EventLogId, TimestampedEvent, Option[InFlightReference]) =
-    (eventLogIds(0), timestampedEvent(0, -42), None)
+    (
+      eventLogIds(0),
+      timestampedEvent(0, RequestOffset(CantonTimestamp.MinValue, RequestCounter(0))),
+      None,
+    )
 
   private lazy val initialTestEvents
       : Seq[(EventLogId, TimestampedEvent, Option[InFlightReference])] =
     allTestEvents.slice(0, 5)
   private lazy val initialPublicationTime: CantonTimestamp = CantonTimestamp.ofEpochSecond(10)
 
-  private lazy val lastOffsets: Seq[(Map[DomainId, LocalOffset], Option[LocalOffset])] = Seq(
-    (Map(domainIds(0) -> 3L), None),
-    (Map(domainIds(0) -> 3L, domainIds(1) -> 5L), None),
-    (Map(domainIds(0) -> 3L, domainIds(1) -> 5L), Some(1L)),
-    (Map(domainIds(0) -> 3L, domainIds(1) -> 5L), Some(2L)),
-    (Map(domainIds(0) -> 3L, domainIds(1) -> 6L), Some(2L)),
-  )
+  private lazy val lastOffsets
+      : Seq[(Map[DomainId, (Option[LocalOffset], Option[RequestOffset])], Option[LocalOffset])] = {
+    def offsets(i: Long): (Some[LocalOffset], Some[RequestOffset]) =
+      (Some(toLocalOffset(i)), Some(toRequestOffset(i)))
+
+    val noOffsets = (None, None)
+
+    Seq(
+      (Map(domainIds(0) -> offsets(3), domainIds(1) -> noOffsets, domainIds(2) -> noOffsets), None),
+      (
+        Map(domainIds(0) -> offsets(3), domainIds(1) -> offsets(5), domainIds(2) -> noOffsets),
+        None,
+      ),
+      (
+        Map(domainIds(0) -> offsets(3), domainIds(1) -> offsets(5), domainIds(2) -> noOffsets),
+        Some(1L),
+      ),
+      (
+        Map(domainIds(0) -> offsets(3), domainIds(1) -> offsets(5), domainIds(2) -> noOffsets),
+        Some(2L),
+      ),
+      (
+        Map(domainIds(0) -> offsets(3), domainIds(1) -> offsets(6), domainIds(2) -> noOffsets),
+        Some(2L),
+      ),
+    )
+  }
 
   private lazy val recoveryBounds: Seq[(EventLogId, Option[LocalOffset])] = Seq(
     eventLogIds(0) -> None, // recover all events
@@ -414,8 +444,10 @@ trait MultiDomainEventLogTest
           checkEventLookupByIdForInitialEvents(Seq.empty)
         }
 
-        "yield no last domain offsets" in {
+        "yield empty domain offsets" in {
           forEvery(bounds) { upToInclusive =>
+            val emptyDomainOffsets = domainIds.map(_ -> (None, None)).toMap
+
             eventLog
               .lastDomainOffsetsBeforeOrAtGlobalOffset(
                 upToInclusive,
@@ -423,13 +455,38 @@ trait MultiDomainEventLogTest
                 participantEventLogId,
               )
               .futureValue shouldBe ((Map.empty, None))
+
             eventLog
               .lastDomainOffsetsBeforeOrAtGlobalOffset(
                 upToInclusive,
                 domainIds,
                 participantEventLogId,
               )
-              .futureValue shouldBe ((Map.empty, None))
+              .futureValue shouldBe (emptyDomainOffsets, None)
+          }
+        }
+
+        "yield empty last local/request offsets" in {
+          forEvery(bounds) { upToInclusive =>
+            // Participant event log
+            eventLog
+              .lastLocalOffsetBeforeOrAt(participantEventLogId, upToInclusive, None)
+              .futureValue shouldBe None
+
+            eventLog
+              .lastRequestOffsetBeforeOrAt(participantEventLogId, upToInclusive, None)
+              .futureValue shouldBe None
+
+            // Domain event logs
+            forEvery(domainEventLogIds) { domainId =>
+              eventLog
+                .lastLocalOffsetBeforeOrAt(domainId, upToInclusive, None)
+                .futureValue shouldBe None
+
+              eventLog
+                .lastRequestOffsetBeforeOrAt(domainId, upToInclusive, None)
+                .futureValue shouldBe None
+            }
           }
         }
 
@@ -512,16 +569,19 @@ trait MultiDomainEventLogTest
           lookupEventRangeAndCheckEvents(Some(Long.MaxValue), initialTestEvents)
         }
 
+        // TODO(#14381) Publish topology events and enrich this test to expand coverage
         "yield correct last domain offsets" in {
           forEvery(globalOffsets.zipWithIndex) { case (upToInclusive, index) =>
-            val (_, expectedParticipantOffset) = lastOffsets(index)
+            val (expectedDomainOffsets, expectedParticipantOffset) = lastOffsets(index)
+
             eventLog
               .lastDomainOffsetsBeforeOrAtGlobalOffset(
                 upToInclusive,
                 domainIds,
                 participantEventLogId,
               )
-              .futureValue shouldBe lastOffsets(index)
+              .futureValue shouldBe (expectedDomainOffsets, expectedParticipantOffset)
+
             eventLog
               .lastDomainOffsetsBeforeOrAtGlobalOffset(
                 upToInclusive,
@@ -551,12 +611,44 @@ trait MultiDomainEventLogTest
             )
             .futureValue shouldBe
             ((lastOffsetOfFirstDomain, lastParticipantOffset))
+
           forEvery(eventLogIds.collect { case eventLogId @ DomainEventLogId(domainId) =>
             eventLogId -> domainId
           }) { case (eventLogId, domainId) =>
-            eventLog.lastLocalOffset(eventLogId).futureValue shouldBe lastDomainOffsets.get(
-              domainId.item
-            )
+            val expectedOffset =
+              lastDomainOffsets.get(domainId.item).flatMap { case (localOffset, _requestOffset) =>
+                localOffset // call to eventLog.lastLocalOffset only returns localOffset
+              }
+
+            eventLog.lastLocalOffset(eventLogId).futureValue shouldBe expectedOffset
+          }
+        }
+
+        // TODO(#14381) Publish topology events and enrich this test to expand coverage
+        "yield correct last local/request offsets" in {
+          forEvery(globalOffsets.zipWithIndex) { case (upToInclusive, index) =>
+            val (expectedDomainOffsets, expectedParticipantOffset) = lastOffsets(index)
+
+            forEvery(domainEventLogIds) { domainId =>
+              val (expectedLocalOffset, expectedRequestOffset) =
+                expectedDomainOffsets.get(domainId.domainId).value
+
+              eventLog
+                .lastLocalOffsetBeforeOrAt(domainId, upToInclusive, None)
+                .futureValue shouldBe expectedLocalOffset
+
+              eventLog
+                .lastRequestOffsetBeforeOrAt(domainId, upToInclusive, None)
+                .futureValue shouldBe expectedRequestOffset
+            }
+
+            eventLog
+              .lastLocalOffsetBeforeOrAt(participantEventLogId, upToInclusive, None)
+              .futureValue shouldBe expectedParticipantOffset
+
+            eventLog
+              .lastRequestOffsetBeforeOrAt(participantEventLogId, upToInclusive, None)
+              .futureValue shouldBe expectedParticipantOffset
           }
         }
 
@@ -735,7 +827,7 @@ trait MultiDomainEventLogTest
         // Run this test at the end, because it make the event log unusable
         "reject publication of old events" in {
           def checkException: Throwable => Assertion =
-            _.getMessage should fullyMatch regex "Unable to publish event at id .* and localOffset -42, as that would reorder events\\."
+            _.getMessage shouldBe s"Unable to publish event at id ${domainIds(0)} and localOffset ${outdatedEvent._2.localOffset}, as that would reorder events."
 
           val listener = expectPublication(Seq.empty)
           loggerFactory.assertLogs(
