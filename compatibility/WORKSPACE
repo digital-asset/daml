@@ -125,9 +125,9 @@ dev_env_tool(
     nix_label = "@diffutils_nix",
     nix_paths = ["bin/diff"],
     tools = ["diff"],
-    win_include = ["diff.exe"],
-    win_paths = ["diff.exe"],
-    win_tool = "diffutils-3.6",
+    win_include = ["usr/bin/diff.exe"],
+    win_paths = ["usr/bin/diff.exe"],
+    win_tool = "msys2",
 )
 
 haskell_register_ghc_bindists(
