@@ -119,6 +119,17 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
+dev_env_tool(
+    name = "diffutils_dev_env",
+    nix_include = ["bin/diff"],
+    nix_label = "@diffutils_nix",
+    nix_paths = ["bin/diff"],
+    tools = ["diff"],
+    win_include = ["diff.exe"],
+    win_paths = ["diff.exe"],
+    win_tool = "diffutils-3.6",
+)
+
 haskell_register_ghc_bindists(
     compiler_flags = [],
     version = "9.0.2",
