@@ -169,7 +169,7 @@ trait AuthMiddlewareFixture
           exp = None,
           format = StandardJWTTokenFormat.Scope,
           audiences = List.empty,
-          scope = None,
+          scope = Some("daml_ledger_api"),
         )
       else
         CustomDamlJWTPayload(

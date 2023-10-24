@@ -157,7 +157,15 @@ abstract class TestMiddleware
     "accept user tokens" taggedAs authorizationSecurity in {
       import com.daml.auth.middleware.oauth2.Server.rightsProvideClaims
       rightsProvideClaims(
-        StandardJWTPayload(None, "foo", None, None, StandardJWTTokenFormat.Scope, List.empty, None),
+        StandardJWTPayload(
+          None,
+          "foo",
+          None,
+          None,
+          StandardJWTTokenFormat.Scope,
+          List.empty,
+          Some("daml_ledger_api"),
+        ),
         Claims(
           admin = true,
           actAs = List(ApiTypes.Party("Alice")),
@@ -396,7 +404,7 @@ class TestMiddlewareUserToken extends TestMiddleware {
       exp = expiresIn.map(in => clock.instant.plus(in)),
       format = StandardJWTTokenFormat.Scope,
       audiences = List.empty,
-      scope = None,
+      scope = Some("daml_ledger_api"),
     )
 }
 
