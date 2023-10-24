@@ -100,7 +100,6 @@ def install_java_deps():
             "com.lihaoyi:fansi_{}:0.4.0".format(scala_major_version),
             "com.lihaoyi:os-lib_{}:0.8.0".format(scala_major_version),
             "com.lihaoyi:pprint_{}:0.8.1".format(scala_major_version),
-            "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
             "com.lihaoyi:sourcecode_{}:0.3.0".format(scala_major_version),
             "com.oracle.database.jdbc.debug:ojdbc8_g:19.18.0.0",
             "com.oracle.database.jdbc:ojdbc8:19.18.0.0",
@@ -293,6 +292,21 @@ def install_java_deps():
         name = "canton_maven",
         artifacts = [
             "org.flywaydb:flyway-core:9.15.2",
+        ],
+        repositories = [
+            "https://repo1.maven.org/maven2",
+        ],
+        fetch_sources = True,
+        version_conflict_policy = "pinned",
+    )
+
+    # Triggers depend on sjsonnet whose latest version still depends transitively on upickle 1.x,
+    # while ammonite cannot work with upickle < 2.x. So we define the sjsonnet dependency in a
+    # different maven_install.
+    maven_install(
+        name = "triggers_maven",
+        artifacts = [
+            "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
         ],
         repositories = [
             "https://repo1.maven.org/maven2",
