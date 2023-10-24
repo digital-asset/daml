@@ -26,7 +26,7 @@ object VariantConstructorClass extends StrictLogging {
       body: Type,
   )(implicit
       packagePrefixes: PackagePrefixes
-  ): TypeSpec = {
+  ): (TypeSpec, Seq[(ClassName, String)]) = {
     TrackLineage.of("variant constructor", constructorName) {
       logger.info("Start")
 
@@ -59,6 +59,9 @@ object VariantConstructorClass extends StrictLogging {
           )
       }
 
+      val (jsonEncoderMethods, staticImports) =
+        ToJsonGenerator.forVariantSimple(javaName, typeArgs, variantFieldName, body)
+
       val typeSpec =
         TypeSpec
           .classBuilder(javaName)
@@ -70,13 +73,11 @@ object VariantConstructorClass extends StrictLogging {
           .addMethod(constructor)
           .addMethods(conversionMethods.asJava)
           .addMethods(ObjectMethods(className.rawType, typeArgs, Vector(variantFieldName)).asJava)
-          .addMethods(
-            ToJsonGenerator.forVariantSimple(javaName, typeArgs, variantFieldName, body).asJava
-          )
+          .addMethods(jsonEncoderMethods.asJava)
           .build()
 
       logger.info("End")
-      typeSpec
+      (typeSpec, staticImports)
     }
   }
 

@@ -207,6 +207,13 @@ public class JsonLfEncoders {
     };
   }
 
+  // This function is used as a static import within code-gen encoder implementations.
+  // It assists the type checker with type inference and unification,
+  // and unifies the call syntax by accepting both method references and Function's as f
+  public static <I, O> O apply(Function<I, O> f, I x) {
+    return f.apply(x);
+  }
+
   private static boolean isRoundTo(Instant value, ChronoUnit unit) {
     return value.truncatedTo(unit).equals(value);
   }

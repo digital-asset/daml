@@ -22,7 +22,7 @@ private[inner] object VariantRecordMethods extends StrictLogging {
       typeParameters: IndexedSeq[String],
   )(implicit
       packagePrefixes: PackagePrefixes
-  ): Vector[MethodSpec] = {
+  ): (Vector[MethodSpec], Seq[(ClassName, String)]) = {
     val constructor = ConstructorGenerator.generateConstructor(fields)
 
     val conversionMethods = distinctTypeVars(fields, typeParameters) match {
@@ -41,10 +41,13 @@ private[inner] object VariantRecordMethods extends StrictLogging {
         )
     }
 
-    val toJsonMethods = ToJsonGenerator.forVariantRecord(constructorName, fields, typeParameters)
+    val (toJsonMethods, staticImports) =
+      ToJsonGenerator.forVariantRecord(constructorName, fields, typeParameters)
 
-    Vector(constructor) ++ conversionMethods ++
+    val methods: Vector[MethodSpec] = Vector(constructor) ++ conversionMethods ++
       ObjectMethods(className.rawType, typeParameters, fields.map(_.javaName)) ++ toJsonMethods
+
+    (methods, staticImports)
   }
 
   private def toValue(constructorName: String, params: IndexedSeq[String], fields: Fields)(implicit

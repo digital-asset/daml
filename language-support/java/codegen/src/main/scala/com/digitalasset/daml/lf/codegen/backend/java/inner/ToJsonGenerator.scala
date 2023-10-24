@@ -54,7 +54,7 @@ private[inner] object ToJsonGenerator {
       }
       .returns(classOf[JsonLfEncoder])
       .build()
-    Seq(abstractFieldForJsonEncoder, jsonEncoder, toJson(typeParams))
+    Seq(abstractFieldForJsonEncoder, jsonEncoder) ++ toJson(typeParams).toList
   }
 
   // A different code-gen strategy is employed for "simple" variants vs "record" variants, i.e.
@@ -68,27 +68,31 @@ private[inner] object ToJsonGenerator {
       damlType: Type,
   )(implicit
       packagePrefixes: PackagePrefixes
-  ): Seq[MethodSpec] = {
+  ): (Seq[MethodSpec], Seq[(ClassName, String)]) = {
     val encoder = CodeBlock.of("apply($L, $L)", encoderOf(damlType), fieldName)
-    Seq(apply, fieldForJsonEncoder(constructorName, typeParams, encoder))
+    val methods = Seq(fieldForJsonEncoder(constructorName, typeParams, encoder))
+    val staticImports = Seq((ClassName.get(encodersClass), "apply"))
+    (methods, staticImports)
   }
 
   // Encoding a record is more involved, so we pull that out into its own method,
   // and reference that method when building the Field encoder.
   def forVariantRecord(constructorName: String, fields: Fields, typeParams: IndexedSeq[String])(
       implicit packagePrefixes: PackagePrefixes
-  ): Seq[MethodSpec] = {
+  ): (Seq[MethodSpec], Seq[(ClassName, String)]) = {
     val recordEncoderMethodName = s"jsonEncoder${constructorName}"
+    val (recordJsonEncoder, staticImports) =
+      jsonEncoderForRecordLike(recordEncoderMethodName, Modifier.PRIVATE, typeParams, fields)
     val fieldEncoder = CodeBlock.of(
       "this.$L($L)",
       recordEncoderMethodName,
       jsonEncoderArgsForTypeParams(typeParams),
     )
-    Seq(
-      apply,
-      jsonEncoderForRecordLike(recordEncoderMethodName, Modifier.PRIVATE, typeParams, fields),
+    val methods = Seq(
+      recordJsonEncoder,
       fieldForJsonEncoder(constructorName, typeParams, fieldEncoder),
     )
+    (methods, staticImports)
   }
 
   def forEnum(className: ClassName): Seq[MethodSpec] = {
@@ -110,17 +114,16 @@ private[inner] object ToJsonGenerator {
       .returns(classOf[JsonLfEncoder])
       .build()
 
-    Seq(getConstructor, jsonEncoder, toJson(IndexedSeq()))
+    Seq(getConstructor, jsonEncoder)
   }
 
   def forRecordLike(fields: Fields, typeParams: IndexedSeq[String])(implicit
       packagePrefixes: PackagePrefixes
-  ): Seq[MethodSpec] = {
-    Seq(
-      apply,
-      jsonEncoderForRecordLike("jsonEncoder", Modifier.PUBLIC, typeParams, fields),
-      toJson(typeParams),
-    )
+  ): (Seq[MethodSpec], Seq[(ClassName, String)]) = {
+    val (jsonEncoder, staticImports) =
+      jsonEncoderForRecordLike("jsonEncoder", Modifier.PUBLIC, typeParams, fields)
+    val methods = Seq(jsonEncoder) ++ toJson(typeParams).toList
+    (methods, staticImports)
   }
 
   // When a type has type parameters (generic classes), we need to tell
@@ -153,24 +156,34 @@ private[inner] object ToJsonGenerator {
     }.asJava
   }
 
-  private def toJson(typeParams: IndexedSeq[String]): MethodSpec = MethodSpec
-    .methodBuilder("toJson")
-    .addModifiers(Modifier.PUBLIC)
-    .addParameters(jsonEncoderParamsForTypeParams(typeParams))
-    .addStatement("var w = new $T()", classOf[StringWriter])
-    .beginControlFlow("try")
-    .addStatement(
-      "this.jsonEncoder($L).encode(new $T(w))",
-      jsonEncoderArgsForTypeParams(typeParams),
-      classOf[JsonLfWriter],
-    )
-    .nextControlFlow("catch ($T e)", classOf[IOException])
-    .addComment("Not expected with StringWriter")
-    .addStatement("throw new $T(e)", classOf[UncheckedIOException])
-    .endControlFlow()
-    .addStatement("return w.toString()")
-    .returns(ClassName.get(classOf[String]))
-    .build()
+  private def toJson(typeParams: IndexedSeq[String]): Option[MethodSpec] =
+    if (typeParams.isEmpty)
+      // Types without parameters inherit from DefinedDataType and gets toJson from there.
+      None
+    else
+      // These types do not inherit from DefinedDataType, so need to have toJson added.
+      // The signature of toJson is different as it will need to accept an argument with an encoder
+      // for each type parameter.
+      Some(
+        MethodSpec
+          .methodBuilder("toJson")
+          .addModifiers(Modifier.PUBLIC)
+          .addParameters(jsonEncoderParamsForTypeParams(typeParams))
+          .addStatement("var w = new $T()", classOf[StringWriter])
+          .beginControlFlow("try")
+          .addStatement(
+            "this.jsonEncoder($L).encode(new $T(w))",
+            jsonEncoderArgsForTypeParams(typeParams),
+            classOf[JsonLfWriter],
+          )
+          .nextControlFlow("catch ($T e)", classOf[IOException])
+          .addComment("Not expected with StringWriter")
+          .addStatement("throw new $T(e)", classOf[UncheckedIOException])
+          .endControlFlow()
+          .addStatement("return w.toString()")
+          .returns(ClassName.get(classOf[String]))
+          .build()
+      )
 
   private def jsonEncoderForRecordLike(
       methodName: String,
@@ -179,17 +192,17 @@ private[inner] object ToJsonGenerator {
       fields: Fields,
   )(implicit
       packagePrefixes: PackagePrefixes
-  ): MethodSpec = {
+  ): (MethodSpec, Seq[(ClassName, String)]) = {
     val encoderFields = fields.map { f =>
       val encoder = CodeBlock.of("apply($L, $L)", encoderOf(f.damlType), f.javaName)
       CodeBlock.of(
         "$T.of($S, $L)",
         fieldClass,
-        f.damlName,
+        f.javaName,
         encoder,
       )
     }
-    MethodSpec
+    val jsonEncoder = MethodSpec
       .methodBuilder(methodName)
       .addModifiers(modifier)
       .addParameters(jsonEncoderParamsForTypeParams(typeParams))
@@ -200,28 +213,9 @@ private[inner] object ToJsonGenerator {
         CodeBlock.join(encoderFields.asJava, ",$Z"),
       )
       .build()
-  }
 
-  // Assists the type checker with type inference and unification,
-  // and unifies the call syntax across method references and functions.
-  private def apply = {
-    val inputType = TypeVariableName.get("I")
-    val outputType = TypeVariableName.get("O")
-    val functionType = ParameterizedTypeName.get(
-      ClassName.get(classOf[java.util.function.Function[_, _]]),
-      inputType,
-      outputType,
-    )
-    MethodSpec
-      .methodBuilder("apply")
-      .addModifiers(Modifier.PRIVATE)
-      .addTypeVariable(inputType)
-      .addTypeVariable(outputType)
-      .addParameter(functionType, "f")
-      .addParameter(inputType, "x")
-      .addStatement("return f.apply(x)")
-      .returns(outputType)
-      .build()
+    val staticImports = Seq((ClassName.get(encodersClass), "apply"))
+    (jsonEncoder, staticImports)
   }
 
   private def fieldForJsonEncoder(
@@ -249,11 +243,10 @@ private[inner] object ToJsonGenerator {
     damlType match {
       case TypeCon(TypeConName(ident), IndexedSeq()) =>
         CodeBlock.of("$T::jsonEncoder", guessClass(ident))
-      case TypeCon(TypeConName(_), typeParams) => {
+      case TypeCon(TypeConName(_), typeParams) =>
         // We are introducing identifiers into the namespace, so try to make them unique.
         val argName = CodeBlock.of("_x$L", nesting)
         CodeBlock.of("$L -> $L.jsonEncoder($L)", argName, argName, typeEncoders(typeParams))
-      }
       case TypePrim(PrimTypeUnit, _) => CodeBlock.of("$T::unit", encodersClass)
       case TypePrim(PrimTypeBool, _) => CodeBlock.of("$T::bool", encodersClass)
       case TypePrim(PrimTypeInt64, _) => CodeBlock.of("$T::int64", encodersClass)
@@ -266,7 +259,13 @@ private[inner] object ToJsonGenerator {
       case TypePrim(PrimTypeList, Seq(typ)) =>
         CodeBlock.of("$T.list($L)", encodersClass, encoderOf(typ, nesting + 1))
       case TypePrim(PrimTypeOptional, Seq(typ)) =>
-        CodeBlock.of("$T.optional($L)", encodersClass, encoderOf(typ, nesting + 1))
+        def buildNestedOptionals(b: CodeBlock.Builder, typ: Type): CodeBlock.Builder = typ match {
+          case TypePrim(PrimTypeOptional, Seq(innerType)) =>
+            buildNestedOptionals(b.add("$T.optionalNested(", encodersClass), innerType).add(")")
+          case _ =>
+            b.add("$T.optional($L)", encodersClass, encoderOf(typ, nesting + 1))
+        }
+        buildNestedOptionals(CodeBlock.builder(), typ).build()
       case TypePrim(PrimTypeTextMap, Seq(valType)) =>
         CodeBlock.of("$T.textMap($L)", encodersClass, encoderOf(valType, nesting + 1))
       case TypePrim(PrimTypeGenMap, Seq(keyType, valType)) =>

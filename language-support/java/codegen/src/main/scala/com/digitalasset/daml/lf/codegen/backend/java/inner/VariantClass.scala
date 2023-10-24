@@ -24,7 +24,9 @@ private[inner] object VariantClass extends StrictLogging {
       typeArguments: IndexedSeq[String],
       variant: Variant.FWT,
       typeWithContext: TypeWithContext,
-  )(implicit packagePrefixes: PackagePrefixes): (TypeSpec, List[TypeSpec]) =
+  )(implicit
+      packagePrefixes: PackagePrefixes
+  ): (TypeSpec, List[TypeSpec], Seq[(ClassName, String)]) =
     TrackLineage.of("variant", typeWithContext.name) {
       logger.info("Start")
       val constructorInfo = getFieldsWithTypes(variant.fields)
@@ -62,14 +64,14 @@ private[inner] object VariantClass extends StrictLogging {
         )
         .addField(createPackageIdField(typeWithContext.interface.packageId))
         .build()
-      val constructors = generateConstructorClasses(
+      val (constructors, constructorStaticImports) = generateConstructorClasses(
         typeArguments,
         variant,
         typeWithContext,
         variantClassName,
       )
       logger.debug("End")
-      (variantType, constructors)
+      (variantType, constructors, constructorStaticImports)
     }
 
   private def generateAbstractToValueSpec(typeArgs: IndexedSeq[String]): MethodSpec =
@@ -286,10 +288,11 @@ private[inner] object VariantClass extends StrictLogging {
       variant: Variant.FWT,
       typeWithContext: TypeWithContext,
       variantClassName: ClassName,
-  )(implicit packagePrefixes: PackagePrefixes): List[TypeSpec] = {
+  )(implicit packagePrefixes: PackagePrefixes): (List[TypeSpec], Seq[(ClassName, String)]) = {
     logger.debug("Generating inner classes")
     val innerClasses = new collection.mutable.ArrayBuffer[TypeSpec]
     val variantRecords = new collection.mutable.HashSet[String]()
+    val staticImports = new collection.mutable.HashSet[(ClassName, String)]()
     val fullVariantClassName = variantClassName.parameterized(typeArgs)
 
     for (fieldInfo <- getFieldsWithTypes(variant.fields)) {
@@ -300,7 +303,7 @@ private[inner] object VariantClass extends StrictLogging {
           variantRecords.add(damlName)
         case _ =>
           logger.debug(s"$damlName is trivial")
-          innerClasses += VariantConstructorClass.generate(
+          val (constructorClasses, constructorStaticImports) = VariantConstructorClass.generate(
             typeWithContext.interface.packageId,
             fullVariantClassName,
             typeArgs,
@@ -308,6 +311,8 @@ private[inner] object VariantClass extends StrictLogging {
             javaName,
             damlType,
           )
+          innerClasses += constructorClasses
+          staticImports ++= constructorStaticImports
       }
     }
 
@@ -319,7 +324,7 @@ private[inner] object VariantClass extends StrictLogging {
         logger.debug(s"${child.name} is a variant record")
         child.`type`.typ match {
           case Some(Normal(DefDataType(typeVars, record: Record.FWT))) =>
-            innerClasses += VariantRecordClass
+            val (klass, recordStaticImports) = VariantRecordClass
               .generate(
                 typeWithContext.interface.packageId,
                 typeVars.map(JavaEscaper.escapeString),
@@ -327,6 +332,8 @@ private[inner] object VariantClass extends StrictLogging {
                 child.name,
                 fullVariantClassName,
               )
+            innerClasses += klass
+            staticImports ++= recordStaticImports
           case t =>
             val c = s"${typeWithContext.name}.${child.name}"
             throw new IllegalArgumentException(
@@ -337,7 +344,7 @@ private[inner] object VariantClass extends StrictLogging {
         logger.debug(s"${child.name} is an unrelated inner type")
       }
     }
-    innerClasses.toList
+    (innerClasses.toList, staticImports.toList)
   }
 
 }

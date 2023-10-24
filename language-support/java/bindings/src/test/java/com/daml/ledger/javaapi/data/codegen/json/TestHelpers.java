@@ -204,5 +204,9 @@ public class TestHelpers {
     public com.daml.ledger.javaapi.data.DamlEnum toValue() {
       return null;
     }
+
+    public JsonLfEncoder jsonEncoder() {
+      return null;
+    }
   }
 }

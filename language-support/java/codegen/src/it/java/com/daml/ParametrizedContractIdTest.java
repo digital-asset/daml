@@ -51,13 +51,14 @@ public class ParametrizedContractIdTest {
   }
 
   @Test
-  void fromJsonFixedContractId() throws JsonLfDecoder.Error {
-    FixedContractId expected =
+  void roundTripJson() throws JsonLfDecoder.Error {
+    FixedContractId fixed =
         new FixedContractId(new ParametrizedContractId<>(new Foo.ContractId("SomeID")));
-    assertEquals(
-        expected,
-        FixedContractId.fromJson(
-            "{\"fixedContractId\": {\"parametrizedContractId\": \"SomeID\"}}"));
+    FixedContractId parameterized =
+        new FixedContractId(new ParametrizedContractId<>(new ContractId<Foo>("SomeID")));
+
+    assertEquals(fixed, FixedContractId.fromJson(fixed.toJson()));
+    assertEquals(parameterized, FixedContractId.fromJson(parameterized.toJson()));
   }
 
   @Test

@@ -10,6 +10,7 @@ import com.daml.ledger.api.v1.ValueOuterClass;
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoders;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -122,7 +123,7 @@ public class RecordTest {
   }
 
   @Test
-  void fromJsonMyRecord() throws JsonLfDecoder.Error {
+  void roundtripJsonMyRecord() throws JsonLfDecoder.Error {
     MyRecord expected =
         new MyRecord(
             int64Value,
@@ -139,24 +140,7 @@ public class RecordTest {
             nestedRecordValue,
             nestedVariantValue);
 
-    assertEquals(
-        expected,
-        MyRecord.fromJson(
-            "{"
-                + "\"int_\": 1, "
-                + "\"decimal\": 2, "
-                + "\"text\": \"text\", "
-                + "\"bool\": false, "
-                + "\"party\": \"myparty\", "
-                + "\"date\": \"1970-01-04\", "
-                + "\"time\": \"1970-01-01T00:00:00.004Z\", "
-                + "\"void$\": false, "
-                + "\"list\": [{}, {}], "
-                + "\"nestedList\": [[1,2,3], [1,2,3]], "
-                + "\"unit\": {}, "
-                + "\"nestedRecord\": {\"value\": 42}, "
-                + "\"nestedVariant\": {\"tag\": \"Nested\", \"value\": 42} "
-                + "}"));
+    assertEquals(expected, MyRecord.fromJson(expected.toJson()));
   }
 
   @Test
@@ -247,22 +231,16 @@ public class RecordTest {
   }
 
   @Test
-  void fromJsonOuterRecord() throws JsonLfDecoder.Error {
+  void roundtripJsonOuterRecord() throws JsonLfDecoder.Error {
     OuterRecord<String, Boolean> expected =
         new OuterRecord<>(
             new ParametricRecord<String, Boolean>("Text1", "Text2", true, 42L),
             new ParametricRecord<Long, String>(42L, 69L, "Text2", 69L));
 
-    assertEquals(
-        expected,
-        OuterRecord.fromJson(
-            "{"
-                + "\"inner\": {\"fieldX1\": \"Text1\", \"fieldX2\": \"Text2\", \"fieldY\": true,"
-                + " \"fieldInt\": 42}, "
-                + "\"innerFixed\":  {\"fieldX1\": \"42\", \"fieldX2\": \"69\","
-                + " \"fieldY\": \"Text2\", \"fieldInt\": 69} }",
-            JsonLfDecoders.text,
-            JsonLfDecoders.bool));
+    String json = expected.toJson(JsonLfEncoders::text, JsonLfEncoders::bool);
+    var actual = OuterRecord.fromJson(json, JsonLfDecoders.text, JsonLfDecoders.bool);
+
+    assertEquals(expected, actual);
   }
 
   Long int64Value = 1L;
