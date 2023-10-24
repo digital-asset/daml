@@ -108,6 +108,16 @@ filegroup(
     repositories = dev_env_nix_repos,
 ) if is_linux else None
 
+# diff system dependency
+nixpkgs_package(
+    name = "diffutils_nix",
+    attribute_path = "diffutils",
+    fail_not_supported = False,
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
 haskell_register_ghc_bindists(
     compiler_flags = [],
     version = "9.0.2",

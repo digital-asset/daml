@@ -159,6 +159,7 @@ in rec {
     shellcheck = pkgs.shellcheck;
     curl = bazel_dependencies.curl;
     lsof = pkgs.lsof;
+    diff = pkgs.diffutils;
 
     patch = pkgs.patch;
     timeout = pkgs.coreutils;
