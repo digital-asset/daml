@@ -130,6 +130,6 @@
         "mingw64\\bin\\initdb.exe",
         "mingw64\\bin\\pg_ctl.exe",
         "mingw64\\bin\\createdb.exe",
-        "usr\\bin\\diff.exe",
+        "usr\\bin\\diff.exe"
     ]
 }
