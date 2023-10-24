@@ -20,7 +20,6 @@ Components:
 @babel/parser 7.14.1 : MIT License
 @babel/runtime 7.14.0 : MIT License
 @babel/template 7.12.13 : MIT License
-@babel/traverse 7.14.0 : MIT License
 @babel/types 7.14.1 : MIT License
 @emotion/is-prop-valid 0.8.8 : MIT License
 @emotion/memoize 0.7.4 : MIT License
@@ -102,6 +101,7 @@ Awaitility 4.2.0 : Apache License 2.0
 babel-plugin-styled-components 1.12.0 : MIT License
 babel-plugin-syntax-jsx 6.18.0 : MIT License
 babel-standalone 6.26.0 : MIT License
+babel-traverse 7.14.0 : MIT License
 bail 1.0.5 : MIT License
 balanced-match 1.0.0 : MIT License
 balanced-match 1.0.2 : MIT License
@@ -640,7 +640,7 @@ js-dgtable 0.5.2 : MIT License
 js-flot 0.8.3 : MIT License
 js-jquery 3.3.1 : MIT License
 js-tokens 4.0.0 : MIT License
-JS-YAML. Native JS port of PyYAML. 3.14.1 : MIT License
+js-yaml 3.14.1 : MIT License
 jsesc v2.5.2 : MIT License
 JSHTTP's negotiator 0.6.2 : MIT License
 JSHTTP's negotiator 0.6.3 : MIT License
@@ -7831,7 +7831,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ---
 
 MIT License
-(JS-YAML. Native JS port of PyYAML. 3.14.1)
+(js-yaml 3.14.1)
 
 (The MIT License)
 
@@ -12553,7 +12553,7 @@ SOFTWARE
 ---
 
 MIT License
-(@babel/code-frame 7.12.13, @babel/generator 7.14.1, @babel/helper-annotate-as-pure 7.12.13, @babel/helper-function-name 7.12.13, @babel/helper-get-function-arity 7.12.13, @babel/helper-module-imports 7.13.12, @babel/helper-split-export-declaration 7.12.13, @babel/helper-validator-identifier 7.14.0, @babel/highlight 7.14.0, @babel/runtime 7.14.0, @babel/template 7.12.13, @babel/traverse 7.14.0, @babel/types 7.14.1)
+(@babel/code-frame 7.12.13, @babel/generator 7.14.1, @babel/helper-annotate-as-pure 7.12.13, @babel/helper-function-name 7.12.13, @babel/helper-get-function-arity 7.12.13, @babel/helper-module-imports 7.13.12, @babel/helper-split-export-declaration 7.12.13, @babel/helper-validator-identifier 7.14.0, @babel/highlight 7.14.0, @babel/runtime 7.14.0, @babel/template 7.12.13, @babel/types 7.14.1, babel-traverse 7.14.0)
 
 MIT License
 
