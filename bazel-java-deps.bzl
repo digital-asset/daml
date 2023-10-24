@@ -290,6 +290,7 @@ def install_java_deps():
     )
     maven_install(
         name = "canton_maven",
+        maven_install_json = "@//:canton_maven_install.json",
         artifacts = [
             "org.flywaydb:flyway-core:9.15.2",
         ],
@@ -305,6 +306,7 @@ def install_java_deps():
     # different maven_install.
     maven_install(
         name = "triggers_maven",
+        maven_install_json = "@//:triggers_maven_install.json",
         artifacts = [
             "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
         ],
