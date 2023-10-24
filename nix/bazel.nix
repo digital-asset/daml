@@ -9,6 +9,7 @@ let shared = rec {
     buf
     coreutils
     curl
+    diffutils
     docker
     gawk
     gnupatch
