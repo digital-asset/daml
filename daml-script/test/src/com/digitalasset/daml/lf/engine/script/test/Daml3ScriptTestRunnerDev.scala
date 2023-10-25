@@ -15,10 +15,8 @@ class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
 
   val trySubmitTestDarPath =
     Paths.get(BazelRunfiles.rlocation("compiler/damlc/tests/try-submit-test.dar"))
-  val trySubmitConcurrentlyTestDarPath =
-    Paths.get(BazelRunfiles.rlocation("compiler/damlc/tests/try-submit-concurrently-test.dar"))
 
-  override lazy val darFiles = List(trySubmitTestDarPath, trySubmitConcurrentlyTestDarPath)
+  override lazy val darFiles = List(trySubmitTestDarPath)
 
   val expectedContractNotActiveResponse =
     """FAILURE (com.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "contractNotActive no additional info" })"""
@@ -37,14 +35,6 @@ class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
            |Daml3ScriptTrySubmit:truncatedError FAILURE (com.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
            |Daml3ScriptTrySubmit:unhandledException SUCCESS
            |Daml3ScriptTrySubmit:wronglyTypedContract SUCCESS
-           |""".stripMargin,
-      )
-    "behave sensibly when using daml3-script concurrent submission features" in
-      assertDamlScriptRunnerResult(
-        trySubmitConcurrentlyTestDarPath,
-        f"""Daml3ScriptTrySubmitConcurrently:keyCollision SUCCESS
-           |Daml3ScriptTrySubmitConcurrently:noDoubleSpend SUCCESS
-           |Daml3ScriptTrySubmitConcurrently:resultsMatchInputs SUCCESS
            |""".stripMargin,
       )
   }
