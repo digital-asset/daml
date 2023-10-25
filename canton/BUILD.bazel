@@ -1,6 +1,7 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("//bazel_tools:proto.bzl", "proto_gen", "proto_jars")
 load("//bazel_tools:scala.bzl", "kind_projector_plugin")
 load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
@@ -780,30 +781,26 @@ proto_gen(
     ],
 )
 
-dar_to_scala(
-    name = "community_participant_dar_scala",
-    srcs = [
-        "community/participant/src/main/resources/dar/AdminWorkflows.dar",
-        "community/participant/src/main/resources/dar/AdminWorkflowsWithVacuuming.dar",
-    ],
-    package_prefix = "com.digitalasset.canton.participant.admin.workflows",
-    srcjar_out = "dar.srcjar",
+copy_file(
+    name = "admin-workflows-dar",
+    src = "community/participant/src/main/resources/dar/AdminWorkflows.dar",
+    out = "AdminWorkflows.dar",
 )
 
 genrule(
-    name = "AdminWorkflowsWithVacuuming.dar",
+    name = "admin-workflows-with-vacuuming-dar",
     srcs = glob(["community/participant/src/main/daml/ping-pong-vacuum/*"]) + [
-        "community/participant/src/main/resources/dar/AdminWorkflows.dar",
+        ":admin-workflows-dar",
         "//daml-script/daml:daml-script-1.14.dar",
     ],
-    outs = ["community/participant/src/main/resources/dar/AdminWorkflowsWithVacuuming.dar"],
+    outs = ["AdminWorkflowsWithVacuuming.dar"],
     cmd = """
       set -euo pipefail
       project_dir=$$(dirname $(location community/participant/src/main/daml/ping-pong-vacuum/daml.yaml))
       tmpdir=$$(mktemp -d)
       trap "rm -rf $$tmpdir" EXIT
       cp -r $$project_dir/* $$tmpdir
-      cp $(location community/participant/src/main/resources/dar/AdminWorkflows.dar) $$tmpdir
+      cp $(location :admin-workflows-dar) $$tmpdir
       cp $(location //daml-script/daml:daml-script-1.14.dar) $$tmpdir
       sed -i 's/sdk-version:.*/sdk-version: {sdk_version}/' $$tmpdir/daml.yaml
       sed -i 's/-.*AdminWorkflows.dar/- AdminWorkflows.dar/' $$tmpdir/daml.yaml
@@ -814,6 +811,22 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
+dar_to_scala(
+    name = "community_participant_dar_scala",
+    srcs = [
+        ":admin-workflows-dar",
+        ":admin-workflows-with-vacuuming-dar",
+    ],
+    package_prefix = "com.digitalasset.canton.participant.admin.workflows",
+    srcjar_out = "dar.srcjar",
+)
+
+copy_file(
+    name = "ledger-api-version-file",
+    src = "//ledger-api:api-version-files",
+    out = "VERSION",
+)
+
 scala_library(
     name = "community_participant",
     srcs = glob(["community/participant/src/main/scala/**/*.scala"]) + [
@@ -821,8 +834,12 @@ scala_library(
         ":community_participant_proto_scala",
     ],
     plugins = [kind_projector_plugin],
-    resource_strip_prefix = "canton/community/participant/src/main/resources/dar",
-    resources = glob(["community/participant/src/main/resources/dar/**"]) + [":AdminWorkflowsWithVacuuming.dar"],
+    resource_strip_prefix = "canton",
+    resources = [
+        ":admin-workflows-dar",
+        ":admin-workflows-with-vacuuming-dar",
+        ":ledger-api-version-file",
+    ],
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
