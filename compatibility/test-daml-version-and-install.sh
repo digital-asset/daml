@@ -12,12 +12,15 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
   { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v2 ---
 
-set -euo pipefail
-
 # Add diff and daml to path
 export PATH="$(rlocation diffutils_nix)/bin:$(rlocation daml-sdk-$1):$PATH"
+ls
+ls external
 which daml
 which diff
+exit 13
+
+set -euo pipefail
 
 # Set daml cache
 export DAML_CACHE=$(realpath local_daml_cache)
