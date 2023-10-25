@@ -84,14 +84,14 @@ final case class Commands(
     domainId: Option[DomainId] = None,
 )
 
-final case class DisclosedContract(
-    templateId: Ref.TypeConName,
-    contractId: Lf.ContractId,
-    argument: Value,
-    createdAt: Timestamp,
-    keyHash: Option[crypto.Hash],
-    driverMetadata: Bytes,
-) {
+sealed trait DisclosedContract extends Product with Serializable {
+  def templateId: Ref.TypeConName
+  def contractId: Lf.ContractId
+  def argument: Value
+  def createdAt: Timestamp
+  def keyHash: Option[crypto.Hash]
+  def driverMetadata: Bytes
+
   def toLf: LfDisclosedContract =
     LfDisclosedContract(
       templateId,
@@ -100,6 +100,30 @@ final case class DisclosedContract(
       keyHash,
     )
 }
+
+// TODO(#15058): Remove usages and logic associated with the old means of providing
+//               the disclosed contract create argument payload in command submission
+final case class NonUpgradableDisclosedContract(
+    templateId: Ref.TypeConName,
+    contractId: Lf.ContractId,
+    argument: Value,
+    createdAt: Timestamp,
+    keyHash: Option[crypto.Hash],
+    driverMetadata: Bytes,
+) extends DisclosedContract
+
+final case class UpgradableDisclosedContract(
+    templateId: Ref.TypeConName,
+    contractId: Lf.ContractId,
+    argument: Value,
+    createdAt: Timestamp,
+    keyHash: Option[crypto.Hash],
+    signatories: Set[Ref.Party],
+    stakeholders: Set[Ref.Party],
+    keyMaintainers: Option[Set[Ref.Party]],
+    keyValue: Option[Value],
+    driverMetadata: Bytes,
+) extends DisclosedContract
 
 object Commands {
 
