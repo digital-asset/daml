@@ -36,8 +36,8 @@ case object BuildInfo {{
 }}
 EOF
 """.format(
-    scala_version = scala_version,
-    sdk_version =  sdk_version,
+        scala_version = scala_version,
+        sdk_version = sdk_version,
     ),
 )
 
