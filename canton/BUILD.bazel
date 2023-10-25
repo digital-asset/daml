@@ -5,6 +5,7 @@ load("//bazel_tools:proto.bzl", "proto_gen", "proto_jars")
 load("//bazel_tools:scala.bzl", "kind_projector_plugin")
 load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
 load("//rules_daml:daml.bzl", "daml_compile")
+load("@build_environment//:configuration.bzl", "sdk_version")
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
 load(
@@ -22,7 +23,7 @@ cat << EOF > $@
 package com.digitalasset.canton.buildinfo
 
 case object BuildInfo {{
-  val version: String = "2.7.0-SNAPSHOT"
+  val version: String = "{sdk_version}"
   val scalaVersion: String = "{scala_version}"
   val sbtVersion: String = "bazel"
   val damlLibrariesVersion: String = "2.7.0-SNAPSHOT"
@@ -34,7 +35,10 @@ case object BuildInfo {{
   }}
 }}
 EOF
-""".format(scala_version = "scala_version"),
+""".format(
+    scala_version = scala_version,
+    sdk_version =  sdk_version,
+    ),
 )
 
 scala_library(
@@ -792,17 +796,18 @@ genrule(
     ],
     outs = ["community/participant/src/main/resources/dar/AdminWorkflowsWithVacuuming.dar"],
     cmd = """
+      set -euo pipefail
       project_dir=$$(dirname $(location community/participant/src/main/daml/ping-pong-vacuum/daml.yaml))
       tmpdir=$$(mktemp -d)
       trap "rm -rf $$tmpdir" EXIT
       cp -r $$project_dir/* $$tmpdir
       cp $(location community/participant/src/main/resources/dar/AdminWorkflows.dar) $$tmpdir
       cp $(location //daml-script/daml:daml-script-1.14.dar) $$tmpdir
-      sed -i 's/sdk-version:.*/sdk-version: 0.0.0/' $$tmpdir/daml.yaml
+      sed -i 's/sdk-version:.*/sdk-version: {sdk_version}/' $$tmpdir/daml.yaml
       sed -i 's/-.*AdminWorkflows.dar/- AdminWorkflows.dar/' $$tmpdir/daml.yaml
       sed -i 's/daml-script/daml-script-1.14.dar/' $$tmpdir/daml.yaml
       $(location //compiler/damlc) build --project-root=$$tmpdir --ghc-option=-Werror -o $$PWD/$@
-    """,
+    """.format(sdk_version = sdk_version),
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )
