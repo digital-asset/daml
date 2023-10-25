@@ -105,6 +105,20 @@ object GrpcErrorParser {
             SubmitError.ContractKeyNotFound(
               SharedGlobalKey.assertBuild(None, QualifiedName.assertFromString(name), key)
             )
+          // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
+          //  temporary backward compatibility with Canton so can soon be removed
+          case Seq(
+                (ErrorResource.TemplateId, tid),
+                (ErrorResource.ContractKey, decodeValue.unlift(key)),
+              ) =>
+            val ident = Identifier.assertFromString(tid)
+            SubmitError.ContractKeyNotFound(
+              SharedGlobalKey.assertBuild(
+                Some(ident.packageId),
+                ident.qualifiedName,
+                key,
+              )
+            )
         }
       case "DAML_AUTHORIZATION_ERROR" => SubmitError.AuthorizationError(message)
       case "CONTRACT_NOT_ACTIVE" =>
