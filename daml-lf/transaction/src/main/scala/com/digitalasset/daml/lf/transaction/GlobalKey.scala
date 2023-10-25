@@ -35,7 +35,8 @@ final class GlobalKey private (
   override def toString: String = s"GlobalKey($templateId, $key)"
 }
 
-// The target state for GlobalKey once all call sites support SharedGlobalKey (#14486)
+// TODO: https://github.com/digital-asset/daml/issues/17661 - the target state for GlobalKey
+//   once all call sites support SharedGlobalKey
 final case class SharedGlobalKey private (
     val packageId: Option[Ref.PackageId],
     val qualifiedName: Ref.QualifiedName,

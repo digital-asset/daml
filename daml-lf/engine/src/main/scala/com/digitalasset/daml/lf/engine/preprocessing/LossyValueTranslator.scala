@@ -5,7 +5,6 @@ package com.daml.lf
 package engine
 package preprocessing
 
-import com.daml.lf.data.Ref.IdString
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{ArrayList, SValue}
@@ -14,8 +13,10 @@ import com.daml.lf.value.Value._
 
 /** This translator is only intended for use where a SValue is needed for error reporting but
   * only a Value is available. This can be the case for [[com.daml.lf.transaction.SharedGlobalKey]]
-  * where the package-id may not be available. Once there are other ways to resolve missing package-ids,
-  * for example issue #17646, this will longer be necessary.
+  * where the package-id may not be available.
+  *
+  * TODO https://github.com/digital-asset/daml/issues/17646 - Once there are other ways to resolve missing package-ids,
+  *   for example issue #17646, this will longer be necessary.
   */
 object LossyValueTranslator {
 
@@ -28,22 +29,17 @@ object LossyValueTranslator {
 
   @throws[Error.Preprocessing.Error]
   def unsafeTranslate(lf: Value): (SValue, Type) = {
-    val ValueTy(value, ty) = translate(lf)
-    (value, ty)
-  }
-
-  private def translate(value: Value): ValueTy = {
 
     def vty(value: SValue, ty: Type): ValueTy = ValueTy(value, ty)
     def bty(value: SValue, bt: BuiltinType): ValueTy = ValueTy(value, TBuiltin(bt))
 
     def go(value0: Value, nesting: Int = 0): ValueTy = {
       if (nesting > Value.MAXIMUM_NESTING) {
-        throw Error.Preprocessing.ValueNesting(value)
+        throw Error.Preprocessing.ValueNesting(lf)
       } else {
         val newNesting = nesting + 1
 
-        def typeError(msg: String = s"Unable to translate value: $value") =
+        def typeError(msg: String = s"Unable to translate value: $value0") =
           throw Error.Preprocessing.Internal("LossyTranslate", msg, None)
 
         value0 match {
@@ -141,7 +137,7 @@ object LossyValueTranslator {
             val names = flatNames.length match {
               case 0 =>
                 (1 to sourceElements.length).map(i =>
-                  IdString.Name.assertFromString(s"$lossyConversionFieldPrefix$i")
+                  Ref.Name.assertFromString(s"$lossyConversionFieldPrefix$i")
                 )
               case sourceElements.length => flatNames
               case _ => typeError()
@@ -175,7 +171,8 @@ object LossyValueTranslator {
       }
     }
 
-    go(value)
+    val ValueTy(value, ty) = go(lf)
+    (value, ty)
 
   }
 
