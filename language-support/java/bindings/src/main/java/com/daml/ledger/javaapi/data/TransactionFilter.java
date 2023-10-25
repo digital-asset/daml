@@ -28,10 +28,14 @@ public abstract class TransactionFilter {
       ContractTypeCompanion<?, ?, ?, ?> contractCompanion, Set<String> parties) {
     Filter filter =
         (contractCompanion instanceof ContractCompanion)
-            ? new InclusiveFilter(Set.of(contractCompanion.TEMPLATE_ID), Collections.emptyMap())
+            ? new InclusiveFilter(
+                Set.of(contractCompanion.TEMPLATE_ID),
+                Collections.emptyMap(),
+                Collections.emptyMap())
             : new InclusiveFilter(
                 Collections.emptySet(),
-                Map.of(contractCompanion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW));
+                Map.of(contractCompanion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW_HIDE_PAYLOAD),
+                Collections.emptyMap());
     Map<String, Filter> partyToFilters =
         parties.stream().collect(Collectors.toMap(Function.identity(), x -> filter));
     return new FiltersByParty(partyToFilters);

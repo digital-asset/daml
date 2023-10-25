@@ -5,6 +5,7 @@ package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.EventOuterClass;
 import com.google.protobuf.Any;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.StringValue;
 import com.google.rpc.Status;
 import java.util.*;
@@ -41,6 +42,40 @@ public final class CreatedEvent implements Event, TreeEvent {
 
   private final @NonNull Set<@NonNull String> observers;
 
+  private final @NonNull ByteString createEventPayload;
+
+  public CreatedEvent(
+      @NonNull List<@NonNull String> witnessParties,
+      @NonNull String eventId,
+      @NonNull Identifier templateId,
+      @NonNull String contractId,
+      @NonNull DamlRecord arguments,
+      @NonNull Any createArgumentsBlob,
+      @NonNull ContractMetadata contractMetadata,
+      @NonNull Map<@NonNull Identifier, @NonNull DamlRecord> interfaceViews,
+      @NonNull Map<@NonNull Identifier, com.google.rpc.@NonNull Status> failedInterfaceViews,
+      @NonNull Optional<String> agreementText,
+      @NonNull Optional<Value> contractKey,
+      @NonNull Collection<@NonNull String> signatories,
+      @NonNull Collection<@NonNull String> observers,
+      @NonNull ByteString createEventPayload) {
+    this.witnessParties = List.copyOf(witnessParties);
+    this.eventId = eventId;
+    this.templateId = templateId;
+    this.contractId = contractId;
+    this.arguments = arguments;
+    this.createArgumentsBlob = createArgumentsBlob;
+    this.contractMetadata = contractMetadata;
+    this.interfaceViews = Map.copyOf(interfaceViews);
+    this.failedInterfaceViews = Map.copyOf(failedInterfaceViews);
+    this.agreementText = agreementText;
+    this.contractKey = contractKey;
+    this.signatories = Set.copyOf(signatories);
+    this.observers = Set.copyOf(observers);
+    this.createEventPayload = createEventPayload;
+  }
+
+  /** @deprecated You should pass {@code createEventPayload} as well. Since Daml 2.8.0 */
   public CreatedEvent(
       @NonNull List<@NonNull String> witnessParties,
       @NonNull String eventId,
@@ -55,19 +90,21 @@ public final class CreatedEvent implements Event, TreeEvent {
       @NonNull Optional<Value> contractKey,
       @NonNull Collection<@NonNull String> signatories,
       @NonNull Collection<@NonNull String> observers) {
-    this.witnessParties = List.copyOf(witnessParties);
-    this.eventId = eventId;
-    this.templateId = templateId;
-    this.contractId = contractId;
-    this.arguments = arguments;
-    this.createArgumentsBlob = createArgumentsBlob;
-    this.contractMetadata = contractMetadata;
-    this.interfaceViews = Map.copyOf(interfaceViews);
-    this.failedInterfaceViews = Map.copyOf(failedInterfaceViews);
-    this.agreementText = agreementText;
-    this.contractKey = contractKey;
-    this.signatories = Set.copyOf(signatories);
-    this.observers = Set.copyOf(observers);
+    this(
+        witnessParties,
+        eventId,
+        templateId,
+        contractId,
+        arguments,
+        createArgumentsBlob,
+        contractMetadata,
+        interfaceViews,
+        failedInterfaceViews,
+        agreementText,
+        contractKey,
+        signatories,
+        observers,
+        ByteString.EMPTY);
   }
 
   /**
