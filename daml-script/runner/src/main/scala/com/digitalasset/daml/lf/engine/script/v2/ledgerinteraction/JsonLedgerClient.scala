@@ -696,7 +696,7 @@ class JsonLedgerClient(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Seq[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]] = unsupportedOn(
+  ): Future[List[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]] = unsupportedOn(
     "trySubmitConcurrently"
   )
 

@@ -234,7 +234,7 @@ trait ScriptLedgerClient {
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Seq[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]]
+  ): Future[List[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]]
 
   def vetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,

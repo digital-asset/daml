@@ -41,6 +41,7 @@ import scalaz.std.set._
 import scalaz.syntax.foldable._
 
 import scala.annotation.tailrec
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -806,17 +807,21 @@ class IdeLedgerClient(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Seq[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]] =
+  ): Future[List[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]] =
     // Since the IDE ledger doesn't have a sequencer, we simply lie about the
     // concurrent part and sequence the commandss manually.
-    commandss.foldLeft(
-      Future.successful(Seq.empty[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]])
-    ) { (fresults, commands) =>
-      for {
-        results <- fresults
-        result <- trySubmit(actAs, readAs, commands, optLocation)
-      } yield results :+ result
-    }
+    // commandss
+    commandss
+      .foldLeft(
+        Future.successful(
+          ListBuffer.empty[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]
+        )
+      ) { (f, commands) =>
+        f.flatMap { x =>
+          trySubmit(actAs, readAs, commands, optLocation).map(x += _)
+        }
+      }
+      .map(_.toList)
 
   def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
     getPackageIdPairs().toMap

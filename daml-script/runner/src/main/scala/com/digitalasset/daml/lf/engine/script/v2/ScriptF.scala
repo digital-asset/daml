@@ -176,7 +176,6 @@ object ScriptF {
             cmdss,
             stackTrace.topFrame,
           )
-          .map(_.toList)
         res <- Converter.toFuture(
           Converter
             .fromSubmitResultList[SubmitError](
