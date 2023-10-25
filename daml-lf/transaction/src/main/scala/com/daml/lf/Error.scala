@@ -5,8 +5,9 @@ package com.daml.lf
 package interpretation
 
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
-import com.daml.lf.transaction.{GlobalKey, NodeId}
+import com.daml.lf.transaction.{NodeId, GlobalKey}
 import com.daml.lf.language.Ast
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
@@ -158,6 +159,16 @@ object Error {
   object Dev {
 
     sealed abstract class Error extends Serializable with Product
+
+    final case class UpgradeValidationFailed(
+        coid: ContractId,
+        srcTemplateId: TypeConName,
+        dstTemplateId: TypeConName,
+        signatories: Set[Party],
+        observers: Set[Party],
+        keyOpt: Option[GlobalKeyWithMaintainers],
+        msg: String,
+    ) extends Error
 
     /** A choice guard returned false, invalidating some expectation. */
     final case class ChoiceGuardFailed(

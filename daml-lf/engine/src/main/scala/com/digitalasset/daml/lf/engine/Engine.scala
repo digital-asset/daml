@@ -460,20 +460,9 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 signatories,
                 observers,
                 keyOpt,
-                {
-                  case None =>
-                    callback()
-                    interpretLoop(machine, time)
-                  case Some(mes) =>
-                    // TODO: https://github.com/digital-asset/daml/issues/17082
-                    // - we need a new interpretation.Error for this
-                    ResultError(
-                      Error.Interpretation.Internal(
-                        NameOf.qualifiedNameOfCurrentFunc,
-                        s"Ledger refused upgrade verification with message: $mes",
-                        None,
-                      )
-                    )
+                { x =>
+                  callback(x)
+                  interpretLoop(machine, time)
                 },
               )
 

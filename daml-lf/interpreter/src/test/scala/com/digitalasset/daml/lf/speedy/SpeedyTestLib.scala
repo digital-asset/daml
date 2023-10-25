@@ -149,7 +149,7 @@ private[speedy] object SpeedyTestLib {
           observers,
           keyOpt,
         ) :: upgradeVerificationRequests
-        callback()
+        callback(None)
 
       case Question.Update.NeedPackage(pkg, _, callback) =>
         getPkg.lift(pkg) match {
