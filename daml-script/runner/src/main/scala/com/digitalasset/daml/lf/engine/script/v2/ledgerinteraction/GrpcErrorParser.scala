@@ -130,7 +130,7 @@ object GrpcErrorParser {
       case "LOCAL_VERDICT_LOCKED_KEYS" =>
         caseErr {
           // TODO[MA] Canton does not currently provide the template ids so we
-          // can't convert to GlobalContractKeys.
+          // can't convert to GlobalKeys.
           // https://github.com/DACH-NY/canton/issues/15071
           case _ => SubmitError.LocalVerdictLockedKeys(Seq())
         }

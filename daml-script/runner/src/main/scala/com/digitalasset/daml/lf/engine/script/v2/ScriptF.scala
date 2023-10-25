@@ -152,8 +152,12 @@ object ScriptF {
     ): Future[SExpr] = Future.failed(new NotImplementedError)
   }
 
-  final case class TrySubmitConcurrently(data: SubmitConcurrentlyData) extends Cmd {
-
+  final case class TrySubmitConcurrently(
+      actAs: OneAnd[Set, Party],
+      readAs: Set[Party],
+      cmdss: List[List[command.ApiCommand]],
+      stackTrace: StackTrace,
+  ) extends Cmd {
     override def execute(
         env: Env
     )(implicit
@@ -163,15 +167,14 @@ object ScriptF {
     ): Future[SExpr] =
       for {
         client <- Converter.toFuture(
-          env.clients
-            .getPartiesParticipant(data.actAs)
+          env.clients.getPartiesParticipant(actAs)
         )
         resItems <- client
           .trySubmitConcurrently(
-            data.actAs,
-            data.readAs,
-            data.cmdss,
-            data.stackTrace.topFrame,
+            actAs,
+            readAs,
+            cmdss,
+            stackTrace.topFrame,
           )
           .map(_.toList)
         res <- Converter.toFuture(
@@ -800,17 +803,10 @@ object ScriptF {
     }
   }
 
-  final case class SubmitConcurrentlyData(
-      actAs: OneAnd[Set, Party],
-      readAs: Set[Party],
-      cmdss: List[List[command.ApiCommand]],
-      stackTrace: StackTrace,
-  )
-
   private def parseSubmitConcurrently(
       v: SValue,
       stackTrace: StackTrace,
-  ): Either[String, SubmitConcurrentlyData] = {
+  ): Either[String, TrySubmitConcurrently] = {
     def convert(
         actAs: OneAnd[List, SValue],
         readAs: List[SValue],
@@ -820,7 +816,7 @@ object ScriptF {
         actAs <- actAs.traverse(Converter.toParty(_)).map(toOneAndSet(_))
         readAs <- readAs.traverse(Converter.toParty(_))
         cmdss <- cmdss.traverse(_.traverse(Converter.toCommand(_)))
-      } yield SubmitConcurrentlyData(actAs, readAs.toSet, cmdss, stackTrace)
+      } yield TrySubmitConcurrently(actAs, readAs.toSet, cmdss, stackTrace)
     v match {
       case SRecord(
             _,
@@ -833,10 +829,10 @@ object ScriptF {
           ) =>
         Converter.toList(cmdss, (Converter.toList(_, Right(_)))) match {
           case Right(cmdss) => convert(OneAnd(hdAct, tlAct.toList), read.toList, cmdss)
-          case _ => Left(s"Expected SubmitConcurrently payload but got $v")
+          case _ => Left(s"Expected TrySubmitConcurrently payload but got $v")
         }
 
-      case _ => Left(s"Expected SubmitConcurrently payload but got $v")
+      case _ => Left(s"Expected TrySubmitConcurrently payload but got $v")
     }
   }
 
@@ -1058,8 +1054,7 @@ object ScriptF {
       case ("SubmitMustFail", 1) => parseSubmit(v, stackTrace).map(SubmitMustFail(_))
       case ("SubmitTree", 1) => parseSubmit(v, stackTrace).map(SubmitTree(_))
       case ("TrySubmit", 1) => parseSubmit(v, stackTrace).map(TrySubmit(_))
-      case ("TrySubmitConcurrently", 1) =>
-        parseSubmitConcurrently(v, stackTrace).map(TrySubmitConcurrently(_))
+      case ("TrySubmitConcurrently", 1) => parseSubmitConcurrently(v, stackTrace)
       case ("Query", 1) => parseQuery(v)
       case ("QueryContractId", 1) => parseQueryContractId(v)
       case ("QueryInterface", 1) => parseQueryInterface(v)

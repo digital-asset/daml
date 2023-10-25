@@ -86,8 +86,8 @@ keyCollision : Script ()
 keyCollision = do
   alice <- allocateParty "alice"
   (errs, cids) <-
-    fmap partitionEithers do
-      alice `trySubmitConcurrently` do
+    partitionEithers <$>
+      alice `trySubmitConcurrently`
         replicate n (createCmd Keyed with p = alice)
   length cids === 1
   length errs === n - 1
@@ -99,7 +99,10 @@ keyCollision = do
     matchDuplicateContractKey p err = case err of
       DuplicateContractKey (Some k)
         | k == expectedKey -> pure ()
-      LocalVerdictLockedKeys _ -> pure () -- TODO: check that the key is present in the argument
+      LocalVerdictLockedKeys _ ->
+        -- TODO: check that the key is present in the argument
+        -- https://github.com/DACH-NY/canton/issues/15071
+        pure ()
       err ->
         assertFail $ "Expected DuplicateContractKey(Some(" <> show expectedKey <> ")) but got: " <> show err
       where
@@ -122,9 +125,9 @@ noDoubleSpend = do
   alice <- allocateParty "alice"
   cid <- alice `submit` createCmd Coin with p = alice
   (errs, results) <-
-    fmap partitionEithers do
-      alice `trySubmitConcurrently` do
-        replicate n (exerciseCmd cid Consume)
+    partitionEithers <$>
+      alice `trySubmitConcurrently`
+        replicate n (archiveCmd cid)
   results === [()]
   length errs === n - 1
   mapA_ (matchContractNotFound cid) errs
@@ -135,7 +138,10 @@ noDoubleSpend = do
     matchContractNotFound cid err = case err of
       ContractNotFound { unknownContractIds }
         | unknownContractIds == expectedUnknownContractIds -> pure ()
-      LocalVerdictLockedContracts _ -> pure () -- TODO: check that the contract id is present in the argument
+      LocalVerdictLockedContracts _ ->
+        -- TODO: check that the contract id is present in the argument
+        -- https://github.com/DACH-NY/canton/issues/15071
+        pure ()
       err ->
         assertFail $ "Expected ContractNotFound(unknownContractIds = " <> show expectedUnknownContractIds <> ") but got: " <> show err
       where
@@ -146,7 +152,3 @@ template Coin
     p : Party
   where
     signatory p
-
-    choice Consume : ()
-      controller p
-      do pure ()
