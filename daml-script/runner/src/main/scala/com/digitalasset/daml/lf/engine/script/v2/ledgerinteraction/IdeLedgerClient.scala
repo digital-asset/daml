@@ -41,6 +41,7 @@ import scalaz.std.set._
 import scalaz.syntax.foldable._
 
 import scala.annotation.tailrec
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -797,6 +798,30 @@ class IdeLedgerClient(
         _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
         Left(fromScenarioError(err))
     }
+
+  override def trySubmitConcurrently(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commandss: List[List[command.ApiCommand]],
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[List[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]] =
+    // Since the IDE ledger doesn't have a sequencer, we simply lie about the
+    // concurrent part and sequence the commandss manually.
+    // commandss
+    commandss
+      .foldLeft(
+        Future.successful(
+          ListBuffer.empty[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]
+        )
+      ) { (f, commands) =>
+        f.flatMap { x =>
+          trySubmit(actAs, readAs, commands, optLocation).map(x += _)
+        }
+      }
+      .map(_.toList)
 
   def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
     getPackageIdPairs().toMap

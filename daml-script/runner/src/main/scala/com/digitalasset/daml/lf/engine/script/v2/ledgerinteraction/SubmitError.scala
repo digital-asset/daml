@@ -366,6 +366,37 @@ object SubmitError {
       )
   }
 
+  final case class LocalVerdictLockedContracts(cids: Seq[(Identifier, ContractId)])
+      extends SubmitError {
+    override def toDamlSubmitError(env: Env): SValue =
+      SubmitErrorConverters(env).damlScriptError(
+        "LocalVerdictLockedContracts",
+        18,
+        (
+          "localVerdictLockedContracts",
+          SList(
+            cids
+              .map { case (tid, cid) =>
+                fromAnyContractId(env.scriptIds, toApiIdentifier(tid), cid)
+              }
+              .to(FrontStack)
+          ),
+        ),
+      )
+  }
+
+  final case class LocalVerdictLockedKeys(keys: Seq[GlobalKey]) extends SubmitError {
+    override def toDamlSubmitError(env: Env): SValue =
+      SubmitErrorConverters(env).damlScriptError(
+        "LocalVerdictLockedKeys",
+        19,
+        (
+          "localVerdictLockedKeys",
+          SList(keys.map(globalKeyToAnyContractKey(env, _)).to(FrontStack)),
+        ),
+      )
+  }
+
   final case class DevError(errorType: String, message: String) extends SubmitError {
     // This code needs to be kept in sync with daml-script#Error.daml
     override def toDamlSubmitError(env: Env): SValue = {
@@ -380,7 +411,7 @@ object SubmitError {
       }
       SubmitErrorConverters(env).damlScriptError(
         "DevError",
-        18,
+        20,
         ("devErrorType", devErrorType),
         ("devErrorMessage", SText(message)),
       )
@@ -391,7 +422,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "UnknownError",
-        19,
+        21,
         ("unknownErrorMessage", SText(message)),
       )
   }
@@ -400,7 +431,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "TruncatedError",
-        20,
+        22,
         ("truncatedErrorType", SText(errType)),
         ("truncatedErrorMessage", SText(message)),
       )

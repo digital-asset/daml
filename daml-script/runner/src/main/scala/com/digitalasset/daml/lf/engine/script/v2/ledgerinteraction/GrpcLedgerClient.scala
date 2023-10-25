@@ -274,6 +274,14 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
         Future.successful(Left(GrpcErrorParser.convertStatusRuntimeException(s)))
       })
 
+  override def trySubmitConcurrently(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commandss: List[List[command.ApiCommand]],
+      optLocation: Option[Location],
+  )(implicit ec: ExecutionContext, mat: Materializer) =
+    Future.traverse(commandss)(trySubmit(actAs, readAs, _, optLocation))
+
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
