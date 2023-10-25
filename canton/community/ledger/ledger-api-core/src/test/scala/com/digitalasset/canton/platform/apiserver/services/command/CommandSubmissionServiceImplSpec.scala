@@ -211,14 +211,15 @@ class CommandSubmissionServiceImplSpec
     val commandExecutor = mock[CommandExecutor]
     val metrics = Metrics.ForTesting
 
-    val disclosedContract = com.digitalasset.canton.ledger.api.domain.DisclosedContract(
-      templateId = Identifier.assertFromString("some:pkg:identifier"),
-      contractId = TransactionBuilder.newCid,
-      argument = Value.ValueNil,
-      createdAt = Timestamp.Epoch,
-      keyHash = None,
-      driverMetadata = Bytes.Empty,
-    )
+    val disclosedContract =
+      com.digitalasset.canton.ledger.api.domain.NonUpgradableDisclosedContract(
+        templateId = Identifier.assertFromString("some:pkg:identifier"),
+        contractId = TransactionBuilder.newCid,
+        argument = Value.ValueNil,
+        createdAt = Timestamp.Epoch,
+        keyHash = None,
+        driverMetadata = Bytes.Empty,
+      )
     val processedDisclosedContract = com.digitalasset.canton.data.ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
       contractId = TransactionBuilder.newCid,

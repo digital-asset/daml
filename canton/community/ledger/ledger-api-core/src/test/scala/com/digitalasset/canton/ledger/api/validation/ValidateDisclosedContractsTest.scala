@@ -18,9 +18,14 @@ import com.daml.ledger.api.v1.value.{
 }
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.daml.lf.value.Value.ValueRecord
+import com.daml.lf.transaction.*
+import com.daml.lf.value.Value.{ContractId, ValueRecord}
 import com.daml.lf.value.Value as Lf
-import com.digitalasset.canton.ledger.api.domain.DisclosedContract
+import com.digitalasset.canton.LfValue
+import com.digitalasset.canton.ledger.api.domain.{
+  NonUpgradableDisclosedContract,
+  UpgradableDisclosedContract,
+}
 import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsTest.{
   api,
   disabledValidateDisclosedContracts,
@@ -30,10 +35,15 @@ import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsT
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 import io.grpc.Status
+import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with ValidatorTestUtils {
+class ValidateDisclosedContractsTest
+    extends AnyFlatSpec
+    with Matchers
+    with EitherValues
+    with ValidatorTestUtils {
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
 
   behavior of classOf[ValidateDisclosedContracts].getSimpleName
@@ -61,7 +71,9 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
 
   it should "fail validation on missing templateId" in {
     val withMissingTemplateId =
-      ProtoCommands(disclosedContracts = scala.Seq(api.protoDisclosedContract.clearTemplateId))
+      ProtoCommands(disclosedContracts =
+        scala.Seq(api.deprecatedProtoDisclosedContract.clearTemplateId)
+      )
 
     requestMustFailWith(
       request = validateDisclosedContracts(withMissingTemplateId),
@@ -76,7 +88,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
     val withInvalidTemplateId =
       ProtoCommands(disclosedContracts =
         scala.Seq(
-          api.protoDisclosedContract.update(
+          api.deprecatedProtoDisclosedContract.update(
             _.templateId.modify(_.copy(packageId = "packageId:with:many:colons"))
           )
         )
@@ -93,7 +105,9 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
 
   it should "fail validation on missing contractId" in {
     val withMissingContractId =
-      ProtoCommands(disclosedContracts = scala.Seq(api.protoDisclosedContract.withContractId("")))
+      ProtoCommands(disclosedContracts =
+        scala.Seq(api.deprecatedProtoDisclosedContract.withContractId(""))
+      )
 
     requestMustFailWith(
       request = validateDisclosedContracts(withMissingContractId),
@@ -107,7 +121,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
   it should "fail validation on invalid contractId" in {
     val withInvalidContractId =
       ProtoCommands(disclosedContracts =
-        scala.Seq(api.protoDisclosedContract.withContractId("badContractId"))
+        scala.Seq(api.deprecatedProtoDisclosedContract.withContractId("badContractId"))
       )
 
     requestMustFailWith(
@@ -121,7 +135,9 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
 
   it should "fail validation on missing create arguments" in {
     val withMissingCreateArguments =
-      ProtoCommands(disclosedContracts = scala.Seq(api.protoDisclosedContract.clearArguments))
+      ProtoCommands(disclosedContracts =
+        scala.Seq(api.deprecatedProtoDisclosedContract.clearArguments)
+      )
 
     requestMustFailWith(
       request = validateDisclosedContracts(withMissingCreateArguments),
@@ -146,7 +162,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
     val withInvalidRecordField =
       ProtoCommands(disclosedContracts =
         scala.Seq(
-          api.protoDisclosedContract.update(
+          api.deprecatedProtoDisclosedContract.update(
             _.arguments.set(invalidArguments)
           )
         )
@@ -162,7 +178,9 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
 
   it should "fail validation on missing metadata" in {
     val withMissingMetadata =
-      ProtoCommands(disclosedContracts = scala.Seq(api.protoDisclosedContract.clearMetadata))
+      ProtoCommands(disclosedContracts =
+        scala.Seq(api.deprecatedProtoDisclosedContract.clearMetadata)
+      )
 
     requestMustFailWith(
       request = validateDisclosedContracts(withMissingMetadata),
@@ -176,7 +194,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
   it should "fail validation on missing createdAt metadata" in {
     val withMissingCreatedAt =
       ProtoCommands(disclosedContracts =
-        scala.Seq(api.protoDisclosedContract.update(_.metadata.modify(_.clearCreatedAt)))
+        scala.Seq(api.deprecatedProtoDisclosedContract.update(_.metadata.modify(_.clearCreatedAt)))
       )
 
     requestMustFailWith(
@@ -191,7 +209,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
   it should "fail validation on invalid createdAt metadata" in {
     val withInvalidCreatedAt =
       ProtoCommands(disclosedContracts =
-        scala.Seq(api.protoDisclosedContract.update(_.metadata.createdAt.nanos.set(133)))
+        scala.Seq(api.deprecatedProtoDisclosedContract.update(_.metadata.createdAt.nanos.set(133)))
       )
 
     requestMustFailWith(
@@ -207,7 +225,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
     val withInvalidKeyHashInMetadata =
       ProtoCommands(disclosedContracts =
         scala.Seq(
-          api.protoDisclosedContract.update(
+          api.deprecatedProtoDisclosedContract.update(
             _.metadata.contractKeyHash.set(ByteString.copyFromUtf8("BadKeyHash"))
           )
         )
@@ -230,7 +248,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
     val withCrappyArguments =
       ProtoCommands(disclosedContracts =
         scala.Seq(
-          api.protoDisclosedContract.update(
+          api.deprecatedProtoDisclosedContract.update(
             _.arguments := ProtoArguments.CreateArgumentsBlob(
               com.google.protobuf.any.Any("foo ", ByteString.EMPTY)
             )
@@ -245,6 +263,71 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
         "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field blob: Type of the Any message does not match the given class.",
       metadata = Map.empty,
     )
+  }
+
+  it should "validate the disclosed contract when provided as the create_event_payload" in {
+    validateDisclosedContracts(
+      api.protoCommands.copy(
+        disclosedContracts = scala.Seq(
+          api.deprecatedProtoDisclosedContract
+            .copy(
+              createEventPayload =
+                TransactionCoder.encodeFatContractInstance(lf.fatContractInstance).value
+            )
+            // arguments and metadata cannot be set at the same time with create_event_payload
+            .clearMetadata
+            .clearArguments
+        )
+      )
+    ) shouldBe Right(lf.expectedUpgradableDisclosedContracts)
+  }
+
+  it should "fail validation if decoding the create_event_payload fails" in {
+    requestMustFailWith(
+      request = validateDisclosedContracts(
+        api.protoCommands.copy(
+          disclosedContracts = scala.Seq(
+            api.deprecatedProtoDisclosedContract
+              .copy(
+                createEventPayload = Bytes.assertFromString("00abcd").toByteString
+              )
+              // arguments and metadata cannot be set at the same time with create_event_payload
+              .clearMetadata
+              .clearArguments
+          )
+        )
+      ),
+      code = Status.Code.INVALID_ARGUMENT,
+      description =
+        "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unable to decode disclosed contract event payload: DecodeError(exception com.google.protobuf.InvalidProtocolBufferException: Protocol message contained an invalid tag (zero). while decoding the versioned object)",
+      metadata = Map.empty,
+    )
+  }
+
+  it should "fail validation if both DisclosedContract formats are set" in {
+    val disclosedContractWithAllFieldsSet = api.deprecatedProtoDisclosedContract
+      .copy(createEventPayload =
+        TransactionCoder.encodeFatContractInstance(lf.fatContractInstance).value
+      )
+    val disclosedContractWithMetadataAndPayloadSet =
+      disclosedContractWithAllFieldsSet.clearArguments
+    val disclosedContractWithCreateArgsAndPayloadSet =
+      disclosedContractWithAllFieldsSet.clearMetadata
+
+    def test(disclosedContract: ProtoDisclosedContract) =
+      requestMustFailWith(
+        request = validateDisclosedContracts(
+          api.protoCommands.copy(disclosedContracts = scala.Seq(disclosedContract))
+        ),
+        code = Status.Code.INVALID_ARGUMENT,
+        description =
+          "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: DisclosedContract.arguments or DisclosedContract.metadata cannot be set together with DisclosedContract.create_event_payload",
+        metadata = Map.empty,
+      )
+
+    test(disclosedContractWithAllFieldsSet)
+    test(disclosedContractWithMetadataAndPayloadSet)
+    test(disclosedContractWithCreateArgsAndPayloadSet)
   }
 }
 
@@ -261,27 +344,37 @@ object ValidateDisclosedContractsTest {
       ProtoIdentifier("package", moduleName = "module", entityName = "entity")
     val contractId: String = "00" + "00" * 31 + "ef"
     val keyHash: Hash = Hash.assertFromString("00" * 31 + "ff")
+    val alice: Ref.Party = Ref.Party.assertFromString("alice")
+    private val bob: Ref.Party = Ref.Party.assertFromString("bob")
+    private val charlie: Ref.Party = Ref.Party.assertFromString("charlie")
+    val stakeholders: Set[Ref.Party] = Set(alice, bob, charlie)
+    val signatories: Set[Ref.Party] = Set(alice, bob)
+    val keyMaintainers: Set[Ref.Party] = Set(bob)
     val contractArgumentsRecord: ProtoRecord = ProtoRecord(
       Some(templateId),
       scala.Seq(ProtoRecordField("something", Some(ProtoValue(ProtoValue.Sum.Bool(true))))),
     )
+    val createdAtSeconds = 1337L
+    val someDriverMetadataStr = "SomeDriverMetadata"
     val contractMetadata: ProtoContractMetadata = ProtoContractMetadata(
-      createdAt = Some(ProtoTimestamp(seconds = 1337L)),
+      createdAt = Some(ProtoTimestamp(seconds = createdAtSeconds)),
       contractKeyHash = ByteString.copyFrom(keyHash.bytes.toByteArray),
-      driverMetadata = ByteString.copyFromUtf8("SomeDriverMetadata"),
+      driverMetadata = ByteString.copyFromUtf8(someDriverMetadataStr),
     )
     // Allow using deprecated Protobuf fields for backwards compatibility
     @annotation.nowarn(
       "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.commands\\.DisclosedContract.*"
     )
-    val protoDisclosedContract: ProtoDisclosedContract = ProtoDisclosedContract(
+    val deprecatedProtoDisclosedContract: ProtoDisclosedContract = ProtoDisclosedContract(
       templateId = Some(templateId),
       contractId = contractId,
       arguments = ProtoArguments.CreateArguments(contractArgumentsRecord),
       metadata = Some(contractMetadata),
+      createEventPayload = ByteString.EMPTY,
     )
+
     val protoCommands: ProtoCommands =
-      ProtoCommands(disclosedContracts = scala.Seq(api.protoDisclosedContract))
+      ProtoCommands(disclosedContracts = scala.Seq(api.deprecatedProtoDisclosedContract))
   }
 
   private object lf {
@@ -292,19 +385,72 @@ object ValidateDisclosedContractsTest {
         Ref.DottedName.assertFromString("entity"),
       ),
     )
+    val createArg: ValueRecord = ValueRecord(
+      tycon = Some(templateId),
+      fields = ImmArray(Some(Ref.Name.assertFromString("something")) -> Lf.ValueTrue),
+    )
+    val createArgWithoutLabels: ValueRecord = ValueRecord(
+      tycon = None,
+      fields = ImmArray(None -> Lf.ValueTrue),
+    )
+    val lfContractId: ContractId.V1 = Lf.ContractId.V1.assertFromString(api.contractId)
 
-    val lfDisclosedContract: DisclosedContract = DisclosedContract(
-      templateId,
-      Lf.ContractId.V1.assertFromString(api.contractId),
-      argument = ValueRecord(
-        tycon = Some(templateId),
-        fields = ImmArray(Some(Ref.Name.assertFromString("something")) -> Lf.ValueTrue),
+    val driverMetadataBytes: Bytes =
+      Bytes.fromByteString(ByteString.copyFromUtf8(api.someDriverMetadataStr))
+    val keyWithMaintainers: GlobalKeyWithMaintainers = GlobalKeyWithMaintainers.assertBuild(
+      lf.templateId,
+      LfValue.ValueRecord(
+        None,
+        ImmArray(
+          None -> LfValue.ValueParty(api.alice),
+          None -> LfValue.ValueText("some key"),
+        ),
       ),
-      createdAt = Time.Timestamp.assertFromLong(1337000000L),
-      keyHash = Some(Hash.assertFromString("00" * 31 + "ff")),
-      driverMetadata = Bytes.fromByteString(ByteString.copyFromUtf8("SomeDriverMetadata")),
+      api.keyMaintainers,
     )
 
-    val expectedDisclosedContracts: ImmArray[DisclosedContract] = ImmArray(lfDisclosedContract)
+    private val keyHash: Hash = keyWithMaintainers.globalKey.hash
+    private val lfDisclosedContract: NonUpgradableDisclosedContract =
+      NonUpgradableDisclosedContract(
+        templateId,
+        lfContractId,
+        argument = createArg,
+        createdAt = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),
+        keyHash = Some(Hash.assertFromByteArray(api.contractMetadata.contractKeyHash.toByteArray)),
+        driverMetadata = driverMetadataBytes,
+      )
+
+    val fatContractInstance: FatContractInstance = FatContractInstance.fromCreateNode(
+      create = Node.Create(
+        coid = lf.lfContractId,
+        templateId = lf.templateId,
+        arg = lf.createArg,
+        agreementText = "",
+        signatories = api.signatories,
+        stakeholders = api.stakeholders,
+        keyOpt = Some(lf.keyWithMaintainers),
+        version = TransactionVersion.maxVersion,
+      ),
+      createTime = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),
+      cantonData = lf.driverMetadataBytes,
+    )
+
+    val expectedDisclosedContracts: ImmArray[NonUpgradableDisclosedContract] = ImmArray(
+      lfDisclosedContract
+    )
+    val expectedUpgradableDisclosedContracts: ImmArray[UpgradableDisclosedContract] = ImmArray(
+      UpgradableDisclosedContract(
+        templateId,
+        lfContractId,
+        argument = createArgWithoutLabels,
+        createdAt = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),
+        keyHash = Some(keyHash),
+        keyMaintainers = Some(api.keyMaintainers),
+        driverMetadata = driverMetadataBytes,
+        keyValue = Some(keyWithMaintainers.value),
+        signatories = api.signatories,
+        stakeholders = api.stakeholders,
+      )
+    )
   }
 }

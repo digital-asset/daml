@@ -110,8 +110,8 @@ class SubmitRequestValidatorTest
       ),
     )
 
-    val disclosedContracts: ImmArray[domain.DisclosedContract] = ImmArray(
-      domain.DisclosedContract(
+    val disclosedContracts: ImmArray[domain.NonUpgradableDisclosedContract] = ImmArray(
+      domain.NonUpgradableDisclosedContract(
         templateId,
         Lf.ContractId.V1.assertFromString("00" + "00" * 32),
         ValueRecord(
