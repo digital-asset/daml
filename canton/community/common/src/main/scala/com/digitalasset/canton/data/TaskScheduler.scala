@@ -6,7 +6,7 @@ package com.digitalasset.canton.data
 import com.daml.metrics.api.MetricHandle.Counter
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, InsertedValue, NotInserted}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
+import scala.util.control.NonFatal
 
 /** The task scheduler manages tasks with associated timestamps and sequencer counters.
   * Tasks may be inserted in any order; they will be executed nevertheless in the correct order
@@ -297,10 +298,18 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
       case Some(tracedTask) =>
         tracedTask.withTraceContext { implicit traceContext => task =>
           FutureUtil.doNotAwait(
-            // Close the task if the queue is shutdown
+            // Close the task if the queue is shutdown or if it has failed
             queue
               .executeUS(task.perform(), task.toString)
-              .onShutdown(task.close()),
+              .onShutdown(task.close())
+              .recoverWith {
+                // If any task fails, none of subsequent tasks will be executed so we might as well close the scheduler
+                // to force completion of the tasks and signal that the scheduler is not functional
+                case NonFatal(e) if !this.isClosing =>
+                  this.close()
+                  Future.failed(e)
+                // Use a direct context here to avoid closing the scheduler in a different thread
+              }(DirectExecutionContext(errorLoggingContext(traceContext).noTracingLogger)),
             show"A task failed with an exception.\n$task",
           )
           taskQueue.dequeue()

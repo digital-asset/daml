@@ -77,21 +77,24 @@ class SequencedEventTestFixture(
     ByteString.copyFromUtf8("signatureCarlos1"),
     carlos.uid.namespace.fingerprint,
   )
-  lazy val aliceEvents = (1 to 5).map(s =>
+  lazy val aliceEvents: Seq[OrdinarySerializedEvent] = (1 to 5).map(s =>
     createEvent(
       timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong),
+      counter = updatedCounter + s.toLong,
       signatureOverride = Some(signatureAlice),
     ).futureValue
   )
-  lazy val bobEvents = (1 to 5).map(s =>
+  lazy val bobEvents: Seq[OrdinarySerializedEvent] = (1 to 5).map(s =>
     createEvent(
       timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong),
+      counter = updatedCounter + s.toLong,
       signatureOverride = Some(signatureBob),
     ).futureValue
   )
-  lazy val carlosEvents = (1 to 5).map(s =>
+  lazy val carlosEvents: Seq[OrdinarySerializedEvent] = (1 to 5).map(s =>
     createEvent(
       timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong),
+      counter = updatedCounter + s.toLong,
       signatureOverride = Some(signatureCarlos),
     ).futureValue
   )

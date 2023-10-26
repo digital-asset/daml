@@ -82,9 +82,10 @@ class SequencerClientTest
       MetricName("SequencerClientTest"),
       NoOpMetricsFactory,
     )
+  private lazy val firstSequencerCounter = SequencerCounter(42L)
   private lazy val deliver: Deliver[Nothing] =
     SequencerTestUtils.mockDeliver(
-      42,
+      firstSequencerCounter.unwrap,
       CantonTimestamp.Epoch,
       DefaultTestIdentities.domainId,
     )
@@ -136,13 +137,13 @@ class SequencerClientTest
       } yield error).futureValue shouldBe a[RuntimeException]
     }
 
-    "start from genesis if there is no recorded event" in {
+    "start from the specified sequencer counter if there is no recorded event" in {
       val counterF = for {
-        env <- Env.create()
+        env <- Env.create(initialSequencerCounter = SequencerCounter(5))
         _ <- env.subscribeAfter()
       } yield env.transport.subscriber.value.request.counter
 
-      counterF.futureValue shouldBe SequencerCounter.Genesis
+      counterF.futureValue shouldBe SequencerCounter(5)
     }
 
     "starts subscription at last stored event (for fork verification)" in {
@@ -490,6 +491,7 @@ class SequencerClientTest
             maximumInFlightEventBatches = PositiveInt.tryCreate(5),
           ),
           useParallelExecutionContext = true,
+          initialSequencerCounter = SequencerCounter(1L),
         )
         _ <- env.subscribeAfter(
           CantonTimestamp.Epoch,
@@ -670,7 +672,10 @@ class SequencerClientTest
     "create second subscription from the same counter as the previous one when there are no events" in {
       val secondTransport = new MockTransport
       val testF = for {
-        env <- Env.create(useParallelExecutionContext = true)
+        env <- Env.create(
+          useParallelExecutionContext = true,
+          initialSequencerCounter = SequencerCounter.Genesis,
+        )
         _ <- env.subscribeAfter()
         _ <- env.changeTransport(secondTransport)
       } yield {
@@ -697,16 +702,17 @@ class SequencerClientTest
         env <- Env.create(useParallelExecutionContext = true)
         _ <- env.subscribeAfter()
 
-        _ <- env.transport.subscriber.value.handler(signedDeliver)
+        _ <- env.transport.subscriber.value.sendToHandler(deliver)
+        _ <- env.transport.subscriber.value.sendToHandler(nextDeliver)
         _ <- env.client.flushClean()
 
         _ <- env.changeTransport(secondTransport)
       } yield {
         val originalSubscriber = env.transport.subscriber.value
-        originalSubscriber.request.counter shouldBe SequencerCounter.Genesis
+        originalSubscriber.request.counter shouldBe firstSequencerCounter
 
         val newSubscriber = secondTransport.subscriber.value
-        newSubscriber.request.counter shouldBe deliver.counter
+        newSubscriber.request.counter shouldBe nextDeliver.counter
 
         env.client.completion.isCompleted shouldBe false
       }
@@ -993,6 +999,7 @@ class SequencerClientTest
         eventValidator: SequencedEventValidator = eventAlwaysValid,
         options: SequencerClientConfig = SequencerClientConfig(),
         useParallelExecutionContext: Boolean = false,
+        initialSequencerCounter: SequencerCounter = firstSequencerCounter,
     )(implicit closeContext: CloseContext): Future[Env] = {
       // if parallel execution is desired use the UseExecutorService executor service (which is a parallel execution context)
       // otherwise use the default serial execution context provided by ScalaTest
@@ -1082,7 +1089,7 @@ class SequencerClientTest
         LoggingConfig(),
         loggerFactory,
         futureSupervisor,
-        SequencerCounter.Genesis,
+        initialSequencerCounter,
       )(executionContext, tracer)
       val signedEvents = storedEvents.map(SequencerTestUtils.sign)
 

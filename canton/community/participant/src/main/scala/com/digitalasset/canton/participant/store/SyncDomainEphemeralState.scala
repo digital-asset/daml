@@ -147,6 +147,7 @@ class SyncDomainEphemeralState(
       startingPoints.cleanReplay.nextRequestCounter,
       loggerFactory,
       futureSupervisor,
+      timeouts,
     )
 
   val observedTimestampTracker = new WatermarkTracker[CantonTimestamp](
@@ -187,6 +188,7 @@ class SyncDomainEphemeralState(
       requestTracker,
       recordOrderPublisher,
       submissionTracker,
+      phase37Synchronizer,
       AsyncCloseable(
         "request-journal-flush",
         requestJournal.flush(),
