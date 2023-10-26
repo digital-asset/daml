@@ -1395,19 +1395,16 @@ private[lf] object Speedy {
                         v match {
                           case V.ValueOptional(None) => List() // ok, drop
                           case V.ValueOptional(Some(_)) =>
-                            // TODO: https://github.com/digital-asset/daml/issues/17082
-                            // - we need a proper error here
                             throw SErrorDamlException(
-                              IError.UserError(
-                                "An optional contract field with a value of Some may not be dropped during downgrading."
+                              IError.Dev(
+                                NameOf.qualifiedNameOfCurrentFunc,
+                                IError.Dev.DowngradeDropDefinedField(ty, value),
                               )
                             )
                           case _ =>
-                            // TODO: https://github.com/digital-asset/daml/issues/17082
-                            // - Impossible (ill typed) case. Ok to crash here?
                             throw SErrorCrash(
                               NameOf.qualifiedNameOfCurrentFunc,
-                              "Unexpected non-optional extra contract field encountered during downgrading: something is very wrong.",
+                              "Unexpected non-optional extra contract field encountered during downgrading.",
                             )
                         }
                       }
@@ -1442,7 +1439,7 @@ private[lf] object Speedy {
                       // - Impossible (ill typed) case. Ok to crash here?
                       throw SErrorCrash(
                         NameOf.qualifiedNameOfCurrentFunc,
-                        "Unexpected non-optional extra template field type encountered during upgrading: something is very wrong.",
+                        "Unexpected non-optional extra template field type encountered during upgrading.",
                       )
                     }
                   } else {

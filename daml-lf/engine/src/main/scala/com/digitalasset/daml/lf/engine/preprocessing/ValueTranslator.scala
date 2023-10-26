@@ -243,7 +243,7 @@ private[lf] final class ValueTranslator(
                               )
                             case _ =>
                               typeError(
-                                "Unexpected non-optional extra contract field encountered during downgrading: something is very wrong."
+                                "Unexpected non-optional extra contract field encountered during downgrading."
                               )
                           }
                       }
@@ -273,10 +273,8 @@ private[lf] final class ValueTranslator(
                       if (extraFieldsWithNonOptionType.length == 0) {
                         values0.padTo(numT, SValue.SValue.None) // UPGRADE
                       } else {
-                        // TODO: https://github.com/digital-asset/daml/issues/17082
-                        // - Impossible (ill typed) case. Ok to crash here?
                         typeError(
-                          "Unexpected non-optional extra contract field encountered during downgrading: something is very wrong."
+                          "Unexpected non-optional extra contract field encountered during downgrading."
                         )
                       }
                     } else {

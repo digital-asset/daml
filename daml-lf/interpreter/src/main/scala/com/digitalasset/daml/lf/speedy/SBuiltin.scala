@@ -2213,16 +2213,16 @@ private[lf] object SBuiltin {
                       }
                     if (needValidationCall) {
 
-                    validateContractInfo(machine, coid, srcTemplateId, contract) { () =>
+                      validateContractInfo(machine, coid, srcTmplId, contract) { () =>
+                        f(contract.any)
+                      }
+                    } else {
                       f(contract.any)
                     }
-                  } else {
-                    f(contract.any)
                   }
                 }
               }
             }
-          }
         }
     }
   }

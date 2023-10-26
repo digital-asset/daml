@@ -242,6 +242,11 @@ private[lf] object Pretty {
                     text("recomputed key is") & prettyValue(false)(key.value)
               })
 
+          case Dev.DowngradeDropDefinedField(_, _) =>
+            text(
+              "An optional contract field with a value of Some may not be dropped during downgrading"
+            )
+
         }
     }
   }

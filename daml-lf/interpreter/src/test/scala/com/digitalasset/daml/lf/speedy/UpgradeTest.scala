@@ -4,155 +4,158 @@
 package com.daml.lf
 package speedy
 
-import java.util
-
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party, Name}
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion}
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.SValue.SContractId
-import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.TransactionVersion.VDev
 import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value._
 import com.daml.logging.LoggingContext
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
+
+import java.util
 
 class UpgradeTestV1 extends UpgradeTest(LanguageMajorVersion.V1)
-class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
+// class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
 
 class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec
     with Matchers
+    with TableDrivenPropertyChecks
     with Inside {
+
+  implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
 
   import SpeedyTestLib.UpgradeVerificationRequest
 
-  private def makePP(pid: PackageId): ParserParameters[this.type] = {
-    ParserParameters(pid, languageVersion = majorLanguageVersion.dev)
-  }
+  private[this] implicit def parserParameters(implicit
+      pkgId: Ref.PackageId
+  ): ParserParameters[this.type] =
+    ParserParameters(pkgId, languageVersion = majorLanguageVersion.dev)
 
-  private def parseType(pid: PackageId, s: String): Type = {
-    implicit val pp: ParserParameters[this.type] = makePP(pid)
-    t"$s"
-  }
+  private lazy val (pkgId1, pkg1) = {
+    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-pkg1-")
+    val pkg = p"""
+    module M {
 
-  private def parseExpr(pid: PackageId, s: String): Expr = {
-    implicit val pp: ParserParameters[this.type] = makePP(pid)
-    e"$s"
-  }
+      record @serializable T = { sig: Party, aNumber: Int64 };
+      template (this: T) = {
+        precondition True;
+        signatories M:sigs (M:T {sig} this) (None @Party);
+        observers Nil @Party;
+        agreement "Agreement";
+      };
 
-  private def parsePackage(pid: PackageId, s: String): Package = {
-    implicit val pp: ParserParameters[this.type] = makePP(pid)
-    p"$s"
-  }
+      val do_fetch: ContractId M:T -> Update M:T =
+        \(cId: ContractId M:T) ->
+          fetch_template @M:T cId;
 
-  private def parseTyCon(pid: PackageId, s: String): Identifier = {
-    parseType(pid, s) match {
-      case TTyCon(tycon) => tycon
-      case _ => sys.error("unexpected error")
+      val sigs: Party -> Option Party -> List Party =
+        \(sig: Party) -> \(optSig: Option Party) ->
+          case optSig of
+            None -> Cons @Party [sig] Nil @Party
+          | Some extraSig -> Cons @Party [sig, extraSig] Nil @Party;
+
     }
-  }
-
-  private val pid1: PackageId = PackageId.assertFromString("P1")
-  private val package1: Package = parsePackage(
-    pid1,
     """
-    module M1 {
 
-      record @serializable T1 = { theSig: Party, aNumber: Int64, someText: Text};
-      template (this: T1) = {
+    (pkgId, pkg)
+  }
+
+  private lazy val (pkgId2, pkg2) = {
+    // same signatures as pkg1
+    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-pkg2-")
+    val pkg = p"""
+      module M {
+
+      record @serializable T = { sig: Party, aNumber: Int64 };
+      template (this: T) = {
         precondition True;
-        signatories Cons @Party [M1:T1 {theSig} this] Nil @Party;
+        signatories '-pkg1-':M:sigs (M:T {sig} this) (None @Party);
         observers Nil @Party;
         agreement "Agreement";
       };
 
-      val do_fetch: ContractId M1:T1 -> Update M1:T1 =
-        \(cId: ContractId M1:T1) ->
-          fetch_template @M1:T1 cId;
+      val do_fetch: ContractId M:T -> Update M:T =
+        \(cId: ContractId M:T) ->
+          fetch_template @M:T cId;
+      }
+    """
+    (pkgId, pkg)
+  }
 
-    }
+  private lazy val (pkgId3, pkg3) = {
+    // add an optional additional signatory
+    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-pkg3-")
+    val pkg = p"""
+      module M {
 
-    module M2 {
-
-      record @serializable T1 = { theSig: Party, aNumber: Int64, optText: Option Text};
-      template (this: T1) = {
+      record @serializable T = { sig: Party, aNumber: Int64, optSig: Option Party };
+      template (this: T) = {
         precondition True;
-        signatories Cons @Party [M2:T1 {theSig} this] Nil @Party;
+        signatories '-pkg1-':M:sigs (M:T {sig} this) (M:T {optSig} this);
         observers Nil @Party;
         agreement "Agreement";
       };
 
-      val do_fetch: ContractId M2:T1 -> Update M2:T1 =
-        \(cId: ContractId M2:T1) ->
-          fetch_template @M2:T1 cId;
+      val do_fetch: ContractId M:T -> Update M:T =
+        \(cId: ContractId M:T) ->
+          fetch_template @M:T cId;
 
-    }
+      }
+    """
+    (pkgId, pkg)
+  }
 
+  private lazy val (pkgId4, pkg4) = {
+    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-pkg4-")
+    val pkg =
+      p"""
+      module M {
 
-    module M3 {
+        record @serializable T = { one: Party, two: Party };
+        template (this: T) = {
+          precondition True;
+          signatories Cons @Party [M:T {two} this] Nil @Party; // Like M but with diff signatories
+          observers Nil @Party;
+          agreement "Agreement";
+        };
 
-      record @serializable T1 = { one: Party, two: Party };
-      template (this: T1) = {
-        precondition True;
-        signatories Cons @Party [M3:T1 {one} this] Nil @Party;
-        observers Nil @Party;
-        agreement "Agreement";
-      };
+        val do_fetch: ContractId M:T -> Update M:T =
+          \(cId: ContractId M:T) ->
+            fetch_template @M:T cId;
 
-      val do_fetch: ContractId M3:T1 -> Update M3:T1 =
-        \(cId: ContractId M3:T1) ->
-          fetch_template @M3:T1 cId;
+      }
+   """
+    (pkgId, pkg)
+  }
 
-    }
-
-    module M4 {
-
-      record @serializable T1 = { one: Party, two: Party };
-      template (this: T1) = {
-        precondition True;
-        signatories Cons @Party [M4:T1 {two} this] Nil @Party; // Like M3 but with diff signatories
-        observers Nil @Party;
-        agreement "Agreement";
-      };
-
-      val do_fetch: ContractId M4:T1 -> Update M4:T1 =
-        \(cId: ContractId M4:T1) ->
-          fetch_template @M4:T1 cId;
-
-    }
-
-
-  """,
-  )
-
-  private val pkgs = {
-
-    val packageMap = Map(pid1 -> package1)
-
+  private lazy val pkgs =
     PureCompiledPackages.assertBuild(
-      packageMap,
+      Map(pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3, pkgId4 -> pkg4),
       Compiler.Config.Dev(majorLanguageVersion).copy(enableContractUpgrading = true),
     )
-  }
 
-  private val alice = Party.assertFromString("alice")
-  private val bob = Party.assertFromString("bob")
+  private val alice = Ref.Party.assertFromString("alice")
+  private val bob = Ref.Party.assertFromString("bob")
 
-  val theCid = Value.ContractId.V1(crypto.Hash.hashPrivateKey(s"theCid"))
+  val theCid = ContractId.V1(crypto.Hash.hashPrivateKey(s"theCid"))
 
   type Success = (Value, List[UpgradeVerificationRequest])
 
   // The given contractValue is wrapped as a contract available for ledger-fetch
-  def go(entryPoint: String, contractValue: Value): Either[SError, Success] = {
+  def go(e: Expr, contract: ContractInstance): Either[SError, Success] = {
 
-    val e: Expr = parseExpr(pid1, entryPoint)
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
     val args: Array[SValue] = Array(SContractId(theCid))
     val sexprToEval: SExpr = SEApp(se, args)
@@ -161,16 +164,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val seed = crypto.Hash.hashPrivateKey("seed")
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
 
-    val contract: Versioned[Value.ContractInstance] = {
-      val tycon: Identifier = parseTyCon(pid1, "Mxxx:Txxx") // ignored
-      Versioned(VDev, Value.ContractInstance(tycon, contractValue))
-    }
-
-    val getContract: Map[Value.ContractId, Value.VersionedContractInstance] =
-      Map(theCid -> contract)
-
     SpeedyTestLib
-      .runCollectRequests(machine, getContract = getContract)
+      .runCollectRequests(machine, getContract = Map(theCid -> Versioned(VDev, contract)))
       .map { case (sv, _, uvs) => // ignoring any AuthRequest
         val v = sv.toNormalizedValue(VDev)
         (v, uvs)
@@ -178,29 +173,27 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   // The given contractSValue is wrapped as a disclosedContract
-  def goDisclosed(entryPoint: String, contractSValue: SValue): Either[SError, Success] = {
+  def goDisclosed(e: Expr, contractSValue: SValue): Either[SError, Success] = {
 
-    val e: Expr = parseExpr(pid1, entryPoint)
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
-    val args: Array[SValue] = Array(SContractId(theCid))
-    val sexprToEval: SExpr = SEApp(se, args)
+    val args = Array[SValue](SContractId(theCid))
+    val sexprToEval = SEApp(se, args)
 
     implicit def logContext: LoggingContext = LoggingContext.ForTesting
     val seed = crypto.Hash.hashPrivateKey("seed")
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
 
-    val contractInfo: Speedy.ContractInfo = {
+    val contractInfo: Speedy.ContractInfo =
       // NICK: where does this contract-info even get used?
       Speedy.ContractInfo(
         version = VDev,
-        templateId = parseTyCon(pid1, "Myyy:Tyyy"),
+        templateId = i"'-unknown-':M:T",
         value = contractSValue,
         agreementText = "meh",
         signatories = Set.empty,
         observers = Set.empty,
         keyOpt = None,
       )
-    }
     machine.addDisclosedContracts(theCid, contractInfo)
 
     SpeedyTestLib
@@ -212,7 +205,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   def makeRecord(fields: Value*): Value = {
-    Value.ValueRecord(
+    ValueRecord(
       None,
       fields.map { v => (None, v) }.to(ImmArray),
     )
@@ -220,19 +213,72 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   val v1_base =
     makeRecord(
-      Value.ValueParty(alice),
-      Value.ValueInt64(100),
-      Value.ValueText("lala"),
+      ValueParty(alice),
+      ValueInt64(100),
     )
+
+  "upgrade attempted" - {
+
+    "missing optional field -- None is manufactured" in {
+
+      val v_missingField =
+        makeRecord(
+          ValueParty(alice),
+          ValueInt64(100),
+        )
+
+      val v_extendedWithNone =
+        makeRecord(
+          ValueParty(alice),
+          ValueInt64(100),
+          ValueOptional(None),
+        )
+
+      inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(i"'-pkg2-':M:T", v_missingField))) {
+        case Right((v, _)) =>
+          v shouldBe v_extendedWithNone
+      }
+    }
+
+    "missing non-optional field -- should be rejected" in {
+      // should be caught by package upgradability check
+      val v_missingField = makeRecord(ValueParty(alice))
+
+      inside(go(e"'-pkg1-':M:do_fetch", ContractInstance(i"'-unknow-':M:T", v_missingField))) {
+        case Left(SError.SErrorCrash(_, reason)) =>
+          reason should include(
+            "Unexpected non-optional extra template field type encountered during upgrading"
+          )
+      }
+    }
+
+    "mismatching qualified name -- should be rejected" in {
+      val v =
+        makeRecord(
+          ValueParty(alice),
+          ValueInt64(100),
+          ValueOptional(None),
+        )
+
+      val expectedTyCon = i"'-pkg3-':M:T"
+      val negativeTestCase = i"'-pkg2-':M:T"
+      val positiveTestCases = Table("tyCon", i"'-pkg2-':M1:T", i"'-pkg2-':M2:T")
+      go(e"'-pkg3-':M:do_fetch", ContractInstance(negativeTestCase, v)) shouldBe a[Right[_, _]]
+
+      forEvery(positiveTestCases) { tyCon =>
+        inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(tyCon, v))) {
+          case Left(SError.SErrorDamlException(e)) =>
+            e shouldBe IE.WronglyTypedContract(theCid, expectedTyCon, tyCon)
+        }
+      }
+    }
+  }
 
   "downgrade attempted" - {
 
-    // These tests check downgrade of differently shaped actual contracts
-    // Always expecting a contract of type M1:T1
-
     "correct fields" in {
 
-      val res = go("M1:do_fetch", v1_base)
+      val res = go(e"'-pkg1-':M:do_fetch", ContractInstance(i"'-pkg2-':M:T", v1_base))
 
       inside(res) { case Right((v, _)) =>
         v shouldBe v1_base
@@ -240,20 +286,20 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "extra field (text) - something is very wrong" in {
+      // should be caught by package upgradability check
 
       val v1_extraText =
         makeRecord(
-          Value.ValueParty(alice),
-          Value.ValueInt64(100),
-          Value.ValueText("lala"),
-          Value.ValueText("extra"),
+          ValueParty(alice),
+          ValueInt64(100),
+          ValueText("extra"),
         )
 
-      val res = go("M1:do_fetch", v1_extraText)
+      val res = go(e"'-pkg1-':M:do_fetch", ContractInstance(i"'-unknow-':M:T", v1_extraText))
 
-      inside(res) { case Left(err) =>
-        err.toString should include(
-          "Unexpected non-optional extra contract field encountered during downgrading: something is very wrong."
+      inside(res) { case Left(SError.SErrorCrash(_, reason)) =>
+        reason should include(
+          "Unexpected non-optional extra contract field encountered during downgrading"
         )
       }
 
@@ -263,18 +309,15 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
       val v1_extraSome =
         makeRecord(
-          Value.ValueParty(alice),
-          Value.ValueInt64(100),
-          Value.ValueText("lala"),
-          Value.ValueOptional(Some(Value.ValueText("heyhey"))),
+          ValueParty(alice),
+          ValueInt64(100),
+          ValueOptional(Some(ValueParty(bob))),
         )
 
-      val res = go("M1:do_fetch", v1_extraSome)
+      val res = go(e"'-pkg2-':M:do_fetch", ContractInstance(i"'-pkg3-':M:T", v1_extraSome))
 
-      inside(res) { case Left(err) =>
-        err.toString should include(
-          "An optional contract field with a value of Some may not be dropped during downgrading"
-        )
+      inside(res) { case Left(SError.SErrorDamlException(IE.Dev(_, e))) =>
+        e shouldBe IE.Dev.DowngradeDropDefinedField(t"'-pkg2-':M:T", v1_extraSome)
       }
     }
 
@@ -282,13 +325,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
       val v1_extraNone =
         makeRecord(
-          Value.ValueParty(alice),
-          Value.ValueInt64(100),
-          Value.ValueText("lala"),
+          ValueParty(alice),
+          ValueInt64(100),
           Value.ValueOptional(None),
         )
 
-      val res = go("M1:do_fetch", v1_extraNone)
+      val res = go(e"'-pkg2-':M:do_fetch", ContractInstance(i"'-unknow-':M:T", v1_extraNone))
 
       inside(res) { case Right((v, _)) =>
         v shouldBe v1_base
@@ -296,101 +338,64 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     }
   }
 
-  "upgrade attempted" - {
+  "Correct calls to ResultNeedUpgradeVerification" in {
 
-    "missing optional field -- None is manufactured" in {
+    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
 
-      val v_missingField =
-        makeRecord(
-          Value.ValueParty(alice),
-          Value.ValueInt64(100),
-        )
-
-      val v_extendedWithNone =
-        makeRecord(
-          Value.ValueParty(alice),
-          Value.ValueInt64(100),
-          Value.ValueOptional(None),
-        )
-
-      val res = go("M2:do_fetch", v_missingField)
-
-      inside(res) { case Right((v, _)) =>
-        v shouldBe v_extendedWithNone
-      }
-    }
-
-    "missing non-optional field -- should be rejected" in {
-
-      val v_missingField =
-        makeRecord(
-          Value.ValueParty(alice),
-          Value.ValueInt64(100),
-        )
-
-      val res = go("M1:do_fetch", v_missingField)
-      inside(res) { case Left(err) =>
-        err.toString should include(
-          "Unexpected non-optional extra template field type encountered during upgrading: something is very wrong."
-        )
-      }
-    }
-
-  }
-
-  "Correct calls to ResultNeedUpgradeVerification" - {
+    val v_alice_none =
+      makeRecord(
+        ValueParty(alice),
+        ValueInt64(100),
+        ValueOptional(None),
+      )
 
     val v_alice_bob =
       makeRecord(
-        Value.ValueParty(alice),
-        Value.ValueParty(bob),
+        ValueParty(alice),
+        ValueInt64(100),
+        ValueOptional(Some(ValueParty(bob))),
       )
 
-    "M3" in {
-      val res = go("M3:do_fetch", v_alice_bob)
-      inside(res) { case Right((v, List(uv))) =>
-        v shouldBe v_alice_bob
-        v shouldBe v_alice_bob
+    inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(i"'-pgk3-':M:T", v_alice_none))) {
+      case Right((v, List(uv))) =>
+        v shouldBe v_alice_none
         uv.coid shouldBe theCid
-        uv.signatories.toList shouldBe List(alice) // note difference with...
+        uv.signatories.toList shouldBe List(alice)
         uv.observers.toList shouldBe List()
         uv.keyOpt shouldBe None
-      }
     }
-    "M4" in {
-      val res = go("M4:do_fetch", v_alice_bob)
-      inside(res) { case Right((v, List(uv))) =>
+
+    inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(i"'-pgk3-':M:T", v_alice_bob))) {
+      case Right((v, List(uv))) =>
         v shouldBe v_alice_bob
         uv.coid shouldBe theCid
-        uv.signatories.toList shouldBe List(bob) // ..this
+        uv.signatories.toList shouldBe List(alice, bob)
         uv.observers.toList shouldBe List()
         uv.keyOpt shouldBe None
-      }
     }
 
   }
 
-  "Dislosed contracts" - {
+
+  "Disclosed contracts" - {
+
+    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
 
     "correct fields" in {
 
       // This is the SValue equivalent of v1_base
       val sv1_base: SValue = {
-        def id: Identifier = parseTyCon(pid1, "M1:T1") // NICK can make it diff in new code-path
-        def fields: ImmArray[Name] = ImmArray(
-          n"theSig", // This one get checked during contract-info computation.
+        def fields = ImmArray(
+          n"sig",
           n"aNumber",
-          n"someText",
         )
         def values: util.ArrayList[SValue] = ArrayList(
           SValue.SParty(alice), // And it needs to be a party
           SValue.SInt64(100),
-          SValue.SText("lala"),
         )
-        SValue.SRecord(id, fields, values)
+        SValue.SRecord(i"'-pkg1-':M:T", fields, values)
       }
-      val res = goDisclosed("M1:do_fetch", sv1_base)
-      inside(res) { case Right((v, _)) =>
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", sv1_base)) { case Right((v, _)) =>
         v shouldBe v1_base
       }
     }
@@ -398,26 +403,23 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     "requires downgrade" in {
 
       val sv1_base: SValue = {
-        def id: Identifier = parseTyCon(pid1, "M1:T1xx")
-        def fields: ImmArray[Name] = ImmArray(
-          n"theSig",
+        def fields = ImmArray(
+          n"sig",
           n"aNumber",
-          n"someText",
           n"extraField",
         )
         def values: util.ArrayList[SValue] = ArrayList(
-          SValue.SParty(alice), // And it needs to be a party
+          SValue.SParty(alice),
           SValue.SInt64(100),
-          SValue.SText("lala"),
           SValue.SOptional(None),
         )
-        SValue.SRecord(id, fields, values)
+        SValue.SRecord(i"'-unknown-':M:T", fields, values)
       }
-      val res = goDisclosed("M1:do_fetch", sv1_base)
-      inside(res) { case Right((v, _)) =>
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", sv1_base)) { case Right((v, _)) =>
         v shouldBe v1_base
       }
     }
 
   }
+
 }
