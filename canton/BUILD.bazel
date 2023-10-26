@@ -28,7 +28,7 @@ case object BuildInfo {{
   val version: String = "2.7.0-SNAPSHOT"
   val scalaVersion: String = "{scala_version}"
   val sbtVersion: String = "bazel"
-  val damlLibrariesVersion: String = "2.7.0-SNAPSHOT"
+  val damlLibrariesVersion: String = "{sdk_version}"
   val protocolVersions = List("3", "4", "5")
   override val toString: String = {{
     "version: %s, scalaVersion: %s, sbtVersion: %s, damlLibrariesVersion: %s, protocolVersions: %s".format(
@@ -37,7 +37,10 @@ case object BuildInfo {{
   }}
 }}
 EOF
-""".format(scala_version = scala_version),
+""".format(
+        scala_version = scala_version,
+        sdk_version = sdk_version,
+    ),
 )
 
 scala_library(
