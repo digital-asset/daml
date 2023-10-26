@@ -74,7 +74,7 @@ object LedgerClientJwt {
     (
         Jwt,
         LedgerApiDomain.LedgerId,
-    ) => LoggingContextOf[InstanceUUID] => Future[Option[Terminates.AtAbsolute]]
+    ) => LoggingContextOf[InstanceUUID with RequestID] => Future[Option[Terminates.AtAbsolute]]
 
   type GetActiveContracts =
     (
@@ -82,7 +82,7 @@ object LedgerClientJwt {
         LedgerApiDomain.LedgerId,
         TransactionFilter,
         Boolean,
-    ) => LoggingContextOf[InstanceUUID] => Source[
+    ) => LoggingContextOf[InstanceUUID with RequestID] => Source[
       GetActiveContractsResponse,
       NotUsed,
     ]
@@ -94,7 +94,7 @@ object LedgerClientJwt {
         TransactionFilter,
         LedgerOffset,
         Terminates,
-    ) => LoggingContextOf[InstanceUUID] => Source[Transaction, NotUsed]
+    ) => LoggingContextOf[InstanceUUID with RequestID] => Source[Transaction, NotUsed]
 
   type ListKnownParties =
     Jwt => LoggingContextOf[InstanceUUID with RequestID] => EFuture[PermissionDenied, List[
