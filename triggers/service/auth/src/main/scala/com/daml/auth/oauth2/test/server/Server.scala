@@ -108,6 +108,7 @@ class Server(config: Config) {
         exp = None,
         format = StandardJWTTokenFormat.Scope,
         audiences = List.empty,
+        scope = Some("daml_ledger_api"),
       )
     else
       CustomDamlJWTPayload(

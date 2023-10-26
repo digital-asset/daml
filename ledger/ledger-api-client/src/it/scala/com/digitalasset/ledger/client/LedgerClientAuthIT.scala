@@ -47,7 +47,7 @@ final class LedgerClientAuthIT extends AsyncWordSpec with Matchers with Inside w
         .sign(
           DecodedJwt(
             """{"alg": "HS256", "typ": "JWT"}""",
-            AuthServiceJWTCodec.compactPrint(emptyToken.copy(readAs = List("Alice")), false),
+            AuthServiceJWTCodec.compactPrint(emptyToken.copy(readAs = List("Alice")), None),
           ),
           jwtSecret,
         )
