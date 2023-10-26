@@ -14,10 +14,9 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 
 # Add diff and daml to path
 export PATH="$(rlocation diffutils_nix)/bin:$(rlocation daml-sdk-$1):$PATH"
-ls
-ls external
-which daml
-which diff
+ls 1>&2
+which diff 1>&2
+which daml 1>&2
 exit 13
 
 set -euo pipefail
