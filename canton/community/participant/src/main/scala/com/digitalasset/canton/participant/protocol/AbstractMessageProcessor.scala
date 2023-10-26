@@ -9,7 +9,7 @@ import cats.syntax.functor.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessSet
@@ -42,7 +42,8 @@ abstract class AbstractMessageProcessor(
     protocolVersion: ProtocolVersion,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
-    with FlagCloseable {
+    with FlagCloseable
+    with HasCloseContext {
 
   protected def terminateRequest(
       requestCounter: RequestCounter,
@@ -190,10 +191,10 @@ abstract class AbstractMessageProcessor(
         if (!isCleanReplay(requestCounter)) {
           val timeoutF =
             requestFutures.timeoutResult.flatMap { timeoutResult =>
-              if (timeoutResult.timedOut) onTimeout
-              else Future.unit
+              if (timeoutResult.timedOut) FutureUnlessShutdown.outcomeF(onTimeout)
+              else FutureUnlessShutdown.unit
             }
-          FutureUtil.doNotAwait(timeoutF, "Handling timeout failed")
+          FutureUtil.doNotAwaitUnlessShutdown(timeoutF, "Handling timeout failed")
         }
     } yield ()
 

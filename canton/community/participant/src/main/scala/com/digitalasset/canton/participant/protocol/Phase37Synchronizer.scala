@@ -3,9 +3,15 @@
 
 package com.digitalasset.canton.participant.protocol
 
-import com.digitalasset.canton.RequestCounter
-import com.digitalasset.canton.concurrent.{FutureSupervisor, SupervisedPromise}
+import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, ConcurrentHMap}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  HasCloseContext,
+  PromiseUnlessShutdown,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.*
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
@@ -16,9 +22,11 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.PendingReq
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.{DiscardOps, RequestCounter}
 import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
+import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.util.{Failure, Success}
 
 /** Synchronizes the request processing of phases 3 and 7.
   * At the end of phase 3, every request must signal that it has reached
@@ -34,7 +42,10 @@ class Phase37Synchronizer(
     initRc: RequestCounter,
     override val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
-) extends NamedLogging {
+    override val timeouts: ProcessingTimeout,
+) extends NamedLogging
+    with FlagCloseable
+    with HasCloseContext {
 
   /** Maps request timestamps to a promise and a future, which is used to chain each request's evaluation (i.e. filter).
     * The future completes with either the pending request data, if it's the first valid call,
@@ -65,10 +76,10 @@ class Phase37Synchronizer(
     val ts = CantonTimestampWithRequestType[requestType.type](requestId.unwrap, requestType)
     implicit val evRequest = ts.pendingRequestRelation
 
-    val promise: Promise[Option[
+    val promise: PromiseUnlessShutdown[Option[
       PendingRequestDataOrReplayData[requestType.PendingRequestData]
     ]] =
-      new SupervisedPromise[Option[
+      mkPromise[Option[
         PendingRequestDataOrReplayData[requestType.PendingRequestData]
       ]]("phase37sync-register-request-data", futureSupervisor)
 
@@ -77,7 +88,7 @@ class Phase37Synchronizer(
     blocking(synchronized {
       val requestRelation: RequestRelation[requestType.PendingRequestData] = RequestRelation(
         promise.future
-          .map(_.orElse {
+          .map(_.onShutdown(None).orElse {
             blocking(synchronized {
               pendingRequests.remove_(ts)
             })
@@ -115,7 +126,7 @@ class Phase37Synchronizer(
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): Future[RequestOutcome[requestType.PendingRequestData]] = {
+  ): FutureUnlessShutdown[RequestOutcome[requestType.PendingRequestData]] = {
     val ts = CantonTimestampWithRequestType[requestType.type](requestId.unwrap, requestType)
     implicit val evRequest = ts.pendingRequestRelation
 
@@ -125,46 +136,52 @@ class Phase37Synchronizer(
           logger.debug(
             s"Request ${requestId.unwrap}: Request data is waiting to be validated"
           )
-          val promise: Promise[RequestOutcome[requestType.PendingRequestData]] =
-            new SupervisedPromise[RequestOutcome[requestType.PendingRequestData]](
+          val promise: PromiseUnlessShutdown[RequestOutcome[requestType.PendingRequestData]] =
+            mkPromise[RequestOutcome[requestType.PendingRequestData]](
               "phase37sync-pending-request-data",
               futureSupervisor,
             )
 
-          val newFut = fut.flatMap {
+          val newFut = fut.transformWith {
             /* either:
                 (1) another call to awaitConfirmed has already received and successfully validated the data
                 (2) the request was marked as a timeout
              */
-            case None =>
-              promise.success(RequestOutcome.AlreadyServedOrTimeout)
+            case Success(None) =>
+              promise.outcome(RequestOutcome.AlreadyServedOrTimeout)
               Future.successful(None)
-            case Some(pData) =>
-              filter(pData).map {
-                case true =>
+            case Success(Some(pData)) =>
+              filter(pData).transform {
+                case Success(true) =>
                   // we need a synchronized block here to avoid conflicts with the outer replace in awaitConfirmed
                   blocking(synchronized {
                     // the entry is removed when the first awaitConfirmed with a satisfied predicate is there
                     pendingRequests.remove_(ts)
                   })
-                  promise.success(RequestOutcome.Success(pData))
-                  None
-                case false =>
-                  promise.success(RequestOutcome.Invalid)
-                  Some(pData)
+                  promise.outcome(RequestOutcome.Success(pData))
+                  Success(None)
+                case Success(false) =>
+                  promise.outcome(RequestOutcome.Invalid)
+                  Success(Some(pData))
+                case Failure(exception) =>
+                  promise.tryFailure(exception).discard[Boolean]
+                  Failure(exception)
               }
+            case Failure(exception) =>
+              promise.tryFailure(exception).discard[Boolean]
+              Future.failed(exception)
           }
           pendingRequests.replace_[ts.type, RequestRelation[requestType.PendingRequestData]](
             ts,
             rr.copy(pendingRequestDataFuture = newFut),
           )
-          promise.future
+          promise.futureUS
         case None =>
           logger.debug(
             s"Request ${requestId.unwrap}: Request data was already returned to another caller" +
               s" or has timed out"
           )
-          Future.successful(RequestOutcome.AlreadyServedOrTimeout)
+          FutureUnlessShutdown.pure(RequestOutcome.AlreadyServedOrTimeout)
       }
     })
   }
@@ -212,10 +229,16 @@ object Phase37Synchronizer {
   )
 
   final class PendingRequestDataHandle[T <: PendingRequestData](
-      private val handle: Promise[Option[PendingRequestDataOrReplayData[T]]]
+      private val handle: PromiseUnlessShutdown[Option[PendingRequestDataOrReplayData[T]]]
   ) {
     def complete(pendingData: Option[PendingRequestDataOrReplayData[T]]): Unit = {
-      handle.success(pendingData)
+      handle.outcome(pendingData)
+    }
+    def failed(exception: Throwable): Unit = {
+      handle.failure(exception)
+    }
+    def shutdown(): Unit = {
+      handle.shutdown()
     }
   }
 
