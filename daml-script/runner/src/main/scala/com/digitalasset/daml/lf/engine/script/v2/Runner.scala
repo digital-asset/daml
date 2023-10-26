@@ -30,19 +30,20 @@ private[lf] class Runner(
 ) {
   import Free.Result, SExpr.SExpr
 
-  private val initialClientsV1 = initialClients.map(ScriptLedgerClient.realiseScriptLedgerClient)
+  private val initialClientsV2 = initialClients.map(
+    ScriptLedgerClient.realiseScriptLedgerClient(_, unversionedRunner.enableContractUpgrading)
+  )
 
   private val env =
     new ScriptF.Env(
       unversionedRunner.script.scriptIds,
       unversionedRunner.timeMode,
-      initialClientsV1,
+      initialClientsV2,
       unversionedRunner.extendedCompiledPackages,
-      unversionedRunner.enableContractUpgrading,
     )
 
   private val ideLedgerContext: Option[IdeLedgerContext] =
-    initialClientsV1.default_participant.collect {
+    initialClientsV2.default_participant.collect {
       case ledgerClient: ledgerinteraction.IdeLedgerClient =>
         new IdeLedgerContext {
           override def currentSubmission: Option[ScenarioRunner.CurrentSubmission] =

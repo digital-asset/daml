@@ -52,13 +52,20 @@ object ScriptLedgerClient {
       argument: Value,
   ) extends TreeEvent
 
-  def realiseScriptLedgerClient(ledger: abstractLedgers.ScriptLedgerClient): ScriptLedgerClient =
+  def realiseScriptLedgerClient(
+      ledger: abstractLedgers.ScriptLedgerClient,
+      enableContractUpgrading: Boolean,
+  ): ScriptLedgerClient =
     ledger match {
       case abstractLedgers.GrpcLedgerClient(grpcClient, applicationId) =>
-        new GrpcLedgerClient(grpcClient, applicationId)
+        new GrpcLedgerClient(grpcClient, applicationId, enableContractUpgrading)
       case abstractLedgers.JsonLedgerClient(uri, token, envIface, actorSystem) =>
+        if (enableContractUpgrading)
+          throw new IllegalArgumentException("The JSON client does not support Upgrades")
         new JsonLedgerClient(uri, token, envIface, actorSystem)
       case abstractLedgers.IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled) =>
+        if (enableContractUpgrading)
+          throw new IllegalArgumentException("The IDE Ledger client does not support Upgrades")
         new IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled)
     }
 
@@ -76,13 +83,14 @@ trait ScriptLedgerClient {
   def query(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      enableContractUpgrading: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Seq[ScriptLedgerClient.ActiveContract]]
 
   protected def transport: String
+
+  val enableContractUpgrading: Boolean = false
 
   final protected def unsupportedOn(what: String) =
     Future.failed(
@@ -95,7 +103,6 @@ trait ScriptLedgerClient {
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       cid: ContractId,
-      enableContractUpgrading: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,

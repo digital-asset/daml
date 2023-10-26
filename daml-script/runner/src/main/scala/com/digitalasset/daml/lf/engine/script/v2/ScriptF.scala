@@ -70,7 +70,6 @@ object ScriptF {
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
       compiledPackages: CompiledPackages,
-      val enableContractUpgrading: Boolean,
   ) {
     def clients = _clients
     val valueTranslator = new ValueTranslator(
@@ -184,6 +183,7 @@ object ScriptF {
               _.toDamlSubmitError(env),
               env.scriptIds,
               resItems,
+              client.enableContractUpgrading,
             )
         )
       } yield SEValue(res)
@@ -213,6 +213,7 @@ object ScriptF {
               _.toDamlSubmitError(env),
               env.scriptIds,
               submitRes,
+              client.enableContractUpgrading,
             )
         )
       } yield SEValue(res)
@@ -240,7 +241,13 @@ object ScriptF {
                 .to(FrontStack)
                 .traverse(
                   Converter
-                    .fromCommandResult(env.lookupChoice, env.valueTranslator, env.scriptIds, _)
+                    .fromCommandResult(
+                      env.lookupChoice,
+                      env.valueTranslator,
+                      env.scriptIds,
+                      _,
+                      client.enableContractUpgrading,
+                    )
                 )
                 .map(results => SEValue(SList(results)))
             )
@@ -298,6 +305,7 @@ object ScriptF {
             env.valueTranslator,
             env.scriptIds,
             submitRes,
+            client.enableContractUpgrading,
           )
         )
       } yield SEValue(res)
@@ -320,7 +328,7 @@ object ScriptF {
             .to(FrontStack)
             .traverse(
               Converter
-                .fromCreated(env.valueTranslator, _)
+                .fromCreated(env.valueTranslator, _, client.enableContractUpgrading)
             )
         )
       } yield SEValue(SList(res))
@@ -338,9 +346,11 @@ object ScriptF {
     ): Future[SExpr] =
       for {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-        optR <- client.queryContractId(parties, tplId, cid, env.enableContractUpgrading)
+        optR <- client.queryContractId(parties, tplId, cid)
         optR <- Converter.toFuture(
-          optR.traverse(Converter.fromContract(env.valueTranslator, _, env.enableContractUpgrading))
+          optR.traverse(
+            Converter.fromContract(env.valueTranslator, _, client.enableContractUpgrading)
+          )
         )
       } yield SEValue(SOptional(optR))
   }
@@ -431,7 +441,9 @@ object ScriptF {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryContractKey(parties, tplId, key.key, translateKey(env))
         optR <- Converter.toFuture(
-          optR.traverse(Converter.fromCreated(env.valueTranslator, _))
+          optR.traverse(
+            Converter.fromCreated(env.valueTranslator, _, client.enableContractUpgrading)
+          )
         )
       } yield SEValue(SOptional(optR))
   }
