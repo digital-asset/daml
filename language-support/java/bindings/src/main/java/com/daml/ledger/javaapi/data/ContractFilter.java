@@ -31,7 +31,6 @@ public final class ContractFilter<Ct> {
   public static <Ct> ContractFilter<Ct> of(ContractCompanion<Ct, ?, ?> companion) {
     Filter filter =
         new InclusiveFilter(
-            Collections.emptySet(),
             Collections.emptyMap(),
             Collections.singletonMap(companion.TEMPLATE_ID, Filter.Template.HIDE_PAYLOAD));
     return new ContractFilter<>(companion, filter);
@@ -41,7 +40,6 @@ public final class ContractFilter<Ct> {
       InterfaceCompanion<?, Cid, View> companion) {
     Filter filter =
         new InclusiveFilter(
-            Collections.emptySet(),
             Collections.singletonMap(
                 companion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW_HIDE_PAYLOAD),
             Collections.emptyMap());

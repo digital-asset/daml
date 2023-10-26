@@ -3,12 +3,10 @@
 
 package com.daml.lf.codegen.backend.java
 
-import com.daml.ledger.javaapi.data.ContractMetadata
-import com.google.protobuf.Any
+import com.google.protobuf.ByteString
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import ut.retro.InterfaceRetro
-import ut.retro.TemplateRetro
+import ut.retro.{InterfaceRetro, TemplateRetro}
 
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters.RichOptional
@@ -28,11 +26,12 @@ final class InterfaceSpec extends AnyWordSpec with Matchers {
   }
 
   "decoded contracts" should {
-    import java.util.Collections.{emptyList, emptyMap}
-    import java.util.Optional
     import com.daml.ledger.javaapi.data.CreatedEvent
     import com.daml.ledger.javaapi.data.codegen.{Contract, DamlRecord, InterfaceCompanion}
     import ut.retro.TokenView
+
+    import java.util.Collections.{emptyList, emptyMap}
+    import java.util.Optional
 
     "roundtrip through CreatedEvent" in {
       def roundtrip[Id, View](
@@ -46,8 +45,7 @@ final class InterfaceSpec extends AnyWordSpec with Matchers {
             TemplateRetro.TEMPLATE_ID,
             "c",
             new TemplateRetro("", "", 0).toValue,
-            Any.getDefaultInstance,
-            ContractMetadata.Empty(),
+            ByteString.EMPTY,
             Map(ic.TEMPLATE_ID -> data.toValue).asJava,
             emptyMap,
             Optional.empty,

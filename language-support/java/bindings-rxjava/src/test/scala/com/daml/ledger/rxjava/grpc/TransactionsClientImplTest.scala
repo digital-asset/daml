@@ -4,13 +4,13 @@
 package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
-
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionGenerator._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
+import com.daml.ledger.api.v1.transaction_filter.TemplateFilter
 import com.daml.ledger.api.v1.value.Identifier
 import io.reactivex.Observable
 import org.scalacheck.Shrink
@@ -20,8 +20,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 
 import scala.jdk.CollectionConverters._
 
-// Allows using deprecated Protobuf fields for testing
-@annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
 final class TransactionsClientImplTest
     extends AnyFlatSpec
     with ScalaCheckDrivenPropertyChecks
@@ -81,9 +79,15 @@ final class TransactionsClientImplTest
         request.end shouldBe Some(LedgerOffset(Absolute("2")))
         val filter = request.filter.get.filtersByParty
         filter.keySet shouldBe Set("Alice")
-        filter("Alice").inclusive.get.templateIds.toSet shouldBe Set(
-          Identifier("p1", moduleName = "m1", entityName = "e1"),
-          Identifier("p2", moduleName = "m2", entityName = "e2"),
+        filter("Alice").inclusive.get.templateFilters.toSet shouldBe Set(
+          TemplateFilter(
+            Some(Identifier("p1", moduleName = "m1", entityName = "e1")),
+            includeCreateEventPayload = false,
+          ),
+          TemplateFilter(
+            Some(Identifier("p2", moduleName = "m2", entityName = "e2")),
+            includeCreateEventPayload = false,
+          ),
         )
         request.verbose shouldBe true
     }
@@ -146,9 +150,15 @@ final class TransactionsClientImplTest
         request.end shouldBe Some(LedgerOffset(Absolute("2")))
         val filter = request.filter.get.filtersByParty
         filter.keySet shouldBe Set("Alice")
-        filter("Alice").inclusive.get.templateIds.toSet shouldBe Set(
-          Identifier("p1", moduleName = "m1", entityName = "e1"),
-          Identifier("p2", moduleName = "m2", entityName = "e2"),
+        filter("Alice").inclusive.get.templateFilters.toSet shouldBe Set(
+          TemplateFilter(
+            Some(Identifier("p1", moduleName = "m1", entityName = "e1")),
+            includeCreateEventPayload = false,
+          ),
+          TemplateFilter(
+            Some(Identifier("p2", moduleName = "m2", entityName = "e2")),
+            includeCreateEventPayload = false,
+          ),
         )
         request.verbose shouldBe true
     }

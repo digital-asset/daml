@@ -44,7 +44,7 @@ public final class CreatedEvent implements Event, TreeEvent {
 
   private final @NonNull ByteString createEventPayload;
 
-  public CreatedEvent(
+  private CreatedEvent(
       @NonNull List<@NonNull String> witnessParties,
       @NonNull String eventId,
       @NonNull Identifier templateId,
@@ -52,13 +52,13 @@ public final class CreatedEvent implements Event, TreeEvent {
       @NonNull DamlRecord arguments,
       @NonNull Any createArgumentsBlob,
       @NonNull ContractMetadata contractMetadata,
+      @NonNull ByteString createEventPayload,
       @NonNull Map<@NonNull Identifier, @NonNull DamlRecord> interfaceViews,
       @NonNull Map<@NonNull Identifier, com.google.rpc.@NonNull Status> failedInterfaceViews,
       @NonNull Optional<String> agreementText,
       @NonNull Optional<Value> contractKey,
       @NonNull Collection<@NonNull String> signatories,
-      @NonNull Collection<@NonNull String> observers,
-      @NonNull ByteString createEventPayload) {
+      @NonNull Collection<@NonNull String> observers) {
     this.witnessParties = List.copyOf(witnessParties);
     this.eventId = eventId;
     this.templateId = templateId;
@@ -66,16 +66,50 @@ public final class CreatedEvent implements Event, TreeEvent {
     this.arguments = arguments;
     this.createArgumentsBlob = createArgumentsBlob;
     this.contractMetadata = contractMetadata;
+    this.createEventPayload = createEventPayload;
     this.interfaceViews = Map.copyOf(interfaceViews);
     this.failedInterfaceViews = Map.copyOf(failedInterfaceViews);
     this.agreementText = agreementText;
     this.contractKey = contractKey;
     this.signatories = Set.copyOf(signatories);
     this.observers = Set.copyOf(observers);
-    this.createEventPayload = createEventPayload;
   }
 
-  /** @deprecated You should pass {@code createEventPayload} as well. Since Daml 2.8.0 */
+  public CreatedEvent(
+      @NonNull List<@NonNull String> witnessParties,
+      @NonNull String eventId,
+      @NonNull Identifier templateId,
+      @NonNull String contractId,
+      @NonNull DamlRecord arguments,
+      @NonNull ByteString createEventPayload,
+      @NonNull Map<@NonNull Identifier, @NonNull DamlRecord> interfaceViews,
+      @NonNull Map<@NonNull Identifier, com.google.rpc.@NonNull Status> failedInterfaceViews,
+      @NonNull Optional<String> agreementText,
+      @NonNull Optional<Value> contractKey,
+      @NonNull Collection<@NonNull String> signatories,
+      @NonNull Collection<@NonNull String> observers) {
+    this(
+        witnessParties,
+        eventId,
+        templateId,
+        contractId,
+        arguments,
+        Any.getDefaultInstance(),
+        ContractMetadata.Empty(),
+        createEventPayload,
+        interfaceViews,
+        failedInterfaceViews,
+        agreementText,
+        contractKey,
+        signatories,
+        observers);
+  }
+
+  /**
+   * @deprecated Passing {@code createArgumentsBlob} and {@code contractMetadata} arguments is
+   *     deprecated. Use the constructor with {@link #createEventPayload} instead. Since Daml 2.8.0
+   */
+  @Deprecated
   public CreatedEvent(
       @NonNull List<@NonNull String> witnessParties,
       @NonNull String eventId,
@@ -98,13 +132,13 @@ public final class CreatedEvent implements Event, TreeEvent {
         arguments,
         createArgumentsBlob,
         contractMetadata,
+        ByteString.EMPTY,
         interfaceViews,
         failedInterfaceViews,
         agreementText,
         contractKey,
         signatories,
-        observers,
-        ByteString.EMPTY);
+        observers);
   }
 
   /**
@@ -208,6 +242,10 @@ public final class CreatedEvent implements Event, TreeEvent {
     return contractMetadata;
   }
 
+  public ByteString getCreateEventPayload() {
+    return createEventPayload;
+  }
+
   @NonNull
   public Map<@NonNull Identifier, @NonNull DamlRecord> getInterfaceViews() {
     return interfaceViews;
@@ -249,6 +287,7 @@ public final class CreatedEvent implements Event, TreeEvent {
         && Objects.equals(contractId, that.contractId)
         && Objects.equals(arguments, that.arguments)
         && Objects.equals(createArgumentsBlob, that.createArgumentsBlob)
+        && Objects.equals(createEventPayload, that.createEventPayload)
         && Objects.equals(contractMetadata, that.contractMetadata)
         && Objects.equals(interfaceViews, that.interfaceViews)
         && Objects.equals(failedInterfaceViews, that.failedInterfaceViews)
@@ -267,6 +306,7 @@ public final class CreatedEvent implements Event, TreeEvent {
         contractId,
         arguments,
         createArgumentsBlob,
+        createEventPayload,
         contractMetadata,
         interfaceViews,
         failedInterfaceViews,
@@ -293,6 +333,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         + arguments
         + ", createArgumentsBlob="
         + createArgumentsBlob
+        + ", createEventPayload="
+        + createEventPayload
         + ", contractMetadata="
         + contractMetadata
         + ", interfaceViews="
@@ -318,6 +360,7 @@ public final class CreatedEvent implements Event, TreeEvent {
             .setCreateArguments(this.getArguments().toProtoRecord())
             .setCreateArgumentsBlob(createArgumentsBlob)
             .setMetadata(contractMetadata.toProto())
+            .setCreateEventPayload(createEventPayload)
             .addAllInterfaceViews(
                 Stream.concat(
                         toProtoInterfaceViews(
@@ -362,6 +405,7 @@ public final class CreatedEvent implements Event, TreeEvent {
         DamlRecord.fromProto(createdEvent.getCreateArguments()),
         createdEvent.getCreateArgumentsBlob(),
         ContractMetadata.fromProto(createdEvent.getMetadata()),
+        createdEvent.getCreateEventPayload(),
         splitInterfaceViews.get(true).stream()
             .collect(
                 Collectors.toUnmodifiableMap(

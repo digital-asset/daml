@@ -26,7 +26,6 @@ public abstract class Filter {
   public static final class Interface {
     public final boolean includeInterfaceView;
     public final boolean includeCreateEventPayload;
-    // add equals and hashCode if adding more fields
 
     public static final Interface HIDE_VIEW_HIDE_PAYLOAD = new Interface(false, false);
     public static final Interface INCLUDE_VIEW_HIDE_PAYLOAD = new Interface(true, false);

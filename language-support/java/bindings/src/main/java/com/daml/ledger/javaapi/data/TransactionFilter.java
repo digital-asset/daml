@@ -29,11 +29,10 @@ public abstract class TransactionFilter {
     Filter filter =
         (contractCompanion instanceof ContractCompanion)
             ? new InclusiveFilter(
-                Set.of(contractCompanion.TEMPLATE_ID),
                 Collections.emptyMap(),
-                Collections.emptyMap())
+                Collections.singletonMap(
+                    contractCompanion.TEMPLATE_ID, Filter.Template.HIDE_PAYLOAD))
             : new InclusiveFilter(
-                Collections.emptySet(),
                 Map.of(contractCompanion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW_HIDE_PAYLOAD),
                 Collections.emptyMap());
     Map<String, Filter> partyToFilters =
