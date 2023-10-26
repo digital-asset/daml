@@ -4,8 +4,8 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.error.ErrorCode
-import java.time.{Clock, Instant}
 
+import java.time.{Clock, Instant}
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
@@ -89,6 +89,7 @@ import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
   InterfaceFilter,
+  TemplateFilter,
   TransactionFilter,
 }
 import com.daml.ledger.api.v1.event_query_service.{
@@ -372,7 +373,9 @@ final class SingleParticipantTestContext private[participant] (
     else
       Some(
         new InclusiveFilters(
-          templateIds = templateIds.map(Tag.unwrap).toSeq,
+          templateFilters = templateIds
+            .map(Tag.unwrap)
+            .map(id => TemplateFilter(Some(id), includeCreateEventPayload = true)),
           interfaceFilters = interfaceFilters.map { case (id, includeInterfaceView) =>
             new InterfaceFilter(
               Some(Tag.unwrap(id)),

@@ -144,13 +144,15 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           ) =>
         for {
           // Create contract with `owner` as only stakeholder
-          response <- ownerParticipant.submitAndWaitForTransaction(
+          _ <- ownerParticipant.submitAndWait(
             ownerParticipant.submitAndWaitRequest(owner, WithKey(owner).create.command)
           )
-          withKeyCreationTx = assertSingleton(
-            context = "Transaction expected non-empty",
-            as = response.transaction.toList,
+          txs <- ownerParticipant.flatTransactions(
+            ownerParticipant.getTransactionsRequest(
+              ownerParticipant.transactionFilter(Seq(owner), Seq(WithKey.id))
+            )
           )
+          withKeyCreationTx = assertSingleton("Transaction expected non-empty", txs)
           withKeyCreate = createdEvents(withKeyCreationTx).head
           withKeyDisclosedContract = createEventToDisclosedContract(withKeyCreate)
 
@@ -364,7 +366,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
         // Submission with disclosed contracts with the same contract id should be rejected
         errorDuplicateContractId <- testContext
-          .dummyCreate(testContext.disclosedContract)
+          .dummyCreate(testContext.disclosedContract, testContext.disclosedContract)
           .mustFail("duplicate contract id")
       } yield {
         assertGrpcError(
@@ -609,8 +611,6 @@ object ExplicitDisclosureIT {
     TemplateFilter(Some(Delegated.id.unwrap), includeCreateEventPayload = true)
   )
 
-  // Allows using deprecated Protobuf fields for testing
-  @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
   private def createEventToDisclosedContract(ev: CreatedEvent): DisclosedContract =
     DisclosedContract(
       templateId = ev.templateId,

@@ -16,8 +16,7 @@ def deps(lf_version):
         "//test-common:carbonv2-tests-%s.scala" % lf_version,
         "//test-common:carbonv3-tests-%s.scala" % lf_version,
     ]
-    model_tests = ["//test-common:modelext-tests-%s.scala" % lf_version]
-    additional_tests = carbon_tests + model_tests if _has_model_tests(lf_version) else []
+    additional_tests = carbon_tests if _has_model_tests(lf_version) else []
     return [
         "//daml-lf/data",
         "//daml-lf/transaction",
