@@ -175,7 +175,8 @@ object Error {
     // TODO https://github.com/digital-asset/daml/issues/17647
     // - move as normal interpretation Error
     // - add coid, srcTmplId (alternatively pkgId of srcTmplId), and dstTempId
-    final case class DowngradeDropDefinedField(expectedType: Ast.Type, actualValue: Value) extends Error
+    final case class DowngradeDropDefinedField(expectedType: Ast.Type, actualValue: Value)
+        extends Error
 
     /** A choice guard returned false, invalidating some expectation. */
     final case class ChoiceGuardFailed(

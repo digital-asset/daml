@@ -376,7 +376,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   }
 
-
   "Disclosed contracts" - {
 
     implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
