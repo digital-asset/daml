@@ -34,7 +34,6 @@ object Util {
 
     import Ordering.Implicits.infixOrderingOps
 
-    val allowGenMap = version >= TransactionVersion.minGenMap
     val eraseType = version >= TransactionVersion.minTypeErasure
 
     def handleTypeInfo[X](x: Option[X]) =
@@ -63,14 +62,7 @@ object Util {
         case ValueTextMap(value) =>
           ValueTextMap(value.mapValue(go))
         case ValueGenMap(entries) =>
-          if (allowGenMap) {
             ValueGenMap(entries.map { case (k, v) => go(k) -> go(v) })
-          } else {
-            InternalError.illegalArgumentException(
-              NameOf.qualifiedNameOfCurrentFunc,
-              s"GenMap are not allowed in transaction version $version",
-            )
-          }
       }
 
     go(value0)

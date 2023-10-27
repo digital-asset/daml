@@ -125,7 +125,7 @@ class ValueCoderSpec
     }
 
     "do genMaps" in {
-      forAll(valueGenMapGen, transactionVersionGen(TransactionVersion.minGenMap))(
+      forAll(valueGenMapGen, transactionVersionGen())(
         testRoundTrip
       )
     }

@@ -355,7 +355,6 @@ object ValueCoder {
             ValueTextMap(map)
 
           case proto.Value.SumCase.GEN_MAP =>
-            assertSince(TransactionVersion.minGenMap, "Value.SumCase.MAP")
             val genMap = protoValue.getGenMap.getEntriesList.asScala.view
               .map(entry => go(newNesting, entry.getKey) -> go(newNesting, entry.getValue))
               .to(ImmArray)
@@ -503,7 +502,6 @@ object ValueCoder {
             builder.setMap(protoMap).build()
 
           case ValueGenMap(entries) =>
-            assertSince(TransactionVersion.minGenMap, "Value.SumCase.MAP")
             val protoMap = proto.GenMap.newBuilder()
             entries.foreach { case (key, value) =>
               discard(
