@@ -268,8 +268,7 @@ object TransactionCoder {
             )
           )
         else {
-          if (enclosingVersion >= TransactionVersion.minNodeVersion)
-            discard(nodeBuilder.setVersion(nodeVersion.protoValue))
+          nodeBuilder.setVersion(nodeVersion.protoValue)
 
           node match {
 
@@ -741,9 +740,6 @@ object TransactionCoder {
       txVersion: TransactionVersion,
       protoNode: TransactionOuterClass.Node,
   ): Either[DecodeError, TransactionVersion] = {
-    if (txVersion < TransactionVersion.minNodeVersion) {
-      Right(txVersion)
-    } else {
       protoNode.getNodeTypeCase match {
         case NodeTypeCase.ROLLBACK => Right(txVersion)
         case _ =>
@@ -757,7 +753,6 @@ object TransactionCoder {
             case otherwise => otherwise
           }
       }
-    }
   }
 
   def decodeVersion(vs: String): Either[DecodeError, TransactionVersion] =

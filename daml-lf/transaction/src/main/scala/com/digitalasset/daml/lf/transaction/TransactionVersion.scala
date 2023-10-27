@@ -48,7 +48,6 @@ object TransactionVersion {
   val minVersion: TransactionVersion = All.min
   def maxVersion: TransactionVersion = VDev
 
-  private[lf] val minNodeVersion = V11
   private[lf] val minNoVersionValue = V12
   private[lf] val minTypeErasure = V12
   // nothing was added in V13, so there are no vals: "minSomething = V13"
