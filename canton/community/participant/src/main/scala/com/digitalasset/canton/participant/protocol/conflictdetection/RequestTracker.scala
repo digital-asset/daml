@@ -308,7 +308,7 @@ object RequestTracker {
     */
   final case class RequestFutures(
       activenessResult: FutureUnlessShutdown[ActivenessResult],
-      timeoutResult: FutureUnlessShutdown[TimeoutResult],
+      timeoutResult: Future[TimeoutResult],
   )
 
   /** Indicates whether the request has timed out. */

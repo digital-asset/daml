@@ -47,6 +47,7 @@ final case class TransferData(
   def transferId: TransferId = TransferId(transferOutRequest.sourceDomain, transferOutTimestamp)
 
   def sourceMediator: MediatorRef = transferOutRequest.mediator
+
   def transferCounter: TransferCounterO = transferOutRequest.transferCounter
 
   def addTransferOutResult(result: DeliveredTransferOutResult): Option[TransferData] =

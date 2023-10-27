@@ -19,6 +19,7 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.NodeId
+import com.digitalasset.canton.ledger.api.domain.TemplateFilter
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
@@ -35,7 +36,7 @@ import com.digitalasset.canton.platform.store.dao.{
   LedgerDaoTransactionsReader,
 }
 import com.digitalasset.canton.platform.store.serialization.Compression
-import com.digitalasset.canton.platform.{Identifier, Party, TemplatePartiesFilter}
+import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
 import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Span
 
@@ -100,7 +101,8 @@ private[dao] final class TransactionsReader(
       requestingParties = requestingParties,
       eventProjectionProperties = EventProjectionProperties(
         verbose = true,
-        witnessTemplateIdFilter = requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
+        witnessTemplateIdFilter =
+          requestingParties.map(_.toString -> Set.empty[TemplateFilter]).toMap,
       ),
     )
   }
@@ -116,7 +118,8 @@ private[dao] final class TransactionsReader(
       requestingParties = requestingParties,
       eventProjectionProperties = EventProjectionProperties(
         verbose = true,
-        witnessTemplateIdFilter = requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
+        witnessTemplateIdFilter =
+          requestingParties.map(_.toString -> Set.empty[TemplateFilter]).toMap,
       ),
     )
   }
@@ -282,6 +285,7 @@ private[dao] object TransactionsReader {
   ): Future[CreatedEvent] =
     lfValueTranslation
       .deserializeRaw(
+        createdEvent = rawCreatedEvent,
         createArgument = rawCreatedEvent.createArgument,
         createArgumentCompression = Compression.Algorithm
           .assertLookup(rawCreatedEvent.createArgumentCompression),
@@ -305,6 +309,7 @@ private[dao] object TransactionsReader {
           contractKey = apiContractData.contractKey,
           createArguments = apiContractData.createArguments,
           createArgumentsBlob = apiContractData.createArgumentsBlob,
+          createEventPayload = apiContractData.createEventPayload.getOrElse(ByteString.EMPTY),
           interfaceViews = apiContractData.interfaceViews,
           witnessParties = rawCreatedEvent.witnessParties.toList,
           signatories = rawCreatedEvent.signatories.toList,

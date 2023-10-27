@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.dao
 
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{Filters, InterfaceFilter}
+import com.digitalasset.canton.ledger.api.domain.{Filters, InterfaceFilter, TemplateFilter}
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.{
   InterfaceViewFilter,
   RenderResult,
@@ -23,14 +23,20 @@ import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.{
 final case class EventProjectionProperties(
     verbose: Boolean,
     // Map(eventWitnessParty, Set(templateId))
-    witnessTemplateIdFilter: Map[String, Set[Identifier]] = Map.empty,
+    witnessTemplateIdFilter: Map[String, Set[TemplateFilter]] = Map.empty,
     // Map(eventWitnessParty, Map(templateId -> Set(interfaceId)))
     witnessInterfaceViewFilter: Map[String, Map[Identifier, InterfaceViewFilter]] = Map.empty,
 ) {
   def render(witnesses: Set[String], templateId: Identifier): RenderResult = {
-    val renderContractArguments: Boolean = witnesses.view
+    def renderTemplate(filters: Set[TemplateFilter]) =
+      filters.isEmpty || filters.exists(_.templateId == templateId)
+    def renderPayload(filters: Set[TemplateFilter]) =
+      filters.exists(filter => filter.templateId == templateId && filter.includeCreateEventPayload)
+    val (renderContractArguments, renderCreateEventPayload): (Boolean, Boolean) = witnesses.view
       .flatMap(witnessTemplateIdFilter.get)
-      .exists(templates => templates.isEmpty || templates(templateId))
+      .foldLeft((false, false))((acc, filters) =>
+        (acc._1 || renderTemplate(filters), acc._2 || renderPayload(filters))
+      )
 
     val interfacesToRender: InterfaceViewFilter = witnesses.view
       .flatMap(witnessInterfaceViewFilter.get(_).iterator)
@@ -39,6 +45,7 @@ final case class EventProjectionProperties(
     RenderResult(
       interfacesToRender.contractArgumentsBlob,
       renderContractArguments,
+      interfacesToRender.createEventPayload || renderCreateEventPayload,
       interfacesToRender.interfaces,
     )
   }
@@ -50,6 +57,7 @@ object EventProjectionProperties {
   final case class InterfaceViewFilter(
       interfaces: Set[Identifier],
       contractArgumentsBlob: Boolean,
+      createEventPayload: Boolean,
   ) {
     def append(
         templateId: Identifier,
@@ -59,17 +67,19 @@ object EventProjectionProperties {
       InterfaceViewFilter(
         interfaces ++ other.interfaces,
         contractArgumentsBlob || other.contractArgumentsBlob,
+        createEventPayload || other.createEventPayload,
       )
     }
   }
 
   object InterfaceViewFilter {
-    val Empty = InterfaceViewFilter(Set.empty[Identifier], false)
+    val Empty = InterfaceViewFilter(Set.empty[Identifier], false, false)
   }
 
   final case class RenderResult(
       contractArgumentsBlob: Boolean,
       contractArguments: Boolean,
+      createEventPayoad: Boolean,
       interfaces: Set[Identifier],
   )
 
@@ -98,21 +108,22 @@ object EventProjectionProperties {
   private def witnessTemplateIdFilter(
       domainTransactionFilter: domain.TransactionFilter,
       alwaysPopulateArguments: Boolean,
-  ): Map[String, Set[Identifier]] = {
+  ): Map[String, Set[TemplateFilter]] = {
+    // TODO(#15076) Implement create event payloads for transaction trees
     if (alwaysPopulateArguments)
       domainTransactionFilter.filtersByParty.keysIterator
-        .map(_.toString -> Set.empty[Identifier])
+        .map(_.toString -> Set.empty[TemplateFilter])
         .toMap
     else
       domainTransactionFilter.filtersByParty.iterator
         .map { case (party, filters) => (party.toString, filters) }
         .collect {
-          case (party, Filters(None)) => party -> Set.empty[Identifier]
+          case (party, Filters(None)) => party -> Set.empty[TemplateFilter]
           case (party, Filters(Some(empty)))
-              if empty.templateIds.isEmpty && empty.interfaceFilters.isEmpty =>
-            party -> Set.empty[Identifier]
-          case (party, Filters(Some(nonEmptyFilter))) if nonEmptyFilter.templateIds.nonEmpty =>
-            party -> nonEmptyFilter.templateIds
+              if empty.templateFilters.isEmpty && empty.interfaceFilters.isEmpty =>
+            party -> Set.empty[TemplateFilter]
+          case (party, Filters(Some(nonEmptyFilter))) if nonEmptyFilter.templateFilters.nonEmpty =>
+            party -> nonEmptyFilter.templateFilters
         }
         .toMap
   }
@@ -144,6 +155,7 @@ object EventProjectionProperties {
             InterfaceViewFilter(
               interfaceFilters.filter(_.includeView).map(_.interfaceId),
               interfaceFilters.exists(_.includeCreateArgumentsBlob),
+              interfaceFilters.exists(_.includeCreateEventPayload),
             )
           )
           .toMap,

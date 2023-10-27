@@ -28,7 +28,7 @@ final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filt
 
 final case class Filters(inclusive: Option[InclusiveFilters]) {
   def apply(identifier: Ref.Identifier): Boolean =
-    inclusive.fold(true)(_.templateIds.contains(identifier))
+    inclusive.fold(true)(_.templateFilters.exists(_.templateId == identifier))
 }
 
 object Filters {
@@ -41,10 +41,16 @@ final case class InterfaceFilter(
     interfaceId: Ref.Identifier,
     includeView: Boolean,
     includeCreateArgumentsBlob: Boolean,
+    includeCreateEventPayload: Boolean,
+)
+
+final case class TemplateFilter(
+    templateId: Ref.Identifier,
+    includeCreateEventPayload: Boolean,
 )
 
 final case class InclusiveFilters(
-    templateIds: immutable.Set[Ref.Identifier],
+    templateFilters: immutable.Set[TemplateFilter],
     interfaceFilters: immutable.Set[InterfaceFilter],
 )
 

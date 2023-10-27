@@ -14,6 +14,7 @@ import com.daml.lf.transaction.*
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder}
 import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueText, VersionedContractInstance}
 import com.daml.lf.value.Value as LfValue
+import com.digitalasset.canton.ledger.api.domain.TemplateFilter
 import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2
@@ -93,6 +94,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     Some(Ref.Name.assertFromString(name))
 
   protected final val someTemplateId = testIdentifier("ParameterShowcase")
+  protected final val someTemplateIdFilter =
+    TemplateFilter(someTemplateId, includeCreateEventPayload = false)
   protected final val someValueText = LfValue.ValueText("some text")
   protected final val someValueInt = LfValue.ValueInt64(1)
   protected final val someValueNumeric =
@@ -154,6 +157,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   protected final val someVersionedContractInstance = Versioned(txVersion, someContractInstance)
 
   protected final val otherTemplateId = testIdentifier("Dummy")
+  protected final val otherTemplateIdFilter =
+    TemplateFilter(otherTemplateId, includeCreateEventPayload = false)
   protected final val otherContractArgument = LfValue.ValueRecord(
     Some(otherTemplateId),
     ImmArray(

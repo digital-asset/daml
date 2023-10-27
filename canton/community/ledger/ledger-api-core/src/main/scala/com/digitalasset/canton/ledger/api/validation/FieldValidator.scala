@@ -11,7 +11,12 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl, LedgerId}
+import com.digitalasset.canton.ledger.api.domain.{
+  IdentityProviderId,
+  JwksUrl,
+  LedgerId,
+  TemplateFilter,
+}
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.topology.DomainId
@@ -301,12 +306,13 @@ object FieldValidator {
 
   def validatedTemplateIdWithPackageIdResolutionFallback(
       identifier: Identifier,
+      includeCreateEventPayload: Boolean,
       resolveTemplateIds: Ref.QualifiedName => Either[StatusRuntimeException, Iterable[
         Ref.Identifier
       ]],
   )(upgradingEnabled: Boolean)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Iterable[Ref.Identifier]] =
+  ): Either[StatusRuntimeException, Iterable[TemplateFilter]] =
     for {
       qualifiedName <- validateTemplateQualifiedName(identifier.moduleName, identifier.entityName)
       templateIds <-
@@ -314,7 +320,7 @@ object FieldValidator {
         else
           requirePackageId(identifier.packageId, "package_id")
             .map(pkgId => Iterable(Ref.Identifier(pkgId, qualifiedName)))
-    } yield templateIds
+    } yield templateIds.map(TemplateFilter(_, includeCreateEventPayload))
 
   def optionalString[T](s: String)(
       someValidation: String => Either[StatusRuntimeException, T]

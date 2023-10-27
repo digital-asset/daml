@@ -684,7 +684,7 @@ private[conflictdetection] trait RequestTrackerTest {
         )
         _ = enterTick(rt, SequencerCounter(0), CantonTimestamp.Epoch)
         _ = enterTick(rt, SequencerCounter(2), ofEpochMilli(10))
-        timeout <- toF.failOnShutdown("activeness result")
+        timeout <- toF
         _ = assert(timeout.timedOut)
       } yield succeed
     }
@@ -1153,7 +1153,7 @@ private[conflictdetection] trait RequestTrackerTest {
       decisionTime,
       activenessSet,
     ).map { case (aR, tR) =>
-      (aR.failOnShutdown("activeness result"), tR.failOnShutdown("timeout result"))
+      (aR.failOnShutdown("activeness result"), tR)
     }
   }
 
@@ -1164,7 +1164,7 @@ private[conflictdetection] trait RequestTrackerTest {
       confirmationRequestTimestamp: CantonTimestamp,
       decisionTime: CantonTimestamp,
       activenessSet: ActivenessSet,
-  ): Future[(FutureUnlessShutdown[ActivenessResult], FutureUnlessShutdown[TimeoutResult])] =
+  ): Future[(FutureUnlessShutdown[ActivenessResult], Future[TimeoutResult])] =
     enterCR_US(
       rt,
       rc,
@@ -1183,7 +1183,7 @@ private[conflictdetection] trait RequestTrackerTest {
       activenessTimestamp: CantonTimestamp,
       decisionTime: CantonTimestamp,
       activenessSet: ActivenessSet,
-  ): Future[(FutureUnlessShutdown[ActivenessResult], FutureUnlessShutdown[TimeoutResult])] = {
+  ): Future[(FutureUnlessShutdown[ActivenessResult], Future[TimeoutResult])] = {
     val resCR = rt.addRequest(
       rc,
       sc,

@@ -10,13 +10,7 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps, Signature}
 import com.digitalasset.canton.data.ViewType.TransferOutViewType
-import com.digitalasset.canton.data.{
-  CantonTimestamp,
-  FullTransferOutTree,
-  TransferSubmitterMetadata,
-  ViewPosition,
-  ViewType,
-}
+import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -161,11 +155,15 @@ class TransferOutProcessingSteps(
           .leftMap(_ => TransferOutProcessorError.TransferCounterOverflow)
       )
 
+      creatingTransactionId <- EitherT.fromEither[FutureUnlessShutdown](
+        storedContract.creatingTransactionIdO.toRight(CreatingTransactionIdNotFound(contractId))
+      )
+
       validated <- TransferOutRequest.validated(
         participantId,
         timeProof,
-        contractId,
-        templateId,
+        creatingTransactionId,
+        storedContract.contract,
         submitterMetadata,
         stakeholders,
         domainId,
@@ -421,7 +419,28 @@ class TransferOutProcessingSteps(
 
       // Since the transfer out request should be sent only to participants that host a stakeholder of the contract,
       // we can expect to find the contract in the contract store.
-      storedContract <- getStoredContract(contractLookup, fullTree.contractId)
+      contractWithTransactionId <-
+        fullTree.tree.view.tryUnwrap match {
+          case view: TransferOutViewCNTestNet =>
+            // TODO(i15090): Validate contract data against contract id and contract metadata against contract data
+            EitherT.rightT[FutureUnlessShutdown, TransferProcessorError](
+              WithTransactionId(view.contract, view.creatingTransactionId)
+            )
+          case _: TransferOutViewV0 | _: TransferOutViewV4 =>
+            for {
+              storedContract <- getStoredContract(contractLookup, fullTree.contractId)
+
+              // Since the participant hosts a stakeholder, it should find the creating transaction ID in the contract store
+              creatingTransactionId <- EitherT.fromEither[FutureUnlessShutdown](
+                storedContract.creatingTransactionIdO
+                  .toRight[TransferProcessorError](
+                    CreatingTransactionIdNotFound(storedContract.contractId)
+                  )
+              )
+            } yield WithTransactionId(storedContract.contract, creatingTransactionId)
+        }
+
+      WithTransactionId(contract, creatingTransactionId) = contractWithTransactionId
 
       transferringParticipant = fullTree.adminParties.contains(participantId.adminParty.toLf)
 
@@ -433,8 +452,8 @@ class TransferOutProcessingSteps(
 
       _ <- TransferOutValidation(
         fullTree,
-        storedContract.contract.metadata.stakeholders,
-        storedContract.contract.rawContractInstance.contractInstance.unversioned.template,
+        contract.metadata.stakeholders,
+        contract.rawContractInstance.contractInstance.unversioned.template,
         sourceDomainProtocolVersion,
         sourceSnapshot.ipsSnapshot,
         targetTopology,
@@ -446,12 +465,6 @@ class TransferOutProcessingSteps(
         targetTopology,
         fullTree.targetTimeProof.timestamp,
         fullTree.targetDomain,
-      )
-
-      // Since the participant hosts a stakeholder, it should find the creating transaction ID in the contract store
-      creatingTransactionId <- EitherT.fromEither[FutureUnlessShutdown](
-        storedContract.creatingTransactionIdO
-          .toRight(CreatingTransactionIdNotFound(storedContract.contractId))
       )
 
       activenessResult <- EitherT.right(activenessF)
@@ -468,9 +481,9 @@ class TransferOutProcessingSteps(
         rc,
         sc,
         fullTree.tree.rootHash,
-        WithContractHash.fromContract(storedContract.contract, fullTree.contractId),
+        WithContractHash.fromContract(contract, fullTree.contractId),
         fullTree.transferCounter,
-        storedContract.contract.rawContractInstance.contractInstance.unversioned.template,
+        contract.rawContractInstance.contractInstance.unversioned.template,
         transferringParticipant,
         fullTree.submitterMetadata,
         transferId,
@@ -493,7 +506,7 @@ class TransferOutProcessingSteps(
         transferOutRequestCounter = rc,
         transferOutRequest = fullTree,
         transferOutDecisionTime = transferOutDecisionTime,
-        contract = storedContract.contract,
+        contract = contract,
         creatingTransactionId = creatingTransactionId,
         transferOutResult = None,
         transferGlobalOffset = None,
@@ -502,7 +515,7 @@ class TransferOutProcessingSteps(
         transferCoordination.addTransferOutRequest(transferData).mapK(FutureUnlessShutdown.outcomeK)
       }
       confirmingStakeholders <- EitherT.right(
-        storedContract.contract.metadata.stakeholders.toList.parTraverseFilter(stakeholder =>
+        contract.metadata.stakeholders.toList.parTraverseFilter(stakeholder =>
           FutureUnlessShutdown.outcomeF(
             sourceSnapshot.ipsSnapshot
               .canConfirm(participantId, stakeholder)
@@ -514,7 +527,7 @@ class TransferOutProcessingSteps(
         requestId,
         transferringParticipant,
         activenessResult,
-        storedContract.contractId,
+        contract.contractId,
         fullTree.transferCounter,
         confirmingStakeholders.toSet,
         fullTree.viewHash,

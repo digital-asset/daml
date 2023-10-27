@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.canton.ledger.api.domain.{
   Filters,
   InclusiveFilters,
   InterfaceFilter,
+  TemplateFilter,
   TransactionFilter,
 }
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.RenderResult
@@ -26,12 +26,12 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
 
   it should "project nothing in case of empty filters" in new Scope {
     EventProjectionProperties(noFilter, true, noInterface, false)
-      .render(Set.empty, id) shouldBe RenderResult(false, false, Set.empty)
+      .render(Set.empty, id) shouldBe RenderResult(false, false, false, Set.empty)
   }
 
   it should "project nothing in case of irrelevant filters" in new Scope {
     EventProjectionProperties(wildcardFilter, true, interfaceImpl, false)
-      .render(Set.empty, id) shouldBe RenderResult(false, false, Set.empty)
+      .render(Set.empty, id) shouldBe RenderResult(false, false, false, Set.empty)
   }
 
   it should "project contract arguments in case of match by template" in new Scope {
@@ -41,21 +41,21 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     EventProjectionProperties(transactionFilter, true, noInterface, false).render(
       Set(party),
       template1,
-    ) shouldBe RenderResult(false, true, Set.empty)
+    ) shouldBe RenderResult(false, true, false, Set.empty)
   }
 
   it should "project contract arguments in case of wildcard match" in new Scope {
     EventProjectionProperties(wildcardFilter, true, noInterface, false).render(
       Set(party),
       template1,
-    ) shouldBe RenderResult(false, true, Set.empty)
+    ) shouldBe RenderResult(false, true, false, Set.empty)
   }
 
   it should "project contract arguments in case of empty InclusiveFilters" in new Scope {
     EventProjectionProperties(emptyInclusiveFilters, true, noInterface, false).render(
       Set(party),
       template1,
-    ) shouldBe RenderResult(false, true, Set.empty)
+    ) shouldBe RenderResult(false, true, false, Set.empty)
   }
 
   it should "project contract arguments with wildcard and another filter" in new Scope {
@@ -63,7 +63,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       new TransactionFilter(
         Map(
           party -> Filters(Some(InclusiveFilters(Set.empty, Set.empty))),
-          party2 -> Filters(Some(InclusiveFilters(Set(template1), Set.empty))),
+          party2 -> Filters(Some(InclusiveFilters(Set(template1Filter), Set.empty))),
         )
       ),
       true,
@@ -72,7 +72,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     ).render(
       Set(party, party2),
       template2,
-    ) shouldBe RenderResult(false, true, Set.empty)
+    ) shouldBe RenderResult(false, true, false, Set.empty)
   }
 
   it should "do not project contract arguments with wildcard and another filter, if queried non wildcard party/template combination" in new Scope {
@@ -80,7 +80,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       new TransactionFilter(
         Map(
           party -> Filters(Some(InclusiveFilters(Set.empty, Set.empty))),
-          party2 -> Filters(Some(InclusiveFilters(Set(template1), Set.empty))),
+          party2 -> Filters(Some(InclusiveFilters(Set(template1Filter), Set.empty))),
         )
       ),
       true,
@@ -89,7 +89,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     ).render(
       Set(party2),
       template2,
-    ) shouldBe RenderResult(false, false, Set.empty)
+    ) shouldBe RenderResult(false, false, false, Set.empty)
   }
 
   it should "project contract arguments with wildcard and another filter with alwaysPopulateArguments, if queried non wildcard party/template combination" in new Scope {
@@ -97,7 +97,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       new TransactionFilter(
         Map(
           party -> Filters(Some(InclusiveFilters(Set.empty, Set.empty))),
-          party2 -> Filters(Some(InclusiveFilters(Set(template1), Set.empty))),
+          party2 -> Filters(Some(InclusiveFilters(Set(template1Filter), Set.empty))),
         )
       ),
       true,
@@ -106,7 +106,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     ).render(
       Set(party2),
       template2,
-    ) shouldBe RenderResult(false, true, Set.empty)
+    ) shouldBe RenderResult(false, true, false, Set.empty)
   }
 
   it should "project interface in case of match by interface id and witness" in new Scope {
@@ -114,13 +114,20 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       Some(
         InclusiveFilters(
           Set.empty,
-          Set(InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false)),
+          Set(
+            InterfaceFilter(
+              iface1,
+              includeView = true,
+              includeCreateArgumentsBlob = false,
+              includeCreateEventPayload = false,
+            )
+          ),
         )
       )
     )
     val transactionFilter = new TransactionFilter(Map(party -> filter))
     EventProjectionProperties(transactionFilter, true, interfaceImpl, false)
-      .render(Set(party), template1) shouldBe RenderResult(false, false, Set(iface1))
+      .render(Set(party), template1) shouldBe RenderResult(false, false, false, Set(iface1))
   }
 
   it should "project interface in case of match by interface id and witness with alwaysPopulateArguments" in new Scope {
@@ -128,13 +135,20 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       Some(
         InclusiveFilters(
           Set.empty,
-          Set(InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false)),
+          Set(
+            InterfaceFilter(
+              iface1,
+              includeView = true,
+              includeCreateArgumentsBlob = false,
+              includeCreateEventPayload = false,
+            )
+          ),
         )
       )
     )
     val transactionFilter = new TransactionFilter(Map(party -> filter))
     EventProjectionProperties(transactionFilter, true, interfaceImpl, true)
-      .render(Set(party), template1) shouldBe RenderResult(false, true, Set(iface1))
+      .render(Set(party), template1) shouldBe RenderResult(false, true, false, Set(iface1))
   }
 
   it should "not project interface in case of match by interface id and witness" in new Scope {
@@ -142,22 +156,36 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       Some(
         InclusiveFilters(
           Set.empty,
-          Set(InterfaceFilter(iface1, includeView = false, includeCreateArgumentsBlob = false)),
+          Set(
+            InterfaceFilter(
+              iface1,
+              includeView = false,
+              includeCreateArgumentsBlob = false,
+              includeCreateEventPayload = false,
+            )
+          ),
         )
       )
     )
     val transactionFilter = new TransactionFilter(Map(party -> filter))
 
     EventProjectionProperties(transactionFilter, true, interfaceImpl, false)
-      .render(Set(party), template1) shouldBe RenderResult(false, false, Set.empty)
+      .render(Set(party), template1) shouldBe RenderResult(false, false, false, Set.empty)
   }
 
   it should "project an interface and template in case of match by interface id, template and witness" in new Scope {
     val filter = Filters(
       Some(
         InclusiveFilters(
-          Set(template1),
-          Set(InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false)),
+          Set(template1Filter),
+          Set(
+            InterfaceFilter(
+              iface1,
+              includeView = true,
+              includeCreateArgumentsBlob = false,
+              includeCreateEventPayload = false,
+            )
+          ),
         )
       )
     )
@@ -167,15 +195,22 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       )
     )
     EventProjectionProperties(transactionFilter, true, interfaceImpl, false)
-      .render(Set(party), template1) shouldBe RenderResult(false, true, Set(iface1))
+      .render(Set(party), template1) shouldBe RenderResult(false, true, false, Set(iface1))
   }
 
   it should "project an interface and template in case of match by interface id, template and witness with alwaysPopulateArguments" in new Scope {
     val filter = Filters(
       Some(
         InclusiveFilters(
-          Set(template1),
-          Set(InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false)),
+          Set(template1Filter),
+          Set(
+            InterfaceFilter(
+              iface1,
+              includeView = true,
+              includeCreateArgumentsBlob = false,
+              includeCreateEventPayload = false,
+            )
+          ),
         )
       )
     )
@@ -185,7 +220,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       )
     )
     EventProjectionProperties(transactionFilter, true, interfaceImpl, true)
-      .render(Set(party), template1) shouldBe RenderResult(false, true, Set(iface1))
+      .render(Set(party), template1) shouldBe RenderResult(false, true, false, Set(iface1))
   }
 
   it should "project multiple interfaces in case of match by multiple interface ids and witness" in new Scope {
@@ -194,15 +229,25 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
         InclusiveFilters(
           Set.empty,
           Set(
-            InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false),
-            InterfaceFilter(iface2, includeView = true, includeCreateArgumentsBlob = false),
+            InterfaceFilter(
+              iface1,
+              includeView = true,
+              includeCreateArgumentsBlob = false,
+              includeCreateEventPayload = false,
+            ),
+            InterfaceFilter(
+              iface2,
+              includeView = true,
+              includeCreateArgumentsBlob = false,
+              includeCreateEventPayload = false,
+            ),
           ),
         )
       )
     )
     val transactionFilter = new TransactionFilter(Map(party -> filter))
     EventProjectionProperties(transactionFilter, true, interfaceImpl, false)
-      .render(Set(party), template1) shouldBe RenderResult(false, false, Set(iface1, iface2))
+      .render(Set(party), template1) shouldBe RenderResult(false, false, false, Set(iface1, iface2))
   }
 
   it should "deduplicate projected interfaces and include the view" in new Scope {
@@ -213,8 +258,18 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
             InclusiveFilters(
               Set.empty,
               Set(
-                InterfaceFilter(iface1, includeView = false, includeCreateArgumentsBlob = false),
-                InterfaceFilter(iface2, includeView = true, includeCreateArgumentsBlob = false),
+                InterfaceFilter(
+                  iface1,
+                  includeView = false,
+                  includeCreateArgumentsBlob = false,
+                  includeCreateEventPayload = false,
+                ),
+                InterfaceFilter(
+                  iface2,
+                  includeView = true,
+                  includeCreateArgumentsBlob = false,
+                  includeCreateEventPayload = false,
+                ),
               ),
             )
           )
@@ -224,8 +279,18 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
             InclusiveFilters(
               Set.empty,
               Set(
-                InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false),
-                InterfaceFilter(iface2, includeView = true, includeCreateArgumentsBlob = false),
+                InterfaceFilter(
+                  iface1,
+                  includeView = true,
+                  includeCreateArgumentsBlob = false,
+                  includeCreateEventPayload = false,
+                ),
+                InterfaceFilter(
+                  iface2,
+                  includeView = true,
+                  includeCreateArgumentsBlob = false,
+                  includeCreateEventPayload = false,
+                ),
               ),
             )
           )
@@ -236,46 +301,51 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       .render(Set(party, party2), template1) shouldBe RenderResult(
       false,
       false,
+      false,
       Set(iface2, iface1),
     )
   }
 
   it should "project contract arguments blob in case of match by interface" in new Scope {
     val transactionFilter = new TransactionFilter(
-      Map(party -> Filters(InclusiveFilters(Set.empty, Set(InterfaceFilter(iface1, false, true)))))
+      Map(
+        party -> Filters(
+          InclusiveFilters(Set.empty, Set(InterfaceFilter(iface1, false, true, false)))
+        )
+      )
     )
     EventProjectionProperties(transactionFilter, true, interfaceImpl, false).render(
       Set(party),
       template1,
-    ) shouldBe RenderResult(true, false, Set.empty)
+    ) shouldBe RenderResult(true, false, false, Set.empty)
   }
 
   it should "project contract arguments blob in case of match by interface and template" in new Scope {
     val transactionFilter = new TransactionFilter(
       Map(
         party -> Filters(
-          InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, false, true)))
+          InclusiveFilters(Set(template1Filter), Set(InterfaceFilter(iface1, false, true, false)))
         )
       )
     )
     EventProjectionProperties(transactionFilter, true, interfaceImpl, false).render(
       Set(party),
       template1,
-    ) shouldBe RenderResult(true, true, Set.empty)
+    ) shouldBe RenderResult(true, true, false, Set.empty)
   }
 
   it should "project contract arguments blob in case of match by interface and template with include the view" in new Scope {
     val transactionFilter = new TransactionFilter(
       Map(
         party -> Filters(
-          InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, true, true)))
+          InclusiveFilters(Set(template1Filter), Set(InterfaceFilter(iface1, true, true, false)))
         )
       )
     )
     EventProjectionProperties(transactionFilter, true, interfaceImpl, false).render(
       Set(party),
       template1,
-    ) shouldBe RenderResult(true, true, Set(iface1))
+    ) shouldBe RenderResult(true, true, false, Set(iface1))
   }
 
   it should "project contract arguments blob in case of at least a single interface requesting it" in new Scope {
@@ -285,8 +355,18 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
           InclusiveFilters(
             Set.empty,
             Set(
-              InterfaceFilter(iface1, false, includeCreateArgumentsBlob = true),
-              InterfaceFilter(iface2, false, includeCreateArgumentsBlob = false),
+              InterfaceFilter(
+                iface1,
+                false,
+                includeCreateArgumentsBlob = true,
+                includeCreateEventPayload = false,
+              ),
+              InterfaceFilter(
+                iface2,
+                false,
+                includeCreateArgumentsBlob = false,
+                includeCreateEventPayload = false,
+              ),
             ),
           )
         )
@@ -295,7 +375,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     EventProjectionProperties(transactionFilter, true, interfaceImpl, false).render(
       Set(party),
       template1,
-    ) shouldBe RenderResult(true, false, Set.empty)
+    ) shouldBe RenderResult(true, false, false, Set.empty)
   }
 
   it should "not project contract arguments blob in case of no match by interface" in new Scope {
@@ -305,7 +385,12 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
           InclusiveFilters(
             Set.empty,
             Set(
-              InterfaceFilter(iface1, false, includeCreateArgumentsBlob = true)
+              InterfaceFilter(
+                iface1,
+                false,
+                includeCreateArgumentsBlob = true,
+                includeCreateEventPayload = false,
+              )
             ),
           )
         )
@@ -314,33 +399,35 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     EventProjectionProperties(transactionFilter, true, interfaceImpl, false).render(
       Set(party),
       template2,
-    ) shouldBe RenderResult(false, false, Set.empty)
+    ) shouldBe RenderResult(false, false, false, Set.empty)
   }
 }
 
 object EventProjectionPropertiesSpec {
   trait Scope {
-    val template1 = Ref.Identifier.assertFromString("PackageName:ModuleName:template1")
-    val template2 = Ref.Identifier.assertFromString("PackageName:ModuleName:template2")
-    val id = Ref.Identifier.assertFromString("PackageName:ModuleName:id")
-    val iface1 = Ref.Identifier.assertFromString("PackageName:ModuleName:iface1")
-    val iface2 = Ref.Identifier.assertFromString("PackageName:ModuleName:iface2")
+    val template1: Identifier = Identifier.assertFromString("PackageName:ModuleName:template1")
+    val template1Filter: TemplateFilter =
+      TemplateFilter(templateId = template1, includeCreateEventPayload = false)
+    val template2: Identifier = Identifier.assertFromString("PackageName:ModuleName:template2")
+    val id: Identifier = Identifier.assertFromString("PackageName:ModuleName:id")
+    val iface1: Identifier = Identifier.assertFromString("PackageName:ModuleName:iface1")
+    val iface2: Identifier = Identifier.assertFromString("PackageName:ModuleName:iface2")
 
-    val noInterface: Identifier => Set[Ref.Identifier] = _ => Set.empty[Ref.Identifier]
-    val interfaceImpl: Identifier => Set[Ref.Identifier] = {
+    val noInterface: Identifier => Set[Identifier] = _ => Set.empty[Identifier]
+    val interfaceImpl: Identifier => Set[Identifier] = {
       case `iface1` => Set(template1)
       case `iface2` => Set(template1, template2)
       case _ => Set.empty
     }
-    val party = Ref.Party.assertFromString("party")
-    val party2 = Ref.Party.assertFromString("party2")
+    val party: Party = Party.assertFromString("party")
+    val party2: Party = Party.assertFromString("party2")
     val noFilter = new TransactionFilter(Map())
     val wildcardFilter = new TransactionFilter(Map(party -> Filters(None)))
     val emptyInclusiveFilters = new TransactionFilter(
       Map(party -> Filters(Some(InclusiveFilters(Set.empty, Set.empty))))
     )
-    def templateFilterFor(templateId: Ref.Identifier): Option[InclusiveFilters] = Some(
-      InclusiveFilters(Set(templateId), Set.empty)
+    def templateFilterFor(templateId: Identifier): Option[InclusiveFilters] = Some(
+      InclusiveFilters(Set(TemplateFilter(templateId, false)), Set.empty)
     )
   }
 }

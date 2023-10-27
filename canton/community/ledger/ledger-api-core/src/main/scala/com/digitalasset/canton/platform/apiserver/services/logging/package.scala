@@ -82,7 +82,8 @@ package object logging {
         filters.filtersByParty.view.map { case (party, partyFilters) =>
           party.toLoggingKey -> (partyFilters.inclusive match {
             case None => LoggingValue.from("all-templates")
-            case Some(inclusiveFilters) => LoggingValue.from(inclusiveFilters.templateIds)
+            case Some(inclusiveFilters) =>
+              LoggingValue.from(inclusiveFilters.templateFilters.map(_.templateId))
           })
         }.toMap
       )
