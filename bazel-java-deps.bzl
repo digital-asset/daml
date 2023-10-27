@@ -46,8 +46,8 @@ version_specific = {
 # need to be updated with careful consideration.
 
 netty_tcnative_version = "2.0.46.Final"
-netty_version = "4.1.72.Final"
-grpc_version = "1.44.0"
+netty_version = "4.1.100.Final"
+grpc_version = "1.59.0"
 protobuf_version = "3.19.6"
 akka_version = "2.6.21"
 akka_http_version = "10.2.10"
