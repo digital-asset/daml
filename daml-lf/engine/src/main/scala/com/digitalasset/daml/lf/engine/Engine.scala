@@ -323,6 +323,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       validating = validating,
       contractKeyUniqueness = config.contractKeyUniqueness,
       limits = config.limits,
+      iterationsBetweenInterruptions = config.iterationsBetweenInterruptions,
     )
     interpretLoop(machine, ledgerTime)
   }
