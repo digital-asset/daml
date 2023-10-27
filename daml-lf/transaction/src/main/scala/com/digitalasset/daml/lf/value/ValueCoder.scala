@@ -135,21 +135,11 @@ object ValueCoder {
 
     } yield Identifier(pkgId, QualifiedName(module, name))
 
-  // For backward compatibility reasons, V10 is encoded as "6" when used inside a
-  // proto.VersionedValue
   private[lf] def encodeValueVersion(version: TransactionVersion): String =
-    if (version == TransactionVersion.V10) {
-      "6"
-    } else {
-      version.protoValue
-    }
+    version.protoValue
 
   private[this] def decodeValueVersion(vs: String): Either[DecodeError, TransactionVersion] =
-    vs match {
-      case "6" => Right(TransactionVersion.V10)
-      case TransactionVersion.V10.protoValue => Left(DecodeError("Unsupported value version 10"))
-      case _ => TransactionVersion.fromString(vs).left.map(DecodeError)
-    }
+    TransactionVersion.fromString(vs).left.map(DecodeError)
 
   /** Reads a serialized protobuf versioned value,
     * checks if the value version is currently supported and
@@ -225,10 +215,12 @@ object ValueCoder {
           identity,
         )
 
+    @scala.annotation.nowarn("cat=unused")
     def assertSince(minVersion: TransactionVersion, description: => String) =
       if (version < minVersion)
         throw Err(s"$description is not supported by transaction version $version")
 
+    @scala.annotation.nowarn("cat=unused")
     def assertUntil(minVersion: TransactionVersion, description: => String) =
       if (version >= minVersion)
         throw Err(s"$description is not supported by transaction version $version")
@@ -276,28 +268,28 @@ object ValueCoder {
 
           case proto.Value.SumCase.VARIANT =>
             val variant = protoValue.getVariant
-              if (variant.getVariantId != ValueOuterClass.Identifier.getDefaultInstance)
-                throw Err("variant_id field in message Variant")
+            if (variant.getVariantId != ValueOuterClass.Identifier.getDefaultInstance)
+              throw Err("variant_id field in message Variant")
 
             ValueVariant(None, identifier(variant.getConstructor), go(newNesting, variant.getValue))
 
           case proto.Value.SumCase.ENUM =>
             val enumeration = protoValue.getEnum
             if (enumeration.getEnumId != ValueOuterClass.Identifier.getDefaultInstance)
-                throw Err("enum_id field in message Enum")
+              throw Err("enum_id field in message Enum")
 
             ValueEnum(None, identifier(enumeration.getValue))
 
           case proto.Value.SumCase.RECORD =>
             val record = protoValue.getRecord
-              if (record.getRecordId != ValueOuterClass.Identifier.getDefaultInstance)
-                throw Err("record_id field in message Record")
+            if (record.getRecordId != ValueOuterClass.Identifier.getDefaultInstance)
+              throw Err("record_id field in message Record")
             ValueRecord(
               None,
               protoValue.getRecord.getFieldsList.asScala.view
                 .map { fld =>
                   if (!fld.getLabel.isEmpty)
-                    throw Err( "label field in message RecordField")
+                    throw Err("label field in message RecordField")
                   (None, go(newNesting, fld.getValue))
                 }
                 .to(ImmArray),
@@ -382,6 +374,7 @@ object ValueCoder {
   ): Either[EncodeError, ByteString] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
+    @scala.annotation.nowarn("cat=unused")
     def assertSince(minVersion: TransactionVersion, description: => String) =
       if (valueVersion < minVersion)
         throw Err(s"$description is not supported by value version $valueVersion")
@@ -421,23 +414,23 @@ object ValueCoder {
             })
             builder.setList(listBuilder).build()
 
-          case ValueRecord(id, fields) =>
+          case ValueRecord(_, fields) =>
             val recordBuilder = proto.Record.newBuilder()
-            fields.foreach { case (fieldName, field) =>
+            fields.foreach { case (_, field) =>
               val b = proto.RecordField.newBuilder()
               discard(b.setValue(go(newNesting, field)))
               discard(recordBuilder.addFields(b))
             }
             builder.setRecord(recordBuilder).build()
 
-          case ValueVariant(id, con, arg) =>
+          case ValueVariant(_, con, arg) =>
             val protoVar = proto.Variant
               .newBuilder()
               .setConstructor(con)
               .setValue(go(newNesting, arg))
             builder.setVariant(protoVar).build()
 
-          case ValueEnum(id, value) =>
+          case ValueEnum(_, value) =>
             val protoEnum = proto.Enum
               .newBuilder()
               .setValue(value)

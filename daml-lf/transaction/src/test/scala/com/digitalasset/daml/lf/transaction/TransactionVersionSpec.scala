@@ -16,12 +16,6 @@ class TransactionVersionSpec extends AnyWordSpec with Matchers with TableDrivenP
     "be stable" in {
       val testCases = Table(
         "language version" -> "transaction version",
-        LanguageVersion.v1_6 -> TransactionVersion.V10,
-        LanguageVersion.v1_7 -> TransactionVersion.V10,
-        LanguageVersion.v1_8 -> TransactionVersion.V10,
-        LanguageVersion.v1_11 -> TransactionVersion.V11,
-        LanguageVersion.v1_12 -> TransactionVersion.V12,
-        LanguageVersion.v1_13 -> TransactionVersion.V13,
         LanguageVersion.v1_14 -> TransactionVersion.V14,
         LanguageVersion.v1_15 -> TransactionVersion.V15,
         LanguageVersion.v1_dev -> TransactionVersion.VDev,

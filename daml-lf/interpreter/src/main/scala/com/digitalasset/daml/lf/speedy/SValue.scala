@@ -38,12 +38,9 @@ sealed abstract class SValue {
 
   /** Convert a speedy-value to a value normalized according to the LF version.
     */
-  def toNormalizedValue(version: TransactionVersion): V = {
-    import Ordering.Implicits.infixOrderingOps
-    toValue(
-      normalize = true
-    )
-  }
+  @scala.annotation.nowarn("cat=unused")
+  def toNormalizedValue(version: TransactionVersion): V =
+    toValue(normalize = true)
 
   private[this] def toValue(normalize: Boolean): V = {
 

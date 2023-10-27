@@ -5,7 +5,6 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.language.LanguageVersion
-import com.daml.nameof.NameOf
 
 object Util {
 
@@ -27,7 +26,7 @@ object Util {
 
   // unsafe version of `normalize`
   @throws[IllegalArgumentException]
-  @scala.annotation.nowarn("cat=unsued")
+  @scala.annotation.nowarn("cat=unused")
   def assertNormalizeValue(
       value0: Value,
       version: TransactionVersion,
@@ -35,7 +34,7 @@ object Util {
 
     import Ordering.Implicits.infixOrderingOps
 
-    def handleTypeInfo[X](x: Option[X]) =  None
+    def handleTypeInfo[X](x: Option[X]) = None
 
     def go(value: Value): Value =
       value match {
@@ -56,7 +55,7 @@ object Util {
         case ValueTextMap(value) =>
           ValueTextMap(value.mapValue(go))
         case ValueGenMap(entries) =>
-            ValueGenMap(entries.map { case (k, v) => go(k) -> go(v) })
+          ValueGenMap(entries.map { case (k, v) => go(k) -> go(v) })
       }
 
     go(value0)

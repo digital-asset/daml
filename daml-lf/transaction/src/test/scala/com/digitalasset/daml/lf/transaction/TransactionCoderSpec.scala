@@ -36,10 +36,10 @@ class TransactionCoderSpec
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  import TransactionVersion.{V10, V11, V12, V13, V14, VDev, minExceptions}
+  import TransactionVersion.{V14, V15, VDev, minExceptions}
 
   private[this] val transactionVersions =
-    Table("transaction version", V10, V11, V12, V13, V14, VDev)
+    Table("transaction version", TransactionVersion.All: _*)
 
   "encode-decode" should {
 
@@ -257,41 +257,6 @@ class TransactionCoderSpec
 
   "encodeVersionedNode" should {
 
-    "fail iff try to encode choice observers in version < 11" in {
-
-      // This test-code is a terrible way to test this property!
-      // Future changes to .proto have to consider if this test needs updating.
-      // Or else this might fail, but only in a very flaky way.
-      // TODO: improve this. Or kill this test.
-
-      forAll(danglingRefExerciseNodeGen, minSuccessful(10)) { node =>
-        val shouldFail = node.choiceObservers.nonEmpty
-
-        val normalized = normalizeNode(node) match {
-          case exe: Node.Exercise =>
-            exe.copy(
-              choiceObservers = node.choiceObservers,
-              exerciseResult = Some(Value.ValueText("not-missing")),
-              choiceAuthorizers = None,
-            )
-          case otherwise => otherwise
-        }
-
-        forEvery(transactionVersions) { txVersion =>
-          val result = TransactionCoder
-            .encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              txVersion,
-              NodeId(0),
-              updateVersion(normalized, V10),
-            )
-
-          result.isLeft shouldBe shouldFail
-        }
-      }
-    }
-
     "fail if try encode rollback node in version < minExceptions" in {
       forAll(danglingRefRollbackNodeGen) { node =>
         forEvery(transactionVersions) { txVersion =>
@@ -355,8 +320,8 @@ class TransactionCoderSpec
 
     "fail if try to encode a create node containing value with version different from node" in {
       forAll(
-        transactionVersionGen(maxVersion = Some(V11)),
-        transactionVersionGen(maxVersion = Some(V12)),
+        transactionVersionGen(maxVersion = Some(V15)),
+        transactionVersionGen(maxVersion = Some(VDev)),
         minSuccessful(5),
       ) { (nodeVersion, version) =>
         whenever(nodeVersion != version) {
@@ -472,12 +437,10 @@ class TransactionCoderSpec
 
   "decodeNodeVersion" should {
 
-    val postV10Versions = TransactionVersion.All.filter(_ > V10)
-
     "succeed as expected when the node is encoded with a version older than the transaction version" in {
 
       val gen = for {
-        ver <- versionInIncreasingOrder(postV10Versions)
+        ver <- versionInIncreasingOrder(TransactionVersion.All)
         (nodeVersion, txVersion) = ver
         node <- danglingRefGenActionNodeWithVersion(nodeVersion)
       } yield (ver, node)
@@ -502,7 +465,7 @@ class TransactionCoderSpec
 
       forAll(
         danglingRefGenActionNode,
-        versionInStrictIncreasingOrder(postV10Versions),
+        versionInStrictIncreasingOrder(TransactionVersion.All),
         minSuccessful(5),
       ) { case ((nodeId, node), (v1, v2)) =>
         val normalizedNode = normalizeNode(updateVersion(node, v2))
@@ -517,48 +480,6 @@ class TransactionCoderSpec
           )
 
         TransactionCoder.decodeNodeVersion(v1, encoded) shouldBe a[Left[_, _]]
-      }
-    }
-
-    "return V10 when the node does not have a version set" in {
-      // Excluding rollback nodes since they are not available in V10
-      forAll(danglingRefGenActionNode, minSuccessful(5)) { case (nodeId, node) =>
-        val normalizedNode = normalizeNode(updateVersion(node, V10))
-
-        val Right(encoded) = TransactionCoder
-          .encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            V10,
-            nodeId,
-            normalizedNode,
-          )
-
-        assert(encoded.getVersion.isEmpty)
-        TransactionCoder.decodeNodeVersion(V10, encoded) shouldBe Right(V10)
-      }
-    }
-
-    "ignore node version field when transaction version = 10" in {
-      // Excluding rollback nodes since they are not available in V10
-      forAll(danglingRefGenActionNode, Gen.asciiStr, minSuccessful(5)) {
-        case ((nodeId, node), str) =>
-          val nonEmptyString = if (str.isEmpty) V10.protoValue else str
-
-          val normalizedNode = normalizeNode(updateVersion(node, V10))
-
-          val Right(encoded) = TransactionCoder
-            .encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              V10,
-              nodeId,
-              normalizedNode,
-            )
-
-          encoded.newBuilderForType().setVersion(nonEmptyString)
-
-          TransactionCoder.decodeNodeVersion(V10, encoded) shouldBe Right(V10)
       }
     }
 
@@ -857,38 +778,10 @@ class TransactionCoderSpec
 
   "decodeVersionedNode" should {
 
-    """ignore field version if enclosing Transaction message is of version 10""" in {
-      // Excluding rollback nodes since they are not available in V10
-      forAll(danglingRefGenActionNode, Gen.asciiStr, minSuccessful(10)) {
-        case ((nodeId, node), str) =>
-          val normalizedNode = normalizeNode(updateVersion(node, V10))
-
-          val Right(encoded) = for {
-            encoded <- TransactionCoder
-              .encodeNode(
-                TransactionCoder.NidEncoder,
-                ValueCoder.CidEncoder,
-                V10,
-                nodeId,
-                normalizedNode,
-              )
-          } yield encoded.toBuilder.setVersion(str).build()
-
-          TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            V10,
-            encoded,
-          ) shouldBe Right(nodeId -> normalizedNode)
-      }
-    }
-
     "fail if try to decode a node in a version newer than the enclosing Transaction message version" in {
 
-      val postV10versions = TransactionVersion.All.filter(_ > V10)
-
       val gen = for {
-        ver <- versionInStrictIncreasingOrder(postV10versions)
+        ver <- versionInStrictIncreasingOrder(TransactionVersion.All)
         (txVersion, nodeVersion) = ver
         node <- danglingRefGenActionNodeWithVersion(nodeVersion)
       } yield (ver, node)
@@ -968,43 +861,6 @@ class TransactionCoderSpec
               encodedNode,
             )
         result.isLeft shouldBe (v1 < minExceptions)
-      }
-    }
-
-    "ignore field observers in version < 11" in {
-
-      forAll(
-        Arbitrary.arbInt.arbitrary,
-        danglingRefExerciseNodeGen,
-        Gen.listOf(Gen.asciiStr),
-        minSuccessful(50),
-      ) { (nodeIdx, node, strings) =>
-        val nodeId = NodeId(nodeIdx)
-        val normalizedNode = normalizeExe(node.updateVersion(V10))
-
-        forEvery(transactionVersions) { txVersion =>
-          val Right(encoded) =
-            for {
-              encoded <- TransactionCoder
-                .encodeNode(
-                  TransactionCoder.NidEncoder,
-                  ValueCoder.CidEncoder,
-                  txVersion,
-                  nodeId,
-                  normalizedNode,
-                )
-            } yield encoded.toBuilder
-              .setExercise(encoded.getExercise.toBuilder.addAllObservers(strings.asJava).build)
-              .build()
-
-          val result = TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            txVersion,
-            encoded,
-          )
-          result shouldBe Right(nodeId -> normalizedNode)
-        }
       }
     }
 

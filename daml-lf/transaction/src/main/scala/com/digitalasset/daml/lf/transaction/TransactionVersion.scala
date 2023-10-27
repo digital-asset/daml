@@ -16,15 +16,11 @@ sealed abstract class TransactionVersion private (
   */
 object TransactionVersion {
 
-  case object V10 extends TransactionVersion("10", 10)
-  case object V11 extends TransactionVersion("11", 11)
-  case object V12 extends TransactionVersion("12", 12)
-  case object V13 extends TransactionVersion("13", 13)
   case object V14 extends TransactionVersion("14", 14)
   case object V15 extends TransactionVersion("15", 15)
   case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
-  val All = List(V10, V11, V12, V13, V14, V15, VDev)
+  val All = List(V14, V15, VDev)
 
   implicit val Ordering: scala.Ordering[TransactionVersion] =
     scala.Ordering.by(_.index)
@@ -48,7 +44,6 @@ object TransactionVersion {
   val minVersion: TransactionVersion = All.min
   def maxVersion: TransactionVersion = VDev
 
-  // nothing was added in V13, so there are no vals: "minSomething = V13"
   private[lf] val minExceptions = V14
   private[lf] val minByKey = V14
   private[lf] val minInterfaces = V15
@@ -59,12 +54,12 @@ object TransactionVersion {
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
     import LanguageVersion._
     Map(
-      v1_6 -> V10,
-      v1_7 -> V10,
-      v1_8 -> V10,
-      v1_11 -> V11,
-      v1_12 -> V12,
-      v1_13 -> V13,
+      v1_6 -> V14,
+      v1_7 -> V14,
+      v1_8 -> V14,
+      v1_11 -> V14,
+      v1_12 -> V14,
+      v1_13 -> V14,
       v1_14 -> V14,
       v1_15 -> V15,
       v1_dev -> VDev,
