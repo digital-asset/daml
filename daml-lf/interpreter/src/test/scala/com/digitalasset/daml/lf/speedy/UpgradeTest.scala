@@ -26,7 +26,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import java.util
 
 class UpgradeTestV1 extends UpgradeTest(LanguageMajorVersion.V1)
-// class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
+class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
 
 class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec
@@ -117,32 +117,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     (pkgId, pkg)
   }
 
-  private lazy val (pkgId4, pkg4) = {
-    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-pkg4-")
-    val pkg =
-      p"""
-      module M {
-
-        record @serializable T = { one: Party, two: Party };
-        template (this: T) = {
-          precondition True;
-          signatories Cons @Party [M:T {two} this] Nil @Party; // Like M but with diff signatories
-          observers Nil @Party;
-          agreement "Agreement";
-        };
-
-        val do_fetch: ContractId M:T -> Update M:T =
-          \(cId: ContractId M:T) ->
-            fetch_template @M:T cId;
-
-      }
-   """
-    (pkgId, pkg)
-  }
-
   private lazy val pkgs =
     PureCompiledPackages.assertBuild(
-      Map(pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3, pkgId4 -> pkg4),
+      Map(pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3),
       Compiler.Config.Dev(majorLanguageVersion).copy(enableContractUpgrading = true),
     )
 
