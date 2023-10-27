@@ -18,6 +18,7 @@ import com.daml.ledger.api.v1.commands.{
   DisclosedContract,
   ExerciseByKeyCommand,
 }
+import com.daml.ledger.api.v1.contract_metadata.ContractMetadata
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
@@ -35,8 +36,6 @@ import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
-// Allows using deprecated Protobuf fields in tests
-@annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
 final class ExplicitDisclosureIT extends LedgerTestSuite {
   import ExplicitDisclosureIT._
 
@@ -418,63 +417,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       }
   })
 
-  // TODO ED: Extract this assertion in generic stream/ACS tests once the feature is deemed stable
   test(
-    "EDContractDriverMetadata",
-    "The contract driver metadata is present and consistent across all endpoints",
-    allocate(SingleParty),
-    enabled = _.explicitDisclosure,
-  )(implicit ec => { case Participants(Participant(ledger, owner)) =>
-    for {
-      // Create Dummy contract
-      _ <- ledger.create(owner, Dummy(owner))
-
-      // Fetch the create across possible endpoints
-      acs <- ledger.activeContracts(owner)
-
-      flatTxs <- ledger.flatTransactions(owner)
-      flatTx = assertSingleton("Only one flat transaction expected", flatTxs)
-      flatTxById <- ledger.flatTransactionById(flatTx.transactionId, owner)
-
-      txTrees <- ledger.transactionTrees(owner)
-      txTree = assertSingleton("Only one flat transaction expected", txTrees)
-      txTreeById <- ledger.transactionTreeById(txTree.transactionId, owner)
-
-      // Extract the created event from results
-      acsCreatedEvent = assertSingleton("Only one ACS created event expected", acs)
-      flatTxCreatedEvent = assertSingleton(
-        context = "Only one flat transaction create event expected",
-        as = createdEvents(flatTx),
-      )
-      flatTxByIdCreatedEvent = assertSingleton(
-        context = "Only one flat transaction by id create event expected",
-        as = createdEvents(flatTxById),
-      )
-      txTreeCreatedEvent = assertSingleton(
-        context = "Only one transaction tree create event expected",
-        as = createdEvents(txTree),
-      )
-      txTreeByIdCreatedEvent = assertSingleton(
-        context = "Only one transaction tree by id create event expected",
-        as = createdEvents(txTreeById),
-      )
-    } yield {
-      def assertDriverMetadata(createdEvent: CreatedEvent): ByteString =
-        createdEvent.metadata.getOrElse(fail("Missing metadata")).driverMetadata
-
-      val acsCreateDriverMetadata = assertDriverMetadata(acsCreatedEvent)
-      assert(!acsCreateDriverMetadata.isEmpty)
-
-      assertEquals(acsCreateDriverMetadata, assertDriverMetadata(flatTxCreatedEvent))
-      assertEquals(acsCreateDriverMetadata, assertDriverMetadata(flatTxByIdCreatedEvent))
-      assertEquals(acsCreateDriverMetadata, assertDriverMetadata(txTreeCreatedEvent))
-      assertEquals(acsCreateDriverMetadata, assertDriverMetadata(txTreeByIdCreatedEvent))
-    }
-  })
-
-  test(
-    "EDIncorrectDriverMetadata",
-    "Submission is rejected on invalid contract driver metadata",
+    "EDRejectOnPayloadAndBlobSet",
+    "Submission is rejected when both the deprecated blob and create_event_payload are set",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -494,14 +439,20 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         // Ensure participants are synchronized
         _ <- synchronize(ownerParticipant, delegateParticipant)
 
-        _ <- testContext
+        failure <- testContext
           .exerciseFetchDelegated(
-            testContext.disclosedContract
-              .update(_.metadata.driverMetadata.set(ByteString.copyFromUtf8("00aabbcc")))
+            testContext.disclosedContract.copy(metadata = Some(ContractMetadata()))
           )
           .mustFail("Submitter forwarded a contract with invalid driver metadata")
       } yield {
-        // TODO ED: Assert specific error codes once Canton error codes can be accessible from these suites
+        assertGrpcError(
+          failure,
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+          Some(
+            "The submitted command has invalid arguments: DisclosedContract.arguments or DisclosedContract.metadata cannot be set together with DisclosedContract.create_event_payload"
+          ),
+          checkDefiniteAnswerMetadata = true,
+        )
       }
   })
 
