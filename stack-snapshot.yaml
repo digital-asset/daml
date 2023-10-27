@@ -5,6 +5,7 @@ resolver: nightly-2022-01-26
 packages:
   - aeson-2.0.3.0
   - bytestring-nums-0.3.6
+  - entropy-0.4.1.10
   - ghc-lib-parser-ex-8.8.5.8
   - github: awakesecurity/gRPC-haskell
     commit: "0cb7999e9e89d0c17c5e1d917e97cc6e450b9346"
