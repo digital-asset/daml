@@ -468,52 +468,6 @@ class TransactionCoderSpec
       }
     }
 
-    "fail if try to encode a exercise node containing value with version different from node" in {
-
-      forAll(
-        danglingRefExerciseNodeGen,
-        transactionVersionGen(maxVersion = Some(TransactionVersion.minNoVersionValue)),
-        minSuccessful(5),
-      ) { (exeNode, version) =>
-        whenever(exeNode.version != version) {
-          val nodeVersion = exeNode.version
-          val encodeVersion = ValueCoder.encodeValueVersion(version)
-          val Right(encodedNode) = TransactionCoder.encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            nodeVersion,
-            NodeId(0),
-            normalizeExe(exeNode),
-          )
-          val encodedExe = encodedNode.getExercise
-          var cases = List(
-            encodedExe.toBuilder
-              .setArgVersioned(changeVersion(encodedExe.getArgVersioned, encodeVersion))
-              .build(),
-            encodedExe.toBuilder
-              .setResultVersioned(changeVersion(encodedExe.getResultVersioned, encodeVersion))
-              .build(),
-          )
-          if (encodedExe.hasKeyWithMaintainers)
-            cases = encodedExe.toBuilder
-              .setKeyWithMaintainers(
-                encodedExe.getKeyWithMaintainers.toBuilder.setKeyVersioned(
-                  changeVersion(encodedExe.getKeyWithMaintainers.getKeyVersioned, encodeVersion)
-                )
-              )
-              .build() :: cases
-          cases.foreach(node =>
-            TransactionCoder.decodeVersionedNode(
-              TransactionCoder.NidDecoder,
-              ValueCoder.CidDecoder,
-              nodeVersion,
-              encodedNode.toBuilder.setExercise(node).build(),
-            ) shouldBe a[Left[_, _]]
-          )
-        }
-      }
-    }
-
   }
 
   "decodeNodeVersion" should {
