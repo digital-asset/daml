@@ -27,6 +27,7 @@ object Util {
 
   // unsafe version of `normalize`
   @throws[IllegalArgumentException]
+  @scala.annotation.nowarn("cat=unsued")
   def assertNormalizeValue(
       value0: Value,
       version: TransactionVersion,
@@ -34,14 +35,7 @@ object Util {
 
     import Ordering.Implicits.infixOrderingOps
 
-    val eraseType = version >= TransactionVersion.minTypeErasure
-
-    def handleTypeInfo[X](x: Option[X]) =
-      if (eraseType) {
-        None
-      } else {
-        x
-      }
+    def handleTypeInfo[X](x: Option[X]) =  None
 
     def go(value: Value): Value =
       value match {

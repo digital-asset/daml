@@ -41,7 +41,7 @@ sealed abstract class SValue {
   def toNormalizedValue(version: TransactionVersion): V = {
     import Ordering.Implicits.infixOrderingOps
     toValue(
-      normalize = version >= TransactionVersion.minTypeErasure
+      normalize = true
     )
   }
 

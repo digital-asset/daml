@@ -208,7 +208,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
           signatories = Set("Alice"),
           observers = Set("Alice"),
           key = CreateKey.SignatoryMaintainerKey(key),
-          version = CreateTransactionVersion.Version(TransactionVersion.minTypeErasure),
+          version = CreateTransactionVersion.Version(TransactionVersion.minVersion),
         )
       txBuilder.toCommittedTransaction(
         create,
