@@ -10,7 +10,7 @@ module DA.Daml.Project.Config
     , readProjectConfig
     , readDamlConfig
     , readMultiPackageConfig
-    , sdkVersionFromProjectConfig
+    , releaseVersionFromProjectConfig
     , sdkVersionFromSdkConfig
     , listSdkCommands
     , queryDamlConfig
@@ -64,8 +64,8 @@ readConfig name path = do
     fromRightM (throwIO . ConfigFileInvalid name) configE
 
 -- | Determine pinned sdk version from project config, if it exists.
-sdkVersionFromProjectConfig :: ProjectConfig -> Either ConfigError (Maybe SdkVersion)
-sdkVersionFromProjectConfig = queryProjectConfig ["sdk-version"]
+releaseVersionFromProjectConfig :: ProjectConfig -> Either ConfigError (Maybe UnresolvedReleaseVersion)
+releaseVersionFromProjectConfig = queryProjectConfig ["sdk-version"]
 
 -- | Determine sdk version from sdk config, if it exists.
 sdkVersionFromSdkConfig :: SdkConfig -> Either ConfigError SdkVersion

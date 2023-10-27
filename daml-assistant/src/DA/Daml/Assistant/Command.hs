@@ -123,11 +123,11 @@ installParser = InstallOptions
     where
         iflag p name opts desc = fmap p (switch (long name <> help desc <> opts))
 
-uninstallParser :: Parser SdkVersion
+uninstallParser :: Parser UnresolvedReleaseVersion
 uninstallParser =
     argument readSdkVersion (metavar "VERSION" <> help "The SDK version to uninstall.")
 
-readSdkVersion :: ReadM SdkVersion
+readSdkVersion :: ReadM UnresolvedReleaseVersion
 readSdkVersion =
     eitherReader (mapLeft displayException . parseVersion . pack)
 

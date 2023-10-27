@@ -16,6 +16,8 @@ da_haskell_library(
         "directory",
         "extra",
         "filepath",
+        "http-conduit",
+        "http-types",
         "lens",
         "safe-exceptions",
         "semver",

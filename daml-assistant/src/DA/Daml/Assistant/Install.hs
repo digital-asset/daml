@@ -6,19 +6,18 @@
 module DA.Daml.Assistant.Install
     ( InstallOptions (..)
     , InstallEnv (..)
-    , Artifactory.ArtifactoryApiKey(..)
+    , ReleaseResolution.ArtifactoryApiKey(..)
     , versionInstall
     , install
     , uninstallVersion
-    , Artifactory.queryArtifactoryApiKey
+    , ReleaseResolution.queryArtifactoryApiKey
     , pattern RawInstallTarget_Project
     ) where
 
 import DA.Directory
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
-import qualified DA.Daml.Assistant.Install.Artifactory as Artifactory
-import qualified DA.Daml.Assistant.Install.Github as Github
+import qualified DA.Daml.Project.ReleaseResolution as ReleaseResolution
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
 import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion, UseCache (..))
@@ -71,7 +70,7 @@ import System.PosixCompat.Files
 data InstallEnv = InstallEnv
     { options :: InstallOptions
         -- ^ command-line options to daml install
-    , targetVersionM :: Maybe SdkVersion
+    , targetVersionM :: Maybe ReleaseVersion
         -- ^ target install version
     , assistantVersion :: Maybe DamlAssistantSdkVersion
         -- ^ version of running daml assistant
@@ -86,7 +85,7 @@ data InstallEnv = InstallEnv
         -- (e.g. when running install script).
     , projectPathM :: Maybe ProjectPath
         -- ^ project path (for "daml install project")
-    , artifactoryApiKeyM :: Maybe Artifactory.ArtifactoryApiKey
+    , artifactoryApiKeyM :: Maybe ReleaseResolution.ArtifactoryApiKey
         -- ^ Artifactoyr API key used to fetch SDK EE tarball.
     , output :: String -> IO ()
         -- ^ output an informative message
@@ -119,7 +118,9 @@ installExtracted :: InstallEnv -> SdkPath -> IO ()
 installExtracted env@InstallEnv{..} sourcePath =
     wrapErr "Installing extracted SDK release." $ do
         sourceConfig <- readSdkConfig sourcePath
-        sourceVersion <- fromRightM throwIO (sdkVersionFromSdkConfig sourceConfig)
+        sourceSdkVersion <- fromRightM throwIO (sdkVersionFromSdkConfig sourceConfig)
+        -- TODO: resolve sourceSdkVersion correctly
+        sourceVersion <- ReleaseResolution.resolveSdkVersionToRelease sourceSdkVersion
 
         -- Check that source version matches expected target version.
         whenJust targetVersionM $ \targetVersion -> do
@@ -310,28 +311,28 @@ extractAndInstall env source =
     where throwError msg e = liftIO $ throwIO $ assistantErrorBecause ("Invalid SDK release: " <> msg) e
 
 -- | Download an sdk tarball and install it.
-httpInstall :: InstallEnv -> SdkVersion -> IO ()
+httpInstall :: InstallEnv -> ReleaseVersion -> IO ()
 httpInstall env@InstallEnv{..} releaseVersion = do
     unlessQuiet env $ output "Downloading SDK release."
     requiredAny "Failed to download SDK release." $ do
-        sdkVersion <- Github.getSdkVersionFromEnterpriseVersion releaseVersion
-        downloadLocation $ getLocation sdkVersion
+        downloadLocation $ getLocation releaseVersion
     where
-        getLocation :: SdkVersion -> InstallLocation
-        getLocation sdkVersion = case artifactoryApiKeyM of
-            Nothing -> Github.versionLocation releaseVersion sdkVersion
+        getLocation :: ReleaseVersion -> InstallLocation
+        getLocation releaseVersion = case artifactoryApiKeyM of
+            Nothing -> ReleaseResolution.githubVersionLocation releaseVersion
             Just apiKey
-              | releaseVersion >= firstEEVersion -> Artifactory.versionLocation sdkVersion apiKey
-              | otherwise -> Github.versionLocation releaseVersion sdkVersion
+                -- TODO: Define ordering over release versions
+              | releaseVersion >= firstEEVersion -> ReleaseResolution.artifactoryVersionLocation releaseVersion apiKey
+              | otherwise -> ReleaseResolution.githubVersionLocation releaseVersion
         !firstEEVersion =
             let verStr = "1.12.0-snapshot.20210312.6498.0.707c86aa"
-            in SdkVersion (either error id (SemVer.fromText verStr))
+            in OldReleaseVersion (either error id (SemVer.fromText verStr))
         downloadLocation :: InstallLocation -> IO ()
         downloadLocation (InstallLocation url headers) = do
             request <- requiredAny "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)
             withResponse (setRequestHeaders headers request) $ \response -> do
                 when (getResponseStatusCode response /= 200) $
-                    throwIO . assistantErrorBecause "Failed to download release."
+                    throwIO . assistantErrorBecause ("Failed to download release from " <> url <> ".")
                             . pack . show $ getResponseStatus response
                 let totalSizeM = readMay . BS.UTF8.toString =<< headMay (getResponseHeader "Content-Length" response)
                 extractAndInstall env
@@ -385,7 +386,7 @@ pathInstall env@InstallEnv{..} sourcePath = withInstallLock env $ do
 -- This function takes the install file lock, so it can't be performed
 -- concurrently with a pathInstall or another versionInstall, blocking
 -- until the other process is finished.
-versionInstall :: InstallEnv -> SdkVersion -> IO ()
+versionInstall :: InstallEnv -> ReleaseVersion -> IO ()
 versionInstall env@InstallEnv{..} version = withInstallLock env $ do
 
     let SdkPath path = defaultSdkPath damlPath version
@@ -428,18 +429,20 @@ latestInstall env@InstallEnv{..} = do
         then tryAssistantM $ getLatestSdkSnapshotVersion useCache
         else pure Nothing
     let version = maybe version1 (max version1) version2M
-    versionInstall env version
+    resolvedVersion <- ReleaseResolution.resolveReleaseVersion version
+    versionInstall env resolvedVersion
 
 -- | Install the SDK version of the current project.
 projectInstall :: InstallEnv -> ProjectPath -> IO ()
 projectInstall env projectPath = do
     projectConfig <- readProjectConfig projectPath
-    versionM <- fromRightM throwIO $ sdkVersionFromProjectConfig projectConfig
-    version <- required "SDK version missing from project config (daml.yaml)." versionM
+    unresolvedVersionM <- fromRightM throwIO $ releaseVersionFromProjectConfig projectConfig
+    unresolvedVersion <- required "SDK version missing from project config (daml.yaml)." unresolvedVersionM
+    version <- ReleaseResolution.resolveReleaseVersion unresolvedVersion
     versionInstall env version
 
 -- | Determine whether the assistant should be installed.
-shouldInstallAssistant :: InstallEnv -> SdkVersion -> Bool
+shouldInstallAssistant :: InstallEnv -> ReleaseVersion -> Bool
 shouldInstallAssistant InstallEnv{..} versionToInstall =
     let isNewer = maybe True ((< versionToInstall) . unwrapDamlAssistantSdkVersion) assistantVersion
     in unActivateInstall (iActivate options)
@@ -468,7 +471,7 @@ install options damlPath useCache projectPathM assistantVersion = do
             isPrefixOf (unwrapDamlPath damlPath </> "") execPath
         targetVersionM = Nothing -- determined later
         output = putStrLn -- Output install messages to stdout.
-        artifactoryApiKeyM = Artifactory.queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
+        artifactoryApiKeyM = ReleaseResolution.queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
         env = InstallEnv {..}
     case iTargetM options of
         Nothing -> do
@@ -491,8 +494,9 @@ install options damlPath useCache projectPathM assistantVersion = do
         Just RawInstallTarget_Latest ->
             latestInstall env
 
-        Just (RawInstallTarget arg) | Right version <- parseVersion (pack arg) ->
-            versionInstall env version
+        Just (RawInstallTarget arg) | Right version <- parseVersion (pack arg) -> do
+            releaseVersion <- ReleaseResolution.resolveReleaseVersion version
+            versionInstall env releaseVersion
 
         Just (RawInstallTarget arg) -> do
             testD <- doesDirectoryExist arg
@@ -503,13 +507,13 @@ install options damlPath useCache projectPathM assistantVersion = do
                 throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'project' or 'latest'." ("target = " <> pack arg))
 
 -- | Uninstall a specific SDK version.
-uninstallVersion :: Env -> SdkVersion -> IO ()
-uninstallVersion Env{..} sdkVersion = wrapErr "Uninstalling SDK version." $ do
-    let (SdkPath path) = defaultSdkPath envDamlPath sdkVersion
+uninstallVersion :: Env -> ReleaseVersion -> IO ()
+uninstallVersion Env{..} releaseVersion = wrapErr "Uninstalling SDK version." $ do
+    let (SdkPath path) = defaultSdkPath envDamlPath releaseVersion
 
     exists <- doesDirectoryExist path
     if exists then do
-        when (Just (DamlAssistantSdkVersion sdkVersion) == envDamlAssistantSdkVersion) $ do
+        when (Just (DamlAssistantSdkVersion releaseVersion) == envDamlAssistantSdkVersion) $ do
             hPutStr stderr . unlines $
                 [ "Cannot uninstall SDK version of current daml assistant."
                 , "Please switch to a different version of daml assistant and try again."
@@ -525,7 +529,7 @@ uninstallVersion Env{..} sdkVersion = wrapErr "Uninstalling SDK version." $ do
         requiredIO "Failed to remove SDK files." $ do
             removePathForcibly path
 
-        putStrLn ("SDK version " <> versionToString sdkVersion <> " has been uninstalled.")
+        putStrLn ("SDK version " <> versionToString releaseVersion <> " has been uninstalled.")
 
     else do
-        putStrLn ("SDK version " <> versionToString sdkVersion <> " is not installed.")
+        putStrLn ("SDK version " <> versionToString releaseVersion <> " is not installed.")

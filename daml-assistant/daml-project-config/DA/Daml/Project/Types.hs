@@ -10,11 +10,12 @@ import qualified Data.Yaml as Y
 import qualified Data.Text as T
 import qualified Data.SemVer as V
 import qualified Control.Lens as L
-import Data.Text (Text)
+import Data.Text (Text, pack, unpack)
 import Data.Maybe
 import System.FilePath
 import Control.Monad
 import Control.Exception.Safe
+import Network.HTTP.Types.Header (RequestHeaders)
 
 data ConfigError
     = ConfigFileInvalid Text Y.ParseException
@@ -48,13 +49,38 @@ newtype MultiPackageConfig = MultiPackageConfig
     { unwrapMultiPackageConfig :: Y.Value
     } deriving (Eq, Show, Y.FromJSON)
 
+newtype UnresolvedReleaseVersion = UnresolvedReleaseVersion
+    { unwrapUnresolvedReleaseVersion :: V.Version
+    } deriving (Eq, Ord, Show)
+
+data ReleaseVersion
+  = SplitReleaseVersion
+      { releaseVersion :: V.Version
+      , releaseSdkVersion :: V.Version
+      }
+  | OldReleaseVersion
+      { bothVersion :: V.Version
+      }
+  deriving (Eq, Ord, Show)
+
+sdkVersionFromReleaseVersion :: ReleaseVersion -> V.Version
+sdkVersionFromReleaseVersion (SplitReleaseVersion _ sdkVersion) = sdkVersion
+sdkVersionFromReleaseVersion (OldReleaseVersion bothVersion) = bothVersion
+
 newtype SdkVersion = SdkVersion
     { unwrapSdkVersion :: V.Version
     } deriving (Eq, Ord, Show)
 
 newtype DamlAssistantSdkVersion = DamlAssistantSdkVersion
-    { unwrapDamlAssistantSdkVersion :: SdkVersion
+    { unwrapDamlAssistantSdkVersion :: ReleaseVersion
     } deriving (Eq, Ord, Show)
+
+instance Y.FromJSON UnresolvedReleaseVersion where
+    parseJSON y = do
+        verE <- V.fromText <$> Y.parseJSON y
+        case verE of
+            Left e -> fail ("Invalid release version: " <> e)
+            Right v -> pure (UnresolvedReleaseVersion v)
 
 instance Y.FromJSON SdkVersion where
     parseJSON y = do
@@ -63,13 +89,18 @@ instance Y.FromJSON SdkVersion where
             Left e -> fail ("Invalid SDK version: " <> e)
             Right v -> pure (SdkVersion v)
 
-versionToString :: SdkVersion -> String
-versionToString = V.toString . unwrapSdkVersion
+versionToString :: ReleaseVersion -> String
+versionToString (OldReleaseVersion bothVersion) = V.toString bothVersion
+versionToString (SplitReleaseVersion releaseVersion _) = V.toString releaseVersion
 
-versionToText :: SdkVersion -> Text
-versionToText = V.toText . unwrapSdkVersion
+versionToText :: ReleaseVersion -> Text
+versionToText (OldReleaseVersion bothVersion) = V.toText bothVersion
+versionToText (SplitReleaseVersion releaseVersion _) = V.toText releaseVersion
 
-isHeadVersion :: SdkVersion -> Bool
+sdkVersionToText :: SdkVersion -> Text
+sdkVersionToText = V.toText . unwrapSdkVersion
+
+isHeadVersion :: ReleaseVersion -> Bool
 isHeadVersion v = "0.0.0" == versionToString v
 
 data InvalidVersion = InvalidVersion
@@ -81,11 +112,17 @@ instance Exception InvalidVersion where
     displayException (InvalidVersion bad msg) =
         "Invalid SDK version  " <> show bad <> ": " <> msg
 
-parseVersion :: Text -> Either InvalidVersion SdkVersion
-parseVersion src =
+parseVersion :: Text -> Either InvalidVersion UnresolvedReleaseVersion
+parseVersion = parseUnresolvedVersion
+
+parseUnresolvedVersion :: Text -> Either InvalidVersion UnresolvedReleaseVersion
+parseUnresolvedVersion src =
     case V.fromText src of
         Left msg -> Left (InvalidVersion src msg)
-        Right v -> Right (SdkVersion v)
+        Right v -> Right (UnresolvedReleaseVersion v)
+
+unresolvedVersionToString :: UnresolvedReleaseVersion -> String
+unresolvedVersionToString (UnresolvedReleaseVersion unresolvedReleaseVersion) = V.toString unresolvedReleaseVersion
 
 -- | File path of daml installation root (by default ~/.daml on unix, %APPDATA%/daml on windows).
 newtype DamlPath = DamlPath
@@ -113,8 +150,10 @@ newtype SdkPath = SdkPath
     } deriving (Eq, Show)
 
 -- | Default way of constructing sdk paths.
-defaultSdkPath :: DamlPath -> SdkVersion -> SdkPath
-defaultSdkPath (DamlPath root) (SdkVersion v) =
+defaultSdkPath :: DamlPath -> ReleaseVersion -> SdkPath
+defaultSdkPath (DamlPath root) (OldReleaseVersion v) =
+    SdkPath (root </> "sdk" </> V.toString (L.set V.metadata [] v))
+defaultSdkPath (DamlPath root) (SplitReleaseVersion v _) =
     SdkPath (root </> "sdk" </> V.toString (L.set V.metadata [] v))
 
 -- | File path of sdk command binary, relative to sdk root.
@@ -173,3 +212,43 @@ instance Y.FromJSON (SdkPath -> EnrichedCompletion -> SdkCommandInfo) where
           desc
           (if completion then Forward enriched else NoForward)
           sdkPath
+
+-- | An install locations is a pair of fully qualified HTTP[S] URL to an SDK release tarball and headers
+-- required to access that URL. For example:
+-- "https://github.com/digital-asset/daml/releases/download/v0.11.1/daml-sdk-0.11.1-macos.tar.gz"
+data InstallLocation = InstallLocation
+    { ilUrl :: Text
+    , ilHeaders :: RequestHeaders
+    } deriving (Eq, Show)
+
+data AssistantError = AssistantError
+    { errContext  :: Maybe Text -- ^ Context in which error occurs.
+    , errMessage  :: Maybe Text -- ^ User-friendly error message.
+    , errInternal :: Maybe Text -- ^ Internal error message, i.e. what actually happened.
+    } deriving (Eq, Show)
+
+instance Exception AssistantError where
+    displayException AssistantError {..} = unpack . T.unlines . catMaybes $
+        [ Just ("daml: " <> fromMaybe "An unknown error has occured" errMessage)
+        , fmap ("  context: " <>) errContext
+        , fmap ("  details: " <>) errInternal
+        ]
+
+-- | Standard error message.
+assistantError :: Text -> AssistantError
+assistantError msg = AssistantError
+    { errContext = Nothing
+    , errMessage = Just msg
+    , errInternal = Nothing
+    }
+
+-- | Standard error message with additional internal cause.
+assistantErrorBecause ::  Text -> Text -> AssistantError
+assistantErrorBecause msg e = (assistantError msg) { errInternal = Just e }
+
+-- | Standard error message with additional details.
+assistantErrorDetails :: String -> [(String, String)] -> AssistantError
+assistantErrorDetails msg details =
+    assistantErrorBecause (pack msg) . pack . concat $
+        ["\n    " <> k <> ": " <> v | (k,v) <- details]
+
