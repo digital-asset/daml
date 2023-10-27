@@ -268,7 +268,7 @@ class ContractsService(
       jwt: Jwt,
       jwtPayload: JwtPayload,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): SearchResult[Error \/ domain.ActiveContract.ResolvedCtTyId[LfValue]] = {
     val ledgerId = toLedgerId(jwtPayload.ledgerId)
     val parties = jwtPayload.parties
@@ -528,7 +528,7 @@ class ContractsService(
       resolvedQuery: domain.ResolvedQuery,
       queryParams: InMemoryQuery,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Source[InternalError \/ domain.ActiveContract.ResolvedCtTyId[LfValue], NotUsed] = {
     val templateIds = resolvedQuery.resolved
     logger.debug(
@@ -570,7 +570,7 @@ class ContractsService(
       templateId: domain.ContractTypeId.Resolved,
       queryParams: InMemoryQuery.P,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Source[Error \/ domain.ActiveContract.ResolvedCtTyId[LfValue], NotUsed] = {
     val resolvedQuery = domain.ResolvedQuery(templateId)
     searchInMemory(jwt, ledgerId, parties, resolvedQuery, InMemoryQuery.Filter(queryParams))
@@ -598,7 +598,9 @@ class ContractsService(
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
       templateIds: List[domain.ContractTypeId.Resolved],
-  )(implicit lc: LoggingContextOf[InstanceUUID]): Source[ContractStreamStep.LAV1, NotUsed] = {
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Source[ContractStreamStep.LAV1, NotUsed] = {
     val txnFilter = transactionFilter(parties, templateIds)
     getActiveContracts(jwt, ledgerId, txnFilter, true)(lc)
       .map { case GetActiveContractsResponse(offset, _, activeContracts) =>
@@ -618,7 +620,7 @@ class ContractsService(
       startOffset: Option[domain.StartingOffset] = None,
       terminates: Terminates = Terminates.AtLedgerEnd,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
 
     val txnFilter = transactionFilter(parties, templateIds)
