@@ -352,12 +352,6 @@ object TransactionCoder {
               }
               for {
                 _ <- Either.cond(
-                  test = ne.version >= TransactionVersion.minChoiceObservers ||
-                    ne.choiceObservers.isEmpty,
-                  right = (),
-                  left = EncodeError(nodeVersion, isTooOldFor = "non-empty choice-observers"),
-                )
-                _ <- Either.cond(
                   test = ne.version >= TransactionVersion.minChoiceAuthorizers ||
                     !(ne.choiceAuthorizers.isDefined),
                   right = (),
@@ -621,12 +615,7 @@ object TransactionCoder {
           actingParties <- toPartySet(protoExe.getActorsList)
           signatories <- toPartySet(protoExe.getSignatoriesList)
           stakeholders <- toPartySet(protoExe.getStakeholdersList)
-          choiceObservers <-
-            if (nodeVersion < TransactionVersion.minChoiceObservers) {
-              Right(Set.empty[Party])
-            } else {
-              toPartySet(protoExe.getObserversList)
-            }
+          choiceObservers <- toPartySet(protoExe.getObserversList)
           choiceAuthorizers <-
             if (nodeVersion < TransactionVersion.minChoiceAuthorizers) { Right(None) }
             else {

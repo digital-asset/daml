@@ -1283,8 +1283,7 @@ class TransactionCoderSpec
         case Some(v) =>
           Some(normalize(v, exe.version))
       },
-      choiceObservers =
-        exe.choiceObservers.filter(_ => exe.version >= TransactionVersion.minChoiceObservers),
+      choiceObservers = exe.choiceObservers,
       choiceAuthorizers =
         if (exe.version >= TransactionVersion.minChoiceAuthorizers) exe.choiceAuthorizers else None,
       keyOpt = exe.keyOpt.map(normalizeKey(_, exe.version)),
