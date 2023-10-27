@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 /** Functions executed with this class will only run when all previous calls have completed executing.
   * This can be used when async code should not be run concurrently.
@@ -66,14 +66,10 @@ class SimpleExecutionQueue(
   )(implicit loggingContext: ErrorLoggingContext): EitherT[FutureUnlessShutdown, A, B] =
     EitherT(executeUS(execution.value, description))
 
-  def executeUS[A](
-      execution: => FutureUnlessShutdown[A],
-      description: String,
-      runWhenUnderFailures: => Unit = (),
-  )(implicit
+  def executeUS[A](execution: => FutureUnlessShutdown[A], description: String)(implicit
       loggingContext: ErrorLoggingContext
   ): FutureUnlessShutdown[A] =
-    genExecute(runIfFailed = false, execution, description, runWhenUnderFailures)
+    genExecute(runIfFailed = false, execution, description)
 
   def executeUnderFailures[A](execution: => Future[A], description: String)(implicit
       loggingContext: ErrorLoggingContext
@@ -93,7 +89,6 @@ class SimpleExecutionQueue(
       runIfFailed: Boolean,
       execution: => FutureUnlessShutdown[A],
       description: String,
-      runWhenUnderFailures: => Unit = (),
   )(implicit loggingContext: ErrorLoggingContext): FutureUnlessShutdown[A] = {
     val next = new TaskCell(description, logTaskTiming, futureSupervisor, directExecutionContext)
     val oldHead = queueHead.getAndSet(next) // linearization point
@@ -105,7 +100,6 @@ class SimpleExecutionQueue(
         directExecutionContext,
         loggingContext.traceContext,
       ),
-      runWhenUnderFailures,
     )
   }
 
@@ -234,7 +228,6 @@ object SimpleExecutionQueue {
         pred: TaskCell,
         runIfFailed: Boolean,
         execution: => FutureUnlessShutdown[A],
-        runWhenUnderFailures: => Unit,
     )(implicit
         loggingContext: ErrorLoggingContext
     ): FutureUnlessShutdown[A] = {
@@ -286,13 +279,6 @@ object SimpleExecutionQueue {
                 s"Not running task ${description.singleQuoted} due to exception after waiting for $waitingDelay"
               )(loggingContext.traceContext)
             }
-            Try(runWhenUnderFailures).failed
-              .foreach(e =>
-                loggingContext.logger.debug(
-                  s"Failed to run 'runWhenUnderFailures' function for ${description.singleQuoted}",
-                  e,
-                )(loggingContext.traceContext)
-              )
             FutureUnlessShutdown.failed(ex)
           }
       }(directExecutionContext)

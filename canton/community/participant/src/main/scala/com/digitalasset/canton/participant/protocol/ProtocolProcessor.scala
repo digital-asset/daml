@@ -18,7 +18,11 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition, ViewTree, ViewType}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  FutureUnlessShutdown,
+  PromiseUnlessShutdown,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.RequestOutcome
@@ -59,7 +63,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DiscardOps, LfPartyId, RequestCounter, SequencerCounter, checked}
@@ -447,7 +450,7 @@ abstract class ProtocolProcessor[
       )
 
       // use the send callback and a promise to capture the eventual sequenced event read by the submitter
-      sendResultP = mkPromise[SendResult](
+      sendResultP = new PromiseUnlessShutdown[SendResult](
         "sequenced-event-send-result",
         futureSupervisor,
       )
@@ -613,14 +616,7 @@ abstract class ProtocolProcessor[
               .registerRequest(steps.requestType)(RequestId(ts))
           )
           .map { handleRequestData =>
-            // If the result is not a success, we still need to complete the request data in some way
             performRequestProcessing(ts, rc, sc, handleRequestData, batch, freshOwnTimelyTxF)
-              .thereafter {
-                case Failure(exception) => handleRequestData.failed(exception)
-                case Success(UnlessShutdown.Outcome(Left(_))) => handleRequestData.complete(None)
-                case Success(UnlessShutdown.AbortedDueToShutdown) => handleRequestData.shutdown()
-                case _ =>
-              }
           }
       }
       toHandlerRequest(ts, processedET)
@@ -1049,7 +1045,7 @@ abstract class ProtocolProcessor[
             timeoutEvent(),
           )
         )
-      _ = EitherTUtil.doNotAwaitUS(timeoutET, "Handling timeout failed")
+      _ = EitherTUtil.doNotAwait(timeoutET, "Handling timeout failed")
 
       signedResponsesTo <- EitherT.right(responsesTo.parTraverse { case (response, recipients) =>
         FutureUnlessShutdown.outcomeF(
@@ -1425,7 +1421,7 @@ abstract class ProtocolProcessor[
               ephemeral.requestTracker.tick(sc, resultTs)
               Left(steps.embedResultError(InvalidPendingRequest(requestId)))
           }
-      ).flatMap { pendingRequestDataOrReplayData =>
+      ).mapK(FutureUnlessShutdown.outcomeK).flatMap { pendingRequestDataOrReplayData =>
         performResultProcessing3(
           signedResultBatchE,
           unsignedResultE,
@@ -1713,7 +1709,7 @@ abstract class ProtocolProcessor[
       result: TimeoutResult
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, steps.ResultError, Unit] =
+  ): EitherT[Future, steps.ResultError, Unit] =
     if (result.timedOut) {
       logger.info(
         show"${steps.requestKind.unquoted} request at $requestId timed out without a transaction result message."
@@ -1754,15 +1750,13 @@ abstract class ProtocolProcessor[
         // No need to clean up the pending submissions because this is handled (concurrently) by schedulePendingSubmissionRemoval
         cleanReplay = isCleanReplay(requestCounter, pendingRequestDataOrReplayData)
 
-        _ <- EitherT
-          .right[steps.ResultError](
-            ephemeral.storedContractManager.deleteIfPending(requestCounter, pendingContracts)
-          )
-          .mapK(FutureUnlessShutdown.outcomeK)
+        _ <- EitherT.right[steps.ResultError](
+          ephemeral.storedContractManager.deleteIfPending(requestCounter, pendingContracts)
+        )
 
-        _ <- ifThenET(!cleanReplay)(publishEvent()).mapK(FutureUnlessShutdown.outcomeK)
+        _ <- ifThenET(!cleanReplay)(publishEvent())
       } yield ()
-    } else EitherT.pure[FutureUnlessShutdown, steps.ResultError](())
+    } else EitherT.pure[Future, steps.ResultError](())
 
   private[this] def isCleanReplay(
       requestCounter: RequestCounter,

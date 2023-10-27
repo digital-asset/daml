@@ -8,6 +8,7 @@ import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.Value
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.console.{
+  InstanceReference,
   InstanceReferenceWithSequencerConnection,
   LocalParticipantReference,
 }
@@ -69,8 +70,10 @@ object IntegrationTestUtilities {
     GrabbedCounts(pcsCount, acceptedTransactionCount)
   }
 
+  /** @param domainRef can either be a domain reference or a sequencer reference (in a distributed domain)
+    */
   def grabCounts(
-      domainRef: InstanceReferenceWithSequencerConnection,
+      domainRef: InstanceReference,
       pr: LocalParticipantReference,
       limit: Int = 100,
   ): GrabbedCounts = {

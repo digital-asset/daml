@@ -581,7 +581,8 @@ object IndexServiceImpl {
           .map(_.interfaceId)
           .diff(metadata.interfaces)
           .map(Right(_))
-      unknownTemplates = inclusiveFilter.templateIds
+      unknownTemplates = inclusiveFilter.templateFilters
+        .map(_.templateId)
         .diff(metadata.templates.view.values.flatMap(_.all).toSet)
         .map(Left(_))
       unknownTemplateOrInterface <- unknownInterfaces ++ unknownTemplates
@@ -697,7 +698,7 @@ object IndexServiceImpl {
       .map(_.interfaceId)
       .flatMap(metadata.interfacesImplementedBy.getOrElse(_, Set.empty))
       .toSet
-      .++(inclusiveFilters.templateIds)
+      .++(inclusiveFilters.templateFilters.map(_.templateId))
 
   private[index] def templateFilter(
       metadata: PackageMetadata,

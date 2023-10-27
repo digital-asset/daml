@@ -34,11 +34,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
   StakeholdersMismatch,
   SubmittingPartyMustBeStakeholderIn,
 }
-import com.digitalasset.canton.participant.store.TransferStoreTest.{
-  coidAbs1,
-  contract,
-  transactionId1,
-}
+import com.digitalasset.canton.participant.store.TransferStoreTest.{contract, transactionId1}
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
   MultiDomainEventLog,
@@ -212,8 +208,8 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         submitterInfo(party1),
         Set(party1, party2), // Party 2 is a stakeholder and therefore a receiving party
         Set.empty,
-        coidAbs1,
-        TransferStoreTest.templateId,
+        TransferStoreTest.transactionId1,
+        TransferStoreTest.contract,
         transferId.sourceDomain,
         SourceProtocolVersion(testedProtocolVersion),
         sourceMediator,

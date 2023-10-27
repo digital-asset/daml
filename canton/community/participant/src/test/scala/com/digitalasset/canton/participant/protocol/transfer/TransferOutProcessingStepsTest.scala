@@ -8,8 +8,8 @@ import cats.implicits.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
+import com.digitalasset.canton.crypto.DomainSnapshotSyncCryptoApi
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashPurpose}
 import com.digitalasset.canton.data.ViewType.TransferOutViewType
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -67,7 +67,6 @@ import com.digitalasset.canton.{
   TransferCounter,
   TransferCounterO,
 }
-import com.google.protobuf.ByteString
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -255,6 +254,19 @@ final class TransferOutProcessingStepsTest
   private val timeEvent =
     TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain)
 
+  private lazy val contractId = ExampleTransactionFactory.suffixedId(10, 0)
+
+  private lazy val contract = ExampleTransactionFactory.asSerializable(
+    contractId,
+    contractInstance = ExampleTransactionFactory.contractInstance(templateId = templateId),
+    metadata = ContractMetadata.tryCreate(
+      signatories = Set(submitter),
+      stakeholders = Set(submitter),
+      maybeKeyWithMaintainers = None,
+    ),
+  )
+  private lazy val creatingTransactionId = ExampleTransactionFactory.transactionId(0)
+
   "TransferOutRequest.validated" should {
     val testingTopology = createTestingTopologySnapshot(
       topology = Map(
@@ -263,11 +275,6 @@ final class TransferOutProcessingStepsTest
         participant2 -> Map(party2 -> Submission),
       ),
       packages = Seq(templateId.packageId),
-    )
-
-    val contractId = cantonContractIdVersion.fromDiscriminator(
-      ExampleTransactionFactory.lfHash(10),
-      Unicum(pureCrypto.digest(HashPurpose.MerkleTreeInnerNode, ByteString.copyFromUtf8("unicum"))),
     )
 
     def mkTxOutRes(
@@ -279,8 +286,8 @@ final class TransferOutProcessingStepsTest
         .validated(
           submittingParticipant,
           timeEvent,
-          contractId,
-          templateId,
+          creatingTransactionId,
+          contract,
           submitterMetadata(submitter),
           stakeholders,
           sourceDomain,
@@ -460,8 +467,8 @@ final class TransferOutProcessingStepsTest
             submitterMetadata = submitterMetadata(submitter),
             stakeholders = Set(submitter, party1),
             adminParties = Set(adminSubmitter, admin1),
-            contractId = contractId,
-            templateId = templateId,
+            creatingTransactionId = creatingTransactionId,
+            contract = contract,
             sourceDomain = sourceDomain,
             sourceProtocolVersion = SourceProtocolVersion(testedProtocolVersion),
             sourceMediator = sourceMediator,
@@ -502,8 +509,8 @@ final class TransferOutProcessingStepsTest
             submitterMetadata = submitterMetadata(submitter),
             stakeholders = stakeholders,
             adminParties = Set(adminSubmitter, admin3, admin4),
-            contractId = contractId,
-            templateId = templateId,
+            creatingTransactionId = creatingTransactionId,
+            contract = contract,
             sourceDomain = sourceDomain,
             sourceProtocolVersion = SourceProtocolVersion(testedProtocolVersion),
             sourceMediator = sourceMediator,
@@ -524,8 +531,8 @@ final class TransferOutProcessingStepsTest
             submitterMetadata = submitterMetadata(submitter),
             stakeholders = stakeholders,
             adminParties = Set(adminSubmitter, admin1),
-            contractId = contractId,
-            templateId = templateId,
+            creatingTransactionId = creatingTransactionId,
+            contract = contract,
             sourceDomain = sourceDomain,
             sourceProtocolVersion = SourceProtocolVersion(testedProtocolVersion),
             sourceMediator = sourceMediator,
@@ -543,7 +550,6 @@ final class TransferOutProcessingStepsTest
   "prepare submission" should {
     "succeed without errors" in {
       val state = mkState
-      val contractId = ExampleTransactionFactory.suffixedId(10, 0)
       val contract = ExampleTransactionFactory.asSerializable(
         contractId,
         contractInstance = ExampleTransactionFactory.contractInstance(templateId = templateId),
@@ -587,7 +593,6 @@ final class TransferOutProcessingStepsTest
 
     "check that the target domain is not equal to the source domain" in {
       val state = mkState
-      val contractId = ExampleTransactionFactory.suffixedId(10, 0)
       val contract = ExampleTransactionFactory.asSerializable(
         contractId,
         contractInstance = ExampleTransactionFactory.contractInstance(),
@@ -621,7 +626,6 @@ final class TransferOutProcessingStepsTest
     "forbid transfer if the target domain does not support transfer counters and the source domain supports them" in {
       val targetProtocolVersion = TargetProtocolVersion(ProtocolVersion.v4)
       val state = mkState
-      val contractId = ExampleTransactionFactory.suffixedId(10, 0)
       val contract = ExampleTransactionFactory.asSerializable(
         contractId,
         contractInstance = ExampleTransactionFactory.contractInstance(templateId = templateId),
@@ -678,13 +682,12 @@ final class TransferOutProcessingStepsTest
   }
 
   "receive request" should {
-    val contractId = ExampleTransactionFactory.suffixedId(10, 0)
     val outRequest = TransferOutRequest(
       submitterMetadata = submitterMetadata(party1),
       Set(party1),
       Set(party1),
-      contractId,
-      templateId = templateId,
+      creatingTransactionId,
+      contract,
       sourceDomain,
       SourceProtocolVersion(testedProtocolVersion),
       sourceMediator,
@@ -747,7 +750,6 @@ final class TransferOutProcessingStepsTest
         transferOutProcessingSteps: TransferOutProcessingSteps
     ) = {
       val state = mkState
-      val contractId = ExampleTransactionFactory.suffixedId(10, 0)
       val metadata = ContractMetadata.tryCreate(Set.empty, Set(party1), None)
       val contract = ExampleTransactionFactory.asSerializable(
         contractId,
@@ -759,8 +761,8 @@ final class TransferOutProcessingStepsTest
         submitterMetadata = submitterMetadata(party1),
         Set(party1),
         Set(submittingParticipant.adminParty.toLf),
-        contractId,
-        templateId = templateId,
+        creatingTransactionId,
+        contract,
         sourceDomain,
         SourceProtocolVersion(testedProtocolVersion),
         sourceMediator,
@@ -835,7 +837,6 @@ final class TransferOutProcessingStepsTest
   "get commit set and contracts to be stored and event" should {
     "succeed without errors" in {
       val state = mkState
-      val contractId = ExampleTransactionFactory.suffixedId(10, 0)
       val contractHash = ExampleTransactionFactory.lfHash(0)
       val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
       val rootHash = mock[RootHash]

@@ -14,6 +14,7 @@ import com.daml.ledger.javaapi.data.{
   ExercisedEvent,
   Transaction as JavaTransaction,
   TransactionTree,
+  TreeEvent,
 }
 
 import scala.jdk.CollectionConverters.*
@@ -48,7 +49,7 @@ object JavaDecodeUtil {
       companion: ContractCompanion[?, TCid, ?]
   )(event: ExercisedEvent): Option[TCid] =
     Option.when(event.getTemplateId == companion.TEMPLATE_ID && event.isConsuming)(
-      companion.toContractId(new ContractId((event.getContractId)))
+      companion.toContractId(new ContractId(event.getContractId))
     )
 
   def treeToCreated(transaction: TransactionTree): Seq[JavaCreatedEvent] =
@@ -67,4 +68,19 @@ object JavaDecodeUtil {
       created <- treeToCreated(transaction)
       a <- decodeCreated(companion)(created).toList
     } yield a
+
+  def decodeAllArchivedTree[TCid](
+      companion: ContractCompanion[?, TCid, ?]
+  )(transaction: TransactionTree): Seq[TCid] =
+    decodeAllArchivedTreeFromTreeEvents(companion)(transaction.getEventsById.asScala.toMap)
+
+  def decodeAllArchivedTreeFromTreeEvents[TCid](
+      companion: ContractCompanion[?, TCid, ?]
+  )(eventsById: Map[String, TreeEvent]): Seq[TCid] =
+    for {
+      event <- eventsById.values.toList
+      archive = event.toProtoTreeEvent.getExercised
+      if archive.getConsuming && archive.getTemplateId == companion.TEMPLATE_ID.toProto
+    } yield companion.toContractId(new ContractId(archive.getContractId))
+
 }

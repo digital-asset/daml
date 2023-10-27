@@ -6,18 +6,17 @@ package com.digitalasset.canton.lifecycle
 import cats.data.EitherT
 import cats.syntax.traverse.*
 import com.digitalasset.canton.DiscardOps
-import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.FlagCloseable.forceShutdownStr
-import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
+import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{Checked, CheckedT, Thereafter}
-import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.immutable.MultiSet
-import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -336,37 +335,6 @@ object CloseContext {
 }
 
 /** Mix-in to obtain a [[CloseContext]] implicit based on the class's [[FlagCloseable]] */
-trait HasCloseContext extends PromiseUnlessShutdownFactory { self: FlagCloseable =>
+trait HasCloseContext { self: FlagCloseable =>
   implicit val closeContext: CloseContext = CloseContext(self)
-}
-
-trait PromiseUnlessShutdownFactory { self: HasCloseContext =>
-  protected def logger: TracedLogger
-
-  /** Use this method to create a PromiseUnlessShutdown that will automatically be cancelled when the close context
-    * is closed. This allows proper clean up of stray promises when the node is transitioning to a passive state.
-    */
-  def mkPromise[A](
-      description: String,
-      futureSupervisor: FutureSupervisor,
-      logAfter: Duration = 10.seconds,
-      logLevel: Level = Level.DEBUG,
-  )(implicit elc: ErrorLoggingContext, ec: ExecutionContext): PromiseUnlessShutdown[A] = {
-    val promise = new PromiseUnlessShutdown[A](description, futureSupervisor, logAfter, logLevel)
-
-    val cancelToken = closeContext.flagCloseable.runOnShutdown(new RunOnShutdown {
-      override def name: String = s"$description-abort-promise-on-shutdown"
-      override def done: Boolean = promise.isCompleted
-      override def run(): Unit = promise.shutdown()
-    })(elc.traceContext)
-
-    promise.future
-      .onComplete { _ =>
-        Try(closeContext.flagCloseable.cancelShutdownTask(cancelToken)).failed.foreach(e =>
-          logger.debug(s"Failed to cancel shutdown task for $description", e)(elc.traceContext)
-        )
-      }
-
-    promise
-  }
 }

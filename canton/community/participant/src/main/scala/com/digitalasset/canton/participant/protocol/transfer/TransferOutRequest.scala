@@ -12,10 +12,9 @@ import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.protocol.CanSubmitTransfer
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
   InvalidTransferCommonData,
-  InvalidTransferView,
   TransferProcessorError,
 }
-import com.digitalasset.canton.protocol.{LfContractId, LfTemplateId, SourceDomainId, TargetDomainId}
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.time.TimeProof
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorRef, ParticipantId}
@@ -37,8 +36,8 @@ final case class TransferOutRequest(
     submitterMetadata: TransferSubmitterMetadata,
     stakeholders: Set[LfPartyId],
     adminParties: Set[LfPartyId],
-    contractId: LfContractId,
-    templateId: LfTemplateId,
+    creatingTransactionId: TransactionId,
+    contract: SerializableContract,
     sourceDomain: SourceDomainId,
     sourceProtocolVersion: SourceProtocolVersion,
     sourceMediator: MediatorRef,
@@ -68,19 +67,18 @@ final case class TransferOutRequest(
           sourceProtocolVersion,
         )
         .leftMap(reason => InvalidTransferCommonData(reason))
-      view <- TransferOutView
+      view = TransferOutView
         .create(hashOps)(
           viewSalt,
           submitterMetadata,
-          contractId,
-          TransferOutView.templateIdDefaultValue.orValue(templateId, sourceProtocolVersion.v),
+          creatingTransactionId,
+          contract,
           targetDomain,
           targetTimeProof,
           sourceProtocolVersion,
           targetProtocolVersion,
           transferCounter,
         )
-        .leftMap(reason => InvalidTransferView(reason))
       tree = TransferOutViewTree(commonData, view, sourceProtocolVersion.v, hashOps)
     } yield FullTransferOutTree(tree)
   }
@@ -91,8 +89,8 @@ object TransferOutRequest {
   def validated(
       participantId: ParticipantId,
       timeProof: TimeProof,
-      contractId: LfContractId,
-      templateId: LfTemplateId,
+      creatingTransactionId: TransactionId,
+      contract: SerializableContract,
       submitterMetadata: TransferSubmitterMetadata,
       stakeholders: Set[LfPartyId],
       sourceDomain: SourceDomainId,
@@ -111,7 +109,10 @@ object TransferOutRequest {
     FutureUnlessShutdown,
     TransferProcessorError,
     TransferOutRequestValidated,
-  ] =
+  ] = {
+    val contractId = contract.contractId
+    val templateId = contract.contractInstance.unversioned.template
+
     for {
       _ <- CanSubmitTransfer.transferOut(
         contractId,
@@ -139,8 +140,8 @@ object TransferOutRequest {
         submitterMetadata,
         stakeholders,
         adminPartiesAndRecipients.adminParties,
-        contractId,
-        templateId,
+        creatingTransactionId,
+        contract,
         sourceDomain,
         sourceProtocolVersion,
         sourceMediator,
@@ -152,5 +153,6 @@ object TransferOutRequest {
 
       TransferOutRequestValidated(transferOutRequest, adminPartiesAndRecipients.participants)
     }
+  }
 
 }
