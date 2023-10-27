@@ -623,15 +623,17 @@ sealed abstract class HasTxNodes {
   }
 
   // This method returns all node-ids reachable from the roots of a transaction.
-  final def reachableNodeIds: Set[NodeId] = {
-    foldInExecutionOrder[Set[NodeId]](Set.empty)(
-      exerciseBegin = (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
-      rollbackBegin = (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
-      leaf = (acc, nid, _) => acc + nid,
+  final def reachableNodeIds: Set[NodeId] = reachableNodeIdsInExecutionOrder.toSet
+
+  // This method returns all node-ids reachable from the roots of a transaction in execution order.
+  final def reachableNodeIdsInExecutionOrder: Iterable[NodeId] =
+    foldInExecutionOrder[Iterable[NodeId]](Iterable.empty)(
+      exerciseBegin = (acc, nid, _) => (acc ++ Iterable(nid), ChildrenRecursion.DoRecurse),
+      rollbackBegin = (acc, nid, _) => (acc ++ Iterable(nid), ChildrenRecursion.DoRecurse),
+      leaf = (acc, nid, _) => acc ++ Iterable(nid),
       exerciseEnd = (acc, _, _) => acc,
       rollbackEnd = (acc, _, _) => acc,
     )
-  }
 
   final def guessSubmitter: Either[String, Party] =
     rootNodes.map(_.requiredAuthorizers).toFrontStack.pop match {

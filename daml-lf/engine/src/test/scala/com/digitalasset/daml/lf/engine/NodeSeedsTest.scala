@@ -8,8 +8,8 @@ import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.daml.lf.transaction.{Node, NodeId, Versioned}
+import com.daml.lf.transaction.{Node, NodeId, Transaction, Versioned}
+import com.daml.lf.transaction.test.TransactionUtil
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import org.scalatest.matchers.should.Matchers
@@ -95,30 +95,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
 
   val nodeSeeds = metaData.nodeSeeds.iterator.toMap
 
-  // return the create nodes under node `rootId`.
-  def projectCreates(rootId: NodeId) =
-    tx.foldInExecutionOrder((false, Set.empty[Node.Create]))(
-      exerciseBegin = { case ((collecting, creates), nodeId, _) =>
-        ((collecting || nodeId == rootId, creates), ChildrenRecursion.DoRecurse)
-      },
-      rollbackBegin = { case ((collecting, creates), nodeId, _) =>
-        ((collecting || nodeId == rootId, creates), ChildrenRecursion.DoRecurse)
-      },
-      leaf = {
-        case ((collecting, creates), nodeId, create: Node.Create)
-            if collecting || nodeId == rootId =>
-          (collecting, creates + create)
-        case (state, _, _) => state
-      },
-      exerciseEnd = { case ((collecting, creates), nodeId, _) =>
-        (collecting && rootId != nodeId, creates)
-      },
-      rollbackEnd = { case ((collecting, creates), nodeId, _) =>
-        (collecting && rootId != nodeId, creates)
-      },
-    )._2
-
-  def replay(nodeId: NodeId) = {
+  def replay(nodeId: NodeId): Transaction = {
     val cmd = tx.nodes(nodeId) match {
       case exe: Node.Exercise =>
         command.ReplayCommand.Exercise(
@@ -161,12 +138,19 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
           time,
         )(LoggingContext.empty)
         .consume(pcs = contracts, pkgs = packages)
-    rTx.nodes.values.collect { case create: Node.Create => create }.toSet
+    rTx.transaction
   }
 
-  val n = tx.nodes.iterator.collect { case (nid, _: Node.Action) =>
+  val n = tx.nodes.iterator.collect { case (nid, node: Node.Action) =>
     s"when run with $nid" in {
-      replay(nid) shouldBe projectCreates(nid)
+      node match {
+        case e: Node.Exercise if e.exerciseResult.isEmpty =>
+          // replaying an exercise node without a result should give a transaction with a rollback node.
+          replay(nid).nodes.collect { case (_, _: Node.Rollback) => () } should not be empty
+        case _ =>
+          // replaying any other action node should give a transaction that matches the naive projection of that node.
+          replay(nid) shouldBe TransactionUtil.projectNaively(tx.transaction, nid)
+      }
     }
   }.size
 
