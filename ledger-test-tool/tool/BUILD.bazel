@@ -99,12 +99,11 @@ sh_test(
 
 # Disabled on Windows because `coreutils` and `grpcurl` aren't easily available.
 [
-    [
-        genrule(
-            name = "canton%s-test-runner-with-dependencies-script" % suffix,
-            srcs = ["src/test/canton-test-runner.sh"],
-            outs = ["canton%s-test-runner-with-dependencies.sh" % suffix],
-            cmd = """
+    genrule(
+        name = "canton-test-runner-with-dependencies-script",
+        srcs = ["src/test/canton-test-runner.sh"],
+        outs = ["canton-test-runner-with-dependencies.sh"],
+        cmd = """
 cat > $@ <<EOF
 #!/usr/bin/env bash
 
@@ -121,27 +120,19 @@ source "\\$${RUNFILES_DIR:-/dev/null}/\\$$f" 2>/dev/null || \\
 PATH="\\$$(rlocation coreutils_nix/bin):\\$$(rlocation curl_nix/bin):\\$$(rlocation grpcurl_nix/bin):\\$$(rlocation jq_dev_env/bin):\\$$PATH"
 export PATH
 
-canton_jar=canton%s_deploy.jar
-
 EOF
 cat $< >> $@
-""" % suffix,
-        ),
+""",
+    ),
 
-        # Required because running `canton-test-runner-with-dependencies-script` directly fails.
-        sh_binary(
-            name = "canton%s-test-runner-with-dependencies" % suffix,
-            srcs = [":canton%s-test-runner-with-dependencies-script" % suffix],
-            # Ideally these would be part of the script definition above, but that doesn't seem to work.
-            deps = ["@bazel_tools//tools/bash/runfiles"],
-        ),
-    ]
-    for suffix in [
-        "",
-        "-patched",
-    ]
-    if not is_windows
-]
+    # Required because running `canton-test-runner-with-dependencies-script` directly fails.
+    sh_binary(
+        name = "canton-test-runner-with-dependencies",
+        srcs = [":canton-test-runner-with-dependencies-script"],
+        # Ideally these would be part of the script definition above, but that doesn't seem to work.
+        deps = ["@bazel_tools//tools/bash/runfiles"],
+    ),
+] if not is_windows else None
 
 conformance_test_extra_data_base = glob(["src/test/**/*canton*"]) + [
     "//test-common/test-certificates:client.crt",
@@ -253,7 +244,7 @@ conformance_test(
     ports = conformance_test_ports,
     preview_mod_flag = "",
     runner = "@//bazel_tools/client_server/runner_with_health_check",
-    server = ":canton-patched-test-runner-with-dependencies",
+    server = ":canton-test-runner-with-dependencies",
     server_args = conformance_server_args_base + [
         "-C",
         ",".join([
