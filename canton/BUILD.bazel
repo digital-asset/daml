@@ -384,6 +384,8 @@ scala_library(
     name = "community_common",
     srcs = glob(["community/common/src/main/scala/**/*.scala"]),
     plugins = [kind_projector_plugin],
+    resource_strip_prefix = "canton/community/common/src/main/resources",
+    resources = glob(["community/common/src/main/resources/**"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
