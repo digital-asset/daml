@@ -17,6 +17,11 @@ resource "azurerm_virtual_network" "ubuntu" {
     address_prefix = "10.0.1.0/24"
     security_group = azurerm_network_security_group.ubuntu.id
   }
+  subnet {
+    name           = "static"
+    address_prefix = "10.0.2.0/24"
+    security_group = azurerm_network_security_group.ubuntu.id
+  }
 }
 
 resource "azurerm_nat_gateway" "nat" {
@@ -38,7 +43,7 @@ resource "azurerm_nat_gateway_public_ip_prefix_association" "nat" {
 }
 
 resource "azurerm_subnet_nat_gateway_association" "nat" {
-  subnet_id      = one(azurerm_virtual_network.ubuntu.subnet).id
+  subnet_id      = one([for s in azurerm_virtual_network.ubuntu.subnet : s if s.name == "subnet"]).id
   nat_gateway_id = azurerm_nat_gateway.nat.id
 }
 
@@ -46,18 +51,34 @@ resource "azurerm_network_security_group" "ubuntu" {
   name                = "ubuntu"
   location            = azurerm_resource_group.daml-ci.location
   resource_group_name = azurerm_resource_group.daml-ci.name
+}
 
-  security_rule {
-    name                       = "deny-inbound"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Deny"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
+resource "azurerm_network_security_rule" "deny-inbound" {
+  name                        = "deny-inbound"
+  priority                    = 101
+  direction                   = "Inbound"
+  access                      = "Deny"
+  protocol                    = "*"
+  source_port_range           = "*"
+  destination_port_range      = "*"
+  source_address_prefix       = "*"
+  destination_address_prefix  = "*"
+  resource_group_name         = azurerm_resource_group.daml-ci.name
+  network_security_group_name = azurerm_network_security_group.ubuntu.name
+}
+
+resource "azurerm_network_security_rule" "allow-bazel-cache" {
+  name                        = "allow-bazel-cache"
+  priority                    = 100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "*"
+  source_port_range           = "*"
+  destination_port_range      = "80"
+  source_address_prefix       = "VirtualNetwork"
+  destination_address_prefix  = azurerm_network_interface.bazel-cache.private_ip_address
+  resource_group_name         = azurerm_resource_group.daml-ci.name
+  network_security_group_name = azurerm_network_security_group.ubuntu.name
 }
 
 resource "azurerm_linux_virtual_machine" "daily-reset" {
@@ -181,7 +202,7 @@ resource "azurerm_network_interface" "daily-reset" {
 
   ip_configuration {
     name                          = "internal"
-    subnet_id                     = one(azurerm_virtual_network.ubuntu.subnet).id
+    subnet_id                     = one([for s in azurerm_virtual_network.ubuntu.subnet : s if s.name == "subnet"]).id
     private_ip_address_allocation = "Dynamic"
   }
 }
@@ -202,4 +223,98 @@ resource "azurerm_role_assignment" "daily-reset" {
   scope              = azurerm_resource_group.daml-ci.id
   role_definition_id = azurerm_role_definition.daily-reset.role_definition_resource_id
   principal_id       = azurerm_linux_virtual_machine.daily-reset.identity[0].principal_id
+}
+
+resource "azurerm_linux_virtual_machine" "bazel-cache" {
+  name                  = "bazel-cache"
+  location              = azurerm_resource_group.daml-ci.location
+  resource_group_name   = azurerm_resource_group.daml-ci.name
+  network_interface_ids = [azurerm_network_interface.bazel-cache.id]
+  size                  = "Standard_D2_v5"
+
+  os_disk {
+    caching              = "ReadOnly"
+    storage_account_type = "Standard_LRS"
+    disk_size_gb         = "2000"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts-gen2"
+    version   = "latest"
+  }
+
+  custom_data = base64encode(<<STARTUP
+#!/usr/bin/env bash
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y
+apt-get upgrade -y
+apt-get install -y jq
+
+apt -y install nginx nginx-extras libnginx-mod-http-dav-ext libnginx-mod-http-auth-pam
+
+echo "$(date -Is -u) boot" > /root/log
+
+mkdir -p /cache
+chmod a+rw /cache
+rm /etc/nginx/sites-enabled/default
+cat <<NGINX >/etc/nginx/sites-enabled/bazel-cache
+server {
+  listen 80 default_server;
+  server_name _;
+  location /cache/ {
+    root /cache;
+    dav_methods PUT;
+    create_full_put_path on;
+    client_max_body_size 10G;
+    allow all;
+  }
+}
+NGINX
+
+echo "$(date -Is -u) reloading nginx config..." >> /root/log
+
+nginx -s reload &>>/root/log
+
+tail -f /root/log
+
+STARTUP
+  )
+
+  computer_name                   = "bazel-cache"
+  admin_username                  = local.azure-admin-login
+  disable_password_authentication = true
+
+  admin_ssh_key {
+    username   = local.azure-admin-login
+    public_key = local.azure-pub-key
+  }
+  identity {
+    type = "SystemAssigned"
+  }
+
+  # required to get console output in Azure UI
+  boot_diagnostics {
+    storage_account_uri = null
+  }
+}
+
+resource "azurerm_network_interface" "bazel-cache" {
+  name                = "bazel-cache"
+  location            = azurerm_resource_group.daml-ci.location
+  resource_group_name = azurerm_resource_group.daml-ci.name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = one([for s in azurerm_virtual_network.ubuntu.subnet : s.id if s.name == "static"])
+    private_ip_address_allocation = "Static"
+    private_ip_address            = "10.0.2.10"
+  }
+}
+
+output "internal_bazel_cache_ip" {
+  value = azurerm_network_interface.bazel-cache.private_ip_address
 }

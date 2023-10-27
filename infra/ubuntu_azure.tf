@@ -51,7 +51,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "ubuntu" {
     ip_configuration {
       name      = "default"
       primary   = true
-      subnet_id = one(azurerm_virtual_network.ubuntu.subnet).id
+      subnet_id = one([for s in azurerm_virtual_network.ubuntu.subnet : s if s.name == "subnet"]).id
     }
   }
 
