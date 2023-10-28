@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 import scala.collection.concurrent.TrieMap
 import scala.util.Try
 
-trait OnShutdownRunner extends AutoCloseable {
+trait OnShutdownRunner { this: AutoCloseable =>
 
   private val closingFlag: AtomicBoolean = new AtomicBoolean(false)
 
@@ -60,6 +60,7 @@ trait OnShutdownRunner extends AutoCloseable {
   /** Removes a shutdown task from the list using a token returned by [[runOnShutdown]]
     */
   def cancelShutdownTask(token: Long): Unit = onShutdownTasks.remove(token).discard
+  def containsShutdownTask(token: Long): Boolean = onShutdownTasks.contains(token)
 
   private def runOnShutdownTasks()(implicit traceContext: TraceContext): Unit = {
     onShutdownTasks.toList.foreach { case (token, task) =>
@@ -95,6 +96,16 @@ trait OnShutdownRunner extends AutoCloseable {
     } else {
       // TODO(i8594): Ensure we call close only once
     }
+  }
+}
+
+object OnShutdownRunner {
+
+  /** A closeable container for managing [[RunOnShutdown]] tasks and nothing else. */
+  class PureOnShutdownRunner(override protected val logger: TracedLogger)
+      extends AutoCloseable
+      with OnShutdownRunner {
+    override protected def onFirstClose(): Unit = ()
   }
 }
 

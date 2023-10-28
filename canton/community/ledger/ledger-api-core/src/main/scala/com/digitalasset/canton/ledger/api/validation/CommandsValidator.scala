@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
+import cats.syntax.traverse.*
 import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.commands.Command.Command.{
@@ -147,7 +148,7 @@ final class CommandsValidator(
           templateId <- requirePresence(c.value.templateId, "template_id")
           validatedTemplateId <- validateTemplateId(templateId)
           createArguments <- requirePresence(c.value.createArguments, "create_arguments")
-          recordId <- validateOptionalIdentifier(createArguments.recordId)
+          recordId <- createArguments.recordId.traverse(validateTemplateId)
           validatedRecordField <- validateRecordFields(createArguments.fields)
         } yield ApiCommand.Create(
           templateId = validatedTemplateId,
@@ -190,7 +191,7 @@ final class CommandsValidator(
           templateId <- requirePresence(ce.value.templateId, "template_id")
           validatedTemplateId <- validateTemplateId(templateId)
           createArguments <- requirePresence(ce.value.createArguments, "create_arguments")
-          recordId <- validateOptionalIdentifier(createArguments.recordId)
+          recordId <- createArguments.recordId.traverse(validateTemplateId)
           validatedRecordField <- validateRecordFields(createArguments.fields)
           choice <- requireName(ce.value.choice, "choice")
           value <- requirePresence(ce.value.choiceArgument, "value")

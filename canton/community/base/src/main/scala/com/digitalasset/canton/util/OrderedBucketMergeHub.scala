@@ -13,8 +13,10 @@ import akka.stream.stage.{
   OutHandler,
 }
 import akka.stream.{Attributes, FlowShape, Inlet, KillSwitch, Outlet}
+import cats.syntax.functor.*
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -135,27 +137,29 @@ import scala.concurrent.{Future, Promise}
   *                             Invariant violation are then logged as [[java.lang.IllegalStateException]] and abort the stage with an error.
   *                             Do not enable these checks in production.
   */
-class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty](
-    private val ops: OrderedBucketMergeHubOps[Name, A, Config, Offset],
+class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
+    private val ops: OrderedBucketMergeHubOps[Name, A, Config, Offset, M],
     override protected val loggerFactory: NamedLoggerFactory,
     enableInvariantCheck: Boolean,
 ) extends GraphStageWithMaterializedValue[
       FlowShape[
         OrderedBucketMergeConfig[Name, Config],
-        OrderedBucketMergeHub.Output[Name, Config, A, Offset],
+        OrderedBucketMergeHub.Output[Name, (Config, Option[M]), A, Offset],
       ],
       Future[Done],
     ]
     with NamedLogging {
   import OrderedBucketMergeHub.*
 
-  private[this] val out: Outlet[Output[Name, Config, A, Offset]] =
+  type ConfigAndMat = (Config, Option[M])
+
+  private[this] val out: Outlet[Output[Name, ConfigAndMat, A, Offset]] =
     Outlet("OrderedBucketMergeHub.out")
   private[this] val in: Inlet[OrderedBucketMergeConfig[Name, Config]] =
     Inlet("OrderedBucketMergeHub.in")
   override def shape: FlowShape[
     OrderedBucketMergeConfig[Name, Config],
-    OrderedBucketMergeHub.Output[Name, Config, A, Offset],
+    OrderedBucketMergeHub.Output[Name, ConfigAndMat, A, Offset],
   ] = FlowShape(in, out)
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
@@ -363,21 +367,26 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty](
         val sourcesToStopB = Seq.newBuilder[(OrderedSourceId, OrderedSource)]
         val namesToKeepB = Set.newBuilder[Name]
         orderedSources.foreach { case (id, orderedSource) =>
-          val keep = nextConfig.sourceConfigs.get(orderedSource.name).contains(orderedSource.config)
+          val keep = nextConfig.sources.get(orderedSource.name).contains(orderedSource.config)
           if (keep) namesToKeepB += orderedSource.name
           else if (orderedSource.isActive) sourcesToStopB += (id -> orderedSource)
         }
         val sourcesToStop = sourcesToStopB.result()
         val namesToKeep = namesToKeepB.result()
 
-        val sourcesToCreate = nextConfig.sourceConfigs.view.filterKeys(!namesToKeep.contains(_))
+        val sourcesToCreate = nextConfig.sources.view.filterKeys(!namesToKeep.contains(_))
 
         sourcesToStop.foreach { case (id, source) => stopActiveSource(id, source) }
-        sourcesToCreate.foreach { case (name, config) => createActiveSource(name, config) }
+        val materializedValues = sourcesToCreate.map { case (name, config) =>
+          val materializedValue = createActiveSource(name, config)
+          name -> materializedValue
+        }.toMap
         val loweredThreshold = currentThreshold > nextConfig.threshold.value
         currentThreshold = nextConfig.threshold.value
 
-        emit(out, NewConfiguration(nextConfig, lowerBoundNextOffsetExclusive))
+        val newConfigAndMat =
+          nextConfig.map((name, config) => (config, materializedValues.get(name)))
+        emit(out, NewConfiguration(newConfigAndMat, lowerBoundNextOffsetExclusive))
 
         // Immediately signal demand for the next config change
         pull(in)
@@ -718,7 +727,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty](
       }
     }
 
-    private[this] def createActiveSource(name: Name, config: Config): Unit = {
+    private[this] def createActiveSource(name: Name, config: Config): M = {
       val id = nextOrderedSourceId
       val newSource = ops.makeSource(
         name,
@@ -736,7 +745,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty](
       orderedSources.put(id, source).discard[Option[OrderedSource]]
 
       val graph = newSource.to(subsink.sink)
-      val (killSwitch, doneF) = subFusingMaterializer.materialize(
+      val (killSwitch, doneF, materializedValue) = subFusingMaterializer.materialize(
         graph,
         defaultAttributes = enclosingAttributes,
       )
@@ -745,6 +754,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty](
       flushFutureForOrderedSources.addToFlushWithoutLogging(s"source $name (id $id)")(doneF)
 
       subsink.pull()
+      materializedValue
     }
 
     private[this] def stopActiveSource(id: OrderedSourceId, source: OrderedSource): Unit = {
@@ -953,26 +963,68 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty](
 object OrderedBucketMergeHub {
 
   /** Outputs of the [[OrderedBucketMergeHub]], combines actual data with control messages */
-  sealed trait Output[Name, +Config, +A, +Offset] extends Product with Serializable
+  sealed trait Output[Name, +ConfigAndMat, +A, +Offset] extends Product with Serializable {
+    def map[ConfigAndMat2, A2, Offset2](
+        fConfigAndMat: (Name, ConfigAndMat) => ConfigAndMat2,
+        fA: (Name, A) => A2,
+        fOffset: Offset => Offset2,
+    ): Output[Name, ConfigAndMat2, A2, Offset2]
+  }
 
   /** Actual data output */
   final case class OutputElement[Name, +A](elem: NonEmpty[Map[Name, A]])
-      extends Output[Name, Nothing, A, Nothing]
+      extends Output[Name, Nothing, A, Nothing] {
+    def map[A2](fA: (Name, A) => A2): OutputElement[Name, A2] = OutputElement(
+      elem.map { case (name, a) => name -> fA(name, a) }.toMap
+    )
+    override def map[ConfigAndMat2, A2, Offset2](
+        fConfigAndMat: (Name, Nothing) => ConfigAndMat2,
+        fA: (Name, A) => A2,
+        fOffset: Nothing => Offset2,
+    ): OutputElement[Name, A2] = map(fA)
+  }
 
-  sealed trait ControlOutput[Name, +Config, +Offset] extends Output[Name, Config, Nothing, Offset]
+  sealed trait ControlOutput[Name, +ConfigAndMat, +Offset]
+      extends Output[Name, ConfigAndMat, Nothing, Offset] {
+    def map[Config2, Offset2](
+        fConfigAndMat: (Name, ConfigAndMat) => Config2,
+        fOffset: Offset => Offset2,
+    ): ControlOutput[Name, Config2, Offset2]
 
-  /** Signals the new configuration that is active for all subsequent elements until the next [[NewConfiguration]] */
-  final case class NewConfiguration[Name, +Config, +Offset](
-      newConfig: OrderedBucketMergeConfig[Name, Config],
+    override def map[Config2, A2, Offset2](
+        fConfigAndMat: (Name, ConfigAndMat) => Config2,
+        fA: (Name, Nothing) => A2,
+        fOffset: Offset => Offset2,
+    ): ControlOutput[Name, Config2, Offset2] = map(fConfigAndMat, fOffset)
+  }
+
+  /** Signals the new configuration that is active for all subsequent elements until the next [[NewConfiguration]]
+    * and the materialized values for the newly created sources.
+    */
+  final case class NewConfiguration[Name, +ConfigAndMat, +Offset](
+      newConfig: OrderedBucketMergeConfig[Name, ConfigAndMat],
       startingOffset: Offset,
-  ) extends ControlOutput[Name, Config, Offset]
+  ) extends ControlOutput[Name, ConfigAndMat, Offset] {
+    override def map[ConfigAndMat2, Offset2](
+        fConfigAndMat: (Name, ConfigAndMat) => ConfigAndMat2,
+        fOffset: Offset => Offset2,
+    ): NewConfiguration[Name, ConfigAndMat2, Offset2] = NewConfiguration(
+      newConfig.map(fConfigAndMat),
+      fOffset(startingOffset),
+    )
+  }
 
   /** Signals that the source has terminated with the given cause.
     * Downstream is responsible for reacting to the termination signal
     * and changing the configuration if necessary.
     */
   final case class ActiveSourceTerminated[Name](name: Name, cause: Option[Throwable])
-      extends ControlOutput[Name, Nothing, Nothing]
+      extends ControlOutput[Name, Nothing, Nothing] {
+    override def map[Config2, Offset2](
+        fConfigAndMat: (Name, Nothing) => Config2,
+        fOffset: Nothing => Offset2,
+    ): ActiveSourceTerminated[Name] = this
+  }
 
   /** The internal type of IDs for ordered sources */
   private type OrderedSourceId = Int
@@ -1006,14 +1058,20 @@ object OrderedBucketMergeHub {
 }
 
 /** @param threshold The threshold of equivalent elements to reach before it can be emitted.
-  * @param sourceConfigs The configurations to be used with [[OrderedBucketMergeHubOps.makeSource]] to create a source.
+  * @param sources The configurations to be used with [[OrderedBucketMergeHubOps.makeSource]] to create a source.
   */
 final case class OrderedBucketMergeConfig[Name, +Config](
     threshold: PositiveInt,
-    sourceConfigs: NonEmpty[Map[Name, Config]],
-)
+    sources: NonEmpty[Map[Name, Config]],
+) {
+  def map[Config2](f: (Name, Config) => Config2): OrderedBucketMergeConfig[Name, Config2] =
+    OrderedBucketMergeConfig(
+      threshold,
+      sources.map { case (name, config) => name -> f(name, config) }.toMap,
+    )
+}
 
-trait OrderedBucketMergeHubOps[Name, A, Config, Offset] {
+trait OrderedBucketMergeHubOps[Name, A, Config, Offset, +M] {
 
   /** The type of equivalence classes for the merged elements */
   type Bucket
@@ -1066,17 +1124,16 @@ trait OrderedBucketMergeHubOps[Name, A, Config, Offset] {
       config: Config,
       exclusiveStart: Offset,
       priorElement: Option[PriorElement],
-  ): Source[A, (KillSwitch, Future[Done])]
+  ): Source[A, (KillSwitch, Future[Done], M)]
 }
 
 object OrderedBucketMergeHubOps {
-  def apply[Name, A <: HasTraceContext, Config, Offset: Ordering, B: Pretty](initialOffset: Offset)(
-      toBucket: A => B,
-      toOffset: B => Offset,
-  )(
-      mkSource: (Name, Config, Offset, Option[A]) => Source[A, (KillSwitch, Future[Done])]
-  ): OrderedBucketMergeHubOps[Name, A, Config, Offset] =
-    new OrderedBucketMergeHubOps[Name, A, Config, Offset] {
+  def apply[Name, A <: HasTraceContext, Config, Offset: Ordering, B: Pretty, M](
+      initialOffset: Offset
+  )(toBucket: A => B, toOffset: B => Offset)(
+      mkSource: (Name, Config, Offset, Option[A]) => Source[A, (KillSwitch, Future[Done], M)]
+  ): OrderedBucketMergeHubOps[Name, A, Config, Offset, M] =
+    new OrderedBucketMergeHubOps[Name, A, Config, Offset, M] {
       override type PriorElement = A
       override type Bucket = B
       override def prettyBucket: Pretty[Bucket] = implicitly
@@ -1090,7 +1147,7 @@ object OrderedBucketMergeHubOps {
           config: Config,
           exclusiveStart: Offset,
           priorElement: Option[PriorElement],
-      ): Source[A, (KillSwitch, Future[Done])] =
+      ): Source[A, (KillSwitch, Future[Done], M)] =
         mkSource(name, config, exclusiveStart, priorElement)
       override def priorElement: Option[A] = None
       override def toPriorElement(output: OutputElement[Name, A]): A = output.elem.head1._2

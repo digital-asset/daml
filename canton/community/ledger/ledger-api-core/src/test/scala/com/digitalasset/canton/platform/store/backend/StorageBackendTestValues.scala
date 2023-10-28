@@ -138,6 +138,8 @@ private[store] object StorageBackendTestValues {
       driverMetadata: Option[Array[Byte]] = None,
       keyHash: Option[String] = None,
       domainId: Option[String] = None,
+      createKey: Option[Array[Byte]] = None,
+      createKeyMaintainer: Option[String] = None,
       traceContext: Array[Byte] = serializableTraceContext,
   ): DbDto.EventCreate = {
     val transactionId = transactionIdFromOffset(offset)
@@ -161,8 +163,8 @@ private[store] object StorageBackendTestValues {
       create_signatories = Some(Set(signatory)),
       create_observers = Some(Set(observer)),
       create_agreement_text = None,
-      create_key_value = None,
-      create_key_maintainers = None,
+      create_key_value = createKey,
+      create_key_maintainers = createKeyMaintainer.map(Set(_)),
       create_key_hash = keyHash,
       create_argument_compression = None,
       create_key_value_compression = None,

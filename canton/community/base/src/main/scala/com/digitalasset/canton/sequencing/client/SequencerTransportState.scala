@@ -54,6 +54,8 @@ class SequencersTransportState(
   private val sequencerTrustThreshold =
     new AtomicReference[PositiveInt](initialSequencerTransports.sequencerTrustThreshold)
 
+  def getSequencerTrustThreshold = sequencerTrustThreshold.get()
+
   blocking(lock.synchronized {
     val sequencerIdToTransportStateMap = initialSequencerTransports.sequencerIdToTransportMap.map {
       case (sequencerId, transport) =>

@@ -257,7 +257,7 @@ final class SyncStateInspection(
       .map(_.nonEmpty)
 
   def findAcceptedTransactions(
-      domain: DomainAlias,
+      domain: Option[DomainAlias] = None,
       from: Option[CantonTimestamp] = None,
       to: Option[CantonTimestamp] = None,
       limit: Option[Int] = None,
@@ -278,28 +278,28 @@ final class SyncStateInspection(
     * @throws scala.RuntimeException (by Await.result and if lookup fails)
     */
   def findEvents(
-      domain: DomainAlias,
+      domain: Option[DomainAlias] = None,
       from: Option[CantonTimestamp] = None,
       to: Option[CantonTimestamp] = None,
       limit: Option[Int] = None,
   )(implicit
       traceContext: TraceContext
-  ): Seq[(SyncStateInspection.DisplayOffset, TimestampedEvent)] =
-    if (domain.unwrap == "")
+  ): Seq[(SyncStateInspection.DisplayOffset, TimestampedEvent)] = domain match {
+    case None =>
       timeouts.inspection.await("finding events in the multi-domain event log")(
         participantNodePersistentState.value.multiDomainEventLog
           .lookupEventRange(None, limit)
           .map(_.map { case (offset, event) => (offset.toString, event) })
       )
-    else {
+    case Some(domainAlias) =>
       timeouts.inspection
         .await(s"$functionFullName from $from to $to in the event log")(
-          getOrFail(getPersistentState(domain), domain).eventLog
+          getOrFail(getPersistentState(domainAlias), domainAlias).eventLog
             .lookupEventRange(None, None, from, to, limit)
         )
         .toSeq
         .map { case (offset, event) => (offset.toString, event) }
-    }
+  }
 
   private def tryGetProtocolVersion(
       state: SyncDomainPersistentState,

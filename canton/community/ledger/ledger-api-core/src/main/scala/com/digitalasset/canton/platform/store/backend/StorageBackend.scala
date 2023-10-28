@@ -380,6 +380,7 @@ object EventStorageBackend {
       agreementText: Option[String],
       createArgument: Array[Byte],
       createArgumentCompression: Option[Int],
+      createKeyMaintainers: Set[String],
       createKeyValue: Option[Array[Byte]],
       createKeyValueCompression: Option[Int],
       ledgerEffectiveTime: Timestamp,

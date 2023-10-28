@@ -10,6 +10,9 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{Fingerprint, Signature}
+import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
+import com.digitalasset.canton.lifecycle.OnShutdownRunner
+import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.sequencing.SequencerAggregatorAkka.HasSequencerSubscriptionFactoryAkka
 import com.digitalasset.canton.sequencing.SequencerAggregatorAkkaTest.Config
 import com.digitalasset.canton.sequencing.client.TestSequencerSubscriptionFactoryAkka.{
@@ -41,6 +44,8 @@ import com.google.protobuf.ByteString
 import org.scalatest.Outcome
 import org.scalatest.wordspec.FixtureAnyWordSpec
 
+import scala.concurrent.duration.DurationInt
+
 class SequencerAggregatorAkkaTest
     extends FixtureAnyWordSpec
     with BaseTest
@@ -59,11 +64,14 @@ class SequencerAggregatorAkkaTest
       )
     ) { env => withFixture(test.toNoArgTest(env)) }
 
+  private val domainId = DefaultTestIdentities.domainId
+
   private def mkAggregatorAkka(
       validator: SequencedEventValidator =
         SequencedEventValidator.noValidation(DefaultTestIdentities.domainId, warn = false)
   )(implicit fixture: FixtureParam): SequencerAggregatorAkka =
     new SequencerAggregatorAkka(
+      domainId,
       validator,
       PositiveInt.one,
       fixture.subscriberCryptoApi.pureCrypto,
@@ -88,12 +96,20 @@ class SequencerAggregatorAkkaTest
   private def mkEvents(start: SequencerCounter, amount: Int): Seq[Event] =
     (0 until amount).map(i => Event(start + i))
 
+  private class TestAtomicHealthComponent(override val name: String) extends AtomicHealthComponent {
+    override protected def initialHealthState: ComponentHealthState =
+      ComponentHealthState.NotInitializedState
+    override protected def associatedOnShutdownRunner: OnShutdownRunner =
+      new OnShutdownRunner.PureOnShutdownRunner(logger)
+    override protected def logger: TracedLogger = SequencerAggregatorAkkaTest.this.logger
+  }
+
   "aggregator" should {
     "pass through events from a single sequencer subscription" in { implicit fixture =>
       import fixture.*
 
       val aggregator = mkAggregatorAkka()
-      val factory = new TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
       factory.add(mkEvents(SequencerCounter.Genesis, 3) *)
 
       val config = OrderedBucketMergeConfig(
@@ -103,7 +119,7 @@ class SequencerAggregatorAkkaTest
       val configSource =
         Source.single(config).concat(Source.never).viaMat(KillSwitches.single)(Keep.right)
 
-      val ((killSwitch, doneF), sink) = configSource
+      val ((killSwitch, (doneF, _health)), sink) = configSource
         .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
         .toMat(TestSink.probe)(Keep.both)
         .run()
@@ -125,7 +141,7 @@ class SequencerAggregatorAkkaTest
     "log the error when a subscription signals an error" in { implicit fixture =>
       import fixture.*
       val aggregator = mkAggregatorAkka()
-      val factory = new TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
       factory.add(Error(UnretryableError))
       val config = OrderedBucketMergeConfig(
         PositiveInt.one,
@@ -134,7 +150,7 @@ class SequencerAggregatorAkkaTest
       val configSource =
         Source.single(config).concat(Source.never).viaMat(KillSwitches.single)(Keep.right)
 
-      val ((killSwitch, doneF), sink) = loggerFactory.assertLogs(
+      val ((killSwitch, (doneF, _health)), sink) = loggerFactory.assertLogs(
         {
           val (handle, sink) = configSource
             .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
@@ -159,7 +175,7 @@ class SequencerAggregatorAkkaTest
     "propagate the exception from a subscription" in { implicit fixture =>
       import fixture.*
       val aggregator = mkAggregatorAkka()
-      val factory = new TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
       val ex = new Exception("Alice subscription failure")
       factory.add(Failure(ex))
       val config = OrderedBucketMergeConfig(
@@ -169,7 +185,7 @@ class SequencerAggregatorAkkaTest
       val configSource =
         Source.single(config).concat(Source.never).viaMat(KillSwitches.single)(Keep.right)
 
-      val ((killSwitch, doneF), sink) = loggerFactory.assertLogs(
+      val ((killSwitch, (doneF, _health)), sink) = loggerFactory.assertLogs(
         {
           val (handle, sink) = configSource
             .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
@@ -193,13 +209,13 @@ class SequencerAggregatorAkkaTest
       import fixture.*
 
       val aggregator = mkAggregatorAkka()
-      val ((source, doneF), sink) = Source
+      val ((source, (doneF, _health)), sink) = Source
         .queue[OrderedBucketMergeConfig[SequencerId, Config]](1)
         .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
-      val factory = new TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
       factory.add(mkEvents(SequencerCounter.Genesis, 3) *)
       factory.add(mkEvents(SequencerCounter.Genesis + 2, 3) *)
       val config1 = OrderedBucketMergeConfig(
@@ -238,9 +254,9 @@ class SequencerAggregatorAkkaTest
 
         val aggregator = mkAggregatorAkka()
 
-        val factoryAlice = new TestSequencerSubscriptionFactoryAkka(loggerFactory)
-        val factoryBob = new TestSequencerSubscriptionFactoryAkka(loggerFactory)
-        val factoryCarlos = new TestSequencerSubscriptionFactoryAkka(loggerFactory)
+        val factoryAlice = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+        val factoryBob = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+        val factoryCarlos = TestSequencerSubscriptionFactoryAkka(loggerFactory)
 
         val signatureAlice = fakeSignatureFor("Alice")
         val signatureBob = fakeSignatureFor("Bob")
@@ -263,7 +279,7 @@ class SequencerAggregatorAkkaTest
         val configSource =
           Source.single(config).concat(Source.never).viaMat(KillSwitches.single)(Keep.right)
 
-        val ((killSwitch, doneF), sink) = configSource
+        val ((killSwitch, (doneF, _health)), sink) = configSource
           .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
           .toMat(TestSink.probe)(Keep.both)
           .run()
@@ -304,7 +320,7 @@ class SequencerAggregatorAkkaTest
         )
         val initialCounter = SequencerCounter(10)
         val aggregator = mkAggregatorAkka(validator)
-        val ((source, doneF), sink) = Source
+        val ((source, (doneF, health_)), sink) = Source
           .queue[OrderedBucketMergeConfig[SequencerId, Config]](1)
           .viaMat(
             aggregator.aggregateFlow(Right(Event(initialCounter).asOrdinarySerializedEvent))
@@ -312,9 +328,9 @@ class SequencerAggregatorAkkaTest
           .toMat(TestSink.probe)(Keep.both)
           .run()
 
-        val factoryAlice = new TestSequencerSubscriptionFactoryAkka(loggerFactory)
-        val factoryBob = new TestSequencerSubscriptionFactoryAkka(loggerFactory)
-        val factoryCarlos = new TestSequencerSubscriptionFactoryAkka(loggerFactory)
+        val factoryAlice = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+        val factoryBob = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+        val factoryCarlos = TestSequencerSubscriptionFactoryAkka(loggerFactory)
 
         val config1 = OrderedBucketMergeConfig(
           PositiveInt.tryCreate(2),
@@ -379,6 +395,155 @@ class SequencerAggregatorAkkaTest
         source.complete()
         sink.expectComplete()
         doneF.futureValue
+      }
+
+    "forward health signal for a single sequencer" in { implicit fixture =>
+      import fixture.*
+
+      val aggregator = mkAggregatorAkka()
+      val health = new TestAtomicHealthComponent("forward-health-signal-test")
+      val factory = new TestSequencerSubscriptionFactoryAkka(health, loggerFactory)
+      factory.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
+      factory.add(Error(UnretryableError))
+      val config = OrderedBucketMergeConfig(
+        PositiveInt.one,
+        NonEmpty(Map, sequencerAlice -> Config("")(factory)),
+      )
+      val configSource =
+        Source.single(config).concat(Source.never).viaMat(KillSwitches.single)(Keep.right)
+
+      val ((killSwitch, (doneF, reportedHealth)), sink) = configSource
+        .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      reportedHealth.getState shouldBe ComponentHealthState.NotInitializedState
+
+      sink.request(10)
+      health.resolveUnhealthy()
+      sink.expectNext() shouldBe Left(NewConfiguration(config, SequencerCounter.Genesis - 1L))
+      sink.expectNext() shouldBe Right(Event(SequencerCounter.Genesis).asOrdinarySerializedEvent)
+
+      eventually() {
+        reportedHealth.getState shouldBe ComponentHealthState.Ok()
+      }
+
+      health.degradationOccurred("some degradation")
+      eventually() {
+        reportedHealth.getState shouldBe ComponentHealthState.degraded("some degradation")
+      }
+
+      health.failureOccurred("some failure")
+      eventually() {
+        reportedHealth.getState shouldBe ComponentHealthState.failed("some failure")
+      }
+
+      sink.expectNext() shouldBe Right(
+        Event(SequencerCounter.Genesis + 1).asOrdinarySerializedEvent
+      )
+
+      health.resolveUnhealthy()
+      eventually() {
+        reportedHealth.getState shouldBe ComponentHealthState.Ok()
+      }
+
+      killSwitch.shutdown()
+      doneF.futureValue
+    }
+
+    "aggregate health signal for a multiple sequencers" onlyRunWithOrGreaterThan
+      ProtocolVersion.CNTestNet in { implicit fixture =>
+        import fixture.*
+
+        val aggregator = mkAggregatorAkka()
+        val healthAlice = new TestAtomicHealthComponent("health-signal-alice")
+        val healthBob = new TestAtomicHealthComponent("health-signal-bob")
+        val healthCarlos = new TestAtomicHealthComponent("health-signal-carlos")
+
+        val factoryAlice = new TestSequencerSubscriptionFactoryAkka(healthAlice, loggerFactory)
+        val factoryBob = new TestSequencerSubscriptionFactoryAkka(healthBob, loggerFactory)
+        val factoryCarlos = new TestSequencerSubscriptionFactoryAkka(healthCarlos, loggerFactory)
+
+        factoryAlice.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
+        factoryBob.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
+        factoryCarlos.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
+
+        val config = OrderedBucketMergeConfig(
+          PositiveInt.tryCreate(2),
+          NonEmpty(
+            Map,
+            sequencerAlice -> Config("")(factoryAlice),
+            sequencerBob -> Config("")(factoryBob),
+            sequencerCarlos -> Config("")(factoryCarlos),
+          ),
+        )
+        val configSource =
+          Source.single(config).concat(Source.never).viaMat(KillSwitches.single)(Keep.right)
+
+        val ((killSwitch, (doneF, reportedHealth)), sink) = configSource
+          .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
+          .toMat(TestSink.probe)(Keep.both)
+          .run()
+
+        reportedHealth.getState shouldBe ComponentHealthState.NotInitializedState
+
+        sink.request(10)
+        Seq(healthAlice, healthBob, healthCarlos).foreach(_.resolveUnhealthy())
+
+        sink.expectNext() shouldBe Left(NewConfiguration(config, SequencerCounter.Genesis - 1L))
+
+        eventually() {
+          reportedHealth.getState shouldBe ComponentHealthState.Ok()
+        }
+
+        healthAlice.failureOccurred("Alice failed")
+        // We still have threshold many sequencers that are healthy, so the subscription is healthy overall
+        always(durationOfSuccess = 100.milliseconds) {
+          reportedHealth.getState shouldBe ComponentHealthState.Ok()
+        }
+
+        healthBob.degradationOccurred("Bob degraded")
+        eventually() {
+          reportedHealth.getState shouldBe ComponentHealthState.degraded(
+            s"Failed sequencer subscriptions for [$sequencerAlice]. Degraded sequencer subscriptions for [$sequencerBob]."
+          )
+        }
+
+        healthAlice.resolveUnhealthy()
+        eventually() {
+          reportedHealth.getState shouldBe ComponentHealthState.Ok()
+        }
+
+        healthAlice.degradationOccurred("Alice degraded")
+        eventually() {
+          reportedHealth.getState shouldBe ComponentHealthState.degraded(
+            s"Degraded sequencer subscriptions for [$sequencerBob, $sequencerAlice]."
+          )
+        }
+
+        healthBob.failureOccurred("Bob failed")
+        healthCarlos.failureOccurred("Carlos failed")
+        eventually() {
+          reportedHealth.getState shouldBe ComponentHealthState.failed(
+            s"Failed sequencer subscriptions for [$sequencerBob, $sequencerCarlos]. Degraded sequencer subscriptions for [$sequencerAlice]."
+          )
+        }
+
+        healthAlice.resolveUnhealthy()
+        eventually() {
+          reportedHealth.getState shouldBe ComponentHealthState.failed(
+            s"Failed sequencer subscriptions for [$sequencerBob, $sequencerCarlos]."
+          )
+        }
+
+        killSwitch.shutdown()
+        doneF.futureValue
+
+        eventually() {
+          reportedHealth.getState shouldBe ComponentHealthState.failed(
+            s"Disconnected from domain $domainId"
+          )
+        }
       }
   }
 }

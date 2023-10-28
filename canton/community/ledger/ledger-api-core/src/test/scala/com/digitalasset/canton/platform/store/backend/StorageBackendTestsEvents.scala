@@ -3,8 +3,11 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import com.daml.ledger.api.v1.event.Event
+import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.platform.store.dao.events.Raw
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
@@ -435,5 +438,67 @@ private[backend] trait StorageBackendTestsEvents
     val flatContexts = traceContexts.take(2) ++ traceContexts.drop(4)
     for (i <- flatContexts.indices)
       yield flatTransactions(i).traceContext should equal(Some(flatContexts(i)))
+  }
+
+  it should "return the correct keys for create events" in {
+    val someKey = Some(someSerializedDamlLfValue)
+    val someMaintainer = Some("maintainer")
+    val someMaintainers = Array("maintainer")
+    val dbDtos = Vector(
+      dtoCreate(
+        offset = offset(1),
+        eventSequentialId = 1L,
+        contractId = hashCid("#1"),
+        createKey = someKey,
+        createKeyMaintainer = someMaintainer,
+      ),
+      dtoCreate(
+        offset = offset(2),
+        eventSequentialId = 2L,
+        contractId = hashCid("#2"),
+        createKey = None,
+        createKeyMaintainer = None,
+      ),
+    )
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dbDtos, _))
+    executeSql(updateLedgerEnd(offset(2), 2L))
+
+    val transactionTrees = executeSql(
+      backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(1L, 6L, Set.empty)
+    )
+
+    def checkKeyAndMaintainersInTrees(
+        event: Raw.TreeEvent,
+        createKey: Option[Array[Byte]],
+        createKeyMaintainers: Array[String],
+    ) = event match {
+      case created: Raw.Created[TreeEvent] =>
+        created.createKeyValue should equal(createKey)
+        created.createKeyMaintainers should equal(createKeyMaintainers)
+      case _ => fail()
+    }
+
+    checkKeyAndMaintainersInTrees(transactionTrees(0).event, someKey, someMaintainers)
+    checkKeyAndMaintainersInTrees(transactionTrees(1).event, None, Array.empty)
+
+    val flatTransactions = executeSql(
+      backend.event.transactionPointwiseQueries.fetchFlatTransactionEvents(1L, 6L, Set.empty)
+    )
+
+    def checkKeyAndMaintainersInFlats(
+        event: Raw.FlatEvent,
+        createKey: Option[Array[Byte]],
+        createKeyMaintainers: Array[String],
+    ) = event match {
+      case created: Raw.Created[Event] =>
+        created.createKeyValue should equal(createKey)
+        created.createKeyMaintainers should equal(createKeyMaintainers)
+      case _ => fail()
+    }
+
+    checkKeyAndMaintainersInFlats(flatTransactions(0).event, someKey, someMaintainers)
+    checkKeyAndMaintainersInFlats(flatTransactions(1).event, None, Array.empty)
   }
 }

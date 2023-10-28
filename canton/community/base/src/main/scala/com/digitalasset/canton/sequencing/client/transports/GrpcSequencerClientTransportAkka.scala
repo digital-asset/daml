@@ -11,6 +11,7 @@ import com.daml.grpc.adapter.client.akka.ClientAdapter
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.health.HealthComponent.AlwaysHealthyComponent
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.networking.grpc.GrpcError
@@ -125,7 +126,11 @@ class GrpcSequencerClientTransportAkka(
         // Stop emitting after the first parse error
         .takeUntilThenDrain(_.isLeft)
         .watchTermination()(Keep.both)
-      SequencerSubscriptionAkka(source)
+      SequencerSubscriptionAkka(
+        source,
+        // Transport does not report its health individually
+        new AlwaysHealthyComponent("GrpcSequencerClientTransport", logger),
+      )
     }
 
     if (protocolVersion >= ProtocolVersion.v5) {

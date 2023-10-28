@@ -56,6 +56,8 @@ sealed trait SequencedEvent[+Env <: Envelope[_]]
   /** The domain which this deliver event belongs to */
   val domainId: DomainId
 
+  def isTombstone: Boolean = false
+
   protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
@@ -270,6 +272,11 @@ sealed abstract case class DeliverError private[sequencing] (
   )
 
   def envelopes: Seq[Nothing] = Seq.empty
+
+  override def isTombstone: Boolean = reason match {
+    case SequencerErrors.PersistTombstone(_) => true
+    case _ => false
+  }
 }
 
 object DeliverError {
