@@ -189,6 +189,10 @@ multiPackageLocationOpt =
       <> value MPLCurrent
       )
 
+newtype MultiPackageCleanAll = MultiPackageCleanAll {getMultiPackageCleanAll :: Bool}
+multiPackageCleanAllOpt :: Parser MultiPackageCleanAll
+multiPackageCleanAllOpt = MultiPackageCleanAll <$> switch (long "all" <> help "Clean all packages in multi-package.daml" <> internal)
+
 data Telemetry
     = TelemetryOptedIn -- ^ User has explicitly opted in
     | TelemetryOptedOut -- ^ User has explicitly opted out

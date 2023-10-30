@@ -28,6 +28,7 @@ import DA.Cli.Options (Debug(..),
                        EnableMultiPackage(..),
                        InitPkgDb(..),
                        MultiPackageBuildAll(..),
+                       MultiPackageCleanAll(..),
                        MultiPackageLocation(..),
                        MultiPackageNoCache(..),
                        ProjectOpts(..),
@@ -45,6 +46,7 @@ import DA.Cli.Options (Debug(..),
                        inputFileOpt,
                        inputFileOptWithExt,
                        multiPackageBuildAllOpt,
+                       multiPackageCleanAllOpt,
                        multiPackageLocationOpt,
                        multiPackageNoCacheOpt,
                        optionalDlintUsageParser,
@@ -616,7 +618,11 @@ cmdClean =
     info (helper <*> cmd) $
     progDesc "Remove Daml project build artifacts" <> fullDesc
   where
-    cmd = execClean <$> projectOpts "daml clean"
+    cmd = execClean
+            <$> projectOpts "daml clean"
+            <*> enableMultiPackageOpt
+            <*> multiPackageLocationOpt
+            <*> multiPackageCleanAllOpt
 
 cmdInit :: Int -> Mod CommandFields Command
 cmdInit numProcessors =
@@ -902,6 +908,27 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
                   pDataDependencies
               createProjectPackageDb (toNormalizedFilePath' projRoot) opts pModulePrefixes
 
+getMultiPackagePath :: MultiPackageLocation -> IO (Maybe ProjectPath)
+getMultiPackagePath multiPackageLocation =
+  case multiPackageLocation of
+    MPLSearch -> do
+      mPath <- findMultiPackageConfig defaultProjectPath
+      case mPath of
+        Nothing -> do
+          hPutStrLn stderr $ "Couldn't find multi-package.yaml at or above the current directory.\n"
+            <> "Use --multi-package-path to specify the multi-package.yaml path."
+          exitFailure
+        Just path -> pure $ Just path
+    MPLPath path -> do
+      hasMultiPackage <- doesFileExist $ path </> multiPackageConfigName
+      unless hasMultiPackage $ do
+        hPutStrLn stderr $ (path </> multiPackageConfigName) <> " does not exist."
+        exitFailure
+      pure $ Just $ ProjectPath path
+    MPLCurrent -> do
+      hasMultiPackage <- doesFileExist $ unwrapProjectPath defaultProjectPath </> multiPackageConfigName
+      pure $ if hasMultiPackage then Just defaultProjectPath else Nothing
+
 execBuild
   :: ProjectOpts
   -> Options
@@ -927,24 +954,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
     -- TODO: This throws if you have the sdk-version only daml.yaml, ideally it should return Nothing
     mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig defaultProjectPath
     liftIO $ if getEnableMultiPackage enableMultiPackage then do
-      mMultiPackagePath <- case multiPackageLocation of
-        MPLSearch -> do
-          mPath <- findMultiPackageConfig defaultProjectPath
-          case mPath of
-            Nothing -> do
-              hPutStrLn stderr $ "Couldn't find multi-package.yaml at or above the current directory.\n"
-                <> "Use --multi-package-path to specify the multi-package.yaml path."
-              exitFailure
-            Just path -> pure $ Just path
-        MPLPath path -> do
-          hasMultiPackage <- doesFileExist $ path </> multiPackageConfigName
-          unless hasMultiPackage $ do
-            hPutStrLn stderr $ (path </> multiPackageConfigName) <> " does not exist."
-            exitFailure
-          pure $ Just $ ProjectPath path
-        MPLCurrent -> do
-          hasMultiPackage <- doesFileExist $ unwrapProjectPath defaultProjectPath </> multiPackageConfigName
-          pure $ if hasMultiPackage then Just defaultProjectPath else Nothing
+      mMultiPackagePath <- getMultiPackagePath multiPackageLocation
       -- At this point, if mMultiPackagePath is Just, we know it points to a multi-package.yaml
       
       case (getMultiPackageBuildAll buildAll, mPkgConfig, mMultiPackagePath) of
@@ -1351,22 +1361,42 @@ execRepl dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInbou
                     (Repl.runRepl importPkgs opts replHandle replLogger)
 
 -- | Remove any build artifacts if they exist.
-execClean :: ProjectOpts -> Command
-execClean projectOpts =
+execClean :: ProjectOpts -> EnableMultiPackage -> MultiPackageLocation -> MultiPackageCleanAll -> Command
+execClean projectOpts enableMultiPackage multiPackageLocation cleanAll =
   Command Clean (Just projectOpts) effect
-  where effect = do
-            withProjectRoot' projectOpts $ \_relativize -> do
-                isProject <- doesFileExist projectConfigName
-                when isProject $ do
-                    let removeAndWarn path = do
-                            whenM (doesDirectoryExist path) $ do
-                                putStrLn ("Removing directory " <> path)
-                                removePathForcibly path
-                            whenM (doesFileExist path) $ do
-                                putStrLn ("Removing file " <> path)
-                                removePathForcibly path
-                    removeAndWarn damlArtifactDir
-                    putStrLn "Removed build artifacts."
+  where
+    effect =
+      case (getEnableMultiPackage enableMultiPackage, getMultiPackageCleanAll cleanAll) of
+        (True, True) -> do
+          mMultiPackagePath <- getMultiPackagePath multiPackageLocation
+          case mMultiPackagePath of
+            Nothing -> do
+              hPutStrLn stderr "Couldn't find multi-package.yaml. Use --multi-package-path PATH or --multi-package-search to specify its location."
+              exitFailure
+            Just path ->
+              withMultiPackageConfig path $ \multiPackageConfig ->
+                forM_ (mpPackagePaths multiPackageConfig) $ \p ->
+                  singleCleanEffect $ projectOpts {projectRoot = Just $ ProjectPath p}
+        (False, True) -> do
+          hPutStrLn stderr "Cannot use --all without --enable-multi-package=yes"
+          exitFailure
+        _ -> singleCleanEffect projectOpts
+
+singleCleanEffect :: ProjectOpts -> IO ()
+singleCleanEffect projectOpts =
+  withProjectRoot' projectOpts $ \_relativize -> do
+    isProject <- doesFileExist projectConfigName
+    when isProject $ do
+        let removeAndWarn path = do
+                whenM (doesDirectoryExist path) $ do
+                    putStrLn ("Removing directory " <> path)
+                    removePathForcibly path
+                whenM (doesFileExist path) $ do
+                    putStrLn ("Removing file " <> path)
+                    removePathForcibly path
+        removeAndWarn damlArtifactDir
+        putStrLn "Removed build artifacts."
+
 
 execPackage :: ProjectOpts
             -> FilePath -- ^ input file
