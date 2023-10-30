@@ -10,14 +10,13 @@ import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.language.{Ast, StablePackagesV2}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.transaction.{GlobalKey, SharedGlobalKey}
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
-import com.daml.lf.engine.preprocessing.LossyValueTranslator
 
 import scala.util.control.NoStackTrace
 
@@ -57,31 +56,10 @@ object SubmitError {
       damlScriptVariant("SubmitError", name, rank, fields: _*)
   }
 
-  private def globalKeyToAnyContractKey(env: Env, key: GlobalKey): SValue =
-    keyToAnyContractKey(env, key.templateId, key.key)
-
-  private def sharedKeyToAnyContractKey(env: Env, key: SharedGlobalKey): SValue = {
-    key.packageId match {
-      case Some(packageId) =>
-        keyToAnyContractKey(env, TypeConName(packageId, key.qualifiedName), key.key)
-      case None => sharedKeyToAnyContractKey(key.key, key.qualifiedName)
-    }
-  }
-
-  private val sharedKeyPackageId = PackageId.assertFromString("SharedKey")
-
-  /** TODO This is a workaround until the type can be established based on the qualified name alone,
-    * see issue #17646 for details of how this can be done.
-    */
-  private def sharedKeyToAnyContractKey(value: Value, qualifiedName: QualifiedName): SValue = {
-    val (sValue, ty) = LossyValueTranslator.unsafeTranslate(value)
-    fromAnyContractKey(AnyContractKey(TypeConName(sharedKeyPackageId, qualifiedName), ty, sValue))
-  }
-
-  private def keyToAnyContractKey(env: Env, templateId: TypeConName, key: Value): SValue = {
-    val ty = env.lookupKeyTy(templateId).toOption.get
-    val sValue = env.translateValue(ty, key).toOption.get
-    fromAnyContractKey(AnyContractKey(templateId, ty, sValue))
+  def globalKeyToAnyContractKey(env: Env, key: GlobalKey): SValue = {
+    val ty = env.lookupKeyTy(key.templateId).toOption.get
+    val sValue = env.translateValue(ty, key.key).toOption.get
+    fromAnyContractKey(AnyContractKey(key.templateId, ty, sValue))
   }
 
   def fromNonEmptySet[A](set: NonEmpty[Seq[A]], conv: A => SValue): SValue = {
@@ -198,15 +176,13 @@ object SubmitError {
     }
   }
 
-  final case class ContractKeyNotFound(key: SharedGlobalKey) extends SubmitError {
-    override def toDamlSubmitError(env: Env): SValue = {
-      val contractKey = sharedKeyToAnyContractKey(env, key)
+  final case class ContractKeyNotFound(key: GlobalKey) extends SubmitError {
+    override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "ContractKeyNotFound",
         1,
-        ("contractKey", contractKey),
+        ("contractKey", globalKeyToAnyContractKey(env, key)),
       )
-    }
   }
 
   final case class AuthorizationError(message: String) extends SubmitError {

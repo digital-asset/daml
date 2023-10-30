@@ -3,7 +3,7 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.{LedgerApiErrors}
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlErrorWithDefiniteAnswer,
@@ -18,7 +18,7 @@ import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{SharedGlobalKey, TransactionVersion}
+import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
 import com.daml.lf.value.ValueCoder.CidEncoder
 import com.daml.lf.value.{Value, ValueCoder}
 
@@ -111,7 +111,7 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
 
         final case class Reject(
             override val cause: String,
-            key: SharedGlobalKey,
+            key: GlobalKey,
         )(implicit
             loggingContext: ContextualizedErrorLogger
         ) extends DamlErrorWithDefiniteAnswer(
@@ -119,13 +119,10 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
             ) {
           override def resources: Seq[(ErrorResource, String)] =
             withEncodedValue(key.key) { encodedKey =>
-              key.packageId.fold[Seq[(ErrorResource, String)]](Seq.empty)(p =>
-                Seq((ErrorResource.PackageId, p))
-              ) ++
-                Seq(
-                  (ErrorResource.QualifiedName, key.qualifiedName.toString),
-                  (ErrorResource.ContractKey, encodedKey),
-                )
+              Seq(
+                (ErrorResource.TemplateId, key.templateId.toString),
+                (ErrorResource.ContractKey, encodedKey),
+              )
             }
         }
       }

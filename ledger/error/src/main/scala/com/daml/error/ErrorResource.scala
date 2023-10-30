@@ -33,8 +33,6 @@ object ErrorResource {
     Parties,
     Party,
     TemplateId,
-    PackageId,
-    QualifiedName,
     TransactionId,
     User,
   )
@@ -61,12 +59,6 @@ object ErrorResource {
   }
   object TemplateId extends ErrorResource {
     def asString: String = "TEMPLATE_ID"
-  }
-  object PackageId extends ErrorResource {
-    def asString: String = "PACKAGE_ID"
-  }
-  object QualifiedName extends ErrorResource {
-    def asString: String = "QUALIFIED_NAME"
   }
   object InterfaceId extends ErrorResource {
     def asString: String = "INTERFACE_ID"
