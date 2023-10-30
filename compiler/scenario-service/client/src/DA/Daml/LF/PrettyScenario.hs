@@ -523,7 +523,7 @@ prettyScenarioErrorError lvl (Just err) =  do
               scenarioError_LookupErrorPackageMetadata
         , label_ "Package id:" $ text $ TL.toStrict scenarioError_LookupErrorPackageId
         ]
-    ScenarioErrorErrorUpgradeError {..} -> do
+    ScenarioErrorErrorUpgradeError ScenarioError_UpgradeError {..} -> do
        pure $ text $ TL.toStrict scenarioError_UpgradeErrorMessage
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
