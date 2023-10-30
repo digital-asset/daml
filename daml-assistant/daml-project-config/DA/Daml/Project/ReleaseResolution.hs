@@ -15,14 +15,14 @@ module DA.Daml.Project.ReleaseResolution
     , ArtifactoryApiKey(..)
     ) where
 
---import Control.Exception.Safe
+import Control.Exception.Safe
 import DA.Daml.Project.Types
 import Data.Aeson
---import Data.Aeson.Types (explicitParseField, listParser)
+import Data.Aeson.Types (explicitParseField, listParser)
 import Data.Either.Extra
 import DA.Daml.Project.Config
---import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
---import Network.HTTP.Simple (getResponseBody, httpJSON, parseRequest, setRequestHeaders)
+import Data.Maybe (listToMaybe, mapMaybe)
+import Network.HTTP.Simple (getResponseBody, httpJSON, parseRequest, setRequestHeaders)
 import qualified System.Info
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -90,13 +90,21 @@ githubVersionLocation releaseVersion = InstallLocation
     }
 
 -- | Subset of the github release response that we care about
---data GithubReleaseResponseSubset = GithubReleaseResponseSubset
---  { assetNames :: [T.Text] }
---
---instance FromJSON GithubReleaseResponseSubset where
---  -- Akin to `GithubReleaseResponseSubset . fmap name . assets` but lifted into a parser over json
---  parseJSON = withObject "GithubReleaseResponse" $ \v ->
---    GithubReleaseResponseSubset <$> explicitParseField (listParser (withObject "GithubRelease" (.: "name"))) v "assets"
+data GithubReleaseResponseSubset = GithubReleaseResponseSubset
+  { assetNames :: [T.Text] }
+
+instance FromJSON GithubReleaseResponseSubset where
+  -- Akin to `GithubReleaseResponseSubset . fmap name . assets` but lifted into a parser over json
+  parseJSON = withObject "GithubReleaseResponse" $ \v ->
+    GithubReleaseResponseSubset <$> explicitParseField (listParser (withObject "GithubRelease" (.: "name"))) v "assets"
+
+data GithubReleaseError
+  = FailedToFindLinuxSdkInRelease String
+  deriving (Show, Eq, Ord)
+
+instance Exception GithubReleaseError where
+  displayException (FailedToFindLinuxSdkInRelease url) =
+    "Couldn't find Linux SDK in release at url: '" <> url <> "'"
 
 resolveReleaseVersion :: UnresolvedReleaseVersion -> IO ReleaseVersion
 resolveReleaseVersion = undefined resolveReleaseVersionFromGithub
@@ -107,18 +115,27 @@ resolveSdkVersionToRelease = undefined
 -- | Since ~2.8.snapshot, the "enterprise version" (the version the user inputs) and the daml sdk version (the version of the daml repo) can differ
 -- As such, we derive the latter via the github api `assets` endpoint, looking for a file matching the expected `daml-sdk-$VERSION-$OS.tar.gz`
 resolveReleaseVersionFromGithub :: UnresolvedReleaseVersion -> IO ReleaseVersion
-resolveReleaseVersionFromGithub v = do
-    undefined v
-    {- TODO: refactor to produce release version
-  req <- parseRequest $ "https://api.github.com/repos/digital-asset/daml/releases/tags/" <> T.unpack (unTag $ versionToTag v)
+resolveReleaseVersionFromGithub unresolvedVersion = do
+  let tag = T.unpack (unTag (versionToTag (unwrapUnresolvedReleaseVersion unresolvedVersion)))
+  let url = "https://api.github.com/repos/digital-asset/daml/releases/tags/" <> tag
+  req <- parseRequest url
   res <- httpJSON $ setRequestHeaders [("User-Agent", "request")] req
   let mSdkVersionStr =
         listToMaybe $ flip mapMaybe (assetNames $ getResponseBody res) $ \name -> do
           withoutExt <- T.stripSuffix "-linux.tar.gz" name
           T.stripPrefix "daml-sdk-" withoutExt
-      sdkVersionStr = fromMaybe (error "Failed to find linux sdk in release") mSdkVersionStr
-  either throwIO pure $ parseVersion sdkVersionStr
-    -}
+  case mSdkVersionStr of
+    Nothing -> throwIO (FailedToFindLinuxSdkInRelease url)
+    Just sdkVersionStr -> do
+      case parseSdkVersion sdkVersionStr of
+        Left e -> throwIO e
+        Right sdkVersion ->
+          let unwrappedSdk = unwrapSdkVersion sdkVersion
+              unwrappedRelease = unwrapUnresolvedReleaseVersion unresolvedVersion
+          in
+          if unwrappedSdk == unwrappedRelease
+             then pure (OldReleaseVersion unwrappedRelease)
+             else pure (SplitReleaseVersion unwrappedRelease unwrappedSdk)
 
 newtype ArtifactoryApiKey = ArtifactoryApiKey
     { unwrapArtifactoryApiKey :: Text

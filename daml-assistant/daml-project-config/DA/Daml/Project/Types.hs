@@ -121,6 +121,12 @@ parseUnresolvedVersion src =
         Left msg -> Left (InvalidVersion src msg)
         Right v -> Right (UnresolvedReleaseVersion v)
 
+parseSdkVersion :: Text -> Either InvalidVersion SdkVersion
+parseSdkVersion src =
+    case V.fromText src of
+        Left msg -> Left (InvalidVersion src msg)
+        Right v -> Right (SdkVersion v)
+
 unresolvedVersionToString :: UnresolvedReleaseVersion -> String
 unresolvedVersionToString (UnresolvedReleaseVersion unresolvedReleaseVersion) = V.toString unresolvedReleaseVersion
 
