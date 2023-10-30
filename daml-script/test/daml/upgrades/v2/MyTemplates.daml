@@ -5,6 +5,23 @@ module MyTemplates where
 
 import DA.List
 
+data UpgradedChoiceReturn = UpgradedChoiceReturn
+  { someData : Text
+  , someOtherData : Optional Text
+  }
+  deriving (Eq, Show)
+
+data UpgradedChoiceReturnWrapper = UpgradedChoiceReturnWrapper
+  { unwrap : UpgradedChoiceReturn
+  }
+  deriving (Eq, Show)
+
+data UpgradedChoiceData = UpgradedChoiceData
+  { firstArg : Text
+  , secondArg : Optional Text
+  }
+  deriving (Eq, Show)
+
 template ValidUpgrade
   with
     party : Party
@@ -15,6 +32,19 @@ template ValidUpgrade
     choice SameTypeChoice : Text
       controller party
       do pure "V2"
+
+    choice UpgradedChoice : UpgradedChoiceReturn with
+        firstArg : Text
+        secondArg : Optional Text
+      controller party
+      do pure $ UpgradedChoiceReturn (firstArg <> ":V2:" <> show secondArg) secondArg
+
+    choice UpgradedChoiceNested : UpgradedChoiceReturnWrapper with
+        choiceData : UpgradedChoiceData
+      controller party
+      do 
+        pure $ UpgradedChoiceReturnWrapper $ UpgradedChoiceReturn
+          (choiceData.firstArg <> ":V2:" <> show choiceData.secondArg) choiceData.secondArg
 
 -- This upgrade is invalid at runtime based on signatories and observers, not the datatype, so we may test those individually
 -- replacement signatories + observers are ignored in v1, added in v2, to test them changing in upgrade
@@ -184,3 +214,12 @@ template V2Utils
         cid : ContractId ValidUpgrade
       controller party
       do exercise cid SameTypeChoice
+
+template SharedTemplate
+  with
+    party : Party
+    ob : Party
+    additionalField : Optional Text
+  where
+    signatory party
+    observer ob
