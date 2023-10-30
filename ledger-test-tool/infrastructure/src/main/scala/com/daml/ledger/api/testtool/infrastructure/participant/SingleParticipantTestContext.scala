@@ -89,6 +89,7 @@ import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
   InterfaceFilter,
+  TemplateFilter,
   TransactionFilter,
 }
 import com.daml.ledger.api.v1.event_query_service.{
@@ -338,10 +339,13 @@ final class SingleParticipantTestContext private[participant] (
       templateIds: Seq[TemplateId] = Seq.empty,
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
       activeAtOffset: String = "",
+      useTemplateIdBasedLegacyFormat: Boolean = true,
   ): GetActiveContractsRequest =
     new GetActiveContractsRequest(
       ledgerId = ledgerId,
-      filter = Some(transactionFilter(parties, templateIds, interfaceFilters)),
+      filter = Some(
+        transactionFilter(parties, templateIds, interfaceFilters, useTemplateIdBasedLegacyFormat)
+      ),
       verbose = true,
       activeAtOffset,
     )
@@ -353,32 +357,51 @@ final class SingleParticipantTestContext private[participant] (
       templateIds: Seq[TemplateId],
       parties: Party*
   ): Future[Vector[CreatedEvent]] =
-    activeContracts(activeContractsRequest(parties, templateIds)).map(_._2)
+    activeContracts(
+      activeContractsRequest(
+        parties,
+        templateIds,
+        useTemplateIdBasedLegacyFormat = !features.templateFilters,
+      )
+    ).map(_._2)
 
   def transactionFilter(
       parties: Seq[Party],
       templateIds: Seq[TemplateId] = Seq.empty,
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+      useTemplateIdBasedLegacyFormat: Boolean = true,
   ): TransactionFilter =
     new TransactionFilter(
-      parties.map(party => party.unwrap -> filters(templateIds, interfaceFilters)).toMap
+      parties
+        .map(party =>
+          party.unwrap -> filters(templateIds, interfaceFilters, useTemplateIdBasedLegacyFormat)
+        )
+        .toMap
     )
 
-  def filters(
+  override def filters(
       templateIds: Seq[TemplateId] = Seq.empty,
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+      useTemplateIdBasedLegacyFormat: Boolean = true,
   ): Filters = new Filters(
     if (templateIds.isEmpty && interfaceFilters.isEmpty) None
     else
       Some(
         new InclusiveFilters(
-          templateIds = templateIds.map(Tag.unwrap).toSeq,
+          templateIds =
+            if (useTemplateIdBasedLegacyFormat) templateIds.map(Tag.unwrap).toSeq
+            else scala.Seq.empty,
           interfaceFilters = interfaceFilters.map { case (id, includeInterfaceView) =>
             new InterfaceFilter(
               Some(Tag.unwrap(id)),
               includeInterfaceView = includeInterfaceView,
             )
           }.toSeq,
+          templateFilters =
+            if (!useTemplateIdBasedLegacyFormat)
+              templateIds.map(tid => new TemplateFilter(Some(Tag.unwrap(tid)), false)).toSeq
+            else
+              scala.Seq.empty,
         )
       )
   )

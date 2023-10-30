@@ -44,7 +44,10 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, parties @ _*)) =>
     val invalidLedgerId = "ACSinvalidLedgerId"
     val invalidRequest = ledger
-      .activeContractsRequest(parties)
+      .activeContractsRequest(
+        parties,
+        useTemplateIdBasedLegacyFormat = !ledger.features.templateFilters,
+      )
       .update(_.ledgerId := invalidLedgerId)
     for {
       failure <- ledger.activeContracts(invalidRequest).mustFail("retrieving active contracts")
@@ -183,7 +186,10 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     for {
       dummy <- ledger.create(party, Dummy(party))
       (Some(offset), onlyDummy) <- ledger.activeContracts(
-        ledger.activeContractsRequest(Seq(party))
+        ledger.activeContractsRequest(
+          Seq(party),
+          useTemplateIdBasedLegacyFormat = !ledger.features.templateFilters,
+        )
       )
       dummyWithParam <- ledger.create(party, DummyWithParam(party))
       request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
@@ -224,7 +230,12 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       _ <- ledger.create(party, Dummy(party))
-      verboseRequest = ledger.activeContractsRequest(Seq(party)).update(_.verbose := true)
+      verboseRequest = ledger
+        .activeContractsRequest(
+          Seq(party),
+          useTemplateIdBasedLegacyFormat = !ledger.features.templateFilters,
+        )
+        .update(_.verbose := true)
       nonVerboseRequest = verboseRequest.update(_.verbose := false)
       (_, verboseEvents) <- ledger.activeContracts(verboseRequest)
       (_, nonVerboseEvents) <- ledger.activeContracts(nonVerboseRequest)
