@@ -25,7 +25,7 @@ import com.daml.ledger.api.auth.{
 import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.engine.script.LfValueCodec
 import com.daml.lf.engine.script.v2.Converter
 import com.daml.lf.language.Ast
@@ -178,13 +178,13 @@ class JsonLedgerClient(
     } yield {
       val ctx = templateId.qualifiedName
       val ifaceType = Converter.toIfaceType(ctx, Ast.TTyCon(templateId)).toOption.get
-      val parsedResults = queryResponse.results.map(r => {
+      val parsedResults = queryResponse.results.map { r =>
         val payload = r.payload.convertTo[Value](
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
         )
         val cid = ContractId.assertFromString(r.contractId)
-        ScriptLedgerClient.ActiveContract(templateId, cid, payload)
-      })
+        ScriptLedgerClient.ActiveContract(templateId, cid, payload, Bytes.Empty)
+      }
       parsedResults
     }
   }
@@ -209,7 +209,7 @@ class JsonLedgerClient(
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
         )
         val cid = ContractId.assertFromString(r.contractId)
-        ScriptLedgerClient.ActiveContract(templateId, cid, payload)
+        ScriptLedgerClient.ActiveContract(templateId, cid, payload, Bytes.Empty)
       })
     }
   }
@@ -297,13 +297,14 @@ class JsonLedgerClient(
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
         )
         val cid = ContractId.assertFromString(r.contractId)
-        ScriptLedgerClient.ActiveContract(templateId, cid, payload)
+        ScriptLedgerClient.ActiveContract(templateId, cid, payload, Bytes.Empty)
       })
     }
   }
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
@@ -311,6 +312,7 @@ class JsonLedgerClient(
       mat: Materializer,
   ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
     for {
+      _ <- Converter.noDisclosures(disclosures)
       partySets <- validateSubmitParties(actAs, readAs)
 
       result <- commands match {
@@ -335,13 +337,15 @@ class JsonLedgerClient(
       }
     } yield result
   }
+
   override def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
-    submit(actAs, readAs, commands, optLocation).map {
+    submit(actAs, readAs, disclosures, commands, optLocation).map {
       case Right(_) => Left(())
       case Left(_) => Right(())
     }
@@ -350,6 +354,7 @@ class JsonLedgerClient(
   override def submitTree(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
@@ -676,9 +681,10 @@ class JsonLedgerClient(
       )
     }
 
-  def trySubmit(
+  override def trySubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
@@ -686,7 +692,7 @@ class JsonLedgerClient(
       mat: Materializer,
   ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]] = unsupportedOn("trySubmit")
 
-  def trySubmitConcurrently(
+  override def trySubmitConcurrently(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commandss: List[List[command.ApiCommand]],

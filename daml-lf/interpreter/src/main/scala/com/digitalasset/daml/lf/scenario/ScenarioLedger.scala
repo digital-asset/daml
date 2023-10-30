@@ -5,11 +5,12 @@ package com.daml.lf
 package scenario
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.Time
+import com.daml.lf.data.{Bytes, Time}
 import com.daml.lf.ledger._
 import com.daml.lf.transaction.{
   BlindingInfo,
   CommittedTransaction,
+  FatContractInstance,
   GlobalKey,
   Node,
   NodeId,
@@ -18,7 +19,6 @@ import com.daml.lf.transaction.{
 }
 import com.daml.lf.value.Value
 import Value._
-
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.immutable
@@ -178,6 +178,14 @@ object ScenarioLedger {
       // NOTE(MH): Earlier disclosures take precedence (`++` is right biased).
       copy(disclosures = newDisclosures ++ disclosures)
     }
+
+    def toFatContractInstance: Option[FatContractInstance] =
+      node match {
+        case create: Node.Create =>
+          Some(FatContractInstance.fromCreateNode(create, effectiveAt, Bytes.Empty))
+        case _ =>
+          None
+      }
   }
 
   type LedgerNodeInfos = Map[EventId, LedgerNodeInfo]
@@ -189,9 +197,7 @@ object ScenarioLedger {
   sealed abstract class LookupResult extends Product with Serializable
 
   final case class LookupOk(
-      coid: ContractId,
-      coinst: VersionedContractInstance,
-      stakeholders: Set[Party],
+      coinst: FatContractInstance
   ) extends LookupResult
   final case class LookupContractNotFound(coid: ContractId) extends LookupResult
 
@@ -593,7 +599,7 @@ final case class ScenarioLedger(
   ): Seq[LookupOk] = {
     ledgerData.activeContracts.toList
       .map(cid => lookupGlobalContract(view, effectiveAt, cid))
-      .collect { case l @ LookupOk(_, _, _) =>
+      .collect { case l @ LookupOk(_) =>
         l
       }
   }
@@ -609,31 +615,27 @@ final case class ScenarioLedger(
     ledgerData.coidToNodeId.get(coid).flatMap(ledgerData.nodeInfos.get) match {
       case None => LookupContractNotFound(coid)
       case Some(info) =>
-        info.node match {
-          case create: Node.Create =>
-            if (info.effectiveAt.compareTo(effectiveAt) > 0)
-              LookupContractNotEffective(coid, create.templateId, info.effectiveAt)
+        info.toFatContractInstance match {
+          case Some(contract) =>
+            if (contract.createdAt.compareTo(effectiveAt) > 0)
+              LookupContractNotEffective(coid, contract.templateId, info.effectiveAt)
             else if (!ledgerData.activeContracts.contains(coid))
               LookupContractNotActive(
                 coid,
-                create.templateId,
+                contract.templateId,
                 info.consumedBy,
               )
             else if (!info.visibleIn(view))
               LookupContractNotVisible(
                 coid,
-                create.templateId,
+                contract.templateId,
                 info.disclosures.keys.toSet,
-                create.stakeholders,
+                contract.stakeholders,
               )
             else
-              LookupOk(
-                coid,
-                create.versionedCoinst,
-                create.stakeholders,
-              )
+              LookupOk(contract)
 
-          case _: Node.Exercise | _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback =>
+          case None =>
             LookupContractNotFound(coid)
         }
     }

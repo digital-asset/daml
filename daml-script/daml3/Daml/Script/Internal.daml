@@ -9,6 +9,7 @@ module Daml.Script.Internal
   , Script (..)
   , LedgerValue
   , ScriptF (..)
+  , Disclosure (..)
   , lift
   , script
   , fromLedgerValue
@@ -162,3 +163,7 @@ fromLedgerValue = dangerousCast
 
 toLedgerValue : a -> LedgerValue
 toLedgerValue = dangerousCast
+
+data Disclosure = Disclosure with
+    blob: Text
+  deriving (Eq, Ord)

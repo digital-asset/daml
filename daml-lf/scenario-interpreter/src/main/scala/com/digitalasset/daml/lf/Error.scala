@@ -90,4 +90,6 @@ object Error {
       packageMeta: Option[PackageMetadata],
       packageId: PackageId,
   ) extends Error
+
+  final case class DisclosureDecoding(message: String) extends Error
 }

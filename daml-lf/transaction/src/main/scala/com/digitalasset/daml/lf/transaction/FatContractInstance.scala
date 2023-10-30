@@ -66,6 +66,17 @@ private[lf] final case class FatContractInstanceImpl(
     assert(cantonData.nonEmpty)
     copy(cantonData = cantonData)
   }
+
+  def toCreateNode = Node.Create(
+    contractId,
+    templateId,
+    createArg,
+    "",
+    signatories,
+    stakeholders,
+    contractKeyWithMaintainers,
+    version,
+  )
 }
 
 object FatContractInstance {

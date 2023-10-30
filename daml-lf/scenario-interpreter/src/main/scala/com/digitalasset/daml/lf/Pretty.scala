@@ -82,14 +82,15 @@ private[lf] object Pretty {
       case Error.CanceledByRequest() =>
         text("Evaluation was cancelled because the test was changed and rerun in a new thread.")
 
-      case Error.LookupError(err, packageMetadata, packageId) => {
+      case Error.LookupError(err, packageMetadata, packageId) =>
         val packageName = packageMetadata.fold(packageId.toString)({
           case PackageMetadata(name, version, _) => s"$name-$version"
         })
         text(
           s"Error: ${err.pretty}\nin package ${packageName}"
         )
-      }
+      case Error.DisclosureDecoding(message) =>
+        text(s"decoding of disclosure fails: ${message}")
     }
 
 }
