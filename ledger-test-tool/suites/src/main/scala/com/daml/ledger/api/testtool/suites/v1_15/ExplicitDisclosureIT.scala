@@ -12,6 +12,7 @@ import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEvents
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.commands.DisclosedContract.Arguments
 import com.daml.ledger.api.v1.commands.{
   Command,
   CreateCommand,
@@ -26,10 +27,11 @@ import com.daml.ledger.api.v1.transaction_filter.{
   TemplateFilter,
   TransactionFilter,
 }
-import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.client.binding
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test._
+import com.daml.lf.transaction.TransactionCoder
 import com.google.protobuf.ByteString
 import scalaz.syntax.tag._
 
@@ -55,7 +57,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterByParty(owner),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
         // Ensure participants are synchronized
@@ -97,11 +99,13 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterByParty(owner),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
         dummyCid <- ownerParticipant.create(owner, Dummy(owner))
-        dummyTxs <- ownerParticipant.flatTransactionsByTemplateId(Dummy.id, owner)
+        dummyTxs <- ownerParticipant.flatTransactions(
+          ownerParticipant.getTransactionsRequest(filterByPartyAndTemplate(owner, Dummy.id.unwrap))
+        )
         dummyCreate = createdEvents(dummyTxs(0)).head
         dummyDisclosedContract = createEventToDisclosedContract(dummyCreate)
 
@@ -148,7 +152,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           )
           txs <- ownerParticipant.flatTransactions(
             ownerParticipant.getTransactionsRequest(
-              ownerParticipant.transactionFilter(Seq(owner), Seq(WithKey.id))
+              filterByPartyAndTemplate(owner, WithKey.id.unwrap)
             )
           )
           withKeyCreationTx = assertSingleton("Transaction expected non-empty", txs)
@@ -198,7 +202,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterByParty(owner),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
         // Archive the disclosed contract
@@ -264,8 +268,8 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
   })
 
   test(
-    "EDInconsistentDisclosedContracts",
-    "The ledger rejects disclosed contracts with invalid disclosed contract",
+    "EDMalformedDisclosedContractPayload",
+    "The ledger rejects disclosed contracts with a malformed disclosed contract payload",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -279,28 +283,35 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterByParty(owner),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
         // Ensure participants are synchronized
         _ <- synchronize(ownerParticipant, delegateParticipant)
 
         // Exercise a choice using invalid explicit disclosure
-        _ <- testContext
+        failure <- testContext
           .exerciseFetchDelegated(
             testContext.disclosedContract
               .update(_.createEventPayload.set(ByteString.copyFromUtf8("foo")))
           )
-          .mustFail("using an invalid disclosed contract create event payload")
+          .mustFail("using a malformed disclosed contract create event payload")
 
       } yield {
-        // TODO ED: Assert specific error codes once Canton error codes can be accessible from these suites
+        assertGrpcError(
+          failure,
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+          Some(
+            "The submitted command has invalid arguments: Unable to decode disclosed contract event payload: DecodeError"
+          ),
+          checkDefiniteAnswerMetadata = true,
+        )
       }
   })
 
   test(
-    "EDMalformedDisclosedContracts",
-    "The ledger rejects malformed contract payloads",
+    "EDInconsistentDisclosedContract",
+    "The ledger rejects inconsistent contract payloads",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -314,27 +325,46 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterByParty(owner),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
+        // Create a new context only for the sake of getting a new disclosed contract
+        // with the same template id
         delegateContext <- initializeTest(
-          ownerParticipant = ownerParticipant,
+          ownerParticipant = delegateParticipant,
           delegateParticipant = delegateParticipant,
           owner = delegate,
           delegate = delegate,
-          transactionFilter = filterByParty(delegate),
+          transactionFilter = filterByPartyAndTemplate(delegate),
         )
 
         // Ensure participants are synchronized
         _ <- synchronize(ownerParticipant, delegateParticipant)
 
+        otherSalt = TransactionCoder
+          .decodeFatContractInstance(delegateContext.disclosedContract.createEventPayload)
+          .map(_.cantonData)
+          .getOrElse(fail("contract decode failed"))
+
+        tamperedPayload = TransactionCoder
+          .encodeFatContractInstance(
+            TransactionCoder
+              .decodeFatContractInstance(ownerContext.disclosedContract.createEventPayload)
+              .map(_.setSalt(otherSalt))
+              .getOrElse(fail("contract decode failed"))
+          )
+          .getOrElse(fail("contract encode failed"))
+
         _ <- ownerContext
           // Use of inconsistent disclosed contract
           // i.e. the delegate cannot fetch the owner's contract with attaching a different disclosed contract
-          .exerciseFetchDelegated(delegateContext.disclosedContract)
-          .mustFail("using an invalid disclosed contract create event payload")
+          .exerciseFetchDelegated(
+            ownerContext.disclosedContract.copy(createEventPayload = tamperedPayload)
+          )
+          .mustFail("using an inconsistent disclosed contract create event payload")
       } yield {
         // TODO ED: Assert specific error codes once Canton error codes can be accessible from these suites
+        //          Should be DISCLOSED_CONTRACT_AUTHENTICATION_FAILED
       }
   })
 
@@ -354,7 +384,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterByParty(owner),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
         // Ensure participants are synchronized
@@ -396,7 +426,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterByParty(owner),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
         // Ensure participants are synchronized
@@ -433,7 +463,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterByParty(owner),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
         // Ensure participants are synchronized
@@ -450,6 +480,50 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           LedgerApiErrors.RequestValidation.InvalidArgument,
           Some(
             "The submitted command has invalid arguments: DisclosedContract.arguments or DisclosedContract.metadata cannot be set together with DisclosedContract.create_event_payload"
+          ),
+          checkDefiniteAnswerMetadata = true,
+        )
+      }
+  })
+
+  test(
+    "EDRejectOnPayloadNotSet",
+    "Submission is rejected when the disclosed contract payload is not set",
+    allocate(SingleParty, SingleParty),
+    enabled = _.explicitDisclosure,
+  )(implicit ec => {
+    case Participants(
+          Participant(ownerParticipant, owner),
+          Participant(delegateParticipant, delegate),
+        ) =>
+      for {
+        testContext <- initializeTest(
+          ownerParticipant = ownerParticipant,
+          delegateParticipant = delegateParticipant,
+          owner = owner,
+          delegate = delegate,
+          transactionFilter = filterByPartyAndTemplate(owner),
+        )
+
+        // Ensure participants are synchronized
+        _ <- synchronize(ownerParticipant, delegateParticipant)
+
+        failure <- testContext
+          .exerciseFetchDelegated(
+            testContext.disclosedContract.copy(
+              metadata = None,
+              arguments = Arguments.Empty,
+              createEventPayload = ByteString.EMPTY,
+            )
+          )
+          .mustFail("Submitter forwarded a contract with unpopulated create_event_payload")
+      } yield {
+        assertGrpcError(
+          failure,
+          LedgerApiErrors.RequestValidation.MissingField,
+          Some(
+            // TODO ED: Change assertion to missing create_event_payload once the deprecated fields are removed
+            "The submitted command is missing a mandatory field: DisclosedContract.arguments"
           ),
           checkDefiniteAnswerMetadata = true,
         )
@@ -551,16 +625,21 @@ object ExplicitDisclosureIT {
     )
   }
 
-  private def filterByParty(
-      owner: binding.Primitive.Party
+  private def filterByPartyAndTemplate(
+      owner: binding.Primitive.Party,
+      templateId: Identifier = Delegated.id.unwrap,
   ): TransactionFilter =
     new TransactionFilter(
-      Map(owner.unwrap -> new Filters(Some(InclusiveFilters(templateFilters = byTemplate.toList))))
+      Map(
+        owner.unwrap -> new Filters(
+          Some(
+            InclusiveFilters(templateFilters =
+              Seq(TemplateFilter(Some(templateId), includeCreateEventPayload = true))
+            )
+          )
+        )
+      )
     )
-
-  private def byTemplate: Option[TemplateFilter] = Some(
-    TemplateFilter(Some(Delegated.id.unwrap), includeCreateEventPayload = true)
-  )
 
   private def createEventToDisclosedContract(ev: CreatedEvent): DisclosedContract =
     DisclosedContract(
