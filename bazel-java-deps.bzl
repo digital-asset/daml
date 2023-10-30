@@ -153,6 +153,7 @@ def install_java_deps():
             "io.github.paoloboni:spray-json-derived-codecs_{}:2.3.10".format(scala_major_version),
             "io.grpc:grpc-api:{}".format(grpc_version),
             "io.grpc:grpc-core:{}".format(grpc_version),
+            "io.grpc:grpc-inprocess:{}".format(grpc_version),
             "io.grpc:grpc-netty:{}".format(grpc_version),
             "io.grpc:grpc-protobuf:{}".format(grpc_version),
             "io.grpc:grpc-services:{}".format(grpc_version),
