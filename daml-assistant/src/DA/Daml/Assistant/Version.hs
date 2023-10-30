@@ -18,6 +18,8 @@ module DA.Daml.Assistant.Version
     , extractReleasesFromSnapshots
     , UseCache (..)
     , freshMaximumOfVersions
+    , resolveReleaseVersion
+    , resolveSdkVersionToRelease
     ) where
 
 import DA.Daml.Assistant.Types
@@ -25,7 +27,7 @@ import DA.Daml.Assistant.Util
 import DA.Daml.Assistant.Cache
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts hiding (getDamlPath, getProjectPath)
-import DA.Daml.Project.ReleaseResolution (resolveReleaseVersion)
+import DA.Daml.Project.ReleaseResolution (releaseResponseSubsetSdkVersion)
 import System.Directory
 import System.FilePath
 import System.Environment.Blank
@@ -34,7 +36,7 @@ import Control.Monad.Extra
 import Data.Maybe
 import Data.Either.Extra
 import Data.Aeson (FromJSON(..), eitherDecodeStrict')
-import Data.Aeson.Types (listParser, withObject, (.:), Parser)
+import Data.Aeson.Types (listParser, withObject, (.:), Parser, Value(Object))
 import qualified Data.Text as T
 import Safe
 import Network.HTTP.Simple
@@ -55,37 +57,37 @@ import qualified Data.List.NonEmpty as NonEmpty
 
 -- | Determine SDK version of running daml assistant. Fails with an
 -- AssistantError exception if the version cannot be determined.
-getAssistantSdkVersion :: IO ReleaseVersion
-getAssistantSdkVersion = do
+getAssistantSdkVersion :: UseCache -> IO ReleaseVersion
+getAssistantSdkVersion useCache = do
     exePath <- requiredIO "Failed to determine executable path of assistant."
         getExecutablePath
     sdkPath <- required "Failed to determine SDK path of assistant." =<<
         findM hasSdkConfig (ascendants exePath)
-    getSdkVersionFromSdkPath (SdkPath sdkPath)
+    getSdkVersionFromSdkPath useCache (SdkPath sdkPath)
     where
         hasSdkConfig :: FilePath -> IO Bool
         hasSdkConfig p = doesFileExist (p </> sdkConfigName)
 
 -- | Determine SDK version from an SDK directory. Fails with an
 -- AssistantError exception if the version cannot be determined.
-getSdkVersionFromSdkPath :: SdkPath -> IO ReleaseVersion
-getSdkVersionFromSdkPath sdkPath = do
+getSdkVersionFromSdkPath :: UseCache -> SdkPath -> IO ReleaseVersion
+getSdkVersionFromSdkPath useCache sdkPath = do
     config <- requiredAny "Failed to read SDK config." $
         readSdkConfig sdkPath
-    requiredE "Failed to parse SDK version from SDK config." $
+    sdkVersion <- requiredE "Failed to parse SDK version from SDK config." $
         sdkVersionFromSdkConfig config
-    -- TODO: resolve full release version from path
-    pure undefined
+    resolveSdkVersionToRelease useCache sdkVersion
 
 -- | Determine SDK version from project root. Fails with an
 -- AssistantError exception if the version cannot be determined.
-getSdkVersionFromProjectPath :: ProjectPath -> IO ReleaseVersion
-getSdkVersionFromProjectPath projectPath =
+getSdkVersionFromProjectPath :: UseCache -> ProjectPath -> IO ReleaseVersion
+getSdkVersionFromProjectPath useCache projectPath =
     requiredIO ("Failed to read SDK version from " <> pack projectConfigName) $ do
         configE <- tryConfig $ readProjectConfig projectPath
         case releaseVersionFromProjectConfig =<< configE of
             Right (Just v) ->
-                resolveReleaseVersion v
+                -- TODO: resolve full release version
+                resolveReleaseVersion useCache v
             Left (ConfigFileInvalid _ raw) ->
                 throwIO $ assistantErrorDetails
                     (projectConfigName <> " is an invalid YAML file")
@@ -108,16 +110,15 @@ getSdkVersionFromProjectPath projectPath =
 -- | Get the list of installed SDK versions. Returned list is
 -- in no particular order. Fails with an AssistantError exception
 -- if this list cannot be obtained.
-getInstalledSdkVersions :: DamlPath -> IO [ReleaseVersion]
-getInstalledSdkVersions (DamlPath path) = do
+getInstalledSdkVersions :: UseCache -> DamlPath -> IO [ReleaseVersion]
+getInstalledSdkVersions useCache (DamlPath path) = do
     let sdkdir = path </> "sdk"
     subdirs <- requiredIO "Failed to list installed SDKs." $ do
         dirlist <- listDirectory sdkdir
         filterM (\p -> doesDirectoryExist (sdkdir </> p)) dirlist
     let unresolvedVersions = mapMaybe (eitherToMaybe . parseVersion . pack) subdirs
-    -- TODO: fill in resolveReleaseVersion in a way that won't hit the cache or
-    -- fail excessively
-    traverse resolveReleaseVersion unresolvedVersions
+    -- TODO: resolve release version fully from path structure
+    traverse (resolveReleaseVersion useCache) unresolvedVersions
 
 -- | Get the default SDK version for commands run outside of a
 -- project. This is defined as the latest installed version
@@ -127,47 +128,47 @@ getInstalledSdkVersions (DamlPath path) = do
 -- Raises an AssistantError exception if the version cannot be
 -- obtained, either because we cannot determine the installed
 -- versions or it is empty.
-getDefaultSdkVersion :: DamlPath -> IO ReleaseVersion
-getDefaultSdkVersion damlPath = do
-    installedVersions <- getInstalledSdkVersions damlPath
+getDefaultSdkVersion :: UseCache -> DamlPath -> IO ReleaseVersion
+getDefaultSdkVersion useCache damlPath = do
+    installedVersions <- getInstalledSdkVersions useCache damlPath
     required "There are no installed SDK versions." $
         maximumMay installedVersions
 
-isReleaseVersion :: UnresolvedReleaseVersion -> Bool
+isReleaseVersion :: ReleaseVersion -> Bool
 isReleaseVersion sdkVersion =
-    let v = unwrapUnresolvedReleaseVersion sdkVersion
+    let v = releaseVersionFromReleaseVersion sdkVersion
     in
     null (view V.release v) && null (view V.metadata v) && view V.major v > 0
 
 -- | Get the list of available release versions. This will fetch all snapshot
 -- versions and then prune them into releases
-getAvailableReleaseVersions :: UseCache -> IO ([UnresolvedReleaseVersion], CacheAge)
+getAvailableReleaseVersions :: UseCache -> IO ([ReleaseVersion], CacheAge)
 getAvailableReleaseVersions useCache = do
     (versions, cacheAge) <- wrapErr "Fetching list of available SDK versions" $ getAvailableSdkSnapshotVersions useCache
     pure (extractReleasesFromSnapshots versions, cacheAge)
 
-extractReleasesFromSnapshots :: [UnresolvedReleaseVersion] -> [UnresolvedReleaseVersion]
+extractReleasesFromSnapshots :: [ReleaseVersion] -> [ReleaseVersion]
 extractReleasesFromSnapshots snapshots =
     let -- For grouping things by their major or minor version
         distinguishBy :: Ord k => (a -> k) -> [a] -> M.Map k (NonEmpty.NonEmpty a)
         distinguishBy f as = M.fromListWith (<>) [(f a, pure a) | a <- as]
 
         -- Group versions by their major version number, filtering out snapshots
-        majorMap :: M.Map Int (NonEmpty.NonEmpty UnresolvedReleaseVersion)
-        majorMap = distinguishBy (view V.major . unwrapUnresolvedReleaseVersion) (filter isReleaseVersion snapshots)
+        majorMap :: M.Map Int (NonEmpty.NonEmpty ReleaseVersion)
+        majorMap = distinguishBy (view V.major . releaseVersion) (filter isReleaseVersion snapshots)
     in
     case M.maxView majorMap of
       Just (latestMajorVersions, withoutLatestMajor) ->
         let -- For old majors, only the latest stable patch
-            oldMajors :: [UnresolvedReleaseVersion]
+            oldMajors :: [ReleaseVersion]
             oldMajors = map maximum (M.elems withoutLatestMajor)
 
-            latestMajorMinorVersions :: M.Map Int (NonEmpty.NonEmpty UnresolvedReleaseVersion)
+            latestMajorMinorVersions :: M.Map Int (NonEmpty.NonEmpty ReleaseVersion)
             latestMajorMinorVersions =
-                distinguishBy (view V.minor . unwrapUnresolvedReleaseVersion) (NonEmpty.toList latestMajorVersions)
+                distinguishBy (view V.minor . releaseVersionFromReleaseVersion) (NonEmpty.toList latestMajorVersions)
 
             -- For the most recent major version, output the latest minor version
-            latestMajorLatestMinorVersions :: [UnresolvedReleaseVersion]
+            latestMajorLatestMinorVersions :: [ReleaseVersion]
             latestMajorLatestMinorVersions = map maximum (M.elems latestMajorMinorVersions)
         in
         oldMajors ++ latestMajorLatestMinorVersions
@@ -176,22 +177,22 @@ extractReleasesFromSnapshots snapshots =
 
 -- | Get the list of available snapshot versions, deferring to cache if
 -- possible
-getAvailableSdkSnapshotVersions :: UseCache -> IO ([UnresolvedReleaseVersion], CacheAge)
+getAvailableSdkSnapshotVersions :: UseCache -> IO ([ReleaseVersion], CacheAge)
 getAvailableSdkSnapshotVersions useCache =
   cacheAvailableSdkVersions useCache (getAvailableSdkSnapshotVersionsUncached >>= flattenSnapshotsList)
 
 -- | Find the first occurence of a version on Github, without the cache. Keep in
   -- mind that versions are not sorted.
-findAvailableSdkSnapshotVersion :: (UnresolvedReleaseVersion -> Bool) -> IO (Maybe UnresolvedReleaseVersion)
+findAvailableSdkSnapshotVersion :: (ReleaseVersion -> Bool) -> IO (Maybe ReleaseVersion)
 findAvailableSdkSnapshotVersion pred =
   getAvailableSdkSnapshotVersionsUncached >>= searchSnapshotsUntil pred
 
 data SnapshotsList = SnapshotsList
-  { versions :: IO [UnresolvedReleaseVersion]
+  { versions :: IO [ReleaseVersion]
   , next :: Maybe (IO SnapshotsList)
   }
 
-flattenSnapshotsList :: SnapshotsList -> IO [UnresolvedReleaseVersion]
+flattenSnapshotsList :: SnapshotsList -> IO [ReleaseVersion]
 flattenSnapshotsList SnapshotsList { versions, next } = do
   versions <- versions
   rest <- case next of
@@ -199,7 +200,7 @@ flattenSnapshotsList SnapshotsList { versions, next } = do
             Just io -> io >>= flattenSnapshotsList
   return (versions ++ rest)
 
-searchSnapshotsUntil :: (UnresolvedReleaseVersion -> Bool) -> SnapshotsList -> IO (Maybe UnresolvedReleaseVersion)
+searchSnapshotsUntil :: (ReleaseVersion -> Bool) -> SnapshotsList -> IO (Maybe ReleaseVersion)
 searchSnapshotsUntil pred SnapshotsList { versions, next } = do
   versions <- versions
   case filter pred versions of
@@ -252,12 +253,15 @@ getAvailableSdkSnapshotVersionsUncached = do
             | otherwise -> go rest
           _ -> Nothing
 
-  extractVersions :: ByteString -> Either String [UnresolvedReleaseVersion]
+  extractVersions :: ByteString -> Either String [ReleaseVersion]
   extractVersions bs = map unParsedSdkVersion . unParsedSdkVersions <$> eitherDecodeStrict' bs
 
 newtype ParsedSdkVersions = ParsedSdkVersions { unParsedSdkVersions :: [ParsedSdkVersion] }
-data ParsedSdkVersion = ParsedSdkVersion { unParsedSdkVersion :: UnresolvedReleaseVersion, isPrerelease :: Bool }
-  deriving (Show, Eq, Ord)
+data ParsedSdkVersion = ParsedSdkVersion
+  { unParsedSdkVersion :: ReleaseVersion
+  , isPrerelease :: Bool
+  }
+  deriving (Show, Eq)
 
 instance FromJSON ParsedSdkVersions where
   parseJSON v = ParsedSdkVersions <$> listParser parseJSON v
@@ -266,12 +270,23 @@ instance FromJSON ParsedSdkVersion where
   parseJSON =
     withObject "Version" $ \v -> do
       rawTagName <- (v .: "tag_name" :: Parser T.Text)
+      releaseVersion <- handleInvalidVersion "release version" (parseVersion (T.dropWhile ('v' ==) rawTagName))
       isPrerelease <- (v .: "prerelease" :: Parser Bool)
-      case parseVersion (T.dropWhile ('v' ==) rawTagName) of
-        Left (InvalidVersion src msg) -> fail $ "Invalid version string `" <> unpack src <> "` for reason: " <> msg
-        Right sdkVersion -> pure ParsedSdkVersion { unParsedSdkVersion = sdkVersion, isPrerelease }
+      mbRawSdkVersion <- releaseResponseSubsetSdkVersion <$> parseJSON (Object v)
+      sdkVersion <- case mbRawSdkVersion of
+        Nothing -> fail $ "Couldn't find Linux SDK in release version: '" <> T.unpack rawTagName <> "'"
+        Just rawSdkVersion -> handleInvalidVersion "sdk version" (parseSdkVersion rawSdkVersion)
+      pure ParsedSdkVersion
+        { unParsedSdkVersion = mkReleaseVersion releaseVersion sdkVersion
+        , isPrerelease
+        }
+    where
+      handleInvalidVersion :: String -> Either InvalidVersion a -> Parser a
+      handleInvalidVersion versionName (Left (InvalidVersion src msg)) =
+        fail $ "Invalid " <> versionName <> " string `" <> unpack src <> "` for reason: " <> msg
+      handleInvalidVersion _ (Right a) = pure a
 
-maximumOfNonEmptyVersions :: IO ([UnresolvedReleaseVersion], CacheAge) -> IO UnresolvedReleaseVersion
+maximumOfNonEmptyVersions :: IO ([ReleaseVersion], CacheAge) -> IO ReleaseVersion
 maximumOfNonEmptyVersions getVersions = do
     (versions, _cacheAge) <- getVersions
     case maximumMay versions of
@@ -279,7 +294,7 @@ maximumOfNonEmptyVersions getVersions = do
       Just m -> pure m
 
 -- | Get the latest released SDK version
-freshMaximumOfVersions :: IO ([UnresolvedReleaseVersion], CacheAge) -> IO (Maybe UnresolvedReleaseVersion)
+freshMaximumOfVersions :: IO ([ReleaseVersion], CacheAge) -> IO (Maybe ReleaseVersion)
 freshMaximumOfVersions getVersions = do
     (versions, cacheAge) <- getVersions
     case cacheAge of
@@ -287,10 +302,37 @@ freshMaximumOfVersions getVersions = do
       Fresh -> pure (maximumMay versions)
 
 -- | Get the latest snapshot SDK version.
-getLatestSdkSnapshotVersion :: UseCache -> IO UnresolvedReleaseVersion
+getLatestSdkSnapshotVersion :: UseCache -> IO ReleaseVersion
 getLatestSdkSnapshotVersion useCache = do
     maximumOfNonEmptyVersions (getAvailableSdkSnapshotVersions useCache)
 
-getLatestReleaseVersion :: UseCache -> IO UnresolvedReleaseVersion
+getLatestReleaseVersion :: UseCache -> IO ReleaseVersion
 getLatestReleaseVersion useCache =
     maximumOfNonEmptyVersions (getAvailableReleaseVersions useCache)
+
+data CouldNotResolveVersion
+  = CouldNotResolveReleaseVersion UnresolvedReleaseVersion
+  | CouldNotResolveSdkVersion SdkVersion
+  deriving (Show, Eq, Ord)
+
+instance Exception CouldNotResolveVersion where
+    displayException (CouldNotResolveReleaseVersion version) = "Could not resolve release version " <> T.unpack (V.toText (unwrapUnresolvedReleaseVersion version))
+    displayException (CouldNotResolveSdkVersion version) = "Could not resolve SDK version " <> T.unpack (V.toText (unwrapSdkVersion version))
+
+resolveReleaseVersion :: UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
+resolveReleaseVersion useCache targetVersion = do
+    let isTargetVersion version =
+          unwrapUnresolvedReleaseVersion targetVersion == releaseVersionFromReleaseVersion version
+    (releaseVersions, _) <- getAvailableReleaseVersions useCache
+    case filter isTargetVersion releaseVersions of
+      (x:_) -> pure x
+      [] -> throwIO (CouldNotResolveReleaseVersion targetVersion)
+
+resolveSdkVersionToRelease :: UseCache -> SdkVersion -> IO ReleaseVersion
+resolveSdkVersionToRelease useCache targetVersion = do
+    let isTargetVersion version =
+          unwrapSdkVersion targetVersion == sdkVersionFromReleaseVersion version
+    (releaseVersions, _) <- getAvailableReleaseVersions useCache
+    case filter isTargetVersion releaseVersions of
+      (x:_) -> pure x
+      [] -> throwIO (CouldNotResolveSdkVersion targetVersion)

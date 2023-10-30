@@ -8,8 +8,7 @@ module DA.Daml.Project.ReleaseResolution
     , artifactoryVersionLocation
     -- , tagToVersion
     , osName
-    , resolveReleaseVersion
-    , resolveSdkVersionToRelease
+    , releaseResponseSubsetSdkVersion
     -- , getSdkVersionFromEnterpriseVersion
     , queryArtifactoryApiKey
     , ArtifactoryApiKey(..)
@@ -98,6 +97,15 @@ instance FromJSON GithubReleaseResponseSubset where
   parseJSON = withObject "GithubReleaseResponse" $ \v ->
     GithubReleaseResponseSubset <$> explicitParseField (listParser (withObject "GithubRelease" (.: "name"))) v "assets"
 
+releaseResponseSubsetSdkVersion :: GithubReleaseResponseSubset -> Maybe T.Text
+releaseResponseSubsetSdkVersion responseSubset =
+  let extractMatchingName :: T.Text -> Maybe T.Text
+      extractMatchingName name = do
+        withoutExt <- T.stripSuffix "-linux.tar.gz" name
+        T.stripPrefix "daml-sdk-" withoutExt
+  in
+  listToMaybe $ mapMaybe extractMatchingName (assetNames responseSubset)
+
 data GithubReleaseError
   = FailedToFindLinuxSdkInRelease String
   deriving (Show, Eq, Ord)
@@ -105,12 +113,6 @@ data GithubReleaseError
 instance Exception GithubReleaseError where
   displayException (FailedToFindLinuxSdkInRelease url) =
     "Couldn't find Linux SDK in release at url: '" <> url <> "'"
-
-resolveReleaseVersion :: UnresolvedReleaseVersion -> IO ReleaseVersion
-resolveReleaseVersion = undefined resolveReleaseVersionFromGithub
-
-resolveSdkVersionToRelease :: SdkVersion -> IO ReleaseVersion
-resolveSdkVersionToRelease = undefined
 
 -- | Since ~2.8.snapshot, the "enterprise version" (the version the user inputs) and the daml sdk version (the version of the daml repo) can differ
 -- As such, we derive the latter via the github api `assets` endpoint, looking for a file matching the expected `daml-sdk-$VERSION-$OS.tar.gz`
@@ -120,22 +122,12 @@ resolveReleaseVersionFromGithub unresolvedVersion = do
   let url = "https://api.github.com/repos/digital-asset/daml/releases/tags/" <> tag
   req <- parseRequest url
   res <- httpJSON $ setRequestHeaders [("User-Agent", "request")] req
-  let mSdkVersionStr =
-        listToMaybe $ flip mapMaybe (assetNames $ getResponseBody res) $ \name -> do
-          withoutExt <- T.stripSuffix "-linux.tar.gz" name
-          T.stripPrefix "daml-sdk-" withoutExt
-  case mSdkVersionStr of
+  case releaseResponseSubsetSdkVersion (getResponseBody res) of
     Nothing -> throwIO (FailedToFindLinuxSdkInRelease url)
     Just sdkVersionStr -> do
       case parseSdkVersion sdkVersionStr of
         Left e -> throwIO e
-        Right sdkVersion ->
-          let unwrappedSdk = unwrapSdkVersion sdkVersion
-              unwrappedRelease = unwrapUnresolvedReleaseVersion unresolvedVersion
-          in
-          if unwrappedSdk == unwrappedRelease
-             then pure (OldReleaseVersion unwrappedRelease)
-             else pure (SplitReleaseVersion unwrappedRelease unwrappedSdk)
+        Right sdkVersion -> pure $ mkReleaseVersion unresolvedVersion sdkVersion
 
 newtype ArtifactoryApiKey = ArtifactoryApiKey
     { unwrapArtifactoryApiKey :: Text
@@ -146,7 +138,6 @@ queryArtifactoryApiKey damlConfig =
      eitherToMaybe (queryDamlConfigRequired ["artifactory-api-key"] damlConfig)
 
 -- | Install location for particular version.
--- NOTE THIS TAKES THE SDK VERSION, not the release version that `Github.versionLocation` uses
 artifactoryVersionLocation :: ReleaseVersion -> ArtifactoryApiKey -> InstallLocation
 artifactoryVersionLocation releaseVersion apiKey = InstallLocation
     { ilUrl = T.concat

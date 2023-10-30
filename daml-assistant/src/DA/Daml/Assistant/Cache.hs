@@ -60,8 +60,8 @@ data UseCache
 
 cacheAvailableSdkVersions
     :: UseCache
-    -> IO [UnresolvedReleaseVersion]
-    -> IO ([UnresolvedReleaseVersion], CacheAge)
+    -> IO [ReleaseVersion]
+    -> IO ([ReleaseVersion], CacheAge)
 cacheAvailableSdkVersions DontUseCache getVersions = (, Fresh) <$> getVersions
 cacheAvailableSdkVersions UseCache { overrideTimeout, cachePath, damlPath } getVersions = do
     damlConfigE <- tryConfig $ readDamlConfig damlPath
@@ -82,13 +82,13 @@ cacheAvailableSdkVersions UseCache { overrideTimeout, cachePath, damlPath } getV
         neverRefresh
     pure (fromMaybe ([], Stale) mVal)
 
-serializeVersions :: Serialize [UnresolvedReleaseVersion]
+serializeVersions :: Serialize [ReleaseVersion]
 serializeVersions =
-    unlines . map unresolvedVersionToString
+    unlines . map releaseVersionToCacheString
 
-deserializeVersions :: Deserialize [UnresolvedReleaseVersion]
+deserializeVersions :: Deserialize [ReleaseVersion]
 deserializeVersions =
-    Just . mapMaybe (eitherToMaybe . parseVersion . pack) . lines
+    Just . mapMaybe releaseVersionFromCacheString . lines
 
 cacheFilePath :: CachePath -> CacheKey -> FilePath
 cacheFilePath cachePath (CacheKey key) = unwrapCachePath cachePath </> key

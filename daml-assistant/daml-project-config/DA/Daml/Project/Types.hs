@@ -16,6 +16,7 @@ import System.FilePath
 import Control.Monad
 import Control.Exception.Safe
 import Network.HTTP.Types.Header (RequestHeaders)
+import Data.Either.Extra (eitherToMaybe)
 
 data ConfigError
     = ConfigFileInvalid Text Y.ParseException
@@ -66,6 +67,19 @@ data ReleaseVersion
 sdkVersionFromReleaseVersion :: ReleaseVersion -> V.Version
 sdkVersionFromReleaseVersion (SplitReleaseVersion _ sdkVersion) = sdkVersion
 sdkVersionFromReleaseVersion (OldReleaseVersion bothVersion) = bothVersion
+
+releaseVersionFromReleaseVersion :: ReleaseVersion -> V.Version
+releaseVersionFromReleaseVersion (SplitReleaseVersion releaseVersion _) = releaseVersion
+releaseVersionFromReleaseVersion (OldReleaseVersion bothVersion) = bothVersion
+
+mkReleaseVersion :: UnresolvedReleaseVersion -> SdkVersion -> ReleaseVersion
+mkReleaseVersion release sdk =
+    let unwrappedRelease = unwrapUnresolvedReleaseVersion release
+        unwrappedSdk = unwrapSdkVersion sdk
+    in
+    if unwrappedSdk == unwrappedRelease
+       then OldReleaseVersion unwrappedSdk
+       else SplitReleaseVersion unwrappedRelease unwrappedSdk
 
 newtype SdkVersion = SdkVersion
     { unwrapSdkVersion :: V.Version
@@ -127,8 +141,18 @@ parseSdkVersion src =
         Left msg -> Left (InvalidVersion src msg)
         Right v -> Right (SdkVersion v)
 
-unresolvedVersionToString :: UnresolvedReleaseVersion -> String
-unresolvedVersionToString (UnresolvedReleaseVersion unresolvedReleaseVersion) = V.toString unresolvedReleaseVersion
+releaseVersionToCacheString :: ReleaseVersion -> String
+releaseVersionToCacheString (SplitReleaseVersion release sdk) = V.toString release <> " " <> V.toString sdk
+releaseVersionToCacheString (OldReleaseVersion both) = V.toString both
+
+releaseVersionFromCacheString :: String -> Maybe ReleaseVersion
+releaseVersionFromCacheString src =
+    let parseVersionM = eitherToMaybe . V.fromText . pack
+    in
+    case words src of
+      [both] -> OldReleaseVersion <$> parseVersionM both
+      [release, sdk] -> SplitReleaseVersion <$> parseVersionM release <*> parseVersionM sdk
+      _ -> Nothing
 
 -- | File path of daml installation root (by default ~/.daml on unix, %APPDATA%/daml on windows).
 newtype DamlPath = DamlPath

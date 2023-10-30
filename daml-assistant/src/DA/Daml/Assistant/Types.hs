@@ -11,11 +11,8 @@ module DA.Daml.Assistant.Types
     ) where
 
 import DA.Daml.Project.Types
-import qualified Data.Text as T
 import Data.Text (Text, pack, unpack)
-import Data.Maybe
 import Options.Applicative.Extended (YesNoAuto (..))
-import Control.Exception.Safe
 import Data.Functor.Identity
 
 data EnvF f = Env

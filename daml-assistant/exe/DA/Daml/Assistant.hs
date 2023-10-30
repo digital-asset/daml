@@ -158,7 +158,7 @@ autoInstall env@Env{..} = do
                 { options = options
                 , damlPath = envDamlPath
                 , useCache = envUseCache env
-                , targetVersionM = Just sdkVersion
+                , targetVersionM = sdkVersion
                 , missingAssistant = False
                 , installingFromOutside = False
                 , projectPathM = Nothing
@@ -171,7 +171,7 @@ autoInstall env@Env{..} = do
                     -- output / have the install messages be gobbled
                     -- up by a pipe.
                 }
-        versionInstall installEnv sdkVersion
+        versionInstall installEnv
         pure env { envSdkPath = Just (defaultSdkPath envDamlPath sdkVersion) }
 
     else
