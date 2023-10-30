@@ -56,9 +56,12 @@ import scala.concurrent.{ExecutionContext, Future}
 class GrpcLedgerClient(
     val grpcClient: LedgerClient,
     val applicationId: ApplicationId,
-    override val enableContractUpgrading: Boolean = false,
+    val initialEnableContractUpgrading: Boolean = false,
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
+
+  var enableContractUpgradingState: Boolean = initialEnableContractUpgrading
+  override def enableContractUpgrading = enableContractUpgradingState
 
   override def query(
       parties: OneAnd[Set, Ref.Party],
@@ -618,4 +621,18 @@ class GrpcLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
+
+  override def setContractUpgradingEnabled(enabled: Boolean)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] =
+    if (initialEnableContractUpgrading)
+      Future.successful { enableContractUpgradingState = enabled }
+    else
+      Future.failed(
+        new ConverterException(
+          "Contract-upgrading must be enabled via the --enable-contract-upgrading flag to use this command."
+        )
+      )
 }

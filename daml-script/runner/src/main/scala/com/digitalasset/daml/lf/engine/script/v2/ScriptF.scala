@@ -778,6 +778,22 @@ object ScriptF {
       )
   }
 
+  final case class SetContractUpgradingEnabled(enabled: Boolean) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        _ <- env.clients.default_participant.fold(Future.unit)(
+          _.setContractUpgradingEnabled(enabled)
+        )
+        _ <- Future.traverse(env.clients.participants.toList) { case (_, v) =>
+          v.setContractUpgradingEnabled(enabled)
+        }
+      } yield SEValue(SUnit)
+  }
+
   // Shared between Submit, SubmitMustFail and SubmitTree
   final case class SubmitData(
       actAs: OneAnd[Set, Party],
@@ -1054,6 +1070,15 @@ object ScriptF {
     }
   }
 
+  private def parseSetContractUpgradingEnabled(
+      v: SValue
+  ): Either[String, SetContractUpgradingEnabled] =
+    v match {
+      case SRecord(_, _, ArrayList(SBool(enabled))) =>
+        Right(SetContractUpgradingEnabled(enabled))
+      case _ => Left(s"Expected SetContractUpgradingEnabled payload but got $v")
+    }
+
   def parse(
       commandName: String,
       version: Long,
@@ -1090,6 +1115,7 @@ object ScriptF {
       case ("UnvetPackages", 1) => parseChangePackages(v).map(UnvetPackages)
       case ("ListVettedPackages", 1) => parseEmpty(ListVettedPackages())(v)
       case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
+      case ("SetContractUpgradingEnabled", 1) => parseSetContractUpgradingEnabled(v)
       case _ => Left(s"Unknown command $commandName - Version $version")
     }
 
