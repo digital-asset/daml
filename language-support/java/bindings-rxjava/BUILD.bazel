@@ -81,7 +81,6 @@ da_scala_library(
         "//ledger/participant-local-store",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_reactivex_rxjava2_rxjava",
         "@maven//:org_scalatest_scalatest_compatible",
