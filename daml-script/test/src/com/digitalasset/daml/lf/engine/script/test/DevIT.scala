@@ -5,7 +5,6 @@ package com.daml.lf.engine.script
 package test
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.integrationtest.CantonConfig
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.language.LanguageMajorVersion
