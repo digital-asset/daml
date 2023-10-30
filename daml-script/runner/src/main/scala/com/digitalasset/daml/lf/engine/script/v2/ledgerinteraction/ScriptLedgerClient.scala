@@ -58,7 +58,12 @@ object ScriptLedgerClient {
   ): ScriptLedgerClient =
     ledger match {
       case abstractLedgers.GrpcLedgerClient(grpcClient, applicationId, oAdminClient) =>
-        new grpcLedgerClient.GrpcLedgerClient(grpcClient, applicationId, oAdminClient, enableContractUpgrading)
+        new grpcLedgerClient.GrpcLedgerClient(
+          grpcClient,
+          applicationId,
+          oAdminClient,
+          enableContractUpgrading,
+        )
       case abstractLedgers.JsonLedgerClient(uri, token, envIface, actorSystem) =>
         if (enableContractUpgrading)
           throw new IllegalArgumentException("The JSON client does not support Upgrades")
@@ -274,7 +279,7 @@ trait ScriptLedgerClient {
   ): Future[Unit]
 
   def unvetDar(name: String)(implicit
-        ec: ExecutionContext,
+      ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit]

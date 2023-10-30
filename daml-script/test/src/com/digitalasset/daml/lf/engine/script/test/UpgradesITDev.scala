@@ -39,7 +39,12 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     "run successfully" in {
       for {
         clients <- scriptClients(provideAdminPorts = true)
-        _ <- run(clients, QualifiedName.assertFromString("UpgradesTest:main"), dar = testDar, enableContractUpgrading = true)
+        _ <- run(
+          clients,
+          QualifiedName.assertFromString("UpgradesTest:main"),
+          dar = testDar,
+          enableContractUpgrading = true,
+        )
       } yield succeed
     }
   }
