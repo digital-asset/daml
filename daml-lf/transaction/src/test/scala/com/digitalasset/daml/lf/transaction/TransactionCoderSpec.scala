@@ -36,8 +36,6 @@ class TransactionCoderSpec
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  import TransactionVersion.{V14, V15, VDev, minExceptions}
-
   private[this] val transactionVersions =
     Table("transaction version", TransactionVersion.All: _*)
 
@@ -128,7 +126,7 @@ class TransactionCoderSpec
     "do Node.Rollback" in {
       forAll(danglingRefRollbackNodeGen) { node =>
         forEvery(transactionVersions) { txVersion =>
-          if (txVersion >= minExceptions) {
+          if (txVersion >= TransactionVersion.minExceptions) {
             val normalizedNode = normalizeNode(node)
             val Right(encodedNode) =
               TransactionCoder
@@ -270,7 +268,7 @@ class TransactionCoderSpec
               normalizedNode,
             )
 
-          result.isLeft shouldBe (txVersion < minExceptions)
+          result.isLeft shouldBe (txVersion < TransactionVersion.minExceptions)
         }
       }
     }
@@ -291,7 +289,7 @@ class TransactionCoderSpec
               normalizedNode,
             )
 
-          result.isLeft shouldBe (nodeVersion < minExceptions)
+          result.isLeft shouldBe (nodeVersion < TransactionVersion.minExceptions)
       }
     }
 
@@ -317,57 +315,6 @@ class TransactionCoderSpec
         version: String,
     ) =
       value.toBuilder.setVersion(version).build()
-
-    "fail if try to encode a create node containing value with version different from node" in {
-      forAll(
-        transactionVersionGen(maxVersion = Some(V15)),
-        transactionVersionGen(maxVersion = Some(VDev)),
-        minSuccessful(5),
-      ) { (nodeVersion, version) =>
-        whenever(nodeVersion != version) {
-          forAll(malformedCreateNodeGenWithVersion(nodeVersion)) { node =>
-            val encodeVersion = ValueCoder.encodeValueVersion(version)
-            val Right(encodedNode) = TransactionCoder.encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              nodeVersion,
-              NodeId(0),
-              normalizeNode(node),
-            )
-            val encodedCreate = encodedNode.getCreate
-            var cases = List(
-              encodedCreate.toBuilder
-                .setContractInstance(
-                  encodedCreate.getContractInstance.toBuilder.setArgVersioned(
-                    changeVersion(encodedCreate.getContractInstance.getArgVersioned, encodeVersion)
-                  )
-                )
-                .build()
-            )
-            if (encodedCreate.hasKeyWithMaintainers)
-              cases = encodedCreate.toBuilder
-                .setKeyWithMaintainers(
-                  encodedCreate.getKeyWithMaintainers.toBuilder.setKeyVersioned(
-                    changeVersion(
-                      encodedCreate.getKeyWithMaintainers.getKeyVersioned,
-                      encodeVersion,
-                    )
-                  )
-                )
-                .build() :: cases
-            cases.foreach(node =>
-              TransactionCoder.decodeVersionedNode(
-                TransactionCoder.NidDecoder,
-                ValueCoder.CidDecoder,
-                nodeVersion,
-                encodedNode.toBuilder.setCreate(node).build(),
-              ) shouldBe a[Left[_, _]]
-            )
-          }
-
-        }
-      }
-    }
 
     "fail if try to encode a fetch node containing value with version different from node" in {
       forAll(fetchNodeGen, transactionVersionGen(), minSuccessful(5)) { (node, version) =>
@@ -524,7 +471,7 @@ class TransactionCoderSpec
 
     "do FatContractInstance" in {
       forAll(
-        malformedCreateNodeGen(minVersion = V14),
+        malformedCreateNodeGen(),
         timestampGen,
         bytesGen,
         minSuccessful(5),
@@ -554,7 +501,7 @@ class TransactionCoderSpec
 
     "reject FatContractInstance with unknown fields" in {
       forAll(
-        malformedCreateNodeGen(minVersion = V14),
+        malformedCreateNodeGen(),
         timestampGen,
         bytesGen,
         Arbitrary.arbInt.arbitrary,
@@ -577,7 +524,7 @@ class TransactionCoderSpec
 
     "reject FatContractInstance with key but empty maintainers" in {
       forAll(
-        malformedCreateNodeGen(minVersion = V14),
+        malformedCreateNodeGen(),
         timestampGen,
         bytesGen,
         minSuccessful(2),
@@ -607,7 +554,7 @@ class TransactionCoderSpec
 
     "reject FatContractInstance with empty signatories" in {
       forAll(
-        malformedCreateNodeGen(minVersion = V14),
+        malformedCreateNodeGen(),
         timestampGen,
         bytesGen,
         minSuccessful(3),
@@ -644,7 +591,7 @@ class TransactionCoderSpec
     "reject FatContractInstance with nonMaintainerSignatories containing maintainers" in {
       forAll(
         party,
-        malformedCreateNodeGen(minVersion = V14),
+        malformedCreateNodeGen(),
         timestampGen,
         bytesGen,
         minSuccessful(2),
@@ -691,7 +638,7 @@ class TransactionCoderSpec
     "reject FatContractInstance with nonSignatoryStakeholders containing maintainers" in {
       forAll(
         party,
-        malformedCreateNodeGen(minVersion = V14),
+        malformedCreateNodeGen(),
         timestampGen,
         bytesGen,
         minSuccessful(2),
@@ -742,7 +689,7 @@ class TransactionCoderSpec
     "reject FatContractInstance with nonSignatoryStakeholders containing nonMaintainerSignatories" in {
       forAll(
         party,
-        malformedCreateNodeGen(minVersion = V14),
+        malformedCreateNodeGen(),
         timestampGen,
         bytesGen,
         minSuccessful(4),
@@ -830,7 +777,7 @@ class TransactionCoderSpec
                 txVersion,
                 encodedNode,
               )
-          result.isLeft shouldBe (txVersion < minExceptions)
+          result.isLeft shouldBe (txVersion < TransactionVersion.minExceptions)
         }
       }
     }
@@ -860,7 +807,7 @@ class TransactionCoderSpec
               v2,
               encodedNode,
             )
-        result.isLeft shouldBe (v1 < minExceptions)
+        result.isLeft shouldBe (v1 < TransactionVersion.minExceptions)
       }
     }
 
@@ -1085,7 +1032,7 @@ class TransactionCoderSpec
       chosenValue = normalize(exe.chosenValue, exe.version),
       exerciseResult = exe.exerciseResult match {
         case None =>
-          if (exe.version >= minExceptions) {
+          if (exe.version >= TransactionVersion.minExceptions) {
             None
           } else {
             Some(Value.ValueText("not-missing"))

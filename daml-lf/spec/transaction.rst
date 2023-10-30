@@ -1,3 +1,4 @@
+
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
@@ -5,7 +6,7 @@
 Daml-LF Transaction Specification
 =================================
 
-**version 14, 22 June 2021**
+**version 15, 29 July 2022**
 
 This specification, in concert with the ``transaction.proto``
 machine-readable definition, defines a format for *Daml-LF
@@ -168,21 +169,13 @@ Version history
 This table lists every version of this specification in ascending order
 (oldest first).
 
-Support for transaction versions 1 to 9 was dropped on 2020-11-02.
-This breaking change does not impact ledgers created with SDK 1.0.0 or
+Support for transaction versions 1 to 13 was dropped on 2023-10-13
+This breaking change does not impact ledgers created with Canton 2.0.0 or
 later.
 
 +--------------------+-----------------+
 | Version identifier | Date introduced |
 +====================+=================+
-|                 10 |      2020-03-25 |
-+--------------------+-----------------+
-|                 11 |      2021-01-19 |
-+--------------------+-----------------+
-|                 12 |      2021-01-27 |
-+--------------------+-----------------+
-|                 13 |      2021-04-06 |
-+--------------------+-----------------+
 |                 14 |      2021-06-03 |
 +--------------------+-----------------+
 |                 15 |      2022-07-29 |
@@ -215,7 +208,7 @@ field version
 ~~~~~~~~~~~~~
 
 ``version`` and must be a version of this specification.  For example,
-for version 11 of this specification, ``version`` must be ``"11"``
+for version 14 of this specification, ``version`` must be ``"14"``
 
 Known versions are listed in ascending order in `Version history`_;
 any ``version`` not in this list should be considered newer than any
@@ -228,9 +221,9 @@ message ContractInstance
 An instance of a Daml-LF template, represented by the Daml-LF value used
 to construct that instance.
 
-(*since version 10*)
+(*since version 14*)
 
-As of version 10, these fields are included:
+As of version 14, these fields are included:
 
 * `message Identifier`_ template_id
 * `message VersionedValue`_ arg_versioned
@@ -251,7 +244,7 @@ message Node
 
 An action on the ledger.
 
-(*since version 10*)
+(*since version 14*)
 
 As of version 10, these fields are included:
 
@@ -270,31 +263,22 @@ Additionally, one of the following node types *must* be included:
 * `message NodeFetch`_ fetch
 * `message NodeExercise`_ exercise
 * `message NodeLookupByKey`_ lookup
-
-Field field ``create``, ``fetch``, ``exercise`` and ``lookup`` shall
-be consumed according to version 10.
-  
-(*since version 11*)
-
-As of version 11, this optional field is included:
-
 * ``string`` ``version``
 
-The field ``version`` is optional.
 
-If present it must be a valid version as described under `field
-version`_, different from "10", and not newer that the version of the
-enclosing Transaction message. Other it is assumed to be version "10".
+Filed ``version`` must be a valid version as described under `field
+version`_, not newer that the version of the enclosing Transaction
+message.
 
-Field field ``create``, ``fetch``, ``exercise`` and ``lookup`` shall
-be consumed according to that version.
+Fields ``create``, ``fetch``, ``exercise`` and ``lookup`` shall
+be consumed according to version `version`.
 
 field node_id
 ~~~~~~~~~~~~~
 
 An identifier for this node, unique within the transaction.
 
-(*since version 10*)
+(*since version 14*)
 
 There are no particular requirements on its structure or how to generate
 them, and node IDs can be reused in different transactions.  An
@@ -321,26 +305,20 @@ message KeyWithMaintainers
 
 A contract key paired with its induced maintainers.
 
-(*since version 10*)
+(*since version 14*)
 
-As of version 10, these fields are included:
+As of version 14, these fields are included:
 
 * `message VersionedValue`_ key_versioned
 * repeated ``string`` maintainers
+* `message Value`_ key_unversioned
 
-``key_versioned`` is required.
+``key_versioned`` must be undefined.
+
+``key_unversioned`` is required while ``key_versioned``
 
 ``maintainers`` must be non-empty, whose elements are party
 identifiers.
-
-(*since version 12*)
-
-As of version 12, this field is included:
-
-* `message Value`_ key_unversioned
-
-``key_unversioned`` is required while ``key_versioned`` is not used
-anymore.
 
 message NodeCreate
 ^^^^^^^^^^^^^^^^^^
@@ -348,20 +326,27 @@ message NodeCreate
 The creation of a contract by instantiating a Daml-LF template with the
 given argument.
 
-(*since version 10*)
+(*since version 14*)
 
-As of version 10, these fields are included:
+As of version 14, these fields are included:
 
 * `message ContractId`_ contract_id_struct
 * `message ContractInstance`_ contract_instance
 * repeated ``string`` stakeholders
 * repeated ``string`` signatories
 * `message KeyWithMaintainers`_ key_with_maintainers
+* `message Identifier`_ template_id
+* `message VersionedValue`_ arg_unversioned
+* ``string`` agreement
 
-``contract_id_struct`` is required. Its structure is defined by `the value
+
+
+Field ``contract_id_struct`` is required. Its structure is defined by `the value
 specification`_.
 
-``contract_instance`` is required.
+Field ``contract_instance`` must be undefined.
+
+Field ``template_id``, and ``arg_unversioned`` are  required.
 
 Every element of ``signatories`` and ``stakeholders`` is a party
 identifier.
@@ -377,25 +362,14 @@ identifier.
 
 ``key_with_maintainers`` is optional. 
 
-(*since version 12*)
-
-As of version 12, these fields are included:
-
-* `message Identifier`_ template_id
-* `message VersionedValue`_ arg_unversioned
-* ``string`` agreement
-
-``template_id`` and ``arg_unversioned`` is required while
-``contract_instance`` is not used anymore.
-
 message NodeFetch
 ^^^^^^^^^^^^^^^^^
 
 Evidence of a Daml-LF ``fetch`` invocation.
 
-(*since version 10*)
+(*since version 14*)
 
-As of version 10, these fields are included:
+As of version 14, these fields are included:
 
 * `message ContractId`_ contract_id_struct
 * `message Identifier`_ template_id
@@ -404,6 +378,7 @@ As of version 10, these fields are included:
 * repeated ``string`` actors
 * `message KeyWithMaintainers`_ key_with_maintainers
 * ``string`` value_version
+* ``bool`` byKey
 
 ``contract_id_struct`` is required. Its structure is defined by `the
 value specification`_.
@@ -414,7 +389,9 @@ value specification`_.
 Every element of ``stakeholders``, ``signatories`` and ``actors`` is a
 party identifier.
 
-``actors`` is required to be non-empty:
+``actors`` is required to be non-empty.
+
+``byKey`` is required.
 
 .. note:: *This section is non-normative.*
 
@@ -424,21 +401,15 @@ party identifier.
 
 ``key_with_maintainers`` is optional.
 
-(*since version 1.14*)
-
-As of version 1.14, this field is required:
-
-``bool`` byKey
-
 message NodeExercise
 ^^^^^^^^^^^^^^^^^^^^
 
 The exercise of a choice on a contract, selected from the available
 choices in the associated Daml-LF template definition.
 
-(*since version 10*)
+(*since version 14*)
 
-As of version 10, these fields are included:
+As of version 14, these fields are included:
 
 * `message ContractId`_ contract_id_struct
 * `message Identifier`_ template_id

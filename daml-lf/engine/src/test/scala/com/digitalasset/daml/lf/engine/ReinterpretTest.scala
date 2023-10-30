@@ -170,29 +170,6 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
       val Right(tx) = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise(Create())))
     }
-
-    "not rollback version 13 contract creation" in {
-      // LF v2 does not need to ensure compatibility with v1.13
-      assume(majorLanguageVersion == LanguageMajorVersion.V1)
-
-      val choiceName = "Contract13ThenThrow"
-      val theCommand = {
-        val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
-        val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
-        val cid = toContractId("ReinterpretTests:MySimple:1")
-        ReplayCommand.Exercise(
-          templateId,
-          None,
-          cid,
-          choiceName,
-          ValueRecord(Some(r), ImmArray.Empty),
-        )
-      }
-
-      val Left(err) = reinterpretCommand(theCommand)
-      assert(err.toString().contains("ReinterpretTests:MyError"))
-    }
-
   }
 }
 
