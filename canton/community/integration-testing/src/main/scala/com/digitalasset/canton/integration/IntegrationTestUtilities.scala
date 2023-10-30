@@ -8,6 +8,7 @@ import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.Value
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.console.{
+  InstanceReference,
   InstanceReferenceWithSequencerConnection,
   LocalParticipantReference,
 }
@@ -48,7 +49,7 @@ object IntegrationTestUtilities {
     implicit val traceContext: TraceContext = TraceContext.empty
     val domain = domainRef.name
     val pcsCount = pr.findContracts(domain, None, None, None, limit = limit).length
-    val acceptedTransactionCount = pr.findAcceptedTransactions(domain).length
+    val acceptedTransactionCount = pr.findAcceptedTransactions(Some(domain)).length
     mkGrabCounts(pcsCount, acceptedTransactionCount, limit)
   }
 
@@ -69,14 +70,16 @@ object IntegrationTestUtilities {
     GrabbedCounts(pcsCount, acceptedTransactionCount)
   }
 
+  /** @param domainRef can either be a domain reference or a sequencer reference (in a distributed domain)
+    */
   def grabCounts(
-      domainRef: InstanceReferenceWithSequencerConnection,
+      domainRef: InstanceReference,
       pr: LocalParticipantReference,
       limit: Int = 100,
   ): GrabbedCounts = {
     val domain = domainRef.name
     val pcsCount = pr.testing.pcs_search(domain, limit = limit).length
-    val acceptedTransactionCount = pr.testing.transaction_search(domain, limit = limit).length
+    val acceptedTransactionCount = pr.testing.transaction_search(Some(domain), limit = limit).length
     mkGrabCounts(pcsCount, acceptedTransactionCount, limit)
   }
 
@@ -93,7 +96,7 @@ object IntegrationTestUtilities {
 
   def assertIncreasingRecordTime(
       domain: DomainAlias,
-      events: DomainAlias => Seq[(String, TimestampedEvent)],
+      events: Option[DomainAlias] => Seq[(String, TimestampedEvent)],
   ): Unit = {
     def assertIsSorted(s: Seq[(LfTimestamp, LedgerSyncEvent)]): Unit =
       s.sliding(2).collect { case Seq(x, y) =>
@@ -103,7 +106,7 @@ object IntegrationTestUtilities {
         )
       }
 
-    val eventsWithRecordTime = events(domain).map { case (_offset, event) =>
+    val eventsWithRecordTime = events(Some(domain)).map { case (_offset, event) =>
       (event.timestamp.toLf, event.event)
     }
     assertIsSorted(eventsWithRecordTime)

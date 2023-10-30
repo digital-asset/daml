@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Numeric;
 import com.daml.ledger.javaapi.data.Party;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
@@ -28,6 +29,18 @@ public class NumericTestForAll {
             new BigDecimal("0.37"),
             "alice");
     assertEquals(Box.fromValue(b.toValue()), b);
+  }
+
+  @Test
+  void numeric2Value2NumericJson() throws JsonLfDecoder.Error {
+    Box b =
+        new Box(
+            new BigDecimal(0),
+            new BigDecimal(10),
+            new BigDecimal(17),
+            new BigDecimal("0.37"),
+            "alice");
+    assertEquals(Box.fromJson(b.toJson()), b);
   }
 
   @Test

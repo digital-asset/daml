@@ -34,12 +34,14 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{
   ContractMetadata,
+  ExampleTransactionFactory,
   LfContractId,
   LfTemplateId,
   RequestId,
   SerializableContract,
   SourceDomainId,
   TargetDomainId,
+  TransactionId,
   TransferId,
 }
 import com.digitalasset.canton.sequencing.protocol.*
@@ -1192,6 +1194,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
       sourceMediator: MediatorRef,
       submittingParty: LfPartyId = LfPartyId.assertFromString("submitter"),
       targetDomainId: TargetDomainId,
+      creatingTransactionId: TransactionId = ExampleTransactionFactory.transactionId(0),
       contract: SerializableContract = contract,
       transferOutGlobalOffset: Option[GlobalOffset] = None,
   ): Future[TransferData] = {
@@ -1209,8 +1212,8 @@ object TransferStoreTest extends EitherValues with NoTracing {
       submitterMetadata(submittingParty),
       Set(submittingParty),
       Set.empty,
-      contract.contractId,
-      templateId = templateId,
+      creatingTransactionId,
+      contract,
       transferId.sourceDomain,
       SourceProtocolVersion(BaseTest.testedProtocolVersion),
       sourceMediator,
@@ -1251,6 +1254,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
       transferId: TransferId,
       sourceMediator: MediatorId,
       submitter: LfPartyId = LfPartyId.assertFromString("submitter"),
+      creatingTransactionId: TransactionId = transactionId1,
       contract: SerializableContract = contract,
       transferOutGlobalOffset: Option[GlobalOffset] = None,
   ) =
@@ -1259,6 +1263,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
       MediatorRef(sourceMediator),
       submitter,
       targetDomain,
+      creatingTransactionId,
       contract,
       transferOutGlobalOffset,
     )

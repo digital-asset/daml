@@ -14,7 +14,7 @@ private[inner] object TemplateMethods {
 
   def apply(fields: Fields, className: ClassName)(implicit
       packagePrefixes: PackagePrefixes
-  ): Vector[MethodSpec] = {
+  ): (Vector[MethodSpec], Seq[(ClassName, String)]) = {
     val constructor = ConstructorGenerator.generateConstructor(fields)
     val conversionMethods = distinctTypeVars(fields, IndexedSeq.empty[String]).flatMap { params =>
       val deprecatedFromValue = FromValueGenerator.generateDeprecatedFromValueForRecordLike(
@@ -61,15 +61,19 @@ private[inner] object TemplateMethods {
       .addStatement("return $T.of(COMPANION)", classOf[ContractFilter[_]])
       .build()
 
+    val (jsonEncoderMethods, staticImports) = ToJsonGenerator.forRecordLike(fields, IndexedSeq())
+
     val jsonConversionMethods = FromJsonGenerator.forRecordLike(
       fields,
       className,
       IndexedSeq(),
-    )
+    ) ++ jsonEncoderMethods
 
-    Vector(constructor) ++ conversionMethods ++ jsonConversionMethods ++ Vector(
+    val methods = Vector(constructor) ++ conversionMethods ++ jsonConversionMethods ++ Vector(
       contractFilterMethod
     ) ++
       ObjectMethods(className, IndexedSeq.empty[String], fields.map(_.javaName))
+
+    (methods, staticImports)
   }
 }

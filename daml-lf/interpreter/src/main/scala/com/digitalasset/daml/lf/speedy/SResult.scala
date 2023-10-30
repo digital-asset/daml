@@ -35,7 +35,7 @@ object Question {
         signatories: Set[Party],
         observers: Set[Party],
         keyOpt: Option[GlobalKeyWithMaintainers],
-        callback: () => Unit,
+        callback: Option[String] => Unit,
     ) extends Update
 
     /** Machine needs a definition that was not present when the machine was

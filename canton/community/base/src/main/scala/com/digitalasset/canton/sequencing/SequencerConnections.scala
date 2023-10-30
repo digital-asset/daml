@@ -109,7 +109,8 @@ final case class SequencerConnections private (
   ): SequencerConnections =
     modify(sequencerAlias, _.withCertificates(certificates))
 
-  override def pretty: Pretty[SequencerConnections] = prettyOfParam(_.aliasToConnection.forgetNE)
+  override def pretty: Pretty[SequencerConnections] =
+    prettyOfParam(_.aliasToConnection.forgetNE)
 
   def toProtoV0: Seq[v0.SequencerConnection] = connections.map(_.toProtoV0)
 

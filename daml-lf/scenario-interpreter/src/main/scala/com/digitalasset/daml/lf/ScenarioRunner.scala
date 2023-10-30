@@ -464,7 +464,7 @@ private[lf] object ScenarioRunner {
                 case Right(_) => go()
               }
             case Question.Update.NeedUpgradeVerification(_, _, _, _, callback) =>
-              callback()
+              callback(None)
               go()
             case Question.Update.NeedKey(keyWithMaintainers, committers, callback) =>
               ledger.lookupKey(

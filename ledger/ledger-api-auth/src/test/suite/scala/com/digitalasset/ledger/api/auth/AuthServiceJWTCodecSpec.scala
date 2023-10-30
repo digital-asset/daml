@@ -50,29 +50,37 @@ class AuthServiceJWTCodecSpec
   private implicit val arbFormat: Arbitrary[StandardJWTTokenFormat] =
     Arbitrary(
       Gen.oneOf[StandardJWTTokenFormat](
-        StandardJWTTokenFormat.ParticipantId,
+        StandardJWTTokenFormat.Audience,
         StandardJWTTokenFormat.Scope,
       )
     )
 
-  // participantId is mandatory for the format `StandardJWTTokenFormat.ParticipantId`
-  private val StandardJWTPayloadGen = Gen
-    .resultOf(StandardJWTPayload)
-    .filterNot { payload =>
-      !payload.participantId
-        .exists(_.nonEmpty) && payload.format == StandardJWTTokenFormat.ParticipantId
-    }
-    // we do not fill audiences for Scope or ParticipantId based tokens
-    .map(payload => payload.copy(audiences = List.empty))
+  // participantId is mandatory for the format `StandardJWTTokenFormat.Audience`
+  private val StandardJWTPayloadGen = {
+    Gen
+      .resultOf(StandardJWTPayload)
+      .filterNot { payload =>
+        payload.participantId
+          .forall(_.isEmpty) && payload.format == StandardJWTTokenFormat.Audience
+      }
+      .filterNot { payload =>
+        payload.scope.forall(_.isEmpty) && payload.format == StandardJWTTokenFormat.Scope
+
+      }
+      // we do not fill audiences for Scope or Audience based tokens
+      .map(payload => payload.copy(audiences = List.empty))
+      // we coerce all scopes to contain the official ledger api string, we test the non-conforming ones separately
+      .map(payload =>
+        payload.copy(scope = payload.scope.map(_ => AuthServiceJWTCodec.scopeLedgerApiFull))
+      )
+  }
 
   "Audience-Based AuthServiceJWTPayload codec" when {
     import AuthServiceJWTCodec.AudienceBasedTokenJsonImplicits._
 
     val PayloadGen = Gen
       .resultOf(StandardJWTPayload)
-      .map(payload =>
-        payload.copy(participantId = None, format = StandardJWTTokenFormat.ParticipantId)
-      )
+      .map(payload => payload.copy(participantId = None, format = StandardJWTTokenFormat.Audience))
 
     "serializing and parsing a value" should {
       "work for arbitrary custom Daml token values" in forAll(
@@ -98,13 +106,31 @@ class AuthServiceJWTCodecSpec
           participantId = None,
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
-          format = StandardJWTTokenFormat.ParticipantId,
+          format = StandardJWTTokenFormat.Audience,
           audiences = List(
             "https://example.com/non/related/audience",
             "https://daml.com/jwt/aud/participant/someParticipantId",
           ),
+          scope = None,
         )
       )
+    }
+  }
+
+  "Scope-Based AuthServiceJWTPayload codec" when {
+    import AuthServiceJWTCodec.ScopeBasedTokenJsonImplicits._
+
+    val PayloadGen = Gen
+      .resultOf(StandardJWTPayload)
+      .map(payload => payload.copy(participantId = None, format = StandardJWTTokenFormat.Scope))
+
+    "serializing and parsing a value" should {
+      "work for arbitrary custom Daml token values" in forAll(
+        PayloadGen,
+        minSuccessful(100),
+      )(value => {
+        serializeAndParse(value) shouldBe Success(value)
+      })
     }
   }
 
@@ -239,8 +265,24 @@ class AuthServiceJWTCodecSpec
           exp = Some(Instant.ofEpochSecond(100)),
           format = StandardJWTTokenFormat.Scope,
           audiences = List.empty,
+          scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
         )
         parse(serialized) shouldBe Success(expected)
+      }
+
+      "reject standard JWT claims with one composite scope" in {
+        val serialized =
+          """{
+            |  "iss": "issuer",
+            |  "aud": "someParticipantId",
+            |  "sub": "someUserId",
+            |  "exp": 100,
+            |  "scope": "resource_server/daml_ledger_api"
+            |}
+          """.stripMargin
+        parse(serialized).failed.get.getMessage should include(
+          "Access token with unknown scope"
+        )
       }
 
       "support standard JWT claims with extra scopes" in {
@@ -259,6 +301,28 @@ class AuthServiceJWTCodecSpec
           exp = Some(Instant.ofEpochSecond(100)),
           format = StandardJWTTokenFormat.Scope,
           audiences = List.empty,
+          scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
+        )
+        parse(serialized) shouldBe Success(expected)
+      }
+
+      "support standard JWT claims with extra composite scopes" in {
+        val serialized =
+          """{
+            |  "aud": "someParticipantId",
+            |  "sub": "someUserId",
+            |  "exp": 100,
+            |  "scope": "resource_server/dummy-scope1 daml_ledger_api resource_server/dummy-scope2"
+            |}
+          """.stripMargin
+        val expected = StandardJWTPayload(
+          issuer = None,
+          participantId = Some("someParticipantId"),
+          userId = "someUserId",
+          exp = Some(Instant.ofEpochSecond(100)),
+          format = StandardJWTTokenFormat.Scope,
+          audiences = List.empty,
+          scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -278,6 +342,7 @@ class AuthServiceJWTCodecSpec
           exp = None,
           format = StandardJWTTokenFormat.Scope,
           audiences = List.empty,
+          scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -296,6 +361,7 @@ class AuthServiceJWTCodecSpec
           exp = None,
           format = StandardJWTTokenFormat.Scope,
           audiences = List.empty,
+          scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -328,8 +394,9 @@ class AuthServiceJWTCodecSpec
           participantId = Some("someParticipantId"),
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
-          format = StandardJWTTokenFormat.ParticipantId,
+          format = StandardJWTTokenFormat.Audience,
           audiences = List.empty,
+          scope = None,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -348,8 +415,9 @@ class AuthServiceJWTCodecSpec
             participantId = Some("someParticipantId"),
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
-            format = StandardJWTTokenFormat.ParticipantId,
+            format = StandardJWTTokenFormat.Audience,
             audiences = List.empty,
+            scope = None,
           )
         )
 
@@ -369,6 +437,7 @@ class AuthServiceJWTCodecSpec
             exp = Some(Instant.ofEpochSecond(100)),
             format = StandardJWTTokenFormat.Scope,
             audiences = List.empty,
+            scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
           )
         )
       }
@@ -387,8 +456,9 @@ class AuthServiceJWTCodecSpec
           participantId = Some("someParticipantId"),
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
-          format = StandardJWTTokenFormat.ParticipantId,
+          format = StandardJWTTokenFormat.Audience,
           audiences = List.empty,
+          scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -408,8 +478,9 @@ class AuthServiceJWTCodecSpec
             participantId = Some("someParticipantId"),
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
-            format = StandardJWTTokenFormat.ParticipantId,
+            format = StandardJWTTokenFormat.Audience,
             audiences = List.empty,
+            scope = None,
           )
         )
       }
@@ -453,6 +524,21 @@ class AuthServiceJWTCodecSpec
           """.stripMargin
         parse(serialized).failed.get.getMessage
           .contains("must include participantId value prefixed by") shouldBe true
+      }
+
+      "reject token with invalid scope" in {
+        val serialized =
+          """{
+            |  "iss": "issuer",
+            |  "aud": "someParticipantId",
+            |  "sub": "someUserId",
+            |  "exp": 100,
+            |  "scope": "resource-server/daml-ledger-api"
+            |}
+          """.stripMargin
+        parse(serialized).failed.get.getMessage should include(
+          "Access token with unknown scope"
+        )
       }
     }
   }

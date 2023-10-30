@@ -211,7 +211,7 @@ class QueueBasedDomainOutboxX(
     def markDone(delayRetry: Boolean = false): Unit = {
       val updated = queueState.getAndUpdate(_.done())
       // if anything has been pushed in the meantime, we need to kick off a new flush
-      if (updated.hasPending) {
+      if (updated.hasPending && !isClosing) {
         if (delayRetry) {
           // kick off new flush in the background
           DelayUtil.delay(functionFullName, 10.seconds, this).map(_ => kickOffFlush()).discard
@@ -272,17 +272,15 @@ class QueueBasedDomainOutboxX(
               queuedApprox = math.max(c.queuedApprox - pending.size, 0)
             )
           }.discard
+
+          domainOutboxQueue.completeCycle()
+          markDone()
         }
-        ret.transform {
-          case x @ Left(_) =>
-            domainOutboxQueue.requeue()
-            markDone(delayRetry = true)
-            x
-          case x @ Right(_) =>
-            domainOutboxQueue.completeCycle()
-            markDone()
-            x
-        }
+
+        EitherTUtil.onErrorOrFailureUnlessShutdown { () =>
+          domainOutboxQueue.requeue()
+          markDone(delayRetry = true)
+        }(ret)
       } else {
         markDone()
         EitherT.rightT(())

@@ -10,11 +10,15 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ResultDone, ResultNeedUpgradeVerification}
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{SubmittedTransaction, Transaction, Versioned}
+import com.daml.lf.transaction.{
+  GlobalKeyWithMaintainers,
+  SubmittedTransaction,
+  Transaction,
+  Versioned,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractInstance, ValueTrue}
 import com.daml.logging.LoggingContext
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands, LedgerId}
@@ -29,6 +33,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId, LfTransactionVersion}
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{BaseTest, LfValue}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
@@ -139,38 +144,48 @@ class StoreBackedCommandExecutorSpec
   }
   "Upgrade Verification" should {
 
-    val stakeholderContractId: LfContractId = mock[LfContractId]
+    val stakeholderContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "03")
     val stakeholderContract = ContractState.Active(
       contractInstance =
         Versioned(LfTransactionVersion.maxVersion, ContractInstance(identifier, Value.ValueTrue)),
       ledgerEffectiveTime = Timestamp.now(),
-      stakeholders = Set.empty[Party],
-      signatories = Set.empty[Party],
+      stakeholders = Set(Ref.Party.assertFromString("unexpectedSig")),
+      signatories = Set(Ref.Party.assertFromString("unexpectedSig")),
       agreementText = None,
       globalKey = None,
       maintainers = None,
-      driverMetadata = Some(salt.toByteArray),
+      // Filled below conditionally
+      driverMetadata = None,
     )
 
-    val divulgedContractId: LfContractId = mock[LfContractId]
+    val divulgedContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "00")
 
-    val archivedContractId: LfContractId = mock[LfContractId]
+    val archivedContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "01")
 
-    val disclosedContractId: LfContractId = mock[LfContractId]
+    val disclosedContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "02")
 
-    val disclosedContract: domain.DisclosedContract = domain.DisclosedContract(
+    val disclosedContract: domain.DisclosedContract = domain.UpgradableDisclosedContract(
       templateId = identifier,
       contractId = disclosedContractId,
       argument = ValueTrue,
       createdAt = mock[Timestamp],
       keyHash = None,
       driverMetadata = salt,
+      signatories = Set(Ref.Party.assertFromString("unexpectedSig")),
+      stakeholders = Set(
+        Ref.Party.assertFromString("unexpectedSig"),
+        Ref.Party.assertFromString("unexpectedObs"),
+      ),
+      keyMaintainers = Some(Set(Ref.Party.assertFromString("unexpectedSig"))),
+      keyValue = Some(LfValue.ValueTrue),
     )
 
     def doTest(
         contractId: Option[LfContractId],
         expected: Option[Option[String]],
         authenticationResult: Either[String, Unit] = Right(()),
+        stakeholderContractDriverMetadata: Option[Array[Byte]] = Some(salt.toByteArray),
+        upgradableDisclosedContract: Boolean = true,
     ): Future[Assertion] = {
       val ref: AtomicReference[Option[Option[String]]] = new AtomicReference(None)
       val mockEngine = mock[Engine]
@@ -179,11 +194,19 @@ class StoreBackedCommandExecutorSpec
         case None =>
           resultDone
         case Some(coid) =>
+          val signatory = Ref.Party.assertFromString("signatory")
           ResultNeedUpgradeVerification[(SubmittedTransaction, Transaction.Metadata)](
             coid = coid,
-            signatories = Set.empty[Ref.Party],
-            observers = Set.empty[Ref.Party],
-            keyOpt = None,
+            signatories = Set(signatory),
+            observers = Set(Ref.Party.assertFromString("observer")),
+            keyOpt = Some(
+              GlobalKeyWithMaintainers
+                .assertBuild(
+                  identifier,
+                  someContractKey(signatory, "some key"),
+                  Set(signatory),
+                )
+            ),
             resume = verdict => {
               ref.set(Some(verdict))
               resultDone
@@ -238,7 +261,11 @@ class StoreBackedCommandExecutorSpec
         store.lookupContractStateWithoutDivulgence(same(stakeholderContractId))(
           any[LoggingContextWithTrace]
         )
-      ).thenReturn(Future.successful(stakeholderContract))
+      ).thenReturn(
+        Future.successful(
+          stakeholderContract.copy(driverMetadata = stakeholderContractDriverMetadata)
+        )
+      )
       when(
         store.lookupContractStateWithoutDivulgence(same(archivedContractId))(
           any[LoggingContextWithTrace]
@@ -256,8 +283,27 @@ class StoreBackedCommandExecutorSpec
         loggerFactory = loggerFactory,
       )
 
+      val commandsWithUpgradableDisclosedContracts = commands
+      val commandsWithDeprecatedDisclosedContracts = commands.copy(disclosedContracts =
+        ImmArray(
+          domain.NonUpgradableDisclosedContract(
+            templateId = identifier,
+            contractId = disclosedContractId,
+            argument = ValueTrue,
+            createdAt = mock[Timestamp],
+            keyHash = None,
+            driverMetadata = salt,
+          )
+        )
+      )
       underTest
-        .execute(commands, submissionSeed, configuration)(LoggingContextWithTrace(loggerFactory))
+        .execute(
+          commands =
+            if (upgradableDisclosedContract) commandsWithUpgradableDisclosedContracts
+            else commandsWithDeprecatedDisclosedContracts,
+          submissionSeed = submissionSeed,
+          ledgerConfiguration = configuration,
+        )(LoggingContextWithTrace(loggerFactory))
         .map(_ => ref.get() shouldBe expected)
     }
 
@@ -274,7 +320,14 @@ class StoreBackedCommandExecutorSpec
     }
 
     "disallow divulged contracts" in {
-      doTest(Some(divulgedContractId), Some(Some("Divulged contracts cannot be upgraded")))
+      doTest(
+        Some(divulgedContractId),
+        Some(
+          Some(
+            s"Contract with $divulgedContractId was not found or it refers to a divulged contract."
+          )
+        ),
+      )
     }
 
     "disallow archived contracts" in {
@@ -282,18 +335,57 @@ class StoreBackedCommandExecutorSpec
     }
 
     "disallow unauthorized disclosed contracts" in {
-      val expected = "Not authorized"
-      doTest(Some(disclosedContractId), Some(Some(expected)), authenticationResult = Left(expected))
-    }
-
-    "disallow unauthorized stakeholder contracts" in {
-      val expected = "Not authorized"
+      val expected =
+        s"Upgrading contract with $disclosedContractId failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: Set(unexpectedSig) vs Set(signatory)', 'observers mismatch: Set(unexpectedObs) vs Set(observer)', 'key maintainers mismatch: Set(unexpectedSig) vs Set(signatory)', 'key value mismatch: Some(GlobalKey(p:m:n, ValueBool(true))) vs Some(GlobalKey(p:m:n, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))']"
       doTest(
-        Some(stakeholderContractId),
+        Some(disclosedContractId),
         Some(Some(expected)),
-        authenticationResult = Left(expected),
+        authenticationResult = Left("Not authorized"),
       )
     }
 
+    "disallow unauthorized stakeholder contracts" in {
+      val errorMessage = "Not authorized"
+      val expected =
+        s"Upgrading contract with $stakeholderContractId failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: Set(unexpectedSig) vs Set(signatory)', 'observers mismatch: Set() vs Set(observer)', 'key maintainers mismatch: Set() vs Set(signatory)', 'key value mismatch: None vs Some(GlobalKey(p:m:n, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))']"
+      doTest(
+        Some(stakeholderContractId),
+        Some(Some(expected)),
+        authenticationResult = Left(errorMessage),
+      )
+    }
+
+    "fail upgrade on stakeholder contracts without contract driver metadata" in {
+      val errorMessage = "Doesn't matter"
+      val expected =
+        s"Contract with $stakeholderContractId is missing the driver metadata and cannot be upgraded. This can happen for contracts created with older Canton versions"
+      doTest(
+        Some(stakeholderContractId),
+        Some(Some(expected)),
+        authenticationResult = Left(errorMessage),
+        stakeholderContractDriverMetadata = None,
+      )
+    }
+
+    "disallow upgrading deprecated disclosed contract formats" in {
+      doTest(
+        Some(disclosedContractId),
+        Some(
+          Some(
+            s"Contract with $disclosedContractId was provided via the deprecated DisclosedContract create_argument_blob field and cannot be upgraded. Use the create_argument_payload instead and retry the submission"
+          )
+        ),
+        upgradableDisclosedContract = false,
+      )
+    }
   }
+
+  protected final def someContractKey(party: Party, value: String): LfValue.ValueRecord =
+    LfValue.ValueRecord(
+      None,
+      ImmArray(
+        None -> LfValue.ValueParty(party),
+        None -> LfValue.ValueText(value),
+      ),
+    )
 }

@@ -269,11 +269,8 @@ object GeneratorsTransferData {
 
       submitterMetadata <- transferOutSubmitterMetadataGen(sourceProtocolVersion)
 
-      contractId <- Arbitrary.arbitrary[LfContractId]
-      templateId <- defaultValueGen(
-        sourceProtocolVersion.v,
-        TransferOutView.templateIdDefaultValue,
-      )(implicitly[Arbitrary[LfTemplateId]])
+      creatingTransactionId <- Arbitrary.arbitrary[TransactionId]
+      contract <- GeneratorsProtocol.serializableContractGen(sourceProtocolVersion.v)
 
       targetDomain <- Arbitrary.arbitrary[TargetDomainId]
       timeProof <- Arbitrary.arbitrary[TimeProof]
@@ -285,15 +282,14 @@ object GeneratorsTransferData {
       .create(hashOps)(
         salt,
         submitterMetadata,
-        contractId,
-        templateId,
+        creatingTransactionId,
+        contract,
         targetDomain,
         timeProof,
         sourceProtocolVersion,
         targetProtocolVersion,
         transferCounter,
       )
-      .value
   )
 
 }

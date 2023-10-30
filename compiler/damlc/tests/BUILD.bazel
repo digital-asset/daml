@@ -1233,3 +1233,14 @@ daml_compile(
     target = "2.dev",
     visibility = ["//visibility:public"],
 )
+
+daml_compile(
+    name = "try-submit-concurrently-test",
+    srcs = ["daml-test-files/Daml3ScriptTrySubmitConcurrently.daml"],
+    dependencies = [
+        "//daml-script/daml3:daml3-script-2.dev.dar",
+    ],
+    project_name = "try-submit-concurrently-test",
+    target = "2.dev",
+    visibility = ["//visibility:public"],
+)

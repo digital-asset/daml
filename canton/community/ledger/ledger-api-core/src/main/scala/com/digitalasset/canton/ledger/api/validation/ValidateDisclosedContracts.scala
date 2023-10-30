@@ -9,10 +9,17 @@ import com.daml.ledger.api.v1.commands.{
   DisclosedContract as ProtoDisclosedContract,
 }
 import com.daml.lf.data.{Bytes, ImmArray}
+import com.daml.lf.transaction.TransactionCoder
 import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.ValueOuterClass.VersionedValue
 import com.daml.lf.value.{Value, ValueCoder}
-import com.digitalasset.canton.ledger.api.domain.DisclosedContract
+import com.digitalasset.canton.ledger.api.domain.{
+  DisclosedContract,
+  NonUpgradableDisclosedContract,
+  UpgradableDisclosedContract,
+}
+import com.digitalasset.canton.ledger.api.validation.FieldValidator.*
+import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.{
   validateOptionalIdentifier,
   validateRecordFields,
@@ -23,8 +30,6 @@ import io.grpc.StatusRuntimeException
 
 import scala.collection.mutable
 import scala.util.Try
-
-import FieldValidator.*
 
 class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
   def apply(commands: ProtoCommands)(implicit
@@ -65,6 +70,10 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       .map(_.result())
   }
 
+  // Allow using deprecated Protobuf fields for backwards compatibility
+  @annotation.nowarn(
+    "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.commands\\.DisclosedContract.*"
+  )
   private def validateDisclosedContractArguments(arguments: ProtoDisclosedContract.Arguments)(
       implicit contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Value] =
@@ -106,6 +115,56 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, DisclosedContract] =
+    // TODO(#15058): For backwards compatibility with existing clients that rely on explicit disclosure,
+    //               we support the deprecated disclosedContract.arguments if the preferred createEventPayload is not provided.
+    //               However, using the deprecated format in command submission is not compatible with contract upgrading.
+    if (disclosedContract.createEventPayload.isEmpty)
+      validateDeprecatedDisclosedContractFormat(disclosedContract)
+    else
+      validateUpgradableDisclosedContractFormat(disclosedContract)
+
+  @annotation.nowarn(
+    "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.commands\\.DisclosedContract.*"
+  )
+  private def validateUpgradableDisclosedContractFormat(disclosedContract: ProtoDisclosedContract)(
+      implicit contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, UpgradableDisclosedContract] =
+    if (disclosedContract.arguments.isDefined || disclosedContract.metadata.isDefined)
+      Left(
+        invalidArgument(
+          "DisclosedContract.arguments or DisclosedContract.metadata cannot be set together with DisclosedContract.create_event_payload"
+        )
+      )
+    else
+      TransactionCoder
+        .decodeFatContractInstance(disclosedContract.createEventPayload)
+        .map { fatContractInstance =>
+          import fatContractInstance.*
+          UpgradableDisclosedContract(
+            contractId = contractId,
+            templateId = templateId,
+            argument = createArg,
+            createdAt = createdAt,
+            keyHash = contractKeyWithMaintainers.map(_.globalKey.hash),
+            driverMetadata = cantonData,
+            keyMaintainers = contractKeyWithMaintainers.map(_.maintainers),
+            signatories = signatories,
+            stakeholders = stakeholders,
+            keyValue = contractKeyWithMaintainers.map(_.value),
+          )
+        }
+        .left
+        .map(decodeError =>
+          invalidArgument(s"Unable to decode disclosed contract event payload: $decodeError")
+        )
+
+  // Allow using deprecated Protobuf fields for backwards compatibility
+  @annotation.nowarn(
+    "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.commands\\.DisclosedContract.*"
+  )
+  private def validateDeprecatedDisclosedContractFormat(disclosedContract: ProtoDisclosedContract)(
+      implicit contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, NonUpgradableDisclosedContract] =
     for {
       templateId <- requirePresence(disclosedContract.templateId, "DisclosedContract.template_id")
       validatedTemplateId <- validateIdentifier(templateId)
@@ -127,7 +186,7 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
         metadata.contractKeyHash,
         "DisclosedContract.metadata.contract_key_hash",
       )
-    } yield DisclosedContract(
+    } yield NonUpgradableDisclosedContract(
       contractId = contractId,
       templateId = validatedTemplateId,
       argument = argument,

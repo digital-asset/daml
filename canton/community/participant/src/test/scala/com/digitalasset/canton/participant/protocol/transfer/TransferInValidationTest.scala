@@ -131,8 +131,8 @@ class TransferInValidationTest
       submitterInfo(party1),
       Set(party1, party2), // Party 2 is a stakeholder and therefore a receiving party
       Set.empty,
-      contractId,
-      contract.rawContractInstance.contractInstance.unversioned.template,
+      ExampleTransactionFactory.transactionId(0),
+      contract,
       transferId.sourceDomain,
       SourceProtocolVersion(testedProtocolVersion),
       MediatorRef(sourceMediator),

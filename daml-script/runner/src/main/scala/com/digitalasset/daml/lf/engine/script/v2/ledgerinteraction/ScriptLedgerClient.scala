@@ -52,13 +52,20 @@ object ScriptLedgerClient {
       argument: Value,
   ) extends TreeEvent
 
-  def realiseScriptLedgerClient(ledger: abstractLedgers.ScriptLedgerClient): ScriptLedgerClient =
+  def realiseScriptLedgerClient(
+      ledger: abstractLedgers.ScriptLedgerClient,
+      enableContractUpgrading: Boolean,
+  ): ScriptLedgerClient =
     ledger match {
       case abstractLedgers.GrpcLedgerClient(grpcClient, applicationId, oAdminClient) =>
-        new grpcLedgerClient.GrpcLedgerClient(grpcClient, applicationId, oAdminClient)
+        new grpcLedgerClient.GrpcLedgerClient(grpcClient, applicationId, oAdminClient, enableContractUpgrading)
       case abstractLedgers.JsonLedgerClient(uri, token, envIface, actorSystem) =>
+        if (enableContractUpgrading)
+          throw new IllegalArgumentException("The JSON client does not support Upgrades")
         new JsonLedgerClient(uri, token, envIface, actorSystem)
       case abstractLedgers.IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled) =>
+        if (enableContractUpgrading)
+          throw new IllegalArgumentException("The IDE Ledger client does not support Upgrades")
         new IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled)
     }
 
@@ -76,13 +83,14 @@ trait ScriptLedgerClient {
   def query(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      enableContractUpgrading: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Seq[ScriptLedgerClient.ActiveContract]]
 
   protected def transport: String
+
+  def enableContractUpgrading: Boolean = false
 
   final protected def unsupportedOn(what: String) =
     Future.failed(
@@ -95,7 +103,6 @@ trait ScriptLedgerClient {
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       cid: ContractId,
-      enableContractUpgrading: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -226,6 +233,16 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]
 
+  def trySubmitConcurrently(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commandss: List[List[command.ApiCommand]],
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[List[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]]
+
   def vetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -257,6 +274,14 @@ trait ScriptLedgerClient {
   ): Future[Unit]
 
   def unvetDar(name: String)(implicit
+        ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit]
+
+  // TEMPORARY AND INTERNAL - once we have decided on a proper daml3-script upgrading interface for users, we will update this to be
+  // specified per command
+  def setContractUpgradingEnabled(enabled: Boolean)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,

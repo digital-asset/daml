@@ -433,7 +433,7 @@ object TransactionCoder {
       keyWithMaintainers: TransactionOuterClass.KeyWithMaintainers,
   ): Either[DecodeError, GlobalKeyWithMaintainers] =
     for {
-      maintainers <- toOrderedPartySet(keyWithMaintainers.getMaintainersList)
+      maintainers <- toPartyTreeSet(keyWithMaintainers.getMaintainersList)
       _ <- Either.cond(maintainers.nonEmpty, (), DecodeError("key without maintainers"))
       value <- decodeValue(
         ValueCoder.NoCidDecoder,
@@ -843,8 +843,11 @@ object TransactionCoder {
     }
   }
 
-  // like toParty but requires entries to be strictly ordered
-  def toOrderedPartySet(strList: ProtocolStringList): Either[DecodeError, TreeSet[Party]] =
+  // Similar to toPartySet`but
+  // - requires strList` to be strictly ordered, fails otherwhise
+  // - produces a TreeSet instead of a Set
+  // Note this function has a linear complexity, See data.TreeSet.fromStrictlyOrderedEntries
+  def toPartyTreeSet(strList: ProtocolStringList): Either[DecodeError, TreeSet[Party]] =
     if (strList.isEmpty)
       Right(TreeSet.empty)
     else {
@@ -854,15 +857,14 @@ object TransactionCoder {
         .map(bs => Party.fromString(bs.toStringUtf8))
 
       sequence(parties) match {
-        case Left(err) => Left(DecodeError(s"Cannot decode party: $err"))
+        case Left(err) =>
+          Left(DecodeError(s"Cannot decode party: $err"))
         case Right(ps) =>
-          // TODO. Write a linear function that convert ordered sequences of elements into
-          //  a TreeSet, similarly to what is done for TreeMap with com.data.TreeMap
-          (ps zip ps.tail)
-            .collectFirst {
-              case (p1, p2) if p1 >= p2 => DecodeError("the parties are not strictly ordered ")
-            }
-            .toLeft(TreeSet.from(ps))
+          scala.util
+            .Try(data.TreeSet.fromStrictlyOrderedEntries(ps))
+            .toEither
+            .left
+            .map(e => DecodeError(e.getMessage))
       }
     }
 
@@ -988,7 +990,6 @@ object TransactionCoder {
       nonMaintainerSignatories.foreach(builder.addNonMaintainerSignatories)
       nonSignatoryStakeholders.foreach(builder.addNonSignatoryStakeholders)
       discard(builder.setCreatedAt(createdAt.micros))
-      discard(builder.setCreatedAt(createdAt.micros))
       discard(builder.setCantonData(cantonData.toByteString))
       encodeVersioned(version, builder.build().toByteString)
     }
@@ -1022,13 +1023,13 @@ object TransactionCoder {
         else
           RightNone
       maintainers = keyWithMaintainers.fold(TreeSet.empty[Party])(k => TreeSet.from(k.maintainers))
-      nonMaintainerSignatories <- toOrderedPartySet(proto.getNonMaintainerSignatoriesList)
+      nonMaintainerSignatories <- toPartyTreeSet(proto.getNonMaintainerSignatoriesList)
       _ <- Either.cond(
         maintainers.nonEmpty || nonMaintainerSignatories.nonEmpty,
         (),
         DecodeError("maintainers or non_maintainer_signatories should be non empty"),
       )
-      nonSignatoryStakeholders <- toOrderedPartySet(proto.getNonSignatoryStakeholdersList)
+      nonSignatoryStakeholders <- toPartyTreeSet(proto.getNonSignatoryStakeholdersList)
       signatories <- maintainers.find(nonMaintainerSignatories) match {
         case Some(p) =>
           Left(DecodeError(s"party $p is declared as maintainer and nonMaintainerSignatory"))

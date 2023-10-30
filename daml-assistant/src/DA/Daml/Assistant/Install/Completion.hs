@@ -13,13 +13,12 @@ module DA.Daml.Assistant.Install.Completion
 
 import DA.Daml.Assistant.Types
 
-import qualified Data.ByteString.Lazy as BSL
 import Control.Exception.Safe (tryIO, catchIO, displayException)
 import Control.Monad.Extra (unless, andM, whenM)
+import qualified Options.Applicative.BashCompletion
 import System.Directory (getHomeDirectory, getAppUserDataDirectory, doesFileExist, removePathForcibly, createDirectoryIfMissing)
 import System.FilePath ((</>), takeDirectory)
 import System.Info.Extra (isWindows)
-import System.Process.Typed (proc, readProcessStdout_)
 import System.IO.Extra (readFileUTF8, writeFileUTF8)
 
 -- | Install bash completion script if we should.
@@ -64,8 +63,7 @@ shouldInstallZshCompletions options damlPath =
 doInstallBashCompletions :: DamlPath -> (String -> IO ()) -> IO ()
 doInstallBashCompletions damlPath output = do
     let scriptPath = bashCompletionScriptPath damlPath
-    script <- getBashCompletionScript damlPath
-    BSL.writeFile scriptPath script
+    writeFile scriptPath (damlBashCompletionScript damlPath)
     unitE <- tryIO $ addBashCompletionHook scriptPath
     case unitE of
         Left e -> do
@@ -77,9 +75,8 @@ doInstallBashCompletions damlPath output = do
 doInstallZshCompletions :: DamlPath -> (String -> IO ()) -> IO ()
 doInstallZshCompletions damlPath output = do
     let scriptPath = zshCompletionScriptPath damlPath
-    script <- getZshCompletionScript damlPath
     createDirectoryIfMissing True (takeDirectory scriptPath)
-    BSL.writeFile scriptPath script
+    writeFile scriptPath (zshCompletionScript damlPath)
     output $ unlines
         [ "Zsh completions installed for Daml assistant."
         , "To use them, add '~/.daml/zsh' to your $fpath, e.g. by adding the following"
@@ -87,23 +84,23 @@ doInstallZshCompletions damlPath output = do
         , "fpath=(~/.daml/zsh $fpath)"
         ]
 
--- | Read the bash completion script from optparse-applicative's
--- built-in @--bash-completion-script@ routine. Please read
--- https://github.com/pcapriotti/optparse-applicative/wiki/Bash-Completion
+-- | optparse-applicative’s @bashCompletionScript@ specialized to daml
+-- Please read https://github.com/pcapriotti/optparse-applicative/wiki/Bash-Completion
 -- for more details. Note that the bash completion script doesn't
 -- in general contain any daml-assistant specific information, it's only
 -- specific to the path, so we don't need to regenerate it every version.
-getBashCompletionScript :: DamlPath -> IO BSL.ByteString
-getBashCompletionScript damlPath = do
-    let assistant = assistantPath damlPath
-    readProcessStdout_ (proc assistant ["--bash-completion-script", assistant])
+damlBashCompletionScript :: DamlPath -> String
+damlBashCompletionScript damlPath =
+  Options.Applicative.BashCompletion.bashCompletionScript
+    (assistantPath damlPath)
+    "daml"
 
--- | Read the Zsh completion script from optparse-applicative’s
--- builtin @--zsh-completion-script@ routine.
-getZshCompletionScript :: DamlPath -> IO BSL.ByteString
-getZshCompletionScript damlPath = do
-    let assistant = assistantPath damlPath
-    readProcessStdout_ (proc assistant ["--zsh-completion-script", assistant])
+-- | optparse-applicative’s @zshCompletionScript@ specialized to daml
+zshCompletionScript :: DamlPath -> String
+zshCompletionScript damlPath =
+  Options.Applicative.BashCompletion.zshCompletionScript
+    (assistantPath damlPath)
+    "daml"
 
 -- | Add a completion hook in ~/.bash_completion
 -- Does nothing if the hook is already there

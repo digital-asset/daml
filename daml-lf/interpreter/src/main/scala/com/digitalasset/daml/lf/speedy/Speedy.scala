@@ -247,7 +247,7 @@ private[lf] object Speedy {
         signatories: Set[Party],
         observers: Set[Party],
         keyOpt: Option[GlobalKeyWithMaintainers],
-        continue: () => Control[Question.Update],
+        continue: Option[String] => Control[Question.Update],
     ): Control.Question[Question.Update] =
       Control.Question(
         Question.Update.NeedUpgradeVerification(
@@ -255,7 +255,7 @@ private[lf] object Speedy {
           signatories,
           observers,
           keyOpt,
-          () => safelyContinue(location, "NeedUpgradeVerification", continue()),
+          x => safelyContinue(location, "NeedUpgradeVerification", continue(x)),
         )
       )
 

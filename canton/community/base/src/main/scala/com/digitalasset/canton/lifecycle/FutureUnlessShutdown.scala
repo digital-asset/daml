@@ -7,9 +7,8 @@ import cats.arrow.FunctionK
 import cats.data.EitherT
 import cats.{Applicative, FlatMap, Functor, Id, Monad, MonadThrow, Monoid, Parallel, ~>}
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.util.LoggerUtil.logOnThrow_
-import com.digitalasset.canton.util.Thereafter
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.{LoggerUtil, Thereafter}
 import com.digitalasset.canton.{DoNotDiscardLikeFuture, DoNotTraverseLikeFuture}
 
 import scala.concurrent.{Awaitable, ExecutionContext, Future}
@@ -165,15 +164,13 @@ object FutureUnlessShutdownImpl {
     def tapOnShutdown(f: => Unit)(implicit
         ec: ExecutionContext,
         errorLoggingContext: ErrorLoggingContext,
-    ): FutureUnlessShutdown[A] =
-      FutureUnlessShutdown {
-        unwrap.map {
-          case outcome: UnlessShutdown.Outcome[A] => outcome
-          case shutdown: UnlessShutdown.AbortedDueToShutdown =>
-            logOnThrow_(f)
-            shutdown
-        }
+    ): FutureUnlessShutdown[A] = FutureUnlessShutdown {
+      import Thereafter.syntax.*
+      this.unwrap.thereafter {
+        case Success(UnlessShutdown.AbortedDueToShutdown) => LoggerUtil.logOnThrow(f)
+        case _ =>
       }
+    }
 
     // This method is here so that we don't need to import ```cats.syntax.flatmap._``` everywhere
     def flatMap[B](f: A => FutureUnlessShutdown[B])(implicit

@@ -6,11 +6,42 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v2;
 
 import "com/digitalasset/canton/crypto/v0/crypto.proto";
+import "com/digitalasset/canton/protocol/v0/common.proto";
 import "com/digitalasset/canton/protocol/v0/participant_transaction.proto";
 import "com/digitalasset/canton/protocol/v1/participant_transaction.proto";
 import "scalapb/scalapb.proto";
 
 // Messages sent by a participant as part of the transaction protocol
+
+// SessionKeyLookup
+
+message SessionKeyLookup {
+  // An asymmetrically encrypted randomness to generate the session key. This session key decrypts the
+  // randomness field in `EncryptedViewMessage`
+  bytes session_key_randomness = 1;
+
+  // The fingerprint of the public key that was used to encrypt the session key randomness
+  string fingerprint = 2;
+}
+
+// EncryptedViewMessage
+
+message EncryptedViewMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  bytes view_tree = 1;
+
+  // The symmetric encryption scheme used to encrypt the view tree and the session key
+  com.digitalasset.canton.crypto.v0.SymmetricKeyScheme encryption_scheme = 2;
+
+  com.digitalasset.canton.crypto.v0.Signature submitter_participant_signature = 3; // optional
+  bytes view_hash = 4;
+  // Randomness that is symmetrically encrypted with a session key. Used in the HKDF to derive the encryption keys for the view and its subviews
+  bytes randomness = 5;
+  repeated SessionKeyLookup session_key_randomness = 6;
+  string domain_id = 7;
+  v0.ViewType view_type = 8;
+}
 
 // Compared to v1: action_description changed type from v0.ActionDescription to v1.ActionDescription
 //                 created_core changed type from v0.CreatedContract to v1.CreatedContract

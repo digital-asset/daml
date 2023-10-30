@@ -210,7 +210,8 @@ object SequencedEventValidator extends HasLoggerName {
         traceContext: TraceContext
     ): SequencerSubscriptionAkka[SequencedEventValidationError[E]] =
       SequencerSubscriptionAkka(
-        subscription.source.map(_.map(_.leftMap(UpstreamSubscriptionError(_))))
+        subscription.source.map(_.map(_.leftMap(UpstreamSubscriptionError(_)))),
+        subscription.health,
       )
 
     override def close(): Unit = ()
@@ -726,7 +727,7 @@ class SequencedEventValidatorImpl(
         case UnlessShutdown.Outcome(result) => result.sequence
       }
       .takeUntilThenDrain(_.isLeft)
-    SequencerSubscriptionAkka(validatedSource)
+    SequencerSubscriptionAkka(validatedSource, subscription.health)
   }
 }
 

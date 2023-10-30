@@ -25,7 +25,7 @@ public class JsonLfEncodersTest {
 
   @Test
   void testUnit() throws IOException {
-    assertEquals("{}", intoString(JsonLfEncoders.unit));
+    assertEquals("{}", intoString(JsonLfEncoders.unit(Unit.getInstance())));
   }
 
   @Test
@@ -215,7 +215,7 @@ public class JsonLfEncodersTest {
                 return JsonLfEncoders.Field.of(
                     "Bar", JsonLfEncoders.int64(((SomeVariant.Bar) v).x));
               else if (v instanceof SomeVariant.Baz)
-                return JsonLfEncoders.Field.of("Baz", JsonLfEncoders.unit);
+                return JsonLfEncoders.Field.of("Baz", JsonLfEncoders.unit(((SomeVariant.Baz) v).x));
               else if (v instanceof SomeVariant.Quux)
                 return JsonLfEncoders.Field.of(
                     "Quux",

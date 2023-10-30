@@ -19,6 +19,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.{
   DomainTopologyTransactionMessageValidator,
+  EffectiveTime,
   TopologyTransactionProcessor,
   TopologyTransactionProcessorCommon,
   TopologyTransactionProcessorX,
@@ -154,7 +155,7 @@ class TopologyComponentFactoryOld(
   ): TopologyTransactionProcessorCommon.Factory =
     new TopologyTransactionProcessorCommon.Factory {
       override def create(
-          acsCommitmentScheduleEffectiveTime: Traced[CantonTimestamp] => Unit
+          acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
       )(implicit executionContext: ExecutionContext): TopologyTransactionProcessorCommon = {
         val processor = new TopologyTransactionProcessor(
           domainId,
@@ -213,7 +214,7 @@ class TopologyComponentFactoryX(
       protocolVersion: ProtocolVersion,
   ): TopologyTransactionProcessorCommon.Factory = new TopologyTransactionProcessorCommon.Factory {
     override def create(
-        acsCommitmentScheduleEffectiveTime: Traced[CantonTimestamp] => Unit
+        acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
     )(implicit executionContext: ExecutionContext): TopologyTransactionProcessorCommon = {
       val processor = new TopologyTransactionProcessorX(
         domainId,

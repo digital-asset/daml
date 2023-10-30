@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
@@ -58,6 +59,12 @@ public class GenMapTestFor1_11AndFor1_12ndFor1_13AndFor1_14AndFor1_15AndFor1_dev
   void genMap2Value2GenMap() {
     Box b = box();
     assertEquals(Box.fromValue(b.toValue()), b);
+  }
+
+  @Test
+  void genMap2Value2GenMapJson() throws JsonLfDecoder.Error {
+    Box b = box();
+    assertEquals(Box.fromJson(b.toJson()), b);
   }
 
   @Test

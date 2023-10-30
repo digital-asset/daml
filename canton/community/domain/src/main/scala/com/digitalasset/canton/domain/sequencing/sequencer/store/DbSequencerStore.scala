@@ -232,8 +232,14 @@ class DbSequencerStore(
         messageId <- messageIdO.toRight("message-id not set for deliver error")
         sender <- senderO.toRight("sender not set for deliver error")
         errorMessage <- errorMessageO.toRight("error-message not set for deliver error")
-
-      } yield DeliverErrorStoreEvent(sender, messageId, errorMessage, errorO, traceContext)
+        event <- DeliverErrorStoreEvent.create(
+          sender,
+          messageId,
+          errorMessage,
+          errorO,
+          traceContext,
+        )
+      } yield event
 
   }
 

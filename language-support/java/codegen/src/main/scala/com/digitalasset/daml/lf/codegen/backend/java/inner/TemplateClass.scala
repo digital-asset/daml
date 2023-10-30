@@ -30,7 +30,7 @@ private[inner] object TemplateClass extends StrictLogging {
       typeWithContext: TypeWithContext,
   )(implicit
       packagePrefixes: PackagePrefixes
-  ): TypeSpec =
+  ): (TypeSpec, Seq[(ClassName, String)]) =
     TrackLineage.of("template", typeWithContext.name) {
       logger.info("Start")
       val fields = getFieldsWithTypes(record.fields)
@@ -38,6 +38,9 @@ private[inner] object TemplateClass extends StrictLogging {
 
       val templateChoices = template.tChoices.directChoices
       val companion = new Companion(className, template.key)
+
+      val (templateMethods, staticImports) = TemplateMethods(fields, className)
+
       val templateType = TypeSpec
         .classBuilder(className)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
@@ -94,7 +97,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addField(companion.generateField(templateChoices.keySet))
         .addMethod(companion.generateGetter())
         .addFields(RecordFields(fields).asJava)
-        .addMethods(TemplateMethods(fields, className).asJava)
+        .addMethods(templateMethods.asJava)
       generateByKeyMethod(template.key) foreach { byKeyMethod =>
         templateType
           .addMethod(byKeyMethod)
@@ -103,7 +106,7 @@ private[inner] object TemplateClass extends StrictLogging {
           )
       }
       logger.debug("End")
-      templateType.build()
+      (templateType.build(), staticImports)
     }
 
   private val updateClassName = ClassName get classOf[Update[_]]

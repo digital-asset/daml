@@ -2197,20 +2197,17 @@ private[lf] object SBuiltin {
                   machine.enforceLimitAddInputContract()
                   machine.enforceLimitSignatoriesAndObservers(coid, contract)
 
-                  val src: TypeConName = srcTemplateId
-                  val dest: TypeConName = destTemplateId
-
                   // In Validation mode, we always call validateContractInfo
                   // In Submission mode, we only call validateContractInfo when src != dest
                   val needValidationCall: Boolean =
                     if (machine.validating) {
                       upgradingIsEnabled
                     } else {
-                      upgradingIsEnabled && (src != dest)
+                      upgradingIsEnabled && (srcTemplateId != destTemplateId)
                     }
                   if (needValidationCall) {
 
-                    validateContractInfo(machine, coid, contract) { () =>
+                    validateContractInfo(machine, coid, srcTemplateId, contract) { () =>
                       f(contract.any)
                     }
                   } else {
@@ -2227,6 +2224,7 @@ private[lf] object SBuiltin {
   private def validateContractInfo(
       machine: UpdateMachine,
       coid: V.ContractId,
+      srcTemplateId: Ref.Identifier,
       contract: ContractInfo,
   )(
       continue: () => Control[Question.Update]
@@ -2238,12 +2236,30 @@ private[lf] object SBuiltin {
         Some(cachedKey.globalKeyWithMaintainers)
     }
     machine.needUpgradeVerification(
-      NameOf.qualifiedNameOfCurrentFunc,
-      coid,
-      contract.signatories,
-      contract.observers,
-      keyOpt,
-      continue,
+      location = NameOf.qualifiedNameOfCurrentFunc,
+      coid = coid,
+      signatories = contract.signatories,
+      observers = contract.observers,
+      keyOpt = keyOpt,
+      continue = {
+        case None =>
+          continue()
+        case Some(msg) =>
+          Control.Error(
+            IE.Dev(
+              NameOf.qualifiedNameOfCurrentFunc,
+              IE.Dev.UpgradeValidationFailed(
+                coid = coid,
+                srcTemplateId = srcTemplateId,
+                dstTemplateId = contract.templateId,
+                signatories = contract.signatories,
+                observers = contract.observers,
+                keyOpt = keyOpt,
+                msg = msg,
+              ),
+            )
+          )
+      },
     )
   }
 

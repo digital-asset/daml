@@ -41,6 +41,7 @@ import scalaz.std.set._
 import scalaz.syntax.foldable._
 
 import scala.annotation.tailrec
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -114,7 +115,6 @@ class IdeLedgerClient(
   override def query(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      enableContractUpgrading: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -166,7 +166,6 @@ class IdeLedgerClient(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       cid: ContractId,
-      enableContractUpgrading: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -798,6 +797,30 @@ class IdeLedgerClient(
         Left(fromScenarioError(err))
     }
 
+  override def trySubmitConcurrently(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commandss: List[List[command.ApiCommand]],
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[List[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]] =
+    // Since the IDE ledger doesn't have a sequencer, we simply lie about the
+    // concurrent part and sequence the commandss manually.
+    // commandss
+    commandss
+      .foldLeft(
+        Future.successful(
+          ListBuffer.empty[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]
+        )
+      ) { (f, commands) =>
+        f.flatMap { x =>
+          trySubmit(actAs, readAs, commands, optLocation).map(x += _)
+        }
+      }
+      .map(_.toList)
+
   def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
     getPackageIdPairs().toMap
   def getPackageIdReverseMap(): Map[PackageId, ScriptLedgerClient.ReadablePackageId] =
@@ -861,15 +884,21 @@ class IdeLedgerClient(
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
     Future.successful(getPackageIdMap().keys.toList)
 
-  def vetDar(name: String)(implicit
+  override def vetDar(name: String)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = unsupportedOn("vetDar")
 
-  def unvetDar(name: String)(implicit
+  override def unvetDar(name: String)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = unsupportedOn("unvetDar")
+
+  override def setContractUpgradingEnabled(enabled: Boolean)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = unsupportedOn("setContractUpgradingEnabled")
 }

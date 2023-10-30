@@ -48,6 +48,7 @@ import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissio
   UnknownDomain,
 }
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
+  ContractLookupError,
   SerializableContractOfId,
   UnknownPackageError,
 }
@@ -73,6 +74,7 @@ import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
+import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -299,6 +301,7 @@ class TransactionProcessingSteps(
     override def prepareBatch(
         actualDeduplicationOffset: DeduplicationPeriod.DeduplicationOffset,
         maxSequencingTime: CantonTimestamp,
+        sessionKeyStore: SessionKeyStore,
     ): EitherT[Future, SubmissionTrackingData, PreparedBatch] = {
       logger.debug("Preparing batch for transaction submission")
       val submitterInfoWithDedupPeriod =
@@ -399,6 +402,7 @@ class TransactionProcessingSteps(
               keyResolver,
               mediator,
               recentSnapshot,
+              sessionKeyStore,
               lookupContractsWithDisclosed,
               None,
               maxSequencingTime,
@@ -408,6 +412,9 @@ class TransactionProcessingSteps(
               case TransactionTreeFactoryError(UnknownPackageError(unknownTo)) =>
                 TransactionSubmissionTrackingData
                   .CauseWithTemplate(SubmissionErrors.PackageNotVettedByRecipients.Error(unknownTo))
+              case TransactionTreeFactoryError(ContractLookupError(contractId, _)) =>
+                TransactionSubmissionTrackingData
+                  .CauseWithTemplate(SubmissionErrors.UnknownContractDomain.Error(contractId))
               case creationError =>
                 causeWithTemplate("Confirmation request creation failed", creationError)
             }
@@ -541,6 +548,7 @@ class TransactionProcessingSteps(
   override def decryptViews(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[TransactionViewType]]]],
       snapshot: DomainSnapshotSyncCryptoApi,
+      sessionKeyStore: SessionKeyStore,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, DecryptedViews] =
@@ -557,14 +565,13 @@ class TransactionProcessingSteps(
           .fromByteString(pureCrypto)(bytes)
           .leftMap(err => DefaultDeserializationError(err.message))
 
-      type DecryptionError = EncryptedViewMessageError[TransactionViewType]
-
       def decryptTree(
           vt: TransactionViewMessage,
           optRandomness: Option[SecureRandomness],
-      ): EitherT[Future, DecryptionError, LightTransactionViewTree] =
+      ): EitherT[Future, EncryptedViewMessageError, LightTransactionViewTree] =
         EncryptedViewMessage.decryptFor(
           snapshot,
+          sessionKeyStore,
           vt,
           participantId,
           protocolVersion,
@@ -596,6 +603,7 @@ class TransactionProcessingSteps(
           val randomnessF = EncryptedViewMessage
             .decryptRandomness(
               snapshot,
+              sessionKeyStore,
               message,
               participantId,
             )
@@ -638,7 +646,7 @@ class TransactionProcessingSteps(
           randomness: SecureRandomness,
       )(
           subviewHashAndIndex: (ViewHash, ViewPosition.MerklePathElement)
-      ): Either[DecryptionError, Unit] = {
+      ): Either[EncryptedViewMessageError, Unit] = {
         val (subviewHash, index) = subviewHashAndIndex
         val info = HkdfInfo.subview(index)
         for {
@@ -669,7 +677,7 @@ class TransactionProcessingSteps(
       def decryptViewWithRandomness(
           viewMessage: TransactionViewMessage,
           randomness: SecureRandomness,
-      ): EitherT[Future, DecryptionError, (DecryptedView, Option[Signature])] =
+      ): EitherT[Future, EncryptedViewMessageError, (DecryptedView, Option[Signature])] =
         for {
           ltvt <- decryptTree(viewMessage, Some(randomness))
           _ <- EitherT.fromEither[Future](
@@ -684,7 +692,7 @@ class TransactionProcessingSteps(
       def decryptView(
           transactionViewEnvelope: OpenEnvelope[TransactionViewMessage]
       ): Future[
-        Either[DecryptionError, (WithRecipients[DecryptedView], Option[Signature])]
+        Either[EncryptedViewMessageError, (WithRecipients[DecryptedView], Option[Signature])]
       ] = {
         for {
           _ <- extractRandomnessFromView(transactionViewEnvelope)

@@ -4,13 +4,14 @@
 package com.digitalasset.canton.platform.index
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.Ref.{Identifier, Party, QualifiedName}
+import com.daml.lf.data.Time
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.ledger.api.domain.{
   Filters,
   InclusiveFilters,
   InterfaceFilter,
+  TemplateFilter,
   TransactionFilter,
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
@@ -53,7 +54,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val memoFunc = memoizedTransactionFilterProjection(
       packageMetadataView = view,
       transactionFilter = TransactionFilter(
-        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true, true)))))
+        Map(party -> Filters(InclusiveFilters(Set(), Set(iface1Filter))))
       ),
       verbose = true,
       alwaysPopulateArguments = false,
@@ -69,8 +70,8 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         TemplatePartiesFilter(Map(template1 -> Set(party)), Set()),
         EventProjectionProperties(
           true,
-          Map.empty[String, Set[Identifier]],
-          Map(party.toString -> Map(template1 -> InterfaceViewFilter(Set(iface1), true))),
+          Map.empty[String, Set[TemplateFilter]],
+          Map(party.toString -> Map(template1 -> InterfaceViewFilter(Set(iface1), true, false))),
         ),
       )
     ) // filter gets complicated, filters template1 for iface1, projects iface1
@@ -91,11 +92,11 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         ),
         EventProjectionProperties(
           true,
-          Map.empty[String, Set[Identifier]],
+          Map.empty[String, Set[TemplateFilter]],
           Map(
             party.toString -> Map(
-              template1 -> InterfaceViewFilter(Set(iface1), true),
-              template2 -> InterfaceViewFilter(Set(iface1), true),
+              template1 -> InterfaceViewFilter(Set(iface1), true, false),
+              template2 -> InterfaceViewFilter(Set(iface1), true, false),
             )
           ),
         ),
@@ -110,7 +111,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val memoFunc = memoizedTransactionFilterProjection(
       packageMetadataView = view,
       transactionFilter = TransactionFilter(
-        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true, true)))))
+        Map(party -> Filters(InclusiveFilters(Set(), Set(iface1Filter))))
       ),
       verbose = true,
       alwaysPopulateArguments = true,
@@ -121,7 +122,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         EventProjectionProperties(
           true,
           Map(party -> Set.empty),
-          Map(party.toString -> Map(template1 -> InterfaceViewFilter(Set(iface1), true))),
+          Map(party.toString -> Map(template1 -> InterfaceViewFilter(Set(iface1), true, false))),
         ),
       )
     )
@@ -159,7 +160,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         Map(
           party -> Filters(None),
           party2 -> Filters(
-            Some(InclusiveFilters(templateIds = Set(template1), interfaceFilters = Set()))
+            Some(InclusiveFilters(templateFilters = Set(template1Filter), interfaceFilters = Set()))
           ),
         )
       )
@@ -205,7 +206,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         Map(
           party -> Filters(None),
           party2 -> Filters(
-            Some(InclusiveFilters(templateIds = Set(template1), interfaceFilters = Set()))
+            Some(InclusiveFilters(templateFilters = Set(template1Filter), interfaceFilters = Set()))
           ),
         )
       ),
@@ -224,7 +225,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "provide a template filter for a simple template filter" in new Scope {
     templateFilter(
       PackageMetadata(),
-      TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1), Set())))),
+      TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1Filter), Set())))),
     ) shouldBe Map(template1 -> Set(party))
   }
 
@@ -232,7 +233,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     templateFilter(
       PackageMetadata(),
       TransactionFilter(
-        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true, true)))))
+        Map(party -> Filters(InclusiveFilters(Set(), Set(iface1Filter))))
       ),
     ) shouldBe Map.empty
   }
@@ -241,7 +242,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     templateFilter(
       PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1))),
       TransactionFilter(
-        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true, true)))))
+        Map(party -> Filters(InclusiveFilters(Set(), Set(iface1Filter))))
       ),
     ) shouldBe Map(template1 -> Set(party))
   }
@@ -252,7 +253,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       TransactionFilter(
         Map(
           party -> Filters(
-            InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, true, true)))
+            InclusiveFilters(Set(template1Filter), Set(iface1Filter))
           )
         )
       ),
@@ -268,10 +269,10 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         Map(
           party -> Filters(
             InclusiveFilters(
-              templateIds = Set(template3),
+              templateFilters = Set(TemplateFilter(template3, false)),
               interfaceFilters = Set(
-                InterfaceFilter(iface1, true, true),
-                InterfaceFilter(iface2, true, true),
+                iface1Filter,
+                iface2Filter,
               ),
             )
           )
@@ -295,7 +296,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   it should "return an unknown template for not known template" in new Scope {
     checkUnknownTemplatesOrInterfaces(
-      new TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1), Set())))),
+      new TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1Filter), Set())))),
       PackageMetadata(),
     ) shouldBe List(Left(template1))
   }
@@ -303,7 +304,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "return an unknown interface for not known interface" in new Scope {
     checkUnknownTemplatesOrInterfaces(
       new TransactionFilter(
-        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true, true)))))
+        Map(party -> Filters(InclusiveFilters(Set(), Set(iface1Filter))))
       ),
       PackageMetadata(),
     ) shouldBe List(Right(iface1))
@@ -312,7 +313,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "return zero unknown interfaces for known interface" in new Scope {
     checkUnknownTemplatesOrInterfaces(
       new TransactionFilter(
-        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true, true)))))
+        Map(party -> Filters(InclusiveFilters(Set(), Set(iface1Filter))))
       ),
       PackageMetadata(interfaces = Set(iface1)),
     ) shouldBe List()
@@ -321,7 +322,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   it should "return zero unknown templates for known templates" in new Scope {
     checkUnknownTemplatesOrInterfaces(
-      new TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1), Set())))),
+      new TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1Filter), Set())))),
       PackageMetadata(templates = Map(templatesForQn1)),
     ) shouldBe List()
   }
@@ -331,10 +332,10 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       new TransactionFilter(
         Map(
           party -> Filters(
-            InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, true, true)))
+            InclusiveFilters(Set(template1Filter), Set(iface1Filter))
           ),
           party2 -> Filters(
-            InclusiveFilters(Set(template2, template3), Set(InterfaceFilter(iface2, true, true)))
+            InclusiveFilters(Set(template2Filter, template3Filter), Set(iface2Filter))
           ),
         )
       ),
@@ -381,19 +382,38 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
 object IndexServiceImplSpec {
   trait Scope extends MockitoSugar {
-    val party = Ref.Party.assertFromString("party")
-    val party2 = Ref.Party.assertFromString("party2")
-    val templateQualifiedName1 = Ref.QualifiedName.assertFromString("ModuleName:template1")
-    val template1 = Ref.Identifier.assertFromString("PackageName:ModuleName:template1")
-    val templatesForQn1 = templateQualifiedName1 ->
+    val party: Party = Party.assertFromString("party")
+    val party2: Party = Party.assertFromString("party2")
+    val templateQualifiedName1: QualifiedName =
+      QualifiedName.assertFromString("ModuleName:template1")
+    val template1: Identifier = Identifier.assertFromString("PackageName:ModuleName:template1")
+    val template1Filter: TemplateFilter =
+      TemplateFilter(templateId = template1, includeCreateEventPayload = false)
+    val templatesForQn1: (QualifiedName, TemplatesForQualifiedName) = templateQualifiedName1 ->
       TemplatesForQualifiedName(
         NonEmptyUtil.fromUnsafe(Set(template1)),
         TemplateIdWithPriority(template1, Time.Timestamp.Epoch),
       )
-    val template2 = Ref.Identifier.assertFromString("PackageName:ModuleName:template2")
-    val template3 = Ref.Identifier.assertFromString("PackageName:ModuleName:template3")
-    val iface1 = Ref.Identifier.assertFromString("PackageName:ModuleName:iface1")
-    val iface2 = Ref.Identifier.assertFromString("PackageName:ModuleName:iface2")
-    val view = mock[PackageMetadataView]
+    val template2: Identifier = Identifier.assertFromString("PackageName:ModuleName:template2")
+    val template2Filter: TemplateFilter =
+      TemplateFilter(templateId = template2, includeCreateEventPayload = false)
+    val template3: Identifier = Identifier.assertFromString("PackageName:ModuleName:template3")
+    val template3Filter: TemplateFilter =
+      TemplateFilter(templateId = template3, includeCreateEventPayload = false)
+    val iface1: Identifier = Identifier.assertFromString("PackageName:ModuleName:iface1")
+    val iface1Filter: InterfaceFilter = InterfaceFilter(
+      iface1,
+      includeView = true,
+      includeCreateArgumentsBlob = true,
+      includeCreateEventPayload = false,
+    )
+    val iface2: Identifier = Identifier.assertFromString("PackageName:ModuleName:iface2")
+    val iface2Filter: InterfaceFilter = InterfaceFilter(
+      iface2,
+      includeView = true,
+      includeCreateArgumentsBlob = true,
+      includeCreateEventPayload = false,
+    )
+    val view: PackageMetadataView = mock[PackageMetadataView]
   }
 }

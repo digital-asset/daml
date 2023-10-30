@@ -88,6 +88,9 @@ object HkdfInfo {
   def subview(position: MerklePathElement) =
     new HkdfInfo(ByteString.copyFromUtf8("subview-").concat(position.encodeDeterministically))
 
+  /** Use when deriving a session encryption key from randomness */
+  val SessionKey = new HkdfInfo(ByteString.copyFromUtf8("session-key"))
+
   /** Used to specify arbitrary randomness for golden tests. Don't use in production! */
   @VisibleForTesting
   def testOnly(bytes: ByteString) = new HkdfInfo(bytes)

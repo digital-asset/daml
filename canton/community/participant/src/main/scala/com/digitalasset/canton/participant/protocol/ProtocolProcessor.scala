@@ -18,11 +18,7 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition, ViewTree, ViewType}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
-import com.digitalasset.canton.lifecycle.{
-  FutureUnlessShutdown,
-  PromiseUnlessShutdown,
-  UnlessShutdown,
-}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.RequestOutcome
@@ -63,6 +59,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DiscardOps, LfPartyId, RequestCounter, SequencerCounter, checked}
@@ -394,7 +391,11 @@ abstract class ProtocolProcessor[
           FutureUnlessShutdown.pure(tracked.onFailure)
         } else {
           val batchF = for {
-            batch <- tracked.prepareBatch(actualDeduplicationOffset, maxSequencingTime)
+            batch <- tracked.prepareBatch(
+              actualDeduplicationOffset,
+              maxSequencingTime,
+              ephemeral.sessionKeyStore,
+            )
             _ <- EitherT.right[SubmissionTrackingData](
               inFlightSubmissionTracker.updateRegistration(inFlightSubmission, batch.rootHash)
             )
@@ -446,7 +447,7 @@ abstract class ProtocolProcessor[
       )
 
       // use the send callback and a promise to capture the eventual sequenced event read by the submitter
-      sendResultP = new PromiseUnlessShutdown[SendResult](
+      sendResultP = mkPromise[SendResult](
         "sequenced-event-send-result",
         futureSupervisor,
       )
@@ -612,7 +613,14 @@ abstract class ProtocolProcessor[
               .registerRequest(steps.requestType)(RequestId(ts))
           )
           .map { handleRequestData =>
+            // If the result is not a success, we still need to complete the request data in some way
             performRequestProcessing(ts, rc, sc, handleRequestData, batch, freshOwnTimelyTxF)
+              .thereafter {
+                case Failure(exception) => handleRequestData.failed(exception)
+                case Success(UnlessShutdown.Outcome(Left(_))) => handleRequestData.complete(None)
+                case Success(UnlessShutdown.AbortedDueToShutdown) => handleRequestData.shutdown()
+                case _ =>
+              }
           }
       }
       toHandlerRequest(ts, processedET)
@@ -690,9 +698,8 @@ abstract class ProtocolProcessor[
         decisionTime <- EitherT.fromEither[FutureUnlessShutdown](
           steps.decisionTimeFor(domainParameters, ts)
         )
-
         decryptedViews <- steps
-          .decryptViews(viewMessages, snapshot)
+          .decryptViews(viewMessages, snapshot, ephemeral.sessionKeyStore)
           .mapK(FutureUnlessShutdown.outcomeK)
       } yield (snapshot, decisionTime, decryptedViews)
 
@@ -1042,7 +1049,7 @@ abstract class ProtocolProcessor[
             timeoutEvent(),
           )
         )
-      _ = EitherTUtil.doNotAwait(timeoutET, "Handling timeout failed")
+      _ = EitherTUtil.doNotAwaitUS(timeoutET, "Handling timeout failed")
 
       signedResponsesTo <- EitherT.right(responsesTo.parTraverse { case (response, recipients) =>
         FutureUnlessShutdown.outcomeF(
@@ -1418,7 +1425,7 @@ abstract class ProtocolProcessor[
               ephemeral.requestTracker.tick(sc, resultTs)
               Left(steps.embedResultError(InvalidPendingRequest(requestId)))
           }
-      ).mapK(FutureUnlessShutdown.outcomeK).flatMap { pendingRequestDataOrReplayData =>
+      ).flatMap { pendingRequestDataOrReplayData =>
         performResultProcessing3(
           signedResultBatchE,
           unsignedResultE,
@@ -1529,7 +1536,7 @@ abstract class ProtocolProcessor[
         for {
           _unit <- {
             logger.info(
-              show"Finalizing ${steps.requestKind.unquoted} request at $requestId with event ${eventO}."
+              show"Finalizing ${steps.requestKind.unquoted} request at $requestId with event $eventO."
             )
             // Schedule publication of the event with the associated causality update.
             // Note that both fields are optional.
@@ -1706,7 +1713,7 @@ abstract class ProtocolProcessor[
       result: TimeoutResult
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, steps.ResultError, Unit] =
+  ): EitherT[FutureUnlessShutdown, steps.ResultError, Unit] =
     if (result.timedOut) {
       logger.info(
         show"${steps.requestKind.unquoted} request at $requestId timed out without a transaction result message."
@@ -1747,13 +1754,15 @@ abstract class ProtocolProcessor[
         // No need to clean up the pending submissions because this is handled (concurrently) by schedulePendingSubmissionRemoval
         cleanReplay = isCleanReplay(requestCounter, pendingRequestDataOrReplayData)
 
-        _ <- EitherT.right[steps.ResultError](
-          ephemeral.storedContractManager.deleteIfPending(requestCounter, pendingContracts)
-        )
+        _ <- EitherT
+          .right[steps.ResultError](
+            ephemeral.storedContractManager.deleteIfPending(requestCounter, pendingContracts)
+          )
+          .mapK(FutureUnlessShutdown.outcomeK)
 
-        _ <- ifThenET(!cleanReplay)(publishEvent())
+        _ <- ifThenET(!cleanReplay)(publishEvent()).mapK(FutureUnlessShutdown.outcomeK)
       } yield ()
-    } else EitherT.pure[Future, steps.ResultError](())
+    } else EitherT.pure[FutureUnlessShutdown, steps.ResultError](())
 
   private[this] def isCleanReplay(
       requestCounter: RequestCounter,
@@ -1902,7 +1911,7 @@ object ProtocolProcessor {
   sealed trait MalformedPayload extends Product with Serializable with PrettyPrinting
 
   final case class ViewMessageError[VT <: ViewType](
-      error: EncryptedViewMessageError[VT]
+      error: EncryptedViewMessageError
   ) extends MalformedPayload {
     override def pretty: Pretty[ViewMessageError.this.type] = prettyOfParam(_.error)
   }

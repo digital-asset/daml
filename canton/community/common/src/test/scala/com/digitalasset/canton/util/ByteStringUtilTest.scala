@@ -4,6 +4,7 @@
 package com.digitalasset.canton.util
 
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.serialization.{
   DefaultDeserializationError,
   DeserializationError,
@@ -170,6 +171,35 @@ class ByteStringUtilTest extends AnyWordSpec with BaseTest with GzipCompressionT
       res2 shouldBe Left(
         MaxByteToDecompressExceeded("Max bytes to decompress is exceeded. The limit is 777 bytes.")
       )
+    }
+
+    "correctly pad or truncate a ByteString" in {
+      val aByteStr = ByteString.copyFrom("abcdefghij", Charset.defaultCharset())
+
+      // padded to 20
+      val padSize = NonNegativeInt.tryCreate(20)
+      val toPad = ByteString.copyFrom(new Array[Byte](padSize.value - aByteStr.size()))
+      val padded = ByteStringUtil
+        .padOrTruncate(aByteStr, padSize)
+      padded.size() shouldBe padSize.value
+      padded.substring(0, aByteStr.size()) == aByteStr shouldBe true
+      padded.substring(aByteStr.size()) == toPad shouldBe true
+
+      // truncate to 5
+      val truncateSize = NonNegativeInt.tryCreate(5)
+      val expected = ByteString.copyFrom("abcde", Charset.defaultCharset())
+      val truncated = ByteStringUtil
+        .padOrTruncate(aByteStr, truncateSize)
+      truncated.size() shouldBe truncateSize.value
+      truncated == expected shouldBe true
+
+      // truncate to 0
+      val truncateSize_2 = NonNegativeInt.zero
+      val empty = ByteString.EMPTY
+      val truncated_2 = ByteStringUtil
+        .padOrTruncate(aByteStr, truncateSize_2)
+      truncated_2.size() shouldBe truncateSize_2.value
+      truncated_2 == empty shouldBe true
     }
   }
 }

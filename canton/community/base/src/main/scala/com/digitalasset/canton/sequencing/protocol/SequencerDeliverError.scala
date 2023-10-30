@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing.protocol
 
 import com.daml.error.*
+import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
 import com.digitalasset.canton.error.{BaseCantonError, TransactionError, TransactionErrorImpl}
@@ -199,4 +200,20 @@ object SequencerErrors extends SequencerErrorGroup {
         id = "SEQUENCER_NOT_ENOUGH_TRAFFIC_CREDIT",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       )
+
+  @Explanation(
+    """An onboarded sequencer has put a tombstone in place of an event with a timestamp older than the sequencer signing key."""
+  )
+  @Resolution(
+    """Clients should connect to another sequencer with older event history to consume the tombstoned events
+      |before reconnecting to the recently onboarded sequencer."""
+  )
+  object PersistTombstone
+      extends SequencerDeliverErrorCode(
+        id = "SEQUENCER_TOMBSTONE_PERSISTED",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    def apply(ts: CantonTimestamp, sc: SequencerCounter): SequencerDeliverError =
+      apply(s"Sequencer signing key not available at ${ts} and ${sc}")
+  }
 }

@@ -152,7 +152,7 @@ trait AuthMiddlewareFixture
   self: Suite =>
 
   protected def authService: Option[auth.AuthService] = Some(
-    auth.AuthServiceJWT(authVerifier, None)
+    auth.AuthServiceJWT(authVerifier, None, None)
   )
 
   protected[this] override final def authToken(
@@ -169,6 +169,7 @@ trait AuthMiddlewareFixture
           exp = None,
           format = StandardJWTTokenFormat.Scope,
           audiences = List.empty,
+          scope = Some("daml_ledger_api"),
         )
       else
         CustomDamlJWTPayload(

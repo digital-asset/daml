@@ -52,7 +52,7 @@ object LfGenerator {
 
   def createGen[N >: LfNodeCreate]: StateT[Gen, NodeIdState, LfAction] =
     for {
-      node <- StateT.liftF(lfGen.malformedCreateNodeGen)
+      node <- StateT.liftF(lfGen.malformedCreateNodeGen())
       fixedNode = node.copy(templateId = truncateIdentifier(node.coinst.template), keyOpt = None)
       action <- createFromLf[Gen](fixedNode)
     } yield action

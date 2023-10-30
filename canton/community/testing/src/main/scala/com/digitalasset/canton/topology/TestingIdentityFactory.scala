@@ -33,7 +33,7 @@ import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Add
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
-import com.digitalasset.canton.util.MapsUtil
+import com.digitalasset.canton.util.{MapsUtil, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, LfPartyId}
 import org.mockito.MockitoSugar.mock
@@ -101,6 +101,7 @@ final case class TestingTopology(
         parameter = DefaultTestIdentities.defaultDynamicDomainParameters,
       )
     ),
+    encKeyTag: Option[String] = None,
 ) {
 
   /** Define for which domains the topology should apply.
@@ -168,6 +169,12 @@ final case class TestingTopology(
 
   def withPackages(packages: Seq[VettedPackages]): TestingTopology =
     this.copy(packages = packages)
+
+  /** This adds a tag to the id of the encryption key during key generation [[genKeyCollection]].
+    * Therefore, we can potentially enforce a different key id for the same encryption key.
+    */
+  def withEncKeyTag(tag: String): TestingTopology =
+    this.copy(encKeyTag = Some(tag))
 
   def build(
       loggerFactory: NamedLoggerFactory = NamedLoggerFactory("test-area", "crypto")
@@ -311,7 +318,7 @@ class TestingIdentityFactory(
       if (keyPurposes.contains(KeyPurpose.Encryption))
         Seq(
           SymbolicCrypto.encryptionPublicKey(
-            s"encK-${TestingIdentityFactory.keyFingerprintForOwner(owner).unwrap}"
+            s"encK${OptionUtil.noneAsEmptyString(topology.encKeyTag)}-${TestingIdentityFactory.keyFingerprintForOwner(owner).unwrap}"
           )
         )
       else Seq()

@@ -25,12 +25,15 @@ trait CompositeHealthElement[ID, HE <: HealthElement] extends HealthElement {
     */
   protected def combineDependentStates: State
 
+  protected def refreshFromDependencies()(implicit traceContext: TraceContext): Unit =
+    refreshState(Eval.always(combineDependentStates))
+
   private val dependencies: TrieMap[ID, HE] = TrieMap.empty[ID, HE]
   private val dependencyListener: HealthListener = new HealthListener {
     override def name: String = CompositeHealthElement.this.name
 
     override def poke()(implicit traceContext: TraceContext): Unit =
-      refreshState(Eval.always(combineDependentStates))
+      refreshFromDependencies()
   }
 
   // Unregister all dependencies when this element is closed.
@@ -97,7 +100,11 @@ trait CompositeHealthElement[ID, HE <: HealthElement] extends HealthElement {
       // query the closing flag again and repeat the unregistration
       if (associatedOnShutdownRunner.isClosing) {
         unregisterFromAll()
-      } else if (dependenciesChanged) dependencyListener.poke()(TraceContext.empty)
+      } else if (dependenciesChanged) refreshFromDependencies()(TraceContext.empty)
     }
   }
 }
+
+trait CompositeHealthComponent[ID, HE <: HealthElement]
+    extends CompositeHealthElement[ID, HE]
+    with HealthComponent

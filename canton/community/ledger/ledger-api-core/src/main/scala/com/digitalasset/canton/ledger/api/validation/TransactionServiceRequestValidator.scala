@@ -176,6 +176,8 @@ class TransactionServiceRequestValidator(
     }
   }
 
+  // Allow using deprecated Protobuf fields for backwards compatibility
+  @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.transaction_filter.*")
   private def transactionFilterToPartySet(
       transactionFilter: TransactionFilter
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger) =

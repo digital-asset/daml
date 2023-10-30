@@ -9,10 +9,12 @@ import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
+import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Encrypted, SyncCryptoApi, TestHash}
 import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, NotInserted}
 import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, PeanoQueue}
+import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
+import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.RequestOffset
@@ -30,12 +32,17 @@ import com.digitalasset.canton.participant.protocol.TestProcessingSteps.{
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.*
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.InFlightSubmissionTrackerDomainState
 import com.digitalasset.canton.participant.protocol.submission.{
+  ChangeIdHash,
+  InFlightSubmission,
   InFlightSubmissionTracker,
   NoCommandDeduplicator,
   SequencedSubmission,
+  TransactionSubmissionTrackingData,
+  UnsequencedSubmission,
 }
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
+  InFlightSubmissionStore,
   MultiDomainEventLog,
   ParticipantNodePersistentState,
   SyncDomainEphemeralState,
@@ -63,13 +70,21 @@ import com.digitalasset.canton.store.{CursorPrehead, IndexedDomain}
 import com.digitalasset.canton.time.{DomainTimeTracker, NonNegativeFiniteDuration, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.{ParticipantPermission, TrustLevel}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, RequestCounter, SequencerCounter}
+import com.digitalasset.canton.{
+  BaseTest,
+  DefaultDamlValues,
+  HasExecutionContext,
+  RequestCounter,
+  SequencerCounter,
+}
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers.eq as isEq
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.Duration
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent
 import scala.collection.concurrent.TrieMap
@@ -183,6 +198,7 @@ class ProtocolProcessorTest
       crypto: DomainSyncCryptoClient = crypto,
       overrideInFlightSubmissionTrackerO: Option[InFlightSubmissionTracker] = None,
       submissionDataForTrackerO: Option[SubmissionTracker.SubmissionData] = None,
+      overrideInFlightSubmissionStoreO: Option[InFlightSubmissionStore] = None,
   ): (TestInstance, SyncDomainPersistentState, SyncDomainEphemeralState) = {
 
     val multiDomainEventLog = mock[MultiDomainEventLog]
@@ -250,7 +266,9 @@ class ProtocolProcessorTest
     )
     val inFlightSubmissionTracker = overrideInFlightSubmissionTrackerO.getOrElse(
       new InFlightSubmissionTracker(
-        Eval.now(nodePersistentState.inFlightSubmissionStore),
+        Eval.now(
+          overrideInFlightSubmissionStoreO.getOrElse(nodePersistentState.inFlightSubmissionStore)
+        ),
         eventPublisher,
         new NoCommandDeduplicator(),
         Eval.now(mdel),
@@ -272,6 +290,7 @@ class ProtocolProcessorTest
         startingPoints,
         _ => timeTracker,
         ParticipantTestMetrics.domain,
+        CachingConfigs.defaultSessionKeyCache,
         timeouts,
         loggerFactory,
         FutureSupervisor.Noop,
@@ -340,6 +359,35 @@ class ProtocolProcessorTest
     rootHashMessage,
     MediatorRef(DefaultTestIdentities.mediator),
     isReceipt = false,
+  )
+
+  private lazy val subId = DefaultDamlValues.submissionId()
+  private lazy val changeId = DefaultDamlValues.changeId(Set.empty)
+  private lazy val changeIdHash = ChangeIdHash(changeId)
+
+  private lazy val unsequencedSubmission = InFlightSubmission(
+    changeIdHash = changeIdHash,
+    submissionId = Some(subId),
+    submissionDomain = domain,
+    messageUuid = UUID.randomUUID(),
+    rootHashO = Some(rootHash),
+    sequencingInfo = UnsequencedSubmission(
+      requestId.unwrap,
+      TransactionSubmissionTrackingData(
+        CompletionInfo(
+          List.empty,
+          changeId.applicationId,
+          changeId.commandId,
+          None,
+          Some(subId),
+          None,
+        ),
+        TransactionSubmissionTrackingData.TimeoutCause,
+        Some(domain),
+        testedProtocolVersion,
+      ),
+    ),
+    TraceContext.empty,
   )
 
   "submit" should {
@@ -689,6 +737,76 @@ class ProtocolProcessorTest
       waitForAsyncResult(asyncRes)
 
       verifyZeroInteractions(mockInFlightSubmissionTracker)
+    }
+
+    "override the sequencing time when a preplay loses the race with the normal notification" in {
+      // This test reproduces the scenario of a submission request preplayed without a messageId, i.e.
+      // the participant receives first the preplay without messageId, and later the actual submission receipt.
+      //
+      // Background:
+      // -----------
+      // The submission tracker ensures only the first sequenced request produces a command completion, and
+      // accordingly the in-flight submission tracker must track the preplay as sequenced.
+      // The in-flight submission tracker is normally notified of the sequencing when it receives a request
+      // with the messageId corresponding to the submission.
+      // However, to handle replays, it is also notified when receiving a matching request (based on the
+      // root hash), without messageId, but for which the participant is the submitter.
+      // The normal notification happens in the synchronous request processing, while the other takes place
+      // during the asynchronous part. Consequently, a race happens as to which notification happens first.
+      // To handle this, the non-normal notification is allowed to override the in-flight submission tracker
+      // information if the sequencing time of its request is earlier.
+      //
+      // This test checks this situation when the non-normal notification loses this race.
+
+      val inFlightSubmissionStore = new InMemoryInFlightSubmissionStore(loggerFactory)
+      val (sut, _persistent, ephemeral) = testProcessingSteps(
+        submissionDataForTrackerO = Some(
+          SubmissionTracker.SubmissionData(
+            submitterParticipant = participant,
+            maxSequencingTimeO = Some(requestId.unwrap.plusSeconds(10)),
+          )
+        ),
+        overrideInFlightSubmissionStoreO = Some(inFlightSubmissionStore),
+      )
+
+      val ifst = ephemeral.inFlightSubmissionTracker
+      val subF = for {
+        // The participant registers the submission in the in-flight submission tracker
+        _ <- ifst
+          .register(unsequencedSubmission, DeduplicationDuration(Duration.ofSeconds(10)))
+          .value
+          .onShutdown(fail())
+
+        // Even though sequenced later, the normal notification wins the race
+        _ <- ifst.observeSequencing(
+          domain,
+          Map(
+            unsequencedSubmission.messageId -> SequencedSubmission(
+              SequencerCounter(1),
+              requestId.unwrap.plusSeconds(1),
+            )
+          ),
+        )
+
+        // The preplay gets processed and notifies the in-flight submission tracker
+        _ <- sut
+          .processRequest(requestId.unwrap, rc, requestSc, someRequestBatch)
+          .onShutdown(fail())
+          .futureValue
+          .unwrap
+          .unwrap
+
+        // Retrieve the submission from the in-flight submission tracker store to check its info
+        sub <- inFlightSubmissionStore.lookup(changeIdHash).getOrElse(fail())
+      } yield sub
+
+      val sub = subF.futureValue
+      sub.sequencingInfo.isSequenced shouldBe true
+      sub.sequencingInfo match {
+        // The information corresponds to the preplay
+        case SequencedSubmission(`requestSc`, ts) => ts shouldBe requestId.unwrap
+        case _ => fail(s"Bad information in in-flight submission tracker:\n$sub")
+      }
     }
   }
 

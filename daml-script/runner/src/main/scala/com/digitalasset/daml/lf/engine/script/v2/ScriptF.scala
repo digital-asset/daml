@@ -23,7 +23,7 @@ import com.daml.lf.data.Ref.{
 }
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
-import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
+import com.daml.lf.engine.script.v2.ledgerinteraction.{ScriptLedgerClient, SubmitError}
 import com.daml.lf.language.{Ast, StablePackagesV2}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SBuiltin.SBVariantCon
@@ -70,7 +70,6 @@ object ScriptF {
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
       compiledPackages: CompiledPackages,
-      val enableContractUpgrading: Boolean,
   ) {
     def clients = _clients
     val valueTranslator = new ValueTranslator(
@@ -152,6 +151,44 @@ object ScriptF {
     ): Future[SExpr] = Future.failed(new NotImplementedError)
   }
 
+  final case class TrySubmitConcurrently(
+      actAs: OneAnd[Set, Party],
+      readAs: Set[Party],
+      cmdss: List[List[command.ApiCommand]],
+      stackTrace: StackTrace,
+  ) extends Cmd {
+    override def execute(
+        env: Env
+    )(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- Converter.toFuture(
+          env.clients.getPartiesParticipant(actAs)
+        )
+        resItems <- client
+          .trySubmitConcurrently(
+            actAs,
+            readAs,
+            cmdss,
+            stackTrace.topFrame,
+          )
+        res <- Converter.toFuture(
+          Converter
+            .fromSubmitResultList[SubmitError](
+              env.lookupChoice,
+              env.valueTranslator,
+              _.toDamlSubmitError(env),
+              env.scriptIds,
+              resItems,
+              client.enableContractUpgrading,
+            )
+        )
+      } yield SEValue(res)
+  }
+
   final case class TrySubmit(data: SubmitData) extends Cmd {
 
     override def execute(
@@ -168,30 +205,18 @@ object ScriptF {
           data.cmds,
           data.stackTrace.topFrame,
         )
-        res <- submitRes match {
-          case Right(results) =>
-            Converter.toFuture(
-              results
-                .to(FrontStack)
-                .traverse(
-                  Converter
-                    .fromCommandResult(env.lookupChoice, env.valueTranslator, env.scriptIds, _)
-                )
-                .map(results => SEAppAtomic(right, Array(SEValue(SList(results)))))
+        res <- Converter.toFuture(
+          Converter
+            .fromSubmitResult[SubmitError](
+              env.lookupChoice,
+              env.valueTranslator,
+              _.toDamlSubmitError(env),
+              env.scriptIds,
+              submitRes,
+              client.enableContractUpgrading,
             )
-          case Left(submitError) =>
-            Future.successful(
-              SEAppAtomic(
-                left,
-                Array(
-                  SEValue(
-                    submitError.toDamlSubmitError(env)
-                  )
-                ),
-              )
-            )
-        }
-      } yield res
+        )
+      } yield SEValue(res)
   }
 
   final case class Submit(data: SubmitData) extends Cmd {
@@ -216,7 +241,13 @@ object ScriptF {
                 .to(FrontStack)
                 .traverse(
                   Converter
-                    .fromCommandResult(env.lookupChoice, env.valueTranslator, env.scriptIds, _)
+                    .fromCommandResult(
+                      env.lookupChoice,
+                      env.valueTranslator,
+                      env.scriptIds,
+                      _,
+                      client.enableContractUpgrading,
+                    )
                 )
                 .map(results => SEValue(SList(results)))
             )
@@ -274,6 +305,7 @@ object ScriptF {
             env.valueTranslator,
             env.scriptIds,
             submitRes,
+            client.enableContractUpgrading,
           )
         )
       } yield SEValue(res)
@@ -296,7 +328,7 @@ object ScriptF {
             .to(FrontStack)
             .traverse(
               Converter
-                .fromCreated(env.valueTranslator, _)
+                .fromCreated(env.valueTranslator, _, client.enableContractUpgrading)
             )
         )
       } yield SEValue(SList(res))
@@ -314,9 +346,11 @@ object ScriptF {
     ): Future[SExpr] =
       for {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-        optR <- client.queryContractId(parties, tplId, cid, env.enableContractUpgrading)
+        optR <- client.queryContractId(parties, tplId, cid)
         optR <- Converter.toFuture(
-          optR.traverse(Converter.fromContract(env.valueTranslator, _, env.enableContractUpgrading))
+          optR.traverse(
+            Converter.fromContract(env.valueTranslator, _, client.enableContractUpgrading)
+          )
         )
       } yield SEValue(SOptional(optR))
   }
@@ -407,7 +441,9 @@ object ScriptF {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryContractKey(parties, tplId, key.key, translateKey(env))
         optR <- Converter.toFuture(
-          optR.traverse(Converter.fromCreated(env.valueTranslator, _))
+          optR.traverse(
+            Converter.fromCreated(env.valueTranslator, _, client.enableContractUpgrading)
+          )
         )
       } yield SEValue(SOptional(optR))
   }
@@ -778,6 +814,22 @@ object ScriptF {
       } yield SEValue(SUnit)
   }
 
+  final case class SetContractUpgradingEnabled(enabled: Boolean) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        _ <- env.clients.default_participant.fold(Future.unit)(
+          _.setContractUpgradingEnabled(enabled)
+        )
+        _ <- Future.traverse(env.clients.participants.toList) { case (_, v) =>
+          v.setContractUpgradingEnabled(enabled)
+        }
+      } yield SEValue(SUnit)
+  }
+
   // Shared between Submit, SubmitMustFail and SubmitTree
   final case class SubmitData(
       actAs: OneAnd[Set, Party],
@@ -811,6 +863,39 @@ object ScriptF {
           ) =>
         convert(OneAnd(hdAct, tlAct.toList), read.toList, cmds.toList)
       case _ => Left(s"Expected Submit payload but got $v")
+    }
+  }
+
+  private def parseSubmitConcurrently(
+      v: SValue,
+      stackTrace: StackTrace,
+  ): Either[String, TrySubmitConcurrently] = {
+    def convert(
+        actAs: OneAnd[List, SValue],
+        readAs: List[SValue],
+        cmdss: List[List[SValue]],
+    ) =
+      for {
+        actAs <- actAs.traverse(Converter.toParty(_)).map(toOneAndSet(_))
+        readAs <- readAs.traverse(Converter.toParty(_))
+        cmdss <- cmdss.traverse(_.traverse(Converter.toCommand(_)))
+      } yield TrySubmitConcurrently(actAs, readAs.toSet, cmdss, stackTrace)
+    v match {
+      case SRecord(
+            _,
+            _,
+            ArrayList(
+              SRecord(_, _, ArrayList(hdAct, SList(tlAct))),
+              SList(read),
+              cmdss,
+            ),
+          ) =>
+        Converter.toList(cmdss, (Converter.toList(_, Right(_)))) match {
+          case Right(cmdss) => convert(OneAnd(hdAct, tlAct.toList), read.toList, cmdss)
+          case _ => Left(s"Expected TrySubmitConcurrently payload but got $v")
+        }
+
+      case _ => Left(s"Expected TrySubmitConcurrently payload but got $v")
     }
   }
 
@@ -1033,6 +1118,15 @@ object ScriptF {
       case _ => Left(s"Expected VetDar payload but got $v")
     }
 
+  private def parseSetContractUpgradingEnabled(
+      v: SValue
+  ): Either[String, SetContractUpgradingEnabled] =
+    v match {
+      case SRecord(_, _, ArrayList(SBool(enabled))) =>
+        Right(SetContractUpgradingEnabled(enabled))
+      case _ => Left(s"Expected SetContractUpgradingEnabled payload but got $v")
+    }
+
   def parse(
       commandName: String,
       version: Long,
@@ -1044,6 +1138,7 @@ object ScriptF {
       case ("SubmitMustFail", 1) => parseSubmit(v, stackTrace).map(SubmitMustFail(_))
       case ("SubmitTree", 1) => parseSubmit(v, stackTrace).map(SubmitTree(_))
       case ("TrySubmit", 1) => parseSubmit(v, stackTrace).map(TrySubmit(_))
+      case ("TrySubmitConcurrently", 1) => parseSubmitConcurrently(v, stackTrace)
       case ("Query", 1) => parseQuery(v)
       case ("QueryContractId", 1) => parseQueryContractId(v)
       case ("QueryInterface", 1) => parseQueryInterface(v)
@@ -1070,6 +1165,7 @@ object ScriptF {
       case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
       case ("VetDar", 1) => parseDarVettingChange(v, VetDar)
       case ("UnvetDar", 1) => parseDarVettingChange(v, UnvetDar)
+      case ("SetContractUpgradingEnabled", 1) => parseSetContractUpgradingEnabled(v)
       case _ => Left(s"Unknown command $commandName - Version $version")
     }
 

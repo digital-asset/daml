@@ -11,7 +11,7 @@ private[inner] object RecordMethods {
 
   def apply(fields: Fields, className: ClassName, typeParameters: IndexedSeq[String])(implicit
       packagePrefixes: PackagePrefixes
-  ): Vector[MethodSpec] = {
+  ): (Vector[MethodSpec], Seq[(ClassName, String)]) = {
 
     val constructor = ConstructorGenerator.generateConstructor(fields)
 
@@ -44,13 +44,17 @@ private[inner] object RecordMethods {
       List(deprecatedFromValue, valueDecoder, toValue)
     }
 
+    val (jsonEncoders, staticImports) = ToJsonGenerator.forRecordLike(fields, typeParameters)
+
     val jsonConversionMethods = FromJsonGenerator.forRecordLike(
       fields,
       className,
       typeParameters,
-    )
+    ) ++ jsonEncoders
 
-    Vector(constructor) ++ conversionMethods ++ jsonConversionMethods ++
+    val methods = Vector(constructor) ++ conversionMethods ++ jsonConversionMethods ++
       ObjectMethods(className, typeParameters, fields.map(_.javaName))
+
+    (methods, staticImports)
   }
 }

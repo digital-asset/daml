@@ -74,6 +74,10 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     )
   }
 
+  // Allow using deprecated Protobuf fields for backwards compatibility
+  @annotation.nowarn(
+    "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.event\\.CreatedEvent.*"
+  )
   private def testCreateContractMetadata(
       signatory: String,
       create: DbDto.EventCreate,

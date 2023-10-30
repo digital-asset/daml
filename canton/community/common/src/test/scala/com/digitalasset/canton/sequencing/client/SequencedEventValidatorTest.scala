@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.health.HealthComponent.AlwaysHealthyComponent
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.sequencing.client.SequencedEventValidationError.*
@@ -362,6 +363,7 @@ class SequencedEventValidatorTest
 
   "validateAkka" should {
     implicit val prettyString = Pretty.prettyString
+    lazy val alwaysHealthyComponent = new AlwaysHealthyComponent("validateAkka source", logger)
 
     "propagate the first subscription errors" in { fixture =>
       import fixture.*
@@ -372,7 +374,7 @@ class SequencedEventValidatorTest
       val source =
         Source(errors.map(err => withNoOpKillSwitch(Left(err))))
           .watchTermination()((_, doneF) => noOpKillSwitch -> doneF)
-      val subscription = SequencerSubscriptionAkka(source)
+      val subscription = SequencerSubscriptionAkka(source, alwaysHealthyComponent)
       val validatedSubscription =
         validator.validateAkka(subscription, None, DefaultTestIdentities.sequencerId)
       val validatedEventsF = validatedSubscription.source.runWith(Sink.seq)
@@ -394,7 +396,7 @@ class SequencedEventValidatorTest
           withNoOpKillSwitch(Either.right(event))
         )
       ).watchTermination()((_, doneF) => noOpKillSwitch -> doneF)
-      val subscription = SequencerSubscriptionAkka[String](source)
+      val subscription = SequencerSubscriptionAkka[String](source, alwaysHealthyComponent)
       val validatedSubscription =
         validator.validateAkka(subscription, Some(deliver1), DefaultTestIdentities.sequencerId)
       val validatedEventsF = validatedSubscription.source.runWith(Sink.seq)
@@ -414,7 +416,7 @@ class SequencedEventValidatorTest
       val source = Source(
         Seq(deliver1, deliver2, deliver3, deliver4).map(event => withNoOpKillSwitch(Right(event)))
       ).watchTermination()((_, doneF) => noOpKillSwitch -> doneF)
-      val subscription = SequencerSubscriptionAkka(source)
+      val subscription = SequencerSubscriptionAkka(source, alwaysHealthyComponent)
       val validatedSubscription =
         validator.validateAkka(subscription, Some(deliver1), DefaultTestIdentities.sequencerId)
       val validatedEventsF = validatedSubscription.source.runWith(Sink.seq)
@@ -437,7 +439,7 @@ class SequencedEventValidatorTest
       val source = Source(
         Seq(deliver1, deliver2).map(event => withNoOpKillSwitch(Right(event)))
       ).watchTermination()((_, doneF) => noOpKillSwitch -> doneF)
-      val subscription = SequencerSubscriptionAkka(source)
+      val subscription = SequencerSubscriptionAkka(source, alwaysHealthyComponent)
       val validatedSubscription =
         validator.validateAkka(subscription, Some(deliver1a), DefaultTestIdentities.sequencerId)
       loggerFactory.assertLogs(
@@ -483,7 +485,7 @@ class SequencedEventValidatorTest
       val source = Source(
         Seq(deliver1, deliver2, deliver3, deliver4).map(event => withNoOpKillSwitch(Right(event)))
       ).watchTermination()((_, doneF) => noOpKillSwitch -> doneF)
-      val subscription = SequencerSubscriptionAkka(source)
+      val subscription = SequencerSubscriptionAkka(source, alwaysHealthyComponent)
       val validatedSubscription =
         validator.validateAkka(subscription, Some(deliver1), DefaultTestIdentities.sequencerId)
       val ((killSwitch, doneF), validatedEventsF) =

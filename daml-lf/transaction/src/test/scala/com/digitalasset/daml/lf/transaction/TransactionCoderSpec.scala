@@ -1139,7 +1139,7 @@ class TransactionCoderSpec
       forAll(Gen.listOf(party)) { parties =>
         val sortedParties = parties.sorted.distinct
         val proto = toProto(sortedParties)
-        inside(TransactionCoder.toOrderedPartySet(proto)) { case Right(decoded: TreeSet[Party]) =>
+        inside(TransactionCoder.toPartyTreeSet(proto)) { case Right(decoded: TreeSet[Party]) =>
           decoded shouldBe TreeSet.from(sortedParties)
         }
       }
@@ -1156,7 +1156,7 @@ class TransactionCoderSpec
         val nonSortedParties =
           Iterator.iterate(parties)(shuffle(_)).filterNot(_ == sortedParties).next()
         val proto = toProto(nonSortedParties)
-        TransactionCoder.toOrderedPartySet(proto) shouldBe a[Left[_, _]]
+        TransactionCoder.toPartyTreeSet(proto) shouldBe a[Left[_, _]]
       }
     }
 
@@ -1164,7 +1164,7 @@ class TransactionCoderSpec
       forAll(party, Gen.listOf(party)) { (party, parties) =>
         val partiesWithDuplicate = (party :: party :: parties).sorted
         val proto = toProto(partiesWithDuplicate)
-        TransactionCoder.toOrderedPartySet(proto) shouldBe a[Left[_, _]]
+        TransactionCoder.toPartyTreeSet(proto) shouldBe a[Left[_, _]]
       }
     }
   }

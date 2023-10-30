@@ -11,7 +11,10 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.health.HealthComponent.AlwaysHealthyComponent
+import com.digitalasset.canton.health.{ComponentHealthState, HealthComponent}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription.LostSequencerSubscription
 import com.digitalasset.canton.sequencing.client.TestSubscriptionError.{
   FatalExn,
@@ -20,9 +23,8 @@ import com.digitalasset.canton.sequencing.client.TestSubscriptionError.{
   UnretryableError,
 }
 import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver, SignedContent}
-import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, client}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
-import com.digitalasset.canton.topology.DefaultTestIdentities
+import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.AkkaUtil.syntax.*
 import com.digitalasset.canton.{BaseTest, SequencerCounter}
@@ -44,14 +46,11 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
   private def retryDelay(maxDelay: FiniteDuration = MaxDelay) =
     SubscriptionRetryDelayRule(InitialDelay, maxDelay, maxDelay)
 
-  private def domainId = DefaultTestIdentities.domainId
-
   private def createResilientSubscriber[E](
       subscriptionFactory: SequencerSubscriptionFactoryAkka[E],
       retryDelayRule: SubscriptionRetryDelayRule = retryDelay(),
   ): ResilientSequencerSubscriberAkka[E] = {
     new ResilientSequencerSubscriberAkka[E](
-      domainId,
       retryDelayRule,
       subscriptionFactory,
       DefaultProcessingTimeouts.testing,
@@ -61,32 +60,31 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
 
   "ResilientSequencerSubscriberAkka" should {
     "not retry on an unrecoverable error" in assertAllStagesStopped {
-      val factory = new TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
       val subscriber = createResilientSubscriber(factory)
       factory.add(Error(UnretryableError))
+      val subscription = subscriber.subscribeFrom(SequencerCounter.Genesis)
       loggerFactory.assertLogs(
-        subscriber
-          .subscribeFrom(SequencerCounter.Genesis)
-          .source
-          .toMat(Sink.ignore)(Keep.right)
-          .run()
-          .futureValue,
+        subscription.source.toMat(Sink.ignore)(Keep.right).run().futureValue,
         _.warningMessage should include(
           s"Closing resilient sequencer subscription due to error: $UnretryableError"
         ),
       )
+      // Health updates are asynchronous
+      eventually() {
+        subscription.health.getState shouldBe subscription.health.closingState
+      }
     }
 
     "retry on recoverable errors" in assertAllStagesStopped {
-      val factory = new TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
       val subscriber = createResilientSubscriber(factory)
       factory.add(Error(RetryableError))
       factory.add(Error(RetryableError))
       factory.add(Error(UnretryableError))
+      val subscription = subscriber.subscribeFrom(SequencerCounter.Genesis)
       loggerFactory.assertLogs(
-        subscriber
-          .subscribeFrom(SequencerCounter.Genesis)
-          .source
+        subscription.source
           .toMat(Sink.ignore)(Keep.right)
           .run()
           .futureValue,
@@ -94,18 +92,20 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
           s"Closing resilient sequencer subscription due to error: $UnretryableError"
         ),
       )
+      // Health updates are asynchronous
+      eventually() {
+        subscription.health.getState shouldBe subscription.health.closingState
+      }
     }
 
     "retry on exceptions until one is fatal" in {
-      val factory = new client.TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
       val subscriber = createResilientSubscriber(factory)
       factory.add(Failure(RetryableExn))
       factory.add(Failure(FatalExn))
-
+      val subscription = subscriber.subscribeFrom(SequencerCounter.Genesis)
       loggerFactory.assertLogs(
-        subscriber
-          .subscribeFrom(SequencerCounter.Genesis)
-          .source
+        subscription.source
           .toMat(Sink.ignore)(Keep.right)
           .run()
           .futureValue,
@@ -114,10 +114,14 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
         ),
         _.errorMessage should include("Closing resilient sequencer subscription due to exception"),
       )
+      // Health updates are asynchronous
+      eventually() {
+        subscription.health.getState shouldBe subscription.health.closingState
+      }
     }
 
     "restart from last received counter" in {
-      val factory = new client.TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
       val subscriber = createResilientSubscriber(factory)
       factory.subscribe(start =>
         (start to (start + 10)).map(sc => Event(sc)) :+ Error(RetryableError)
@@ -158,7 +162,7 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
         override val initialDelay: FiniteDuration = 1.milli
         override val warnDelayDuration: FiniteDuration = 100.millis
       }
-      val factory = new client.TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
       val subscriber = createResilientSubscriber(factory, captureHasEvent)
 
       // provide an event then close with a recoverable error
@@ -175,14 +179,14 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
         .run()
         .futureValue
 
-      // An unretryable completions does not call the retry delay rule, so there should be only to calls recorded
+      // An unretryable completion does not call the retry delay rule, so there should be only two calls recorded
       hasReceivedEventsCalls.get() shouldBe Seq(true, false)
     }
 
-    "retry until closing if the sequencer is permanently unavailable" in {
+    "retry until closing if the sequencer is permanently unavailable" in assertAllStagesStopped {
       val maxDelay = 100.milliseconds
 
-      val factory = new client.TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
       val subscriber = createResilientSubscriber(factory, retryDelay(maxDelay))
       // Always close with RetryableError
       for (_ <- 1 to 100) {
@@ -192,20 +196,68 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
       val startTime = Deadline.now
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         {
-          val (killSwitch, doneF) =
-            subscriber
-              .subscribeFrom(SequencerCounter.Genesis)
-              .source
-              .toMat(Sink.ignore)(Keep.left)
-              .run()
+          val subscription = subscriber.subscribeFrom(SequencerCounter.Genesis)
+          // Initially, everything looks healthy
+          subscription.health.isFailed shouldBe false
 
-          // we retry until we see a warning
+          val (killSwitch, doneF) = subscription.source.toMat(Sink.ignore)(Keep.left).run()
+          // we retry until we become unhealthy
           eventually() {
-            loggerFactory.numberOfRecordedEntries should be > 0
+            subscription.health.isFailed shouldBe true
           }
 
           // Check that it has hit MaxDelay. We can't really check an upper bound as it would make the test flaky
           -startTime.timeLeft should be >= maxDelay
+
+          killSwitch.shutdown()
+          doneF.futureValue
+
+          eventually() {
+            subscription.health.getState shouldBe subscription.health.closingState
+          }
+        },
+        logEntries => {
+          logEntries should not be empty
+          forEvery(logEntries) {
+            _.warningMessage should (include(s"Waiting $maxDelay before reconnecting") or include(
+              LostSequencerSubscription.id
+            ))
+          }
+        },
+      )
+    }
+
+    "return to healthy when messages are received again" in assertAllStagesStopped {
+      val maxDelay = 100.milliseconds
+
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val subscriber = createResilientSubscriber(factory, retryDelay(maxDelay))
+      // retryDelay doubles the delay upon each attempt until it hits `maxDelay`,
+      // so we set it to one more such that we get the chance to see the unhealthy state
+      val retries = (Math.log(maxDelay.toMillis.toDouble) / Math.log(2.0d)).ceil.toInt + 1
+      for (_ <- 1 to retries) {
+        factory.add(Error(RetryableError))
+      }
+      factory.add((1 to 10).map(sc => Event(SequencerCounter(sc.toLong))) *)
+
+      loggerFactory.assertLoggedWarningsAndErrorsSeq(
+        {
+          val subscription = subscriber
+            .subscribeFrom(SequencerCounter.Genesis)
+
+          // Initially, everything looks healthy
+          subscription.health.isFailed shouldBe false
+
+          val (killSwitch, doneF) = subscription.source.toMat(Sink.ignore)(Keep.left).run()
+          // we retry until we become unhealthy
+          eventually() {
+            subscription.health.isFailed shouldBe true
+          }
+
+          // The factory should eventually produce new elements. So we should return to healthy
+          eventually() {
+            subscription.health.getState shouldBe ComponentHealthState.Ok()
+          }
 
           killSwitch.shutdown()
           doneF.futureValue
@@ -224,10 +276,13 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
 }
 
 class TestSequencerSubscriptionFactoryAkka(
-    override protected val loggerFactory: NamedLoggerFactory
+    health: HealthComponent,
+    override protected val loggerFactory: NamedLoggerFactory,
 ) extends SequencerSubscriptionFactoryAkka[TestSubscriptionError]
     with NamedLogging {
   import TestSequencerSubscriptionFactoryAkka.*
+
+  override def sequencerId: SequencerId = DefaultTestIdentities.sequencerId
 
   private val sources = new AtomicReference[Seq[SequencerCounter => Seq[Element]]](Seq.empty)
 
@@ -266,7 +321,7 @@ class TestSequencerSubscriptionFactoryAkka(
       .takeUntilThenDrain(_.isLeft)
       .watchTermination()(Keep.both)
 
-    SequencerSubscriptionAkka[TestSubscriptionError](source)
+    SequencerSubscriptionAkka[TestSubscriptionError](source, health)
   }
 
   override val retryPolicy: SubscriptionErrorRetryPolicyAkka[TestSubscriptionError] =
@@ -274,6 +329,14 @@ class TestSequencerSubscriptionFactoryAkka(
 }
 
 object TestSequencerSubscriptionFactoryAkka {
+  def apply(loggerFactory: NamedLoggerFactory): TestSequencerSubscriptionFactoryAkka = {
+    val alwaysHealthyComponent = new AlwaysHealthyComponent(
+      "TestSequencerSubscriptionFactory",
+      loggerFactory.getTracedLogger(classOf[TestSequencerSubscriptionFactoryAkka]),
+    )
+    new TestSequencerSubscriptionFactoryAkka(alwaysHealthyComponent, loggerFactory)
+  }
+
   sealed trait Element extends Product with Serializable
 
   final case class Error(error: TestSubscriptionError) extends Element

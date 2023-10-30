@@ -513,14 +513,13 @@ trait HasSupportedProtoVersions[ValueClass] {
   ) {
     val (higherProtoVersion, higherConverter) = converters.head1
 
-    def converterFor(protocolVersion: ProtocolVersion): ProtoCodec = {
+    def converterFor(protocolVersion: ProtocolVersion): ProtoCodec =
       converters
         .collectFirst {
           case (_, converter) if protocolVersion >= converter.fromInclusive.representative =>
             converter
         }
         .getOrElse(higherConverter)
-    }
 
     def deserializerFor(protoVersion: ProtoVersion): Deserializer =
       converters.get(protoVersion).map(_.deserializer).getOrElse(higherConverter.deserializer)

@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import cats.Eval
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{CacheConfigWithTimeout, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -39,6 +39,7 @@ trait SyncDomainEphemeralStateFactory {
       inFlightSubmissionTracker: InFlightSubmissionTracker,
       createTimeTracker: NamedLoggerFactory => DomainTimeTracker,
       metrics: SyncDomainMetrics,
+      sessionKeyCacheConfig: CacheConfigWithTimeout,
       participantId: ParticipantId,
   )(implicit
       traceContext: TraceContext,
@@ -60,6 +61,7 @@ class SyncDomainEphemeralStateFactoryImpl(
       inFlightSubmissionTracker: InFlightSubmissionTracker,
       createTimeTracker: NamedLoggerFactory => DomainTimeTracker,
       metrics: SyncDomainMetrics,
+      sessionKeyCacheConfig: CacheConfigWithTimeout,
       participantId: ParticipantId,
   )(implicit
       traceContext: TraceContext,
@@ -84,6 +86,7 @@ class SyncDomainEphemeralStateFactoryImpl(
         startingPoints,
         createTimeTracker,
         metrics,
+        sessionKeyCacheConfig,
         timeouts,
         persistentState.loggerFactory,
         futureSupervisor,

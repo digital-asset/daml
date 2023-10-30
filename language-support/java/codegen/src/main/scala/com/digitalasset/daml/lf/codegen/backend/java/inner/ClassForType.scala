@@ -77,19 +77,19 @@ object ClassForType extends StrictLogging {
     val packageName = className.packageName()
     lfInterfaceType match {
       case Normal(DefDataType(typeVars, record: Record.FWT)) =>
-        val recordClass =
+        val (recordClass, staticImports) =
           RecordClass.generate(
             typeWithContext.interface.packageId,
             className,
             typeVars.map(JavaEscaper.escapeString),
             record,
           )
-        javaFiles(packageName, recordClass)
+        List(javaFile(packageName, recordClass, staticImports))
       case Normal(DefDataType(typeVars, variant: Variant.FWT)) =>
         val simpleLowerCaseName = JavaEscaper.escapeString(className.simpleName().toLowerCase)
         val subPackage = s"$packageName.$simpleLowerCaseName"
         val escapedTypeVars = typeVars.map(JavaEscaper.escapeString)
-        val (variantSpec, constructorSpecs) =
+        val (variantSpec, constructorSpecs, constructorStaticImports) =
           VariantClass.generate(
             className,
             subPackage,
@@ -97,28 +97,31 @@ object ClassForType extends StrictLogging {
             variant,
             typeWithContext,
           )
-        javaFile(packageName, variantSpec) :: javaFiles(subPackage, constructorSpecs)
+        javaFile(packageName, variantSpec) :: constructorSpecs.map(
+          javaFile(subPackage, _, constructorStaticImports)
+        )
       case Normal(DefDataType(_, enum: Enum)) =>
-        javaFiles(packageName, EnumClass.generate(className, enum))
+        List(javaFile(packageName, EnumClass.generate(className, enum)))
       case Template(record, template) =>
-        val typeSpec =
+        val (typeSpec, staticImports) =
           TemplateClass.generate(
             className,
             record,
             template,
             typeWithContext,
           )
-        javaFiles(packageName, typeSpec)
+        List(javaFile(packageName, typeSpec, staticImports))
     }
   }
 
-  private def javaFile(packageName: String, typeSpec: TypeSpec): JavaFile =
-    JavaFile.builder(packageName, typeSpec).build()
-
-  private def javaFiles(packageName: String, typeSpec: TypeSpec): List[JavaFile] =
-    List(javaFile(packageName, typeSpec))
-
-  private def javaFiles(packageName: String, typeSpecs: List[TypeSpec]): List[JavaFile] =
-    typeSpecs.map(javaFile(packageName, _))
+  private def javaFile(
+      packageName: String,
+      typeSpec: TypeSpec,
+      staticImports: Seq[(ClassName, String)] = Seq(),
+  ): JavaFile = {
+    val builder = JavaFile.builder(packageName, typeSpec)
+    staticImports.foreach { case (klass, name) => builder.addStaticImport(klass, name) }
+    builder.build()
+  }
 
 }

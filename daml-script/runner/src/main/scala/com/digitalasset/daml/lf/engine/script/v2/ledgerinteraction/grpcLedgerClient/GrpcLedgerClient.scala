@@ -26,6 +26,7 @@ import com.daml.ledger.api.v1.transaction_filter.{
   InterfaceFilter,
   TransactionFilter,
 }
+import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.command
@@ -57,36 +58,34 @@ class GrpcLedgerClient(
     val grpcClient: LedgerClient,
     val applicationId: ApplicationId,
     val oAdminClient: Option[AdminLedgerClient],
+    val initialEnableContractUpgrading: Boolean = false,
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
+
+  var enableContractUpgradingState: Boolean = initialEnableContractUpgrading
+  override def enableContractUpgrading = enableContractUpgradingState
 
   override def query(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      enableContractUpgrading: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Vector[ScriptLedgerClient.ActiveContract]] = {
-    queryWithKey(parties, templateId, enableContractUpgrading).map(_.map(_._1))
+    queryWithKey(parties, templateId).map(_.map(_._1))
+  }
+
+  // Omits the package id on an identifier if contract upgrades are enabled
+  private def toApiIdentifierUpgrades(identifier: Identifier): api.Identifier = {
+    val converted = toApiIdentifier(identifier)
+    if (enableContractUpgrading) converted.copy(packageId = "") else converted
   }
 
   private def templateFilter(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
   ): TransactionFilter = {
-    val filters = Filters(Some(InclusiveFilters(Seq(toApiIdentifier(templateId)))))
-    TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
-  }
-
-  // Template filter with the package id removed, for upgrades
-  private def upgradeableTemplateFilter(
-      parties: OneAnd[Set, Ref.Party],
-      templateId: Identifier,
-  ): TransactionFilter = {
-    val filters = Filters(
-      Some(InclusiveFilters(Seq(toApiIdentifier(templateId).copy(packageId = ""))))
-    )
+    val filters = Filters(Some(InclusiveFilters(Seq(toApiIdentifierUpgrades(templateId)))))
     TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
   }
 
@@ -110,14 +109,11 @@ class GrpcLedgerClient(
   private def queryWithKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      enableContractUpgrading: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value])]] = {
-    val filter =
-      if (enableContractUpgrading) upgradeableTemplateFilter(parties, templateId)
-      else templateFilter(parties, templateId)
+    val filter = templateFilter(parties, templateId)
     val acsResponses =
       grpcClient.activeContractSetClient
         .getActiveContracts(filter, verbose = false)
@@ -153,14 +149,13 @@ class GrpcLedgerClient(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       cid: ContractId,
-      enableContractUpgrading: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     // We cannot do better than a linear search over query here.
     for {
-      activeContracts <- query(parties, templateId, enableContractUpgrading)
+      activeContracts <- query(parties, templateId)
     } yield {
       activeContracts.find(c => c.contractId == cid)
     }
@@ -278,6 +273,14 @@ class GrpcLedgerClient(
         Future.successful(Left(GrpcErrorParser.convertStatusRuntimeException(s)))
       })
 
+  override def trySubmitConcurrently(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commandss: List[List[command.ApiCommand]],
+      optLocation: Option[Location],
+  )(implicit ec: ExecutionContext, mat: Materializer) =
+    Future.traverse(commandss)(trySubmit(actAs, readAs, _, optLocation))
+
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
@@ -301,6 +304,10 @@ class GrpcLedgerClient(
       case Left(err) => throw new ConverterException(err)
       case Right(cmds) => cmds
     }
+    // We need to remember the original package ID for each command result, so we can reapply them
+    // after we get the results (for upgrades)
+    val commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
+
     val apiCommands = Commands(
       party = actAs.head,
       actAs = actAs.toList,
@@ -318,7 +325,9 @@ class GrpcLedgerClient(
       val events = transactionTree.getTransaction.rootEventIds
         .map(evId => transactionTree.getTransaction.eventsById(evId))
         .toList
-      events.traverse(fromTreeEvent(_)) match {
+      events.zip(commandResultPackageIds).traverse { case (event, intendedPackageId) =>
+        fromTreeEvent(event, intendedPackageId)
+      } match {
         case Left(err) => throw new ConverterException(err)
         case Right(results) => results
       }
@@ -350,6 +359,9 @@ class GrpcLedgerClient(
     import scalaz.syntax.traverse._
     for {
       ledgerCommands <- Converter.toFuture(commands.traverse(toCommand(_)))
+      // We need to remember the original package ID for each command result, so we can reapply them
+      // after we get the results (for upgrades)
+      commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
       apiCommands = Commands(
         party = actAs.head,
         actAs = actAs.toList,
@@ -362,7 +374,9 @@ class GrpcLedgerClient(
       request = SubmitAndWaitRequest(Some(apiCommands))
       resp <- grpcClient.commandServiceClient
         .submitAndWaitForTransactionTree(request)
-      converted <- Converter.toFuture(Converter.fromTransactionTree(resp.getTransaction))
+      converted <- Converter.toFuture(
+        Converter.fromTransactionTree(resp.getTransaction, commandResultPackageIds)
+      )
     } yield converted
   }
 
@@ -413,26 +427,41 @@ class GrpcLedgerClient(
     } yield ()
   }
 
+  // Note that CreateAndExerciseCommand gives two results, so we duplicate the package id
+  private def toCommandPackageIds(cmd: command.ApiCommand): List[PackageId] =
+    cmd match {
+      case command.CreateAndExerciseCommand(templateId, _, _, _) =>
+        List(templateId.packageId, templateId.packageId)
+      case cmd => List(cmd.typeId.packageId)
+    }
+
   private def toCommand(cmd: command.ApiCommand): Either[String, Command] =
     cmd match {
       case command.CreateCommand(templateId, argument) =>
         for {
           arg <- lfValueToApiRecord(true, argument)
-        } yield Command().withCreate(CreateCommand(Some(toApiIdentifier(templateId)), Some(arg)))
+        } yield Command().withCreate(
+          CreateCommand(Some(toApiIdentifierUpgrades(templateId)), Some(arg))
+        )
       case command.ExerciseCommand(typeId, contractId, choice, argument) =>
         for {
           arg <- lfValueToApiValue(true, argument)
         } yield Command().withExercise(
           // TODO: https://github.com/digital-asset/daml/issues/14747
           //  Fix once the new field interface_id have been added to the API Exercise Command
-          ExerciseCommand(Some(toApiIdentifier(typeId)), contractId.coid, choice, Some(arg))
+          ExerciseCommand(Some(toApiIdentifierUpgrades(typeId)), contractId.coid, choice, Some(arg))
         )
       case command.ExerciseByKeyCommand(templateId, key, choice, argument) =>
         for {
           key <- lfValueToApiValue(true, key)
           argument <- lfValueToApiValue(true, argument)
         } yield Command().withExerciseByKey(
-          ExerciseByKeyCommand(Some(toApiIdentifier(templateId)), Some(key), choice, Some(argument))
+          ExerciseByKeyCommand(
+            Some(toApiIdentifierUpgrades(templateId)),
+            Some(key),
+            choice,
+            Some(argument),
+          )
         )
       case command.CreateAndExerciseCommand(templateId, template, choice, argument) =>
         for {
@@ -440,7 +469,7 @@ class GrpcLedgerClient(
           argument <- lfValueToApiValue(true, argument)
         } yield Command().withCreateAndExercise(
           CreateAndExerciseCommand(
-            Some(toApiIdentifier(templateId)),
+            Some(toApiIdentifierUpgrades(templateId)),
             Some(template),
             choice,
             Some(argument),
@@ -448,7 +477,10 @@ class GrpcLedgerClient(
         )
     }
 
-  private def fromTreeEvent(ev: TreeEvent): Either[String, ScriptLedgerClient.CommandResult] = {
+  private def fromTreeEvent(
+      ev: TreeEvent,
+      intendedPackageId: PackageId,
+  ): Either[String, ScriptLedgerClient.CommandResult] = {
     import scalaz.std.option._
     import scalaz.syntax.traverse._
     ev match {
@@ -465,7 +497,12 @@ class GrpcLedgerClient(
           templateId <- Converter.fromApiIdentifier(exercised.getTemplateId)
           ifaceId <- exercised.interfaceId.traverse(Converter.fromApiIdentifier)
           choice <- ChoiceName.fromString(exercised.choice)
-        } yield ScriptLedgerClient.ExerciseResult(templateId, ifaceId, choice, result)
+        } yield ScriptLedgerClient.ExerciseResult(
+          templateId.copy(packageId = intendedPackageId),
+          ifaceId,
+          choice,
+          result,
+        )
       case TreeEvent(TreeEvent.Kind.Empty) =>
         throw new ConverterException("Invalid tree event Empty")
     }
@@ -587,7 +624,7 @@ class GrpcLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
 
-  def vetDar(name: String)(implicit
+  override def vetDar(name: String)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
@@ -598,7 +635,7 @@ class GrpcLedgerClient(
     adminClient.vetDar(name)
   }
 
-  def unvetDar(name: String)(implicit
+  override def unvetDar(name: String)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
@@ -608,4 +645,18 @@ class GrpcLedgerClient(
     )
     adminClient.unvetDar(name)
   }
+
+  override def setContractUpgradingEnabled(enabled: Boolean)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] =
+    if (initialEnableContractUpgrading)
+      Future.successful { enableContractUpgradingState = enabled }
+    else
+      Future.failed(
+        new ConverterException(
+          "Contract-upgrading must be enabled via the --enable-contract-upgrading flag to use this command."
+        )
+      )
 }

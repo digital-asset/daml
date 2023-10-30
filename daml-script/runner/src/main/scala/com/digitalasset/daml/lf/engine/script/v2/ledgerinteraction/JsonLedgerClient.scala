@@ -164,7 +164,6 @@ class JsonLedgerClient(
   override def query(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      enableContractUpgrading: Boolean = false,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -194,7 +193,6 @@ class JsonLedgerClient(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       cid: ContractId,
-      enableContractUpgrading: Boolean = false,
   )(implicit ec: ExecutionContext, mat: Materializer) = {
     for {
       parties <- validateTokenParties(parties, "queryContractId")
@@ -688,6 +686,18 @@ class JsonLedgerClient(
       mat: Materializer,
   ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]] = unsupportedOn("trySubmit")
 
+  def trySubmitConcurrently(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commandss: List[List[command.ApiCommand]],
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[List[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]] = unsupportedOn(
+    "trySubmitConcurrently"
+  )
+
   override def vetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -712,17 +722,23 @@ class JsonLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
 
-  def vetDar(name: String)(implicit
+  override def vetDar(name: String)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = unsupportedOn("vetDar")
 
-  def unvetDar(name: String)(implicit
+  override def unvetDar(name: String)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = unsupportedOn("unvetDar")
+
+  override def setContractUpgradingEnabled(enabled: Boolean)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = unsupportedOn("setContractUpgradingEnabled")
 }
 
 object JsonLedgerClient {

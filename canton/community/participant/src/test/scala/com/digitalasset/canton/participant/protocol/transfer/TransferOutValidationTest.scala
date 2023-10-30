@@ -24,7 +24,6 @@ import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetPr
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
-import scala.Right
 
 class TransferOutValidationTest
     extends AsyncWordSpec
@@ -111,7 +110,7 @@ class TransferOutValidationTest
       val validation = mkTransferOutValidation(
         stakeholders,
         sourcePV,
-        contract.rawContractInstance.contractInstance.unversioned.template,
+        templateId,
         initialTransferCounter,
       )
       for {
@@ -125,7 +124,7 @@ class TransferOutValidationTest
     val validation = mkTransferOutValidation(
       stakeholders.union(Set(receiverParty2)),
       sourcePV,
-      contract.rawContractInstance.contractInstance.unversioned.template,
+      templateId,
       initialTransferCounter,
     )
     for {
@@ -150,7 +149,7 @@ class TransferOutValidationTest
     } yield {
       if (sourcePV.v < ProtocolVersion.CNTestNet) {
         res shouldBe Right(())
-      } else res shouldBe Left(TemplateIdMismatch(wrongTemplateId.leftSide, templateId.leftSide))
+      } else res shouldBe Left(TemplateIdMismatch(templateId.leftSide, wrongTemplateId.leftSide))
     }
   }
 
@@ -160,7 +159,7 @@ class TransferOutValidationTest
     val validation = mkTransferOutValidation(
       stakeholders,
       newSourcePV,
-      contract.rawContractInstance.contractInstance.unversioned.template,
+      templateId,
       transferCounter,
     ).value
 
@@ -184,7 +183,7 @@ class TransferOutValidationTest
   def mkTransferOutValidation(
       newStakeholders: Set[LfPartyId],
       sourceProtocolVersion: SourceProtocolVersion,
-      newTemplateId: LfTemplateId,
+      expectedTemplateId: LfTemplateId,
       transferCounter: TransferCounterO,
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
     val transferOutRequest = TransferOutRequest(
@@ -192,8 +191,8 @@ class TransferOutValidationTest
       // receiverParty2 is not a stakeholder on a contract, but it is listed as stakeholder here
       newStakeholders,
       Set(participant.adminParty.toLf),
-      contractId,
-      newTemplateId,
+      ExampleTransactionFactory.transactionId(0),
+      contract,
       transferId.sourceDomain,
       sourceProtocolVersion,
       MediatorRef(sourceMediator),
@@ -214,7 +213,7 @@ class TransferOutValidationTest
     TransferOutValidation(
       fullTransferOutTree,
       stakeholders,
-      templateId,
+      expectedTemplateId,
       sourceProtocolVersion,
       identityFactory.topologySnapshot(),
       Some(identityFactory.topologySnapshot()),

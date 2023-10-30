@@ -33,12 +33,18 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       ) => Either[String, TemplateChoiceSignature],
       translator: preprocessing.ValueTranslator,
       result: ScriptLedgerClient.ExerciseResult,
+      enableContractUpgrading: Boolean = false,
   ) = {
     for {
       choice <- Name.fromString(result.choice)
       c <- lookupChoice(result.templateId, result.interfaceId, choice)
       translated <- translator
-        .strictTranslateValue(c.returnType, result.result)
+        .translateValue(
+          c.returnType,
+          result.result,
+          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Upgradeable
+          else preprocessing.ValueTranslator.Config.Strict,
+        )
         .left
         .map(err => s"Failed to translate exercise result: $err")
     } yield translated
@@ -53,12 +59,13 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       translator: preprocessing.ValueTranslator,
       scriptIds: ScriptIds,
       tree: ScriptLedgerClient.TransactionTree,
+      enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
     def damlTree(s: String) = scriptIds.damlScriptModule("Daml.Script.Questions.TransactionTree", s)
     def translateTreeEvent(ev: ScriptLedgerClient.TreeEvent): Either[String, SValue] = ev match {
       case ScriptLedgerClient.Created(tplId, contractId, argument) =>
         for {
-          anyTemplate <- fromAnyTemplate(translator, tplId, argument)
+          anyTemplate <- fromAnyTemplate(translator, tplId, argument, enableContractUpgrading)
         } yield SVariant(
           damlTree("TreeEvent"),
           Name.assertFromString("CreatedEvent"),
@@ -79,7 +86,15 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
           ) =>
         for {
           evs <- childEvents.traverse(translateTreeEvent(_))
-          anyChoice <- fromAnyChoice(lookupChoice, translator, tplId, ifaceId, choiceName, arg)
+          anyChoice <- fromAnyChoice(
+            lookupChoice,
+            translator,
+            tplId,
+            ifaceId,
+            choiceName,
+            arg,
+            enableContractUpgrading,
+          )
         } yield SVariant(
           damlTree("TreeEvent"),
           Name.assertFromString("ExercisedEvent"),
@@ -110,6 +125,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       translator: preprocessing.ValueTranslator,
       scriptIds: ScriptIds,
       commandResult: ScriptLedgerClient.CommandResult,
+      enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
     def scriptCommands(s: String) = scriptIds.damlScriptModule("Daml.Script.Commands", s)
     commandResult match {
@@ -124,7 +140,12 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
         )
       case r: ScriptLedgerClient.ExerciseResult =>
         for {
-          translated <- translateExerciseResult(lookupChoice, translator, r)
+          translated <- translateExerciseResult(
+            lookupChoice,
+            translator,
+            r,
+            enableContractUpgrading,
+          )
         } yield SVariant(
           scriptCommands("CommandResult"),
           Ref.Name.assertFromString("ExerciseResult"),
@@ -133,6 +154,68 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
         )
     }
   }
+
+  def fromSubmitResult[T](
+      lookupChoice: (
+          Identifier,
+          Option[Identifier],
+          ChoiceName,
+      ) => Either[String, TemplateChoiceSignature],
+      translator: preprocessing.ValueTranslator,
+      translateError: T => SValue,
+      scriptIds: ScriptIds,
+      submitResult: Either[T, Seq[ScriptLedgerClient.CommandResult]],
+      enableContractUpgrading: Boolean = false,
+  ): Either[String, SValue] = submitResult match {
+    case Right(commandResults) =>
+      commandResults
+        .to(FrontStack)
+        .traverse(
+          fromCommandResult(lookupChoice, translator, scriptIds, _, enableContractUpgrading)
+        )
+        .map { rs =>
+          SVariant(
+            StablePackagesV2.Either,
+            Ref.Name.assertFromString("Right"),
+            1,
+            SList(rs),
+          )
+        }
+    case Left(submitError) =>
+      Right(
+        SVariant(
+          StablePackagesV2.Either,
+          Ref.Name.assertFromString("Left"),
+          0,
+          translateError(submitError),
+        )
+      )
+  }
+
+  def fromSubmitResultList[T](
+      lookupChoice: (
+          Identifier,
+          Option[Identifier],
+          ChoiceName,
+      ) => Either[String, TemplateChoiceSignature],
+      translator: preprocessing.ValueTranslator,
+      translateError: T => SValue,
+      scriptIds: ScriptIds,
+      submitResultList: List[Either[T, Seq[ScriptLedgerClient.CommandResult]]],
+      enableContractUpgrading: Boolean = false,
+  ): Either[String, SValue] =
+    submitResultList
+      .traverse(
+        fromSubmitResult(
+          lookupChoice,
+          translator,
+          translateError,
+          scriptIds,
+          _,
+          enableContractUpgrading,
+        )
+      )
+      .map { xs => SList(xs.to(FrontStack)) }
 
   // Convert an active contract to AnyTemplate
   def fromContract(
@@ -146,9 +229,10 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
   def fromCreated(
       translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract,
+      enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
     for {
-      anyTpl <- fromContract(translator, contract)
+      anyTpl <- fromContract(translator, contract, enableContractUpgrading)
     } yield record(
       StablePackagesV2.Tuple2,
       ("_1", SContractId(contract.contractId)),
@@ -157,9 +241,13 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
   }
 
   def fromTransactionTree(
-      tree: TransactionTree
+      tree: TransactionTree,
+      intendedPackageIds: List[PackageId],
   ): Either[String, ScriptLedgerClient.TransactionTree] = {
-    def convEvent(ev: String): Either[String, ScriptLedgerClient.TreeEvent] =
+    def convEvent(
+        ev: String,
+        oIntendedPackageId: Option[PackageId],
+    ): Either[String, ScriptLedgerClient.TreeEvent] =
       tree.eventsById.get(ev).toRight(s"Event id $ev does not exist").flatMap { event =>
         event.kind match {
           case TreeEvent.Kind.Created(created) =>
@@ -172,7 +260,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                   .left
                   .map(err => s"Failed to validate create argument: $err")
             } yield ScriptLedgerClient.Created(
-              tplId,
+              oIntendedPackageId
+                .fold(tplId)(intendedPackageId => tplId.copy(packageId = intendedPackageId)),
               cid,
               arg,
             )
@@ -186,9 +275,10 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 .validateValue(exercised.getChoiceArgument)
                 .left
                 .map(err => s"Failed to validate exercise argument: $err")
-              childEvents <- exercised.childEventIds.toList.traverse(convEvent(_))
+              childEvents <- exercised.childEventIds.toList.traverse(convEvent(_, None))
             } yield ScriptLedgerClient.Exercised(
-              tplId,
+              oIntendedPackageId
+                .fold(tplId)(intendedPackageId => tplId.copy(packageId = intendedPackageId)),
               ifaceId,
               cid,
               choice,
@@ -199,7 +289,9 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
         }
       }
     for {
-      rootEvents <- tree.rootEventIds.toList.traverse(convEvent(_))
+      rootEvents <- tree.rootEventIds.toList.zip(intendedPackageIds).traverse {
+        case (evId, intendedPackageId) => convEvent(evId, Some(intendedPackageId))
+      }
     } yield {
       ScriptLedgerClient.TransactionTree(rootEvents)
     }

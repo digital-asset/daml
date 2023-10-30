@@ -9,6 +9,7 @@ import com.daml.ledger.api.v1.ValueOuterClass;
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoders;
 import com.google.protobuf.Empty;
 import java.util.Arrays;
 import java.util.Optional;
@@ -37,11 +38,11 @@ public class OptionalTest {
   }
 
   @Test
-  void fromJsonRecordWithOptionalFields() throws JsonLfDecoder.Error {
+  void roundtripJsonRecordWithOptionalFields() throws JsonLfDecoder.Error {
     MyOptionalRecord expected =
         new MyOptionalRecord(Optional.of(42L), Optional.of(Unit.getInstance()));
 
-    assertEquals(expected, MyOptionalRecord.fromJson("{\"intOpt\": 42, \"unitOpt\": {}}"));
+    assertEquals(expected, MyOptionalRecord.fromJson(expected.toJson()));
   }
 
   @Test
@@ -100,11 +101,11 @@ public class OptionalTest {
   }
 
   @Test
-  void fromJsonNestedOptional() throws JsonLfDecoder.Error {
+  void roundtripJsonNestedOptional() throws JsonLfDecoder.Error {
     NestedOptionalRecord expected =
         new NestedOptionalRecord(Optional.of(Optional.of(Optional.of(42L))));
 
-    assertEquals(expected, NestedOptionalRecord.fromJson("{\"outerOptional\": [[42]]}"));
+    assertEquals(expected, NestedOptionalRecord.fromJson(expected.toJson()));
   }
 
   @Test
@@ -137,10 +138,10 @@ public class OptionalTest {
   }
 
   @Test
-  void fromJsonOptionalListRecord() throws JsonLfDecoder.Error {
+  void roundtripJsonOptionalListRecord() throws JsonLfDecoder.Error {
     MyOptionalListRecord expected = new MyOptionalListRecord(Optional.of(Arrays.asList(42L)));
 
-    assertEquals(expected, MyOptionalListRecord.fromJson("{\"list\": [42]}"));
+    assertEquals(expected, MyOptionalListRecord.fromJson(expected.toJson()));
   }
 
   @Test
@@ -174,10 +175,10 @@ public class OptionalTest {
   }
 
   @Test
-  void fromJsonListOfOptionalsRecord() throws JsonLfDecoder.Error {
+  void roundtripJsonListOfOptionalsRecord() throws JsonLfDecoder.Error {
     MyListOfOptionalsRecord expected = new MyListOfOptionalsRecord(Arrays.asList(Optional.of(42L)));
 
-    assertEquals(expected, MyListOfOptionalsRecord.fromJson("{\"list\": [42]}"));
+    assertEquals(expected, MyListOfOptionalsRecord.fromJson(expected.toJson()));
   }
 
   @Test
@@ -194,13 +195,13 @@ public class OptionalTest {
   }
 
   @Test
-  void fromJsonOptionalParametricVariant() throws JsonLfDecoder.Error {
+  void roundtripJsonOptionalParametricVariant() throws JsonLfDecoder.Error {
     OptionalVariant<Long> expected = new OptionalParametricVariant<Long>(Optional.of(42L));
 
-    assertEquals(
-        expected,
-        OptionalVariant.fromJson(
-            "{\"tag\": \"OptionalParametricVariant\", \"value\": 42}", JsonLfDecoders.int64));
+    String json = expected.toJson(JsonLfEncoders::int64);
+    var actual = OptionalVariant.fromJson(json, JsonLfDecoders.int64);
+
+    assertEquals(expected, actual);
   }
 
   @Test
@@ -215,12 +216,12 @@ public class OptionalTest {
   }
 
   @Test
-  void fromJsonOptionalPrimVariant() throws JsonLfDecoder.Error {
+  void roundtripJsonOptionalPrimVariant() throws JsonLfDecoder.Error {
     OptionalVariant<Long> expected = new OptionalPrimVariant(Optional.of(42L));
 
-    assertEquals(
-        expected,
-        OptionalVariant.fromJson(
-            "{\"tag\": \"OptionalPrimVariant\", \"value\": 42}", JsonLfDecoders.int64));
+    String json = expected.toJson(JsonLfEncoders::int64);
+    var actual = OptionalVariant.fromJson(json, JsonLfDecoders.int64);
+
+    assertEquals(expected, actual);
   }
 }

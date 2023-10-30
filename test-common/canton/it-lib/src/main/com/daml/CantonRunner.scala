@@ -256,6 +256,7 @@ object CantonRunner {
       exp = None,
       format = auth.StandardJWTTokenFormat.Scope,
       audiences = List.empty,
+      scope = Some("daml_ledger_api"),
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt = DecodedJwt[String](header, auth.AuthServiceJWTCodec.writeToString(payload))

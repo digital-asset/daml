@@ -247,14 +247,7 @@ getAvailableSdkSnapshotVersionsUncached = do
           _ -> Nothing
 
   extractVersions :: ByteString -> Either String [SdkVersion]
-  extractVersions bs = filterOutPrereleases <$> eitherDecodeStrict' bs
-
-  filterOutPrereleases :: ParsedSdkVersions -> [SdkVersion]
-  filterOutPrereleases parsedVersions =
-    [ unParsedSdkVersion
-    | ParsedSdkVersion {..} <- unParsedSdkVersions parsedVersions
-    , not isPrerelease
-    ]
+  extractVersions bs = map unParsedSdkVersion . unParsedSdkVersions <$> eitherDecodeStrict' bs
 
 newtype ParsedSdkVersions = ParsedSdkVersions { unParsedSdkVersions :: [ParsedSdkVersion] }
 data ParsedSdkVersion = ParsedSdkVersion { unParsedSdkVersion :: SdkVersion, isPrerelease :: Bool }

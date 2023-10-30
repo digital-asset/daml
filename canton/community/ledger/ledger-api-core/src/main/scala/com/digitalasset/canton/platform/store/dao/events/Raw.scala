@@ -61,6 +61,7 @@ object Raw {
       val createArgument: Array[Byte],
       val createArgumentCompression: Compression.Algorithm,
       val createKeyValue: Option[Array[Byte]],
+      val createKeyMaintainers: Array[String],
       val createKeyValueCompression: Compression.Algorithm,
   ) extends Raw[E] {
     protected def wrapInEvent(event: PbCreatedEvent): E
@@ -128,12 +129,14 @@ object Raw {
         createArgument: Array[Byte],
         createArgumentCompression: Compression.Algorithm,
         createKeyValue: Option[Array[Byte]],
+        createKeyMaintainers: Array[String],
         createKeyValueCompression: Compression.Algorithm,
     ) extends Raw.Created[PbFlatEvent](
           raw,
           createArgument,
           createArgumentCompression,
           createKeyValue,
+          createKeyMaintainers,
           createKeyValueCompression,
         )
         with FlatEvent {
@@ -158,6 +161,7 @@ object Raw {
           createKeyValue: Option[Array[Byte]],
           createKeyHash: Option[Hash],
           createKeyValueCompression: Option[Int],
+          createKeyMaintainers: Array[String],
           ledgerEffectiveTime: Timestamp,
           eventWitnesses: ArraySeq[String],
           driverMetadata: Option[Array[Byte]],
@@ -178,6 +182,7 @@ object Raw {
           createArgument = createArgument,
           createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),
           createKeyValue = createKeyValue,
+          createKeyMaintainers = createKeyMaintainers,
           createKeyValueCompression = Compression.Algorithm.assertLookup(createKeyValueCompression),
         )
     }
@@ -230,12 +235,14 @@ object Raw {
         createArgument: Array[Byte],
         createArgumentCompression: Compression.Algorithm,
         createKeyValue: Option[Array[Byte]],
+        createKeyMaintainers: Array[String],
         createKeyValueCompression: Compression.Algorithm,
     ) extends Raw.Created[PbTreeEvent](
           raw,
           createArgument,
           createArgumentCompression,
           createKeyValue,
+          createKeyMaintainers,
           createKeyValueCompression,
         )
         with TreeEvent {
@@ -258,6 +265,7 @@ object Raw {
           createKeyValue: Option[Array[Byte]],
           createKeyHash: Option[Hash],
           createKeyValueCompression: Option[Int],
+          createKeyMaintainers: Array[String],
           ledgerEffectiveTime: Timestamp,
           eventWitnesses: ArraySeq[String],
           driverMetadata: Option[Array[Byte]],
@@ -278,6 +286,7 @@ object Raw {
           createArgument = createArgument,
           createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),
           createKeyValue = createKeyValue,
+          createKeyMaintainers = createKeyMaintainers,
           createKeyValueCompression = Compression.Algorithm.assertLookup(createKeyValueCompression),
         )
     }
