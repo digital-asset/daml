@@ -167,11 +167,17 @@ abstract class ConverterMethods(stablePackages: StablePackages) {
       interfaceId: Option[Identifier],
       choiceName: ChoiceName,
       argument: Value,
+      enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
     for {
       choice <- lookupChoice(templateId, interfaceId, choiceName)
       translated <- translator
-        .strictTranslateValue(choice.argBinder._2, argument)
+        .translateValue(
+          choice.argBinder._2,
+          argument,
+          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Upgradeable
+          else preprocessing.ValueTranslator.Config.Strict,
+        )
         .left
         .map(err => s"Failed to translate exercise argument: $err")
     } yield record(
