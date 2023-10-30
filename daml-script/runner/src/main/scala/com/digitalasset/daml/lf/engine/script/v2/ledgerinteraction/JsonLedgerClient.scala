@@ -722,11 +722,11 @@ class JsonLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
 
-  override def setContractUpgradingEnabled(enabled: Boolean)(implicit
+  override def setProvidePackageId(shouldProvide: Boolean)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit] = unsupportedOn("setContractUpgradingEnabled")
+  ): Future[Unit] = unsupportedOn("setProvidePackageId")
 }
 
 object JsonLedgerClient {

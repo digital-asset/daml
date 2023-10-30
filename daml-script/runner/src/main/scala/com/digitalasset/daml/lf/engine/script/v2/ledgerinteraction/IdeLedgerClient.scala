@@ -884,9 +884,9 @@ class IdeLedgerClient(
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
     Future.successful(getPackageIdMap().keys.toList)
 
-  override def setContractUpgradingEnabled(enabled: Boolean)(implicit
+  override def setProvidePackageId(shouldProvide: Boolean)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit] = unsupportedOn("setContractUpgradingEnabled")
+  ): Future[Unit] = unsupportedOn("setProvidePackageId")
 }

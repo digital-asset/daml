@@ -56,12 +56,11 @@ import scala.concurrent.{ExecutionContext, Future}
 class GrpcLedgerClient(
     val grpcClient: LedgerClient,
     val applicationId: ApplicationId,
-    val initialEnableContractUpgrading: Boolean = false,
+    override val enableContractUpgrading: Boolean = false,
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
 
-  var enableContractUpgradingState: Boolean = initialEnableContractUpgrading
-  override def enableContractUpgrading = enableContractUpgradingState
+  var providePackageId: Boolean = !enableContractUpgrading
 
   override def query(
       parties: OneAnd[Set, Ref.Party],
@@ -76,7 +75,7 @@ class GrpcLedgerClient(
   // Omits the package id on an identifier if contract upgrades are enabled
   private def toApiIdentifierUpgrades(identifier: Identifier): api.Identifier = {
     val converted = toApiIdentifier(identifier)
-    if (enableContractUpgrading) converted.copy(packageId = "") else converted
+    if (providePackageId) converted else converted.copy(packageId = "")
   }
 
   private def templateFilter(
@@ -622,13 +621,13 @@ class GrpcLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
 
-  override def setContractUpgradingEnabled(enabled: Boolean)(implicit
+  override def setProvidePackageId(shouldProvide: Boolean)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] =
-    if (initialEnableContractUpgrading)
-      Future.successful { enableContractUpgradingState = enabled }
+    if (enableContractUpgrading)
+      Future.successful { providePackageId = shouldProvide }
     else
       Future.failed(
         new ConverterException(

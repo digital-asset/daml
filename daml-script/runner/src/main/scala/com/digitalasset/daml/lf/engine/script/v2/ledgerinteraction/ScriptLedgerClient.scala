@@ -90,7 +90,7 @@ trait ScriptLedgerClient {
 
   protected def transport: String
 
-  def enableContractUpgrading: Boolean = false
+  val enableContractUpgrading: Boolean = false
 
   final protected def unsupportedOn(what: String) =
     Future.failed(
@@ -269,7 +269,7 @@ trait ScriptLedgerClient {
 
   // TEMPORARY AND INTERNAL - once we have decided on a proper daml3-script upgrading interface for users, we will update this to be
   // specified per command
-  def setContractUpgradingEnabled(enabled: Boolean)(implicit
+  def setProvidePackageId(shouldProvide: Boolean)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
