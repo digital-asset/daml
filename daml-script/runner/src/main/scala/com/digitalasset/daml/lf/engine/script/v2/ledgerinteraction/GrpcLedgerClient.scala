@@ -60,6 +60,8 @@ class GrpcLedgerClient(
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
 
+  var providePackageId: Boolean = !enableContractUpgrading
+
   override def query(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -73,7 +75,7 @@ class GrpcLedgerClient(
   // Omits the package id on an identifier if contract upgrades are enabled
   private def toApiIdentifierUpgrades(identifier: Identifier): api.Identifier = {
     val converted = toApiIdentifier(identifier)
-    if (enableContractUpgrading) converted.copy(packageId = "") else converted
+    if (providePackageId) converted else converted.copy(packageId = "")
   }
 
   private def templateFilter(
@@ -618,4 +620,18 @@ class GrpcLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
+
+  override def setProvidePackageId(shouldProvide: Boolean)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] =
+    if (enableContractUpgrading)
+      Future.successful { providePackageId = shouldProvide }
+    else
+      Future.failed(
+        new ConverterException(
+          "Contract-upgrading must be enabled via the --enable-contract-upgrading flag to use this command."
+        )
+      )
 }

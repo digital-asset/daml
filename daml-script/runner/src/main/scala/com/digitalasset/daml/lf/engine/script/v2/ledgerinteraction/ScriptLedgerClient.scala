@@ -266,4 +266,12 @@ trait ScriptLedgerClient {
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]]
+
+  // TEMPORARY AND INTERNAL - once we have decided on a proper daml3-script upgrading interface for users, we will update this to be
+  // specified per command
+  def setProvidePackageId(shouldProvide: Boolean)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit]
 }

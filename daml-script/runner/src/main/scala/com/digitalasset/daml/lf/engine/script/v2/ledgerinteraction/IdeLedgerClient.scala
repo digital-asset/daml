@@ -883,4 +883,10 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
     Future.successful(getPackageIdMap().keys.toList)
+
+  override def setProvidePackageId(shouldProvide: Boolean)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = unsupportedOn("setProvidePackageId")
 }

@@ -778,6 +778,22 @@ object ScriptF {
       )
   }
 
+  final case class SetProvidePackageId(shouldProvide: Boolean) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        _ <- env.clients.default_participant.fold(Future.unit)(
+          _.setProvidePackageId(shouldProvide)
+        )
+        _ <- Future.traverse(env.clients.participants.toList) { case (_, v) =>
+          v.setProvidePackageId(shouldProvide)
+        }
+      } yield SEValue(SUnit)
+  }
+
   // Shared between Submit, SubmitMustFail and SubmitTree
   final case class SubmitData(
       actAs: OneAnd[Set, Party],
@@ -1054,6 +1070,15 @@ object ScriptF {
     }
   }
 
+  private def parseSetProvidePackageId(
+      v: SValue
+  ): Either[String, SetProvidePackageId] =
+    v match {
+      case SRecord(_, _, ArrayList(SBool(enabled))) =>
+        Right(SetProvidePackageId(enabled))
+      case _ => Left(s"Expected SetProvidePackageId payload but got $v")
+    }
+
   def parse(
       commandName: String,
       version: Long,
@@ -1090,8 +1115,12 @@ object ScriptF {
       case ("UnvetPackages", 1) => parseChangePackages(v).map(UnvetPackages)
       case ("ListVettedPackages", 1) => parseEmpty(ListVettedPackages())(v)
       case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
+      case ("SetProvidePackageId", 1) => parseSetProvidePackageId(v)
       case _ => Left(s"Unknown command $commandName - Version $version")
     }
+
+  // TODO: Update SetProvidePackageId to `SetProvidePackageId`, which should only change whether the packageID is given, so for translation of commands and query template filter
+  // Translation of results is always enabled if the flag is
 
   private def toOneAndSet[F[_], A](x: OneAnd[F, A])(implicit fF: Foldable[F]): OneAnd[Set, A] =
     OneAnd(x.head, x.tail.toSet - x.head)
