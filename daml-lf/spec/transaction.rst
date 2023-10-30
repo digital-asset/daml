@@ -169,7 +169,7 @@ Version history
 This table lists every version of this specification in ascending order
 (oldest first).
 
-Support for transaction versions 1 to 13 was dropped on 2023-10-13
+Support for transaction versions 13 or older was dropped on 2023-10-13
 This breaking change does not impact ledgers created with Canton 2.0.0 or
 later.
 
@@ -422,6 +422,10 @@ As of version 14, these fields are included:
 * repeated ``string`` signatories
 * `message VersionedValue`_ result_versioned
 * `message KeyWithMaintainers`_ key_with_maintainers
+* repeated ``string`` observers
+* `message VersionedValue`_ arg_unversioned
+* `message VersionedValue`_ result_unversioned
+* ``bool`` byKey
 
 ``contract_id_struct`` is required. 
 
@@ -432,6 +436,12 @@ fields are required, and required to be non-empty.
 
 ``children`` is constrained as described under `field node_id`_.
 
+Every element of ``actors``, ``stakeholders``, ``signatories``, and
+``controllers``, and ``observers`` must be a party identifier.
+
+``arg_unversioned`` and ``result_unversioned`` are required, while
+``arg_versioned`` and ``result_versioned`` must be used.
+
 .. note:: *This section is non-normative.*
 
   Every node referred to as one of ``children`` is another
@@ -439,47 +449,12 @@ fields are required, and required to be non-empty.
   consequence of exercising this choice. Nodes in ``children`` appear
   in the order they were created during interpretation.
 
-Every element of ``actors``, ``stakeholders``, ``signatories``, and
-``controllers`` is a party identifier.
-
 .. note:: *This section is non-normative.*
 
   The ``stakeholders`` and ``signatories`` field have the same meaning
   they have for ``NodeCreate``.
 
   The ``actors`` field contains the parties that exercised the choice.
-  The ``controllers`` field contains the parties that _can_ exercise
-  the choice. Note that according to the ledger model these two fields
-  _must_ be the same. For this reason the ``controllers`` field was
-  removed in version 6 -- see *since version 10* below.
-
-  The ``controllers`` field must be empty. Software needing to fill in
-  data structures that demand both actors and controllers must use the
-  ``actors`` field as the controllers.
-
-(* since version 11*)
-  
-As version 11, this field is included:
-
-* repeated ``string`` observers
-
-Every element of ``observers`` is a party identifier.
-
-(*since version 12*)
-
-As version 12, these field are included:
- 
-* `message VersionedValue`_ arg_unversioned
-* `message VersionedValue`_ result_unversioned
-
-``arg_unversioned`` and ``result_unversioned`` are required, while
-``arg_versioned`` and ``result_versioned`` are not used anymore.
-
-(*since version 14*)
-
-As of version 14, this field is required:
-
-``bool`` byKey
 
 (* since version 15*)
 
@@ -526,8 +501,6 @@ message NodeRollBack
 
 The rollback of a sub-transaction.
 
-(*since version 14*)
-
 As of version 14, these fields are included:
 
 * repeated ``string`` children
@@ -536,8 +509,6 @@ message Versioned
 ^^^^^^^^^^^^^^^^^
 
 Generic wrapper for a versioned object
-
-(*since version 14*)
 
 As of version 14 the following  fields are included:
 
@@ -560,8 +531,6 @@ Known versions are listed in ascending order in `Version history`_; any
 in same list, and consumers must reject values with such unknown
 versions.
 
-(*since version 14*)
-
 message FatContractInstance
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -569,8 +538,6 @@ A self contained representation of a committed contract.
 
 The message is assumed ty be wrapped in a `message Versioned`_, which
 dictates the version used for decoding the message.
-
-(* since version 14*)
 
 As of version 14 the following fields are included.
 

@@ -870,18 +870,10 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
             )
           }
 
-          val anException = {
-            val id = "NewM:AnException"
-            val tyCon = data.Ref.Identifier.assertFromString(s"$newPid:$id")
-            IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
-          }
-
           def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
           val causeRollback: SExpr =
             applyToParty(pkgs, e"NewM:causeRollback" (parserParameters), party)
-          val causeUncatchable2: SExpr =
-            applyToParty(pkgs, e"NewM:causeUncatchable2" (parserParameters), party)
 
           "create rollback when old contacts are not within try-catch context" in {
             val res =
