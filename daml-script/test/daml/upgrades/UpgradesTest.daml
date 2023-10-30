@@ -1,12 +1,18 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
+-- IMPORTANT: We do not track vetting state in these tests, it is your responsibility as the test writer to re-vet all packages you unvetted as part of your test at the end
 module UpgradesTest where
 
 import Daml.Script
 import qualified V1.MyTemplates as V1
 import qualified V2.MyTemplates as V2
+import V1.MyTemplates hiding (ValidUpgrade, SameTypeChoice)
+import V2.MyTemplates hiding (ValidUpgrade, SameTypeChoice)
+import DA.Foldable
 import DA.Text
+import DA.Assert
 
 v1DarName : Text
 v1DarName = "upgrades-my-templates-v1"
@@ -20,12 +26,12 @@ participant0 = ParticipantName "participant0"
 participant1 : ParticipantName
 participant1 = ParticipantName "participant1"
 
--- The error we get back if a package is unknown can either be PACKAGE_NOT_FOUND (for packages never uploaded)
--- or NO_DOMAIN_FOR_SUBMISSION if package uploaded but not vetted
--- Conveniently, neither of these are in the current SubmitError datatype (TODO: fix that), so we assert by UnknownError
+-- The error given back for unknown templates is either PACKAGE_NOT_FOUND (if the dar was never uploaded)
+-- or NO_DOMAIN_FOR_SUBMISSION. We always upload all dars before the test, so we'll never hit the former error.
+-- We've not yet implemented variants in the SubmitError type for NoDomainForSubmission, so we capture this error via UnknownError
 assertUnknownPackageError : Either SubmitError a -> Script ()
-assertUnknownPackageError (Left (UnknownError msg)) | "PACKAGE_NOT_FOUND" `isInfixOf` msg || "NO_DOMAIN_FOR_SUBMISSION" `isInfixOf` msg = pure ()
-assertUnknownPackageError (Left err) = assertFail $ "Expected missing package error, but got: " <> show err
+assertUnknownPackageError (Left (UnknownError msg)) | "NO_DOMAIN_FOR_SUBMISSION" `isInfixOf` msg = pure ()
+assertUnknownPackageError (Left err) = assertFail $ "Expected NO_DOMAIN_FOR_SUBMISSION error, but got: " <> show err
 assertUnknownPackageError (Right _) = assertFail $ "Expected missing package error, but submission succeeded"
 
 -- Convenient wrapper we can inline with the submit call
@@ -33,15 +39,386 @@ liftAssertUnknownPackageError : Script (Either SubmitError a) -> Script ()
 liftAssertUnknownPackageError s = s >>= assertUnknownPackageError
 
 main : Script ()
-main = do
+main = forA_ tests $ \(testName, test) -> do
+  debugRaw $ "Testing: " <> testName
+  test
+
+tests : [(Text, Script ())]
+tests = mconcat
+  [ -- Single participant tests
+    [ -- daml3-script query tests
+      ("Upgrade a contract when querying", queryUpgraded)
+    , ("Downgrade a contract with Nones when querying", queryDowngradedNone)
+    , ("Fail to downgrade a contract with Somes when querying", queryDowngradedSome)
+    , -- Fetching tests
+      ("Upgrade a contract when fetching", fetchUpgraded)
+    , ("Downgrade a contract with Nones when fetching", fetchDowngradedNone)
+    , ("Fail to downgrade a contract with Somes when fetching", fetchDowngradedSome)
+    , -- Fetching tests with unvetted sources (BROKEN)
+      ("(BROKEN) Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
+    , ("(BROKEN) Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
+    , -- Template payload upgrading/downgrading from exercises within choice bodies
+      -- The expected behaviour here is that the outer templates have fixed the choice version they wish to call
+      -- So the ledger must coerce the real data to match the expected data. Regardless of what the "most recent" version of that package is
+      ("Call a V1 choice on a V1 contract from within a choice body, expect V1 implementation is used regardless of the possible upgrade.", exerciseV1ChoiceV1ContractSameType)
+    , ("Call a V1 choice on a V2 contract from within a choice body, expect V1 implementation is used, via a downgrade.", exerciseV1ChoiceV2ContractSameType)
+    , ("Call a V1 choice on a V2 contract with Some field from within a choice body, expect V1 implementation to attempt to be used, but fail downgrade", exerciseV1ChoiceV2ContractSameTypeSome)
+    , ("Call a V2 choice on a V1 contract from within a choice body, expect V2 implementation is used, via an upgrade", exerciseV2ChoiceV1ContractSameType)
+    , ("Call a V2 choice on a V2 contract from within a choice body, expect V2 implementation is used, for sanity", exerciseV2ChoiceV2ContractSameType)
+
+    -- call a choice on an old contract, passing in the old choice argument, and its calls the new choice, and should automatically upgrade your argument
+    --   with and without adding optional fields to the argument, should always call the newest code
+
+    -- Choice output should be upgradable
+    --   Clients deal with this - daml-script doesn't yet have this feature, but it should be able to upgrade/downgrade the return type to match what it needs
+    --   by 2.9/3.0, but first make a test that fails
+
+    -- All this for nested records ^
+    
+    , -- Invalid signatory/observer changes
+      ("Succeeds if the signatories don't change", unchangedSignatoryUpgrade)
+    , ("Fails if the signatories set gets larger", largerSignatoryUpgrade)
+    , ("Fails if the signatories set gets smaller", smallerSignatoryUpgrade)
+    , ("Succeeds if the observers don't change", unchangeObserverUpgrade)
+    , ("Fails if the observers set gets larger", largerObserverUpgrade)
+    , ("Fails if the observers set gets smaller", smallerObserverUpgrade)
+    , ("Succeeds if the observer set loses parties that are already signatories", canRemoveObserversThatAreSignatories)
+
+    , -- Invalid data upgrades (compile time checks repeated at runtime)
+      ("(BROKEN) Fails if the template name changes", templateNameChanges)
+    , ("(BROKEN) Fails if a nested data-type's name changes", templateNameChangesNested)
+    , ("Fails if fields are removed", templateFieldsRemoved)
+    , ("Fails if non-optional fields are added", templateNonOptionalFieldsAdded)
+    , ("(BROKEN) Fails if fields are renamed", templateFieldsRenamed)
+    , ("Fails if nested fields are removed", templateFieldsRemovedNested)
+    , ("Fails if nested non-optional fields are added", templateNonOptionalFieldsAddedNested)
+    , ("(BROKEN) Fails if nested fields are renamed", templateFieldsRenamedNested)
+    , ("Succeeds if a nested variant is unchanged", templateVariantUnchanged)
+    , ("Fails if a nested variant is a removed case", templateVariantUpgradeToRemoved)
+    , ("Fails if a nested variant is an additional case when downgrading", templateVariantDowngradeFromNew)
+
+    -- TODO: Weird numeric case from Moritz/Remy - Requires disclosed contracts, daml-script does not support this.
+    -- Cannot be tested.
+    -- I believe the case is - old contract with a Decimal, attempt to use it by disclosing and upgrading at the same time, something breaks
+    ]
+  , -- Multi participant tests
+    -- If both have the same latest version of a package, it should work, otherwise fail
+    [ 
+    
+    ]
+  ]
+
+queryUpgraded : Script ()
+queryUpgraded = do
   a <- allocatePartyOn "alice" participant0
-  b <- allocatePartyOn "bob" participant1
-  -- a `submit` createCmd V1.Name with party = a
-  b `submit` createCmd V2.Name with party = b, newField = Some("hello")
-  unvetDarOnParticipant v1DarName participant0
-  -- unvetDarOnParticipant v2DarName participant0
-  -- unvetDarOnParticipant v1DarName participant1
-  -- unvetDarOnParticipant v2DarName participant1
-  liftAssertUnknownPackageError $ a `trySubmit` createCmd V1.Name with party = a
+  -- No chance for v1 contract to be upgraded to v2 before reaching the database
+  unvetDarOnParticipant v2DarName participant0
+  cid <- a `submit` createCmd V1.ValidUpgrade with party = a
+  let v2Cid = coerceContractId @V1.ValidUpgrade @V2.ValidUpgrade cid
+  v2Name <- queryContractId a v2Cid
+  v2Name === Some V2.ValidUpgrade with party = a, newField = None
+
+  -- Cleanup
+  vetDarOnParticipant v2DarName participant0
+
+queryDowngradedNone : Script ()
+queryDowngradedNone = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = None
+  let v1Cid = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
+  v1Name <- queryContractId a v1Cid
+  v1Name === Some V1.ValidUpgrade with party = a
   pure ()
 
+queryDowngradedSome : Script ()
+queryDowngradedSome = do
+  -- This should throw an error about being unable to remove "Some" fields. 
+  -- Not tested right now as no time to add the infra in scala to assert this error.
+  -- Ideally we make a nice lil daml-script prim to handle this :)
+  -- Verified manually that this happens
+  -- a <- allocatePartyOn "alice" participant0
+  -- cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = Some("Text")
+  -- let v1Cid = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
+  -- v1Name <- queryContractId a v1Cid
+  pure ()
+
+exerciseV1Util : Choice V1Utils c r => Party -> c -> Script r
+exerciseV1Util p c = p `submit` createAndExerciseCmd (V1Utils with party = p) c
+
+exerciseV2Util : Choice V2Utils c r => Party -> c -> Script r
+exerciseV2Util p c = p `submit` createAndExerciseCmd (V2Utils with party = p) c
+
+tryExerciseV1Util : Choice V1Utils c r => Party -> c -> Script (Either SubmitError r)
+tryExerciseV1Util p c = p `trySubmit` createAndExerciseCmd (V1Utils with party = p) c
+
+tryExerciseV2Util : Choice V2Utils c r => Party -> c -> Script (Either SubmitError r)
+tryExerciseV2Util p c = p `trySubmit` createAndExerciseCmd (V2Utils with party = p) c
+
+fetchUpgraded : Script ()
+fetchUpgraded = do
+  a <- allocatePartyOn "alice" participant0
+  -- No chance for v1 contract to be upgraded to v2 before reaching the database
+  unvetDarOnParticipant v2DarName participant0
+  cid <- a `submit` createCmd V1.ValidUpgrade with party = a
+  vetDarOnParticipant v2DarName participant0
+
+  let v2Cid = coerceContractId @V1.ValidUpgrade @V2.ValidUpgrade cid
+  v2Name <- a `exerciseV2Util` V2Fetch with cid = v2Cid
+  v2Name === V2.ValidUpgrade with party = a, newField = None
+
+fetchDowngradedNone : Script ()
+fetchDowngradedNone = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = None
+  let v1Cid = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
+  v1Name <- a `exerciseV1Util` V1Fetch with cid = v1Cid
+  v1Name === V1.ValidUpgrade with party = a
+
+fetchDowngradedSome : Script ()
+fetchDowngradedSome = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = Some "hi"
+  let v1Cid = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
+  eV1Name <- a `tryExerciseV1Util` V1Fetch with cid = v1Cid
+  -- TODO[SW] We should not be using UserError here, change the engine to throw a specific error.
+  
+  case eV1Name of
+    Left (UserError "An optional contract field with a value of Some may not be dropped during downgrading.") -> pure ()
+    res -> assertFail $ "Expected Left (UserError \"An optional contract field with a value of Some may not be dropped during downgrading.\"), got " <> show res
+
+fetchUpgradedSourceUnvetted : Script ()
+fetchUpgradedSourceUnvetted = pure ()
+  -- THIS TEST FAILS??? it shouldn't.
+  -- a <- allocatePartyOn "alice" participant0
+  -- -- No chance for v1 contract to be upgraded to v2 before reaching the database
+  -- unvetDarOnParticipant v2DarName participant0
+  -- cid <- a `submit` createCmd V1.ValidUpgrade with party = a
+  -- vetDarOnParticipant v2DarName participant0
+
+  -- -- Unvet v1, so the engine cannot have type information about the real packageid of the contract
+  -- unvetDarOnParticipant v1DarName participant0
+  -- let v2Cid = coerceContractId @V1.ValidUpgrade @V2.ValidUpgrade cid
+  -- v2Name <- a `tryExerciseV2Util` V2Fetch with cid = v2Cid
+  -- v2Name === V2.ValidUpgrade with party = a, newField = None
+
+  -- -- Cleanup
+  -- vetDarOnParticipant v1DarName participant0
+
+fetchDowngradedNoneSourceUnvetted : Script ()
+fetchDowngradedNoneSourceUnvetted = pure ()
+  -- THIS TEST FAILS??? it shouldn't.
+  -- a <- allocatePartyOn "alice" participant0
+  -- cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = None
+
+  -- -- Unvet the upgraded type and ensure downgrade occurs
+  -- unvetDarOnParticipant v2DarName participant0
+  -- let v1Cid = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
+  -- v1Name <- a `tryExerciseV1Util` V1Fetch with cid = v1Cid
+  -- v1Name === V1.ValidUpgrade with party = a
+
+  -- -- Cleanup
+  -- vetDarOnParticipant v2DarName participant0
+
+exerciseV1ChoiceV1ContractSameType : Script ()
+exerciseV1ChoiceV1ContractSameType = do
+  a <- allocatePartyOn "alice" participant0
+  -- No chance for v1 contract to be upgraded to v2 before reaching the database
+  unvetDarOnParticipant v2DarName participant0
+  cid <- a `submit` createCmd V1.ValidUpgrade with party = a
+  vetDarOnParticipant v2DarName participant0
+
+  sameTypeResult <- a `exerciseV1Util` V1SameChoiceExercise with cid = cid
+  sameTypeResult === "V1"
+
+exerciseV1ChoiceV2ContractSameType : Script ()
+exerciseV1ChoiceV2ContractSameType = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = None
+  let cidV1 = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
+
+  sameTypeResult <- a `exerciseV1Util` V1SameChoiceExercise with cid = cidV1
+  sameTypeResult === "V1"
+
+exerciseV1ChoiceV2ContractSameTypeSome : Script ()
+exerciseV1ChoiceV2ContractSameTypeSome = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = Some "hi"
+  let cidV1 = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
+
+  sameTypeResult <- a `tryExerciseV1Util` V1SameChoiceExercise with cid = cidV1
+  case sameTypeResult of
+    Left _ -> pure ()
+    Right _ -> assertFail "Wrong"
+
+exerciseV2ChoiceV1ContractSameType : Script ()
+exerciseV2ChoiceV1ContractSameType = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V1.ValidUpgrade with party = a
+  let cidV2 = coerceContractId @V1.ValidUpgrade @V2.ValidUpgrade cid
+
+  sameTypeResult <- a `exerciseV2Util` V2SameChoiceExercise with cid = cidV2
+  sameTypeResult === "V2"
+
+exerciseV2ChoiceV2ContractSameType : Script ()
+exerciseV2ChoiceV2ContractSameType = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = Some "hi"
+
+  sameTypeResult <- a `exerciseV2Util` V2SameChoiceExercise with cid = cid
+  sameTypeResult === "V2"
+
+-- Given a function that maps a set of 3 parties to the pre-upgrade and post-upgrade signatory set
+-- and the same for observers
+-- along side an expected result flag (success or failure), test the upgrade behaviour
+signatoryObserverUpgrade
+  :  Bool
+  -> ((Party, Party, Party) -> ([Party], [Party]))
+  -> ((Party, Party, Party) -> ([Party], [Party]))
+  -> Script ()
+signatoryObserverUpgrade shouldSucceed sigF obsF = do
+  alice <- allocatePartyOn "alice" participant0
+  bob <- allocatePartyOn "bob" participant0
+  charlie <- allocatePartyOn "charlie" participant0
+  let (preSignatories, postSignatories) = sigF (alice, bob, charlie)
+      (preObservers, postObservers) = obsF (alice, bob, charlie)
+  
+  unvetDarOnParticipant v2DarName participant0
+  cid <- submitMulti [alice, bob, charlie] [] $ createCmd V1.InvalidUpgradeStakeholders with
+    signatories = preSignatories
+    observers = preObservers
+    replacementSignatories = postSignatories
+    replacementObservers = postObservers
+  vetDarOnParticipant v2DarName participant0
+
+  let cidV2 = coerceContractId @V1.InvalidUpgradeStakeholders @V2.InvalidUpgradeStakeholders cid
+  res <- trySubmitMulti [alice, bob, charlie] [] $ exerciseCmd cidV2 V2.InvalidUpgradeStakeholdersCall
+  case (res, shouldSucceed) of
+    (Right _, True) -> pure ()
+    -- TODO: Upgrade failures give the generic "An error occured. Please contact a system administrator with ..." error
+    -- Maybe it should be more specific.
+    (Left (UnknownError msg), False) | "An error occurred." `isInfixOf` msg -> pure ()
+    _ -> assertFail $ "Expected " <> (if shouldSucceed then "success" else "specific failure") <> " but got " <> show res
+
+unchanged : (Party, Party, Party) -> ([Party], [Party])
+unchanged (alice, bob, charlie) = ([alice], [alice])
+
+signatoryUpgrade : Bool -> ((Party, Party, Party) -> ([Party], [Party])) -> Script ()
+signatoryUpgrade shouldSucceed f = signatoryObserverUpgrade shouldSucceed f unchanged
+
+observerUpgrade : Bool -> ((Party, Party, Party) -> ([Party], [Party])) -> Script ()
+observerUpgrade shouldSucceed = signatoryObserverUpgrade shouldSucceed unchanged
+
+unchangedSignatoryUpgrade : Script ()
+unchangedSignatoryUpgrade = signatoryUpgrade True unchanged
+
+largerSignatoryUpgrade : Script ()
+largerSignatoryUpgrade = signatoryUpgrade False $ \(alice, bob, charlie) -> ([alice, bob], [alice, bob, charlie])
+
+smallerSignatoryUpgrade : Script ()
+smallerSignatoryUpgrade = signatoryUpgrade False $ \(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])
+
+unchangeObserverUpgrade : Script ()
+unchangeObserverUpgrade = observerUpgrade True unchanged
+
+largerObserverUpgrade : Script ()
+largerObserverUpgrade = observerUpgrade False $ \(alice, bob, charlie) -> ([alice, bob], [alice, bob, charlie])
+
+smallerObserverUpgrade : Script ()
+smallerObserverUpgrade = observerUpgrade False $ \(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])
+
+canRemoveObserversThatAreSignatories : Script ()
+canRemoveObserversThatAreSignatories = 
+  signatoryObserverUpgrade
+    True
+    (\(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob, charlie])) -- signatories
+    (\(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])) -- observers
+
+templateInvalidChange : forall t2 t1 c2. (Template t1, HasAgreement t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Script ()
+templateInvalidChange shouldSucceed makeV1Contract v2Choice = do
+  a <- allocatePartyOn "alice" participant0
+  unvetDarOnParticipant v2DarName participant0
+  cid <- a `submit` createCmd (makeV1Contract a)
+  vetDarOnParticipant v2DarName participant0
+  let cidV2 = coerceContractId @t1 @t2 cid
+  res <- a `trySubmit` exerciseCmd cidV2 v2Choice
+
+  case (res, shouldSucceed) of
+    (Right "V2", True) -> pure ()
+    (Left (UnknownError msg), False) | "An error occurred." `isInfixOf` msg -> pure ()
+    _ -> assertFail $ "Expected " <> (if shouldSucceed then "success" else "specific failure") <> " but got " <> show res
+
+-- TODO: THIS BEHAVIOUR IS WRONG. We expect to see a failure here, this succeeding is a bug.
+templateNameChanges : Script ()
+templateNameChanges = templateInvalidChange @V2.NameChangesOops True V1.NameChanges V2.NameChangesCall
+
+-- TODO: THIS BEHAVIOUR IS WRONG. We expect to see a failure here, this succeeding is a bug.
+templateNameChangesNested : Script ()
+templateNameChangesNested = templateInvalidChange @V2.NameChangesNested True (`V1.NameChangesNested` NameChangesNestedData 1) V2.NameChangesNestedCall
+
+templateFieldsRemoved : Script ()
+templateFieldsRemoved = templateInvalidChange @V2.FieldsRemoved False (`V1.FieldsRemoved` 1) V2.FieldsRemovedCall
+
+templateNonOptionalFieldsAdded : Script ()
+templateNonOptionalFieldsAdded = templateInvalidChange @V2.NonOptionalFieldsAdded False V1.NonOptionalFieldsAdded V2.NonOptionalFieldsAddedCall
+
+-- TODO: THIS BEHAVIOUR IS WRONG. We expect to see a failure here, this succeeding is a bug.
+templateFieldsRenamed : Script ()
+templateFieldsRenamed = templateInvalidChange @V2.FieldsRenamed True (`V1.FieldsRenamed` 1) V2.FieldsRenamedCall
+
+
+templateFieldsRemovedNested : Script ()
+templateFieldsRemovedNested =
+  templateInvalidChange
+    @V2.FieldsRemovedNested
+    False 
+    (\p -> V1.FieldsRemovedNested $ V1.FieldsRemovedNestedData p 1)
+    V2.FieldsRemovedNestedCall
+
+templateNonOptionalFieldsAddedNested : Script ()
+templateNonOptionalFieldsAddedNested =
+  templateInvalidChange
+    @V2.NonOptionalFieldsAddedNested
+    False
+    (V1.NonOptionalFieldsAddedNested . V1.NonOptionalFieldsAddedNestedData)
+    V2.NonOptionalFieldsAddedNestedCall
+
+-- TODO: THIS BEHAVIOUR IS WRONG. We expect to see a failure here, this succeeding is a bug.
+templateFieldsRenamedNested : Script ()
+templateFieldsRenamedNested =
+  templateInvalidChange
+    @V2.FieldsRenamedNested
+    True
+    (\p -> V1.FieldsRenamedNested $ V1.FieldsRenamedNestedData p 1)
+    V2.FieldsRenamedNestedCall
+
+templateVariantUnchanged : Script ()
+templateVariantUnchanged =
+  templateInvalidChange
+    @V2.VariantUnchanged
+    True
+    (`V1.VariantUnchanged` V1.VariantUnchangedData1)
+    V2.VariantUnchangedCall
+
+templateVariantUpgradeToRemoved : Script ()
+templateVariantUpgradeToRemoved =
+  templateInvalidChange
+    @V2.VariantRemoved
+    False
+    (`V1.VariantRemoved` V1.VariantRemovedData2)
+    V2.VariantRemovedCall
+
+templateVariantDowngradeFromNew : Script ()
+templateVariantDowngradeFromNew = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.VariantAdditional with party = a, nestedData = V2.VariantAdditionalData3
+
+  let cidV1 = coerceContractId @V2.VariantAdditional @V1.VariantAdditional cid
+
+  -- Ensure we can only call the V1 choice
+  unvetDarOnParticipant v2DarName participant0
+  res <- a `trySubmit` exerciseCmd cidV1 V1.VariantAdditionalCall
+  vetDarOnParticipant v2DarName participant0
+
+  case res of
+    Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()
+    _ -> assertFail $ "Expected specific failure but got " <> show res

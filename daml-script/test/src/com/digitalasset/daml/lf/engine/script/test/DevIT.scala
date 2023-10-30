@@ -28,6 +28,8 @@ class DevIT(override val majorLanguageVersion: LanguageMajorVersion)
     with Inside
     with Matchers {
   final override protected lazy val devMode = true
+  // TODO: https://github.com/digital-asset/daml/issues/17082
+  final override protected lazy val enableContractUpgrading = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   val prettyLfVersion = s"${majorLanguageVersion.pretty}.dev"
@@ -58,21 +60,6 @@ class DevIT(override val majorLanguageVersion: LanguageMajorVersion)
     CompiledDar.read(coinUpgradeV1V2NewFieldDarPath, Runner.compilerConfig(majorLanguageVersion))
   lazy val coinUpgradeV1V3Dar: CompiledDar =
     CompiledDar.read(coinUpgradeV1V3DarPath, Runner.compilerConfig(majorLanguageVersion))
-
-  // TODO: https://github.com/digital-asset/daml/issues/17082
-  // We override the config, to enableUpgrade
-  override lazy val config = CantonConfig(
-    jarPath = cantonJar,
-    authSecret = authSecret,
-    devMode = devMode,
-    nParticipants = nParticipants,
-    timeProviderType = timeProviderType,
-    tlsEnable = tlsEnable,
-    debug = cantonFixtureDebugMode,
-    enableDisclosedContracts = enableDisclosedContracts,
-    bootstrapScript = bootstrapScript,
-    enableUpgrade = true,
-  )
 
   override protected lazy val darFiles = List(
     devDarPath,

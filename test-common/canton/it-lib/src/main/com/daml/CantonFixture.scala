@@ -58,6 +58,7 @@ trait CantonFixtureWithResource[A]
   protected lazy val timeProviderType: TimeProviderType = TimeProviderType.WallClock
   protected lazy val tlsEnable: Boolean = false
   protected lazy val enableDisclosedContracts: Boolean = false
+  protected lazy val enableContractUpgrading: Boolean = false
   protected lazy val bootstrapScript: Option[String] = Option.empty
   protected lazy val applicationId: ApplicationId = ApplicationId(getClass.getName)
   protected lazy val cantonJar: Path =
@@ -107,6 +108,7 @@ trait CantonFixtureWithResource[A]
     debug = cantonFixtureDebugMode,
     enableDisclosedContracts = enableDisclosedContracts,
     bootstrapScript = bootstrapScript,
+    enableUpgrade = enableContractUpgrading,
   )
 
   protected def info(msg: String): Unit =

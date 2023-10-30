@@ -19,6 +19,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   final override protected lazy val devMode = true
+  final override protected lazy val enableContractUpgrading = true
 
   override val majorLanguageVersion: LanguageMajorVersion = LanguageMajorVersion.V2
 
@@ -33,11 +34,12 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     rlocation(Paths.get(s"daml-script/test/upgrades-my-templates-v2.dar")),
   )
 
+  // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
     "run successfully" in {
       for {
         clients <- scriptClients(provideAdminPorts = true)
-        _ <- run(clients, QualifiedName.assertFromString("UpgradesTest:main"), dar = testDar)
+        _ <- run(clients, QualifiedName.assertFromString("UpgradesTest:main"), dar = testDar, enableContractUpgrading = true)
       } yield succeed
     }
   }
