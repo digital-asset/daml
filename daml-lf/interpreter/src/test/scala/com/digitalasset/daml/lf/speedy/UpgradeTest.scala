@@ -293,8 +293,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
       val res = go(e"'-pkg2-':M:do_fetch", ContractInstance(i"'-pkg3-':M:T", v1_extraSome))
 
-      inside(res) { case Left(SError.SErrorDamlException(IE.Dev(_, e))) =>
-        e shouldBe IE.Dev.DowngradeDropDefinedField(t"'-pkg2-':M:T", v1_extraSome)
+      inside(res) { case Left(SError.SErrorDamlException(IE.Dev(_, IE.Dev.Upgrade(e)))) =>
+        e shouldBe IE.Dev.Upgrade.DowngradeDropDefinedField(t"'-pkg2-':M:T", v1_extraSome)
       }
     }
 
