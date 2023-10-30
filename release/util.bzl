@@ -27,7 +27,7 @@ inputs = {
     "trigger_dars": "//triggers/daml:daml-trigger-dars",
     "script_dars": "//daml-script/daml:daml-script-dars",
     "script3_dars": "//daml-script/daml3:daml3-script-dars",
-    "canton": "//test-common/canton:lib",
+    "canton": "//canton:community_app_deploy.jar",
     "sdk_deploy_jar": {
         "ce": "//daml-assistant/daml-sdk:sdk_distribute.jar",
         "ee": "//daml-assistant/daml-sdk:sdk_ee_distribute.jar",
