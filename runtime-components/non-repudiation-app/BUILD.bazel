@@ -33,7 +33,6 @@ da_scala_binary(
         "//runtime-components/non-repudiation-api",
         "//runtime-components/non-repudiation-postgresql",
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:org_slf4j_slf4j_api",
     ],
