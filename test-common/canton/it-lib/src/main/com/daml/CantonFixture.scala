@@ -61,8 +61,7 @@ trait CantonFixtureWithResource[A]
   protected lazy val enableContractUpgrading: Boolean = false
   protected lazy val bootstrapScript: Option[String] = Option.empty
   protected lazy val applicationId: ApplicationId = ApplicationId(getClass.getName)
-  protected lazy val cantonJar: Path =
-    if (devMode) CantonRunner.cantonPatchPath else CantonRunner.cantonPath
+  protected lazy val cantonJar: Path = CantonRunner.cantonPath
 
   // This flag setup some behavior to ease debugging tests.
   //  If `true`

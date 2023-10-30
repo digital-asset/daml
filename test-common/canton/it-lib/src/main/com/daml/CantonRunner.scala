@@ -28,10 +28,7 @@ object CantonRunner {
   private[integrationtest] def toJson(s: String): String = JsString(s).toString()
   private[integrationtest] def toJson(path: Path): String = toJson(path.toString)
 
-  lazy val cantonPath =
-    Paths.get(rlocation("test-common/canton/canton_deploy.jar"))
-  lazy val cantonPatchPath =
-    Paths.get(rlocation("test-common/canton/canton-patched_deploy.jar"))
+  lazy val cantonPath = Paths.get(rlocation("canton/community_app_deploy.jar"))
 
   case class CantonFiles(
       bootstrapFile: Path,
