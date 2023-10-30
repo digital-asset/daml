@@ -52,6 +52,7 @@ object EventStorageBackendTemplate {
       "create_key_value",
       "create_key_hash",
       "create_key_value_compression",
+      "create_key_maintainers",
       "submitters",
       "driver_metadata",
       "domain_id",
@@ -77,6 +78,7 @@ object EventStorageBackendTemplate {
       "create_key_value",
       "NULL as create_key_hash",
       "create_key_value_compression",
+      "NULL as create_key_maintainers",
       "submitters",
       "NULL as driver_metadata",
       "domain_id",
@@ -114,7 +116,7 @@ object EventStorageBackendTemplate {
 
   private type CreatedEventRow =
     SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~ Option[String] ~
-      Option[Array[Byte]] ~ Option[Hash] ~ Option[Int] ~ Option[Array[Byte]]
+      Option[Array[Byte]] ~ Option[Hash] ~ Option[Int] ~ Option[Array[Int]] ~ Option[Array[Byte]]
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
@@ -126,6 +128,7 @@ object EventStorageBackendTemplate {
       byteArray("create_key_value").? ~
       hashFromHexString("create_key_hash").? ~
       int("create_key_value_compression").? ~
+      array[Int]("create_key_maintainers").? ~
       byteArray("driver_metadata").?
 
   private type ExercisedEventRow =
@@ -164,7 +167,7 @@ object EventStorageBackendTemplate {
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
           templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ createArgument ~ createArgumentCompression ~
-          createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ driverMetadata =>
+          createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ createKeyMaintainers ~ driverMetadata =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -195,6 +198,9 @@ object EventStorageBackendTemplate {
             createKeyValue = createKeyValue,
             createKeyHash = createKeyHash,
             createKeyValueCompression = createKeyValueCompression,
+            createKeyMaintainers = createKeyMaintainers
+              .map(_.map(stringInterning.party.unsafe.externalize))
+              .getOrElse(Array.empty),
             ledgerEffectiveTime = ledgerEffectiveTime,
             eventWitnesses = ArraySeq.unsafeWrapArray(
               eventWitnesses.view
@@ -214,7 +220,8 @@ object EventStorageBackendTemplate {
       stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.FlatEvent.Archived]] =
     archivedEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
+          templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -259,7 +266,10 @@ object EventStorageBackendTemplate {
       stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ driverMetadata =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
+          templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~
+          createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~
+          createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ createKeyMaintainers ~ driverMetadata =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -291,6 +301,9 @@ object EventStorageBackendTemplate {
             createKeyHash = createKeyHash,
             ledgerEffectiveTime = ledgerEffectiveTime,
             createKeyValueCompression = createKeyValueCompression,
+            createKeyMaintainers = createKeyMaintainers
+              .map(_.map(stringInterning.party.unsafe.externalize))
+              .getOrElse(Array.empty),
             eventWitnesses = ArraySeq.unsafeWrapArray(
               eventWitnesses.view
                 .filter(allQueryingParties)
@@ -380,6 +393,7 @@ object EventStorageBackendTemplate {
     "create_key_value",
     "create_key_hash",
     "create_key_value_compression",
+    "create_key_maintainers",
     "NULL as exercise_choice",
     "NULL as exercise_argument",
     "NULL as exercise_argument_compression",
@@ -411,6 +425,7 @@ object EventStorageBackendTemplate {
     "create_key_value",
     "NULL as create_key_hash",
     "create_key_value_compression",
+    "NULL as create_key_maintainers",
     "exercise_choice",
     "exercise_argument",
     "exercise_argument_compression",
@@ -450,6 +465,7 @@ object EventStorageBackendTemplate {
       int("create_argument_compression").? ~
       byteArray("create_key_value").? ~
       int("create_key_value_compression").? ~
+      array[Int]("create_key_maintainers").? ~
       timestampFromMicros("ledger_effective_time") ~
       hashFromHexString("create_key_hash").? ~
       byteArray("driver_metadata") ~
@@ -479,6 +495,7 @@ object EventStorageBackendTemplate {
           createArgumentCompression ~
           createKeyValue ~
           createKeyValueCompression ~
+          createKeyMaintainers ~
           ledgerEffectiveTime ~
           createKeyHash ~
           driverMetadata ~
@@ -506,6 +523,9 @@ object EventStorageBackendTemplate {
             agreementText = createAgreementText,
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
+            createKeyMaintainers = createKeyMaintainers
+              .map(_.view.map(stringInterning.party.unsafe.externalize).toSet)
+              .getOrElse(Set.empty),
             createKeyValue = createKeyValue,
             createKeyValueCompression = createKeyValueCompression,
             ledgerEffectiveTime = ledgerEffectiveTime,
@@ -587,6 +607,7 @@ object EventStorageBackendTemplate {
       int("create_argument_compression").? ~
       byteArray("create_key_value").? ~
       int("create_key_value_compression").? ~
+      array[Int]("create_key_maintainers").? ~
       timestampFromMicros("ledger_effective_time") ~
       hashFromHexString("create_key_hash").? ~
       byteArray("driver_metadata") ~
@@ -611,6 +632,7 @@ object EventStorageBackendTemplate {
           createArgumentCompression ~
           createKeyValue ~
           createKeyValueCompression ~
+          createKeyMaintainers ~
           ledgerEffectiveTime ~
           createKeyHash ~
           driverMetadata ~
@@ -635,6 +657,9 @@ object EventStorageBackendTemplate {
             createArgumentCompression = createArgumentCompression,
             createKeyValue = createKeyValue,
             createKeyValueCompression = createKeyValueCompression,
+            createKeyMaintainers = createKeyMaintainers
+              .map(_.map(stringInterning.party.unsafe.externalize).toSet)
+              .getOrElse(Set.empty),
             ledgerEffectiveTime = ledgerEffectiveTime,
             createKeyHash = createKeyHash,
             driverMetadata = driverMetadata,
@@ -657,6 +682,7 @@ object EventStorageBackendTemplate {
       int("create_argument_compression").? ~
       byteArray("create_key_value").? ~
       int("create_key_value_compression").? ~
+      array[Int]("create_key_maintainers").? ~
       timestampFromMicros("ledger_effective_time") ~
       hashFromHexString("create_key_hash").? ~
       byteArray("driver_metadata").? ~
@@ -680,6 +706,7 @@ object EventStorageBackendTemplate {
           createArgumentCompression ~
           createKeyValue ~
           createKeyValueCompression ~
+          createKeyMaintainers ~
           ledgerEffectiveTime ~
           createKeyHash ~
           driverMetadata ~
@@ -702,6 +729,9 @@ object EventStorageBackendTemplate {
             agreementText = createAgreementText,
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
+            createKeyMaintainers = createKeyMaintainers
+              .map(_.map(stringInterning.party.unsafe.externalize).toSet)
+              .getOrElse(Set.empty),
             createKeyValue = createKeyValue,
             createKeyValueCompression = createKeyValueCompression,
             ledgerEffectiveTime = ledgerEffectiveTime,

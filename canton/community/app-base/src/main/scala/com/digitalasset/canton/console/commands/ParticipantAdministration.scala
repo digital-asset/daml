@@ -388,19 +388,19 @@ class LocalParticipantTestingGroup(
   @Help.Summary("Lookup of events", FeatureFlag.Testing)
   @Help.Description(
     """Show the event logs. To select only events from a particular domain, use the domain alias.
-       Leave the domain blank to search the combined event log containing the events of all domains.
+       Leave the domain empty to search the combined event log containing the events of all domains.
        Note that if the domain is left blank, the values of `from` and `to` cannot be set.
        This is because the combined event log isn't guaranteed to have increasing timestamps.
     """
   )
   def event_search(
-      domain: DomainAlias = DomainAlias.tryCreate(""),
+      domain: Option[DomainAlias] = None,
       from: Option[Instant] = None,
       to: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
   ): Seq[(String, TimestampedEvent)] = {
     check(FeatureFlag.Testing) {
-      if (domain == DomainAlias.tryCreate("") && (from.isDefined || to.isDefined)) {
+      if (domain.isEmpty && (from.isDefined || to.isDefined)) {
         logger.error(
           s"You are not allowed to set values for 'from' and 'to' if searching the combined event log " +
             s"(you are searching the combined event log because you left the domain blank)."
@@ -420,18 +420,18 @@ class LocalParticipantTestingGroup(
   @Help.Summary("Lookup of accepted transactions", FeatureFlag.Testing)
   @Help.Description("""Show the accepted transactions as they appear in the event logs.
        To select only transactions from a particular domain, use the domain alias.
-       Leave the domain blank to search the combined event log containing the events of all domains.
+       Leave the domain empty to search the combined event log containing the events of all domains.
        Note that if the domain is left blank, the values of `from` and `to` cannot be set.
        This is because the combined event log isn't guaranteed to have increasing timestamps.
     """)
   def transaction_search(
-      domain: DomainAlias,
+      domain: Option[DomainAlias] = None,
       from: Option[Instant] = None,
       to: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
   ): Seq[(String, LfCommittedTransaction)] =
     check(FeatureFlag.Testing) {
-      if (domain.unwrap == "" && (from.isDefined || to.isDefined)) {
+      if (domain.isEmpty && (from.isDefined || to.isDefined)) {
         logger.error(
           s"You are not allowed to set values for 'from' and 'to' if searching the combined event log " +
             s"(you are searching the combined event log because you left the domain blank)."

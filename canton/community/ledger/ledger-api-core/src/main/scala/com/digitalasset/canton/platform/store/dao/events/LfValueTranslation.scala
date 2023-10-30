@@ -16,7 +16,14 @@ import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.{FatContractInstance, Node, TransactionCoder, Versioned}
+import com.daml.lf.transaction.{
+  FatContractInstance,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
+  TransactionCoder,
+  Versioned,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.engine as LfEngine
@@ -265,7 +272,10 @@ final class LfValueTranslation(
     @annotation.nowarn(
       "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.event\\.CreatedEvent.*"
     )
-    def getFatContractInstance(createArgument: VersionedValue) = {
+    def getFatContractInstance(
+        createArgument: VersionedValue,
+        createKey: Option[VersionedValue],
+    ) = {
       for {
         contractId <- ContractId.fromString(raw.partial.contractId)
         apiTemplateId <- raw.partial.templateId
@@ -274,8 +284,12 @@ final class LfValueTranslation(
         moduleName <- DottedName.fromString(apiTemplateId.moduleName)
         entityName <- DottedName.fromString(apiTemplateId.entityName)
         templateId = Identifier(packageId, LfQualifiedName(moduleName, entityName))
-        signatories <- raw.partial.signatories.map(Party.fromString).sequence.map(_.toSet)
-        observers <- raw.partial.observers.map(Party.fromString).sequence.map(_.toSet)
+        signatories <- raw.partial.signatories.traverse(Party.fromString).map(_.toSet)
+        observers <- raw.partial.observers.traverse(Party.fromString).map(_.toSet)
+        maintainers <- raw.createKeyMaintainers.toList.traverse(Party.fromString).map(_.toSet)
+        globalKey <- createKey.traverse(key =>
+          GlobalKey.build(templateId, key.unversioned).left.map(_.msg)
+        )
         apiCreatedAt <- raw.partial.metadata
           .flatMap(_.createdAt)
           .fold[Either[String, ApiTimestamp]](Left("missing createdAt"))(Right(_))
@@ -292,7 +306,7 @@ final class LfValueTranslation(
           agreementText = raw.partial.agreementText.getOrElse(""),
           signatories = signatories,
           stakeholders = signatories ++ observers,
-          keyOpt = None, // add maintainers to the query returning data
+          keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
           version = createArgument.version,
         ),
         createTime = createdAt,
@@ -313,7 +327,7 @@ final class LfValueTranslation(
         templateId = templateId,
         witnesses = raw.partial.witnessParties.toSet,
         eventProjectionProperties = eventProjectionProperties,
-        fatContractInstance = getFatContractInstance(createArgument),
+        fatContractInstance = getFatContractInstance(createArgument, createKey),
       )
     } yield raw.partial.copy(
       createArguments = apiContractData.createArguments,
@@ -386,11 +400,20 @@ final class LfValueTranslation(
       ec: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
   ): Future[ApiContractData] = {
-    def getFatContractInstance(createArgument: VersionedValue) = {
+    def getFatContractInstance(
+        createArgument: VersionedValue,
+        createKey: Option[VersionedValue],
+    ) = {
       for {
         contractId <- ContractId.fromString(createdEvent.contractId)
-        signatories <- createdEvent.signatories.map(Party.fromString).toList.sequence.map(_.toSet)
-        observers <- createdEvent.observers.map(Party.fromString).toList.sequence.map(_.toSet)
+        signatories <- createdEvent.signatories.toList.traverse(Party.fromString).map(_.toSet)
+        observers <- createdEvent.observers.toList.traverse(Party.fromString).map(_.toSet)
+        maintainers <- createdEvent.createKeyMaintainers.toList
+          .traverse(Party.fromString)
+          .map(_.toSet)
+        globalKey <- createKey.traverse(key =>
+          GlobalKey.build(templateId, key.unversioned).left.map(_.msg)
+        )
       } yield FatContractInstance.fromCreateNode(
         Node.Create(
           coid = contractId,
@@ -399,7 +422,7 @@ final class LfValueTranslation(
           agreementText = createdEvent.agreementText.getOrElse(""),
           signatories = signatories,
           stakeholders = signatories ++ observers,
-          keyOpt = None, // add maintainers to the query returning data
+          keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
           version = createArgument.version,
         ),
         createTime = createdEvent.ledgerEffectiveTime,
@@ -420,7 +443,7 @@ final class LfValueTranslation(
         templateId = templateId,
         witnesses = witnesses,
         eventProjectionProperties = eventProjectionProperties,
-        fatContractInstance = getFatContractInstance(createArgument),
+        fatContractInstance = getFatContractInstance(createArgument, createKey),
       )
     } yield apiContractData
   }

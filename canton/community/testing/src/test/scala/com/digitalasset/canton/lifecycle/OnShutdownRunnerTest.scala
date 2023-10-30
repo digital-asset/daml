@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters.*
 
 object OnShutdownRunnerTest {
-  private class TestResource() extends OnShutdownRunner with NamedLogging {
+  private class TestResource() extends AutoCloseable with OnShutdownRunner with NamedLogging {
     override protected def onFirstClose(): Unit = ()
 
     override val loggerFactory = NamedLoggerFactory.root

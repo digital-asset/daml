@@ -74,9 +74,9 @@ trait HealthElement {
   /** The state set when the [[associatedOnShutdownRunner]] closes */
   protected def closingState: State
 
-  /** The [[com.digitalasset.canton.lifecycle.FlagCloseable]] associated with this object.
+  /** The [[com.digitalasset.canton.lifecycle.OnShutdownRunner]] associated with this object.
     *
-    * When this [[com.digitalasset.canton.lifecycle.FlagCloseable]] closes, the health state permanently becomes [[closingState]]
+    * When this [[com.digitalasset.canton.lifecycle.OnShutdownRunner]] closes, the health state permanently becomes [[closingState]]
     * and all listeners are notified about this.
     */
   protected def associatedOnShutdownRunner: OnShutdownRunner

@@ -239,34 +239,14 @@ class SequencerClientImpl(
     close()
   }
 
-  private def aggregateHealthResult(
-      healthResult: Map[SequencerId, ComponentHealthState]
-  ): ComponentHealthState =
-    NonEmpty.from(healthResult) match {
-      case None => ComponentHealthState.NotInitializedState
-      case Some(healthResultNE) =>
-        if (healthResult.sizeIs == 1) healthResultNE.head1._2
-        else if (
-          sequencerTransports.sequencerToTransportMap.sizeIs <= healthResult.values.count(_.isOk)
-        ) ComponentHealthState.Ok()
-        else {
-          val unhealthySequencers = healthResult.collect {
-            case (sequencerId, health) if !health.isOk => sequencerId
-          }
-          ComponentHealthState.Degraded(
-            ComponentHealthState.UnhealthyState(
-              Some(s"Unhealthy sequencer subscriptions for [${unhealthySequencers.mkString(",")}]")
-            )
-          )
-        }
-    }
-
   private lazy val deferredSubscriptionHealth =
     new DelegatingMutableHealthComponent[SequencerId](
       loggerFactory,
       SequencerClient.healthName,
       timeouts,
-      aggregateHealthResult,
+      states =>
+        SequencerAggregator
+          .aggregateHealthResult(states, sequencersTransportState.getSequencerTrustThreshold),
       ComponentHealthState.failed("Disconnected from domain"),
     )
 

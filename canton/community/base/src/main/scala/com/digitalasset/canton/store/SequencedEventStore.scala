@@ -268,6 +268,8 @@ object SequencedEventStore {
 
     override def isIgnored: Boolean = false
 
+    def isTombstone: Boolean = signedEvent.content.isTombstone
+
     override def underlying: Some[SignedContent[SequencedEvent[Env]]] = Some(signedEvent)
 
     override def asIgnoredEvent: IgnoredSequencedEvent[Env] =
