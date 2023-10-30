@@ -2254,14 +2254,16 @@ private[lf] object SBuiltin {
           Control.Error(
             IE.Dev(
               NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.UpgradeValidationFailed(
-                coid = coid,
-                srcTemplateId = srcTemplateId,
-                dstTemplateId = contract.templateId,
-                signatories = contract.signatories,
-                observers = contract.observers,
-                keyOpt = keyOpt,
-                msg = msg,
+              IE.Dev.Upgrade(
+                IE.Dev.Upgrade.ValidationFailed(
+                  coid = coid,
+                  srcTemplateId = srcTemplateId,
+                  dstTemplateId = contract.templateId,
+                  signatories = contract.signatories,
+                  observers = contract.observers,
+                  keyOpt = keyOpt,
+                  msg = msg,
+                )
               ),
             )
           )

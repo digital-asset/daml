@@ -1398,7 +1398,9 @@ private[lf] object Speedy {
                             throw SErrorDamlException(
                               IError.Dev(
                                 NameOf.qualifiedNameOfCurrentFunc,
-                                IError.Dev.DowngradeDropDefinedField(ty, value),
+                                IError.Dev.Upgrade(
+                                  IError.Dev.Upgrade.DowngradeDropDefinedField(ty, value)
+                                ),
                               )
                             )
                           case _ =>
