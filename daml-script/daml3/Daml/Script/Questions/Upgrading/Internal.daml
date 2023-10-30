@@ -5,9 +5,9 @@ module Daml.Script.Questions.Upgrading.Internal where
 
 import Daml.Script.Internal
 
-data SetContractUpgradingEnabled = SetContractUpgradingEnabled with
-  enabled : Bool
-instance IsQuestion SetContractUpgradingEnabled () where command = "SetContractUpgradingEnabled"
+data SetProvidePackageId = SetProvidePackageId with
+  shouldProvide : Bool
+instance IsQuestion SetProvidePackageId () where command = "SetProvidePackageId"
 
-setContractUpgradingEnabled : Bool -> Script ()
-setContractUpgradingEnabled = lift . SetContractUpgradingEnabled
+setProvidePackageId : Bool -> Script ()
+setProvidePackageId = lift . SetProvidePackageId
