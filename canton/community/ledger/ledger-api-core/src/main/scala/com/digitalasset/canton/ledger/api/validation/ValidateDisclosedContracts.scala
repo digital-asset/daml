@@ -116,9 +116,9 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, DisclosedContract] =
     // TODO(#15058): For backwards compatibility with existing clients that rely on explicit disclosure,
-    //               we support the deprecated disclosedContract.arguments if the preferred createEventPayload is not provided.
+    //               we support the deprecated disclosedContract.arguments if the preferred createdEventBlob is not provided.
     //               However, using the deprecated format in command submission is not compatible with contract upgrading.
-    if (disclosedContract.createEventPayload.isEmpty)
+    if (disclosedContract.createdEventBlob.isEmpty)
       validateDeprecatedDisclosedContractFormat(disclosedContract)
     else
       validateUpgradableDisclosedContractFormat(disclosedContract)
@@ -137,7 +137,7 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       )
     else
       TransactionCoder
-        .decodeFatContractInstance(disclosedContract.createEventPayload)
+        .decodeFatContractInstance(disclosedContract.createdEventBlob)
         .map { fatContractInstance =>
           import fatContractInstance.*
           UpgradableDisclosedContract(

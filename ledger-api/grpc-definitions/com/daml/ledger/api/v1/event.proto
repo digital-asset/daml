@@ -71,7 +71,7 @@ message CreatedEvent {
   // Opaque representation of contract create argument data intended for forwarding
   // to an API server as a contract disclosed as part of a command
   // submission.
-  // Deprecated in favor of ``create_event_payload``.
+  // Deprecated in favor of ``created_event_blob``.
   // Optional
   google.protobuf.Any create_arguments_blob = 12 [deprecated = true];
 
@@ -79,7 +79,7 @@ message CreatedEvent {
   // to an API server as a contract disclosed as part of a command
   // submission.
   // Optional
-  bytes create_event_payload = 13;
+  bytes created_event_blob = 13;
 
   // Interface views specified in the transaction filter.
   // Includes an ``InterfaceView`` for each interface for which there is a ``InterfaceFilter`` with
@@ -122,7 +122,7 @@ message CreatedEvent {
 
   // Metadata of the contract. Required for contracts created
   // after the introduction of explicit disclosure.
-  // Deprecated in favor of ``create_event_payload``.
+  // Deprecated in favor of ``created_event_blob``.
   // Optional
 
   ContractMetadata metadata = 10 [deprecated = true];

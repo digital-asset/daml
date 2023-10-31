@@ -534,7 +534,7 @@ private[events] object TransactionLogUpdatesConversions {
           contractKey = apiContractData.contractKey,
           createArguments = apiContractData.createArguments,
           createArgumentsBlob = apiContractData.createArgumentsBlob,
-          createEventPayload = apiContractData.createEventPayload.getOrElse(ByteString.EMPTY),
+          createdEventBlob = apiContractData.createdEventBlob.getOrElse(ByteString.EMPTY),
           interfaceViews = apiContractData.interfaceViews,
           witnessParties = requestingParties.view.filter(createdWitnesses(createdEvent)).toSeq,
           signatories = createdEvent.createSignatories.toSeq,
