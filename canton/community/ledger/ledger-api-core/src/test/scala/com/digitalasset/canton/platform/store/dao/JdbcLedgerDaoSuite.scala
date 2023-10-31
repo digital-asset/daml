@@ -95,7 +95,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
 
   protected final val someTemplateId = testIdentifier("ParameterShowcase")
   protected final val someTemplateIdFilter =
-    TemplateFilter(someTemplateId, includeCreateEventPayload = false)
+    TemplateFilter(someTemplateId, includeCreatedEventBlob = false)
   protected final val someValueText = LfValue.ValueText("some text")
   protected final val someValueInt = LfValue.ValueInt64(1)
   protected final val someValueNumeric =
@@ -158,7 +158,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
 
   protected final val otherTemplateId = testIdentifier("Dummy")
   protected final val otherTemplateIdFilter =
-    TemplateFilter(otherTemplateId, includeCreateEventPayload = false)
+    TemplateFilter(otherTemplateId, includeCreatedEventBlob = false)
   protected final val otherContractArgument = LfValue.ValueRecord(
     Some(otherTemplateId),
     ImmArray(
