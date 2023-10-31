@@ -907,7 +907,7 @@ class QueryStreamsManager {
 /**
  * An object of type `Ledger` represents a handle to a Daml ledger.
  */
-class Ledger {
+export class Ledger {
   private readonly token: string;
   private readonly httpBaseUrl: string;
   private readonly wsBaseUrl: string;
