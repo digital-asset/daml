@@ -165,58 +165,66 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
     [ Tasty.testCase "getSdk returns DAML_SDK_VERSION and DAML_SDK" $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
+                cachePath = CachePath (base </> "cache")
                 projectPath = Nothing
                 expected1 = "10.10.10"
                 expected2 = base </> "sdk"
 
+            createDirectoryIfMissing True (base </> "cache")
             createDirectory expected2
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Just expected2)
-                        ] (getSdk damlPath projectPath)
+                        ] (getSdk (mkUseCache cachePath damlPath) damlPath projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
     , Tasty.testCase "getSdk determines DAML_SDK from DAML_SDK_VERSION" $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
+                cachePath = CachePath (base </> "cache")
                 projectPath = Nothing
                 expected1 = "0.12.5-version"
                 expected2 = base </> "daml" </> "sdk" </> expected1
 
             createDirectoryIfMissing True (base </> "daml" </> "sdk")
+            createDirectoryIfMissing True (base </> "cache")
             createDirectory expected2
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Nothing)
-                        ] (getSdk damlPath projectPath)
+                        ] (getSdk (mkUseCache cachePath damlPath) damlPath projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
     , Tasty.testCase "getSdk determines DAML_SDK_VERSION from DAML_SDK" $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
+                cachePath = CachePath (base </> "cache")
                 projectPath = Nothing
                 expected1 = "0.3.4"
                 expected2 = base </> "sdk2"
 
+            createDirectoryIfMissing True (base </> "cache")
             createDirectory expected2
             writeFileUTF8 (expected2 </> sdkConfigName) ("version: " <> expected1 <> "\n")
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Just expected2)
-                        ] (getSdk damlPath projectPath)
+                        ] (getSdk (mkUseCache cachePath damlPath) damlPath projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
     , Tasty.testCase "getSdk determines DAML_SDK and DAML_SDK_VERSION from project config" $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
+                cachePath = CachePath (base </> "cache")
                 projectPath = Just $ ProjectPath (base </> "project")
                 expected1 = "10.10.2-version.af29bef"
                 expected2 = base </> "daml" </> "sdk" </> expected1
 
             createDirectoryIfMissing True (base </> "daml" </> "sdk")
+            createDirectoryIfMissing True (base </> "cache")
             createDirectory (base </> "project")
             writeFileUTF8 (base </> "project" </> projectConfigName)
                 ("sdk-version: " <> expected1)
@@ -224,19 +232,21 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Nothing)
-                        ] (getSdk damlPath projectPath)
+                        ] (getSdk (mkUseCache cachePath damlPath) damlPath projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
     , Tasty.testCase "getSdk: DAML_SDK overrides project config version" $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
+                cachePath = CachePath (base </> "cache")
                 projectPath = Just $ ProjectPath (base </> "project")
                 expected1 = "0.9.8-ham"
                 expected2 = base </> "sdk3"
                 projVers = "5.2.1"
 
             createDirectoryIfMissing True (base </> "daml" </> "sdk" </> projVers)
+            createDirectoryIfMissing True (base </> "cache")
             createDirectory (base </> "project")
             writeFileUTF8 (base </> "project" </> projectConfigName)
                 ("project:\n  sdk-version: " <> projVers)
@@ -245,19 +255,21 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Just expected2)
-                        ] (getSdk damlPath projectPath)
+                        ] (getSdk (mkUseCache cachePath damlPath) damlPath projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
     , Tasty.testCase "getSdk: DAML_SDK_VERSION overrides project config version" $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
+                cachePath = CachePath (base </> "cache")
                 projectPath = Just $ ProjectPath (base </> "project")
                 expected1 = "0.0.0"
                 expected2 = base </> "daml" </> "sdk" </> expected1
                 projVers = "0.0.1"
 
             createDirectoryIfMissing True (base </> "daml" </> "sdk" </> projVers)
+            createDirectoryIfMissing True (base </> "cache")
             createDirectory (base </> "project")
             writeFileUTF8 (base </> "project" </> projectConfigName)
                 ("project:\n  sdk-version: " <> projVers)
@@ -265,19 +277,21 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Nothing)
-                        ] (getSdk damlPath projectPath)
+                        ] (getSdk (mkUseCache cachePath damlPath) damlPath projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
     , Tasty.testCase "getSdk: Returns Nothings if .daml/sdk is missing." $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
+                cachePath = CachePath (base </> "cache")
                 projPath = Nothing
             createDirectoryIfMissing True (base </> "daml")
+            createDirectoryIfMissing True (base </> "cache")
             (Nothing, Nothing) <- withEnv
                 [ (sdkVersionEnvVar, Nothing)
                 , (sdkPathEnvVar, Nothing)
-                ] (getSdk damlPath projPath)
+                ] (getSdk (mkUseCache cachePath damlPath) damlPath projPath)
             pure ()
     ]
 
@@ -285,7 +299,7 @@ testGetDispatchEnv :: Tasty.TestTree
 testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
     [ Tasty.testCase "getDispatchEnv should be idempotent" $ do
         withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
-            version <- requiredE "expected this to be valid version" $ parseVersion "1.0.1"
+            version <- requiredE "testGetDispatchEnv: expected a valid version" $ unsafeParseReleaseVersion "1.0.1"
             let denv = Env
                     { envDamlPath = DamlPath (base </> ".daml")
                     , envCachePath = CachePath (base </> ".daml")
@@ -302,7 +316,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
 
     , Tasty.testCase "getDispatchEnv should override getDamlEnv" $ do
         withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
-            version <- requiredE "expected this to be valid version" $ parseVersion "1.0.1"
+            version <- requiredE "testGetDispatchEnv: expected a valid version" $ unsafeParseReleaseVersion "1.0.1"
             let denv1 = Env
                     { envDamlPath = DamlPath (base </> ".daml")
                     , envCachePath = CachePath (base </> ".daml")

@@ -156,6 +156,12 @@ parseSdkVersion src =
         Left msg -> Left (InvalidVersion src msg)
         Right v -> Right (SdkVersion v)
 
+unsafeParseReleaseVersion :: Text -> Either InvalidVersion ReleaseVersion
+unsafeParseReleaseVersion src = do
+    case V.fromText src of
+        Left msg -> Left (InvalidVersion src msg)
+        Right v -> Right (OldReleaseVersion v)
+
 releaseVersionToCacheString :: ReleaseVersion -> String
 releaseVersionToCacheString (SplitReleaseVersion release sdk) = V.toString release <> " " <> V.toString sdk
 releaseVersionToCacheString (OldReleaseVersion both) = V.toString both
