@@ -35,7 +35,7 @@ object FutureUtil {
       // Also, it may be a bad idea to run a callback after an OutOfMemoryError.
       case NonFatal(err) =>
         // if the optional close context is closing down, log at most with INFO
-        if (closeContext.exists(_.flagCloseable.isClosing) && level > Level.INFO) {
+        if (closeContext.exists(_.context.isClosing) && level > Level.INFO) {
           LoggerUtil.logThrowableAtLevel(
             Level.INFO,
             s"Logging the following failure on INFO instead of ${level} due to an ongoing shutdown: $failureMessage",

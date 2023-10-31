@@ -445,7 +445,7 @@ object RequestJournal {
 
   object RequestState {
 
-    /** In this state, the activated contracts have been marked as pending to the [[com.digitalasset.canton.participant.store.StoredContractManager]]. */
+    /** Initial state */
     case object Pending extends RequestStateWithCursor with NonterminalRequestState {
       override def index: Int = 0
     }

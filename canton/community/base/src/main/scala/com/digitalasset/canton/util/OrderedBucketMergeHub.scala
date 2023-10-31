@@ -16,7 +16,6 @@ import akka.stream.{Attributes, FlowShape, Inlet, KillSwitch, Outlet}
 import cats.syntax.functor.*
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.nonempty.NonEmpty
-import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.RequireTypes.PositiveInt

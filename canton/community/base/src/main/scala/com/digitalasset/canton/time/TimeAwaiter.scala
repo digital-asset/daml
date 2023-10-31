@@ -5,7 +5,11 @@ package com.digitalasset.canton.time
 
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  FutureUnlessShutdown,
+  PerformUnlessClosing,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -21,7 +25,7 @@ import scala.jdk.CollectionConverters.*
   */
 trait TimeAwaiter {
 
-  this: FlagCloseable with NamedLogging =>
+  this: PerformUnlessClosing & NamedLogging =>
 
   private abstract class Awaiting[T] {
     val promise: Promise[T] = Promise[T]()

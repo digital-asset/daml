@@ -8,7 +8,12 @@ import cats.instances.list.*
 import cats.syntax.foldable.*
 import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{LfContractId, SerializableContract, TransactionId}
+import com.digitalasset.canton.protocol.{
+  LfContractId,
+  SerializableContract,
+  TransactionId,
+  WithTransactionId,
+}
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -17,19 +22,16 @@ import scala.concurrent.Future
 trait ContractStore extends ContractLookup {
 
   /** Stores contracts created by a request.
-    * If the same contract instance has been stored before, the request counter is set to the lower one.
+    * Assumes the contract data has been authenticated against the contract id using
+    * [[com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator]].
+    * If the same contract instance has been stored before, the fields not covered by the contract id authentication will be updated.
     *
     * @param requestCounter The request counter of the transaction '''creating''' the contracts.
-    * @param transactionId: The transaction ID that created the contract
-    * @param creations      The contracts to be created
-    * @return [[DuplicateContract]] for the contracts that have been or are being inserted
-    *         with different values for [[com.digitalasset.canton.protocol.SerializableContract.contractInstance]]
-    *         or [[com.digitalasset.canton.protocol.SerializableContract.ledgerCreateTime]].
+    * @param creations      The contracts to be created together with the transaction id
     */
   def storeCreatedContracts(
       requestCounter: RequestCounter,
-      transactionId: TransactionId,
-      creations: Seq[SerializableContract],
+      creations: Seq[WithTransactionId[SerializableContract]],
   )(implicit traceContext: TraceContext): Future[Unit]
 
   def storeCreatedContract(
@@ -37,12 +39,14 @@ trait ContractStore extends ContractLookup {
       transactionId: TransactionId,
       contract: SerializableContract,
   )(implicit traceContext: TraceContext): Future[Unit] =
-    storeCreatedContracts(requestCounter, transactionId, Seq(contract))
+    storeCreatedContracts(requestCounter, Seq(WithTransactionId(contract, transactionId)))
 
   /** Store divulged contracts.
+    * Assumes the contract data has been authenticated against the contract id using
+    * [[com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator]].
     *
-    * @return [[DuplicateContract]] for the contracts that have been or are being inserted
-    *         with a different contract instance or a different ledger time.
+    * If the same contract instance has been stored before, the fields not covered by the contract id authentication will be updated.
+    * The method will however not override a contract that has previously been stored as created contract.
     */
   def storeDivulgedContracts(
       requestCounter: RequestCounter,
@@ -123,21 +127,20 @@ final case class StoredContract(
         this.contractId == other.contractId,
         s"Cannot merge $this with $other due to different contract ids",
       )
-      if (creatingTransactionIdO.isEmpty && other.creatingTransactionIdO.isDefined) {
-        other
-      } else if (
+      if (
+        creatingTransactionIdO.isEmpty && other.creatingTransactionIdO.isDefined ||
         creatingTransactionIdO.isDefined == other.creatingTransactionIdO.isDefined && requestCounter < other.requestCounter
       ) {
-        other
-      } else {
-        this
-      }
+        copy(
+          requestCounter = other.requestCounter,
+          creatingTransactionIdO = other.creatingTransactionIdO,
+        )
+      } else this
     }
   }
 
   override def pretty: Pretty[StoredContract] = prettyOfClass(
-    param("id", _.contractId),
-    param("let", _.contract.ledgerCreateTime.ts),
+    param("contract", _.contract),
     param("request counter", _.requestCounter),
     paramIfDefined("creating transaction id", _.creatingTransactionIdO),
   )
@@ -159,18 +162,6 @@ object StoredContract {
 }
 
 sealed trait ContractStoreError extends Product with Serializable with PrettyPrinting
-
-final case class DuplicateContract(
-    id: LfContractId,
-    oldContract: StoredContract,
-    newContract: StoredContract,
-) extends ContractStoreError {
-  override def pretty: Pretty[DuplicateContract] = prettyOfClass(
-    param("id", _.id),
-    param("old contract", _.oldContract),
-    param("new contract", _.newContract),
-  )
-}
 
 sealed trait ContractLookupError extends ContractStoreError
 

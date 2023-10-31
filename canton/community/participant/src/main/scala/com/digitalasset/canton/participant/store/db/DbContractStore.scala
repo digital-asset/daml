@@ -223,14 +223,12 @@ class DbContractStore(
 
   override def storeCreatedContracts(
       requestCounter: RequestCounter,
-      transactionId: TransactionId,
-      creations: Seq[SerializableContract],
+      creations: Seq[WithTransactionId[SerializableContract]],
   )(implicit traceContext: TraceContext): Future[Unit] =
     processingTime.event {
-      storeElements(
-        creations,
-        StoredContract.fromCreatedContract(_, requestCounter, transactionId),
-      )
+      creations.parTraverse_ { case WithTransactionId(creation, transactionId) =>
+        storeContract(StoredContract.fromCreatedContract(creation, requestCounter, transactionId))
+      }
     }
 
   override def storeDivulgedContracts(
@@ -238,10 +236,9 @@ class DbContractStore(
       divulgences: Seq[SerializableContract],
   )(implicit traceContext: TraceContext): Future[Unit] =
     processingTime.event {
-      storeElements(
-        divulgences,
-        StoredContract.fromDivulgedContract(_, requestCounter),
-      )
+      divulgences.parTraverse_ { divulgence =>
+        storeContract(StoredContract.fromDivulgedContract(divulgence, requestCounter))
+      }
     }
 
   private def storeContract(
@@ -298,12 +295,10 @@ class DbContractStore(
           pp >> instance
         }
 
-        // TODO(i12908): Figure out if we should check that the contract instance remains the same and whether we should update the instance if not.
-        // The instance payload is not being updated as uploading this payload on a previously set field is problematic for Oracle when it exceeds 32KB
+        // As we assume that the contract data has previously been authenticated against the contract id,
+        // we only update those fields that are not covered by the authentication.
+        // Note that the instance payload cannot be updated under Oracle as updating a previously set field is problematic for Oracle when it exceeds 32KB
         // (https://support.oracle.com/knowledge/Middleware/2773919_1.html).
-        // For the same reason the instance is not put into the select statement of the oracle query.
-        // NOTE : By not updating the instance payload the DbContractStore differs from the implementation of the
-        // InMemoryContractStore (used for testing) which replaces created and divulged contract in full.
         val query =
           profile match {
             case _: DbStorage.Profile.Postgres =>
@@ -313,13 +308,8 @@ class DbContractStore(
                  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                  on conflict(domain_id, contract_id) do update
                    set
-                     metadata = excluded.metadata,
-                     ledger_create_time = excluded.ledger_create_time,
                      request_counter = excluded.request_counter,
-                     creating_transaction_id = excluded.creating_transaction_id,
-                     package_id = excluded.package_id,
-                     template_id = excluded.template_id,
-                     contract_salt = excluded.contract_salt
+                     creating_transaction_id = excluded.creating_transaction_id
                    where (c.creating_transaction_id is null and (excluded.creating_transaction_id is not null or c.request_counter < excluded.request_counter)) or
                          (c.creating_transaction_id is not null and excluded.creating_transaction_id is not null and c.request_counter < excluded.request_counter)"""
             case _: DbStorage.Profile.H2 =>
@@ -341,13 +331,8 @@ class DbContractStore(
                    (c.creating_transaction_id is not null and input.creating_transaction_id is not null and c.request_counter < input.request_counter)
                  ) then
                    update set
-                     metadata = input.metadata,
-                     ledger_create_time = input.ledger_create_time,
                      request_counter = input.request_counter,
-                     creating_transaction_id = input.creating_transaction_id,
-                     package_id = input.package_id,
-                     template_id = input.template_id,
-                     contract_salt = input.contract_salt
+                     creating_transaction_id = input.creating_transaction_id
                  when not matched then
                   insert (domain_id, contract_id, instance, metadata, ledger_create_time,
                     request_counter, creating_transaction_id, package_id, template_id, contract_salt)
@@ -368,13 +353,8 @@ class DbContractStore(
                  on (c.domain_id = input.domain_id and c.contract_id = input.contract_id)
                  when matched then
                    update set
-                     metadata = input.metadata,
-                     ledger_create_time = input.ledger_create_time,
                      request_counter = input.request_counter,
-                     creating_transaction_id = input.creating_transaction_id,
-                     package_id = input.package_id,
-                     template_id = input.template_id,
-                     contract_salt = input.contract_salt
+                     creating_transaction_id = input.creating_transaction_id
                    where
                      (c.creating_transaction_id is null and (input.creating_transaction_id is not null or c.request_counter < input.request_counter)) or
                      (c.creating_transaction_id is not null and input.creating_transaction_id is not null and c.request_counter < input.request_counter)
@@ -552,19 +532,6 @@ class DbContractStore(
             }
         )
     }
-
-  private def storeElements(
-      elements: Seq[SerializableContract],
-      fn: SerializableContract => StoredContract,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): Future[Unit] = {
-    elements.parTraverse_ { element =>
-      val contract = fn(element)
-      storeContract(contract)
-    }
-  }
 
   override def contractCount()(implicit traceContext: TraceContext): Future[Int] =
     processingTime.event {

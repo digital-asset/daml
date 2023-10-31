@@ -307,7 +307,7 @@ trait DbStorage extends Storage { self: NamedLogging =>
     retry
       .Backoff(
         logger,
-        closeContext.flagCloseable,
+        closeContext.context,
         maxRetries = maxRetries,
         initialDelay = 50.milliseconds,
         maxDelay = timeouts.storageMaxRetryInterval.unwrap,

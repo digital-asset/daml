@@ -6,7 +6,6 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
-  InclusiveFilters,
   InterfaceFilter,
   TemplateFilter,
   TransactionFilter,
@@ -37,8 +36,9 @@ class TransactionFilterValidator(
     if (txFilter.filtersByParty.isEmpty) {
       Left(invalidArgument("filtersByParty cannot be empty"))
     } else {
-      val convertedFilters =
-        txFilter.filtersByParty.toList.traverse { case (k, v) =>
+      for {
+        _ <- validateAllFilterDefinitionsAreEitherDeprecatedOrCurrent(txFilter)
+        convertedFilters <- txFilter.filtersByParty.toList.traverse { case (k, v) =>
           for {
             key <- requireParty(k)
             value <- validateFilters(
@@ -48,7 +48,7 @@ class TransactionFilterValidator(
             )
           } yield key -> value
         }
-      convertedFilters.map(m => domain.TransactionFilter(m.toMap))
+      } yield domain.TransactionFilter(convertedFilters.toMap)
     }
   }
 
@@ -67,7 +67,6 @@ class TransactionFilterValidator(
       .fold[Either[StatusRuntimeException, domain.Filters]](Right(domain.Filters.noFilter)) {
         inclusive =>
           for {
-            _ <- validatePresenceOfFilters(inclusive)
             validatedIdents <-
               inclusive.templateIds.toList
                 .traverse(
@@ -95,18 +94,35 @@ class TransactionFilterValidator(
       }
   }
 
-  @annotation.nowarn(
-    "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.transaction_filter\\.InclusiveFilters.*"
-  )
-  private def validatePresenceOfFilters(inclusive: InclusiveFilters)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Unit] = {
-    (inclusive.templateIds, inclusive.templateFilters) match {
-      case (_ :: _, _ :: _) =>
-        Left(invalidArgument("Either of `template_ids` or `template_filters` must be empty"))
-      case (_, _) => Right(())
-    }
-  }
+  // Allow using deprecated Protobuf fields for backwards compatibility
+  @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.transaction_filter.*")
+  private def validateAllFilterDefinitionsAreEitherDeprecatedOrCurrent(txFilter: TransactionFilter)(
+      implicit contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Unit] =
+    txFilter.filtersByParty.valuesIterator
+      .flatMap(_.inclusive.iterator)
+      .foldLeft(Right((false, false)): Either[StatusRuntimeException, (Boolean, Boolean)]) {
+        case (Right((deprecatedAcc, currentAcc)), inclusiveFilters) =>
+          val templateIdsPresent = inclusiveFilters.templateIds.nonEmpty
+          val templateFiltersPresent = inclusiveFilters.templateFilters.nonEmpty
+          val interfaceFiltersBlobFlag =
+            inclusiveFilters.interfaceFilters.exists(_.includeCreateArgumentsBlob)
+          val interfaceFiltersPayloadFlag =
+            inclusiveFilters.interfaceFilters.exists(_.includeCreateEventPayload)
+          val deprecated = templateIdsPresent || interfaceFiltersBlobFlag
+          val current = templateFiltersPresent || interfaceFiltersPayloadFlag
+          val deprecatedAggr = deprecated || deprecatedAcc
+          val currentAggr = current || currentAcc
+          if (deprecatedAggr && currentAggr)
+            Left(
+              invalidArgument(
+                "Transaction filter should be defined entirely either with deprecated fields, or with non-deprecated fields. Mixed definition is not allowed."
+              )
+            )
+          else Right((deprecatedAggr, currentAggr))
+        case (err, _) => err
+      }
+      .map(_ => ())
 
   private def validateTemplateFilter(
       filter: TemplateFilter,
@@ -133,13 +149,6 @@ class TransactionFilterValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.InterfaceFilter] = {
     for {
-      _ <- Either.cond(
-        !filter.includeCreateArgumentsBlob || !filter.includeCreateEventPayload,
-        (),
-        invalidArgument(
-          "Either of `includeCreateArgumentsBlob` and `includeCreateEventPayload` must be false"
-        ),
-      )
       interfaceId <- requirePresence(filter.interfaceId, "interfaceId")
       validatedId <- validateIdentifier(interfaceId)
     } yield domain.InterfaceFilter(

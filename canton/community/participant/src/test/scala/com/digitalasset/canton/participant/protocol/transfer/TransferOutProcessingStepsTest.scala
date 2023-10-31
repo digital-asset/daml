@@ -569,9 +569,10 @@ final class TransferOutProcessingStepsTest
         )
 
       for {
-        _ <- state.storedContractManager.addPendingContracts(
+        _ <- state.contractStore.storeCreatedContract(
           RequestCounter(1),
-          Seq(WithTransactionId(contract, transactionId)),
+          transactionId,
+          contract,
         )
         _ <- persistentState.activeContractStore
           .markContractsActive(
@@ -606,9 +607,10 @@ final class TransferOutProcessingStepsTest
       )
 
       for {
-        _ <- state.storedContractManager.addPendingContracts(
+        _ <- state.contractStore.storeCreatedContract(
           RequestCounter(1),
-          Seq(WithTransactionId(contract, transactionId)),
+          transactionId,
+          contract,
         )
         submissionResult <- leftOrFailShutdown(
           outProcessingSteps.prepareSubmission(
@@ -644,9 +646,10 @@ final class TransferOutProcessingStepsTest
       )
 
       for {
-        _ <- state.storedContractManager.addPendingContracts(
+        _ <- state.contractStore.storeCreatedContract(
           RequestCounter(1),
-          Seq(WithTransactionId(contract, transactionId)),
+          transactionId,
+          contract,
         )
         _ <- persistentState.activeContractStore
           .markContractsActive(
@@ -704,11 +707,9 @@ final class TransferOutProcessingStepsTest
       result match {
         case outProcessingSteps.CheckActivenessAndWritePendingContracts(
               activenessSet,
-              pendingContracts,
               _,
             ) =>
           activenessSet shouldBe mkActivenessSet(deact = Set(contractId), prior = Set(contractId))
-          pendingContracts shouldBe Seq.empty
         case _ => fail()
       }
 
@@ -781,19 +782,19 @@ final class TransferOutProcessingStepsTest
         cryptoSnapshot,
       )
 
-      state.storedContractManager
-        .addPendingContracts(
+      state.contractStore
+        .storeCreatedContract(
           RequestCounter(1),
-          Seq(WithTransactionId(contract, transactionId)),
+          transactionId,
+          contract,
         )
         .futureValue
-        .discard
 
       transferOutProcessingSteps
         .constructPendingDataAndResponse(
           dataAndResponseArgs,
           state.transferCache,
-          state.storedContractManager,
+          state.contractStore,
           FutureUnlessShutdown.pure(mkActivenessResult()),
           Future.unit,
           sourceMediator,

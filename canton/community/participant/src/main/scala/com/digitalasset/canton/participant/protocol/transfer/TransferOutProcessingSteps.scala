@@ -346,7 +346,6 @@ class TransferOutProcessingSteps(
       )
     } yield CheckActivenessAndWritePendingContracts(
       activenessSet,
-      Seq.empty,
       PendingDataAndResponseArgs(txOutRequest, recipients, ts, rc, sc, sourceSnapshot),
     )
   }
@@ -637,7 +636,7 @@ class TransferOutProcessingSteps(
           )
         } yield CommitAndStoreContractsAndPublishEvent(
           commitSetFO,
-          Set(),
+          Seq.empty,
           Some(
             TimestampedEvent(
               transferOutEvent,
@@ -657,14 +656,14 @@ class TransferOutProcessingSteps(
             .fromEither[Future](
               createRejectionEvent(RejectionArgs(pendingRequestData, reasons.keyEvent))
             )
-        } yield CommitAndStoreContractsAndPublishEvent(None, Set(), tsEventO)
+        } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, tsEventO)
 
       case _: MediatorReject =>
         for {
           _ <- ifThenET(transferringParticipant) {
             deleteTransfer(targetDomain, requestId)
           }
-        } yield CommitAndStoreContractsAndPublishEvent(None, Set(), None)
+        } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, None)
     }
   }
 
@@ -822,9 +821,7 @@ object TransferOutProcessingSteps {
       transferInExclusivity: Option[CantonTimestamp],
       mediator: MediatorRef,
   ) extends PendingTransfer
-      with PendingRequestData {
-    override def pendingContracts: Set[LfContractId] = Set()
-  }
+      with PendingRequestData
 
   final case class PendingDataAndResponseArgs(
       txOutRequest: FullTransferOutTree,

@@ -3,85 +3,48 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.lf.data.Ref.Identifier
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{Filters, InterfaceFilter, TemplateFilter}
-import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.{
-  InterfaceViewFilter,
-  RenderResult,
-}
+import com.digitalasset.canton.ledger.api.domain.Filters
+import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
 
 /**  This class encapsulates the logic of how contract arguments and interface views are
   *  being projected to the consumer based on the filter criteria and the relation between
   *  interfaces and templates implementing them.
   *
   * @param verbose enriching in verbose mode
-  * @param witnessTemplateIdFilter populate contract_argument, and contract_key. If templateId set is empty: populate.
-  * @param witnessInterfaceViewFilter populate interface_views. The Map of templates to interfaces,
-  *                              and the set of implementor templates cannot be empty.
+  * @param wildcardWitnesses all the wildcard parties for which contract arguments will be populated
+  * @param witnessTemplateProjections per witness party, per template projections
   */
 final case class EventProjectionProperties(
     verbose: Boolean,
-    // Map(eventWitnessParty, Set(templateId))
-    witnessTemplateIdFilter: Map[String, Set[TemplateFilter]] = Map.empty,
-    // Map(eventWitnessParty, Map(templateId -> Set(interfaceId)))
-    witnessInterfaceViewFilter: Map[String, Map[Identifier, InterfaceViewFilter]] = Map.empty,
+    wildcardWitnesses: Set[String],
+    // Map(witness -> Map(template -> projection))
+    witnessTemplateProjections: Map[String, Map[Identifier, Projection]] = Map.empty,
 ) {
-  def render(witnesses: Set[String], templateId: Identifier): RenderResult = {
-    def renderTemplate(filters: Set[TemplateFilter]) =
-      filters.isEmpty || filters.exists(_.templateId == templateId)
-    def renderPayload(filters: Set[TemplateFilter]) =
-      filters.exists(filter => filter.templateId == templateId && filter.includeCreateEventPayload)
-    val (renderContractArguments, renderCreateEventPayload): (Boolean, Boolean) = witnesses.view
-      .flatMap(witnessTemplateIdFilter.get)
-      .foldLeft((false, false))((acc, filters) =>
-        (acc._1 || renderTemplate(filters), acc._2 || renderPayload(filters))
-      )
-
-    val interfacesToRender: InterfaceViewFilter = witnesses.view
-      .flatMap(witnessInterfaceViewFilter.get(_).iterator)
-      .foldLeft(InterfaceViewFilter.Empty)(_.append(templateId, _))
-
-    RenderResult(
-      interfacesToRender.contractArgumentsBlob,
-      renderContractArguments,
-      interfacesToRender.createEventPayload || renderCreateEventPayload,
-      interfacesToRender.interfaces,
-    )
-  }
-
+  def render(witnesses: Set[String], templateId: Identifier): Projection =
+    witnesses.iterator
+      .flatMap(witnessTemplateProjections.get(_).iterator)
+      .flatMap(_.get(templateId).iterator)
+      .foldLeft(Projection(contractArguments = witnesses.exists(wildcardWitnesses)))(_ append _)
 }
 
 object EventProjectionProperties {
 
-  final case class InterfaceViewFilter(
-      interfaces: Set[Identifier],
-      contractArgumentsBlob: Boolean,
-      createEventPayload: Boolean,
+  final case class Projection(
+      interfaces: Set[Identifier] = Set.empty,
+      contractArgumentsBlob: Boolean = false,
+      createEventPayload: Boolean = false,
+      contractArguments: Boolean = false,
   ) {
-    def append(
-        templateId: Identifier,
-        interfaceFilterMap: Map[Identifier, InterfaceViewFilter],
-    ): InterfaceViewFilter = {
-      val other = interfaceFilterMap.getOrElse(templateId, InterfaceViewFilter.Empty)
-      InterfaceViewFilter(
+    def append(other: Projection): Projection =
+      Projection(
         interfaces ++ other.interfaces,
         contractArgumentsBlob || other.contractArgumentsBlob,
         createEventPayload || other.createEventPayload,
+        contractArguments || other.contractArguments,
       )
-    }
   }
-
-  object InterfaceViewFilter {
-    val Empty = InterfaceViewFilter(Set.empty[Identifier], false, false)
-  }
-
-  final case class RenderResult(
-      contractArgumentsBlob: Boolean,
-      contractArguments: Boolean,
-      createEventPayoad: Boolean,
-      interfaces: Set[Identifier],
-  )
 
   /** @param transactionFilter     Transaction filter as defined by the consumer of the API.
     * @param verbose                enriching in verbose mode
@@ -100,65 +63,63 @@ object EventProjectionProperties {
   ): EventProjectionProperties =
     EventProjectionProperties(
       verbose = verbose,
-      witnessTemplateIdFilter = witnessTemplateIdFilter(transactionFilter, alwaysPopulateArguments),
-      witnessInterfaceViewFilter =
-        witnessInterfaceViewFilter(transactionFilter, interfaceImplementedBy),
+      wildcardWitnesses = wildcardWitnesses(transactionFilter, alwaysPopulateArguments),
+      witnessTemplateProjections =
+        witnessTemplateProjections(transactionFilter, interfaceImplementedBy),
     )
 
-  private def witnessTemplateIdFilter(
+  private def wildcardWitnesses(
       domainTransactionFilter: domain.TransactionFilter,
       alwaysPopulateArguments: Boolean,
-  ): Map[String, Set[TemplateFilter]] = {
-    // TODO(#15076) Implement create event payloads for transaction trees
+  ): Set[String] =
     if (alwaysPopulateArguments)
       domainTransactionFilter.filtersByParty.keysIterator
-        .map(_.toString -> Set.empty[TemplateFilter])
-        .toMap
+        .map(_.toString)
+        .toSet
     else
       domainTransactionFilter.filtersByParty.iterator
-        .map { case (party, filters) => (party.toString, filters) }
         .collect {
-          case (party, Filters(None)) => party -> Set.empty[TemplateFilter]
+          case (party, Filters(None)) => party
           case (party, Filters(Some(empty)))
               if empty.templateFilters.isEmpty && empty.interfaceFilters.isEmpty =>
-            party -> Set.empty[TemplateFilter]
-          case (party, Filters(Some(nonEmptyFilter))) if nonEmptyFilter.templateFilters.nonEmpty =>
-            party -> nonEmptyFilter.templateFilters
+            party
         }
-        .toMap
-  }
+        .map(_.toString)
+        .toSet
 
-  private def witnessInterfaceViewFilter(
+  private def witnessTemplateProjections(
       domainTransactionFilter: domain.TransactionFilter,
       interfaceImplementedBy: Identifier => Set[Identifier],
-  ): Map[String, Map[Identifier, InterfaceViewFilter]] = (for {
-    (party, filters) <- domainTransactionFilter.filtersByParty.iterator
-    inclusiveFilters <- filters.inclusive.iterator
-    interfaceFilter <- inclusiveFilters.interfaceFilters.iterator
-    implementor <- interfaceImplementedBy(interfaceFilter.interfaceId).iterator
-  } yield (
-    party,
-    implementor,
-    interfaceFilter,
-  ))
-    .toSet[(Party, Identifier, InterfaceFilter)]
-    .groupMap(_._1) { case (_, templateId, interfaceFilter) =>
-      templateId -> interfaceFilter
-    }
-    .map { case (partyId, templateAndInterfaceFilterPairs) =>
-      (
-        partyId.toString,
-        templateAndInterfaceFilterPairs
-          .groupMap(_._1)(_._2)
-          .view
-          .mapValues(interfaceFilters =>
-            InterfaceViewFilter(
-              interfaceFilters.filter(_.includeView).map(_.interfaceId),
-              interfaceFilters.exists(_.includeCreateArgumentsBlob),
-              interfaceFilters.exists(_.includeCreateEventPayload),
-            )
-          )
-          .toMap,
+  ): Map[String, Map[Identifier, Projection]] =
+    (for {
+      (party, filters) <- domainTransactionFilter.filtersByParty.iterator
+      inclusiveFilters <- filters.inclusive.iterator
+    } yield {
+      val interfaceFilterProjections = for {
+        interfaceFilter <- inclusiveFilters.interfaceFilters.iterator
+        implementor <- interfaceImplementedBy(interfaceFilter.interfaceId).iterator
+      } yield implementor -> Projection(
+        interfaces =
+          if (interfaceFilter.includeView) Set(interfaceFilter.interfaceId) else Set.empty,
+        contractArgumentsBlob = interfaceFilter.includeCreateArgumentsBlob,
+        createEventPayload = interfaceFilter.includeCreateEventPayload,
+        contractArguments = false,
       )
-    }
+      val templateFilterProjections =
+        inclusiveFilters.templateFilters.iterator.map(templateFilter =>
+          templateFilter.templateId -> Projection(
+            interfaces = Set.empty,
+            contractArgumentsBlob = false,
+            createEventPayload = templateFilter.includeCreateEventPayload,
+            contractArguments = true,
+          )
+        )
+      party -> interfaceFilterProjections
+        .++(templateFilterProjections)
+        .toList
+        .groupMap(_._1)(_._2)
+        .view
+        .mapValues(_.foldLeft(Projection())(_ append _))
+        .toMap
+    }).toMap
 }

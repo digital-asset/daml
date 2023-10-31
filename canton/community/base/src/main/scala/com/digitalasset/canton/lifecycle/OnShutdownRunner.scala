@@ -81,8 +81,7 @@ trait OnShutdownRunner { this: AutoCloseable =>
 
   /** Blocks until all earlier tasks have completed and then prevents further tasks from being run.
     */
-  @SuppressWarnings(Array("org.wartremover.warts.While", "org.wartremover.warts.Var"))
-  final override def close(): Unit = {
+  protected[this] override def close(): Unit = {
     import TraceContext.Implicits.Empty.*
 
     val firstCallToClose = closingFlag.compareAndSet(false, true)
@@ -106,6 +105,7 @@ object OnShutdownRunner {
       extends AutoCloseable
       with OnShutdownRunner {
     override protected def onFirstClose(): Unit = ()
+    override def close(): Unit = super.close()
   }
 }
 

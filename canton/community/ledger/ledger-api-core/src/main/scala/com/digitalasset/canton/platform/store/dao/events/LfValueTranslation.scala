@@ -280,7 +280,7 @@ final class LfValueTranslation(
         contractId <- ContractId.fromString(raw.partial.contractId)
         apiTemplateId <- raw.partial.templateId
           .fold[Either[String, ApiIdentifier]](Left("missing templateId"))(Right(_))
-        packageId <- PackageId.fromString(apiTemplateId.moduleName)
+        packageId <- PackageId.fromString(apiTemplateId.packageId)
         moduleName <- DottedName.fromString(apiTemplateId.moduleName)
         entityName <- DottedName.fromString(apiTemplateId.entityName)
         templateId = Identifier(packageId, LfQualifiedName(moduleName, entityName))
@@ -486,7 +486,7 @@ final class LfValueTranslation(
       Future(ValueSerializer.serializeValueAny(value, "Cannot serialize contractArgumentsBlob"))
     )
 
-    val asyncCreateEventPayload = condFuture(renderResult.createEventPayoad) {
+    val asyncCreateEventPayload = condFuture(renderResult.createEventPayload) {
       (for {
         fatInstance <- fatContractInstance
         encoded <- TransactionCoder.encodeFatContractInstance(fatInstance).left.map(_.errorMessage)

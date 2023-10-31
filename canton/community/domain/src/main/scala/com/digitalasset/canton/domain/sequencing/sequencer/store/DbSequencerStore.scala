@@ -69,11 +69,6 @@ class DbSequencerStore(
   import storage.api.*
   import storage.converters.*
 
-  override def onClosed(): Unit = {
-    super.onClosed()
-    closeContext.flagCloseable.close()
-  }
-
   implicit val closeContext: CloseContext =
     overrideCloseContext
       .map(CloseContext.combineUnsafe(_, CloseContext(this), timeouts, logger)(TraceContext.empty))

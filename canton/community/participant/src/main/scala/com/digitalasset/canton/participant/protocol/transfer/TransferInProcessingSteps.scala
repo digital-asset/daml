@@ -333,7 +333,6 @@ private[transfer] class TransferInProcessingSteps(
       )
     } yield CheckActivenessAndWritePendingContracts(
       activenessSet,
-      Seq(WithTransactionId(txInRequest.contract, txInRequest.creatingTransactionId)),
       PendingDataAndResponseArgs(
         txInRequest,
         ts,
@@ -533,7 +532,7 @@ private[transfer] class TransferInProcessingSteps(
           keyUpdates = Map.empty,
         )
         val commitSetO = Some(Future.successful(commitSet))
-        val contractsToBeStored = Set(contract.contractId)
+        val contractsToBeStored = Seq(WithTransactionId(contract, creatingTransactionId))
 
         for {
           event <- createTransferredIn(
@@ -565,10 +564,10 @@ private[transfer] class TransferInProcessingSteps(
           .fromEither[Future](
             createRejectionEvent(RejectionArgs(pendingRequestData, reasons.keyEvent))
           )
-          .map(CommitAndStoreContractsAndPublishEvent(None, Set(), _))
+          .map(CommitAndStoreContractsAndPublishEvent(None, Seq.empty, _))
 
       case _: Verdict.MediatorReject =>
-        EitherT.pure(CommitAndStoreContractsAndPublishEvent(None, Set(), None))
+        EitherT.pure(CommitAndStoreContractsAndPublishEvent(None, Seq.empty, None))
     }
   }
 
@@ -676,9 +675,7 @@ object TransferInProcessingSteps {
       hostedStakeholders: Set[LfPartyId],
       mediator: MediatorRef,
   ) extends PendingTransfer
-      with PendingRequestData {
-    override def pendingContracts: Set[LfContractId] = Set(contract.contractId)
-  }
+      with PendingRequestData
 
   private[transfer] def makeFullTransferInTree(
       pureCrypto: CryptoPureApi,

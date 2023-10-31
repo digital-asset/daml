@@ -52,7 +52,6 @@ import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.SyncC
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{
   DynamicDomainParametersWithValidity,
-  LfContractId,
   RootHash,
   ViewHash,
   v0,
@@ -233,7 +232,7 @@ class TestProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TestProcessingError, CheckActivenessAndWritePendingContracts] = {
-    val res = CheckActivenessAndWritePendingContracts(ActivenessSet.empty, Seq.empty, ())
+    val res = CheckActivenessAndWritePendingContracts(ActivenessSet.empty, ())
     EitherT.rightT(res)
   }
 
@@ -254,7 +253,7 @@ class TestProcessingSteps(
   ] = {
     val res = StorePendingDataAndSendResponseAndCreateTimeout(
       pendingRequestData.getOrElse(
-        TestPendingRequestData(RequestCounter(0), SequencerCounter(0), Set.empty, mediator)
+        TestPendingRequestData(RequestCounter(0), SequencerCounter(0), mediator)
       ),
       Seq.empty,
       (),
@@ -297,7 +296,7 @@ class TestProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TestProcessingError, CommitAndStoreContractsAndPublishEvent] = {
-    val result = CommitAndStoreContractsAndPublishEvent(None, Set.empty, None)
+    val result = CommitAndStoreContractsAndPublishEvent(None, Seq.empty, None)
     EitherT.pure[Future, TestProcessingError](result)
   }
 
@@ -349,7 +348,6 @@ object TestProcessingSteps {
   final case class TestPendingRequestData(
       requestCounter: RequestCounter,
       requestSequencerCounter: SequencerCounter,
-      pendingContracts: Set[LfContractId],
       mediator: MediatorRef,
   ) extends PendingRequestData
 

@@ -12,7 +12,7 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.Submiss
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.TransactionProcessorError
 import com.digitalasset.canton.participant.protocol.submission.ConfirmationRequestFactory
 import com.digitalasset.canton.participant.protocol.validation.*
-import com.digitalasset.canton.participant.store.StoredContractManager
+import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.protocol.{ContractMetadata, LfContractId, SerializableContract}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -33,7 +33,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
     modelConformanceChecker = mock[ModelConformanceChecker],
     staticDomainParameters = defaultStaticDomainParameters,
     crypto = mock[DomainSyncCryptoClient],
-    storedContractManager = mock[StoredContractManager],
+    contractStore = mock[ContractStore],
     metrics = ParticipantTestMetrics.domain.transactionProcessing,
     serializableContractAuthenticator = new SerializableContractAuthenticator {
       val behaviors: Map[SerializableContract, Either[String, Unit]] =
