@@ -31,9 +31,11 @@ public abstract class TransactionFilter {
             ? new InclusiveFilter(
                 Collections.emptyMap(),
                 Collections.singletonMap(
-                    contractCompanion.TEMPLATE_ID, Filter.Template.HIDE_PAYLOAD))
+                    contractCompanion.TEMPLATE_ID, Filter.Template.HIDE_CREATED_EVENT_BLOB))
             : new InclusiveFilter(
-                Map.of(contractCompanion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW_HIDE_PAYLOAD),
+                Map.of(
+                    contractCompanion.TEMPLATE_ID,
+                    Filter.Interface.INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB),
                 Collections.emptyMap());
     Map<String, Filter> partyToFilters =
         parties.stream().collect(Collectors.toMap(Function.identity(), x -> filter));

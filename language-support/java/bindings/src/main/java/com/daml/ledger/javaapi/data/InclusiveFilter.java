@@ -61,7 +61,8 @@ public final class InclusiveFilter extends Filter {
         Collections.emptyMap(),
         templateIds.stream()
             .collect(
-                Collectors.toUnmodifiableMap(Function.identity(), tId -> Template.HIDE_PAYLOAD)));
+                Collectors.toUnmodifiableMap(
+                    Function.identity(), tId -> Template.HIDE_CREATED_EVENT_BLOB)));
   }
 
   @NonNull

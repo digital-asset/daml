@@ -32,7 +32,8 @@ public final class ContractFilter<Ct> {
     Filter filter =
         new InclusiveFilter(
             Collections.emptyMap(),
-            Collections.singletonMap(companion.TEMPLATE_ID, Filter.Template.HIDE_PAYLOAD));
+            Collections.singletonMap(
+                companion.TEMPLATE_ID, Filter.Template.HIDE_CREATED_EVENT_BLOB));
     return new ContractFilter<>(companion, filter);
   }
 
@@ -41,7 +42,7 @@ public final class ContractFilter<Ct> {
     Filter filter =
         new InclusiveFilter(
             Collections.singletonMap(
-                companion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW_HIDE_PAYLOAD),
+                companion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB),
             Collections.emptyMap());
     return new ContractFilter<>(companion, filter);
   }

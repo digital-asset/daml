@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.TransactionFilterOuterClass;
-import java.util.Objects;
 
 public abstract class Filter {
 
@@ -20,29 +19,32 @@ public abstract class Filter {
 
   /**
    * Settings for including an interface in {@link InclusiveFilter}. There are four possible values:
-   * {@link #HIDE_VIEW_HIDE_PAYLOAD} and {@link #INCLUDE_VIEW_HIDE_PAYLOAD} and {@link
-   * #HIDE_VIEW_INCLUDE_PAYLOAD} and {@link #INCLUDE_VIEW_INCLUDE_PAYLOAD}.
+   * {@link #HIDE_VIEW_HIDE_CREATED_EVENT_BLOB} and {@link #INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB}
+   * and {@link #HIDE_VIEW_INCLUDE_CREATED_EVENT_BLOB} and {@link
+   * #INCLUDE_VIEW_INCLUDE_CREATED_EVENT_BLOB}.
    */
-  public static final class Interface {
+  public enum Interface {
+    HIDE_VIEW_HIDE_CREATED_EVENT_BLOB(false, false),
+    INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB(true, false),
+    HIDE_VIEW_INCLUDE_CREATED_EVENT_BLOB(false, true),
+    INCLUDE_VIEW_INCLUDE_CREATED_EVENT_BLOB(true, true);
+
     public final boolean includeInterfaceView;
-    public final boolean includeCreateEventPayload;
+    public final boolean includeCreatedEventBlob;
 
-    public static final Interface HIDE_VIEW_HIDE_PAYLOAD = new Interface(false, false);
-    public static final Interface INCLUDE_VIEW_HIDE_PAYLOAD = new Interface(true, false);
-    public static final Interface HIDE_VIEW_INCLUDE_PAYLOAD = new Interface(false, true);
-    public static final Interface INCLUDE_VIEW_INCLUDE_PAYLOAD = new Interface(true, true);
-
-    private Interface(boolean includeInterfaceView, boolean includeCreateEventPayload) {
+    Interface(boolean includeInterfaceView, boolean includeCreatedEventBlob) {
       this.includeInterfaceView = includeInterfaceView;
-      this.includeCreateEventPayload = includeCreateEventPayload;
+      this.includeCreatedEventBlob = includeCreatedEventBlob;
     }
 
     private static Interface includeInterfaceView(
-        boolean includeInterfaceView, boolean includeCreateEventPayload) {
-      if (!includeInterfaceView && !includeCreateEventPayload) return HIDE_VIEW_HIDE_PAYLOAD;
-      else if (includeInterfaceView && !includeCreateEventPayload) return INCLUDE_VIEW_HIDE_PAYLOAD;
-      else if (!includeInterfaceView) return HIDE_VIEW_INCLUDE_PAYLOAD;
-      else return INCLUDE_VIEW_INCLUDE_PAYLOAD;
+        boolean includeInterfaceView, boolean includeCreatedEventBlob) {
+      if (!includeInterfaceView && !includeCreatedEventBlob)
+        return HIDE_VIEW_HIDE_CREATED_EVENT_BLOB;
+      else if (includeInterfaceView && !includeCreatedEventBlob)
+        return INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB;
+      else if (!includeInterfaceView) return HIDE_VIEW_INCLUDE_CREATED_EVENT_BLOB;
+      else return INCLUDE_VIEW_INCLUDE_CREATED_EVENT_BLOB;
     }
 
     public TransactionFilterOuterClass.InterfaceFilter toProto(Identifier interfaceId) {
@@ -54,73 +56,42 @@ public abstract class Filter {
 
     static Interface fromProto(TransactionFilterOuterClass.InterfaceFilter proto) {
       return includeInterfaceView(
-          proto.getIncludeInterfaceView(), proto.getIncludeCreateEventPayload());
+          proto.getIncludeInterfaceView(), proto.getIncludeCreatedEventBlob());
     }
 
     Interface merge(Interface other) {
       return includeInterfaceView(
           includeInterfaceView || other.includeInterfaceView,
-          includeCreateEventPayload || other.includeCreateEventPayload);
-    }
-
-    @Override
-    public String toString() {
-      return "Filter.Interface{"
-          + "includeInterfaceView="
-          + includeInterfaceView
-          + ", includeCreateEventPayload="
-          + includeCreateEventPayload
-          + '}';
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
-      Filter.Interface that = (Filter.Interface) o;
-      return Objects.equals(includeInterfaceView, that.includeInterfaceView)
-          && Objects.equals(includeCreateEventPayload, that.includeCreateEventPayload);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(includeInterfaceView, includeCreateEventPayload);
+          includeCreatedEventBlob || other.includeCreatedEventBlob);
     }
   }
 
-  public static final class Template {
-    public final boolean includeCreateEventPayload;
+  public enum Template {
+    INCLUDE_CREATED_EVENT_BLOB(true),
+    HIDE_CREATED_EVENT_BLOB(false);
+    public final boolean includeCreatedEventBlob;
 
-    public static final Template INCLUDE_PAYLOAD = new Template(true);
-    public static final Template HIDE_PAYLOAD = new Template(false);
-
-    private Template(boolean includeCreateEventPayload) {
-      this.includeCreateEventPayload = includeCreateEventPayload;
+    Template(boolean includeCreatedEventBlob) {
+      this.includeCreatedEventBlob = includeCreatedEventBlob;
     }
 
-    private static Template includeCreateEventPayload(boolean includeCreateEventPayload) {
-      return includeCreateEventPayload ? INCLUDE_PAYLOAD : HIDE_PAYLOAD;
+    private static Template includeCreatedEventBlob(boolean includeCreatedEventBlob) {
+      return includeCreatedEventBlob ? INCLUDE_CREATED_EVENT_BLOB : HIDE_CREATED_EVENT_BLOB;
     }
 
     public TransactionFilterOuterClass.TemplateFilter toProto(Identifier templateId) {
       return TransactionFilterOuterClass.TemplateFilter.newBuilder()
           .setTemplateId(templateId.toProto())
-          .setIncludeCreateEventPayload(includeCreateEventPayload)
+          .setIncludeCreatedEventBlob(includeCreatedEventBlob)
           .build();
     }
 
     static Template fromProto(TransactionFilterOuterClass.TemplateFilter proto) {
-      return includeCreateEventPayload(proto.getIncludeCreateEventPayload());
+      return includeCreatedEventBlob(proto.getIncludeCreatedEventBlob());
     }
 
     Template merge(Template other) {
-      return includeCreateEventPayload(
-          includeCreateEventPayload || other.includeCreateEventPayload);
-    }
-
-    @Override
-    public String toString() {
-      return "Filter.Template{" + "includeCreateEventPayload=" + includeCreateEventPayload + '}';
+      return includeCreatedEventBlob(includeCreatedEventBlob || other.includeCreatedEventBlob);
     }
   }
 }

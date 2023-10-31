@@ -50,7 +50,7 @@ object TransactionGenerator {
   def byteStringGen: Gen[ByteString] =
     Arbitrary.arbString.arbitrary.map(str => com.google.protobuf.ByteString.copyFromUtf8(str))
 
-  def createEventPayloadGen: Gen[ByteString] = byteStringGen
+  def createdEventBlobGen: Gen[ByteString] = byteStringGen
 
   def createArgumentsBlobGen: Gen[Any] = {
     byteStringGen.map(byteString => Any.newBuilder().setValue(byteString).build())
@@ -233,7 +233,7 @@ object TransactionGenerator {
     contractKey <- Gen.option(valueGen(0))
     (scalaTemplateId, javaTemplateId) <- identifierGen
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
-    createEventPayload <- createEventPayloadGen
+    createdEventBlob <- createdEventBlobGen
     signatories <- Gen.listOf(nonEmptyId)
     observers <- Gen.listOf(nonEmptyId)
     interfaceViews <- Gen.listOf(interfaceViewGen)
@@ -246,12 +246,13 @@ object TransactionGenerator {
         contractKey.map(_._1),
         Some(scalaRecord),
         None,
-        createEventPayload,
+        createdEventBlob,
         interfaceViews.map(_._1),
         signatories ++ observers,
         signatories,
         observers,
         agreementText,
+        None,
       )
     ),
     new data.CreatedEvent(
@@ -260,7 +261,7 @@ object TransactionGenerator {
       javaTemplateId,
       contractId,
       javaRecord,
-      createEventPayload,
+      createdEventBlob,
       interfaceViews.view.collect { case (_, (id, Right(rec))) => (id, rec) }.toMap.asJava,
       interfaceViews.view.collect { case (_, (id, Left(stat))) => (id, stat) }.toMap.asJava,
       agreementText.toJava,

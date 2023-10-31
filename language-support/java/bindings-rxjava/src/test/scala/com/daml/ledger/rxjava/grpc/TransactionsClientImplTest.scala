@@ -82,11 +82,11 @@ final class TransactionsClientImplTest
         filter("Alice").inclusive.get.templateFilters.toSet shouldBe Set(
           TemplateFilter(
             Some(Identifier("p1", moduleName = "m1", entityName = "e1")),
-            includeCreateEventPayload = false,
+            includeCreatedEventBlob = false,
           ),
           TemplateFilter(
             Some(Identifier("p2", moduleName = "m2", entityName = "e2")),
-            includeCreateEventPayload = false,
+            includeCreatedEventBlob = false,
           ),
         )
         request.verbose shouldBe true
@@ -153,11 +153,11 @@ final class TransactionsClientImplTest
         filter("Alice").inclusive.get.templateFilters.toSet shouldBe Set(
           TemplateFilter(
             Some(Identifier("p1", moduleName = "m1", entityName = "e1")),
-            includeCreateEventPayload = false,
+            includeCreatedEventBlob = false,
           ),
           TemplateFilter(
             Some(Identifier("p2", moduleName = "m2", entityName = "e2")),
-            includeCreateEventPayload = false,
+            includeCreatedEventBlob = false,
           ),
         )
         request.verbose shouldBe true
