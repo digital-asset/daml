@@ -898,7 +898,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
       interfaceId = Some(Tag.unwrap(I.id)),
       includeInterfaceView = false,
       includeCreateArgumentsBlob = includeCreateArgumentsBlob && useTemplateIdBasedLegacyFormat,
-      includeCreateEventPayload = includeCreateArgumentsBlob && !useTemplateIdBasedLegacyFormat,
+      includeCreatedEventBlob = includeCreateArgumentsBlob && !useTemplateIdBasedLegacyFormat,
     )
     val filters = new InclusiveFilters(interfaceFilters = List(ifaceFilter))
     new TransactionFilter(Map(party -> new Filters(Some(filters))))
@@ -916,7 +916,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     )
     val blobPresence =
       if (useTemplateIdBasedLegacyFormat) createdEventWithBlob.createArgumentsBlob.nonEmpty
-      else !createdEventWithBlob.createEventPayload.isEmpty
+      else !createdEventWithBlob.createdEventBlob.isEmpty
     assertEquals(blobPresence, createArgumentsBlobNonEmpty)
   }
 
