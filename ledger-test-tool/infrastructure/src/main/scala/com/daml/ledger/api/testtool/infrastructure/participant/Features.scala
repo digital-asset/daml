@@ -48,7 +48,7 @@ object Features {
       userAndPartyLocalMetadataExtensions =
         experimental.getUserAndPartyLocalMetadataExtensions.supported,
       acsActiveAtOffsetFeature = experimental.getAcsActiveAtOffset.supported,
-      templateFilters = response.version.startsWith("2.5."), // replace with a proper feature flag
+      templateFilters = experimental.getTemplateFilters.supported,
     )
   }
 }
