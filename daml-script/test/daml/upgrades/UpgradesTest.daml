@@ -107,7 +107,7 @@ tests = mconcat
     , ("Succeeds if the observer set loses parties that are already signatories", canRemoveObserversThatAreSignatories)
 
     , -- Invalid data upgrades (compile time checks repeated at runtime)
-      ("(BROKEN) Fails if the template name changes", templateNameChanges)
+      ("Fails if the template name changes", templateNameChanges)
     , ("(BROKEN) Fails if a nested data-type's name changes", templateNameChangesNested)
     , ("Fails if fields are removed", templateFieldsRemoved)
     , ("Fails if non-optional fields are added", templateNonOptionalFieldsAdded)
@@ -200,11 +200,12 @@ fetchDowngradedSome = do
   cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = Some "hi"
   let v1Cid = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
   eV1Name <- a `tryExerciseV1Util` V1Fetch with cid = v1Cid
-  -- TODO[SW] We should not be using UserError here, change the engine to throw a specific error.
   
   case eV1Name of
-    Left (UserError "An optional contract field with a value of Some may not be dropped during downgrading.") -> pure ()
-    res -> assertFail $ "Expected Left (UserError \"An optional contract field with a value of Some may not be dropped during downgrading.\"), got " <> show res
+    Left (DevError Upgrade msg)
+      | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg
+      -> pure ()
+    res -> assertFail $ "Expected DevError Upgrade, got " <> show res
 
 fetchUpgradedSourceUnvetted : Script ()
 fetchUpgradedSourceUnvetted = do
@@ -428,10 +429,10 @@ signatoryObserverUpgrade shouldSucceed sigF obsF = do
   res <- trySubmitMulti [alice, bob, charlie] [] $ exerciseCmd cidV2 V2.InvalidUpgradeStakeholdersCall
   case (res, shouldSucceed) of
     (Right _, True) -> pure ()
-    (Left (DevError UpgradeValidationFailed msg), False)
+    (Left (DevError Upgrade msg), False)
       | "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed" `isInfixOf` msg
       -> pure ()
-    _ -> assertFail $ "Expected " <> (if shouldSucceed then "success" else "UpgradeValidationFailed error") <> " but got " <> show res
+    _ -> assertFail $ "Expected " <> (if shouldSucceed then "success" else "Upgrade error") <> " but got " <> show res
 
 unchanged : (Party, Party, Party) -> ([Party], [Party])
 unchanged (alice, bob, charlie) = ([alice], [alice])
@@ -472,12 +473,12 @@ templateInvalidChange shouldSucceed makeV1Contract v2Choice =
   genericUpgradeTest @t2 makeV1Contract v2Choice False $ \res ->
     case (res, shouldSucceed) of
       (Right "V2", True) -> pure ()
+      (Left (WronglyTypedContract {}), False) -> pure ()
       (Left (UnknownError msg), False) | "An error occurred." `isInfixOf` msg -> pure ()
       _ -> assertFail $ "Expected " <> (if shouldSucceed then "success" else "specific failure") <> " but got " <> show res
 
--- TODO: THIS BEHAVIOUR IS WRONG. We expect to see a failure here, this succeeding is a bug.
 templateNameChanges : Script ()
-templateNameChanges = templateInvalidChange @V2.NameChangesOops True V1.NameChanges V2.NameChangesCall
+templateNameChanges = templateInvalidChange @V2.NameChangesOops False V1.NameChanges V2.NameChangesCall
 
 -- TODO: THIS BEHAVIOUR IS WRONG. We expect to see a failure here, this succeeding is a bug.
 templateNameChangesNested : Script ()

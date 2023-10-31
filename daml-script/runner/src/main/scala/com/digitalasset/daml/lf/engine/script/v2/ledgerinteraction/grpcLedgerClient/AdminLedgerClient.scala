@@ -36,12 +36,16 @@ final class AdminLedgerClient private (
     packageServiceStub
       .listDars(admin_package_service.ListDarsRequest(1000))
       .map { res =>
-        if (res.dars.length == 1000) println("Warning: AdminLedgerClient.listDars gave the maximum number of results, some may have been truncated.")
+        if (res.dars.length == 1000)
+          println(
+            "Warning: AdminLedgerClient.listDars gave the maximum number of results, some may have been truncated."
+          )
         res.dars.map(darDesc => (darDesc.name, darDesc.hash))
       }
 
   def findDarHash(name: String): Future[String] =
-    listDars().map(_.collectFirst{ case (`name`, v) => v }.getOrElse(throw new IllegalArgumentException("Couldn't find DAR name: " + name)))
+    listDars().map(_.collectFirst { case (`name`, v) => v }
+      .getOrElse(throw new IllegalArgumentException("Couldn't find DAR name: " + name)))
 
   def vetDar(name: String): Future[Unit] =
     findDarHash(name).flatMap(vetDarByHash)
