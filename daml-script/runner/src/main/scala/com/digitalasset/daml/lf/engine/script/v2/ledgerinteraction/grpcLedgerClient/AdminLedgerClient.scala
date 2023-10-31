@@ -35,15 +35,13 @@ final class AdminLedgerClient private (
   def listDars(): Future[Seq[(String, String)]] =
     packageServiceStub
       .listDars(admin_package_service.ListDarsRequest(1000))
-      .map(res => res.dars.map(darDesc => (darDesc.name, darDesc.hash)))
+      .map { res =>
+        if (res.dars.length == 1000) println("Warning: AdminLedgerClient.listDars gave the maximum number of results, some may have been truncated.")
+        res.dars.map(darDesc => (darDesc.name, darDesc.hash))
+      }
 
   def findDarHash(name: String): Future[String] =
-    listDars().map(names =>
-      names
-        .find { case (n, _) => n == name }
-        .getOrElse(throw new IllegalArgumentException("Couldn't find DAR name: " + name))
-        ._2
-    )
+    listDars().map(_.collectFirst{ case (`name`, v) => v }.getOrElse(throw new IllegalArgumentException("Couldn't find DAR name: " + name)))
 
   def vetDar(name: String): Future[Unit] =
     findDarHash(name).flatMap(vetDarByHash)
@@ -70,18 +68,6 @@ object AdminLedgerClient {
       ec: ExecutionContext
   ): AdminLedgerClient =
     fromBuilder(channelConfig.builderFor(hostIp, port), token)
-
-  def insecureSingleHost(
-      hostIp: String,
-      port: Int,
-      token: Option[String] = None,
-  )(implicit
-      ec: ExecutionContext
-  ): AdminLedgerClient =
-    fromBuilder(
-      LedgerClientChannelConfiguration.InsecureDefaults.builderFor(hostIp, port),
-      token,
-    )
 
   def fromBuilder(
       builder: NettyChannelBuilder,

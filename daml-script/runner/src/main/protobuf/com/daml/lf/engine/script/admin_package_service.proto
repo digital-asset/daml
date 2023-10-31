@@ -1,6 +1,8 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+// This proto was copied from canton/community/participant/src/main/protobuf/com/digitalasset/canton/participant/admin/v0/package_service.proto
+
 syntax = "proto3";
 
 package com.digitalasset.canton.participant.admin.v0;

@@ -11,6 +11,7 @@ load(
 load("//rules_daml:daml.bzl", "daml_compile")
 load("//bazel_tools:proto.bzl", "proto_jars")
 
+# This proto was copied from canton/community/participant/src/main/protobuf/com/digitalasset/canton/participant/admin/v0/package_service.proto
 proto_jars(
     name = "admin_package_service_proto",
     srcs = ["src/main/protobuf/com/daml/lf/engine/script/admin_package_service.proto"],
