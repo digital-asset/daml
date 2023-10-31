@@ -723,10 +723,10 @@ excluded_test_tool_tests = [
     # InclusiveFilters.template_ids are deprecated and replaced by
     # DisclosedContract.create_event_payload and InclusiveFilters.template_filters respectively
     {
-        "start": "v2.8.0-snapshot.20231025.0",
+        "start": "2.8.0-snapshot.20231025.1",
         "platform_ranges": [
             {
-                "end": "v2.8.0-snapshot.20231025.0",
+                "end": "2.8.0-snapshot.20231025.0",
                 "exclusions": [
                     "ExplicitDisclosureIT",
                 ],
