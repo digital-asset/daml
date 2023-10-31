@@ -10,9 +10,9 @@ import com.daml.lf.data._
 import com.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
-  Transaction,
   Node,
   NodeId,
+  Transaction,
   TransactionVersion,
   Versioned,
   VersionedTransaction,
@@ -21,6 +21,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
+import com.daml.lf.transaction.Util
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.HashMap
@@ -270,11 +271,14 @@ object ValueGenerators {
       arg <- versionedValueGen
     } yield arg.map(Value.ContractInstance(template, _))
 
-  def keyWithMaintainersGen(templateId: Ref.TypeConName): Gen[GlobalKeyWithMaintainers] = {
+  def keyWithMaintainersGen(
+      templateId: Ref.TypeConName,
+      version: TransactionVersion,
+  ): Gen[GlobalKeyWithMaintainers] = {
     for {
       key <- valueGen()
       maintainers <- genNonEmptyParties
-      gkey = GlobalKey.build(templateId, key).toOption
+      gkey = GlobalKey.build(templateId, key, Util.sharedKey(version)).toOption
       if gkey.isDefined
     } yield GlobalKeyWithMaintainers(gkey.get, maintainers)
   }
@@ -314,7 +318,7 @@ object ValueGenerators {
       agreement <- Arbitrary.arbitrary[String]
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
-      key <- Gen.option(keyWithMaintainersGen(templateId))
+      key <- Gen.option(keyWithMaintainersGen(templateId, version))
     } yield Node.Create(
       coid = coid,
       templateId = templateId,
@@ -339,7 +343,7 @@ object ValueGenerators {
       actingParties <- genNonEmptyParties
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
-      key <- Gen.option(keyWithMaintainersGen(templateId))
+      key <- Gen.option(keyWithMaintainersGen(templateId, version))
       byKey <- Gen.oneOf(true, false)
     } yield Node.Fetch(
       coid = coid,
@@ -392,7 +396,7 @@ object ValueGenerators {
         .map(_.to(ImmArray))
       exerciseResult <-
         if (version < minExceptions) valueGen().map(Some(_)) else Gen.option(valueGen())
-      key <- Gen.option(keyWithMaintainersGen(templateId))
+      key <- Gen.option(keyWithMaintainersGen(templateId, version))
       byKey <- Gen.oneOf(true, false)
     } yield Node.Exercise(
       targetCoid = targetCoid,
@@ -418,7 +422,7 @@ object ValueGenerators {
       version <- transactionVersionGen()
       targetCoid <- coidGen
       templateId <- idGen
-      key <- keyWithMaintainersGen(templateId)
+      key <- keyWithMaintainersGen(templateId, version)
       result <- Gen.option(targetCoid)
     } yield Node.LookupByKey(
       templateId,

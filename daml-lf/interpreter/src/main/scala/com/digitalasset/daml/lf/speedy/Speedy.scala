@@ -120,7 +120,8 @@ private[lf] object Speedy {
     val lfValue: V = globalKey.key
     def renormalizedGlobalKeyWithMaintainers(version: TxVersion) = {
       globalKeyWithMaintainers.copy(
-        globalKey = GlobalKey.assertBuild(templateId, key.toNormalizedValue(version))
+        globalKey =
+          GlobalKey.assertBuild(templateId, key.toNormalizedValue(version), globalKey.shared)
       )
     }
   }

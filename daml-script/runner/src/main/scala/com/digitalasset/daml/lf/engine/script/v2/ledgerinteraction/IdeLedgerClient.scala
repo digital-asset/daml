@@ -271,6 +271,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     val keyValue = key.toUnnormalizedValue
+
     def keyBuilderError(err: crypto.Hash.HashingError): Future[GlobalKey] =
       Future.failed(
         err match {
@@ -284,7 +285,11 @@ class IdeLedgerClient(
         }
       )
     GlobalKey
-      .build(templateId, keyValue)
+      .build(
+        templateId,
+        keyValue,
+        compiledPackages.pkgInterface.hasSharedKeys(templateId.packageId),
+      )
       .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {
@@ -332,8 +337,10 @@ class IdeLedgerClient(
       case _: TemplatePreconditionViolated => SubmitError.TemplatePreconditionViolated()
       case CreateEmptyContractKeyMaintainers(tid, arg, _) =>
         SubmitError.CreateEmptyContractKeyMaintainers(tid, arg)
-      case FetchEmptyContractKeyMaintainers(tid, keyValue) =>
-        SubmitError.FetchEmptyContractKeyMaintainers(GlobalKey.assertBuild(tid, keyValue))
+      case FetchEmptyContractKeyMaintainers(tid, keyValue, sharedKey) =>
+        SubmitError.FetchEmptyContractKeyMaintainers(
+          GlobalKey.assertBuild(tid, keyValue, sharedKey)
+        )
       case WronglyTypedContract(cid, exp, act) => SubmitError.WronglyTypedContract(cid, exp, act)
       case ContractDoesNotImplementInterface(iid, cid, tid) =>
         SubmitError.ContractDoesNotImplementInterface(cid, tid, iid)

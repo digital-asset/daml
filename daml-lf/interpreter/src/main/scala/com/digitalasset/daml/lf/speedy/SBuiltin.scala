@@ -27,6 +27,7 @@ import com.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
   TransactionVersion,
+  Util,
   TransactionErrors => TxErr,
 }
 import com.daml.lf.value.{Value => V}
@@ -1543,6 +1544,7 @@ private[lf] object SBuiltin {
           IE.FetchEmptyContractKeyMaintainers(
             cachedKey.templateId,
             cachedKey.lfValue,
+            cachedKey.globalKey.shared,
           )
         )
       } else {
@@ -2057,7 +2059,7 @@ private[lf] object SBuiltin {
         val keyValue = vals.get(keyIdx)
         val lfValue = keyValue.toNormalizedValue(version)
         val gkey = GlobalKey
-          .build(templateId, lfValue)
+          .build(templateId, lfValue, Util.sharedKey(version))
           .getOrElse(
             throw SErrorDamlException(IE.ContractIdInContractKey(keyValue.toUnnormalizedValue))
           )

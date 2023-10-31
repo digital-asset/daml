@@ -1676,7 +1676,9 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               Set(alice),
             )
             inside(res) {
-              case Success(Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _)))) =>
+              case Success(
+                    Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _, _)))
+                  ) =>
                 msgs shouldBe Seq("starts test", "maintainers")
             }
           }
@@ -2594,7 +2596,9 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               Set(alice),
             )
             inside(res) {
-              case Success(Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _)))) =>
+              case Success(
+                    Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _, _)))
+                  ) =>
                 msgs shouldBe Seq("starts test", "maintainers")
             }
           }
@@ -3163,7 +3167,9 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               Set(alice),
             )
             inside(res) {
-              case Success(Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _)))) =>
+              case Success(
+                    Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _, _)))
+                  ) =>
                 msgs shouldBe Seq("starts test", "maintainers")
             }
           }

@@ -12,6 +12,7 @@ import com.daml.nonempty.NonEmpty
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import io.grpc.StatusRuntimeException
+
 import scala.reflect.ClassTag
 import scala.util.Try
 
@@ -88,9 +89,10 @@ object GrpcErrorParser {
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
+                (ErrorResource.SharedKey, sharedKeyText),
               ) =>
             SubmitError.ContractKeyNotFound(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key)
+              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, sharedKeyText.toBoolean)
             )
         }
       case "DAML_AUTHORIZATION_ERROR" => SubmitError.AuthorizationError(message)
@@ -107,11 +109,12 @@ object GrpcErrorParser {
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractId, cid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
+                (ErrorResource.SharedKey, sharedKeyText),
                 (ErrorResource.ContractKeyHash, keyHash),
               ) =>
             SubmitError.DisclosedContractKeyHashingError(
               ContractId.assertFromString(cid),
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key),
+              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, sharedKeyText.toBoolean),
               keyHash,
             )
         }
@@ -120,9 +123,16 @@ object GrpcErrorParser {
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
+                (ErrorResource.SharedKey, sharedKeyText),
               ) =>
             SubmitError.DuplicateContractKey(
-              Some(GlobalKey.assertBuild(Identifier.assertFromString(tid), key))
+              Some(
+                GlobalKey.assertBuild(
+                  Identifier.assertFromString(tid),
+                  key,
+                  sharedKeyText.toBoolean,
+                )
+              )
             )
           // TODO[SW] Canton can omit the key, unsure why.
           case Seq() => SubmitError.DuplicateContractKey(None)
@@ -146,9 +156,10 @@ object GrpcErrorParser {
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
+                (ErrorResource.SharedKey, sharedKeyText),
               ) =>
             SubmitError.InconsistentContractKey(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key)
+              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, sharedKeyText.toBoolean)
             )
         }
       case "UNHANDLED_EXCEPTION" =>
@@ -178,9 +189,10 @@ object GrpcErrorParser {
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
+                (ErrorResource.SharedKey, sharedKeyText),
               ) =>
             SubmitError.FetchEmptyContractKeyMaintainers(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key)
+              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, sharedKeyText.toBoolean)
             )
         }
       case "WRONGLY_TYPED_CONTRACT" =>

@@ -92,7 +92,9 @@ object Util {
       version: TransactionVersion,
   ): Either[String, GlobalKeyWithMaintainers] =
     normalizeValue(key.globalKey.key, version).map(normalized =>
-      key.copy(globalKey = GlobalKey.assertBuild(key.globalKey.templateId, normalized))
+      key.copy(globalKey =
+        GlobalKey.assertBuild(key.globalKey.templateId, normalized, Util.sharedKey(version))
+      )
     )
 
   def normalizeOptKey(
@@ -103,5 +105,10 @@ object Util {
       case Some(value) => normalizeKey(value, version).map(Some(_))
       case None => Right(None)
     }
+
+  def sharedKey(version: TransactionVersion): Boolean = {
+    import Ordering.Implicits.infixOrderingOps
+    version >= TransactionVersion.minSharedKeys
+  }
 
 }

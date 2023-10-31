@@ -77,6 +77,7 @@ object LanguageVersion {
     val natTypeErasure = v1_dev
     val packageUpgrades = v1_dev
     val dynamicExercise = v1_dev
+    val sharedKeys = v1_dev
 
     /** TYPE_REP_TYCON_NAME builtin */
     val templateTypeRepToText = v1_dev

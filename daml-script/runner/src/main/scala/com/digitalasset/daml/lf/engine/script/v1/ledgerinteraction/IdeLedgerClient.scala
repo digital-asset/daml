@@ -237,7 +237,11 @@ class IdeLedgerClient(
         }
       )
     GlobalKey
-      .build(templateId, keyValue)
+      .build(
+        templateId,
+        keyValue,
+        compiledPackages.pkgInterface.hasSharedKeys(templateId.packageId),
+      )
       .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {

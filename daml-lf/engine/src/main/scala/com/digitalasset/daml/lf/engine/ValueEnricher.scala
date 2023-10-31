@@ -126,7 +126,9 @@ final class ValueEnricher(
       key: GlobalKeyWithMaintainers
   ): Result[GlobalKeyWithMaintainers] =
     enrichContractKey(key.globalKey.templateId, key.globalKey.key).map(normalizedKey =>
-      key.copy(globalKey = GlobalKey.assertBuild(key.globalKey.templateId, normalizedKey))
+      key.copy(globalKey =
+        GlobalKey.assertBuild(key.globalKey.templateId, normalizedKey, key.globalKey.shared)
+      )
     )
 
   def enrichContractKey(

@@ -99,6 +99,7 @@ object Error {
   final case class FetchEmptyContractKeyMaintainers(
       templateId: TypeConName,
       key: Value,
+      shared: Boolean,
   ) extends Error
 
   /** We tried to fetch / exercise a contract of the wrong type --

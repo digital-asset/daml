@@ -362,6 +362,12 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
 
   val packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
     signatures andThen (_.languageVersion)
+
+  def hasSharedKeys(packageId: PackageId): Boolean = {
+    import scala.math.Ordered.orderingToOrdered
+    packageLanguageVersion(packageId) >= LanguageVersion.Features.sharedKeys
+  }
+
 }
 
 object PackageInterface {
