@@ -43,13 +43,13 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
           includeCreateArgumentsBlob = false,
           includeCreateEventPayload = false,
         ),
-        templateIds = Seq(Tag.unwrap(T1.id)),
+        templateIds = createTemplateIdFilter,
       ),
     )
   })
 
   test(
-    "TSFInterfaceTemplateFilters",
+    "TSFInterfaceTemplatePlainFilters",
     "Combine plain interface filters with plain template filters",
     allocate(SingleParty),
     enabled = _.templateFilters,
@@ -103,13 +103,13 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
           includeCreateArgumentsBlob = true,
           includeCreateEventPayload = false,
         ),
-        templateIds = Seq(Tag.unwrap(T1.id)),
+        templateIds = createTemplateIdFilter,
       ),
     )
   })
 
   test(
-    "TSFInterfaceWithBlobsTemplateFilters",
+    "TSFInterfaceWithBlobsTemplatePlainFilters",
     "Combine interface filters with blobs with plain template filters",
     allocate(SingleParty),
     enabled = _.templateFilters,
@@ -163,13 +163,13 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
           includeCreateArgumentsBlob = false,
           includeCreateEventPayload = true,
         ),
-        templateIds = Seq(Tag.unwrap(T1.id)),
+        templateIds = createTemplateIdFilter,
       ),
     )
   })
 
   test(
-    "TSFInterfaceWithPayloadsTemplateFilters",
+    "TSFInterfaceWithPayloadsTemplatePlainFilters",
     "Combine interface filters with payloads with plain template filters",
     allocate(SingleParty),
     enabled = _.templateFilters,
@@ -244,7 +244,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
           includeCreateEventPayload = false,
         ),
         templateFilters = createTemplateFilter(includeCreateEventPayload = true),
-        templateIds = Seq(Tag.unwrap(T1.id)),
+        templateIds = createTemplateIdFilter,
       ),
     )
   })
@@ -256,8 +256,9 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
   )(implicit ec: ExecutionContext): Future[Unit] = {
     import ledger._
     for {
-      c1 <- create(party, T1(party, 1))
-      c2 <- create(party, T2(party, 2))
+      c1 <- create(party, T5(party, 1))
+      c2 <- create(party, T6(party, party))
+      c3 <- create(party, T3(party, 2))
       _ <- create(party, T4(party, 4))
       txEvents <- flatTransactions(getTransactionsRequest(filter)).map(_.flatMap(createdEvents))
       acsEvents <- activeContracts(createActiveContractsRequest(filter)).map(_._2)
@@ -265,6 +266,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       basicAssertions(
         c1.toString,
         c2.toString,
+        c3.toString,
         txEvents,
         blobFlag(filter),
         payloadFlagFromInterfaces(filter),
@@ -273,6 +275,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       basicAssertions(
         c1.toString,
         c2.toString,
+        c3.toString,
         acsEvents,
         blobFlag(filter),
         payloadFlagFromInterfaces(filter),
@@ -288,8 +291,9 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
   )(implicit ec: ExecutionContext): Future[Unit] = {
     import ledger._
     for {
-      _ <- create(party, T1(party, 1))
-      _ <- create(party, T2(party, 2))
+      _ <- create(party, T5(party, 1))
+      _ <- create(party, T6(party, party))
+      _ <- create(party, T3(party, 2))
       _ <- create(party, T4(party, 4))
       _ <- flatTransactions(getTransactionsRequest(filter)).mustFail(
         "filter composition unsupported for flat transactions"
@@ -303,20 +307,21 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
   private def basicAssertions(
       c1: String,
       c2: String,
+      c3: String,
       createdEvents: Vector[CreatedEvent],
       expectBlob: Boolean,
       expectPayloadFromInterfaces: Boolean,
       expectPayloadFromTemplates: Boolean,
   ): Unit = {
     val expectPayload = expectPayloadFromInterfaces || expectPayloadFromTemplates
-    assertLength("2 transactions found", 2, createdEvents)
+    assertLength("3 transactions found", 3, createdEvents)
 
-    // T1
+    // T5
     val createdEvent1 = createdEvents(0)
     assertEquals(
       "Create event 1 template ID",
       createdEvent1.templateId.get.toString,
-      Tag.unwrap(T1.id).toString,
+      Tag.unwrap(T5.id).toString,
     )
     assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1)
     assertLength("Create event 1 has a view", 1, createdEvent1.interfaceViews)
@@ -336,12 +341,12 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       !expectPayload,
     )
 
-    // T2
+    // T6
     val createdEvent2 = createdEvents(1)
     assertEquals(
       "Create event 2 template ID",
       createdEvent2.templateId.get.toString,
-      Tag.unwrap(T2.id).toString,
+      Tag.unwrap(T6.id).toString,
     )
     assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2)
     assertLength("Create event 2 has a view", 1, createdEvent2.interfaceViews)
@@ -361,6 +366,32 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createdEvent2.createEventPayload.isEmpty,
       !expectPayloadFromInterfaces,
     )
+
+    // T3
+    val createdEvent3 = createdEvents(2)
+    assertEquals(
+      "Create event 3 template ID",
+      createdEvent3.templateId.get.toString,
+      Tag.unwrap(T3.id).toString,
+    )
+    assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3)
+    assertLength("Create event 3 has no view", 0, createdEvent3.interfaceViews)
+    assertEquals(
+      "Create event 3 createArguments must not be empty",
+      createdEvent3.createArguments.isEmpty,
+      false,
+    )
+    assertEquals(
+      s"""Create event 3 createArgumentsBlob must be empty""",
+      createdEvent3.createArgumentsBlob.isEmpty,
+      true,
+    )
+    assertEquals(
+      s"""Create event 3 createEventPayload must ${if (expectPayloadFromTemplates) "NOT"
+        else ""} be empty""",
+      createdEvent3.createEventPayload.isEmpty,
+      !expectPayloadFromTemplates,
+    )
   }
 
   private def createInterfaceFilter(
@@ -369,7 +400,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
   ) = {
     Seq(
       new InterfaceFilter(
-        interfaceId = Some(Tag.unwrap(I.id)),
+        interfaceId = Some(Tag.unwrap(I2.id)),
         includeInterfaceView = true,
         includeCreateArgumentsBlob = includeCreateArgumentsBlob,
         includeCreateEventPayload = includeCreateEventPayload,
@@ -377,12 +408,19 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
     )
   }
 
+  private def createTemplateIdFilter: Seq[Identifier] =
+    Seq(Tag.unwrap(T3.id), Tag.unwrap(T5.id))
+
   private def createTemplateFilter(includeCreateEventPayload: Boolean): Seq[TemplateFilter] =
     Seq(
       new TemplateFilter(
-        templateId = Some(Tag.unwrap(T1.id)),
+        templateId = Some(Tag.unwrap(T3.id)),
         includeCreateEventPayload = includeCreateEventPayload,
-      )
+      ),
+      new TemplateFilter(
+        templateId = Some(Tag.unwrap(T5.id)),
+        includeCreateEventPayload = includeCreateEventPayload,
+      ),
     )
 
   private def createTransactionFilter(
