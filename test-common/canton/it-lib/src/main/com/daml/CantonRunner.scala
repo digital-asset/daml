@@ -133,12 +133,13 @@ object CantonRunner {
       )
       .mkString("\n")
     // Run the given clients bootstrap, upload dars via the console (which internally calls the admin api), then write a non-empty file for us to wait on
+    val completionFile = files.completionFile.toString.replace("\\", "\\\\")
     val bootstrapContent =
       s"""import java.nio.file.{Files, Paths}
          |import java.nio.charset.StandardCharsets
          |${config.bootstrapScript.getOrElse("")}
          |$bootstrapUploadDar
-         |Files.write(Paths.get("${files.completionFile}"), "Completed".getBytes(StandardCharsets.UTF_8))
+         |Files.write(Paths.get("$completionFile"), "Completed".getBytes(StandardCharsets.UTF_8))
          |""".stripMargin
 
     discard { Files.write(files.bootstrapFile, bootstrapContent.getBytes(StandardCharsets.UTF_8)) }
