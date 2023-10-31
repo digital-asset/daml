@@ -107,7 +107,7 @@ private[inner] object ToJsonGenerator {
       .methodBuilder("jsonEncoder")
       .addModifiers(Modifier.PUBLIC)
       .addStatement(
-        "return $T.enumeration($T::getConstructor).apply(this)",
+        "return $T.enumeration(($T e$$) -> e$$.getConstructor()).apply(this)",
         encodersClass,
         className,
       )
