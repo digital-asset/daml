@@ -9,7 +9,7 @@ import akka.http.scaladsl.model._
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimestampConversion
 import com.daml.lf.data.Ref
-import com.daml.http.domain.ContractId
+import com.daml.http.domain.{Base64, ContractId}
 import com.daml.http.endpoints.MeteringReportEndpoint.MeteringReportDateRequest
 import com.daml.http.json.SprayJson.objectField
 import com.daml.http.json._
@@ -17,6 +17,13 @@ import com.daml.http.util.ClientUtil.{boxedRecord, uniqueCommandId, uniqueId}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  InterfaceFilter,
+  TemplateFilter,
+  TransactionFilter,
+}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.service.MetadataReader
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.{Authorization, Availability}
@@ -44,6 +51,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 import com.daml.lf.{value => lfv}
 import com.daml.scalautil.Statement.discard
+import com.google.protobuf.ByteString
 import com.google.protobuf.struct.Struct
 import lfv.test.TypedValueGenerators.{ValueAddend => VA}
 
@@ -1078,15 +1086,33 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       final case class ContractsToDisclose(
           alice: domain.Party,
           toDiscloseCid: domain.ContractId,
-          toDisclosePayload: lav1.value.Record,
-          tdCtMetadata: DC.Metadata,
+          toDiscloseBlob: ByteString,
           anotherToDiscloseCid: domain.ContractId,
-          atdBlob: domain.PbAny,
-          atdCtMetadata: DC.Metadata,
+          anotherToDiscloseBlob: ByteString,
       )
 
-      // Allows using deprecated Protobuf fields for testing
-      @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
+      def filterWithPayloadsFor(party: domain.Party) = TransactionFilter(
+        Map(
+          party.unwrap -> Filters(
+            Some(
+              InclusiveFilters(
+                interfaceFilters = Seq(
+                  InterfaceFilter(
+                    interfaceId = Some(refApiIdentifier(HasGarbage).unwrap),
+                    includeCreatedEventBlob = true,
+                  )
+                ),
+                templateFilters = Seq(
+                  TemplateFilter(
+                    templateId = Some(refApiIdentifier(ToDisclose).unwrap),
+                    includeCreatedEventBlob = true,
+                  )
+                ),
+              )
+            )
+          )
+        )
+      )
       def contractsToDisclose(
           fixture: HttpServiceTestFixtureData,
           junkMessage: String,
@@ -1118,9 +1144,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         createResp <- fixture.client.commandServiceClient
           .submitAndWaitForTransaction(initialCreate, Some(jwt.value))
         // fetch what we can from the command service transaction
-        (ceAtOffset, ((toDiscloseCid, tdCtMetadata), (atdCid, atdCtMetadata))) = inside(
-          createResp.transaction
-        ) { case Some(tx) =>
+        (ceAtOffset, (toDiscloseCid, atdCid)) = inside(createResp.transaction) { case Some(tx) =>
           import lav1.event.Event, Event.Event.Created
           inside(tx.events) { case Seq(Event(Created(ce0)), Event(Created(ce1))) =>
             val EntityTD = ToDisclose.entityName
@@ -1131,65 +1155,40 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             }
             (
               tx.offset,
-              orderedCes umap { ce =>
-                (
-                  domain.ContractId(ce.contractId),
-                  inside(ce.metadata map DC.Metadata.fromLedgerApi) { case Some(\/-(metadata)) =>
-                    metadata
-                  },
-                )
-              },
+              orderedCes umap { ce => domain.ContractId(ce.contractId) },
             )
           }
         }
         // use the transaction service to get the blob, which submit-and-wait
         // doesn't include in the response
-        atdBlob <- {
-          import lav1.transaction_filter._
+        payloadsToDisclose <- {
           import com.daml.fetchcontracts.util.{LedgerBegin, AbsoluteBookmark}
+          import lav1.event.Event, Event.Event.Created
           fixture.client.transactionClient
             .getTransactions(
               LedgerBegin.toLedgerApi,
               Some(AbsoluteBookmark(domain.Offset(ceAtOffset)).toLedgerApi),
-              TransactionFilter(
-                Map(
-                  alice.unwrap -> Filters(
-                    Some(
-                      InclusiveFilters(interfaceFilters =
-                        Seq(
-                          InterfaceFilter(
-                            Some(refApiIdentifier(HasGarbage).unwrap),
-                            includeCreateArgumentsBlob = true,
-                          )
-                        )
-                      )
-                    )
-                  )
-                )
-              ),
+              filterWithPayloadsFor(alice),
               com.daml.ledger.api.domain.LedgerId(""),
               token = Some(jwt.value),
             )
-            .collect(Function unlift { tx =>
-              import lav1.event.Event, Event.Event.Created
-              tx.events.collectFirst {
-                case Event(Created(ce)) if ce.contractId == atdCid =>
-                  import com.google.protobuf.any
-                  inside(ce.createArgumentsBlob) { case Some(any.Any(typeUrl, value, _)) =>
-                    domain.PbAny(typeUrl, domain.Base64(value))
-                  }
-              }
-            })
-            .runWith(Sink.head)
+            .mapConcat(_.events)
+            .collect {
+              case Event(Created(ce))
+                  if ce.contractId == toDiscloseCid || ce.contractId == atdCid =>
+                domain.Base64(ce.createdEventBlob)
+            }
+            .runWith(Sink.seq)
+        }
+        (firstPayload, anotherPayload) = inside(payloadsToDisclose) { case Seq(first, second) =>
+          first -> second
         }
       } yield ContractsToDisclose(
         alice,
         toDiscloseCid,
-        toDisclosePayload,
-        tdCtMetadata,
+        firstPayload.unwrap,
         atdCid,
-        atdBlob,
-        atdCtMetadata,
+        anotherPayload.unwrap,
       )
 
       def runDisclosureTestCase[Setup](
@@ -1198,9 +1197,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           exerciseVaryingOnlyMeta: (
               Setup,
               ContractsToDisclose,
-              Option[
-                domain.CommandMeta[domain.ContractTypeId.Template.OptionalPkg, lav1.value.Record]
-              ],
+              Option[domain.CommandMeta[domain.ContractTypeId.Template.OptionalPkg]],
           ) => JsValue
       ): Future[Assertion] = {
         val junkMessage = s"some test junk ${uniqueId()}"
@@ -1210,11 +1207,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           toDisclose @ ContractsToDisclose(
             alice,
             toDiscloseCid,
-            toDisclosePayload,
-            tdCtMetadata,
-            anotherToDiscloseCid,
+            toDiscloseBlob,
+            atdCid,
             anotherToDiscloseBlob,
-            atdCtMetadata,
           ) <-
             contractsToDisclose(fixture, junkMessage, garbageMessage)
 
@@ -1223,23 +1218,22 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           setup <- setupBob(bob, bobHeaders)
 
           // exercise CheckVisibility with different disclosure options
-          checkVisibility = {
-            disclosure: List[DC[domain.ContractTypeId.Template.OptionalPkg, lav1.value.Record]] =>
-              val meta = disclosure.nonEmpty option domain.CommandMeta(
-                None,
-                None,
-                None,
-                None,
-                None,
-                disclosedContracts = Some(disclosure),
+          checkVisibility = { disclosure: List[DC[domain.ContractTypeId.Template.OptionalPkg]] =>
+            val meta = disclosure.nonEmpty option domain.CommandMeta(
+              None,
+              None,
+              None,
+              None,
+              None,
+              disclosedContracts = Some(disclosure),
+            )
+            fixture
+              .postJsonRequest(
+                exerciseEndpoint,
+                exerciseVaryingOnlyMeta(setup, toDisclose, meta),
+                bobHeaders,
               )
-              fixture
-                .postJsonRequest(
-                  exerciseEndpoint,
-                  exerciseVaryingOnlyMeta(setup, toDisclose, meta),
-                  bobHeaders,
-                )
-                .parseResponse[domain.ExerciseResponse[JsValue]]
+              .parseResponse[domain.ExerciseResponse[JsValue]]
           }
 
           // ensure that bob can't interact with alice's contract unless it's disclosed
@@ -1260,14 +1254,12 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
               DC(
                 toDiscloseCid,
                 TpId.Disclosure.ToDisclose,
-                DC.Arguments.Record(toDisclosePayload),
-                tdCtMetadata,
+                Base64(toDiscloseBlob),
               ),
               DC(
-                anotherToDiscloseCid,
+                atdCid,
                 TpId.Disclosure.AnotherToDisclose,
-                DC.Arguments.Blob(anotherToDiscloseBlob),
-                atdCtMetadata,
+                Base64(anotherToDiscloseBlob),
               ),
             )
           )
@@ -1309,7 +1301,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 )
               ),
               None,
-              meta map (_ rightMap boxedRecord),
+              meta,
             )
           )
         }

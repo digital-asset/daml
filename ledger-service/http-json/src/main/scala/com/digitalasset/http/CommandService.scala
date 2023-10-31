@@ -28,7 +28,6 @@ import com.daml.ledger.api.{v1 => lav1}
 import com.daml.ledger.service.Grpc.StatusEnvelope
 import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import scalaz.std.option._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
@@ -107,12 +106,9 @@ class CommandService(
           logger.trace("sending exercise command to ledger")
           val command = exerciseCommand(input)
 
+          val request = submitAndWaitRequest(jwtPayload, input.meta, command, "exercise")
           val et: ET[ExerciseResponse[lav1.value.Value]] =
             for {
-              meta <- either(input.meta traverse (_.ensureDisclosedAreRecords) leftMap {
-                case domain.Error(sym, msg) => InternalError(Some(sym), msg): Error
-              })
-              request = submitAndWaitRequest(jwtPayload, meta, command, "exercise")
               response <-
                 logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request)(lc))
               exerciseResult <- either(exerciseResult(response))
