@@ -129,7 +129,7 @@ object TopologyManagementInitialization {
           delay = 1.second,
           sendDescription = "Send initial topology transaction to domain members",
           errMsg = "Failed to send initial topology transactions to domain members",
-          flagCloseable = client,
+          performUnlessClosing = client,
         )
         .onShutdown(
           logger.debug("sequenceInitialTopology aborted due to shutdown")

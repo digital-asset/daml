@@ -25,7 +25,6 @@ import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{Bytes, Ref}
 import com.daml.lf.transaction.{FatContractInstance, GlobalKeyWithMaintainers, Node}
 import com.daml.lf.value.Value.ContractId
-import com.digitalasset.canton.ledger.api.domain.TemplateFilter
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.api.v1.event.EventOps.TreeEventOps
 import com.digitalasset.canton.platform.participant.util.LfEngineToApi
@@ -140,8 +139,7 @@ private[events] object TransactionLogUpdatesConversions {
               filter = TemplatePartiesFilter(Map.empty, requestingParties),
               eventProjectionProperties = EventProjectionProperties(
                 verbose = true,
-                witnessTemplateIdFilter =
-                  requestingParties.map(_ -> Set.empty[TemplateFilter]).toMap,
+                wildcardWitnesses = requestingParties.map(_.toString),
               ),
               lfValueTranslation = lfValueTranslation,
               traceContext = traced.traceContext,
@@ -286,7 +284,7 @@ private[events] object TransactionLogUpdatesConversions {
             requestingParties,
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              witnessTemplateIdFilter = requestingParties.map(_ -> Set.empty[TemplateFilter]).toMap,
+              wildcardWitnesses = requestingParties.map(_.toString),
             ),
             lfValueTranslation = lfValueTranslation,
             traceContext = traced.traceContext,

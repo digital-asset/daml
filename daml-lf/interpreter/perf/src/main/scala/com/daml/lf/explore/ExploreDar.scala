@@ -8,7 +8,6 @@ package explore
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
-import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
@@ -77,9 +76,10 @@ object PlaySpeedy {
     val packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
     println(s"Compiling packages... ${config.stacktracing}")
-    // TODO(#17366): Add support for LF v2 if we keep this in daml3
     val compilerConfig =
-      Compiler.Config.Default(LanguageMajorVersion.V1).copy(stacktracing = config.stacktracing)
+      Compiler.Config
+        .Default(packages.main._2.languageVersion.major)
+        .copy(stacktracing = config.stacktracing)
     val compiledPackages =
       PureCompiledPackages.build(packages.all.toMap, compilerConfig) match {
         case Right(x) => x

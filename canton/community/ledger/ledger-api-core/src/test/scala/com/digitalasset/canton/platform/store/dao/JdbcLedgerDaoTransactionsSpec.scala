@@ -184,8 +184,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             filter = TemplatePartiesFilter(Map.empty, Set(alice, bob, charlie)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              witnessTemplateIdFilter =
-                Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
+              wildcardWitnesses = Set(alice, bob, charlie),
             ),
             multiDomainEnabled = false,
           )
@@ -219,7 +218,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             filter = TemplatePartiesFilter(Map.empty, Set(alice)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              witnessTemplateIdFilter = Map(alice -> Set.empty),
+              wildcardWitnesses = Set(alice),
             ),
             multiDomainEnabled = false,
           )
@@ -232,7 +231,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             filter = TemplatePartiesFilter(Map.empty, Set(bob)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              witnessTemplateIdFilter = Map(bob -> Set.empty),
+              wildcardWitnesses = Set(bob),
             ),
             multiDomainEnabled = false,
           )
@@ -245,7 +244,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             filter = TemplatePartiesFilter(Map.empty, Set(charlie)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              witnessTemplateIdFilter = Map(charlie -> Set.empty),
+              wildcardWitnesses = Set(charlie),
             ),
             multiDomainEnabled = false,
           )
@@ -277,7 +276,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
             filter = TemplatePartiesFilter(Map(otherTemplateId -> Set(alice)), Set.empty),
-            eventProjectionProperties = EventProjectionProperties(verbose = true),
+            eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
             multiDomainEnabled = false,
           )
       )
@@ -314,7 +313,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               ),
               Set.empty,
             ),
-            eventProjectionProperties = EventProjectionProperties(verbose = true),
+            eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
             multiDomainEnabled = false,
           )
       )
@@ -358,7 +357,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               ),
               Set.empty,
             ),
-            eventProjectionProperties = EventProjectionProperties(verbose = true),
+            eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
             multiDomainEnabled = false,
           )
       )
@@ -401,7 +400,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               ),
               Set(bob),
             ),
-            eventProjectionProperties = EventProjectionProperties(verbose = true),
+            eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
             multiDomainEnabled = false,
           )
       )
@@ -430,7 +429,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           from.lastOffset,
           offset,
           TemplatePartiesFilter(Map.empty, exercise.actAs.toSet),
-          eventProjectionProperties = EventProjectionProperties(verbose = true),
+          eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
           multiDomainEnabled = false,
         )
         .runWith(Sink.seq)
@@ -463,7 +462,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           offset1,
           offset2,
           TemplatePartiesFilter(Map.empty, exercise.actAs.toSet),
-          eventProjectionProperties = EventProjectionProperties(verbose = true),
+          eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
           multiDomainEnabled = false,
         )
         .runWith(Sink.seq)
@@ -494,7 +493,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           beginOffsetFromTheFuture,
           endOffsetFromTheFuture,
           TemplatePartiesFilter(Map.empty, Set(alice)),
-          eventProjectionProperties = EventProjectionProperties(verbose = true),
+          eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
           multiDomainEnabled = false,
         )
         .runWith(Sink.seq)
@@ -543,7 +542,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             beginOffset,
             endOffset,
             TemplatePartiesFilter(Map.empty, Set(alice)),
-            eventProjectionProperties = EventProjectionProperties(verbose = true),
+            eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
             multiDomainEnabled = false,
           )
           .runWith(Sink.seq)
@@ -594,7 +593,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               from.lastOffset,
               to.lastOffset,
               cp.filter,
-              EventProjectionProperties(verbose = true),
+              EventProjectionProperties(verbose = true, Set.empty),
               multiDomainEnabled = false,
             )
             .runWith(Sink.seq)

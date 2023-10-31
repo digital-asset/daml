@@ -480,7 +480,6 @@ class ProtocolProcessorTest
       val pd = TestPendingRequestData(
         rc,
         requestSc,
-        Set.empty,
         MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
       )
       val (sut, _persistent, ephemeral) =
@@ -501,7 +500,6 @@ class ProtocolProcessorTest
       val pendingData = TestPendingRequestData(
         rc,
         requestSc,
-        Set.empty,
         MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
       )
       val (sut, _persistent, ephemeral) =
@@ -540,7 +538,6 @@ class ProtocolProcessorTest
       val pd = TestPendingRequestData(
         rc,
         requestSc,
-        Set.empty,
         MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
       )
       val (sut, _persistent, ephemeral) =
@@ -851,7 +848,6 @@ class ProtocolProcessorTest
               TestPendingRequestData(
                 rc,
                 requestSc,
-                Set.empty,
                 MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
               )
             )
@@ -975,7 +971,6 @@ class ProtocolProcessorTest
             CleanReplayData(
               rc,
               requestSc,
-              Set.empty,
               MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
             )
           )

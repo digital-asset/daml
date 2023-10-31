@@ -14,9 +14,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** A contract lookup that adds a fixed set of contracts to a `backingContractLookup`.
   *
   * @param backingContractLookup The [[ContractLookup]] to default to if no overwrite is given in `additionalContracts`
-  * @param additionalContracts Contracts in this map take precedence over contracts in `backingContractLookup`;
-  *                            contract details (ledger time, contract instance) are overwritten and
-  *                            the lower request counter wins.
+  * @param additionalContracts Contracts in this map take precedence over contracts in `backingContractLookup`
   * @throws java.lang.IllegalArgumentException if `additionalContracts` stores a contract under a wrong id
   */
 class ExtendedContractLookup(
@@ -52,13 +50,7 @@ class ExtendedContractLookup(
   )(implicit traceContext: TraceContext): OptionT[Future, StoredContract] =
     additionalContracts.get(id) match {
       case None => backingContractLookup.lookup(id)
-      case Some(inFlightContract) =>
-        backingContractLookup
-          .lookup(id)
-          .transform({
-            case None => Some(inFlightContract)
-            case Some(storedContract) => Some(storedContract.mergeWith(inFlightContract))
-          })
+      case Some(inFlightContract) => OptionT.some(inFlightContract)
     }
 
   override def lookupKey(key: LfGlobalKey)(implicit

@@ -523,18 +523,8 @@ prettyScenarioErrorError lvl (Just err) =  do
               scenarioError_LookupErrorPackageMetadata
         , label_ "Package id:" $ text $ TL.toStrict scenarioError_LookupErrorPackageId
         ]
-    ScenarioErrorErrorUpgradeValidationFailed ScenarioError_UpgradeValidationFailed {..} -> do
-       pure $ vcat
-         [ "Validation fails when trying to upgrade a contract"
-         , label_ "Contract: " $
-           prettyMay "<missing contract>"
-             (prettyContractRef lvl world)
-             scenarioError_UpgradeValidationFailedContractRef
-         , label_ "Original Template: " $
-           prettyMay "<missing interface>"
-             (prettyDefName lvl world)
-             scenarioError_UpgradeValidationFailedSrcTemplateId
-         ]
+    ScenarioErrorErrorUpgradeError ScenarioError_UpgradeError {..} -> do
+       pure $ text $ TL.toStrict scenarioError_UpgradeErrorMessage
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
   fcommasep $ map prettyParty $ S.toList $

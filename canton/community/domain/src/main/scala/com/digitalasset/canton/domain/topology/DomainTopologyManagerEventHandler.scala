@@ -128,7 +128,7 @@ class DomainTopologyManagerEventHandler(
           s"Register topology transaction response for participant ${response.participant} with requestId = ${response.requestId}",
         errMsg =
           s"Failed to send register topology transaction response for participant ${response.participant} with requestId = ${response.requestId}",
-        flagCloseable = this,
+        performUnlessClosing = this,
       )
       .flatMap { _ =>
         performUnlessClosingF("sendResponse")(store.completeResponse(response.requestId))

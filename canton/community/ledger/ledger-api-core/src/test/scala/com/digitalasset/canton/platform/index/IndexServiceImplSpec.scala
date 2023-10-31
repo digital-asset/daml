@@ -24,7 +24,7 @@ import com.digitalasset.canton.platform.index.IndexServiceImpl.{
 }
 import com.digitalasset.canton.platform.index.IndexServiceImplSpec.Scope
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
-import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.InterfaceViewFilter
+import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
 import com.digitalasset.canton.platform.store.packagemeta.{PackageMetadata, PackageMetadataView}
 import org.mockito.MockitoSugar
 import org.scalatest.flatspec.AnyFlatSpec
@@ -70,8 +70,8 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         TemplatePartiesFilter(Map(template1 -> Set(party)), Set()),
         EventProjectionProperties(
           true,
-          Map.empty[String, Set[TemplateFilter]],
-          Map(party.toString -> Map(template1 -> InterfaceViewFilter(Set(iface1), true, false))),
+          Set.empty,
+          Map(party.toString -> Map(template1 -> Projection(Set(iface1), true, false, false))),
         ),
       )
     ) // filter gets complicated, filters template1 for iface1, projects iface1
@@ -92,11 +92,11 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         ),
         EventProjectionProperties(
           true,
-          Map.empty[String, Set[TemplateFilter]],
+          Set.empty,
           Map(
             party.toString -> Map(
-              template1 -> InterfaceViewFilter(Set(iface1), true, false),
-              template2 -> InterfaceViewFilter(Set(iface1), true, false),
+              template1 -> Projection(Set(iface1), true, false, false),
+              template2 -> Projection(Set(iface1), true, false, false),
             )
           ),
         ),
@@ -121,8 +121,8 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         TemplatePartiesFilter(Map(template1 -> Set(party)), Set()),
         EventProjectionProperties(
           true,
-          Map(party -> Set.empty),
-          Map(party.toString -> Map(template1 -> InterfaceViewFilter(Set(iface1), true, false))),
+          Set(party),
+          Map(party.toString -> Map(template1 -> Projection(Set(iface1), true, false, false))),
         ),
       )
     )

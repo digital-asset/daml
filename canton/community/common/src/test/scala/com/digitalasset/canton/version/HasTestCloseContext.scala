@@ -3,16 +3,15 @@
 
 package com.digitalasset.canton.version
 
-import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
+import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
 import com.digitalasset.canton.version.HasTestCloseContext.makeTestCloseContext
 
 object HasTestCloseContext {
-  def makeTestCloseContext(loggerP: TracedLogger): CloseContext = CloseContext(new FlagCloseable {
-    override protected def timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
-    override protected def logger: TracedLogger = loggerP
-  })
+  def makeTestCloseContext(loggerP: TracedLogger): CloseContext = CloseContext(
+    FlagCloseable(loggerP, DefaultProcessingTimeouts.testing)
+  )
 }
 
 trait HasNonImplicitTestCloseContext { self: NamedLogging =>

@@ -361,8 +361,8 @@ trait ProcessingSteps[
     *                                     and their respective signatures
     * @param malformedPayloads The decryption errors and decrypted views with a wrong root hash
     * @param snapshot Snapshot of the topology state at the request timestamp
-    * @return The activeness set and the pending contracts to add to the
-    *         [[com.digitalasset.canton.participant.store.StoredContractManager]],
+    * @return The activeness set and
+    *         the contracts to store with the [[com.digitalasset.canton.participant.store.ContractStore]] in Phase 7,
     *         and the arguments for step 2.
     */
   def computeActivenessSetAndPendingContracts(
@@ -418,13 +418,10 @@ trait ProcessingSteps[
   /** Phase 3
     *
     * @param activenessSet              The activeness set for the activeness check
-    * @param pendingContracts           The pending contracts to be added to the [[com.digitalasset.canton.participant.store.StoredContractManager]],
-    *                                   along with the [[com.digitalasset.canton.protocol.TransactionId]] that created the contract
     * @param pendingDataAndResponseArgs The implementation-specific arguments needed to create the pending data and response
     */
   case class CheckActivenessAndWritePendingContracts(
       activenessSet: ActivenessSet,
-      pendingContracts: Seq[WithTransactionId[SerializableContract]],
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
   )
 
@@ -439,8 +436,7 @@ trait ProcessingSteps[
     *
     * @param pendingDataAndResponseArgs Implementation-specific data passed from [[decryptViews]]
     * @param transferLookup             Read-only interface of the [[com.digitalasset.canton.participant.store.memory.TransferCache]]
-    * @param contractLookup             Read-only interface to the [[com.digitalasset.canton.participant.store.StoredContractManager]],
-    *                                   which includes the pending contracts
+    * @param contractLookup             Read-only interface to the [[com.digitalasset.canton.participant.store.ContractStore]]
     * @param activenessResultFuture     Future of the result of the activeness check<
     * @param pendingCursor              Future to complete when the [[com.digitalasset.canton.participant.protocol.RequestJournal]]'s
     *                                   cursor for the [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.Pending]]
@@ -452,7 +448,7 @@ trait ProcessingSteps[
   def constructPendingDataAndResponse(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
-      contractLookup: ContractLookup,
+      contractLookup: ContractLookup, // TODO(i9014): remove after DAML 3.0
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       pendingCursor: Future[Unit],
       mediator: MediatorRef,
@@ -527,7 +523,7 @@ trait ProcessingSteps[
     */
   case class CommitAndStoreContractsAndPublishEvent(
       commitSet: Option[Future[CommitSet]],
-      contractsToBeStored: Set[LfContractId],
+      contractsToBeStored: Seq[WithTransactionId[SerializableContract]],
       maybeEvent: Option[TimestampedEvent],
   )
 
@@ -611,15 +607,14 @@ object ProcessingSteps {
   trait PendingRequestData {
     def requestCounter: RequestCounter
     def requestSequencerCounter: SequencerCounter
-    def pendingContracts: Set[LfContractId]
     def mediator: MediatorRef
   }
 
   object PendingRequestData {
     def unapply(
         arg: PendingRequestData
-    ): Some[(RequestCounter, SequencerCounter, Set[LfContractId], MediatorRef)] = {
-      Some((arg.requestCounter, arg.requestSequencerCounter, arg.pendingContracts, arg.mediator))
+    ): Some[(RequestCounter, SequencerCounter, MediatorRef)] = {
+      Some((arg.requestCounter, arg.requestSequencerCounter, arg.mediator))
     }
   }
 }

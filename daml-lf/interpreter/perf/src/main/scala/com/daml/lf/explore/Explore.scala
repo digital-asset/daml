@@ -11,6 +11,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.Speedy._
 import com.daml.logging.LoggingContext
+import scopt.OptionParser
 
 // Explore the execution of speedy machine on small examples.
 
@@ -22,12 +23,10 @@ object PlaySpeedy {
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
-  // TODO(#17366): Add support for LF v2 if we keep this in daml3
-  private[this] val compilerConfig =
-    Compiler.Config.Default(LanguageMajorVersion.V1).copy(stacktracing = Compiler.FullStackTrace)
-
-  def main(args0: List[String]) = {
-    val config: Config = parseArgs(args0)
+  def main(args: List[String]) = {
+    val config: Config = parseArgsOrDie(args)
+    val compilerConfig =
+      Compiler.Config.Default(config.majorLfVersion).copy(stacktracing = Compiler.FullStackTrace)
     val compiler: Compiler = new Compiler(PackageInterface.Empty, compilerConfig)
 
     val names: List[String] = config.names match {
@@ -44,28 +43,45 @@ object PlaySpeedy {
   }
 
   final case class Config(
-      names: List[String]
+      majorLfVersion: LanguageMajorVersion,
+      names: List[String],
   )
 
-  def usage(): Unit = {
-    println("""
-     |usage: explore [EXAMPLES]
-     |default: run all known examples
-    """.stripMargin)
+  private val argsParser = new OptionParser[Config]("explore") {
+    implicit val majorLanguageVersionRead: scopt.Read[LanguageMajorVersion] =
+      scopt.Read.reads(s =>
+        LanguageMajorVersion.fromString(s) match {
+          case Some(v) => v
+          case None => throw new IllegalArgumentException(s"$s is not a valid major LF version")
+        }
+      )
+
+    opt[LanguageMajorVersion]('v', "major-lf-version")
+      .optional()
+      .valueName("version")
+      .text("the major version of LF to use")
+      .action((v, c) => c.copy(majorLfVersion = v))
+
+    arg[String]("<name> ...")
+      .unbounded()
+      .optional()
+      .text("examples to run, runs all examples if not specified")
+      .action((n, c) => c.copy(names = c.names ++ List(n)))
+
+    help('h', "help")
+      .text("prints this usage text")
   }
 
-  def parseArgs(args0: List[String]): Config = {
-    var names: List[String] = Nil
-    def loop(args: List[String]): Unit = args match {
-      case Nil => {}
-      case "-h" :: _ => usage()
-      case "--help" :: _ => usage()
-      case name :: args =>
-        names = names ++ List(name)
-        loop(args)
+  private def parseArgs(args: Seq[String]): Option[Config] = argsParser.parse(
+    args,
+    Config(majorLfVersion = LanguageMajorVersion.V1, names = List()),
+  )
+
+  private def parseArgsOrDie(args: Seq[String]): Config = {
+    parseArgs(args) match {
+      case Some(config) => config
+      case None => sys.exit(1)
     }
-    loop(args0)
-    Config(names)
   }
 
   def runMachine(machine: PureMachine, expected: Int): Unit = {

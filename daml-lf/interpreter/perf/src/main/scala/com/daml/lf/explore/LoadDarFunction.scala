@@ -7,7 +7,6 @@ package explore
 
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
-import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -24,10 +23,9 @@ object LoadDarFunction extends App {
 
     val packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
-    // TODO(#17366): Add support for LF v2 if we keep this in daml3
     val compilerConfig =
       Compiler.Config
-        .Default(LanguageMajorVersion.V1)
+        .Default(packages.main._2.languageVersion.major)
         .copy(
           stacktracing = Compiler.NoStackTrace
         )

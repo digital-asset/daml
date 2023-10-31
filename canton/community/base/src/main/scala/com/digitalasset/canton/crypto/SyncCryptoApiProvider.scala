@@ -163,7 +163,7 @@ object SyncCryptoClient {
       client.awaitSnapshotUSSupervised(description)(timestamp)(traceContext),
     { (snapshot, traceContext) =>
       {
-        closeContext.flagCloseable.performUnlessClosingF(
+        closeContext.context.performUnlessClosingF(
           "get-dynamic-domain-parameters"
         ) {
           snapshot

@@ -1283,7 +1283,7 @@ object SequencerClient {
       delay: FiniteDuration,
       sendDescription: String,
       errMsg: String,
-      flagCloseable: FlagCloseable,
+      performUnlessClosing: PerformUnlessClosing,
   )(implicit
       ec: ExecutionContext,
       loggingContext: ErrorLoggingContext,
@@ -1304,7 +1304,7 @@ object SequencerClient {
       } yield ()
     }
     retry
-      .Pause(loggingContext.logger, flagCloseable, maxRetries, delay, sendDescription)
+      .Pause(loggingContext.logger, performUnlessClosing, maxRetries, delay, sendDescription)
       .unlessShutdown(doSend(), AllExnRetryable)(
         retry.Success.always,
         ec,

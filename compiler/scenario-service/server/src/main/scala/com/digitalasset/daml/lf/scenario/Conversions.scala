@@ -266,14 +266,10 @@ final class Conversions(
                         .setExpected(convertIdentifier(expected))
                         .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
                     )
-                  case Dev.UpgradeValidationFailed(coid, srcTmp, dstTmpl, signs, obss, keyOpt, _) =>
-                    val errorBuilder = proto.ScenarioError.UpgradeValidationFailed.newBuilder
-                      .setContractRef(mkContractRef(coid, dstTmpl))
-                      .setSrcTemplateId(convertIdentifier(srcTmp))
-                      .addAllSignatories(signs.toSet[String].asJava)
-                      .addAllObservers(obss.toSet[String].asJava)
-                    keyOpt.foreach(key => errorBuilder.setKey(convertKeyWithMaintainers(key)))
-                    builder.setUpgradeValidationFailed(errorBuilder)
+                  case _: Dev.Upgrade =>
+                    proto.ScenarioError.UpgradeError.newBuilder.setMessage(
+                      speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                    )
                 }
               case err @ Dev(_, _) =>
                 builder.setCrash(s"Unexpected Dev error: " + err.toString)

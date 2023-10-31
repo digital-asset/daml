@@ -7,9 +7,9 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.lifecycle.{
-  FlagCloseable,
   FutureUnlessShutdown,
   OnShutdownRunner,
+  PerformUnlessClosing,
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -48,14 +48,14 @@ object DelayUtil extends NamedLogging {
     *
     * Try to use `Clock` instead!
     */
-  def delay(name: String, delay: FiniteDuration, flagCloseable: FlagCloseable)(implicit
-      traceContext: TraceContext
+  def delay(name: String, delay: FiniteDuration, performUnlessClosing: PerformUnlessClosing)(
+      implicit traceContext: TraceContext
   ): Future[Unit] =
     this.delay(
       scheduledExecutorService,
       delay,
       { promise =>
-        val _ = flagCloseable.performUnlessClosing(name)(promise.success(()))
+        val _ = performUnlessClosing.performUnlessClosing(name)(promise.success(()))
       },
     )
 

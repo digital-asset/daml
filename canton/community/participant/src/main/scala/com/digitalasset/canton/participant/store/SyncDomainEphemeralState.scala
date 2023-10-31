@@ -96,8 +96,9 @@ class SyncDomainEphemeralState(
     startingPoints.cleanReplay.nextSequencerCounter,
     loggerFactory,
   )
-  val storedContractManager =
-    new StoredContractManager(persistentState.contractStore, loggerFactory)
+
+  val contractStore: ContractStore = persistentState.contractStore
+
   val transferCache =
     new TransferCache(persistentState.transferStore, loggerFactory)
 
@@ -208,7 +209,7 @@ trait SyncDomainEphemeralStateLookup {
 
   def sessionKeyStoreLookup: SessionKeyStore = sessionKeyStore
 
-  def contractLookup: ContractLookup = storedContractManager
+  def contractLookup: ContractLookup = contractStore
 
   def transferLookup: TransferLookup = transferCache
 

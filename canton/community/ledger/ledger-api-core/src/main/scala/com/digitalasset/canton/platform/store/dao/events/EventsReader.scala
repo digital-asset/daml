@@ -10,7 +10,6 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.digitalasset.canton.ledger.api.domain.TemplateFilter
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform
@@ -46,9 +45,7 @@ private[dao] sealed class EventsReader(
       // Used by LfEngineToApi
       verbose = true,
       // Needed to get create arguments mapped
-      witnessTemplateIdFilter = requestingParties.map(_ -> Set.empty[TemplateFilter]).toMap,
-      // We do not need interfaces mapped
-      witnessInterfaceViewFilter = Map.empty,
+      wildcardWitnesses = requestingParties.map(_.toString),
     )
 
     for {
@@ -101,9 +98,7 @@ private[dao] sealed class EventsReader(
       // Used by LfEngineToApi
       verbose = true,
       // Needed to get create arguments mapped
-      witnessTemplateIdFilter = requestingParties.map(_ -> Set.empty[TemplateFilter]).toMap,
-      // We do not need interfaces mapped
-      witnessInterfaceViewFilter = Map.empty,
+      wildcardWitnesses = requestingParties.map(_.toString),
     )
 
     for {

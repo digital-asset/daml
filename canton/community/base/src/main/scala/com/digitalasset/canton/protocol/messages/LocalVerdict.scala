@@ -521,9 +521,8 @@ object LocalReject extends LocalRejectionGroup {
     @Resolution("""In the first instance, resubmit your transaction.
         | If the rejection still appears spuriously, consider increasing the `participantResponseTimeout` or
         | `mediatorReactionTimeout` values in the `DynamicDomainParameters`.
-        | If the rejection appears unrelated to timeout settings, validate that all other Canton components
-        |   which take part in the transaction also function correctly and that, e.g., messages are not stuck at the
-        |   sequencer.
+        | If the rejection appears unrelated to timeout settings, validate that the sequencer and mediator
+        | function correctly.
         |""")
     object LocalTimeout
         extends LocalRejectErrorCode(

@@ -114,7 +114,7 @@ class TransactionProcessingSteps(
     modelConformanceChecker: ModelConformanceChecker,
     staticDomainParameters: StaticDomainParameters,
     crypto: DomainSyncCryptoClient,
-    storedContractManager: StoredContractManager,
+    contractStore: ContractStore,
     metrics: TransactionProcessingMetrics,
     serializableContractAuthenticator: SerializableContractAuthenticator,
     authenticationValidator: AuthenticationValidator,
@@ -762,10 +762,6 @@ class TransactionProcessingSteps(
 
     val fullViewTrees = fullViewsWithSignatures.map { case (view, _) => view.unwrap }
 
-    // The transaction ID is the root hash and all `decryptedViews` have the same root hash
-    // so we can take any.
-    val transactionId = fullViewTrees.head1.transactionId
-
     val policy = {
       val candidates = fullViewTrees.map(_.confirmationPolicy).toSet
       // The decryptedViews should all have the same root hash and therefore the same confirmation policy.
@@ -813,12 +809,8 @@ class TransactionProcessingSteps(
 
       val activenessSet = usedAndCreated.activenessSet
 
-      val pendingContracts =
-        usedAndCreated.contracts.created.values.map(WithTransactionId(_, transactionId)).toList
-
       CheckActivenessAndWritePendingContracts(
         activenessSet,
-        pendingContracts,
         PendingDataAndResponseArgs(
           enrichedTransaction,
           ts,
@@ -1364,19 +1356,18 @@ class TransactionProcessingSteps(
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
     val commitSetF = Future.successful(commitSet)
-    val contractsToBeStored = createdContracts.keySet
+    val contractsToBeStored = createdContracts.values.toSeq.map(WithTransactionId(_, txId))
 
-    def storeDivulgedContracts: EitherT[Future, TransactionProcessorError, Unit] =
-      storedContractManager
+    def storeDivulgedContracts: Future[Unit] =
+      contractStore
         .storeDivulgedContracts(
           requestCounter,
           witnessedAndDivulged.values.toSeq,
         )
-        .leftMap(TransactionProcessor.FailedToStoreContract)
 
     for {
       // Store the divulged contracts in the contract store
-      _ <- storeDivulgedContracts
+      _ <- EitherT.right(storeDivulgedContracts)
 
       lfTxId <- EitherT
         .fromEither[Future](txId.asLedgerTransactionId)
@@ -1555,7 +1546,7 @@ class TransactionProcessingSteps(
         event <- EitherT.fromEither[Future](
           createRejectionEvent(RejectionArgs(pendingRequestData, rejection))
         )
-      } yield CommitAndStoreContractsAndPublishEvent(None, Set(), event)
+      } yield CommitAndStoreContractsAndPublishEvent(None, Seq(), event)
     }
 
     for {
