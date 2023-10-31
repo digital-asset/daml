@@ -2178,45 +2178,51 @@ private[lf] object SBuiltin {
           f(SValue.SAnyContract(templateId, templateArg))
         }
       case None =>
-        machine.lookupContract(coid) { case V.ContractInstance(srcTemplateId, coinstArg) =>
-          val (upgradingIsEnabled, destTemplateId) = optTargetTemplateId match {
+        machine.lookupContract(coid) { case V.ContractInstance(srcTmplId, coinstArg) =>
+          val (upgradingIsEnabled, dstTmplId) = optTargetTemplateId match {
             case Some(tycon) =>
               (true, tycon)
             case None =>
-              (false, srcTemplateId) // upgrading not enabled; import at source type
+              (false, srcTmplId) // upgrading not enabled; import at source type
           }
-          machine.ensurePackageIsLoaded(
-            destTemplateId.packageId,
-            language.Reference.Template(destTemplateId),
-          ) { () =>
-            importValue(machine, destTemplateId, coinstArg) { templateArg =>
-              getContractInfo(machine, coid, destTemplateId, templateArg, keyOpt) { contract =>
-                ensureContractActive(machine, coid, contract.templateId) {
+          if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
+            Control.Error(
+              IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
+            )
+          else
+            machine.ensurePackageIsLoaded(
+              dstTmplId.packageId,
+              language.Reference.Template(dstTmplId),
+            ) { () =>
+              importValue(machine, dstTmplId, coinstArg) { templateArg =>
+                getContractInfo(machine, coid, dstTmplId, templateArg, keyOpt) { contract =>
+                  ensureContractActive(machine, coid, contract.templateId) {
 
-                  machine.checkContractVisibility(coid, contract)
-                  machine.enforceLimitAddInputContract()
-                  machine.enforceLimitSignatoriesAndObservers(coid, contract)
+                    machine.checkContractVisibility(coid, contract)
+                    machine.enforceLimitAddInputContract()
+                    machine.enforceLimitSignatoriesAndObservers(coid, contract)
 
-                  // In Validation mode, we always call validateContractInfo
-                  // In Submission mode, we only call validateContractInfo when src != dest
-                  val needValidationCall: Boolean =
-                    if (machine.validating) {
-                      upgradingIsEnabled
+                    // In Validation mode, we always call validateContractInfo
+                    // In Submission mode, we only call validateContractInfo when src != dest
+                    val needValidationCall: Boolean =
+                      if (machine.validating) {
+                        upgradingIsEnabled
+                      } else {
+                        // we already check qualified names match
+                        upgradingIsEnabled && (srcTmplId.packageId != dstTmplId.packageId)
+                      }
+                    if (needValidationCall) {
+
+                      validateContractInfo(machine, coid, srcTmplId, contract) { () =>
+                        f(contract.any)
+                      }
                     } else {
-                      upgradingIsEnabled && (srcTemplateId != destTemplateId)
-                    }
-                  if (needValidationCall) {
-
-                    validateContractInfo(machine, coid, srcTemplateId, contract) { () =>
                       f(contract.any)
                     }
-                  } else {
-                    f(contract.any)
                   }
                 }
               }
             }
-          }
         }
     }
   }
@@ -2248,14 +2254,16 @@ private[lf] object SBuiltin {
           Control.Error(
             IE.Dev(
               NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.UpgradeValidationFailed(
-                coid = coid,
-                srcTemplateId = srcTemplateId,
-                dstTemplateId = contract.templateId,
-                signatories = contract.signatories,
-                observers = contract.observers,
-                keyOpt = keyOpt,
-                msg = msg,
+              IE.Dev.Upgrade(
+                IE.Dev.Upgrade.ValidationFailed(
+                  coid = coid,
+                  srcTemplateId = srcTemplateId,
+                  dstTemplateId = contract.templateId,
+                  signatories = contract.signatories,
+                  observers = contract.observers,
+                  keyOpt = keyOpt,
+                  msg = msg,
+                )
               ),
             )
           )
