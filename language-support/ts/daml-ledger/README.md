@@ -34,7 +34,7 @@ base URL and a websocket base URL.
 
 An instance of the `Ledger` class provides the following methods to communicate with a Daml ledger.
 Please consult the
-[documentation](https://docs.daml.com/app-dev/bindings-ts/daml-ledger/classes/_index_.ledger.html)
+[documentation](https://docs.daml.com/app-dev/bindings-ts/daml-ledger/classes/Ledger.html)
 for their exact signatures.
 
 `create`
