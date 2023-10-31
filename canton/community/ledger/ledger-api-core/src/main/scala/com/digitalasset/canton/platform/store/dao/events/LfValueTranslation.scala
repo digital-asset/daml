@@ -334,7 +334,7 @@ final class LfValueTranslation(
       createArgumentsBlob = apiContractData.createArgumentsBlob,
       contractKey = apiContractData.contractKey,
       interfaceViews = apiContractData.interfaceViews,
-      createEventPayload = apiContractData.createEventPayload.getOrElse(ByteString.EMPTY),
+      createdEventBlob = apiContractData.createdEventBlob.getOrElse(ByteString.EMPTY),
     )
   }
 
@@ -486,12 +486,12 @@ final class LfValueTranslation(
       Future(ValueSerializer.serializeValueAny(value, "Cannot serialize contractArgumentsBlob"))
     )
 
-    val asyncCreateEventPayload = condFuture(renderResult.createEventPayload) {
+    val asyncCreateEventPayload = condFuture(renderResult.createdEventBlob) {
       (for {
         fatInstance <- fatContractInstance
         encoded <- TransactionCoder.encodeFatContractInstance(fatInstance).left.map(_.errorMessage)
       } yield encoded).fold(
-        err => Future.failed(new RuntimeException(s"Cannot serialize createEventPayload: $err")),
+        err => Future.failed(new RuntimeException(s"Cannot serialize createdEventBlob: $err")),
         Future.successful,
       )
     }
@@ -499,13 +499,13 @@ final class LfValueTranslation(
     for {
       contractArguments <- asyncContractArguments
       contractArgumentsBlob <- asyncContractArgumentsBlob
-      createEventPayload <- asyncCreateEventPayload
+      createdEventBlob <- asyncCreateEventPayload
       contractKey <- asyncContractKey
       interfaceViews <- asyncInterfaceViews
     } yield ApiContractData(
       createArguments = contractArguments,
       createArgumentsBlob = contractArgumentsBlob,
-      createEventPayload = createEventPayload,
+      createdEventBlob = createdEventBlob,
       contractKey = contractKey,
       interfaceViews = interfaceViews,
     )
@@ -632,7 +632,7 @@ object LfValueTranslation {
   final case class ApiContractData(
       createArguments: Option[ApiRecord],
       createArgumentsBlob: Option[protobuf.any.Any],
-      createEventPayload: Option[ByteString],
+      createdEventBlob: Option[ByteString],
       contractKey: Option[ApiValue],
       interfaceViews: Seq[InterfaceView],
   )
