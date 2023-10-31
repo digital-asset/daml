@@ -55,6 +55,8 @@ import Control.Lens (view)
 import qualified Data.Map.Strict as M
 import qualified Data.List.NonEmpty as NonEmpty
 
+import GHC.Stack
+
 -- | Determine SDK version of running daml assistant. Fails with an
 -- AssistantError exception if the version cannot be determined.
 getAssistantSdkVersion :: UseCache -> IO ReleaseVersion
@@ -155,7 +157,7 @@ extractReleasesFromSnapshots snapshots =
 
         -- Group versions by their major version number, filtering out snapshots
         majorMap :: M.Map Int (NonEmpty.NonEmpty ReleaseVersion)
-        majorMap = distinguishBy (view V.major . releaseVersion) (filter isReleaseVersion snapshots)
+        majorMap = distinguishBy (view V.major . releaseVersionFromReleaseVersion) (filter isReleaseVersion snapshots)
     in
     case M.maxView majorMap of
       Just (latestMajorVersions, withoutLatestMajor) ->
@@ -319,20 +321,24 @@ instance Exception CouldNotResolveVersion where
     displayException (CouldNotResolveReleaseVersion version) = "Could not resolve release version " <> T.unpack (V.toText (unwrapUnresolvedReleaseVersion version))
     displayException (CouldNotResolveSdkVersion version) = "Could not resolve SDK version " <> T.unpack (V.toText (unwrapSdkVersion version))
 
-resolveReleaseVersion :: UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
+resolveReleaseVersion :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
+resolveReleaseVersion _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
 resolveReleaseVersion useCache targetVersion = do
     let isTargetVersion version =
           unwrapUnresolvedReleaseVersion targetVersion == releaseVersionFromReleaseVersion version
-    (releaseVersions, _) <- getAvailableReleaseVersions useCache
+    (releaseVersions, _) <- getAvailableSdkSnapshotVersions useCache
+    writeFile "/home/dylan-thinnes/log1" (show targetVersion)
+    writeFile "/home/dylan-thinnes/log2" (show releaseVersions)
     case filter isTargetVersion releaseVersions of
       (x:_) -> pure x
       [] -> throwIO (CouldNotResolveReleaseVersion targetVersion)
 
 resolveSdkVersionToRelease :: UseCache -> SdkVersion -> IO ReleaseVersion
+resolveSdkVersionToRelease _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
 resolveSdkVersionToRelease useCache targetVersion = do
     let isTargetVersion version =
           unwrapSdkVersion targetVersion == sdkVersionFromReleaseVersion version
-    (releaseVersions, _) <- getAvailableReleaseVersions useCache
+    (releaseVersions, _) <- getAvailableSdkSnapshotVersions useCache
     case filter isTargetVersion releaseVersions of
       (x:_) -> pure x
       [] -> throwIO (CouldNotResolveSdkVersion targetVersion)

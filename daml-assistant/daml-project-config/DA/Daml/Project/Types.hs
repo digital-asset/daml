@@ -56,7 +56,7 @@ newtype UnresolvedReleaseVersion = UnresolvedReleaseVersion
 
 data ReleaseVersion
   = SplitReleaseVersion
-      { releaseVersion :: V.Version
+      { releaseReleaseVersion :: V.Version
       , releaseSdkVersion :: V.Version
       }
   | OldReleaseVersion
@@ -114,8 +114,23 @@ versionToText (SplitReleaseVersion releaseVersion _) = V.toText releaseVersion
 sdkVersionToText :: SdkVersion -> Text
 sdkVersionToText = V.toText . unwrapSdkVersion
 
-isHeadVersion :: ReleaseVersion -> Bool
-isHeadVersion v = "0.0.0" == versionToString v
+class IsVersion a where
+    isHeadVersion :: a -> Bool
+
+instance IsVersion ReleaseVersion where
+    isHeadVersion v = "0.0.0" == versionToString v
+
+instance IsVersion UnresolvedReleaseVersion where
+    isHeadVersion v = "0.0.0" == V.toString (unwrapUnresolvedReleaseVersion v)
+
+instance IsVersion SdkVersion where
+    isHeadVersion v = "0.0.0" == T.unpack (sdkVersionToText v)
+
+headReleaseVersion :: ReleaseVersion
+headReleaseVersion =
+    OldReleaseVersion $ case V.fromText "0.0.0" of
+                          Left msg -> error ("headReleaseVersion: Couldn't parse '0.0.0' as a version. Error: " ++ msg)
+                          Right v -> v
 
 data InvalidVersion = InvalidVersion
     { ivSource :: !Text -- ^ invalid version

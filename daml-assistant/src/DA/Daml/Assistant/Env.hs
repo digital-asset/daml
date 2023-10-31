@@ -17,6 +17,7 @@ module DA.Daml.Assistant.Env
     , getDispatchEnv
     , envUseCache
     , forceEnv
+    , mkUseCache
     ) where
 
 import DA.Daml.Assistant.Types

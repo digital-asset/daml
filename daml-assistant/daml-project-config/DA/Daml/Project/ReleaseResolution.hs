@@ -12,6 +12,7 @@ module DA.Daml.Project.ReleaseResolution
     -- , getSdkVersionFromEnterpriseVersion
     , queryArtifactoryApiKey
     , ArtifactoryApiKey(..)
+    , resolveReleaseVersionFromGithub
     ) where
 
 import Control.Exception.Safe

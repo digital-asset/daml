@@ -199,12 +199,12 @@ runCommand env@Env{..} = \case
                 , damlPath = envDamlPath
                 , overrideTimeout = if vForceRefresh then Just (CacheTimeout 1) else Nothing
                 }
-        installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
+        installedVersionsE <- tryAssistant $ getInstalledSdkVersions useCache envDamlPath
         snapshotVersionsEUnfiltered <- tryAssistant $ fst <$> getAvailableSdkSnapshotVersions useCache
         let snapshotVersionsE = if vSnapshots then snapshotVersionsEUnfiltered else pure []
             availableVersionsE = extractReleasesFromSnapshots <$> snapshotVersionsEUnfiltered
-        defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
-        projectVersionM <- mapM getSdkVersionFromProjectPath envProjectPath
+        defaultVersionM <- tryAssistantM $ getDefaultSdkVersion useCache envDamlPath
+        projectVersionM <- mapM (getSdkVersionFromProjectPath useCache) envProjectPath
         envSelectedVersionM <- lookupEnv sdkVersionEnvVar
 
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
@@ -271,7 +271,8 @@ runCommand env@Env{..} = \case
     Builtin (Install options) -> wrapErr "Installing the SDK." $ do
         install options envDamlPath (envUseCache env) envProjectPath envDamlAssistantSdkVersion
 
-    Builtin (Uninstall version) -> do
+    Builtin (Uninstall unresolvedVersion) -> do
+        version <- resolveReleaseVersion (envUseCache env) unresolvedVersion
         uninstallVersion env version
 
     Builtin (Exec cmd args) -> do
