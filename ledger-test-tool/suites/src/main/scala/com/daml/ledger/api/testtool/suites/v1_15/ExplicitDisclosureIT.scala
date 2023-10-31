@@ -12,50 +12,38 @@ import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEvents
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.commands.DisclosedContract.{Arguments => ProtoArguments}
+import com.daml.ledger.api.v1.commands.DisclosedContract.Arguments
 import com.daml.ledger.api.v1.commands.{
   Command,
   CreateCommand,
   DisclosedContract,
   ExerciseByKeyCommand,
 }
+import com.daml.ledger.api.v1.contract_metadata.ContractMetadata
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
-  InterfaceFilter,
+  TemplateFilter,
   TransactionFilter,
 }
-import com.daml.ledger.api.v1.transaction_service.GetTransactionsRequest
-import com.daml.ledger.api.v1.value
-import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
-import com.daml.ledger.api.validation.NoLoggingValueValidator
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.client.binding
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test._
-import com.daml.ledger.test.modelext.TestExtension.IDelegated
-import com.daml.lf.crypto
-import com.daml.lf.data.Bytes
-import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, QualifiedName}
-import com.daml.lf.value.Value.{ContractId => LfContractId}
+import com.daml.lf.transaction.TransactionCoder
 import com.google.protobuf.ByteString
-import com.google.protobuf.timestamp.Timestamp
 import scalaz.syntax.tag._
 
-import java.time.temporal.ChronoUnit
-import java.util.regex.Pattern
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
-// Allows using deprecated Protobuf fields in tests
-@annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
 final class ExplicitDisclosureIT extends LedgerTestSuite {
   import ExplicitDisclosureIT._
 
   test(
-    "EDCorrectDisclosure",
-    "Submission is successful if the correct disclosure is provided",
+    "EDCorrectEventPayloadDisclosure",
+    "Submission is successful if the correct disclosure as create_event_payload is provided",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -69,7 +57,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
         // Ensure participants are synchronized
@@ -84,51 +72,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         // Exercise the same choice, this time using correct explicit disclosure
         _ <- testContext.exerciseFetchDelegated(testContext.disclosedContract)
       } yield {
-        assertGrpcError(
-          exerciseFetchError,
-          LedgerApiErrors.ConsistencyErrors.ContractNotFound,
-          None,
-          checkDefiniteAnswerMetadata = true,
-        )
-      }
-  })
-
-  test(
-    "EDCorrectBlobDisclosure",
-    "Submission is successful if the correct disclosure as Blob is provided",
-    allocate(SingleParty, SingleParty),
-    enabled = _.explicitDisclosure,
-  )(implicit ec => {
-    case Participants(
-          Participant(ownerParticipant, owner),
-          Participant(delegateParticipant, delegate),
-        ) =>
-      for {
-        testContext <- initializeTest(
-          ownerParticipant = ownerParticipant,
-          delegateParticipant = delegateParticipant,
-          owner = owner,
-          delegate = delegate,
-          transactionFilter = filterTxBy(
-            owner,
-            template = None,
-            interface = byInterface(includeCreateArgumentsBlob = true),
-          ),
-        )
-
-        // Ensure participants are synchronized
-        _ <- synchronize(ownerParticipant, delegateParticipant)
-
-        // Exercise a choice on the Delegation that fetches the Delegated contract
-        // Fails because the submitter doesn't see the contract being fetched
-        exerciseFetchError <- testContext
-          .exerciseFetchDelegated()
-          .mustFail("the submitter does not see the contract")
-
-        // Exercise the same choice, this time using correct explicit disclosure
-        _ <- testContext.exerciseFetchDelegated(testContext.disclosedContract)
-      } yield {
-        assertEquals(testContext.disclosedContract.arguments.isCreateArgumentsBlob, true)
+        assertEquals(!testContext.disclosedContract.createdEventBlob.isEmpty, true)
 
         assertGrpcError(
           exerciseFetchError,
@@ -155,11 +99,13 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
         dummyCid <- ownerParticipant.create(owner, Dummy(owner))
-        dummyTxs <- ownerParticipant.flatTransactionsByTemplateId(Dummy.id, owner)
+        dummyTxs <- ownerParticipant.flatTransactions(
+          ownerParticipant.getTransactionsRequest(filterByPartyAndTemplate(owner, Dummy.id.unwrap))
+        )
         dummyCreate = createdEvents(dummyTxs(0)).head
         dummyDisclosedContract = createEventToDisclosedContract(dummyCreate)
 
@@ -201,13 +147,15 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           ) =>
         for {
           // Create contract with `owner` as only stakeholder
-          response <- ownerParticipant.submitAndWaitForTransaction(
+          _ <- ownerParticipant.submitAndWait(
             ownerParticipant.submitAndWaitRequest(owner, WithKey(owner).create.command)
           )
-          withKeyCreationTx = assertSingleton(
-            context = "Transaction expected non-empty",
-            as = response.transaction.toList,
+          txs <- ownerParticipant.flatTransactions(
+            ownerParticipant.getTransactionsRequest(
+              filterByPartyAndTemplate(owner, WithKey.id.unwrap)
+            )
           )
+          withKeyCreationTx = assertSingleton("Transaction expected non-empty", txs)
           withKeyCreate = createdEvents(withKeyCreationTx).head
           withKeyDisclosedContract = createEventToDisclosedContract(withKeyCreate)
 
@@ -239,63 +187,6 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
   }
 
   test(
-    "EDMetadata",
-    "All create events have correctly-defined metadata",
-    allocate(Parties(2)),
-  )(implicit ec => { case Participants(Participant(ledger, owner, delegate)) =>
-    val contractKey = ledger.nextKeyId()
-    for {
-      _ <- ledger.create(owner, Delegated(owner, contractKey))
-      _ <- ledger.create(owner, Delegation(owner, delegate))
-      flats <- ledger.flatTransactions(owner)
-      trees <- ledger.transactionTrees(owner)
-      someTransactionId = flats.head.transactionId
-      flatById <- ledger.flatTransactionById(someTransactionId, owner)
-      treeById <- ledger.transactionTreeById(someTransactionId, owner)
-      acs <- ledger.activeContracts(owner)
-    } yield {
-      assertDisclosedContractsMetadata[Transaction](
-        streamType = "flatTransactions",
-        expectedCount = 2,
-        streamResponses = flats,
-        toCreateEvents = createdEvents,
-        toLedgerEffectiveTime = _.getEffectiveAt,
-      )
-      assertDisclosedContractsMetadata[TransactionTree](
-        streamType = "transactionTrees",
-        expectedCount = 2,
-        streamResponses = trees,
-        toCreateEvents = createdEvents,
-        toLedgerEffectiveTime = _.getEffectiveAt,
-      )
-      assertDisclosedContractsMetadata[CreatedEvent](
-        streamType = "activeContracts",
-        expectedCount = 2,
-        streamResponses = acs,
-        toCreateEvents = Vector(_),
-        // ACS does not have effectiveAt, so use the one from the other streams (should be the roughly same)
-        toLedgerEffectiveTime = _ => trees.head.getEffectiveAt,
-      )
-
-      assertDisclosedContractsMetadata[Transaction](
-        streamType = "flatTransactionById",
-        expectedCount = 1,
-        streamResponses = Vector(flatById),
-        toCreateEvents = createdEvents,
-        toLedgerEffectiveTime = _.getEffectiveAt,
-      )
-
-      assertDisclosedContractsMetadata[TransactionTree](
-        streamType = "transactionTreeById",
-        expectedCount = 1,
-        streamResponses = Vector(treeById),
-        toCreateEvents = createdEvents,
-        toLedgerEffectiveTime = _.getEffectiveAt,
-      )
-    }
-  })
-
-  test(
     "EDArchivedDisclosedContracts",
     "The ledger rejects archived disclosed contracts",
     allocate(SingleParty, SingleParty),
@@ -311,7 +202,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
         // Archive the disclosed contract
@@ -377,8 +268,8 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
   })
 
   test(
-    "EDInconsistentDisclosedContracts",
-    "The ledger rejects disclosed contracts with inconsistent metadata",
+    "EDMalformedDisclosedContractPayload",
+    "The ledger rejects disclosed contracts with a malformed disclosed contract payload",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -392,51 +283,35 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
-
-        //      // TODO ED: Enable once the check (https://github.com/digital-asset/daml/issues/16068)
-        //      //          is implemented in command interpretation.
-        //      // Exercise a choice using invalid explicit disclosure (bad contract key)
-        //      errorBadKey <- testContext
-        //        .exerciseFetchDelegated(
-        //          testContext.disclosedContract
-        //            .update(_.metadata.contractKeyHash := ByteString.copyFromUtf8("BadKeyBadKeyBadKeyBadKeyBadKey00"))
-        //        )
-        //        .mustFail("using a mismatching contract key hash in metadata")
 
         // Ensure participants are synchronized
         _ <- synchronize(ownerParticipant, delegateParticipant)
 
-        // Exercise a choice using invalid explicit disclosure (bad ledger time)
-        _ <- testContext
+        // Exercise a choice using invalid explicit disclosure
+        failure <- testContext
           .exerciseFetchDelegated(
             testContext.disclosedContract
-              .update(
-                _.metadata.createdAt.modify(original => original.withSeconds(original.seconds + 1L))
-              )
+              .update(_.createdEventBlob.set(ByteString.copyFromUtf8("foo")))
           )
-          .mustFail("using a mismatching ledger time")
+          .mustFail("using a malformed disclosed contract create event payload")
 
-        // Exercise a choice using invalid explicit disclosure (bad payload)
-        _ <- testContext
-          .exerciseFetchDelegated(
-            testContext.disclosedContract
-              .update(
-                _.arguments := ProtoArguments.CreateArguments(
-                  Delegated(delegate, testContext.contractKey).arguments
-                )
-              )
-          )
-          .mustFail("using an invalid disclosed contract payload")
       } yield {
-        // TODO ED: Assert specific error codes once Canton error codes can be accessible from these suites
+        assertGrpcError(
+          failure,
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+          Some(
+            "The submitted command has invalid arguments: Unable to decode disclosed contract event payload: DecodeError"
+          ),
+          checkDefiniteAnswerMetadata = true,
+        )
       }
   })
 
   test(
-    "EDMalformedDisclosedContracts",
-    "The ledger rejects malformed contract payloads",
+    "EDInconsistentDisclosedContract",
+    "The ledger rejects inconsistent contract payloads",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -445,191 +320,52 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           Participant(delegateParticipant, delegate),
         ) =>
       for {
-        testContext <- initializeTest(
+        ownerContext <- initializeTest(
           ownerParticipant = ownerParticipant,
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
-        // This payload does not typecheck, it has different fields than the corresponding template
-        malformedArgument = Record(
-          None,
-          scala.Seq(RecordField("", Some(Value(Value.Sum.Bool(false))))),
+        // Create a new context only for the sake of getting a new disclosed contract
+        // with the same template id
+        delegateContext <- initializeTest(
+          ownerParticipant = delegateParticipant,
+          delegateParticipant = delegateParticipant,
+          owner = delegate,
+          delegate = delegate,
+          transactionFilter = filterByPartyAndTemplate(delegate),
         )
 
         // Ensure participants are synchronized
         _ <- synchronize(ownerParticipant, delegateParticipant)
 
-        _ <- testContext.dummyCreate()
+        otherSalt = TransactionCoder
+          .decodeFatContractInstance(delegateContext.disclosedContract.createdEventBlob)
+          .map(_.cantonData)
+          .getOrElse(fail("contract decode failed"))
 
-        // invalid disclosed contract (specify a hash key for a template without key)
-        err <- testContext
-          .dummyCreate(
-            testContext.disclosedContract.update(
-              _.metadata.contractKeyHash := ByteString.EMPTY
-            )
+        tamperedPayload = TransactionCoder
+          .encodeFatContractInstance(
+            TransactionCoder
+              .decodeFatContractInstance(ownerContext.disclosedContract.createdEventBlob)
+              .map(_.setSalt(otherSalt))
+              .getOrElse(fail("contract decode failed"))
           )
-          .mustFail("using a contract hash for template that does not have one")
-        _ = assertGrpcError(
-          err,
-          LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
-          Some("Missing contract key hash for the disclosed contract"),
-          checkDefiniteAnswerMetadata = true,
-        )
+          .getOrElse(fail("contract encode failed"))
 
-        // invalid disclosed contract (do not specify a hash key for a template with key)
-        err <- testContext
-          .dummyCreate(
-            testContext.disclosedContract
-              .update(_.templateId := Dummy.id.unwrap)
-              .update(_.arguments := ProtoArguments.CreateArguments(Dummy(delegate).arguments))
-          )
-          .mustFail("using a contract hash for template that does not have one")
-        _ = assertGrpcError(
-          err,
-          LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
-          Some(" Unexpected contract key hash for the disclosed contract"),
-          checkDefiniteAnswerMetadata = true,
-        )
-
-        err <- testContext
-          .dummyCreate(
-            testContext.disclosedContract
-              .update(_.arguments := ProtoArguments.CreateArguments(malformedArgument))
-          )
-          .mustFail("using a malformed contract argument")
-        _ = assertGrpcError(
-          err,
-          LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
-          Some("Expecting 2 field for record"),
-          checkDefiniteAnswerMetadata = true,
-        )
-
-        // invalid disclosed contract (bad contract key)
-        err <- testContext
-          .dummyCreate(
-            testContext.disclosedContract.update(
-              _.metadata.contractKeyHash := ByteString.copyFromUtf8(
-                "BadKeyBadKeyBadKeyBadKeyBadKey00"
-              )
-            )
-          )
-          .mustFail("using a disclosed contract with missing createdAt in contract metadata")
-        _ = assertGrpcError(
-          err,
-          LedgerApiErrors.CommandExecution.Interpreter.DisclosedContractKeyHashingError,
-          None,
-          checkDefiniteAnswerMetadata = true,
-        )
-
-        //  invalid disclosed contract (missing templateId)
-        err <- testContext
-          .dummyCreate(
-            testContext.disclosedContract
-              .update(_.modify(_.clearTemplateId))
-          )
-          .mustFail("using a disclosed contract with missing templateId")
-        _ = assertGrpcError(
-          err,
-          LedgerApiErrors.RequestValidation.MissingField,
-          None,
-          checkDefiniteAnswerMetadata = true,
-        )
-
-        // invalid disclosed contract (empty contractId)
-        err <- testContext
-          .dummyCreate(
-            testContext.disclosedContract
-              .update(_.contractId := "")
-          )
-          .mustFail("using a disclosed contract with empty contractId")
-        _ = assertGrpcError(
-          err,
-          LedgerApiErrors.RequestValidation.MissingField,
-          None,
-          checkDefiniteAnswerMetadata = true,
-        )
-
-        //  invalid disclosed contract (empty create arguments)
-        err <- testContext
-          .dummyCreate(
-            testContext.disclosedContract.update(_.modify(_.clearArguments))
-          )
-          .mustFail("using a disclosed contract with empty arguments")
-        _ = assertGrpcError(
-          err,
-          LedgerApiErrors.RequestValidation.MissingField,
-          None,
-          checkDefiniteAnswerMetadata = true,
-        )
-
-        //  invalid disclosed contract (missing contract metadata)
-        err <- testContext
-          .dummyCreate(
-            testContext.disclosedContract.update(_.modify(_.clearMetadata))
-          )
-          .mustFail("using a disclosed contract with missing contract metadata")
-        _ = assertGrpcError(
-          err,
-          LedgerApiErrors.RequestValidation.MissingField,
-          None,
-          checkDefiniteAnswerMetadata = true,
-        )
-
-        // invalid disclosed contract (missing createdAt in contract metadata)
-        err <- testContext
-          .dummyCreate(
-            testContext.disclosedContract.update(_.metadata.modify(_.clearCreatedAt))
-          )
-          .mustFail("using a disclosed contract with missing createdAt in contract metadata")
-        _ = assertGrpcError(
-          err,
-          LedgerApiErrors.RequestValidation.MissingField,
-          None,
-          checkDefiniteAnswerMetadata = true,
-        )
-      } yield ()
-  })
-
-  test(
-    "EDInconsistentCreateTimeSuperfluousDisclosedContracts",
-    "The ledger reject superfluous disclosed contracts with mismatching create time",
-    allocate(SingleParty, SingleParty),
-    enabled = _.explicitDisclosure,
-  )(implicit ec => {
-    case Participants(
-          Participant(ownerParticipant, owner),
-          Participant(delegateParticipant, delegate),
-        ) =>
-      for {
-        testContext <- initializeTest(
-          ownerParticipant = ownerParticipant,
-          delegateParticipant = delegateParticipant,
-          owner = owner,
-          delegate = delegate,
-          transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
-        )
-
-        _ <- ownerParticipant.create(owner, WithKey(owner))
-        whitKeyTxs <- ownerParticipant.flatTransactionsByTemplateId(WithKey.id, owner)
-        whitKeyCreate = createdEvents(whitKeyTxs(0)).head
-        whitKeyDisclosedContract = createEventToDisclosedContract(whitKeyCreate)
-
-        // Ensure participants are synchronized
-        _ <- synchronize(ownerParticipant, delegateParticipant)
-
-        // Exercise a choice using invalid explicit disclosure (bad ledger time)
-        _ <- testContext
+        _ <- ownerContext
+          // Use of inconsistent disclosed contract
+          // i.e. the delegate cannot fetch the owner's contract with attaching a different disclosed contract
           .exerciseFetchDelegated(
-            testContext.disclosedContract,
-            // Provide a superfluous disclosed contract with mismatching createdAt
-            whitKeyDisclosedContract
-              .update(_.metadata.createdAt := com.google.protobuf.timestamp.Timestamp.of(1, 0)),
+            ownerContext.disclosedContract.copy(createdEventBlob = tamperedPayload)
           )
-
-      } yield ()
+          .mustFail("using an inconsistent disclosed contract create event payload")
+      } yield {
+        // TODO ED: Assert specific error codes once Canton error codes can be accessible from these suites
+        //          Should be DISCLOSED_CONTRACT_AUTHENTICATION_FAILED
+      }
   })
 
   test(
@@ -648,7 +384,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
         // Ensure participants are synchronized
@@ -659,33 +395,8 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
         // Submission with disclosed contracts with the same contract id should be rejected
         errorDuplicateContractId <- testContext
-          .dummyCreate(
-            testContext.disclosedContract,
-            testContext.disclosedContract.update(
-              // Set distinct key hash
-              _.metadata.contractKeyHash.set(ByteString.EMPTY)
-            ),
-          )
+          .dummyCreate(testContext.disclosedContract, testContext.disclosedContract)
           .mustFail("duplicate contract id")
-
-        // Submission with disclosed contracts with the same contract key hashes should be rejected
-        errorDuplicateKey <- testContext
-          .dummyCreate(
-            testContext.disclosedContract,
-            testContext.disclosedContract.update(
-              // Set distinct contract id
-              _.modify(_.update(_.contractId.modify { originalCid =>
-                val originalLfCid = LfContractId.V1.assertFromString(originalCid)
-                LfContractId
-                  .V1(
-                    discriminator = crypto.Hash.hashPrivateKey("a distinct Contract ID"),
-                    originalLfCid.suffix, // Don't change the suffix so that Canton can still parse it
-                  )
-                  .coid
-              }))
-            ),
-          )
-          .mustFail("duplicate key hash")
       } yield {
         assertGrpcError(
           errorDuplicateContractId,
@@ -695,54 +406,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           ),
           checkDefiniteAnswerMetadata = true,
         )
-
-        val expectedKeyHashString = {
-          val bytes = Bytes.fromByteString(
-            testContext.disclosedContract.metadata
-              .getOrElse(fail("metadata not present"))
-              .contractKeyHash
-          )
-          crypto.Hash.fromBytes(bytes).getOrElse(fail("Could not decode hash")).toHexString
-        }
-        assertGrpcErrorRegex(
-          errorDuplicateKey,
-          LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
-          Some(
-            Pattern.compile(
-              s"Duplicate disclosed contract key hash $expectedKeyHashString"
-            )
-          ),
-          checkDefiniteAnswerMetadata = true,
-        )
       }
-  })
-
-  test(
-    "EDNormalizedDisclosedContract",
-    "Submission works if the provided disclosed contract is normalized",
-    allocate(Parties(2)),
-    enabled = _.explicitDisclosure,
-  )(implicit ec => { case Participants(Participant(ledger, owner, party)) =>
-    disclosedContractNormalizationSubmissionTest(
-      ledger = ledger,
-      owner = owner,
-      party = party,
-      normalizedDisclosedContract = true,
-    )
-  })
-
-  test(
-    "EDNonNormalizedDisclosedContract",
-    "Submission works if the provided disclosed contract is not normalized",
-    allocate(Parties(2)),
-    enabled = _.explicitDisclosure,
-  )(implicit ec => { case Participants(Participant(ledger, owner, party)) =>
-    disclosedContractNormalizationSubmissionTest(
-      ledger = ledger,
-      owner = owner,
-      party = party,
-      normalizedDisclosedContract = false,
-    )
   })
 
   // TODO ED: Remove this test once feature is deemed stable and not configurable in Canton
@@ -762,7 +426,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
         // Ensure participants are synchronized
@@ -783,63 +447,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       }
   })
 
-  // TODO ED: Extract this assertion in generic stream/ACS tests once the feature is deemed stable
   test(
-    "EDContractDriverMetadata",
-    "The contract driver metadata is present and consistent across all endpoints",
-    allocate(SingleParty),
-    enabled = _.explicitDisclosure,
-  )(implicit ec => { case Participants(Participant(ledger, owner)) =>
-    for {
-      // Create Dummy contract
-      _ <- ledger.create(owner, Dummy(owner))
-
-      // Fetch the create across possible endpoints
-      acs <- ledger.activeContracts(owner)
-
-      flatTxs <- ledger.flatTransactions(owner)
-      flatTx = assertSingleton("Only one flat transaction expected", flatTxs)
-      flatTxById <- ledger.flatTransactionById(flatTx.transactionId, owner)
-
-      txTrees <- ledger.transactionTrees(owner)
-      txTree = assertSingleton("Only one flat transaction expected", txTrees)
-      txTreeById <- ledger.transactionTreeById(txTree.transactionId, owner)
-
-      // Extract the created event from results
-      acsCreatedEvent = assertSingleton("Only one ACS created event expected", acs)
-      flatTxCreatedEvent = assertSingleton(
-        context = "Only one flat transaction create event expected",
-        as = createdEvents(flatTx),
-      )
-      flatTxByIdCreatedEvent = assertSingleton(
-        context = "Only one flat transaction by id create event expected",
-        as = createdEvents(flatTxById),
-      )
-      txTreeCreatedEvent = assertSingleton(
-        context = "Only one transaction tree create event expected",
-        as = createdEvents(txTree),
-      )
-      txTreeByIdCreatedEvent = assertSingleton(
-        context = "Only one transaction tree by id create event expected",
-        as = createdEvents(txTreeById),
-      )
-    } yield {
-      def assertDriverMetadata(createdEvent: CreatedEvent): ByteString =
-        createdEvent.metadata.getOrElse(fail("Missing metadata")).driverMetadata
-
-      val acsCreateDriverMetadata = assertDriverMetadata(acsCreatedEvent)
-      assert(!acsCreateDriverMetadata.isEmpty)
-
-      assertEquals(acsCreateDriverMetadata, assertDriverMetadata(flatTxCreatedEvent))
-      assertEquals(acsCreateDriverMetadata, assertDriverMetadata(flatTxByIdCreatedEvent))
-      assertEquals(acsCreateDriverMetadata, assertDriverMetadata(txTreeCreatedEvent))
-      assertEquals(acsCreateDriverMetadata, assertDriverMetadata(txTreeByIdCreatedEvent))
-    }
-  })
-
-  test(
-    "EDIncorrectDriverMetadata",
-    "Submission is rejected on invalid contract driver metadata",
+    "EDRejectOnPayloadAndBlobSet",
+    "Submission is rejected when both the deprecated blob and create_event_payload are set",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -853,105 +463,72 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegateParticipant = delegateParticipant,
           owner = owner,
           delegate = delegate,
-          transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
 
         // Ensure participants are synchronized
         _ <- synchronize(ownerParticipant, delegateParticipant)
 
-        _ <- testContext
+        failure <- testContext
           .exerciseFetchDelegated(
-            testContext.disclosedContract
-              .update(_.metadata.driverMetadata.set(ByteString.copyFromUtf8("00aabbcc")))
+            testContext.disclosedContract.copy(metadata = Some(ContractMetadata()))
           )
           .mustFail("Submitter forwarded a contract with invalid driver metadata")
       } yield {
-        // TODO ED: Assert specific error codes once Canton error codes can be accessible from these suites
+        assertGrpcError(
+          failure,
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+          Some(
+            "The submitted command has invalid arguments: DisclosedContract.arguments or DisclosedContract.metadata cannot be set together with DisclosedContract.create_event_payload"
+          ),
+          checkDefiniteAnswerMetadata = true,
+        )
       }
   })
 
-  private def disclosedContractNormalizationSubmissionTest(
-      ledger: ParticipantTestContext,
-      owner: binding.Primitive.Party,
-      party: binding.Primitive.Party,
-      normalizedDisclosedContract: Boolean,
-  )(implicit ec: ExecutionContext): Future[Unit] = {
-    for {
-      // Create contract with `owner` as only stakeholder
-      _ <- ledger.create(owner, WithKey(owner))
-      txs <- ledger.flatTransactions(
-        new GetTransactionsRequest(
-          ledgerId = ledger.ledgerId,
-          begin = Some(ledger.referenceOffset),
-          end = Some(ledger.end),
-          filter = Some(ledger.transactionFilter(Seq(owner))),
-          verbose = !normalizedDisclosedContract,
+  test(
+    "EDRejectOnPayloadNotSet",
+    "Submission is rejected when the disclosed contract payload is not set",
+    allocate(SingleParty, SingleParty),
+    enabled = _.explicitDisclosure,
+  )(implicit ec => {
+    case Participants(
+          Participant(ownerParticipant, owner),
+          Participant(delegateParticipant, delegate),
+        ) =>
+      for {
+        testContext <- initializeTest(
+          ownerParticipant = ownerParticipant,
+          delegateParticipant = delegateParticipant,
+          owner = owner,
+          delegate = delegate,
+          transactionFilter = filterByPartyAndTemplate(owner),
         )
-      )
-      createdEvent = createdEvents(txs(0)).head
-      disclosedContract = createEventToDisclosedContract(createdEvent)
 
-      _ <- ledger.submitAndWait(
-        exerciseWithKey_byKey_request(ledger, owner, party, Some(disclosedContract))
-      )
-    } yield ()
-  }
+        // Ensure participants are synchronized
+        _ <- synchronize(ownerParticipant, delegateParticipant)
 
-  private def assertDisclosedContractsMetadata[T](
-      streamType: String,
-      expectedCount: Int,
-      streamResponses: Vector[T],
-      toCreateEvents: T => Vector[CreatedEvent],
-      toLedgerEffectiveTime: T => Timestamp,
-  ): Unit = {
-    assertLength(streamType, expectedCount, streamResponses)
-
-    streamResponses.foreach { streamResponse =>
-      val createsInResponse = toCreateEvents(streamResponse)
-      assertSingleton("only one create event expected", createsInResponse)
-      val create = createsInResponse.head
-
-      create.metadata.fold(fail(s"Metadata not defined for $streamType")) { metadata =>
-        metadata.createdAt.fold(fail(s"created_at not defined in metadata for $streamType")) {
-          metadataCreatedAt =>
-            val txLedgerEffectiveTime = toLedgerEffectiveTime(streamResponse).asJavaInstant
-            // Assert that the two instants are within one second of each-other
-            val createdAt = metadataCreatedAt.asJavaInstant
-            assert(
-              Math.abs(
-                createdAt.until(txLedgerEffectiveTime, ChronoUnit.MILLIS)
-              ) < 10000,
-              s"The two instants should be within 10 seconds of each-other, but were: $createdAt vs $txLedgerEffectiveTime",
+        failure <- testContext
+          .exerciseFetchDelegated(
+            testContext.disclosedContract.copy(
+              metadata = None,
+              arguments = Arguments.Empty,
+              createdEventBlob = ByteString.EMPTY,
             )
-        }
-
-        create.contractKey
-          .map { cKey =>
-            val actualKeyHash =
-              crypto.Hash.assertFromBytes(Bytes.fromByteString(metadata.contractKeyHash))
-            val expectedKeyHash =
-              crypto.Hash.assertHashContractKey(
-                fromApiIdentifier(Delegated.id.unwrap)
-                  .fold(
-                    errStr => fail(s"Failed converting from API to LF Identifier: $errStr"),
-                    identity,
-                  ),
-                NoLoggingValueValidator
-                  .validateValue(cKey)
-                  .fold(err => fail("Failed converting contract key value", err), identity),
-              )
-
-            assertEquals(
-              context =
-                "the contract key hash should match the key hash provided in the disclosed contract metadata",
-              actual = actualKeyHash,
-              expected = expectedKeyHash,
-            )
-          }
-          .getOrElse(())
+          )
+          .mustFail("Submitter forwarded a contract with unpopulated create_event_payload")
+      } yield {
+        assertGrpcError(
+          failure,
+          LedgerApiErrors.RequestValidation.MissingField,
+          Some(
+            // TODO ED: Change assertion to missing create_event_payload once the deprecated fields are removed
+            "The submitted command is missing a mandatory field: DisclosedContract.arguments"
+          ),
+          checkDefiniteAnswerMetadata = true,
+        )
       }
-    }
-  }
+  })
 
   private def oneFailedWith(result1: Try[_], result2: Try[_])(
       assertError: Throwable => Unit
@@ -1048,51 +625,28 @@ object ExplicitDisclosureIT {
     )
   }
 
-  private def filterTxBy(
+  private def filterByPartyAndTemplate(
       owner: binding.Primitive.Party,
-      template: Option[value.Identifier],
-      interface: Option[InterfaceFilter],
+      templateId: Identifier = Delegated.id.unwrap,
   ): TransactionFilter =
     new TransactionFilter(
       Map(
         owner.unwrap -> new Filters(
           Some(
-            InclusiveFilters(
-              template.toList,
-              interface.toList,
+            InclusiveFilters(templateFilters =
+              Seq(TemplateFilter(Some(templateId), includeCreatedEventBlob = true))
             )
           )
         )
       )
     )
 
-  private def byTemplate: Option[value.Identifier] = Some(Delegated.id.unwrap)
-  private def byInterface(includeCreateArgumentsBlob: Boolean): Option[InterfaceFilter] = Some(
-    InterfaceFilter(
-      Some(IDelegated.id.unwrap),
-      includeInterfaceView = true,
-      includeCreateArgumentsBlob = includeCreateArgumentsBlob,
-    )
-  )
-
-  // Allows using deprecated Protobuf fields for testing
-  @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
-  private def createEventToDisclosedContract(ev: CreatedEvent): DisclosedContract = {
-    val arguments = (ev.createArguments, ev.createArgumentsBlob) match {
-      case (Some(createArguments), _) =>
-        DisclosedContract.Arguments.CreateArguments(createArguments)
-      case (_, Some(createArgumentsBlob)) =>
-        DisclosedContract.Arguments.CreateArgumentsBlob(createArgumentsBlob)
-      case _ =>
-        sys.error("createEvent arguments are empty")
-    }
+  private def createEventToDisclosedContract(ev: CreatedEvent): DisclosedContract =
     DisclosedContract(
       templateId = ev.templateId,
       contractId = ev.contractId,
-      arguments = arguments,
-      metadata = ev.metadata,
+      createdEventBlob = ev.createdEventBlob,
     )
-  }
 
   private def exerciseWithKey_byKey_request(
       ledger: ParticipantTestContext,
@@ -1124,12 +678,4 @@ object ExplicitDisclosureIT {
         ),
       )
       .update(_.commands.disclosedContracts := withKeyDisclosedContract.iterator.toSeq)
-
-  // TODO Deduplicate with Converter.fromApiIdentifier
-  private def fromApiIdentifier(id: value.Identifier): Either[String, Identifier] =
-    for {
-      packageId <- PackageId.fromString(id.packageId)
-      moduleName <- DottedName.fromString(id.moduleName)
-      entityName <- DottedName.fromString(id.entityName)
-    } yield Identifier(packageId, QualifiedName(moduleName, entityName))
 }
