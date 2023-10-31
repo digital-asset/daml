@@ -36,7 +36,6 @@ class Phase37SynchronizerTest extends AnyWordSpec with BaseTest with HasExecutio
       TestPendingRequestData(
         RequestCounter(i),
         SequencerCounter(i),
-        Set.empty,
         MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
       )
     )

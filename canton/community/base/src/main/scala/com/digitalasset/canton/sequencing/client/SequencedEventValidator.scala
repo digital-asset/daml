@@ -309,7 +309,7 @@ object SequencedEventValidator extends HasLoggerName {
     )(
       SyncCryptoClient.getSnapshotForTimestampUS _,
       (topology, traceContext) =>
-        closeContext.flagCloseable.performUnlessClosingF("get-dynamic-parameters")(
+        closeContext.context.performUnlessClosingF("get-dynamic-parameters")(
           topology.findDynamicDomainParameters()(traceContext)
         )(executionContext, traceContext),
     )

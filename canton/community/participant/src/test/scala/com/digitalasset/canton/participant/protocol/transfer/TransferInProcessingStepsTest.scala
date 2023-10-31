@@ -438,11 +438,9 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
       result match {
         case transferInProcessingSteps.CheckActivenessAndWritePendingContracts(
               activenessSet,
-              pendingContracts,
               _,
             ) =>
           assert(activenessSet == mkActivenessSet(tfIn = Set(contractId)))
-          assert(pendingContracts == Seq(WithTransactionId(contract, transactionId1)))
         case _ => fail()
       }
 

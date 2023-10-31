@@ -19,7 +19,6 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.NodeId
-import com.digitalasset.canton.ledger.api.domain.TemplateFilter
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
@@ -101,8 +100,7 @@ private[dao] final class TransactionsReader(
       requestingParties = requestingParties,
       eventProjectionProperties = EventProjectionProperties(
         verbose = true,
-        witnessTemplateIdFilter =
-          requestingParties.map(_.toString -> Set.empty[TemplateFilter]).toMap,
+        wildcardWitnesses = requestingParties.map(_.toString),
       ),
     )
   }
@@ -118,8 +116,7 @@ private[dao] final class TransactionsReader(
       requestingParties = requestingParties,
       eventProjectionProperties = EventProjectionProperties(
         verbose = true,
-        witnessTemplateIdFilter =
-          requestingParties.map(_.toString -> Set.empty[TemplateFilter]).toMap,
+        wildcardWitnesses = requestingParties.map(_.toString),
       ),
     )
   }

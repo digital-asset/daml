@@ -15,8 +15,8 @@ import scala.jdk.CollectionConverters.*
 object OnShutdownRunnerTest {
   private class TestResource() extends AutoCloseable with OnShutdownRunner with NamedLogging {
     override protected def onFirstClose(): Unit = ()
-
     override val loggerFactory = NamedLoggerFactory.root
+    override def close(): Unit = super.close()
   }
 }
 

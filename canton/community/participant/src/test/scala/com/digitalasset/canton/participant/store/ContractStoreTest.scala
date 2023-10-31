@@ -18,12 +18,13 @@ import com.digitalasset.canton.protocol.{
   ContractMetadata,
   ExampleTransactionFactory,
   SerializableContract,
+  WithTransactionId,
 }
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter}
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait ContractStoreTest { this: AsyncWordSpec with BaseTest =>
+trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
 
   protected val alice: LfPartyId = LfPartyId.assertFromString("alice")
   protected val bob: LfPartyId = LfPartyId.assertFromString("bob")
@@ -143,8 +144,10 @@ trait ContractStoreTest { this: AsyncWordSpec with BaseTest =>
     "store the same contract twice for the same id" in {
       val store = mk()
 
+      val element = WithTransactionId(contract, transactionId1)
+
       for {
-        _ <- store.storeCreatedContracts(rc, transactionId1, Seq(contract, contract))
+        _ <- store.storeCreatedContracts(rc, Seq(element, element))
         _ <- store.storeDivulgedContracts(rc, Seq(contract2, contract2))
       } yield succeed
     }
@@ -164,15 +167,14 @@ trait ContractStoreTest { this: AsyncWordSpec with BaseTest =>
 
     "succeed when storing a different contract for an existing id" must {
 
-      val updatedContract = contract.copy(ledgerCreateTime = LedgerCreateTime(let2))
       val divulgedContract2 =
-        StoredContract.fromDivulgedContract(updatedContract, rc2)
+        StoredContract.fromDivulgedContract(contract, rc2)
       "for divulged contracts" in {
         val store = mk()
 
         for {
           _ <- store.storeDivulgedContract(rc, contract)
-          _ <- store.storeDivulgedContract(rc2, updatedContract)
+          _ <- store.storeDivulgedContract(rc2, contract)
           c <- store.lookupE(contract.contractId)
         } yield c shouldBe divulgedContract2
       }
@@ -181,7 +183,7 @@ trait ContractStoreTest { this: AsyncWordSpec with BaseTest =>
         val store = mk()
 
         for {
-          _ <- store.storeDivulgedContract(rc2, updatedContract)
+          _ <- store.storeDivulgedContract(rc2, contract)
           _ <- store.storeDivulgedContract(rc, contract)
           c <- store.lookupE(contract.contractId)
         } yield c shouldBe divulgedContract2
@@ -189,7 +191,7 @@ trait ContractStoreTest { this: AsyncWordSpec with BaseTest =>
 
       val storedContract2 =
         StoredContract.fromCreatedContract(
-          updatedContract,
+          contract,
           rc2,
           transactionId2,
         )
@@ -201,7 +203,7 @@ trait ContractStoreTest { this: AsyncWordSpec with BaseTest =>
           _ <- store.storeCreatedContract(
             rc2,
             transactionId2,
-            updatedContract,
+            contract,
           )
           c <- store.lookupE(contract.contractId)
         } yield c shouldBe storedContract2
@@ -214,7 +216,7 @@ trait ContractStoreTest { this: AsyncWordSpec with BaseTest =>
           _ <- store.storeCreatedContract(
             rc2,
             transactionId2,
-            updatedContract,
+            contract,
           )
           _ <- store.storeCreatedContract(rc, transactionId1, contract)
           c <- store.lookupE(contract.contractId)
@@ -229,7 +231,7 @@ trait ContractStoreTest { this: AsyncWordSpec with BaseTest =>
           _ <- store.storeCreatedContract(
             rc2,
             transactionId2,
-            updatedContract,
+            contract,
           )
           c <- store.lookupE(contract.contractId)
         } yield c shouldBe storedContract2
@@ -242,7 +244,7 @@ trait ContractStoreTest { this: AsyncWordSpec with BaseTest =>
           _ <- store.storeCreatedContract(
             rc2,
             transactionId2,
-            updatedContract,
+            contract,
           )
           _ <- store.storeDivulgedContract(rc2 + 1, contract)
           c <- store.lookupE(contract.contractId)
@@ -257,7 +259,7 @@ trait ContractStoreTest { this: AsyncWordSpec with BaseTest =>
           _ <- store.storeCreatedContract(
             rc2,
             transactionId2,
-            updatedContract,
+            contract,
           )
           c <- store.lookupE(contract.contractId)
         } yield c shouldBe storedContract2
@@ -270,7 +272,7 @@ trait ContractStoreTest { this: AsyncWordSpec with BaseTest =>
           _ <- store.storeCreatedContract(
             rc2,
             transactionId2,
-            updatedContract,
+            contract,
           )
           _ <- store.storeDivulgedContract(rc2 - 1, contract)
           c <- store.lookupE(contract.contractId)

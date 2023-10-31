@@ -5,9 +5,8 @@ package com.digitalasset.canton.util
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
+import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.lifecycle.FlagCloseable
-import com.digitalasset.canton.logging.TracedLogger
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.concurrent.TimeUnit
@@ -38,10 +37,8 @@ class DelayUtilTest extends AnyWordSpec with BaseTest {
     }
 
     "not schedule when already closing" in {
-      val flagCloseable = new FlagCloseable {
-        override protected def logger: TracedLogger = DelayUtilTest.this.logger
-        override def timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
-      }
+      val flagCloseable =
+        FlagCloseable(DelayUtilTest.this.logger, DefaultProcessingTimeouts.testing)
 
       val delayedCloseable = DelayUtil.delay("test", 20.millis, flagCloseable)
       flagCloseable.close()

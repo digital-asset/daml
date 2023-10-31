@@ -10,6 +10,7 @@ import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
   InterfaceFilter,
+  TemplateFilter,
   TransactionFilter,
 }
 import com.daml.ledger.api.v1.transaction_service.{
@@ -32,7 +33,6 @@ class TransactionServiceRequestValidatorTest
   private implicit val noLogging: ContextualizedErrorLogger = NoLogging
 
   private val templateId = Identifier(packageId, includedModule, includedTemplate)
-  private val templateIdV2 = Identifier(packageId2, includedModule, includedTemplate)
 
   private def txReqBuilder(templateIdsForParty: Seq[Identifier]) = GetTransactionsRequest(
     expectedLedgerId,
@@ -376,6 +376,277 @@ class TransactionServiceRequestValidatorTest
             metadata = Map.empty,
           )
         }
+      }
+
+      "not allow mixed (deprecated and current) definitions between parties: one has templateIds, the other has templateFilters" in {
+        requestMustFailWith(
+          request = validator.validate(
+            txReqBuilder(Seq.empty).copy(
+              filter = Some(
+                TransactionFilter(
+                  Map(
+                    // deprecated
+                    party -> Filters(
+                      Some(
+                        InclusiveFilters(
+                          templateIds = Seq(templateId),
+                          interfaceFilters = Seq.empty,
+                          templateFilters = Seq.empty,
+                        )
+                      )
+                    ),
+                    // current
+                    party2 -> Filters(
+                      Some(
+                        InclusiveFilters(
+                          templateIds = Seq.empty,
+                          interfaceFilters = Seq.empty,
+                          templateFilters = Seq(TemplateFilter(Some(templateId), false)),
+                        )
+                      )
+                    ),
+                  )
+                )
+              )
+            ),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Transaction filter should be defined entirely either with deprecated fields, or with non-deprecated fields. Mixed definition is not allowed.",
+          metadata = Map.empty,
+        )
+      }
+
+      "not allow mixed (deprecated and current) definitions between parties: one has includeCreateArgumentsBlob, the other has includeCreateEventPayload" in {
+        requestMustFailWith(
+          request = validator.validate(
+            txReqBuilder(Seq.empty).copy(
+              filter = Some(
+                TransactionFilter(
+                  Map(
+                    // deprecated
+                    party -> Filters(
+                      Some(
+                        InclusiveFilters(
+                          templateIds = Seq.empty,
+                          interfaceFilters = Seq(
+                            InterfaceFilter(
+                              interfaceId = Some(templateId),
+                              includeInterfaceView = false,
+                              includeCreateArgumentsBlob = true,
+                              includeCreateEventPayload = false,
+                            )
+                          ),
+                          templateFilters = Seq.empty,
+                        )
+                      )
+                    ),
+                    // current
+                    party2 -> Filters(
+                      Some(
+                        InclusiveFilters(
+                          templateIds = Seq.empty,
+                          interfaceFilters = Seq(
+                            InterfaceFilter(
+                              interfaceId = Some(templateId),
+                              includeInterfaceView = false,
+                              includeCreateArgumentsBlob = false,
+                              includeCreateEventPayload = true,
+                            )
+                          ),
+                          templateFilters = Seq.empty,
+                        )
+                      )
+                    ),
+                  )
+                )
+              )
+            ),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Transaction filter should be defined entirely either with deprecated fields, or with non-deprecated fields. Mixed definition is not allowed.",
+          metadata = Map.empty,
+        )
+      }
+
+      "not allow mixed (deprecated and current) definitions within one InclusiveFilter: includeCreateArgumentsBlob and includeCreateEventPayload" in {
+        requestMustFailWith(
+          request = validator.validate(
+            txReqBuilder(Seq.empty).copy(
+              filter = Some(
+                TransactionFilter(
+                  Map(
+                    party -> Filters(
+                      Some(
+                        InclusiveFilters(
+                          templateIds = Seq.empty,
+                          interfaceFilters = Seq(
+                            InterfaceFilter(
+                              interfaceId = Some(templateId),
+                              includeInterfaceView = false,
+                              includeCreateArgumentsBlob = true,
+                              includeCreateEventPayload = true,
+                            )
+                          ),
+                          templateFilters = Seq.empty,
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Transaction filter should be defined entirely either with deprecated fields, or with non-deprecated fields. Mixed definition is not allowed.",
+          metadata = Map.empty,
+        )
+      }
+
+      "not allow mixed (deprecated and current) definitions within one InclusiveFilter: templateIds and templateFilters" in {
+        requestMustFailWith(
+          request = validator.validate(
+            txReqBuilder(Seq.empty).copy(
+              filter = Some(
+                TransactionFilter(
+                  Map(
+                    party -> Filters(
+                      Some(
+                        InclusiveFilters(
+                          templateIds = Seq(templateId),
+                          interfaceFilters = Seq.empty,
+                          templateFilters = Seq(TemplateFilter(Some(templateId), false)),
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Transaction filter should be defined entirely either with deprecated fields, or with non-deprecated fields. Mixed definition is not allowed.",
+          metadata = Map.empty,
+        )
+      }
+
+      "deprecated definition populate the right domain request" in {
+        val result = validator.validate(
+          txReqBuilder(Seq.empty).copy(
+            filter = Some(
+              TransactionFilter(
+                Map(
+                  party -> Filters(
+                    Some(
+                      InclusiveFilters(
+                        templateIds = Seq(templateId),
+                        interfaceFilters = Seq(
+                          InterfaceFilter(
+                            interfaceId = Some(templateId),
+                            includeInterfaceView = true,
+                            includeCreateArgumentsBlob = true,
+                            includeCreateEventPayload = false,
+                          )
+                        ),
+                        templateFilters = Seq.empty,
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          ),
+          ledgerEnd,
+        )
+        result.map(_.filter.filtersByParty) shouldBe Right(
+          Map(
+            party -> domain.Filters(
+              Some(
+                domain.InclusiveFilters(
+                  templateFilters = Set(
+                    domain.TemplateFilter(
+                      Ref.Identifier.assertFromString("packageId:includedModule:includedTemplate"),
+                      false,
+                    )
+                  ),
+                  interfaceFilters = Set(
+                    domain.InterfaceFilter(
+                      interfaceId = Ref.Identifier.assertFromString(
+                        "packageId:includedModule:includedTemplate"
+                      ),
+                      includeView = true,
+                      includeCreateArgumentsBlob = true,
+                      includeCreateEventPayload = false,
+                    )
+                  ),
+                )
+              )
+            )
+          )
+        )
+      }
+
+      "current definition populate the right domain request" in {
+        val result = validator.validate(
+          txReqBuilder(Seq.empty).copy(
+            filter = Some(
+              TransactionFilter(
+                Map(
+                  party -> Filters(
+                    Some(
+                      InclusiveFilters(
+                        templateIds = Seq.empty,
+                        interfaceFilters = Seq(
+                          InterfaceFilter(
+                            interfaceId = Some(templateId),
+                            includeInterfaceView = true,
+                            includeCreateArgumentsBlob = false,
+                            includeCreateEventPayload = true,
+                          )
+                        ),
+                        templateFilters = Seq(TemplateFilter(Some(templateId), true)),
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          ),
+          ledgerEnd,
+        )
+        result.map(_.filter.filtersByParty) shouldBe Right(
+          Map(
+            party -> domain.Filters(
+              Some(
+                domain.InclusiveFilters(
+                  templateFilters = Set(
+                    domain.TemplateFilter(
+                      Ref.Identifier.assertFromString("packageId:includedModule:includedTemplate"),
+                      true,
+                    )
+                  ),
+                  interfaceFilters = Set(
+                    domain.InterfaceFilter(
+                      interfaceId = Ref.Identifier.assertFromString(
+                        "packageId:includedModule:includedTemplate"
+                      ),
+                      includeView = true,
+                      includeCreateArgumentsBlob = false,
+                      includeCreateEventPayload = true,
+                    )
+                  ),
+                )
+              )
+            )
+          )
+        )
       }
     }
 

@@ -158,13 +158,13 @@ object SequencerClientTransportFactory {
         retry
           .Pause(
             errorLoggingContext.logger,
-            closeContext.flagCloseable,
+            closeContext.context,
             maxRetries = attempts.toInt,
             delay = retryMs,
             operationName = name,
           )
           .unlessShutdown(
-            closeContext.flagCloseable.performUnlessClosingF(name)(check().value),
+            closeContext.context.performUnlessClosingF(name)(check().value),
             NoExnRetryable,
           )
       ).thereafter { _ =>

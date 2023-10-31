@@ -223,8 +223,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             requestingParties = Set(alice, bob, charlie),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              witnessTemplateIdFilter =
-                Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
+              wildcardWitnesses = Set(alice, bob, charlie),
             ),
             multiDomainEnabled = false,
           )
@@ -258,7 +257,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             requestingParties = Set(alice),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              witnessTemplateIdFilter = Map(alice -> Set.empty),
+              wildcardWitnesses = Set(alice),
             ),
             multiDomainEnabled = false,
           )
@@ -271,7 +270,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             requestingParties = Set(bob),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              witnessTemplateIdFilter = Map(bob -> Set.empty),
+              wildcardWitnesses = Set(bob),
             ),
             multiDomainEnabled = false,
           )
@@ -284,7 +283,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             requestingParties = Set(charlie),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
-              witnessTemplateIdFilter = Map(charlie -> Set.empty),
+              wildcardWitnesses = Set(charlie),
             ),
             multiDomainEnabled = false,
           )

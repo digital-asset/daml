@@ -11,6 +11,7 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   Lifecycle,
+  PerformUnlessClosing,
   UnlessShutdown,
 }
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -653,7 +654,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService with
     }
   }
 
-  def testStopOnClosing(policy: FlagCloseable => Policy, retriedUntilClose: Int): Unit = {
+  def testStopOnClosing(policy: PerformUnlessClosing => Policy, retriedUntilClose: Int): Unit = {
     it("should repeat until closed from within") {
       implicit val success: Success[Int] = Success.never
 
@@ -719,7 +720,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService with
     }
   }
 
-  def testClosedExecutionContext(policy: FlagCloseable => Policy): Unit = {
+  def testClosedExecutionContext(policy: PerformUnlessClosing => Policy): Unit = {
     it("should handle a closed execution context after closing") {
       val closeable = FlagCloseable(logger, DefaultProcessingTimeouts.testing)
 
@@ -753,7 +754,10 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService with
     }
   }
 
-  def testStopOnShutdown(policy: FlagCloseable => Policy, retriedUntilShutdown: Int): Unit = {
+  def testStopOnShutdown(
+      policy: PerformUnlessClosing => Policy,
+      retriedUntilShutdown: Int,
+  ): Unit = {
     it("should stop on shutdown") {
       implicit val success: Success[Boolean] = Success(identity)
       val retried = new AtomicInteger()

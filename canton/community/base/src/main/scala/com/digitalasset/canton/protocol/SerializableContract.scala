@@ -75,10 +75,7 @@ case class SerializableContract(
 
   override def pretty: Pretty[SerializableContract] = prettyOfClass(
     param("contractId", _.contractId),
-    param(
-      "instance",
-      (serContract: SerializableContract) => serContract.rawContractInstance.contractInstance,
-    )(adHocPrettyInstance), // TODO(#3269) This may leak confidential data
+    paramWithoutValue("instance"), // Do not leak confidential data (such as PII) to the log file!
     param("metadata", _.metadata),
     param("create time", _.ledgerCreateTime.ts),
     paramIfDefined("contract salt", _.contractSalt),

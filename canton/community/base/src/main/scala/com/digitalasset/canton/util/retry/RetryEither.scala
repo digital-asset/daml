@@ -59,7 +59,7 @@ object RetryEither {
   ): EitherT[UnlessShutdown, A, B] = {
     maxRetries.tailRecM { retryCount =>
       EitherT {
-        closeContext.flagCloseable
+        closeContext.context
           .performUnlessClosing(operationName)(body)(loggingContext.traceContext)
           .flatMap {
             _.value.map {
