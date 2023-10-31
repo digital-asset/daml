@@ -12,6 +12,7 @@ package object v1_15 {
       new InterfaceIT,
       new InterfaceSubscriptionsIT,
       new InterfaceSubscriptionsWithPayloadsIT,
+      new TransactionServiceFiltersIT,
       new ExplicitDisclosureIT,
       new EventQueryServiceIT,
     )
