@@ -8,6 +8,7 @@ module DA.Daml.LF.Ast.Version(module DA.Daml.LF.Ast.Version) where
 
 import           Data.Char (isDigit)
 import           Data.Data
+import           Data.List (intercalate)
 import           Data.Maybe (catMaybes)
 import           GHC.Generics
 import           DA.Pretty
@@ -406,12 +407,16 @@ Renders a FeatureVersionReq.
 "1.1 to 1.2, or 2.3 to 2.dev"
 -}
 renderFeatureVersionReq :: VersionReq -> String
-renderFeatureVersionReq (VersionReq req) =
-  orStrs $ catMaybes
-    [ renderRange (Version v) (req v)
-    | v <- [minBound @MajorVersion .. maxBound]
-    ]
+renderFeatureVersionReq (VersionReq req) = renderRanges (req V1) (req V2)
   where
+    renderRanges R.Empty R.Empty = "none"
+    renderRanges v1Range v2Range =
+      intercalate ", or " $
+        catMaybes
+            [ renderRange (Version V1) v1Range
+            , renderRange (Version V2) v2Range
+            ]
+
     renderRange cons = \case
         R.Empty -> Nothing
         R.Inclusive low high
@@ -423,11 +428,6 @@ renderFeatureVersionReq (VersionReq req) =
                     , "to"
                     , renderVersion (cons high)
                     ]
-    orStrs = \case
-      [] -> "none"
-      [x] -> x
-      [x, y] -> x <> ", or " <> y
-      x : xs -> x <> ", " <> orStrs xs
 
 instance Pretty Version where
   pPrint = string . renderVersion

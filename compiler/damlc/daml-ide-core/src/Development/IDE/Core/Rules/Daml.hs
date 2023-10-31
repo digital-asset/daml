@@ -640,9 +640,9 @@ generateStablePackages lfVersion fp = do
             let moduleName = LF.ModuleName (NonEmpty.toList $ T.splitOn "-" $ T.pack $ dropExtension $ takeFileName dalf)
             dalfPkgOrErr <- readDalfPackage dalf
             pure (fmap ((unitId, moduleName),) dalfPkgOrErr)
-    -- We only keep the stable packages that can be used as dependencies of the
-    -- package we're currently compiling. In particular, the result should only
-    -- contain packages from the same LF major version.
+    -- We filter out stable packages for newer LF versions, e.g., the stable packages for wrappers around Any.
+    -- It might seem tempting to make stable packages per LF version but this makes no sense at all.
+    -- Packages should remain stable as we move to newer LF versions. Changing the LF version would change the hash.
     pure
         ( diags
         , Map.fromList $ filter (pkgCompatibleWith lfVersion . snd) pkgs

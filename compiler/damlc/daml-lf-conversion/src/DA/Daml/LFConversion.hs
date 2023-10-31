@@ -104,7 +104,6 @@ import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
 import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 import           DA.Daml.Options.Types (EnableScenarios (..), AllowLargeTuples (..))
-import           DA.Daml.StablePackages (erasedTCon, preconditionFailedTCon, promotedTextTCon, tupleNTCon, tupleNWorker)
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -1123,7 +1122,7 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
                 ECase b
                     [ CaseAlternative (CPBool True) ETrue
                     , CaseAlternative (CPBool False)
-                        $ EThrow TBool (TCon (preconditionFailedTCon majorLfVersion))
+                        $ EThrow TBool (TCon (preconditionFailedTypeCon majorLfVersion))
                         $ mkPreconditionFailed majorLfVersion
                         $ EBuiltin BEAppendText
                             `ETmApp` EBuiltin (BEText "Template precondition violated: " )
@@ -1137,11 +1136,6 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
         | otherwise
         = b
 
-    mkPreconditionFailed :: LF.MajorVersion -> LF.Expr -> LF.Expr
-    mkPreconditionFailed major msg = ERecCon
-        { recTypeCon = TypeConApp (preconditionFailedTCon major) []
-        , recFields = [(FieldName "message", msg)]
-        }
 
 convertTemplateKey :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (Maybe TemplateKey)
 convertTemplateKey env tname TemplateBinds{..}
@@ -1602,7 +1596,7 @@ convertExpr env0 e = do
             t1 <- convertType env t1
             t2 <- convertType env t2
             let fields = [(mkField f1, t1), (mkField f2, t2)]
-            let tupleTyCon = tupleNTCon (versionMajor (envLfVersion env)) (length fields)
+            tupleTyCon <- qDA_Types env $ mkTypeCon ["Tuple" <> T.pack (show $ length fields)]
             let tupleType = TypeConApp tupleTyCon (map snd fields)
             v <- freshTmVar
             let mkFieldProj i (name, _typ) = (mkIndexedField i, EStructProj name (EVar v))
@@ -2144,13 +2138,13 @@ convertDataCon env m con args
 
     -- Partially applied
     | otherwise = do
-        fmap (\op -> (EVal op, args)) (qualWorker con)
+        fmap (\op -> (EVal op, args)) (qual mkWorkerName (getOccText con))
   where
 
     fullyApplied :: Env -> [LF.Type] -> [LF.Expr] -> ConvertM LF.Expr
     fullyApplied env tyArgs tmArgs = do
         let tycon = dataConTyCon con
-        qTCon <- qualTCon tycon
+        qTCon <- qual (\x -> mkTypeCon [x]) (getOccText tycon)
         let tcon = TypeConApp qTCon tyArgs
             ctorName = mkVariantCon (getOccText con)
             fldNames = ctorLabels con
@@ -2180,19 +2174,11 @@ convertDataCon env m con args
                     EVariantCon tcon ctorName $
                     ERecCon (TypeConApp recTCon tyArgs) (zipExact fldNames tmArgs)
 
-    qualTCon :: TyCon -> ConvertM (Qualified TypeConName)
-    qualTCon = \case
-        IsTuple arity -> pure $
-            tupleNTCon (versionMajor (envLfVersion env)) arity
-        IgnoreWorkerPrefix t ->
-            qualify env m (TypeConName [t])
-
-    qualWorker :: DataCon -> ConvertM (Qualified ExprValName)
-    qualWorker = \case
-        IsTuple arity -> pure $
-            tupleNWorker (versionMajor (envLfVersion env)) arity
-        IgnoreWorkerPrefix t ->
-            qualify env m (mkWorkerName t)
+    qual :: (T.Text -> n) -> T.Text -> ConvertM (Qualified n)
+    qual f t
+        | Just xs <- T.stripPrefix "(," t
+        , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
+        | IgnoreWorkerPrefix t' <- t = qualify env m $ f t'
 
 convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
 convertArg env = \case
@@ -2443,11 +2429,18 @@ qualify env m x = do
     unitId <- convertUnitId (envModuleUnitId env) (envPkgMap env) $ GHC.moduleUnitId m
     pure $ rewriteStableQualified env $ Qualified unitId (convertModuleName $ GHC.moduleName m) x
 
+qDA_Types :: Env -> a -> ConvertM (Qualified a)
+qDA_Types env a = do
+  pkgRef <- packageNameToPkgRef env primUnitId
+  pure $ rewriteStableQualified env $ Qualified pkgRef (mkModName ["DA", "Types"]) a
+
 -- | Types of a kind not supported in Daml-LF, e.g., the DataKinds stuff from GHC.Generics
 -- are translated to a special uninhabited Erased type. This allows us to easily catch these
 -- cases in data-dependencies.
-erasedTy :: Env -> LF.Type
-erasedTy = TCon . erasedTCon . versionMajor . envLfVersion
+erasedTy :: Env -> ConvertM LF.Type
+erasedTy env = do
+    pkgRef <- packageNameToPkgRef env primUnitId
+    pure $ TCon $ rewriteStableQualified env (Qualified pkgRef (mkModName ["DA", "Internal", "Erased"]) (mkTypeCon ["Erased"]))
 
 -- | Type-level strings are represented in Daml-LF via the PromotedText type. This is
 -- For example, the type-level string @"foo"@ will be represented by the type
@@ -2458,10 +2451,13 @@ erasedTy = TCon . erasedTCon . versionMajor . envLfVersion
 -- Note: It's fine to put arbitrary non-empty strings in field names, because we mangle
 -- the field names in daml-lf-proto to encode undesired characters. We later reconstruct
 -- the original string during unmangling. See DA.Daml.LF.Mangling for more details.
-promotedTextTy :: Env -> T.Text -> LF.Type
-promotedTextTy env text =
-    TApp
-        (TCon (promotedTextTCon (versionMajor (envLfVersion env))))
+promotedTextTy :: Env -> T.Text -> ConvertM LF.Type
+promotedTextTy env text = do
+    pkgRef <- packageNameToPkgRef env primUnitId
+    pure $ TApp
+        (TCon . rewriteStableQualified env $ Qualified pkgRef
+            (mkModName ["DA", "Internal", "PromotedText"])
+            (mkTypeCon ["PromotedText"]))
         (TStruct [(FieldName ("_" <> text), TUnit)])
 
 qualifyLocally :: Env -> a -> Qualified a
@@ -2522,13 +2518,13 @@ convertTyCon :: Env -> TyCon -> ConvertM LF.Type
 convertTyCon env t
     | t == unitTyCon = pure TUnit
     | isTupleTyCon t, not (isConstraintTupleTyCon t), arity >= 2 =
-        pure $ TCon $ tupleNTCon (versionMajor (envLfVersion env)) arity
+        TCon <$> qDA_Types env (mkTypeCon ["Tuple" <> T.pack (show arity)])
     | t == listTyCon = pure (TBuiltin BTList)
     | t == boolTyCon = pure TBool
     | t == intTyCon || t == intPrimTyCon = pure TInt64
     | t == charTyCon = unsupported "Type GHC.Types.Char" t
-    | t == liftedRepDataConTyCon = pure $ erasedTy env
-    | t == typeSymbolKindCon = pure $ erasedTy env
+    | t == liftedRepDataConTyCon = erasedTy env
+    | t == typeSymbolKindCon = erasedTy env
     | NameIn GHC_Types n <- t =
         case n of
             "Text" -> pure TText
@@ -2570,7 +2566,7 @@ convertType env = go env
             -- not want to translate this back to `()` for `data-dependencies`
             -- and because we never actually have values of type `Any xs` which
             -- is made explicit by translating it to an uninhabited type.
-            pure $ erasedTy env
+            erasedTy env
 
         | t == funTyCon, _:_:ts' <- ts =
             foldl' TApp TArrow <$> mapM (go env) ts'
@@ -2601,7 +2597,7 @@ convertType env = go env
         = TVar . fst <$> convTypeVar env v
 
     go env t | Just s <- isStrLitTy t
-        = pure $ promotedTextTy env (fsToText s)
+        = promotedTextTy env (fsToText s)
 
     go env t | Just m <- isNumLitTy t
         = case typeLevelNatE m of

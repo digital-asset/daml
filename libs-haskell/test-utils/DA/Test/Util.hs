@@ -3,6 +3,7 @@
 
 -- | Test utils
 module DA.Test.Util (
+    redactStablePackageIds,
     standardizeQuotes,
     standardizeEoL,
     assertInfixOf,
@@ -22,6 +23,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Data.List.Extra (isInfixOf)
+import qualified Data.Map.Strict as MS
 import qualified Data.Text as T
 import System.Directory
 import System.IO.Extra
@@ -30,6 +32,16 @@ import System.Environment.Blank
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified UnliftIO.Exception as Unlift
+
+import DA.Daml.StablePackages (allStablePackages)
+import DA.Daml.LF.Ast.Base (unPackageId)
+
+-- | Replaces known stable package IDs by 'XXXXXX' in a string.
+redactStablePackageIds :: T.Text -> T.Text
+redactStablePackageIds msg = foldr redact msg knownPackageIds
+  where
+    knownPackageIds = map unPackageId (MS.keys allStablePackages)
+    redact pkgId text = T.replace pkgId "XXXXXX" text
 
 standardizeQuotes :: T.Text -> T.Text
 standardizeQuotes msg = let

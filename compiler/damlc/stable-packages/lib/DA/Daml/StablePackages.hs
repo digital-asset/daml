@@ -6,12 +6,6 @@ module DA.Daml.StablePackages
     , allStablePackagesForVersion
     , numStablePackagesForVersion
     , stablePackageByModuleName
-
-    , erasedTCon
-    , promotedTextTCon
-    , preconditionFailedTCon
-    , tupleNTCon
-    , tupleNWorker
     ) where
 
 import Data.Bifunctor
@@ -22,8 +16,6 @@ import qualified Data.Text as T
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Proto3.Archive.Encode
 import DA.Daml.UtilLF
-import GHC.Stack (HasCallStack)
-import Safe (fromJustNote)
 
 allV1StablePackages :: MS.Map PackageId Package
 allV1StablePackages =
@@ -890,72 +882,3 @@ emptyModule name = Module
   , moduleExceptions = NM.empty
   , moduleInterfaces = NM.empty
   }
-
-stableQualified ::
-    HasCallStack => MajorVersion -> [T.Text] -> a -> Qualified a
-stableQualified major moduleName obj =
-    Qualified
-        { qualPackage = PRImport (stablePackageIdByModuleNamePartial major qualModule)
-        , qualModule
-        , qualObject = obj
-        }
-  where
-    qualModule = ModuleName moduleName
-
-stableTCon ::
-    HasCallStack => MajorVersion -> [T.Text] -> T.Text -> Qualified TypeConName
-stableTCon major moduleName tconName =
-    stableQualified major moduleName (TypeConName [tconName])
-
-erasedTCon :: HasCallStack => MajorVersion -> Qualified TypeConName
-erasedTCon major =
-    stableTCon
-        major
-        ["DA", "Internal", "Erased"]
-        "Erased"
-
-promotedTextTCon :: HasCallStack => MajorVersion -> Qualified TypeConName
-promotedTextTCon major =
-    stableTCon
-        major
-        ["DA", "Internal", "PromotedText"]
-        "PromotedText"
-
-preconditionFailedTCon :: MajorVersion -> Qualified TypeConName
-preconditionFailedTCon major =
-    stableTCon
-        major
-        ["DA", "Exception", "PreconditionFailed"]
-        "PreconditionFailed"
-
-tupleNTCon :: MajorVersion -> Int -> Qualified TypeConName
-tupleNTCon major n =
-    stableTCon
-        major
-        ["DA", "Types"]
-        ("Tuple" <> T.pack (show n))
-
-tupleNWorker :: MajorVersion -> Int -> Qualified ExprValName
-tupleNWorker major n =
-    stableQualified
-        major
-        ["DA", "Types"]
-        (mkWorkerName ("Tuple" <> T.pack (show n)))
-
--- | Returns the ID of the stable package for the given major version and module
--- name, throws if it doesn't exist.
-stablePackageIdByModuleNamePartial :: HasCallStack => MajorVersion -> ModuleName -> PackageId
-stablePackageIdByModuleNamePartial major mod =
-    fst $
-        fromJustNote
-            errorMsg
-            ((major, mod) `MS.lookup` stablePackageByModuleName)
-  where
-    errorMsg =
-        concat
-            [ "expecting stable package "
-            , show mod
-            , " for major LF version "
-            , renderMajorVersion major
-            , " to exist"
-            ]

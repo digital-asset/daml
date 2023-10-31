@@ -58,7 +58,7 @@ import qualified DA.Daml.LF.TypeChecker.Env as LF
 import qualified DA.Daml.LF.TypeChecker.Error as LF
 import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options
-import DA.Daml.StablePackages (erasedTCon, promotedTextTCon)
+import DA.Daml.StablePackages (stablePackageByModuleName)
 import DA.Daml.UtilGHC (fsFromText)
 
 import SdkVersion
@@ -1524,3 +1524,46 @@ getPromotedText major = \case
                 _ ->
                     error ("Unexpected argument type to DA.Internal.PromotedText: " <> show argTy)
     _ -> Nothing
+
+stableTCon ::
+    LF.MajorVersion -> [T.Text] -> T.Text -> LF.Qualified LF.TypeConName
+stableTCon major moduleName tconName =
+    LF.Qualified
+        { qualPackage = LF.PRImport (stablePackageIdByModuleNamePartial major qualModule)
+        , qualModule = qualModule
+        , qualObject = LF.TypeConName [tconName]
+        }
+  where
+    qualModule = LF.ModuleName moduleName
+
+erasedTCon :: LF.MajorVersion -> LF.Qualified LF.TypeConName
+erasedTCon major =
+    stableTCon
+        major
+        ["DA", "Internal", "Erased"]
+        "Erased"
+
+promotedTextTCon :: LF.MajorVersion -> LF.Qualified LF.TypeConName
+promotedTextTCon major =
+    stableTCon
+        major
+        ["DA", "Internal", "PromotedText"]
+        "PromotedText"
+
+-- | Returns the ID of the stable package for the given major version and module
+-- name, throws if it doesn't exist.
+stablePackageIdByModuleNamePartial :: LF.MajorVersion -> LF.ModuleName -> LF.PackageId
+stablePackageIdByModuleNamePartial major mod =
+    fst $
+        fromJustNote
+            errorMsg
+            ((major, mod) `MS.lookup` stablePackageByModuleName)
+  where
+    errorMsg =
+        concat
+            [ "expecting stable package "
+            , show mod
+            , " for major LF version "
+            , LF.renderMajorVersion major
+            , " to exist"
+            ]
