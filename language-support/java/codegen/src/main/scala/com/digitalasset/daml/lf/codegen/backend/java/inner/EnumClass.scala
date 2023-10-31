@@ -34,7 +34,7 @@ private[inner] object EnumClass extends StrictLogging {
         .addField(generateEnumsMap(className))
         .addMethod(generateDeprecatedFromValue(className, enumeration))
         .addMethod(generateValueDecoder(className, enumeration))
-        .addMethod(generateToValue(className))
+        .addMethod(generateToValue)
         .addMethods(FromJsonGenerator.forEnum(className, "__enums$").asJava)
         .addMethods(ToJsonGenerator.forEnum(className).asJava)
       logger.debug("End")
@@ -69,7 +69,7 @@ private[inner] object EnumClass extends StrictLogging {
     FieldSpec
       .builder(mapType(className), "__enums$")
       .addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
-      .initializer("$T.__buildEnumsMap$$()", className)
+      .initializer("__buildEnumsMap$$()")
       .build()
 
   private def generateEnumsMapBuilder(
@@ -127,12 +127,11 @@ private[inner] object EnumClass extends StrictLogging {
         s"Expected DamlEnum to build an instance of the Enum ${className.simpleName()}",
       )
       .addStatement(
-        "if (!$T.__enums$$.containsKey(constructor$$)) throw new $T($S + constructor$$)",
-        className,
+        "if (!__enums$$.containsKey(constructor$$)) throw new $T($S + constructor$$)",
         classOf[IllegalArgumentException],
         s"Expected a DamlEnum with ${className.simpleName()} constructor, found ",
       )
-      .addStatement("return $T.__enums$$.get(constructor$$)", className)
+      .addStatement("return __enums$$.get(constructor$$)")
 
     MethodSpec
       .methodBuilder("valueDecoder")
@@ -145,12 +144,12 @@ private[inner] object EnumClass extends StrictLogging {
       .build()
   }
 
-  private def generateToValue(className: ClassName): MethodSpec =
+  private def generateToValue: MethodSpec =
     MethodSpec
       .methodBuilder("toValue")
       .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
       .returns(classOf[javaapi.data.DamlEnum])
-      .addStatement("return $T.__values$$[ordinal()]", className)
+      .addStatement("return __values$$[ordinal()]")
       .build()
 
 }
