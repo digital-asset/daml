@@ -72,7 +72,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         // Exercise the same choice, this time using correct explicit disclosure
         _ <- testContext.exerciseFetchDelegated(testContext.disclosedContract)
       } yield {
-        assertEquals(!testContext.disclosedContract.createEventPayload.isEmpty, true)
+        assertEquals(!testContext.disclosedContract.createdEventBlob.isEmpty, true)
 
         assertGrpcError(
           exerciseFetchError,
@@ -293,7 +293,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         failure <- testContext
           .exerciseFetchDelegated(
             testContext.disclosedContract
-              .update(_.createEventPayload.set(ByteString.copyFromUtf8("foo")))
+              .update(_.createdEventBlob.set(ByteString.copyFromUtf8("foo")))
           )
           .mustFail("using a malformed disclosed contract create event payload")
 
@@ -342,14 +342,14 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         _ <- synchronize(ownerParticipant, delegateParticipant)
 
         otherSalt = TransactionCoder
-          .decodeFatContractInstance(delegateContext.disclosedContract.createEventPayload)
+          .decodeFatContractInstance(delegateContext.disclosedContract.createdEventBlob)
           .map(_.cantonData)
           .getOrElse(fail("contract decode failed"))
 
         tamperedPayload = TransactionCoder
           .encodeFatContractInstance(
             TransactionCoder
-              .decodeFatContractInstance(ownerContext.disclosedContract.createEventPayload)
+              .decodeFatContractInstance(ownerContext.disclosedContract.createdEventBlob)
               .map(_.setSalt(otherSalt))
               .getOrElse(fail("contract decode failed"))
           )
@@ -359,7 +359,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           // Use of inconsistent disclosed contract
           // i.e. the delegate cannot fetch the owner's contract with attaching a different disclosed contract
           .exerciseFetchDelegated(
-            ownerContext.disclosedContract.copy(createEventPayload = tamperedPayload)
+            ownerContext.disclosedContract.copy(createdEventBlob = tamperedPayload)
           )
           .mustFail("using an inconsistent disclosed contract create event payload")
       } yield {
@@ -513,7 +513,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
             testContext.disclosedContract.copy(
               metadata = None,
               arguments = Arguments.Empty,
-              createEventPayload = ByteString.EMPTY,
+              createdEventBlob = ByteString.EMPTY,
             )
           )
           .mustFail("Submitter forwarded a contract with unpopulated create_event_payload")
@@ -634,7 +634,7 @@ object ExplicitDisclosureIT {
         owner.unwrap -> new Filters(
           Some(
             InclusiveFilters(templateFilters =
-              Seq(TemplateFilter(Some(templateId), includeCreateEventPayload = true))
+              Seq(TemplateFilter(Some(templateId), includeCreatedEventBlob = true))
             )
           )
         )
@@ -645,7 +645,7 @@ object ExplicitDisclosureIT {
     DisclosedContract(
       templateId = ev.templateId,
       contractId = ev.contractId,
-      createEventPayload = ev.createEventPayload,
+      createdEventBlob = ev.createdEventBlob,
     )
 
   private def exerciseWithKey_byKey_request(
