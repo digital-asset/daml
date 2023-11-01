@@ -53,6 +53,7 @@ private[apiserver] object GrpcServer {
     builder.maxInboundMessageSize(maxInboundMessageSize)
     // NOTE: Interceptors run in the reverse order in which they were added.
     interceptors.foreach(interceptor => builder.intercept(interceptor).discard)
+    builder.intercept(new ActiveStreamMetricsInterceptor(metrics))
     builder.intercept(new GrpcMetricsServerInterceptor(metrics.daml.grpc))
     builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
     builder.intercept(new ErrorInterceptor(loggerFactory))

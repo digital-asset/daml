@@ -1115,7 +1115,7 @@ final case class DynamicDomainParametersWithValidity(
   def map[T](f: DynamicDomainParameters => T): DomainParameters.WithValidity[T] =
     DomainParameters.WithValidity(validFrom, validUntil, f(parameters))
 
-  def isValidAt(ts: CantonTimestamp) =
+  def isValidAt(ts: CantonTimestamp): Boolean =
     validFrom < ts && validUntil.forall(ts <= _)
 
   private def checkValidity(ts: CantonTimestamp, goal: String): Either[String, Unit] = Either.cond(
@@ -1144,7 +1144,7 @@ final case class DynamicDomainParametersWithValidity(
   def decisionTimeForF(activenessTime: CantonTimestamp): Future[CantonTimestamp] =
     decisionTimeFor(activenessTime).fold(
       err => Future.failed(new IllegalStateException(err)),
-      Future.successful(_),
+      Future.successful,
     )
 
   def transferExclusivityLimitFor(baseline: CantonTimestamp): Either[String, CantonTimestamp] =

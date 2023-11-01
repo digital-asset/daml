@@ -20,8 +20,7 @@ trait Phase37Processor[RequestBatch] {
     * @param rc    The request counter of the request
     * @param sc    The sequencer counter of the request
     * @param batch The batch in the request
-    * @return The returned future completes when request has reached the state
-    *         [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.Confirmed]]
+    * @return The returned future completes when request has reached the confirmed state
     *         and the response has been sent, or if an error aborts processing.
     */
   def processRequest(

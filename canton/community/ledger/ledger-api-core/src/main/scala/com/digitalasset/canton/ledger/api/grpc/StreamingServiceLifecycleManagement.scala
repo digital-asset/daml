@@ -46,6 +46,7 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable with NamedLoggin
   )(createSource: => Source[RespT, NotUsed])(implicit
       materializer: Materializer,
       executionSequencerFactory: ExecutionSequencerFactory,
+      traceContext: TraceContext,
   ): Unit = {
     def ifNotClosed(run: () => Unit): Unit =
       if (_closed) responseObserver.onError(closingError(errorLoggingContext(TraceContext.empty)))
@@ -67,11 +68,16 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable with NamedLoggin
               .toMat(sink)(Keep.left)
               .run()
 
+            logger.debug(s"Streaming to gRPC client started")
+
             _killSwitches += killSwitch -> NotUsed
 
             // This can complete outside the synchronized block
             // maintaining the need of using a concurrent collection for _killSwitches
-            doneF.onComplete(_ => _killSwitches -= killSwitch)(directEc)
+            doneF.onComplete { _ =>
+              logger.debug(s"Streaming to gRPC client finished")
+              _killSwitches -= killSwitch
+            }(directEc)
           }
         }
       }

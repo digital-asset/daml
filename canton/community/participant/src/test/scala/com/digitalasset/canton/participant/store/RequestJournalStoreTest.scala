@@ -7,11 +7,8 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.HasCloseContext
 import com.digitalasset.canton.participant.admin.repair.RepairContext
+import com.digitalasset.canton.participant.protocol.RequestJournal.RequestData
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.*
-import com.digitalasset.canton.participant.protocol.RequestJournal.{
-  NonterminalRequestState,
-  RequestData,
-}
 import com.digitalasset.canton.store.{CursorPrehead, CursorPreheadStoreTest}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{BaseTest, RequestCounter}
@@ -30,13 +27,13 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
     val requests = List(
       (rc, Pending, tsWithSecs(1)),
       (rc + 2, Clean, tsWithSecs(3)),
-      (rc + 4, Confirmed, tsWithSecs(5)),
+      (rc + 4, Pending, tsWithSecs(5)),
     )
     def setupRequests(store: RequestJournalStore): Future[List[Unit]] = Future.traverse(requests) {
       case (reqC, state, timestamp) =>
         val data = state match {
           case Clean => RequestData.clean(reqC, timestamp, commitTime)
-          case nonterminal: NonterminalRequestState => RequestData(reqC, nonterminal, timestamp)
+          case Pending => RequestData.initial(reqC, timestamp)
         }
         store.insert(data)
     }
@@ -70,7 +67,7 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
           find5 <- store.firstRequestWithCommitTimeAfter(ts.plusSeconds(5))
           find1 <- store.firstRequestWithCommitTimeAfter(ts.plusSeconds(1))
           find10 <- store.firstRequestWithCommitTimeAfter(ts.plusSeconds(10))
-          _ <- valueOrFail(store.replace(rc, ts, Pending, Clean, Some(ts.plusSeconds(10))))(
+          _ <- valueOrFail(store.replace(rc, ts, Clean, Some(ts.plusSeconds(10))))(
             s"replace $rc from $Pending to $Clean"
           )
           find7 <- store.firstRequestWithCommitTimeAfter(ts.plusSeconds(7))
@@ -115,7 +112,7 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
       val data2 = RequestData.clean(rc + 2L, ts, ts, Some(secondRepair))
       for {
         _regularRequest <- store.insert(data0)
-        _regularResult <- valueOrFail(store.replace(rc, ts, Pending, Clean, Some(commitTime)))(
+        _regularResult <- valueOrFail(store.replace(rc, ts, Clean, Some(commitTime)))(
           s"relace $rc from $Pending to $Clean"
         )
         _firstRepair <- store.insert(data1)
@@ -132,38 +129,28 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
       val store = mk()
       for {
         _ <- store.insert(RequestData(rc, Pending, ts))
-        _ <- valueOrFail(store.replace(rc, ts, Pending, Confirmed, None))("replace")
+        _ <- valueOrFail(store.replace(rc, ts, Clean, Some(CantonTimestamp.Epoch)))("replace")
         result <- valueOrFail(store.query(rc))("query")
-      } yield result shouldBe RequestData(rc, Confirmed, ts)
+      } yield result shouldBe RequestData.clean(rc, ts, CantonTimestamp.Epoch)
     }
 
     "replace is idempotent" in {
       val store = mk()
       for {
         _ <- store.insert(RequestData(rc, Pending, ts))
-        _ <- valueOrFail(store.replace(rc, ts, Pending, Confirmed, None))("replace")
-        _ <- valueOrFail(store.replace(rc, ts, Pending, Confirmed, None))("replace again")
+        _ <- valueOrFail(store.replace(rc, ts, Clean, Some(CantonTimestamp.Epoch)))("replace")
+        _ <- valueOrFail(store.replace(rc, ts, Clean, Some(CantonTimestamp.Epoch)))("replace again")
         result <- valueOrFail(store.query(rc))("query")
-      } yield result shouldBe RequestData(rc, Confirmed, ts)
-    }
-
-    "not replace if given old state does not match current" in {
-      val store = mk()
-      for {
-        _ <- store.insert(RequestData.clean(rc, ts, ts))
-        replaced <- leftOrFail(store.replace(rc, ts, Pending, Confirmed, None))("replace")
-        result <- valueOrFail(store.query(rc))("query")
-      } yield {
-        replaced shouldBe InconsistentRequestState(rc, Clean, Pending)
-        result shouldBe RequestData.clean(rc, ts, ts)
-      }
+      } yield result shouldBe RequestData.clean(rc, ts, CantonTimestamp.Epoch)
     }
 
     "not replace if given timestamp does not match stored timestamp" in {
       val store = mk()
       for {
         _ <- store.insert(RequestData(rc, Pending, ts))
-        replaced <- leftOrFail(store.replace(rc, ts.plusSeconds(1), Pending, Confirmed, None))(
+        replaced <- leftOrFail(
+          store.replace(rc, ts.plusSeconds(1), Clean, Some(ts.plusSeconds(2)))
+        )(
           "replace"
         )
         result <- valueOrFail(store.query(rc))("query")
@@ -176,25 +163,21 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
     "error if trying to replace the state of a non existing request" in {
       val store = mk()
       for {
-        replaced <- leftOrFail(store.replace(rc, ts, Pending, Confirmed, None))("replace")
+        replaced <- leftOrFail(store.replace(rc, ts, Clean, Some(CantonTimestamp.Epoch)))("replace")
       } yield replaced shouldBe UnknownRequestCounter(rc)
     }
 
     "not replace if the commit time is before the request time" in {
       val store = mk()
       for {
-        _ <- store.insert(RequestData(rc, Confirmed, ts))
-        replaced <- leftOrFail(store.replace(rc, ts, Confirmed, Clean, Some(ts.plusSeconds(-1))))(
+        _ <- store.insert(RequestData(rc, Pending, ts))
+        replaced <- leftOrFail(store.replace(rc, ts, Clean, Some(ts.plusSeconds(-1))))(
           "replace"
-        )
-        replaced2 <- leftOrFail(store.replace(rc, ts, Pending, Clean, Some(ts.plusSeconds(-1))))(
-          "replace with inconsitent state"
         )
         result <- valueOrFail(store.query(rc))("query")
       } yield {
         replaced shouldBe CommitTimeBeforeRequestTime(rc, ts, ts.plusSeconds(-1))
-        replaced2 shouldBe CommitTimeBeforeRequestTime(rc, ts, ts.plusSeconds(-1))
-        result shouldBe RequestData(rc, Confirmed, ts)
+        result shouldBe RequestData(rc, Pending, ts)
       }
     }
 
@@ -241,7 +224,7 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
         _ <- store.insert(RequestData.clean(rc, CantonTimestamp.ofEpochSecond(1), commitTime))
         _ <- store.insert(RequestData.clean(rc + 1, CantonTimestamp.ofEpochSecond(2), commitTime))
         _ <- store.insert(RequestData.clean(rc + 2, CantonTimestamp.ofEpochSecond(3), commitTime))
-        _ <- store.insert(RequestData(rc + 4, Confirmed, CantonTimestamp.ofEpochSecond(5)))
+        _ <- store.insert(RequestData(rc + 4, Pending, CantonTimestamp.ofEpochSecond(5)))
         _ <- store.advancePreheadCleanTo(CursorPrehead(rc + 2L, CantonTimestamp.ofEpochSecond(3)))
       } yield ()
     }

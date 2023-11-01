@@ -29,8 +29,7 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.util.{Failure, Success}
 
 /** Synchronizes the request processing of phases 3 and 7.
-  * At the end of phase 3, every request must signal that it has reached
-  * [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.Confirmed]] via the handle
+  * At the end of phase 3, every request must signal that it has been confirmed via the handle
   * returned by [[registerRequest]].
   * At the beginning of phase 7, requests can wait on the completion of phase 3 via [[awaitConfirmed]].
   *

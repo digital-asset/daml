@@ -30,7 +30,6 @@ import com.digitalasset.canton.http.util.{Commands, Transactions}
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
-import scalaz.std.option.*
 import scalaz.std.scalaFuture.*
 import scalaz.syntax.show.*
 import scalaz.syntax.std.option.*
@@ -112,12 +111,10 @@ class CommandService(
           logger.trace(s"sending exercise command to ledger, ${lc.makeString}")
           val command = exerciseCommand(input)
 
+          val request = submitAndWaitRequest(jwtPayload, input.meta, command, "exercise")
+
           val et: ET[ExerciseResponse[lav1.value.Value]] =
             for {
-              meta <- either(input.meta traverse (_.ensureDisclosedAreRecords) leftMap {
-                case domain.Error(sym, msg) => InternalError(Some(sym), msg): Error
-              })
-              request = submitAndWaitRequest(jwtPayload, meta, command, "exercise")
               response <-
                 logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request)(lc))
               exerciseResult <- either(exerciseResult(response))

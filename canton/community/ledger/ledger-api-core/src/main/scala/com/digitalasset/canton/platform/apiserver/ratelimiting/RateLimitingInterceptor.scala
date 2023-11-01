@@ -12,21 +12,14 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.LimitResult.{
   UnderLimit,
 }
 import com.digitalasset.canton.platform.apiserver.ratelimiting.RateLimitingInterceptor.*
-import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener
 import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
-import org.slf4j.LoggerFactory
 
 import java.lang.management.{ManagementFactory, MemoryMXBean, MemoryPoolMXBean}
-import java.util.concurrent.atomic.AtomicBoolean
 import scala.jdk.CollectionConverters.ListHasAsScala
-import scala.util.Try
 
 final class RateLimitingInterceptor(
-    metrics: Metrics,
-    checks: List[LimitResultCheck],
+    checks: List[LimitResultCheck]
 ) extends ServerInterceptor {
-
-  private val activeStreamsGauge = metrics.daml.lapi.streams.active
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -42,16 +35,6 @@ final class RateLimitingInterceptor(
         val statusRuntimeException = damlError.asGrpcError
         call.close(statusRuntimeException.getStatus, statusRuntimeException.getTrailers)
         new ServerCall.Listener[ReqT]() {}
-
-      case UnderLimit if isStream =>
-        val delegate = next.startCall(call, headers)
-        val listener =
-          new OnCloseCallListener(
-            delegate,
-            runOnceOnTermination = () => activeStreamsGauge.updateValue(_ - 1),
-          )
-        activeStreamsGauge.updateValue(_ + 1) // Only do after call above has returned
-        listener
 
       case UnderLimit =>
         next.startCall(call, headers)
@@ -105,11 +88,10 @@ object RateLimitingInterceptor {
     val activeStreamsCounter = metrics.daml.lapi.streams.active
 
     new RateLimitingInterceptor(
-      metrics = metrics,
       checks = List[LimitResultCheck](
         MemoryCheck(tenuredMemoryPools, memoryMxBean, config, loggerFactory),
         StreamCheck(activeStreamsCounter, activeStreamsName, config.maxStreams, loggerFactory),
-      ) ::: additionalChecks,
+      ) ::: additionalChecks
     )
   }
 
@@ -118,31 +100,5 @@ object RateLimitingInterceptor {
     "grpc.health.v1.Health/Check",
     "grpc.health.v1.Health/Watch",
   )
-
-  private class OnCloseCallListener[RespT](
-      delegate: ServerCall.Listener[RespT],
-      runOnceOnTermination: () => Unit,
-  ) extends SimpleForwardingServerCallListener[RespT](delegate) {
-    private val logger = LoggerFactory.getLogger(getClass)
-    private val onTerminationCalled = new AtomicBoolean()
-
-    private def runOnClose(): Unit = {
-      if (onTerminationCalled.compareAndSet(false, true)) {
-        Try(runOnceOnTermination()).failed
-          .foreach(logger.warn(s"Exception calling onClose method", _))
-      }
-    }
-
-    override def onCancel(): Unit = {
-      runOnClose()
-      super.onCancel()
-    }
-
-    override def onComplete(): Unit = {
-      runOnClose()
-      super.onComplete()
-    }
-
-  }
 
 }

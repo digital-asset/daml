@@ -838,7 +838,6 @@ class TransactionProcessingSteps(
       transferLookup: TransferLookup,
       contractLookup: ContractLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      pendingCursor: Future[Unit],
       mediator: MediatorRef,
       freshOwnTimelyTx: Boolean,
   )(implicit
@@ -866,13 +865,12 @@ class TransactionProcessingSteps(
 
     def doParallelChecks(enrichedTransaction: EnrichedTransaction): Future[ParallelChecksResult] = {
       val ledgerTime = enrichedTransaction.ledgerTime
-      for {
-        _ <- pendingCursor
-
-        rootViewTrees = enrichedTransaction.rootViewTreesWithSignatures.map { case (viewTree, _) =>
+      val rootViewTrees = enrichedTransaction.rootViewTreesWithSignatures.map {
+        case (viewTree, _) =>
           viewTree
-        }
+      }
 
+      for {
         authenticationResult <-
           authenticationValidator.verifyViewSignatures(
             requestId,

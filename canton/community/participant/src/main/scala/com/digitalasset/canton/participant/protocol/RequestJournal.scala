@@ -17,7 +17,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.repair.RepairContext
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
-import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.{Clean, Pending}
+import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.Clean
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.store.CursorPrehead
 import com.digitalasset.canton.store.CursorPrehead.RequestCounterCursorPrehead
@@ -26,7 +26,7 @@ import com.digitalasset.canton.util.{ErrorUtil, HasFlushFuture, NoCopy}
 import com.digitalasset.canton.{DiscardOps, RequestCounter, RequestCounterDiscriminator}
 import com.google.common.annotations.VisibleForTesting
 
-import java.util.ConcurrentModificationException
+import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -78,10 +78,11 @@ class RequestJournal(
     with HasFlushFuture {
   import RequestJournal.*
 
+  private val pending: ConcurrentSkipListSet[RequestCounter] =
+    new ConcurrentSkipListSet[RequestCounter]()
+
   /* The request journal implementation is interested only in the front of the PeanoQueues, not its head.
    * To avoid memory leaks, we therefore drain the queues whenever we insert a RequestCounter. */
-  private val pendingCursor: PeanoQueue[RequestCounter, CursorInfo] =
-    new SynchronizedPeanoTreeQueue[RequestCounterDiscriminator, CursorInfo](initRc)
 
   private val cleanCursor: PeanoQueue[RequestCounter, CursorInfo] =
     new SynchronizedPeanoTreeQueue[RequestCounterDiscriminator, CursorInfo](initRc)
@@ -96,7 +97,7 @@ class RequestJournal(
 
   /** Yields the number of requests that are currently not in state clean.
     *
-    * The number may be incorrect, if previous calls to `insert`, `transit`, or `terminate` have failed with an exception.
+    * The number may be incorrect, if previous calls to `insert` or `terminate` have failed with an exception.
     * This can be tolerated, as the SyncDomain should be restarted after such an exception and that will
     * reset the request journal.
     */
@@ -115,48 +116,44 @@ class RequestJournal(
     *
     * @param rc The request counter for the request.
     * @param requestTimestamp The timestamp on the request message.
-    * @return A Future that will terminate as soon as the request has been stored or fail if a precondition is violated.
-    *         The future will itself contain a future that terminates as soon as the pending cursor reaches `rc`.
+    * @return A future that will terminate as soon as the request has been stored or fail if a precondition is violated.
     */
   def insert(rc: RequestCounter, requestTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Future[Unit]] =
+  ): Future[Unit] =
     for {
-      _ <- Future {
-        ErrorUtil.requireArgument(
-          rc.isNotMaxValue,
-          s"The request counter ${Counter.MaxValue} cannot be used.",
-        )
-        val pendingFront = pendingCursor.front
-        if (rc < pendingFront)
-          ErrorUtil.internalError(
-            new IllegalArgumentException(
-              s"Request counter $rc is below Pending's front value ${pendingCursor.front}"
-            )
-          )
+      _ <- Future.unit // Wrapping the errors in the future for easier unit testing
 
-        val alreadyInserted = pendingCursor.alreadyInserted(rc)
-        ErrorUtil.requireArgument(
-          !alreadyInserted,
-          s"Request counter $rc has already been inserted to the ${this.getClass}",
-        )
-      }
+      _ = ErrorUtil.requireArgument(
+        rc.isNotMaxValue,
+        s"The request counter ${Counter.MaxValue} cannot be used.",
+      )
+
+      _ = ErrorUtil.requireArgument(
+        rc >= initRc,
+        s"The request counter $rc is below the initial value $initRc.",
+      )
+
+      _ = ErrorUtil.requireArgument(
+        !pending.contains(rc),
+        s"The request $rc is already pending.",
+      )
+
+      _ = ErrorUtil.requireArgument(
+        !cleanCursor.alreadyInserted(rc),
+        s"The request $rc is already clean.",
+      )
 
       _ = logger.debug(withRc(rc, s"Inserting request into journal at $requestTimestamp..."))
-
       data = RequestData(rc, RequestState.Pending, requestTimestamp)
       _ <- store.insert(data)
 
-      _ = incrementNumDirtyRequests()
-      _ = logger.debug(s"The number of dirty requests is $numberOfDirtyRequests.")
+    } yield {
+      incrementNumDirtyRequests()
+      logger.debug(s"The number of dirty requests is $numberOfDirtyRequests.")
 
-      // Synchronously add the new entry to the cursor queue
-      info = CursorInfo(requestTimestamp, Promise())
-      _ = pendingCursor.insert(rc, info)
-
-      // Asynchronously drain the cursors and update the clean head
-      _ = addToFlushAndLogError(s"Update Pending cursor for request $rc")(drainPending)
-    } yield info.signal.future
+      pending.add(rc).discard
+    }
 
   private def incrementNumDirtyRequests(): Unit = {
     discard {
@@ -172,70 +169,27 @@ class RequestJournal(
     metrics.numDirtyRequests.dec()
   }
 
-  /** Tells the request journal that the given request is ready to transition to the given state.
-    *
-    * The `oldState` and `newState` arguments are not strictly needed,
-    * since the request journal always knows the old state and can always infer the new state.
-    * The explicit argument should make the API behavior more clear and provide a cheap assertion to detect bugs.
-    * (Currently, the only valid values are [[RequestJournal.RequestState.Pending]] and [[RequestJournal.RequestState.Confirmed]].)
-    *
-    * Preconditions:
-    * <ul>
-    * <li>The request counter `rc` is in this request journal with the timestamp `requestTimestamp` and has the state `oldState`.</li>
-    * <li>The methods [[transit]], [[insert]], and [[terminate]] are not called concurrently.</li>
-    * </ul>
-    *
-    * @param rc       The request counter to transit
-    * @param requestTimestamp The timestamp assigned to the request counter
-    * @param oldState The old state the request counter is currently in.
-    * @param newState The new state the request counter transits to.
-    *                 Cannot be used for [[RequestJournal.RequestState.Clean]];
-    *                 use [[terminate]] instead to set the commit time.
-    * @return a future that completes as soon as the `newState` has been persisted.
-    *         If `newState` has a cursor, the future will itself contain a future that completes as soon as the cursor reaches `rc`.
-    *         Yields a failed future if a precondition is violated.
-    * @throws java.lang.IllegalArgumentException if `oldState` is not a predecessor state of `newState`
-    */
-  def transit(
-      rc: RequestCounter,
-      requestTimestamp: CantonTimestamp,
-      oldState: RequestState,
-      newState: NonterminalRequestState,
-  )(implicit
-      traceContext: TraceContext
-  ): Future[Option[Future[Unit]]] = {
-    advanceTo(rc, requestTimestamp, oldState, newState, None)
-  }
-
   /** Moves the given request to [[RequestJournal.RequestState.Clean]] and sets the commit time.
     * Does nothing if the request was already clean.
     *
-    * The `oldState` argument is not strictly needed,
-    * since the request journal always knows the old state and can always infer the new state.
-    * The explicit argument should make the API behavior more clear and provide a cheap assertion to detect bugs.
-    *
     * Preconditions:
     * <ul>
-    * <li>The request counter `rc` is in this request journal with timestamp `requestTimestamp` and has the state `oldState`.</li>
+    * <li>The request counter `rc` is in this request journal with timestamp `requestTimestamp`.</li>
     * <li>The commit time must be after or at the request time of the request.</li>
-    * <li>The methods [[transit]], [[insert]], and [[terminate]] are not called concurrently.</li>
+    * <li>The methods [[insert]] and [[terminate]] are not called concurrently.</li>
     * </ul>
     *
     * @param requestTimestamp The timestamp assigned to the request counter
-    * @param oldState The old state the request counter is currently in.
-    *                 (Currently, this can only be [[RequestJournal.RequestState.Confirmed]].
     * @return A future that completes as soon as the state change has been persisted
     *         or fails if a precondition is violated.
     *         The future itself contains a future that completes as soon as the clean cursor reaches `rc`.
-    * @throws java.lang.IllegalArgumentException if `oldState` is not a predecessor state of `newState`
     */
   def terminate(
       rc: RequestCounter,
       requestTimestamp: CantonTimestamp,
-      oldState: RequestState,
       commitTime: CantonTimestamp,
   )(implicit traceContext: TraceContext): Future[Future[Unit]] =
-    advanceTo(rc, requestTimestamp, oldState, Clean, Some(commitTime)).map(
+    advanceTo(rc, requestTimestamp, Clean, Some(commitTime)).map(
       _.getOrElse( // Should not happen because Clean has a cursor
         ErrorUtil.internalError(
           new NoSuchElementException(s"Cursor future for request state $Clean")
@@ -246,23 +200,17 @@ class RequestJournal(
   private[this] def advanceTo(
       rc: RequestCounter,
       requestTimestamp: CantonTimestamp,
-      oldState: RequestState,
       newState: RequestState,
       commitTime: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
   ): Future[Option[Future[Unit]]] = {
     logger.debug(withRc(rc, s"Transitioning to state $newState"))
-    ErrorUtil.requireArgument(
-      newState.isSuccessorOf(oldState),
-      withRc(rc, s"State $oldState is not a predecessor for $newState"),
-    )
 
     def drainCursorsAndStoreNewCleanPrehead(): Future[Unit] = {
       newState
-        .visitCursor {
-          case RequestState.Pending => Some(drainPending)
-          case RequestState.Clean => Some(drainClean)
+        .visitCursor { case RequestState.Clean =>
+          Some(drainClean)
         }
         .getOrElse(Future.unit)
     }
@@ -283,15 +231,6 @@ class RequestJournal(
             )
           )
         )
-      case InconsistentRequestState(requestCounter, storedState, expectedState) =>
-        ErrorUtil.internalError(
-          new ConcurrentModificationException(
-            withRc(
-              requestCounter,
-              s"Concurrent request journal modification.\nPrevious state: $storedState\nExpected state: $expectedState",
-            )
-          )
-        )
       case InconsistentRequestTimestamp(requestCounter, storedTimestamp, expectedTimestamp) =>
         ErrorUtil.internalError(
           new IllegalStateException(
@@ -309,9 +248,8 @@ class RequestJournal(
         // Synchronously add the new entry to the cursor queue, if there is a cursor queue
         val info =
           CursorInfo(requestTimestamp, new SupervisedPromise[Unit]("cursor-info", futureSupervisor))
-        newState.visitCursor {
-          case Pending => Some(pendingCursor.insert(rc, info))
-          case Clean => Some(cleanCursor.insert(rc, info))
+        newState.visitCursor { case Clean =>
+          Some(cleanCursor.insert(rc, info))
         }.discard
 
         // Asynchronously drain the cursors and update the clean head
@@ -326,11 +264,12 @@ class RequestJournal(
     }
 
     store
-      .replace(rc, requestTimestamp, oldState, newState, commitTime)
+      .replace(rc, requestTimestamp, newState, commitTime)
       .fold(
         handleError,
         { _ =>
           if (newState == Clean) decrementNumDirtyRequests()
+          pending.remove(rc)
           updateCursors()
         },
       )
@@ -355,11 +294,6 @@ class RequestJournal(
     store.size(start, end)
 
   private def withRc(rc: RequestCounter, msg: String): String = s"Request $rc: $msg"
-
-  private def drainPending(implicit traceContext: TraceContext): Future[Unit] = Future {
-    val newPrehead = drain(pendingCursor)
-    newPrehead.foreach { case (_prehead, completionPromise) => completionPromise.success(()) }
-  }
 
   private def drainClean(implicit
       traceContext: TraceContext
@@ -419,9 +353,6 @@ object RequestJournal {
     /** Returns whether the request journal tracks the head of this state with a cursor. */
     def hasCursor: Boolean = false
 
-    /** Returns whether this request state is a successor state of the `other` request state. */
-    def isSuccessorOf(other: RequestState): Boolean = other.index == this.index - 1
-
     /** Returns the successor request state, if any, in the order of request states. */
     def next: Option[RequestState]
 
@@ -439,23 +370,13 @@ object RequestJournal {
     override def visitCursor[A](f: RequestStateWithCursor => Option[A]): Option[A] = f(this)
   }
 
-  sealed trait NonterminalRequestState extends RequestState {
-    override def next: Option[RequestState] = Some(RequestState.states(index + 1))
-  }
-
   object RequestState {
 
     /** Initial state */
-    case object Pending extends RequestStateWithCursor with NonterminalRequestState {
+    case object Pending extends RequestState {
       override def index: Int = 0
-    }
 
-    /** This state is reached when the participant is ready to send a verdict
-      * (confirmation, partial confirmation, timeout, or rejection).
-      * After this state, the response is sent to the mediator.
-      */
-    case object Confirmed extends RequestState with NonterminalRequestState {
-      override def index: Int = 1
+      override def next: Option[RequestState] = Some(Clean)
     }
 
     /** This state is reached when the result of a request is fully committed and no further processing is required,
@@ -466,7 +387,8 @@ object RequestJournal {
       override def next: Option[RequestState] = None
     }
 
-    private[protocol] val states: Array[RequestState] = Array(Pending, Confirmed, Clean)
+    // Add Pending twice for compatibility. The second occurrence was formerly "Confirmed".
+    private[protocol] val states: Array[RequestState] = Array(Pending, Pending, Clean)
 
     def apply(index: Int): Option[RequestState] =
       if (index >= 0 && states.lengthCompare(index) > 0) Some(states(index)) else None
@@ -520,7 +442,7 @@ object RequestJournal {
   object RequestData {
     def apply(
         requestCounter: RequestCounter,
-        state: NonterminalRequestState,
+        state: RequestState,
         requestTimestamp: CantonTimestamp,
         repairContext: Option[RepairContext] = None,
     ): RequestData =

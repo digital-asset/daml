@@ -53,7 +53,6 @@ trait RequestJournalStore { this: NamedLogging =>
   def replace(
       rc: RequestCounter,
       requestTimestamp: CantonTimestamp,
-      oldState: RequestState,
       newState: RequestState,
       commitTime: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): EitherT[Future, RequestJournalStoreError, Unit]
@@ -152,9 +151,4 @@ final case class InconsistentRequestTimestamp(
     requestCounter: RequestCounter,
     storedTimestamp: CantonTimestamp,
     expectedTimestamp: CantonTimestamp,
-) extends RequestJournalStoreError
-final case class InconsistentRequestState(
-    requestCounter: RequestCounter,
-    storedState: RequestState,
-    expectedState: RequestState,
 ) extends RequestJournalStoreError

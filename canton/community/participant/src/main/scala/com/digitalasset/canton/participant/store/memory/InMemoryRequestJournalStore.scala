@@ -54,7 +54,6 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
   override def replace(
       rc: RequestCounter,
       requestTimestamp: CantonTimestamp,
-      oldState: RequestState,
       newState: RequestState,
       commitTime: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): EitherT[Future, RequestJournalStoreError, Unit] =
@@ -79,8 +78,6 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
               )
             else if (oldResult.state == newState && oldResult.commitTime == commitTime)
               EitherT.pure(())
-            else if (oldResult.state != oldState)
-              EitherT.leftT(InconsistentRequestState(rc, oldResult.state, oldState))
             else {
               requestTable.put(rc, oldResult.tryAdvance(newState, commitTime)).discard
               EitherT.rightT(())

@@ -397,7 +397,6 @@ class TransferOutProcessingSteps(
       transferLookup: TransferLookup,
       contractLookup: ContractLookup,
       activenessF: FutureUnlessShutdown[ActivenessResult],
-      pendingCursor: Future[Unit],
       mediator: MediatorRef,
       freshOwnTimelyTx: Boolean,
   )(implicit
@@ -413,9 +412,6 @@ class TransferOutProcessingSteps(
     val transferId: TransferId = TransferId(fullTree.sourceDomain, ts)
 
     for {
-      // Wait for earlier writes to the contract store having completed
-      _ <- EitherT.right(FutureUnlessShutdown.outcomeF(pendingCursor))
-
       // Since the transfer out request should be sent only to participants that host a stakeholder of the contract,
       // we can expect to find the contract in the contract store.
       contractWithTransactionId <-

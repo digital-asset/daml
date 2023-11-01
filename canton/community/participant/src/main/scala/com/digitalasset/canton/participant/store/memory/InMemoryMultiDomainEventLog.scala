@@ -50,7 +50,12 @@ import com.digitalasset.canton.participant.sync.{
   SyncDomainPersistentStateLookup,
   TimestampedEvent,
 }
-import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset, RequestOffset}
+import com.digitalasset.canton.participant.{
+  GlobalOffset,
+  LocalOffset,
+  RequestOffset,
+  TopologyOffset,
+}
 import com.digitalasset.canton.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.canton.protocol.TargetDomainId
@@ -65,6 +70,7 @@ import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, SimpleExecutionQueue
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.immutable.{SortedMap, TreeMap}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.reflect.ClassTag
 
 class InMemoryMultiDomainEventLog(
@@ -90,6 +96,7 @@ class InMemoryMultiDomainEventLog(
       firstOffset: GlobalOffset,
       lastOffset: Option[GlobalOffset],
       lastLocalOffsets: Map[EventLogId, LocalOffset],
+      lastRequestOffsets: Map[EventLogId, RequestOffset],
       references: Set[(EventLogId, LocalOffset)],
       referencesByOffset: SortedMap[GlobalOffset, (EventLogId, LocalOffset, CantonTimestamp)],
       publicationTimeUpperBound: CantonTimestamp,
@@ -101,6 +108,7 @@ class InMemoryMultiDomainEventLog(
         firstOffset = ledgerFirstOffset,
         lastOffset = None,
         lastLocalOffsets = Map.empty,
+        lastRequestOffsets = Map.empty,
         references = Set.empty,
         referencesByOffset = TreeMap.empty,
         publicationTimeUpperBound = CantonTimestamp.MinValue,
@@ -136,6 +144,7 @@ class InMemoryMultiDomainEventLog(
       firstOffset,
       lastOffsetO,
       lastLocalOffsets,
+      lastRequestOffsets,
       references,
       referencesByOffset,
       publicationTimeUpperBound,
@@ -162,10 +171,17 @@ class InMemoryMultiDomainEventLog(
       logger.debug(
         show"Published event from event log $id with local offset $localOffset at global offset $nextOffset with publication time $publicationTime."
       )
+
+      val updatedLastRequestOffsets = localOffset match {
+        case ro: RequestOffset => lastRequestOffsets + (id -> ro)
+        case _: TopologyOffset => lastRequestOffsets
+      }
+
       val newEntries = Entries(
         firstOffset = firstOffset,
         lastOffset = Some(nextOffset),
         lastLocalOffsets = lastLocalOffsets + (id -> localOffset),
+        lastRequestOffsets = updatedLastRequestOffsets,
         references = references + ((id, localOffset)),
         referencesByOffset =
           referencesByOffset + (nextOffset -> ((id, localOffset, publicationTime))),
@@ -244,6 +260,7 @@ class InMemoryMultiDomainEventLog(
               firstOffset,
               nextOffsetO,
               lastLocalOffsets,
+              lastRequestOffsets,
               references,
               referencesByOffset,
               publicationTimeUpperBound,
@@ -253,10 +270,37 @@ class InMemoryMultiDomainEventLog(
             case (eventLogId, localOffset, _processingTime) => eventLogId -> localOffset
           }
           val newReferencesByOffset = referencesByOffset -- pruned.keys
+
+          val updatedLastLocalOffsets = scala.collection.mutable.Map.empty[EventLogId, LocalOffset]
+          val updatedLastRequestOffsets =
+            scala.collection.mutable.Map.empty[EventLogId, RequestOffset]
+
+          newReferences.foreach { case (eventLodId, localOffset) =>
+            updatedLastLocalOffsets
+              .updateWith(eventLodId) {
+                case Some(current) => Some(current.max(localOffset))
+                case None => Some(localOffset)
+              }
+              .discard
+
+            localOffset match {
+              case requestOffset: RequestOffset =>
+                updatedLastRequestOffsets
+                  .updateWith(eventLodId) {
+                    case Some(current) => Some(current.max(requestOffset))
+                    case None => Some(requestOffset)
+                  }
+                  .discard
+
+              case _ => ()
+            }
+          }
+
           Entries(
             firstOffset = firstOffset.max(upToInclusive.increment),
             lastOffset = nextOffsetO.map(_.max(upToInclusive.increment)),
-            lastLocalOffsets = lastLocalOffsets,
+            lastLocalOffsets = updatedLastLocalOffsets.toMap,
+            lastRequestOffsets = updatedLastRequestOffsets.toMap,
             references = newReferences,
             referencesByOffset = newReferencesByOffset,
             publicationTimeUpperBound = publicationTimeUpperBound,
@@ -340,26 +384,40 @@ class InMemoryMultiDomainEventLog(
       case (ParticipantEventLogId(_), _localOffset) => None
     }
 
-  override def lastLocalOffsetBeforeOrAt(
+  override def lastLocalOffset(
       eventLogId: EventLogId,
-      upToInclusive: GlobalOffset,
-      timestampInclusive: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] =
-    lastLocalOffsetBeforeOrAt[LocalOffset](eventLogId, upToInclusive, timestampInclusive)
+      upToInclusive: Option[GlobalOffset] = None,
+      timestampInclusive: Option[CantonTimestamp] = None,
+  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] = {
+    if (upToInclusive.isEmpty && timestampInclusive.isEmpty) {
+      // In this case, we don't need to inspect the events
+      Future.successful(entriesRef.get().lastLocalOffsets.get(eventLogId))
+    } else
+      lastLocalOffsetBeforeOrAt[LocalOffset](eventLogId, upToInclusive, timestampInclusive)
+  }
 
-  override def lastRequestOffsetBeforeOrAt(
+  override def lastRequestOffset(
       eventLogId: EventLogId,
-      upToInclusive: GlobalOffset,
-      timestampInclusive: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Option[RequestOffset]] =
-    lastLocalOffsetBeforeOrAt[RequestOffset](eventLogId, upToInclusive, timestampInclusive)
+      upToInclusive: Option[GlobalOffset] = None,
+      timestampInclusive: Option[CantonTimestamp] = None,
+  )(implicit traceContext: TraceContext): Future[Option[RequestOffset]] = {
+    if (upToInclusive.isEmpty && timestampInclusive.isEmpty) {
+      // In this case, we don't need to inspect the events
+      Future.successful(entriesRef.get().lastRequestOffsets.get(eventLogId))
+    } else
+      lastLocalOffsetBeforeOrAt[RequestOffset](eventLogId, upToInclusive, timestampInclusive)
+  }
 
   private def lastLocalOffsetBeforeOrAt[T <: LocalOffset: ClassTag](
       eventLogId: EventLogId,
-      upToInclusive: GlobalOffset,
+      upToInclusive: Option[GlobalOffset],
       timestampInclusive: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): Future[Option[T]] = {
-    val referencesUpTo = entriesRef.get().referencesByOffset.rangeTo(upToInclusive).values
+    val referencesUpTo = entriesRef
+      .get()
+      .referencesByOffset
+      .rangeTo(upToInclusive.getOrElse(GlobalOffset.MaxValue))
+      .values
     val reversedLocalOffsets =
       referencesUpTo
         .collect {
@@ -444,13 +502,6 @@ class InMemoryMultiDomainEventLog(
     }
     OptionT(Future.successful(offsetO))
   }
-
-  override def lastLocalOffset(
-      id: EventLogId
-  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] =
-    Future.successful {
-      entriesRef.get().lastLocalOffsets.get(id)
-    }
 
   override def lastGlobalOffset(
       upToInclusive: Option[GlobalOffset] = None

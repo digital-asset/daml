@@ -39,22 +39,23 @@ private[apiserver] final class ApiLedgerConfigurationService private (
   def getLedgerConfiguration(
       request: GetLedgerConfigurationRequest,
       responseObserver: StreamObserver[GetLedgerConfigurationResponse],
-  ): Unit = registerStream(responseObserver) {
+  ): Unit = {
     implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
-
-    logger.info(s"Received request for configuration subscription: $request.")
-    configurationService
-      .getLedgerConfiguration()
-      .map(configuration =>
-        GetLedgerConfigurationResponse(
-          Some(
-            LedgerConfiguration(
-              Some(toProto(configuration.maxDeduplicationDuration))
+    registerStream(responseObserver) {
+      logger.info(s"Received request for configuration subscription: $request.")
+      configurationService
+        .getLedgerConfiguration()
+        .map(configuration =>
+          GetLedgerConfigurationResponse(
+            Some(
+              LedgerConfiguration(
+                Some(toProto(configuration.maxDeduplicationDuration))
+              )
             )
           )
         )
-      )
-      .via(logger.logErrorsOnStream)
+        .via(logger.logErrorsOnStream)
+    }
   }
 
   override def bindService(): ServerServiceDefinition =

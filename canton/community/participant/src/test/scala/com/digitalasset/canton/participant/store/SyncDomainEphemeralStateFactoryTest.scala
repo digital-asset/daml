@@ -433,7 +433,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
         } yield {
           noCleanReq.cleanReplay shouldBe MessageCleanReplayStartingPoint.default
           noCleanReq.processing shouldBe MessageProcessingStartingPoint.default
-          noCleanReq.lastPublishedLocalOffset shouldBe Some(secondOffset)
+          noCleanReq.lastPublishedRequestOffset shouldBe Some(secondOffset)
 
           withCleanReq.cleanReplay shouldBe MessageCleanReplayStartingPoint(
             rc + 1L,
@@ -446,7 +446,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
             sc + 2L,
             ts1,
           )
-          withCleanReq.lastPublishedLocalOffset shouldBe Some(secondOffset)
+          withCleanReq.lastPublishedRequestOffset shouldBe Some(secondOffset)
         }
       }
     }

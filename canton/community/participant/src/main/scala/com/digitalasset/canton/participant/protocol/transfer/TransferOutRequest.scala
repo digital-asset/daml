@@ -31,6 +31,7 @@ import scala.concurrent.ExecutionContext
   *                     (b) are connected to both source and target domain
   * @param targetTimeProof a sequenced event that the submitter has recently observed on the target domain.
   *                        Determines the timestamp of the topology at the target domain.
+  * @param transferCounter The new transfer counter (incremented value compared to the one in the ACS).
   */
 final case class TransferOutRequest(
     submitterMetadata: TransferSubmitterMetadata,

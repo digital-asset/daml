@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http
 
-import domain._
+import domain.*
 import com.daml.nonempty.NonEmpty
 import com.daml.scalatest.FreeSpecCheckLaws
 import com.digitalasset.canton.http.domain.{DisclosedContract, JwtPayload, JwtWritePayload}
@@ -12,7 +12,7 @@ import org.scalatest.matchers.should.Matchers
 import scalaz.NonEmptyList
 
 final class DomainSpec extends AnyFreeSpec with Matchers with FreeSpecCheckLaws {
-  import DomainSpec._
+  import DomainSpec.*
 
   private val ledgerId = LedgerId("myledger")
   private val appId = ApplicationId("myAppId")
@@ -37,11 +37,11 @@ final class DomainSpec extends AnyFreeSpec with Matchers with FreeSpecCheckLaws 
   }
 
   "DisclosedContract" - {
-    import json.JsonProtocolTest._
-    import scalaz.scalacheck.{ScalazProperties => SZP}
+    import json.JsonProtocolTest.*
+    import scalaz.scalacheck.{ScalazProperties as SZP}
 
     "bitraverse" - {
-      checkLaws(SZP.bitraverse.laws[DisclosedContract])
+      checkLaws(SZP.traverse.laws[DisclosedContract])
     }
   }
 }
@@ -49,6 +49,6 @@ final class DomainSpec extends AnyFreeSpec with Matchers with FreeSpecCheckLaws 
 object DomainSpec {
   import scalaz.Equal
 
-  implicit val eqDisclosedContract: Equal[DisclosedContract[Int, Int]] =
+  implicit val eqDisclosedContract: Equal[DisclosedContract[Int]] =
     Equal.equalA
 }

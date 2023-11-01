@@ -45,41 +45,45 @@ final class ApiTransactionService(
   def getTransactions(
       request: GetTransactionsRequest,
       responseObserver: StreamObserver[GetTransactionsResponse],
-  ): Unit = registerStream(responseObserver) {
+  ): Unit = {
     implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
-    implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
+    registerStream(responseObserver) {
+      implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
 
-    logger.debug(s"Received new transaction request $request.")
-    Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
-      val validation = validator.validate(request, ledgerEnd)
+      logger.debug(s"Received new transaction request $request.")
+      Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
+        val validation = validator.validate(request, ledgerEnd)
 
-      validation.fold(
-        t => Source.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
-        req =>
-          if (req.filter.filtersByParty.isEmpty) Source.empty
-          else service.getTransactions(req),
-      )
+        validation.fold(
+          t => Source.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
+          req =>
+            if (req.filter.filtersByParty.isEmpty) Source.empty
+            else service.getTransactions(req),
+        )
+      }
     }
   }
 
   def getTransactionTrees(
       request: GetTransactionsRequest,
       responseObserver: StreamObserver[GetTransactionTreesResponse],
-  ): Unit = registerStream(responseObserver) {
+  ): Unit = {
     implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
-    implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
+    registerStream(responseObserver) {
+      implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
 
-    logger.debug(s"Received new transaction tree request $request.")
-    Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
-      val validation = validator.validateTree(request, ledgerEnd)
+      logger.debug(s"Received new transaction tree request $request.")
+      Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
+        val validation = validator.validateTree(request, ledgerEnd)
 
-      validation.fold(
-        t => Source.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
-        req => {
-          if (req.parties.isEmpty) Source.empty
-          else service.getTransactionTrees(req)
-        },
-      )
+        validation.fold(
+          t => Source.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
+          req => {
+            if (req.parties.isEmpty) Source.empty
+            else service.getTransactionTrees(req)
+          },
+        )
+      }
     }
   }
 

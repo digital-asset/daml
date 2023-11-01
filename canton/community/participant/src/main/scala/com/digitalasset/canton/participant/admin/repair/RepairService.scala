@@ -1170,7 +1170,7 @@ final class RepairService(
         (),
         log(
           s"""Cannot apply a repair command as events have been published up to
-             |${domain.startingPoints.lastPublishedLocalOffset} offset inclusive
+             |${domain.startingPoints.lastPublishedRequestOffset} offset inclusive
              |and the repair command would be assigned the offset ${domain.startingPoints.processing.nextRequestCounter}.
              |Reconnect to the domain to reprocess the dirty requests and retry repair afterwards.""".stripMargin
         ),
@@ -1249,7 +1249,6 @@ final class RepairService(
         repair.domain.persistentState.requestJournalStore.replace(
           _,
           repair.timestamp,
-          RequestState.Pending,
           RequestState.Clean,
           Some(repair.timestamp),
         )

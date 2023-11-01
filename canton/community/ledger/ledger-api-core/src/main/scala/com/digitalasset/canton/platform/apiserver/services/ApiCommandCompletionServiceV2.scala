@@ -53,51 +53,53 @@ final class ApiCommandCompletionServiceV2(
   override def completionStream(
       request: CompletionStreamRequest,
       responseObserver: StreamObserver[CompletionStreamResponse],
-  ): Unit = registerStream(responseObserver) {
+  ): Unit = {
     implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
-    implicit val errorLoggingContext = ErrorLoggingContext(
-      logger,
-      loggingContextWithTrace.toPropertiesMap,
-      loggingContextWithTrace.traceContext,
-    )
-    logger.debug(s"Received new completion request $request.")
-    Source.future(completionsService.currentLedgerEnd()).flatMapConcat { ledgerEnd =>
-      validator
-        .validateGrpcCompletionStreamRequest(toV1(request))
-        .flatMap(validator.validateCompletionStreamRequest(_, ledgerEnd))
-        .fold(
-          t =>
-            Source.failed[CompletionStreamResponse](
-              ValidationLogger.logFailureWithTrace(logger, request, t)
-            ),
-          request => {
-            logger.info(
-              s"Received request for completion subscription, ${loggingContextWithTrace
-                  .serializeFiltered("parties", "offset")}"
-            )
-            val offset = request.offset.getOrElse(LedgerOffset.LedgerEnd)
-
-            completionsService
-              .getCompletions(offset, request.applicationId, request.parties)
-              .via(
-                logger.enrichedDebugStream(
-                  "Responding with completions.",
-                  response =>
-                    response.completion match {
-                      case Some(completion) =>
-                        LoggingEntries(
-                          "commandId" -> completion.commandId,
-                          "statusCode" -> completion.status.map(_.code),
-                        )
-                      case None =>
-                        LoggingEntries()
-                    },
-                )
+    registerStream(responseObserver) {
+      implicit val errorLoggingContext = ErrorLoggingContext(
+        logger,
+        loggingContextWithTrace.toPropertiesMap,
+        loggingContextWithTrace.traceContext,
+      )
+      logger.debug(s"Received new completion request $request.")
+      Source.future(completionsService.currentLedgerEnd()).flatMapConcat { ledgerEnd =>
+        validator
+          .validateGrpcCompletionStreamRequest(toV1(request))
+          .flatMap(validator.validateCompletionStreamRequest(_, ledgerEnd))
+          .fold(
+            t =>
+              Source.failed[CompletionStreamResponse](
+                ValidationLogger.logFailureWithTrace(logger, request, t)
+              ),
+            request => {
+              logger.info(
+                s"Received request for completion subscription, ${loggingContextWithTrace
+                    .serializeFiltered("parties", "offset")}"
               )
-              .via(logger.logErrorsOnStream)
-              .via(StreamMetrics.countElements(metrics.daml.lapi.streams.completions))
-          },
-        )
+              val offset = request.offset.getOrElse(LedgerOffset.LedgerEnd)
+
+              completionsService
+                .getCompletions(offset, request.applicationId, request.parties)
+                .via(
+                  logger.enrichedDebugStream(
+                    "Responding with completions.",
+                    response =>
+                      response.completion match {
+                        case Some(completion) =>
+                          LoggingEntries(
+                            "commandId" -> completion.commandId,
+                            "statusCode" -> completion.status.map(_.code),
+                          )
+                        case None =>
+                          LoggingEntries()
+                      },
+                  )
+                )
+                .via(logger.logErrorsOnStream)
+                .via(StreamMetrics.countElements(metrics.daml.lapi.streams.completions))
+            },
+          )
+      }
     }
   }
 }

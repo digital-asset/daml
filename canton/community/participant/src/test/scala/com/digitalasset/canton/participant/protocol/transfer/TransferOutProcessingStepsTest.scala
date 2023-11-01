@@ -796,7 +796,6 @@ final class TransferOutProcessingStepsTest
           state.transferCache,
           state.contractStore,
           FutureUnlessShutdown.pure(mkActivenessResult()),
-          Future.unit,
           sourceMediator,
           freshOwnTimelyTx = true,
         )
