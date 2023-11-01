@@ -46,8 +46,7 @@ public final class InclusiveFilter extends Filter {
   }
 
   /**
-   * @deprecated Use the constructor without with {@link #templateFilters} instead IDs. Since Daml
-   *     2.8.0
+   * @deprecated Use the constructor with {@link #templateFilters} instead of IDs. Since Daml 2.8.0
    */
   @Deprecated
   public InclusiveFilter(
