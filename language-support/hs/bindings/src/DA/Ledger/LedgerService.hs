@@ -18,7 +18,6 @@ import Network.GRPC.HighLevel.Generated(ClientConfig,MetadataMap(..))
 import UnliftIO(MonadUnliftIO)
 import qualified Data.ByteString.UTF8 as BSU8
 import qualified Data.Map as Map
-import qualified Data.SortedList as SortedList
 
 data Context = Context
   { ts :: TimeoutSeconds
@@ -55,7 +54,7 @@ makeMdm = \case
                | otherwise = "Bearer " <> tok
       in MetadataMap $ Map.fromList
              [ ( "authorization"
-               , SortedList.toSortedList [ BSU8.fromString tok' ]
+               , [ BSU8.fromString tok' ]
                )
              ]
 
