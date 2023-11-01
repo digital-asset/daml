@@ -9,6 +9,7 @@ import "com/daml/ledger/api/v1/contract_metadata.proto";
 import "com/daml/ledger/api/v1/value.proto";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/any.proto";
+import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
 
 
@@ -124,7 +125,6 @@ message CreatedEvent {
   // after the introduction of explicit disclosure.
   // Deprecated in favor of ``created_event_blob``.
   // Optional
-
   ContractMetadata metadata = 10 [deprecated = true];
 
   // Ledger effective time of the transaction that created the contract.
