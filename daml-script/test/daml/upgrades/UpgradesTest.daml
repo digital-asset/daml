@@ -96,6 +96,14 @@ tests = mconcat
     , ("(BROKEN) Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type. (Nested)", inferredV1ChoiceV1ContractWithoutV2Nested)
     , ("Explicitly call a V1 choice on a V2 contract over the ledger-api, expect V1 implementation used, and contract downgraded. (Nested)", explicitV1ChoiceV2ContractNested)
     , ("Explicitly call a V2 choice on a V2 contract over the ledger-api, expect V2 implementation used. (Nested)", explicitV2ChoiceV2ContractNested)
+
+    , -- Added/removed choices
+      ("Succeeds explicitly calling a new V2 choice on a V1 contract", explicitNewV2ChoiceV1Contract)
+    , ("Succeeds implicitly calling a new V2 choice on a V1 contract", implicitNewV2ChoiceV1Contract)
+    , -- These cases should not be possible once upload time checks are implemented
+      ("Succeeds explicitly calling a removed V1 choice on a V2 contract", explicitRemovedV1ChoiceV2Contract)
+    , ("Fails implicitly calling a removed V1 choice on a V2 contract, as V2 is selected", implicitRemovedV1ChoiceV2Contract)
+    , ("Fails implicitly calling a removed V1 choice on a V1 contract, as V2 is selected", implicitRemovedV1ChoiceV1Contract)
     
     , -- Invalid signatory/observer changes
       ("Succeeds if the signatories don't change", unchangedSignatoryUpgrade)
@@ -105,6 +113,11 @@ tests = mconcat
     , ("Fails if the observers set gets larger", largerObserverUpgrade)
     , ("Fails if the observers set gets smaller", smallerObserverUpgrade)
     , ("Succeeds if the observer set loses parties that are already signatories", canRemoveObserversThatAreSignatories)
+
+    , -- Ensure clause changes
+      ("(BROKEN) Fails if the ensure clause changes such that V1 is not longer valid", ensureClauseBecomesInvalid)
+    , ("Succeeds when implicitly creating a V1 contract such that the ensure clause only passes in V2", onlyV2EnsureClauseRequiredForImplicitUpgrade)
+    , ("(BROKEN) Fails when explicitly calling a V1 choice on a V2 contract that doesn't pass the ensure clause in V1", ensureClauseDowngradeToNoLongerValid)
 
     , -- Invalid data upgrades (compile time checks repeated at runtime)
       ("Fails if the template name changes", templateNameChanges)
@@ -405,6 +418,27 @@ explicitV2ChoiceV2ContractNested : Script ()
 explicitV2ChoiceV2ContractNested =
   choiceTest @V2.ValidUpgrade (`V2.ValidUpgrade` Some "text") (v2ChoiceNested "v2 to v2" $ Some "extra") True (v2ChoiceReturnNested "v2 to v2:V2:Some \"extra\"" $ Some "extra")
 
+explicitNewV2ChoiceV1Contract : Script ()
+explicitNewV2ChoiceV1Contract = choiceTest @V2.ValidUpgrade V1.ValidUpgrade V2.NewAddedChoice True "V2"
+
+implicitNewV2ChoiceV1Contract : Script ()
+implicitNewV2ChoiceV1Contract = choiceTest @V2.ValidUpgrade V1.ValidUpgrade V2.NewAddedChoice False "V2"
+
+explicitRemovedV1ChoiceV2Contract : Script ()
+explicitRemovedV1ChoiceV2Contract = choiceTest @V1.ValidUpgrade (`V2.ValidUpgrade` None) V1.OldRemovedChoice True "V1"
+
+implicitRemovedV1ChoiceV2Contract : Script ()
+implicitRemovedV1ChoiceV2Contract =
+  genericUpgradeTest @V1.ValidUpgrade (`V2.ValidUpgrade` None) V1.OldRemovedChoice False $ \case
+    Left (UnknownError msg) | "unknown choice OldRemovedChoice" `isInfixOf` msg -> pure ()
+    res -> assertFail $ "Expected unknown choice error, got " <> show res
+
+implicitRemovedV1ChoiceV1Contract : Script ()
+implicitRemovedV1ChoiceV1Contract =
+  genericUpgradeTest @V1.ValidUpgrade V1.ValidUpgrade V1.OldRemovedChoice False $ \case
+    Left (UnknownError msg) | "unknown choice OldRemovedChoice" `isInfixOf` msg -> pure ()
+    res -> assertFail $ "Expected unknown choice error, got " <> show res
+
 -- Given a function that maps a set of 3 parties to the pre-upgrade and post-upgrade signatory set
 -- and the same for observers
 -- along side an expected result flag (success or failure), test the upgrade behaviour
@@ -468,6 +502,29 @@ canRemoveObserversThatAreSignatories =
     True
     (\(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob, charlie])) -- signatories
     (\(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])) -- observers
+
+-- TODO: This test should fail, as the ensure becomes negative on the V2. With current implementation, a V2 choice can be called on an
+-- upgraded V1 contract payload that doesn't pass the V2 ensure clause
+ensureClauseBecomesInvalid : Script ()
+ensureClauseBecomesInvalid =
+  genericUpgradeTest @V2.EnsureChanges (V1.EnsureChanges True False) V2.EnsureChangesCall False $ \case
+    Right "V2" -> pure ()
+    res -> assertFail $ "Expected ??? error, got " <> show res
+
+onlyV2EnsureClauseRequiredForImplicitUpgrade : Script ()
+onlyV2EnsureClauseRequiredForImplicitUpgrade = do
+  a <- allocatePartyOn "alice" participant0
+  -- The V1 should be implicitly upgraded to V2 before evaluating the ensure clause.
+  a `submit` createCmd (V1.EnsureChanges False True a)
+  pure ()
+
+-- TODO: This test should fail, as the ensure becomes negative on the V1. With current implementation, a V1 choice can be called on a 
+-- downgraded V2 contract payload that doesn't pass the V1 ensure clause
+ensureClauseDowngradeToNoLongerValid : Script ()
+ensureClauseDowngradeToNoLongerValid =
+  genericUpgradeTest @V1.EnsureChanges (V2.EnsureChanges False True) V1.EnsureChangesCall True $ \case
+    Right "V1" -> pure ()
+    res -> assertFail $ "Expected ??? error, got " <> show res
 
 templateInvalidChange : forall t2 t1 c2. (Template t1, HasAgreement t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Script ()
 templateInvalidChange shouldSucceed makeV1Contract v2Choice =

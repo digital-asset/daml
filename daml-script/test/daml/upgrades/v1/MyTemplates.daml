@@ -38,6 +38,10 @@ template ValidUpgrade
       controller party
       do pure $ UpgradedChoiceReturnWrapper $ UpgradedChoiceReturn $ choiceData.firstArg <> ":V1"
 
+    choice OldRemovedChoice : Text
+      controller party
+      do pure "V1"
+
 -- This upgrade will be invalid at runtime based on signatories and observers, not the datatype, so we may test those individually
 -- replacement signatories + observers are ignored in v1, added in v2, to test them changing in upgrade
 template InvalidUpgradeStakeholders
@@ -49,6 +53,19 @@ template InvalidUpgradeStakeholders
   where
     signatory signatories
     observer observers
+
+template EnsureChanges
+  with
+    v1Valid : Bool
+    v2Valid : Bool
+    party : Party
+  where
+    signatory party
+    ensure v1Valid
+
+    choice EnsureChangesCall : Text 
+      controller party
+      do pure "V1"
 
 template NameChanges
   with 
