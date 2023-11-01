@@ -66,7 +66,7 @@ public abstract class Filter {
     }
   }
 
-  public enum Template {
+  public static enum Template {
     INCLUDE_CREATED_EVENT_BLOB(true),
     HIDE_CREATED_EVENT_BLOB(false);
     public final boolean includeCreatedEventBlob;
