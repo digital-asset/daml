@@ -126,6 +126,10 @@ message CreatedEvent {
   // Optional
 
   ContractMetadata metadata = 10 [deprecated = true];
+
+  // Ledger effective time of the transaction that created the contract.
+  // Required
+  google.protobuf.Timestamp created_at = 14;
 }
 
 // View of a create event matched by an interface filter.
