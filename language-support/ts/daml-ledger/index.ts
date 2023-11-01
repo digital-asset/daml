@@ -360,14 +360,7 @@ export type CommandMeta = {
 export type DisclosedContract = {
   contractId: ContractId<any>;
   templateId: string;
-  payload: unknown;
-  metadata: DisclosedContractMetadata;
-};
-
-export type DisclosedContractMetadata = {
-  createdAt: string;
-  keyHash: string; // base16
-  driverMetadata: string; // base64
+  createdEventBlob: string;
 };
 
 /**
