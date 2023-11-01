@@ -78,7 +78,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
           effectiveAt,
           id,
         ) match {
-          case LookupOk(_, coinst, _) => Some(coinst)
+          case LookupOk(coinst) => Some(coinst.toImplementation.toCreateNode.versionedCoinst)
           case _: LookupContractNotEffective | _: LookupContractNotActive |
               _: LookupContractNotVisible | _: LookupContractNotFound =>
             None
