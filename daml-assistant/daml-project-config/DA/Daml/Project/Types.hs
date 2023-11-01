@@ -118,19 +118,19 @@ class IsVersion a where
     isHeadVersion :: a -> Bool
 
 instance IsVersion ReleaseVersion where
-    isHeadVersion v = "0.0.0" == versionToString v
+    isHeadVersion v = isHeadVersion (releaseVersionFromReleaseVersion v)
 
 instance IsVersion UnresolvedReleaseVersion where
-    isHeadVersion v = "0.0.0" == V.toString (unwrapUnresolvedReleaseVersion v)
+    isHeadVersion v = isHeadVersion (unwrapUnresolvedReleaseVersion v)
 
 instance IsVersion SdkVersion where
-    isHeadVersion v = "0.0.0" == T.unpack (sdkVersionToText v)
+    isHeadVersion v = isHeadVersion (unwrapSdkVersion v)
+
+instance IsVersion V.Version where
+    isHeadVersion v = V.initial == L.set V.release [] (L.set V.metadata [] v)
 
 headReleaseVersion :: ReleaseVersion
-headReleaseVersion =
-    OldReleaseVersion $ case V.fromText "0.0.0" of
-                          Left msg -> error ("headReleaseVersion: Couldn't parse '0.0.0' as a version. Error: " ++ msg)
-                          Right v -> v
+headReleaseVersion = OldReleaseVersion V.initial
 
 data InvalidVersion = InvalidVersion
     { ivSource :: !Text -- ^ invalid version
