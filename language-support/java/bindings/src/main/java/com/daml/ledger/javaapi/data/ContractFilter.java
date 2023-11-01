@@ -30,7 +30,10 @@ public final class ContractFilter<Ct> {
 
   public static <Ct> ContractFilter<Ct> of(ContractCompanion<Ct, ?, ?> companion) {
     Filter filter =
-        new InclusiveFilter(Collections.singleton(companion.TEMPLATE_ID), Collections.emptyMap());
+        new InclusiveFilter(
+            Collections.emptyMap(),
+            Collections.singletonMap(
+                companion.TEMPLATE_ID, Filter.Template.HIDE_CREATED_EVENT_BLOB));
     return new ContractFilter<>(companion, filter);
   }
 
@@ -38,8 +41,9 @@ public final class ContractFilter<Ct> {
       InterfaceCompanion<?, Cid, View> companion) {
     Filter filter =
         new InclusiveFilter(
-            Collections.emptySet(),
-            Collections.singletonMap(companion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW));
+            Collections.singletonMap(
+                companion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB),
+            Collections.emptyMap());
     return new ContractFilter<>(companion, filter);
   }
 

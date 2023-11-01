@@ -20,7 +20,6 @@ import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
 import com.daml.ledger.api.v1.{ContractMetadataOuterClass, value}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
-import com.daml.ledger.javaapi.data.ContractMetadata
 import com.google.protobuf.{Any, ByteString}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.{Timestamp => ScalaTimestamp}
@@ -50,6 +49,8 @@ object TransactionGenerator {
 
   def byteStringGen: Gen[ByteString] =
     Arbitrary.arbString.arbitrary.map(str => com.google.protobuf.ByteString.copyFromUtf8(str))
+
+  def createdEventBlobGen: Gen[ByteString] = byteStringGen
 
   def createArgumentsBlobGen: Gen[Any] = {
     byteStringGen.map(byteString => Any.newBuilder().setValue(byteString).build())
@@ -232,8 +233,7 @@ object TransactionGenerator {
     contractKey <- Gen.option(valueGen(0))
     (scalaTemplateId, javaTemplateId) <- identifierGen
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
-    createArgumentsBlob <- createArgumentsBlobGen
-    contractMetadata <- contractMetadataGen
+    createdEventBlob <- createdEventBlobGen
     signatories <- Gen.listOf(nonEmptyId)
     observers <- Gen.listOf(nonEmptyId)
     interfaceViews <- Gen.listOf(interfaceViewGen)
@@ -245,16 +245,14 @@ object TransactionGenerator {
         Some(scalaTemplateId),
         contractKey.map(_._1),
         Some(scalaRecord),
-        Some(com.google.protobuf.any.Any.fromJavaProto(createArgumentsBlob)),
-        ByteString.EMPTY,
+        None,
+        createdEventBlob,
         interfaceViews.map(_._1),
         signatories ++ observers,
         signatories,
         observers,
         agreementText,
-        Some(
-          com.daml.ledger.api.v1.contract_metadata.ContractMetadata.fromJavaProto(contractMetadata)
-        ),
+        None,
       )
     ),
     new data.CreatedEvent(
@@ -263,8 +261,7 @@ object TransactionGenerator {
       javaTemplateId,
       contractId,
       javaRecord,
-      createArgumentsBlob,
-      ContractMetadata.fromProto(contractMetadata),
+      createdEventBlob,
       interfaceViews.view.collect { case (_, (id, Right(rec))) => (id, rec) }.toMap.asJava,
       interfaceViews.view.collect { case (_, (id, Left(stat))) => (id, stat) }.toMap.asJava,
       agreementText.toJava,

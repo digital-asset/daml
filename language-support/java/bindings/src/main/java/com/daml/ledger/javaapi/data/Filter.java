@@ -18,22 +18,33 @@ public abstract class Filter {
   public abstract TransactionFilterOuterClass.Filters toProto();
 
   /**
-   * Settings for including an interface in {@link InclusiveFilter}. There are two values: {@link
-   * #INCLUDE_VIEW} and {@link #HIDE_VIEW}.
+   * Settings for including an interface in {@link InclusiveFilter}. There are four possible values:
+   * {@link #HIDE_VIEW_HIDE_CREATED_EVENT_BLOB} and {@link #INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB}
+   * and {@link #HIDE_VIEW_INCLUDE_CREATED_EVENT_BLOB} and {@link
+   * #INCLUDE_VIEW_INCLUDE_CREATED_EVENT_BLOB}.
    */
-  public static final class Interface {
+  public static enum Interface {
+    HIDE_VIEW_HIDE_CREATED_EVENT_BLOB(false, false),
+    INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB(true, false),
+    HIDE_VIEW_INCLUDE_CREATED_EVENT_BLOB(false, true),
+    INCLUDE_VIEW_INCLUDE_CREATED_EVENT_BLOB(true, true);
+
     public final boolean includeInterfaceView;
-    // add equals and hashCode if adding more fields
+    public final boolean includeCreatedEventBlob;
 
-    public static final Interface INCLUDE_VIEW = new Interface(true);
-    public static final Interface HIDE_VIEW = new Interface(false);
-
-    private Interface(boolean includeInterfaceView) {
+    Interface(boolean includeInterfaceView, boolean includeCreatedEventBlob) {
       this.includeInterfaceView = includeInterfaceView;
+      this.includeCreatedEventBlob = includeCreatedEventBlob;
     }
 
-    private static Interface includeInterfaceView(boolean includeInterfaceView) {
-      return includeInterfaceView ? INCLUDE_VIEW : HIDE_VIEW;
+    private static Interface includeInterfaceView(
+        boolean includeInterfaceView, boolean includeCreatedEventBlob) {
+      if (!includeInterfaceView && !includeCreatedEventBlob)
+        return HIDE_VIEW_HIDE_CREATED_EVENT_BLOB;
+      else if (includeInterfaceView && !includeCreatedEventBlob)
+        return INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB;
+      else if (!includeInterfaceView) return HIDE_VIEW_INCLUDE_CREATED_EVENT_BLOB;
+      else return INCLUDE_VIEW_INCLUDE_CREATED_EVENT_BLOB;
     }
 
     public TransactionFilterOuterClass.InterfaceFilter toProto(Identifier interfaceId) {
@@ -44,16 +55,43 @@ public abstract class Filter {
     }
 
     static Interface fromProto(TransactionFilterOuterClass.InterfaceFilter proto) {
-      return includeInterfaceView(proto.getIncludeInterfaceView());
+      return includeInterfaceView(
+          proto.getIncludeInterfaceView(), proto.getIncludeCreatedEventBlob());
     }
 
     Interface merge(Interface other) {
-      return includeInterfaceView(includeInterfaceView || other.includeInterfaceView);
+      return includeInterfaceView(
+          includeInterfaceView || other.includeInterfaceView,
+          includeCreatedEventBlob || other.includeCreatedEventBlob);
+    }
+  }
+
+  public static enum Template {
+    INCLUDE_CREATED_EVENT_BLOB(true),
+    HIDE_CREATED_EVENT_BLOB(false);
+    public final boolean includeCreatedEventBlob;
+
+    Template(boolean includeCreatedEventBlob) {
+      this.includeCreatedEventBlob = includeCreatedEventBlob;
     }
 
-    @Override
-    public String toString() {
-      return "Filter.Interface{" + "includeInterfaceView=" + includeInterfaceView + '}';
+    private static Template includeCreatedEventBlob(boolean includeCreatedEventBlob) {
+      return includeCreatedEventBlob ? INCLUDE_CREATED_EVENT_BLOB : HIDE_CREATED_EVENT_BLOB;
+    }
+
+    public TransactionFilterOuterClass.TemplateFilter toProto(Identifier templateId) {
+      return TransactionFilterOuterClass.TemplateFilter.newBuilder()
+          .setTemplateId(templateId.toProto())
+          .setIncludeCreatedEventBlob(includeCreatedEventBlob)
+          .build();
+    }
+
+    static Template fromProto(TransactionFilterOuterClass.TemplateFilter proto) {
+      return includeCreatedEventBlob(proto.getIncludeCreatedEventBlob());
+    }
+
+    Template merge(Template other) {
+      return includeCreatedEventBlob(includeCreatedEventBlob || other.includeCreatedEventBlob);
     }
   }
 }
