@@ -95,8 +95,8 @@ object JsonProtocol extends JsonProtocolLow {
     } { bytes => bytesToStrTotal(bytes.toByteArray) }
 
   implicit val Base64Format: JsonFormat[domain.Base64] = {
-    import java.util.Base64.{getUrlDecoder, getUrlEncoder}
-    baseNFormat(getUrlDecoder.decode, getUrlEncoder.encodeToString)
+    import java.util.Base64.{getDecoder, getEncoder}
+    baseNFormat(getDecoder.decode, getEncoder.encodeToString)
   }
 
   implicit val Base16Format: JsonFormat[domain.Base16] = {
@@ -104,8 +104,6 @@ object JsonProtocol extends JsonProtocolLow {
     import java.util.Locale.US
     baseNFormat(s => base16.decode(s toUpperCase US), ba => base16.encode(ba) toLowerCase US)
   }
-
-  implicit val PbAnyFormat: JsonFormat[domain.PbAny] = jsonFormat2(domain.PbAny)
 
   implicit val userDetails: JsonFormat[domain.UserDetails] =
     jsonFormat2(domain.UserDetails.apply)
