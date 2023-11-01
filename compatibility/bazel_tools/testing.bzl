@@ -86,7 +86,7 @@ grpc_error_code_breaking_change_exclusions = [
 
 before_removing_legacy_error_codes = "2.0.0-snapshot.20220127.9042.0.4038d0a7"
 after_removing_legacy_error_codes = "2.0.0-snapshot.20220127.9042.0.4038d0a7.1"
-first_canton_in_ledger_api_tests = "2.7.0-snapshot.20230504.11748.0.af51d660"
+first_canton_in_ledger_api_tests = "2.5.0"
 
 excluded_test_tool_tests = [
     {
@@ -605,7 +605,7 @@ excluded_test_tool_tests = [
         "start": "2.7.0-snapshot.20230703.11931.1",
         "platform_ranges": [
             {
-                "end": "2.7.0-snapshot.20230703.11931.0.vc04c7ac9",
+                "end": "2.8.0-snapshot.20231025.0",
                 "exclusions": [
                     "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
                     "DeeplyNestedValueIT",
