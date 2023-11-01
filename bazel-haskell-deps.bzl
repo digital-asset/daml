@@ -30,7 +30,6 @@ GRPC_HASKELL_REV = "9adf3b02b0164b64432f2868b6577b4f4c2c6980"
 GRPC_HASKELL_SHA256 = "8e75f41652d35f3162e1a892d89cc67c195b9c3a5477980a82115f5caff0a206"
 GRPC_HASKELL_PATCHES = [
     #"@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-cpp-options.patch",
-    #"@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-upgrade.patch",
     "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-ffi.patch",
 ]
 XML_CONDUIT_VERSION = "1.9.1.1"
