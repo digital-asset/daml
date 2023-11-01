@@ -261,3 +261,5 @@
   type: jar-scala
 - target: //observability/akka-http-metrics:akka-http-metrics
   type: jar-scala
+- target: //daml-script/runner:admin_package_service_proto_scala
+  type: jar-scala
