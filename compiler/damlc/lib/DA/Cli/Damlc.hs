@@ -1371,14 +1371,14 @@ execClean projectOpts enableMultiPackage multiPackageLocation cleanAll =
           mMultiPackagePath <- getMultiPackagePath multiPackageLocation
           case mMultiPackagePath of
             Nothing -> do
-              hPutStrLn stderr "Couldn't find multi-package.yaml. Use --multi-package-path PATH or --multi-package-search to specify its location."
+              hPutStrLn stderr "Couldn't find a multi-package.yaml. Use --multi-package-search or --multi-package-path to specify its location."
               exitFailure
             Just path ->
               withMultiPackageConfig path $ \multiPackageConfig ->
                 forM_ (mpPackagePaths multiPackageConfig) $ \p ->
                   singleCleanEffect $ projectOpts {projectRoot = Just $ ProjectPath p}
         (False, True) -> do
-          hPutStrLn stderr "Cannot use --all without --enable-multi-package=yes"
+          hPutStrLn stderr "Multi-package clean option used without enabling multi-package via the --enable-multi-package flag."
           exitFailure
         _ -> singleCleanEffect projectOpts
 
