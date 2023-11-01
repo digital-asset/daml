@@ -271,7 +271,7 @@ class ValidateDisclosedContractsTest
         disclosedContracts = scala.Seq(
           api.deprecatedProtoDisclosedContract
             .copy(
-              createdEventBlob =
+              createEventPayload =
                 TransactionCoder.encodeFatContractInstance(lf.fatContractInstance).value
             )
             // arguments and metadata cannot be set at the same time with create_event_payload
@@ -289,7 +289,7 @@ class ValidateDisclosedContractsTest
           disclosedContracts = scala.Seq(
             api.deprecatedProtoDisclosedContract
               .copy(
-                createdEventBlob = Bytes.assertFromString("00abcd").toByteString
+                createEventPayload = Bytes.assertFromString("00abcd").toByteString
               )
               // arguments and metadata cannot be set at the same time with create_event_payload
               .clearMetadata
@@ -306,7 +306,7 @@ class ValidateDisclosedContractsTest
 
   it should "fail validation if both DisclosedContract formats are set" in {
     val disclosedContractWithAllFieldsSet = api.deprecatedProtoDisclosedContract
-      .copy(createdEventBlob =
+      .copy(createEventPayload =
         TransactionCoder.encodeFatContractInstance(lf.fatContractInstance).value
       )
     val disclosedContractWithMetadataAndPayloadSet =
@@ -370,7 +370,7 @@ object ValidateDisclosedContractsTest {
       contractId = contractId,
       arguments = ProtoArguments.CreateArguments(contractArgumentsRecord),
       metadata = Some(contractMetadata),
-      createdEventBlob = ByteString.EMPTY,
+      createEventPayload = ByteString.EMPTY,
     )
 
     val protoCommands: ProtoCommands =

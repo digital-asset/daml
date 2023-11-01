@@ -61,7 +61,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
         Some(
           domain.InclusiveFilters(
             templateFilters =
-              expectedTemplateIds.map(TemplateFilter(_, includeCreatedEventBlob = false)),
+              expectedTemplateIds.map(TemplateFilter(_, includeCreateEventPayload = false)),
             interfaceFilters = Set(
               InterfaceFilter(
                 interfaceId = Ref.Identifier(
@@ -73,7 +73,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
                 ),
                 includeView = true,
                 includeCreateArgumentsBlob = true,
-                includeCreatedEventBlob = false,
+                includeCreateEventPayload = false,
               )
             ),
           )

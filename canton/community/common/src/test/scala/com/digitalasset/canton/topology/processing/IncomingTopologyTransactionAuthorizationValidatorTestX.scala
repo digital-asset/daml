@@ -37,7 +37,13 @@ class TopologyTransactionXTestFactory(loggerFactory: NamedLoggerFactory, initEc:
       .fold(err => sys.error(s"Failed to create NamespaceDelegationX: $err"), identity)
 
   val ns1 = Namespace(key1.fingerprint)
+  val ns2 = Namespace(key2.fingerprint)
+  val ns3 = Namespace(key3.fingerprint)
+  val ns4 = Namespace(key4.fingerprint)
   val ns6 = Namespace(key6.fingerprint)
+  val ns7 = Namespace(key7.fingerprint)
+  val ns8 = Namespace(key8.fingerprint)
+  val ns9 = Namespace(key9.fingerprint)
   val domainId1 = DomainId(UniqueIdentifier(Identifier.tryCreate("domain"), ns1))
   val uid1a = UniqueIdentifier(Identifier.tryCreate("one"), ns1)
   val uid1b = UniqueIdentifier(Identifier.tryCreate("two"), ns1)
@@ -164,6 +170,34 @@ class TopologyTransactionXTestFactory(loggerFactory: NamedLoggerFactory, initEc:
     key1,
   )
 
+  val ns7k7_k7 = mkAdd(createNsX(ns7, key7, isRootDelegation = true), key7)
+  val ns8k8_k8 = mkAdd(createNsX(ns8, key8, isRootDelegation = true), key8)
+  val ns9k9_k9 = mkAdd(createNsX(ns9, key9, isRootDelegation = true), key9)
+
+  val us1 = mkAddMultiKey(
+    UnionspaceDefinitionX
+      .create(ns7, PositiveInt.two, NonEmpty(Set, ns1, ns8, ns9))
+      .fold(err => sys.error(s"Failed to create UnionspaceDefinitionX 1: $err"), identity),
+    NonEmpty(Set, key1, key8, key9),
+    serial = PositiveInt.one,
+  )
+  val us2 = mkAdd(
+    UnionspaceDefinitionX
+      .create(ns7, PositiveInt.one, NonEmpty(Set, ns1))
+      .fold(err => sys.error(s"Failed to create UnionspaceDefinitionX 2: $err"), identity),
+    key9,
+    serial = PositiveInt.two,
+    isProposal = true,
+  )
+  val us3 = mkAdd(
+    UnionspaceDefinitionX
+      .create(ns7, PositiveInt.one, NonEmpty(Set, ns1))
+      .fold(err => sys.error(s"Failed to create UnionspaceDefinitionX 3: $err"), identity),
+    key8,
+    serial = PositiveInt.two,
+    isProposal = true,
+  )
+  val unionspaceWithMultipleOwnerThreshold = List(ns1k1_k1, ns8k8_k8, ns9k9_k9, ns7k7_k7, us1)
 }
 
 class IncomingTopologyTransactionAuthorizationValidatorTestX
@@ -590,6 +624,78 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           check(res._2, Seq(None, None, None, unauthorized))
           res._1.cascadingNamespaces shouldBe Set(ns1)
           res._1.filteredCascadingUids shouldBe Set(uid6)
+        }
+      }
+    }
+
+    "evolving unionspace definitions with threshold > 1" should {
+      "succeed if proposing lower threshold and number of owners" in {
+        val store =
+          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+        val validator = mk(store)
+        import Factory.*
+        for {
+          _ <- store.update(
+            SequencedTime(ts(0)),
+            EffectiveTime(ts(0)),
+            removeMapping = Set.empty,
+            removeTxs = Set.empty,
+            additions = unionspaceWithMultipleOwnerThreshold.map(
+              ValidatedTopologyTransactionX(_)
+            ),
+          )
+          res <- validator.validateAndUpdateHeadAuthState(
+            ts(1),
+            List(us2),
+            unionspaceWithMultipleOwnerThreshold
+              .map(tx => tx.transaction.mapping.uniqueKey -> tx)
+              .toMap,
+            expectFullAuthorization = false,
+          )
+        } yield {
+          check(res._2, Seq(None))
+        }
+      }
+
+      "succeed in authorizing with quorum of owner signatures" in {
+        val store =
+          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+        val validator = mk(store)
+        import Factory.*
+        val proposeUnionspaceWithLowerThresholdAndOwnerNumber = List(us2)
+        for {
+          _ <- store.update(
+            SequencedTime(ts(0)),
+            EffectiveTime(ts(0)),
+            removeMapping = Set.empty,
+            removeTxs = Set.empty,
+            additions = unionspaceWithMultipleOwnerThreshold.map(
+              ValidatedTopologyTransactionX(_)
+            ),
+          )
+          _ <- store.update(
+            SequencedTime(ts(1)),
+            EffectiveTime(ts(1)),
+            removeMapping = Set.empty,
+            removeTxs = Set.empty,
+            additions = proposeUnionspaceWithLowerThresholdAndOwnerNumber.map(
+              ValidatedTopologyTransactionX(_)
+            ),
+          )
+          res <- validator.validateAndUpdateHeadAuthState(
+            ts(2),
+            // Analogously to how the TopologyStateProcessorX merges the signatures of proposals
+            // with the same serial, combine the signature of the previous proposal to the current proposal.
+            List(us3.addSignatures(us2.signatures.toSeq)),
+            (unionspaceWithMultipleOwnerThreshold ++ proposeUnionspaceWithLowerThresholdAndOwnerNumber)
+              .map(tx => tx.transaction.mapping.uniqueKey -> tx)
+              .toMap,
+            // Expect to be able to authorize now that we have two signatures as required by
+            // unionspaceWithMultipleOwnerThreshold (us1).
+            expectFullAuthorization = true,
+          )
+        } yield {
+          check(res._2, Seq(None))
         }
       }
     }

@@ -123,7 +123,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
               iface1,
               includeView = true,
               includeCreateArgumentsBlob = false,
-              includeCreatedEventBlob = false,
+              includeCreateEventPayload = false,
             )
           ),
         )
@@ -144,7 +144,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
               iface1,
               includeView = true,
               includeCreateArgumentsBlob = false,
-              includeCreatedEventBlob = false,
+              includeCreateEventPayload = false,
             )
           ),
         )
@@ -165,7 +165,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
               iface1,
               includeView = false,
               includeCreateArgumentsBlob = false,
-              includeCreatedEventBlob = false,
+              includeCreateEventPayload = false,
             )
           ),
         )
@@ -187,7 +187,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
               iface1,
               includeView = true,
               includeCreateArgumentsBlob = false,
-              includeCreatedEventBlob = false,
+              includeCreateEventPayload = false,
             )
           ),
         )
@@ -212,7 +212,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
               iface1,
               includeView = true,
               includeCreateArgumentsBlob = false,
-              includeCreatedEventBlob = false,
+              includeCreateEventPayload = false,
             )
           ),
         )
@@ -237,13 +237,13 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
               iface1,
               includeView = true,
               includeCreateArgumentsBlob = false,
-              includeCreatedEventBlob = false,
+              includeCreateEventPayload = false,
             ),
             InterfaceFilter(
               iface2,
               includeView = true,
               includeCreateArgumentsBlob = false,
-              includeCreatedEventBlob = false,
+              includeCreateEventPayload = false,
             ),
           ),
         )
@@ -266,13 +266,13 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
                   iface1,
                   includeView = false,
                   includeCreateArgumentsBlob = false,
-                  includeCreatedEventBlob = false,
+                  includeCreateEventPayload = false,
                 ),
                 InterfaceFilter(
                   iface2,
                   includeView = true,
                   includeCreateArgumentsBlob = false,
-                  includeCreatedEventBlob = false,
+                  includeCreateEventPayload = false,
                 ),
               ),
             )
@@ -287,13 +287,13 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
                   iface1,
                   includeView = true,
                   includeCreateArgumentsBlob = false,
-                  includeCreatedEventBlob = false,
+                  includeCreateEventPayload = false,
                 ),
                 InterfaceFilter(
                   iface2,
                   includeView = true,
                   includeCreateArgumentsBlob = false,
-                  includeCreatedEventBlob = false,
+                  includeCreateEventPayload = false,
                 ),
               ),
             )
@@ -365,13 +365,13 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
                 iface1,
                 false,
                 includeCreateArgumentsBlob = true,
-                includeCreatedEventBlob = false,
+                includeCreateEventPayload = false,
               ),
               InterfaceFilter(
                 iface2,
                 false,
                 includeCreateArgumentsBlob = false,
-                includeCreatedEventBlob = false,
+                includeCreateEventPayload = false,
               ),
             ),
           )
@@ -395,7 +395,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
                 iface1,
                 false,
                 includeCreateArgumentsBlob = true,
-                includeCreatedEventBlob = false,
+                includeCreateEventPayload = false,
               )
             ),
           )
@@ -429,7 +429,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       Map(
         party -> Filters(
           InclusiveFilters(
-            Set(template1Filter.copy(includeCreatedEventBlob = true)),
+            Set(template1Filter.copy(includeCreateEventPayload = true)),
             Set(InterfaceFilter(iface1, false, false, true)),
           )
         )
@@ -446,7 +446,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       Map(
         party -> Filters(
           InclusiveFilters(
-            Set(template1Filter.copy(includeCreatedEventBlob = true)),
+            Set(template1Filter.copy(includeCreateEventPayload = true)),
             Set(InterfaceFilter(iface1, true, false, true)),
           )
         )
@@ -469,13 +469,13 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
                 iface1,
                 false,
                 includeCreateArgumentsBlob = false,
-                includeCreatedEventBlob = true,
+                includeCreateEventPayload = true,
               ),
               InterfaceFilter(
                 iface2,
                 false,
                 includeCreateArgumentsBlob = false,
-                includeCreatedEventBlob = false,
+                includeCreateEventPayload = false,
               ),
             ),
           )
@@ -499,7 +499,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
                 iface1,
                 false,
                 includeCreateArgumentsBlob = false,
-                includeCreatedEventBlob = true,
+                includeCreateEventPayload = true,
               )
             ),
           )
@@ -523,7 +523,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
                 iface1,
                 false,
                 includeCreateArgumentsBlob = false,
-                includeCreatedEventBlob = true,
+                includeCreateEventPayload = true,
               )
             ),
           )
@@ -568,7 +568,7 @@ object EventProjectionPropertiesSpec {
   trait Scope {
     val template1: Identifier = Identifier.assertFromString("PackageName:ModuleName:template1")
     val template1Filter: TemplateFilter =
-      TemplateFilter(templateId = template1, includeCreatedEventBlob = false)
+      TemplateFilter(templateId = template1, includeCreateEventPayload = false)
     val template2: Identifier = Identifier.assertFromString("PackageName:ModuleName:template2")
     val id: Identifier = Identifier.assertFromString("PackageName:ModuleName:id")
     val iface1: Identifier = Identifier.assertFromString("PackageName:ModuleName:iface1")

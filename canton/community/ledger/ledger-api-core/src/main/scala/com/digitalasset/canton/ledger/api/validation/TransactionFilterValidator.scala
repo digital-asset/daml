@@ -72,7 +72,7 @@ class TransactionFilterValidator(
                 .traverse(
                   validatedTemplateIdWithPackageIdResolutionFallback(
                     _,
-                    includeCreatedEventBlob = false,
+                    includeCreateEventPayload = false,
                     resolvePackageIds,
                   )(upgradingEnabled)
                 )
@@ -108,7 +108,7 @@ class TransactionFilterValidator(
           val interfaceFiltersBlobFlag =
             inclusiveFilters.interfaceFilters.exists(_.includeCreateArgumentsBlob)
           val interfaceFiltersPayloadFlag =
-            inclusiveFilters.interfaceFilters.exists(_.includeCreatedEventBlob)
+            inclusiveFilters.interfaceFilters.exists(_.includeCreateEventPayload)
           val deprecated = templateIdsPresent || interfaceFiltersBlobFlag
           val current = templateFiltersPresent || interfaceFiltersPayloadFlag
           val deprecatedAggr = deprecated || deprecatedAcc
@@ -137,7 +137,7 @@ class TransactionFilterValidator(
       templateId <- requirePresence(filter.templateId, "templateId")
       validatedIds <- validatedTemplateIdWithPackageIdResolutionFallback(
         templateId,
-        filter.includeCreatedEventBlob,
+        filter.includeCreateEventPayload,
         resolvePackageIds,
       )(upgradingEnabled)
     } yield validatedIds
@@ -155,7 +155,7 @@ class TransactionFilterValidator(
       interfaceId = validatedId,
       includeView = filter.includeInterfaceView,
       includeCreateArgumentsBlob = filter.includeCreateArgumentsBlob,
-      includeCreatedEventBlob = filter.includeCreatedEventBlob,
+      includeCreateEventPayload = filter.includeCreateEventPayload,
     )
   }
 }

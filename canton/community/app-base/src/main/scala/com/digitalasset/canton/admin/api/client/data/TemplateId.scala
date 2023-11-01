@@ -43,6 +43,10 @@ object TemplateId {
     apiTemplateIds.map(fromPrim)
   }
 
+  def templateIdsFromJava(identifiers: javaapi.data.Identifier*): Seq[TemplateId] = {
+    identifiers.map(fromJavaIdentifier)
+  }
+
   def fromPrim(templateId: ApiTypes.TemplateId): TemplateId = {
     import scalaz.syntax.tag.*
     fromIdentifier(templateId.unwrap)

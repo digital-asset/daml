@@ -306,7 +306,7 @@ object FieldValidator {
 
   def validatedTemplateIdWithPackageIdResolutionFallback(
       identifier: Identifier,
-      includeCreatedEventBlob: Boolean,
+      includeCreateEventPayload: Boolean,
       resolveTemplateIds: Ref.QualifiedName => Either[StatusRuntimeException, Iterable[
         Ref.Identifier
       ]],
@@ -320,7 +320,7 @@ object FieldValidator {
         else
           requirePackageId(identifier.packageId, "package_id")
             .map(pkgId => Iterable(Ref.Identifier(pkgId, qualifiedName)))
-    } yield templateIds.map(TemplateFilter(_, includeCreatedEventBlob))
+    } yield templateIds.map(TemplateFilter(_, includeCreateEventPayload))
 
   def optionalString[T](s: String)(
       someValidation: String => Either[StatusRuntimeException, T]

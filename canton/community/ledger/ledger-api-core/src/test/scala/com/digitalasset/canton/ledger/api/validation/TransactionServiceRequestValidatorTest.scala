@@ -418,7 +418,7 @@ class TransactionServiceRequestValidatorTest
         )
       }
 
-      "not allow mixed (deprecated and current) definitions between parties: one has includeCreateArgumentsBlob, the other has includeCreatedEventBlob" in {
+      "not allow mixed (deprecated and current) definitions between parties: one has includeCreateArgumentsBlob, the other has includeCreateEventPayload" in {
         requestMustFailWith(
           request = validator.validate(
             txReqBuilder(Seq.empty).copy(
@@ -435,7 +435,7 @@ class TransactionServiceRequestValidatorTest
                               interfaceId = Some(templateId),
                               includeInterfaceView = false,
                               includeCreateArgumentsBlob = true,
-                              includeCreatedEventBlob = false,
+                              includeCreateEventPayload = false,
                             )
                           ),
                           templateFilters = Seq.empty,
@@ -452,7 +452,7 @@ class TransactionServiceRequestValidatorTest
                               interfaceId = Some(templateId),
                               includeInterfaceView = false,
                               includeCreateArgumentsBlob = false,
-                              includeCreatedEventBlob = true,
+                              includeCreateEventPayload = true,
                             )
                           ),
                           templateFilters = Seq.empty,
@@ -472,7 +472,7 @@ class TransactionServiceRequestValidatorTest
         )
       }
 
-      "not allow mixed (deprecated and current) definitions within one InclusiveFilter: includeCreateArgumentsBlob and includeCreatedEventBlob" in {
+      "not allow mixed (deprecated and current) definitions within one InclusiveFilter: includeCreateArgumentsBlob and includeCreateEventPayload" in {
         requestMustFailWith(
           request = validator.validate(
             txReqBuilder(Seq.empty).copy(
@@ -488,7 +488,7 @@ class TransactionServiceRequestValidatorTest
                               interfaceId = Some(templateId),
                               includeInterfaceView = false,
                               includeCreateArgumentsBlob = true,
-                              includeCreatedEventBlob = true,
+                              includeCreateEventPayload = true,
                             )
                           ),
                           templateFilters = Seq.empty,
@@ -552,7 +552,7 @@ class TransactionServiceRequestValidatorTest
                             interfaceId = Some(templateId),
                             includeInterfaceView = true,
                             includeCreateArgumentsBlob = true,
-                            includeCreatedEventBlob = false,
+                            includeCreateEventPayload = false,
                           )
                         ),
                         templateFilters = Seq.empty,
@@ -583,7 +583,7 @@ class TransactionServiceRequestValidatorTest
                       ),
                       includeView = true,
                       includeCreateArgumentsBlob = true,
-                      includeCreatedEventBlob = false,
+                      includeCreateEventPayload = false,
                     )
                   ),
                 )
@@ -608,7 +608,7 @@ class TransactionServiceRequestValidatorTest
                             interfaceId = Some(templateId),
                             includeInterfaceView = true,
                             includeCreateArgumentsBlob = false,
-                            includeCreatedEventBlob = true,
+                            includeCreateEventPayload = true,
                           )
                         ),
                         templateFilters = Seq(TemplateFilter(Some(templateId), true)),
@@ -639,7 +639,7 @@ class TransactionServiceRequestValidatorTest
                       ),
                       includeView = true,
                       includeCreateArgumentsBlob = false,
-                      includeCreatedEventBlob = true,
+                      includeCreateEventPayload = true,
                     )
                   ),
                 )

@@ -186,24 +186,41 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
       )
     }
 
-    val processedUs = toValidate.selectMapping[UnionspaceDefinitionX].forall { sigTx =>
+    val resultUs = toValidate.selectMapping[UnionspaceDefinitionX].map { sigTx =>
       processUnionspaceDefinition(sigTx.transaction.op, AuthorizedTopologyTransactionX(sigTx))
     }
+    val processedUs = resultUs.forall(_._1)
     val mappingSpecificCheck = processedNs && processedIdent && processedUs
 
     val rejectionOrMissingAuthorizers = isCurrentlyAuthorized(toValidate, inStore)
 
-    val hasMissingAuthorizers = rejectionOrMissingAuthorizers.exists(!_.isEmpty)
-    val hasSufficientAuthorizers = rejectionOrMissingAuthorizers.exists(_.isEmpty)
+    // The mappingSpecificCheck is a necessary condition for having sufficient authorizers.
+    val hasSufficientAuthorizers =
+      mappingSpecificCheck && rejectionOrMissingAuthorizers.exists(_.isEmpty)
+    // Conversely a failing mappingSpecificCheck implies missing authorizers irrespective
+    // of whether the generic auth check finds missing signatures (e.g. in a unionspace
+    // only the mappingSpecificCheck sees if the USD owner threshold is satisfied).
+    val hasMissingAuthorizers =
+      rejectionOrMissingAuthorizers.exists(!_.isEmpty || !mappingSpecificCheck)
 
     // the transaction is fully authorized if either
     // 1. it's a root certificate, or
     // 2. there is no authorization error and there are no missing authorizers
     // We need to check explicitly for the root certificate here, because a REMOVE operation
     // removes itself from the authorization graph, and therefore `isCurrentlyAuthorized` cannot validate it.
-    val isFullyAuthorized = NamespaceDelegationX.isRootCertificate(
-      toValidate
-    ) || (hasSufficientAuthorizers && mappingSpecificCheck)
+    val isFullyAuthorized =
+      NamespaceDelegationX.isRootCertificate(toValidate) || hasSufficientAuthorizers
+
+    // If a unionspace transaction is fully authorized, reflect so in the unionspace cache.
+    // Note: It seems a bit unsafe to update the caches on the assumption that the update will also be eventually
+    // persisted by the caller (a few levels up the call chain in TopologyStateProcessorX.validateAndApplyAuthorization
+    // as the caller performs additional checks such as the numeric value of the serial number).
+    // But at least this is safer than where the check was previously (inside processUnionspaceDefinition before even
+    // `isCurrentlyAuthorized` above had finished all checks).
+    if (isFullyAuthorized) {
+      resultUs.foreach { case (_, updateUnionspaceCache) => updateUnionspaceCache() }
+    }
+
     val acceptMissingAuthorizers = !expectFullAuthorization && hasMissingAuthorizers
 
     val finalTransaction = toValidate.copy(isProposal = !isFullyAuthorized)
@@ -277,10 +294,15 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
     }
   }
 
+  /** Process unionspace definition
+    *
+    * return whether unionspace definition mapping is authorizable along with a "cache-update function" to be invoked
+    * by the caller once the mapping is to be committed.
+    */
   private def processUnionspaceDefinition(
       op: TopologyChangeOpX,
       tx: AuthorizedUnionspaceDefinitionX,
-  ): Boolean = {
+  ): (Boolean, () => Unit) = {
     val unionspace = tx.mapping.unionspace
     val (auth, usGraph) = unionspaceCache
       .get(unionspace)
@@ -307,11 +329,15 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
         (auth, newUnionspaceGraph)
       }
 
-    if (auth) {
-      val ownerGraphs = tx.mapping.owners.forgetNE.toSeq.map(getAuthorizationGraphForNamespace)
-      unionspaceCache.put(unionspace, (tx.mapping, usGraph.copy(ownerGraphs = ownerGraphs))).discard
-    }
-    auth
+    (
+      auth,
+      () => {
+        val ownerGraphs = tx.mapping.owners.forgetNE.toSeq.map(getAuthorizationGraphForNamespace)
+        unionspaceCache
+          .put(unionspace, (tx.mapping, usGraph.copy(us = tx.mapping, ownerGraphs = ownerGraphs)))
+          .discard
+      },
+    )
   }
 
   private def determineRelevantUidsAndNamespaces(

@@ -41,12 +41,12 @@ final case class InterfaceFilter(
     interfaceId: Ref.Identifier,
     includeView: Boolean,
     includeCreateArgumentsBlob: Boolean,
-    includeCreatedEventBlob: Boolean,
+    includeCreateEventPayload: Boolean,
 )
 
 final case class TemplateFilter(
     templateId: Ref.Identifier,
-    includeCreatedEventBlob: Boolean,
+    includeCreateEventPayload: Boolean,
 )
 
 final case class InclusiveFilters(

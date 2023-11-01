@@ -34,14 +34,14 @@ object EventProjectionProperties {
   final case class Projection(
       interfaces: Set[Identifier] = Set.empty,
       contractArgumentsBlob: Boolean = false,
-      createdEventBlob: Boolean = false,
+      createEventPayload: Boolean = false,
       contractArguments: Boolean = false,
   ) {
     def append(other: Projection): Projection =
       Projection(
         interfaces ++ other.interfaces,
         contractArgumentsBlob || other.contractArgumentsBlob,
-        createdEventBlob || other.createdEventBlob,
+        createEventPayload || other.createEventPayload,
         contractArguments || other.contractArguments,
       )
   }
@@ -102,7 +102,7 @@ object EventProjectionProperties {
         interfaces =
           if (interfaceFilter.includeView) Set(interfaceFilter.interfaceId) else Set.empty,
         contractArgumentsBlob = interfaceFilter.includeCreateArgumentsBlob,
-        createdEventBlob = interfaceFilter.includeCreatedEventBlob,
+        createEventPayload = interfaceFilter.includeCreateEventPayload,
         contractArguments = false,
       )
       val templateFilterProjections =
@@ -110,7 +110,7 @@ object EventProjectionProperties {
           templateFilter.templateId -> Projection(
             interfaces = Set.empty,
             contractArgumentsBlob = false,
-            createdEventBlob = templateFilter.includeCreatedEventBlob,
+            createEventPayload = templateFilter.includeCreateEventPayload,
             contractArguments = true,
           )
         )
