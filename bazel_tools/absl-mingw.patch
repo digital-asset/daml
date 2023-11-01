@@ -5,7 +5,7 @@
          "notification.h",
      ],
 -    copts = ABSL_DEFAULT_COPTS,
-+    copts = ABSL_DEFAULT_COPTS + ["-D_WIN32_WINNT=0x0A00"],
++    copts = ABSL_DEFAULT_COPTS + ["-D_WIN32_WINNT=0x0A00", "-DWINVER=0x0A00"],
      linkopts = select({
          "//absl:msvc_compiler": [],
          "//absl:clang-cl_compiler": [],
