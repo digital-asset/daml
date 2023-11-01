@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.ledger.api.client
 
+import com.daml.ledger.api.v2.TransactionOuterClass.Transaction as JavaTransactionV2
 import com.daml.ledger.javaapi.data.codegen.{
   Contract,
   ContractCompanion,
@@ -11,6 +12,7 @@ import com.daml.ledger.javaapi.data.codegen.{
 }
 import com.daml.ledger.javaapi.data.{
   CreatedEvent as JavaCreatedEvent,
+  Event,
   ExercisedEvent,
   Transaction as JavaTransaction,
   TransactionTree,
@@ -36,14 +38,25 @@ object JavaDecodeUtil {
 
   def decodeAllCreated[TC](
       companion: ContractCompanion[TC, ?, ?]
-  )(transaction: JavaTransaction): Seq[TC] = {
+  )(transaction: JavaTransaction): Seq[TC] =
+    decodeAllCreatedFromEvents(companion)(transaction.getEvents.asScala.toSeq)
+
+  def decodeAllCreatedV2[TC](
+      companion: ContractCompanion[TC, ?, ?]
+  )(transaction: JavaTransactionV2): Seq[TC] =
+    decodeAllCreatedFromEvents(companion)(
+      transaction.getEventsList.asScala.toSeq.map(Event.fromProtoEvent)
+    )
+
+  def decodeAllCreatedFromEvents[TC](
+      companion: ContractCompanion[TC, ?, ?]
+  )(events: Seq[Event]): Seq[TC] =
     for {
-      event <- transaction.getEvents.asScala.toList
+      event <- events
       eventP = event.toProtoEvent
       created <- if (eventP.hasCreated) Seq(eventP.getCreated) else Seq()
       a <- decodeCreated(companion)(JavaCreatedEvent.fromProto(created)).toList
     } yield a
-  }
 
   def decodeArchivedExercise[TCid](
       companion: ContractCompanion[?, TCid, ?]

@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.admin.repair
 
 import cats.Eval
 import cats.data.{EitherT, OptionT}
+import cats.implicits.catsSyntaxTuple2Semigroupal
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
@@ -51,7 +52,7 @@ import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
 import com.digitalasset.canton.participant.{ParticipantNodeParameters, RequestOffset}
 import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
-import com.digitalasset.canton.protocol.{LfChoiceName, LfGlobalKey, *}
+import com.digitalasset.canton.protocol.{LfChoiceName, *}
 import com.digitalasset.canton.resource.TransactionalStoreUpdate
 import com.digitalasset.canton.store.{
   CursorPrehead,
@@ -140,7 +141,6 @@ final class RepairService(
     val contractId = repairContract.contract.contractId
     acsState match {
       case None =>
-        // TODO(#13573): we should pass the transfer counter in as part of the RepairRequest
         keyState
           .traverse(_.checkAssignable(domain))
           .map { keyToAssign =>
@@ -180,7 +180,6 @@ final class RepairService(
             )
           }
         }
-
       case Some(ActiveContractStore.Archived) =>
         EitherT.leftT(
           log(
@@ -192,21 +191,36 @@ final class RepairService(
           s"Marking contract ${repairContract.contract.contractId} previously transferred-out to $targetDomain as " +
             s"transferred-in from $targetDomain (even though contract may have been transferred to yet another domain since)."
         ).discard
-        // TODO(#13573): we should pass the transfer counter in as part of the RepairRequest
-        keyState
-          .traverse(_.checkAssignable(domain))
-          .map { keyToAssign =>
-            Option(
-              ContractToAdd(
-                repairContract.contract,
-                repairContract.witnesses.map(_.toLf),
-                transferCounter.flatMap(_.increment.toOption),
-                Option(SourceDomainId(targetDomain.unwrap)),
-                keyToAssign,
+
+        val isTransferCounterIncreasing = (transferCounter, repairContract.transferCounter)
+          .mapN { case (tc, repairTc) => repairTc > tc }
+          .getOrElse(true)
+
+        if (isTransferCounterIncreasing) {
+          keyState
+            .traverse(_.checkAssignable(domain))
+            .map { keyToAssign =>
+              Option(
+                ContractToAdd(
+                  repairContract.contract,
+                  repairContract.witnesses.map(_.toLf),
+                  repairContract.transferCounter,
+                  Option(SourceDomainId(targetDomain.unwrap)),
+                  keyToAssign,
+                )
               )
+            }
+            .toEitherT[Future]
+        } else {
+          EitherT.leftT(
+            log(
+              s"The transfer counter ${repairContract.transferCounter} of the contract " +
+                s"${repairContract.contract.contractId} needs to be strictly larger than the transfer counter " +
+                s"$transferCounter at the time of the transfer-out."
             )
-          }
-          .toEitherT[Future]
+          )
+        }
+
     }
   }
 

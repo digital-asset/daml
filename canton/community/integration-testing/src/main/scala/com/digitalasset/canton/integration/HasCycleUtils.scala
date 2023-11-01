@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.environment.Environment
-import com.digitalasset.canton.participant.admin.workflows.PingPong as M
+import com.digitalasset.canton.participant.admin.workflows.java.pingpong as M
 import com.digitalasset.canton.topology.PartyId
 
 /** Adds the ability to run pingpong cycles to integration tests */
@@ -31,9 +31,9 @@ trait HasCycleUtils[E <: Environment, TCE <: TestConsoleEnvironment[E]] {
     p2acs() shouldBe empty
 
     createCycleContract(participant1, partyId, "I SHALL CREATE", commandId)
-    val coid = participant2.ledger_api.acs.await(partyId, M.Cycle)
-    val cycleEx = coid.contractId.exerciseVoid().command
-    participant2.ledger_api.commands.submit(
+    val coid = participant2.ledger_api.javaapi.acs.await(M.Cycle.COMPANION)(partyId)
+    val cycleEx = coid.id.exerciseVoid().commands.loneElement
+    participant2.ledger_api.javaapi.commands.submit(
       Seq(partyId),
       Seq(cycleEx),
       commandId = (if (commandId.isEmpty) "" else s"$commandId-response"),
@@ -50,8 +50,8 @@ trait HasCycleUtils[E <: Environment, TCE <: TestConsoleEnvironment[E]] {
       commandId: String = "",
   ): Unit = {
 
-    val cycle = M.Cycle(owner = partyId.toPrim, id = id).create.command
-    participant.ledger_api.commands.submit(Seq(partyId), Seq(cycle), commandId = commandId)
+    val cycle = new M.Cycle(id, partyId.toProtoPrimitive).create.commands.loneElement
+    participant.ledger_api.javaapi.commands.submit(Seq(partyId), Seq(cycle), commandId = commandId)
 
   }
 }
