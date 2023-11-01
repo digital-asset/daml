@@ -26,7 +26,7 @@ Transactions:
       children:
       #2:1
       │   disclosed to (since): 'alice' (2), 'divulgee' (2), 'bank' (2)
-      └─> 'bank' fetches #0:0 (DivulgeFetchNodeActors:Iou)
+      └─> 'alice' fetches #0:0 (DivulgeFetchNodeActors:Iou)
 
 Active contracts:  #0:0
 

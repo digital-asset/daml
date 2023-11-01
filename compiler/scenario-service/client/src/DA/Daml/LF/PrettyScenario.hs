@@ -768,7 +768,7 @@ prettyNodeNode lvl nn = do
               )
 
     NodeNodeFetch Node_Fetch{..} -> do
-      let (parties, kw) = partiesAction node_FetchSignatories "fetches" "fetch"
+      let (parties, kw) = partiesAction node_FetchActingParties "fetches" "fetch"
       pure
         $   parties
         <-> (
