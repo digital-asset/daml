@@ -1,0 +1,11 @@
+--- abseil-cpp-20230802.0/absl/synchronization/BUILD.bazel	2023-08-07 20:40:00.000000000 +0200
++++ abseil-cpp-20230802.0-patched/absl/synchronization/BUILD.bazel	2023-11-01 17:16:55.086802165 +0100
+@@ -112,7 +112,7 @@
+         "mutex.h",
+         "notification.h",
+     ],
+-    copts = ABSL_DEFAULT_COPTS,
++    copts = ABSL_DEFAULT_COPTS + ["-DABSL_FORCE_WAITER_MODE=4"],
+     linkopts = select({
+         "//absl:msvc_compiler": [],
+         "//absl:clang-cl_compiler": [],
