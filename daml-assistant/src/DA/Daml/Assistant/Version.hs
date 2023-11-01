@@ -327,8 +327,6 @@ resolveReleaseVersion useCache targetVersion = do
     let isTargetVersion version =
           unwrapUnresolvedReleaseVersion targetVersion == releaseVersionFromReleaseVersion version
     (releaseVersions, _) <- getAvailableSdkSnapshotVersions useCache
-    writeFile "/home/dylan-thinnes/log1" (show targetVersion)
-    writeFile "/home/dylan-thinnes/log2" (show releaseVersions)
     case filter isTargetVersion releaseVersions of
       (x:_) -> pure x
       [] -> throwIO (CouldNotResolveReleaseVersion targetVersion)
