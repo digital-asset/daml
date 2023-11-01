@@ -251,7 +251,8 @@ def daml_deps():
                 "https://github.com/abseil/abseil-cpp/archive/20230802.0.tar.gz",
             ],
             patches = [
-                "@com_github_digital_asset_daml//bazel_tools:absl-mingw.patch",
+                "@com_github_digital_asset_daml//bazel_tools:absl-mingw-win-version.patch",
+                "@com_github_digital_asset_daml//bazel_tools:absl-mingw-compiler-name.patch",
             ],
             patch_args = ["-p1"],
         )
