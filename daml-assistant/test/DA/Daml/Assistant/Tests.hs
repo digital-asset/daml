@@ -171,6 +171,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
                 expected2 = base </> "sdk"
 
             createDirectoryIfMissing True (base </> "cache")
+            writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
             createDirectory expected2
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
@@ -189,6 +190,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
 
             createDirectoryIfMissing True (base </> "daml" </> "sdk")
             createDirectoryIfMissing True (base </> "cache")
+            writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
             createDirectory expected2
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
@@ -206,6 +208,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
                 expected2 = base </> "sdk2"
 
             createDirectoryIfMissing True (base </> "cache")
+            writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
             createDirectory expected2
             writeFileUTF8 (expected2 </> sdkConfigName) ("version: " <> expected1 <> "\n")
             (Just got1, Just (SdkPath got2)) <-
@@ -225,6 +228,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
 
             createDirectoryIfMissing True (base </> "daml" </> "sdk")
             createDirectoryIfMissing True (base </> "cache")
+            writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
             createDirectory (base </> "project")
             writeFileUTF8 (base </> "project" </> projectConfigName)
                 ("sdk-version: " <> expected1)
@@ -247,6 +251,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
 
             createDirectoryIfMissing True (base </> "daml" </> "sdk" </> projVers)
             createDirectoryIfMissing True (base </> "cache")
+            writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
             createDirectory (base </> "project")
             writeFileUTF8 (base </> "project" </> projectConfigName)
                 ("project:\n  sdk-version: " <> projVers)
@@ -270,6 +275,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
 
             createDirectoryIfMissing True (base </> "daml" </> "sdk" </> projVers)
             createDirectoryIfMissing True (base </> "cache")
+            writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
             createDirectory (base </> "project")
             writeFileUTF8 (base </> "project" </> projectConfigName)
                 ("project:\n  sdk-version: " <> projVers)
