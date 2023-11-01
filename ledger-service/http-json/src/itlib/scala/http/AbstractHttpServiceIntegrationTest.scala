@@ -8,6 +8,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimestampConversion
+import com.daml.fetchcontracts.domain.ContractTypeId
 import com.daml.lf.data.Ref
 import com.daml.http.domain.{Base64, ContractId}
 import com.daml.http.endpoints.MeteringReportEndpoint.MeteringReportDateRequest
@@ -1091,28 +1092,34 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           anotherToDiscloseBlob: ByteString,
       )
 
-      def filterWithPayloadsFor(party: domain.Party) = TransactionFilter(
-        Map(
-          party.unwrap -> Filters(
-            Some(
-              InclusiveFilters(
-                interfaceFilters = Seq(
-                  InterfaceFilter(
-                    interfaceId = Some(refApiIdentifier(HasGarbage).unwrap),
-                    includeCreatedEventBlob = true,
-                  )
-                ),
-                templateFilters = Seq(
-                  TemplateFilter(
-                    templateId = Some(refApiIdentifier(ToDisclose).unwrap),
-                    includeCreatedEventBlob = true,
-                  )
-                ),
+      def filterWithBlobsFor(
+          interfaceId: ContractTypeId.Interface[String],
+          templateId: ContractTypeId.Template[String],
+          party: domain.Party,
+      ) = {
+        TransactionFilter(
+          Map(
+            party.unwrap -> Filters(
+              Some(
+                InclusiveFilters(
+                  interfaceFilters = Seq(
+                    InterfaceFilter(
+                      interfaceId = Some(refApiIdentifier(interfaceId).unwrap),
+                      includeCreatedEventBlob = true,
+                    )
+                  ),
+                  templateFilters = Seq(
+                    TemplateFilter(
+                      templateId = Some(refApiIdentifier(templateId).unwrap),
+                      includeCreatedEventBlob = true,
+                    )
+                  ),
+                )
               )
             )
           )
         )
-      )
+      }
       def contractsToDisclose(
           fixture: HttpServiceTestFixtureData,
           junkMessage: String,
@@ -1161,14 +1168,14 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
         // use the transaction service to get the blob, which submit-and-wait
         // doesn't include in the response
-        payloadsToDisclose <- {
+        blobsToDisclose <- {
           import com.daml.fetchcontracts.util.{LedgerBegin, AbsoluteBookmark}
           import lav1.event.Event, Event.Event.Created
           fixture.client.transactionClient
             .getTransactions(
               LedgerBegin.toLedgerApi,
               Some(AbsoluteBookmark(domain.Offset(ceAtOffset)).toLedgerApi),
-              filterWithPayloadsFor(alice),
+              filterWithBlobsFor(HasGarbage, ToDisclose, alice),
               com.daml.ledger.api.domain.LedgerId(""),
               token = Some(jwt.value),
             )
@@ -1180,15 +1187,15 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             }
             .runWith(Sink.seq)
         }
-        (firstPayload, anotherPayload) = inside(payloadsToDisclose) { case Seq(first, second) =>
+        (firstBlob, anotherBlob) = inside(blobsToDisclose) { case Seq(first, second) =>
           first -> second
         }
       } yield ContractsToDisclose(
         alice,
         toDiscloseCid,
-        firstPayload.unwrap,
+        firstBlob.unwrap,
         atdCid,
-        anotherPayload.unwrap,
+        anotherBlob.unwrap,
       )
 
       def runDisclosureTestCase[Setup](
