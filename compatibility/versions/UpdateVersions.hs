@@ -82,9 +82,6 @@ renderVersionsFile (Versions (Set.toAscList -> versions)) checksums =
       , [ "        \"create_daml_app_patch\": " <> renderDigest hash <> ","
         | Just hash <- [mbCreateDamlAppPatchHash]
         ]
-      , [ "        \"sandbox_on_x\": " <> renderDigest hash <> ","
-        | Just hash <- [mbSandboxOnXHash]
-        ]
       , [ "    }," ]
       ]
     renderDigest digest = T.pack $ show (convertToBase Base16 digest :: ByteString)
@@ -105,8 +102,6 @@ data Checksums = Checksums
   , damlReactHash :: Digest SHA256
   , mbCreateDamlAppPatchHash :: Maybe (Digest SHA256)
   -- ^ Nothing for older versions
-  , mbSandboxOnXHash :: Maybe (Digest SHA256)
-  -- ^ Nothing for versions < 2.0.0
   }
 
 -- | The messaging patch wasn’t included in 1.0.0 directly
@@ -119,12 +114,6 @@ firstMessagingPatch :: Version
 firstMessagingPatch =
     fromRight (error "Invalid version") $
     SemVer.fromText "1.1.0-snapshot.20200422.3991.0.6391ee9f"
-
-firstSandboxOnX :: Version
-firstSandboxOnX = fromRight (error "Invalid version") $ SemVer.fromText "2.0.0"
-
-firstVersionWithoutSandboxOnX :: Version
-firstVersionWithoutSandboxOnX = fromRight (error "Invalid version") $ SemVer.fromText "2.7.0"
 
 getChecksums :: Version -> IO Checksums
 getChecksums ver = do
@@ -146,7 +135,6 @@ getChecksums ver = do
             , tsLib "react"
             ] getHash
     mbCreateDamlAppPatchHash <- traverse getHash mbCreateDamlAppUrl
-    mbSandboxOnXHash <- traverse getHash mbSandboxOnXUrl
     pure Checksums {..}
   where sdkFilePath platform = T.pack $
             "./daml-sdk-" <> SemVer.toString ver <> "-" <> platform <> ".tar.gz"
@@ -164,11 +152,6 @@ getChecksums ver = do
              Just $
                "https://raw.githubusercontent.com/digital-asset/daml/v" <> SemVer.toString ver
                <> "/templates/create-daml-app-test-resources/messaging.patch"
-          | otherwise = Nothing
-        mbSandboxOnXUrl
-          | ver >= firstSandboxOnX && ver < firstVersionWithoutSandboxOnX =
-             Just $ "https://repo1.maven.org/maven2/com/daml/sandbox-on-x-app-jar/" <>
-             SemVer.toString ver <> "/sandbox-on-x-app-jar-" <> SemVer.toString ver <> ".jar"
           | otherwise = Nothing
         getHash url = do
           req <- parseRequestThrow url

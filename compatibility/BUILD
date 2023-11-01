@@ -33,23 +33,6 @@ config_setting(
 last_non_canton_in_ledger_api_tests = "2.7.0-snapshot.20230427.11728.0.1f3c22cf"
 
 [
-    sh_binary(
-        name = "sandbox-with-postgres-{}".format(version),
-        srcs = ["@//bazel_tools:sandbox-with-postgres.sh"],
-        args = ["sandbox"],
-        data = [
-            "@//bazel_tools/client_server/with-postgres:with-postgres-exe",
-            "@daml-sdk-{}//:daml".format(version),
-        ] + ([
-            "@daml-sdk-{}//:sandbox-on-x".format(version),
-        ] if versions.is_at_least("2.0.0", version) else []),
-        deps = ["@bazel_tools//tools/bash/runfiles"],
-    )
-    for version in platform_versions
-    if versions.is_at_most(last_non_canton_in_ledger_api_tests, version)
-]
-
-[
     sh_test(
         name = "test-daml-version-and-install-{}".format(sdk_version),
         srcs = ["test-daml-version-and-install.sh"],

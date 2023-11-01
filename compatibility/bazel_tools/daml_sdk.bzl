@@ -55,23 +55,6 @@ def _daml_sdk_impl(ctx):
     else:
         fail("Must specify either sdk_tarball or sdk_sha256")
 
-    if ctx.attr.sandbox_on_x_sha256:
-        ctx.download(
-            output = "sandbox-on-x.jar",
-            url = ["{mirror}/com/daml/sandbox-on-x-app-jar/{version}/sandbox-on-x-app-jar-{version}.jar".format(mirror = mirror, version = ctx.attr.version) for mirror in default_maven_server_urls()],
-            sha256 = ctx.attr.sandbox_on_x_sha256,
-        )
-        ctx.file(
-            "sandbox-on-x.sh",
-            content =
-                """#!/usr/bin/env bash
-    {runfiles_library}
-    $JAVA_HOME/bin/java -jar $(rlocation daml-sdk-{version}/sandbox-on-x.jar) $@
-    """.format(version = ctx.attr.version, runfiles_library = runfiles_library),
-        )
-
-    # TODO Support sandbox on x for releases.
-
     if ctx.attr.test_tool:
         ctx.symlink(ctx.attr.test_tool, "ledger-api-test-tool.jar")
     elif ctx.attr.test_tool_sha256:
@@ -168,11 +151,6 @@ $(rlocation daml-sdk-{version}/sdk/bin/daml) $@
         Label("@compatibility//bazel_tools:daml.cc.tpl"),
         substitutions = {"{SDK_VERSION}": ctx.attr.version},
     )
-    ctx.template(
-        "sandbox-on-x.cc",
-        Label("@compatibility//bazel_tools:run_jar.cc.tpl"),
-        substitutions = {"{SDK_VERSION}": ctx.attr.version, "{JAR_NAME}": "sandbox-on-x.jar"},
-    )
     ctx.file(
         "BUILD",
         content =
@@ -183,12 +161,6 @@ sh_binary(
   srcs = [":ledger-api-test-tool.sh"],
   data = [":ledger-api-test-tool.jar"],
   deps = ["@bazel_tools//tools/bash/runfiles"],
-)
-cc_binary(
-  name = "sandbox-on-x",
-  srcs = ["sandbox-on-x.cc"],
-  data = [":sandbox-on-x.jar"],
-  deps = ["@bazel_tools//tools/cpp/runfiles:runfiles"],
 )
 cc_binary(
   name = "daml",
@@ -224,7 +196,6 @@ _daml_sdk = repository_rule(
         "daml_react_sha256": attr.string(mandatory = False),
         "create_daml_app_patch": attr.label(allow_single_file = True, mandatory = False),
         "create_daml_app_patch_sha256": attr.string(mandatory = False),
-        "sandbox_on_x_sha256": attr.string(mandatory = False),
     },
 )
 
