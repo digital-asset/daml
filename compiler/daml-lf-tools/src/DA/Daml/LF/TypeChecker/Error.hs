@@ -639,17 +639,17 @@ instance Pretty Warning where
       [ "warning while type checking " <> pretty ctx <> ":"
       , nest 2 (pretty err)
       ]
-    WTemplateChangedPrecondition template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its precondition."
-    WTemplateChangedSignatories template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its signatories."
-    WTemplateChangedObservers template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its observers."
-    WTemplateChangedAgreement template -> "The upgraded template " <> pPrint template <> " cannot change the definition of agreement."
-    WChoiceChangedControllers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of controllers."
-    WChoiceChangedObservers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of observers."
-    WChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of authorizers."
-    WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " cannot change the expression for computing its key."
-    WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " cannot change the maintainers for its key."
-    WTemplateAddedKeyDefinition template _key -> "The upgraded template " <> pPrint template <> " cannot add a key if it didn't have one previously."
-    WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the wrong shape." <> foldMap (const " Extra context: " <> text) mbExtra
+    WTemplateChangedPrecondition template -> "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
+    WTemplateChangedSignatories template -> "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
+    WTemplateChangedObservers template -> "The upgraded template " <> pPrint template <> " has changed the definition of its observers."
+    WTemplateChangedAgreement template -> "The upgraded template " <> pPrint template <> " has changed the definition of agreement."
+    WChoiceChangedControllers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of controllers."
+    WChoiceChangedObservers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of observers."
+    WChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of authorizers."
+    WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
+    WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
+    WTemplateAddedKeyDefinition template _key -> "The upgraded template " <> pPrint template <> " has added a key if it didn't have one previously."
+    WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic
