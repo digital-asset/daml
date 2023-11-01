@@ -23,7 +23,7 @@ public abstract class Filter {
    * and {@link #HIDE_VIEW_INCLUDE_CREATED_EVENT_BLOB} and {@link
    * #INCLUDE_VIEW_INCLUDE_CREATED_EVENT_BLOB}.
    */
-  public enum Interface {
+  public static enum Interface {
     HIDE_VIEW_HIDE_CREATED_EVENT_BLOB(false, false),
     INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB(true, false),
     HIDE_VIEW_INCLUDE_CREATED_EVENT_BLOB(false, true),
