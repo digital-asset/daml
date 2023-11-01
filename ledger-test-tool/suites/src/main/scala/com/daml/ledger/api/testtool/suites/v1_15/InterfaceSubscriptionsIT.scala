@@ -41,14 +41,19 @@ import scalaz.Tag
 import java.util.regex.Pattern
 import scala.concurrent.duration._
 
+class InterfaceSubscriptionsIT extends InterfaceSubscriptionsITBase("IS", true)
+class InterfaceSubscriptionsWithEventBlobsIT extends InterfaceSubscriptionsITBase("ISWP", false)
+
 // Allows using deprecated Protobuf fields for testing
-@annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
-class InterfaceSubscriptionsIT extends LedgerTestSuite {
+@annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.event\\.CreatedEvent.*")
+abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLegacyFormat: Boolean)
+    extends LedgerTestSuite {
 
   test(
-    "ISTransactionsBasic",
+    s"${prefix}TransactionsBasic",
     "Basic functionality for interface subscriptions on transaction streams",
     allocate(SingleParty),
+    enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
@@ -62,6 +67,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
             Seq(party),
             Seq(T1.id),
             Seq((I.id, true)),
+            useTemplateIdBasedLegacyFormat,
           )
         )
       )
@@ -70,9 +76,10 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ISTransactionsCreateArgumentsBlob",
+    s"${prefix}TransactionsCreateArgumentsBlob",
     "Subscribing on transaction stream by interface with createArgumentsBlob",
     allocate(SingleParty),
+    enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
@@ -86,19 +93,20 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     } yield {
       assertIsBlobProduced(
         transactionsWithBlob.flatMap(createdEvents),
-        createArgumentsBlobNonEmpty = true,
+        expectBlobPresent = true,
       )
       assertIsBlobProduced(
         transactionsWithoutBlob.flatMap(createdEvents),
-        createArgumentsBlobNonEmpty = false,
+        expectBlobPresent = false,
       )
     }
   })
 
   test(
-    "ISAcsBasic",
+    s"${prefix}AcsBasic",
     "Basic functionality for interface subscriptions on ACS streams",
     allocate(SingleParty),
+    enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
@@ -107,7 +115,13 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       c3 <- create(party, T3(party, 3))
       _ <- create(party, T4(party, 4))
       (_, createdEvents) <- activeContracts(
-        activeContractsRequest(Seq(party), Seq(T1.id), Seq((I.id, true)))
+        activeContractsRequest(
+          Seq(party),
+          Seq(T1.id),
+          Seq((I.id, true)),
+          "",
+          useTemplateIdBasedLegacyFormat,
+        )
       )
     } yield basicAssertions(c1.toString, c2.toString, c3.toString, createdEvents)
   })
@@ -201,9 +215,10 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   }
 
   test(
-    "ISMultipleWitness",
+    s"${prefix}MultipleWitness",
     "Multiple witness",
     allocate(Parties(2)),
+    enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party1, party2)) =>
     import ledger._
     for {
@@ -212,8 +227,16 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         getTransactionsRequest(
           new TransactionFilter(
             Map(
-              party1.toString -> filters(Seq.empty, Seq((I.id, true))),
-              party2.toString -> filters(Seq.empty, Seq((I2.id, true))),
+              party1.toString -> filters(
+                Seq.empty,
+                Seq((I.id, true)),
+                useTemplateIdBasedLegacyFormat,
+              ),
+              party2.toString -> filters(
+                Seq.empty,
+                Seq((I2.id, true)),
+                useTemplateIdBasedLegacyFormat,
+              ),
             )
           )
         )
@@ -223,7 +246,11 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         getTransactionsRequest(
           new TransactionFilter(
             Map(
-              party1.toString -> filters(Seq.empty, Seq((I.id, true)))
+              party1.toString -> filters(
+                Seq.empty,
+                Seq((I.id, true)),
+                useTemplateIdBasedLegacyFormat,
+              )
             )
           )
         )
@@ -255,9 +282,10 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ISMultipleViews",
+    s"${prefix}MultipleViews",
     "Multiple interface views populated for one event",
     allocate(SingleParty),
+    enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
@@ -268,6 +296,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
             Seq(party),
             Seq.empty,
             Seq((I.id, true), (I2.id, true)),
+            useTemplateIdBasedLegacyFormat,
           )
         )
       )
@@ -288,16 +317,22 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ISTransactionsIrrelevantTransactions",
+    s"${prefix}TransactionsIrrelevantTransactions",
     "Subscribing on transaction stream by interface with no relevant transactions",
     allocate(SingleParty),
+    enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
       _ <- create(party, T4(party, 4))
       transactions <- flatTransactions(
         getTransactionsRequest(
-          transactionFilter(Seq(party), Seq.empty, Seq((INoTemplate.id, true)))
+          transactionFilter(
+            Seq(party),
+            Seq.empty,
+            Seq((INoTemplate.id, true)),
+            useTemplateIdBasedLegacyFormat,
+          )
         )
       )
     } yield {
@@ -307,9 +342,10 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ISTransactionsDuplicateInterfaceFilters",
+    s"${prefix}TransactionsDuplicateInterfaceFilters",
     "Subscribing on transaction stream by interface with duplicate filters and not verbose",
     allocate(SingleParty),
+    enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
@@ -323,6 +359,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
             Seq(party),
             Seq(T1.id),
             Seq((I.id, false), (I.id, true)),
+            useTemplateIdBasedLegacyFormat,
           )
         )
           .update(_.verbose := false)
@@ -349,9 +386,10 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ISTransactionsDuplicateTemplateFilters",
+    s"${prefix}TransactionsDuplicateTemplateFilters",
     "Subscribing on transaction stream by template with duplicate filters",
     allocate(SingleParty),
+    enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
@@ -365,6 +403,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
             Seq(party),
             Seq(T1.id, T1.id),
             Seq((I.id, true)),
+            useTemplateIdBasedLegacyFormat,
           )
         )
       )
@@ -391,9 +430,10 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ISTransactionsNoIncludedView",
+    s"${prefix}TransactionsNoIncludedView",
     "Subscribing on transaction stream by interface or template without included views",
     allocate(SingleParty),
+    enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
@@ -407,6 +447,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
             Seq(party),
             Seq(T1.id),
             Seq((I.id, false)),
+            useTemplateIdBasedLegacyFormat,
           )
         )
       )
@@ -436,9 +477,10 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ISTransactionsEquivalentFilters",
+    s"${prefix}TransactionsEquivalentFilters",
     "Subscribing by interface or all implementing templates gives the same result",
     allocate(SingleParty),
+    enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     val allImplementations = Seq(T1.id, T2.id, T3.id)
@@ -450,13 +492,23 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       // 1. Subscribe by the interface
       transactions1 <- flatTransactions(
         getTransactionsRequest(
-          transactionFilter(Seq(party), Seq.empty, Seq((I.id, true)))
+          transactionFilter(
+            Seq(party),
+            Seq.empty,
+            Seq((I.id, true)),
+            useTemplateIdBasedLegacyFormat,
+          )
         )
       )
       // 2. Subscribe by all implementing templates
       transactions2 <- flatTransactions(
         getTransactionsRequest(
-          transactionFilter(Seq(party), allImplementations, Seq.empty)
+          transactionFilter(
+            Seq(party),
+            allImplementations,
+            Seq.empty,
+            useTemplateIdBasedLegacyFormat,
+          )
         )
       )
       // 3. Subscribe by both the interface and all templates (redundant filters)
@@ -466,6 +518,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
             Seq(party),
             allImplementations,
             Seq((I.id, true)),
+            useTemplateIdBasedLegacyFormat,
           )
         )
       )
@@ -501,9 +554,10 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ISTransactionsUnknownTemplateOrInterface",
+    s"${prefix}TransactionsUnknownTemplateOrInterface",
     "Subscribing on transaction stream by an unknown template fails",
     allocate(SingleParty),
+    enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val unknownTemplate = TemplateId(Tag.unwrap(I.id).copy(entityName = "TemplateDoesNotExist"))
     val unknownInterface = TemplateId(Tag.unwrap(I.id).copy(entityName = "InterfaceDoesNotExist"))
@@ -512,13 +566,23 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       _ <- create(party, T1(party, 1))
       failure <- flatTransactions(
         getTransactionsRequest(
-          transactionFilter(Seq(party), Seq(unknownTemplate), Seq.empty)
+          transactionFilter(
+            Seq(party),
+            Seq(unknownTemplate),
+            Seq.empty,
+            useTemplateIdBasedLegacyFormat,
+          )
         )
       )
         .mustFail("subscribing with an unknown template")
       failure2 <- flatTransactions(
         getTransactionsRequest(
-          transactionFilter(Seq(party), Seq.empty, Seq((unknownInterface, true)))
+          transactionFilter(
+            Seq(party),
+            Seq.empty,
+            Seq((unknownInterface, true)),
+            useTemplateIdBasedLegacyFormat,
+          )
         )
       )
         .mustFail("subscribing with an unknown interface")
@@ -537,24 +601,53 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ISTransactionsMultipleParties",
+    s"${prefix}TransactionsMultipleParties",
     "Subscribing on transaction stream by multiple parties",
     allocate(Parties(2)),
+    enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party1, party2)) =>
     import ledger._
     for {
       _ <- create(party1, T6(party1, party2))
       party1Iface1transactionsWithView <- flatTransactions(
-        getTransactionsRequest(transactionFilter(Seq(party1), Seq.empty, Seq((I.id, true))))
+        getTransactionsRequest(
+          transactionFilter(
+            Seq(party1),
+            Seq.empty,
+            Seq((I.id, true)),
+            useTemplateIdBasedLegacyFormat,
+          )
+        )
       )
       party1Iface1transactionsWithoutView <- flatTransactions(
-        getTransactionsRequest(transactionFilter(Seq(party1), Seq.empty, Seq((I.id, false))))
+        getTransactionsRequest(
+          transactionFilter(
+            Seq(party1),
+            Seq.empty,
+            Seq((I.id, false)),
+            useTemplateIdBasedLegacyFormat,
+          )
+        )
       )
       party2Iface1transactionsWithView <- flatTransactions(
-        getTransactionsRequest(transactionFilter(Seq(party2), Seq.empty, Seq((I.id, true))))
+        getTransactionsRequest(
+          transactionFilter(
+            Seq(party2),
+            Seq.empty,
+            Seq((I.id, true)),
+            useTemplateIdBasedLegacyFormat,
+          )
+        )
       )
       party2Iface1transactionsWithoutView <- flatTransactions(
-        getTransactionsRequest(transactionFilter(Seq(party2), Seq.empty, Seq((I.id, false))))
+        getTransactionsRequest(
+          transactionFilter(
+            Seq(party2),
+            Seq.empty,
+            Seq((I.id, false)),
+            useTemplateIdBasedLegacyFormat,
+          )
+        )
       )
     } yield {
       assertEquals(
@@ -587,9 +680,10 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ISTransactionsSubscribeBeforeTemplateCreated",
+    s"${prefix}TransactionsSubscribeBeforeTemplateCreated",
     "Subscribing on transaction stream by interface before template is created",
     allocate(SingleParty),
+    enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
 
@@ -601,7 +695,12 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       transactionFuture = flatTransactions(
         take = 1,
         getTransactionsRequest(
-          transactionFilter(Seq(party), Seq.empty, Seq((carbonv1.CarbonV1.I.id, true)))
+          transactionFilter(
+            Seq(party),
+            Seq.empty,
+            Seq((carbonv1.CarbonV1.I.id, true)),
+            useTemplateIdBasedLegacyFormat,
+          )
         )
           // endless stream here as we would like to keep it open until
           // template is uploaded and contract with this template is created
@@ -635,9 +734,10 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ISTransactionsRetroactiveInterface",
+    s"${prefix}TransactionsRetroactiveInterface",
     "Subscribe to retroactive interface",
     allocate(SingleParty),
+    enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
@@ -655,7 +755,12 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       _ <- ledger.uploadDarFile(Dars.read(Carbonv3TestDar.path))
       transactions <- flatTransactions(
         getTransactionsRequest(
-          transactionFilter(Seq(party), Seq.empty, Seq((carbonv3.CarbonV3.RetroI.id, true)))
+          transactionFilter(
+            Seq(party),
+            Seq.empty,
+            Seq((carbonv3.CarbonV3.RetroI.id, true)),
+            useTemplateIdBasedLegacyFormat,
+          )
         )
       )
     } yield assertSingleContractWithSimpleView(
@@ -792,7 +897,8 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     val ifaceFilter = new InterfaceFilter(
       interfaceId = Some(Tag.unwrap(I.id)),
       includeInterfaceView = false,
-      includeCreateArgumentsBlob = includeCreateArgumentsBlob,
+      includeCreateArgumentsBlob = includeCreateArgumentsBlob && useTemplateIdBasedLegacyFormat,
+      includeCreatedEventBlob = includeCreateArgumentsBlob && !useTemplateIdBasedLegacyFormat,
     )
     val filters = new InclusiveFilters(interfaceFilters = List(ifaceFilter))
     new TransactionFilter(Map(party -> new Filters(Some(filters))))
@@ -800,7 +906,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
 
   private def assertIsBlobProduced(
       eventsWithBlob: Vector[CreatedEvent],
-      createArgumentsBlobNonEmpty: Boolean,
+      expectBlobPresent: Boolean,
   ): Unit = {
     val createdEventWithBlob = eventsWithBlob.head
     assertEquals(
@@ -808,7 +914,10 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       createdEventWithBlob.templateId.get.toString,
       Tag.unwrap(T1.id).toString,
     )
-    assertEquals(createdEventWithBlob.createArgumentsBlob.nonEmpty, createArgumentsBlobNonEmpty)
+    val blobPresence =
+      if (useTemplateIdBasedLegacyFormat) createdEventWithBlob.createArgumentsBlob.nonEmpty
+      else !createdEventWithBlob.createdEventBlob.isEmpty
+    assertEquals(blobPresence, expectBlobPresent)
   }
 
 }

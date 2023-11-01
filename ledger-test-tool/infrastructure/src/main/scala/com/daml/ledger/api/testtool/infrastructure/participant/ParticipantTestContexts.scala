@@ -185,6 +185,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
       templateIds: Seq[TemplateId] = Seq.empty,
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
       activeAtOffset: String = "",
+      useTemplateIdBasedLegacyFormat: Boolean = true,
   ): GetActiveContractsRequest
   def activeContracts(parties: Primitive.Party*): Future[Vector[CreatedEvent]]
   def activeContractsByTemplateId(
@@ -201,11 +202,13 @@ trait ParticipantTestContext extends UserManagementTestContext {
       parties: Seq[Primitive.Party],
       templateIds: Seq[TemplateId] = Seq.empty,
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+      useTemplateIdBasedLegacyFormat: Boolean = true,
   ): TransactionFilter
 
   def filters(
       templateIds: Seq[TemplateId] = Seq.empty,
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+      useTemplateIdBasedLegacyFormat: Boolean = true,
   ): Filters
 
   def getTransactionsRequest(

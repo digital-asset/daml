@@ -207,8 +207,15 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       templateIds: Seq[TemplateId],
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
       activeAtOffset: String = "",
+      useTemplateIdBasedLegacyFormat: Boolean = true,
   ): GetActiveContractsRequest =
-    delegate.activeContractsRequest(parties, templateIds, interfaceFilters, activeAtOffset)
+    delegate.activeContractsRequest(
+      parties,
+      templateIds,
+      interfaceFilters,
+      activeAtOffset,
+      useTemplateIdBasedLegacyFormat,
+    )
   override def activeContracts(parties: Primitive.Party*): Future[Vector[CreatedEvent]] =
     withTimeout(s"Active contracts for parties $parties", delegate.activeContracts(parties: _*))
   override def activeContractsByTemplateId(
@@ -223,7 +230,19 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       parties: Seq[Primitive.Party],
       templateIds: Seq[TemplateId] = Seq.empty,
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
-  ): TransactionFilter = delegate.transactionFilter(parties, templateIds, interfaceFilters)
+      useTemplateIdBasedLegacyFormat: Boolean = true,
+  ): TransactionFilter =
+    delegate.transactionFilter(
+      parties,
+      templateIds,
+      interfaceFilters,
+      useTemplateIdBasedLegacyFormat,
+    )
+  override def filters(
+      templateIds: Seq[TemplateId],
+      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)],
+      useTemplateIdBasedLegacyFormat: Boolean = true,
+  ): Filters = delegate.filters(templateIds, interfaceFilters, useTemplateIdBasedLegacyFormat)
   override def getTransactionsRequest(
       transactionFilter: TransactionFilter,
       begin: LedgerOffset,
@@ -585,11 +604,6 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       )
     )
   }
-
-  override def filters(
-      templateIds: Seq[TemplateId],
-      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)],
-  ): Filters = delegate.filters(templateIds, interfaceFilters)
 
   override def latestPrunedOffsets(): Future[(LedgerOffset, LedgerOffset)] = withTimeout(
     "Requesting the latest pruned offsets",
