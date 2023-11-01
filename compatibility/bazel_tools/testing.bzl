@@ -88,9 +88,6 @@ before_removing_legacy_error_codes = "2.0.0-snapshot.20220127.9042.0.4038d0a7"
 after_removing_legacy_error_codes = "2.0.0-snapshot.20220127.9042.0.4038d0a7.1"
 first_canton_in_ledger_api_tests = "2.7.0-snapshot.20230504.11748.0.af51d660"
 
-# Following changes to the ledger api, sandbox can no longer be run after this version.
-last_sandbox_in_ledger_api_tests = "2.7.0-snapshot.20230703.11931.0.vc04c7ac9"
-
 excluded_test_tool_tests = [
     {
         # We drop visibily restrictions about local contract key in
@@ -980,10 +977,6 @@ def sdk_platform_test(sdk_version, platform_version):
     )
 
     use_canton = versions.is_at_least(first_canton_in_ledger_api_tests, platform_version)
-    use_sandbox = versions.is_at_most(last_sandbox_in_ledger_api_tests, platform_version)
-    sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
-    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--mutable-contract-state-cache", "--enable-user-management=true"]
-    sandbox_on_x_cmd = ["run-legacy-cli-config"]
 
     # ledger-api-test-tool test-cases
     name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
@@ -1022,33 +1015,6 @@ def sdk_platform_test(sdk_version, platform_version):
                 ],
                 tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
             )
-        elif use_sandbox:
-            client_server_test(
-                name = name + "-on-x",
-                client = ledger_api_test_tool,
-                client_args = [
-                    "localhost:6865",
-                ] + exclusions,
-                data = [dar_files],
-                runner = "@//bazel_tools/client_server:runner",
-                runner_args = ["6865"],
-                server = sandbox_on_x,
-                server_args = sandbox_on_x_cmd + ["--participant participant-id=example,port=6865"] + sandbox_on_x_args,
-                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-            )
-            client_server_test(
-                name = name + "-on-x-postgresql",
-                client = ledger_api_test_tool,
-                client_args = [
-                    "localhost:6865",
-                ] + exclusions,
-                data = [dar_files],
-                runner = "@//bazel_tools/client_server:runner",
-                runner_args = ["6865"],
-                server = ":sandbox-with-postgres-{}".format(platform_version),
-                server_args = [platform_version, "sandbox-on-x"] + sandbox_on_x_cmd + ["--participant participant-id=example,port=6865,server-jdbc-url=__jdbcurl__"] + sandbox_on_x_args,
-                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-            ) if is_linux else None
 
     # daml-ledger test-cases
     name = "daml-ledger-{sdk_version}-platform-{platform_version}".format(
