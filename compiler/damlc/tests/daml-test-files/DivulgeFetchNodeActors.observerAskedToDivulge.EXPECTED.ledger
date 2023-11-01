@@ -1,0 +1,33 @@
+Transactions: 
+  TX 0 1970-01-01T00:00:00Z (DivulgeFetchNodeActors:34:10)
+  #0:0
+  │   referenced by #2:1
+  │   disclosed to (since): 'alice' (0), 'bank' (0)
+  │   divulged to (since): 'divulgee' (2)
+  └─> 'bank' creates DivulgeFetchNodeActors:Iou
+             with
+               bank = 'bank'; owner = 'alice'
+  
+  TX 1 1970-01-01T00:00:00Z (DivulgeFetchNodeActors:41:17)
+  #1:0
+  │   consumed by: #2:0
+  │   referenced by #2:0
+  │   disclosed to (since): 'alice' (1), 'divulgee' (1)
+  └─> 'divulgee' creates DivulgeFetchNodeActors:DivulgeFrom
+                 with
+                   stakeholder = 'alice'; divulgee = 'divulgee'
+  
+  TX 2 1970-01-01T00:00:00Z (DivulgeFetchNodeActors:44:3)
+  #2:0
+  │   disclosed to (since): 'alice' (2), 'divulgee' (2)
+  └─> 'alice' exercises ExeDivulgeFrom on #1:0 (DivulgeFetchNodeActors:DivulgeFrom)
+              with
+                cid = #0:0
+      children:
+      #2:1
+      │   disclosed to (since): 'alice' (2), 'divulgee' (2), 'bank' (2)
+      └─> 'bank' fetches #0:0 (DivulgeFetchNodeActors:Iou)
+
+Active contracts:  #0:0
+
+Return value: {}

@@ -1,0 +1,123 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Regression test for https://github.com/digital-asset/daml/issues/17729
+-- The last node in the resulting transaction view should be a fetch node, 
+-- with the divulging stakeholder as acting party. In particular, when
+-- the divulging party is a non-signatory observer of the divulged contract 
+-- (alice), none of the signatories (bank) should appear as acting parties 
+-- of the fetch node.
+module DivulgeFetchNodeActors where
+
+import Daml.Script
+
+data TestData = TestData
+  { alice : Party
+  , bank : Party
+  , divulgee : Party
+  , iou : ContractId Iou
+  }
+  
+data TestCase t c = TestCase 
+  { divulgeContractCreator : Party
+  , divulgeContract : t
+  , divulgeSubmitter : Party
+  , divulgeChoice : c
+  }
+
+buildScript : (Choice t c r, HasAgreement t) => (TestData -> TestCase t c) -> Script ()
+buildScript mkTestCase = do
+  alice <- allocateParty "alice"
+  bank <- allocateParty "bank"
+  divulgee <- allocateParty "divulgee"
+
+  iou <- submit bank do
+    createCmd Iou with
+      bank = bank
+      owner = alice
+      
+  let TestCase {..} = mkTestCase TestData {..}
+
+  divulgeCid <- submit divulgeContractCreator do
+    createCmd divulgeContract 
+  
+  submit divulgeSubmitter do
+    exerciseCmd divulgeCid divulgeChoice
+    
+  pure ()
+  
+-- @LEDGER observerDivulges DivulgeFetchNodeActors.observerDivulges.EXPECTED.ledger
+observerDivulges : Script ()
+observerDivulges = 
+  buildScript \TestData {..} -> TestCase
+    { divulgeContractCreator = alice
+    , divulgeContract = DivulgeTo with stakeholder = alice, divulgee
+    , divulgeSubmitter = alice
+    , divulgeChoice = ExeDivulgeTo with cid = iou
+    }
+  
+-- @LEDGER signatoryDivulges DivulgeFetchNodeActors.signatoryDivulges.EXPECTED.ledger
+signatoryDivulges : Script ()
+signatoryDivulges = do
+  buildScript \TestData {..} -> TestCase
+    { divulgeContractCreator = bank
+    , divulgeContract = DivulgeTo with stakeholder = bank, divulgee
+    , divulgeSubmitter = bank
+    , divulgeChoice = ExeDivulgeTo with cid = iou
+    }
+
+-- @LEDGER observerAskedToDivulge DivulgeFetchNodeActors.observerAskedToDivulge.EXPECTED.ledger
+observerAskedToDivulge : Script ()
+observerAskedToDivulge = do
+  buildScript \TestData {..} -> TestCase
+    { divulgeContractCreator = divulgee
+    , divulgeContract = DivulgeFrom with stakeholder = alice, divulgee
+    , divulgeSubmitter = alice
+    , divulgeChoice = ExeDivulgeFrom with cid = iou
+    }
+  
+-- @LEDGER signatoryAskedToDivulge DivulgeFetchNodeActors.signatoryAskedToDivulge.EXPECTED.ledger
+signatoryAskedToDivulge : Script ()
+signatoryAskedToDivulge = do
+  buildScript \TestData {..} -> TestCase
+    { divulgeContractCreator = divulgee
+    , divulgeContract = DivulgeFrom with stakeholder = bank, divulgee
+    , divulgeSubmitter = bank
+    , divulgeChoice = ExeDivulgeFrom with cid = iou
+    }
+    
+template Iou
+  with
+    bank : Party
+    owner : Party
+  where
+    signatory bank
+    observer owner
+
+template DivulgeTo
+  with
+    stakeholder : Party
+    divulgee : Party
+  where
+    signatory stakeholder
+    observer divulgee
+
+    choice ExeDivulgeTo : Iou
+      with
+        cid : ContractId Iou
+      controller stakeholder
+        do fetch cid
+        
+template DivulgeFrom
+  with
+    stakeholder : Party
+    divulgee : Party
+  where
+    signatory divulgee
+    observer stakeholder
+
+    choice ExeDivulgeFrom : Iou
+      with
+        cid : ContractId Iou
+      controller stakeholder
+        do fetch cid
