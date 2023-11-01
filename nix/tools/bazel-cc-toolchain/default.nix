@@ -45,6 +45,7 @@ let
         echo "-L${llvmPackages_12.libcxx}/lib" >> $out/nix-support/cc-cflags
         echo "-L${llvmPackages_12.libcxxabi}/lib" >> $out/nix-support/cc-cflags
         echo "-L${darwin.libobjc}/lib" >> $out/nix-support/cc-cflags
+        echo "-std=c++14" >> $out/nix-support/libcxx-cxxflags
       '';
     };
 
@@ -54,6 +55,9 @@ let
         hardeningUnsupportedFlags =
           ["fortify"] ++ oldAttrs.hardeningUnsupportedFlags or [];
       });
+      extraBuildCommands = ''
+        echo "-std=c++14" >> $out/nix-support/libcxx-cxxflags
+      '';
     };
 
   customStdenv =
