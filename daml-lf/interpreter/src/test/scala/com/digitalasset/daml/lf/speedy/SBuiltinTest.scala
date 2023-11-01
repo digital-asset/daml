@@ -17,7 +17,7 @@ import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo, Machine}
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Util}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ValueArithmeticError
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -1813,11 +1813,21 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
       "when template key is defined" in {
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
+        val sharedKey = Util.sharedKey(txVersion)
         val (disclosedContract, Some((key, keyWithMaintainers))) =
-          buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
+          buildDisclosedContract(
+            contractId,
+            alice,
+            alice,
+            templateId,
+            withKey = true,
+            sharedKey = sharedKey,
+          )
         val cachedKey = CachedKey(
-          GlobalKeyWithMaintainers.assertBuild(templateId, key.toUnnormalizedValue, Set(alice)),
+          GlobalKeyWithMaintainers
+            .assertBuild(templateId, key.toUnnormalizedValue, Set(alice), sharedKey),
           key,
+          sharedKey,
         )
         val contractInfo = ContractInfo(
           version = txVersion,
@@ -2029,6 +2039,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       maintainer: Party,
       templateId: Ref.Identifier,
       withKey: Boolean,
+      sharedKey: Boolean = true,
   ): (DisclosedContract, Option[(SValue, SValue)]) = {
     val key = SValue.SRecord(
       templateId,
@@ -2053,7 +2064,12 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     val globalKey =
       if (withKey) {
         Some(
-          GlobalKeyWithMaintainers.assertBuild(templateId, key.toUnnormalizedValue, Set(maintainer))
+          GlobalKeyWithMaintainers.assertBuild(
+            templateId,
+            key.toUnnormalizedValue,
+            Set(maintainer),
+            sharedKey,
+          )
         )
       } else {
         None

@@ -14,7 +14,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Versioned}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Util, Versioned}
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.ledger.FailedAuthorization.{
   ExerciseMissingAuthorization,
@@ -344,9 +344,11 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
     ),
   )
 
+  private val testTxVersion: TransactionVersion = TransactionVersion.StableVersions.max
+
   private[this] def buildContract(observer: Party): Versioned[Value.ContractInstance] =
     Versioned(
-      TransactionVersion.StableVersions.max,
+      testTxVersion,
       Value.ContractInstance(
         T,
         Value.ValueRecord(
@@ -385,7 +387,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] val nonVisibleContract = buildContract(alice)
 
   private[this] val helper = Versioned(
-    TransactionVersion.StableVersions.max,
+    testTxVersion,
     Value.ContractInstance(
       Helper,
       ValueRecord(
@@ -396,7 +398,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   )
 
   private[this] val iface_contract = Versioned(
-    TransactionVersion.StableVersions.max,
+    testTxVersion,
     Value.ContractInstance(
       Human,
       Value.ValueRecord(
@@ -419,11 +421,16 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] val getHelper = Map(helperCId -> helper)
 
   private[this] val getKey = Map(
-    GlobalKeyWithMaintainers.assertBuild(T, keyValue, Set(alice)) -> cId
+    GlobalKeyWithMaintainers.assertBuild(
+      T,
+      keyValue,
+      Set(alice),
+      Util.sharedKey(testTxVersion),
+    ) -> cId
   )
 
   private[this] val dummyContract = Versioned(
-    TransactionVersion.StableVersions.max,
+    testTxVersion,
     Value.ContractInstance(Dummy, ValueRecord(None, ImmArray(None -> ValueParty(alice)))),
   )
   private[this] val getWronglyTypedContract = Map(cId -> dummyContract)

@@ -37,5 +37,6 @@ class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
            |Daml3ScriptTrySubmit:wronglyTypedContract SUCCESS
            |""".stripMargin,
       )
+
   }
 }

@@ -315,9 +315,10 @@ object Hash {
   ): Either[HashingError, Hash] =
     handleError(assertHashContractKey(templateId, key, shared))
 
-  // SPM - For temporary backwards compatibility, will be deprecated/removed
+  // TODO https://github.com/digital-asset/daml/issues/17732
+  //   For temporary backward compatibility, will be deprecated
   def assertHashContractKey(templateId: Ref.Identifier, key: Value): Hash = {
-    assertHashContractKey(templateId, key, true)
+    assertHashContractKey(templateId, key, shared = false)
   }
 
   // This function assumes that `arg` is well typed, i.e. :

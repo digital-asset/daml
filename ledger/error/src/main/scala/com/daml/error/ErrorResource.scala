@@ -21,6 +21,7 @@ object ErrorResource {
     ContractId,
     ContractIds,
     ContractKey,
+    SharedKey,
     ContractKeyHash,
     DalfPackage,
     DevErrorType,

@@ -18,7 +18,7 @@ import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
-import com.daml.lf.speedy.{SValue, TraceLog, WarningLog, SError}
+import com.daml.lf.speedy.{SError, SValue, TraceLog, WarningLog}
 import com.daml.lf.transaction.{
   GlobalKey,
   IncompleteTransaction,

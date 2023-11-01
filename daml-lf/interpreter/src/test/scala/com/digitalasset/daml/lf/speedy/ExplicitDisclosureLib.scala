@@ -13,7 +13,13 @@ import com.daml.lf.speedy.SValue.SToken
 import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
+import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  TransactionVersion,
+  Util,
+  Versioned,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import org.scalatest.matchers.{MatchResult, Matcher}
@@ -86,6 +92,7 @@ private[lf] class ExplicitDisclosureLib(
        """,
     evaluationOrder,
   )
+  val useSharedKeys: Boolean = Util.sharedKey(defaultParserParameters.languageVersion)
   val maintainerParty: IdString.Party = Ref.Party.assertFromString("maintainerParty")
   val ledgerParty: IdString.Party = Ref.Party.assertFromString("ledgerParty")
   val disclosureParty: IdString.Party = Ref.Party.assertFromString("disclosureParty")
@@ -138,6 +145,7 @@ private[lf] class ExplicitDisclosureLib(
             globalKeyWithMaintainers =
               GlobalKeyWithMaintainers(buildContractKey(maintainer, label), Set(maintainer)),
             key = buildContractSKey(maintainer),
+            shared = Util.sharedKey(TransactionVersion.maxVersion),
           )
         )
       else
@@ -189,6 +197,7 @@ private[lf] class ExplicitDisclosureLib(
     GlobalKey.assertBuild(
       houseTemplateType,
       buildContractKeyValue(maintainer, label),
+      useSharedKeys,
     )
 
   def buildContractSKey(maintainer: Party, label: String = testKeyName): SValue =
@@ -239,6 +248,7 @@ private[lf] class ExplicitDisclosureLib(
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
       label: String = testKeyName,
+      sharedKey: Boolean = true,
   ): ContractInfo = {
     val contract = SValue.SRecord(
       templateId,
@@ -253,8 +263,9 @@ private[lf] class ExplicitDisclosureLib(
         Some(
           CachedKey(
             GlobalKeyWithMaintainers
-              .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer)),
+              .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer), sharedKey),
             contract,
+            sharedKey,
           )
         )
       else None

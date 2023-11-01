@@ -15,7 +15,6 @@ import com.daml.lf.value.Value
 final class GlobalKey private (
     val templateId: Ref.TypeConName,
     val key: Value,
-    val shared: Boolean,
     val hash: crypto.Hash,
 ) extends data.NoCopy {
   override def equals(obj: Any): Boolean = obj match {
@@ -34,13 +33,30 @@ final class GlobalKey private (
 
 object GlobalKey {
 
-  // SPM - For temporary backward compatibility, will be deprecated
+  // TODO https://github.com/digital-asset/daml/issues/17732
+  //   For temporary backward compatibility, will be deprecated
   def build(templateId: Ref.TypeConName, key: Value): Either[crypto.Hash.HashingError, GlobalKey] =
-    build(templateId, key, shared = true)
+    build(templateId, key, shared = false)
 
-  // SPM - For temporary backward compatibility, will be deprecated
+  // TODO https://github.com/digital-asset/daml/issues/17732
+  //   For temporary backward compatibility, will be deprecated
   def assertBuild(templateId: Ref.TypeConName, value: Value): GlobalKey =
-    assertBuild(templateId, value, shared = true)
+    assertBuild(templateId, value, shared = false)
+
+  def assertWithRenormalizedValue(key: GlobalKey, value: Value): GlobalKey = {
+    if (
+      key.key != value &&
+      Hash.assertHashContractKey(key.templateId, value, true) != key.hash &&
+      Hash.assertHashContractKey(key.templateId, value, false) != key.hash
+    ) {
+      throw new IllegalArgumentException(
+        s"Hash must not change as a result of value renormalization key=$key, value=$value"
+      )
+    }
+
+    new GlobalKey(key.templateId, value, key.hash)
+
+  }
 
   // Will fail if key contains contract ids
   def build(
@@ -50,15 +66,19 @@ object GlobalKey {
   ): Either[crypto.Hash.HashingError, GlobalKey] =
     crypto.Hash
       .hashContractKey(templateId, key, shared)
-      .map(new GlobalKey(templateId, key, shared, _))
+      .map(new GlobalKey(templateId, key, _))
 
   // Like `build` but,  in case of error, throws an exception instead of returning a message.
   @throws[IllegalArgumentException]
   def assertBuild(templateId: Ref.TypeConName, key: Value, shared: Boolean): GlobalKey =
     data.assertRight(build(templateId, key, shared).left.map(_.msg))
 
-  private[lf] def unapply(globalKey: GlobalKey): Some[(TypeConName, Value, Boolean)] =
-    Some((globalKey.templateId, globalKey.key, globalKey.shared))
+  private[lf] def unapply(globalKey: GlobalKey): Some[(TypeConName, Value)] =
+    Some((globalKey.templateId, globalKey.key))
+
+  def isShared(key: GlobalKey): Boolean =
+    Hash.hashContractKey(key.templateId, key.key, true) == Right(key.hash)
+
 }
 
 final case class GlobalKeyWithMaintainers(
@@ -70,13 +90,14 @@ final case class GlobalKeyWithMaintainers(
 
 object GlobalKeyWithMaintainers {
 
-  // SPM - For temporary backward compatibility, will be deprecated
+  // TODO https://github.com/digital-asset/daml/issues/17732
+  //   For temporary backward compatibility, will be deprecated
   def assertBuild(
       templateId: Ref.TypeConName,
       value: Value,
       maintainers: Set[Ref.Party],
   ): GlobalKeyWithMaintainers =
-    assertBuild(templateId, value, maintainers, shared = true)
+    assertBuild(templateId, value, maintainers, shared = false)
 
   def assertBuild(
       templateId: Ref.TypeConName,

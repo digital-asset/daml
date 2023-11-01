@@ -4,6 +4,7 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.language.LanguageVersion
 import com.daml.nameof.NameOf
 
 object Util {
@@ -107,8 +108,17 @@ object Util {
     }
 
   def sharedKey(version: TransactionVersion): Boolean = {
-    import Ordering.Implicits.infixOrderingOps
-    version >= TransactionVersion.minSharedKeys
+    // TODO https://github.com/digital-asset/daml/issues/17732
+    //   Enable shared keys once there is LAPI support via
+    //   version >= TransactionVersion.minSharedKeys
+    false
+  }
+
+  def sharedKey(version: LanguageVersion): Boolean = {
+    // TODO https://github.com/digital-asset/daml/issues/17732
+    //   Enable shared keys once there is LAPI support via
+    //   version >= LanguageVersion.Features.sharedKeys
+    false
   }
 
 }

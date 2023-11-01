@@ -360,12 +360,17 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
   def lookupException(name: TypeConName): Either[LookupError, DefExceptionSignature] =
     lookupException(name, Reference.Exception(name))
 
+  def lookupPackageLanguageVersion(pkgId: PackageId): Either[LookupError, LanguageVersion] =
+    lookupPackage(pkgId).map(_.languageVersion)
+
   val packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
     signatures andThen (_.languageVersion)
 
   def hasSharedKeys(packageId: PackageId): Boolean = {
-    import scala.math.Ordered.orderingToOrdered
-    packageLanguageVersion(packageId) >= LanguageVersion.Features.sharedKeys
+    // TODO https://github.com/digital-asset/daml/issues/17732
+    //   Enable shared keys once there is LAPI support via
+    //   packageLanguageVersion(packageId) >= LanguageVersion.Features.sharedKeys
+    false
   }
 
 }

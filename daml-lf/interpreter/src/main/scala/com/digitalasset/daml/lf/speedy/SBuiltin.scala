@@ -1544,7 +1544,7 @@ private[lf] object SBuiltin {
           IE.FetchEmptyContractKeyMaintainers(
             cachedKey.templateId,
             cachedKey.lfValue,
-            cachedKey.globalKey.shared,
+            cachedKey.shared,
           )
         )
       } else {
@@ -2050,16 +2050,17 @@ private[lf] object SBuiltin {
 
   private[this] def extractKey(
       location: String,
-      version: TransactionVersion,
+      packageTxVersion: TransactionVersion,
       templateId: Ref.TypeConName,
       v: SValue,
   ): CachedKey =
     v match {
       case SStruct(_, vals) =>
         val keyValue = vals.get(keyIdx)
-        val lfValue = keyValue.toNormalizedValue(version)
+        val lfValue = keyValue.toNormalizedValue(packageTxVersion)
+        val shared = Util.sharedKey(packageTxVersion)
         val gkey = GlobalKey
-          .build(templateId, lfValue, Util.sharedKey(version))
+          .build(templateId, lfValue, shared)
           .getOrElse(
             throw SErrorDamlException(IE.ContractIdInContractKey(keyValue.toUnnormalizedValue))
           )
@@ -2069,6 +2070,7 @@ private[lf] object SBuiltin {
             extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),
           ),
           keyValue,
+          shared,
         )
       case _ => throw SErrorCrash(location, s"Invalid key with maintainers: $v")
     }
