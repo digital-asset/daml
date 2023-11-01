@@ -32,7 +32,6 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
     "TSFInterfaceTemplateIds",
     "Combine plain interface filters with template ids",
     allocate(SingleParty),
-    enabled = _.templateFilters,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     testFilterComposition(
       ledger,
@@ -92,7 +91,6 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
     "TSFInterfaceWithBlobsTemplateIds",
     "Combine interface filters with blobs with template ids",
     allocate(SingleParty),
-    enabled = _.templateFilters,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     testFilterComposition(
       ledger,
@@ -116,7 +114,6 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     testFilterCompositionFailure(
       ledger,
-      party,
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
@@ -136,7 +133,6 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     testFilterCompositionFailure(
       ledger,
-      party,
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
@@ -156,7 +152,6 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     testFilterCompositionFailure(
       ledger,
-      party,
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
@@ -216,7 +211,6 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     testFilterCompositionFailure(
       ledger,
-      party,
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
@@ -236,7 +230,6 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     testFilterCompositionFailure(
       ledger,
-      party,
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
@@ -286,15 +279,10 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
 
   private def testFilterCompositionFailure(
       ledger: ParticipantTestContext,
-      party: Primitive.Party,
       filter: TransactionFilter,
   )(implicit ec: ExecutionContext): Future[Unit] = {
     import ledger._
     for {
-      _ <- create(party, T5(party, 1))
-      _ <- create(party, T6(party, party))
-      _ <- create(party, T3(party, 2))
-      _ <- create(party, T4(party, 4))
       _ <- flatTransactions(getTransactionsRequest(filter)).mustFail(
         "filter composition unsupported for flat transactions"
       )

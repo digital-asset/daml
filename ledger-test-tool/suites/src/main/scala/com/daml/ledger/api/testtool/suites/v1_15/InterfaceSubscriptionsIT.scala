@@ -42,7 +42,7 @@ import java.util.regex.Pattern
 import scala.concurrent.duration._
 
 class InterfaceSubscriptionsIT extends InterfaceSubscriptionsITBase("IS", true)
-class InterfaceSubscriptionsWithPayloadsIT extends InterfaceSubscriptionsITBase("ISWP", false)
+class InterfaceSubscriptionsWithEventBlobsIT extends InterfaceSubscriptionsITBase("ISWP", false)
 
 // Allows using deprecated Protobuf fields for testing
 @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.event\\.CreatedEvent.*")
@@ -93,11 +93,11 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     } yield {
       assertIsBlobProduced(
         transactionsWithBlob.flatMap(createdEvents),
-        createArgumentsBlobNonEmpty = true,
+        expectBlobPresent = true,
       )
       assertIsBlobProduced(
         transactionsWithoutBlob.flatMap(createdEvents),
-        createArgumentsBlobNonEmpty = false,
+        expectBlobPresent = false,
       )
     }
   })
@@ -906,7 +906,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
 
   private def assertIsBlobProduced(
       eventsWithBlob: Vector[CreatedEvent],
-      createArgumentsBlobNonEmpty: Boolean,
+      expectBlobPresent: Boolean,
   ): Unit = {
     val createdEventWithBlob = eventsWithBlob.head
     assertEquals(
@@ -917,7 +917,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     val blobPresence =
       if (useTemplateIdBasedLegacyFormat) createdEventWithBlob.createArgumentsBlob.nonEmpty
       else !createdEventWithBlob.createdEventBlob.isEmpty
-    assertEquals(blobPresence, createArgumentsBlobNonEmpty)
+    assertEquals(blobPresence, expectBlobPresent)
   }
 
 }
