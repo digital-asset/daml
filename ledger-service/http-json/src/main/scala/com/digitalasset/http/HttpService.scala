@@ -44,9 +44,11 @@ import scalaz._
 
 import java.nio.file.{Files, Path}
 import java.security.{Key, KeyStore}
+
 import scala.concurrent.{ExecutionContext, Future}
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.api.tls.TlsConfiguration
 
@@ -90,6 +92,9 @@ object HttpService {
     import startSettings._
 
     implicit val settings: ServerSettings = ServerSettings(asys).withTransparentHeadRequests(true)
+
+    val parseJwt: EndpointsCompanion.ParseJwt =
+      startSettings.authConfig.flatMap(_.targetScope).fold(parseAnyJwt)(parseScopeJwt)
 
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(DummyApplicationId),
@@ -198,6 +203,7 @@ object HttpService {
       jsonEndpoints = new Endpoints(
         allowNonHttps,
         validateJwt,
+        parseJwt,
         commandService,
         contractsService,
         partiesService,
@@ -221,6 +227,7 @@ object HttpService {
 
       websocketEndpoints = new WebsocketEndpoints(
         validateJwt,
+        parseJwt,
         websocketService,
         client.userManagementClient,
         client.identityClient,
@@ -362,6 +369,22 @@ object HttpService {
   // Decode JWT without any validation
   private[http] val decodeJwt: EndpointsCompanion.ValidateJwt =
     jwt => JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.shows))
+
+  private[http] val parseAnyJwt: EndpointsCompanion.ParseJwt =
+    jwt =>
+      AuthServiceJWTCodec
+        .readFromString(jwt.payload)
+        .toEither
+        .disjunction
+        .leftMap(EndpointsCompanion.Error.fromThrowable)
+
+  private[http] def parseScopeJwt(targetScope: String): EndpointsCompanion.ParseJwt =
+    jwt =>
+      AuthServiceJWTCodec
+        .readScopeBasedTokenFromString(targetScope)(jwt.payload)
+        .toEither
+        .disjunction
+        .leftMap(EndpointsCompanion.Error.fromThrowable)
 
   private[http] def buildJsonCodecs(
       packageService: PackageService

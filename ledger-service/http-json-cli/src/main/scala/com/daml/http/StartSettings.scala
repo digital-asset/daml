@@ -27,6 +27,7 @@ trait StartSettings {
   val wsConfig: Option[WebsocketConfig]
   val allowNonHttps: Boolean
   val staticContentConfig: Option[StaticContentConfig]
+  val authConfig: Option[AuthConfig]
   val packageReloadInterval: FiniteDuration
   val packageMaxInboundMessageSize: Option[Int]
   val maxInboundMessageSize: Int

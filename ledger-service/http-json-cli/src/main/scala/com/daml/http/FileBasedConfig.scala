@@ -31,6 +31,9 @@ private[http] object FileBasedConfig {
   implicit val staticContentCfgReader: ConfigReader[StaticContentConfig] =
     deriveReader[StaticContentConfig]
 
+  implicit val authCfgReader: ConfigReader[AuthConfig] =
+    deriveReader[AuthConfig]
+
   implicit val dbStartupModeReader: ConfigReader[DbStartupMode] =
     ConfigReader.fromString[DbStartupMode](catchConvertError { s =>
       DbStartupMode.configValuesMap
@@ -62,6 +65,7 @@ private[http] final case class FileBasedConfig(
     metrics: Option[MetricsConfig] = None,
     allowInsecureTokens: Boolean = false,
     staticContent: Option[StaticContentConfig] = None,
+    authConfig: Option[AuthConfig] = None,
 ) {
   def toConfig(
       nonRepudiation: nonrepudiation.Configuration.Cli,
@@ -82,6 +86,7 @@ private[http] final case class FileBasedConfig(
       tlsConfig = ledgerApi.tls.tlsConfiguration,
       jdbcConfig = queryStore,
       staticContentConfig = staticContent,
+      authConfig = authConfig,
       allowNonHttps = allowInsecureTokens,
       wsConfig = websocketConfig,
       nonRepudiation = nonRepudiation,

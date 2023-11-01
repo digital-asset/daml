@@ -23,6 +23,7 @@ import com.daml.lf.data.Ref.UserId
 
 private[http] final class UserManagement(
     decodeJwt: EndpointsCompanion.ValidateJwt,
+    parseJwt: EndpointsCompanion.ParseJwt,
     userManagementClient: UserManagementClient,
 )(implicit
     ec: ExecutionContext
@@ -186,7 +187,7 @@ private[http] final class UserManagement(
   }
 
   private def getUserIdFromToken(jwt: Jwt): ET[UserId] =
-    decodeAndParseUserIdFromToken(jwt, decodeJwt).leftMap(identity[Error])
+    decodeAndParseUserIdFromToken(jwt, decodeJwt, parseJwt).leftMap(identity[Error])
 }
 
 private[http] object UserManagement {
@@ -199,10 +200,14 @@ private[http] object UserManagement {
     )
   }
 
-  private def decodeAndParseUserIdFromToken(rawJwt: Jwt, decodeJwt: ValidateJwt)(implicit
+  private def decodeAndParseUserIdFromToken(
+      rawJwt: Jwt,
+      decodeJwt: ValidateJwt,
+      parseJwt: ParseJwt,
+  )(implicit
       mf: Monad[Future]
   ): ET[UserId] =
-    EitherT.either(decodeAndParseJwt(rawJwt, decodeJwt).flatMap {
+    EitherT.either(decodeAndParseJwt(rawJwt, decodeJwt, parseJwt).flatMap {
       case token: StandardJWTPayload => userIdFromToken(token)
       case _ =>
         -\/(Unauthorized("A user token was expected but a custom token was given"): Error)
