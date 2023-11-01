@@ -120,6 +120,7 @@ tests = mconcat
     , ("Fails if a nested variant is an additional case when downgrading", templateVariantDowngradeFromNew)
 
     , -- Edge behaviour
+      -- https://github.com/DACH-NY/canton/issues/14718
       ("(BROKEN) Chooses the v1 contract if v2 is unvetted and package id is omitted.", packageSelectionChoosesUnvettedPackages)
       -- TODO: Weird numeric case from Moritz/Remy - Requires disclosed contracts, daml3-script does not support this.
       -- Cannot be tested.

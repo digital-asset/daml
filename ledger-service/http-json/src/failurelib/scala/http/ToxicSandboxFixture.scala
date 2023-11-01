@@ -4,7 +4,7 @@
 package com.daml.http
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.integrationtest.CantonFixtureWithResource
+import com.daml.integrationtest.{CantonFixture, CantonFixtureWithResource}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ports.{LockedFreePort, Port}
@@ -86,10 +86,10 @@ trait ToxicSandboxFixture
     }
 
   override protected def makeAdditionalResource(
-      ports: Vector[(Port, Port)]
+      ports: Vector[CantonFixture.LedgerPorts]
   ): ResourceOwner[(Channel, Port, ToxiproxyClient, Proxy)] =
     for {
-      channel <- config.channelResource(ports.head._1)
-      (port, client, proxy) <- makeToxiproxyResource(ports.head._1)
+      channel <- config.channelResource(ports.head.ledgerPort)
+      (port, client, proxy) <- makeToxiproxyResource(ports.head.ledgerPort)
     } yield (channel, port, client, proxy)
 }

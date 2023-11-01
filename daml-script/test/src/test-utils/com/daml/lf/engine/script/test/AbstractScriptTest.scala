@@ -76,13 +76,13 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
       provideAdminPorts: Boolean = false,
   ): Future[Participants[GrpcLedgerClient]] = {
     implicit val ec: ExecutionContext = system.dispatcher
-    val participants = portsWithAdmin.zipWithIndex.map { case ((ledgerPort, adminPort), i) =>
+    val participants = ledgerPorts.zipWithIndex.map { case (ports, i) =>
       Participant(s"participant$i") -> ApiParameters(
         host = "localhost",
-        port = ledgerPort.value,
+        port = ports.ledgerPort.value,
         access_token = token,
         application_id = None,
-        adminPort = if (provideAdminPorts) Some(adminPort.value) else None,
+        adminPort = if (provideAdminPorts) Some(ports.adminPort.value) else None,
       )
     }
     val params = Participants(

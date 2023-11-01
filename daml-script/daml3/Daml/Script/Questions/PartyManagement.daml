@@ -15,10 +15,8 @@ instance IsQuestion AllocateParty Party where command = "AllocateParty"
 -- | A hint to the backing participant what party id to allocate.
 -- Must be a valid PartyIdString (as described in @value.proto@).
 newtype PartyIdHint = PartyIdHint { partyIdHint : Text }
-  deriving (Ord, Eq, Show)
 
 newtype ParticipantName = ParticipantName { participantName : Text }
-  deriving (Ord, Eq, Show)
 
 -- | Allocate a party with the given display name
 -- using the party management service.

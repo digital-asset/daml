@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref
 import com.daml.ledger.api.auth
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner, Resource}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.ports.{Port, LockedFreePort, PortLock}
+import com.daml.ports.{LockedFreePort, PortLock}
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
 import spray.json.JsString
@@ -133,6 +133,8 @@ object CantonRunner {
       )
       .mkString("\n")
     // Run the given clients bootstrap, upload dars via the console (which internally calls the admin api), then write a non-empty file for us to wait on
+    // TODO(DACH-NY/canton#3149): Consolidate dars.upload and ledger_api.package.upload_dar
+    // If the above is fixed, we can revert back to using ledgerClient.uploadDar here.
     val completionFile = files.completionFile.toString.replace("\\", "\\\\")
     val bootstrapContent =
       s"""import java.nio.file.{Files, Paths}
@@ -233,12 +235,16 @@ object CantonRunner {
       tmpDir: Path,
       logger: org.slf4j.Logger,
       darFiles: Seq[Path],
-  ): ResourceOwner[Vector[(Port, Port)]] =
-    new ResourceOwner[Vector[(Port, Port)]] {
-      override def acquire()(implicit context: ResourceContext): Resource[Vector[(Port, Port)]] = {
+  ): ResourceOwner[Vector[CantonFixture.LedgerPorts]] =
+    new ResourceOwner[Vector[CantonFixture.LedgerPorts]] {
+      override def acquire()(implicit
+          context: ResourceContext
+      ): Resource[Vector[CantonFixture.LedgerPorts]] = {
         val files = CantonFiles(tmpDir)
         Resource(start(config, logger, darFiles, files))(stop).map({ case (_, ports, _) =>
-          ports.map { case (adminPort, ledgerPort) => (ledgerPort.port, adminPort.port) }
+          ports.map { case (adminPort, ledgerPort) =>
+            CantonFixture.LedgerPorts(ledgerPort.port, adminPort.port)
+          }
         })
       }
     }

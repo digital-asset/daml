@@ -788,10 +788,7 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- env.clients.getParticipant(participant) match {
-          case Right(client) => Future.successful(client)
-          case Left(err) => Future.failed(new RuntimeException(err))
-        }
+        client <- Converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.vetDar(darName)
       } yield SEValue(SUnit)
   }
@@ -806,10 +803,7 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- env.clients.getParticipant(participant) match {
-          case Right(client) => Future.successful(client)
-          case Left(err) => Future.failed(new RuntimeException(err))
-        }
+        client <- Converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.unvetDar(darName)
       } yield SEValue(SUnit)
   }
