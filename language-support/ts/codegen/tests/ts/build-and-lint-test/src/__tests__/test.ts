@@ -29,9 +29,6 @@ import WebSocket from "ws";
 
 import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 
-// JSON API expects URL-safe base64 encoding https://en.wikipedia.org/wiki/Base64#URL_applications
-const toUrlBase64 = (s: string) => s.replace(/\+/g, "-").replace(/\//g, "_");
-
 const LEDGER_ID = "build-and-lint-test";
 const APPLICATION_ID = "build-and-lint-test";
 const SECRET_KEY = "secret";
@@ -622,9 +619,7 @@ test("exercise using explicit disclosure", async () => {
     payload,
   );
   // TODO(https://digitalasset.atlassian.net/browse/LT-5)
-  // The JSON API does (not) yet expose contract metadata so we read it directly through the gRPC API.
-  // Once this is fixed we should also test payloadBlob (grpcurl does not expose the protobuf
-  // Any in a usable form.
+  // The JSON API does not expose created_event_blob so we read it directly through the gRPC API.
   const output = execFileSync(
     "grpcurl",
     [
@@ -632,20 +627,34 @@ test("exercise using explicit disclosure", async () => {
       "-H",
       `Authorization: Bearer ${ALICE_TOKEN}`,
       "-d",
-      `{"contract_id": "${contract.contractId}", "requesting_parties": ["${ALICE_PARTY}"]}`,
+      JSON.stringify({
+        filter: {
+          filtersByParty: {
+            [ALICE_PARTY]: {
+              inclusive: {
+                templateFilters: [
+                  {
+                    templateId: {
+                      packageId: buildAndLint.packageId,
+                      moduleName: "Main",
+                      entityName: "ReferenceData",
+                    },
+                    includeCreatedEventBlob: true,
+                  },
+                ],
+              },
+            },
+          },
+        },
+        begin: { boundary: "LEDGER_BEGIN" },
+        end: { boundary: "LEDGER_END" },
+      }),
       "localhost:5011",
-      "com.daml.ledger.api.v1.EventQueryService/GetEventsByContractId",
+      "com.daml.ledger.api.v1.TransactionService/GetTransactions",
     ],
     { encoding: "utf8" },
   );
-  const jsonOutput = JSON.parse(output);
-  {
-    // TODO(tudor-da): Currently GetEventsByContractId does not populate created_event_blob
-    // so we short-circuit this test with a `return`. Once that data is populated this block can be
-    // removed to enable the exercise command to be submitted.
-    console.log("got event data: " + output);
-    return;
-  }
+  const created = JSON.parse(output).transactions[0].events[0].created;
   const [result] = await bobLedger.exercise(
     buildAndLint.Main.ReferenceData.ReferenceData_Fetch,
     contract.contractId,
@@ -655,9 +664,7 @@ test("exercise using explicit disclosure", async () => {
         {
           contractId: contract.contractId,
           templateId: contract.templateId,
-          createdEventBlob: toUrlBase64(
-            jsonOutput.create_event.created_event_blob,
-          ),
+          createdEventBlob: created.created_event_blob,
         },
       ],
     },
