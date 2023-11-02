@@ -33,8 +33,7 @@ NOTICES     @garyverhaegen-da @dasormeter
 /test-common/canton/            @garyverhaegen-da @remyhaemmerle-da
 
 # Runtime
-/daml-lf/ @remyhaemmerle-da
-/daml-lf/data-scalacheck/src/main/ @remyhaemmerle-da
+/daml-lf/ @remyhaemmerle-da @paulbrauner-da
 /daml-lf/kv-support/ @digital-asset/kv-committer @remyhaemmerle-da
 /daml-lf/transaction-test-lib/src/main/ @remyhaemmerle-da @S11001001
 
