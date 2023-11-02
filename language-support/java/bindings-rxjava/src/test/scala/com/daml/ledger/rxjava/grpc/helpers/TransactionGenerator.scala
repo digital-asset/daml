@@ -209,7 +209,7 @@ object TransactionGenerator {
     agreementText <- Gen.option(Gen.asciiStr)
     contractKey <- Gen.option(valueGen(0))
     (scalaTemplateId, javaTemplateId) <- identifierGen
-    (_, createdAtInstant) <- timestampGen
+    (scalaCreatedAtTimestamp, createdAtInstant) <- timestampGen
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
     createdEventBlob <- createdEventBlobGen
     signatories <- Gen.listOf(nonEmptyId)
@@ -231,6 +231,7 @@ object TransactionGenerator {
         observers,
         agreementText,
         None,
+        Some(scalaCreatedAtTimestamp),
       )
     ),
     new data.CreatedEvent(
