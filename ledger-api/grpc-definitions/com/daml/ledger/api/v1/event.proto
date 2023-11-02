@@ -5,10 +5,8 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1;
 
-import "com/daml/ledger/api/v1/contract_metadata.proto";
 import "com/daml/ledger/api/v1/value.proto";
 import "google/protobuf/wrappers.proto";
-import "google/protobuf/any.proto";
 import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
 
@@ -69,12 +67,7 @@ message CreatedEvent {
   // Optional
   Record create_arguments = 4;
 
-  // Opaque representation of contract create argument data intended for forwarding
-  // to an API server as a contract disclosed as part of a command
-  // submission.
-  // Deprecated in favor of ``created_event_blob``.
-  // Optional
-  google.protobuf.Any create_arguments_blob = 12 [deprecated = true];
+  reserved 12; // removed create_arguments_blob
 
   // Opaque representation of contract create event payload intended for forwarding
   // to an API server as a contract disclosed as part of a command
@@ -121,11 +114,7 @@ message CreatedEvent {
   // Optional
   google.protobuf.StringValue agreement_text = 6;
 
-  // Metadata of the contract. Required for contracts created
-  // after the introduction of explicit disclosure.
-  // Deprecated in favor of ``created_event_blob``.
-  // Optional
-  ContractMetadata metadata = 10 [deprecated = true];
+  reserved 10; // removed metadata
 
   // Ledger effective time of the transaction that created the contract.
   // Required
