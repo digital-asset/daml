@@ -595,9 +595,9 @@ EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --target={lf_version} --ghc-option=-Werror -o $$PWD/$(location repl-test-indirect-v{major}.dar)
       rm -rf $$TMP_DIR
     """.format(
-                sdk = sdk_version,
                 lf_version = lf_version,
-                major = major
+                major = major,
+                sdk = sdk_version,
             ),
             tools = ["//compiler/damlc"],
             visibility = ["//visibility:public"],
@@ -631,9 +631,9 @@ EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --target={lf_version} --ghc-option=-Werror -o $$PWD/$(location repl-test-v{major}.dar)
       rm -rf $$TMP_DIR
     """.format(
-                sdk = sdk_version,
                 lf_version = lf_version,
-                major = major
+                major = major,
+                sdk = sdk_version,
             ),
             tools = ["//compiler/damlc"],
             visibility = ["//visibility:public"],
@@ -662,9 +662,9 @@ EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --target={lf_version} --ghc-option=-Werror -o $$PWD/$(location repl-test-two-v{major}.dar)
       rm -rf $$TMP_DIR
     """.format(
-                sdk = sdk_version,
                 lf_version = lf_version,
-                major = major
+                major = major,
+                sdk = sdk_version,
             ),
             tools = ["//compiler/damlc"],
             visibility = ["//visibility:public"],
@@ -700,9 +700,9 @@ EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --target={lf_version} --ghc-option=-Werror -o $$PWD/$(location repl-multi-test-v{major}.dar)
       rm -rf $$TMP_DIR
   """.format(
-                sdk = sdk_version,
                 lf_version = lf_version,
-                major = major
+                major = major,
+                sdk = sdk_version,
             ),
             tools = ["//compiler/damlc"],
             visibility = ["//visibility:public"],
@@ -748,9 +748,9 @@ da_haskell_test(
     tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-ast",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//compiler/daml-lf-ast",
         "//libs-haskell/test-utils",
     ],
 )
