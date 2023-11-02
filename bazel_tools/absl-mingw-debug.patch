@@ -1,0 +1,55 @@
+diff -u -r abseil-cpp-20230802.0/absl/copts/configure_copts.bzl abseil-cpp-20230802.0-patched/absl/copts/configure_copts.bzl
+--- abseil-cpp-20230802.0/absl/copts/configure_copts.bzl	2023-08-07 20:40:00.000000000 +0200
++++ abseil-cpp-20230802.0-patched/absl/copts/configure_copts.bzl	2023-11-02 12:42:41.589593932 +0100
+@@ -21,6 +21,22 @@
+     "ABSL_RANDOM_HWAES_X64_FLAGS",
+ )
+ 
++load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain", "use_cpp_toolchain")
++
++def _compiler_flag_impl(ctx):
++    toolchain = find_cpp_toolchain(ctx)
++    print("HERE" + toolchain.compiler)
++    return [config_common.FeatureFlagInfo(value = toolchain.compiler)]
++
++compiler_flag = rule(
++    implementation = _compiler_flag_impl,
++    attrs = {
++        "_cc_toolchain": attr.label(default = Label("@bazel_tools//tools/cpp:current_cc_toolchain")),
++    },
++    toolchains = use_cpp_toolchain(),
++)
++
++
+ ABSL_DEFAULT_COPTS = select({
+     "//absl:msvc_compiler": ABSL_MSVC_FLAGS,
+     "//absl:clang-cl_compiler": ABSL_CLANG_CL_FLAGS,
+@@ -80,3 +96,4 @@
+             name = "cpu_%s" % cpu,
+             values = {"cpu": cpu},
+         )
++
+diff -u -r abseil-cpp-20230802.0/absl/debugging/BUILD.bazel abseil-cpp-20230802.0-patched/absl/debugging/BUILD.bazel
+--- abseil-cpp-20230802.0/absl/debugging/BUILD.bazel	2023-08-07 20:40:00.000000000 +0200
++++ abseil-cpp-20230802.0-patched/absl/debugging/BUILD.bazel	2023-11-02 12:41:54.203567320 +0100
+@@ -19,6 +19,7 @@
+     "ABSL_DEFAULT_COPTS",
+     "ABSL_DEFAULT_LINKOPTS",
+     "ABSL_TEST_COPTS",
++    "compiler_flag",
+ )
+ 
+ package(
+@@ -27,6 +28,8 @@
+ 
+ licenses(["notice"])
+ 
++compiler_flag(name="foo")
++
+ cc_library(
+     name = "stacktrace",
+     srcs = [
+Only in abseil-cpp-20230802.0-patched/: bazel-abseil-cpp-20230802.0
+Only in abseil-cpp-20230802.0-patched/: bazel-bin
+Only in abseil-cpp-20230802.0-patched/: bazel-out
+Only in abseil-cpp-20230802.0-patched/: bazel-testlogs

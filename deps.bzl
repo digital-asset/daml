@@ -252,6 +252,7 @@ def daml_deps():
             ],
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:absl-mingw.patch",
+                "@com_github_digital_asset_daml//bazel_tools:absl-mingw-debug.patch",
             ],
             patch_args = ["-p1"],
         )
