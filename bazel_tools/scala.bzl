@@ -128,7 +128,7 @@ plugin_scalacopts = [
     # "ImplicitParameter",
     # "IsInstanceOf",
     # "JavaConversions",
-    "JavaSerializable",
+    # "JavaSerializable",
     "LeakingSealed",
     # "MutableDataStructures",
     # "NonUnitStatements",
@@ -137,11 +137,11 @@ plugin_scalacopts = [
     "Option2Iterable",
     # "OptionPartial",
     # "Overloading",
-    "Product",
+    # "Product",
     # "PublicInference",
     # "Recursion",
     "Return",
-    "Serializable",
+    # "Serializable",
     # "Throw",
     # "ToString",
     # "TraversableOps",
@@ -559,7 +559,7 @@ def _create_scala_repl(
     tags = tags + ["manual"]
     _wrap_rule(scala_repl, name = name, runtime_deps = runtime_deps, tags = tags, **kwargs)
 
-def da_scala_library(name, **kwargs):
+def da_scala_library(name, scaladoc = True, **kwargs):
     """
     Define a Scala library.
 
@@ -575,7 +575,8 @@ def da_scala_library(name, **kwargs):
     arguments = _set_compile_jvm_flags(arguments)
     _wrap_rule(scala_library, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
-    _create_scaladoc_jar(name = name, **arguments)
+    if scaladoc == True:
+        _create_scaladoc_jar(name = name, **arguments)
     _create_scala_repl(name = name, **kwargs)
 
     if "tags" in arguments:
