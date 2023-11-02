@@ -1,0 +1,26 @@
+diff -u -r abseil-cpp-20230802.0/absl/BUILD.bazel abseil-cpp-20230802.0-patched/absl/BUILD.bazel
+--- abseil-cpp-20230802.0/absl/BUILD.bazel	2023-08-07 20:40:00.000000000 +0200
++++ abseil-cpp-20230802.0-patched/absl/BUILD.bazel	2023-11-02 12:55:57.179415116 +0100
+@@ -53,6 +53,14 @@
+ )
+ 
+ config_setting(
++    name = "mingw-ghc_gcc_compiler",
++    flag_values = {
++        "@bazel_tools//tools/cpp:compiler": "ghc-mingw-gcc",
++    },
++    visibility = [":__subpackages__"],
++)
++
++config_setting(
+     name = "msvc_compiler",
+     flag_values = {
+         "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+@@ -146,6 +154,7 @@
+     match_any = [
+         ":mingw_unspecified_compiler",
+         ":mingw-gcc_compiler",
++        ":mingw-ghc_gcc_compiler",
+     ],
+     visibility = [":__subpackages__"],
+ )
