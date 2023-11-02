@@ -468,6 +468,39 @@ da_haskell_test(
     ],
 )
 
+# Tests for multi-package
+da_haskell_test(
+    name = "multi-package",
+    srcs = ["src/DA/Test/DamlcMultiPackage.hs"],
+    data = [
+        "//compiler/damlc",
+        # "//daml-script/daml:daml-script.dar",
+        # "//daml-script/runner:daml-script-binary",
+    ],
+    hackage_deps = [
+        "base",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "regex-tdfa",
+        "tasty",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Test.DamlcMultiPackage.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
+    ],
+)
+
 # Tests for packaging
 da_haskell_test(
     name = "packaging",
