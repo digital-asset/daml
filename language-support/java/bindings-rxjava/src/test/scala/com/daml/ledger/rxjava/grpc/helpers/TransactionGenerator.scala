@@ -3,30 +3,24 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
+import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created}
+import com.daml.ledger.api.v1.event._
+import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
+import com.daml.ledger.api.v1.value
+import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
+import com.daml.ledger.javaapi.data
+import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
+import com.google.protobuf.ByteString
+import com.google.protobuf.empty.Empty
+import com.google.protobuf.timestamp.{Timestamp => ScalaTimestamp}
+import com.google.rpc.status.{Status => SStatus}
+import com.google.rpc.{Status => JStatus}
+import org.scalacheck.{Arbitrary, Gen, Shrink}
+
 import java.time.Instant
 import java.util
 import java.util.Collections
-import com.daml.ledger.javaapi.data
-import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
-import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created}
-import com.daml.ledger.api.v1.event.{
-  ArchivedEvent,
-  CreatedEvent,
-  Event,
-  ExercisedEvent,
-  InterfaceView,
-}
-import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
-import com.daml.ledger.api.v1.{ContractMetadataOuterClass, value}
-import com.daml.ledger.api.v1.value.Value.Sum
-import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
-import com.google.protobuf.{Any, ByteString}
-import com.google.protobuf.empty.Empty
-import com.google.protobuf.timestamp.{Timestamp => ScalaTimestamp}
-import com.google.rpc.{Status => JStatus}
-import com.google.rpc.status.{Status => SStatus}
-import org.scalacheck.{Arbitrary, Gen, Shrink}
-
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
 
@@ -51,23 +45,6 @@ object TransactionGenerator {
     Arbitrary.arbString.arbitrary.map(str => com.google.protobuf.ByteString.copyFromUtf8(str))
 
   def createdEventBlobGen: Gen[ByteString] = byteStringGen
-
-  def createArgumentsBlobGen: Gen[Any] = {
-    byteStringGen.map(byteString => Any.newBuilder().setValue(byteString).build())
-  }
-
-  def contractMetadataGen: Gen[ContractMetadataOuterClass.ContractMetadata] = {
-    for {
-      (createdAtScala, _) <- timestampGen
-      contractKeyHash <- byteStringGen
-      driverMetadata <- byteStringGen
-    } yield ContractMetadataOuterClass.ContractMetadata
-      .newBuilder()
-      .setCreatedAt(ScalaTimestamp.toJavaProto(createdAtScala))
-      .setContractKeyHash(contractKeyHash)
-      .setDriverMetadata(driverMetadata)
-      .build()
-  }
 
   val timestampGen: Gen[(ScalaTimestamp, Instant)] = for {
     seconds <- Gen.posNum[Long]
@@ -232,6 +209,7 @@ object TransactionGenerator {
     agreementText <- Gen.option(Gen.asciiStr)
     contractKey <- Gen.option(valueGen(0))
     (scalaTemplateId, javaTemplateId) <- identifierGen
+    (_, createdAtInstant) <- timestampGen
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
     createdEventBlob <- createdEventBlobGen
     signatories <- Gen.listOf(nonEmptyId)
@@ -268,6 +246,7 @@ object TransactionGenerator {
       contractKey.map(_._2).toJava,
       signatories.toSet.asJava,
       observers.toSet.asJava,
+      createdAtInstant,
     ),
   )
 

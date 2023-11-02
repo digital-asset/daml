@@ -7,6 +7,7 @@ import com.daml.ledger.api.v1.EventOuterClass;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.StringValue;
 import com.google.rpc.Status;
+import java.time.Instant;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -39,6 +40,11 @@ public final class CreatedEvent implements Event, TreeEvent {
 
   private final @NonNull ByteString createdEventBlob;
 
+  // Note that we can't use a `com.daml.ledger.javaapi.data.Timestamp` here because
+  // it only supports milliseconds-precision and we require lossless conversions through
+  // from/toProto.
+  public final @NonNull Instant createdAt;
+
   public CreatedEvent(
       @NonNull List<@NonNull String> witnessParties,
       @NonNull String eventId,
@@ -51,7 +57,8 @@ public final class CreatedEvent implements Event, TreeEvent {
       @NonNull Optional<String> agreementText,
       @NonNull Optional<Value> contractKey,
       @NonNull Collection<@NonNull String> signatories,
-      @NonNull Collection<@NonNull String> observers) {
+      @NonNull Collection<@NonNull String> observers,
+      @NonNull Instant createdAt) {
     this.witnessParties = List.copyOf(witnessParties);
     this.eventId = eventId;
     this.templateId = templateId;
@@ -64,6 +71,7 @@ public final class CreatedEvent implements Event, TreeEvent {
     this.contractKey = contractKey;
     this.signatories = Set.copyOf(signatories);
     this.observers = Set.copyOf(observers);
+    this.createdAt = createdAt;
   }
 
   /**
@@ -95,7 +103,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         agreementText,
         contractKey,
         signatories,
-        observers);
+        observers,
+        Instant.EPOCH);
   }
 
   /**
@@ -190,6 +199,17 @@ public final class CreatedEvent implements Event, TreeEvent {
     return observers;
   }
 
+  /**
+   * {@code createdAt} has been introduced in the Ledger API {@link
+   * com.daml.ledger.api.v1.EventOuterClass.CreatedEvent} starting with Canton version 2.8.0. Events
+   * sourced from the Ledger API prior to this version will return the default {@link Instant#EPOCH}
+   * value.
+   */
+  @NonNull
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -206,7 +226,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         && Objects.equals(agreementText, that.agreementText)
         && Objects.equals(contractKey, that.contractKey)
         && Objects.equals(signatories, that.signatories)
-        && Objects.equals(observers, that.observers);
+        && Objects.equals(observers, that.observers)
+        && Objects.equals(createdAt, that.createdAt);
   }
 
   @Override
@@ -223,7 +244,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         agreementText,
         contractKey,
         signatories,
-        observers);
+        observers,
+        createdAt);
   }
 
   @Override
@@ -255,6 +277,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         + signatories
         + ", observers="
         + observers
+        + ", createdAt="
+        + createdAt
         + '}';
   }
 
@@ -276,7 +300,12 @@ public final class CreatedEvent implements Event, TreeEvent {
             .setTemplateId(this.getTemplateId().toProto())
             .addAllWitnessParties(this.getWitnessParties())
             .addAllSignatories(this.getSignatories())
-            .addAllObservers(this.getObservers());
+            .addAllObservers(this.getObservers())
+            .setCreatedAt(
+                com.google.protobuf.Timestamp.newBuilder()
+                    .setSeconds(this.createdAt.getEpochSecond())
+                    .setNanos(this.createdAt.getNano())
+                    .build());
     agreementText.ifPresent(a -> builder.setAgreementText(StringValue.of(a)));
     contractKey.ifPresent(a -> builder.setContractKey(a.toProto()));
     return builder.build();
@@ -325,6 +354,8 @@ public final class CreatedEvent implements Event, TreeEvent {
             ? Optional.of(Value.fromProto(createdEvent.getContractKey()))
             : Optional.empty(),
         createdEvent.getSignatoriesList(),
-        createdEvent.getObserversList());
+        createdEvent.getObserversList(),
+        Instant.ofEpochSecond(
+            createdEvent.getCreatedAt().getSeconds(), createdEvent.getCreatedAt().getNanos()));
   }
 }
