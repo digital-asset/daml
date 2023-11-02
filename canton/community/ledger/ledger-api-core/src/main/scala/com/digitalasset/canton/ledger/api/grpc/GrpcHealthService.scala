@@ -47,15 +47,16 @@ class GrpcHealthService(
   override def watch(
       request: HealthCheckRequest,
       responseObserver: StreamObserver[HealthCheckResponse],
-  ): Unit = registerStream(responseObserver) {
+  ): Unit = {
     implicit val loggingContext = LoggingContextWithTrace(loggerFactory, telemetry)
-
-    Source
-      .fromIterator(() =>
-        Iterator.continually(matchResponse(serviceFrom(request)).fold(throw _, identity))
-      )
-      .throttle(1, per = maximumWatchFrequency)
-      .via(DropRepeated())
+    registerStream(responseObserver) {
+      Source
+        .fromIterator(() =>
+          Iterator.continually(matchResponse(serviceFrom(request)).fold(throw _, identity))
+        )
+        .throttle(1, per = maximumWatchFrequency)
+        .via(DropRepeated())
+    }
   }
 
   private def matchResponse(

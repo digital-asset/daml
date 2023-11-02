@@ -583,7 +583,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
               transferLookup,
               contractLookup,
               FutureUnlessShutdown.pure(mkActivenessResult()),
-              Future.unit,
               targetMediator,
               freshOwnTimelyTx = true,
             )
@@ -629,7 +628,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
               transferLookup,
               contractLookup,
               FutureUnlessShutdown.pure(mkActivenessResult()),
-              Future.unit,
               targetMediator,
               freshOwnTimelyTx = true,
             )

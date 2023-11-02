@@ -56,7 +56,7 @@ final case class Batch[+Env <: Envelope[_]] private (envelopes: List[Env])(
     }
   }
 
-  def toProtoV0: v0.CompressedBatch = {
+  private[protocol] def toProtoV0: v0.CompressedBatch = {
     val batch = v0.Batch(envelopes = envelopes.map(_.closeEnvelope.toProtoV0))
     val compressed = ByteStringUtil.compressGzip(batch.toByteString)
     v0.CompressedBatch(
@@ -65,7 +65,7 @@ final case class Batch[+Env <: Envelope[_]] private (envelopes: List[Env])(
     )
   }
 
-  def toProtoV1: v1.CompressedBatch = {
+  private[protocol] def toProtoV1: v1.CompressedBatch = {
     val batch = v1.Batch(envelopes = envelopes.map(_.closeEnvelope.toProtoV1))
     val compressed = ByteStringUtil.compressGzip(batch.toByteString)
     v1.CompressedBatch(
@@ -133,7 +133,7 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[_]], Batch[Cl
   ): Batch[ClosedEnvelope] =
     Batch(envelopes.toList)(protocolVersionRepresentativeFor(protocolVersion))
 
-  def fromProtoV0(
+  private[protocol] def fromProtoV0(
       batchProto: v0.CompressedBatch,
       maxRequestSize: MaxRequestSizeToDeserialize,
   ): ParsingResult[Batch[ClosedEnvelope]] = {
@@ -147,7 +147,7 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[_]], Batch[Cl
     } yield Batch[ClosedEnvelope](envelopes)(protocolVersionRepresentativeFor(ProtoVersion(0)))
   }
 
-  def fromProtoV1(
+  private[protocol] def fromProtoV1(
       batchProto: v1.CompressedBatch,
       maxRequestSize: MaxRequestSizeToDeserialize,
   ): ParsingResult[Batch[ClosedEnvelope]] = {

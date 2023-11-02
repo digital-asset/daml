@@ -58,31 +58,33 @@ private[apiserver] final class ApiTimeService private (
   def getTime(
       request: GetTimeRequest,
       responseObserver: StreamObserver[GetTimeResponse],
-  ): Unit = registerStream(responseObserver) {
+  ): Unit = {
     implicit val loggingContext = LoggingContextWithTrace(loggerFactory, telemetry)
+    registerStream(responseObserver) {
 
-    val validated =
-      matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
-    validated.fold(
-      t => Source.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
-      { ledgerId =>
-        logger.info(
-          s"Received request for time with ledger ID ${ledgerId.getOrElse("<empty-ledger-id>")}"
-        )
-        dispatcher
-          .subscribe()
-          .map(_ => backend.getCurrentTime)
-          .scan[Option[Instant]](Some(backend.getCurrentTime)) {
-            case (Some(previousTime), currentTime) if previousTime == currentTime => None
-            case (_, currentTime) => Some(currentTime)
-          }
-          .mapConcat {
-            case None => Nil
-            case Some(t) => List(GetTimeResponse(Some(fromInstant(t))))
-          }
-          .via(logger.logErrorsOnStream)
-      },
-    )
+      val validated =
+        matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
+      validated.fold(
+        t => Source.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
+        { ledgerId =>
+          logger.info(
+            s"Received request for time with ledger ID ${ledgerId.getOrElse("<empty-ledger-id>")}"
+          )
+          dispatcher
+            .subscribe()
+            .map(_ => backend.getCurrentTime)
+            .scan[Option[Instant]](Some(backend.getCurrentTime)) {
+              case (Some(previousTime), currentTime) if previousTime == currentTime => None
+              case (_, currentTime) => Some(currentTime)
+            }
+            .mapConcat {
+              case None => Nil
+              case Some(t) => List(GetTimeResponse(Some(fromInstant(t))))
+            }
+            .via(logger.logErrorsOnStream)
+        },
+      )
+    }
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))

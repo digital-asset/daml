@@ -61,16 +61,15 @@ class PreHookRequestJournalStore(
   override def replace(
       rc: RequestCounter,
       requestTimestamp: CantonTimestamp,
-      oldState: RequestState,
       newState: RequestState,
       commitTime: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): EitherT[Future, RequestJournalStoreError, Unit] =
     for {
       _ <- EitherT.liftF(
         preReplaceHook
-          .getAndSet(emptyReplaceHook)(rc, requestTimestamp, oldState, newState, commitTime)
+          .getAndSet(emptyReplaceHook)(rc, requestTimestamp, newState, commitTime)
       )
-      result <- backing.replace(rc, requestTimestamp, oldState, newState, commitTime)
+      result <- backing.replace(rc, requestTimestamp, newState, commitTime)
     } yield result
 
   @VisibleForTesting
@@ -109,7 +108,6 @@ object PreHookRequestJournalStore {
         RequestCounter,
         CantonTimestamp,
         RequestState,
-        RequestState,
         Option[CantonTimestamp],
     ) => Future[Unit]
 
@@ -117,7 +115,7 @@ object PreHookRequestJournalStore {
 
   val emptyInsertHook: InsertHook = _ => Future.unit
 
-  val emptyReplaceHook: ReplaceHook = (_, _, _, _, _) => Future.unit
+  val emptyReplaceHook: ReplaceHook = (_, _, _, _) => Future.unit
 
   val emptyCleanCounterHook: CleanCounterHook = _ => Future.unit
 }

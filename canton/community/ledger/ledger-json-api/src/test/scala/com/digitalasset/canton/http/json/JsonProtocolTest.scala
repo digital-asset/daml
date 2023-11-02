@@ -4,6 +4,8 @@
 package com.digitalasset.canton.http.json
 
 import akka.http.scaladsl.model.StatusCodes
+import com.daml.lf.data.Ref
+import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.http.Generators.{
   OptionalPackageIdGen,
   contractGen,
@@ -17,21 +19,19 @@ import com.digitalasset.canton.http.Generators.{
   genUnknownTemplateIds,
   genWarningsWrapper,
 }
-import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.http.domain
-import com.daml.lf.data.{ImmArray, Ref, Time}
-import org.scalacheck.Arbitrary, Arbitrary.arbitrary
-import org.scalacheck.Gen, Gen.{identifier, listOf}
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import org.scalatest.prop.TableDrivenPropertyChecks.{forAll as tForAll, Table}
-import org.scalatest.{Inside, Succeeded}
+import com.digitalasset.canton.http.json.SprayJson.JsonReaderError
+import org.scalacheck.Arbitrary.arbitrary
+import org.scalacheck.Arbitrary
+import org.scalacheck.Gen.{identifier, listOf}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
-import scalaz.syntax.bifunctor.*
+import org.scalatest.{Inside, Succeeded}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scalaz.syntax.functor.*
 import scalaz.syntax.std.option.*
 import scalaz.syntax.tag.*
-import scalaz.{\/, \/-}
+import scalaz.{-\/, \/, \/-}
 
 class JsonProtocolTest
     extends AnyFreeSpec
@@ -39,8 +39,8 @@ class JsonProtocolTest
     with Inside
     with ScalaCheckDrivenPropertyChecks {
 
-  import JsonProtocolTest.*
   import JsonProtocol.*
+  import JsonProtocolTest.*
   import spray.json.*
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
@@ -268,7 +268,7 @@ class JsonProtocolTest
 
   "domain.CommandMeta" - {
     "is entirely optional" in {
-      "{}".parseJson.convertTo[domain.CommandMeta[JsValue, JsValue]] should ===(
+      "{}".parseJson.convertTo[domain.CommandMeta[JsValue]] should ===(
         domain.CommandMeta(None, None, None, None, None, None, None)
       )
     }
@@ -282,92 +282,57 @@ class JsonProtocolTest
 
   "domain.DisclosedContract" - {
     import domain.DisclosedContract
-    type DC = DisclosedContract[Int, Int]
+    type DC = DisclosedContract[Int]
 
     "roundtrips" in forAll { a: DC =>
       val b = a.toJson.convertTo[DC]
       b should ===(a)
     }
 
-    "doesn't confuse blob and JSON contracts" in forAll { a: DC =>
-      val blobLookingRecord = a.arguments match {
-        case DisclosedContract.Arguments.Blob(b) =>
-          a.copy(arguments = DisclosedContract.Arguments.Record(b.toJson))
-        case _ => a.rightMap(_.toJson)
-      }
-      blobLookingRecord.toJson.convertTo[DisclosedContract[Int, JsValue]] should ===(
-        blobLookingRecord
-      )
-    }
-
-    "decodes a hand-written sample" in tForAll(
-      Table(
-        ("argumentsDecoded", "argumentsJsonField"),
-        (
-          DisclosedContract.Arguments.Record("""{"owner":"Alice"}""".parseJson),
-          """"payload": {"owner": "Alice"}""",
-        ),
-        (
-          DisclosedContract.Arguments.Blob {
-            import com.google.protobuf.any.Any.pack, com.daml.lf.value.Value,
-            com.digitalasset.canton.platform.participant.util.LfEngineToApi.lfValueToApiRecord
-            inside(
-              lfValueToApiRecord(
-                true,
-                Value.ValueRecord(
-                  None,
-                  ImmArray(
-                    Some(Ref.Name assertFromString "owner") ->
-                      Value.ValueParty(Ref.Party assertFromString "Bob")
-                  ),
-                ),
-              )
-            ) { case Right(apiRecord) =>
-              val pbAny = pack(apiRecord)
-              domain.PbAny(pbAny.typeUrl, domain.Base64(pbAny.value))
-            }
-          },
-          """"payloadBlob": {
-            "typeUrl": "type.googleapis.com/com.daml.ledger.api.v1.Record",
-            "value": "Eg4KBW93bmVyEgVaA0JvYg=="
-          }""",
-        ),
-      )
-    ) { (argumentsDecoded, argumentsJsonField) =>
+    "decodes a hand-written sample" in {
       import com.google.protobuf.ByteString
       val utf8 = java.nio.charset.Charset forName "UTF-8"
       val expected = DisclosedContract(
-        domain.ContractId("abcd"),
-        domain.ContractTypeId.Template(Option.empty[String], "Mod", "Tmpl"),
-        argumentsDecoded,
-        DisclosedContract.Metadata(
-          Time.Timestamp.assertFromString("2023-03-21T18:00:33.246813Z"),
-          Some(domain.Base16(ByteString.copyFrom("well hello", utf8))),
-          Some(domain.Base64(ByteString.copyFrom("there reader", utf8))),
-        ),
+        contractId = domain.ContractId("abcd"),
+        templateId = domain.ContractTypeId.Template(Option.empty[String], "Mod", "Tmpl"),
+        createdEventBlob = domain.Base64(ByteString.copyFrom("some create event payload", utf8)),
       )
-      val encoded = s"""{
+      val encoded =
+        s"""{
         "contractId": "abcd",
         "templateId": "Mod:Tmpl",
-        $argumentsJsonField,
-        "metadata": {
-          "createdAt": "2023-03-21T18:00:33.246813Z",
-          "contractKeyHash": "77656c6c2068656c6c6f",
-          "driverMetadata": "dGhlcmUgcmVhZGVy"
-        }
+        "createdEventBlob": "c29tZSBjcmVhdGUgZXZlbnQgcGF5bG9hZA=="
       }""".parseJson
       val _ = expected.toJson should ===(encoded)
       val decoded =
-        encoded.convertTo[DisclosedContract[domain.ContractTypeId.Template.OptionalPkg, JsValue]]
+        encoded.convertTo[DisclosedContract[domain.ContractTypeId.Template.OptionalPkg]]
       decoded should ===(expected)
+    }
+
+    "fails to decode with an empty createdEventBlob" in {
+      val encoded =
+        s"""{
+        "contractId": "abcd",
+        "templateId": "Mod:Tmpl",
+        "createdEventBlob": ""
+      }""".parseJson
+
+      val result =
+        SprayJson.decode[DisclosedContract[domain.ContractTypeId.Template.OptionalPkg]](encoded)
+      inside(result) { case -\/(JsonReaderError(_, message)) =>
+        message shouldBe "spray.json.DeserializationException: DisclosedContract.createdEventBlob must not be empty"
+      }
     }
   }
 }
 
 object JsonProtocolTest {
   // like Arbitrary(arbitrary[T].map(f)) but with inferred `T`
-  private[this] def arbArg[T: Arbitrary, R](f: T => R): Arbitrary[R] =
-    Arbitrary(arbitrary[T] map f)
+  private[this] def arbArg[T: Arbitrary, R](
+      f: T => R,
+      filterExpr: R => Boolean = (_: R) => true,
+  ): Arbitrary[R] =
+    Arbitrary(arbitrary[T] map f filter filterExpr)
 
   private[this] implicit val arbBase64: Arbitrary[domain.Base64] =
     domain.Base64 subst arbArg(com.google.protobuf.ByteString.copyFrom(_: Array[Byte]))
@@ -375,30 +340,11 @@ object JsonProtocolTest {
   private implicit val arbBase16: Arbitrary[domain.Base16] =
     domain.Base16 subst arbArg(com.google.protobuf.ByteString.copyFrom(_: Array[Byte]))
 
-  private[this] implicit val arbTime: Arbitrary[Time.Timestamp] =
-    Arbitrary(
-      Gen
-        .choose(Time.Timestamp.MinValue.micros, Time.Timestamp.MaxValue.micros)
-        .map(Time.Timestamp.assertFromLong)
-    )
-
   private[this] implicit val arbCid: Arbitrary[domain.ContractId] =
     Arbitrary(contractIdGen)
 
-  private[this] implicit val arbPbAny: Arbitrary[domain.PbAny] =
-    arbArg(domain.PbAny.tupled)
-
-  private[http] implicit def arbDisclosedCt[TpId: Arbitrary, LfV: Arbitrary]
-      : Arbitrary[domain.DisclosedContract[TpId, LfV]] = {
-    import domain.DisclosedContract.{Arguments, Metadata}
-
-    implicit val args: Arbitrary[Arguments[LfV]] =
-      Arbitrary(
-        arbitrary[Either[domain.PbAny, LfV]].map(_.fold(Arguments.Blob, Arguments.Record(_)))
-      )
-
-    implicit val metadata: Arbitrary[Metadata] = arbArg(Metadata.tupled)
-
-    arbArg((domain.DisclosedContract.apply[TpId, LfV] _).tupled)
+  private[http] implicit def arbDisclosedCt[TpId: Arbitrary]
+      : Arbitrary[domain.DisclosedContract[TpId]] = {
+    arbArg((domain.DisclosedContract.apply[TpId] _).tupled, !_.createdEventBlob.unwrap.isEmpty)
   }
 }

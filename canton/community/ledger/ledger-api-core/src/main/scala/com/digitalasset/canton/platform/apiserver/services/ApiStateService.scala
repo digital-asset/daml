@@ -54,51 +54,53 @@ final class ApiStateService(
   override def getActiveContracts(
       request: GetActiveContractsRequest,
       responseObserver: StreamObserver[GetActiveContractsResponse],
-  ): Unit = registerStream(responseObserver) {
+  ): Unit = {
     implicit val loggingContext: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory, telemetry)
+    registerStream(responseObserver) {
 
-    val result = for {
-      filters <- transactionFilterValidator.validate(
-        TransactionFilter(request.getFilter.filtersByParty)
-      )
-      activeAtO <- FieldValidator.optionalString(request.activeAtOffset)(str =>
-        ApiOffset.fromString(str).left.map { errorMsg =>
-          RequestValidationErrors.NonHexOffset
-            .Error(
-              fieldName = "active_at_offset",
-              offsetValue = request.activeAtOffset,
-              message = s"Reason: $errorMsg",
-            )
-            .asGrpcError
-        }
-      )
-    } yield {
-      withEnrichedLoggingContext(telemetry)(
-        logging.filters(filters)
-      ) { implicit loggingContext =>
-        logger.info(
-          s"Received request for active contracts: $request, ${loggingContext.serializeFiltered("filters")}."
+      val result = for {
+        filters <- transactionFilterValidator.validate(
+          TransactionFilter(request.getFilter.filtersByParty)
         )
-        acsService
-          .getActiveContracts(
-            filter = filters,
-            verbose = request.verbose,
-            activeAtO = activeAtO,
-            multiDomainEnabled = true,
+        activeAtO <- FieldValidator.optionalString(request.activeAtOffset)(str =>
+          ApiOffset.fromString(str).left.map { errorMsg =>
+            RequestValidationErrors.NonHexOffset
+              .Error(
+                fieldName = "active_at_offset",
+                offsetValue = request.activeAtOffset,
+                message = s"Reason: $errorMsg",
+              )
+              .asGrpcError
+          }
+        )
+      } yield {
+        withEnrichedLoggingContext(telemetry)(
+          logging.filters(filters)
+        ) { implicit loggingContext =>
+          logger.info(
+            s"Received request for active contracts: $request, ${loggingContext.serializeFiltered("filters")}."
           )
+          acsService
+            .getActiveContracts(
+              filter = filters,
+              verbose = request.verbose,
+              activeAtO = activeAtO,
+              multiDomainEnabled = true,
+            )
+        }
       }
+      result
+        .fold(
+          t =>
+            Source.failed(
+              ValidationLogger.logFailureWithTrace(logger, request, t)
+            ),
+          identity,
+        )
+        .via(logger.logErrorsOnStream)
+        .via(StreamMetrics.countElements(metrics.daml.lapi.streams.acs))
     }
-    result
-      .fold(
-        t =>
-          Source.failed(
-            ValidationLogger.logFailureWithTrace(logger, request, t)
-          ),
-        identity,
-      )
-      .via(logger.logErrorsOnStream)
-      .via(StreamMetrics.countElements(metrics.daml.lapi.streams.acs))
   }
 
   override def getConnectedDomains(

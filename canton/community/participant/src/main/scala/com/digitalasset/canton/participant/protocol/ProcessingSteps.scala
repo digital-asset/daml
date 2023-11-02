@@ -438,10 +438,6 @@ trait ProcessingSteps[
     * @param transferLookup             Read-only interface of the [[com.digitalasset.canton.participant.store.memory.TransferCache]]
     * @param contractLookup             Read-only interface to the [[com.digitalasset.canton.participant.store.ContractStore]]
     * @param activenessResultFuture     Future of the result of the activeness check<
-    * @param pendingCursor              Future to complete when the [[com.digitalasset.canton.participant.protocol.RequestJournal]]'s
-    *                                   cursor for the [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.Pending]]
-    *                                   reaching the current request. Block on this future to ensure that all earlier contract store
-    *                                   writes are visible.
     * @param mediatorId                 The mediator that handles this request
     * @return Returns the `requestType.PendingRequestData` to be stored until Phase 7 and the responses to be sent to the mediator.
     */
@@ -450,7 +446,6 @@ trait ProcessingSteps[
       transferLookup: TransferLookup,
       contractLookup: ContractLookup, // TODO(i9014): remove after DAML 3.0
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      pendingCursor: Future[Unit],
       mediator: MediatorRef,
       freshOwnTimelyTx: Boolean,
   )(implicit

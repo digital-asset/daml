@@ -26,7 +26,6 @@ import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
   PendingRequestData,
   WrapsProcessorError,
 }
-import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker.TimeoutResult
 import com.digitalasset.canton.participant.protocol.conflictdetection.{CommitSet, RequestTracker}
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.DeduplicationFailed
@@ -963,7 +962,7 @@ abstract class ProtocolProcessor[
           )
         } else {
           for {
-            pendingCursor <- EitherT.right(
+            _ <- EitherT.right(
               FutureUnlessShutdown.outcomeF(ephemeral.requestJournal.insert(rc, ts))
             )
 
@@ -972,7 +971,6 @@ abstract class ProtocolProcessor[
               ephemeral.transferCache,
               ephemeral.contractStore,
               requestFuturesF.flatMap(_.activenessResult),
-              pendingCursor,
               mediator,
               freshOwnTimelyTx,
             )
@@ -1010,14 +1008,6 @@ abstract class ProtocolProcessor[
       // Make sure activeness result finished
       requestFutures <- EitherT.right[steps.RequestError](requestFuturesF)
       _activenessResult <- EitherT.right[steps.RequestError](requestFutures.activenessResult)
-
-      _ <- EitherT.right[steps.RequestError](
-        FutureUnlessShutdown.outcomeF(
-          unlessCleanReplay(rc)(
-            ephemeral.requestJournal.transit(rc, ts, RequestState.Pending, RequestState.Confirmed)
-          )
-        )
-      )
 
       _ = handleRequestData.complete(Some(pendingData))
       timeoutET = EitherT
@@ -1066,8 +1056,7 @@ abstract class ProtocolProcessor[
       EitherT.rightT(())
     } else {
       for {
-        pendingCursor <- EitherT.right(ephemeral.requestJournal.insert(rc, ts))
-        _ <- EitherT.right(pendingCursor)
+        _ <- EitherT.right(ephemeral.requestJournal.insert(rc, ts))
 
         _ = ephemeral.requestTracker.tick(sc, ts)
 
@@ -1076,10 +1065,6 @@ abstract class ProtocolProcessor[
         messages <- EitherT.right(responses.parTraverse { response =>
           signResponse(snapshot, response).map(_ -> recipients)
         })
-
-        _ <- EitherT.right[steps.RequestError](
-          ephemeral.requestJournal.transit(rc, ts, RequestState.Pending, RequestState.Confirmed)
-        )
 
         _ <- sendResponses(requestId, rc, messages)
           .leftMap(err => steps.embedRequestError(SequencerRequestError(err)))

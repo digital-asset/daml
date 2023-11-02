@@ -30,13 +30,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet.
   TransferInCommit,
   TransferOutCommit,
 }
-import com.digitalasset.canton.participant.protocol.submission.{
-  ChangeIdHash,
-  InFlightSubmission,
-  SequencedSubmission,
-  TestSubmissionTrackingData,
-  UnsequencedSubmission,
-}
+import com.digitalasset.canton.participant.protocol.submission.*
 import com.digitalasset.canton.participant.pruning
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
   CommitmentSnapshot,
@@ -44,23 +38,11 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
   RunningCommitments,
 }
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.store.memory.{
-  InMemoryAcsCommitmentStore,
-  InMemoryActiveContractStore,
-  InMemoryContractStore,
-  InMemoryInFlightSubmissionStore,
-  InMemoryRequestJournalStore,
-}
+import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.{
-  AcsCommitment,
-  CommitmentPeriod,
-  DefaultOpenEnvelope,
-  SignedProtocolMessage,
-  TypedSignedProtocolMessageContent,
-}
+import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.CursorPrehead
@@ -1052,7 +1034,7 @@ class AcsCommitmentProcessorTest
           RequestData(RequestCounter(4), RequestState.Pending, ts4, None)
         ) // Replay starts at ts4
         _ <- requestJournalStore
-          .replace(RequestCounter(3), ts3, RequestState.Pending, RequestState.Clean, Some(ts3))
+          .replace(RequestCounter(3), ts3, RequestState.Clean, Some(ts3))
           .valueOrFail("advance RC 3 to clean")
         _ <- sequencerCounterTrackerStore.advancePreheadSequencerCounterTo(
           CursorPrehead(SequencerCounter(4), ts4)

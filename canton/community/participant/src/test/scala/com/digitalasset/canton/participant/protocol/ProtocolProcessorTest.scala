@@ -20,9 +20,9 @@ import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.config.ParticipantStoreConfig
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
+import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.RequestOutcome
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.*
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState
-import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.{Confirmed, Pending}
 import com.digitalasset.canton.participant.protocol.TestProcessingSteps.{
   TestPendingRequestData,
   TestPendingRequestDataType,
@@ -31,24 +31,9 @@ import com.digitalasset.canton.participant.protocol.TestProcessingSteps.{
 }
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.*
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.InFlightSubmissionTrackerDomainState
-import com.digitalasset.canton.participant.protocol.submission.{
-  ChangeIdHash,
-  InFlightSubmission,
-  InFlightSubmissionTracker,
-  NoCommandDeduplicator,
-  SequencedSubmission,
-  TransactionSubmissionTrackingData,
-  UnsequencedSubmission,
-}
+import com.digitalasset.canton.participant.protocol.submission.*
+import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.*
-import com.digitalasset.canton.participant.store.{
-  InFlightSubmissionStore,
-  MultiDomainEventLog,
-  ParticipantNodePersistentState,
-  SyncDomainEphemeralState,
-  SyncDomainPersistentState,
-  TransferStore,
-}
 import com.digitalasset.canton.participant.sync.{
   ParticipantEventPublisher,
   SyncDomainPersistentStateLookup,
@@ -487,13 +472,17 @@ class ProtocolProcessorTest
       val before = ephemeral.requestJournal.query(rc).value.futureValue
       before shouldEqual None
 
+      val requestTs = CantonTimestamp.Epoch
       val asyncRes = sut
-        .processRequest(CantonTimestamp.Epoch, rc, requestSc, someRequestBatch)
+        .processRequest(requestTs, rc, requestSc, someRequestBatch)
         .onShutdown(fail())
         .futureValue
       waitForAsyncResult(asyncRes)
       val requestState = ephemeral.requestJournal.query(rc).value.futureValue
-      requestState.value.state shouldEqual RequestState.Confirmed
+      requestState.value.state shouldEqual RequestState.Pending
+      ephemeral.phase37Synchronizer
+        .awaitConfirmed(TestPendingRequestDataType)(RequestId(requestTs))
+        .futureValueUS shouldBe RequestOutcome.Success(WrappedPendingRequestData(pd))
     }
 
     "leave the request state unchanged when doing a clean replay" in {
@@ -517,7 +506,7 @@ class ProtocolProcessorTest
               requestSc + 1,
               CantonTimestamp.Epoch.minusSeconds(10),
             ),
-            lastPublishedLocalOffset = None,
+            lastPublishedRequestOffset = None,
             rewoundSequencerCounterPrehead = None,
           ),
         )
@@ -559,9 +548,9 @@ class ProtocolProcessorTest
         requestSc
       ) shouldBe BeforeHead
 
-      // The request remains at Confirmed until the timeout is triggered
+      // The request remains at Pending until the timeout is triggered
       always() {
-        journal.query(rc).value.futureValue.value.state shouldEqual RequestState.Confirmed
+        journal.query(rc).value.futureValue.value.state shouldEqual RequestState.Pending
       }
 
       // Trigger the timeout for the request
@@ -839,7 +828,6 @@ class ProtocolProcessorTest
         _ <- persistent.parameterStore.setParameters(defaultStaticDomainParameters)
 
         _ <- ephemeral.requestJournal.insert(rc, CantonTimestamp.Epoch)
-        _ <- ephemeral.requestJournal.transit(rc, CantonTimestamp.Epoch, Pending, Confirmed)
       } yield ephemeral.phase37Synchronizer
         .registerRequest(TestPendingRequestDataType)(requestId)
         .complete(
@@ -1027,7 +1015,7 @@ class ProtocolProcessorTest
             requestSc - 1L,
             CantonTimestamp.Epoch.minusSeconds(11),
           ),
-          lastPublishedLocalOffset = None,
+          lastPublishedRequestOffset = None,
           rewoundSequencerCounterPrehead = Some(CursorPrehead(requestSc, requestTimestamp)),
         )
       )

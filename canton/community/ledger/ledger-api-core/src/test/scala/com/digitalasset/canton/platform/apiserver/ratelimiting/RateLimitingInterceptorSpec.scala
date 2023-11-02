@@ -8,7 +8,6 @@ import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.api.testing.utils.TestingServerInterceptors.serverOwner
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.ports.Port
@@ -20,12 +19,14 @@ import com.digitalasset.canton.ledger.api.health.HealthChecks.ComponentName
 import com.digitalasset.canton.ledger.api.health.{HealthChecks, ReportsHealth}
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.platform.apiserver.ActiveStreamMetricsInterceptor
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.apiserver.ratelimiting.LimitResult.LimitResultCheck
 import com.google.protobuf.ByteString
 import io.grpc.Status.Code
 import io.grpc.*
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
+import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.grpc.reflection.v1alpha.{
   ServerReflectionGrpc,
@@ -40,7 +41,9 @@ import org.scalatest.time.{Second, Span}
 
 import java.io.IOException
 import java.lang.management.*
+import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Future, Promise}
 
 final class RateLimitingInterceptorSpec
@@ -393,21 +396,29 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
       pool: List[MemoryPoolMXBean] = List(underLimitMemoryPoolMXBean()),
       memoryBean: MemoryMXBean = ManagementFactory.getMemoryMXBean,
       additionalChecks: List[LimitResultCheck] = List.empty,
-  ): ResourceOwner[Channel] =
+  ): ResourceOwner[Channel] = {
+    val rateLimitingInterceptor = RateLimitingInterceptor(
+      loggerFactory,
+      metrics,
+      config,
+      pool,
+      memoryBean,
+      additionalChecks,
+    )
+    val activeStreamMetricsInterceptor = new ActiveStreamMetricsInterceptor(metrics)
     for {
-      server <- serverOwner(
-        RateLimitingInterceptor(
-          loggerFactory,
-          metrics,
-          config,
-          pool,
-          memoryBean,
-          additionalChecks,
-        ),
-        service,
+      server <- ResourceOwner.forServer(
+        NettyServerBuilder
+          .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0))
+          .directExecutor()
+          .intercept(activeStreamMetricsInterceptor)
+          .intercept(rateLimitingInterceptor)
+          .addService(service),
+        FiniteDuration(10, "seconds"),
       )
       channel <- GrpcClientResource.owner(Port(server.getPort))
     } yield channel
+  }
 
   /** By default [[HelloServiceReferenceImplementation]] will return all elements and complete the stream on
     * the server side on every request.  For stream based rate limiting we want to explicitly hold open

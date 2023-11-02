@@ -88,7 +88,7 @@ class ApiRequestLogger(
 
     /** Called when the server considers the call completed. */
     override def onComplete(): Unit = {
-      logger.trace(createLogMessage("completed"))(requestTraceContext)
+      logger.debug(createLogMessage("completed"))(requestTraceContext)
       logThrowable(delegate.onComplete())(createLogMessage, requestTraceContext)
     }
 

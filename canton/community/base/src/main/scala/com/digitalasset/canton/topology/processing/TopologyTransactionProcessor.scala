@@ -201,7 +201,7 @@ class TopologyTransactionProcessor(
       sequencingTimestamp: SequencedTime,
       validated: Seq[ValidatedTopologyTransaction],
   )(implicit traceContext: TraceContext): Unit = {
-    def applyEpsilon(change: DomainParametersChange) = {
+    def applyEpsilon(change: DomainParametersChange): Unit = {
       timeAdjuster
         .adjustEpsilon(
           effectiveTimestamp,

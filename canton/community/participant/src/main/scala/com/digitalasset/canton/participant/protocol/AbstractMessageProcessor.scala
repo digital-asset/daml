@@ -11,7 +11,6 @@ import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCr
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.NamedLogging
-import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessSet
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.protocol.RequestId
@@ -55,7 +54,6 @@ abstract class AbstractMessageProcessor(
       cleanCursorF <- ephemeral.requestJournal.terminate(
         requestCounter,
         requestTimestamp,
-        RequestState.Confirmed,
         commitTime,
       )
     } yield {
@@ -176,16 +174,6 @@ abstract class AbstractMessageProcessor(
         )
       )
       _ <- requestFutures.activenessResult
-      _ <- FutureUnlessShutdown.outcomeF(
-        unlessCleanReplay(requestCounter)(
-          ephemeral.requestJournal.transit(
-            requestCounter,
-            timestamp,
-            RequestState.Pending,
-            RequestState.Confirmed,
-          )
-        )
-      )
 
       _ =
         if (!isCleanReplay(requestCounter)) {

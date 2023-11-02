@@ -14,11 +14,10 @@ import com.digitalasset.canton.http.domain.{ContractTypeId, HasTemplateId}
 import com.digitalasset.canton.http.{PackageService, domain}
 import scalaz.std.option.*
 import scalaz.syntax.bitraverse.*
-import scalaz.syntax.show.*
 import scalaz.syntax.applicative.{ToFunctorOps as _, *}
 import scalaz.syntax.std.option.*
 import scalaz.syntax.traverse.*
-import scalaz.{-\/, Bifoldable, EitherT, Traverse, \/}
+import scalaz.{-\/, EitherT, Foldable, Traverse, \/}
 import scalaz.EitherT.eitherT
 import spray.json.{JsValue, JsonReader}
 
@@ -106,7 +105,7 @@ class DomainJsonDecoder(
       )
     } yield lfType
 
-   def decodeContractLocatorKey(
+  def decodeContractLocatorKey(
       a: domain.ContractLocator[JsValue],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
@@ -150,11 +149,11 @@ class DomainJsonDecoder(
         else cmd0.choiceInterfaceId.traverse(templateId_(_, jwt, ledgerId))
 
       lfArgument <- either(jsValueToLfValue(argLfType, cmd0.argument))
-      lfMeta <- cmd0.meta traverse (decodeMeta(_, jwt, ledgerId))
+      metaWithResolvedIds <- cmd0.meta.traverse(resolveMetaTemplateIds(_, jwt, ledgerId))
 
       cmd1 <-
         cmd0
-          .copy(argument = lfArgument, choiceInterfaceId = choiceIfaceOverride, meta = lfMeta)
+          .copy(argument = lfArgument, choiceInterfaceId = choiceIfaceOverride, meta = metaWithResolvedIds)
           .bitraverse(
             _.point[ET],
             ref => decodeContractLocatorKey(ref, jwt, ledgerId),
@@ -200,67 +199,35 @@ class DomainJsonDecoder(
 
       payload <- either(jsValueToApiRecord(payloadT, fjj.payload))
       argument <- either(jsValueToApiValue(argT, fjj.argument))
-      meta <- fjj.meta traverse (decodeMetaPayloads(_, jsValueToApiRecord))
     } yield fjj.copy(
       payload = payload,
       argument = argument,
       choiceInterfaceId = oIfaceId orElse fjj.choiceInterfaceId,
-      meta = meta,
+      meta = fjj.meta,
     )
   }
 
   private[this] def jsValueToApiRecord(t: domain.LfType, v: JsValue) =
     jsValueToApiValue(t, v) flatMap mustBeApiRecord
 
-  private[this] def decodeMeta(
-      meta: domain.CommandMeta[ContractTypeId.Template.OptionalPkg, JsValue],
-      jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
-  )(implicit
-      ec: ExecutionContext,
-      lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.CommandMeta[ContractTypeId.Template.Resolved, domain.LfValue]] = for {
-    resolved <- resolveMetaTemplateIds(meta, jwt, ledgerId)
-    // then use all the resolved template IDs for the disclosed contracts
-    decoded <- decodeMetaPayloads(resolved)
-  } yield decoded
-
-  private[this] def resolveMetaTemplateIds[U, R, LfV](
-      meta: domain.CommandMeta[U with ContractTypeId.OptionalPkg, LfV],
+  private[this] def resolveMetaTemplateIds[U, R](
+      meta: domain.CommandMeta[U with ContractTypeId.OptionalPkg],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
       resolveOverload: PackageService.ResolveContractTypeId.Overload[U, R],
-  ): ET[domain.CommandMeta[R, LfV]] = for {
+  ): ET[domain.CommandMeta[R]] = for {
     // resolve as few template IDs as possible
     tpidToResolved <- {
-      import scalaz.std.vector._
-      val inputTpids = Bifoldable[domain.CommandMeta].leftFoldable[Any].toSet(meta)
+      import scalaz.std.vector.*
+      val inputTpids = Foldable[domain.CommandMeta].toSet(meta)
       inputTpids.toVector
         .traverse { ot => templateId_(ot, jwt, ledgerId) strengthL ot }
         .map(_.toMap)
     }
-  } yield meta leftMap tpidToResolved
-
-  private[this] def decodeMetaPayloads[R](
-      meta: domain.CommandMeta[ContractTypeId.Template.Resolved, JsValue],
-      decode: (domain.LfType, JsValue) => JsonError \/ R = jsValueToLfValue,
-  )(implicit
-      ec: ExecutionContext
-  ): ET[domain.CommandMeta[ContractTypeId.Template.Resolved, R]] = for {
-    disclosedContracts <- either {
-      import scalaz.std.list._
-      meta.disclosedContracts traverse (_ traverse { dc =>
-        val tpid = dc.templateId
-        dc.traverse(jsrec =>
-          resolveTemplateRecordType(tpid) liftErr JsonError
-            flatMap (decode(_, jsrec))
-        )
-      })
-    }
-  } yield meta.copy(disclosedContracts = disclosedContracts)
+  } yield meta map tpidToResolved
 
   private def templateId_[U, R](
       id: U with domain.ContractTypeId.OptionalPkg,
@@ -275,17 +242,6 @@ class DomainJsonDecoder(
       resolveContractTypeId(jwt, ledgerId)(id)
         .map(_.toOption.flatten.toRightDisjunction(JsonError(cannotResolveTemplateId(id))))
     )
-
-  def ApiValueJsonReader(lfType: domain.LfType): JsonReader[lav1.value.Value] =
-    (json: JsValue) =>
-      jsValueToApiValue(lfType, json).valueOr(e => spray.json.deserializationError(e.shows))
-
-  def ApiRecordJsonReader(lfType: domain.LfType): JsonReader[lav1.value.Record] =
-    (json: JsValue) =>
-      SprayJson
-        .mustBeJsObject(json)
-        .flatMap(jsObj => jsValueToApiValue(lfType, jsObj).flatMap(mustBeApiRecord))
-        .valueOr(e => spray.json.deserializationError(e.shows))
 
   def templateRecordType(
       id: domain.ContractTypeId.Template.RequiredPkg

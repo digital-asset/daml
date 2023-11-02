@@ -295,7 +295,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
           DEBUG,
         )
         capturingLogger.assertNextMessageIs(createExpectedLogMessage("succeeded(OK)"), DEBUG)
-        capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), TRACE)
+        capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
       }
     }
 
@@ -320,7 +320,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
               expectedLogLevel,
               status.getCause,
             )
-            capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), TRACE)
+            capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
           }
         }
     }
@@ -350,7 +350,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
             ERROR,
             exception,
           )
-          capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), TRACE)
+          capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
         }
       }
     }
@@ -373,7 +373,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
 
           throwable match {
             case NonFatal(_) =>
-              capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), TRACE)
+              capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
             case _: Throwable =>
               capturingLogger.assertNextMessageIs(
                 s"A fatal error has occurred in $executionContextName. Terminating thread.",
@@ -553,7 +553,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
 
         assertRequestAndResponsesLogged
         capturingLogger.assertNextMessageIs(createExpectedLogMessage("succeeded(OK)"), DEBUG)
-        capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), TRACE)
+        capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
       }
     }
 
@@ -574,7 +574,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
               expectedLogLevel,
               status.getCause,
             )
-            capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), TRACE)
+            capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
           }
         }
     }
@@ -594,7 +594,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
             ERROR,
             throwable,
           )
-          capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), TRACE)
+          capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
         }
       }
     }
@@ -615,7 +615,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
 
           throwable match {
             case NonFatal(_) =>
-              capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), TRACE)
+              capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
             case _: Throwable =>
               capturingLogger.assertNextMessageIs(
                 s"A fatal error has occurred in $executionContextName. Terminating thread.",
@@ -735,7 +735,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
           DEBUG,
         )
         capturingLogger.assertNextMessageIs(createExpectedLogMessage("succeeded(OK)"), DEBUG)
-        capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), TRACE)
+        capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
       }
     }
 
@@ -764,7 +764,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
           INFO,
           status.getCause,
         )
-        capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), TRACE)
+        capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
       }
     }
   }
@@ -830,7 +830,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
 
           assertRequestAndResponsesLogged
           capturingLogger.assertNextMessageIs(createExpectedLogMessage("succeeded(OK)"), DEBUG)
-          capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), TRACE)
+          capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
       }
     }
 
@@ -851,7 +851,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
             INFO,
             status.getCause,
           )
-          capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), TRACE)
+          capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
       }
     }
   }

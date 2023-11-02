@@ -338,7 +338,9 @@ object SyncDomainEphemeralStateFactory {
 
     logger.debug(s"Computing starting points for $domainId")
     for {
-      lastPublishedLocalOffsetO <- multiDomainEventLog.lastLocalOffset(DomainEventLogId(domainId))
+      lastPublishedRequestOffsetO <- multiDomainEventLog.lastRequestOffset(
+        DomainEventLogId(domainId)
+      )
       cleanSequencerCounterPrehead <- sequencerCounterTrackerStore.preheadSequencerCounter
       _ = logger.debug(show"Clean sequencer counter prehead is $cleanSequencerCounterPrehead")
       preheadClean <- requestJournalStore.preheadClean
@@ -357,7 +359,7 @@ object SyncDomainEphemeralStateFactory {
               ProcessingStartingPoints.tryCreate(
                 cleanReplay = processingStartingPoint.toMessageCleanReplayStartingPoint,
                 processing = processingStartingPoint,
-                lastPublishedLocalOffset = lastPublishedLocalOffsetO,
+                lastPublishedRequestOffset = lastPublishedRequestOffsetO,
                 rewoundSequencerCounterPrehead = rewoundCleanSequencerCounterPrehead,
               )
             )
@@ -411,7 +413,7 @@ object SyncDomainEphemeralStateFactory {
               .tryCreate(
                 replayStartingPoint,
                 processingStartingPoint,
-                lastPublishedLocalOffsetO,
+                lastPublishedRequestOffsetO,
                 rewoundSequencerCounterPrehead,
               )
           )
@@ -480,9 +482,9 @@ object SyncDomainEphemeralStateFactory {
           processingStartingPoint.cleanRequestPrehead
         } else {
           logger.warn(
-            s"The clean request prehead ${processingStartingPoint.cleanRequestPrehead} precedes the last published event at ${startingPoints.lastPublishedLocalOffset}. Has the clean request prehead been manipulated?"
+            s"The clean request prehead ${processingStartingPoint.cleanRequestPrehead} precedes the last published event at ${startingPoints.lastPublishedRequestOffset}. Has the clean request prehead been manipulated?"
           )
-          startingPoints.lastPublishedLocalOffset
+          startingPoints.lastPublishedRequestOffset
         }
       _ <- unpublishedOffsetAfterCleanPreheadO.fold(Future.unit) {
         unpublishedOffsetAfterCleanPrehead =>

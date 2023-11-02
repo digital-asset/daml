@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import com.digitalasset.canton.*
+import com.digitalasset.canton.config.RequireTypes.NegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.participant.event.RecordOrderPublisher.{
@@ -37,7 +38,12 @@ import com.digitalasset.canton.participant.sync.{
   LedgerSyncEvent,
   TimestampedEvent,
 }
-import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset, RequestOffset}
+import com.digitalasset.canton.participant.{
+  GlobalOffset,
+  LocalOffset,
+  RequestOffset,
+  TopologyOffset,
+}
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
@@ -64,7 +70,6 @@ trait MultiDomainEventLogTest
 
   private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
 
-  // TODO(#14381) Expand coverage and include topology events in this test
   private implicit def toLocalOffset(i: Long): LocalOffset =
     RequestOffset(CantonTimestamp.ofEpochSecond(i), RequestCounter(i))
 
@@ -119,6 +124,14 @@ trait MultiDomainEventLogTest
         ).some,
       ),
       (
+        eventLogIds(0),
+        timestampedEvent(
+          0,
+          TopologyOffset.tryCreate(CantonTimestamp.ofEpochMilli(3500), NegativeLong.tryCreate(-1)),
+        ),
+        None,
+      ),
+      (
         eventLogIds(1),
         timestampedEvent(1, 5),
         InFlightByMessageId(domainIds(0), MessageId.fromUuid(new UUID(1, 1))).some,
@@ -148,6 +161,9 @@ trait MultiDomainEventLogTest
       (eventLogIds(3), timestampedEvent(3, 3), None),
     )
 
+  private lazy val recoveryStartIndex = 6
+  private lazy val recoveredEventLogEventsCount = 9
+
   private lazy val outdatedEvent: (EventLogId, TimestampedEvent, Option[InFlightReference]) =
     (
       eventLogIds(0),
@@ -157,7 +173,7 @@ trait MultiDomainEventLogTest
 
   private lazy val initialTestEvents
       : Seq[(EventLogId, TimestampedEvent, Option[InFlightReference])] =
-    allTestEvents.slice(0, 5)
+    allTestEvents.slice(0, recoveryStartIndex)
   private lazy val initialPublicationTime: CantonTimestamp = CantonTimestamp.ofEpochSecond(10)
 
   private lazy val lastOffsets
@@ -167,22 +183,62 @@ trait MultiDomainEventLogTest
 
     val noOffsets = (None, None)
 
+    // We want that the first two events of the log have different type of offsets
+    val event0LocalOffset = initialTestEvents(0)._2.localOffset.asInstanceOf[RequestOffset]
+    val event1LocalOffset = initialTestEvents(1)._2.localOffset.asInstanceOf[TopologyOffset]
+
+    /*
+      Expected last local offsets
+      For a given log `eventLogId`, there is a change between element i and element (i+1) if the
+      i-th event is published in `eventLogId`
+     */
     Seq(
-      (Map(domainIds(0) -> offsets(3), domainIds(1) -> noOffsets, domainIds(2) -> noOffsets), None),
       (
-        Map(domainIds(0) -> offsets(3), domainIds(1) -> offsets(5), domainIds(2) -> noOffsets),
+        Map(
+          domainIds(0) -> (Option(event0LocalOffset), Option(event0LocalOffset)),
+          domainIds(1) -> noOffsets,
+          domainIds(2) -> noOffsets,
+        ),
         None,
       ),
       (
-        Map(domainIds(0) -> offsets(3), domainIds(1) -> offsets(5), domainIds(2) -> noOffsets),
+        Map(
+          domainIds(0) -> (Option(event1LocalOffset), Option(event0LocalOffset)),
+          domainIds(1) -> noOffsets,
+          domainIds(2) -> noOffsets,
+        ),
+        None,
+      ),
+      (
+        Map(
+          domainIds(0) -> (Option(event1LocalOffset), Option(event0LocalOffset)),
+          domainIds(1) -> offsets(5),
+          domainIds(2) -> noOffsets,
+        ),
+        None,
+      ),
+      (
+        Map(
+          domainIds(0) -> (Option(event1LocalOffset), Option(event0LocalOffset)),
+          domainIds(1) -> offsets(5),
+          domainIds(2) -> noOffsets,
+        ),
         Some(1L),
       ),
       (
-        Map(domainIds(0) -> offsets(3), domainIds(1) -> offsets(5), domainIds(2) -> noOffsets),
+        Map(
+          domainIds(0) -> (Option(event1LocalOffset), Option(event0LocalOffset)),
+          domainIds(1) -> offsets(5),
+          domainIds(2) -> noOffsets,
+        ),
         Some(2L),
       ),
       (
-        Map(domainIds(0) -> offsets(3), domainIds(1) -> offsets(6), domainIds(2) -> noOffsets),
+        Map(
+          domainIds(0) -> (Option(event1LocalOffset), Option(event0LocalOffset)),
+          domainIds(1) -> offsets(6),
+          domainIds(2) -> noOffsets,
+        ),
         Some(2L),
       ),
     )
@@ -190,7 +246,7 @@ trait MultiDomainEventLogTest
 
   private lazy val recoveryBounds: Seq[(EventLogId, Option[LocalOffset])] = Seq(
     eventLogIds(0) -> None, // recover all events
-    eventLogIds(1) -> Some(7), // recover some events
+    eventLogIds(1) -> Some(8), // recover some events
     eventLogIds(2) -> Some(Long.MaxValue), // recover no events, as there is no event
     eventLogIds(3) -> Some(0), // recover no events, as the bound is in the past
   )
@@ -198,16 +254,16 @@ trait MultiDomainEventLogTest
 
   private lazy val testEventsForRecoveredEventLog
       : Seq[(EventLogId, TimestampedEvent, Option[InFlightReference])] =
-    allTestEvents.slice(0, 8)
+    allTestEvents.slice(0, recoveredEventLogEventsCount)
 
   private lazy val publishedThroughRecovery
       : Seq[(EventLogId, TimestampedEvent, Option[InFlightReference])] =
-    allTestEvents.slice(5, 8)
+    allTestEvents.slice(recoveryStartIndex, recoveredEventLogEventsCount)
 
-  private lazy val numPrunedEvents = 4
+  private lazy val numPrunedEvents = 5
   private lazy val testEventsForPrunedEventLog
       : Seq[(EventLogId, TimestampedEvent, Option[InFlightReference])] =
-    allTestEvents.slice(numPrunedEvents, 8)
+    allTestEvents.slice(numPrunedEvents, recoveredEventLogEventsCount)
 
   protected def storeEventsToSingleDimensionEventLogs(
       events: Seq[(EventLogId, TimestampedEvent)]
@@ -468,23 +524,25 @@ trait MultiDomainEventLogTest
 
         "yield empty last local/request offsets" in {
           forEvery(bounds) { upToInclusive =>
+            val upToInclusiveO = Option(upToInclusive)
+
             // Participant event log
             eventLog
-              .lastLocalOffsetBeforeOrAt(participantEventLogId, upToInclusive, None)
+              .lastLocalOffset(participantEventLogId, upToInclusiveO, None)
               .futureValue shouldBe None
 
             eventLog
-              .lastRequestOffsetBeforeOrAt(participantEventLogId, upToInclusive, None)
+              .lastRequestOffset(participantEventLogId, upToInclusiveO)
               .futureValue shouldBe None
 
             // Domain event logs
             forEvery(domainEventLogIds) { domainId =>
               eventLog
-                .lastLocalOffsetBeforeOrAt(domainId, upToInclusive, None)
+                .lastLocalOffset(domainId, upToInclusiveO, None)
                 .futureValue shouldBe None
 
               eventLog
-                .lastRequestOffsetBeforeOrAt(domainId, upToInclusive, None)
+                .lastRequestOffset(domainId, upToInclusiveO)
                 .futureValue shouldBe None
             }
           }
@@ -569,8 +627,7 @@ trait MultiDomainEventLogTest
           lookupEventRangeAndCheckEvents(Some(Long.MaxValue), initialTestEvents)
         }
 
-        // TODO(#14381) Publish topology events and enrich this test to expand coverage
-        "yield correct last domain offsets" in {
+        "yield correct lastDomainOffsetsBeforeOrAtGlobalOffset" in {
           forEvery(globalOffsets.zipWithIndex) { case (upToInclusive, index) =>
             val (expectedDomainOffsets, expectedParticipantOffset) = lastOffsets(index)
 
@@ -611,6 +668,10 @@ trait MultiDomainEventLogTest
             )
             .futureValue shouldBe
             ((lastOffsetOfFirstDomain, lastParticipantOffset))
+        }
+
+        "yield correct lastLocalOffset" in {
+          val (lastDomainOffsets, _) = lastOffsets.lastOption.value
 
           forEvery(eventLogIds.collect { case eventLogId @ DomainEventLogId(domainId) =>
             eventLogId -> domainId
@@ -624,9 +685,9 @@ trait MultiDomainEventLogTest
           }
         }
 
-        // TODO(#14381) Publish topology events and enrich this test to expand coverage
         "yield correct last local/request offsets" in {
           forEvery(globalOffsets.zipWithIndex) { case (upToInclusive, index) =>
+            val upToInclusiveO = Option(upToInclusive)
             val (expectedDomainOffsets, expectedParticipantOffset) = lastOffsets(index)
 
             forEvery(domainEventLogIds) { domainId =>
@@ -634,20 +695,20 @@ trait MultiDomainEventLogTest
                 expectedDomainOffsets.get(domainId.domainId).value
 
               eventLog
-                .lastLocalOffsetBeforeOrAt(domainId, upToInclusive, None)
+                .lastLocalOffset(domainId, upToInclusiveO, None)
                 .futureValue shouldBe expectedLocalOffset
 
               eventLog
-                .lastRequestOffsetBeforeOrAt(domainId, upToInclusive, None)
+                .lastRequestOffset(domainId, upToInclusiveO, None)
                 .futureValue shouldBe expectedRequestOffset
             }
 
             eventLog
-              .lastLocalOffsetBeforeOrAt(participantEventLogId, upToInclusive, None)
+              .lastLocalOffset(participantEventLogId, upToInclusiveO, None)
               .futureValue shouldBe expectedParticipantOffset
 
             eventLog
-              .lastRequestOffsetBeforeOrAt(participantEventLogId, upToInclusive, None)
+              .lastRequestOffset(participantEventLogId, upToInclusiveO, None)
               .futureValue shouldBe expectedParticipantOffset
           }
         }
@@ -736,7 +797,7 @@ trait MultiDomainEventLogTest
             val unpublishedEvents = unpublished.map {
               case PendingEventPublish(event, _ts, eventLogId) =>
                 PublicationData(eventLogId, event, None)
-              case PendingTransferPublish(ts, _eventLogId) =>
+              case PendingTransferPublish(_ts, _eventLogId) =>
                 fail("Cannot publish a transfer")
             }
             unpublishedEvents shouldBe expectedUnpublished

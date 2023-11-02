@@ -54,9 +54,9 @@ final class ApiUpdateService(
   override def getUpdates(
       request: GetUpdatesRequest,
       responseObserver: StreamObserver[GetUpdatesResponse],
-  ): Unit =
+  ): Unit = {
+    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
     registerStream(responseObserver) {
-      implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
       implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
 
       logger.debug(s"Received new update request $request.")
@@ -98,13 +98,14 @@ final class ApiUpdateService(
         )
       }
     }
+  }
 
   override def getUpdateTrees(
       request: GetUpdatesRequest,
       responseObserver: StreamObserver[GetUpdateTreesResponse],
-  ): Unit =
+  ): Unit = {
+    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
     registerStream(responseObserver) {
-      implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
       implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
 
       logger.debug(s"Received new update trees request $request.")
@@ -152,6 +153,7 @@ final class ApiUpdateService(
         )
       }
     }
+  }
 
   override def getTransactionTreeByEventId(
       req: GetTransactionByEventIdRequest

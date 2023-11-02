@@ -5,16 +5,15 @@ package com.digitalasset.canton.http.json
 
 import akka.http.scaladsl.model.StatusCode
 import com.digitalasset.canton.http.domain
-import com.digitalasset.canton.http.domain.ContractTypeId
-import com.daml.ledger.api.refinements.{ApiTypes as lar}
+import com.digitalasset.canton.http.domain.{Base64, ContractTypeId, DisclosedContract}
+import com.daml.ledger.api.refinements.ApiTypes as lar
 import com.daml.lf.data.Ref.HexString
-import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
 import com.google.protobuf.ByteString
 import com.google.protobuf.struct.Struct
 import scalaz.syntax.std.option.*
-import scalaz.{@@, -\/, \/-, NonEmptyList, Tag}
+import scalaz.{-\/, @@, NonEmptyList, Tag, \/-}
 import spray.json.*
 import spray.json.derived.Discriminator
 import scalaz.syntax.tag.*
@@ -52,9 +51,6 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit val OffsetFormat: JsonFormat[domain.Offset] =
     taggedJsonFormat
-
-  private implicit val TimestampFormat: JsonFormat[Time.Timestamp] =
-    xemapStringJsonFormat(Time.Timestamp.fromString)(_.toString)
 
   implicit def NonEmptyListFormat[A: JsonReader: JsonWriter]: JsonFormat[NonEmptyList[A]] =
     jsonFormatFromReaderWriter(NonEmptyListReader, NonEmptyListWriter)
@@ -99,8 +95,8 @@ object JsonProtocol extends JsonProtocolLow {
     } { bytes => bytesToStrTotal(bytes.toByteArray) }
 
   implicit val Base64Format: JsonFormat[domain.Base64] = {
-    import java.util.Base64.{getUrlDecoder, getUrlEncoder}
-    baseNFormat(getUrlDecoder.decode, getUrlEncoder.encodeToString)
+    import java.util.Base64.{getDecoder, getEncoder}
+    baseNFormat(getDecoder.decode, getEncoder.encodeToString)
   }
 
   implicit val Base16Format: JsonFormat[domain.Base16] = {
@@ -108,8 +104,6 @@ object JsonProtocol extends JsonProtocolLow {
     import java.util.Locale.US
     baseNFormat(s => base16.decode(s toUpperCase US), ba => base16.encode(ba) toLowerCase US)
   }
-
-  implicit val PbAnyFormat: JsonFormat[domain.PbAny] = jsonFormat2(domain.PbAny)
 
   implicit val userDetails: JsonFormat[domain.UserDetails] =
     jsonFormat2(domain.UserDetails.apply)
@@ -401,56 +395,20 @@ object JsonProtocol extends JsonProtocolLow {
       domain.SearchForeverRequest(NonEmptyList((single.convertTo[domain.SearchForeverQuery], 0)))
   }
 
-  private implicit def DisclosedContractArgumentsFormat[LfV: JsonFormat]
-      : JsonFormat[domain.DisclosedContract.Arguments[LfV]] = {
-    import domain.DisclosedContract.{Arguments as A}
 
-    implicit val jfBlob: JsonFormat[A.Blob] = jsonFormat1(A.Blob)
-    implicit val jfRecord: JsonFormat[A.Record[LfV]] = jsonFormat1(A.Record.apply[LfV])
+  implicit def DisclosedContractFormat[TmplId: JsonFormat]
+      : JsonFormat[domain.DisclosedContract[TmplId]] = {
+    val rawJsonFormat = jsonFormat3(domain.DisclosedContract[TmplId].apply)
 
-    new JsonFormat[A[LfV]] {
-      override def write(obj: A[LfV]): JsValue = obj match {
-        case b @ A.Blob(_) => jfBlob write b
-        case r @ A.Record(_) => jfRecord write r
+    new JsonFormat[DisclosedContract[TmplId]] {
+      override def read(json: JsValue): DisclosedContract[TmplId] = {
+        val raw = rawJsonFormat.read(json)
+        if((Base64 unwrap raw.createdEventBlob).isEmpty)
+          deserializationError("DisclosedContract.createdEventBlob must not be empty")
+        else raw
       }
 
-      override def read(json: JsValue): A[LfV] = json match {
-        case JsObject(fields) =>
-          (fields contains A.blobKey, fields contains A.recordKey) match {
-            case (true, false) => jfBlob read json
-            case (false, true) => jfRecord read json
-            case (true, true) =>
-              deserializationError(
-                s"both ${A.blobKey} and ${A.recordKey} were specified; only one is allowed"
-              )
-            case (false, false) =>
-              deserializationError(s"neither ${A.blobKey} nor ${A.recordKey} was specified")
-          }
-        case _ =>
-          deserializationError(s"$json must be an object with ${A.blobKey} or ${A.recordKey} field")
-      }
-    }
-  }
-
-  private implicit val DisclosedContractMetadataFormat
-      : JsonFormat[domain.DisclosedContract.Metadata] =
-    jsonFormat3(domain.DisclosedContract.Metadata)
-
-  implicit def DisclosedContractFormat[TmplId: JsonFormat, LfV: JsonFormat]
-      : JsonFormat[domain.DisclosedContract[TmplId, LfV]] = {
-    import domain.{DisclosedContract as DC}
-    final case class DisclosedContractMinusArgs(
-        contractId: domain.ContractId,
-        templateId: TmplId,
-        metadata: DC.Metadata,
-    )
-    implicit val dcmaFormat: JsonFormat[DisclosedContractMinusArgs] =
-      jsonFormat3(DisclosedContractMinusArgs)
-
-    fanoutJsonFormat { (dcma: DisclosedContractMinusArgs, args: DC.Arguments[LfV]) =>
-      DC(dcma.contractId, dcma.templateId, args, dcma.metadata)
-    } { dc =>
-      (DisclosedContractMinusArgs(dc.contractId, dc.templateId, dc.metadata), dc.arguments)
+      override def write(obj: DisclosedContract[TmplId]): JsValue = rawJsonFormat.write(obj)
     }
   }
 
@@ -464,14 +422,14 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit val WorkflowIdFormat: JsonFormat[domain.WorkflowId] = taggedJsonFormat
 
-  implicit def CommandMetaFormat[TmplId: JsonFormat, LfV: JsonFormat]
-      : JsonFormat[domain.CommandMeta[TmplId, LfV]] =
-    jsonFormat7(domain.CommandMeta.apply[TmplId, LfV])
+  implicit def CommandMetaFormat[TmplId: JsonFormat]
+      : JsonFormat[domain.CommandMeta[TmplId]] =
+    jsonFormat7(domain.CommandMeta.apply[TmplId])
 
   // exposed for testing
   private[json] implicit val CommandMetaNoDisclosedFormat
       : RootJsonFormat[domain.CommandMeta.NoDisclosed] = {
-    type NeverDC = domain.DisclosedContract[Nothing, Nothing]
+    type NeverDC = domain.DisclosedContract[Nothing]
     implicit object alwaysEmptyList extends JsonFormat[List[NeverDC]] {
       override def write(obj: List[NeverDC]): JsValue = JsArray()
       override def read(json: JsValue): List[NeverDC] = List.empty
@@ -522,7 +480,7 @@ object JsonProtocol extends JsonProtocolLow {
         val choice = fromField[domain.Choice](json, "choice")
         val argument = fromField[JsValue](json, "argument")
         val meta =
-          fromField[Option[domain.CommandMeta[ContractTypeId.Template.OptionalPkg, JsValue]]](
+          fromField[Option[domain.CommandMeta[ContractTypeId.Template.OptionalPkg]]](
             json,
             "meta",
           )
@@ -675,24 +633,6 @@ object JsonProtocol extends JsonProtocolLow {
     override def read(json: JsValue): A =
       readFn(base.read(json)).fold(deserializationError(_), identity)
   }
-
-  private[this] def fanoutJsonFormat[A: JsonFormat, B: JsonFormat, C](
-      readCombine: (A, B) => C
-  )(writeSplit: C => (A, B)): JsonFormat[C] =
-    new JsonFormat[C] {
-      override def write(obj: C): JsValue = {
-        val (a, b) = writeSplit(obj)
-        (a.toJson, b.toJson) match {
-          case (JsObject(aFields), JsObject(bFields)) => JsObject(aFields ++ bFields)
-          case (ja, JsNull) => ja
-          case (JsNull, jb) => jb
-          case (ja, jb) => serializationError(s"cannot combine $ja and $jb")
-        }
-      }
-
-      override def read(json: JsValue): C =
-        readCombine(json.convertTo[A], json.convertTo[B])
-    }
 }
 
 sealed abstract class JsonProtocolLow extends DefaultJsonProtocol with ExtraFormats {

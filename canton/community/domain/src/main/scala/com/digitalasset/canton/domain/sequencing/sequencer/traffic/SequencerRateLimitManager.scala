@@ -7,7 +7,12 @@ import cats.data.EitherT
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.TrafficControlParameters
-import com.digitalasset.canton.sequencing.protocol.{Batch, ClosedEnvelope, TrafficState}
+import com.digitalasset.canton.sequencing.protocol.{
+  Batch,
+  ClosedEnvelope,
+  GroupRecipient,
+  TrafficState,
+}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.traffic.{MemberTrafficStatus, TopUpEvent}
@@ -60,6 +65,7 @@ trait SequencerRateLimitManager {
       sequencingTimestamp: CantonTimestamp,
       trafficState: TrafficState,
       trafficControlConfig: TrafficControlParameters,
+      groupToMembers: Map[GroupRecipient, Set[Member]],
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,

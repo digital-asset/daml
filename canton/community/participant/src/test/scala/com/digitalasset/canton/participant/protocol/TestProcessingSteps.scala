@@ -241,7 +241,6 @@ class TestProcessingSteps(
       transferLookup: TransferLookup,
       contractLookup: ContractLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      pendingCursor: Future[Unit],
       mediator: MediatorRef,
       freshOwnTimelyTx: Boolean,
   )(implicit

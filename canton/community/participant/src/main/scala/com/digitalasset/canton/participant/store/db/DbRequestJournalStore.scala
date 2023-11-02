@@ -242,7 +242,6 @@ class DbRequestJournalStore(
   override def replace(
       rc: RequestCounter,
       requestTimestamp: CantonTimestamp,
-      oldState: RequestState,
       newState: RequestState,
       commitTime: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): EitherT[Future, RequestJournalStoreError, Unit] =
@@ -257,7 +256,7 @@ class DbRequestJournalStore(
         )
       )
     else {
-      val request = ReplaceRequest(rc, requestTimestamp, oldState, newState, commitTime)
+      val request = ReplaceRequest(rc, requestTimestamp, newState, commitTime)
       EitherT(batchAggregatorReplace.run(request).flatMap(Future.fromTry))
     }
 
@@ -284,15 +283,14 @@ class DbRequestJournalStore(
         val updateQuery =
           """update /*+ INDEX (journal_requests (request_counter, domain_id)) */ journal_requests
              set request_state_index = ?, commit_time = coalesce (?, commit_time)
-             where domain_id = ? and request_counter = ? and request_state_index = ? and request_timestamp = ?"""
+             where domain_id = ? and request_counter = ? and request_timestamp = ?"""
         DbStorage.bulkOperation(updateQuery, items.map(_.value).toList, storage.profile) {
           pp => item =>
-            val ReplaceRequest(rc, requestTimestamp, oldState, newState, commitTime) = item
+            val ReplaceRequest(rc, requestTimestamp, newState, commitTime) = item
             pp >> newState
             pp >> commitTime
             pp >> domainId
             pp >> rc
-            pp >> oldState
             pp >> requestTimestamp
         }
       }
@@ -313,7 +311,7 @@ class DbRequestJournalStore(
       override protected def analyzeFoundData(item: ReplaceRequest, foundData: Option[RequestData])(
           implicit traceContext: TraceContext
       ): Try[Result] = {
-        val ReplaceRequest(rc, requestTimestamp, oldState, newState, commitTime) = item
+        val ReplaceRequest(rc, requestTimestamp, newState, commitTime) = item
         foundData match {
           case None => Success(Left(UnknownRequestCounter(rc)))
           case Some(data) =>
@@ -325,8 +323,6 @@ class DbRequestJournalStore(
               // `update` may under report the number of changed rows,
               // so we're fine if the new state is already there.
               Success(Right(()))
-            else if (data.state != oldState)
-              Success(Left(InconsistentRequestState(rc, data.state, oldState)))
             else {
               val ex = new ConcurrentModificationException(
                 s"Concurrent request journal modification for request $rc"
@@ -405,14 +401,12 @@ object DbRequestJournalStore {
   final case class ReplaceRequest(
       rc: RequestCounter,
       requestTimestamp: CantonTimestamp,
-      oldState: RequestState,
       newState: RequestState,
       commitTime: Option[CantonTimestamp],
   ) extends PrettyPrinting {
 
     override def pretty: Pretty[ReplaceRequest] = prettyOfClass(
       param("rc", _.rc),
-      param("old state", _.oldState),
       param("new state", _.newState),
       param("request timestamp", _.requestTimestamp),
     )
