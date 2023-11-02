@@ -40,7 +40,7 @@ final class DomainSpec extends AnyFreeSpec with Matchers with FreeSpecCheckLaws 
     import scalaz.scalacheck.{ScalazProperties => SZP}
 
     "bitraverse" - {
-      checkLaws(SZP.bitraverse.laws[DisclosedContract])
+      checkLaws(SZP.traverse.laws[DisclosedContract])
     }
   }
 }
@@ -48,6 +48,6 @@ final class DomainSpec extends AnyFreeSpec with Matchers with FreeSpecCheckLaws 
 object DomainSpec {
   import scalaz.Equal
 
-  implicit val eqDisclosedContract: Equal[DisclosedContract[Int, Int]] =
+  implicit val eqDisclosedContract: Equal[DisclosedContract[Int]] =
     Equal.equalA
 }

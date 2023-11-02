@@ -6,10 +6,9 @@ package com.daml.http
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.daml.fetchcontracts.util.IdentifierConverters.apiIdentifier
 import com.daml.ledger.api.domain.User
-import com.daml.lf.data.Time
-import com.daml.lf.typesig
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
+import com.daml.lf.typesig
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps._
 import com.google.protobuf.ByteString
@@ -17,15 +16,12 @@ import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.vector._
-import scalaz.syntax.applicative.ApplicativeIdV
 import scalaz.syntax.apply.{^, ^^}
-import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
-import scalaz.syntax.std.option._
-import scalaz.syntax.traverse._
-import scalaz.{@@, -\/, Applicative, Bitraverse, Functor, NonEmptyList, Tag, Traverse, \/, \/-}
-import spray.json.JsValue
 import scalaz.syntax.tag._
+import scalaz.syntax.traverse._
+import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, Traverse, \/, \/-}
+import spray.json.JsValue
 
 import scala.annotation.tailrec
 
@@ -196,9 +192,10 @@ package domain {
   final case class CanReadAs(party: Party) extends UserRight
 
   object UserRights {
-    import com.daml.ledger.api.domain.{UserRight => LedgerUserRight}, com.daml.lf.data.Ref
-    import scalaz.syntax.traverse._
+    import com.daml.ledger.api.domain.{UserRight => LedgerUserRight}
+    import com.daml.lf.data.Ref
     import scalaz.syntax.std.either._
+    import scalaz.syntax.traverse._
 
     def toLedgerUserRights(input: List[UserRight]): String \/ List[LedgerUserRight] =
       input.traverse {
@@ -276,141 +273,57 @@ package domain {
     def toLedgerApi: any.Any = any.Any(typeUrl, Base64 unwrap value)
   }
 
-  final case class DisclosedContract[+TmplId, +LfV](
+  final case class DisclosedContract[+TmplId](
       contractId: ContractId,
       templateId: TmplId,
-      arguments: DisclosedContract.Arguments[LfV],
-      metadata: DisclosedContract.Metadata,
+      createdEventBlob: Base64,
   ) {
     def toLedgerApi(implicit
-        TmplId: TmplId <:< ContractTypeId.Template.RequiredPkg,
-        LfV: LfV <:< lav1.value.Record,
+        TmplId: TmplId <:< ContractTypeId.Template.RequiredPkg
     ): lav1.commands.DisclosedContract =
       lav1.commands.DisclosedContract(
         templateId = Some(apiIdentifier(templateId)),
         contractId = ContractId unwrap contractId,
-        arguments = arguments.toLedgerApi,
-        metadata = Some(metadata.toLedgerApi),
+        createdEventBlob = Base64 unwrap createdEventBlob,
       )
   }
 
   object DisclosedContract {
-    type LAV = DisclosedContract[ContractTypeId.Template.RequiredPkg, lav1.value.Record]
+    type LAV = DisclosedContract[ContractTypeId.Template.RequiredPkg]
 
-    sealed abstract class Arguments[+LfV] extends Product with Serializable {
-      import lav1.commands.DisclosedContract.Arguments.{CreateArguments, CreateArgumentsBlob}
-
-      // Allows using deprecated Protobuf fields
-      @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
-      def toLedgerApi(implicit
-          LfV: LfV <:< lav1.value.Record
-      ): lav1.commands.DisclosedContract.Arguments = this match {
-        case Arguments.Blob(blob) => CreateArgumentsBlob(blob.toLedgerApi)
-        case Arguments.Record(payload) => CreateArguments(payload)
-      }
-    }
-    object Arguments {
-      final case class Blob(payloadBlob: PbAny) extends Arguments[Nothing]
-      final case class Record[+LfV](payload: LfV) extends Arguments[LfV]
-      private[http] val blobKey = "payloadBlob"
-      private[http] val recordKey = "payload"
-
-      implicit val covariant: Traverse[Arguments] = new Traverse[Arguments] {
+    implicit val covariant: Traverse[DisclosedContract] =
+      new Traverse[DisclosedContract] {
         override def traverseImpl[G[_]: Applicative, A, B](
-            fa: Arguments[A]
-        )(f: A => G[B]): G[Arguments[B]] =
-          fa match {
-            case b @ Blob(_) => Applicative[G] point b
-            case Record(payload) => f(payload) map (Record(_))
-          }
+            fab: DisclosedContract[A]
+        )(f: A => G[B]): G[DisclosedContract[B]] =
+          f(fab.templateId).map(tId => fab.copy(templateId = tId))
       }
-    }
-
-    final case class Metadata(
-        createdAt: Time.Timestamp,
-        contractKeyHash: Option[Base16],
-        driverMetadata: Option[Base64],
-    ) {
-      import com.daml.api.util.TimestampConversion.{fromLf => timestampLfToProto}
-
-      def toLedgerApi: lav1.contract_metadata.ContractMetadata =
-        lav1.contract_metadata.ContractMetadata(
-          createdAt = Some(timestampLfToProto(createdAt)),
-          contractKeyHash = Base16 unsubst contractKeyHash getOrElse ByteString.EMPTY,
-          driverMetadata = Base64 unsubst driverMetadata getOrElse ByteString.EMPTY,
-        )
-    }
-
-    object Metadata extends ((Time.Timestamp, Option[Base16], Option[Base64]) => Metadata) {
-      // meant only for testing
-      private[http] def fromLedgerApi(
-          la: lav1.contract_metadata.ContractMetadata
-      ): Error \/ Metadata = {
-        import com.daml.api.util.{TimestampConversion => TSC}
-        def boxIfNE[Tag](bs: ByteString): Option[ByteString @@ Tag] =
-          if (bs.isEmpty) None else Some(Tag(bs))
-        for {
-          createdAt <- (la.createdAt toRightDisjunction
-            Error(Symbol("Metadata.fromLedgerApi"), "missing createdAt field"))
-        } yield Metadata(
-          TSC.toLf(createdAt, TSC.ConversionMode.Exact),
-          boxIfNE(la.contractKeyHash),
-          boxIfNE(la.driverMetadata),
-        )
-      }
-    }
-
-    implicit val covariant: Bitraverse[DisclosedContract] =
-      new Bitraverse[DisclosedContract] {
-        override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
-            fab: DisclosedContract[A, B]
-        )(f: A => G[C], g: B => G[D]): G[DisclosedContract[C, D]] =
-          ^(f(fab.templateId), fab.arguments traverse g) { (templateId, arguments) =>
-            fab.copy(templateId = templateId, arguments = arguments)
-          }
-      }
-
-    implicit def rightCovariant[TmplId]: Traverse[DisclosedContract[TmplId, *]] =
-      covariant.rightTraverse
   }
 
   /** @tparam TmplId disclosed contracts' template ID
-    * @tparam LfV disclosed contracts' payload encoding
     */
-  final case class CommandMeta[+TmplId, +LfV](
+  final case class CommandMeta[+TmplId](
       commandId: Option[CommandId],
       actAs: Option[NonEmptyList[Party]],
       readAs: Option[List[Party]],
       submissionId: Option[SubmissionId],
       deduplicationPeriod: Option[domain.DeduplicationPeriod],
-      disclosedContracts: Option[List[DisclosedContract[TmplId, LfV]]],
+      disclosedContracts: Option[List[DisclosedContract[TmplId]]],
   )
 
   object CommandMeta {
-    type NoDisclosed = CommandMeta[Nothing, Nothing]
-    type IgnoreDisclosed = CommandMeta[Any, Any]
-    type LAV = CommandMeta[ContractTypeId.Template.RequiredPkg, lav1.value.Record]
+    type NoDisclosed = CommandMeta[Nothing]
+    type IgnoreDisclosed = CommandMeta[Any]
+    type LAV = CommandMeta[ContractTypeId.Template.RequiredPkg]
 
-    private[http] implicit final class `ensureDisclosedAreRecords op`[L](
-        private val self: CommandMeta[L, lav1.value.Value]
-    ) extends AnyVal {
-      def ensureDisclosedAreRecords: Error \/ CommandMeta[L, lav1.value.Record] =
-        self traverse json.JsValueToApiValueConverter.mustBeApiRecord leftMap { e =>
-          Error(Symbol("ensureDisclosedAreRecords"), e.message)
-        }
-    }
-
-    implicit val covariant: Bitraverse[CommandMeta] = new Bitraverse[CommandMeta] {
-      override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
-          fab: CommandMeta[A, B]
-      )(f: A => G[C], g: B => G[D]): G[CommandMeta[C, D]] =
+    implicit val covariant: Traverse[CommandMeta] = new Traverse[CommandMeta] {
+      override def traverseImpl[G[_]: Applicative, A, B](
+          fab: CommandMeta[A]
+      )(f: A => G[B]): G[CommandMeta[B]] =
         fab.disclosedContracts
-          .traverse(_.traverse(_.bitraverse(f, g)))
+          .traverse(_.traverse(_.traverse(f)))
           .map(dc => fab.copy(disclosedContracts = dc))
     }
-
-    implicit def rightCovariant[L]: Traverse[CommandMeta[L, *]] =
-      covariant.rightTraverse
   }
 
   final case class CreateCommand[+LfV, +TmplId](
@@ -430,7 +343,7 @@ package domain {
       argument: LfV,
       // passing a template ID is allowed; we distinguish internally
       choiceInterfaceId: Option[ContractTypeId[PkgId]],
-      meta: Option[CommandMeta[ContractTypeId.Template[PkgId], LfV]],
+      meta: Option[CommandMeta[ContractTypeId.Template[PkgId]]],
   )
 
   final case class CreateAndExerciseCommand[+Payload, +Arg, +TmplId, +IfceId](
@@ -440,7 +353,7 @@ package domain {
       argument: Arg,
       // passing a template ID is allowed; we distinguish internally
       choiceInterfaceId: Option[IfceId],
-      meta: Option[CommandMeta[TmplId, Payload]],
+      meta: Option[CommandMeta[TmplId]],
   )
 
   final case class CreateCommandResponse[+LfV](
@@ -737,13 +650,11 @@ package domain {
         override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
             fab: ExerciseCommand[PkgId, A, B]
         )(f: A => G[C], g: B => G[D]): G[ExerciseCommand[PkgId, C, D]] = {
-          ^^(f(fab.argument), g(fab.reference), fab.meta traverse (_ traverse f))(
-            (argument, reference, meta) =>
-              fab.copy(
-                argument = argument,
-                reference = reference,
-                meta = meta,
-              )
+          ^(f(fab.argument), g(fab.reference))((argument, reference) =>
+            fab.copy(
+              argument = argument,
+              reference = reference,
+            )
           )
         }
       }
@@ -802,8 +713,8 @@ package domain {
           f: P => G[P2],
           g: Ar => G[Ar2],
       ): G[CreateAndExerciseCommand[P2, Ar2, T, I]] =
-        ^^(f(self.payload), g(self.argument), self.meta traverse (_ traverse f)) { (p, a, m) =>
-          self.copy(payload = p, argument = a, meta = m)
+        ^(f(self.payload), g(self.argument)) { (p, a) =>
+          self.copy(payload = p, argument = a)
         }
     }
 
@@ -815,7 +726,7 @@ package domain {
           ^^(
             f(fa.templateId),
             fa.choiceInterfaceId traverse g,
-            fa.meta traverse (_.bitraverse(f, _.pure[G])),
+            fa.meta traverse (_ traverse f),
           ) { (tId, ciId, meta) =>
             fa.copy(templateId = tId, choiceInterfaceId = ciId, meta = meta)
           }
