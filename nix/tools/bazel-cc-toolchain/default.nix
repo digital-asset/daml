@@ -45,6 +45,7 @@ let
         echo "-L${llvmPackages_12.libcxx}/lib" >> $out/nix-support/cc-cflags
         echo "-L${llvmPackages_12.libcxxabi}/lib" >> $out/nix-support/cc-cflags
         echo "-L${darwin.libobjc}/lib" >> $out/nix-support/cc-cflags
+        echo "-D_DNS_SD_LIBDISPATCH" >> $out/nix-support/cc-cflags # Needed for DNSServiceSetDispatchQueue to be available for gRPC
         echo "-std=c++14" >> $out/nix-support/libcxx-cxxflags
       '';
     };
