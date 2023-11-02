@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt,
 import com.digitalasset.canton.config.{
   ApiLoggingConfig,
   BatchAggregatorConfig,
+  BatchingConfig,
   CachingConfigs,
   DefaultProcessingTimeouts,
   LoggingConfig,
@@ -59,6 +60,7 @@ object ParticipantNodeParameters {
       enablePreviewFeatures = false,
       nonStandardConfig = false,
       cachingConfigs = CachingConfigs(),
+      batchingConfig = BatchingConfig(),
       sequencerClient = SequencerClientConfig(),
       dbMigrateAndStart = false,
       skipTopologyManagerSignatureValidation = false,
@@ -71,7 +73,6 @@ object ParticipantNodeParameters {
     ),
     maxUnzippedDarSize = 10,
     stores = ParticipantStoreConfig(
-      maxItemsInSqlClause = PositiveNumeric.tryCreate(10),
       maxPruningBatchSize = PositiveNumeric.tryCreate(10),
       acsPruningInterval = config.NonNegativeFiniteDuration.ofSeconds(30),
       dbBatchAggregationConfig = BatchAggregatorConfig.defaultsForTesting,

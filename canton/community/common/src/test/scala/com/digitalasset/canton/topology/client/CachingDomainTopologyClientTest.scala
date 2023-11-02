@@ -5,7 +5,12 @@ package com.digitalasset.canton.topology.client
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
-import com.digitalasset.canton.config.{CacheConfig, CachingConfigs, DefaultProcessingTimeouts}
+import com.digitalasset.canton.config.{
+  BatchingConfig,
+  CacheConfig,
+  CachingConfigs,
+  DefaultProcessingTimeouts,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.time.Clock
@@ -62,6 +67,7 @@ class CachingDomainTopologyClientTest extends AsyncWordSpecLike with BaseTest {
             expireAfterAccess = config.NonNegativeFiniteDuration.ofMinutes(5),
           )
         ),
+        BatchingConfig(),
         DefaultProcessingTimeouts.testing,
         FutureSupervisor.Noop,
         loggerFactory,

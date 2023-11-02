@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -21,8 +21,8 @@ import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId, T
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, SequencerCounter}
 
@@ -34,6 +34,7 @@ sealed abstract class BaseCachingDomainTopologyClient(
     protected val clock: Clock,
     parent: DomainTopologyClientWithInit,
     cachingConfigs: CachingConfigs,
+    batchingConfig: BatchingConfig,
     val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
@@ -72,6 +73,7 @@ sealed abstract class BaseCachingDomainTopologyClient(
       new CachingTopologySnapshot(
         parent.trySnapshot(ts)(TraceContext.empty),
         cachingConfigs,
+        batchingConfig,
         loggerFactory,
       )
     }
@@ -157,6 +159,7 @@ final class CachingDomainTopologyClientOld(
     clock: Clock,
     parent: DomainTopologyClientWithInitOld,
     cachingConfigs: CachingConfigs,
+    batchingConfig: BatchingConfig,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
@@ -165,6 +168,7 @@ final class CachingDomainTopologyClientOld(
       clock,
       parent,
       cachingConfigs,
+      batchingConfig,
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -192,6 +196,7 @@ final class CachingDomainTopologyClientX(
     clock: Clock,
     parent: DomainTopologyClientWithInitX,
     cachingConfigs: CachingConfigs,
+    batchingConfig: BatchingConfig,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
@@ -200,6 +205,7 @@ final class CachingDomainTopologyClientX(
       clock,
       parent,
       cachingConfigs,
+      batchingConfig,
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -233,6 +239,7 @@ object CachingDomainTopologyClient {
       initKeys: Map[KeyOwner, Seq[SigningPublicKey]],
       packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
       cachingConfigs: CachingConfigs,
+      batchingConfig: BatchingConfig,
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
@@ -258,6 +265,7 @@ object CachingDomainTopologyClient {
         clock,
         dbClient,
         cachingConfigs,
+        batchingConfig,
         timeouts,
         futureSupervisor,
         loggerFactory,
@@ -277,6 +285,7 @@ object CachingDomainTopologyClient {
       store: TopologyStoreX[TopologyStoreId.DomainStore],
       packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
       cachingConfigs: CachingConfigs,
+      batchingConfig: BatchingConfig,
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
@@ -300,6 +309,7 @@ object CachingDomainTopologyClient {
         clock,
         dbClient,
         cachingConfigs,
+        batchingConfig,
         timeouts,
         futureSupervisor,
         loggerFactory,
@@ -410,6 +420,7 @@ private class ForwardingTopologySnapshotClient(
 class CachingTopologySnapshot(
     parent: TopologySnapshotLoader,
     cachingConfigs: CachingConfigs,
+    batchingConfig: BatchingConfig,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     val executionContext: ExecutionContext
@@ -494,7 +505,17 @@ class CachingTopologySnapshot(
   override private[client] def loadBatchActiveParticipantsOf(
       parties: Seq[PartyId],
       loadParticipantStates: Seq[ParticipantId] => Future[Map[ParticipantId, ParticipantAttributes]],
-  ) = partyCache.getAll(parties)
+  ) = {
+    // split up the request into separate chunks so that we don't block the cache for too long
+    // when loading very large batches
+    MonadUtil
+      .batchedSequentialTraverse(batchingConfig.parallelism, batchingConfig.maxItemsInSqlClause)(
+        parties
+      )(
+        partyCache.getAll(_).map(_.toSeq)
+      )
+      .map(_.toMap)
+  }
 
   override def loadParticipantStates(
       participants: Seq[ParticipantId]

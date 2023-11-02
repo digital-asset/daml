@@ -34,6 +34,8 @@ object MockedNodeParameters {
 
     override def cachingConfigs: CachingConfigs = _cachingConfigs
 
+    override def batchingConfig: BatchingConfig = ???
+
     override def nonStandardConfig: Boolean = _nonStandardConfig
 
     override def loggingConfig: LoggingConfig = _loggingConfig

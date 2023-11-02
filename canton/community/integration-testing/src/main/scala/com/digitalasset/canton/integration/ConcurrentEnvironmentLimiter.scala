@@ -6,8 +6,8 @@ package com.digitalasset.canton.integration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.typesafe.scalalogging.LazyLogging
 
-import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.{Semaphore, TimeUnit}
 import scala.util.control.NonFatal
 
 /** Although our integration tests are designed not to conflict with one another when running concurrently,
@@ -28,11 +28,21 @@ import scala.util.control.NonFatal
 object ConcurrentEnvironmentLimiter extends LazyLogging {
 
   private sealed trait State
-  private object New extends State
-  private object Queued extends State
-  private object Running extends State
-  private object Failed extends State
-  private object Done extends State
+  private object New extends State {
+    override def toString: String = "New"
+  }
+  private object Queued extends State {
+    override def toString: String = "Queued"
+  }
+  private object Running extends State {
+    override def toString: String = "Running"
+  }
+  private object Failed extends State {
+    override def toString: String = "Failed"
+  }
+  private object Done extends State {
+    override def toString: String = "Done"
+  }
 
   val IntegrationTestConcurrencyLimit = "canton-test.integration.concurrency"
 
@@ -42,18 +52,20 @@ object ConcurrentEnvironmentLimiter extends LazyLogging {
   private val semaphore = new Semaphore(concurrencyLimit, true)
 
   /** contains a map from test name to state (queue, run) */
-  private val active = new AtomicReference[Map[String, State]](Map.empty)
+  private val active = new AtomicReference[Map[String, (State, Long)]](Map.empty)
 
   private def change(name: String, state: State, purge: Boolean = false): Unit = {
+    val now = System.nanoTime()
     val current = active
       .getAndUpdate { cur =>
         if (purge) cur.removed(name)
-        else cur.updated(name, state)
+        else cur.updated(name, (state, now))
       }
-    val currentState = current.getOrElse(name, New)
+    val (currentState, currentTime) = current.getOrElse(name, (New, now))
     val currentSet = current.keySet
     val numSet = if (purge) (currentSet - name) else (currentSet + name)
-    logger.debug(s"${name}: $currentState => $state (${numSet.size} pending)")
+    logger.debug(s"${name}: $currentState => $state after ${TimeUnit.NANOSECONDS
+        .toSeconds(now - currentTime)}s (${numSet.size} pending)")
   }
 
   private def getNumPermits(permits: PositiveInt): Int =

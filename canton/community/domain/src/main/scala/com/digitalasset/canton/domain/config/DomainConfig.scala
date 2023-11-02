@@ -158,8 +158,9 @@ trait DomainConfig extends DomainBaseConfig {
   * @param maxBurstFactor how forgiving should the participant rate limiting be with respect to bursts
   */
 final case class DomainNodeParametersConfig(
-    maxBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.5)
-)
+    maxBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.5),
+    batching: BatchingConfig = BatchingConfig(),
+) extends LocalNodeParametersConfig
 
 final case class CommunityDomainConfig(
     override val init: DomainInitConfig = DomainInitConfig(),

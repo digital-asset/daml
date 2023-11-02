@@ -40,7 +40,6 @@ import com.digitalasset.canton.platform.store.utils.{
 import com.digitalasset.canton.platform.{ApiOffset, Party, TemplatePartiesFilter}
 import io.opentelemetry.api.trace.Tracer
 
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*
 
@@ -175,7 +174,7 @@ class TransactionsTreeStreamReader(
     }
 
     def fetchPayloads(
-        ids: Source[ArrayBuffer[Long], NotUsed],
+        ids: Source[Iterable[Long], NotUsed],
         target: EventPayloadSourceForTreeTx,
         maxParallelPayloadQueries: Int,
         metric: DatabaseMetrics,
@@ -335,7 +334,7 @@ class TransactionsTreeStreamReader(
   private def mergeSortAndBatch(
       maxOutputBatchSize: Int,
       maxOutputBatchCount: Int,
-  )(sourcesOfIds: Vector[Source[Long, NotUsed]]): Source[ArrayBuffer[Long], NotUsed] = {
+  )(sourcesOfIds: Vector[Source[Long, NotUsed]]): Source[Iterable[Long], NotUsed] = {
     EventIdsUtils
       .sortAndDeduplicateIds(sourcesOfIds)
       .via(

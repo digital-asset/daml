@@ -4,7 +4,7 @@
 package com.digitalasset.canton.config
 
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
 import com.digitalasset.canton.tracing.NoTracing
@@ -69,8 +69,24 @@ final case class DbParametersConfig(
     )
 }
 
+/** Various settings to control batching behaviour related to db queries
+  *
+  * @param maxItemsInSqlClause    maximum number of items to place in sql "in clauses"
+  * @param parallelism            number of parallel queries to the db. defaults to 8
+  */
+final case class BatchingConfig(
+    maxItemsInSqlClause: PositiveNumeric[Int] = BatchingConfig.defaultMaxItemsInSqlClause,
+    parallelism: PositiveNumeric[Int] = BatchingConfig.defaultBatchingParallelism,
+)
+
+object BatchingConfig {
+  private val defaultMaxItemsInSqlClause: PositiveNumeric[Int] = PositiveNumeric.tryCreate(100)
+  private val defaultBatchingParallelism: PositiveNumeric[Int] = PositiveNumeric.tryCreate(8)
+}
+
 object DbParametersConfig {
-  val defaultWarnOnSlowQueryInterval: PositiveFiniteDuration = PositiveFiniteDuration.ofSeconds(5)
+  private val defaultWarnOnSlowQueryInterval: PositiveFiniteDuration =
+    PositiveFiniteDuration.ofSeconds(5)
 }
 
 trait StorageConfig {
