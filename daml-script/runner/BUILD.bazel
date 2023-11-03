@@ -46,7 +46,7 @@ da_scala_library(
     # no doc as our scaladoc pipeline does not support .scrjar
     scaladoc = False,
     tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
-    visibility = ["//compiler:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -143,6 +143,7 @@ da_scala_binary(
     deps = [
         ":script-runner-lib",
     ],
+    visibility = ["//visibility:public"],
 )
 
 [
