@@ -768,7 +768,7 @@ da_haskell_test(
             "//compiler/damlc/stable-packages",
             "//compiler/repl-service/server:repl_service_jar",
             "//daml-script/daml:daml-script.dar",
-            ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
+        ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "async",
         "base",
