@@ -1,3 +1,6 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # cachedVersions <- [", with up to date cache", ", with no cache", ", with out of date cache from prior version"]
 # installedAlready <- [", with target version not yet installed", ", with target version already installed"]
 # installationStyle <-
@@ -24316,3 +24319,4 @@ no_cache_override_github_endpoint () {
   miniserve "$RELEASES_ENDPOINT" &
   export RELEASES_ENDPOINT_MINISERVE=$!
 }
+
