@@ -45,7 +45,7 @@ version_specific = {
 # This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
 # need to be updated with careful consideration.
 
-netty_tcnative_version = "2.0.46.Final"
+netty_tcnative_version = "2.0.61.Final"
 netty_version = "4.1.100.Final"
 grpc_version = "1.59.0"
 protobuf_version = "3.24.0"
