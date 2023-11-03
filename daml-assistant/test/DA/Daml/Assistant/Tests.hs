@@ -192,6 +192,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             createDirectoryIfMissing True (base </> "cache")
             writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
             createDirectory expected2
+            writeFileUTF8 (expected2 </> sdkConfigName) ("version: " <> expected1 <> "\n")
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Nothing)
