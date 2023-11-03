@@ -23,7 +23,7 @@ import qualified DA.Daml.Assistant.Version as ReleaseResolution
 import qualified DA.Daml.Project.ReleaseResolution as ReleaseResolution
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
-import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion, UseCache (..))
+import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion, UseCache (..), resolveSdkVersionToRelease)
 import DA.Daml.Assistant.Cache (CacheTimeout (..))
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
@@ -51,6 +51,8 @@ import Control.Exception.Safe
 import System.ProgressBar
 import System.Info.Extra (isWindows)
 import Options.Applicative.Extended (determineAuto)
+import qualified Data.SemVer as V
+import qualified Data.Text as T
 
 -- unix specific
 import System.PosixCompat.Types ( FileMode )
@@ -129,16 +131,25 @@ installExtracted env@InstallEnv{..} sourcePath =
     wrapErr "Installing extracted SDK release." $ do
         sourceConfig <- readSdkConfig sourcePath
         sourceSdkVersion <- fromRightM throwIO (sdkVersionFromSdkConfig sourceConfig)
-        -- TODO: resolve sourceSdkVersion correctly
-        sourceVersion <- ReleaseResolution.resolveSdkVersionToRelease useCache sourceSdkVersion
 
         -- Check that source version matches expected target version.
-        whenJust targetVersionM $ \targetVersion -> do
-            unless (sourceVersion == targetVersion) $ do
+        -- If there is no target version, that means we're installing directly
+        -- from a tarball, in which case we try to resolve the sdk version to a
+        -- release version using the cache, failing if we don't find anything.
+        sourceVersion <- case targetVersionM of
+          Just targetVersion -> do
+            unless (sourceSdkVersion == SdkVersion (sdkVersionFromReleaseVersion targetVersion)) $ do
                 throwIO $ assistantErrorBecause
                     "SDK release version mismatch."
-                    ("Expected " <> versionToText targetVersion
-                    <> " but got version " <> versionToText sourceVersion)
+                    ("Expected " <> sdkVersionToText (SdkVersion (sdkVersionFromReleaseVersion targetVersion))
+                    <> " but got version " <> sdkVersionToText sourceSdkVersion)
+            pure targetVersion
+          Nothing -> do
+            sourceVersionOrErr <- resolveSdkVersionToRelease useCache sourceSdkVersion
+            let errMsg =
+                    "Failed to retrieve release version for sdk version " <> V.toText (unwrapSdkVersion sourceSdkVersion)
+                        <> " from sdk path " <> T.pack (unwrapSdkPath sourcePath)
+            requiredE errMsg sourceVersionOrErr
 
         -- Set file mode of files to install.
         requiredIO "Failed to set file modes for extracted SDK files." $

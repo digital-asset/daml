@@ -76,7 +76,10 @@ getAssistantSdkVersion useCache = do
 getReleaseVersionFromSdkPath :: UseCache -> SdkPath -> IO ReleaseVersion
 getReleaseVersionFromSdkPath useCache sdkPath = do
     sdkVersion <- getSdkVersionFromSdkPath sdkPath
-    resolveSdkVersionToRelease useCache sdkVersion
+    let errMsg =
+            "Failed to retrieve release version for sdk version " <> V.toText (unwrapSdkVersion sdkVersion)
+                <> " from sdk path " <> T.pack (unwrapSdkPath sdkPath)
+    requiredE errMsg =<< resolveSdkVersionToRelease useCache sdkVersion
 
 -- | Determine SDK version from an SDK directory. Fails with an
 -- AssistantError exception if the version cannot be determined.
@@ -125,7 +128,10 @@ getInstalledSdkVersions damlPath = do
     sdksOrErr <- try (listDirectory (unwrapSdkPath sdkPath))
     case sdksOrErr of
       Left SomeException{} -> pure []
-      Right sdks -> catMaybes <$> mapM resolveSdk sdks
+      Right sdks -> do
+          versionsFound <- catMaybes <$> mapM resolveSdk sdks
+          writeFile "/home/dylan-thinnes/getInstalledSdkVersions" (show versionsFound)
+          pure versionsFound
     where
     resolveSdk :: String -> IO (Maybe ReleaseVersion)
     resolveSdk path = do
@@ -340,7 +346,7 @@ data CouldNotResolveVersion
 
 instance Exception CouldNotResolveVersion where
     displayException (CouldNotResolveReleaseVersion version) = "Could not resolve release version " <> T.unpack (V.toText (unwrapUnresolvedReleaseVersion version))
-    displayException (CouldNotResolveSdkVersion version) = "Could not resolve SDK version " <> T.unpack (V.toText (unwrapSdkVersion version))
+    displayException (CouldNotResolveSdkVersion version) = "Could not resolve SDK version " <> T.unpack (V.toText (unwrapSdkVersion version)) <> " to a release version. Possible fix: `daml version --cache-reload`?"
 
 resolveReleaseVersion :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
 resolveReleaseVersion _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
@@ -364,20 +370,20 @@ resolveReleaseVersion useCache targetVersion = do
                   _ <- cacheAvailableSdkVersions useCache (\pre -> pure (releasedVersion : fromMaybe [] pre))
                   pure releasedVersion
 
-resolveSdkVersionToRelease :: UseCache -> SdkVersion -> IO ReleaseVersion
-resolveSdkVersionToRelease _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
+resolveSdkVersionToRelease :: UseCache -> SdkVersion -> IO (Either CouldNotResolveVersion ReleaseVersion)
+resolveSdkVersionToRelease _ targetVersion | isHeadVersion targetVersion = pure (Right headReleaseVersion)
 resolveSdkVersionToRelease useCache targetVersion = do
     writeFile "/home/dylan-thinnes/resolveSdkVersionToRelease" (show targetVersion)
     resolved <- resolveSdkVersionFromDamlPath (damlPath useCache) targetVersion
     case resolved of
-      Just resolved -> pure resolved
+      Just resolved -> pure (Right resolved)
       Nothing -> do
         let isTargetVersion version =
               unwrapSdkVersion targetVersion == sdkVersionFromReleaseVersion version
         (releaseVersions, _) <- getAvailableSdkSnapshotVersions useCache
         case filter isTargetVersion releaseVersions of
-          (x:_) -> pure x
-          [] -> throwIO (CouldNotResolveSdkVersion targetVersion)
+          (x:_) -> pure $ Right x
+          [] -> pure $ Left $ CouldNotResolveSdkVersion targetVersion
 
 resolveReleaseVersionFromDamlPath :: DamlPath -> UnresolvedReleaseVersion -> IO (Maybe ReleaseVersion)
 resolveReleaseVersionFromDamlPath damlPath targetVersion = do
