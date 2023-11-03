@@ -37,7 +37,7 @@ main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     limitJvmMemory defaultJvmMemoryLimits{maxHeapSize = "1g"}
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
-    certDir <- locateRunfiles (mainWorkspace </> "test-common" </> "test-certificates") -- TODO: loop over major versions
+    certDir <- locateRunfiles (mainWorkspace </> "test-common" </> "test-certificates")
     tests <- forM [minBound @LF.MajorVersion .. maxBound] $ \major -> do
         let prettyMajor = LF.renderMajorVersion major
         scriptDar <- locateRunfiles $ case major of
