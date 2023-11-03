@@ -109,26 +109,30 @@ releaseResponseSubsetSdkVersion responseSubset =
 
 data GithubReleaseError
   = FailedToFindLinuxSdkInRelease String
-  deriving (Show, Eq, Ord)
+  | Couldn'tParseSdkVersion String InvalidVersion
+  deriving (Show, Eq)
 
 instance Exception GithubReleaseError where
   displayException (FailedToFindLinuxSdkInRelease url) =
     "Couldn't find Linux SDK in release at url: '" <> url <> "'"
+  displayException (Couldn'tParseSdkVersion url v) =
+    "Couldn't parse SDK in release at url '" <> url <> "': " <> displayException v
 
 -- | Since ~2.8.snapshot, the "enterprise version" (the version the user inputs) and the daml sdk version (the version of the daml repo) can differ
 -- As such, we derive the latter via the github api `assets` endpoint, looking for a file matching the expected `daml-sdk-$VERSION-$OS.tar.gz`
-resolveReleaseVersionFromGithub :: UnresolvedReleaseVersion -> IO ReleaseVersion
+resolveReleaseVersionFromGithub :: UnresolvedReleaseVersion -> IO (Either GithubReleaseError ReleaseVersion)
 resolveReleaseVersionFromGithub unresolvedVersion = do
   let tag = T.unpack (unTag (versionToTag (unwrapUnresolvedReleaseVersion unresolvedVersion)))
   let url = "https://api.github.com/repos/digital-asset/daml/releases/tags/" <> tag
   req <- parseRequest url
   res <- httpJSON $ setRequestHeaders [("User-Agent", "request")] req
-  case releaseResponseSubsetSdkVersion (getResponseBody res) of
-    Nothing -> throwIO (FailedToFindLinuxSdkInRelease url)
-    Just sdkVersionStr -> do
-      case parseSdkVersion sdkVersionStr of
-        Left e -> throwIO e
-        Right sdkVersion -> pure $ mkReleaseVersion unresolvedVersion sdkVersion
+  pure $
+    case releaseResponseSubsetSdkVersion (getResponseBody res) of
+      Nothing -> Left (FailedToFindLinuxSdkInRelease url)
+      Just sdkVersionStr ->
+        case parseSdkVersion sdkVersionStr of
+          Left issue -> Left (Couldn'tParseSdkVersion url issue)
+          Right sdkVersion -> Right (mkReleaseVersion unresolvedVersion sdkVersion)
 
 newtype ArtifactoryApiKey = ArtifactoryApiKey
     { unwrapArtifactoryApiKey :: Text
