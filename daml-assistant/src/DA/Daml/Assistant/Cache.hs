@@ -60,9 +60,9 @@ data UseCache
 
 cacheAvailableSdkVersions
     :: UseCache
-    -> IO [ReleaseVersion]
+    -> (Maybe [ReleaseVersion] -> IO [ReleaseVersion])
     -> IO ([ReleaseVersion], CacheAge)
-cacheAvailableSdkVersions DontUseCache getVersions = (, Fresh) <$> getVersions
+cacheAvailableSdkVersions DontUseCache getVersions = (, Fresh) <$> getVersions Nothing
 cacheAvailableSdkVersions UseCache { overrideTimeout, cachePath, damlPath } getVersions = do
     damlConfigE <- tryConfig $ readDamlConfig damlPath
     let configUpdateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
@@ -99,7 +99,7 @@ cacheWith
     -> CacheTimeout
     -> Serialize t
     -> Deserialize t
-    -> IO t
+    -> (Maybe t -> IO t)
     -> Bool
     -> IO (Maybe (t, CacheAge))
 cacheWith cachePath key timeout serialize deserialize getFresh neverRefresh = do
@@ -109,14 +109,14 @@ cacheWith cachePath key timeout serialize deserialize getFresh neverRefresh = do
        else Just <$> case valueAgeM of
                 Just (value, Fresh) -> pure (value, Fresh)
                 Just (value, Stale) -> do
-                    valueE <- tryAny getFresh
+                    valueE <- tryAny (getFresh (Just value))
                     case valueE of
                         Left _ -> pure (value, Stale)
                         Right value' -> do
                             saveToCacheWith cachePath key serialize value'
                             pure (value', Fresh)
                 Nothing -> do
-                    value <- getFresh
+                    value <- getFresh Nothing
                     saveToCacheWith cachePath key serialize value
                     pure (value, Fresh)
 

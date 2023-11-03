@@ -181,7 +181,7 @@ extractReleasesFromSnapshots snapshots =
 -- possible
 getAvailableSdkSnapshotVersions :: UseCache -> IO ([ReleaseVersion], CacheAge)
 getAvailableSdkSnapshotVersions useCache =
-  cacheAvailableSdkVersions useCache (getAvailableSdkSnapshotVersionsUncached >>= flattenSnapshotsList)
+  cacheAvailableSdkVersions useCache (\_ -> getAvailableSdkSnapshotVersionsUncached >>= flattenSnapshotsList)
 
 -- | Find the first occurence of a version on Github, without the cache. Keep in
   -- mind that versions are not sorted.
