@@ -27,7 +27,7 @@ echo_eval () {
 
 check_daml_install_nonzero () {
   if [[ "$1" != "0.0.0" && "$2" != "0" ]]; then
-    echo "ERROR! Exit code for \`daml install\` is $2"
+    echo "ERROR! Exit code for \`daml install $1\` is $2"
   fi
 }
 
