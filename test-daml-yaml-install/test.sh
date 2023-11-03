@@ -52,6 +52,21 @@ check_daml_init_creates_daml_yaml_with () {
   fi
 }
 
+check_daml_build_nonzero () {
+  if [[ "$1" != "0.0.0" && "$2" != "0" ]]; then
+    echo "ERROR! Exit code for \`daml build\` is $2"
+  fi
+}
+
+check_dar_has_correct_metadata_version () {
+  unzip .daml/dist/test-daml-yaml-install-1.0.0.dar META-INF/MANIFEST.MF
+  if ! grep -q "Sdk-Version: $1" META-INF/MANIFEST.MF; then
+    echo "ERROR! \`daml build\` produced a dar whose META-INF/MANIFEST.MF contains the wrong SDK version"
+    echo "ERROR! This likely means it was compiled with the wrong daml version"
+    grep "Sdk-Version:" META-INF/MANIFEST.MF
+  fi
+}
+
 run_composable_checks () {
   # clean up any potentially leftover processes from previous invocations
   kill "$GITHUB_MIRROR_MINISERVE"
@@ -90,16 +105,18 @@ run_composable_checks () {
 
       # Pick a build version
       # split (new) version, unsplit (old) version, 0.0.0
-      for build_version in 2.8.0-snapshot.20231018.0 2.7.1 0.0.0; do
-        echo setup_sandbox
-        echo $installed_already_behaviour $build_version
-        echo $version_cache_behaviour
-        echo init_daml_package $build_version
-        echo daml build $build_version
-        echo check_daml_build_nonzero_unless_0.0.0 $install_version $?
-        echo check_daml_version_indicates_correct $build_version
-        echo check_dar_has_correct_metadata_version $build_version
-        echo reset_sandbox
+      for build_version in 2.8.0-snapshot.20231101.0 2.7.1 0.0.0; do
+        setup_sandbox
+        echo "$alternate_download_line" >> $DAML_HOME/daml-config.yaml
+        echo_eval $installed_already_behaviour $build_version
+        echo_eval $version_cache_behaviour
+        echo_eval init_daml_package $build_version
+        echo_eval daml build
+        echo_eval check_daml_build_nonzero $build_version $?
+        echo_eval check_daml_version_indicates_correct $build_version
+        echo_eval check_dar_has_correct_metadata_version $build_version
+        [[ -z "$RELEASES_ENDPOINT_MINISERVE" ]] || kill $RELEASES_ENDPOINT_MINISERVE
+        reset_sandbox
       done
     done
   done
