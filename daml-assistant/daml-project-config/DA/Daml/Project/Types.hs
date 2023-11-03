@@ -202,10 +202,13 @@ newtype SdkPath = SdkPath
 
 -- | Default way of constructing sdk paths.
 defaultSdkPath :: DamlPath -> ReleaseVersion -> SdkPath
-defaultSdkPath (DamlPath root) (OldReleaseVersion v) =
-    SdkPath (root </> "sdk" </> V.toString (L.set V.metadata [] v))
-defaultSdkPath (DamlPath root) (SplitReleaseVersion v _) =
-    SdkPath (root </> "sdk" </> V.toString (L.set V.metadata [] v))
+defaultSdkPath damlPath releaseVersion =
+    mkSdkPath
+        damlPath
+        (V.toString (L.set V.metadata [] (releaseVersionFromReleaseVersion releaseVersion)))
+
+mkSdkPath :: DamlPath -> String -> SdkPath
+mkSdkPath (DamlPath root) str = SdkPath (root </> "sdk" </> str)
 
 -- | File path of sdk command binary, relative to sdk root.
 newtype SdkCommandPath = SdkCommandPath
