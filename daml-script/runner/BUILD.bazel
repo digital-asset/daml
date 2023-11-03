@@ -137,13 +137,13 @@ da_scala_binary(
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["ee-jar-license"],
+    visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
         ":script-runner-lib",
     ],
-    visibility = ["//visibility:public"],
 )
 
 [
