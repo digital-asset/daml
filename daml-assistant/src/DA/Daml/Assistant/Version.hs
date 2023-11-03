@@ -5,6 +5,7 @@
 module DA.Daml.Assistant.Version
     ( getInstalledSdkVersions
     , getSdkVersionFromSdkPath
+    , getReleaseVersionFromSdkPath
     , getSdkVersionFromProjectPath
     , getAssistantSdkVersion
     , getDefaultSdkVersion
@@ -65,20 +66,26 @@ getAssistantSdkVersion useCache = do
         getExecutablePath
     sdkPath <- required "Failed to determine SDK path of assistant." =<<
         findM hasSdkConfig (ascendants exePath)
-    getSdkVersionFromSdkPath useCache (SdkPath sdkPath)
+    getReleaseVersionFromSdkPath useCache (SdkPath sdkPath)
     where
         hasSdkConfig :: FilePath -> IO Bool
         hasSdkConfig p = doesFileExist (p </> sdkConfigName)
 
 -- | Determine SDK version from an SDK directory. Fails with an
 -- AssistantError exception if the version cannot be determined.
-getSdkVersionFromSdkPath :: UseCache -> SdkPath -> IO ReleaseVersion
-getSdkVersionFromSdkPath useCache sdkPath = do
+getReleaseVersionFromSdkPath :: UseCache -> SdkPath -> IO ReleaseVersion
+getReleaseVersionFromSdkPath useCache sdkPath = do
+    sdkVersion <- getSdkVersionFromSdkPath sdkPath
+    resolveSdkVersionToRelease useCache sdkVersion
+
+-- | Determine SDK version from an SDK directory. Fails with an
+-- AssistantError exception if the version cannot be determined.
+getSdkVersionFromSdkPath :: SdkPath -> IO SdkVersion
+getSdkVersionFromSdkPath sdkPath = do
     config <- requiredAny "Failed to read SDK config." $
         readSdkConfig sdkPath
-    sdkVersion <- requiredE "Failed to parse SDK version from SDK config." $
+    requiredE "Failed to parse SDK version from SDK config." $
         sdkVersionFromSdkConfig config
-    resolveSdkVersionToRelease useCache sdkVersion
 
 -- | Determine SDK version from project root. Fails with an
 -- AssistantError exception if the version cannot be determined.

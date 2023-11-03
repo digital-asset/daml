@@ -229,7 +229,7 @@ getSdk useCache damlPath projectPathM =
 
         releaseVersion <- overrideWithEnvVarMaybeIO sdkVersionEnvVar pure (traverse (resolveReleaseVersion useCache) . parseVersion . pack) $ firstJustM id
             [ maybeM (pure Nothing)
-                (tryAssistantM . getSdkVersionFromSdkPath useCache . SdkPath)
+                (tryAssistantM . getReleaseVersionFromSdkPath useCache . SdkPath)
                 (getEnv sdkPathEnvVar)
             , mapM (getSdkVersionFromProjectPath useCache) projectPathM
             , tryAssistantM $ getDefaultSdkVersion useCache damlPath
