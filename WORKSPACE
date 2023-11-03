@@ -405,6 +405,10 @@ haskell_register_ghc_nixpkgs(
         "-optc-mmacosx-version-min=10.14",
         "-opta-mmacosx-version-min=10.14",
         "-optl-mmacosx-version-min=10.14",
+        "-framework=CoreFoundation",
+        "-framework=CoreServices",
+        "-framework=Security",
+        "-framework=Foundation",
     ] if is_darwin else ["-optl-s"])),
     compiler_flags_select = {
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
