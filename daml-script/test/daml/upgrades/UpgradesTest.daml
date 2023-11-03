@@ -323,7 +323,7 @@ explicitV2ChoiceV1Contract =
 -- and since the extra data in the return will also be none, the downgrade can succeed.
 -- TODO: This test fails, choice argument upgrading seems to not be implemented.
 inferredV1ChoiceV1Contract : Script ()
-inferredV1ChoiceV1Contract = --pure ()
+inferredV1ChoiceV1Contract =
   choiceTest @V1.ValidUpgrade V1.ValidUpgrade (V1.UpgradedChoice "v1 to v1") False (V1.UpgradedChoiceReturn "v1 to v1:V2:None")
 
 inferredV2ChoiceV1Contract : Script ()
