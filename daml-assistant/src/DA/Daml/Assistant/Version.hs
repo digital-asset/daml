@@ -33,7 +33,6 @@ import System.Environment.Blank
 import Control.Exception.Safe
 import Control.Monad.Extra
 import Data.Maybe
-import Data.Either.Extra
 import Data.Aeson (FromJSON(..), eitherDecodeStrict')
 import Data.Aeson.Types (listParser, withObject, (.:), Parser, Value(Object))
 import qualified Data.Text as T
@@ -50,7 +49,7 @@ import qualified Data.ByteString.UTF8 as BSU
 import qualified Data.SemVer as V
 import Data.Function ((&))
 import Control.Lens (view)
-import System.Directory (listDirectory, doesFileExist, doesDirectoryExist)
+import System.Directory (listDirectory, doesFileExist)
 import System.FilePath ((</>))
 import Data.List (find)
 
@@ -120,15 +119,24 @@ getSdkVersionFromProjectPath useCache projectPath =
 -- | Get the list of installed SDK versions. Returned list is
 -- in no particular order. Fails with an AssistantError exception
 -- if this list cannot be obtained.
-getInstalledSdkVersions :: UseCache -> DamlPath -> IO [ReleaseVersion]
-getInstalledSdkVersions useCache (DamlPath path) = do
-    let sdkdir = path </> "sdk"
-    subdirs <- requiredIO "Failed to list installed SDKs." $ do
-        dirlist <- listDirectory sdkdir
-        filterM (\p -> doesDirectoryExist (sdkdir </> p)) dirlist
-    let unresolvedVersions = mapMaybe (eitherToMaybe . parseVersion . pack) subdirs
-    -- TODO: resolve release version fully from path structure
-    traverse (resolveReleaseVersion useCache) unresolvedVersions
+getInstalledSdkVersions :: DamlPath -> IO [ReleaseVersion]
+getInstalledSdkVersions damlPath = do
+    let sdkPath = SdkPath (unwrapDamlPath damlPath </> "sdk")
+    sdksOrErr <- try (listDirectory (unwrapSdkPath sdkPath))
+    case sdksOrErr of
+      Left SomeException{} -> pure []
+      Right sdks -> catMaybes <$> mapM resolveSdk sdks
+    where
+    resolveSdk :: String -> IO (Maybe ReleaseVersion)
+    resolveSdk path = do
+      case parseVersion (T.pack path) of
+        Left _ -> pure Nothing
+        Right unresolvedVersion -> do
+          let sdkPath = mkSdkPath damlPath path
+          sdkVersionOrErr <- tryAssistant (getSdkVersionFromSdkPath sdkPath)
+          pure $ case sdkVersionOrErr of
+            Left _ -> Nothing
+            Right sdkVersion -> Just (mkReleaseVersion unresolvedVersion sdkVersion)
 
 -- | Get the default SDK version for commands run outside of a
 -- project. This is defined as the latest installed version
@@ -138,9 +146,9 @@ getInstalledSdkVersions useCache (DamlPath path) = do
 -- Raises an AssistantError exception if the version cannot be
 -- obtained, either because we cannot determine the installed
 -- versions or it is empty.
-getDefaultSdkVersion :: UseCache -> DamlPath -> IO ReleaseVersion
-getDefaultSdkVersion useCache damlPath = do
-    installedVersions <- getInstalledSdkVersions useCache damlPath
+getDefaultSdkVersion :: DamlPath -> IO ReleaseVersion
+getDefaultSdkVersion damlPath = do
+    installedVersions <- getInstalledSdkVersions damlPath
     required "There are no installed SDK versions." $
         maximumMay installedVersions
 
@@ -332,6 +340,7 @@ instance Exception CouldNotResolveVersion where
 resolveReleaseVersion :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
 resolveReleaseVersion _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
 resolveReleaseVersion useCache targetVersion = do
+    writeFile "/home/dylan-thinnes/resolveReleaseVersion" (show targetVersion)
     resolved <- resolveReleaseVersionFromDamlPath (damlPath useCache) targetVersion
     case resolved of
       Just resolved -> pure resolved
@@ -353,27 +362,28 @@ resolveReleaseVersion useCache targetVersion = do
 resolveSdkVersionToRelease :: UseCache -> SdkVersion -> IO ReleaseVersion
 resolveSdkVersionToRelease _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
 resolveSdkVersionToRelease useCache targetVersion = do
-    let isTargetVersion version =
-          unwrapSdkVersion targetVersion == sdkVersionFromReleaseVersion version
-    (releaseVersions, _) <- getAvailableSdkSnapshotVersions useCache
-    case filter isTargetVersion releaseVersions of
-      (x:_) -> pure x
-      [] -> throwIO (CouldNotResolveSdkVersion targetVersion)
+    writeFile "/home/dylan-thinnes/resolveSdkVersionToRelease" (show targetVersion)
+    resolved <- resolveSdkVersionFromDamlPath (damlPath useCache) targetVersion
+    case resolved of
+      Just resolved -> pure resolved
+      Nothing -> do
+        let isTargetVersion version =
+              unwrapSdkVersion targetVersion == sdkVersionFromReleaseVersion version
+        (releaseVersions, _) <- getAvailableSdkSnapshotVersions useCache
+        case filter isTargetVersion releaseVersions of
+          (x:_) -> pure x
+          [] -> throwIO (CouldNotResolveSdkVersion targetVersion)
 
 resolveReleaseVersionFromDamlPath :: DamlPath -> UnresolvedReleaseVersion -> IO (Maybe ReleaseVersion)
-resolveReleaseVersionFromDamlPath damlPath unresolvedVersion = do
-  let sdkPath = SdkPath (unwrapDamlPath damlPath </> "sdk")
-  sdksOrErr <- try (listDirectory (unwrapSdkPath sdkPath))
-  case sdksOrErr of
-    Left SomeException{} -> pure Nothing
-    Right sdks -> do
-      let isMatchingInstalledSdk path =
-            Right unresolvedVersion == parseVersion (T.pack path)
-      case find isMatchingInstalledSdk sdks of
-        Nothing -> pure Nothing
-        Just matchingPath -> do
-          let sdkPath = mkSdkPath damlPath matchingPath
-          sdkVersionOrErr <- tryAssistant (getSdkVersionFromSdkPath sdkPath)
-          pure $ case sdkVersionOrErr of
-            Left _ -> Nothing
-            Right sdkVersion -> Just (mkReleaseVersion unresolvedVersion sdkVersion)
+resolveReleaseVersionFromDamlPath damlPath targetVersion = do
+  let isMatchingVersion releaseVersion =
+          unwrapUnresolvedReleaseVersion targetVersion == releaseVersionFromReleaseVersion releaseVersion
+  resolvedVersions <- getInstalledSdkVersions damlPath
+  pure (find isMatchingVersion resolvedVersions)
+
+resolveSdkVersionFromDamlPath :: DamlPath -> SdkVersion -> IO (Maybe ReleaseVersion)
+resolveSdkVersionFromDamlPath damlPath targetSdkVersion = do
+  let isMatchingVersion releaseVersion =
+          unwrapSdkVersion targetSdkVersion == sdkVersionFromReleaseVersion releaseVersion
+  resolvedVersions <- getInstalledSdkVersions damlPath
+  pure (find isMatchingVersion resolvedVersions)

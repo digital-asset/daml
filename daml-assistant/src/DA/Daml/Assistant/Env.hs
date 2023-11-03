@@ -232,7 +232,7 @@ getSdk useCache damlPath projectPathM =
                 (tryAssistantM . getReleaseVersionFromSdkPath useCache . SdkPath)
                 (getEnv sdkPathEnvVar)
             , mapM (getSdkVersionFromProjectPath useCache) projectPathM
-            , tryAssistantM $ getDefaultSdkVersion useCache damlPath
+            , tryAssistantM $ getDefaultSdkVersion damlPath
             ]
 
         sdkPath <- overrideWithEnvVarMaybe @SomeException sdkPathEnvVar makeAbsolute (Right . SdkPath) $

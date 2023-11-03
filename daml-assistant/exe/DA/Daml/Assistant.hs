@@ -199,11 +199,11 @@ runCommand env@Env{..} = \case
                 , damlPath = envDamlPath
                 , overrideTimeout = if vForceRefresh then Just (CacheTimeout 1) else Nothing
                 }
-        installedVersionsE <- tryAssistant $ getInstalledSdkVersions useCache envDamlPath
+        installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
         snapshotVersionsEUnfiltered <- tryAssistant $ fst <$> getAvailableSdkSnapshotVersions useCache
         let snapshotVersionsE = if vSnapshots then snapshotVersionsEUnfiltered else pure []
             availableVersionsE = extractReleasesFromSnapshots <$> snapshotVersionsEUnfiltered
-        defaultVersionM <- tryAssistantM $ getDefaultSdkVersion useCache envDamlPath
+        defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
         projectVersionM <- mapM (getSdkVersionFromProjectPath useCache) envProjectPath
         envSelectedVersionM <- lookupEnv sdkVersionEnvVar
 
