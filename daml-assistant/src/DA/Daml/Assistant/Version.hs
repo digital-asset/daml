@@ -197,13 +197,13 @@ extractReleasesFromSnapshots snapshots =
 -- possible
 getAvailableSdkSnapshotVersions :: UseCache -> IO ([ReleaseVersion], CacheAge)
 getAvailableSdkSnapshotVersions useCache =
-  cacheAvailableSdkVersions useCache (\_ -> getAvailableSdkSnapshotVersionsUncached >>= flattenSnapshotsList)
+  cacheAvailableSdkVersions useCache (\_ -> getAvailableSdkSnapshotVersionsUncached (damlPath useCache) >>= flattenSnapshotsList)
 
 -- | Find the first occurence of a version on Github, without the cache. Keep in
   -- mind that versions are not sorted.
-findAvailableSdkSnapshotVersion :: (ReleaseVersion -> Bool) -> IO (Maybe ReleaseVersion)
-findAvailableSdkSnapshotVersion pred =
-  getAvailableSdkSnapshotVersionsUncached >>= searchSnapshotsUntil pred
+findAvailableSdkSnapshotVersion :: DamlPath -> (ReleaseVersion -> Bool) -> IO (Maybe ReleaseVersion)
+findAvailableSdkSnapshotVersion damlPath pred =
+  getAvailableSdkSnapshotVersionsUncached damlPath >>= searchSnapshotsUntil pred
 
 data SnapshotsList = SnapshotsList
   { versions :: IO [ReleaseVersion]
@@ -234,9 +234,14 @@ searchSnapshotsUntil pred SnapshotsList { versions, next } = do
 -- https://docs.github.com/en/rest/releases/releases?apiVersion=2022-11-28#get-the-latest-release
 -- because it sorts by time of upload, so a minor version bump like 2.5.15 may
 -- supersede 2.7.2 if the minor release on 2.5.12 was released later
-getAvailableSdkSnapshotVersionsUncached :: IO SnapshotsList
-getAvailableSdkSnapshotVersionsUncached = do
-  requestReleasesSnapshotsList "https://api.github.com/repos/digital-asset/daml/releases"
+getAvailableSdkSnapshotVersionsUncached :: DamlPath -> IO SnapshotsList
+getAvailableSdkSnapshotVersionsUncached damlPath = do
+  damlConfigE <- tryConfig (readDamlConfig damlPath)
+  let releasesEndpoint =
+          case queryDamlConfig ["releases-endpoint"] =<< damlConfigE of
+            Right (Just url) -> url
+            _ -> "https://api.github.com/repos/digital-asset/daml/releases"
+  requestReleasesSnapshotsList releasesEndpoint
   where
   requestReleasesSnapshotsList :: String -> IO SnapshotsList
   requestReleasesSnapshotsList url = do
