@@ -149,9 +149,6 @@ dependencies:
 
 echo """
 module Main where
-
-main : Script ()
-main = pure ()
 """ > Main.daml
 }
 
