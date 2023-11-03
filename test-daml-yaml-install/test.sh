@@ -53,10 +53,17 @@ check_daml_init_creates_daml_yaml_with () {
 }
 
 run_composable_checks () {
+  # clean up any potentially leftover processes from previous invocations
+  kill "$GITHUB_MIRROR_MINISERVE"
+  kill "$RELEASES_ENDPOINT_MINISERVE"
+  export GITHUB_MIRROR_MINISERVE=""
+  export RELEASES_ENDPOINT_MINISERVE=""
+
+  # serve a mirror directory of github for more speed
   github_mirror_directory=$1
   if [[ -n "$github_mirror_directory" ]]; then
     miniserve -p 9000 "$github_mirror_directory" &
-    GITHUB_MIRROR_MINISERVE=$!
+    export GITHUB_MIRROR_MINISERVE=$!
     alternate_download_line="alternate-download: http://localhost:9000"
   else
     alternate_download_line=""
@@ -77,7 +84,7 @@ run_composable_checks () {
           echo_eval check_daml_version_indicates_correct $install_version
           echo_eval check_daml_init_creates_daml_yaml_with $install_version
         fi
-        kill $RELEASES_ENDPOINT_MINISERVE
+        [[ -z "$RELEASES_ENDPOINT_MINISERVE" ]] || kill $RELEASES_ENDPOINT_MINISERVE
         kill $GITHUB_MIRROR_MINISERVE; return 1
         reset_sandbox
       done
@@ -98,7 +105,7 @@ run_composable_checks () {
     done
   done
 
-  kill %1
+  kill $GITHUB_MIRROR_MINISERVE
 }
 
 pre_install () {
