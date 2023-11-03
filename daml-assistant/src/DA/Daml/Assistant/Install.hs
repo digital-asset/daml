@@ -325,15 +325,22 @@ httpInstall :: InstallEnvWithVersion -> IO ()
 httpInstall env@InstallEnv{targetVersionM = releaseVersion, ..} = do
     unlessQuiet env $ output "Downloading SDK release."
     requiredAny "Failed to download SDK release." $ do
-        downloadLocation $ getLocation releaseVersion
+        downloadLocation =<< getLocation releaseVersion
     where
-        getLocation :: ReleaseVersion -> InstallLocation
-        getLocation releaseVersion = case artifactoryApiKeyM of
-            Nothing -> ReleaseResolution.githubVersionLocation releaseVersion
-            Just apiKey
-                -- TODO: Define ordering over release versions
-              | releaseVersion >= firstEEVersion -> ReleaseResolution.artifactoryVersionLocation releaseVersion apiKey
-              | otherwise -> ReleaseResolution.githubVersionLocation releaseVersion
+        getLocation :: ReleaseVersion -> IO InstallLocation
+        getLocation releaseVersion = do
+            damlConfigE <- tryConfig (readDamlConfig damlPath)
+            let alternateDownload =
+                    join $ eitherToMaybe $ queryDamlConfig ["alternate-download"] =<< damlConfigE
+            pure $ case alternateDownload of
+              Just url -> ReleaseResolution.alternateVersionLocation releaseVersion url
+              Nothing ->
+                case artifactoryApiKeyM of
+                    Nothing -> ReleaseResolution.githubVersionLocation releaseVersion
+                    Just apiKey
+                        -- TODO: Define ordering over release versions
+                      | releaseVersion >= firstEEVersion -> ReleaseResolution.artifactoryVersionLocation releaseVersion apiKey
+                      | otherwise -> ReleaseResolution.githubVersionLocation releaseVersion
         !firstEEVersion =
             let verStr = "1.12.0-snapshot.20210312.6498.0.707c86aa"
             in OldReleaseVersion (either error id (SemVer.fromText verStr))

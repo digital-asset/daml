@@ -13,6 +13,7 @@ module DA.Daml.Project.ReleaseResolution
     , queryArtifactoryApiKey
     , ArtifactoryApiKey(..)
     , resolveReleaseVersionFromGithub
+    , alternateVersionLocation
     ) where
 
 import Control.Exception.Safe
@@ -60,34 +61,6 @@ osName = case System.Info.os of
     "linux"   -> "linux"
     "mingw32" -> "windows"
     p -> error ("daml: Unknown operating system " ++ p)
-
--- | Install location for particular version.
-githubVersionLocation :: ReleaseVersion -> InstallLocation
-githubVersionLocation releaseVersion = InstallLocation
-    { ilUrl =
-        case releaseVersion of
-          SplitReleaseVersion releaseVersion sdkVersion ->
-            T.concat
-              [ "https://github.com/digital-asset/daml/releases/download/"
-              , unTag (versionToTag releaseVersion)
-              , "/daml-sdk-"
-              , V.toText sdkVersion
-              , "-"
-              , osName
-              , ".tar.gz"
-              ]
-          OldReleaseVersion releaseVersion ->
-            T.concat
-              [ "https://github.com/digital-asset/daml/releases/download/"
-              , unTag (versionToTag releaseVersion)
-              , "/daml-sdk-"
-              , V.toText releaseVersion
-              , "-"
-              , osName
-              , ".tar.gz"
-              ]
-    , ilHeaders = []
-    }
 
 -- | Subset of the github release response that we care about
 data GithubReleaseResponseSubset = GithubReleaseResponseSubset
@@ -156,4 +129,39 @@ artifactoryVersionLocation releaseVersion apiKey = InstallLocation
         ]
     , ilHeaders =
         [("X-JFrog-Art-Api", T.encodeUtf8 (unwrapArtifactoryApiKey apiKey))]
+    }
+
+-- | Install location from Github for particular version.
+githubVersionLocation :: ReleaseVersion -> InstallLocation
+githubVersionLocation releaseVersion =
+  alternateVersionLocation releaseVersion "https://github.com/digital-asset/daml/releases/download"
+
+-- | Install location for particular version.
+alternateVersionLocation :: ReleaseVersion -> Text -> InstallLocation
+alternateVersionLocation releaseVersion url = InstallLocation
+    { ilUrl =
+        case releaseVersion of
+          SplitReleaseVersion releaseVersion sdkVersion ->
+            T.concat
+              [ url
+              , "/"
+              , unTag (versionToTag releaseVersion)
+              , "/daml-sdk-"
+              , V.toText sdkVersion
+              , "-"
+              , osName
+              , ".tar.gz"
+              ]
+          OldReleaseVersion releaseVersion ->
+            T.concat
+              [ url
+              , "/"
+              , unTag (versionToTag releaseVersion)
+              , "/daml-sdk-"
+              , V.toText releaseVersion
+              , "-"
+              , osName
+              , ".tar.gz"
+              ]
+    , ilHeaders = []
     }
