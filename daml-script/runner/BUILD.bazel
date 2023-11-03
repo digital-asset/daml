@@ -6,24 +6,13 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "lf_scalacopts",
     "lf_scalacopts_stricter",
+    "scaladoc_jar",
 )
 load("//rules_daml:daml.bzl", "daml_compile")
-load("//bazel_tools:proto.bzl", "proto_jars")
-
-# This proto was copied from canton/community/participant/src/main/protobuf/com/digitalasset/canton/participant/admin/v0/package_service.proto
-proto_jars(
-    name = "admin_package_service_proto",
-    srcs = ["src/main/protobuf/com/daml/lf/engine/script/admin_package_service.proto"],
-    grpc = True,
-    maven_artifact_prefix = "daml-script-",
-    maven_group = "com.daml",
-    strip_import_prefix = "src/main/protobuf/",
-    visibility = ["//visibility:public"],
-    deps = [
-        "@com_google_protobuf//:empty_proto",
-    ],
-)
+load("//bazel_tools:proto.bzl", "proto_gen")
+load("@os_info//:os_info.bzl", "is_windows")
 
 test_script_sources = [
     "src/main/scala/com/digitalasset/daml/lf/engine/script/TestMain.scala",
@@ -34,9 +23,14 @@ test_dar_count = 5
 
 da_scala_library(
     name = "script-runner-lib",
-    srcs = glob(
-        ["src/main/scala/**/*.scala"],
-    ),
+    srcs =
+        glob(
+            ["src/main/scala/**/*.scala"],
+        ) +
+        #  we depend on sources to avoid pushing a canton artifact to maven
+        [
+            "//canton:community_participant_admin_proto_scala",
+        ],
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_http",
@@ -48,11 +42,12 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
     ],
-    scalacopts = lf_scalacopts_stricter,
+    scalacopts = lf_scalacopts + ["-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements"],
+    # no doc as our scaladoc pipeline does not support .scrjar
+    scaladoc = False,
     tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        ":admin_package_service_proto_scala",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -82,6 +77,14 @@ da_scala_library(
     ],
 )
 
+# Create empty Scaladoc JAR for uploading to Maven Central
+scaladoc_jar(
+    name = "script-runner-lib_scaladoc",
+    srcs = [],
+    tags = ["scaladoc"],
+    deps = [],
+) if is_windows == False else None
+
 da_scala_test(
     name = "tests",
     size = "large",
@@ -102,7 +105,6 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",

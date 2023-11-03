@@ -757,6 +757,28 @@ scala_library(
 
 ### community/participant/ ###
 
+# For now we include only the package service as the rest is not standalone
+proto_library(
+    name = "community_participant_admin_proto",
+    srcs = glob(["community/participant/src/main/protobuf/com/digitalasset/canton/participant/admin/v0/package_service.proto"]),
+    strip_import_prefix = "community/participant/src/main/protobuf",
+    deps = [
+        "@com_google_protobuf//:empty_proto",
+    ],
+)
+
+proto_gen(
+    name = "community_participant_admin_proto_scala",
+    srcs = [":community_participant_admin_proto"],
+    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_name = "scalapb",
+    plugin_options = [
+        "grpc",
+        "flat_package",
+    ],
+    visibility = ["//daml-script:__subpackages__"],
+)
+
 proto_library(
     name = "community_participant_proto",
     srcs = glob(["community/participant/src/main/protobuf/**/*.proto"]),
