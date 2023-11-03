@@ -85,7 +85,6 @@ run_composable_checks () {
           echo_eval check_daml_init_creates_daml_yaml_with $install_version
         fi
         [[ -z "$RELEASES_ENDPOINT_MINISERVE" ]] || kill $RELEASES_ENDPOINT_MINISERVE
-        kill $GITHUB_MIRROR_MINISERVE; return 1
         reset_sandbox
       done
 
