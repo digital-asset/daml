@@ -150,6 +150,8 @@ plugin_scalacopts = [
     # "While",
 ]]
 
+default_scalacopts = common_scalacopts + plugin_scalacopts
+
 # delete items from lf_scalacopts as they are restored to common_scalacopts and plugin_scalacopts
 # # calculate items to delete
 # $ python
@@ -209,6 +211,7 @@ def _wrap_rule(
         rule,
         name = "",
         scalacopts = [],
+        override_scalacopts = None,
         plugins = [],
         generated_srcs = [],  # hiding from the underlying rule
         deps = [],
@@ -227,7 +230,7 @@ def _wrap_rule(
         kwargs["exports"] = exports
     rule(
         name = name,
-        scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
+        scalacopts = (default_scalacopts + scalacopts) if override_scalacopts == None else override_scalacopts,
         plugins = common_plugins + plugins,
         deps = deps,
         runtime_deps = runtime_deps,
@@ -559,7 +562,7 @@ def _create_scala_repl(
     tags = tags + ["manual"]
     _wrap_rule(scala_repl, name = name, runtime_deps = runtime_deps, tags = tags, **kwargs)
 
-def da_scala_library(name, scaladoc = True, **kwargs):
+def da_scala_library(name, scaladoc = True, override_scalacopts = None, **kwargs):
     """
     Define a Scala library.
 
@@ -573,7 +576,7 @@ def da_scala_library(name, scaladoc = True, **kwargs):
     arguments.update(default_compile_arguments)
     arguments.update(kwargs)
     arguments = _set_compile_jvm_flags(arguments)
-    _wrap_rule(scala_library, name, **arguments)
+    _wrap_rule(scala_library, name, override_scalacopts = override_scalacopts, **arguments)
     _create_scala_source_jar(name = name, **arguments)
     if scaladoc == True:
         _create_scaladoc_jar(name = name, **arguments)
