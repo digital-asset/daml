@@ -28,9 +28,7 @@ import DA.Daml.Assistant.Util
 import DA.Daml.Assistant.Cache
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts hiding (getDamlPath, getProjectPath)
-import DA.Daml.Project.ReleaseResolution (releaseResponseSubsetSdkVersion)
-import System.Directory
-import System.FilePath
+import DA.Daml.Project.ReleaseResolution (releaseResponseSubsetSdkVersion, resolveReleaseVersionFromGithub)
 import System.Environment.Blank
 import Control.Exception.Safe
 import Control.Monad.Extra
@@ -52,6 +50,9 @@ import qualified Data.ByteString.UTF8 as BSU
 import qualified Data.SemVer as V
 import Data.Function ((&))
 import Control.Lens (view)
+import System.Directory (listDirectory, doesFileExist, doesDirectoryExist)
+import System.FilePath ((</>))
+import Data.List (find)
 
 import qualified Data.Map.Strict as M
 import qualified Data.List.NonEmpty as NonEmpty
@@ -331,12 +332,23 @@ instance Exception CouldNotResolveVersion where
 resolveReleaseVersion :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
 resolveReleaseVersion _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
 resolveReleaseVersion useCache targetVersion = do
-    let isTargetVersion version =
-          unwrapUnresolvedReleaseVersion targetVersion == releaseVersionFromReleaseVersion version
-    (releaseVersions, _) <- getAvailableSdkSnapshotVersions useCache
-    case filter isTargetVersion releaseVersions of
-      (x:_) -> pure x
-      [] -> throwIO (CouldNotResolveReleaseVersion targetVersion)
+    resolved <- resolveReleaseVersionFromDamlPath (damlPath useCache) targetVersion
+    case resolved of
+      Just resolved -> pure resolved
+      Nothing -> do
+        let isTargetVersion version =
+              unwrapUnresolvedReleaseVersion targetVersion == releaseVersionFromReleaseVersion version
+        (releaseVersions, _) <- getAvailableSdkSnapshotVersions useCache
+        case filter isTargetVersion releaseVersions of
+          (x:_) -> pure x
+          [] -> do
+              releasedVersionE <- resolveReleaseVersionFromGithub targetVersion
+              case releasedVersionE of
+                Left _ ->
+                  throwIO (CouldNotResolveReleaseVersion targetVersion)
+                Right releasedVersion -> do
+                  _ <- cacheAvailableSdkVersions useCache (\pre -> pure (releasedVersion : fromMaybe [] pre))
+                  pure releasedVersion
 
 resolveSdkVersionToRelease :: UseCache -> SdkVersion -> IO ReleaseVersion
 resolveSdkVersionToRelease _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
@@ -347,3 +359,21 @@ resolveSdkVersionToRelease useCache targetVersion = do
     case filter isTargetVersion releaseVersions of
       (x:_) -> pure x
       [] -> throwIO (CouldNotResolveSdkVersion targetVersion)
+
+resolveReleaseVersionFromDamlPath :: DamlPath -> UnresolvedReleaseVersion -> IO (Maybe ReleaseVersion)
+resolveReleaseVersionFromDamlPath damlPath unresolvedVersion = do
+  let sdkPath = SdkPath (unwrapDamlPath damlPath </> "sdk")
+  sdksOrErr <- try (listDirectory (unwrapSdkPath sdkPath))
+  case sdksOrErr of
+    Left SomeException{} -> pure Nothing
+    Right sdks -> do
+      let isMatchingInstalledSdk path =
+            Right unresolvedVersion == parseVersion (T.pack path)
+      case find isMatchingInstalledSdk sdks of
+        Nothing -> pure Nothing
+        Just matchingPath -> do
+          let sdkPath = mkSdkPath damlPath matchingPath
+          sdkVersionOrErr <- tryAssistant (getSdkVersionFromSdkPath sdkPath)
+          pure $ case sdkVersionOrErr of
+            Left _ -> Nothing
+            Right sdkVersion -> Just (mkReleaseVersion unresolvedVersion sdkVersion)
