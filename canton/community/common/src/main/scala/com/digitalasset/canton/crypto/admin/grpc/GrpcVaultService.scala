@@ -200,11 +200,10 @@ class GrpcVaultService(
         .fromProtoPrimitive(request.fingerprint)
         .leftMap(err => s"Failed to deserialize fingerprint: $err")
         .toEitherT[Future]
-      protocolVersion = ProtocolVersion.fromProtoPrimitive(request.protocolVersion)
-      _ <- EitherTUtil.condUnitET[Future](
-        protocolVersion.isSupported,
-        s"Requested protocol version $protocolVersion is not supported",
-      )
+      protocolVersion <- ProtocolVersion
+        .fromProtoPrimitive(request.protocolVersion)
+        .leftMap(err => s"Protocol version failure: $err")
+        .toEitherT[Future]
       privateKey <- cryptoPrivateStore
         .exportPrivateKey(fingerprint)
         .leftMap(_.toString)

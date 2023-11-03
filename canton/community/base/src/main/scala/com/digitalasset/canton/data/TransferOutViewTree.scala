@@ -301,7 +301,7 @@ object TransferOutCommonData
         adminPartiesP,
         uuidP,
       )
-      protocolVersion = ProtocolVersion.fromProtoPrimitive(protocolVersionP)
+      protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
       _ <- checkMediatorGroupForProtocolVersion(commonData, protocolVersion)
     } yield TransferOutCommonData(
       commonData.salt,
@@ -766,6 +766,7 @@ object TransferOutView
     ) = transferOutViewP
 
     for {
+      protocolVersion <- ProtocolVersion.fromProtoPrimitive(targetProtocolVersionP)
       commonData <- ParsedDataV0V1.fromProto(
         hashOps,
         saltP,
@@ -773,7 +774,7 @@ object TransferOutView
         contractIdP,
         targetDomainP,
         targetTimeProofP,
-        ProtocolVersion.fromProtoPrimitive(targetProtocolVersionP),
+        protocolVersion,
       )
     } yield TransferOutViewV4(
       commonData.salt,
@@ -819,7 +820,7 @@ object TransferOutView
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV0, "salt", saltP)
       submitter <- ProtoConverter.parseLfPartyId(submitterP)
       targetDomain <- DomainId.fromProtoPrimitive(targetDomainP, "targetDomain")
-      targetProtocolVersion = ProtocolVersion.fromProtoPrimitive(targetProtocolVersionP)
+      targetProtocolVersion <- ProtocolVersion.fromProtoPrimitive(targetProtocolVersionP)
       targetTimeProof <- ProtoConverter
         .required("targetTimeProof", targetTimeProofP)
         .flatMap(TimeProof.fromProtoV0(targetProtocolVersion, hashOps))

@@ -8,14 +8,15 @@ import com.digitalasset.canton.lifecycle.{OnShutdownRunner, RunOnShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.{ErrorUtil, LoggerUtil}
 
 import java.util.ConcurrentModificationException
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.concurrent
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.util.Try
 
 /** A [[HealthElement]] maintains a health state and notifies [[HealthListener]]s whenever the state has changed.
@@ -128,6 +129,8 @@ trait HealthElement {
     // When we're closing, force the value to `closingState`.
     // This ensures that `closingState` is sticky.
     val newStateValue = if (associatedOnShutdownRunner.isClosing) closingState else newState.value
+    logger.debug(s"Refreshing state of $name from $oldState to $newStateValue")
+
     val previous = internalState.getAndUpdate {
       case InternalState(_, Idle) => errorOnIdle
       case InternalState(_, Refreshing) => InternalState(newStateValue, Idle)
@@ -153,11 +156,22 @@ trait HealthElement {
     }
   }
 
+  private def logIfLongPokeTime(listener: HealthListener, start: Long)(implicit
+      traceContext: TraceContext
+  ): Unit = {
+    val dur = Duration.fromNanos(System.nanoTime() - start)
+    lazy val durationStr = LoggerUtil.roundDurationForHumans(dur)
+    if (dur > 1.second) logger.warn(s"Listener ${listener.name} took $durationStr to run")
+  }
+
   private def notifyListeners(implicit traceContext: TraceContext): Unit = {
     listeners.foreachEntry { (listener, _) =>
+      logger.debug(s"Notifying listener ${listener.name} of health state change from $name")
+      val start = System.nanoTime()
       Try(listener.poke()).failed.foreach { exception =>
         logger.error(s"Notification of ${listener.name} failed", exception)
       }
+      logIfLongPokeTime(listener, start)
     }
   }
 

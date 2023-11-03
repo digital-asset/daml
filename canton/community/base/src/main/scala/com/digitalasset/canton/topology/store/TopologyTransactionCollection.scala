@@ -276,14 +276,23 @@ object TopologyTransactionSplitter {
       removeSelector: F[TopologyChangeOp] => Option[F[Remove]],
       replaceSelector: F[TopologyChangeOp] => Option[F[Replace]],
   ): (Seq[F[Add]], Seq[F[Remove]], Seq[F[Replace]]) = {
-    val zero = (Seq.empty[F[Add]], Seq.empty[F[Remove]], Seq.empty[F[Replace]])
 
-    collection.foldLeft(zero) { case ((adds, removes, replaces), element) =>
-      opProjector(element) match {
-        case Add => (adds ++ addSelector(element), removes, replaces)
-        case Remove => (adds, removes ++ removeSelector(element), replaces)
-        case Replace => (adds, removes, replaces ++ replaceSelector(element))
-      }
+    val (adds, removes, replaces) = {
+      (
+        Vector.newBuilder[F[Add]],
+        Vector.newBuilder[F[Remove]],
+        Vector.newBuilder[F[Replace]],
+      )
     }
+    // normally, most of the txs are adds, so we preallocate the size
+    adds.sizeHint(collection.size)
+    collection
+      .map(e => (e, opProjector(e)))
+      .foreach {
+        case (element, Add) => addSelector(element).foreach(adds.addOne)
+        case (element, Remove) => removeSelector(element).foreach(removes.addOne)
+        case (element, Replace) => replaceSelector(element).foreach(replaces.addOne)
+      }
+    (adds.result(), removes.result(), replaces.result())
   }
 }

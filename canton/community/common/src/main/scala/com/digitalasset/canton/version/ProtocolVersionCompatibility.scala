@@ -224,7 +224,9 @@ object DomainProtocolVersion {
   lazy implicit val domainProtocolVersionReader: ConfigReader[DomainProtocolVersion] = {
     ConfigReader.fromString[DomainProtocolVersion] { str =>
       for {
-        version <- ProtocolVersion.create(str).leftMap[FailureReason](InvalidProtocolVersion)
+        version <- ProtocolVersion
+          .parseUnchecked(str)
+          .leftMap[FailureReason](InvalidProtocolVersion)
         _ <- Either.cond(
           // we support development versions when parsing, but catch dev versions without
           // the safety flag during config validation
@@ -262,7 +264,9 @@ object ParticipantProtocolVersion {
   lazy implicit val participantProtocolVersionReader: ConfigReader[ParticipantProtocolVersion] = {
     ConfigReader.fromString[ParticipantProtocolVersion] { str =>
       for {
-        version <- ProtocolVersion.create(str).leftMap[FailureReason](InvalidProtocolVersion)
+        version <- ProtocolVersion
+          .parseUnchecked(str)
+          .leftMap[FailureReason](InvalidProtocolVersion)
         _ <- Either.cond(
           // same as domain: support parsing of dev
           ProtocolVersionCompatibility

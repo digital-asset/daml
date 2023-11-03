@@ -548,6 +548,7 @@ private[events] object TransactionLogUpdatesConversions {
               driverMetadata = createdEvent.driverMetadata.fold(ByteString.EMPTY)(_.toByteString),
             )
           ),
+          createdAt = Some(TimestampConversion.fromLf(createdEvent.ledgerEffectiveTime)),
         )
       )
   }

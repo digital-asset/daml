@@ -90,8 +90,8 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
   private def fromProtoV0(
       proto: v0.ActiveContract
   ): ParsingResult[ActiveContract] = {
-    val protocolVersion = ProtocolVersion.fromProtoPrimitive(proto.protocolVersion)
     for {
+      protocolVersion <- ProtocolVersion.fromProtoPrimitive(proto.protocolVersion)
       domainId <- DomainId.fromProtoPrimitive(proto.domainId, "domain_id")
       contract <- SerializableContract.fromByteString(proto.contract)
       activeContract <- create(domainId, contract, None)(
@@ -105,8 +105,8 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
   private def fromProtoV1(
       proto: v1.ActiveContract
   ): ParsingResult[ActiveContract] = {
-    val protocolVersion = ProtocolVersion.fromProtoPrimitive(proto.protocolVersion)
     for {
+      protocolVersion <- ProtocolVersion.fromProtoPrimitive(proto.protocolVersion)
       domainId <- DomainId.fromProtoPrimitive(proto.domainId, "domain_id")
       contract <- SerializableContract.fromByteString(proto.contract)
       transferCounter = proto.reassignmentCounter

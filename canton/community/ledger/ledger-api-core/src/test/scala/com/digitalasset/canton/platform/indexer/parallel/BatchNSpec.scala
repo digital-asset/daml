@@ -10,7 +10,6 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.*
 
 class BatchNSpec extends AsyncFlatSpec with Matchers with AkkaBeforeAndAfterAll {
@@ -27,7 +26,7 @@ class BatchNSpec extends AsyncFlatSpec with Matchers with AkkaBeforeAndAfterAll 
         // slow upstream
         .delay(10.millis, DelayOverflowStrategy.backpressure)
         .via(BatchN(MaxBatchSize, MaxBatchCount))
-        .runWith(Sink.seq[ArrayBuffer[Int]])
+        .runWith(Sink.seq[Iterable[Int]])
 
     batchesF.map { batches =>
       batches.flatten should contain theSameElementsInOrderAs input

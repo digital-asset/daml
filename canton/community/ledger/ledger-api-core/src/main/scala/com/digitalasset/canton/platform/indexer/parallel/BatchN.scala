@@ -17,7 +17,7 @@ object BatchN {
   def apply[IN](
       maxBatchSize: Int,
       maxBatchCount: Int,
-  ): Flow[IN, ArrayBuffer[IN], NotUsed] = {
+  ): Flow[IN, collection.immutable.Iterable[IN], NotUsed] = {
     val totalBatchSize = maxBatchSize * maxBatchCount
     Flow[IN]
       .batch[ArrayBuffer[IN]](
@@ -29,10 +29,13 @@ object BatchN {
         val batchSize = totalSize / maxBatchCount
         if (batchSize == 0) {
           totalBatch.view
-            .map(newBatch(1, _))
+            .map(Seq(_))
             .toVector
         } else {
-          totalBatch.sliding(batchSize, batchSize).toVector
+          totalBatch
+            .sliding(batchSize, batchSize)
+            .map(new IterableToIterable(_))
+            .toVector
         }
       }
   }
@@ -42,5 +45,16 @@ object BatchN {
     newBatch.sizeHint(maxBatchSize)
     newBatch.addOne(newElement)
     newBatch
+  }
+
+  // WARNING! DO NOT USE THIS WRAPPER OUTSIDE OF THIS CONTEXT!
+  // this wrapping is only safe because it is used in this context where it is an invariant of the algorithm
+  // that the ArrayBuffer is not changing after the result left the BatchN stage.
+  // Please note as soon as this immutable.Iterable is used in any further collection processing, where new result
+  // collection needs to be built, this will fall back to IterableFactory.Delegate[Iterable](List).
+  // Please note this cannot be a value class, since some ancestors of immutable.Iterable is Any.
+  private class IterableToIterable[X](val iterable: Iterable[X])
+      extends collection.immutable.Iterable[X] {
+    override def iterator: Iterator[X] = iterable.iterator
   }
 }

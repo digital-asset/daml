@@ -74,6 +74,19 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     )
   }
 
+  it should "return the correct created_at" in {
+    testCreatedAt(
+      "party",
+      dtoCreate(
+        offset = offset(1),
+        eventSequentialId = 1L,
+        contractId = hashCid("#1"),
+        signatory = "party",
+      ),
+      Timestamp(someTime.toInstant),
+    )
+  }
+
   // Allow using deprecated Protobuf fields for backwards compatibility
   @annotation.nowarn(
     "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.event\\.CreatedEvent.*"
@@ -83,29 +96,13 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
       create: DbDto.EventCreate,
       expectedCreateContractMetadata: ContractMetadata,
   ): Assertion = {
-    val someParty = Ref.Party.assertFromString(signatory)
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(Vector(create), _))
-    executeSql(updateLedgerEnd(offset(1), 1L))
-
-    val flatTransactionEvents = executeSql(
-      backend.event.transactionStreamingQueries.fetchEventPayloadsFlat(
-        EventPayloadSourceForFlatTx.Create
-      )(eventSequentialIds = Seq(1L), Set(someParty))
-    )
-    val transactionTreeEvents = executeSql(
-      backend.event.transactionStreamingQueries.fetchEventPayloadsTree(
-        EventPayloadSourceForTreeTx.Create
-      )(eventSequentialIds = Seq(1L), Set(someParty))
-    )
-    val flatTransaction = executeSql(
-      backend.event.transactionPointwiseQueries.fetchFlatTransactionEvents(1L, 1L, Set(someParty))
-    )
-    val transactionTree = executeSql(
-      backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(1L, 1L, Set(someParty))
-    )
-    val acs = executeSql(backend.event.activeContractCreateEventBatch(Seq(1L), Set(someParty), 1L))
+    val (
+      flatTransactionEvents,
+      transactionTreeEvents,
+      flatTransaction,
+      transactionTree,
+      acs,
+    ) = ingestAndFetch(signatory, create)
 
     extractContractMetadataFrom[FlatEvent.Created, FlatEvent](
       in = flatTransactionEvents,
@@ -133,6 +130,72 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     ) shouldBe expectedCreateContractMetadata
   }
 
+  private def ingestAndFetch(signatory: String, create: DbDto.EventCreate) = {
+    val someParty = Ref.Party.assertFromString(signatory)
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(Vector(create), _))
+    executeSql(updateLedgerEnd(offset(1), 1L))
+
+    val flatTransactionEvents = executeSql(
+      backend.event.transactionStreamingQueries.fetchEventPayloadsFlat(
+        EventPayloadSourceForFlatTx.Create
+      )(eventSequentialIds = Seq(1L), Set(someParty))
+    )
+    val transactionTreeEvents = executeSql(
+      backend.event.transactionStreamingQueries.fetchEventPayloadsTree(
+        EventPayloadSourceForTreeTx.Create
+      )(eventSequentialIds = Seq(1L), Set(someParty))
+    )
+    val flatTransaction = executeSql(
+      backend.event.transactionPointwiseQueries.fetchFlatTransactionEvents(1L, 1L, Set(someParty))
+    )
+    val transactionTree = executeSql(
+      backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(1L, 1L, Set(someParty))
+    )
+    val acs = executeSql(backend.event.activeContractCreateEventBatch(Seq(1L), Set(someParty), 1L))
+    (flatTransactionEvents, transactionTreeEvents, flatTransaction, transactionTree, acs)
+  }
+
+  private def testCreatedAt(
+      signatory: String,
+      create: DbDto.EventCreate,
+      expectedCreatedAt: Timestamp,
+  ): Assertion = {
+    val (
+      flatTransactionEvents,
+      transactionTreeEvents,
+      flatTransaction,
+      transactionTree,
+      acs,
+    ) = ingestAndFetch(signatory, create)
+
+    extractCreatedAtFrom[FlatEvent.Created, FlatEvent](
+      in = flatTransactionEvents,
+      createdAt = _.partial.createdAt,
+    ) shouldBe expectedCreatedAt
+
+    extractCreatedAtFrom[FlatEvent.Created, FlatEvent](
+      in = flatTransaction,
+      createdAt = _.partial.createdAt,
+    ) shouldBe expectedCreatedAt
+
+    extractCreatedAtFrom[TreeEvent.Created, TreeEvent](
+      in = transactionTreeEvents,
+      createdAt = _.partial.createdAt,
+    ) shouldBe expectedCreatedAt
+
+    extractCreatedAtFrom[TreeEvent.Created, TreeEvent](
+      in = transactionTree,
+      createdAt = _.partial.createdAt,
+    ) shouldBe expectedCreatedAt
+
+    extractCreatedAtFrom[FlatEvent.Created, FlatEvent](
+      in = acs,
+      createdAt = _.partial.createdAt,
+    ) shouldBe expectedCreatedAt
+  }
+
   private def extractContractMetadataFrom[O: ClassTag, E >: O](
       in: Seq[EventStorageBackend.Entry[E]],
       contractMetadata: O => Option[ContractMetadata],
@@ -140,6 +203,20 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     in.size shouldBe 1
     in.head.event match {
       case o: O => contractMetadata(o).value
+      case _ =>
+        fail(
+          s"Expected created event of type ${implicitly[reflect.ClassTag[O]].runtimeClass.getSimpleName}"
+        )
+    }
+  }
+
+  private def extractCreatedAtFrom[O: ClassTag, E >: O](
+      in: Seq[EventStorageBackend.Entry[E]],
+      createdAt: O => Option[Timestamp],
+  ): Timestamp = {
+    in.size shouldBe 1
+    in.head.event match {
+      case o: O => createdAt(o).value
       case _ =>
         fail(
           s"Expected created event of type ${implicitly[reflect.ClassTag[O]].runtimeClass.getSimpleName}"

@@ -441,6 +441,7 @@ object TopologyTransactionProcessor {
           SigningPublicKey.collect(initKeys),
           StoreBasedDomainTopologyClient.NoPackageDependencies,
           parameters.cachingConfigs,
+          parameters.batchingConfig,
           parameters.processingTimeouts,
           futureSupervisor,
           loggerFactory,

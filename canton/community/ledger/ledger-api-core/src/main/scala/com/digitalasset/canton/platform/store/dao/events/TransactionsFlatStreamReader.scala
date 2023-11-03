@@ -41,7 +41,6 @@ import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter}
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
 
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*
 
@@ -145,7 +144,7 @@ class TransactionsFlatStreamReader(
         maxParallelIdQueriesLimiter: QueueBasedConcurrencyLimiter,
         maxOutputBatchCount: Int,
         metric: DatabaseMetrics,
-    ): Source[ArrayBuffer[Long], NotUsed] = {
+    ): Source[Iterable[Long], NotUsed] = {
       decomposedFilters
         .map { filter =>
           paginatingAsyncStream.streamIdsFromSeekPagination(
@@ -182,7 +181,7 @@ class TransactionsFlatStreamReader(
     }
 
     def fetchPayloads(
-        ids: Source[ArrayBuffer[Long], NotUsed],
+        ids: Source[Iterable[Long], NotUsed],
         target: EventPayloadSourceForFlatTx,
         maxParallelPayloadQueries: Int,
         dbMetric: DatabaseMetrics,

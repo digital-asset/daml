@@ -56,6 +56,10 @@ object LocalParticipantConfig {
             "parameters.unique-contract-keys",
             "init.parameters.unique-contract-keys",
           ),
+          DeprecatedConfigUtils.MovedConfigPath(
+            "parameters.stores.max-items-in-sql-clause",
+            "init.parameters.unique-contract-keys",
+          ),
         ) ++ deprecatedLocalNodeConfig.movedFields
 
         override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[_]] = List(
@@ -457,6 +461,7 @@ object TestingTimeServiceConfig {
   *                                This not only avoids flakiness in tests, but reflects that a party is not actually usable in canton until it's
   *                                available through at least one domain.
   * @param maxUnzippedDarSize maximum allowed size of unzipped DAR files (in bytes) the participant can accept for uploading. Defaults to 1GB.
+  * @param batching Various parameters that control batching related behavior
   * @param ledgerApiServerParameters ledger api server parameters
   *
   * The following specialized participant node performance tuning parameters may be grouped once a more final set of configs emerges.
@@ -478,6 +483,7 @@ final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
     partyChangeNotification: PartyNotificationConfig = PartyNotificationConfig.ViaDomain,
     maxUnzippedDarSize: Int = 1024 * 1024 * 1024,
+    batching: BatchingConfig = BatchingConfig(),
     stores: ParticipantStoreConfig = ParticipantStoreConfig(),
     transferTimeProofFreshnessProportion: NonNegativeInt = NonNegativeInt.tryCreate(3),
     minimumProtocolVersion: Option[ParticipantProtocolVersion] = Some(
@@ -493,15 +499,15 @@ final case class ParticipantNodeParameterConfig(
     warnIfOverloadedFor: Option[NonNegativeFiniteDuration] = Some(
       NonNegativeFiniteDuration.ofSeconds(20)
     ),
+    // TODO(#9014) rename this to ledger-api-server
     ledgerApiServerParameters: LedgerApiServerParametersConfig = LedgerApiServerParametersConfig(),
     excludeInfrastructureTransactions: Boolean = true,
     enableEngineStackTraces: Boolean = false,
     enableContractUpgrading: Boolean = false,
-)
+) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores
   *
-  * @param maxItemsInSqlClause    maximum number of items to place in sql "in clauses"
   * @param maxPruningBatchSize    maximum number of events to prune from a participant at a time, used to break up canton participant-internal batches
   * @param ledgerApiPruningBatchSize  Number of events to prune from the ledger api server index-database at a time during automatic background pruning.
   *                                   Canton-internal store pruning happens at the smaller batch size of "maxPruningBatchSize" to minimize memory usage
@@ -517,12 +523,13 @@ final case class ParticipantNodeParameterConfig(
   * @param dbBatchAggregationConfig Batching configuration for Db queries
   */
 final case class ParticipantStoreConfig(
-    maxItemsInSqlClause: PositiveNumeric[Int] = PositiveNumeric.tryCreate(100),
+    // TODO(#9014) move all batching related parameters into `BatchingConfig`
     maxPruningBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(1000),
     ledgerApiPruningBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(50000),
     pruningMetricUpdateInterval: Option[PositiveDurationSeconds] =
       config.PositiveDurationSeconds.ofHours(1L).some,
     acsPruningInterval: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(60),
+    // TODO(#9014) move to BatchingConfig and rename to `aggregator`
     dbBatchAggregationConfig: BatchAggregatorConfig = BatchAggregatorConfig.Batching(),
 )
 

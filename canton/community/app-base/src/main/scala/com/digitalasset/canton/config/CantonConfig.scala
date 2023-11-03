@@ -532,6 +532,7 @@ private[config] object CantonNodeParameterConverter {
       parent.parameters.timeouts.processing,
       node.sequencerClient,
       node.caching,
+      node.parameters.batching,
       parent.parameters.nonStandardConfig,
       node.storage.parameters.migrateAndStart,
       parent.features.skipTopologyManagerSignatureValidation,
@@ -758,6 +759,8 @@ object CantonConfig {
       deriveReader[RemoteDomainConfig]
     lazy implicit val remoteParticipantConfigReader: ConfigReader[RemoteParticipantConfig] =
       deriveReader[RemoteParticipantConfig]
+    lazy implicit val batchingReader: ConfigReader[BatchingConfig] =
+      deriveReader[BatchingConfig]
     lazy implicit val dbParamsReader: ConfigReader[DbParametersConfig] =
       deriveReader[DbParametersConfig]
     lazy implicit val memoryReader: ConfigReader[CommunityStorageConfig.Memory] =
@@ -1127,6 +1130,8 @@ object CantonConfig {
       deriveWriter[RemoteParticipantConfig]
     lazy implicit val nodeMonitoringConfigWriter: ConfigWriter[NodeMonitoringConfig] =
       deriveWriter[NodeMonitoringConfig]
+    lazy implicit val batchingWriter: ConfigWriter[BatchingConfig] =
+      deriveWriter[BatchingConfig]
     lazy implicit val dbParametersWriter: ConfigWriter[DbParametersConfig] =
       deriveWriter[DbParametersConfig]
     lazy implicit val memoryWriter: ConfigWriter[CommunityStorageConfig.Memory] =

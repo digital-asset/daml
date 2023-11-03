@@ -4,6 +4,7 @@
 package com.digitalasset.canton.environment
 
 import com.digitalasset.canton.config.{
+  BatchingConfig,
   CachingConfigs,
   LoggingConfig,
   ProcessingTimeout,
@@ -27,6 +28,7 @@ object CantonNodeParameters {
     def processingTimeouts: ProcessingTimeout
     def sequencerClient: SequencerClientConfig
     def cachingConfigs: CachingConfigs
+    def batchingConfig: BatchingConfig
     def nonStandardConfig: Boolean
     def dbMigrateAndStart: Boolean
     def skipTopologyManagerSignatureValidation: Boolean
@@ -43,6 +45,7 @@ object CantonNodeParameters {
         processingTimeouts: ProcessingTimeout,
         sequencerClient: SequencerClientConfig,
         cachingConfigs: CachingConfigs,
+        batchingConfig: BatchingConfig,
         nonStandardConfig: Boolean,
         dbMigrateAndStart: Boolean,
         skipTopologyManagerSignatureValidation: Boolean,
@@ -79,6 +82,7 @@ trait HasGeneralCantonNodeParameters extends CantonNodeParameters.General {
   override def processingTimeouts: ProcessingTimeout = general.processingTimeouts
   override def sequencerClient: SequencerClientConfig = general.sequencerClient
   override def cachingConfigs: CachingConfigs = general.cachingConfigs
+  override def batchingConfig: BatchingConfig = general.batchingConfig
   override def nonStandardConfig: Boolean = general.nonStandardConfig
   override def dbMigrateAndStart: Boolean = general.dbMigrateAndStart
   override def skipTopologyManagerSignatureValidation: Boolean =

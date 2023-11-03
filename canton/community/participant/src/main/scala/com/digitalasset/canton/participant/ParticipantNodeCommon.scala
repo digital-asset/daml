@@ -314,6 +314,7 @@ trait ParticipantNodeBootstrapCommon {
           clock,
           config.init.ledgerApi.maxDeduplicationDuration.toInternal.some,
           overrideKeyUniqueness.orElse(config.init.parameters.uniqueContractKeys.some),
+          parameterConfig.batchingConfig,
           parameterConfig.stores,
           ReleaseProtocolVersion.latest,
           arguments.metrics,
