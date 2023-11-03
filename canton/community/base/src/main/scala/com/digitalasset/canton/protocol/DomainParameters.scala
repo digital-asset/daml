@@ -320,7 +320,7 @@ object StaticDomainParameters
         requiredCryptoKeyFormatsP,
         CryptoKeyFormat.fromProtoEnum,
       )
-      protocolVersion = ProtocolVersion.fromProtoPrimitive(protocolVersionP)
+      protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
     } yield StaticDomainParameters(
       StaticDomainParameters.defaultReconciliationInterval,
       StaticDomainParameters.defaultMaxRatePerParticipant,

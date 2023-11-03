@@ -117,6 +117,7 @@ object Raw {
             driverMetadata = ByteString.copyFrom(driverMetadata.getOrElse(Array.empty)),
           )
         ),
+        createdAt = Some(TimestampConversion.fromLf(ledgerEffectiveTime)),
       )
   }
 

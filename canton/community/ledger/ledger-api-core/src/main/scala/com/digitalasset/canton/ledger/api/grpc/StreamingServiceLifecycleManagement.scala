@@ -24,13 +24,17 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable with NamedLoggin
   private val directEc = DirectExecutionContext(noTracingLogger)
 
   @volatile private var _closed = false
-  private val _killSwitches = TrieMap.empty[KillSwitch, Object]
+  private val _killSwitches = TrieMap.empty[KillSwitch, TraceContext]
 
   def close(): Unit = blocking {
     synchronized {
       if (!_closed) {
         _closed = true
-        _killSwitches.keySet.foreach(_.abort(closingError(errorLoggingContext(TraceContext.empty))))
+        _killSwitches.foreach { case (killSwitch, traceContext) =>
+          killSwitch.abort(
+            closingError(errorLoggingContext(traceContext))
+          )
+        }
         _killSwitches.clear()
       }
     }
@@ -49,7 +53,7 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable with NamedLoggin
       traceContext: TraceContext,
   ): Unit = {
     def ifNotClosed(run: () => Unit): Unit =
-      if (_closed) responseObserver.onError(closingError(errorLoggingContext(TraceContext.empty)))
+      if (_closed) responseObserver.onError(closingError(errorLoggingContext))
       else run()
 
     // Double-checked locking to keep the (potentially expensive)
@@ -70,7 +74,7 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable with NamedLoggin
 
             logger.debug(s"Streaming to gRPC client started")
 
-            _killSwitches += killSwitch -> NotUsed
+            _killSwitches += killSwitch -> traceContext
 
             // This can complete outside the synchronized block
             // maintaining the need of using a concurrent collection for _killSwitches

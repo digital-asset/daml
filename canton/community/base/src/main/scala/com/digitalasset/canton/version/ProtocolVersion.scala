@@ -6,7 +6,7 @@ package com.digitalasset.canton.version
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ProtoDeserializationError.StringConversionError
+import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -171,34 +171,65 @@ object ProtocolVersion {
     }
   }
 
-  def create(rawVersion: String): Either[String, ProtocolVersion] =
+  private[version] def unsupportedErrorMessage(pv: ProtocolVersion) =
+    s"Protocol version $pv is not supported. The supported versions are ${stableAndSupported.map(_.toString).mkString(", ")}."
+
+  /** Parse a given raw version string into a [[ProtocolVersion]] without any further validation, i.e. it allows to
+    * create invalid and unsupported [[ProtocolVersion]]!
+    *
+    * ONLY use this method when
+    * - implementing functionality for the [[ProtocolVersion]] itself
+    * - additional validation is being applied on the resulting [[ProtocolVersion]] afterwards as a exception
+    * - testing and having a need for an invalid or unsupported [[ProtocolVersion]]
+    *
+    * Otherwise, use one of the other factory methods.
+    */
+  private[version] def parseUnchecked(rawVersion: String): Either[String, ProtocolVersion] = {
     rawVersion.toIntOption match {
       case Some(value) => Right(ProtocolVersion(value))
 
       case None =>
         parseSemver(rawVersion)
           .orElse(parseDev(rawVersion).map(Right(_)))
-          .getOrElse(Left(s"Unable to convert string `$rawVersion` to a valid protocol version."))
+          .getOrElse(Left(s"Unable to convert string `$rawVersion` to a protocol version."))
     }
+  }
 
-  /** Parse a ProtocolVersion
-    * @param rawVersion
-    * @return Parsed protocol version
-    * @throws java.lang.RuntimeException if the given parameter cannot be parsed to a protocol version
+  /** Creates a [[ProtocolVersion]] from the given raw version value and ensures that it is a supported version.
     */
-  def tryCreate(rawVersion: String): ProtocolVersion = create(rawVersion).fold(sys.error, identity)
+  def create(rawVersion: String): Either[String, ProtocolVersion] =
+    parseUnchecked(rawVersion).flatMap(pv =>
+      Either.cond(pv.isSupported, pv, unsupportedErrorMessage(pv))
+    )
 
-  def fromProtoPrimitive(rawVersion: Int): ProtocolVersion = ProtocolVersion(rawVersion)
+  /** Like [[create]] ensures a supported protocol version; but throws a runtime exception for errors.
+    */
+  def tryCreate(rawVersion: String): ProtocolVersion = create(rawVersion).valueOr(sys.error)
 
-  def fromProtoPrimitiveS(rawVersion: String): ParsingResult[ProtocolVersion] =
-    ProtocolVersion.create(rawVersion).leftMap(StringConversionError)
+  /** Like [[create]] ensures a supported protocol version; tailored to (de-)serialization purposes.
+    */
+  def fromProtoPrimitive(rawVersion: Int): ParsingResult[ProtocolVersion] = {
+    val pv = ProtocolVersion(rawVersion)
+    Either.cond(pv.isSupported, pv, OtherError(unsupportedErrorMessage(pv)))
+  }
+
+  /** Like [[create]] ensures a supported protocol version; tailored to (de-)serialization purposes.
+    */
+  def fromProtoPrimitiveS(rawVersion: String): ParsingResult[ProtocolVersion] = {
+    ProtocolVersion.create(rawVersion).leftMap(OtherError)
+  }
 
   final case class InvalidProtocolVersion(override val description: String) extends FailureReason
 
   // All stable protocol versions supported by this release
   private val stableAndSupported: NonEmpty[List[ProtocolVersion]] =
     NonEmpty
-      .from(BuildInfo.protocolVersions.map(ProtocolVersion.tryCreate).toList)
+      .from(
+        BuildInfo.protocolVersions
+          .map(parseUnchecked)
+          .map(_.valueOr(sys.error))
+          .toList
+      )
       .getOrElse(
         sys.error("Release needs to support at least one protocol version")
       )

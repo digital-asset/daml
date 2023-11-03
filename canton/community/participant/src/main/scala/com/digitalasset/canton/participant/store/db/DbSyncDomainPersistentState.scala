@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store.db
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -41,6 +41,7 @@ abstract class DbSyncDomainPersistentStateCommon(
     override val pureCryptoApi: CryptoPureApi,
     parameters: ParticipantStoreConfig,
     val caching: CachingConfigs,
+    val batching: BatchingConfig,
     maxDbConnections: PositiveInt,
     val timeouts: ProcessingTimeout,
     override val enableAdditionalConsistencyChecks: Boolean,
@@ -66,7 +67,7 @@ abstract class DbSyncDomainPersistentStateCommon(
       storage,
       domainId,
       protocolVersion,
-      parameters.maxItemsInSqlClause,
+      batching.maxItemsInSqlClause,
       maxDbConnections,
       caching.contractStore,
       dbQueryBatcherConfig = parameters.dbBatchAggregationConfig,
@@ -88,7 +89,7 @@ abstract class DbSyncDomainPersistentStateCommon(
       storage,
       domainId,
       enableAdditionalConsistencyChecks,
-      parameters.maxItemsInSqlClause,
+      batching.maxItemsInSqlClause,
       indexedStringStore,
       protocolVersion,
       timeouts,
@@ -97,7 +98,7 @@ abstract class DbSyncDomainPersistentStateCommon(
   val contractKeyJournal: DbContractKeyJournal = new DbContractKeyJournal(
     storage,
     domainId,
-    parameters.maxItemsInSqlClause,
+    batching.maxItemsInSqlClause,
     timeouts,
     loggerFactory,
   )
@@ -112,7 +113,7 @@ abstract class DbSyncDomainPersistentStateCommon(
   val requestJournalStore: DbRequestJournalStore = new DbRequestJournalStore(
     domainId,
     storage,
-    parameters.maxItemsInSqlClause,
+    batching.maxItemsInSqlClause,
     insertBatchAggregatorConfig = parameters.dbBatchAggregationConfig,
     replaceBatchAggregatorConfig = parameters.dbBatchAggregationConfig,
     timeouts,
@@ -162,6 +163,7 @@ class DbSyncDomainPersistentStateOld(
     pureCryptoApi: CryptoPureApi,
     parameters: ParticipantStoreConfig,
     caching: CachingConfigs,
+    batching: BatchingConfig,
     maxDbConnections: PositiveInt,
     timeouts: ProcessingTimeout,
     enableAdditionalConsistencyChecks: Boolean,
@@ -176,6 +178,7 @@ class DbSyncDomainPersistentStateOld(
       pureCryptoApi,
       parameters,
       caching,
+      batching,
       maxDbConnections,
       timeouts,
       enableAdditionalConsistencyChecks,
@@ -211,6 +214,7 @@ class DbSyncDomainPersistentStateX(
     crypto: Crypto,
     parameters: ParticipantStoreConfig,
     cachingConfigs: CachingConfigs,
+    batchingConfig: BatchingConfig,
     maxDbConnections: PositiveInt,
     processingTimeouts: ProcessingTimeout,
     enableAdditionalConsistencyChecks: Boolean,
@@ -226,6 +230,7 @@ class DbSyncDomainPersistentStateX(
       crypto.pureCrypto,
       parameters,
       cachingConfigs,
+      batchingConfig,
       maxDbConnections,
       processingTimeouts,
       enableAdditionalConsistencyChecks,

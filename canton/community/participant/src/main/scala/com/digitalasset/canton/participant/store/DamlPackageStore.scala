@@ -102,7 +102,7 @@ object DamlPackageStore {
         new InMemoryDamlPackageStore(loggerFactory)
       case pool: DbStorage =>
         new DbDamlPackageStore(
-          parameterConfig.stores.maxItemsInSqlClause,
+          parameterConfig.batchingConfig.maxItemsInSqlClause,
           pool,
           parameterConfig.processingTimeouts,
           futureSupervisor,

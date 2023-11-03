@@ -125,8 +125,6 @@ object GrpcParticipantRepairService {
     private def validateContractDomainRenames(
         contractDomainRenames: Map[String, ExportAcsRequest.TargetDomain],
         allProtocolVersions: Map[DomainId, ProtocolVersion],
-    )(implicit
-        elc: ErrorLoggingContext
     ): Either[String, List[(DomainId, (DomainId, ProtocolVersion))]] =
       contractDomainRenames.toList.traverse {
         case (source, ExportAcsRequest.TargetDomain(targetDomain, targetProtocolVersionRaw)) =>
@@ -136,13 +134,13 @@ object GrpcParticipantRepairService {
             targetDomainId <- DomainId
               .fromProtoPrimitive(targetDomain, "target domain id")
               .leftMap(_.message)
-            targetProtocolVersion = ProtocolVersion.fromProtoPrimitive(targetProtocolVersionRaw)
+            targetProtocolVersion <- ProtocolVersion
+              .fromProtoPrimitive(targetProtocolVersionRaw)
+              .leftMap(_.toString)
 
             /*
-            target protocol version should be supported
-            Moreover, the participant is connected to this domain, it should correspond to the stored version
+            The `targetProtocolVersion` should be the one running on the corresponding domain.
              */
-            _ <- isSupported(targetProtocolVersion).leftMap(_.toString)
             _ <- allProtocolVersions
               .get(targetDomainId)
               .map { foundProtocolVersion =>
@@ -159,7 +157,7 @@ object GrpcParticipantRepairService {
     private def validateRequest(
         request: ExportAcsRequest,
         allProtocolVersions: Map[DomainId, ProtocolVersion],
-    )(implicit elc: ErrorLoggingContext): Either[String, ValidExportAcsRequest] = {
+    ): Either[String, ValidExportAcsRequest] = {
       for {
         parties <- request.parties.traverse(party =>
           UniqueIdentifier.fromProtoPrimitive_(party).map(PartyId(_).toLf)

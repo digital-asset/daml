@@ -320,6 +320,7 @@ private[dao] object TransactionsReader {
               driverMetadata = ByteString.copyFrom(rawCreatedEvent.driverMetadata),
             )
           ),
+          createdAt = Some(TimestampConversion.fromLf(rawCreatedEvent.ledgerEffectiveTime)),
         )
       )
 

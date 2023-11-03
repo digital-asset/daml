@@ -6,7 +6,12 @@ package com.digitalasset.canton.participant.topology
 import cats.data.EitherT
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout, TopologyXConfig}
+import com.digitalasset.canton.config.{
+  BatchingConfig,
+  CachingConfigs,
+  ProcessingTimeout,
+  TopologyXConfig,
+}
 import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -84,6 +89,7 @@ class TopologyComponentFactoryOld(
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     caching: CachingConfigs,
+    batching: BatchingConfig,
     topologyStore: TopologyStore[DomainStore],
     loggerFactory: NamedLoggerFactory,
 ) extends TopologyComponentFactory {
@@ -121,6 +127,7 @@ class TopologyComponentFactoryOld(
       Map(),
       packageDependencies,
       caching,
+      batching,
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -140,7 +147,7 @@ class TopologyComponentFactoryOld(
       loggerFactory,
     )
     if (preferCaching) {
-      new CachingTopologySnapshot(snapshot, caching, loggerFactory)
+      new CachingTopologySnapshot(snapshot, caching, batching, loggerFactory)
     } else
       snapshot
   }
@@ -200,6 +207,7 @@ class TopologyComponentFactoryX(
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     caching: CachingConfigs,
+    batching: BatchingConfig,
     topologyXConfig: TopologyXConfig,
     topologyStore: TopologyStoreX[DomainStore],
     loggerFactory: NamedLoggerFactory,
@@ -270,6 +278,7 @@ class TopologyComponentFactoryX(
     topologyStore,
     packageDependencies,
     caching,
+    batching,
     timeouts,
     futureSupervisor,
     loggerFactory,
@@ -287,7 +296,7 @@ class TopologyComponentFactoryX(
       loggerFactory,
     )
     if (preferCaching) {
-      new CachingTopologySnapshot(snapshot, caching, loggerFactory)
+      new CachingTopologySnapshot(snapshot, caching, batching, loggerFactory)
     } else
       snapshot
   }

@@ -9,7 +9,12 @@ import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  BatchingConfig,
+  CachingConfigs,
+  DefaultProcessingTimeouts,
+  ProcessingTimeout,
+}
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Encrypted, SyncCryptoApi, TestHash}
 import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, NotInserted}
 import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, PeanoQueue}
@@ -214,6 +219,7 @@ class ProtocolProcessorTest
           clock,
           None,
           uniqueContractKeysO = Some(false),
+          BatchingConfig(),
           ParticipantStoreConfig(),
           testedReleaseProtocolVersion,
           ParticipantTestMetrics,

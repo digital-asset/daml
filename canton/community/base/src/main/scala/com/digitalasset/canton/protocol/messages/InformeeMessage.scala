@@ -188,7 +188,7 @@ object InformeeMessage extends HasProtocolVersionedWithContextCompanion[Informee
         maybeFullInformeeTreeP,
       )
       fullInformeeTree <- FullInformeeTree.fromProtoV1(hashOps, fullInformeeTreeP)
-      protocolVersion = ProtocolVersion.fromProtoPrimitive(protocolVersionP)
+      protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
     } yield new InformeeMessage(fullInformeeTree)(protocolVersion)
   }
 

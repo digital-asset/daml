@@ -38,6 +38,9 @@ class NodesTest extends AnyWordSpec with BaseTest with HasExecutionContext {
     override def withDefaults(ports: DefaultPorts): TestNodeConfig = this
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig()
     override val topologyX: TopologyXConfig = TopologyXConfig.NotUsed
+    override def parameters: LocalNodeParametersConfig = new LocalNodeParametersConfig {
+      override def batching: BatchingConfig = BatchingConfig()
+    }
   }
 
   class TestNodeBootstrap extends CantonNodeBootstrap[TestNode] {

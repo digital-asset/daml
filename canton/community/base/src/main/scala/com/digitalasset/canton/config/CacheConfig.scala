@@ -7,6 +7,8 @@ import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.github.blemale.scaffeine.Scaffeine
 import com.google.common.annotations.VisibleForTesting
 
+import scala.concurrent.ExecutionContext
+
 /** Configurations settings for a single cache
   *
   * @param maximumSize the maximum size of the cache
@@ -17,8 +19,11 @@ final case class CacheConfig(
     expireAfterAccess: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(10),
 ) {
 
-  def buildScaffeine(): Scaffeine[Any, Any] =
-    Scaffeine().maximumSize(maximumSize.value).expireAfterAccess(expireAfterAccess.underlying)
+  def buildScaffeine()(implicit ec: ExecutionContext): Scaffeine[Any, Any] =
+    Scaffeine()
+      .maximumSize(maximumSize.value)
+      .expireAfterAccess(expireAfterAccess.underlying)
+      .executor(ec.execute(_))
 
 }
 
@@ -60,7 +65,7 @@ object CachingConfigs {
   val defaultStaticStringCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultContractStoreCache: CacheConfig =
-    CacheConfig(maximumSize = PositiveNumeric.tryCreate(100000))
+    CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultTopologySnapshotCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(100))
   val defaultPartyCache: CacheConfig = CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
@@ -68,7 +73,7 @@ object CachingConfigs {
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
   val defaultKeyCache: CacheConfig = CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
   val defaultSessionKeyCache: CacheConfigWithTimeout =
-    CacheConfigWithTimeout(maximumSize = PositiveNumeric.tryCreate(100000))
+    CacheConfigWithTimeout(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultPackageVettingCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultMySigningKeyCache: CacheConfig =

@@ -40,7 +40,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
 
 import java.sql.Connection
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*
 
@@ -79,7 +78,7 @@ class ReassignmentStreamReader(
         maxOutputBatchCount: Int,
         metric: DatabaseMetrics,
         idDbQuery: IdDbQuery,
-    ): Source[ArrayBuffer[Long], NotUsed] = {
+    ): Source[Iterable[Long], NotUsed] = {
       decomposedFilters
         .map { filter =>
           paginatingAsyncStream.streamIdsFromSeekPagination(
@@ -114,7 +113,7 @@ class ReassignmentStreamReader(
     }
 
     def fetchPayloads[T](
-        ids: Source[ArrayBuffer[Long], NotUsed],
+        ids: Source[Iterable[Long], NotUsed],
         maxParallelPayloadQueries: Int,
         dbMetric: DatabaseMetrics,
         payloadDbQuery: PayloadDbQuery[T],
