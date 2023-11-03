@@ -6,7 +6,7 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
-    "lf_scalacopts",
+    "default_scalacopts",
     "lf_scalacopts_stricter",
     "scaladoc_jar",
 )
@@ -31,6 +31,16 @@ da_scala_library(
         [
             "//canton:community_participant_admin_proto_scala",
         ],
+    override_scalacopts = [
+        copt
+        for copt in default_scalacopts + lf_scalacopts_stricter
+        if copt not in [
+            # scalapb does not like those
+            "-P:wartremover:traverser:org.wartremover.warts.JavaSerializable",
+            "-P:wartremover:traverser:org.wartremover.warts.Product",
+            "-P:wartremover:traverser:org.wartremover.warts.Serializable",
+        ]
+    ],
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_http",
@@ -42,7 +52,6 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
     ],
-    scalacopts = lf_scalacopts + ["-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements"],
     # no doc as our scaladoc pipeline does not support .scrjar
     scaladoc = False,
     tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
