@@ -120,9 +120,9 @@ artifactoryVersionLocation :: ReleaseVersion -> ArtifactoryApiKey -> InstallLoca
 artifactoryVersionLocation releaseVersion apiKey = InstallLocation
     { ilUrl = T.concat
         [ "https://digitalasset.jfrog.io/artifactory/sdk-ee/"
-        , V.toText (sdkVersionFromReleaseVersion releaseVersion)
+        , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
         , "/daml-sdk-"
-        , V.toText (sdkVersionFromReleaseVersion releaseVersion)
+        , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
         , "-"
         , osName
         , "-ee.tar.gz"

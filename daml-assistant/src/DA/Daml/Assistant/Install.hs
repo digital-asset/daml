@@ -138,10 +138,10 @@ installExtracted env@InstallEnv{..} sourcePath =
         -- release version using the cache, failing if we don't find anything.
         sourceVersion <- case targetVersionM of
           Just targetVersion -> do
-            unless (sourceSdkVersion == SdkVersion (sdkVersionFromReleaseVersion targetVersion)) $ do
+            unless (sourceSdkVersion == sdkVersionFromReleaseVersion targetVersion) $ do
                 throwIO $ assistantErrorBecause
                     "SDK release version mismatch."
-                    ("Expected " <> sdkVersionToText (SdkVersion (sdkVersionFromReleaseVersion targetVersion))
+                    ("Expected " <> sdkVersionToText (sdkVersionFromReleaseVersion targetVersion)
                     <> " but got version " <> sdkVersionToText sourceSdkVersion)
             pure targetVersion
           Nothing -> do

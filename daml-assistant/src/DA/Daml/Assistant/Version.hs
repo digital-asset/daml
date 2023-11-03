@@ -379,7 +379,7 @@ resolveSdkVersionToRelease useCache targetVersion = do
       Just resolved -> pure (Right resolved)
       Nothing -> do
         let isTargetVersion version =
-              unwrapSdkVersion targetVersion == sdkVersionFromReleaseVersion version
+              targetVersion == sdkVersionFromReleaseVersion version
         (releaseVersions, _) <- getAvailableSdkSnapshotVersions useCache
         case filter isTargetVersion releaseVersions of
           (x:_) -> pure $ Right x
@@ -395,6 +395,6 @@ resolveReleaseVersionFromDamlPath damlPath targetVersion = do
 resolveSdkVersionFromDamlPath :: DamlPath -> SdkVersion -> IO (Maybe ReleaseVersion)
 resolveSdkVersionFromDamlPath damlPath targetSdkVersion = do
   let isMatchingVersion releaseVersion =
-          unwrapSdkVersion targetSdkVersion == sdkVersionFromReleaseVersion releaseVersion
+          targetSdkVersion == sdkVersionFromReleaseVersion releaseVersion
   resolvedVersions <- getInstalledSdkVersions damlPath
   pure (find isMatchingVersion resolvedVersions)

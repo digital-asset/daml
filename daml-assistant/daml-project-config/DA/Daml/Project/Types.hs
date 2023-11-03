@@ -64,9 +64,9 @@ data ReleaseVersion
       }
   deriving (Eq, Ord, Show)
 
-sdkVersionFromReleaseVersion :: ReleaseVersion -> V.Version
-sdkVersionFromReleaseVersion (SplitReleaseVersion _ sdkVersion) = sdkVersion
-sdkVersionFromReleaseVersion (OldReleaseVersion bothVersion) = bothVersion
+sdkVersionFromReleaseVersion :: ReleaseVersion -> SdkVersion
+sdkVersionFromReleaseVersion (SplitReleaseVersion _ sdkVersion) = SdkVersion sdkVersion
+sdkVersionFromReleaseVersion (OldReleaseVersion bothVersion) = SdkVersion bothVersion
 
 releaseVersionFromReleaseVersion :: ReleaseVersion -> V.Version
 releaseVersionFromReleaseVersion (SplitReleaseVersion releaseVersion _) = releaseVersion
