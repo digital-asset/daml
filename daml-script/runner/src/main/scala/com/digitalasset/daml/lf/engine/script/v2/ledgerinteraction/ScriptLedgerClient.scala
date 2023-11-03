@@ -57,8 +57,13 @@ object ScriptLedgerClient {
       enableContractUpgrading: Boolean,
   ): ScriptLedgerClient =
     ledger match {
-      case abstractLedgers.GrpcLedgerClient(grpcClient, applicationId) =>
-        new GrpcLedgerClient(grpcClient, applicationId, enableContractUpgrading)
+      case abstractLedgers.GrpcLedgerClient(grpcClient, applicationId, oAdminClient) =>
+        new grpcLedgerClient.GrpcLedgerClient(
+          grpcClient,
+          applicationId,
+          oAdminClient,
+          enableContractUpgrading,
+        )
       case abstractLedgers.JsonLedgerClient(uri, token, envIface, actorSystem) =>
         if (enableContractUpgrading)
           throw new IllegalArgumentException("The JSON client does not support Upgrades")
@@ -267,8 +272,21 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]]
 
+  def vetDar(name: String)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit]
+
+  def unvetDar(name: String)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit]
+
   // TEMPORARY AND INTERNAL - once we have decided on a proper daml3-script upgrading interface for users, we will update this to be
   // specified per command
+  // https://github.com/digital-asset/daml/issues/17703
   def setProvidePackageId(shouldProvide: Boolean)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,

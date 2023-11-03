@@ -722,6 +722,18 @@ class JsonLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
 
+  override def vetDar(name: String)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = unsupportedOn("vetDar")
+
+  override def unvetDar(name: String)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = unsupportedOn("unvetDar")
+
   override def setProvidePackageId(shouldProvide: Boolean)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,

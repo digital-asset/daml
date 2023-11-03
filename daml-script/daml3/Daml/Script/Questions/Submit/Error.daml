@@ -18,6 +18,7 @@ import DA.Exception
 data DevErrorType
   = ChoiceGuardFailed
   | WronglyTypedContractSoft
+  | Upgrade
   | UnknownNewFeature -- ^ This should never happen - Update Scripts when you see this!
   deriving Show
 

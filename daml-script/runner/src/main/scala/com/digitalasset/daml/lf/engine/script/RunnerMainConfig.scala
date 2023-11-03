@@ -60,6 +60,7 @@ private[script] case class RunnerMainConfigIntermediate(
     mode: Option[RunnerMainConfigIntermediate.CliMode],
     ledgerHost: Option[String],
     ledgerPort: Option[Int],
+    adminPort: Option[Int],
     participantConfig: Option[File],
     isIdeLedger: Boolean,
     // optional so we can detect if both --static-time and --wall-clock-time are passed.
@@ -140,12 +141,12 @@ private[script] case class RunnerMainConfigIntermediate(
     } yield config
 
   private def getLedgerMode: ParticipantMode =
-    (ledgerHost, ledgerPort, participantConfig, isIdeLedger) match {
-      case (Some(host), Some(port), None, false) =>
-        ParticipantMode.RemoteParticipantHost(host, port)
-      case (None, None, Some(participantConfig), false) =>
+    (ledgerHost, ledgerPort, adminPort, participantConfig, isIdeLedger) match {
+      case (Some(host), Some(port), oAdminPort, None, false) =>
+        ParticipantMode.RemoteParticipantHost(host, port, oAdminPort)
+      case (None, None, None, Some(participantConfig), false) =>
         ParticipantMode.RemoteParticipantConfig(participantConfig)
-      case (None, None, None, true) => ParticipantMode.IdeLedgerParticipant()
+      case (None, None, None, None, true) => ParticipantMode.IdeLedgerParticipant()
       case _ => throw new IllegalStateException("Unsupported combination of ledger modes")
     }
 }
@@ -190,6 +191,14 @@ private[script] object RunnerMainConfigIntermediate {
       .action((t, c) => c.copy(ledgerPort = Some(t)))
       .text(
         "Ledger port. If --json-api is specified, this is the port used to connect to the JSON API."
+      )
+
+    opt[Int]("admin-port")
+      .hidden()
+      .optional()
+      .action((t, c) => c.copy(adminPort = Some(t)))
+      .text(
+        "EXPERIMENTAL: Admin port. Used only for vetting and unvetting dars in daml3-script."
       )
 
     opt[File]("participant-config")
@@ -328,6 +337,7 @@ private[script] object RunnerMainConfigIntermediate {
         mode = None,
         ledgerHost = None,
         ledgerPort = None,
+        adminPort = None,
         participantConfig = None,
         isIdeLedger = false,
         timeMode = None,

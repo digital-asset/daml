@@ -778,6 +778,36 @@ object ScriptF {
       )
   }
 
+  final case class VetDar(
+      darName: String,
+      participant: Option[Participant],
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- Converter.toFuture(env.clients.getParticipant(participant))
+        _ <- client.vetDar(darName)
+      } yield SEValue(SUnit)
+  }
+
+  final case class UnvetDar(
+      darName: String,
+      participant: Option[Participant],
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- Converter.toFuture(env.clients.getParticipant(participant))
+        _ <- client.unvetDar(darName)
+      } yield SEValue(SUnit)
+  }
+
   final case class SetProvidePackageId(shouldProvide: Boolean) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
@@ -1070,6 +1100,18 @@ object ScriptF {
     }
   }
 
+  private def parseDarVettingChange[A](
+      v: SValue,
+      wrap: (String, Option[Participant]) => A,
+  ): Either[String, A] =
+    v match {
+      case SRecord(_, _, ArrayList(SText(name), participant)) =>
+        for {
+          participant <- Converter.toParticipantName(participant)
+        } yield wrap(name, participant)
+      case _ => Left(s"Expected VetDar payload but got $v")
+    }
+
   private def parseSetProvidePackageId(
       v: SValue
   ): Either[String, SetProvidePackageId] =
@@ -1115,6 +1157,8 @@ object ScriptF {
       case ("UnvetPackages", 1) => parseChangePackages(v).map(UnvetPackages)
       case ("ListVettedPackages", 1) => parseEmpty(ListVettedPackages())(v)
       case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
+      case ("VetDar", 1) => parseDarVettingChange(v, VetDar)
+      case ("UnvetDar", 1) => parseDarVettingChange(v, UnvetDar)
       case ("SetProvidePackageId", 1) => parseSetProvidePackageId(v)
       case _ => Left(s"Unknown command $commandName - Version $version")
     }

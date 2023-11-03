@@ -4,7 +4,7 @@
 package com.daml.lf.engine.script
 
 import com.daml.http.HttpServiceTestFixture
-import com.daml.integrationtest.CantonFixtureWithResource
+import com.daml.integrationtest.{CantonFixture, CantonFixtureWithResource}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarParser
 import com.daml.ports.Port
@@ -19,7 +19,7 @@ trait RunnerMainTestBaseCanton extends CantonFixtureWithResource[Port] with Runn
   protected def jsonApiPort: Port = additional
 
   override protected def makeAdditionalResource(
-      ports: Vector[Port]
+      ports: Vector[CantonFixture.LedgerPorts]
   ): ResourceOwner[Port] =
     new ResourceOwner[Port] {
       override def acquire()(implicit
@@ -38,7 +38,7 @@ trait RunnerMainTestBaseCanton extends CantonFixtureWithResource[Port] with Runn
           val _ =
             HttpServiceTestFixture.withHttpService(
               "NonTlsRunnerMainTest",
-              ports.head,
+              ports.head.ledgerPort,
               None,
               None,
               useTls = useTls,

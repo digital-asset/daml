@@ -50,6 +50,7 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
       name: Ref.QualifiedName,
       inputValue: Option[Value] = None,
       dar: CompiledDar,
+      enableContractUpgrading: Boolean = false,
   )(implicit ec: ExecutionContext): Future[SValue] = {
     val scriptId = Ref.Identifier(dar.mainPkg, name)
     def converter(input: Value, typ: Ast.Type) =
@@ -65,20 +66,23 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
         inputValue,
         clients,
         timeMode,
+        enableContractUpgrading = enableContractUpgrading,
       )
   }
 
   final protected def scriptClients(
       token: Option[String] = None,
       maxInboundMessageSize: Int = RunnerMainConfig.DefaultMaxInboundMessageSize,
+      provideAdminPorts: Boolean = false,
   ): Future[Participants[GrpcLedgerClient]] = {
     implicit val ec: ExecutionContext = system.dispatcher
-    val participants = ports.zipWithIndex.map { case (port, i) =>
+    val participants = ledgerPorts.zipWithIndex.map { case (ports, i) =>
       Participant(s"participant$i") -> ApiParameters(
         host = "localhost",
-        port = port.value,
+        port = ports.ledgerPort.value,
         access_token = token,
         application_id = None,
+        adminPort = if (provideAdminPorts) Some(ports.adminPort.value) else None,
       )
     }
     val params = Participants(

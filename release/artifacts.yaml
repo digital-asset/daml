@@ -261,3 +261,4 @@
   type: jar-scala
 - target: //observability/akka-http-metrics:akka-http-metrics
   type: jar-scala
+

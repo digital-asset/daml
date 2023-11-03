@@ -212,10 +212,11 @@ object RunnerMain {
               )
             )
         connectApiParameters(config, params, envIface)
-      case ParticipantMode.RemoteParticipantHost(host, port) =>
+      case ParticipantMode.RemoteParticipantHost(host, port, oAdminPort) =>
         val params =
           Participants(
-            default_participant = Some(ApiParameters(host, port, token, config.applicationId)),
+            default_participant =
+              Some(ApiParameters(host, port, token, config.applicationId, oAdminPort)),
             participants = Map.empty,
             party_participants = Map.empty,
           )

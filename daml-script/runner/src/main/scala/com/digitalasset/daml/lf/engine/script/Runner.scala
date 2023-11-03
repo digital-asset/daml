@@ -28,6 +28,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   JsonLedgerClient,
   ScriptLedgerClient,
 }
+import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.language.Ast._
@@ -71,6 +72,7 @@ case class ApiParameters(
     port: Int,
     access_token: Option[String],
     application_id: Option[ApplicationId],
+    adminPort: Option[Int] = None,
 )
 case class Participants[+T](
     default_participant: Option[T],
@@ -173,7 +175,7 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
     }
     def write(id: ApplicationId) = JsString(ApplicationId.unwrap(id))
   }
-  implicit val apiParametersFormat = jsonFormat4(ApiParameters)
+  implicit val apiParametersFormat = jsonFormat5(ApiParameters)
   implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])
 }
 
@@ -271,7 +273,15 @@ object Runner {
     )
     LedgerClient
       .singleHost(params.host, params.port, clientConfig, clientChannelConfig)
-      .map(new GrpcLedgerClient(_, applicationId))
+      .map(
+        new GrpcLedgerClient(
+          _,
+          applicationId,
+          params.adminPort.map(p =>
+            AdminLedgerClient.singleHost(params.host, p, clientConfig.token, clientChannelConfig)
+          ),
+        )
+      )
   }
   // We might want to have one config per participant at some point but for now this should be sufficient.
   def connect(

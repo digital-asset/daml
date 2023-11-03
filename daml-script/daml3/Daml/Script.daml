@@ -86,6 +86,10 @@ module Daml.Script
   , unvetPackages
   , listVettedPackages
   , listAllPackages
+  , vetDar
+  , vetDarOnParticipant
+  , unvetDar
+  , unvetDarOnParticipant
   ) where
 
 import Daml.Script.Internal

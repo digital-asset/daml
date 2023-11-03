@@ -43,10 +43,11 @@ object CantonFixture {
 
   def freshParty(): Ref.Party = Ref.Party.assertFromString(freshName("Party"))
 
+  case class LedgerPorts(ledgerPort: Port, adminPort: Port)
 }
 
 trait CantonFixtureWithResource[A]
-    extends SuiteResource[(Vector[Port], A)]
+    extends SuiteResource[(Vector[CantonFixture.LedgerPorts], A)]
     with AkkaBeforeAndAfterAll
     with SuiteResourceManagementAroundAll {
   self: Suite =>
@@ -58,6 +59,7 @@ trait CantonFixtureWithResource[A]
   protected lazy val timeProviderType: TimeProviderType = TimeProviderType.WallClock
   protected lazy val tlsEnable: Boolean = false
   protected lazy val enableDisclosedContracts: Boolean = false
+  protected lazy val enableContractUpgrading: Boolean = false
   protected lazy val bootstrapScript: Option[String] = Option.empty
   protected lazy val applicationId: ApplicationId = ApplicationId(getClass.getName)
   protected lazy val cantonJar: Path = CantonRunner.cantonPath
@@ -81,12 +83,12 @@ trait CantonFixtureWithResource[A]
     super.afterAll()
   }
 
-  protected def makeAdditionalResource(ports: Vector[Port]): ResourceOwner[A]
+  protected def makeAdditionalResource(ports: Vector[CantonFixture.LedgerPorts]): ResourceOwner[A]
 
   final override protected lazy val suiteResource
-      : OwnedResource[ResourceContext, (Vector[Port], A)] = {
+      : OwnedResource[ResourceContext, (Vector[CantonFixture.LedgerPorts], A)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-    new OwnedResource[ResourceContext, (Vector[Port], A)](
+    new OwnedResource[ResourceContext, (Vector[CantonFixture.LedgerPorts], A)](
       for {
         ports <- CantonRunner.run(config, cantonTmpDir, logger, darFiles)
         additional <- makeAdditionalResource(ports)
@@ -106,6 +108,7 @@ trait CantonFixtureWithResource[A]
     debug = cantonFixtureDebugMode,
     enableDisclosedContracts = enableDisclosedContracts,
     bootstrapScript = bootstrapScript,
+    enableUpgrade = enableContractUpgrading,
   )
 
   protected def info(msg: String): Unit =
@@ -119,7 +122,8 @@ trait CantonFixtureWithResource[A]
     else
       com.daml.fs.Utils.deleteRecursively(cantonTmpDir)
 
-  final protected def ports: Vector[Port] = suiteResource.value._1
+  final protected def ports: Vector[Port] = suiteResource.value._1.map(_.ledgerPort)
+  final protected def ledgerPorts: Vector[CantonFixture.LedgerPorts] = suiteResource.value._1
   final protected def additional: A = suiteResource.value._2
 
   final protected def defaultLedgerClient(
@@ -144,7 +148,9 @@ trait CantonFixtureWithResource[A]
 
 trait CantonFixture extends CantonFixtureWithResource[Unit] {
   self: Suite =>
-  override protected def makeAdditionalResource(ports: Vector[Port]): ResourceOwner[Unit] =
+  override protected def makeAdditionalResource(
+      ports: Vector[CantonFixture.LedgerPorts]
+  ): ResourceOwner[Unit] =
     new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[Unit] =
         Resource(Future.successful(()))(Future.successful(_))

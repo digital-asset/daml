@@ -125,7 +125,7 @@ trait JsonApiFixture
     new OwnedResource[ResourceContext, (Port, ServerBinding)](
       for {
         ports <- CantonRunner.run(config, tmpDir, logger, darFiles)
-        serverPort = ports.head
+        serverPort = ports.head.ledgerPort
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
             implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(identity(_))

@@ -7,7 +7,8 @@ import java.io.File
 
 sealed abstract class ParticipantMode extends Product with Serializable
 object ParticipantMode {
-  final case class RemoteParticipantHost(host: String, port: Int) extends ParticipantMode
+  final case class RemoteParticipantHost(host: String, port: Int, adminPort: Option[Int] = None)
+      extends ParticipantMode
   final case class RemoteParticipantConfig(file: File) extends ParticipantMode
   final case class IdeLedgerParticipant() extends ParticipantMode
 }
