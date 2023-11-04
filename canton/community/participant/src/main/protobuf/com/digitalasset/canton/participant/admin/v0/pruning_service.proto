@@ -34,6 +34,9 @@ service PruningService {
   //   or if invoked on a participant running the Community Edition.
   rpc SetSchedule(com.digitalasset.canton.pruning.admin.v0.SetSchedule.Request) returns (com.digitalasset.canton.pruning.admin.v0.SetSchedule.Response);
 
+  // Enable automatic pruning with participant-specific schedule parameters.
+  rpc SetParticipantSchedule(com.digitalasset.canton.pruning.admin.v0.SetParticipantSchedule.Request) returns (com.digitalasset.canton.pruning.admin.v0.SetParticipantSchedule.Response);
+
   // Modify individual pruning schedule parameters.
   // - ``INVALID_ARGUMENT``: if the payload is malformed or no schedule is configured
   rpc SetCron(com.digitalasset.canton.pruning.admin.v0.SetCron.Request) returns (com.digitalasset.canton.pruning.admin.v0.SetCron.Response);
@@ -45,6 +48,9 @@ service PruningService {
 
   // Retrieve the automatic pruning configuration.
   rpc GetSchedule(com.digitalasset.canton.pruning.admin.v0.GetSchedule.Request) returns (com.digitalasset.canton.pruning.admin.v0.GetSchedule.Response);
+
+  // Retrieve the automatic, participant-specific pruning configuration.
+  rpc GetParticipantSchedule(com.digitalasset.canton.pruning.admin.v0.GetParticipantSchedule.Request) returns (com.digitalasset.canton.pruning.admin.v0.GetParticipantSchedule.Response);
 }
 
 message PruneRequest {

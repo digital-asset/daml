@@ -70,7 +70,7 @@ object GrpcParticipantRepairService {
     private def validateProtocolVersion(
         protocolVersion: String
     ): Either[String, Option[ProtocolVersion]] =
-      OptionUtil.emptyStringAsNone(protocolVersion).traverse(ProtocolVersion.create)
+      OptionUtil.emptyStringAsNone(protocolVersion).traverse(ProtocolVersion.create(_))
 
     private def validateContractDomainRenames(
         contractDomainRenames: Map[String, String]

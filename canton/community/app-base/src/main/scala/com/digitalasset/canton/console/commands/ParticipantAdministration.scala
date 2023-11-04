@@ -8,6 +8,10 @@ import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Pruning.{
+  GetParticipantScheduleCommand,
+  SetParticipantScheduleCommand,
+}
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Resources.{
   GetResourceLimits,
   SetResourceLimits,
@@ -18,7 +22,11 @@ import com.digitalasset.canton.admin.api.client.commands.{
   ParticipantAdminCommands,
   PruningSchedulerCommands,
 }
-import com.digitalasset.canton.admin.api.client.data.{DarMetadata, ListConnectedDomainsResult}
+import com.digitalasset.canton.admin.api.client.data.{
+  DarMetadata,
+  ListConnectedDomainsResult,
+  ParticipantPruningSchedule,
+}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.{
@@ -71,7 +79,13 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.{DiscardOps, DomainAlias, LedgerApplicationId, SequencerAlias}
+import com.digitalasset.canton.{
+  DiscardOps,
+  DomainAlias,
+  LedgerApplicationId,
+  SequencerAlias,
+  config,
+}
 
 import java.time.Instant
 import java.util.UUID
@@ -577,6 +591,46 @@ class ParticipantPruningAdministrationGroup(
         adminCommand(ParticipantAdminCommands.Pruning.PruneInternallyCommand(pruneUpTo))
       )
     }
+
+  @Help.Summary(
+    "Activate automatic pruning according to the specified schedule with participant-specific options."
+  )
+  @Help.Description(
+    """Refer to the ``set_schedule`` description for information about the "cron", "max_duration", and "retention"
+      |parameters. Setting the "prune_internally_only" flag causes pruning to only remove internal state as described in
+      |more detail in the ``prune_internally`` command description.
+  """
+  )
+  def set_participant_schedule(
+      cron: String,
+      maxDuration: config.PositiveDurationSeconds,
+      retention: config.PositiveDurationSeconds,
+      pruneInternallyOnly: Boolean = false,
+  ): Unit =
+    check(FeatureFlag.Preview) {
+      consoleEnvironment.run(
+        runner.adminCommand(
+          SetParticipantScheduleCommand(
+            cron,
+            maxDuration,
+            retention,
+            pruneInternallyOnly,
+          )
+        )
+      )
+    }
+
+  @Help.Summary("Inspect the automatic, participant-specific pruning schedule.")
+  @Help.Description(
+    """The schedule consists of a "cron" expression and "max_duration" and "retention" durations as described in the
+      |``get_schedule`` command description. Additionally "prune_internally" indicates if the schedule mandates
+      |pruning of internal state.
+  """
+  )
+  def get_participant_schedule(): Option[ParticipantPruningSchedule] =
+    consoleEnvironment.run(
+      runner.adminCommand(GetParticipantScheduleCommand())
+    )
 
   @Help.Summary(
     "Identify the participant ledger offset to prune up to based on the specified timestamp."

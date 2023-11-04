@@ -30,7 +30,10 @@ import com.digitalasset.canton.participant.config.{LocalParticipantConfig, Party
 import com.digitalasset.canton.participant.domain.DomainAliasResolution
 import com.digitalasset.canton.participant.ledger.api.*
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
-import com.digitalasset.canton.participant.scheduler.ParticipantSchedulersParameters
+import com.digitalasset.canton.participant.scheduler.{
+  ParticipantSchedulersParameters,
+  SchedulersWithParticipantPruning,
+}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.{
   CantonSyncService,
@@ -41,7 +44,6 @@ import com.digitalasset.canton.participant.sync.{
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.resource.*
-import com.digitalasset.canton.scheduler.SchedulersWithPruning
 import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig}
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.Clock
@@ -77,8 +79,8 @@ class ParticipantNodeBootstrapX(
     ) => Unit,
     resourceManagementServiceFactory: Eval[ParticipantSettingsStore] => ResourceManagementService,
     replicationServiceFactory: Storage => ServerServiceDefinition,
-    createSchedulers: ParticipantSchedulersParameters => Future[SchedulersWithPruning] = _ =>
-      Future.successful(SchedulersWithPruning.noop),
+    createSchedulers: ParticipantSchedulersParameters => Future[SchedulersWithParticipantPruning] =
+      _ => Future.successful(SchedulersWithParticipantPruning.noop),
     private[canton] val persistentStateFactory: ParticipantNodePersistentStateFactory,
     ledgerApiServerFactory: CantonLedgerApiServerFactory,
     skipRecipientsCheck: Boolean,
@@ -410,7 +412,7 @@ class ParticipantNodeX(
     val adminToken: CantonAdminToken,
     val recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
     val replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
-    val schedulers: SchedulersWithPruning,
+    val schedulers: SchedulersWithParticipantPruning,
     val loggerFactory: NamedLoggerFactory,
     healthData: => Seq[ComponentStatus],
 ) extends ParticipantNodeCommon(sync) {

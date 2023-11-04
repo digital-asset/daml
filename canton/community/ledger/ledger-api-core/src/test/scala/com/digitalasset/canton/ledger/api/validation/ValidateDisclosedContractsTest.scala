@@ -64,7 +64,7 @@ class ValidateDisclosedContractsTest
       request = disabledValidateDisclosedContracts(api.protoCommands),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field disclosed_contracts: feature in development: disclosed_contracts should not be set",
+        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field disclosed_contracts: feature disabled: disclosed_contracts should not be set",
       metadata = Map.empty,
     )
   }

@@ -3,24 +3,55 @@
 
 package com.digitalasset.canton.util
 
+import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.logging.ErrorLoggingContext
 
 import scala.annotation.tailrec
+import scala.collection.{IterableOps, immutable}
 import scala.concurrent.{ExecutionContext, Future}
 
 object IterableUtil {
 
   /** Split an iterable into a lazy Stream of consecutive elements with the same value of `f(element)`.
     */
-  def spansBy[A, B](iterable: Iterable[A])(f: A => B): LazyList[(B, Iterable[A])] = {
-    iterable.headOption match {
-      case None => LazyList.empty
-      case Some(x) =>
-        val (first, rest) = iterable.span(f(_) == f(x))
-        (f(x) -> first) #:: spansBy(rest)(f)
+  def spansBy[A, CC[X] <: immutable.Iterable[X], C, B](
+      iterable: IterableOps[A, CC, C & immutable.Iterable[A]]
+  )(f: A => B): LazyList[(B, NonEmpty[CC[A]])] = {
+    val iterator = iterable.iterator
+
+    def peek(): Option[(A, B)] =
+      Option.when(iterator.hasNext) {
+        val a = iterator.next()
+        val b = f(a)
+        a -> b
+      }
+
+    def generateBlocks(state: Option[(A, B)]): LazyList[(B, NonEmpty[CC[A]])] = {
+      state match {
+        case Some((head, b)) =>
+          val blockBuilder = iterable.iterableFactory.newBuilder[A]
+          blockBuilder.addOne(head)
+
+          @tailrec
+          def addAllSame(): Option[(A, B)] = {
+            peek() match {
+              case Some((next, bNext)) if b == bNext =>
+                blockBuilder.addOne(next)
+                addAllSame()
+              case peeked => peeked
+            }
+          }
+
+          val stateForNextBlock = addAllSame()
+          (b -> NonEmptyUtil.fromUnsafe(blockBuilder.result())) #::
+            generateBlocks(stateForNextBlock)
+        case None => LazyList.empty
+      }
     }
+
+    generateBlocks(peek())
   }
 
   /** Returns the zipping of `elems` with `seq` where members `y` of `seq` are skipped if `!by(x, y)`

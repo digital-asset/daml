@@ -211,7 +211,7 @@ message RegisterTopologyTransactionResponse {
     enum State {
       MISSING_STATE = 0;
       // requested transaction has been stored with the domain, for the domain operator to inspect and decide
-      // TODO(#9014) remove once we move to 3.0
+      // TODO(#15223) remove once we move to 3.0
       REQUESTED = 1;
       // the request failed with an error message
       FAILED = 2;

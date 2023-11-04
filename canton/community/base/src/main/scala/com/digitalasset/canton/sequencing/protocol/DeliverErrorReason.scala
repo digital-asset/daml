@@ -9,7 +9,7 @@ import com.digitalasset.canton.protocol.v0
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.google.rpc.status.Status
 
-// TODO(#9014): Remove for 3.0
+// TODO(#15153): Remove the sealed trait and kids
 /** Why was the sequencer unable to sequence the requested send */
 sealed trait DeliverErrorReason extends PrettyPrinting {
 

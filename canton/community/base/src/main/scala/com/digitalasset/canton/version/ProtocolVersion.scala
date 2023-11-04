@@ -171,8 +171,16 @@ object ProtocolVersion {
     }
   }
 
-  private[version] def unsupportedErrorMessage(pv: ProtocolVersion) =
-    s"Protocol version $pv is not supported. The supported versions are ${stableAndSupported.map(_.toString).mkString(", ")}."
+  private[version] def unsupportedErrorMessage(pv: ProtocolVersion, includeDeleted: Boolean) = {
+    val supportedStablePVs = stableAndSupported.map(_.toString)
+
+    val supportedPVs: NonEmpty[List[String]] = if (includeDeleted) {
+      val deletedPVs = deleted.map(pv => s"(${pv.toString})")
+      supportedStablePVs ++ deletedPVs
+    } else supportedStablePVs
+
+    s"Protocol version $pv is not supported. The supported versions are ${supportedPVs.mkString(", ")}."
+  }
 
   /** Parse a given raw version string into a [[ProtocolVersion]] without any further validation, i.e. it allows to
     * create invalid and unsupported [[ProtocolVersion]]!
@@ -196,11 +204,22 @@ object ProtocolVersion {
   }
 
   /** Creates a [[ProtocolVersion]] from the given raw version value and ensures that it is a supported version.
+    * @param rawVersion   String to be parsed.
+    * @param allowDeleted If true, don't fail if `rawVersion` corresponds to a deleted protocol version.
+    *                     This should only be used when parsing a version that does not correspond to the one
+    *                     running on the domain. One such example is the minimum supported protocol version from
+    *                     a participant.
+    * @return
     */
-  def create(rawVersion: String): Either[String, ProtocolVersion] =
-    parseUnchecked(rawVersion).flatMap(pv =>
-      Either.cond(pv.isSupported, pv, unsupportedErrorMessage(pv))
-    )
+  def create(
+      rawVersion: String,
+      allowDeleted: Boolean = false,
+  ): Either[String, ProtocolVersion] =
+    parseUnchecked(rawVersion).flatMap { pv =>
+      val isSupported = pv.isSupported || (allowDeleted && pv.isDeleted)
+
+      Either.cond(isSupported, pv, unsupportedErrorMessage(pv, includeDeleted = allowDeleted))
+    }
 
   /** Like [[create]] ensures a supported protocol version; but throws a runtime exception for errors.
     */
@@ -210,7 +229,7 @@ object ProtocolVersion {
     */
   def fromProtoPrimitive(rawVersion: Int): ParsingResult[ProtocolVersion] = {
     val pv = ProtocolVersion(rawVersion)
-    Either.cond(pv.isSupported, pv, OtherError(unsupportedErrorMessage(pv)))
+    Either.cond(pv.isSupported, pv, OtherError(unsupportedErrorMessage(pv, includeDeleted = false)))
   }
 
   /** Like [[create]] ensures a supported protocol version; tailored to (de-)serialization purposes.

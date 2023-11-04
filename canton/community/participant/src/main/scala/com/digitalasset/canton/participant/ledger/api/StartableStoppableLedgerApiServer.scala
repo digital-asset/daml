@@ -323,7 +323,7 @@ class StartableStoppableLedgerApiServer(
         jwtTimestampLeeway =
           config.cantonParameterConfig.ledgerApiServerParameters.jwtTimestampLeeway,
         meteringReportKey = config.meteringReportKey,
-        explicitDisclosureUnsafeEnabled = config.serverConfig.explicitDisclosureUnsafe,
+        enableExplicitDisclosure = config.serverConfig.enableExplicitDisclosure,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
         multiDomainEnabled = multiDomainEnabled,
@@ -418,7 +418,7 @@ class StartableStoppableLedgerApiServer(
       maxDeduplicationDurationEnforced = false,
     ),
     explicitDisclosure =
-      ExperimentalExplicitDisclosure.of(config.serverConfig.explicitDisclosureUnsafe),
+      ExperimentalExplicitDisclosure.of(config.serverConfig.enableExplicitDisclosure),
   )
 
   private def startHttpApiIfEnabled: ResourceOwner[Unit] =

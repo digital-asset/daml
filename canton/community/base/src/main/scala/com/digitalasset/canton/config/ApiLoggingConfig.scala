@@ -21,7 +21,7 @@ import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
   * @param warnBeyondLoad If API logging is turned on, emit a warning on each request if the load exceeds this threshold.
   */
 final case class ApiLoggingConfig(
-    // TODO(i9014) change to boolean (breaking change)
+    // TODO(#15221) change to boolean (breaking change)
     messagePayloads: Option[Boolean] = None,
     maxMethodLength: Int = ApiLoggingConfig.defaultMaxMethodLength,
     maxMessageLines: Int = ApiLoggingConfig.defaultMaxMessageLines,

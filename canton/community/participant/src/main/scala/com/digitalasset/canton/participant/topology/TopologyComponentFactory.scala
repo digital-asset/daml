@@ -73,7 +73,7 @@ trait TopologyComponentFactory {
       topologyClient: DomainTopologyClientWithInit,
       // this is the client above, wrapped with some crypto methods, but only the base client is accessible, so we
       // need to pass both.
-      // TODO(#9014) remove me with 3.0
+      // TODO(#15208) remove me with 3.0
       syncCrypto: DomainSyncCryptoClient,
       trafficStateController: TrafficStateController,
       protocolVersion: ProtocolVersion,

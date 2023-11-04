@@ -48,7 +48,10 @@ import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapp
 }
 import com.digitalasset.canton.participant.ledger.api.*
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
-import com.digitalasset.canton.participant.scheduler.ParticipantSchedulersParameters
+import com.digitalasset.canton.participant.scheduler.{
+  ParticipantSchedulersParameters,
+  SchedulersWithParticipantPruning,
+}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.topology.{
@@ -59,7 +62,6 @@ import com.digitalasset.canton.participant.topology.{
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
 import com.digitalasset.canton.resource.Storage
-import com.digitalasset.canton.scheduler.SchedulersWithPruning
 import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig, SequencerClient}
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.EnrichedDurations.*
@@ -243,7 +245,7 @@ trait ParticipantNodeBootstrapCommon {
       ) => Unit,
       resourceManagementServiceFactory: Eval[ParticipantSettingsStore] => ResourceManagementService,
       replicationServiceFactory: Storage => ServerServiceDefinition,
-      createSchedulers: ParticipantSchedulersParameters => Future[SchedulersWithPruning],
+      createSchedulers: ParticipantSchedulersParameters => Future[SchedulersWithParticipantPruning],
       createPartyNotifierAndSubscribe: ParticipantEventPublisher => LedgerServerPartyNotifier,
       adminToken: CantonAdminToken,
       topologyManager: ParticipantTopologyManagerOps,
@@ -260,7 +262,7 @@ trait ParticipantNodeBootstrapCommon {
         ParticipantNodeEphemeralState,
         LedgerApiServerState,
         StartableStoppableLedgerApiDependentServices,
-        SchedulersWithPruning,
+        SchedulersWithParticipantPruning,
         ParticipantTopologyDispatcherCommon,
     ),
   ] = {
@@ -457,6 +459,7 @@ trait ParticipantNodeBootstrapCommon {
       )
 
       _ = {
+        schedulers.setPruningProcessor(sync.pruningProcessor)
         setPostInitCallbacks(sync)
         syncDomainHealth.set(sync.syncDomainHealth)
         syncDomainEphemeralHealth.set(sync.ephemeralHealth)
@@ -560,7 +563,11 @@ trait ParticipantNodeBootstrapCommon {
       adminServerRegistry
         .addServiceU(
           PruningServiceGrpc.bindService(
-            new GrpcPruningService(sync, () => schedulers.getPruningScheduler, loggerFactory),
+            new GrpcPruningService(
+              sync,
+              () => schedulers.getPruningScheduler(loggerFactory),
+              loggerFactory,
+            ),
             executionContext,
           )
         )

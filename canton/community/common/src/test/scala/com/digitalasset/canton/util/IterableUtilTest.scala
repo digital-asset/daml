@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.util
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.util.IterableUtilTest.CompareOnlyFirst
 import org.scalatest.wordspec.AnyWordSpec
@@ -20,6 +21,12 @@ class IterableUtilTest extends AnyWordSpec with BaseTest {
         (4, List(5)),
         (5, List(6, 7)),
       )
+    }
+
+    "run in linear time" in {
+      val size = 100000
+      IterableUtil.spansBy((1 to size).toVector)(_ % 2 == 0).map(_._2) shouldBe
+        (1 to size).map(NonEmpty(Seq, _))
     }
   }
 

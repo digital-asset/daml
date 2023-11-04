@@ -8,7 +8,7 @@ import com.digitalasset.canton.topology.PartyId
 
 /*
   Allows backward compatibility for user scripts
-  TODO(#9014) Remove this object
+  TODO(#14441) Remove this object
  */
 object SerializableContractWithWitnesses {
   def apply(contract: SerializableContract, witnesses: Set[PartyId]): RepairContract =

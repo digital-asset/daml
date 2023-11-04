@@ -115,7 +115,7 @@ package object protocol {
     versions.reduceLeft[LfTransactionVersion](LfTransactionVersion.Ordering.max)
 
   // Enables backward-compatibility so that existing repair scripts do not break
-  // TODO(#9014): Catch-all issue to track backwards compatible changes that can be removed with 3.0
+  // TODO(#14441): Remove this alias
   type SerializableContractWithWitnesses = RepairContract
 
 }

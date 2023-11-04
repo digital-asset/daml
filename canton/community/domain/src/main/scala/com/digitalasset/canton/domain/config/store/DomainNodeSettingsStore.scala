@@ -42,7 +42,7 @@ object DomainNodeSettingsStore {
 }
 
 class DbDomainNodeSettingsStore(
-    // TODO(#9014) remove me once we can be sure that static domain parameters are persisted
+    // TODO(#15153) remove me once we can be sure that static domain parameters are persisted
     staticDomainParametersFromConfig: StaticDomainParameters,
     resetToConfig: Boolean,
     override protected val storage: DbStorage,
@@ -60,7 +60,7 @@ class DbDomainNodeSettingsStore(
   private val singleRowLockValue: String1 = String1.fromChar('X')
 
   // reset configuration
-  // TODO(#9014) necessary for upgrading to 2.5. remove with 3.0
+  // TODO(#15153) necessary for upgrading to 2.5. remove with 3.0
   {
     import TraceContext.Implicits.Empty.*
     fixPreviousSettings(resetToConfig, timeouts.unbounded) { _ =>

@@ -342,7 +342,7 @@ final case class TransferInView private (
     creatingTransactionId: TransactionId,
     transferOutResultEvent: DeliveredTransferOutResult,
     sourceProtocolVersion: SourceProtocolVersion,
-    // TODO(#9014) Remove the option
+    // TODO(#15179) Remove the option
     transferCounter: TransferCounterO,
 )(
     hashOps: HashOps,

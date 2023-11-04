@@ -57,7 +57,7 @@ trait LocalNodeConfig extends NodeConfig {
   def topologyX: TopologyXConfig
 
   /** Various cache sizes */
-  // TODO(#9014) move into parameters
+  // TODO(#15221) move into parameters
   def caching: CachingConfigs
 
   def parameters: LocalNodeParametersConfig

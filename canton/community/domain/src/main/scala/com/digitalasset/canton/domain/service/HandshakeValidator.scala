@@ -22,8 +22,11 @@ class HandshakeValidator(
       minClientVersionP: Option[String],
   ): Either[String, Unit] = {
     for {
-      clientVersions <- clientVersionsP.traverse(ProtocolVersion.create)
-      minClientVersion <- minClientVersionP.traverse(ProtocolVersion.create)
+      // Client may mention a deleted protocol version, which is fine. The actual version will be the one of the domain
+      clientVersions <- clientVersionsP.traverse(ProtocolVersion.create(_, allowDeleted = true))
+      minClientVersion <- minClientVersionP.traverse(
+        ProtocolVersion.create(_, allowDeleted = true)
+      )
       _ <- ProtocolVersionCompatibility
         .canClientConnectToServer(clientVersions, serverVersion, minClientVersion)
         .leftMap(_.description)

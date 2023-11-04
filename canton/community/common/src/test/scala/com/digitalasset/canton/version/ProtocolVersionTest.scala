@@ -63,48 +63,54 @@ class ProtocolVersionTest extends AnyWordSpec with BaseTest {
 
     "fail parsing version string with create" in {
       ProtocolVersion.create(invalidProtocolVersionNumber.toString).left.value should be(
-        unsupportedErrorMessage(invalidProtocolVersion)
+        unsupportedErrorMessage(invalidProtocolVersion, includeDeleted = false)
       )
     }
 
     "parse version string with tryCreate" in {
-      ProtocolVersion.supported.foreach(supported => {
+      ProtocolVersion.supported.foreach { supported =>
         ProtocolVersion.tryCreate(supported.toString) shouldBe supported
-      })
+      }
     }
 
     "fail parsing version string with tryCreate" in {
       the[RuntimeException] thrownBy {
         ProtocolVersion.tryCreate(invalidProtocolVersionNumber.toString)
-      } should have message unsupportedErrorMessage(invalidProtocolVersion)
+      } should have message unsupportedErrorMessage(invalidProtocolVersion, includeDeleted = false)
     }
 
     "parse version string with fromProtoPrimitiveS" in {
-      ProtocolVersion.supported.foreach(supported => {
+      ProtocolVersion.supported.foreach { supported =>
         val result = ProtocolVersion.fromProtoPrimitiveS(supported.toString)
         result shouldBe a[ParsingResult[?]]
         result.value shouldBe supported
-      })
+      }
     }
 
     "fail parsing version string with fromProtoPrimitiveS" in {
       val result = ProtocolVersion.fromProtoPrimitiveS(invalidProtocolVersionNumber.toString)
       result shouldBe a[ParsingResult[?]]
-      result.left.value should have message unsupportedErrorMessage(invalidProtocolVersion)
+      result.left.value should have message unsupportedErrorMessage(
+        invalidProtocolVersion,
+        includeDeleted = false,
+      )
     }
 
     "parse version string with fromProtoPrimitive" in {
-      ProtocolVersion.supported.foreach(supported => {
+      ProtocolVersion.supported.foreach { supported =>
         val result = ProtocolVersion.fromProtoPrimitive(supported.toProtoPrimitive)
         result shouldBe a[ParsingResult[?]]
         result.value shouldBe supported
-      })
+      }
     }
 
     "fail parsing version string fromProtoPrimitive" in {
       val result = ProtocolVersion.fromProtoPrimitive(invalidProtocolVersionNumber)
       result shouldBe a[ParsingResult[?]]
-      result.left.value should have message unsupportedErrorMessage(invalidProtocolVersion)
+      result.left.value should have message unsupportedErrorMessage(
+        invalidProtocolVersion,
+        includeDeleted = false,
+      )
     }
 
   }

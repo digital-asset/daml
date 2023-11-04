@@ -70,7 +70,7 @@ trait DbTopologyStoreTest extends TopologyStoreTest {
     behave like topologyStore(() => createTopologyStore())
   }
 
-  // TODO(i9014) remove once we've deprecated this in 3.0
+  // TODO(#15208) remove once we've deprecated this in 3.0
   "backfill legacy topology transactions sequencing times" in {
     val store = createTopologyStore(DomainStore(DefaultTestIdentities.domainId))
     val owner = new TestingOwnerWithKeys(

@@ -34,11 +34,11 @@ trait PruningScheduler extends Scheduler {
       traceContext: TraceContext
   ): EitherT[Future, String, Unit]
 
-  def setScheduleWithRetention(schedule: PruningSchedule)(implicit
+  def setSchedule(schedule: PruningSchedule)(implicit
       traceContext: TraceContext
   ): Future[Unit]
 
-  def getScheduleWithRetention()(implicit
+  def getSchedule()(implicit
       traceContext: TraceContext
   ): Future[Option[PruningSchedule]]
 

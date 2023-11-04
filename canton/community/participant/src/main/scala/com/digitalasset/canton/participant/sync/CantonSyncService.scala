@@ -142,7 +142,7 @@ class CantonSyncService(
     identityPusher: ParticipantTopologyDispatcherCommon,
     partyNotifier: LedgerServerPartyNotifier,
     val syncCrypto: SyncCryptoApiProvider,
-    pruningProcessor: PruningProcessor,
+    val pruningProcessor: PruningProcessor,
     engine: Engine,
     syncDomainStateFactory: SyncDomainEphemeralStateFactory,
     clock: Clock,
