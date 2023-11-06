@@ -51,7 +51,6 @@ final case class CantonConfig(
     timeProviderType: TimeProviderType = TimeProviderType.WallClock,
     tlsEnable: Boolean = false,
     debug: Boolean = false,
-    enableDisclosedContracts: Boolean = false,
     bootstrapScript: Option[String] = None,
     enableUpgrade: Boolean = false,
 ) {

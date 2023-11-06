@@ -162,7 +162,6 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       nParticipants = 1,
       timeProviderType = TimeProviderType.WallClock,
       debug = false,
-      enableDisclosedContracts = false,
       bootstrapScript = None,
     )
     val logger = org.slf4j.LoggerFactory.getLogger(getClass)
