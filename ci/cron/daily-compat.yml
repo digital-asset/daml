@@ -173,7 +173,7 @@ jobs:
                                        --project daml
           fi
 
-  - job: update_canton_sources
+  - job: update_canton
     timeoutInMinutes: 60
     pool:
       name: ubuntu_20_04
@@ -198,6 +198,8 @@ jobs:
 
         git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton $tmp
 
+        ### code drop ###
+
         for path in community daml-common-staging README.md; do
           src=$tmp/$path
           dst=canton/$path
@@ -207,47 +209,7 @@ jobs:
           git add $dst
         done
 
-        canton_sha=$(git -C $tmp rev-parse HEAD)
-        branch="canton-update-${canton_sha}"
-
-        if git diff --exit-code origin/main -- canton >/dev/null; then
-            echo "Already up-to-date with latest Canton source."
-        else
-            if [ "main" = "$(Build.SourceBranchName)" ]; then
-                open_pr "$branch" "update canton to ${canton_sha:0:8}"
-                az extension add --name azure-devops
-                trap "az devops logout" EXIT
-                echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
-                az pipelines build queue --branch "$branch" \
-                                         --definition-name "PRs" \
-                                         --org "https://dev.azure.com/digitalasset" \
-                                         --project daml
-            else
-                echo "Would open PR if this were running on main."
-            fi
-        fi
-      env:
-        GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
-
-  - job: bump_canton
-    timeoutInMinutes: 60
-    pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
-    steps:
-    - checkout: self
-      persistCredentials: true
-    - template: ../bash-lib.yml
-      parameters:
-        var_name: bash_lib
-    - bash: |
-        set -euo pipefail
-
-        eval "$(./dev-env/bin/dade-assist)"
-        source $(bash_lib)
-
-        git fetch
-        git checkout origin/main
+        ### update binaries ###
 
         canton_version=$(curl -u $AUTH \
                               --fail \
@@ -304,15 +266,16 @@ jobs:
 
         rm -f arbitrary_canton_sha
 
-        branch="canton-update-$canton_version"
+        ### create PR ###
 
-        if git diff --exit-code -- canton_dep.bzl build.sh arbitrary_canton_sha test-common/canton/BUILD.bazel; then
-            echo "Already up-to-date with latest Canton snapshot."
+        canton_sha=$(git -C $tmp rev-parse HEAD)
+        branch="canton-update-${canton_sha}"
+
+        if git diff --exit-code origin/main -- canton >/dev/null; then
+            echo "Already up-to-date with latest Canton source."
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
-                git add canton_dep.bzl build.sh test-common/canton/BUILD.bazel
-                git ls-files | grep arbitrary_canton_sha >&2 && git rm -f arbitrary_canton_sha
-                open_pr "$branch" "bump canton to $canton_version"
+                open_pr "$branch" "update canton to ${canton_sha:0:8}"
                 az extension add --name azure-devops
                 trap "az devops logout" EXIT
                 echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
@@ -325,6 +288,7 @@ jobs:
             fi
         fi
       env:
+        GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
         GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
