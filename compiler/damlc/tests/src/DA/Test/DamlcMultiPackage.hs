@@ -24,11 +24,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Text.Regex.TDFA
 
-main :: IO ()
-main = do
-  damlAssistant <- locateRunfiles (mainWorkspace </> "daml-assistant" </> exe "daml")
-  defaultMain $ tests damlAssistant
-
+-- Abstraction over the folder structure of a project, consisting of many packages.
 data ProjectStructure
   = DamlYaml
       { dyName :: T.Text
@@ -63,188 +59,17 @@ data PackageIdentifier = PackageIdentifier
 instance Show PackageIdentifier where
   show pi = T.unpack (piName pi) <> "-" <> T.unpack (piVersion pi)
 
-simpleTwoPackageProject :: [ProjectStructure]
-simpleTwoPackageProject =
-  [ MultiPackage ["./package-a", "./package-b"] []
-  , Dir "package-a"
-    [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing []
-    , Dir "daml" [DamlSource "PackageAMain" []]
-    ]
-  , Dir "package-b"
-    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
-    , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
-    ]
-  ]
-
--- B and C depend on A, D depends on B and C
-diamondProject :: [ProjectStructure]
-diamondProject =
-  [ MultiPackage ["./package-a", "./package-b", "./package-c", "./package-d"] []
-  , Dir "package-a"
-    [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing []
-    , Dir "daml" [DamlSource "PackageAMain" []]
-    ]
-  , Dir "package-b"
-    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
-    , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
-    ]
-  , Dir "package-c"
-    [ DamlYaml "package-c" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
-    , Dir "daml" [DamlSource "PackageCMain" ["PackageAMain"]]
-    ]
-  , Dir "package-d"
-    [ DamlYaml "package-d" "0.0.1" Nothing "daml" Nothing ["../package-b/.daml/dist/package-b-0.0.1.dar", "../package-c/.daml/dist/package-c-0.0.1.dar"]
-    , Dir "daml" [DamlSource "PackageDMain" ["PackageBMain", "PackageCMain"]]
-    ]
-  ]
-
-multiProject :: [ProjectStructure]
-multiProject =
-  [ Dir "libs"
-    [ MultiPackage ["./lib-a", "./lib-b"] []
-    , Dir "lib-a"
-      [ DamlYaml "lib-a" "0.0.1" Nothing "daml" Nothing []
-      , Dir "daml" [DamlSource "LibAMain" []]
-      ]
-    , Dir "lib-b"
-      [ DamlYaml "lib-b" "0.0.1" Nothing "daml" Nothing ["../lib-a/.daml/dist/lib-a-0.0.1.dar"]
-      , Dir "daml" [DamlSource "LibBMain" ["LibAMain"]]
-      ]
-    ]
-  , Dir "packages"
-    [ MultiPackage ["./package-a", "./package-b"] ["../libs"]
-    , Dir "package-a"
-      [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing ["../../libs/lib-b/.daml/dist/lib-b-0.0.1.dar"]
-      , Dir "daml" [DamlSource "PackageAMain" ["LibBMain"]]
-      ]
-    , Dir "package-b"
-      [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
-      , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
-      ]
-    ]
-  ]
-
-cyclicMultiPackage :: [ProjectStructure]
-cyclicMultiPackage =
-  [ Dir "libs"
-    [ MultiPackage ["./lib-a"] ["../packages"]
-    , Dir "lib-a"
-      [ DamlYaml "lib-a" "0.0.1" Nothing "daml" Nothing []
-      , Dir "daml" [DamlSource "LibAMain" []]
-      ]
-    ]
-  , Dir "packages"
-    [ MultiPackage ["./package-a"] ["../libs"]
-    , Dir "package-a"
-      [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing ["../../libs/lib-a/.daml/dist/lib-a-0.0.1.dar"]
-      , Dir "daml" [DamlSource "PackageAMain" ["LibAMain"]]
-      ]
-    ]
-  ]
-
-cyclicPackagesProject :: [ProjectStructure]
-cyclicPackagesProject =
-  [ MultiPackage ["./package-a", "./package-b"] []
-  , Dir "package-a"
-    [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing ["../package-b/.daml/dist/package-b-0.0.1.dar"]
-    , Dir "daml" [DamlSource "PackageAMain" ["PackageBMain"]]
-    ]
-  , Dir "package-b"
-    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
-    , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
-    ]
-  ]
-
-customOutPathProject :: [ProjectStructure]
-customOutPathProject =
-  [ MultiPackage ["./package-a", "./package-b"] []
-  , Dir "package-a"
-    [ DamlYaml "package-a" "0.0.1" Nothing "daml" (Just "../package-a.dar") []
-    , Dir "daml" [DamlSource "PackageAMain" []]
-    ]
-  , Dir "package-b"
-    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a.dar"]
-    , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
-    ]
-  ]
-
--- Project where both packages throw warnings, used to detect flag forwarding via -werror
-warningProject :: [ProjectStructure]
-warningProject =
-  [ MultiPackage ["./package-a", "./package-b"] []
-  , Dir "package-a"
-    [ DamlYaml "package-a" "0.0.1" Nothing "daml" (Just "../package-a.dar") []
-    , Dir "daml" [GenericFile "PackageAMain.daml" $ "module PackageAMain where\n" <> warnText]
-    ]
-  , Dir "package-b"
-    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a.dar"]
-    , Dir "daml" [GenericFile "PackageBMain.daml" $ "module PackageBMain where\nimport PackageAMain ()\n" <> warnText]
-    ]
-  ]
-  where
-    -- Gives a non-exhaustive case warning
-    warnText = "x = case True of True -> True"
-
--- Same name but different version project
-sameNameDifferentVersionProject :: [ProjectStructure]
-sameNameDifferentVersionProject =
-  [ MultiPackage ["./package-v1", "./package-v2"] []
-  , Dir "package-v1"
-    [ DamlYaml "package" "0.0.1" Nothing "daml" Nothing []
-    , Dir "daml" [DamlSource "PackageV1Main" []]
-    ]
-  , Dir "package-v2"
-    [ DamlYaml "package" "0.0.2" Nothing "daml" Nothing ["../package-v1/.daml/dist/package-0.0.1.dar"]
-    , Dir "daml" [DamlSource "PackageV2Main" ["PackageV1Main"]]
-    ]
-  ]
-
--- Same name and same version project - illegal dependency
-sameNameSameVersionProject :: [ProjectStructure]
-sameNameSameVersionProject =
-  [ MultiPackage ["./package-v1", "./package-v1-again"] []
-  , Dir "package-v1"
-    [ DamlYaml "package" "0.0.1" Nothing "daml" Nothing []
-    , Dir "daml" [DamlSource "PackageV1Main" []]
-    ]
-  , Dir "package-v1-again"
-    [ DamlYaml "package" "0.0.1" Nothing "daml" Nothing ["../package-v1/.daml/dist/package-0.0.1.dar"]
-    , Dir "daml" [DamlSource "PackageV1MainSequel" ["PackageV1Main"]]
-    ]
-  ]
-
-{- Cases to test
-DONE
-- build and build all with reconnecting trees (diamond shape)
-- multi-package project field
-- cycle detection (both data deps and projects)
-- custom out path handling
-- flags are forwarded in the correct cases - create a daml file with a warning, use the --ghc-option="-werror" option
-- same name different version
-- same name and version (should fail)
-- calling from within source code
-LEFT
-- caching logic, somehow ??
-    needs to also check that having a weird source doesn't break caching
-    check if a file updated: either via the output logs or maaaybe a file changed stamp?
-    most tests will now be 2 builds, a setup, followed by some kind of cache invalidation step, then a build to assess what happened
-      assertions:
-      what was built after setup
-      what was built after invalidation - this cannot just be file exists checks, could track all the last modified times of each file after setup, and check it changed?
-    cache invalidation:
-      - delete a dar
-      - run a single build
-      - edit a file (+ optionally run a single build)
-      we use withCurrentDirectory and local paths, provide generic IO action
-      also provide a clean way to envoke a normal build on a directory, so maybe (FilePath -> IO ()) -> IO ()?
-
-Need fancy daml-assistant changes:
+{- Remaining tests needed:
 - multi-sdk
-    Add a flag to daml assistant to make it use custom api/downloading directory
-    Bring in an old sdk version as a data resource for this test (using @daml-sdk-2.7.5//:daml)
+    Use Dylan's `releases-endpoint` and `alternate-download` in daml-config to defer sdk download
     Create a mock server/api that serves this file to the downloader
-    do test
+    Run a test that attempts to use 2.7.5, then either ensure this endpoint is hit, or somehow check the sdk version of the generated dar.
 -}
+
+main :: IO ()
+main = do
+  damlAssistant <- locateRunfiles (mainWorkspace </> "daml-assistant" </> exe "daml")
+  defaultMain $ tests damlAssistant
 
 tests :: FilePath -> TestTree
 tests damlAssistant =
@@ -447,6 +272,38 @@ tests damlAssistant =
             (["--all"], "")
             [PackageIdentifier "package-b" "0.0.1", PackageIdentifier "package-d" "0.0.1"] -- Only D depends on B, so only those rebuild
             diamondProject
+        , testCache
+            "Nested source directory file invalidation"
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+            (const $ appendFile "./package-a/daml/daml2/daml3/daml4/PackageAMain.daml" "\nmyDef = 3")
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+            (simpleTwoPackageProjectSource "daml/daml2/daml3/daml4")
+        , testCache
+            "Direct source directory file invalidation"
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+            (const $ appendFile "./package-a/PackageAMain.daml" "\nmyDef = 3")
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+            (simpleTwoPackageProjectSource ".")
+        , testCache
+            "Source daml file dependency invalidation"
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+            (const $ appendFile "./package-a/daml/PackageAAux.daml" "\nmyDef = 3")
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+            simpleTwoPackageProjectSourceDaml
+        , testCache
+            "Source daml file dependency invalidation with upwards structure"
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+            (const $ appendFile "./package-a/daml/PackageAAux.daml" "\nmyDef = 3")
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+            simpleTwoPackageProjectSourceDamlUpwards
         ]
     ]
 
@@ -595,3 +452,206 @@ tests damlAssistant =
           genericFile@GenericFile {} -> do
             TIO.writeFile (path </> T.unpack (gfName genericFile)) $ gfContent genericFile
             pure Map.empty
+
+----- Testing project fixtures
+
+-- B depends on A
+simpleTwoPackageProject :: [ProjectStructure]
+simpleTwoPackageProject =
+  [ MultiPackage ["./package-a", "./package-b"] []
+  , Dir "package-a"
+    [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing []
+    , Dir "daml" [DamlSource "PackageAMain" []]
+    ]
+  , Dir "package-b"
+    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
+    ]
+  ]
+
+-- B and C depend on A, D depends on B and C
+diamondProject :: [ProjectStructure]
+diamondProject =
+  [ MultiPackage ["./package-a", "./package-b", "./package-c", "./package-d"] []
+  , Dir "package-a"
+    [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing []
+    , Dir "daml" [DamlSource "PackageAMain" []]
+    ]
+  , Dir "package-b"
+    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
+    ]
+  , Dir "package-c"
+    [ DamlYaml "package-c" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    , Dir "daml" [DamlSource "PackageCMain" ["PackageAMain"]]
+    ]
+  , Dir "package-d"
+    [ DamlYaml "package-d" "0.0.1" Nothing "daml" Nothing ["../package-b/.daml/dist/package-b-0.0.1.dar", "../package-c/.daml/dist/package-c-0.0.1.dar"]
+    , Dir "daml" [DamlSource "PackageDMain" ["PackageBMain", "PackageCMain"]]
+    ]
+  ]
+
+-- Package-b depends on package-a, package-a depends on lib-b, lib-b depends on lib-a
+-- Straight line dependency tree crossing a "project" border
+multiProject :: [ProjectStructure]
+multiProject =
+  [ Dir "libs"
+    [ MultiPackage ["./lib-a", "./lib-b"] []
+    , Dir "lib-a"
+      [ DamlYaml "lib-a" "0.0.1" Nothing "daml" Nothing []
+      , Dir "daml" [DamlSource "LibAMain" []]
+      ]
+    , Dir "lib-b"
+      [ DamlYaml "lib-b" "0.0.1" Nothing "daml" Nothing ["../lib-a/.daml/dist/lib-a-0.0.1.dar"]
+      , Dir "daml" [DamlSource "LibBMain" ["LibAMain"]]
+      ]
+    ]
+  , Dir "packages"
+    [ MultiPackage ["./package-a", "./package-b"] ["../libs"]
+    , Dir "package-a"
+      [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing ["../../libs/lib-b/.daml/dist/lib-b-0.0.1.dar"]
+      , Dir "daml" [DamlSource "PackageAMain" ["LibBMain"]]
+      ]
+    , Dir "package-b"
+      [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+      , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
+      ]
+    ]
+  ]
+
+-- Cyclic `project` definitions in multi-package.yamls
+cyclicMultiPackage :: [ProjectStructure]
+cyclicMultiPackage =
+  [ Dir "libs"
+    [ MultiPackage ["./lib-a"] ["../packages"]
+    , Dir "lib-a"
+      [ DamlYaml "lib-a" "0.0.1" Nothing "daml" Nothing []
+      , Dir "daml" [DamlSource "LibAMain" []]
+      ]
+    ]
+  , Dir "packages"
+    [ MultiPackage ["./package-a"] ["../libs"]
+    , Dir "package-a"
+      [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing ["../../libs/lib-a/.daml/dist/lib-a-0.0.1.dar"]
+      , Dir "daml" [DamlSource "PackageAMain" ["LibAMain"]]
+      ]
+    ]
+  ]
+
+-- Cyclic dar dependencies in daml.yamls
+cyclicPackagesProject :: [ProjectStructure]
+cyclicPackagesProject =
+  [ MultiPackage ["./package-a", "./package-b"] []
+  , Dir "package-a"
+    [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing ["../package-b/.daml/dist/package-b-0.0.1.dar"]
+    , Dir "daml" [DamlSource "PackageAMain" ["PackageBMain"]]
+    ]
+  , Dir "package-b"
+    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
+    ]
+  ]
+
+-- Package that defines --output, putting `dar` outside of `.daml/dist`
+customOutPathProject :: [ProjectStructure]
+customOutPathProject =
+  [ MultiPackage ["./package-a", "./package-b"] []
+  , Dir "package-a"
+    [ DamlYaml "package-a" "0.0.1" Nothing "daml" (Just "../package-a.dar") []
+    , Dir "daml" [DamlSource "PackageAMain" []]
+    ]
+  , Dir "package-b"
+    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a.dar"]
+    , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
+    ]
+  ]
+
+-- Project where both packages throw warnings, used to detect flag forwarding via -Werror
+warningProject :: [ProjectStructure]
+warningProject =
+  [ MultiPackage ["./package-a", "./package-b"] []
+  , Dir "package-a"
+    [ DamlYaml "package-a" "0.0.1" Nothing "daml" (Just "../package-a.dar") []
+    , Dir "daml" [GenericFile "PackageAMain.daml" $ "module PackageAMain where\n" <> warnText]
+    ]
+  , Dir "package-b"
+    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a.dar"]
+    , Dir "daml" [GenericFile "PackageBMain.daml" $ "module PackageBMain where\nimport PackageAMain ()\n" <> warnText]
+    ]
+  ]
+  where
+    -- Gives a non-exhaustive case warning
+    warnText = "x = case True of True -> True"
+
+-- Same name but different version project
+-- v2 depends on v1
+sameNameDifferentVersionProject :: [ProjectStructure]
+sameNameDifferentVersionProject =
+  [ MultiPackage ["./package-v1", "./package-v2"] []
+  , Dir "package-v1"
+    [ DamlYaml "package" "0.0.1" Nothing "daml" Nothing []
+    , Dir "daml" [DamlSource "PackageV1Main" []]
+    ]
+  , Dir "package-v2"
+    [ DamlYaml "package" "0.0.2" Nothing "daml" Nothing ["../package-v1/.daml/dist/package-0.0.1.dar"]
+    , Dir "daml" [DamlSource "PackageV2Main" ["PackageV1Main"]]
+    ]
+  ]
+
+-- Same name and same version project - illegal dependency
+-- v1-again depends on v1
+sameNameSameVersionProject :: [ProjectStructure]
+sameNameSameVersionProject =
+  [ MultiPackage ["./package-v1", "./package-v1-again"] []
+  , Dir "package-v1"
+    [ DamlYaml "package" "0.0.1" Nothing "daml" Nothing []
+    , Dir "daml" [DamlSource "PackageV1Main" []]
+    ]
+  , Dir "package-v1-again"
+    [ DamlYaml "package" "0.0.1" Nothing "daml" Nothing ["../package-v1/.daml/dist/package-0.0.1.dar"]
+    , Dir "daml" [DamlSource "PackageV1MainSequel" ["PackageV1Main"]]
+    ]
+  ]
+
+-- B depends on A with specified source folder for package-a
+simpleTwoPackageProjectSource :: T.Text -> [ProjectStructure]
+simpleTwoPackageProjectSource path =
+  [ MultiPackage ["./package-a", "./package-b"] []
+  , Dir "package-a"
+    [ DamlYaml "package-a" "0.0.1" Nothing path Nothing []
+    , Dir path [DamlSource "PackageAMain" []]
+    ]
+  , Dir "package-b"
+    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
+    ]
+  ]
+
+-- B depends on A where package-a uses a .daml file source in daml.yaml
+simpleTwoPackageProjectSourceDaml :: [ProjectStructure]
+simpleTwoPackageProjectSourceDaml =
+  [ MultiPackage ["./package-a", "./package-b"] []
+  , Dir "package-a"
+    [ DamlYaml "package-a" "0.0.1" Nothing "daml/PackageAMain.daml" Nothing []
+    , Dir "daml" [DamlSource "PackageAMain" ["PackageAAux"], DamlSource "PackageAAux" []]
+    ]
+  , Dir "package-b"
+    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
+    ]
+  ]
+
+-- B depends on A where package-a uses a .daml file source in daml.yaml
+-- This daml file depends on another daml file higher up the file system hierarchy
+simpleTwoPackageProjectSourceDamlUpwards :: [ProjectStructure]
+simpleTwoPackageProjectSourceDamlUpwards =
+  [ MultiPackage ["./package-a", "./package-b"] []
+  , Dir "package-a"
+    [ DamlYaml "package-a" "0.0.1" Nothing "daml/PackageA/PackageAMain.daml" Nothing []
+    , Dir "daml" [DamlSource "PackageAAux" [], Dir "PackageA" [DamlSource "PackageA.PackageAMain" ["PackageAAux"]]]
+    ]
+  , Dir "package-b"
+    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    , Dir "daml" [DamlSource "PackageBMain" ["PackageA.PackageAMain"]]
+    ]
+  ]
