@@ -302,7 +302,8 @@ object Hash {
   def assertHashContractKey(templateId: Ref.Identifier, key: Value, shared: Boolean): Hash = {
     val hashBuilder = builder(Purpose.ContractKey, noCid2String)
     (if (shared) {
-       hashBuilder.addQualifiedName(templateId.qualifiedName)
+       val sharedPackageIdLength = 0 // To ensure there cannot be a hash collision
+       hashBuilder.add(sharedPackageIdLength).addQualifiedName(templateId.qualifiedName)
      } else {
        hashBuilder.addIdentifier(templateId)
      }).addTypedValue(key).build

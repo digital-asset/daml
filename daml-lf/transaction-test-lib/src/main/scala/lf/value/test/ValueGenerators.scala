@@ -16,12 +16,12 @@ import com.daml.lf.transaction.{
   TransactionVersion,
   Versioned,
   VersionedTransaction,
+  Util,
 }
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
-import com.daml.lf.transaction.Util
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.HashMap
