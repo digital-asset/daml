@@ -86,6 +86,16 @@ object GrpcErrorParser {
         }
       case "CONTRACT_KEY_NOT_FOUND" =>
         caseErr {
+          // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
+          //  temporary backward compatibility with Canton so can soon be removed
+          case Seq(
+                (ErrorResource.TemplateId, tid),
+                (ErrorResource.ContractKey, decodeValue.unlift(key)),
+              ) =>
+            SubmitError.ContractKeyNotFound(
+              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, false)
+            )
+
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
@@ -105,6 +115,20 @@ object GrpcErrorParser {
         }
       case "DISCLOSED_CONTRACT_KEY_HASHING_ERROR" =>
         caseErr {
+          // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
+          //  temporary backward compatibility with Canton so can soon be removed
+          case Seq(
+                (ErrorResource.TemplateId, tid),
+                (ErrorResource.ContractId, cid),
+                (ErrorResource.ContractKey, decodeValue.unlift(key)),
+                (ErrorResource.ContractKeyHash, keyHash),
+              ) =>
+            SubmitError.DisclosedContractKeyHashingError(
+              ContractId.assertFromString(cid),
+              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, false),
+              keyHash,
+            )
+
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractId, cid),
@@ -120,6 +144,15 @@ object GrpcErrorParser {
         }
       case "DUPLICATE_CONTRACT_KEY" =>
         caseErr {
+          // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
+          //  temporary backward compatibility with Canton so can soon be removed
+          case Seq(
+                (ErrorResource.TemplateId, tid),
+                (ErrorResource.ContractKey, decodeValue.unlift(key)),
+              ) =>
+            SubmitError.DuplicateContractKey(
+              Some(GlobalKey.assertBuild(Identifier.assertFromString(tid), key, false))
+            )
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
@@ -153,6 +186,17 @@ object GrpcErrorParser {
         }
       case "INCONSISTENT_CONTRACT_KEY" =>
         caseErr {
+
+          // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
+          //  temporary backward compatibility with Canton so can soon be removed
+          case Seq(
+                (ErrorResource.TemplateId, tid),
+                (ErrorResource.ContractKey, decodeValue.unlift(key)),
+              ) =>
+            SubmitError.InconsistentContractKey(
+              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, false)
+            )
+
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),

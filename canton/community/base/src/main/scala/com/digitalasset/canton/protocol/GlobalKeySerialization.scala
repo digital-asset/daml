@@ -55,7 +55,7 @@ object GlobalKeySerialization {
         )
 
       globalKey <- LfGlobalKey
-        .build(templateId, versionedKey.unversioned, true)  // TODO should be Util.sharedKey(versionedKey.version)
+        .build(templateId, versionedKey.unversioned, false)  // TODO should be Util.sharedKey(versionedKey.version)
         .leftMap(err =>
           ProtoDeserializationError.ValueDeserializationError("GlobalKey.key", err.toString)
         )
