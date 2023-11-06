@@ -17,7 +17,8 @@
 # pure $ concat [installationStyle, installedAlready, cachedVersions]
 
 # TODO Other checks:
-# - Does install from source SDK work
+# - Install from source SDK - does it work with up to date cache, and does it
+#   fail coherently when cache is out of date
 # - Is the error message reasonable for trying to install an SDK version instead of a release version
 
 echo_eval () {
@@ -53,8 +54,8 @@ check_daml_init_creates_daml_yaml_with () {
 }
 
 check_daml_build_nonzero () {
-  if [[ "$1" != "0.0.0" && "$2" != "0" ]]; then
-    echo "ERROR! Exit code for \`daml build\` is $2"
+  if [[ "$2" != "0" ]]; then
+    echo "ERROR! Exit code for \`daml build\` on version $1 is $2"
   fi
 }
 
@@ -64,6 +65,45 @@ check_dar_has_correct_metadata_version () {
     echo "ERROR! \`daml build\` produced a dar whose META-INF/MANIFEST.MF contains the wrong SDK version"
     echo "ERROR! This likely means it was compiled with the wrong daml version"
     grep "Sdk-Version:" META-INF/MANIFEST.MF
+  fi
+}
+
+check_daml_install_from_tarball () {
+  tarball_path=$1
+  exit_code=$2
+  version_cache_behaviour=$3
+  if [[ "$version_cache_behaviour" == init_old_cache ]]; then
+    if [[ "$tarball_path" == "v2.7.1/daml-sdk-2.7.1-linux.tar.gz" ]]; then
+      if [[ "$exit_code" != "0" ]]; then
+        echo "ERROR: Tried to install old version from tarball '$tarball_path' with old cache, but \`daml install\` failed and gave nonzero exit code $exit_code."
+        return 1
+      fi
+    else
+      if [[ "$exit_code" == "0" ]]; then
+        echo ERROR: "Tried to install new version from tarball '$tarball_path' with old cache, but \`daml install\` succeeded (should have failed)."
+        return 1
+      fi
+    fi
+  else
+    if [[ "$exit_code" != "0" ]]; then
+      echo "ERROR: Tried to install version from tarball '$tarball_path' with new cache, but \`daml install\` failed and gave nonzero exit code $exit_code."
+      return 1
+    fi
+  fi
+}
+
+check_daml_build_from_tarball_nonzero () {
+  if [[ "$2" != "0" ]]; then
+    echo "ERROR! Exit code for \`daml build\` on version installed from path $1 is $2"
+  fi
+}
+
+check_recommend_cache_reload () {
+  output_file=$1
+  exit_code=$2
+  if [[ $exit_code == "1" ]] && ! grep -q 'Possible fix: `daml version --cache-reload`' "$output_file"; then
+    echo "ERROR: Output of \`daml install\` does not mention 'Possible fix: \`daml version --cache-reload\`' despite failure"
+    cat "$output_file"
   fi
 }
 
@@ -77,59 +117,77 @@ run_composable_checks () {
   # serve a mirror directory of github for more speed
   github_mirror_directory=$1
   if [[ -n "$github_mirror_directory" ]]; then
+    absolute_github_mirror_directory=$(realpath $github_mirror_directory)
     miniserve -p 9000 "$github_mirror_directory" &
     export GITHUB_MIRROR_MINISERVE=$!
+    sleep 2
     alternate_download_line="alternate-download: http://localhost:9000"
   else
     alternate_download_line=""
   fi
 
-  for installed_already_behaviour in dont_pre_install pre_install; do
-    for version_cache_behaviour in no_cache_override_github_endpoint init_old_cache init_new_cache; do
-      # Pick an install version
-      # latest, split (new) version, unsplit (old) version, 0.0.0 (should fail)
-      for install_version in 0.0.0 2.8.0-snapshot.20231101.0 latest 2.7.1; do
-        setup_sandbox
-        echo "$alternate_download_line" >> $DAML_HOME/daml-config.yaml
-        echo_eval $installed_already_behaviour $install_version
-        echo_eval $version_cache_behaviour
-        echo_eval daml install --install-assistant yes $install_version
-        echo_eval check_daml_install_nonzero $install_version $?
-        if [[ "$install_version" != "0.0.0" && "$install_version" != "latest" ]]; then
-          echo_eval check_daml_version_indicates_correct $install_version
-          echo_eval check_daml_init_creates_daml_yaml_with $install_version
-        fi
-        [[ -z "$RELEASES_ENDPOINT_MINISERVE" ]] || kill $RELEASES_ENDPOINT_MINISERVE
-        reset_sandbox
-      done
+  for version_cache_behaviour in init_old_cache init_new_cache no_cache_override_github_endpoint; do
+    # Pick an install version
+    # latest, split (new) version, unsplit (old) version, 0.0.0 (should fail)
+    for install_version in 2.8.0-snapshot.20231101.0 0.0.0 latest 2.7.1; do
+      setup_sandbox
+      echo "$alternate_download_line" >> $DAML_HOME/daml-config.yaml
+      echo_eval $version_cache_behaviour
+      echo_eval daml install --install-assistant yes $install_version
+      echo_eval check_daml_install_nonzero $install_version $?
+      if [[ "$install_version" != "0.0.0" && "$install_version" != "latest" ]]; then
+        echo_eval check_daml_version_indicates_correct $install_version
+        echo_eval check_daml_init_creates_daml_yaml_with $install_version
+      fi
+      [[ -z "$RELEASES_ENDPOINT_MINISERVE" ]] || kill $RELEASES_ENDPOINT_MINISERVE
+      reset_sandbox
+    done
 
-      # Pick a build version
-      # split (new) version, unsplit (old) version, 0.0.0
-      for build_version in 2.8.0-snapshot.20231101.0 2.7.1 0.0.0; do
-        setup_sandbox
-        echo "$alternate_download_line" >> $DAML_HOME/daml-config.yaml
-        echo_eval $installed_already_behaviour $build_version
-        echo_eval $version_cache_behaviour
-        echo_eval init_daml_package $build_version
+    # Pick a build version
+    # split (new) version, unsplit (old) version, 0.0.0
+    for build_version in 2.8.0-snapshot.20231101.0 2.7.1 0.0.0; do
+      setup_sandbox
+      echo "$alternate_download_line" >> $DAML_HOME/daml-config.yaml
+      echo_eval $version_cache_behaviour
+      echo_eval init_daml_package $build_version
+      echo_eval daml build
+      echo_eval check_daml_build_nonzero $build_version $?
+      echo_eval check_daml_version_indicates_correct $build_version
+      echo_eval check_dar_has_correct_metadata_version $build_version
+      [[ -z "$RELEASES_ENDPOINT_MINISERVE" ]] || kill $RELEASES_ENDPOINT_MINISERVE
+      reset_sandbox
+    done
+
+    # Build from tarball
+    # snapshot (new) version, release (new) version, release (old) version
+    for tarball_path in \
+      v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz \
+      v2.7.5/daml-sdk-2.7.5-linux.tar.gz \
+      v2.7.1/daml-sdk-2.7.1-linux.tar.gz ; do
+      tarball_release_version=${tarball_path%%/*}
+      tarball_release_version=${tarball_release_version#v}
+      tarball_sdk_version=${tarball_path%-linux.tar.gz}
+      tarball_sdk_version=${tarball_path#*/daml-sdk-}
+      setup_sandbox
+      echo "$alternate_download_line" >> $DAML_HOME/daml-config.yaml
+      echo_eval $version_cache_behaviour
+      daml install --install-assistant yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1
+      daml_install_exit_code=$?
+      echo_eval check_daml_install_from_tarball $tarball_path $daml_install_exit_code $version_cache_behaviour
+      echo_eval check_recommend_cache_reload daml_install_output $daml_install_exit_code
+      if [[ "$daml_install_exit_code" == 0 ]]; then
+        echo_eval init_daml_package $tarball_release_version
         echo_eval daml build
-        echo_eval check_daml_build_nonzero $build_version $?
-        echo_eval check_daml_version_indicates_correct $build_version
-        echo_eval check_dar_has_correct_metadata_version $build_version
-        [[ -z "$RELEASES_ENDPOINT_MINISERVE" ]] || kill $RELEASES_ENDPOINT_MINISERVE
-        reset_sandbox
-      done
+        echo_eval check_daml_build_from_tarball_nonzero $tarball_path $?
+        echo_eval check_daml_version_indicates_correct $tarball_release_version
+        echo_eval check_dar_has_correct_metadata_version $tarball_release_version
+      fi
+      [[ -z "$RELEASES_ENDPOINT_MINISERVE" ]] || kill $RELEASES_ENDPOINT_MINISERVE
+      reset_sandbox
     done
   done
 
   kill $GITHUB_MIRROR_MINISERVE
-}
-
-pre_install () {
-  daml install $1
-}
-
-dont_pre_install () {
-  true
 }
 
 setup_sandbox () {
@@ -176,7 +234,8 @@ module Main where
 }
 
 init_new_cache () {
-  echo "2.8.0-snapshot.20231018.0 2.8.0-snapshot.20231016.12209.0.v28eadc6e
+  echo "2.8.0-snapshot.20231101.0 2.8.0-snapshot.20231026.12262.0.vb12eb2ad
+2.8.0-snapshot.20231018.0 2.8.0-snapshot.20231016.12209.0.v28eadc6e
 2.8.0-snapshot.20231011.0 2.8.0-snapshot.20231009.12181.0.v623a064c
 2.8.0-snapshot.20231005.2 2.8.0-snapshot.20230929.12167.0.v44c0c51b
 2.8.0-snapshot.20231005.1 2.8.0-snapshot.20230929.12167.0.v44c0c51b
@@ -24338,5 +24397,6 @@ no_cache_override_github_endpoint () {
 ]''' > "$RELEASES_ENDPOINT/releases"
   miniserve "$RELEASES_ENDPOINT" &
   export RELEASES_ENDPOINT_MINISERVE=$!
+  sleep 2
 }
 
