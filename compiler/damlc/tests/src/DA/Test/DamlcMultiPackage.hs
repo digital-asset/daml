@@ -5,9 +5,10 @@ module DA.Test.DamlcMultiPackage (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
+import Control.Exception (try)
 import Control.Monad.Extra (forM_, unless, void)
 import DA.Bazel.Runfiles (exe, locateRunfiles, mainWorkspace)
-import Data.List (intercalate, intersect, union, (\\))
+import Data.List (intercalate, intersect, isInfixOf, union, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, fromJust)
 import qualified Data.Text as T
@@ -21,7 +22,7 @@ import System.FilePath (makeRelative, (</>))
 import System.IO.Extra (withTempDir)
 import System.Process (CreateProcess (..), proc, readCreateProcessWithExitCode, readCreateProcess)
 import Test.Tasty (TestTree, defaultMain, testGroup)
-import Test.Tasty.HUnit (assertFailure, assertBool, testCase)
+import Test.Tasty.HUnit (HUnitFailure (..), assertFailure, assertBool, testCase)
 import Text.Regex.TDFA (Regex, makeRegex, matchTest)
 
 -- Abstraction over the folder structure of a project, consisting of many packages.
@@ -32,6 +33,8 @@ data ProjectStructure
       , dySdkVersion :: Maybe T.Text
       , dySource :: T.Text
       , dyOutPath :: Maybe T.Text
+      , dyModulePrefixes :: [(PackageIdentifier, T.Text)]
+      , dyGhcOptions :: [T.Text]
       , dyDeps :: [T.Text]
       }
   | MultiPackage
@@ -177,7 +180,7 @@ tests damlAssistant =
         , test "Build package a forwards options flags like --ghc-options only to package a" ["--multi-package-search", "--ghc-option=-Werror"] "./package-a" warningProject
             $ Left "Pattern match\\(es\\) are non-exhaustive"
         , test "Build package b forwards options flags like --ghc-options only to package b" ["--multi-package-search", "--ghc-option=-Werror"] "./package-b" warningProject
-            $ Left "Created .+(\\/|\\\\)package-a\\.dar(.|\n)+Pattern match\\(es\\) are non-exhaustive"
+            $ Left "Created .+(\\/|\\\\)package-a-0\\.0\\.1\\.dar(.|\n)+Pattern match\\(es\\) are non-exhaustive"
             -- ^ Special regex ensures that package-a built fine (so didn't take the flag)
         ]
     , testGroup
@@ -309,23 +312,51 @@ tests damlAssistant =
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
             simpleTwoPackageProjectSourceDamlUpwards
+        , -- These next 4 tests rely on caching using the daml.yaml, which is currently doesn't. They should all fail.
+          -- The user-facing solution for this now is --no-cache, or building directory on that package.
+          testCache
+            -- This test works by chance, since as part of multi-build, we lookup the expected dalf in the dar,
+            -- where the dalf name is derived from the name + version in the daml.yaml. Changing it will make that dalf
+            -- non existent.
+            "Changing the package name/version with a fixed --output should invalidate the cache"
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+            (const $ buildProjectStructure "./package-a" (damlYaml "package-a2" "0.0.1" []) {dyOutPath = Just "../package-a.dar"})
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+            customOutPathProject
+        , testCacheFails
+            -- This test fails as we do not check deps that aren't in the daml.yaml
+            "Removing a required dependency should invalidate the cache"
+            "package-b-0.0.1 should have rebuilt, but didn't" -- This is incorrect, B should have tried to rebuild and failed with a "Module not found" error.
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+            (const $ buildProjectStructure "./package-b" $ damlYaml "package-b" "0.0.1" [])
+            (["--all"], "")
+            [PackageIdentifier "package-b" "0.0.1"]
+            simpleTwoPackageProject
+        , testCacheFails
+            "Changing module prefixes should invalidate the cache"
+            "package-b-0.0.1 should have rebuilt, but didn't"
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+            (const $ buildProjectStructure "./package-b" $ damlYaml "package-b" "0.0.1" [])
+            (["--all"], "")
+            [PackageIdentifier "package-b" "0.0.1"]
+            simpleTwoPackageProjectModulePrefixes
+        , testCacheFails
+            "Changing ghc-options, other other `build-options` should invalidate the cache"
+            "package-b-0.0.1 should have rebuilt, but didn't"
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+            (const $ buildProjectStructure "./package-b" $ (damlYaml "package-b" "0.0.1" []) {dyGhcOptions = ["-wError"]})
+            (["--all"], "")
+            [PackageIdentifier "package-b" "0.0.1"]
+            warningProject
+        -- Cannot be tested until Dylans install mocking is merged.
+        -- , testCache
+        --     "Changing the sdk-version should invalidate the cache"
         ]
-    -- -- These tests rely on caching using the daml.yaml, which is currently doesn't. They all fail.
-    -- -- The user-facing solution for this now is --no-cache, or building directory on that package.
-    -- , testGroup
-    --     "Caching failures"
-    --     [ testCache
-    --         "Changing the package name/version with a fixed --output should invalidate the cache"
-    --     , testCache
-    --         "Removing a required dependency should invalidate the cache"
-    --     , testCache
-    --         "Changing module prefixes should invalidate the cache"
-    --     , testCache
-    --         "Changing ghc-options, other other `build-options` should invalidate the cache"
-    --     -- Cannot be tested until Dylans install mocking is merged.
-    --     -- , testCache
-    --     --     "Changing the sdk-version should invalidate the cache"
-    --     ]
     ]
 
   where
@@ -354,7 +385,35 @@ tests damlAssistant =
       -> [ProjectStructure] -- structure
       -> TestTree
     testCache name firstRun firstRunPkgs doModification secondRun secondRunPkgs projectStructure =
-      testCase name $
+      testCase name $ testCacheIO firstRun firstRunPkgs doModification secondRun secondRunPkgs projectStructure
+
+    -- Tests that currently fail, and require fixing
+    testCacheFails
+      :: String -- name
+      -> String -- Expected error
+      -> ([String], FilePath) -- args, runPath
+      -> [PackageIdentifier] -- what should have been built
+      -> ((FilePath -> IO ()) -> IO ()) -- Modifications
+      -> ([String], FilePath) -- args, runPath
+      -> [PackageIdentifier] -- what should have been built
+      -> [ProjectStructure] -- structure
+      -> TestTree
+    testCacheFails name expectedMsg firstRun firstRunPkgs doModification secondRun secondRunPkgs projectStructure =
+      testCase name $ do
+        res <- try @HUnitFailure $ testCacheIO firstRun firstRunPkgs doModification secondRun secondRunPkgs projectStructure
+        case res of
+          Left (HUnitFailure _ msg) | expectedMsg `isInfixOf` msg -> pure ()
+          _ -> assertFailure $ "Expected failure containing " <> expectedMsg <> " but got " <> show res
+
+    testCacheIO
+      :: ([String], FilePath) -- args, runPath
+      -> [PackageIdentifier] -- what should have been built
+      -> ((FilePath -> IO ()) -> IO ()) -- Modifications
+      -> ([String], FilePath) -- args, runPath
+      -> [PackageIdentifier] -- what should have been built
+      -> [ProjectStructure] -- structure
+      -> IO ()
+    testCacheIO firstRun firstRunPkgs doModification secondRun secondRunPkgs projectStructure =
       withTempDir $ \dir -> do
         allPossibleDars <- buildProject dir projectStructure
         let runBuild :: ([String], FilePath) -> [PackageIdentifier] -> IO ()
@@ -429,62 +488,73 @@ tests damlAssistant =
 
     -- Returns paths of all possible expected Dars
     buildProject :: FilePath -> [ProjectStructure] -> IO (Map.Map PackageIdentifier FilePath)
-    buildProject initialPath = fmap mconcat . traverse (buildProjectStructure initialPath)
-      where
-        buildProjectStructure :: FilePath -> ProjectStructure -> IO (Map.Map PackageIdentifier FilePath)
-        buildProjectStructure path = \case
-          damlYaml@DamlYaml {} -> do
-            TIO.writeFile (path </> "daml.yaml") $ T.unlines $
-              [ "sdk-version: " <> fromMaybe (T.pack sdkVersion) (dySdkVersion damlYaml)
-              , "name: " <> dyName damlYaml
-              , "source: " <> dySource damlYaml
-              , "version: " <> dyVersion damlYaml
-              , "dependencies:"
-              , "  - daml-prim"
-              , "  - daml-stdlib"
-              , "data-dependencies:"
+    buildProject initialPath = fmap mconcat . traverse (buildProjectStructure' initialPath initialPath)
+
+    -- Build a single "node" for convenient modification of daml.yamls
+    buildProjectStructure :: FilePath -> ProjectStructure -> IO ()
+    buildProjectStructure path projectStructure = void $ buildProjectStructure' path path projectStructure
+
+    buildProjectStructure' :: FilePath -> FilePath -> ProjectStructure -> IO (Map.Map PackageIdentifier FilePath)
+    buildProjectStructure' initialPath path = \case
+      damlYaml@DamlYaml {} -> do
+        TIO.writeFile (path </> "daml.yaml") $ T.unlines $
+          [ "sdk-version: " <> fromMaybe (T.pack sdkVersion) (dySdkVersion damlYaml)
+          , "name: " <> dyName damlYaml
+          , "source: " <> dySource damlYaml
+          , "version: " <> dyVersion damlYaml
+          , "dependencies:"
+          , "  - daml-prim"
+          , "  - daml-stdlib"
+          , "data-dependencies:"
+          ]
+          ++ fmap ("  - " <>) (dyDeps damlYaml)
+          ++ ["module-prefixes:"]
+          ++ fmap (\(pkg, pref) -> "  " <> T.pack (show pkg) <> ": " <> pref) (dyModulePrefixes damlYaml)
+          ++ ["build-options:"]
+          ++ maybe [] (\outputPath -> 
+              [ "  - --output"
+              , "  - " <> outputPath
               ]
-              ++ fmap ("  - " <>) (dyDeps damlYaml)
-              ++ maybe [] (\outputPath -> 
-                  [ "build-options:"
-                  , "  - --output"
-                  , "  - " <> outputPath
-                  ]
-                ) (dyOutPath damlYaml)
-            let relDarPath = fromMaybe (".daml/dist/" <> dyName damlYaml <> "-" <> dyVersion damlYaml <> ".dar") (dyOutPath damlYaml)
-            outPath <- canonicalizePath $ path </> T.unpack relDarPath
-            pure $ Map.singleton (PackageIdentifier (dyName damlYaml) (dyVersion damlYaml)) $ makeRelative initialPath outPath
-          multiPackage@MultiPackage {} -> do
-            TIO.writeFile (path </> "multi-package.yaml") $ T.unlines
-              $  ["packages:"] ++ fmap ("  - " <>) (mpPackages multiPackage)
-              ++ ["projects:"] ++ fmap ("  - " <>) (mpProjects multiPackage)
-            pure Map.empty
-          dir@Dir {} -> do
-            let newDir = path </> (T.unpack $ dName dir)
-            createDirectoryIfMissing True newDir
-            mconcat <$> traverse (buildProjectStructure newDir) (dContents dir)
-          damlSource@DamlSource {} -> do
-            let damlFileName = T.unpack $ last (T.split (=='.') $ dsModuleName damlSource) <> ".daml"
-            TIO.writeFile (path </> damlFileName) $ T.unlines $
-              ["module " <> dsModuleName damlSource <> " where"]
-              ++ fmap (\dep -> "import " <> dep <> " ()") (dsDeps damlSource)
-            pure Map.empty
-          genericFile@GenericFile {} -> do
-            TIO.writeFile (path </> T.unpack (gfName genericFile)) $ gfContent genericFile
-            pure Map.empty
+            ) (dyOutPath damlYaml)
+          ++ fmap ("  - --ghc-option=" <>) (dyGhcOptions damlYaml)
+        let relDarPath = fromMaybe (".daml/dist/" <> dyName damlYaml <> "-" <> dyVersion damlYaml <> ".dar") (dyOutPath damlYaml)
+        outPath <- canonicalizePath $ path </> T.unpack relDarPath
+        pure $ Map.singleton (PackageIdentifier (dyName damlYaml) (dyVersion damlYaml)) $ makeRelative initialPath outPath
+      multiPackage@MultiPackage {} -> do
+        TIO.writeFile (path </> "multi-package.yaml") $ T.unlines
+          $  ["packages:"] ++ fmap ("  - " <>) (mpPackages multiPackage)
+          ++ ["projects:"] ++ fmap ("  - " <>) (mpProjects multiPackage)
+        pure Map.empty
+      dir@Dir {} -> do
+        let newDir = path </> (T.unpack $ dName dir)
+        createDirectoryIfMissing True newDir
+        mconcat <$> traverse (buildProjectStructure' initialPath newDir) (dContents dir)
+      damlSource@DamlSource {} -> do
+        let damlFileName = T.unpack $ last (T.split (=='.') $ dsModuleName damlSource) <> ".daml"
+        TIO.writeFile (path </> damlFileName) $ T.unlines $
+          ["module " <> dsModuleName damlSource <> " where"]
+          ++ fmap (\dep -> "import " <> dep <> " ()") (dsDeps damlSource)
+        pure Map.empty
+      genericFile@GenericFile {} -> do
+        TIO.writeFile (path </> T.unpack (gfName genericFile)) $ gfContent genericFile
+        pure Map.empty
 
 ----- Testing project fixtures
+
+-- daml.yaml with current sdk version, default ouput path and source set to `daml`
+damlYaml :: T.Text -> T.Text -> [T.Text] -> ProjectStructure
+damlYaml name version deps = DamlYaml name version Nothing "daml" Nothing [] [] deps
 
 -- B depends on A
 simpleTwoPackageProject :: [ProjectStructure]
 simpleTwoPackageProject =
   [ MultiPackage ["./package-a", "./package-b"] []
   , Dir "package-a"
-    [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing []
+    [ damlYaml "package-a" "0.0.1" []
     , Dir "daml" [DamlSource "PackageAMain" []]
     ]
   , Dir "package-b"
-    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    [ damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]
     , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
     ]
   ]
@@ -494,19 +564,19 @@ diamondProject :: [ProjectStructure]
 diamondProject =
   [ MultiPackage ["./package-a", "./package-b", "./package-c", "./package-d"] []
   , Dir "package-a"
-    [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing []
+    [ damlYaml "package-a" "0.0.1" []
     , Dir "daml" [DamlSource "PackageAMain" []]
     ]
   , Dir "package-b"
-    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    [ damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]
     , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
     ]
   , Dir "package-c"
-    [ DamlYaml "package-c" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    [ damlYaml "package-c" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]
     , Dir "daml" [DamlSource "PackageCMain" ["PackageAMain"]]
     ]
   , Dir "package-d"
-    [ DamlYaml "package-d" "0.0.1" Nothing "daml" Nothing ["../package-b/.daml/dist/package-b-0.0.1.dar", "../package-c/.daml/dist/package-c-0.0.1.dar"]
+    [ damlYaml "package-d" "0.0.1" ["../package-b/.daml/dist/package-b-0.0.1.dar", "../package-c/.daml/dist/package-c-0.0.1.dar"]
     , Dir "daml" [DamlSource "PackageDMain" ["PackageBMain", "PackageCMain"]]
     ]
   ]
@@ -518,22 +588,22 @@ multiProject =
   [ Dir "libs"
     [ MultiPackage ["./lib-a", "./lib-b"] []
     , Dir "lib-a"
-      [ DamlYaml "lib-a" "0.0.1" Nothing "daml" Nothing []
+      [ damlYaml "lib-a" "0.0.1" []
       , Dir "daml" [DamlSource "LibAMain" []]
       ]
     , Dir "lib-b"
-      [ DamlYaml "lib-b" "0.0.1" Nothing "daml" Nothing ["../lib-a/.daml/dist/lib-a-0.0.1.dar"]
+      [ damlYaml "lib-b" "0.0.1" ["../lib-a/.daml/dist/lib-a-0.0.1.dar"]
       , Dir "daml" [DamlSource "LibBMain" ["LibAMain"]]
       ]
     ]
   , Dir "packages"
     [ MultiPackage ["./package-a", "./package-b"] ["../libs"]
     , Dir "package-a"
-      [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing ["../../libs/lib-b/.daml/dist/lib-b-0.0.1.dar"]
+      [ damlYaml "package-a" "0.0.1" ["../../libs/lib-b/.daml/dist/lib-b-0.0.1.dar"]
       , Dir "daml" [DamlSource "PackageAMain" ["LibBMain"]]
       ]
     , Dir "package-b"
-      [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+      [ damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]
       , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
       ]
     ]
@@ -545,14 +615,14 @@ cyclicMultiPackage =
   [ Dir "libs"
     [ MultiPackage ["./lib-a"] ["../packages"]
     , Dir "lib-a"
-      [ DamlYaml "lib-a" "0.0.1" Nothing "daml" Nothing []
+      [ damlYaml "lib-a" "0.0.1" []
       , Dir "daml" [DamlSource "LibAMain" []]
       ]
     ]
   , Dir "packages"
     [ MultiPackage ["./package-a"] ["../libs"]
     , Dir "package-a"
-      [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing ["../../libs/lib-a/.daml/dist/lib-a-0.0.1.dar"]
+      [ damlYaml "package-a" "0.0.1" ["../../libs/lib-a/.daml/dist/lib-a-0.0.1.dar"]
       , Dir "daml" [DamlSource "PackageAMain" ["LibAMain"]]
       ]
     ]
@@ -563,11 +633,11 @@ cyclicPackagesProject :: [ProjectStructure]
 cyclicPackagesProject =
   [ MultiPackage ["./package-a", "./package-b"] []
   , Dir "package-a"
-    [ DamlYaml "package-a" "0.0.1" Nothing "daml" Nothing ["../package-b/.daml/dist/package-b-0.0.1.dar"]
+    [ damlYaml "package-a" "0.0.1" ["../package-b/.daml/dist/package-b-0.0.1.dar"]
     , Dir "daml" [DamlSource "PackageAMain" ["PackageBMain"]]
     ]
   , Dir "package-b"
-    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    [ damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]
     , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
     ]
   ]
@@ -577,11 +647,11 @@ customOutPathProject :: [ProjectStructure]
 customOutPathProject =
   [ MultiPackage ["./package-a", "./package-b"] []
   , Dir "package-a"
-    [ DamlYaml "package-a" "0.0.1" Nothing "daml" (Just "../package-a.dar") []
+    [ (damlYaml "package-a" "0.0.1" []) {dyOutPath = Just "../package-a.dar" }
     , Dir "daml" [DamlSource "PackageAMain" []]
     ]
   , Dir "package-b"
-    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a.dar"]
+    [ damlYaml "package-b" "0.0.1" ["../package-a.dar"]
     , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
     ]
   ]
@@ -591,11 +661,11 @@ warningProject :: [ProjectStructure]
 warningProject =
   [ MultiPackage ["./package-a", "./package-b"] []
   , Dir "package-a"
-    [ DamlYaml "package-a" "0.0.1" Nothing "daml" (Just "../package-a.dar") []
+    [ damlYaml "package-a" "0.0.1" []
     , Dir "daml" [GenericFile "PackageAMain.daml" $ "module PackageAMain where\n" <> warnText]
     ]
   , Dir "package-b"
-    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a.dar"]
+    [ damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]
     , Dir "daml" [GenericFile "PackageBMain.daml" $ "module PackageBMain where\nimport PackageAMain ()\n" <> warnText]
     ]
   ]
@@ -609,11 +679,11 @@ sameNameDifferentVersionProject :: [ProjectStructure]
 sameNameDifferentVersionProject =
   [ MultiPackage ["./package-v1", "./package-v2"] []
   , Dir "package-v1"
-    [ DamlYaml "package" "0.0.1" Nothing "daml" Nothing []
+    [ damlYaml "package" "0.0.1" []
     , Dir "daml" [DamlSource "PackageV1Main" []]
     ]
   , Dir "package-v2"
-    [ DamlYaml "package" "0.0.2" Nothing "daml" Nothing ["../package-v1/.daml/dist/package-0.0.1.dar"]
+    [ damlYaml "package" "0.0.2" ["../package-v1/.daml/dist/package-0.0.1.dar"]
     , Dir "daml" [DamlSource "PackageV2Main" ["PackageV1Main"]]
     ]
   ]
@@ -624,11 +694,11 @@ sameNameSameVersionProject :: [ProjectStructure]
 sameNameSameVersionProject =
   [ MultiPackage ["./package-v1", "./package-v1-again"] []
   , Dir "package-v1"
-    [ DamlYaml "package" "0.0.1" Nothing "daml" Nothing []
+    [ damlYaml "package" "0.0.1" []
     , Dir "daml" [DamlSource "PackageV1Main" []]
     ]
   , Dir "package-v1-again"
-    [ DamlYaml "package" "0.0.1" Nothing "daml" Nothing ["../package-v1/.daml/dist/package-0.0.1.dar"]
+    [ damlYaml "package" "0.0.1" ["../package-v1/.daml/dist/package-0.0.1.dar"]
     , Dir "daml" [DamlSource "PackageV1MainSequel" ["PackageV1Main"]]
     ]
   ]
@@ -638,11 +708,11 @@ simpleTwoPackageProjectSource :: T.Text -> [ProjectStructure]
 simpleTwoPackageProjectSource path =
   [ MultiPackage ["./package-a", "./package-b"] []
   , Dir "package-a"
-    [ DamlYaml "package-a" "0.0.1" Nothing path Nothing []
+    [ (damlYaml "package-a" "0.0.1" []) {dySource = path}
     , Dir path [DamlSource "PackageAMain" []]
     ]
   , Dir "package-b"
-    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    [ damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]
     , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
     ]
   ]
@@ -652,11 +722,11 @@ simpleTwoPackageProjectSourceDaml :: [ProjectStructure]
 simpleTwoPackageProjectSourceDaml =
   [ MultiPackage ["./package-a", "./package-b"] []
   , Dir "package-a"
-    [ DamlYaml "package-a" "0.0.1" Nothing "daml/PackageAMain.daml" Nothing []
+    [ (damlYaml "package-a" "0.0.1" []) {dySource = "daml/PackageAMain.daml"}
     , Dir "daml" [DamlSource "PackageAMain" ["PackageAAux"], DamlSource "PackageAAux" []]
     ]
   , Dir "package-b"
-    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    [ damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]
     , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
     ]
   ]
@@ -667,11 +737,24 @@ simpleTwoPackageProjectSourceDamlUpwards :: [ProjectStructure]
 simpleTwoPackageProjectSourceDamlUpwards =
   [ MultiPackage ["./package-a", "./package-b"] []
   , Dir "package-a"
-    [ DamlYaml "package-a" "0.0.1" Nothing "daml/PackageA/PackageAMain.daml" Nothing []
+    [ (damlYaml "package-a" "0.0.1" []) {dySource = "daml/PackageA/PackageAMain.daml"}
     , Dir "daml" [DamlSource "PackageAAux" [], Dir "PackageA" [DamlSource "PackageA.PackageAMain" ["PackageAAux"]]]
     ]
   , Dir "package-b"
-    [ DamlYaml "package-b" "0.0.1" Nothing "daml" Nothing ["../package-a/.daml/dist/package-a-0.0.1.dar"]
+    [ damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]
     , Dir "daml" [DamlSource "PackageBMain" ["PackageA.PackageAMain"]]
+    ]
+  ]
+
+simpleTwoPackageProjectModulePrefixes :: [ProjectStructure]
+simpleTwoPackageProjectModulePrefixes =
+  [ MultiPackage ["./package-a", "./package-b"] []
+  , Dir "package-a"
+    [ damlYaml "package-a" "0.0.1" []
+    , Dir "daml" [DamlSource "PackageAMain" []]
+    ]
+  , Dir "package-b"
+    [ (damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]) {dyModulePrefixes = [(PackageIdentifier "package-a" "0.0.1", "A")]}
+    , Dir "daml" [DamlSource "PackageBMain" ["A.PackageAMain"]]
     ]
   ]
