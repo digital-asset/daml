@@ -346,7 +346,7 @@ data CouldNotResolveVersion
 
 instance Exception CouldNotResolveVersion where
     displayException (CouldNotResolveReleaseVersion version) = "Could not resolve release version " <> T.unpack (V.toText (unwrapUnresolvedReleaseVersion version))
-    displayException (CouldNotResolveSdkVersion version) = "Could not resolve SDK version " <> T.unpack (V.toText (unwrapSdkVersion version)) <> " to a release version. Possible fix: `daml version --cache-reload`?"
+    displayException (CouldNotResolveSdkVersion version) = "Could not resolve SDK version " <> T.unpack (V.toText (unwrapSdkVersion version)) <> " to a release version. Possible fix: `daml version --force-reload yes`?"
 
 resolveReleaseVersion :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
 resolveReleaseVersion _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion

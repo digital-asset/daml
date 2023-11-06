@@ -101,8 +101,8 @@ check_daml_build_from_tarball_nonzero () {
 check_recommend_cache_reload () {
   output_file=$1
   exit_code=$2
-  if [[ $exit_code == "1" ]] && ! grep -q 'Possible fix: `daml version --cache-reload`' "$output_file"; then
-    echo "ERROR: Output of \`daml install\` does not mention 'Possible fix: \`daml version --cache-reload\`' despite failure"
+  if [[ $exit_code == "1" ]] && ! grep -q 'Possible fix: `daml version --force-reload yes`' "$output_file"; then
+    echo "ERROR: Output of \`daml install\` does not mention 'Possible fix: \`daml version --force-reload yes\`' despite failure"
     cat "$output_file"
   fi
 }
@@ -181,6 +181,23 @@ run_composable_checks () {
         echo_eval check_daml_build_from_tarball_nonzero $tarball_path $?
         echo_eval check_daml_version_indicates_correct $tarball_release_version
         echo_eval check_dar_has_correct_metadata_version $tarball_release_version
+      fi
+
+      # If failure occurred under old cache, try updating the cache
+      if [[ "$daml_install_exit_code" != 0 && "$version_cache_behaviour" == init_old_cache ]]; then
+        no_cache_override_github_endpoint
+        daml version --force-reload yes
+        daml install --install-assistant yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1
+        daml_install_exit_code=$?
+        echo_eval check_daml_install_from_tarball_after_cache_reload $tarball_path $daml_install_exit_code $version_cache_behaviour
+        echo_eval check_recommend_cache_reload daml_install_output $daml_install_exit_code
+        if [[ "$daml_install_exit_code" == 0 ]]; then
+          echo_eval init_daml_package $tarball_release_version
+          echo_eval daml build
+          echo_eval check_daml_build_from_tarball_nonzero $tarball_path $?
+          echo_eval check_daml_version_indicates_correct $tarball_release_version
+          echo_eval check_dar_has_correct_metadata_version $tarball_release_version
+        fi
       fi
       [[ -z "$RELEASES_ENDPOINT_MINISERVE" ]] || kill $RELEASES_ENDPOINT_MINISERVE
       reset_sandbox
