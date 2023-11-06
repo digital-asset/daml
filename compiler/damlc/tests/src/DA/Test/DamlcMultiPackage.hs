@@ -5,24 +5,24 @@ module DA.Test.DamlcMultiPackage (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
-import Control.Monad.Extra
-import DA.Bazel.Runfiles
-import Data.List
+import Control.Monad.Extra (forM_, unless, void)
+import DA.Bazel.Runfiles (exe, locateRunfiles, mainWorkspace)
+import Data.List (intercalate, intersect, union, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, fromJust)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import Data.Time.Clock
-import SdkVersion
-import System.Directory.Extra
-import System.Environment
-import System.Exit
-import System.FilePath
-import System.IO.Extra
-import System.Process
-import Test.Tasty
-import Test.Tasty.HUnit
-import Text.Regex.TDFA
+import Data.Time.Clock (UTCTime)
+import SdkVersion (sdkVersion)
+import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removeFile, withCurrentDirectory)
+import System.Environment (getEnvironment)
+import System.Exit (ExitCode (..))
+import System.FilePath (makeRelative, (</>))
+import System.IO.Extra (withTempDir)
+import System.Process (CreateProcess (..), proc, readCreateProcessWithExitCode)
+import Test.Tasty (TestTree, defaultMain, testGroup)
+import Test.Tasty.HUnit (assertFailure, assertBool, testCase)
+import Text.Regex.TDFA (Regex, makeRegex, matchTest)
 
 -- Abstraction over the folder structure of a project, consisting of many packages.
 data ProjectStructure
@@ -349,7 +349,7 @@ tests damlAssistant =
         
         -- Apply the modification
         withCurrentDirectory dir $ doModification $
-          \path -> void $ readCreateProcess ((proc damlAssistant ["build"]) {cwd = Just path}) []
+          \path -> void $ readCreateProcessWithExitCode ((proc damlAssistant ["build"]) {cwd = Just path}) []
         
         -- Run the second build, expecting all the secondRunPkgs and the pre-existing firstRunPkgs
         runBuild secondRun (secondRunPkgs `union` firstRunPkgs)
