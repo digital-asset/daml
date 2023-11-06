@@ -75,6 +75,9 @@ instance HasSubmit Script Commands where
 -- | `submitMulti actAs readAs cmds` submits `cmds` as a single transaction
 -- authorized by `actAs`. Fetched contracts must be visible to at least
 -- one party in the union of actAs and readAs.
+-- TODO https://github.com/digital-asset/daml/issues/17755
+--  - should disclosures have its own version of submitMulti
+--  - should other submit function have a version that support disclosure
 submitMulti : HasCallStack => [Party] -> [Party] -> Commands a -> Script a
 submitMulti = submitInternal
 

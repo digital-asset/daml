@@ -42,6 +42,10 @@ data Commands a = Commands with
     commands : [Command]
     continue : [CommandResult] -> a
   deriving Functor
+  
+data Disclosure = Disclosure with
+    blob: Text
+  deriving (Eq, Ord)
 
 -- Expected number of command results for a given command
 expectedCommandResults : Command -> Int

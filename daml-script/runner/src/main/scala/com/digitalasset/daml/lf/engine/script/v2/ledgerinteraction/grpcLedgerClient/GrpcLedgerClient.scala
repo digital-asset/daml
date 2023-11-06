@@ -364,7 +364,6 @@ class GrpcLedgerClient(
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[ScriptLedgerClient.TransactionTree] = {
-    assert(disclosures.isEmpty, "fix me !")
     import scalaz.std.list._
     import scalaz.syntax.traverse._
     for {

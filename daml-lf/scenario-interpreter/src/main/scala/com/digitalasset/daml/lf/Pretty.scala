@@ -90,6 +90,8 @@ private[lf] object Pretty {
           s"Error: ${err.pretty}\nin package ${packageName}"
         )
       case Error.DisclosureDecoding(message) =>
+        // TODO https://github.com/digital-asset/daml/issues/17647
+        // improve error report
         text(s"decoding of disclosure fails: ${message}")
     }
 

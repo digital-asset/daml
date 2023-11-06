@@ -30,6 +30,7 @@ module Daml.Script
   , listKnownParties
   , listKnownPartiesOn
   , Commands
+  , Disclosure
   , createCmd
   , exerciseCmd
   , exerciseByKeyCmd
