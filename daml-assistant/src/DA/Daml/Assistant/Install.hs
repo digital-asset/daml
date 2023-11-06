@@ -149,7 +149,12 @@ installExtracted env@InstallEnv{..} sourcePath =
             let errMsg =
                     "Failed to retrieve release version for sdk version " <> V.toText (unwrapSdkVersion sourceSdkVersion)
                         <> " from sdk path " <> T.pack (unwrapSdkPath sourcePath)
-            requiredE errMsg sourceVersionOrErr
+            if unAllowInstallNonRelease (iAllowInstallNonRelease options)
+               then -- NOTE: Using the SDK version as the release version is
+                    -- only enabled by --allow-install-non-release, which is a
+                    -- flag only for devs
+                    pure (OldReleaseVersion (unwrapSdkVersion sourceSdkVersion))
+               else requiredE errMsg sourceVersionOrErr
 
         -- Set file mode of files to install.
         requiredIO "Failed to set file modes for extracted SDK files." $

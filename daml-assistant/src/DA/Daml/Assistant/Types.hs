@@ -74,8 +74,10 @@ data InstallOptions = InstallOptions
     , iSetPath :: SetPath -- ^ set the user's PATH (on Windows)
     , iBashCompletions :: BashCompletions -- ^ install bash completions for the daml assistant
     , iZshCompletions :: ZshCompletions -- ^ install Zsh completions for the daml assistant
+    , iAllowInstallNonRelease :: AllowInstallNonRelease -- ^ install Zsh completions for the daml assistant
     } deriving (Eq, Show)
 
+newtype AllowInstallNonRelease = AllowInstallNonRelease { unAllowInstallNonRelease :: Bool } deriving (Eq, Show)
 newtype RawInstallTarget = RawInstallTarget String deriving (Eq, Show)
 newtype ForceInstall = ForceInstall { unForceInstall :: Bool } deriving (Eq, Show)
 newtype QuietInstall = QuietInstall { unQuietInstall :: Bool } deriving (Eq, Show)
