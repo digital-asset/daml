@@ -177,7 +177,7 @@ tests damlAssistant =
         , test "Build package a forwards options flags like --ghc-options only to package a" ["--multi-package-search", "--ghc-option=-Werror"] "./package-a" warningProject
             $ Left "Pattern match\\(es\\) are non-exhaustive"
         , test "Build package b forwards options flags like --ghc-options only to package b" ["--multi-package-search", "--ghc-option=-Werror"] "./package-b" warningProject
-            $ Left "Created .+/package-a\\.dar(.|\n)+Pattern match\\(es\\) are non-exhaustive"
+            $ Left "Created .+(\\/|\\\\)package-a\\.dar(.|\n)+Pattern match\\(es\\) are non-exhaustive"
             -- ^ Special regex ensures that package-a built fine (so didn't take the flag)
         ]
     , testGroup
@@ -310,6 +310,22 @@ tests damlAssistant =
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
             simpleTwoPackageProjectSourceDamlUpwards
         ]
+    -- -- These tests rely on caching using the daml.yaml, which is currently doesn't. They all fail.
+    -- -- The user-facing solution for this now is --no-cache, or building directory on that package.
+    -- , testGroup
+    --     "Caching failures"
+    --     [ testCache
+    --         "Changing the package name/version with a fixed --output should invalidate the cache"
+    --     , testCache
+    --         "Removing a required dependency should invalidate the cache"
+    --     , testCache
+    --         "Changing module prefixes should invalidate the cache"
+    --     , testCache
+    --         "Changing ghc-options, other other `build-options` should invalidate the cache"
+    --     -- Cannot be tested until Dylans install mocking is merged.
+    --     -- , testCache
+    --     --     "Changing the sdk-version should invalidate the cache"
+    --     ]
     ]
 
   where
