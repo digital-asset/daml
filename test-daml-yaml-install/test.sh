@@ -24,6 +24,7 @@
 echo_eval () {
   echo "$*"
   eval "$*"
+  return $?
 }
 
 check_daml_install_nonzero () {
@@ -68,27 +69,39 @@ check_dar_has_correct_metadata_version () {
   fi
 }
 
+daml_install_from_tarball_should_succeed () {
+  tarball_path=$1
+  version_cache_behaviour=$2
+  if [[ "$version_cache_behaviour" == init_old_cache && $tarball_path != "v2.7.1/daml-sdk-2.7.1-linux.tar.gz" ]]; then
+    return 1
+  else
+    return 0
+  fi
+}
+
 check_daml_install_from_tarball () {
   tarball_path=$1
   exit_code=$2
   version_cache_behaviour=$3
-  if [[ "$version_cache_behaviour" == init_old_cache ]]; then
-    if [[ "$tarball_path" == "v2.7.1/daml-sdk-2.7.1-linux.tar.gz" ]]; then
-      if [[ "$exit_code" != "0" ]]; then
-        echo "ERROR: Tried to install old version from tarball '$tarball_path' with old cache, but \`daml install\` failed and gave nonzero exit code $exit_code."
-        return 1
-      fi
-    else
-      if [[ "$exit_code" == "0" ]]; then
-        echo ERROR: "Tried to install new version from tarball '$tarball_path' with old cache, but \`daml install\` succeeded (should have failed)."
-        return 1
-      fi
-    fi
-  else
+  if echo_eval daml_install_from_tarball_should_succeed $tarball_path $version_cache_behaviour; then
     if [[ "$exit_code" != "0" ]]; then
-      echo "ERROR: Tried to install version from tarball '$tarball_path' with new cache, but \`daml install\` failed and gave nonzero exit code $exit_code."
+      echo "ERROR: Tried to install version from tarball '$tarball_path' with cache behaviour $version_cache_behaviour, but \`daml install\` failed and gave nonzero exit code $exit_code."
       return 1
     fi
+  else
+    if [[ "$exit_code" == "0" ]]; then
+      echo "ERROR: Tried to install version from tarball '$tarball_path' with cache behaviour $version_cache_behaviour, but \`daml install\` succeeded where it should have failed."
+      return 1
+    fi
+  fi
+}
+
+check_daml_install_from_tarball_after_cache_reload () {
+  tarball_path=$1
+  exit_code=$2
+  if [[ "$exit_code" != "0" ]]; then
+    echo "ERROR: Tried to install version from tarball '$tarball_path' with cache forcibly reloaded, but \`daml install\` failed and gave nonzero exit code $exit_code."
+    return 1
   fi
 }
 
@@ -130,8 +143,7 @@ run_composable_checks () {
     # Pick an install version
     # latest, split (new) version, unsplit (old) version, 0.0.0 (should fail)
     for install_version in 2.8.0-snapshot.20231101.0 0.0.0 latest 2.7.1; do
-      setup_sandbox
-      echo "$alternate_download_line" >> $DAML_HOME/daml-config.yaml
+      setup_sandbox "$alternate_download_line"
       echo_eval $version_cache_behaviour
       echo_eval daml install --install-assistant yes $install_version
       echo_eval check_daml_install_nonzero $install_version $?
@@ -146,8 +158,7 @@ run_composable_checks () {
     # Pick a build version
     # split (new) version, unsplit (old) version, 0.0.0
     for build_version in 2.8.0-snapshot.20231101.0 2.7.1 0.0.0; do
-      setup_sandbox
-      echo "$alternate_download_line" >> $DAML_HOME/daml-config.yaml
+      setup_sandbox "$alternate_download_line"
       echo_eval $version_cache_behaviour
       echo_eval init_daml_package $build_version
       echo_eval daml build
@@ -167,29 +178,15 @@ run_composable_checks () {
       tarball_release_version=${tarball_path%%/*}
       tarball_release_version=${tarball_release_version#v}
       tarball_sdk_version=${tarball_path%-linux.tar.gz}
-      tarball_sdk_version=${tarball_path#*/daml-sdk-}
-      setup_sandbox
-      echo "$alternate_download_line" >> $DAML_HOME/daml-config.yaml
-      echo_eval $version_cache_behaviour
-      daml install --install-assistant yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1
-      daml_install_exit_code=$?
-      echo_eval check_daml_install_from_tarball $tarball_path $daml_install_exit_code $version_cache_behaviour
-      echo_eval check_recommend_cache_reload daml_install_output $daml_install_exit_code
-      if [[ "$daml_install_exit_code" == 0 ]]; then
-        echo_eval init_daml_package $tarball_release_version
-        echo_eval daml build
-        echo_eval check_daml_build_from_tarball_nonzero $tarball_path $?
-        echo_eval check_daml_version_indicates_correct $tarball_release_version
-        echo_eval check_dar_has_correct_metadata_version $tarball_release_version
-      fi
+      tarball_sdk_version=${tarball_sdk_version#*/daml-sdk-}
 
-      # If failure occurred under old cache, try updating the cache
-      if [[ "$daml_install_exit_code" != 0 && "$version_cache_behaviour" == init_old_cache ]]; then
-        no_cache_override_github_endpoint
-        daml version --force-reload yes
+      for post_failed_tarball_install_behaviour in allow_nonrelease update_cache do_nothing; do
+        setup_sandbox "$alternate_download_line"
+        echo_eval $version_cache_behaviour
         daml install --install-assistant yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1
         daml_install_exit_code=$?
-        echo_eval check_daml_install_from_tarball_after_cache_reload $tarball_path $daml_install_exit_code $version_cache_behaviour
+        cat daml_install_output
+        echo_eval check_daml_install_from_tarball $tarball_path $daml_install_exit_code $version_cache_behaviour
         echo_eval check_recommend_cache_reload daml_install_output $daml_install_exit_code
         if [[ "$daml_install_exit_code" == 0 ]]; then
           echo_eval init_daml_package $tarball_release_version
@@ -197,18 +194,56 @@ run_composable_checks () {
           echo_eval check_daml_build_from_tarball_nonzero $tarball_path $?
           echo_eval check_daml_version_indicates_correct $tarball_release_version
           echo_eval check_dar_has_correct_metadata_version $tarball_release_version
+        else
+          echo_eval $post_failed_tarball_install_behaviour
         fi
-      fi
-      [[ -z "$RELEASES_ENDPOINT_MINISERVE" ]] || kill $RELEASES_ENDPOINT_MINISERVE
-      reset_sandbox
+        [[ -z "$RELEASES_ENDPOINT_MINISERVE" ]] || kill $RELEASES_ENDPOINT_MINISERVE
+        reset_sandbox
+      done
     done
   done
 
   kill $GITHUB_MIRROR_MINISERVE
 }
 
+# If failure occurred under old cache, try updating the cache
+update_cache () {
+  if [[ $version_cache_behaviour == init_old_cache ]]; then
+    no_cache_override_github_endpoint
+    daml version --force-reload yes
+    daml install --install-assistant yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1
+    daml_install_exit_code=$?
+    echo_eval check_daml_install_from_tarball_after_cache_reload $tarball_path $daml_install_exit_code $version_cache_behaviour
+    echo_eval check_recommend_cache_reload daml_install_output $daml_install_exit_code
+    if [[ "$daml_install_exit_code" == 0 ]]; then
+      echo_eval init_daml_package $tarball_release_version
+      echo_eval daml build
+      echo_eval check_daml_build_from_tarball_nonzero $tarball_path $?
+      echo_eval check_daml_version_indicates_correct $tarball_release_version
+      echo_eval check_dar_has_correct_metadata_version $tarball_release_version
+    fi
+  fi
+}
+
+allow_nonrelease () {
+  echo_eval daml install --install-assistant yes --allow-install-non-release yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1
+  daml_install_exit_code=$?
+  cat daml_install_output
+  echo_eval check_daml_install_from_tarball_after_cache_reload $tarball_path $daml_install_exit_code $version_cache_behaviour
+  echo_eval check_recommend_cache_reload daml_install_output $daml_install_exit_code
+  if [[ "$daml_install_exit_code" == 0 ]]; then
+    echo_eval init_daml_package $tarball_sdk_version
+    echo_eval daml build
+    #echo_eval check_daml_build_from_tarball_nonzero $tarball_path $?
+    #echo_eval check_daml_version_indicates_correct $tarball_sdk_version
+    #echo_eval check_dar_has_correct_metadata_version $tarball_sdk_version
+  fi
+}
+
 setup_sandbox () {
-  # Create sandbox with daml-head in it
+  alternate_download_line=$1
+
+  # Create sandbox with a daml root and daml cache
   cd $(mktemp -d)
   export SANDBOX_ROOT="$PWD"
   export DAML_CACHE="$PWD/cache"
@@ -216,11 +251,16 @@ setup_sandbox () {
   export DAML_HOME="$PWD/daml_home"
   mkdir -p "$DAML_HOME/sdk"
   mkdir -p "$DAML_HOME/bin"
+
+  # Install 0.0.0 to DAML_HOME, set as assistant version and add to path
   ln -s "../sdk/0.0.0/daml/daml" "$DAML_HOME/bin/daml"
   cp -r "$HOME/.daml/sdk/0.0.0" "$DAML_HOME/sdk/"
   export LOCAL_DAML_HEAD=$DAML_HOME/sdk/0.0.0/daml/daml
   export PATH="$DAML_HOME/bin:$PATH"
   daml install 0.0.0 --install-assistant yes
+
+  # Set alternate download location if available
+  echo $alternate_download_line >> $DAML_HOME/daml-config.yaml
 }
 
 reset_sandbox () {
@@ -770,6 +810,9 @@ no_cache_override_github_endpoint () {
   export RELEASES_ENDPOINT=releases-endpoint
   echo "releases-endpoint: http://localhost:8080/releases" >> $DAML_HOME/daml-config.yaml
   mkdir -p $RELEASES_ENDPOINT
+  miniserve "$RELEASES_ENDPOINT" &
+  export RELEASES_ENDPOINT_MINISERVE=$!
+  sleep 5
   echo '''[
   {
     "url": "https://api.github.com/repos/digital-asset/daml/releases/127516344",
@@ -24412,8 +24455,5 @@ no_cache_override_github_endpoint () {
     "body": "Development snapshot. Use at your own risks.\nBased on daml 2.7.0-snapshot.20230703.11931.0.vc04c7ac9, canton 2.7.0-snapshot.20230704.10723.0.va2453440."
   }
 ]''' > "$RELEASES_ENDPOINT/releases"
-  miniserve "$RELEASES_ENDPOINT" &
-  export RELEASES_ENDPOINT_MINISERVE=$!
-  sleep 2
 }
 
