@@ -233,6 +233,31 @@ checkTemplate module_ template = do
     -- TODO: Check that return type of a choice is compatible
     pure ()
     where
+        mapENilToNothing :: Maybe Expr -> Maybe Expr
+        mapENilToNothing (Just (LF.ENil (LF.TBuiltin LF.BTParty))) = Nothing
+        mapENilToNothing e = e
+
+        -- Given an extractor from the list below, whenDifferent runs an action
+        -- when the relevant expressions differ.
+        whenDifferent :: Show a => String -> (a -> Module -> Either String Expr) -> Upgrading a -> m () -> m ()
+        whenDifferent field extractor exprs act =
+            let resolvedWithPossibleError = sequence $ extractor <$> exprs <*> module_
+            in
+            case resolvedWithPossibleError of
+                Left err ->
+                    warnWithContext (WCouldNotExtractForUpgradeChecking (T.pack field) (Just (T.pack err)))
+                Right resolvedExprs ->
+                    let exprsMatch = foldU alphaExpr $ fmap removeLocations resolvedExprs
+                    in
+                    unless exprsMatch act
+
+        -- Each extract function takes an expression, extracts a relevant
+        -- ExprValName, and performs lookups necessary to get the actual
+        -- definition.
+
+        -- Given an expression in a module:
+        -- $mydef this
+        -- Extract the definition of $mydef from the module
         extractFuncFromFuncThis :: Expr -> Module -> Either String Expr
         extractFuncFromFuncThis expr module_
             | ETmApp{..} <- expr
@@ -242,6 +267,9 @@ checkTemplate module_ template = do
             | otherwise
             = Left "extractFuncFromFuncThis: Wrong shape"
 
+        -- Given an expression in a module:
+        -- $mydef this arg
+        -- Extract the definition of $mydef from the module
         extractFuncFromFuncThisArg :: Expr -> Module -> Either String Expr
         extractFuncFromFuncThisArg expr module_
             | outer@ETmApp{} <- expr
@@ -253,6 +281,9 @@ checkTemplate module_ template = do
             | otherwise
             = Left "extractFuncFromFuncThisArg: Wrong shape"
 
+        -- Given an expression in a module:
+        -- case $mydef this of ...
+        -- Extract the definition of $mydef from the module
         extractFuncFromCaseFuncThis :: Expr -> Module -> Either String Expr
         extractFuncFromCaseFuncThis expr module_
             | ECase{..} <- expr
@@ -260,6 +291,10 @@ checkTemplate module_ template = do
             | otherwise
             = Left "extractFuncFromCaseFuncThis: No ECase found"
 
+        -- Given an expression in a module:
+        -- $mydef @[] []
+        -- where $mydef is a term of the shape for extractFuncFromProxyApp
+        -- Extract the internals of $mydef using extractFuncFromProxyApp
         extractFuncFromTyAppNil :: Expr -> Module -> Either String Expr
         extractFuncFromTyAppNil expr module_
             | outer@ETmApp{} <- expr
@@ -273,6 +308,9 @@ checkTemplate module_ template = do
             | otherwise
             = Left "extractFuncFromTyAppNil: Wrong shape"
 
+        -- Given an expression in a module:
+        -- ∀(proxy : * -> *). \(_arg : proxy a) -> $mydef
+        -- Extract the definition of $mydef from the module
         extractFuncFromProxyApp :: Expr -> Module -> Either String Expr
         extractFuncFromProxyApp expr module_
             | outer@ETyLam{} <- expr
@@ -289,22 +327,6 @@ checkTemplate module_ template = do
             case NM.lookup evn (moduleValues module_) of
                 Nothing -> Left ("checkTemplate: Trying to get definition of " ++ T.unpack (unExprValName evn) ++ " but it is not defined!")
                 Just defValue -> Right (dvalBody defValue)
-
-        whenDifferent :: Show a => String -> (a -> Module -> Either String Expr) -> Upgrading a -> m () -> m ()
-        whenDifferent field extractor exprs act =
-            let resolvedWithPossibleError = sequence $ extractor <$> exprs <*> module_
-            in
-            case resolvedWithPossibleError of
-                Left err ->
-                    warnWithContext (WCouldNotExtractForUpgradeChecking (T.pack field) (Just (T.pack err)))
-                Right resolvedExprs ->
-                    let exprsMatch = foldU alphaExpr $ fmap removeLocations resolvedExprs
-                    in
-                    unless exprsMatch act
-
-        mapENilToNothing :: Maybe Expr -> Maybe Expr
-        mapENilToNothing (Just (LF.ENil (LF.TBuiltin LF.BTParty))) = Nothing
-        mapENilToNothing e = e
 
 checkDefDataType :: UpgradedRecordOrigin -> Upgrading LF.DefDataType -> Maybe Error
 checkDefDataType origin datatype = do
