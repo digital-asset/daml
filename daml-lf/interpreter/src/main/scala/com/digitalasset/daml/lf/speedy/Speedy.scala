@@ -113,6 +113,7 @@ private[lf] object Speedy {
   final case class CachedKey(
       globalKeyWithMaintainers: GlobalKeyWithMaintainers,
       key: SValue,
+      shared: Boolean,
   ) {
     def globalKey: GlobalKey = globalKeyWithMaintainers.globalKey
     def templateId: TypeConName = globalKey.templateId
@@ -120,7 +121,7 @@ private[lf] object Speedy {
     val lfValue: V = globalKey.key
     def renormalizedGlobalKeyWithMaintainers(version: TxVersion) = {
       globalKeyWithMaintainers.copy(
-        globalKey = GlobalKey.assertBuild(templateId, key.toNormalizedValue(version))
+        globalKey = GlobalKey.assertWithRenormalizedValue(globalKey, key.toNormalizedValue(version))
       )
     }
   }

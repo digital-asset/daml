@@ -708,7 +708,7 @@ class TransactionCoderSpec
         minSuccessful(2),
       ) { (create, time, salt) =>
         forAll(
-          keyWithMaintainersGen(create.templateId),
+          keyWithMaintainersGen(create.templateId, create.version),
           minSuccessful(2),
         ) { key =>
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
@@ -775,7 +775,7 @@ class TransactionCoderSpec
         minSuccessful(2),
       ) { (party, create, time, salt) =>
         forAll(
-          keyWithMaintainersGen(create.templateId),
+          keyWithMaintainersGen(create.templateId, create.version),
           minSuccessful(2),
         ) { key =>
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
@@ -822,7 +822,7 @@ class TransactionCoderSpec
         minSuccessful(2),
       ) { (party, create, time, salt) =>
         forAll(
-          keyWithMaintainersGen(create.templateId),
+          keyWithMaintainersGen(create.templateId, create.version),
           minSuccessful(2),
         ) { key =>
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
@@ -1299,7 +1299,11 @@ class TransactionCoderSpec
       version: TransactionVersion,
   ) =
     key.copy(globalKey =
-      GlobalKey.assertBuild(key.globalKey.templateId, normalize(key.value, version))
+      GlobalKey.assertBuild(
+        key.globalKey.templateId,
+        normalize(key.value, version),
+        GlobalKey.isShared(key.globalKey),
+      )
     )
 
   private[this] def normalizeContract(contract: Versioned[Value.ContractInstanceWithAgreement]) =

@@ -21,6 +21,7 @@ object ErrorResource {
     ContractId,
     ContractIds,
     ContractKey,
+    SharedKey,
     ContractKeyHash,
     DalfPackage,
     DevErrorType,
@@ -47,6 +48,9 @@ object ErrorResource {
   }
   object ContractKey extends ErrorResource {
     def asString: String = "CONTRACT_KEY"
+  }
+  object SharedKey extends ErrorResource {
+    def asString: String = "SHARED_KEY"
   }
   object ContractArg extends ErrorResource {
     def asString: String = "CONTRACT_ARG"

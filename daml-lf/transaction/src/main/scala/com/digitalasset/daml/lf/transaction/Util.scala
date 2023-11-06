@@ -4,6 +4,7 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.language.LanguageVersion
 import com.daml.nameof.NameOf
 
 object Util {
@@ -92,7 +93,9 @@ object Util {
       version: TransactionVersion,
   ): Either[String, GlobalKeyWithMaintainers] =
     normalizeValue(key.globalKey.key, version).map(normalized =>
-      key.copy(globalKey = GlobalKey.assertBuild(key.globalKey.templateId, normalized))
+      key.copy(globalKey =
+        GlobalKey.assertBuild(key.globalKey.templateId, normalized, Util.sharedKey(version))
+      )
     )
 
   def normalizeOptKey(
@@ -103,5 +106,19 @@ object Util {
       case Some(value) => normalizeKey(value, version).map(Some(_))
       case None => Right(None)
     }
+
+  def sharedKey(version: TransactionVersion): Boolean = {
+    // TODO https://github.com/digital-asset/daml/issues/17732
+    //   Enable shared keys once there is LAPI support via
+    //   version >= TransactionVersion.minSharedKeys
+    false
+  }
+
+  def sharedKey(version: LanguageVersion): Boolean = {
+    // TODO https://github.com/digital-asset/daml/issues/17732
+    //   Enable shared keys once there is LAPI support via
+    //   version >= LanguageVersion.Features.sharedKeys
+    false
+  }
 
 }

@@ -121,19 +121,6 @@ object TransactionBuilder {
   ): TransactionVersion =
     data.assertRight(assignVersion(v0, supportedVersions))
 
-  def asVersionedValue(
-      value: Value,
-      supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
-  ): Either[String, TxValue] =
-    assignVersion(value, supportedVersions).map(Versioned(_, value))
-
-  @throws[IllegalArgumentException]
-  def assertAsVersionedValue(
-      value: Value,
-      supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
-  ): TxValue =
-    data.assertRight(asVersionedValue(value, supportedVersions))
-
   def asVersionedContract(
       contract: ContractInstance,
       supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,

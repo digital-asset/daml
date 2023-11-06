@@ -66,7 +66,7 @@ final class Adapter(
     )
 
   def adapt(gkey: GlobalKey): GlobalKey =
-    GlobalKey.assertBuild(adapt(gkey.templateId), adapt(gkey.key))
+    GlobalKey.assertBuild(adapt(gkey.templateId), adapt(gkey.key), GlobalKey.isShared(gkey))
 
   private[this] def adapt(value: Value): Value =
     value match {

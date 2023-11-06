@@ -655,7 +655,45 @@ class HashSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  private def defRef(module: String = "Module", name: String) =
+  "Hash.hashContractKey" should {
+
+    val templateId = defRef(name = "upgradable")
+    val nonSharedTrueHash =
+      Hash.assertFromString("efab35fcbc9e2336fcc63259ba65e6601903be0a373c0b0f4d761872ffb23ded")
+
+    "produce backwardly compatible non-shared contract keys" in {
+      Hash.assertHashContractKey(templateId, ValueTrue) shouldBe nonSharedTrueHash
+    }
+
+    "produce backwardly compatible keys when called with shared=false" in {
+      Hash.assertHashContractKey(templateId, ValueTrue, shared = false) shouldBe nonSharedTrueHash
+    }
+
+    "produce ignore the packageId when called with shared=true" in {
+      Hash.assertHashContractKey(
+        templateId,
+        ValueTrue,
+        shared = true,
+      ) should not be nonSharedTrueHash
+    }
+
+    "produce an identical hash to the same template in a different package if shared=true" in {
+      val h1 = Hash.assertHashContractKey(
+        templateId.copy(packageId = Ref.PackageId.assertFromString("packageA")),
+        ValueTrue,
+        shared = true,
+      )
+      val h2 = Hash.assertHashContractKey(
+        templateId.copy(packageId = Ref.PackageId.assertFromString("packageB")),
+        ValueTrue,
+        shared = true,
+      )
+      h1 shouldBe h2
+    }
+
+  }
+
+  private def defRef(module: String = "Module", name: String): Ref.Identifier =
     Ref.Identifier(
       packageId0,
       Ref.QualifiedName(

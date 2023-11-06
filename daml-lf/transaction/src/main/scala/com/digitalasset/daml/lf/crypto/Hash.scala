@@ -295,39 +295,32 @@ object Hash {
   def hashPrivateKey(s: String): Hash =
     builder(Purpose.PrivateKey, noCid2String).add(s).build
 
-  @throws[HashingError]
-  def assertHashContractKey(
-      packageId: Option[Ref.PackageId],
-      qualifiedName: Ref.QualifiedName,
-      key: Value,
-  ): Hash = {
-    val kb = builder(Purpose.ContractKey, noCid2String)
-    packageId.foreach(p => kb.add(p))
-    kb
-      .addQualifiedName(qualifiedName)
-      .addTypedValue(key)
-      .build
-  }
-
   // This function assumes that key is well typed, i.e. :
   // 1 - `templateId` is the identifier for a template with a key of type τ
   // 2 - `key` is a value of type τ
   @throws[HashingError]
-  def assertHashContractKey(templateId: Ref.Identifier, key: Value): Hash =
-    assertHashContractKey(Some(templateId.packageId), templateId.qualifiedName, key)
-
-  def hashContractKey(
-      packageId: Option[Ref.PackageId],
-      qualifiedName: Ref.QualifiedName,
-      key: Value,
-  ): Either[HashingError, Hash] =
-    handleError(assertHashContractKey(packageId, qualifiedName, key))
+  def assertHashContractKey(templateId: Ref.Identifier, key: Value, shared: Boolean): Hash = {
+    val hashBuilder = builder(Purpose.ContractKey, noCid2String)
+    (if (shared) {
+       val sharedPackageIdLength = 0 // To ensure there cannot be a hash collision
+       hashBuilder.add(sharedPackageIdLength).addQualifiedName(templateId.qualifiedName)
+     } else {
+       hashBuilder.addIdentifier(templateId)
+     }).addTypedValue(key).build
+  }
 
   def hashContractKey(
       templateId: Ref.Identifier,
       key: Value,
+      shared: Boolean,
   ): Either[HashingError, Hash] =
-    handleError(assertHashContractKey(templateId, key))
+    handleError(assertHashContractKey(templateId, key, shared))
+
+  // TODO https://github.com/digital-asset/daml/issues/17732
+  //   For temporary backward compatibility, will be deprecated
+  def assertHashContractKey(templateId: Ref.Identifier, key: Value): Hash = {
+    assertHashContractKey(templateId, key, shared = false)
+  }
 
   // This function assumes that `arg` is well typed, i.e. :
   // 1 - `templateId` is the identifier for a template with a contract argument of type τ

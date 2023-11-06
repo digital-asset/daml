@@ -4,6 +4,7 @@
 package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
+import com.daml.lf.transaction.Util
 import com.daml.lf.value.ValueCoder.{CidEncoder as LfDummyCidEncoder}
 import com.daml.lf.value.{ValueCoder, ValueOuterClass}
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -54,7 +55,7 @@ object GlobalKeySerialization {
         )
 
       globalKey <- LfGlobalKey
-        .build(templateId, versionedKey.unversioned)
+        .build(templateId, versionedKey.unversioned, false)  // TODO should be Util.sharedKey(versionedKey.version)
         .leftMap(err =>
           ProtoDeserializationError.ValueDeserializationError("GlobalKey.key", err.toString)
         )

@@ -45,9 +45,23 @@ trait TestNodeBuilder {
       case CreateKey.NoKey =>
         None
       case CreateKey.SignatoryMaintainerKey(value) =>
-        Some(GlobalKeyWithMaintainers.assertBuild(templateId, value, signatories))
+        Some(
+          GlobalKeyWithMaintainers.assertBuild(
+            templateId,
+            value,
+            signatories,
+            Util.sharedKey(transactionVersion),
+          )
+        )
       case CreateKey.KeyWithMaintainers(value, maintainers) =>
-        Some(GlobalKeyWithMaintainers.assertBuild(templateId, value, maintainers))
+        Some(
+          GlobalKeyWithMaintainers.assertBuild(
+            templateId,
+            value,
+            maintainers,
+            Util.sharedKey(transactionVersion),
+          )
+        )
     }
 
     val maintainers: Set[Party] = keyOpt.fold(Set.empty[Party])(_.maintainers)

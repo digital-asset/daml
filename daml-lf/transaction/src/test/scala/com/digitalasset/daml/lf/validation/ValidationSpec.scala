@@ -77,12 +77,27 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val samValue1: Val = V.ValueUnit
   private val samValue2: Val = V.ValueText(samContractId1.coid)
 
-  private val samKWM1 =
-    GlobalKeyWithMaintainers.assertBuild(samTemplateId1, samValue1, samParties1)
-  private val samKWM2 =
-    GlobalKeyWithMaintainers.assertBuild(samTemplateId1, samValue1, samParties2)
-  private val samKWM3 =
-    GlobalKeyWithMaintainers.assertBuild(samTemplateId2, samValue2, samParties1)
+  private def samKWM1(version: TransactionVersion) =
+    GlobalKeyWithMaintainers.assertBuild(
+      samTemplateId1,
+      samValue1,
+      samParties1,
+      Util.sharedKey(version),
+    )
+  private def samKWM2(version: TransactionVersion) =
+    GlobalKeyWithMaintainers.assertBuild(
+      samTemplateId1,
+      samValue1,
+      samParties2,
+      Util.sharedKey(version),
+    )
+  private def samKWM3(version: TransactionVersion) =
+    GlobalKeyWithMaintainers.assertBuild(
+      samTemplateId2,
+      samValue2,
+      samParties1,
+      Util.sharedKey(version),
+    )
 
   private val samVersion1: TransactionVersion = TransactionVersion.minVersion
   private val samVersion2: TransactionVersion = TransactionVersion.maxVersion
@@ -90,7 +105,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val someCreates: Seq[Node] =
     for {
       version <- Seq(samVersion1, samVersion2)
-      key <- Seq(None, Some(samKWM1))
+      key <- Seq(None, Some(samKWM1(version)))
     } yield Node.Create(
       coid = samContractId1,
       templateId = samTemplateId1,
@@ -105,7 +120,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val someFetches: Seq[Node] =
     for {
       version <- Seq(samVersion1, samVersion2)
-      key <- Seq(None, Some(samKWM2))
+      key <- Seq(None, Some(samKWM2(version)))
       actingParties <- Seq(Set[Party](), Set(samParty1))
     } yield Node.Fetch(
       coid = samContractId1,
@@ -125,14 +140,14 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     } yield Node.LookupByKey(
       templateId = samTemplateId1,
       result = result,
-      key = samKWM3,
+      key = samKWM3(version),
       version = version,
     )
 
   private val someExercises: Seq[Exe] =
     for {
       version <- Seq(samVersion1, samVersion2)
-      key <- Seq(None, Some(samKWM1))
+      key <- Seq(None, Some(samKWM1(version)))
       exerciseResult <- Seq(None, Some(samValue2))
     } yield Node.Exercise(
       targetCoid = samContractId2,
@@ -236,13 +251,16 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       List(samParties1, samParties2, samParties3, samParties4).filter(set => set != xs)
   }
 
-  private val tweakKeyMaintainers = Tweak[KWM] { case x =>
-    List(samKWM1, samKWM2, samKWM3).filter(y => x != y)
+  private def tweakKeyMaintainers(version: TransactionVersion) = Tweak[KWM] { case x =>
+    List(samKWM1(version), samKWM2(version), samKWM3(version)).filter(y => x != y)
   }
 
-  private val tweakOptKeyMaintainers = Tweak[OKWM] {
-    case None => List(Some(samKWM1), Some(samKWM2), Some(samKWM3))
-    case Some(x) => None :: List(samKWM1, samKWM2, samKWM3).filter(y => x != y).map(Some(_))
+  private def tweakOptKeyMaintainers(version: TransactionVersion) = Tweak[OKWM] {
+    case None => List(Some(samKWM1(version)), Some(samKWM2(version)), Some(samKWM3(version)))
+    case Some(x) =>
+      None :: List(samKWM1(version), samKWM2(version), samKWM3(version))
+        .filter(y => x != y)
+        .map(Some(_))
   }
 
   private val tweakOptContractId = Tweak[Option[V.ContractId]] { case x =>
@@ -269,10 +287,10 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val tweakCreateStakeholders = Tweak[Node] { case nc: Node.Create =>
     tweakPartySet.run(nc.stakeholders).map { x => nc.copy(stakeholders = x) }
   }
-  private def tweakCreateKey(tweakOptKeyMaintainers: Tweak[OKWM]) = Tweak[Node] {
-    case nc: Node.Create =>
-      tweakOptKeyMaintainers.run(nc.keyOpt).map { x => nc.copy(keyOpt = x) }
-  }
+  private def tweakCreateKey(tweakOptKeyMaintainers: TransactionVersion => Tweak[OKWM]) =
+    Tweak[Node] { case nc: Node.Create =>
+      tweakOptKeyMaintainers(nc.version).run(nc.keyOpt).map { x => nc.copy(keyOpt = x) }
+    }
   private val tweakCreateVersion = Tweak.single[Node] { case nc: Node.Create =>
     nc.copy(version = changeVersion(nc.version))
   }
@@ -306,10 +324,10 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val tweakFetchStakeholders = Tweak[Node] { case nf: Node.Fetch =>
     tweakPartySet.run(nf.stakeholders).map { x => nf.copy(stakeholders = x) }
   }
-  private def tweakFetchKey(tweakOptKeyMaintainers: Tweak[OKWM]) = Tweak[Node] {
-    case nf: Node.Fetch =>
-      tweakOptKeyMaintainers.run(nf.keyOpt).map { x => nf.copy(keyOpt = x) }
-  }
+  private def tweakFetchKey(tweakOptKeyMaintainers: TransactionVersion => Tweak[OKWM]) =
+    Tweak[Node] { case nf: Node.Fetch =>
+      tweakOptKeyMaintainers(nf.version).run(nf.keyOpt).map { x => nf.copy(keyOpt = x) }
+    }
   private def tweakFetchByKey(whenVersion: TransactionVersion => Boolean) = Tweak.single[Node] {
     case nf: Node.Fetch if whenVersion(nf.version) =>
       nf.copy(byKey = changeBoolean(nf.byKey))
@@ -336,7 +354,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     nl.copy(templateId = changeTemplateId(nl.templateId))
   }
   private val tweakLookupKey = Tweak[Node] { case nl: Node.LookupByKey =>
-    tweakKeyMaintainers.run(nl.key).map { x => nl.copy(key = x) }
+    tweakKeyMaintainers(nl.version).run(nl.key).map { x => nl.copy(key = x) }
   }
   private val tweakLookupResult = Tweak[Node] { case nl: Node.LookupByKey =>
     tweakOptContractId.run(nl.result).map { x => nl.copy(result = x) }
@@ -393,10 +411,10 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     }
   }
 
-  private def tweakExerciseKey(tweakOptKeyMaintainers: Tweak[OKWM]) = Tweak[Node] {
-    case ne: Node.Exercise =>
-      tweakOptKeyMaintainers.run(ne.keyOpt).map { x => ne.copy(keyOpt = x) }
-  }
+  private def tweakExerciseKey(tweakOptKeyMaintainers: TransactionVersion => Tweak[OKWM]) =
+    Tweak[Node] { case ne: Node.Exercise =>
+      tweakOptKeyMaintainers(ne.version).run(ne.keyOpt).map { x => ne.copy(keyOpt = x) }
+    }
   private def tweakExerciseByKey(whenVersion: TransactionVersion => Boolean) = Tweak.single[Node] {
     case ne: Node.Exercise if whenVersion(ne.version) =>
       ne.copy(byKey = changeBoolean(ne.byKey))

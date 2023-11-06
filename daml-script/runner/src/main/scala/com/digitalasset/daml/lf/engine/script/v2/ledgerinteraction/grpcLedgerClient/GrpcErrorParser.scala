@@ -4,7 +4,7 @@
 package com.daml.lf.engine.script.v2.ledgerinteraction
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.transaction.{GlobalKey, SharedGlobalKey, TransactionVersion}
+import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder
 import com.daml.lf.value.ValueCoder.CidDecoder
@@ -86,38 +86,23 @@ object GrpcErrorParser {
         }
       case "CONTRACT_KEY_NOT_FOUND" =>
         caseErr {
-          case Seq(
-                (ErrorResource.PackageId, pid),
-                (ErrorResource.QualifiedName, name),
-                (ErrorResource.ContractKey, decodeValue.unlift(key)),
-              ) =>
-            SubmitError.ContractKeyNotFound(
-              SharedGlobalKey.assertBuild(
-                Some(PackageId.assertFromString(pid)),
-                QualifiedName.assertFromString(name),
-                key,
-              )
-            )
-          case Seq(
-                (ErrorResource.QualifiedName, name),
-                (ErrorResource.ContractKey, decodeValue.unlift(key)),
-              ) =>
-            SubmitError.ContractKeyNotFound(
-              SharedGlobalKey.assertBuild(None, QualifiedName.assertFromString(name), key)
-            )
           // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
           //  temporary backward compatibility with Canton so can soon be removed
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
               ) =>
-            val ident = Identifier.assertFromString(tid)
             SubmitError.ContractKeyNotFound(
-              SharedGlobalKey.assertBuild(
-                Some(ident.packageId),
-                ident.qualifiedName,
-                key,
-              )
+              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, false)
+            )
+
+          case Seq(
+                (ErrorResource.TemplateId, tid),
+                (ErrorResource.ContractKey, decodeValue.unlift(key)),
+                (ErrorResource.SharedKey, sharedKeyText),
+              ) =>
+            SubmitError.ContractKeyNotFound(
+              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, sharedKeyText.toBoolean)
             )
         }
       case "DAML_AUTHORIZATION_ERROR" => SubmitError.AuthorizationError(message)
@@ -130,6 +115,8 @@ object GrpcErrorParser {
         }
       case "DISCLOSED_CONTRACT_KEY_HASHING_ERROR" =>
         caseErr {
+          // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
+          //  temporary backward compatibility with Canton so can soon be removed
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractId, cid),
@@ -138,18 +125,47 @@ object GrpcErrorParser {
               ) =>
             SubmitError.DisclosedContractKeyHashingError(
               ContractId.assertFromString(cid),
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key),
+              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, false),
+              keyHash,
+            )
+
+          case Seq(
+                (ErrorResource.TemplateId, tid),
+                (ErrorResource.ContractId, cid),
+                (ErrorResource.ContractKey, decodeValue.unlift(key)),
+                (ErrorResource.SharedKey, sharedKeyText),
+                (ErrorResource.ContractKeyHash, keyHash),
+              ) =>
+            SubmitError.DisclosedContractKeyHashingError(
+              ContractId.assertFromString(cid),
+              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, sharedKeyText.toBoolean),
               keyHash,
             )
         }
       case "DUPLICATE_CONTRACT_KEY" =>
         caseErr {
+          // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
+          //  temporary backward compatibility with Canton so can soon be removed
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
               ) =>
             SubmitError.DuplicateContractKey(
-              Some(GlobalKey.assertBuild(Identifier.assertFromString(tid), key))
+              Some(GlobalKey.assertBuild(Identifier.assertFromString(tid), key, false))
+            )
+          case Seq(
+                (ErrorResource.TemplateId, tid),
+                (ErrorResource.ContractKey, decodeValue.unlift(key)),
+                (ErrorResource.SharedKey, sharedKeyText),
+              ) =>
+            SubmitError.DuplicateContractKey(
+              Some(
+                GlobalKey.assertBuild(
+                  Identifier.assertFromString(tid),
+                  key,
+                  sharedKeyText.toBoolean,
+                )
+              )
             )
           // TODO[SW] Canton can omit the key, unsure why.
           case Seq() => SubmitError.DuplicateContractKey(None)
@@ -170,12 +186,24 @@ object GrpcErrorParser {
         }
       case "INCONSISTENT_CONTRACT_KEY" =>
         caseErr {
+
+          // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
+          //  temporary backward compatibility with Canton so can soon be removed
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
               ) =>
             SubmitError.InconsistentContractKey(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key)
+              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, false)
+            )
+
+          case Seq(
+                (ErrorResource.TemplateId, tid),
+                (ErrorResource.ContractKey, decodeValue.unlift(key)),
+                (ErrorResource.SharedKey, sharedKeyText),
+              ) =>
+            SubmitError.InconsistentContractKey(
+              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, sharedKeyText.toBoolean)
             )
         }
       case "UNHANDLED_EXCEPTION" =>
@@ -205,9 +233,10 @@ object GrpcErrorParser {
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
+                (ErrorResource.SharedKey, sharedKeyText),
               ) =>
             SubmitError.FetchEmptyContractKeyMaintainers(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key)
+              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, sharedKeyText.toBoolean)
             )
         }
       case "WRONGLY_TYPED_CONTRACT" =>
