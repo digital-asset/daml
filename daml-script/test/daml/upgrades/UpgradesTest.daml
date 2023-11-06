@@ -318,10 +318,6 @@ explicitV2ChoiceV1Contract : Script ()
 explicitV2ChoiceV1Contract =
   choiceTest @V2.ValidUpgrade V1.ValidUpgrade (V2.UpgradedChoice "v2 to v1" $ Some "extra") True (V2.UpgradedChoiceReturn "v2 to v1:V2:Some \"extra\"" $ Some "extra")
 
--- When inferring, the V1 contract and choice argument is upgraded, and the return type is downgraded directly by daml script.
--- As such, we get the v2 implementation called, with the additional field set to None (as shown in the choice return)
--- and since the extra data in the return will also be none, the downgrade can succeed.
--- TODO: This test fails, choice argument upgrading seems to not be implemented.
 inferredV1ChoiceV1Contract : Script ()
 inferredV1ChoiceV1Contract =
   choiceTest @V1.ValidUpgrade V1.ValidUpgrade (V1.UpgradedChoice "v1 to v1") False (V1.UpgradedChoiceReturn "v1 to v1:V2:None")

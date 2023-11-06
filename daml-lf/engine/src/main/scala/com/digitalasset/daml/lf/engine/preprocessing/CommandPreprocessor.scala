@@ -224,7 +224,7 @@ private[lf] final class CommandPreprocessor(
     val choiceArgType = handleLookup(
       pkgInterface.lookupTemplateChoice(templateId, choiceId)
     ).argBinder._2
-    val choiceArg = translateNonUpgradableArg(choiceArgType, choiceArgument, strict = strict)
+    val choiceArg = translateUpgradableArg(choiceArgType, choiceArgument, strict = strict)
     speedy.Command
       .CreateAndExercise(
         templateId,
