@@ -71,7 +71,7 @@ main = do
   damlAssistant <- locateRunfiles (mainWorkspace </> "daml-assistant" </> exe "daml")
   release <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball-ce.tar.gz")
   withTempDir $ \damlHome -> do
-    setEnv "DAML_HOME" damlHome
+    setEnv "DAML_HOME" damlHome True
     -- Install sdk 0.0.0 into temp DAML_HOME
     void $ readCreateProcess (proc damlAssistant ["install", release]) ""
     defaultMain $ tests damlAssistant
