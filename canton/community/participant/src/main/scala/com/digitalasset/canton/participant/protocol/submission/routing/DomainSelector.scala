@@ -12,18 +12,13 @@ import com.daml.nonempty.NonEmptyColl.*
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.{DomainsFilter, UsableDomain}
+import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.RoutingInternalError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors.NoDomainForSubmission
-import com.digitalasset.canton.participant.sync.{
-  TransactionRoutingError,
-  TransactionRoutingErrorWithDomain,
-}
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -31,10 +26,7 @@ private[routing] class DomainSelectorFactory(
     admissibleDomains: AdmissibleDomains,
     priorityOfDomain: DomainId => Int,
     domainRankComputation: DomainRankComputation,
-    domainStateProvider: DomainId => Either[
-      TransactionRoutingErrorWithDomain,
-      (TopologySnapshot, ProtocolVersion),
-    ],
+    domainStateProvider: DomainStateProvider,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext) {
   def create(
@@ -59,25 +51,23 @@ private[routing] class DomainSelectorFactory(
 }
 
 /** Selects the best domain for routing.
-  * @param admissibleDomains Domains that host both submitters and informees of the transaction:
+  *
+  * @param admissibleDomains     Domains that host both submitters and informees of the transaction:
   *                          - submitters have to be hosted on the local participant
   *                          - informees have to be hosted on some participant
-  *                          It is assumed that the participant is connected to all domains in `connectedDomains`
-  * @param priorityOfDomain Priority of each domain (lowest number indicates highest priority)
+  *                            It is assumed that the participant is connected to all domains in `connectedDomains`
+  * @param priorityOfDomain      Priority of each domain (lowest number indicates highest priority)
   * @param domainRankComputation Utility class to compute `DomainRank`
-  * @param domainStateProvider Provides state information about a domain.
-  *                            Note: returns an either rather than an option since failure comes from disconnected
-  *                            domains and we assume the participant to be connected to all domains in `connectedDomains`
+  * @param domainStateProvider   Provides state information about a domain.
+  *                              Note: returns an either rather than an option since failure comes from disconnected
+  *                              domains and we assume the participant to be connected to all domains in `connectedDomains`
   */
 private[routing] class DomainSelector(
     val transactionData: TransactionData,
     admissibleDomains: NonEmpty[Set[DomainId]],
     priorityOfDomain: DomainId => Int,
     domainRankComputation: DomainRankComputation,
-    domainStateProvider: DomainId => Either[
-      TransactionRoutingErrorWithDomain,
-      (TopologySnapshot, ProtocolVersion),
-    ],
+    domainStateProvider: DomainStateProvider,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -164,8 +154,9 @@ private[routing] class DomainSelector(
 
     val (unableToFetchStateDomains, domainStates) = admissibleDomains.forgetNE.toList.map {
       domainId =>
-        domainStateProvider(domainId).map { case (snapshot, protocolVersion) =>
-          (domainId, protocolVersion, snapshot)
+        domainStateProvider.getTopologySnapshotAndPVFor(domainId).map {
+          case (snapshot, protocolVersion) =>
+            (domainId, protocolVersion, snapshot)
         }
     }.separate
 
@@ -198,7 +189,7 @@ private[routing] class DomainSelector(
       domainId: DomainId,
       transactionVersion: TransactionVersion,
       inputContractsDomainIdO: Option[DomainId],
-  ): EitherT[Future, TransactionRoutingError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {
     /*
       If there are input contracts, then they should be on domain `domainId`
      */
@@ -229,13 +220,14 @@ private[routing] class DomainSelector(
     *
     * - List `domainsOfSubmittersAndInformees` contains `domainId`
     */
-  private def validatePrescribedDomain(
-      domainId: DomainId,
-      transactionVersion: TransactionVersion,
+  private def validatePrescribedDomain(domainId: DomainId, transactionVersion: TransactionVersion)(
+      implicit traceContext: TraceContext
   ): EitherT[Future, TransactionRoutingError, Unit] = {
 
     for {
-      domainState <- EitherT.fromEither[Future](domainStateProvider(domainId))
+      domainState <- EitherT.fromEither[Future](
+        domainStateProvider.getTopologySnapshotAndPVFor(domainId)
+      )
       (snapshot, protocolVersion) = domainState
 
       // Informees and submitters should reside on the selected domain

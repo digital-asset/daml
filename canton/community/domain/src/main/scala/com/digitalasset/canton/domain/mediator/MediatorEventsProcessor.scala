@@ -208,7 +208,7 @@ private[mediator] class MediatorEventsProcessor(
 
   private def envelopesGroupedByEvent(
       events: NonEmpty[Seq[TracedProtocolEvent]]
-  ): NonEmpty[Seq[(TracedProtocolEvent, Seq[OpenEnvelope[ProtocolMessage]])]] =
+  ): NonEmpty[Seq[(TracedProtocolEvent, Seq[DefaultOpenEnvelope])]] =
     events.map { event =>
       implicit val traceContext: TraceContext = event.traceContext
       event.value match {
@@ -273,6 +273,8 @@ private[mediator] class MediatorEventsProcessor(
     val responses =
       envelopes.mapFilter(ProtocolMessage.select[SignedProtocolMessage[MediatorResponse]])
 
+    val containsTopologyTransactionsX = DefaultOpenEnvelopesFilter.containsTopologyX(envelopes)
+
     val events: Seq[MediatorEvent] = if (requests.nonEmpty && responses.nonEmpty) {
       logger.error("Received both mediator requests and mediator responses.")
       Seq.empty
@@ -289,6 +291,7 @@ private[mediator] class MediatorEventsProcessor(
               timestamp,
               request.protocolMessage,
               rootHashMessages.toList,
+              batchAlsoContainsTopologyXTransaction = containsTopologyTransactionsX,
             )
           )
 

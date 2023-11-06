@@ -165,6 +165,7 @@ class DbMultiDomainEventLog private[db] (
 
   override def publish(data: PublicationData): Future[Unit] = {
     implicit val traceContext: TraceContext = data.traceContext
+
     val promise = Promise[Unit]()
     for {
       result <- eventsQueue.offer(data -> promise)

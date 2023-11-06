@@ -29,6 +29,8 @@ message LedgerSyncEvent {
     TransferredIn transferred_in = 10;
     ContractsAdded contracts_added = 11;
     ContractsPurged contracts_purged = 12;
+    PartiesAddedToParticipant parties_added = 13;
+    PartiesRemovedFromParticipant parties_removed = 14;
   }
 }
 
@@ -210,4 +212,18 @@ message ContractsPurged {
   string domain_id = 3;
   google.protobuf.Timestamp record_time = 4;
   repeated string hosted_witnesses = 5;
+}
+
+message PartiesAddedToParticipant {
+  repeated string parties = 1;
+  string participant_id = 2;
+  google.protobuf.Timestamp record_time = 3;
+  google.protobuf.Timestamp effective_time = 4;
+}
+
+message PartiesRemovedFromParticipant {
+  repeated string parties = 1;
+  string participant_id = 2;
+  google.protobuf.Timestamp record_time = 3;
+  google.protobuf.Timestamp effective_time = 4;
 }

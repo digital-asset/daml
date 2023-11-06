@@ -40,19 +40,13 @@ import com.digitalasset.canton.participant.sync.TransactionRoutingError.{
   RoutingInternalError,
   UnableToQueryTopologySnapshot,
 }
-import com.digitalasset.canton.participant.sync.{
-  ConnectedDomainsLookup,
-  SyncDomain,
-  TransactionRoutingError,
-}
+import com.digitalasset.canton.participant.sync.{ConnectedDomainsLookup, TransactionRoutingError}
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LfKeyResolver, LfPartyId}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -66,7 +60,6 @@ import scala.concurrent.{ExecutionContext, Future}
   *               The inner future completes after the submission has been sequenced or if it will never be sequenced.
   */
 class DomainRouter(
-    domainOfContracts: Seq[LfContractId] => Future[Map[LfContractId, DomainId]],
     domainIdResolver: DomainAlias => Option[DomainId],
     submit: DomainId => (
         SubmitterInfo,
@@ -77,7 +70,7 @@ class DomainRouter(
         Map[LfContractId, SerializableContract],
     ) => EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmitted]],
     contractsTransferer: ContractsTransfer,
-    snapshotProvider: DomainId => Either[UnableToQueryTopologySnapshot.Failed, TopologySnapshot],
+    snapshotProvider: DomainStateProvider,
     serializableContractAuthenticator: SerializableContractAuthenticator,
     autoTransferTransaction: Boolean,
     domainSelectorFactory: DomainSelectorFactory,
@@ -143,7 +136,7 @@ class DomainRouter(
         submitterInfo,
         transaction,
         transactionMeta.workflowId,
-        domainOfContracts,
+        snapshotProvider,
         domainIdResolver,
         contractRoutingParties,
         transactionMeta.optDomainId,
@@ -192,15 +185,17 @@ class DomainRouter(
   private def allInformeesOnDomain(
       informees: Set[LfPartyId]
   )(domainId: DomainId)(implicit traceContext: TraceContext): Future[Boolean] = {
-    snapshotProvider(domainId).bimap(
-      (err: UnableToQueryTopologySnapshot.Failed) => {
-        logger.warn(
-          s"Unable to get topology snapshot to check whether informees are hosted on the domain: $err"
-        )
-        Future.successful(false)
-      },
-      _.allHaveActiveParticipants(informees, _.isActive).value.map(_.isRight),
-    )
+    snapshotProvider
+      .getTopologySnapshotFor(domainId)
+      .bimap(
+        (err: UnableToQueryTopologySnapshot.Failed) => {
+          logger.warn(
+            s"Unable to get topology snapshot to check whether informees are hosted on the domain: $err"
+          )
+          Future.successful(false)
+        },
+        _.allHaveActiveParticipants(informees, _.isActive).value.map(_.isRight),
+      )
   }.merge
 
   private def chooseDomainForMultiDomain(
@@ -231,14 +226,15 @@ class DomainRouter(
 
   private def checkValidityOfMultiDomain(
       transactionData: TransactionData
-  ): EitherT[Future, TransactionRoutingError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {
     val inputContractsDomainData = transactionData.inputContractsDomainData
 
     val allContractsHaveDomainData: Boolean = inputContractsDomainData.withoutDomainData.isEmpty
     val contractData = inputContractsDomainData.withDomainData
     val contractsDomainNotConnected = contractData.filter { contractData =>
-      snapshotProvider(contractData.domain).left.exists { _: UnableToQueryTopologySnapshot.Failed =>
-        true
+      snapshotProvider.getTopologySnapshotFor(contractData.domain).left.exists {
+        _: UnableToQueryTopologySnapshot.Failed =>
+          true
       }
     }
 
@@ -300,15 +296,11 @@ object DomainRouter {
       )
 
     val domainIdResolver = recoveredDomainOfAlias(connectedDomains, domainAliasManager) _
-    val stateProviderWithProtocolVersion = (domainId: DomainId) =>
-      domainStateProvider(connectedDomains)(domainId)(TraceContext.empty)
-    val stateProvider = (domainId: DomainId) =>
-      domainStateProvider(connectedDomains)(domainId)(TraceContext.empty).map(_._1)
-
+    val domainStateProvider = new DomainStateProviderImpl(connectedDomains)
     val domainRankComputation = new DomainRankComputation(
       participantId = participantId,
       priorityOfDomain = priorityOfDomain(domainConnectionConfigStore, domainAliasManager),
-      snapshotProvider = stateProvider,
+      snapshotProvider = domainStateProvider,
       loggerFactory = loggerFactory,
     )
 
@@ -316,7 +308,7 @@ object DomainRouter {
       admissibleDomains = new AdmissibleDomains(participantId, connectedDomains, loggerFactory),
       priorityOfDomain = priorityOfDomain(domainConnectionConfigStore, domainAliasManager),
       domainRankComputation = domainRankComputation,
-      domainStateProvider = stateProviderWithProtocolVersion,
+      domainStateProvider = domainStateProvider,
       loggerFactory = loggerFactory,
     )
 
@@ -327,45 +319,16 @@ object DomainRouter {
     )
 
     new DomainRouter(
-      domainOfContract(connectedDomains)(_)(ec, TraceContext.empty),
       domainIdResolver,
       submit(connectedDomains),
       transfer,
-      stateProvider,
+      domainStateProvider,
       serializableContractAuthenticator,
       autoTransferTransaction = autoTransferTransaction,
       domainSelectorFactory,
       timeouts,
       loggerFactory,
     )
-  }
-
-  private def domainOfContract(connectedDomains: ConnectedDomainsLookup)(
-      coids: Seq[LfContractId]
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): Future[Map[LfContractId, DomainId]] = {
-    type Acc = (Seq[LfContractId], Map[LfContractId, DomainId])
-    connectedDomains.snapshot
-      .collect {
-        // only look at domains that are ready for submission
-        case (_, syncDomain: SyncDomain) if syncDomain.readyForSubmission => syncDomain
-      }
-      .toList
-      .foldM[Future, Acc]((coids, Map.empty[LfContractId, DomainId]): Acc) {
-        // if there are no more cids for which we don't know the domain, we are done
-        case ((pending, acc), _) if pending.isEmpty => Future.successful((pending, acc))
-        case ((pending, acc), syncDomain) =>
-          // grab the approximate state and check if the contract is currently active on the given domain
-          syncDomain.ephemeral.requestTracker.getApproximateStates(pending).map { res =>
-            val done = acc ++ res.collect {
-              case (cid, status) if status.status.isActive => (cid, syncDomain.domainId)
-            }
-            (pending.filterNot(cid => done.contains(cid)), done)
-          }
-      }
-      .map(_._2)
   }
 
   private def recoveredDomainOfAlias(
@@ -376,19 +339,6 @@ object DomainRouter {
       .domainIdForAlias(domainAlias)
       .filter(domainId => connectedDomains.get(domainId).exists(_.ready))
   }
-
-  private def domainStateProvider(connectedDomains: ConnectedDomainsLookup)(domain: DomainId)(
-      implicit traceContext: TraceContext
-  ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshot, ProtocolVersion)] =
-    connectedDomains
-      .get(domain)
-      .toRight(UnableToQueryTopologySnapshot.Failed(domain))
-      .map { syncDomain =>
-        (
-          syncDomain.topologyClient.currentSnapshotApproximation,
-          syncDomain.staticDomainParameters.protocolVersion,
-        )
-      }
 
   private def priorityOfDomain(
       domainConnectionConfigStore: DomainConnectionConfigStore,

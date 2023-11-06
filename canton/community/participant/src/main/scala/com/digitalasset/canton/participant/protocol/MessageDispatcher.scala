@@ -307,13 +307,16 @@ trait MessageDispatcher { this: NamedLogging =>
         }
         alarmIfNonEmptySigned(MalformedMediatorRequestMessage, malformedMediatorRequestResults)
 
+        val containsTopologyTransactionsX = DefaultOpenEnvelopesFilter.containsTopologyX(envelopes)
+
         val isReceipt = eventE.fold(_.content, _.content).messageIdO.isDefined
         processEncryptedViewsAndRootHashMessages(
-          encryptedViews,
-          rootHashMessages,
-          sc,
-          ts,
-          isReceipt,
+          encryptedViews = encryptedViews,
+          rootHashMessages = rootHashMessages,
+          containsTopologyTransactionsX = containsTopologyTransactionsX,
+          sc = sc,
+          ts = ts,
+          isReceipt = isReceipt,
         )
     }
   }
@@ -321,6 +324,7 @@ trait MessageDispatcher { this: NamedLogging =>
   private def processEncryptedViewsAndRootHashMessages(
       encryptedViews: List[OpenEnvelope[EncryptedViewMessage[ViewType]]],
       rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
+      containsTopologyTransactionsX: Boolean,
       sc: SequencerCounter,
       ts: CantonTimestamp,
       isReceipt: Boolean,
@@ -333,6 +337,35 @@ trait MessageDispatcher { this: NamedLogging =>
         case None => FutureUnlessShutdown.pure(processingResultMonoid.empty)
       }
     }
+
+    def processRequest(goodRequest: GoodRequest) = {
+      withNewRequestCounter { rc =>
+        val rootHashMessage: goodRequest.rootHashMessage.type = goodRequest.rootHashMessage
+        val viewType: rootHashMessage.viewType.type = rootHashMessage.viewType
+
+        viewType match {
+          case TransferInViewType | TransferOutViewType if uniqueContractKeys =>
+            ErrorUtil.internalError(
+              new IllegalArgumentException(
+                "Domain transfers are not supported with unique contract keys"
+              )
+            )
+          case _ =>
+            val processor = tryProtocolProcessor(viewType)
+            val batch = RequestAndRootHashMessage(
+              goodRequest.requestEnvelopes,
+              rootHashMessage,
+              goodRequest.mediator,
+              isReceipt,
+            )
+            doProcess(
+              RequestKind(goodRequest.rootHashMessage.viewType),
+              processor.processRequest(ts, rc, sc, batch),
+            )
+        }
+      }
+    }
+
     for {
       checkedRootHashMessagesC <- checkRootHashMessageAndViews(ts, rootHashMessages, encryptedViews)
       _ = checkedRootHashMessagesC.nonaborts.iterator.foreach { alarmMsg =>
@@ -340,32 +373,34 @@ trait MessageDispatcher { this: NamedLogging =>
       }
       result <- checkedRootHashMessagesC.toEither match {
         case Right(goodRequest) =>
-          withNewRequestCounter { rc =>
-            val rootHashMessage: goodRequest.rootHashMessage.type = goodRequest.rootHashMessage
-            val viewType: rootHashMessage.viewType.type = rootHashMessage.viewType
+          if (!containsTopologyTransactionsX)
+            processRequest(goodRequest)
+          else {
+            /*A batch should not contain a request and a topology transaction.
+             * Handling of such a batch is done consistently with the case [[ExpectMalformedMediatorRequestResult]] below.
+             */
+            alarm(sc, ts, "Invalid batch containing both a request and topology transaction")
 
-            viewType match {
-              case TransferInViewType | TransferOutViewType if uniqueContractKeys =>
-                ErrorUtil.internalError(
-                  new IllegalArgumentException(
-                    "Domain transfers are not supported with unique contract keys"
-                  )
-                )
-              case _ =>
-                val processor = tryProtocolProcessor(viewType)
-                val batch = RequestAndRootHashMessage(
-                  goodRequest.requestEnvelopes,
-                  rootHashMessage,
-                  goodRequest.mediator,
-                  isReceipt,
-                )
-                doProcess(
-                  RequestKind(goodRequest.rootHashMessage.viewType),
-                  processor.processRequest(ts, rc, sc, batch),
-                )
+            withNewRequestCounter { rc =>
+              doProcess(
+                UnspecifiedMessageKind,
+                badRootHashMessagesRequestProcessor
+                  .handleBadRequestWithExpectedMalformedMediatorRequest(
+                    rc,
+                    sc,
+                    ts,
+                    goodRequest.mediator,
+                  ),
+              )
             }
           }
-        case Left(DoNotExpectMediatorResult) => tickRecordOrderPublisher(sc, ts)
+
+        case Left(DoNotExpectMediatorResult) =>
+          if (containsTopologyTransactionsX) {
+            // The topology processor will tick the record order publisher at the end of the processing
+            doProcess(UnspecifiedMessageKind, FutureUnlessShutdown.pure(()))
+          } else
+            tickRecordOrderPublisher(sc, ts)
         case Left(ExpectMalformedMediatorRequestResult(mediator)) =>
           // The request is malformed from this participant's and the mediator's point of view if the sequencer is honest.
           // An honest mediator will therefore try to send a `MalformedMediatorRequestResult`.

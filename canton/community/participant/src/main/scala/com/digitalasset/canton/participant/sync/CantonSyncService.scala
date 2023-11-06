@@ -1187,6 +1187,7 @@ class CantonSyncService(
               domainHandle.topologyClient,
               domainCrypto,
               trafficStateController,
+              ephemeral.recordOrderPublisher,
               domainHandle.staticParameters.protocolVersion,
             ),
           missingKeysAlerter,

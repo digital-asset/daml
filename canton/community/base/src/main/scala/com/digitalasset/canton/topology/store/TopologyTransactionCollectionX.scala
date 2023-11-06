@@ -65,6 +65,10 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
         .toSeq
     )
 
+  def signedTransactions: SignedTopologyTransactionsX[Op, M] = SignedTopologyTransactionsX(
+    result.map(_.transaction)
+  )
+
   /** Split transactions into certificates and everything else (used when uploading to a participant) */
   def splitCertsAndRest: StoredTopologyTransactionsX.CertsAndRest = {
     val certTypes = Set(
@@ -175,4 +179,28 @@ object StoredTopologyTransactionsX
     StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX](Seq())
 
   override def name: String = "topology transactions"
+}
+
+final case class SignedTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: TopologyMappingX](
+    result: Seq[SignedTopologyTransactionX[Op, M]]
+) extends PrettyPrinting {
+
+  override def pretty: Pretty[SignedTopologyTransactionsX.this.type] = prettyOfParam(
+    _.result
+  )
+
+  def collectOfType[T <: TopologyChangeOpX: ClassTag]: SignedTopologyTransactionsX[T, M] =
+    SignedTopologyTransactionsX(
+      result.mapFilter(_.selectOp[T])
+    )
+
+  def collectOfMapping[T <: TopologyMappingX: ClassTag]: SignedTopologyTransactionsX[Op, T] =
+    SignedTopologyTransactionsX(
+      result.mapFilter(_.selectMapping[T])
+    )
+}
+
+object SignedTopologyTransactionsX {
+  type PositiveSignedTopologyTransactionsX =
+    SignedTopologyTransactionsX[TopologyChangeOpX.Replace, TopologyMappingX]
 }

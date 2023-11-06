@@ -18,13 +18,10 @@ import com.digitalasset.canton.participant.protocol.submission.UsableDomain.{
   UnknownPackage,
   UnsupportedMinimumProtocolVersion,
 }
+import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.ConfigurationErrors.InvalidPrescribedDomainId
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors.NoDomainForSubmission
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.UnableToQueryTopologySnapshot
-import com.digitalasset.canton.participant.sync.{
-  TransactionRoutingError,
-  TransactionRoutingErrorWithDomain,
-}
 import com.digitalasset.canton.protocol.{LfContractId, LfTransactionVersion, LfVersionedTransaction}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -484,21 +481,27 @@ private[routing] object DomainSelectorTest {
 
       val inputContractIds: Set[LfContractId] = inputContractStakeholders.keySet
 
-      private def domainStateProvider(
-          d: DomainId
-      ): Either[TransactionRoutingErrorWithDomain, (TopologySnapshot, ProtocolVersion)] =
-        snapshotProvider(d).map((_, domainProtocolVersion(d)))
+      object TestDomainStateProvider extends DomainStateProvider {
+        override def getTopologySnapshotAndPVFor(domainId: DomainId)(implicit
+            traceContext: TraceContext
+        ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshot, ProtocolVersion)] =
+          Either
+            .cond(
+              connectedDomains.contains(domainId),
+              SimpleTopology.defaultTestingIdentityFactory(
+                correctTopology,
+                vettedPackages,
+              ),
+              UnableToQueryTopologySnapshot.Failed(domainId),
+            )
+            .map((_, domainProtocolVersion(domainId)))
 
-      private def snapshotProvider(
-          d: DomainId
-      ): Either[TransactionRoutingErrorWithDomain, TopologySnapshot] = Either.cond(
-        connectedDomains.contains(d),
-        SimpleTopology.defaultTestingIdentityFactory(
-          correctTopology,
-          vettedPackages,
-        ),
-        UnableToQueryTopologySnapshot.Failed(d): TransactionRoutingErrorWithDomain,
-      )
+        override def getDomainsOfContracts(coids: Seq[LfContractId])(implicit
+            ec: ExecutionContext,
+            traceContext: TraceContext,
+        ): Future[Map[LfContractId, DomainId]] =
+          Future.successful(domainOfContracts(coids))
+      }
 
       private val domainAliasResolver: DomainAlias => Option[DomainId] = alias =>
         Some(
@@ -510,7 +513,7 @@ private[routing] object DomainSelectorTest {
       private val domainRankComputation = new DomainRankComputation(
         participantId = submitterParticipantId,
         priorityOfDomain = priorityOfDomain,
-        snapshotProvider = snapshotProvider,
+        snapshotProvider = TestDomainStateProvider,
         loggerFactory = loggerFactory,
       )
 
@@ -525,7 +528,7 @@ private[routing] object DomainSelectorTest {
                 .map(domainId => s"workflow data domain-id:${domainId.toProtoPrimitive}")
                 .map(LfWorkflowId.assertFromString)
             ),
-          domainOfContracts = ids => Future.successful(domainOfContracts(ids)),
+          domainStateProvider = TestDomainStateProvider,
           domainIdResolver = domainAliasResolver,
           contractRoutingParties = inputContractStakeholders,
           submitterDomainId = prescribedSubmitterDomainId,
@@ -538,7 +541,7 @@ private[routing] object DomainSelectorTest {
             admissibleDomains = admissibleDomains,
             priorityOfDomain = priorityOfDomain,
             domainRankComputation = domainRankComputation,
-            domainStateProvider = domainStateProvider,
+            domainStateProvider = TestDomainStateProvider,
             loggerFactory = loggerFactory,
           )
         }

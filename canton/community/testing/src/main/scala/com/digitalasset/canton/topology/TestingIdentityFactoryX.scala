@@ -551,7 +551,6 @@ class TestingOwnerWithKeysX(
             trans,
             signingKeys.map(_.id),
             isProposal,
-            cryptoApi.crypto.pureCrypto,
             cryptoApi.crypto.privateCrypto,
             BaseTest.testedProtocolVersion,
           )

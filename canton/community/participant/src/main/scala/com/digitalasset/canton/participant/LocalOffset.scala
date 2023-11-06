@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.NegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.store.db.DbSerializationException
+import com.digitalasset.canton.topology.processing.EffectiveTime
 import slick.jdbc.{GetResult, SetParameter}
 
 /** LocalOffset are represented by a tuple (effectiveTime, tieBreaker)
@@ -93,6 +94,8 @@ final case class TopologyOffset private (
 object TopologyOffset {
   def tryCreate(effectiveTime: CantonTimestamp, topologyTieBreaker: NegativeLong): TopologyOffset =
     TopologyOffset(effectiveTime, topologyTieBreaker)
+  def tryCreate(effectiveTime: EffectiveTime, topologyTieBreaker: NegativeLong): TopologyOffset =
+    TopologyOffset(effectiveTime.value, topologyTieBreaker)
 
   def create(
       effectiveTime: CantonTimestamp,

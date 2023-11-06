@@ -272,8 +272,9 @@ class SyncDomain(
     ephemeral.recordOrderPublisher.setAcsChangeListener(listener)
     listener
   }
-  private val topologyProcessor =
-    topologyProcessorFactory.create(acsCommitmentProcessor.scheduleTopologyTick)
+  private val topologyProcessor = topologyProcessorFactory.create(
+    acsCommitmentProcessor.scheduleTopologyTick
+  )
 
   private val badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor =
     new BadRootHashMessagesRequestProcessor(

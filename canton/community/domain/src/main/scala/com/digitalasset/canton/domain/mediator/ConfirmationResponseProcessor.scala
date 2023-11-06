@@ -82,7 +82,13 @@ private[mediator] class ConfirmationResponseProcessor(
       _ <- MonadUtil.sequentialTraverse_(events) {
         _.withTraceContext { implicit traceContext =>
           {
-            case MediatorEvent.Request(counter, _, request, rootHashMessages) =>
+            case MediatorEvent.Request(
+                  counter,
+                  _,
+                  request,
+                  rootHashMessages,
+                  batchAlsoContainsTopologyXTransaction,
+                ) =>
               processRequest(
                 requestId,
                 counter,
@@ -90,6 +96,7 @@ private[mediator] class ConfirmationResponseProcessor(
                 decisionTime,
                 request,
                 rootHashMessages,
+                batchAlsoContainsTopologyXTransaction,
               )
             case MediatorEvent.Response(counter, timestamp, response, recipients) =>
               processResponse(
@@ -101,7 +108,7 @@ private[mediator] class ConfirmationResponseProcessor(
                 recipients,
               )
             case MediatorEvent.Timeout(_counter, timestamp, requestId) =>
-              handleTimeout(requestId, timestamp, decisionTime, snapshot)
+              handleTimeout(requestId, timestamp, decisionTime)
           }
         }
       }
@@ -114,7 +121,6 @@ private[mediator] class ConfirmationResponseProcessor(
       requestId: RequestId,
       timestamp: CantonTimestamp,
       decisionTime: CantonTimestamp,
-      topologySnapshot: TopologySnapshot,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     def pendingRequestNotFound: Future[Unit] = {
       logger.debug(
@@ -153,6 +159,7 @@ private[mediator] class ConfirmationResponseProcessor(
       decisionTime: CantonTimestamp,
       request: MediatorRequest,
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
+      batchAlsoContainsTopologyXTransaction: Boolean,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     withSpan("ConfirmationResponseProcessor.processRequest") { implicit traceContext => span =>
       span.setAttribute("request_id", requestId.toString)
@@ -166,6 +173,7 @@ private[mediator] class ConfirmationResponseProcessor(
           request,
           rootHashMessages,
           topologySnapshot,
+          batchAlsoContainsTopologyXTransaction,
         )
 
         // Take appropriate actions based on unitOrVerdictO
@@ -226,6 +234,7 @@ private[mediator] class ConfirmationResponseProcessor(
       request: MediatorRequest,
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       topologySnapshot: TopologySnapshot,
+      batchAlsoContainsTopologyXTransaction: Boolean,
   )(implicit
       traceContext: TraceContext
   ): Future[Either[Option[MediatorVerdict.MediatorReject], Unit]] = (for {
@@ -277,6 +286,20 @@ private[mediator] class ConfirmationResponseProcessor(
       validateAuthorizedConfirmingParties(requestId, request, topologySnapshot)
         .leftMap(Option.apply)
 
+    // Reject, if the batch also contains a topology transaction
+    _ <- EitherTUtil
+      .condUnitET(
+        !batchAlsoContainsTopologyXTransaction, {
+          val rejection = MediatorError.MalformedMessage
+            .Reject(
+              s"Received a mediator request with id $requestId also containing a topology transaction.",
+              v0.MediatorRejection.Code.MissingCode,
+            )
+            .reported()
+          MediatorVerdict.MediatorReject(rejection)
+        },
+      )
+      .leftMap(Option.apply)
   } yield ()).value
 
   private def checkDeclaredMediator(

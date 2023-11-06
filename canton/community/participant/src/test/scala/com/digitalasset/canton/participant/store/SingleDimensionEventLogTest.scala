@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import cats.syntax.option.*
 import com.daml.lf.data.{ImmArray, Time}
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.v2.TransactionMeta
@@ -19,7 +20,7 @@ import com.digitalasset.canton.participant.{
   TopologyOffset,
 }
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -41,14 +42,16 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
   this: AsyncWordSpec =>
   import SingleDimensionEventLogTest.*
 
-  // TODO(#14381) Expand coverage and include topology events in this test
-  private implicit def toLocalOffset(i: Long): RequestOffset =
-    RequestOffset(CantonTimestamp.ofEpochSecond(i), RequestCounter(i))
-
   protected lazy val id: EventLogId = DbEventLogTestResources.dbSingleDimensionEventLogEventLogId
 
+  implicit private def requestOffset(i: Long): RequestOffset =
+    RequestOffset(CantonTimestamp.ofEpochSecond(i), RequestCounter(i))
+
+  private def topologyOffset(i: Long): TopologyOffset =
+    TopologyOffset.tryCreate(CantonTimestamp.ofEpochSecond(i), NegativeLong.tryCreate(-i))
+
   private def generateEventWithTransactionId(
-      localOffset: LocalOffset,
+      offset: RequestOffset,
       idString: String,
   ): TimestampedEvent = {
 
@@ -85,7 +88,20 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
       contractMetadata = Map(), // TODO(#9795) wire proper value
     )
 
-    TimestampedEvent(transactionAccepted, localOffset, None)
+    TimestampedEvent(transactionAccepted, offset, None)
+  }
+
+  private def generateTopologyEvent(
+      offset: TopologyOffset
+  ): TimestampedEvent = {
+    val partiesAddedEvent = LedgerSyncEvent.PartiesAddedToParticipant(
+      parties = NonEmpty(Set, DefaultTestIdentities.party1.toLf, DefaultTestIdentities.party2.toLf),
+      participantId = DefaultTestIdentities.participant1.toLf,
+      recordTime = Time.Timestamp.Epoch,
+      effectiveTime = Time.Timestamp.Epoch,
+    )
+
+    TimestampedEvent(partiesAddedEvent, offset, None)
   }
 
   lazy val domain1: DomainId = DomainId.tryFromString("domain::one")
@@ -95,7 +111,7 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
     def withEventLog[A](body: SingleDimensionEventLog[EventLogId] => Future[A]): Future[A] = {
       val eventLog = mk()
       for {
-        _ <- eventLog.prune(Long.MaxValue)
+        _ <- eventLog.prune(LocalOffset.MaxValue)
         result <- body(eventLog)
       } yield result
     }
@@ -122,13 +138,16 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
         assertEvents(eventLog, Seq.empty)
       }
 
-      "publish a single event and read from ledger beginning" in withEventLog { eventLog =>
+      "publish some events and read from ledger beginning" in withEventLog { eventLog =>
         val ts = LedgerSyncRecordTime.Epoch
-        val event = generateEvent(ts, 1L)
+        val event1 = generateEvent(ts, 1L)
+        val event2 = generateTopologyEvent(topologyOffset(1L))
         logger.debug("Starting 1")
         for {
-          _ <- eventLog.insert(event)
-          _ <- assertEvents(eventLog, Seq(event))
+          _ <- eventLog.insert(event1)
+          _ <- assertEvents(eventLog, Seq(event1))
+          _ <- eventLog.insert(event2)
+          _ <- assertEvents(eventLog, Seq(event1, event2))
         } yield {
           logger.debug("Finished 1")
           succeed
@@ -154,8 +173,7 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
 
         val event1 =
           generateEventWithTransactionId(1L, "transaction-id").copy(eventId = eventId1.some)
-        val event2 =
-          generateEventWithTransactionId(2L, "transaction-id").copy(eventId = eventId2.some)
+        val event2 = generateTopologyEvent(topologyOffset(2L)).copy(eventId = eventId2.some)
         val event3 = generateEventWithTransactionId(3L, "transaction-id")
 
         for {
@@ -180,9 +198,8 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
           val offset2 =
             TopologyOffset.tryCreate(CantonTimestamp.ofEpochSecond(100), NegativeLong.tryCreate(-2))
 
-          val event1 =
-            generateEventWithTransactionId(offset1, "transaction-id").copy(eventId = eventId1.some)
-          val event2 = generateEventWithTransactionId(offset2, "transaction-id")
+          val event1 = generateTopologyEvent(offset1).copy(eventId = eventId1.some)
+          val event2 = generateTopologyEvent(offset2)
 
           val allEvents = Seq(event1, event2).sortBy(_.localOffset) // Use Scala ordering
 
@@ -203,8 +220,7 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
         val ts1 = LedgerSyncRecordTime.Epoch
         val event1 = generateEvent(ts1, 1)
 
-        val ts2 = LedgerSyncRecordTime.Epoch.addMicros(5000000L)
-        val event2 = generateEvent(ts2, 2)
+        val event2 = generateTopologyEvent(topologyOffset(2))
 
         for {
           inserts <- eventLog.insertsUnlessEventIdClash(Seq(event1, event2))
@@ -272,11 +288,9 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
           )
 
         val event1b =
-          generateEvent(
-            LedgerSyncRecordTime.MinValue,
+          generateTopologyEvent(
             TopologyOffset
-              .tryCreate(CantonTimestamp.MinValue, NegativeLong.tryCreate(Long.MinValue + 1)),
-            Some(SequencerCounter(Long.MinValue)),
+              .tryCreate(CantonTimestamp.MinValue, NegativeLong.tryCreate(Long.MinValue + 1))
           )
 
         val event2 =
@@ -394,13 +408,13 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
         val ts1 = LedgerSyncRecordTime.Epoch
         val event1 = generateEvent(ts1, 1)
         val ts2 = ts1.addMicros(5000000L)
-        val event2 = generateEvent(ts2, 2)
+        val event2 = generateTopologyEvent(topologyOffset(2))
         val ts3 = ts2.addMicros(5000000L)
         val event3 = generateEvent(ts3, 3)
 
         for {
           inserts <- eventLog.insertsUnlessEventIdClash(Seq(event1, event2, event3))
-          _ <- eventLog.prune(2)
+          _ <- eventLog.prune(event2.localOffset)
           _ <- assertEvents(eventLog, Seq(event3))
         } yield {
           logger.debug("Finished 15")
@@ -413,7 +427,7 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
         val ts1 = LedgerSyncRecordTime.Epoch
         val event1 = generateEvent(ts1, 1L)
         val ts2 = ts1.addMicros(-5000000L)
-        val event2 = generateEvent(ts2, 2L)
+        val event2 = generateTopologyEvent(topologyOffset(2L))
         val ts3 = ts1.addMicros(5000000L)
         val event3 = generateEvent(ts3, 3L)
 
@@ -469,7 +483,7 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
 private[participant] object SingleDimensionEventLogTest {
   def generateEvent(
       recordTime: LedgerSyncRecordTime,
-      localOffset: LocalOffset,
+      localOffset: RequestOffset,
       requestSequencerCounter: Option[SequencerCounter] = Some(SequencerCounter(42)),
   )(implicit traceContext: TraceContext): TimestampedEvent =
     TimestampedEvent(

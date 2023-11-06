@@ -147,7 +147,6 @@ object SignedTopologyTransactionX
       transaction: TopologyTransactionX[Op, M],
       signingKeys: NonEmpty[Set[Fingerprint]],
       isProposal: Boolean,
-      hashOps: HashOps,
       crypto: CryptoPrivateApi,
       protocolVersion: ProtocolVersion,
   )(implicit
@@ -189,7 +188,6 @@ object SignedTopologyTransactionX
             convertedTx,
             signedTx.signatures.map(_.signedBy),
             signedTx.isProposal,
-            crypto.pureCrypto,
             crypto.privateCrypto,
             protocolVersion,
           )

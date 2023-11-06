@@ -459,8 +459,8 @@ object TopologyTransactionProcessor {
       )
 
       val topologyProcessor = new TopologyTransactionProcessor(
-        domainId,
-        DomainTopologyTransactionMessageValidator.create(
+        domainId = domainId,
+        validator = DomainTopologyTransactionMessageValidator.create(
           parameters.skipTopologyManagerSignatureValidation,
           cryptoClient,
           owner,
@@ -469,12 +469,12 @@ object TopologyTransactionProcessor {
           futureSupervisor,
           loggerFactory,
         ),
-        cryptoClient.pureCrypto,
-        topologyStore,
+        pureCrypto = cryptoClient.pureCrypto,
+        store = topologyStore,
         acsCommitmentScheduleEffectiveTime = _ => (),
-        futureSupervisor,
-        parameters.processingTimeouts,
-        loggerFactory,
+        futureSupervisor = futureSupervisor,
+        timeouts = parameters.processingTimeouts,
+        loggerFactory = loggerFactory,
       )
       topologyProcessor.subscribe(topologyClient)
       (topologyProcessor, topologyClient)

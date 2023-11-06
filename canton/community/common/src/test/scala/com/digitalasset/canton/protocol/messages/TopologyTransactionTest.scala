@@ -27,19 +27,19 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
       .getOrElse(sys.error("no key"))
   private val defaultDynamicDomainParameters = TestDomainParameters.defaultDynamic
 
-  def mk[T <: TopologyStateUpdateMapping](
+  private def mk[T <: TopologyStateUpdateMapping](
       mapping: T
   ): TopologyStateUpdate[TopologyChangeOp.Add] =
     TopologyStateUpdate.createAdd(mapping, testedProtocolVersion)
 
-  val deserialize: ByteString => TopologyTransaction[TopologyChangeOp] =
+  private val deserialize: ByteString => TopologyTransaction[TopologyChangeOp] =
     bytes =>
       TopologyTransaction.fromByteString(bytes) match {
         case Left(err) => throw new TestFailedException(err.toString, 0)
         case Right(msg) => msg
       }
 
-  def runTest(
+  private def runTest(
       t1: TopologyTransaction[TopologyChangeOp],
       t2: TopologyTransaction[TopologyChangeOp],
   ): Unit = {

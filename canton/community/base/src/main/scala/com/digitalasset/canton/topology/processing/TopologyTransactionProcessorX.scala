@@ -43,6 +43,7 @@ class TopologyTransactionProcessorX(
     crypto: Crypto,
     store: TopologyStoreX[TopologyStoreId.DomainStore],
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
+    terminateProcessing: TerminateProcessing,
     enableTopologyTransactionValidation: Boolean,
     futureSupervisor: FutureSupervisor,
     timeouts: ProcessingTimeout,
@@ -127,16 +128,24 @@ class TopologyTransactionProcessorX(
           s"Notifying listeners of ${sequencingTimestamp}, ${effectiveTimestamp} and SC ${sc}"
         )
         import cats.syntax.parallel.*
-        performUnlessClosingUSF("notify-topology-transaction-observers")(
-          listeners.toList.parTraverse_(
-            _.observed(
-              sequencingTimestamp,
-              effectiveTimestamp,
-              sc,
-              validated.collect { case tx if tx.rejectionReason.isEmpty => tx.transaction },
+
+        for {
+          _ <- performUnlessClosingUSF("notify-topology-transaction-observers")(
+            listeners.toList.parTraverse_(
+              _.observed(
+                sequencingTimestamp,
+                effectiveTimestamp,
+                sc,
+                validated.collect { case tx if tx.rejectionReason.isEmpty => tx.transaction },
+              )
             )
           )
-        )
+
+          _ <- performUnlessClosingF("terminate-processing")(
+            terminateProcessing.terminate(sc, sequencingTimestamp, effectiveTimestamp)
+          )
+        } yield ()
+
       }
   }
 
@@ -199,11 +208,13 @@ object TopologyTransactionProcessorX {
   )(implicit
       executionContext: ExecutionContext
   ): Future[(TopologyTransactionProcessorX, DomainTopologyClientWithInitX)] = {
+
     val processor = new TopologyTransactionProcessorX(
       domainId,
       crypto,
       topologyStore,
       _ => (),
+      TerminateProcessing.NoOpTerminateTopologyProcessing,
       enableTopologyTransactionValidation,
       futureSupervisor,
       parameters.processingTimeouts,

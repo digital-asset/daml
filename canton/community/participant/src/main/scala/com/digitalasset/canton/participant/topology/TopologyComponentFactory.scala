@@ -15,6 +15,8 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.participant.event.RecordOrderPublisher
+import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessingX
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.{
   TrafficStateController,
@@ -76,6 +78,7 @@ trait TopologyComponentFactory {
       // TODO(#15208) remove me with 3.0
       syncCrypto: DomainSyncCryptoClient,
       trafficStateController: TrafficStateController,
+      recordOrderPublisher: RecordOrderPublisher,
       protocolVersion: ProtocolVersion,
   ): TopologyTransactionProcessorCommon.Factory
 
@@ -158,12 +161,14 @@ class TopologyComponentFactoryOld(
       topologyClient: DomainTopologyClientWithInit,
       syncCrypto: DomainSyncCryptoClient,
       trafficStateController: TrafficStateController,
+      recordOrderPublisher: RecordOrderPublisher,
       protocolVersion: ProtocolVersion,
   ): TopologyTransactionProcessorCommon.Factory =
     new TopologyTransactionProcessorCommon.Factory {
       override def create(
           acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
       )(implicit executionContext: ExecutionContext): TopologyTransactionProcessorCommon = {
+
         val processor = new TopologyTransactionProcessor(
           domainId,
           DomainTopologyTransactionMessageValidator
@@ -219,16 +224,25 @@ class TopologyComponentFactoryX(
       topologyClient: DomainTopologyClientWithInit,
       syncCrypto: DomainSyncCryptoClient,
       trafficStateController: TrafficStateController,
+      recordOrderPublisher: RecordOrderPublisher,
       protocolVersion: ProtocolVersion,
   ): TopologyTransactionProcessorCommon.Factory = new TopologyTransactionProcessorCommon.Factory {
     override def create(
         acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
     )(implicit executionContext: ExecutionContext): TopologyTransactionProcessorCommon = {
+
+      val terminateTopologyProcessing = new ParticipantTopologyTerminateProcessingX(
+        recordOrderPublisher,
+        topologyStore,
+        loggerFactory,
+      )
+
       val processor = new TopologyTransactionProcessorX(
         domainId,
         crypto,
         topologyStore,
         acsCommitmentScheduleEffectiveTime,
+        terminateTopologyProcessing,
         topologyXConfig.enableTopologyTransactionValidation,
         futureSupervisor,
         timeouts,

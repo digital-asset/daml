@@ -7,6 +7,7 @@ import com.daml.lf.data.Ref.Party
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -19,10 +20,11 @@ private[routing] final case class ContractsDomainData(
 
 private[routing] object ContractsDomainData {
   def create(
-      domainOfContracts: Seq[LfContractId] => Future[Map[LfContractId, DomainId]],
+      domainStateProvider: DomainStateProvider,
       contractRoutingParties: Map[LfContractId, Set[Party]],
-  )(implicit ec: ExecutionContext): Future[ContractsDomainData] = {
-    domainOfContracts(contractRoutingParties.keySet.toSeq)
+  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[ContractsDomainData] = {
+    domainStateProvider
+      .getDomainsOfContracts(contractRoutingParties.keySet.toSeq)
       .map { domainMap =>
         // Collect domains of input contracts, ignoring contracts that cannot be found in the ACS.
         // Such contracts need to be ignored, because they could be divulged contracts.

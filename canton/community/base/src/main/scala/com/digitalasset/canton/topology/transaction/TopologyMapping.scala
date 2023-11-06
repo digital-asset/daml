@@ -19,8 +19,6 @@ import com.digitalasset.canton.{LfPackageId, ProtoDeserializationError}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
-import scala.Ordered.orderingToOrdered
-
 /** X -> Y */
 sealed trait TopologyMapping extends Product with Serializable with PrettyPrinting {
 
@@ -564,27 +562,6 @@ final case class PartyToParticipant(
 object PartyToParticipant {
 
   def dbType: DomainTopologyTransactionType = DomainTopologyTransactionType.PartyToParticipant
-
-  private def computePermission(
-      elements: Seq[(RequestSide, ParticipantPermission)],
-      ofParticipant: Option[ParticipantPermission],
-  ): ParticipantPermission = {
-    val observed = Set.empty[(RequestSide, ParticipantPermission)]
-    val compute = elements
-      .foldLeft((ParticipantPermission.Disabled: ParticipantPermission, observed)) {
-        case ((maxPermission, observed), (side, permission)) =>
-          if (
-            (side == RequestSide.Both || observed.contains(
-              (RequestSide.flip(side), permission)
-            )) && permission > maxPermission
-          )
-            (permission, observed)
-          else
-            (maxPermission, observed + ((side, permission)))
-      }
-      ._1
-    ParticipantPermission.lowerOf(compute, ofParticipant.getOrElse(ParticipantPermission.Disabled))
-  }
 
   def fromProtoV0(
       value: v0.PartyToParticipant
