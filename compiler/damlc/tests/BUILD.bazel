@@ -473,9 +473,7 @@ da_haskell_test(
     name = "multi-package",
     srcs = ["src/DA/Test/DamlcMultiPackage.hs"],
     data = [
-        "//compiler/damlc",
-        # "//daml-script/daml:daml-script.dar",
-        # "//daml-script/runner:daml-script-binary",
+        "//daml-assistant:daml",
     ],
     hackage_deps = [
         "base",
@@ -488,6 +486,7 @@ da_haskell_test(
         "tasty",
         "tasty-hunit",
         "text",
+        "time",
     ],
     main_function = "DA.Test.DamlcMultiPackage.main",
     src_strip_prefix = "src",
