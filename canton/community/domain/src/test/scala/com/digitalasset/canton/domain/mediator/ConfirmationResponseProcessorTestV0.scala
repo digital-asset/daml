@@ -57,14 +57,14 @@ abstract class ConfirmationResponseProcessorTestV0Base
     with BaseTest
     with HasTestCloseContext {
 
-  val domainId: DomainId = DomainId(
+  protected val domainId: DomainId = DomainId(
     UniqueIdentifier.tryFromProtoPrimitive("domain::test")
   )
-  val activeMediator1 = MediatorId(UniqueIdentifier.tryCreate("mediator", "one"))
-  val activeMediator2 = MediatorId(UniqueIdentifier.tryCreate("mediator", "two"))
-  val passiveMediator3 = MediatorId(UniqueIdentifier.tryCreate("mediator", "three"))
+  protected val activeMediator1 = MediatorId(UniqueIdentifier.tryCreate("mediator", "one"))
+  protected val activeMediator2 = MediatorId(UniqueIdentifier.tryCreate("mediator", "two"))
+  protected val passiveMediator3 = MediatorId(UniqueIdentifier.tryCreate("mediator", "three"))
 
-  val mediatorGroup: MediatorGroup = MediatorGroup(
+  protected val mediatorGroup: MediatorGroup = MediatorGroup(
     index = NonNegativeInt.zero,
     active = Seq(
       activeMediator1,
@@ -76,19 +76,20 @@ abstract class ConfirmationResponseProcessorTestV0Base
     threshold = PositiveInt.tryCreate(2),
   )
 
-  def mediatorId: MediatorId
-  def mediatorRef: MediatorRef
+  protected def mediatorId: MediatorId
+  protected def mediatorRef: MediatorRef
 
-  lazy val factory: ExampleTransactionFactory =
+  protected lazy val factory: ExampleTransactionFactory =
     new ExampleTransactionFactory()(domainId = domainId, mediatorRef = mediatorRef)
-  lazy val fullInformeeTree: FullInformeeTree =
+  protected lazy val fullInformeeTree: FullInformeeTree =
     factory.MultipleRootsAndViewNestings.fullInformeeTree
-  lazy val view: TransactionView = factory.MultipleRootsAndViewNestings.view0
-  val participant: ParticipantId = ExampleTransactionFactory.submitterParticipant
+  protected lazy val view: TransactionView = factory.MultipleRootsAndViewNestings.view0
+  protected val participant: ParticipantId = ExampleTransactionFactory.submitterParticipant
 
-  val notSignificantCounter: SequencerCounter = SequencerCounter(0)
+  protected val notSignificantCounter: SequencerCounter = SequencerCounter(0)
 
-  val initialDomainParameters: DynamicDomainParameters = TestDomainParameters.defaultDynamic
+  protected val initialDomainParameters: DynamicDomainParameters =
+    TestDomainParameters.defaultDynamic
 
   private lazy val localVerdictProtocolVersion =
     LocalVerdict.protocolVersionRepresentativeFor(testedProtocolVersion)
@@ -96,20 +97,20 @@ abstract class ConfirmationResponseProcessorTestV0Base
   val participantResponseTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfMillis(100L)
 
-  lazy val submitter = ExampleTransactionFactory.submitter
-  lazy val signatory = ExampleTransactionFactory.signatory
-  lazy val observer = ExampleTransactionFactory.observer
+  protected lazy val submitter = ExampleTransactionFactory.submitter
+  protected lazy val signatory = ExampleTransactionFactory.signatory
+  protected lazy val observer = ExampleTransactionFactory.observer
 
   // Create a topology with several participants so that we can have several root hash messages or Malformed messages
-  val participant1 = participant
-  val participant2 = ExampleTransactionFactory.signatoryParticipant
-  val participant3 = ParticipantId("participant3")
+  protected val participant1 = participant
+  protected val participant2 = ExampleTransactionFactory.signatoryParticipant
+  protected val participant3 = ParticipantId("participant3")
 
-  def identityFactory: TestingIdentityFactoryBase
+  protected def identityFactory: TestingIdentityFactoryBase
 
-  def identityFactory2: TestingIdentityFactoryBase
+  protected def identityFactory2: TestingIdentityFactoryBase
 
-  def identityFactoryNoParticipants: TestingIdentityFactoryBase
+  protected def identityFactoryNoParticipants: TestingIdentityFactoryBase
 
   lazy val domainSyncCryptoApi: DomainSyncCryptoClient =
     identityFactory.forOwnerAndDomain(mediatorId, domainId)
@@ -257,6 +258,7 @@ abstract class ConfirmationResponseProcessorTestV0Base
               requestTimestamp.plusSeconds(120),
               testMediatorRequest,
               rootHashMessages,
+              batchAlsoContainsTopologyXTransaction = false,
             ),
             shouldBeViewThresholdBelowMinimumAlarm(
               RequestId(requestTimestamp),
@@ -354,6 +356,7 @@ abstract class ConfirmationResponseProcessorTestV0Base
                 requestTimestamp.plusSeconds(120),
                 informeeMessage,
                 rootHashMessages,
+                batchAlsoContainsTopologyXTransaction = false,
               ),
               shouldBeViewThresholdBelowMinimumAlarm(reqId, informeeMessage.faultyViewPosition),
             )
@@ -459,6 +462,7 @@ abstract class ConfirmationResponseProcessorTestV0Base
               ts.plusSeconds(120),
               informeeMessage,
               rootHashMessages,
+              batchAlsoContainsTopologyXTransaction = false,
             )
           }
         }.map(_ => succeed)
@@ -632,6 +636,7 @@ abstract class ConfirmationResponseProcessorTestV0Base
                   ts.plusSeconds(120),
                   req,
                   rootHashMessages,
+                  batchAlsoContainsTopologyXTransaction = false,
                 ),
                 _.shouldBeCantonError(
                   MediatorError.MalformedMessage,
@@ -709,6 +714,7 @@ abstract class ConfirmationResponseProcessorTestV0Base
                   testedProtocolVersion
                 )
               ),
+              batchAlsoContainsTopologyXTransaction = false,
             ),
             _.shouldBeCantonError(
               MediatorError.MalformedMessage,
@@ -754,6 +760,7 @@ abstract class ConfirmationResponseProcessorTestV0Base
                 testedProtocolVersion
               )
             ),
+            batchAlsoContainsTopologyXTransaction = false,
           )
           // should record the request
           requestState <- sut.mediatorState.fetch(requestId).value.map(_.value)
@@ -977,6 +984,7 @@ abstract class ConfirmationResponseProcessorTestV0Base
             requestIdTs.plusSeconds(120),
             informeeMessage,
             List.empty,
+            batchAlsoContainsTopologyXTransaction = false,
           )
 
           // receiving a confirmation response
@@ -1075,6 +1083,7 @@ abstract class ConfirmationResponseProcessorTestV0Base
                 testedProtocolVersion
               )
             ),
+            batchAlsoContainsTopologyXTransaction = false,
           )
           response <- signedResponse(
             Set(submitter),
@@ -1107,7 +1116,7 @@ abstract class ConfirmationResponseProcessorTestV0Base
         // this request is not added to the pending state
         for {
           snapshot <- domainSyncCryptoApi2.snapshot(requestTs)
-          _ <- sut.processor.handleTimeout(requestId, timeoutTs, decisionTime, snapshot.ipsSnapshot)
+          _ <- sut.processor.handleTimeout(requestId, timeoutTs, decisionTime)
         } yield succeed
       }
 
@@ -1127,6 +1136,7 @@ abstract class ConfirmationResponseProcessorTestV0Base
               decisionTime,
               request,
               rootHashMessages,
+              batchAlsoContainsTopologyXTransaction = false,
             ),
             _.shouldBeCantonError(
               MediatorError.InvalidMessage,
@@ -1230,6 +1240,7 @@ class ConfirmationResponseProcessorTestV0 extends ConfirmationResponseProcessorT
               testedProtocolVersion
             )
           ),
+          batchAlsoContainsTopologyXTransaction = false,
         )
         _ = sut.verdictSender.sentResults shouldBe empty
 

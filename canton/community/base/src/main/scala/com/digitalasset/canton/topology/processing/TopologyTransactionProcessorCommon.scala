@@ -351,11 +351,9 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
 }
 
 object TopologyTransactionProcessorCommon {
-
   abstract class Factory {
     def create(
         acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
     )(implicit executionContext: ExecutionContext): TopologyTransactionProcessorCommon
   }
-
 }

@@ -141,6 +141,7 @@ class DefaultMessageDispatcher(
         requestTracker.tick(sc, ts)
         if (triggerAcsChangePublication)
           recordOrderPublisher.scheduleEmptyAcsChangePublication(sc, ts)
+
         recordOrderPublisher.tick(sc, ts)
       }
 

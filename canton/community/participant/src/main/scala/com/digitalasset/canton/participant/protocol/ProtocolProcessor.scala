@@ -750,7 +750,6 @@ abstract class ProtocolProcessor[
               sc,
               ts,
               handleRequestData,
-              decisionTime,
               mediator,
               snapshot,
               malformedPayloads,
@@ -1043,7 +1042,6 @@ abstract class ProtocolProcessor[
       handleRequestData: Phase37Synchronizer.PendingRequestDataHandle[
         steps.requestType.PendingRequestData
       ],
-      decisionTime: CantonTimestamp,
       mediatorRef: MediatorRef,
       snapshot: DomainSnapshotSyncCryptoApi,
       malformedPayloads: Seq[MalformedPayload],
@@ -1369,13 +1367,7 @@ abstract class ProtocolProcessor[
     //  that have also received a message with the request.
     //  A dishonest sequencer or mediator could break this assumption.
 
-    /* This part is still run as part of the synchronous processing, because we want
-     * only the first call to awaitConfirmed to get
-     * a non-empty value.
-     *
-     * Some more synchronization is done in the Phase37Synchronizer.
-     */
-
+    // Some more synchronization is done in the Phase37Synchronizer.
     val res = performUnlessClosingEitherUSF(
       s"$functionFullName(sc=$sc, traceId=${traceContext.traceId})"
     )(
@@ -1409,6 +1401,7 @@ abstract class ProtocolProcessor[
     EitherT.pure(res)
   }
 
+  // The processing in this method is done in the asynchronous part of the processing
   private[this] def performResultProcessing3(
       signedResultBatchE: Either[
         EventWithErrors[Deliver[DefaultOpenEnvelope]],
@@ -1501,6 +1494,7 @@ abstract class ProtocolProcessor[
             logger.info(
               show"Finalizing ${steps.requestKind.unquoted} request at $requestId with event $eventO."
             )
+
             // Schedule publication of the event with the associated causality update.
             // Note that both fields are optional.
             // Some events (such as rejection events) are not associated with causality updates.

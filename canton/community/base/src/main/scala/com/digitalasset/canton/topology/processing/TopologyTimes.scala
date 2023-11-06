@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.processing
 
+import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
@@ -11,7 +12,7 @@ final case class EffectiveTime(value: CantonTimestamp) {
   def toApproximate: ApproximateTime = ApproximateTime(value)
 
   def toProtoPrimitive: ProtoTimestamp = value.toProtoPrimitive
-
+  def toLf: LfTimestamp = value.toLf
   def max(that: EffectiveTime): EffectiveTime =
     EffectiveTime(value.max(that.value))
 }
@@ -34,6 +35,7 @@ object ApproximateTime {
 
 final case class SequencedTime(value: CantonTimestamp) {
   def toProtoPrimitive: ProtoTimestamp = value.toProtoPrimitive
+  def toLf: LfTimestamp = value.toLf
 }
 object SequencedTime {
   val MinValue: SequencedTime = SequencedTime(CantonTimestamp.MinValue)

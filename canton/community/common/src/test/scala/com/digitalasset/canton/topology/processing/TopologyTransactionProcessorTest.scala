@@ -7,7 +7,6 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
@@ -22,8 +21,7 @@ class TopologyTransactionProcessorTest
     with BaseTest
     with HasExecutionContext {
 
-  val crypto = new SymbolicPureCrypto()
-  val clock = mock[Clock]
+  private val crypto = new SymbolicPureCrypto()
 
   private def mkStore: InMemoryTopologyStore[TopologyStoreId.DomainStore] =
     new InMemoryTopologyStore(

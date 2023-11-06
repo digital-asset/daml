@@ -26,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[routing] class DomainRankComputation(
     participantId: ParticipantId,
     priorityOfDomain: DomainId => Int,
-    snapshotProvider: DomainId => Either[TransactionRoutingError, TopologySnapshot],
+    snapshotProvider: DomainStateProvider,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -44,7 +44,8 @@ private[routing] class DomainRankComputation(
     // (contract id, (transfer submitter, target domain id))
     type SingleTransfer = (LfContractId, (LfPartyId, DomainId))
 
-    val targetSnapshotET = EitherT.fromEither[Future](snapshotProvider(targetDomain))
+    val targetSnapshotET =
+      EitherT.fromEither[Future](snapshotProvider.getTopologySnapshotFor(targetDomain))
 
     val transfers: EitherT[Future, TransactionRoutingError, Chain[SingleTransfer]] = {
       Chain.fromSeq(contracts).parFlatTraverse { c =>
@@ -53,7 +54,8 @@ private[routing] class DomainRankComputation(
         if (contractDomain == targetDomain) EitherT.pure(Chain.empty)
         else {
           for {
-            sourceSnapshot <- EitherT.fromEither[Future](snapshotProvider(contractDomain))
+            sourceSnapshot <- EitherT
+              .fromEither[Future](snapshotProvider.getTopologySnapshotFor(contractDomain))
             targetSnapshot <- targetSnapshotET
             submitter <- findSubmitterThatCanTransferContract(
               sourceSnapshot,

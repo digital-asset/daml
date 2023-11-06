@@ -17,6 +17,7 @@ import com.digitalasset.canton.participant.sync.TransactionRoutingError.Malforme
 }
 import com.digitalasset.canton.protocol.{LfContractId, LfVersionedTransaction}
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{DomainAlias, LfPackageId, LfPartyId, LfWorkflowId}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -45,12 +46,13 @@ private[routing] object TransactionData {
       submitters: Set[LfPartyId],
       transaction: LfVersionedTransaction,
       workflowIdO: Option[LfWorkflowId],
-      domainOfContracts: Seq[LfContractId] => Future[Map[LfContractId, DomainId]],
+      domainStateProvider: DomainStateProvider,
       domainIdResolver: DomainAlias => Option[DomainId],
       contractRoutingParties: Map[LfContractId, Set[Party]],
       submitterDomainId: Option[DomainId],
   )(implicit
-      ec: ExecutionContext
+      ec: ExecutionContext,
+      traceContext: TraceContext,
   ): EitherT[Future, TransactionRoutingError, TransactionData] = {
     for {
       prescribedDomainO <- EitherT.fromEither[Future](
@@ -59,7 +61,7 @@ private[routing] object TransactionData {
           .getOrElse(toDomainId(workflowIdO, domainIdResolver))
       )
       contractsDomainData <- EitherT.liftF(
-        ContractsDomainData.create(domainOfContracts, contractRoutingParties)
+        ContractsDomainData.create(domainStateProvider, contractRoutingParties)
       )
     } yield TransactionData(
       transaction = transaction,
@@ -74,12 +76,13 @@ private[routing] object TransactionData {
       submitterInfo: SubmitterInfo,
       transaction: LfVersionedTransaction,
       workflowIdO: Option[LfWorkflowId],
-      domainOfContracts: Seq[LfContractId] => Future[Map[LfContractId, DomainId]],
+      domainStateProvider: DomainStateProvider,
       domainIdResolver: DomainAlias => Option[DomainId],
       contractRoutingParties: Map[LfContractId, Set[Party]],
       submitterDomainId: Option[DomainId],
   )(implicit
-      ec: ExecutionContext
+      ec: ExecutionContext,
+      traceContext: TraceContext,
   ): EitherT[Future, TransactionRoutingError, TransactionData] = {
     for {
       submitters <- EitherT.fromEither[Future](
@@ -96,7 +99,7 @@ private[routing] object TransactionData {
         submitters,
         transaction,
         workflowIdO,
-        domainOfContracts,
+        domainStateProvider,
         domainIdResolver,
         contractRoutingParties,
         submitterDomainId,

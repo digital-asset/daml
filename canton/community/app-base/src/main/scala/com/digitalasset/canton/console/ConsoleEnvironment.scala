@@ -573,6 +573,7 @@ object ConsoleEnvironment {
     /** Implicitly map ParticipantReferences to the ParticipantId
       */
     implicit def toParticipantId(reference: ParticipantReference): ParticipantId = reference.id
+    implicit def toParticipantIdX(reference: ParticipantReferenceX): ParticipantId = reference.id
 
     /** Implicitly map an `Int` to a `NonNegativeInt`.
       * @throws java.lang.IllegalArgumentException if `n` is negative

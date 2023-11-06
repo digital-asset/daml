@@ -42,6 +42,7 @@ import com.digitalasset.canton.participant.store.{
   SingleDimensionEventLog,
 }
 import com.digitalasset.canton.participant.sync.TimestampedEvent
+import com.digitalasset.canton.participant.{LocalOffset, RequestOffset, TopologyOffset}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
@@ -130,13 +131,42 @@ class RecordOrderPublisher(
             SequencedSubmission(requestSequencerCounter, requestTimestamp),
           )
         val task =
-          EventPublicationTask(requestSequencerCounter, requestTimestamp, requestCounter)(
+          EventPublicationTask(
+            requestSequencerCounter,
+            RequestOffset(requestTimestamp, requestCounter),
+          )(
             eventO,
             Some(inFlightReference),
           )
         taskScheduler.scheduleTask(task)
       }
     }
+
+  /** Schedules the given `event` to be published on the `eventLog`, and schedules the causal "tick" defined by `clock`.
+    *
+    * @param sequencerCounter The sequencer counter associated with the message that corresponds to the request
+    * @param event            The timestamped event to be published
+    */
+  def schedulePublication(
+      sequencerCounter: SequencerCounter,
+      topologyOffset: TopologyOffset,
+      event: TimestampedEvent,
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    logger.debug(
+      s"Schedule publication for offset $topologyOffset derived from sc=$sequencerCounter"
+    )
+
+    for {
+      _ <- eventLog.insert(event)
+    } yield {
+      val task =
+        EventPublicationTask(sequencerCounter, topologyOffset)(
+          Some(event),
+          None,
+        )
+      taskScheduler.scheduleTask(task)
+    }
+  }
 
   def scheduleRecoveries(
       toRecover: Seq[PendingPublish]
@@ -148,8 +178,8 @@ class RecordOrderPublisher(
         logger.info(s"Recover pending causality update $pendingPublish")
 
         val eventO = pendingPublish match {
-          case RecordOrderPublisher.PendingTransferPublish(ts, eventLogId) => None
-          case RecordOrderPublisher.PendingEventPublish(event, ts, eventLogId) => Some(event)
+          case RecordOrderPublisher.PendingTransferPublish(_ts, _eventLogId) => None
+          case RecordOrderPublisher.PendingEventPublish(event, _ts, _eventLogId) => Some(event)
         }
 
         val inFlightRef = eventO.flatMap(tse =>
@@ -230,7 +260,7 @@ class RecordOrderPublisher(
   private object PublicationTask {
     def orderingSameTimestamp: Ordering[PublicationTask] = Ordering.by(rankSameTimestamp)
 
-    private def rankSameTimestamp(x: PublicationTask): Option[(Option[RequestCounter], Int)] =
+    private def rankSameTimestamp(x: PublicationTask): Option[(Option[LocalOffset], Int)] =
       x match {
         case _: TimeObservationTask =>
           // TimeObservationTask comes first so that we synchronize with the InFlightSubmissionTracker before publishing an event.
@@ -238,10 +268,10 @@ class RecordOrderPublisher(
           None
         case task: EventPublicationTask =>
           (
-            task.requestCounter.some,
+            task.localOffset.some,
             0, // EventPublicationTask comes before AcsChangePublicationTask if they have the same tie breaker. This is an arbitrary decision.
           ).some
-        case task: AcsChangePublicationTask => (task.requestCounterCommitSetPairO.map(_._1), 1).some
+        case task: AcsChangePublicationTask => (task.requestOffsetO, 1).some
       }
   }
 
@@ -292,13 +322,14 @@ class RecordOrderPublisher(
     */
   private[RecordOrderPublisher] case class EventPublicationTask(
       override val sequencerCounter: SequencerCounter,
-      override val timestamp: CantonTimestamp,
-      requestCounter: RequestCounter,
+      localOffset: LocalOffset,
   )(
       val eventO: Option[TimestampedEvent],
       val inFlightReference: Option[InFlightReference],
   )(implicit val traceContext: TraceContext)
       extends PublicationTask {
+
+    def timestamp: CantonTimestamp = localOffset.effectiveTime
 
     override def perform(): FutureUnlessShutdown[Unit] = {
       for {
@@ -349,6 +380,10 @@ class RecordOrderPublisher(
       val traceContext: TraceContext
   ) extends PublicationTask {
 
+    val requestOffsetO: Option[RequestOffset] = requestCounterCommitSetPairO.map { case (rc, _) =>
+      RequestOffset(timestamp, rc)
+    }
+
     override def perform(): FutureUnlessShutdown[Unit] = {
       // If the requestCounterCommitSetPairO is not set, then by default the commit set is empty, and
       // the request counter is the smallest possible value that does not throw an exception in
@@ -391,11 +426,11 @@ class RecordOrderPublisher(
   }
 
   def setAcsChangeListener(listener: AcsChangeListener): Unit = {
-    val _ = acsChangeListener.getAndUpdate {
+    acsChangeListener.getAndUpdate {
       case None => Some(listener)
       case Some(_acsChangeListenerAlreadySet) =>
         throw new IllegalArgumentException("ACS change listener already set")
-    }
+    }.discard
   }
 
   override def closeAsync(): Seq[AsyncOrSyncCloseable] = {

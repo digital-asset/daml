@@ -310,6 +310,7 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
                   `firstRequestTs`,
                   InformeeMessage(_),
                   _,
+                  _,
                 ),
                 MediatorEvent.Timeout(_, `timesOutAt`, `requestId`),
               ) =>

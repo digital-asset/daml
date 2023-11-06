@@ -269,6 +269,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
               requestTimestamp.plusSeconds(120),
               testMediatorRequest,
               rootHashMessages,
+              batchAlsoContainsTopologyXTransaction = false,
             ),
             shouldBeViewThresholdBelowMinimumAlarm(
               RequestId(requestTimestamp),
@@ -368,6 +369,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
                 requestTimestamp.plusSeconds(120),
                 informeeMessage,
                 rootHashMessages,
+                batchAlsoContainsTopologyXTransaction = false,
               ),
               shouldBeViewThresholdBelowMinimumAlarm(reqId, informeeMessage.faultyViewPosition),
             )
@@ -473,6 +475,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
               ts.plusSeconds(120),
               informeeMessage,
               rootHashMessages,
+              batchAlsoContainsTopologyXTransaction = false,
             )
           }
         }.map(_ => succeed)
@@ -646,6 +649,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
                   ts.plusSeconds(120),
                   req,
                   rootHashMessages,
+                  batchAlsoContainsTopologyXTransaction = false,
                 ),
                 _.shouldBeCantonError(
                   MediatorError.MalformedMessage,
@@ -723,6 +727,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
                   testedProtocolVersion
                 )
               ),
+              batchAlsoContainsTopologyXTransaction = false,
             ),
             _.shouldBeCantonError(
               MediatorError.MalformedMessage,
@@ -768,6 +773,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
                 testedProtocolVersion
               )
             ),
+            batchAlsoContainsTopologyXTransaction = false,
           )
           // should record the request
           requestState <- sut.mediatorState.fetch(requestId).value.map(_.value)
@@ -1005,6 +1011,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
             requestIdTs.plusSeconds(120),
             informeeMessage,
             List.empty,
+            batchAlsoContainsTopologyXTransaction = false,
           )
 
           // receiving a confirmation response
@@ -1101,6 +1108,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
                 testedProtocolVersion
               )
             ),
+            batchAlsoContainsTopologyXTransaction = false,
           )
           response <- signedResponse(
             Set(submitter),
@@ -1124,6 +1132,50 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
         } yield succeed
       }
 
+      "reject requests whose batch contained a topology transaction" in {
+        val sut = new Fixture()
+
+        val mediatorRequest = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+        val rootHashMessage = RootHashMessage(
+          mediatorRequest.rootHash.value,
+          domainId,
+          testedProtocolVersion,
+          mediatorRequest.viewType,
+          SerializedRootHashMessagePayload.empty,
+        )
+
+        val sc = 10L
+        val ts = CantonTimestamp.ofEpochSecond(sc)
+        for {
+          _ <- loggerFactory.assertLogs(
+            sut.processor.processRequest(
+              RequestId(ts),
+              notSignificantCounter,
+              ts.plusSeconds(60),
+              ts.plusSeconds(120),
+              mediatorRequest,
+              List(
+                OpenEnvelope(
+                  rootHashMessage,
+                  Recipients.cc(mediatorRef.toRecipient, MemberRecipient(participant)),
+                )(
+                  testedProtocolVersion
+                )
+              ),
+              batchAlsoContainsTopologyXTransaction = true,
+            ),
+            _.shouldBeCantonError(
+              MediatorError.MalformedMessage,
+              message => {
+                message should (include(
+                  s"Received a mediator request with id ${RequestId(ts)} also containing a topology transaction."
+                ))
+              },
+            ),
+          )
+        } yield succeed
+      }
+
       "timeout request that is not pending should not fail" in {
         // could happen if a timeout is scheduled but the request is previously finalized
         val sut = new Fixture()
@@ -1134,7 +1186,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
         // this request is not added to the pending state
         for {
           snapshot <- domainSyncCryptoApi2.snapshot(requestTs)
-          _ <- sut.processor.handleTimeout(requestId, timeoutTs, decisionTime, snapshot.ipsSnapshot)
+          _ <- sut.processor.handleTimeout(requestId, timeoutTs, decisionTime)
         } yield succeed
       }
 
@@ -1154,6 +1206,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
               decisionTime,
               request,
               rootHashMessages,
+              batchAlsoContainsTopologyXTransaction = false,
             ),
             _.shouldBeCantonError(
               MediatorError.InvalidMessage,
@@ -1258,6 +1311,7 @@ class ConfirmationResponseProcessorTestV5
               testedProtocolVersion
             )
           ),
+          batchAlsoContainsTopologyXTransaction = false,
         )
         _ = sut.verdictSender.sentResults shouldBe empty
 

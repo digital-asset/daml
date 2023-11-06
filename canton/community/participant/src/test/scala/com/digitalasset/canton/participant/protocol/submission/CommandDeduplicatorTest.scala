@@ -108,7 +108,6 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
 
   private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
 
-  // TODO(#14381) Expand coverage and include topology events in this test
   private implicit def toLocalOffset(i: Long): RequestOffset =
     RequestOffset(CantonTimestamp.ofEpochSecond(i), RequestCounter(i))
 
