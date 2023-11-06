@@ -41,7 +41,7 @@ public final class CreatedEvent implements Event, TreeEvent {
   private final @NonNull ByteString createdEventBlob;
 
   // Note that we can't use a `com.daml.ledger.javaapi.data.Timestamp` here because
-  // it only supports milliseconds-precision and we require lossless conversions through
+  // it only supports microseconds-precision and we require lossless conversions through
   // from/toProto.
   public final @NonNull Instant createdAt;
 
