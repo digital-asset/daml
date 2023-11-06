@@ -129,7 +129,7 @@ class ApiCommandSubmissionServiceSpec
         .transform {
           case Failure(exception)
               if exception.getMessage.contains(
-                "feature in development: disclosed_contracts should not be set"
+                "feature disabled: disclosed_contracts should not be set"
               ) =>
             Success(succeed)
           case other => fail(s"Unexpected result: $other")

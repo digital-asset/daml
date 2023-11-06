@@ -177,7 +177,7 @@ final case class MonitoringConfig(
     metrics: MetricsConfig = MetricsConfig(),
     delayLoggingThreshold: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
     tracing: TracingConfig = TracingConfig(),
-    // TODO(i9014) remove (breaking change)
+    // TODO(#15221) remove (breaking change)
     @Deprecated(since = "2.2.0") // use logging.api.messagePayloads instead
     logMessagePayloads: Option[Boolean] = None,
     logQueryCost: Option[QueryCostMonitoringConfig] = None,
@@ -312,7 +312,7 @@ final case class CantonFeatures(
     enablePreviewCommands: Boolean = false,
     enableTestingCommands: Boolean = false,
     enableRepairCommands: Boolean = false,
-    // TODO(#9014) remove for x-nodes
+    // TODO(#15221) remove for x-nodes
     skipTopologyManagerSignatureValidation: Boolean = false,
 ) {
   def featureFlags: Set[FeatureFlag] = {

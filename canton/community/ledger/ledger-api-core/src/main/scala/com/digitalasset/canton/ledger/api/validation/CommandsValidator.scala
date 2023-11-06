@@ -293,13 +293,13 @@ object CommandsValidator {
       ledgerId: LedgerId,
       resolveToTemplateId: ResolveToTemplateId,
       upgradingEnabled: Boolean,
-      explicitDisclosureUnsafeEnabled: Boolean,
+      enableExplicitDisclosure: Boolean,
   ) =
     new CommandsValidator(
       ledgerId = ledgerId,
       resolveToTemplateId = resolveToTemplateId,
       upgradingEnabled = upgradingEnabled,
-      validateDisclosedContracts = new ValidateDisclosedContracts(explicitDisclosureUnsafeEnabled),
+      validateDisclosedContracts = new ValidateDisclosedContracts(enableExplicitDisclosure),
     )
 
   /** Effective submitters of a command

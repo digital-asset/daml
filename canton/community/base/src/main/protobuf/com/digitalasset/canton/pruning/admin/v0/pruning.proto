@@ -22,10 +22,29 @@ message GetSchedule {
   }
 }
 
+message SetParticipantSchedule {
+  message Request {
+    ParticipantPruningSchedule schedule = 1;
+  }
+  message Response {}
+}
+
+message GetParticipantSchedule {
+  message Request {}
+  message Response {
+    ParticipantPruningSchedule schedule = 1;
+  }
+}
+
 message PruningSchedule {
   string cron = 1;
   google.protobuf.Duration max_duration = 2;
   google.protobuf.Duration retention = 3;
+}
+
+message ParticipantPruningSchedule {
+  PruningSchedule schedule = 1;
+  bool prune_internally_only = 2;
 }
 
 message ClearSchedule {

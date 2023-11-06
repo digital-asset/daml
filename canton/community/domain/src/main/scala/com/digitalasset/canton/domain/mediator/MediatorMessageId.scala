@@ -18,7 +18,7 @@ import scala.util.Try
 private[mediator] sealed trait MediatorMessageId {
   def toMessageId: MessageId
 }
-// TODO(#9014) remove me with 3.0
+// TODO(#15231) remove me with 3.0
 private[mediator] object MediatorMessageId {
   @Deprecated(since = "3.0, remove me once we can break compatibility with old proto versions")
   final case class VerdictMessageId(requestId: RequestId) extends MediatorMessageId {
@@ -84,7 +84,7 @@ private[mediator] object MediatorMessageId {
 
   private def parseVerdictMessageId(items: List[String]): Either[String, VerdictMessageId] =
     items match {
-      case Seq(mediatorUidRaw, requestId) =>
+      case Seq(_mediatorUidRaw, requestId) =>
         for {
           microseconds <- Try(requestId.toLong).toEither
             .leftMap(ex => s"Failed to parse request id: ${ex.getMessage}")

@@ -78,7 +78,7 @@ message BaseQuery {
 
 message BaseResult {
   string store = 1;
-  // TODO(i9014) reorder once we break the admin api
+  // TODO(#15223) reorder once we break the admin api
   google.protobuf.Timestamp sequenced = 7;
   google.protobuf.Timestamp valid_from = 2;
   google.protobuf.Timestamp valid_until = 3;

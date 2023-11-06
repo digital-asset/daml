@@ -18,8 +18,8 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class DbPruningSchedulerStore(
-    override val nodeCode: String3,
+final class DbPruningSchedulerStore(
+    nodeCode: String3, // short 3-character node code "MED", or "SEQ" as sequencer and mediator can share a db
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -34,7 +34,7 @@ class DbPruningSchedulerStore(
 
   override def setSchedule(schedule: PruningSchedule)(implicit
       tc: TraceContext
-  ): Future[Unit] =
+  ): Future[Unit] = {
     processingTime
       .event {
         storage.update_(
@@ -58,6 +58,7 @@ class DbPruningSchedulerStore(
           functionFullName,
         )
       }
+  }
 
   override def clearSchedule()(implicit tc: TraceContext): Future[Unit] = processingTime
     .event {
@@ -72,7 +73,8 @@ class DbPruningSchedulerStore(
   ): Future[Option[PruningSchedule]] = processingTime.event {
     storage
       .query(
-        sql"select cron, max_duration, retention from pruning_schedules where node_type = $nodeCode"
+        sql"""select cron, max_duration, retention
+             from pruning_schedules where node_type = $nodeCode"""
           .as[(Cron, PositiveSeconds, PositiveSeconds)]
           .headOption,
         functionFullName,
@@ -139,5 +141,4 @@ class DbPruningSchedulerStore(
       (),
       s"Attempt to update ${field} of a schedule that has not been previously configured. Use set_schedule instead.",
     )
-
 }

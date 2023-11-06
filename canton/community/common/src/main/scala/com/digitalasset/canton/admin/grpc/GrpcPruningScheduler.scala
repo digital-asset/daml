@@ -26,9 +26,9 @@ trait GrpcPruningScheduler {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
-      schedule <- ensureValidO("schedule", request.schedule, PruningSchedule.fromProtoV0)
+      schedule <- convertRequiredF("schedule", request.schedule, PruningSchedule.fromProtoV0)
       _scheduleSuccessfullySet <- handlePassiveHAStorageError(
-        scheduler.setScheduleWithRetention(schedule),
+        scheduler.setSchedule(schedule),
         "set_schedule",
       )
     } yield v0.SetSchedule.Response()
@@ -48,7 +48,7 @@ trait GrpcPruningScheduler {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
-      cron <- ensureValid(Cron.fromProtoPrimitive(request.cron))
+      cron <- convertF(Cron.fromProtoPrimitive(request.cron))
       _cronSuccessfullySet <- handlePassiveHAStorageError(
         handleUserError(scheduler.updateCron(cron)),
         "set_cron",
@@ -62,7 +62,7 @@ trait GrpcPruningScheduler {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
-      positiveDuration <- ensureValid(
+      positiveDuration <- convertF(
         PositiveSeconds
           .fromProtoPrimitiveO("max_duration")(request.maxDuration)
       )
@@ -79,7 +79,7 @@ trait GrpcPruningScheduler {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
-      positiveDuration <- ensureValid(
+      positiveDuration <- convertF(
         PositiveSeconds
           .fromProtoPrimitiveO("retention")(request.retention)
       )
@@ -96,21 +96,21 @@ trait GrpcPruningScheduler {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
-      scheduleWithRetention <- scheduler.getScheduleWithRetention()
+      scheduleWithRetention <- scheduler.getSchedule()
     } yield v0.GetSchedule.Response(scheduleWithRetention.map(_.toProtoV0))
   }
 
-  private def ensureValid[T](f: => ProtoConverter.ParsingResult[T])(implicit
+  protected def convertF[T](f: => ProtoConverter.ParsingResult[T])(implicit
       traceContext: TraceContext
   ): Future[T] = f
     .leftMap(err => ProtoDeserializationFailure.Wrap(err).asGrpcError)
     .fold(Future.failed, Future.successful)
 
-  private def ensureValidO[P, T](
+  protected def convertRequiredF[P, T](
       field: String,
       value: Option[P],
       f: P => ProtoConverter.ParsingResult[T],
-  )(implicit traceContext: TraceContext): Future[T] = ensureValid(
+  )(implicit traceContext: TraceContext): Future[T] = convertF(
     ProtoConverter.required(field, value).flatMap(f)
   )
 
@@ -123,7 +123,7 @@ trait GrpcPruningScheduler {
       )
     )
 
-  private def handlePassiveHAStorageError(
+  protected def handlePassiveHAStorageError(
       update: Future[Unit],
       commandName: String,
   ): Future[Unit] =

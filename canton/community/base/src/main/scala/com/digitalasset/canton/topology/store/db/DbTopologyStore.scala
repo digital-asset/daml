@@ -436,7 +436,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     }
   }
 
-  // TODO(#9014) remove once we move to 3.0
+  // TODO(#15208) remove once we move to 3.0
   /** Backwards compatible computation of sequencing time
     *
     * The algorithm works based on the assumption that the topology manager has not sent

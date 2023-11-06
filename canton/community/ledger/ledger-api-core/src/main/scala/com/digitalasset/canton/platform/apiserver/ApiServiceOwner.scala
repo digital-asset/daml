@@ -64,7 +64,7 @@ object ApiServiceOwner {
         ApiServiceOwner.DefaultManagementServiceTimeout,
       ledgerFeatures: LedgerFeatures,
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
-      explicitDisclosureUnsafeEnabled: Boolean = false,
+      enableExplicitDisclosure: Boolean = false,
       multiDomainEnabled: Boolean,
       upgradingEnabled: Boolean,
       // immutable configuration parameters
@@ -157,7 +157,7 @@ object ApiServiceOwner {
         userManagementServiceConfig = userManagement,
         apiStreamShutdownTimeout = apiStreamShutdownTimeout.underlying,
         meteringReportKey = meteringReportKey,
-        explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
+        enableExplicitDisclosure = enableExplicitDisclosure,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
         multiDomainEnabled = multiDomainEnabled,

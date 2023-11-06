@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-// TODO(#9014) rename package once we move to 3.0
+// TODO(#15208) rename package once we move to 3.0
 package com.digitalasset.canton.protocol.v0;
 
 import "google/protobuf/timestamp.proto";

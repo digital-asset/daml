@@ -444,7 +444,7 @@ trait ProcessingSteps[
   def constructPendingDataAndResponse(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
-      contractLookup: ContractLookup, // TODO(i9014): remove after DAML 3.0
+      contractLookup: ContractLookup, // TODO(#15152): remove after DAML 3.0
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       mediator: MediatorRef,
       freshOwnTimelyTx: Boolean,

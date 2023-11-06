@@ -35,7 +35,7 @@ trait BaseNodeSettingsStore[T] extends AutoCloseable {
       traceContext: TraceContext
   ): EitherT[Future, BaseNodeSettingsStoreError, Unit]
 
-  // TODO(#9014) remove once we can assume that static domain parameters are persiste
+  // TODO(#15153) remove once we can assume that static domain parameters are persisted
   protected def fixPreviousSettings(resetToConfig: Boolean, timeout: NonNegativeDuration)(
       update: Option[T] => EitherT[Future, BaseNodeSettingsStoreError, Unit]
   )(implicit executionContext: ExecutionContext, traceContext: TraceContext): Unit = {

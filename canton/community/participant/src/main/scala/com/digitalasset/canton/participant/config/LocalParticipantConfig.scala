@@ -206,32 +206,31 @@ final case class RemoteParticipantConfig(
   * @param databaseConnectionTimeout database connection timeout
   * @param additionalMigrationPaths  optional extra paths for the database migrations
   * @param rateLimit                 limit the ledger api server request rates based on system metrics
-  * @param explicitDisclosureUnsafe  enable usage of explicitly disclosed contracts in command submission and transaction validation.
-  *                                  This feature is deemed unstable and unsafe. Should NOT be enabled in production!
+  * @param enableExplicitDisclosure  enable usage of explicitly disclosed contracts in command submission and transaction validation.
   */
 final case class LedgerApiServerConfig(
     address: String = "127.0.0.1",
     internalPort: Option[Port] = None,
     indexService: LedgerIndexServiceConfig = LedgerIndexServiceConfig(),
     tls: Option[TlsServerConfig] = None,
-    configurationLoadTimeout: NonNegativeFiniteDuration =
+    configurationLoadTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultConfigurationLoadTimeout,
     commandService: CommandServiceConfig = CommandServiceConfig(),
     userManagementService: UserManagementServiceConfig = UserManagementServiceConfig(),
-    managementServiceTimeout: NonNegativeFiniteDuration =
+    managementServiceTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultManagementServiceTimeout,
     postgresDataSource: PostgresDataSourceConfig = PostgresDataSourceConfig(),
     authServices: Seq[AuthServiceConfig] = Seq.empty,
     keepAliveServer: Option[KeepAliveServerConfig] = Some(KeepAliveServerConfig()),
     maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
-    databaseConnectionTimeout: NonNegativeFiniteDuration =
+    databaseConnectionTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultDatabaseConnectionTimeout,
     // TODO(#14529): use a common value for ApiServerConfig's and LedgerIndexServiceConfig's apiStreamShutdownTimeout
-    apiStreamShutdownTimeout: NonNegativeFiniteDuration =
+    apiStreamShutdownTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultApiStreamShutdownTimeout,
     additionalMigrationPaths: Seq[String] = Seq.empty,
     rateLimit: Option[RateLimitingConfig] = Some(DefaultRateLimit),
-    explicitDisclosureUnsafe: Boolean = false,
+    enableExplicitDisclosure: Boolean = true,
     adminToken: Option[String] = None,
     identityProviderManagement: IdentityProviderManagementConfig =
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
@@ -251,14 +250,14 @@ final case class LedgerApiServerConfig(
 
 object LedgerApiServerConfig {
 
-  private val DefaultConfigurationLoadTimeout: NonNegativeFiniteDuration =
-    NonNegativeFiniteDuration.ofSeconds(10L)
-  private val DefaultManagementServiceTimeout: NonNegativeFiniteDuration =
-    NonNegativeFiniteDuration.ofMinutes(2L)
-  private val DefaultDatabaseConnectionTimeout: NonNegativeFiniteDuration =
-    NonNegativeFiniteDuration.ofSeconds(30)
-  private val DefaultApiStreamShutdownTimeout: NonNegativeFiniteDuration =
-    NonNegativeFiniteDuration.ofSeconds(5)
+  private val DefaultConfigurationLoadTimeout: config.NonNegativeFiniteDuration =
+    config.NonNegativeFiniteDuration.ofSeconds(10L)
+  private val DefaultManagementServiceTimeout: config.NonNegativeFiniteDuration =
+    config.NonNegativeFiniteDuration.ofMinutes(2L)
+  private val DefaultDatabaseConnectionTimeout: config.NonNegativeFiniteDuration =
+    config.NonNegativeFiniteDuration.ofSeconds(30)
+  private val DefaultApiStreamShutdownTimeout: config.NonNegativeFiniteDuration =
+    config.NonNegativeFiniteDuration.ofSeconds(5)
   private val DefaultIdentityProviderManagementConfig: IdentityProviderManagementConfig =
     ApiServiceOwner.DefaultIdentityProviderManagementConfig
   val DefaultRateLimit: RateLimitingConfig =
@@ -372,7 +371,7 @@ object LedgerApiServerConfig {
     * If the below match fails because there are more config options, add them to our "LedgerApiServerConfig".
     */
   private def _completenessCheck(
-      managementServiceTimeout: NonNegativeFiniteDuration,
+      managementServiceTimeout: config.NonNegativeFiniteDuration,
       tlsConfiguration: Option[TlsConfiguration],
   ): Unit = {
 
@@ -496,10 +495,10 @@ final case class ParticipantNodeParameterConfig(
     ),
     devVersionSupport: Boolean = false,
     dontWarnOnDeprecatedPV: Boolean = false,
-    warnIfOverloadedFor: Option[NonNegativeFiniteDuration] = Some(
-      NonNegativeFiniteDuration.ofSeconds(20)
+    warnIfOverloadedFor: Option[config.NonNegativeFiniteDuration] = Some(
+      config.NonNegativeFiniteDuration.ofSeconds(20)
     ),
-    // TODO(#9014) rename this to ledger-api-server
+    // TODO(#15221) rename this to ledger-api-server
     ledgerApiServerParameters: LedgerApiServerParametersConfig = LedgerApiServerParametersConfig(),
     excludeInfrastructureTransactions: Boolean = true,
     enableEngineStackTraces: Boolean = false,
@@ -523,13 +522,14 @@ final case class ParticipantNodeParameterConfig(
   * @param dbBatchAggregationConfig Batching configuration for Db queries
   */
 final case class ParticipantStoreConfig(
-    // TODO(#9014) move all batching related parameters into `BatchingConfig`
+    // TODO(#15221) move all batching related parameters into `BatchingConfig`
     maxPruningBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(1000),
     ledgerApiPruningBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(50000),
-    pruningMetricUpdateInterval: Option[PositiveDurationSeconds] =
+    pruningMetricUpdateInterval: Option[config.PositiveDurationSeconds] =
       config.PositiveDurationSeconds.ofHours(1L).some,
-    acsPruningInterval: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(60),
-    // TODO(#9014) move to BatchingConfig and rename to `aggregator`
+    acsPruningInterval: config.NonNegativeFiniteDuration =
+      config.NonNegativeFiniteDuration.ofSeconds(60),
+    // TODO(#15221) move to BatchingConfig and rename to `aggregator`
     dbBatchAggregationConfig: BatchAggregatorConfig = BatchAggregatorConfig.Batching(),
 )
 
@@ -560,7 +560,7 @@ final case class ContractLoaderConfig(
 )
 
 object ContractLoaderConfig {
-  val defaultMaxQueueSize = PositiveInt.tryCreate(10000)
-  val defaultMaxBatchSize = PositiveInt.tryCreate(50)
-  val defaultMaxParallelism = PositiveInt.tryCreate(5)
+  private val defaultMaxQueueSize: PositiveInt = PositiveInt.tryCreate(10000)
+  private val defaultMaxBatchSize: PositiveInt = PositiveInt.tryCreate(50)
+  private val defaultMaxParallelism: PositiveInt = PositiveInt.tryCreate(5)
 }

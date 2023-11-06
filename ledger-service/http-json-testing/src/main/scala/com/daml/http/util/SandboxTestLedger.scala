@@ -25,7 +25,6 @@ trait SandboxTestLedger extends CantonFixture {
   final override protected lazy val cantonJar = Edition.cantonJar
   override lazy protected val darFiles = packageFiles.map(_.toPath)
   override lazy protected val tlsEnable = useTls
-  override lazy protected val enableDisclosedContracts: Boolean = true
   override lazy protected val bootstrapScript = Some(
     "local.service.set_reconciliation_interval(1.seconds)"
   )

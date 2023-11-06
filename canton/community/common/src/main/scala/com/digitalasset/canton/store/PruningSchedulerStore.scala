@@ -4,7 +4,6 @@
 package com.digitalasset.canton.store
 
 import cats.data.EitherT
-import com.digitalasset.canton.config.CantonRequireTypes.String3
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
@@ -21,6 +20,8 @@ import scala.concurrent.{ExecutionContext, Future}
   * and pruning retention period
   */
 trait PruningSchedulerStore extends AutoCloseable {
+
+  implicit def ec: ExecutionContext
 
   /** Inserts or updates the pruning scheduler's cron with associated maximum duration and retention */
   def setSchedule(schedule: PruningSchedule)(implicit
@@ -45,11 +46,6 @@ trait PruningSchedulerStore extends AutoCloseable {
   def updateRetention(retention: PositiveSeconds)(implicit
       tc: TraceContext
   ): EitherT[Future, String, Unit]
-
-  /** short 3-character node code "PAR", "MED", or "SEQ" as sequencer and mediator can share a db
-    * Note: Remove if background pruning is only supported in non-db shared domain setups.
-    */
-  def nodeCode: String3
 }
 
 object PruningSchedulerStore {
@@ -63,7 +59,7 @@ object PruningSchedulerStore {
   ): PruningSchedulerStore = {
     storage match {
       case _: MemoryStorage =>
-        new InMemoryPruningSchedulerStore(nodeCode.threeLetterId, loggerFactory)
+        new InMemoryPruningSchedulerStore(loggerFactory)
       case dbStorage: DbStorage =>
         new DbPruningSchedulerStore(nodeCode.threeLetterId, dbStorage, timeouts, loggerFactory)
     }

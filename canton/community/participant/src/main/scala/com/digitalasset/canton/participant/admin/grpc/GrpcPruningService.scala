@@ -15,9 +15,13 @@ import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.NonHe
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.admin.v0.*
+import com.digitalasset.canton.participant.scheduler.{
+  ParticipantPruningSchedule,
+  ParticipantPruningScheduler,
+}
 import com.digitalasset.canton.participant.sync.{CantonSyncService, UpstreamOffsetConvert}
 import com.digitalasset.canton.participant.{GlobalOffset, Pruning}
-import com.digitalasset.canton.scheduler.PruningScheduler
+import com.digitalasset.canton.pruning.admin.v0
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -28,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcPruningService(
     sync: CantonSyncService,
-    scheduleAccessorBuilder: () => Option[PruningScheduler],
+    scheduleAccessorBuilder: () => Option[ParticipantPruningScheduler],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     val ec: ExecutionContext
@@ -96,6 +100,34 @@ class GrpcPruningService(
       EitherTUtil.toFuture(res)
   }
 
+  override def setParticipantSchedule(
+      request: v0.SetParticipantSchedule.Request
+  ): Future[v0.SetParticipantSchedule.Response] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    for {
+      scheduler <- ensureScheduler
+      participantSchedule <- convertRequiredF(
+        "participant_schedule",
+        request.schedule,
+        ParticipantPruningSchedule.fromProtoV0,
+      )
+      _ <- handlePassiveHAStorageError(
+        scheduler.setParticipantSchedule(participantSchedule),
+        "set_participant_schedule",
+      )
+    } yield v0.SetParticipantSchedule.Response()
+  }
+
+  override def getParticipantSchedule(
+      request: v0.GetParticipantSchedule.Request
+  ): Future[v0.GetParticipantSchedule.Response] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    for {
+      scheduler <- ensureScheduler
+      schedule <- scheduler.getParticipantSchedule()
+    } yield v0.GetParticipantSchedule.Response(schedule.map(_.toProtoV0))
+  }
+
   private def toProtoResponse(safeOffsetO: Option[GlobalOffset]): GetSafePruningOffsetResponse = {
 
     val response = safeOffsetO
@@ -110,12 +142,12 @@ class GrpcPruningService(
     GetSafePruningOffsetResponse(response)
   }
 
-  private lazy val maybeScheduleAccessor: Option[PruningScheduler] =
+  private lazy val maybeScheduleAccessor: Option[ParticipantPruningScheduler] =
     scheduleAccessorBuilder()
 
   override protected def ensureScheduler(implicit
       traceContext: TraceContext
-  ): Future[PruningScheduler] =
+  ): Future[ParticipantPruningScheduler] =
     maybeScheduleAccessor match {
       case None =>
         Future.failed(
@@ -123,7 +155,6 @@ class GrpcPruningService(
         )
       case Some(scheduler) => Future.successful(scheduler)
     }
-
 }
 
 sealed trait PruningServiceError extends CantonError

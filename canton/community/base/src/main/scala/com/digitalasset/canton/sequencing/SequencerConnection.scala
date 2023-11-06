@@ -56,7 +56,7 @@ sealed trait SequencerConnection extends PrettyPrinting {
   ): SequencerConnection =
     addEndpoints(new URI(connection), additionalConnections.map(new URI(_)) *)
 
-  // TODO(i9014) change this to Either
+  // TODO(#15224) change this to Either
   def addEndpoints(
       connection: URI,
       additionalConnections: URI*

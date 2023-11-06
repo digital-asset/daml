@@ -42,7 +42,7 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
         RequestValidationErrors.InvalidField
           .Reject(
             "disclosed_contracts",
-            "feature in development: disclosed_contracts should not be set",
+            "feature disabled: disclosed_contracts should not be set",
           )
           .asGrpcError,
       )

@@ -65,43 +65,34 @@ case class TransactionResultMessage private (
   @transient override protected lazy val companionObj: TransactionResultMessage.type =
     TransactionResultMessage
 
-  protected def toProtoV0: v0.TransactionResultMessage = {
-    require(isEquivalentTo(ProtocolVersion.v3))
+  protected def toProtoV0: v0.TransactionResultMessage =
     v0.TransactionResultMessage(
       requestId = Some(requestId.unwrap.toProtoPrimitive),
       verdict = Some(verdict.toProtoV0),
       notificationTree = notificationTree.map(_.toProtoV0),
     )
-  }
 
-  protected def toProtoV1: v1.TransactionResultMessage = {
-    require(isEquivalentTo(ProtocolVersion.v4))
-    v1.TransactionResultMessage(
-      requestId = Some(requestId.toProtoPrimitive),
-      verdict = Some(verdict.toProtoV1),
-      notificationTree = notificationTree.map(_.toProtoV1),
-    )
-  }
+  protected def toProtoV1: v1.TransactionResultMessage = v1.TransactionResultMessage(
+    requestId = Some(requestId.toProtoPrimitive),
+    verdict = Some(verdict.toProtoV1),
+    notificationTree = notificationTree.map(_.toProtoV1),
+  )
 
-  protected def toProtoV2: v2.TransactionResultMessage = {
-    require(isEquivalentTo(ProtocolVersion.v5))
+  protected def toProtoV2: v2.TransactionResultMessage =
     v2.TransactionResultMessage(
       requestId = Some(requestId.toProtoPrimitive),
       verdict = Some(verdict.toProtoV2),
       rootHash = rootHash.toProtoPrimitive,
       domainId = domainId.toProtoPrimitive,
     )
-  }
 
-  protected def toProtoV3: v3.TransactionResultMessage = {
-    require(isEquivalentTo(ProtocolVersion.v6))
+  protected def toProtoV3: v3.TransactionResultMessage =
     v3.TransactionResultMessage(
       requestId = Some(requestId.toProtoPrimitive),
       verdict = Some(verdict.toProtoV3),
       rootHash = rootHash.toProtoPrimitive,
       domainId = domainId.toProtoPrimitive,
     )
-  }
 
   override protected[messages] def toProtoSomeSignedProtocolMessage
       : v0.SignedProtocolMessage.SomeSignedProtocolMessage.TransactionResult =

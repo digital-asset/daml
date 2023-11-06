@@ -4,7 +4,6 @@
 package com.digitalasset.canton.store.memory;
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.config.CantonRequireTypes.String3
 import com.digitalasset.canton.store.PruningSchedulerStoreTest
 import org.scalatest.wordspec.AsyncWordSpec;
 
@@ -14,8 +13,6 @@ class PruningSchedulerStoreTestInMemory
     with PruningSchedulerStoreTest {
 
   "InMemoryPruningSchedulerStore" should {
-    behave like pruningSchedulerStore(() =>
-      new InMemoryPruningSchedulerStore(String3.tryCreate("TST"), loggerFactory)
-    )
+    behave like pruningSchedulerStore(() => new InMemoryPruningSchedulerStore(loggerFactory))
   }
 }

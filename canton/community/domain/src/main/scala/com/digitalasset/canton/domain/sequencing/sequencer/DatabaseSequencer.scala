@@ -156,6 +156,9 @@ class DatabaseSequencer(
       )
     )
 
+  private val store = writer.generalStore
+
+  // Only start pruning scheduler after `store` variable above has been initialized to avoid racy NPE
   withNewTraceContext { implicit traceContext =>
     timeouts.unbounded.await(s"Waiting for sequencer writer to fully start")(
       writer.startOrLogError()
@@ -171,8 +174,6 @@ class DatabaseSequencer(
       )
     )
   }
-
-  private val store = writer.generalStore
 
   // periodically run the call to mark lagging sequencers as offline
   private def periodicallyMarkLaggingSequencersOffline(

@@ -137,7 +137,7 @@ object KeyOwner {
   * sequencer is not a member, as he is one level below, dealing with
   * messages.
   */
-// TODO(#9014) The sequencer is now also a member, so Member and KeyOwner are actually the same.
+// TODO(#15231) The sequencer is now also a member, so Member and KeyOwner are actually the same.
 sealed trait Member extends KeyOwner with Product with Serializable {
   def isAuthenticated: Boolean
 }

@@ -105,7 +105,7 @@ trait PruningSchedulerStoreTest {
     }
   }
 
-  private def change(
+  protected def change(
       store: PruningSchedulerStore,
       modify: PruningSchedulerStore => Future[Unit],
   ): Future[Option[PruningSchedule]] = for {

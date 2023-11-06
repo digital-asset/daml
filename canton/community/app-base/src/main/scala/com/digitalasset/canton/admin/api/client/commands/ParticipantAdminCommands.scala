@@ -11,7 +11,11 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   ServerEnforcedTimeout,
   TimeoutType,
 }
-import com.digitalasset.canton.admin.api.client.data.{DarMetadata, ListConnectedDomainsResult}
+import com.digitalasset.canton.admin.api.client.data.{
+  DarMetadata,
+  ListConnectedDomainsResult,
+  ParticipantPruningSchedule,
+}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
@@ -29,23 +33,19 @@ import com.digitalasset.canton.participant.admin.v0.PingServiceGrpc.PingServiceS
 import com.digitalasset.canton.participant.admin.v0.PruningServiceGrpc.PruningServiceStub
 import com.digitalasset.canton.participant.admin.v0.ResourceManagementServiceGrpc.ResourceManagementServiceStub
 import com.digitalasset.canton.participant.admin.v0.TransferServiceGrpc.TransferServiceStub
-import com.digitalasset.canton.participant.admin.v0.{
-  PurgeContractsRequest,
-  PurgeContractsResponse,
-  ResourceLimits as _,
-  *,
-}
+import com.digitalasset.canton.participant.admin.v0.{ResourceLimits as _, *}
 import com.digitalasset.canton.participant.admin.{ResourceLimits, v0}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig as CDomainConnectionConfig
 import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.protocol.{LfContractId, TransferId, v0 as v0proto}
+import com.digitalasset.canton.pruning.admin
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
 import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.traffic.MemberTrafficStatus
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DomainAlias, LedgerApplicationId, LedgerTransactionId}
+import com.digitalasset.canton.{DomainAlias, LedgerApplicationId, LedgerTransactionId, config}
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
@@ -1171,6 +1171,71 @@ object ParticipantAdminCommands {
         service.prune(request)
 
       override def handleResponse(response: v0.PruneResponse): Either[String, Unit] = Right(())
+    }
+
+    final case class SetParticipantScheduleCommand(
+        cron: String,
+        maxDuration: config.PositiveDurationSeconds,
+        retention: config.PositiveDurationSeconds,
+        pruneInternallyOnly: Boolean,
+    ) extends Base[
+          admin.v0.SetParticipantSchedule.Request,
+          admin.v0.SetParticipantSchedule.Response,
+          Unit,
+        ] {
+      override def createRequest(): Right[String, admin.v0.SetParticipantSchedule.Request] =
+        Right(
+          admin.v0.SetParticipantSchedule.Request(
+            Some(
+              admin.v0.ParticipantPruningSchedule(
+                Some(
+                  admin.v0.PruningSchedule(
+                    cron,
+                    Some(maxDuration.toProtoPrimitive),
+                    Some(retention.toProtoPrimitive),
+                  )
+                ),
+                pruneInternallyOnly,
+              )
+            )
+          )
+        )
+
+      override def submitRequest(
+          service: Svc,
+          request: admin.v0.SetParticipantSchedule.Request,
+      ): Future[admin.v0.SetParticipantSchedule.Response] = service.setParticipantSchedule(request)
+
+      override def handleResponse(
+          response: admin.v0.SetParticipantSchedule.Response
+      ): Either[String, Unit] =
+        response match {
+          case admin.v0.SetParticipantSchedule.Response() => Right(())
+        }
+    }
+
+    final case class GetParticipantScheduleCommand()
+        extends Base[
+          admin.v0.GetParticipantSchedule.Request,
+          admin.v0.GetParticipantSchedule.Response,
+          Option[ParticipantPruningSchedule],
+        ] {
+      override def createRequest(): Right[String, admin.v0.GetParticipantSchedule.Request] =
+        Right(
+          admin.v0.GetParticipantSchedule.Request()
+        )
+
+      override def submitRequest(
+          service: Svc,
+          request: admin.v0.GetParticipantSchedule.Request,
+      ): Future[admin.v0.GetParticipantSchedule.Response] = service.getParticipantSchedule(request)
+
+      override def handleResponse(
+          response: admin.v0.GetParticipantSchedule.Response
+      ): Either[String, Option[ParticipantPruningSchedule]] =
+        response.schedule.fold(
+          Right(None): Either[String, Option[ParticipantPruningSchedule]]
+        )(ParticipantPruningSchedule.fromProtoV0(_).bimap(_.message, Some(_)))
     }
   }
 

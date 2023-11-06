@@ -36,3 +36,17 @@ ALTER TABLE linearized_event_log
   REFERENCES event_log(log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) ON DELETE CASCADE;
 
 ALTER TABLE sequencer_events ADD COLUMN error bytea;
+
+-- participant_pruning_schedules with pruning flag specific to participant pruning
+CREATE TABLE participant_pruning_schedules (
+  -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
+  lock char(1) not null default 'X' primary key check (lock = 'X'),
+  cron varchar(300) collate "C" not null,
+  max_duration bigint not null, -- positive number of seconds
+  retention bigint not null, -- positive number of seconds
+  prune_internally_only boolean NOT NULL DEFAULT false -- whether to prune only canton-internal stores not visible to ledger api
+);
+-- move participant pruning schedules identified by ParticipantId.Code PAR to new table
+INSERT INTO participant_pruning_schedules (cron, max_duration, retention)
+  SELECT cron, max_duration, retention FROM pruning_schedules WHERE node_type = 'PAR';
+DELETE FROM pruning_schedules WHERE node_type = 'PAR';

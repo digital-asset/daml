@@ -58,7 +58,7 @@ object DomainParameters {
   }
 }
 
-@nowarn("msg=deprecated") // TODO(#9014) Remove deprecated parameters with next breaking version
+@nowarn("msg=deprecated") // TODO(#15221) Remove deprecated parameters with next breaking version
 final case class StaticDomainParameters private (
     @deprecated(
       "Starting from protocol version 4, `reconciliationInterval` is a dynamic domain parameter",
