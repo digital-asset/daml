@@ -15,11 +15,11 @@ import qualified Data.Text.IO as TIO
 import Data.Time.Clock (UTCTime)
 import SdkVersion (sdkVersion)
 import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removeFile, withCurrentDirectory)
-import System.Environment (getEnvironment)
+import System.Environment.Blank (setEnv)
 import System.Exit (ExitCode (..))
 import System.FilePath (makeRelative, (</>))
 import System.IO.Extra (withTempDir)
-import System.Process (CreateProcess (..), proc, readCreateProcessWithExitCode)
+import System.Process (CreateProcess (..), proc, readCreateProcessWithExitCode, readCreateProcess)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit (assertFailure, assertBool, testCase)
 import Text.Regex.TDFA (Regex, makeRegex, matchTest)
@@ -69,7 +69,12 @@ instance Show PackageIdentifier where
 main :: IO ()
 main = do
   damlAssistant <- locateRunfiles (mainWorkspace </> "daml-assistant" </> exe "daml")
-  defaultMain $ tests damlAssistant
+  release <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball-ce.tar.gz")
+  withTempDir $ \damlHome -> do
+    setEnv "DAML_HOME" damlHome
+    -- Install sdk 0.0.0 into temp DAML_HOME
+    void $ readCreateProcess (proc damlAssistant ["install", release]) ""
+    defaultMain $ tests damlAssistant
 
 tests :: FilePath -> TestTree
 tests damlAssistant =
@@ -386,10 +391,9 @@ tests damlAssistant =
               assertFailure $ "Package " <> show pkg <> " can never be built by this setup. Did you mean one of: "
                 <> intercalate ", " (show <$> Map.keys allPossibleDars)
 
-      env <- getEnvironment
       runPath <- canonicalizePath $ dir </> runPath
       let args = ["build", "--enable-multi-package=yes"] <> flags
-          process = (proc damlAssistant args) {cwd = Just runPath, env = Just $ ("DAML_ASSISTANT", damlAssistant):env}
+          process = (proc damlAssistant args) {cwd = Just runPath}
       (exitCode, _, err) <- readCreateProcessWithExitCode process ""
       case expectedResult of
         Right expectedPackageIdentifiers -> do

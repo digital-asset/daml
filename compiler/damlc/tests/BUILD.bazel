@@ -474,6 +474,7 @@ da_haskell_test(
     srcs = ["src/DA/Test/DamlcMultiPackage.hs"],
     data = [
         "//daml-assistant:daml",
+        "//release:sdk-release-tarball",
     ],
     hackage_deps = [
         "base",
