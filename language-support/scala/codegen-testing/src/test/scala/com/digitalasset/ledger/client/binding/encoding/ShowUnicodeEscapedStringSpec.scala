@@ -16,7 +16,8 @@ class ShowUnicodeEscapedStringSpec
     with Matchers
     with ScalaCheckDrivenPropertyChecks {
 
-  implicit override val generatorDrivenConfig = PropertyCheckConfiguration(minSuccessful = 10000)
+  implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
+    PropertyCheckConfiguration(minSuccessful = 10000)
 
   "should unicode-escape all non-ascii chars in the format that can compile back to original string" in {
     "scho\u0308n" should !==("schön")

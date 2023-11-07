@@ -118,11 +118,11 @@ object Profile {
     val schemaURI = "https://www.speedscope.app/file-format-schema.json"
 
     object JsonProtocol extends DefaultJsonProtocol {
-      implicit val eventFormat = jsonFormat3(EventJson.apply)
-      implicit val profileFormat = jsonFormat6(ProfileJson.apply)
-      implicit val frameFormat = jsonFormat1(FrameJson.apply)
-      implicit val sharedFormat = jsonFormat1(SharedJson.apply)
-      implicit val fileFormat = jsonFormat6(FileJson.apply)
+      implicit val eventFormat: RootJsonFormat[EventJson] = jsonFormat3(EventJson.apply)
+      implicit val profileFormat: RootJsonFormat[ProfileJson] = jsonFormat6(ProfileJson.apply)
+      implicit val frameFormat: RootJsonFormat[FrameJson] = jsonFormat1(FrameJson.apply)
+      implicit val sharedFormat: RootJsonFormat[SharedJson] = jsonFormat1(SharedJson.apply)
+      implicit val fileFormat: RootJsonFormat[FileJson] = jsonFormat6(FileJson.apply)
     }
 
     final case class EventJson(`type`: String, at: Long, frame: Int)

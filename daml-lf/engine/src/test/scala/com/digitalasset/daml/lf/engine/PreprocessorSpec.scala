@@ -201,7 +201,7 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
 
 final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
-  implicit val parserParameters =
+  implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   implicit val defaultPackageId: Ref.PackageId = parserParameters.defaultPackageId

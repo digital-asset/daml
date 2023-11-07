@@ -34,7 +34,7 @@ import com.google.common.annotations.VisibleForTesting
 
 import java.time.Instant
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /** When a we make a send request to the sequencer it will not be sequenced until some point in the future and may not
   * be sequenced at all. To track a request call `send` with the messageId and max-sequencing-time of the request,
@@ -54,7 +54,7 @@ class SendTracker(
     with FlagCloseableAsync
     with AutoCloseable {
 
-  private implicit val directExecutionContext = DirectExecutionContext(noTracingLogger)
+  private implicit val directExecutionContext: ExecutionContext = DirectExecutionContext(noTracingLogger)
 
   /** Details of sends in flight
     * @param startedAt The time the request was made for calculating the elapsed duration for metrics.

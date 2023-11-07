@@ -31,7 +31,7 @@ private[lf] class ExplicitDisclosureLib(
     evaluationOrder: EvaluationOrder,
 ) {
 
-  implicit val defaultParserParameters =
+  implicit val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   val testKeyName: String = "test-key"

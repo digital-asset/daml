@@ -41,7 +41,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   val helpers = new SBuiltinTestHelpers(majorLanguageVersion)
   import helpers.{parserParameters => _, _}
 
-  implicit val parserParameters =
+  implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
@@ -1877,7 +1877,8 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   import SpeedyTestLib.loggingContext
 
-  implicit val parserParameters = ParserParameters.defaultFor(majorLanguageVersion)
+  implicit val parserParameters: ParserParameters[this.type] =
+    ParserParameters.defaultFor(majorLanguageVersion)
 
   lazy val pkg =
     p"""

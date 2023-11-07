@@ -6,6 +6,7 @@ package engine
 package preprocessing
 
 import com.daml.lf.command.ApiCommand
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data._
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.testing.parser.ParserParameters
@@ -35,7 +36,7 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
   private implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor(majorLanguageVersion)
 
-  private implicit val defaultPackageId = parserParameters.defaultPackageId
+  private implicit val defaultPackageId: PackageId = parserParameters.defaultPackageId
 
   private[this] val pkg =
     p"""

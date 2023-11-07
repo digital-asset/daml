@@ -79,6 +79,7 @@ package object concurrent {
 package concurrent {
 
   import java.util.concurrent.ExecutorService
+  import scala.annotation.nowarn
 
   object Future {
 
@@ -92,6 +93,7 @@ package concurrent {
     def apply[EC]: apply[EC] =
       new apply(())
 
+    @nowarn("msg=dubious usage of method hashCode with unit value")
     final class apply[EC](private val ignore: Unit) extends AnyVal {
       def apply[A](body: => A)(implicit ec: ExecutionContext[EC]): Future[EC, A] =
         sc.Future(body)(ec)

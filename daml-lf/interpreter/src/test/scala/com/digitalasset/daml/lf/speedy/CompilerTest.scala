@@ -460,7 +460,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   import SpeedyTestLib.loggingContext
 
-  implicit val parserParameters =
+  implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
   val pkgId = parserParameters.defaultPackageId
 
