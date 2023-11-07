@@ -8,6 +8,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import ut.retro.{InterfaceRetro, TemplateRetro}
 
+import java.time.Instant
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters.RichOptional
 
@@ -52,6 +53,7 @@ final class InterfaceSpec extends AnyWordSpec with Matchers {
             Optional.empty,
             emptyList,
             emptyList,
+            Instant.EPOCH,
           )
         )
       val data = new TokenView("foobar", 12345)
