@@ -71,14 +71,14 @@ private[lf] final class CommandPreprocessor(
 
   import valueTranslator.validateCid
 
-  private[this] def translateCreateArg(tyCon: Ref.TypeConName, value: Value, strict: Boolean) =
+  private[this] def translateUpgradableArg(typ: Ast.Type, value: Value, strict: Boolean) =
     valueTranslator.unsafeTranslateValue(
-      ty = Ast.TTyCon(tyCon),
+      ty = typ,
       value = value,
       config = if (strict) StrictTranslateConfig else LenientCreateArgTranslateConfig,
     )
 
-  private[this] def translateNonCreateArg(typ: Ast.Type, value: Value, strict: Boolean) =
+  private[this] def translateNonUpgradableArg(typ: Ast.Type, value: Value, strict: Boolean) =
     valueTranslator.unsafeTranslateValue(
       ty = typ,
       value = value,
@@ -112,7 +112,7 @@ private[lf] final class CommandPreprocessor(
     }
     // TODO: https://github.com/digital-asset/daml/issues/17082
     //  for now we need the package of the disclosed contract
-    val arg = translateCreateArg(disc.templateId, disc.argument, strict = true)
+    val arg = translateUpgradableArg(Ast.TTyCon(disc.templateId), disc.argument, strict = true)
     validateCid(disc.contractId)
     speedy.DisclosedContract(
       templateId = disc.templateId,
@@ -129,7 +129,7 @@ private[lf] final class CommandPreprocessor(
       strict: Boolean,
   ): speedy.Command.Create = {
     discard(handleLookup(pkgInterface.lookupTemplate(templateId)))
-    val arg = translateCreateArg(templateId, argument, strict = strict)
+    val arg = translateUpgradableArg(Ast.TTyCon(templateId), argument, strict = strict)
     speedy.Command.Create(templateId, arg)
   }
 
@@ -159,7 +159,7 @@ private[lf] final class CommandPreprocessor(
       templateId = templateId,
       contractId = valueTranslator.unsafeTranslateCid(contractId),
       choiceId = choiceId,
-      argument = translateNonCreateArg(
+      argument = translateUpgradableArg(
         choice.argBinder._2,
         argument,
         strict = strict,
@@ -179,7 +179,7 @@ private[lf] final class CommandPreprocessor(
       interfaceId = ifaceId,
       contractId = valueTranslator.unsafeTranslateCid(contractId),
       choiceId = choiceId,
-      argument = translateNonCreateArg(
+      argument = translateNonUpgradableArg(
         choice.argBinder._2,
         argument,
         strict = strict,
@@ -199,12 +199,12 @@ private[lf] final class CommandPreprocessor(
       pkgInterface.lookupTemplateChoice(templateId, choiceId)
     ).argBinder._2
     val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-    val arg = translateNonCreateArg(
+    val arg = translateUpgradableArg(
       choiceArgType,
       argument,
       strict = strict,
     )
-    val key = translateNonCreateArg(
+    val key = translateNonUpgradableArg(
       ckTtype,
       contractKey,
       strict = strict,
@@ -220,11 +220,11 @@ private[lf] final class CommandPreprocessor(
       choiceArgument: Value,
       strict: Boolean,
   ): speedy.Command.CreateAndExercise = {
-    val createArg = translateCreateArg(templateId, createArgument, strict = strict)
+    val createArg = translateUpgradableArg(Ast.TTyCon(templateId), createArgument, strict = strict)
     val choiceArgType = handleLookup(
       pkgInterface.lookupTemplateChoice(templateId, choiceId)
     ).argBinder._2
-    val choiceArg = translateNonCreateArg(choiceArgType, choiceArgument, strict = strict)
+    val choiceArg = translateUpgradableArg(choiceArgType, choiceArgument, strict = strict)
     speedy.Command
       .CreateAndExercise(
         templateId,
@@ -241,7 +241,7 @@ private[lf] final class CommandPreprocessor(
       strict: Boolean,
   ): speedy.Command.LookupByKey = {
     val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-    val key = translateNonCreateArg(
+    val key = translateNonUpgradableArg(
       ckTtype,
       contractKey,
       strict = strict,
@@ -308,7 +308,7 @@ private[lf] final class CommandPreprocessor(
         }
       case command.ReplayCommand.FetchByKey(templateId, key) =>
         val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-        val sKey = translateNonCreateArg(
+        val sKey = translateNonUpgradableArg(
           ckTtype,
           key,
           strict = true,
@@ -316,7 +316,7 @@ private[lf] final class CommandPreprocessor(
         speedy.Command.FetchByKey(templateId, sKey)
       case command.ReplayCommand.LookupByKey(templateId, key) =>
         val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-        val sKey = translateNonCreateArg(
+        val sKey = translateNonUpgradableArg(
           ckTtype,
           key,
           strict = true,
@@ -358,7 +358,7 @@ private[lf] final class CommandPreprocessor(
     discard(handleLookup(pkgInterface.lookupInterface(interfaceId)))
     discard(handleLookup(pkgInterface.lookupInterfaceInstance(interfaceId, templateId)))
 
-    val arg = translateNonCreateArg(
+    val arg = translateNonUpgradableArg(
       Ast.TTyCon(templateId),
       argument,
       strict = true,

@@ -82,7 +82,7 @@ tests = mconcat
     , -- Choice upgrading
       ("Explicitly call a V1 choice on a V1 contract over the ledger-api, expect V1 implementation used.", explicitV1ChoiceV1Contract)
     , ("Explicitly call a V2 choice on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", explicitV2ChoiceV1Contract)
-    , ("(BROKEN) Call a V1 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, contract + argument upgraded, daml-script downgrades return type.", inferredV1ChoiceV1Contract)
+    , ("Call a V1 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, contract + argument upgraded, daml-script downgrades return type.", inferredV1ChoiceV1Contract)
     , ("Call a V2 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", inferredV2ChoiceV1Contract)
     , ("(BROKEN) Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type.", inferredV1ChoiceV1ContractWithoutV2)
     , ("Explicitly call a V1 choice on a V2 contract over the ledger-api, expect V1 implementation used, and contract downgraded.", explicitV1ChoiceV2Contract)
@@ -321,10 +321,9 @@ explicitV2ChoiceV1Contract =
 -- When inferring, the V1 contract and choice argument is upgraded, and the return type is downgraded directly by daml script.
 -- As such, we get the v2 implementation called, with the additional field set to None (as shown in the choice return)
 -- and since the extra data in the return will also be none, the downgrade can succeed.
--- TODO: This test fails, choice argument upgrading seems to not be implemented.
 inferredV1ChoiceV1Contract : Script ()
-inferredV1ChoiceV1Contract = pure ()
-  -- choiceTest @V1.ValidUpgrade V1.ValidUpgrade (V1.UpgradedChoice "v1 to v1") False (V1.UpgradedChoiceReturn "v1 to v1:V2:None")
+inferredV1ChoiceV1Contract =
+  choiceTest @V1.ValidUpgrade V1.ValidUpgrade (V1.UpgradedChoice "v1 to v1") False (V1.UpgradedChoiceReturn "v1 to v1:V2:None")
 
 inferredV2ChoiceV1Contract : Script ()
 inferredV2ChoiceV1Contract =
@@ -334,7 +333,6 @@ inferredV2ChoiceV1Contract =
 -- TODO: This test fails for several reason:
 --   first it tries to use v2 even through its unvetted <- this is not correct behaviour
 --   second it doesn't hit a NO_DOMAIN_FOR_SUBMISSION error before attempting to directly upgrade the data type <- this is also not correct behaviour
---   lastly, it hits the same error as inferredV1ChoiceV1Contract, which is that choice argument upgrading isn't supported
 inferredV1ChoiceV1ContractWithoutV2 : Script ()
 inferredV1ChoiceV1ContractWithoutV2 = pure ()
   -- unvetDarOnParticipant v2DarName participant0
