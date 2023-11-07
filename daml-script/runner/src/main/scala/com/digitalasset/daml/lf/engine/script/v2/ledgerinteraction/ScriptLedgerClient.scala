@@ -8,7 +8,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
@@ -30,11 +30,8 @@ object ScriptLedgerClient {
       result: Value,
   ) extends CommandResult
 
-  final case class ActiveContract(
-      templateId: Identifier,
-      contractId: ContractId,
-      argument: Value,
-  )
+  type ActiveContract = Created
+  val ActiveContract: Created.type = Created
 
   final case class TransactionTree(rootEvents: List[TreeEvent])
   sealed trait TreeEvent
@@ -50,6 +47,7 @@ object ScriptLedgerClient {
       templateId: Identifier,
       contractId: ContractId,
       argument: Value,
+      blob: Bytes,
   ) extends TreeEvent
 
   def realiseScriptLedgerClient(
@@ -145,6 +143,7 @@ trait ScriptLedgerClient {
   def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
@@ -155,6 +154,7 @@ trait ScriptLedgerClient {
   def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]]
@@ -162,6 +162,7 @@ trait ScriptLedgerClient {
   def submitTree(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[ScriptLedgerClient.TransactionTree]
@@ -231,6 +232,7 @@ trait ScriptLedgerClient {
   def trySubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit

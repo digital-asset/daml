@@ -425,7 +425,7 @@ signatoryObserverUpgrade shouldSucceed sigF obsF = do
     replacementObservers = postObservers
 
   let cidV2 = coerceContractId @V1.InvalidUpgradeStakeholders @V2.InvalidUpgradeStakeholders cid
-  res <- trySubmitMulti [alice, bob, charlie] [] $ exerciseCmd cidV2 V2.InvalidUpgradeStakeholdersCall
+  res <- trySubmitMulti [alice, bob, charlie] [] [] $ exerciseCmd cidV2 V2.InvalidUpgradeStakeholdersCall
   case (res, shouldSucceed) of
     (Right _, True) -> pure ()
     (Left (DevError Upgrade msg), False)

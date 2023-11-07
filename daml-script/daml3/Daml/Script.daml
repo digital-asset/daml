@@ -19,6 +19,7 @@ module Daml.Script
   , queryInterfaceContractId
   , queryContractKey
   , queryFilter
+  , queryDisclosureContractId
   , PartyIdHint (..)
   , ParticipantName (..)
   , PartyDetails(..)
@@ -29,6 +30,7 @@ module Daml.Script
   , listKnownParties
   , listKnownPartiesOn
   , Commands
+  , Disclosure
   , createCmd
   , exerciseCmd
   , exerciseByKeyCmd

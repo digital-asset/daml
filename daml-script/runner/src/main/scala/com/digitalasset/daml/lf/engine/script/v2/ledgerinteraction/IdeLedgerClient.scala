@@ -11,7 +11,7 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.daml.lf.language.Ast
@@ -22,12 +22,13 @@ import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.{Pretty, SValue, TraceLog, WarningLog, SError}
 import com.daml.lf.transaction.{
+  FatContractInstance,
   GlobalKey,
   IncompleteTransaction,
   Node,
   NodeId,
   Transaction,
-  Versioned,
+  TransactionCoder,
 }
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -112,6 +113,12 @@ class IdeLedgerClient(
 
   private val userManagementStore = new InMemoryUserManagementStore(createAdmin = false)
 
+  private[this] def blob(contract: FatContractInstance): Bytes =
+    Bytes.fromByteString(TransactionCoder.encodeFatContractInstance(contract).toOption.get)
+
+  private[this] def blob(create: Node.Create, createAt: Time.Timestamp): Bytes =
+    blob(FatContractInstance.fromCreateNode(create, createAt, Bytes.Empty))
+
   override def query(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -124,34 +131,30 @@ class IdeLedgerClient(
       effectiveAt = ledger.currentTime,
     )
     val filtered = acs.collect {
-      case ScenarioLedger.LookupOk(
-            cid,
-            Versioned(_, Value.ContractInstance(tpl, arg)),
-            stakeholders,
-          ) if tpl == templateId && parties.any(stakeholders.contains(_)) =>
-        (cid, arg)
+      case ScenarioLedger.LookupOk(contract)
+          if contract.templateId == templateId && parties.any(contract.stakeholders.contains(_)) =>
+        ScriptLedgerClient.ActiveContract(
+          contract.templateId,
+          contract.contractId,
+          contract.createArg,
+          blob(contract),
+        )
     }
-    Future.successful(filtered.map { case (cid, c) =>
-      ScriptLedgerClient.ActiveContract(templateId, cid, c)
-    })
+    Future.successful(filtered)
   }
 
   private def lookupContractInstance(
       parties: OneAnd[Set, Ref.Party],
       cid: ContractId,
-  ): Option[Value.ContractInstance] = {
+  ): Option[FatContractInstance] = {
 
     ledger.lookupGlobalContract(
       view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
       effectiveAt = ledger.currentTime,
       cid,
     ) match {
-      case ScenarioLedger.LookupOk(
-            _,
-            Versioned(_, contractInstance),
-            stakeholders,
-          ) if parties.any(stakeholders.contains(_)) =>
-        Some(contractInstance)
+      case ScenarioLedger.LookupOk(contract) if parties.any(contract.stakeholders.contains(_)) =>
+        Some(contract)
       case _ =>
         // Note that contrary to `fetch` in a scenario, we do not
         // abort on any of the error cases. This makes sense if you
@@ -171,9 +174,9 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     Future.successful(
-      lookupContractInstance(parties, cid).map { case Value.ContractInstance(_, arg) =>
-        ScriptLedgerClient.ActiveContract(templateId, cid, arg)
-      }
+      lookupContractInstance(parties, cid).map(contract =>
+        ScriptLedgerClient.ActiveContract(templateId, cid, contract.createArg, blob(contract))
+      )
     )
   }
 
@@ -223,23 +226,18 @@ class IdeLedgerClient(
       view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
       effectiveAt = ledger.currentTime,
     )
-    val filtered: Seq[(ContractId, Value.ContractInstance)] = acs.collect {
-      case ScenarioLedger.LookupOk(
-            cid,
-            Versioned(_, contractInstance @ Value.ContractInstance(templateId, _)),
-            stakeholders,
-          ) if implements(templateId, interfaceId) && parties.any(stakeholders.contains(_)) =>
-        (cid, contractInstance)
+    val filtered: Seq[FatContractInstance] = acs.collect {
+      case ScenarioLedger.LookupOk(contract)
+          if implements(contract.templateId, interfaceId) && parties.any(
+            contract.stakeholders.contains(_)
+          ) =>
+        contract
     }
-    val res: Seq[(ContractId, Option[Value])] = {
-      filtered.map { case (cid, contractInstance) =>
-        contractInstance match {
-          case Value.ContractInstance(templateId, arg) =>
-            val viewOpt = computeView(templateId, interfaceId, arg)
-            (cid, viewOpt)
-        }
+    val res: Seq[(ContractId, Option[Value])] =
+      filtered.map { contract =>
+        val viewOpt = computeView(contract.templateId, interfaceId, contract.createArg)
+        (contract.contractId, viewOpt)
       }
-    }
     Future.successful(res)
   }
 
@@ -255,8 +253,8 @@ class IdeLedgerClient(
 
     lookupContractInstance(parties, cid) match {
       case None => Future.successful(None)
-      case Some(Value.ContractInstance(templateId, arg)) =>
-        val viewOpt = computeView(templateId, interfaceId, arg)
+      case Some(contract) =>
+        val viewOpt = computeView(contract.templateId, interfaceId, contract.createArg)
         Future.successful(viewOpt)
     }
   }
@@ -470,6 +468,7 @@ class IdeLedgerClient(
   private def unsafeSubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext): Future[
@@ -519,11 +518,42 @@ class IdeLedgerClient(
           case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
         }
 
+      val eitherSpeedyDisclosures
+          : Either[scenario.ScenarioRunner.SubmissionError, ImmArray[speedy.DisclosedContract]] = {
+        import scalaz.syntax.traverse._
+        import scalaz.std.either._
+        for {
+          fatContacts <-
+            disclosures
+              .to(ImmArray)
+              .traverse(b => TransactionCoder.decodeFatContractInstance(b.toByteString))
+              .left
+              .map(err =>
+                makeEmptySubmissionError(scenario.Error.DisclosureDecoding(err.errorMessage))
+              )
+          contracts = fatContacts.map(c =>
+            command.DisclosedContract(
+              templateId = c.templateId,
+              contractId = c.contractId,
+              argument = c.createArg,
+              keyHash = None,
+            )
+          )
+          disclosures <-
+            try {
+              Right(preprocessor.unsafePreprocessDisclosedContracts(contracts))
+            } catch {
+              case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
+            }
+        } yield disclosures
+      }
+
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
 
       for {
         speedyCommands <- eitherSpeedyCommands
-        translated = compiledPackages.compiler.unsafeCompile(speedyCommands, ImmArray.empty)
+        speedyDisclosures <- eitherSpeedyDisclosures
+        translated = compiledPackages.compiler.unsafeCompile(speedyCommands, speedyDisclosures)
         result =
           ScenarioRunner.submit(
             compiledPackages,
@@ -544,13 +574,14 @@ class IdeLedgerClient(
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] =
-    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+    unsafeSubmit(actAs, readAs, disclosures, commands, optLocation).map {
       case Right(ScenarioRunner.Commit(result, _, _)) =>
         _currentSubmission = None
         _ledger = result.newLedger
@@ -582,10 +613,11 @@ class IdeLedgerClient(
   override def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]] =
-    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+    unsafeSubmit(actAs, readAs, disclosures, commands, optLocation).map {
       case Right(ScenarioRunner.Commit(_, _, tx)) =>
         _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
         Left(())
@@ -598,13 +630,14 @@ class IdeLedgerClient(
   override def submitTree(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[ScriptLedgerClient.TransactionTree] =
-    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+    unsafeSubmit(actAs, readAs, disclosures, commands, optLocation).map {
       case Right(ScenarioRunner.Commit(result, _, _)) =>
         _currentSubmission = None
         _ledger = result.newLedger
@@ -612,7 +645,14 @@ class IdeLedgerClient(
         def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
           transaction.nodes(id) match {
             case create: Node.Create =>
-              Some(ScriptLedgerClient.Created(create.templateId, create.coid, create.arg))
+              Some(
+                ScriptLedgerClient.Created(
+                  create.templateId,
+                  create.coid,
+                  create.arg,
+                  blob(create, result.richTransaction.effectiveAt),
+                )
+              )
             case exercise: Node.Exercise =>
               Some(
                 ScriptLedgerClient.Exercised(
@@ -769,13 +809,14 @@ class IdeLedgerClient(
   override def trySubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]] =
-    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+    unsafeSubmit(actAs, readAs, disclosures, commands, optLocation).map {
       case Right(ScenarioRunner.Commit(result, _, _)) =>
         _currentSubmission = None
         _ledger = result.newLedger
@@ -823,7 +864,7 @@ class IdeLedgerClient(
         )
       ) { (f, commands) =>
         f.flatMap { x =>
-          trySubmit(actAs, readAs, commands, optLocation).map(x += _)
+          trySubmit(actAs, readAs, List.empty, commands, optLocation).map(x += _)
         }
       }
       .map(_.toList)

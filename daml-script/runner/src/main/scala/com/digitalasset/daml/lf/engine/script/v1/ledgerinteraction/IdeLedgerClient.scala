@@ -20,12 +20,12 @@ import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.{SError, SValue, TraceLog, WarningLog}
 import com.daml.lf.transaction.{
+  FatContractInstance,
   GlobalKey,
   IncompleteTransaction,
   Node,
   NodeId,
   Transaction,
-  Versioned,
 }
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -82,34 +82,29 @@ class IdeLedgerClient(
       effectiveAt = ledger.currentTime,
     )
     val filtered = acs.collect {
-      case ScenarioLedger.LookupOk(
-            cid,
-            Versioned(_, Value.ContractInstance(tpl, arg)),
-            stakeholders,
-          ) if tpl == templateId && parties.any(stakeholders.contains(_)) =>
-        (cid, arg)
+      case ScenarioLedger.LookupOk(contract)
+          if contract.templateId == templateId && parties.any(contract.stakeholders.contains(_)) =>
+        ScriptLedgerClient.ActiveContract(
+          contract.templateId,
+          contract.contractId,
+          contract.createArg,
+        )
     }
-    Future.successful(filtered.map { case (cid, c) =>
-      ScriptLedgerClient.ActiveContract(templateId, cid, c)
-    })
+    Future.successful(filtered)
   }
 
   private def lookupContractInstance(
       parties: OneAnd[Set, Ref.Party],
       cid: ContractId,
-  ): Option[Value.ContractInstance] = {
+  ): Option[FatContractInstance] = {
 
     ledger.lookupGlobalContract(
       view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
       effectiveAt = ledger.currentTime,
       cid,
     ) match {
-      case ScenarioLedger.LookupOk(
-            _,
-            Versioned(_, contractInstance),
-            stakeholders,
-          ) if parties.any(stakeholders.contains(_)) =>
-        Some(contractInstance)
+      case ScenarioLedger.LookupOk(contract) if parties.any(contract.stakeholders.contains(_)) =>
+        Some(contract)
       case _ =>
         // Note that contrary to `fetch` in a scenario, we do not
         // abort on any of the error cases. This makes sense if you
@@ -129,9 +124,9 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     Future.successful(
-      lookupContractInstance(parties, cid).map { case Value.ContractInstance(_, arg) =>
-        ScriptLedgerClient.ActiveContract(templateId, cid, arg)
-      }
+      lookupContractInstance(parties, cid).map(contract =>
+        ScriptLedgerClient.ActiveContract(templateId, cid, contract.createArg)
+      )
     )
   }
 
@@ -181,21 +176,17 @@ class IdeLedgerClient(
       view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
       effectiveAt = ledger.currentTime,
     )
-    val filtered: Seq[(ContractId, Value.ContractInstance)] = acs.collect {
-      case ScenarioLedger.LookupOk(
-            cid,
-            Versioned(_, contractInstance @ Value.ContractInstance(templateId, _)),
-            stakeholders,
-          ) if implements(templateId, interfaceId) && parties.any(stakeholders.contains(_)) =>
-        (cid, contractInstance)
+    val filtered = acs.collect {
+      case ScenarioLedger.LookupOk(contract)
+          if implements(contract.templateId, interfaceId) && parties.any(
+            contract.stakeholders.contains(_)
+          ) =>
+        contract
     }
     val res: Seq[(ContractId, Option[Value])] = {
-      filtered.map { case (cid, contractInstance) =>
-        contractInstance match {
-          case Value.ContractInstance(templateId, arg) =>
-            val viewOpt = computeView(templateId, interfaceId, arg)
-            (cid, viewOpt)
-        }
+      filtered.map { contract =>
+        val viewOpt = computeView(contract.templateId, interfaceId, contract.createArg)
+        (contract.contractId, viewOpt)
       }
     }
     Future.successful(res)
@@ -213,8 +204,8 @@ class IdeLedgerClient(
 
     lookupContractInstance(parties, cid) match {
       case None => Future.successful(None)
-      case Some(Value.ContractInstance(templateId, arg)) =>
-        val viewOpt = computeView(templateId, interfaceId, arg)
+      case Some(contract) =>
+        val viewOpt = computeView(contract.templateId, interfaceId, contract.createArg)
         Future.successful(viewOpt)
     }
   }

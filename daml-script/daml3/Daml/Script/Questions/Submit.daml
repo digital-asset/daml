@@ -18,6 +18,7 @@ import DA.Stack
 data Submit = Submit with
   actAs : NonEmpty Party
   readAs : [Party]
+  disclosures : [Disclosure]
   commands : [Command]
 instance IsQuestion Submit [CommandResult] where command = "Submit"
 
@@ -26,12 +27,14 @@ submitInternal actAs readAs cmds =
   fmap cmds.continue $ lift $ Submit with
     actAs = actAsNonEmpty actAs
     readAs = readAs
+    disclosures = []
     commands = cmds.commands
 
 -- | Details of the @submitMustFail@ command.
 data SubmitMustFail = SubmitMustFail with
   actAs : NonEmpty Party
   readAs : [Party]
+  disclosures : [Disclosure]
   commands : [Command]
 instance IsQuestion SubmitMustFail () where command = "SubmitMustFail"
 
@@ -40,6 +43,7 @@ submitMustFailInternal actAs readAs cmds =
   lift $ SubmitMustFail with
     actAs = actAsNonEmpty actAs
     readAs = readAs
+    disclosures = []
     commands = cmds.commands
 
 -- | Submit the commands as a single transaction.
@@ -71,6 +75,9 @@ instance HasSubmit Script Commands where
 -- | `submitMulti actAs readAs cmds` submits `cmds` as a single transaction
 -- authorized by `actAs`. Fetched contracts must be visible to at least
 -- one party in the union of actAs and readAs.
+-- TODO https://github.com/digital-asset/daml/issues/17755
+--  - should disclosures have its own version of submitMulti
+--  - should other submit function have a version that support disclosure
 submitMulti : HasCallStack => [Party] -> [Party] -> Commands a -> Script a
 submitMulti = submitInternal
 
@@ -82,6 +89,7 @@ submitMultiMustFail = submitMustFailInternal
 data SubmitTree = SubmitTree with
   actAs : NonEmpty Party
   readAs : [Party]
+  disclosures : [Disclosure]
   commands : [Command]
 instance IsQuestion SubmitTree TransactionTree where command = "SubmitTree"
 
@@ -90,6 +98,7 @@ submitTreeInternal actAs readAs cmds =
   lift $ SubmitTree with
     actAs = actAsNonEmpty actAs
     readAs = readAs
+    disclosures = []
     commands = cmds.commands
 
 -- | HIDE Equivalent to `submit` but returns the full transaction tree.
@@ -107,21 +116,23 @@ submitTreeMulti = submitTreeInternal
 data TrySubmit = TrySubmit with
   actAs : NonEmpty Party
   readAs : [Party]
+  disclosures : [Disclosure]
   commands : [Command]
 instance IsQuestion TrySubmit (Either SubmitError [CommandResult]) where command = "TrySubmit"
 
-trySubmitInternal : HasCallStack => [Party] -> [Party] -> Commands a -> Script (Either SubmitError a)
-trySubmitInternal actAs readAs cmds =
+trySubmitInternal : HasCallStack => [Party] -> [Party] -> [Disclosure] -> Commands a -> Script (Either SubmitError a)
+trySubmitInternal actAs readAs disclosures  cmds =
   fmap (fmap cmds.continue) $ lift $ TrySubmit with
     actAs = actAsNonEmpty actAs
     readAs = readAs
+    disclosures = disclosures
     commands = cmds.commands
 
 -- | Submit a transaction and recieve back either the result, or a `SubmitError`.
 -- In the majority of failures, this will not crash at runtime.
 trySubmit : HasCallStack => Party -> Commands a -> Script (Either SubmitError a)
-trySubmit p cmds = trySubmitInternal [p] [] cmds
+trySubmit p cmds = trySubmitInternal [p] [] [] cmds
 
 -- | Alternate version of `trySubmit` that allows specifying the actAs and readAs parties.
-trySubmitMulti : HasCallStack => [Party] -> [Party] -> Commands a -> Script (Either SubmitError a)
+trySubmitMulti : HasCallStack => [Party] -> [Party] -> [Disclosure] -> Commands a -> Script (Either SubmitError a)
 trySubmitMulti = trySubmitInternal

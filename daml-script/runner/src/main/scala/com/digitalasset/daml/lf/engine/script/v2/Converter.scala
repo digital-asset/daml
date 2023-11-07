@@ -63,7 +63,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
   ): Either[String, SValue] = {
     def damlTree(s: String) = scriptIds.damlScriptModule("Daml.Script.Questions.TransactionTree", s)
     def translateTreeEvent(ev: ScriptLedgerClient.TreeEvent): Either[String, SValue] = ev match {
-      case ScriptLedgerClient.Created(tplId, contractId, argument) =>
+      case ScriptLedgerClient.Created(tplId, contractId, argument, _) =>
         for {
           anyTemplate <- fromAnyTemplate(translator, tplId, argument, enableContractUpgrading)
         } yield SVariant(
@@ -264,6 +264,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 .fold(tplId)(intendedPackageId => tplId.copy(packageId = intendedPackageId)),
               cid,
               arg,
+              Bytes.fromByteString(created.createdEventBlob),
             )
           case TreeEvent.Kind.Exercised(exercised) =>
             for {
@@ -389,6 +390,14 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       case _ => Left(s"Expected command but got $v")
     }
 
+  def toDisclosure(v: SValue): Either[String, Bytes] =
+    v match {
+      case SRecord(_, _, ArrayList(SText(t))) =>
+        Bytes.fromString(t)
+      case _ =>
+        Left(s"Expected Disclosure but got $v")
+    }
+
   // Encodes as Daml.Script.Questions.Packages.PackageName
   def fromReadablePackageId(
       scriptIds: ScriptIds,
@@ -401,4 +410,12 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       ("version", SText(packageName.version.toString)),
     )
   }
+
+  def noDisclosures(disclosures: List[Bytes]) = toFuture(
+    Either.cond(
+      disclosures.isEmpty,
+      (),
+      "Explicit disclosures not supported",
+    )
+  )
 }

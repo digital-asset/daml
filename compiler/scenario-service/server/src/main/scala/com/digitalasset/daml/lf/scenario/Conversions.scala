@@ -356,6 +356,9 @@ final class Conversions(
           nstBuilder.setPackageMetadata(mkPackageMetadata(packageMeta))
         )
         builder.setLookupError(nstBuilder.build)
+
+      case Error.DisclosureDecoding(message) =>
+        builder.setCrash("disclosure decode failed: " + message)
     }
     builder.build
   }

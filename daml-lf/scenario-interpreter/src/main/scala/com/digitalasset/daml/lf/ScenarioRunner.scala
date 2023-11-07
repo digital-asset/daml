@@ -263,8 +263,8 @@ private[lf] object ScenarioRunner {
         effectiveAt = effectiveAt,
         acoid,
       ) match {
-        case ScenarioLedger.LookupOk(_, coinst, _) =>
-          callback(coinst)
+        case ScenarioLedger.LookupOk(coinst) =>
+          callback(coinst.toImplementation.toCreateNode.versionedCoinst)
 
         case ScenarioLedger.LookupContractNotFound(coid) =>
           // This should never happen, hence we don't have a specific
@@ -318,8 +318,8 @@ private[lf] object ScenarioRunner {
             effectiveAt = effectiveAt,
             acoid,
           ) match {
-            case ScenarioLedger.LookupOk(_, _, stakeholders) =>
-              if (!readers.intersect(stakeholders).isEmpty)
+            case ScenarioLedger.LookupOk(contract) =>
+              if (!readers.intersect(contract.stakeholders).isEmpty)
                 // Note that even with a successful global lookup
                 // the callback can return false. This happens for a fetch-by-key
                 // if the contract got archived in the meantime.
@@ -327,7 +327,7 @@ private[lf] object ScenarioRunner {
                 // setting up the state such that continuing interpretation fails.
                 discard(callback(Some(acoid)))
               else
-                throw Error.ContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders)
+                throw Error.ContractKeyNotVisible(acoid, gk, actAs, readAs, contract.stakeholders)
             case ScenarioLedger.LookupContractNotFound(coid) =>
               missingWith(
                 Error.Internal(s"contract ${coid.coid} not found, but we found its key!")

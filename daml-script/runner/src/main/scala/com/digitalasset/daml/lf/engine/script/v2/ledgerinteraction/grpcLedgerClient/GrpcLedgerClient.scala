@@ -31,7 +31,7 @@ import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.engine.script.v2.Converter
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.{SValue, svalue}
@@ -138,7 +138,9 @@ class GrpcLedgerClient(
                 err => throw new ConverterException(err),
                 identity,
               )
-          (ScriptLedgerClient.ActiveContract(templateId, cid, argument), key)
+          val blob =
+            Bytes.fromByteString(createdEvent.createdEventBlob)
+          (ScriptLedgerClient.ActiveContract(templateId, cid, argument, blob), key)
         })
       )
     )
@@ -263,10 +265,11 @@ class GrpcLedgerClient(
   override def trySubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) =
-    internalSubmit(actAs, readAs, commands)
+    internalSubmit(actAs, readAs, disclosures, commands)
       .map(Right(_))
       .recoverWith({ case s: StatusRuntimeException =>
         Future.successful(Left(GrpcErrorParser.convertStatusRuntimeException(s)))
@@ -278,15 +281,16 @@ class GrpcLedgerClient(
       commandss: List[List[command.ApiCommand]],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) =
-    Future.traverse(commandss)(trySubmit(actAs, readAs, _, optLocation))
+    Future.traverse(commandss)(trySubmit(actAs, readAs, List.empty, _, optLocation))
 
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) =
-    internalSubmit(actAs, readAs, commands)
+    internalSubmit(actAs, readAs, disclosures, commands)
       .map(Right(_))
       .recoverWith({
         case s: StatusRuntimeException if isSubmitMustFailError(s) =>
@@ -296,9 +300,12 @@ class GrpcLedgerClient(
   def internalSubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
   )(implicit ec: ExecutionContext) = {
     import scalaz.syntax.traverse._
+    val ledgerDisclosures =
+      disclosures.map(b => DisclosedContract(createdEventBlob = b.toByteString))
     val ledgerCommands = commands.traverse(toCommand(_)) match {
       case Left(err) => throw new ConverterException(err)
       case Right(cmds) => cmds
@@ -315,6 +322,7 @@ class GrpcLedgerClient(
       ledgerId = grpcClient.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
       commandId = UUID.randomUUID.toString,
+      disclosedContracts = ledgerDisclosures,
     )
     val request = SubmitAndWaitRequest(Some(apiCommands))
     val transactionTreeF = grpcClient.commandServiceClient
@@ -336,10 +344,11 @@ class GrpcLedgerClient(
   override def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
-    submit(actAs, readAs, commands, optLocation).map({
+    submit(actAs, readAs, disclosures, commands, optLocation).map({
       case Right(_) => Left(())
       case Left(_) => Right(())
     })
@@ -348,6 +357,7 @@ class GrpcLedgerClient(
   override def submitTree(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
@@ -357,6 +367,7 @@ class GrpcLedgerClient(
     import scalaz.std.list._
     import scalaz.syntax.traverse._
     for {
+      _ <- Converter.noDisclosures(disclosures)
       ledgerCommands <- Converter.toFuture(commands.traverse(toCommand(_)))
       // We need to remember the original package ID for each command result, so we can reapply them
       // after we get the results (for upgrades)

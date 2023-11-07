@@ -10,7 +10,7 @@ import java.time.Clock
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.lf.data.FrontStack
+import com.daml.lf.data.{Bytes, FrontStack}
 import com.daml.lf.{CompiledPackages, command}
 import com.daml.lf.data.Ref.{
   Identifier,
@@ -202,6 +202,7 @@ object ScriptF {
         submitRes <- client.trySubmit(
           data.actAs,
           data.readAs,
+          data.disclosures,
           data.cmds,
           data.stackTrace.topFrame,
         )
@@ -231,6 +232,7 @@ object ScriptF {
         submitRes <- client.submit(
           data.actAs,
           data.readAs,
+          data.disclosures,
           data.cmds,
           data.stackTrace.topFrame,
         )
@@ -268,6 +270,7 @@ object ScriptF {
         submitRes <- client.submitMustFail(
           data.actAs,
           data.readAs,
+          data.disclosures,
           data.cmds,
           data.stackTrace.topFrame,
         )
@@ -289,6 +292,7 @@ object ScriptF {
         env: Env
     )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
       for {
+        _ <- Converter.noDisclosures(data.disclosures)
         client <- Converter.toFuture(
           env.clients
             .getPartiesParticipant(data.actAs)
@@ -296,6 +300,7 @@ object ScriptF {
         submitRes <- client.submitTree(
           data.actAs,
           data.readAs,
+          data.disclosures,
           data.cmds,
           data.stackTrace.topFrame,
         )
@@ -348,11 +353,18 @@ object ScriptF {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryContractId(parties, tplId, cid)
         optR <- Converter.toFuture(
-          optR.traverse(
-            Converter.fromContract(env.valueTranslator, _, client.enableContractUpgrading)
+          optR.traverse(c =>
+            Converter
+              .fromContract(env.valueTranslator, c, client.enableContractUpgrading)
+              .map(makePair(_, SText(c.blob.toHexString)))
           )
         )
       } yield SEValue(SOptional(optR))
+  }
+
+  private[this] def makePair(v1: SValue, v2: SValue): SValue = {
+    import com.daml.script.converter.Converter.record
+    record(StablePackagesV2.Tuple2, ("_1", v1), ("_2", v2))
   }
 
   final case class QueryInterface(
@@ -364,11 +376,6 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = {
-
-      def makePair(v1: SValue, v2: SValue): SValue = {
-        import com.daml.script.converter.Converter.record
-        record(StablePackagesV2.Tuple2, ("_1", v1), ("_2", v2))
-      }
 
       for {
         viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
@@ -829,36 +836,38 @@ object ScriptF {
       actAs: OneAnd[Set, Party],
       readAs: Set[Party],
       cmds: List[command.ApiCommand],
+      disclosures: List[Bytes],
       stackTrace: StackTrace,
   )
 
   final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages)
 
-  private def parseSubmit(v: SValue, stackTrace: StackTrace): Either[String, SubmitData] = {
-    def convert(
-        actAs: OneAnd[List, SValue],
-        readAs: List[SValue],
-        cmds: List[SValue],
-    ) =
-      for {
-        actAs <- actAs.traverse(Converter.toParty(_)).map(toOneAndSet(_))
-        readAs <- readAs.traverse(Converter.toParty(_))
-        cmds <- cmds.traverse(Converter.toCommand(_))
-      } yield SubmitData(actAs, readAs.toSet, cmds, stackTrace)
+  private def parseSubmit(v: SValue, stackTrace: StackTrace): Either[String, SubmitData] =
     v match {
       case SRecord(
             _,
             _,
             ArrayList(
               SRecord(_, _, ArrayList(hdAct, SList(tlAct))),
-              SList(read),
+              SList(readAs),
+              SList(disclosures),
               SList(cmds),
             ),
           ) =>
-        convert(OneAnd(hdAct, tlAct.toList), read.toList, cmds.toList)
+        for {
+          actAs <- OneAnd(hdAct, tlAct.toList).traverse(Converter.toParty)
+          readAs <- readAs.traverse(Converter.toParty)
+          cmds <- cmds.toList.traverse(Converter.toCommand)
+          disclosures <- disclosures.toImmArray.toList.traverse(Converter.toDisclosure)
+        } yield SubmitData(
+          actAs = toOneAndSet(actAs),
+          readAs = readAs.toSet,
+          cmds = cmds,
+          disclosures = disclosures,
+          stackTrace = stackTrace,
+        )
       case _ => Left(s"Expected Submit payload but got $v")
     }
-  }
 
   private def parseSubmitConcurrently(
       v: SValue,
