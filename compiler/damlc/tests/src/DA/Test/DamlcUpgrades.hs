@@ -31,7 +31,7 @@ tests damlc =
         "Upgrade"
         [ test
               "Warns when template changes signatories"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A signatories:\n  The upgraded template A cannot change the definition of its signatories.")
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A signatories:\n  The upgraded template A has changed the definition of its signatories.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -54,7 +54,7 @@ tests damlc =
               ]
         , test
               "Warns when template changes observers"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A observers:\n  The upgraded template A cannot change the definition of its observers.")
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A observers:\n  The upgraded template A has changed the definition of its observers.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -81,7 +81,7 @@ tests damlc =
               ]
         , test
               "Warns when template changes ensure"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A precondition:\n  The upgraded template A cannot change the definition of its precondition.")
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A precondition:\n  The upgraded template A has changed the definition of its precondition.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -108,7 +108,7 @@ tests damlc =
               ]
         , test
               "Warns when template changes agreement"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A agreement:\n  The upgraded template A cannot change the definition of agreement.")
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A agreement:\n  The upgraded template A has changed the definition of agreement.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -135,7 +135,7 @@ tests damlc =
               ]
         , test
               "Warns when template changes key expression"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A cannot change the expression for computing its key.")
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A has changed the expression for computing its key.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -164,7 +164,7 @@ tests damlc =
               ]
         , test
               "Warns when template changes key maintainers"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A cannot change the maintainers for its key.")
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A has changed the maintainers for its key.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -249,7 +249,7 @@ tests damlc =
               ]
         , test
               "Fails when template adds key type"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A cannot add a key if it didn't have one previously.")
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A has added a key where it didn't have one previously.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -482,7 +482,7 @@ tests damlc =
               ]
         , test
               "Warns when controllers of template choice are changed"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A choice C:\n  The upgraded choice C cannot change the definition of controllers.")
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A choice C:\n  The upgraded choice C has changed the definition of controllers.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -513,7 +513,7 @@ tests damlc =
               ]
         , test
               "Warns when observers of template choice are changed"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A choice C:\n  The upgraded choice C cannot change the definition of observers.")
+              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A choice C:\n  The upgraded choice C has changed the definition of observers.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"

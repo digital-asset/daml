@@ -648,7 +648,7 @@ instance Pretty Warning where
     WChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of authorizers."
     WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
     WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
-    WTemplateAddedKeyDefinition template _key -> "The upgraded template " <> pPrint template <> " has added a key if it didn't have one previously."
+    WTemplateAddedKeyDefinition template _key -> "The upgraded template " <> pPrint template <> " has added a key where it didn't have one previously."
     WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
 
 instance ToDiagnostic Warning where
