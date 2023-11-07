@@ -28,13 +28,12 @@ import DA.Daml.Assistant.Util
 import DA.Daml.Assistant.Cache
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts hiding (getDamlPath, getProjectPath)
-import DA.Daml.Project.ReleaseResolution (releaseResponseSubsetSdkVersion, resolveReleaseVersionFromGithub)
 import System.Environment.Blank
 import Control.Exception.Safe
 import Control.Monad.Extra
 import Data.Maybe
 import Data.Aeson (FromJSON(..), eitherDecodeStrict')
-import Data.Aeson.Types (listParser, withObject, (.:), Parser, Value(Object))
+import Data.Aeson.Types (listParser, withObject, (.:), Parser, Value(Object), explicitParseField)
 import qualified Data.Text as T
 import Safe
 import Network.HTTP.Simple
@@ -398,3 +397,49 @@ resolveSdkVersionFromDamlPath damlPath targetSdkVersion = do
           targetSdkVersion == sdkVersionFromReleaseVersion releaseVersion
   resolvedVersions <- getInstalledSdkVersions damlPath
   pure (find isMatchingVersion resolvedVersions)
+
+-- | Subset of the github release response that we care about
+data GithubReleaseResponseSubset = GithubReleaseResponseSubset
+  { assetNames :: [T.Text] }
+
+instance FromJSON GithubReleaseResponseSubset where
+  -- Akin to `GithubReleaseResponseSubset . fmap name . assets` but lifted into a parser over json
+  parseJSON = withObject "GithubReleaseResponse" $ \v ->
+    GithubReleaseResponseSubset <$> explicitParseField (listParser (withObject "GithubRelease" (.: "name"))) v "assets"
+
+releaseResponseSubsetSdkVersion :: GithubReleaseResponseSubset -> Maybe T.Text
+releaseResponseSubsetSdkVersion responseSubset =
+  let extractMatchingName :: T.Text -> Maybe T.Text
+      extractMatchingName name = do
+        withoutExt <- T.stripSuffix "-linux.tar.gz" name
+        T.stripPrefix "daml-sdk-" withoutExt
+  in
+  listToMaybe $ mapMaybe extractMatchingName (assetNames responseSubset)
+
+data GithubReleaseError
+  = FailedToFindLinuxSdkInRelease String
+  | Couldn'tParseSdkVersion String InvalidVersion
+  deriving (Show, Eq)
+
+instance Exception GithubReleaseError where
+  displayException (FailedToFindLinuxSdkInRelease url) =
+    "Couldn't find Linux SDK in release at url: '" <> url <> "'"
+  displayException (Couldn'tParseSdkVersion url v) =
+    "Couldn't parse SDK in release at url '" <> url <> "': " <> displayException v
+
+-- | Since ~2.8.snapshot, the "enterprise version" (the version the user inputs) and the daml sdk version (the version of the daml repo) can differ
+-- As such, we derive the latter via the github api `assets` endpoint, looking for a file matching the expected `daml-sdk-$VERSION-$OS.tar.gz`
+resolveReleaseVersionFromGithub :: UnresolvedReleaseVersion -> IO (Either GithubReleaseError ReleaseVersion)
+resolveReleaseVersionFromGithub unresolvedVersion = do
+  let tag = T.unpack (rawVersionToTextWithV (unwrapUnresolvedReleaseVersion unresolvedVersion))
+  let url = "https://api.github.com/repos/digital-asset/daml/releases/tags/" <> tag
+  req <- parseRequest url
+  res <- httpJSON $ setRequestHeaders [("User-Agent", "request")] req
+  pure $
+    case releaseResponseSubsetSdkVersion (getResponseBody res) of
+      Nothing -> Left (FailedToFindLinuxSdkInRelease url)
+      Just sdkVersionStr ->
+        case parseSdkVersion sdkVersionStr of
+          Left issue -> Left (Couldn'tParseSdkVersion url issue)
+          Right sdkVersion -> Right (mkReleaseVersion unresolvedVersion sdkVersion)
+

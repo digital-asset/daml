@@ -111,6 +111,9 @@ versionToText :: ReleaseVersion -> Text
 versionToText (OldReleaseVersion bothVersion) = V.toText bothVersion
 versionToText (SplitReleaseVersion releaseVersion _) = V.toText releaseVersion
 
+rawVersionToTextWithV :: V.Version -> Text
+rawVersionToTextWithV v = "v" <> V.toText v
+
 sdkVersionToText :: SdkVersion -> Text
 sdkVersionToText = V.toText . unwrapSdkVersion
 
