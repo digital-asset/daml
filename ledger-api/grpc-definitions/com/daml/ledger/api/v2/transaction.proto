@@ -36,6 +36,10 @@ message TransactionTree {
   // Required
   google.protobuf.Timestamp effective_at = 4;
 
+  // Domain record time.
+  // Required
+  google.protobuf.Timestamp recorded_at = 10;
+
   // The absolute offset. The format of this field is described in ``participant_offset.proto``.
   // Required
   string offset = 5;

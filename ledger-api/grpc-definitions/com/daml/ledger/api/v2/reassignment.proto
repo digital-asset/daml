@@ -41,6 +41,10 @@ message Reassignment {
     AssignedEvent assigned_event = 6;
   }
 
+  // Domain record time.
+  // Required
+  google.protobuf.Timestamp recorded_at = 8;
+
   // Optional; ledger api trace context
   //
   // The trace context transported in this message corresponds to the trace context supplied
