@@ -335,7 +335,7 @@ jobs:
   - job: report
     dependsOn: [compatibility_ts_libs, compatibility, compatibility_windows,
                 perf_speedy, check_releases,
-                blackduck_scan, run_notices_pr_build, bump_canton, compat_versions_pr]
+                blackduck_scan, run_notices_pr_build, update_canton, compat_versions_pr]
     condition: and(succeededOrFailed(),
                    eq(variables['Build.SourceBranchName'], 'main'))
     pool:
@@ -350,7 +350,7 @@ jobs:
       check_releases: $[ dependencies.check_releases.result ]
       blackduck_scan: $[ dependencies.blackduck_scan.result ]
       run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
-      bump_canton: $[ dependencies.bump_canton.result ]
+      update_canton: $[ dependencies.update_canton.result ]
       compat_versions_pr: $[ dependencies.compat_versions_pr.result ]
     steps:
     - template: ../bash-lib.yml
@@ -370,7 +370,7 @@ jobs:
            && "$(compatibility_windows)" == "Succeeded"
            && "$(perf_speedy)" == "Succeeded"
            && "$(check_releases)" == "Succeeded"
-           && "$(bump_canton)" == "Succeeded"
+           && "$(update_canton)" == "Succeeded"
            && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
            && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped")
            && "$(compat_versions_pr)" == "Succeeded"
