@@ -4,13 +4,13 @@
 package com.digitalasset.canton.logging
 
 import com.digitalasset.canton.tracing.TraceContext
-import com.typesafe.scalalogging.Logger
+import com.typesafe.scalalogging.{CanLog, Logger}
 import org.slf4j
 import org.slf4j.helpers.NOPLogger
 
 trait NamedLogging {
 
-  private implicit def canLogTraceContext = CanLogTraceContext
+  private implicit def canLogTraceContext: CanLog[TraceContext] = CanLogTraceContext
 
   protected implicit def errorLoggingContext(implicit
       traceContext: TraceContext
@@ -36,7 +36,7 @@ trait NamedLogging {
 }
 
 object NamedLogging {
-  private implicit val canLogTraceContext = CanLogTraceContext
+  private implicit val canLogTraceContext: CanLog[TraceContext] = CanLogTraceContext
 
   def loggerWithoutTracing(logger: TracedLogger): Logger = Logger(logger.underlying)
 

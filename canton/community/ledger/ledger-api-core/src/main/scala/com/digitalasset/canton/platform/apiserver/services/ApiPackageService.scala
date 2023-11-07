@@ -8,6 +8,7 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service.{HashFunction as APIHashFunction, *}
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.domain.LedgerId
@@ -16,17 +17,9 @@ import com.digitalasset.canton.ledger.api.validation.ValidationErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexPackagesService
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
-import com.digitalasset.canton.logging.LoggingContextWithTrace.{
-  implicitExtractTraceContext,
-  withEnrichedLoggingContext,
-}
+import com.digitalasset.canton.logging.LoggingContextWithTrace.{implicitExtractTraceContext, withEnrichedLoggingContext}
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
-import com.digitalasset.canton.logging.{
-  ErrorLoggingContext,
-  LoggingContextWithTrace,
-  NamedLoggerFactory,
-  NamedLogging,
-}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -40,7 +33,7 @@ private[apiserver] final class ApiPackageService private (
     with GrpcApiService
     with NamedLogging {
 
-  private implicit val loggingContext = createLoggingContext(loggerFactory)(identity)
+  private implicit val loggingContext: LoggingContext = createLoggingContext(loggerFactory)(identity)
 
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, executionContext)
@@ -48,7 +41,7 @@ private[apiserver] final class ApiPackageService private (
   override def close(): Unit = ()
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
+    implicit val loggingContextWithTrace: LoggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
     logger.info(s"Received request to list packages: $request.")
     backend
       .listLfPackages()

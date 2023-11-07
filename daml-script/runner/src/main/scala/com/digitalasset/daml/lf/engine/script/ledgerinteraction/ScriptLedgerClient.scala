@@ -51,8 +51,8 @@ final case class JsonLedgerClient(
       case Success(s) => s
     }
 
-  implicit val system = actorSystem
-  implicit val executionContext = system.dispatcher
+  implicit val system: ActorSystem = actorSystem
+  implicit val executionContext: scala.concurrent.ExecutionContext = system.dispatcher
 
   val applicationId: Option[String] =
     tokenPayload match {

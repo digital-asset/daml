@@ -58,6 +58,8 @@ import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import scala.concurrent.duration._
 
+import scala.annotation.nowarn
+
 trait AbstractTriggerServiceTestHelper
     extends AsyncFlatSpec
     with HttpCookies
@@ -273,6 +275,7 @@ trait AbstractTriggerServiceTestHelper
       pred(getTriggerStatus(triggerInstance).map(_._2))
     }
 
+  @nowarn("cat=deprecation")
   def assertTriggerRunnerStatus(
       triggerInstance: UUID,
       pred: Vector[String] => Assertion,

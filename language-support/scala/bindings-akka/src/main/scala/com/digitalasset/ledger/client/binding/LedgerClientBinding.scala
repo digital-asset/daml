@@ -157,7 +157,7 @@ object LedgerClientBinding {
   }
 
   @nowarn(
-    "msg=parameter value config .* is never used"
+    "msg=parameter config .* is never used"
   ) // public function, unsure whether arg needed
   def askLedgerId(
       channel: ManagedChannel,

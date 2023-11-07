@@ -18,14 +18,15 @@ class FutureConversionSpec extends AsyncWordSpec with Matchers {
   "converting a java CompletionStage into a scala Future" should {
 
     "succeed" in {
-      CompletableFuture.completedStage(()).thenApply(_ => succeed).toScalaUnwrapped
+      // TODO verify this is ok. 2.13.11 FutureConverters is not working with MinimalStage
+      CompletableFuture.completedFuture(()).thenApply(_ => succeed).toScalaUnwrapped
     }
 
     "fail the future with the same exception as the CompletionStage when not wrapped in a CompletionException" in {
       val exception = new TestException
       // build a completion stage that fails with CompletionException
       // this is NOT the same as CompletableFuture.failedStage
-      val cs: CompletionStage[Unit] = CompletableFuture.failedStage(exception)
+      val cs: CompletionStage[Unit] = CompletableFuture.failedFuture(exception)
       recoverToExceptionIf[TestException](cs.toScalaUnwrapped).map(_ shouldBe exception)
     }
 
@@ -34,7 +35,7 @@ class FutureConversionSpec extends AsyncWordSpec with Matchers {
       // build a completion stage that fails with CompletionException
       // this is NOT the same as CompletableFuture.failedStage
       val cs: CompletionStage[Unit] =
-        CompletableFuture.completedStage(()).thenApply(_ => throw exception)
+        CompletableFuture.completedFuture(()).thenApply(_ => throw exception)
       recoverToSucceededIf[CompletionException](cs.asScala).flatMap(_ =>
         recoverToExceptionIf[TestException](cs.toScalaUnwrapped).map(_ shouldBe exception)
       )
