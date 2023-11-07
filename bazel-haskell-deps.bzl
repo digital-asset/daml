@@ -29,7 +29,6 @@ ZIP_VERSION = "1.7.1"
 GRPC_HASKELL_REV = "9adf3b02b0164b64432f2868b6577b4f4c2c6980"
 GRPC_HASKELL_SHA256 = "8e75f41652d35f3162e1a892d89cc67c195b9c3a5477980a82115f5caff0a206"
 GRPC_HASKELL_PATCHES = [
-    #"@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-cpp-options.patch",
     "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-ffi.patch",
 ]
 XML_CONDUIT_VERSION = "1.9.1.1"
@@ -242,6 +241,8 @@ haskell_binary(
 """,
         sha256 = "0a46ab9f3e8ee4b729bc47b04039ea8f8be23167ac9b51d6b17fd77f7b380234",
         strip_prefix = "proto3-suite-7af7d76dcf9cc71ddada3aa4a38abf46f65550ca",
+        # TODO: bump to a more recent version after we rename daml_lf_1.proto to
+        #    something that newer versions of proto3-suite support.
         urls = ["https://github.com/awakesecurity/proto3-suite/archive/7af7d76dcf9cc71ddada3aa4a38abf46f65550ca.tar.gz"],
         patches = ["@com_github_digital_asset_daml//bazel_tools:haskell_proto3_suite_deriving_defaults.patch"],
         patch_args = ["-p1"],

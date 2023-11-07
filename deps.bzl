@@ -263,10 +263,6 @@ def daml_deps():
             strip_prefix = "grpc-1.59.2",
             urls = ["https://github.com/grpc/grpc/archive/v1.59.2.tar.gz"],
             sha256 = "a3a65f0129c4922c5d7f4c11dcd40083a12ca54076fd3a927bcd63c53b7e44a5",
-            #            patches = [
-            #                "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
-            #            ],
-            #            patch_args = ["-p1"],
         )
 
     if "com_google_protobuf" not in native.existing_rules():
