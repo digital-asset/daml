@@ -123,3 +123,5 @@ build -c opt
 try-import %workspace%/.bazelrc.local
 build --build_tag_filters=-canton-ee
 test --test_tag_filters=-canton-ee
+
+test --test_env=force_retest=3
