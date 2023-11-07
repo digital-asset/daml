@@ -102,15 +102,12 @@ getFreshStableSdkVersionForCheck useCache = do
   val <- getEnv sdkVersionLatestEnvVar
   case val of
     Nothing -> pure $
-      -- TODO: version supplied here is straight from cache, not necessarily
-      -- passed in by end user - need to amend error message
       freshMaximumOfVersions (getAvailableReleaseVersions useCache)
     Just "" -> pure (pure Nothing)
     Just value -> do
       parsed <- requiredE
         ("Invalid value for environment variable " <> pack sdkVersionLatestEnvVar <> ".")
         (parseVersion (pack value))
-      -- TODO: version supplied here is from user, probably error message is correct
       pure (Just <$> resolveReleaseVersion useCache parsed)
 
 -- | Determine the viability of running sdk commands in the environment.
