@@ -120,13 +120,13 @@ private[lf] object Pretty {
           text("requirring the interface") & prettyTypeConName(requiredIfaceId) &
           text("but contract has type") & prettyTypeConName(templateId)
       case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
-        text("Update failed due to a contract key with an empty sey of maintainers when creating") &
+        text("Update failed due to a contract key with an empty set of maintainers when creating") &
           prettyTypeConName(tid) & text("with") & prettyValue(true)(arg) /
           text("The computed key is") & prettyValue(true)(key)
       case FetchEmptyContractKeyMaintainers(tid, key, sharedKey) =>
         val sharedKeyText = if (sharedKey) "shared" else ""
         text(
-          "Update failed due to a contract key with an empty sey of maintainers when fetching or looking up by key"
+          "Update failed due to a contract key with an empty set of maintainers when fetching or looking up by key"
         ) &
           prettyTypeConName(tid) /
           text(s"The provided $sharedKeyText key is") & prettyValue(true)(key)
