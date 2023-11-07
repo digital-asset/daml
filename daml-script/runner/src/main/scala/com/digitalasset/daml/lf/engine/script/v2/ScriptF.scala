@@ -24,7 +24,7 @@ import com.daml.lf.data.Ref.{
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.engine.script.v2.ledgerinteraction.{ScriptLedgerClient, SubmitError}
-import com.daml.lf.language.{Ast, StablePackagesV2}
+import com.daml.lf.language.{Ast, LanguageVersion, StablePackagesV2}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SBuiltin.SBVariantCon
 import com.daml.lf.speedy.SExpr._
@@ -103,6 +103,13 @@ object ScriptF {
     def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
       valueTranslator.strictTranslateValue(ty, value).left.map(_.toString)
 
+    def lookupLanguageVersion(packageId: PackageId): Either[String, LanguageVersion] = {
+      compiledPackages.pkgInterface.lookupPackageLanguageVersion(packageId) match {
+        case Right(lv) => Right(lv)
+        case Left(err) => Left(err.pretty)
+      }
+    }
+
   }
 
   final case class Throw(exc: SAny) extends Cmd {
@@ -174,6 +181,7 @@ object ScriptF {
             readAs,
             cmdss,
             stackTrace.topFrame,
+            env.lookupLanguageVersion,
           )
         res <- Converter.toFuture(
           Converter
@@ -205,6 +213,7 @@ object ScriptF {
           data.disclosures,
           data.cmds,
           data.stackTrace.topFrame,
+          env.lookupLanguageVersion,
         )
         res <- Converter.toFuture(
           Converter

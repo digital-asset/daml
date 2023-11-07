@@ -9,7 +9,7 @@ import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -235,6 +235,7 @@ trait ScriptLedgerClient {
       disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
+      languageVersionLookup: PackageId => Either[String, LanguageVersion],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -245,6 +246,7 @@ trait ScriptLedgerClient {
       readAs: Set[Ref.Party],
       commandss: List[List[command.ApiCommand]],
       optLocation: Option[Location],
+      languageVersionLookup: PackageId => Either[String, LanguageVersion],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,

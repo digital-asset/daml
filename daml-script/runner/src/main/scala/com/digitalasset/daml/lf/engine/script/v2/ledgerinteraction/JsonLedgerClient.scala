@@ -28,7 +28,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.engine.script.LfValueCodec
 import com.daml.lf.engine.script.v2.Converter
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.PackageSignature.TypeDecl
@@ -687,6 +687,7 @@ class JsonLedgerClient(
       disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
+      languageVersionLookup: PackageId => Either[String, LanguageVersion],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -697,6 +698,7 @@ class JsonLedgerClient(
       readAs: Set[Ref.Party],
       commandss: List[List[command.ApiCommand]],
       optLocation: Option[Location],
+      languageVersionLookup: PackageId => Either[String, LanguageVersion],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,

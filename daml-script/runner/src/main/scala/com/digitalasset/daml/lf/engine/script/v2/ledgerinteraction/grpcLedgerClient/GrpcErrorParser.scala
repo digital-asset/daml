@@ -4,7 +4,9 @@
 package com.daml.lf.engine.script.v2.ledgerinteraction
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
+import com.daml.lf.data.assertRight
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.{GlobalKey, TransactionVersion, Util}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder
 import com.daml.lf.value.ValueCoder.CidDecoder
@@ -33,7 +35,10 @@ object GrpcErrorParser {
   val parseList = (s: String) => s.tail.init.split(", ").toSeq
 
   // Converts a given SubmitError into a SubmitError. Wraps in an UnknownError if its not what we expect, wraps in a TruncatedError if we're missing resources
-  def convertStatusRuntimeException(s: StatusRuntimeException): SubmitError = {
+  def convertStatusRuntimeException(
+      s: StatusRuntimeException,
+      languageVersionLookup: PackageId => Either[String, LanguageVersion],
+  ): SubmitError = {
     import io.grpc.protobuf.StatusProto
     import com.daml.error.utils.ErrorDetails._
     import com.daml.error.ErrorResource
@@ -53,6 +58,9 @@ object GrpcErrorParser {
         name,
       )
     }
+
+    def assertSharedKey(packageId: PackageId): Boolean =
+      Util.sharedKey(assertRight(languageVersionLookup(packageId)))
 
     def classNameOf[A: ClassTag]: String = implicitly[ClassTag[A]].runtimeClass.getSimpleName
 
@@ -86,14 +94,13 @@ object GrpcErrorParser {
         }
       case "CONTRACT_KEY_NOT_FOUND" =>
         caseErr {
-          // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
-          //  temporary backward compatibility with Canton so can soon be removed
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
               ) =>
+            val templateId = Identifier.assertFromString(tid)
             SubmitError.ContractKeyNotFound(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, false)
+              GlobalKey.assertBuild(templateId, key, assertSharedKey(templateId.packageId))
             )
 
           case Seq(
@@ -115,17 +122,16 @@ object GrpcErrorParser {
         }
       case "DISCLOSED_CONTRACT_KEY_HASHING_ERROR" =>
         caseErr {
-          // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
-          //  temporary backward compatibility with Canton so can soon be removed
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractId, cid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
                 (ErrorResource.ContractKeyHash, keyHash),
               ) =>
+            val templateId = Identifier.assertFromString(tid)
             SubmitError.DisclosedContractKeyHashingError(
               ContractId.assertFromString(cid),
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, false),
+              GlobalKey.assertBuild(templateId, key, assertSharedKey(templateId.packageId)),
               keyHash,
             )
 
@@ -144,14 +150,13 @@ object GrpcErrorParser {
         }
       case "DUPLICATE_CONTRACT_KEY" =>
         caseErr {
-          // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
-          //  temporary backward compatibility with Canton so can soon be removed
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
               ) =>
+            val templateId = Identifier.assertFromString(tid)
             SubmitError.DuplicateContractKey(
-              Some(GlobalKey.assertBuild(Identifier.assertFromString(tid), key, false))
+              Some(GlobalKey.assertBuild(templateId, key, assertSharedKey(templateId.packageId)))
             )
           case Seq(
                 (ErrorResource.TemplateId, tid),
@@ -187,14 +192,13 @@ object GrpcErrorParser {
       case "INCONSISTENT_CONTRACT_KEY" =>
         caseErr {
 
-          // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
-          //  temporary backward compatibility with Canton so can soon be removed
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
               ) =>
+            val templateId = Identifier.assertFromString(tid)
             SubmitError.InconsistentContractKey(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, false)
+              GlobalKey.assertBuild(templateId, key, assertSharedKey(templateId.packageId))
             )
 
           case Seq(
@@ -230,6 +234,15 @@ object GrpcErrorParser {
         }
       case "FETCH_EMPTY_CONTRACT_KEY_MAINTAINERS" =>
         caseErr {
+          case Seq(
+                (ErrorResource.TemplateId, tid),
+                (ErrorResource.ContractKey, decodeValue.unlift(key)),
+              ) =>
+            val templateId = Identifier.assertFromString(tid)
+            SubmitError.FetchEmptyContractKeyMaintainers(
+              GlobalKey.assertBuild(templateId, key, assertSharedKey(templateId.packageId))
+            )
+
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
