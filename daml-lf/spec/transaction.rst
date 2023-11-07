@@ -266,7 +266,7 @@ Additionally, one of the following node types *must* be included:
 * ``string`` ``version``
 
 
-Filed ``version`` must be a valid version as described under `field
+Field ``version`` must be a valid version as described under `field
 version`_, not newer that the version of the enclosing Transaction
 message.
 
@@ -313,7 +313,7 @@ As of version 14, these fields are included:
 * repeated ``string`` maintainers
 * `message Value`_ key_unversioned
 
-``key_versioned`` must be undefined.
+``key_versioned`` must not be set.
 
 ``key_unversioned`` is required while ``key_versioned``
 
@@ -344,7 +344,7 @@ As of version 14, these fields are included:
 Field ``contract_id_struct`` is required. Its structure is defined by `the value
 specification`_.
 
-Field ``contract_instance`` must be undefined.
+Field ``contract_instance`` must not be set.
 
 Field ``template_id``, and ``arg_unversioned`` are  required.
 
@@ -440,7 +440,7 @@ Every element of ``actors``, ``stakeholders``, ``signatories``, and
 ``controllers``, and ``observers`` must be a party identifier.
 
 ``arg_unversioned`` and ``result_unversioned`` are required, while
-``arg_versioned`` and ``result_versioned`` must be used.
+``arg_versioned`` and ``result_versioned`` must not be set.
 
 .. note:: *This section is non-normative.*
 
