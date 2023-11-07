@@ -63,28 +63,15 @@ githubVersionLocation releaseVersion =
 alternateVersionLocation :: ReleaseVersion -> Text -> InstallLocation
 alternateVersionLocation releaseVersion url = InstallLocation
     { ilUrl =
-        case releaseVersion of
-          SplitReleaseVersion releaseVersion sdkVersion ->
-            T.concat
-              [ url
-              , "/"
-              , rawVersionToTextWithV releaseVersion
-              , "/daml-sdk-"
-              , V.toText sdkVersion
-              , "-"
-              , osName
-              , ".tar.gz"
-              ]
-          OldReleaseVersion releaseVersion ->
-            T.concat
-              [ url
-              , "/"
-              , rawVersionToTextWithV releaseVersion
-              , "/daml-sdk-"
-              , V.toText releaseVersion
-              , "-"
-              , osName
-              , ".tar.gz"
-              ]
+        T.concat
+          [ url
+          , "/"
+          , rawVersionToTextWithV (releaseVersionFromReleaseVersion releaseVersion)
+          , "/daml-sdk-"
+          , V.toText (unwrapSdkVersion (sdkVersionFromReleaseVersion releaseVersion))
+          , "-"
+          , osName
+          , ".tar.gz"
+          ]
     , ilHeaders = []
     }
