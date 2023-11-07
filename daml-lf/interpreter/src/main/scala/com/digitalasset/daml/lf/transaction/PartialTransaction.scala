@@ -381,22 +381,23 @@ private[speedy] case class PartialTransaction(
       optLocation: Option[Location],
       byKey: Boolean,
       version: TxVersion,
-  ): Either[TxErr.TransactionError, PartialTransaction] = {
-    val contextActors = context.info.authorizers
-    val actingParties = contextActors intersect contract.stakeholders
-    val auth = Authorize(context.info.authorizers)
-    val nid = NodeId(nextNodeIdx)
-    val node = Node.Fetch(
-      coid,
-      contract.templateId,
-      actingParties,
-      contract.signatories,
-      contract.stakeholders,
-      contract.keyOpt.map(_.globalKeyWithMaintainers),
-      normByKey(version, byKey),
-      version,
-    )
-    mustBeActive(NameOf.qualifiedNameOfCurrentFunc, coid) {
+  ): Either[TxErr.TransactionError, PartialTransaction] =
+    mustBeActive(NameOf.qualifiedNameOfCurrentFunc, Some(coid)) {
+      val contextActors = context.info.authorizers
+      val actingParties = contextActors intersect contract.stakeholders
+      val auth = Authorize(context.info.authorizers)
+      val nid = NodeId(nextNodeIdx)
+      val node = Node.Fetch(
+        coid,
+        contract.templateId,
+        actingParties,
+        contract.signatories,
+        contract.stakeholders,
+        contract.keyOpt.map(_.globalKeyWithMaintainers),
+        normByKey(version, byKey),
+        version,
+      )
+
       val newContractState = assertRightKey(
         // evaluation order tests require visitFetch proceeds authorizeFetch
         contractState.visitFetch(
@@ -412,34 +413,34 @@ private[speedy] case class PartialTransaction(
           Right(insertLeafNode(node, version, optLocation, newContractState))
       }
     }
-  }
 
   def insertLookup(
       optLocation: Option[Location],
       key: CachedKey,
       result: Option[Value.ContractId],
       keyVersion: TxVersion,
-  ): Either[TxErr.TransactionError, PartialTransaction] = {
-    val auth = Authorize(context.info.authorizers)
-    val nid = NodeId(nextNodeIdx)
-    val node = Node.LookupByKey(
-      key.templateId,
-      key.globalKeyWithMaintainers,
-      result,
-      keyVersion,
-    )
-    // This method is only called after we have already resolved the key in com.daml.lf.speedy.SBuiltin.SBUKeyBuiltin.execute
-    // so the current state's global key inputs must resolve the key.
-    val keyInput = contractState.globalKeyInputs(key.globalKey)
-    val newContractState =
-      assertRightKey(contractState.visitLookup(key.globalKey, keyInput.toKeyMapping, result))
-    authorizationChecker.authorizeLookupByKey(optLocation, node)(auth) match {
-      case fa :: _ =>
-        Left(TxErr.TransactionError.inject(TxErr.AuthFailureDuringExecution(nid, fa)))
-      case Nil =>
-        Right(insertLeafNode(node, keyVersion, optLocation, newContractState))
+  ): Either[TxErr.TransactionError, PartialTransaction] =
+    mustBeActive(NameOf.qualifiedNameOfCurrentFunc, result) {
+      val auth = Authorize(context.info.authorizers)
+      val nid = NodeId(nextNodeIdx)
+      val node = Node.LookupByKey(
+        key.templateId,
+        key.globalKeyWithMaintainers,
+        result,
+        keyVersion,
+      )
+      // This method is only called after we have already resolved the key in com.daml.lf.speedy.SBuiltin.SBUKeyBuiltin.execute
+      // so the current state's global key inputs must resolve the key.
+      val keyInput = contractState.globalKeyInputs(key.globalKey)
+      val newContractState =
+        assertRightKey(contractState.visitLookup(key.globalKey, keyInput.toKeyMapping, result))
+      authorizationChecker.authorizeLookupByKey(optLocation, node)(auth) match {
+        case fa :: _ =>
+          Left(TxErr.TransactionError.inject(TxErr.AuthFailureDuringExecution(nid, fa)))
+        case Nil =>
+          Right(insertLeafNode(node, keyVersion, optLocation, newContractState))
+      }
     }
-  }
 
   /** Open an exercises context.
     * Must be closed by a `endExercises` or an `abortExercise`.
@@ -458,31 +459,31 @@ private[speedy] case class PartialTransaction(
       byKey: Boolean,
       chosenValue: Value,
       version: TxVersion,
-  ): Either[TxErr.TransactionError, PartialTransaction] = {
-    val auth = Authorize(context.info.authorizers)
-    val nid = NodeId(nextNodeIdx)
-    val ec =
-      ExercisesContextInfo(
-        targetId = targetId,
-        templateId = templateId, // may differ from contract.templateId during soft-exercise
-        interfaceId = interfaceId,
-        contractKey =
-          // We need to renormalize the key
-          contract.keyOpt.map(_.renormalizedGlobalKeyWithMaintainers(version)),
-        choiceId = choiceId,
-        consuming = consuming,
-        actingParties = actingParties,
-        chosenValue = chosenValue,
-        signatories = contract.signatories,
-        stakeholders = contract.stakeholders,
-        choiceObservers = choiceObservers,
-        choiceAuthorizers = choiceAuthorizers,
-        nodeId = nid,
-        parent = context,
-        byKey = byKey,
-        version = version,
-      )
-    mustBeActive(NameOf.qualifiedNameOfCurrentFunc, targetId) {
+  ): Either[TxErr.TransactionError, PartialTransaction] =
+    mustBeActive(NameOf.qualifiedNameOfCurrentFunc, Some(targetId)) {
+      val auth = Authorize(context.info.authorizers)
+      val nid = NodeId(nextNodeIdx)
+      val ec =
+        ExercisesContextInfo(
+          targetId = targetId,
+          templateId = templateId, // may differ from contract.templateId during soft-exercise
+          interfaceId = interfaceId,
+          contractKey =
+            // We need to renormalize the key
+            contract.keyOpt.map(_.renormalizedGlobalKeyWithMaintainers(version)),
+          choiceId = choiceId,
+          consuming = consuming,
+          actingParties = actingParties,
+          chosenValue = chosenValue,
+          signatories = contract.signatories,
+          stakeholders = contract.stakeholders,
+          choiceObservers = choiceObservers,
+          choiceAuthorizers = choiceAuthorizers,
+          nodeId = nid,
+          parent = context,
+          byKey = byKey,
+          version = version,
+        )
       // important: the semantics of Daml dictate that contracts are immediately
       // inactive as soon as you exercise it. therefore, mark it as consumed now.
       val newContractState = assertRightKey(
@@ -509,7 +510,6 @@ private[speedy] case class PartialTransaction(
           )
       }
     }
-  }
 
   /** Close normally an exercise context.
     * Must match a `beginExercises`.
@@ -643,17 +643,19 @@ private[speedy] case class PartialTransaction(
     */
   private[this] def mustBeActive[T](
       loc: => String,
-      cid: Value.ContractId,
+      cid: Option[Value.ContractId],
   )(
       body: => T
-  ): T =
-    if (consumedByOrInactive(cid).isDefined)
-      InternalError.runtimeException(
-        loc,
-        "try to build a node using a consumed or inactive contract.",
-      )
-    else
-      body
+  ): T = {
+    cid.foreach(cid =>
+      if (consumedByOrInactive(cid).isDefined)
+        InternalError.runtimeException(
+          loc,
+          "try to build a node using a consumed or inactive contract.",
+        )
+    )
+    body
+  }
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
   private[this] def insertLeafNode(
