@@ -96,10 +96,10 @@ abstract class HttpServiceIntegrationTest
 
   // TODO(lt-37): Remove this. Currently the tests which use this only pass on Linux.
   // Someone with a mac and/or Windows machine should get it working on those platforms.
-  private implicit final class OSBranchingSupport(private val label: String) {
-    def ifLinux(fn: => Future[Assertion]): Unit =
-      if (System.getProperty("os.name") == "Linux") label in fn else ()
-  }
+  //  private implicit final class OSBranchingSupport(private val label: String) {
+  //    def ifLinux(fn: => Future[Assertion]): Unit =
+  //      if (System.getProperty("os.name") == "Linux") label in fn else ()
+  //  }
 
   // TODO(lt-37): This is also broken on linux after the netty_tcnative update.
   "should serve HTTPS requests" ignore withHttpService(useHttps = UseHttps.Https) { fixture =>
