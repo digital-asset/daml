@@ -12,6 +12,7 @@ module DA.Daml.LF.TypeChecker.Error(
     UpgradedRecordOrigin(..),
     errorLocation,
     toDiagnostic,
+    Warning(..),
     ) where
 
 import Control.Applicative
@@ -176,14 +177,9 @@ data UpgradeError
   | RecordFieldsExistingChanged !UpgradedRecordOrigin
   | RecordFieldsNewNonOptional !UpgradedRecordOrigin
   | RecordChangedOrigin !TypeConName !UpgradedRecordOrigin !UpgradedRecordOrigin
-  | TemplateChangedPrecondition !TypeConName
-  | TemplateChangedSignatories !TypeConName
-  | TemplateChangedObservers !TypeConName
-  | TemplateChangedAgreement !TypeConName
-  | ChoiceChangedControllers !ChoiceName
-  | ChoiceChangedObservers !ChoiceName
-  | ChoiceChangedAuthorizers !ChoiceName
+  | TemplateChangedKeyType !TypeConName
   | ChoiceChangedReturnType !ChoiceName
+  | TemplateRemovedKey !TypeConName !TemplateKey
   deriving (Eq, Ord, Show)
 
 data UpgradedRecordOrigin
@@ -572,14 +568,9 @@ instance Pretty UpgradeError where
     RecordFieldsExistingChanged origin -> "The upgraded " <> pPrint origin <> " has changed the types of some of its original fields."
     RecordFieldsNewNonOptional origin -> "The upgraded " <> pPrint origin <> " has added new fields, but those fields are not Optional."
     RecordChangedOrigin dataConName past present -> "The record " <> pPrint dataConName <> " has changed origin from " <> pPrint past <> " to " <> pPrint present
-    TemplateChangedPrecondition template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its precondition."
-    TemplateChangedSignatories template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its signatories."
-    TemplateChangedObservers template -> "The upgraded template " <> pPrint template <> " cannot change the definition of its observers."
-    TemplateChangedAgreement template -> "The upgraded template " <> pPrint template <> " cannot change the definition of agreement."
-    ChoiceChangedControllers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of controllers."
-    ChoiceChangedObservers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of observers."
-    ChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " cannot change the definition of authorizers."
     ChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
+    TemplateChangedKeyType templateName -> "The upgraded template " <> pPrint templateName <> " cannot change its key type."
+    TemplateRemovedKey templateName _key -> "The upgraded template " <> pPrint templateName <> " cannot remove its key."
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
@@ -604,13 +595,69 @@ instance Pretty Context where
     ContextDefInterface m i p ->
       hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i), string (show p)]
 
-toDiagnostic :: DiagnosticSeverity -> Error -> Diagnostic
-toDiagnostic sev err = Diagnostic
-    { _range = maybe noRange sourceLocToRange (errorLocation err)
-    , _severity = Just sev
-    , _code = Nothing
-    , _tags = Nothing
-    , _source = Just "Daml-LF typechecker"
-    , _message = renderPretty err
-    , _relatedInformation = Nothing
-    }
+class ToDiagnostic a where
+  toDiagnostic :: a -> Diagnostic
+
+instance ToDiagnostic Error where
+  toDiagnostic err = Diagnostic
+      { _range = maybe noRange sourceLocToRange (errorLocation err)
+      , _severity = Just DsError
+      , _code = Nothing
+      , _tags = Nothing
+      , _source = Just "Daml-LF typechecker"
+      , _message = renderPretty err
+      , _relatedInformation = Nothing
+      }
+
+data Warning
+  = WContext !Context !Warning
+  | WTemplateChangedPrecondition !TypeConName
+  | WTemplateChangedSignatories !TypeConName
+  | WTemplateChangedObservers !TypeConName
+  | WTemplateChangedAgreement !TypeConName
+  | WChoiceChangedControllers !ChoiceName
+  | WChoiceChangedObservers !ChoiceName
+  | WChoiceChangedAuthorizers !ChoiceName
+  | WTemplateChangedKeyExpression !TypeConName
+  | WTemplateChangedKeyMaintainers !TypeConName
+  | WTemplateAddedKeyDefinition !TypeConName !TemplateKey
+  | WCouldNotExtractForUpgradeChecking !T.Text !(Maybe T.Text)
+    -- ^ When upgrading, we extract relevant expressions for things like
+    -- signatories. If the expression changes shape so that we can't get the
+    -- underlying expression that has changed, this warning is emitted.
+  deriving (Show)
+
+warningLocation :: Warning -> Maybe SourceLoc
+warningLocation = \case
+  WContext ctx _ -> contextLocation ctx
+  _ -> Nothing
+
+instance Pretty Warning where
+  pPrint = \case
+    WContext ctx err ->
+      vcat
+      [ "warning while type checking " <> pretty ctx <> ":"
+      , nest 2 (pretty err)
+      ]
+    WTemplateChangedPrecondition template -> "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
+    WTemplateChangedSignatories template -> "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
+    WTemplateChangedObservers template -> "The upgraded template " <> pPrint template <> " has changed the definition of its observers."
+    WTemplateChangedAgreement template -> "The upgraded template " <> pPrint template <> " has changed the definition of agreement."
+    WChoiceChangedControllers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of controllers."
+    WChoiceChangedObservers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of observers."
+    WChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of authorizers."
+    WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
+    WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
+    WTemplateAddedKeyDefinition template _key -> "The upgraded template " <> pPrint template <> " has added a key where it didn't have one previously."
+    WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
+
+instance ToDiagnostic Warning where
+  toDiagnostic warning = Diagnostic
+      { _range = maybe noRange sourceLocToRange (warningLocation warning)
+      , _severity = Just DsWarning
+      , _code = Nothing
+      , _tags = Nothing
+      , _source = Just "Daml-LF typechecker"
+      , _message = renderPretty warning
+      , _relatedInformation = Nothing
+      }
