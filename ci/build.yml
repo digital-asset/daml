@@ -108,8 +108,7 @@ jobs:
   timeoutInMinutes: 240
   pool:
     name: 'windows-pool'
-    # TODO: reset to default
-    demands: assignment -equals grpc
+    demands: assignment -equals default
   steps:
     - template: report-start.yml
     - checkout: self
