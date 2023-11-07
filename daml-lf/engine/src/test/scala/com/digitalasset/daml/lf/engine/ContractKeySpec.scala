@@ -250,7 +250,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
 
       inside(result) { case Left(err) =>
         err.message should include(
-          "Update failed due to a contract key with an empty sey of maintainers"
+          "Update failed due to a contract key with an empty set of maintainers"
         )
       }
     }
