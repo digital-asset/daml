@@ -175,6 +175,8 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
           /usr/bin/install_name_tool -change "$lib" "/usr/lib/$libName" "$from_copied"
       elif [ -e "/usr/lib/system/$libName" ]; then
           /usr/bin/install_name_tool -change "$lib" "/usr/lib/system/$libName" "$from_copied"
+      elif [ -e "/System/Library/Frameworks/${libName}.framework" ]; then
+          continue
       elif [[ "$lib" == @rpath/* ]]; then
           libName="${lib#@rpath/}"
           /usr/bin/install_name_tool -change "$lib" "@rpath/$(basename $libName)" "$from_copied"

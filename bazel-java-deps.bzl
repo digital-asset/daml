@@ -45,10 +45,10 @@ version_specific = {
 # This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
 # need to be updated with careful consideration.
 
-netty_tcnative_version = "2.0.46.Final"
-netty_version = "4.1.72.Final"
-grpc_version = "1.44.0"
-protobuf_version = "3.19.6"
+netty_tcnative_version = "2.0.61.Final"
+netty_version = "4.1.97.Final"
+grpc_version = "1.59.0"
+protobuf_version = "3.24.0"
 akka_version = "2.6.21"
 akka_http_version = "10.2.10"
 gatling_version = "3.5.1"
@@ -152,11 +152,24 @@ def install_java_deps():
             "io.get-coursier:interface:0.0.21",
             "io.github.paoloboni:spray-json-derived-codecs_{}:2.3.10".format(scala_major_version),
             "io.grpc:grpc-api:{}".format(grpc_version),
-            "io.grpc:grpc-core:{}".format(grpc_version),
+            # grpc-core has a *runtime* dependency on grpc-util, and grpc-util has a dependency on
+            # grpc-core. Because maven_install doesn't differentiate between runtime and
+            # compile-time deps (https://github.com/bazelbuild/rules_jvm_external/issues/966), we
+            # need to manually exclude grpc-util from the dependencies of grpc-core.
+            maven.artifact(
+                artifact = "grpc-core",
+                exclusions = [
+                    "io.grpc:grpc-util",
+                ],
+                group = "io.grpc",
+                version = grpc_version,
+            ),
+            "io.grpc:grpc-inprocess:{}".format(grpc_version),
             "io.grpc:grpc-netty:{}".format(grpc_version),
             "io.grpc:grpc-protobuf:{}".format(grpc_version),
             "io.grpc:grpc-services:{}".format(grpc_version),
             "io.grpc:grpc-stub:{}".format(grpc_version),
+            "io.grpc:grpc-util:{}".format(grpc_version),
             "io.netty:netty-buffer:{}".format(netty_version),
             "io.netty:netty-codec-http2:{}".format(netty_version),
             "io.netty:netty-handler-proxy:{}".format(netty_version),

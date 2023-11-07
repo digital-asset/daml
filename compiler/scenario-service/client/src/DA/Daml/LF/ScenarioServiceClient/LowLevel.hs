@@ -63,6 +63,7 @@ import qualified Data.Vector as V
 import Network.GRPC.HighLevel.Client (ClientError(..), ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient, GRPCIOError)
 import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..), Arg(MaxReceiveMessageLength))
+import Network.GRPC.LowLevel.Call (endpoint)
 import qualified Proto3.Suite as Proto
 import System.Directory
 import System.Environment
@@ -271,8 +272,7 @@ withScenarioService opts@Options{..} f = do
             -- Using 127.0.0.1 instead of localhost helps when our packaging logic falls over
             -- and DNS lookups break, e.g., on Alpine linux.
             let grpcConfig = ClientConfig
-                  { clientServerHost = Host "127.0.0.1"
-                  , clientServerPort = Port port
+                  { clientServerEndpoint = endpoint (Host "127.0.0.1") (Port port)
                   , clientArgs = MaxReceiveMessageLength . fromIntegral <$> maybeToList optGrpcMaxMessageSize
                   , clientSSLConfig = Nothing
                   , clientAuthority = Nothing

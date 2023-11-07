@@ -21,10 +21,6 @@ switched_rules_by_language(
 
 rules_haskell_dependencies()
 
-load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
-
-protobuf_deps()
-
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 
 rules_pkg_dependencies()
@@ -409,6 +405,10 @@ haskell_register_ghc_nixpkgs(
         "-optc-mmacosx-version-min=10.14",
         "-opta-mmacosx-version-min=10.14",
         "-optl-mmacosx-version-min=10.14",
+        "-framework=CoreFoundation",
+        "-framework=CoreServices",
+        "-framework=Security",
+        "-framework=Foundation",
     ] if is_darwin else ["-optl-s"])),
     compiler_flags_select = {
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
@@ -771,9 +771,9 @@ load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 
 grpc_deps()
 
-load("@upb//bazel:workspace_deps.bzl", "upb_deps")
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
-upb_deps()
+protobuf_deps()
 
 load("@build_bazel_rules_apple//apple:repositories.bzl", "apple_rules_dependencies")
 

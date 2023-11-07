@@ -23,7 +23,7 @@ da_scala_library(
         "//libs-scala/resources-grpc",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_inprocess",
         "@maven//:io_grpc_grpc_services",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_scalatest_scalatest_compatible",

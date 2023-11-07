@@ -18,6 +18,7 @@ da_scala_library(
         "//libs-scala/ports:ports-testing",
         "//runtime-components/non-repudiation",
         "//runtime-components/non-repudiation-client",
+        "@maven//:io_grpc_grpc_inprocess",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_services",
     ],

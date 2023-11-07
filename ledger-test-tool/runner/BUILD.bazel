@@ -32,7 +32,6 @@ load("//ledger-test-tool:conformance.bzl", "testtool_lf_versions")
             "//libs-scala/resources-akka",
             "//libs-scala/resources-grpc",
             "@maven//:io_grpc_grpc_api",
-            "@maven//:io_grpc_grpc_core",
             "@maven//:io_grpc_grpc_netty",
             "@maven//:io_netty_netty_handler",
             "@maven//:org_slf4j_slf4j_api",

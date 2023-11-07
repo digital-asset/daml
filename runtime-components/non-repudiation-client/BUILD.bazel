@@ -19,6 +19,7 @@ da_java_library(
         "//runtime-components/non-repudiation-core",
         "@maven//:com_google_guava_guava",
         "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_inprocess",
         "@maven//:io_grpc_grpc_stub",
     ],
 )
@@ -43,7 +44,6 @@ da_scala_test(
         "//runtime-components/non-repudiation-client",
         "//runtime-components/non-repudiation-testing",
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_reactivex_rxjava2_rxjava",
     ],

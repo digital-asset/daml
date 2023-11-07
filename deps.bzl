@@ -241,35 +241,46 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
+    if "com_google_absl" not in native.existing_rules():
+        http_archive(
+            name = "com_google_absl",
+            sha256 = "59d2976af9d6ecf001a81a35749a6e551a335b949d34918cfade07737b9d93c5",
+            strip_prefix = "abseil-cpp-20230802.0",
+            urls = [
+                "https://storage.googleapis.com/grpc-bazel-mirror/github.com/abseil/abseil-cpp/archive/20230802.0.tar.gz",
+                "https://github.com/abseil/abseil-cpp/archive/20230802.0.tar.gz",
+            ],
+            patches = [
+                "@com_github_digital_asset_daml//bazel_tools:absl-mingw-win-version.patch",
+                "@com_github_digital_asset_daml//bazel_tools:absl-mingw-compiler-name.patch",
+            ],
+            patch_args = ["-p1"],
+        )
+
     if "com_github_grpc_grpc" not in native.existing_rules():
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.44.0",
-            urls = ["https://github.com/grpc/grpc/archive/v1.44.0.tar.gz"],
-            sha256 = "8c05641b9f91cbc92f51cc4a5b3a226788d7a63f20af4ca7aaca50d92cc94a0d",
-            patches = [
-                "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
-            ],
-            patch_args = ["-p1"],
+            strip_prefix = "grpc-1.59.2",
+            urls = ["https://github.com/grpc/grpc/archive/v1.59.2.tar.gz"],
+            sha256 = "a3a65f0129c4922c5d7f4c11dcd40083a12ca54076fd3a927bcd63c53b7e44a5",
         )
 
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "9a301cf94a8ddcb380b901e7aac852780b826595075577bb967004050c835056",
-            strip_prefix = "protobuf-3.19.6",
+            sha256 = "bd58f4cff519e8ea3a584d5cf5e37df923088eed5807d2e4f2928080feca4a60",
+            strip_prefix = "protobuf-3.24.0",
             urls = [
-                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.19.6.tar.gz",
+                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.24.0.tar.gz",
             ],
         )
 
     if "io_grpc_grpc_java" not in native.existing_rules():
         http_archive(
             name = "io_grpc_grpc_java",
-            strip_prefix = "grpc-java-1.44.0",
-            urls = ["https://github.com/grpc/grpc-java/archive/v1.44.0.tar.gz"],
-            sha256 = "e3781bcab2a410a7cd138f13b2e6a643e111575f6811b154c570f4d020e87507",
-            patch_args = ["-p1"],
+            strip_prefix = "grpc-java-1.59.0",
+            urls = ["https://github.com/grpc/grpc-java/archive/v1.59.0.tar.gz"],
+            sha256 = "3bcf6be49fc7ab8187577a5211421258cb8e6d179f46023cc82e42e3a6188e51",
         )
 
     if "com_github_johnynek_bazel_jar_jar" not in native.existing_rules():
@@ -317,15 +328,15 @@ def daml_deps():
             urls = ["https://github.com/google/bazel-common/archive/{}.tar.gz".format(rules_bazel_common_version)],
         )
 
-    maybe(
-        http_archive,
-        name = "rules_pkg",
-        urls = [
-            "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.6-1/rules_pkg-0.2.6.tar.gz",
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.6/rules_pkg-0.2.6.tar.gz",
-        ],
-        sha256 = "aeca78988341a2ee1ba097641056d168320ecc51372ef7ff8e64b139516a4937",
-    )
+    if not native.existing_rule("rules_pkg"):
+        http_archive(
+            name = "rules_pkg",
+            urls = [
+                "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.5.1/rules_pkg-0.5.1.tar.gz",
+                "https://github.com/bazelbuild/rules_pkg/releases/download/0.5.1/rules_pkg-0.5.1.tar.gz",
+            ],
+            sha256 = "a89e203d3cf264e564fcb96b6e06dd70bc0557356eb48400ce4b5d97c2c3720d",
+        )
 
     if "com_github_grpc_ecosystem_grpc_health_probe_binary" not in native.existing_rules():
         http_file(

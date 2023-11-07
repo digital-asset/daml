@@ -1,0 +1,144 @@
+diff --git a/src/Network/GRPC/LowLevel/Client.hs b/src/Network/GRPC/LowLevel/Client.hs
+index c78e425..d5dc755 100644
+--- a/src/Network/GRPC/LowLevel/Client.hs
++++ b/src/Network/GRPC/LowLevel/Client.hs
+@@ -84,19 +84,21 @@ addMetadataCreds c (Just create) = do
+ createChannel :: ClientConfig -> C.GrpcChannelArgs -> IO C.Channel
+ createChannel ClientConfig{..} chanargs =
+   case clientSSLConfig of
+-    Nothing -> C.grpcInsecureChannelCreate e chanargs C.reserved
++    Nothing ->
++      do C.withInsecureChannelCredentials $ \creds -> do
++           C.channelCreate e creds chanargs
+     Just (ClientSSLConfig rootCertPath Nothing plugin) ->
+       do rootCert <- mapM B.readFile rootCertPath
+          C.withChannelCredentials rootCert Nothing Nothing $ \creds -> do
+            creds' <- addMetadataCreds creds plugin
+-           C.secureChannelCreate creds' e chanargs C.reserved
++           C.channelCreate e creds' chanargs
+     Just (ClientSSLConfig x (Just (ClientSSLKeyCertPair y z)) plugin) ->
+       do rootCert <- mapM B.readFile x
+          privKey <- Just <$> B.readFile y
+          clientCert <- Just <$> B.readFile z
+          C.withChannelCredentials rootCert privKey clientCert $ \creds -> do
+            creds' <- addMetadataCreds creds plugin
+-           C.secureChannelCreate creds' e chanargs C.reserved
++           C.channelCreate e creds' chanargs
+   where (Endpoint e) = clientServerEndpoint
+ 
+ createClient :: GRPC -> ClientConfig -> IO Client
+diff --git a/src/Network/GRPC/LowLevel/Server.hs b/src/Network/GRPC/LowLevel/Server.hs
+index fc718a4..9106ce9 100644
+--- a/src/Network/GRPC/LowLevel/Server.hs
++++ b/src/Network/GRPC/LowLevel/Server.hs
+@@ -143,7 +143,9 @@ serverEndpoint ServerConfig{..} = endpoint host port
+ addPort :: C.Server -> ServerConfig -> IO Int
+ addPort server conf@ServerConfig{..} =
+   case sslConfig of
+-    Nothing -> C.grpcServerAddInsecureHttp2Port server e
++    Nothing ->
++      do C.withInsecureServerCredentials $ \creds -> do
++           C.serverAddHttp2Port server e creds
+     Just ServerSSLConfig{..} ->
+       do crc <- mapM B.readFile clientRootCert
+          spk <- B.readFile serverPrivateKey
+@@ -152,7 +154,7 @@ addPort server conf@ServerConfig{..} =
+            case customMetadataProcessor of
+              Just p -> C.setMetadataProcessor creds p
+              Nothing -> return ()
+-           C.serverAddSecureHttp2Port server e creds
++           C.serverAddHttp2Port server e creds
+   where e = unEndpoint $ serverEndpoint conf
+ 
+ startServer :: GRPC -> ServerConfig -> IO Server
+diff --git a/src/Network/GRPC/Unsafe.chs b/src/Network/GRPC/Unsafe.chs
+index 8967537..9823ece 100644
+--- a/src/Network/GRPC/Unsafe.chs
++++ b/src/Network/GRPC/Unsafe.chs
+@@ -189,14 +189,6 @@ castPeek p = do
+    useAsCString* `ByteString', useAsCString* `ByteString', `CTimeSpecPtr',unReserved `Reserved'}
+   -> `Call'#}
+ 
+--- | Create a channel (on the client) to the server. The first argument is
+--- host and port, e.g. @"localhost:50051"@. The gRPC docs say that most clients
+--- are expected to pass a 'nullPtr' for the 'ChannelArgsPtr'. We currently don't
+--- expose any functions for creating channel args, since they are entirely
+--- undocumented.
+-{#fun grpc_insecure_channel_create as ^
+-  {useAsCString* `ByteString', `GrpcChannelArgs', unReserved `Reserved'} -> `Channel'#}
+-
+ {#fun grpc_channel_register_call as ^
+   {`Channel', useAsCString* `ByteString',useAsCString* `ByteString',unReserved `Reserved'}
+   -> `CallHandle' CallHandle#}
+@@ -258,9 +250,6 @@ getPeerPeek cstr = do
+ {#fun grpc_server_register_completion_queue as ^
+   {`Server', `CompletionQueue', unReserved `Reserved'} -> `()'#}
+ 
+-{#fun grpc_server_add_insecure_http2_port as ^
+-  {`Server', useAsCString* `ByteString'} -> `Int'#}
+-
+ -- | Starts a server. To shut down the server, call these in order:
+ -- 'grpcServerShutdownAndNotify', 'grpcServerCancelAllCalls',
+ -- 'grpcServerDestroy'. After these are done, shut down and destroy the server's
+diff --git a/src/Network/GRPC/Unsafe/Security.chs b/src/Network/GRPC/Unsafe/Security.chs
+index 7de77f1..a158fc8 100644
+--- a/src/Network/GRPC/Unsafe/Security.chs
++++ b/src/Network/GRPC/Unsafe/Security.chs
+@@ -169,6 +169,9 @@ getAuthProperties ctx = withAuthPropertyIterator ctx $ \i -> do
+ {#fun unsafe ssl_credentials_create_internal as ^
+   {`CString', `CString', `CString'} -> `ChannelCredentials'#}
+ 
++{#fun unsafe insecure_credentials_create as ^
++  {} -> `ChannelCredentials'#}
++
+ sslChannelCredentialsCreate :: Maybe ByteString
+                                -> Maybe ByteString
+                                -> Maybe ByteString
+@@ -195,6 +198,12 @@ withChannelCredentials :: Maybe ByteString
+ withChannelCredentials x y z = bracket (sslChannelCredentialsCreate x y z)
+                                        channelCredentialsRelease
+ 
++withInsecureChannelCredentials :: (ChannelCredentials -> IO a)
++                               -> IO a
++withInsecureChannelCredentials = bracket insecureCredentialsCreate
++                                         channelCredentialsRelease
++
++
+ -- * Call Credentials
+ 
+ {#fun call_set_credentials as ^
+@@ -219,6 +228,10 @@ withChannelCredentials x y z = bracket (sslChannelCredentialsCreate x y z)
+    `SslClientCertificateRequestType'}
+   -> `ServerCredentials'#}
+ 
++
++{#fun insecure_server_credentials_create as ^
++  {} -> `ServerCredentials'#}
++
+ sslServerCredentialsCreate :: Maybe ByteString
+                               -- ^ PEM encoding of the client root certificates.
+                               -- Can be 'Nothing' if SSL authentication of
+@@ -250,13 +263,20 @@ withServerCredentials :: Maybe ByteString
+ withServerCredentials a b c d = bracket (sslServerCredentialsCreate a b c d)
+                                         serverCredentialsRelease
+ 
++withInsecureServerCredentials :: (ServerCredentials -> IO a)
++                              -> IO a
++withInsecureServerCredentials = bracket insecureServerCredentialsCreate
++                                        serverCredentialsRelease
++
++
++
+ -- * Creating Secure Clients/Servers
+ 
+-{#fun server_add_secure_http2_port as ^
++{#fun server_add_http2_port as ^
+   {`Server',useAsCString*  `ByteString', `ServerCredentials'} -> `Int'#}
+ 
+-{#fun secure_channel_create as ^
+-  {`ChannelCredentials',useAsCString* `ByteString', `GrpcChannelArgs', unReserved `Reserved'}
++{#fun channel_create as ^
++  {useAsCString* `ByteString', `ChannelCredentials', `GrpcChannelArgs'}
+   -> `Channel'#}
+ 
+ -- * Custom metadata processing -- server side

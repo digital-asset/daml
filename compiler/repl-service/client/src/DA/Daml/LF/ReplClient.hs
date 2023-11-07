@@ -37,6 +37,7 @@ import qualified Data.Vector as V
 import Network.GRPC.HighLevel.Client (ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient)
 import Network.GRPC.LowLevel (ClientConfig(..), ClientSSLConfig(..), ClientSSLKeyCertPair(..), Host(..), Port(..), StatusCode(..))
+import Network.GRPC.LowLevel.Call (endpoint)
 import qualified Proto3.Suite as Proto
 import qualified ReplService as Grpc
 import System.Environment
@@ -132,7 +133,7 @@ withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
             }
           clientAct = do
             port <- readPortFile ph maxRetries portFile
-            let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing Nothing
+            let grpcConfig = ClientConfig (endpoint (Host "127.0.0.1") (Port port)) [] Nothing Nothing
             withGRPCClient grpcConfig $ \client -> do
                 replClient <- Grpc.replServiceClient client
                 signalBarrier clientBarrier replClient

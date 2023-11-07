@@ -26,11 +26,10 @@ JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
 SHAKE_VERSION = "0.19.6"
 ZIP_VERSION = "1.7.1"
-GRPC_HASKELL_REV = "641f0bab046f2f03e5350a7c5f2044af1e19a5b1"
-GRPC_HASKELL_SHA256 = "d850d804d7af779bb8717ebe4ea2ac74903a30adeb5262477a2e7a1536f4ca81"
+GRPC_HASKELL_REV = "9adf3b02b0164b64432f2868b6577b4f4c2c6980"
+GRPC_HASKELL_SHA256 = "8e75f41652d35f3162e1a892d89cc67c195b9c3a5477980a82115f5caff0a206"
 GRPC_HASKELL_PATCHES = [
-    "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-cpp-options.patch",
-    "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-upgrade.patch",
+    "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-ffi.patch",
 ]
 XML_CONDUIT_VERSION = "1.9.1.1"
 LSP_TYPES_VERSION = "1.4.0.0"
@@ -137,7 +136,7 @@ c2hs_suite(
         "src/Network/GRPC/Unsafe/Constants.hsc",
     ] + glob(["src/**/*.hs"]),
     c2hs_src_strip_prefix = "src",
-    hackage_deps = ["clock", "managed", "base", "sorted-list", "bytestring", "containers", "stm", "transformers"],
+    hackage_deps = ["clock", "managed", "base", "sorted-list", "bytestring", "containers", "stm", "transformers", "template-haskell"],
     c2hs_srcs = [
         "src/Network/GRPC/Unsafe/Time.chs",
         "src/Network/GRPC/Unsafe/ChannelArgs.chs",
@@ -240,9 +239,11 @@ haskell_binary(
     visibility = ["//visibility:public"],
 )
 """,
-        sha256 = "1649ebbe49ee34901ea920c860ad6f21188340a981c4c8d7521df101e75aa8ab",
-        strip_prefix = "proto3-suite-d4a288068587f8738c84465a9ca113a3fe845ffc",
-        urls = ["https://github.com/cocreature/proto3-suite/archive/d4a288068587f8738c84465a9ca113a3fe845ffc.tar.gz"],
+        sha256 = "0a46ab9f3e8ee4b729bc47b04039ea8f8be23167ac9b51d6b17fd77f7b380234",
+        strip_prefix = "proto3-suite-7af7d76dcf9cc71ddada3aa4a38abf46f65550ca",
+        # TODO: bump to a more recent version after we rename daml_lf_1.proto to
+        #    something that newer versions of proto3-suite support.
+        urls = ["https://github.com/awakesecurity/proto3-suite/archive/7af7d76dcf9cc71ddada3aa4a38abf46f65550ca.tar.gz"],
         patches = ["@com_github_digital_asset_daml//bazel_tools:haskell_proto3_suite_deriving_defaults.patch"],
         patch_args = ["-p1"],
     )
