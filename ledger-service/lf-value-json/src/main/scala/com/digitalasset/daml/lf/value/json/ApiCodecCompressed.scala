@@ -393,6 +393,6 @@ object ApiCodecCompressed
     implicit object ApiRecordJsonFormat extends RootJsonWriter[Model.ApiRecord] {
       def write(v: Model.ApiRecord): JsValue = apiRecordToJsValue(v)
     }
-    implicit val ContractIdFormat = JsonContractIdFormat.ContractIdFormat
+    implicit val ContractIdFormat: JsonFormat[ContractId] = JsonContractIdFormat.ContractIdFormat
   }
 }

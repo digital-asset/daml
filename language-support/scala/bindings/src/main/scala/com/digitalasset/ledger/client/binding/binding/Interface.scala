@@ -29,7 +29,7 @@ object Interface {
       * contract ID is actually associated with `T` on the ledger, hence the
       * `unsafe` in the name.
       */
-    @nowarn("cat=unused&msg=parameter value ev in method")
+    @nowarn("cat=unused&msg=parameter ev in method")
     def unsafeToTemplate[T](implicit ev: Template.Implements[T, I]): ContractId[T] = {
       type K[C] = C => ApiTypes.ContractId
       type K2[C] = ContractId[I] => C

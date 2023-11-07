@@ -13,6 +13,7 @@ import org.scalatest.{AppendedClues, OptionValues}
 import org.scalatest.matchers.should.Matchers
 import org.slf4j.Marker
 
+import scala.annotation.nowarn
 import scala.beans.BeanProperty
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
@@ -81,6 +82,7 @@ final class LogCollector extends AppenderBase[ILoggingEvent] {
   @BeanProperty
   var test: String = _
 
+  @nowarn("cat=deprecation")
   override def append(e: ILoggingEvent): Unit = {
     if (test == null) {
       addError("Test identifier undefined, skipping logging")

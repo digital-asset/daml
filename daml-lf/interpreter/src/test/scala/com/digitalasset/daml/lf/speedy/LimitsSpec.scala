@@ -28,7 +28,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
 
   import SpeedyTestLib.loggingContext
 
-  implicit val defaultParserParameters =
+  implicit val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   for (evaluationOrder <- EvaluationOrder.valuesFor(majorLanguageVersion)) {

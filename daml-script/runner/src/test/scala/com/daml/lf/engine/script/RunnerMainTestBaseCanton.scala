@@ -12,7 +12,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Path, Files}
 import org.scalatest.{Suite, Succeeded}
 import org.scalatest.compatible.Assertion
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 trait RunnerMainTestBaseCanton extends CantonFixtureWithResource[Port] with RunnerMainTestBase {
   self: Suite =>
@@ -57,14 +57,17 @@ trait RunnerMainTestBaseCanton extends CantonFixtureWithResource[Port] with Runn
       }
     }
 
-  private def didUpload(dar: Path): Future[Boolean] =
+  private def didUpload(dar: Path): Future[Boolean] = {
+    implicit val ec: ExecutionContext = ExecutionContext.global
     for {
       client <- defaultLedgerClient()
       res <- client.packageClient.listPackages()
       lf = DarParser.assertReadArchiveFromFile(dar.toFile)
     } yield res.packageIds.exists(_ == lf.main.getHash)
+  }
 
-  private def assertUpload(dar: Path, shouldHaveUploaded: Boolean): Future[Assertion] =
+  private def assertUpload(dar: Path, shouldHaveUploaded: Boolean): Future[Assertion] = {
+    implicit val ec: ExecutionContext = ExecutionContext.global
     didUpload(dar).map { result =>
       (result, shouldHaveUploaded) match {
         case (true, false) => fail("DAR was uploaded when it should not have been.")
@@ -72,17 +75,20 @@ trait RunnerMainTestBaseCanton extends CantonFixtureWithResource[Port] with Runn
         case _ => succeed
       }
     }
+  }
 
   def testDamlScriptCanton(
       dar: Path,
       args: Seq[String],
       expectedResult: Either[Seq[String], Seq[String]] = Right(Seq()),
       shouldHaveUploaded: Option[Boolean] = None,
-  ): Future[Assertion] =
+  ): Future[Assertion] = {
+    implicit val ec: ExecutionContext = ExecutionContext.global
     testDamlScript(dar, args, expectedResult).flatMap {
       case Succeeded => shouldHaveUploaded.fold(Future.successful(succeed))(assertUpload(dar, _))
       case res => Future.successful(res)
     }
+  }
 
   def withGrpcParticipantConfig[A](f: Path => Future[A]): Future[A] =
     withParticipantConfig(ports.head, f)
@@ -91,6 +97,7 @@ trait RunnerMainTestBaseCanton extends CantonFixtureWithResource[Port] with Runn
     withParticipantConfig(jsonApiPort, f)
 
   def withParticipantConfig[A](port: Port, f: Path => Future[A]): Future[A] = {
+    implicit val ec: ExecutionContext = ExecutionContext.global
     val path = Files.createTempFile("participantConfig", ".json")
     val content =
       s"""{

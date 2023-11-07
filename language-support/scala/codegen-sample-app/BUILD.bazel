@@ -57,7 +57,7 @@ da_scala_library(
     ],
     scalacopts = [
         "-Wconf:cat=unused-imports&site=com\\.daml\\.sample\\..*:s",
-        "-Wconf:msg=parameter value ev.. in method ContractIdNT (Value)|(LfEncodable) is never used:s",
+        "-Wconf:msg=parameter ev.. in method ContractIdNT (Value)|(LfEncodable) is never used:s",
         "-Wconf:msg=Wrap `enum` in backticks to use it as an identifier:s",
     ],
     visibility = [

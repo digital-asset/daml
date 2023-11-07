@@ -35,4 +35,4 @@ optsParser = Options
 
 -- Keep in sync with /bazel_tools/scala_version.bzl and /nix/nixpkgs.nix
 defaultScalaVersions :: [T.Text]
-defaultScalaVersions = ["2.13.10"]
+defaultScalaVersions = ["2.13.11"]

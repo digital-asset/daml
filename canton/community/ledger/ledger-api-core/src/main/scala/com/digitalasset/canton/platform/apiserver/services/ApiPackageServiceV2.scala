@@ -20,6 +20,7 @@ import com.daml.ledger.api.v2.package_service.{
   PackageServiceGrpc,
 }
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
@@ -51,7 +52,7 @@ private[apiserver] final class ApiPackageServiceV2(
     extends PackageService
     with GrpcApiService
     with NamedLogging {
-  private implicit val loggingContext = createLoggingContext(loggerFactory)(identity)
+  private implicit val loggingContext: LoggingContext = createLoggingContext(loggerFactory)(identity)
 
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, executionContext)

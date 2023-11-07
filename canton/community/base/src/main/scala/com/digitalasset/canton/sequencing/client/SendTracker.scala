@@ -54,7 +54,7 @@ class SendTracker(
     with FlagCloseableAsync
     with AutoCloseable {
 
-  private implicit val directExecutionContext = DirectExecutionContext(noTracingLogger)
+  private implicit val directExecutionContext: DirectExecutionContext = DirectExecutionContext(noTracingLogger)
 
   /** Details of sends in flight
     * @param startedAt The time the request was made for calculating the elapsed duration for metrics.
