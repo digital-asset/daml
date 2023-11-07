@@ -7,9 +7,10 @@ import cats.implicits.toFoldableOps
 import cats.syntax.parallel.*
 import com.daml.ledger.api.refinements.ApiTypes.WorkflowId
 import com.daml.ledger.api.v1.commands.Command as ScalaCommand
-import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.event.CreatedEvent as ScalaCreatedEvent
 import com.daml.ledger.api.v1.transaction.Transaction
-import com.daml.ledger.client.binding.{Contract, Primitive as P}
+import com.daml.ledger.javaapi
+import com.daml.ledger.javaapi.data.{Command, CreatedEvent}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -26,10 +27,10 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.participant.admin.workflows.{PingPong as M, PingPongVacuum as V}
+import com.digitalasset.canton.participant.admin.workflows.java.{pingpong as M, pingpongvacuum as V}
 import com.digitalasset.canton.participant.ledger.api.client.{
   CommandResult,
-  DecodeUtil,
+  JavaDecodeUtil,
   LedgerAcs,
   LedgerConnection,
 }
@@ -56,7 +57,6 @@ import com.digitalasset.canton.util.{
 import com.google.common.annotations.VisibleForTesting
 import com.google.rpc.code.Code.DEADLINE_EXCEEDED
 import org.slf4j.event.Level
-import scalaz.Tag
 
 import java.time.Duration
 import java.util.UUID
@@ -65,6 +65,7 @@ import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.*
 import scala.concurrent.duration.DurationLong
+import scala.jdk.CollectionConverters.*
 import scala.math.min
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
@@ -99,7 +100,7 @@ class PingService(
     with FlagCloseable
     with HasCloseContext
     with NamedLogging {
-  private val adminParty = adminPartyId.toPrim
+  private val adminParty = adminPartyId.toProtoPrimitive
 
   // Used to synchronize the ping requests and responses.
   // Once the promise is fulfilled, the ping for the given id is complete.
@@ -113,7 +114,7 @@ class PingService(
   private val duplicate = TrieMap.empty[DuplicateIdx, Unit => String]
 
   private case class MergeIdx(pingId: String, path: String)
-  private case class MergeItem(merge: Contract[M.Merge], first: Option[Contract[M.Collapse]])
+  private case class MergeItem(merge: M.Merge.Contract, first: Option[M.Collapse.Contract])
   private val merges: TrieMap[MergeIdx, MergeItem] = new TrieMap()
 
   private val DefaultCommandTimeoutMillis: Long = 5 * 60 * 1000
@@ -143,7 +144,7 @@ class PingService(
       .unlessShutdown(
         performUnlessClosingF("wait-for-admin-workflows-to-appear-on-ledger-api")(
           connection
-            .getPackageStatus(Tag.unwrap(M.Ping.id).packageId)
+            .getPackageStatus(M.Ping.TEMPLATE_ID.getPackageId)
             .map(_.packageStatus.isRegistered)
         ),
         AllExnRetryable,
@@ -169,18 +170,18 @@ class PingService(
   // TransactionFilter to ensure the vacuuming does not operate on unwanted contracts
   private val vacuumFilter = {
     val templateIds = Seq(
-      M.PingProposal.id,
-      M.Ping.id,
-      M.Pong.id,
-      M.Explode.id,
-      M.Merge.id,
-      M.Collapse.id,
-    ).map(LedgerConnection.mapTemplateIds(_))
+      M.PingProposal.TEMPLATE_ID,
+      M.Ping.TEMPLATE_ID,
+      M.Pong.TEMPLATE_ID,
+      M.Explode.TEMPLATE_ID,
+      M.Merge.TEMPLATE_ID,
+      M.Collapse.TEMPLATE_ID,
+    ).map(LedgerConnection.mapTemplateIds)
 
     LedgerConnection.transactionFilterByParty(Map(adminPartyId -> templateIds))
   }
 
-  case class VacuumCommand(id: String, action: String, command: ScalaCommand)
+  case class VacuumCommand(id: String, action: String, command: Option[Command])
       extends PrettyPrinting {
     override def pretty: Pretty[VacuumCommand] =
       prettyOfClass(
@@ -210,7 +211,7 @@ class PingService(
             submitIgnoringErrors(
               item.value.id,
               item.value.action,
-              item.value.command,
+              item.value.command.toList,
               Some(vacuumWorkflowId),
               NoCommandDeduplicationNeeded,
               unknownInformeesLogLevel = Level.INFO,
@@ -240,7 +241,10 @@ class PingService(
       .flatMap { _ =>
         // TODO(i10722): To be improved when a better multi-domain API is available
         performUnlessClosingF("Ping vacuuming")(for {
-          (activeContracts, offset) <- connection.activeContracts(vacuumFilter)
+          (scalaActiveContracts, offset) <- connection.activeContracts(vacuumFilter)
+          activeContracts = scalaActiveContracts.map(e =>
+            CreatedEvent.fromProto(ScalaCreatedEvent.toJavaProto(e))
+          )
           _ = logger.debug(
             s"Attempting to vacuum ${activeContracts.size} active PingService contract(s) ; offset = $offset"
           )
@@ -251,7 +255,7 @@ class PingService(
 
             // Process the Pong contracts normally
             processPongsF(
-              activeContracts.flatMap(DecodeUtil.decodeCreated(M.Pong)(_)),
+              activeContracts.flatMap(JavaDecodeUtil.decodeCreated(M.Pong.COMPANION)(_)),
               vacuumWorkflowId,
               unknownInformeesLogLevel = Level.INFO,
             ),
@@ -266,10 +270,12 @@ class PingService(
   private def vacuumPingProposals(
       activeContracts: Seq[CreatedEvent]
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    val pingProposals = activeContracts.flatMap(DecodeUtil.decodeCreated(M.PingProposal)(_))
+    val pingProposals =
+      activeContracts.flatMap(JavaDecodeUtil.decodeCreated(M.PingProposal.COMPANION)(_))
 
     val (toArchive, toProcess) = pingProposals.partition(contract =>
-      (contract.value.initiator == adminParty) && contract.value.validators.forall(_ == adminParty)
+      (contract.data.initiator == adminParty) && contract.data.validators.asScala
+        .forall(_ == adminParty)
     )
 
     // Archive the ones we can
@@ -278,9 +284,13 @@ class PingService(
 
       vacuumBatchAggregator.run(
         VacuumCommand(
-          contract.value.id,
+          contract.data.id,
           s"$adminParty archiving PingProposal",
-          contract.contractId.exerciseArchive().command,
+          contract.id
+            .exerciseArchive()
+            .commands
+            .asScala
+            .headOption,
         )
       )
     }
@@ -295,12 +305,12 @@ class PingService(
   private def vacuumPings(
       activeContracts: Seq[CreatedEvent]
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    val pings = activeContracts.flatMap(DecodeUtil.decodeCreated(M.Ping)(_))
+    val pings = activeContracts.flatMap(JavaDecodeUtil.decodeCreated(M.Ping.COMPANION)(_))
 
     val (toArchive, toCleanup) =
       pings
-        .filter(_.value.initiator == adminParty)
-        .partition(_.value.validators.forall(_ == adminParty))
+        .filter(_.data.initiator == adminParty)
+        .partition(_.data.validators.asScala.forall(_ == adminParty))
 
     // Archive the ones we can
     val futArchive = toArchive.parTraverse_ { contract =>
@@ -308,9 +318,13 @@ class PingService(
 
       vacuumBatchAggregator.run(
         VacuumCommand(
-          contract.value.id,
+          contract.data.id,
           s"$adminParty archiving Ping",
-          contract.contractId.exerciseArchive().command,
+          contract.id
+            .exerciseArchive()
+            .commands
+            .asScala
+            .headOption,
         )
       )
     }
@@ -323,7 +337,11 @@ class PingService(
         VacuumCommand(
           "ping-cleanup",
           s"$adminParty cleaning Ping",
-          V.PingCleanup(adminParty, contract.contractId).createAnd.exerciseProcess().command,
+          new V.PingCleanup(adminParty, contract.id).createAnd
+            .exerciseProcess()
+            .commands
+            .asScala
+            .headOption,
         )
       )
     }
@@ -334,9 +352,9 @@ class PingService(
   private def vacuumExplodes(
       activeContracts: Seq[CreatedEvent]
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    val explodes = activeContracts.flatMap(DecodeUtil.decodeCreated(M.Explode)(_))
+    val explodes = activeContracts.flatMap(JavaDecodeUtil.decodeCreated(M.Explode.COMPANION)(_))
 
-    val toExpire = explodes.filter(_.value.initiator == adminParty)
+    val toExpire = explodes.filter(_.data.initiator == adminParty)
 
     // Archive the ones we can
     toExpire.parTraverse_ { contract =>
@@ -344,9 +362,9 @@ class PingService(
 
       vacuumBatchAggregator.run(
         VacuumCommand(
-          contract.value.id,
+          contract.data.id,
           s"$adminParty expiring Explode",
-          contract.contractId.exerciseExpireExplode().command,
+          contract.id.exerciseExpireExplode().commands.asScala.headOption,
         )
       )
     }
@@ -355,9 +373,9 @@ class PingService(
   private def vacuumMerges(
       activeContracts: Seq[CreatedEvent]
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    val merges = activeContracts.flatMap(DecodeUtil.decodeCreated(M.Merge)(_))
+    val merges = activeContracts.flatMap(JavaDecodeUtil.decodeCreated(M.Merge.COMPANION)(_))
 
-    val toExpire = merges.filter(_.value.initiator == adminParty)
+    val toExpire = merges.filter(_.data.initiator == adminParty)
 
     // Expire the ones we can
     toExpire.parTraverse_ { contract =>
@@ -365,9 +383,9 @@ class PingService(
 
       vacuumBatchAggregator.run(
         VacuumCommand(
-          contract.value.id,
+          contract.data.id,
           s"$adminParty expiring Merge",
-          contract.contractId.exerciseExpireMerge().command,
+          contract.id.exerciseExpireMerge().commands.asScala.headOption,
         )
       )
     }
@@ -376,9 +394,9 @@ class PingService(
   private def vacuumCollapses(
       activeContracts: Seq[CreatedEvent]
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    val collapses = activeContracts.flatMap(DecodeUtil.decodeCreated(M.Collapse)(_))
+    val collapses = activeContracts.flatMap(JavaDecodeUtil.decodeCreated(M.Collapse.COMPANION)(_))
 
-    val toExpire = collapses.filter(_.value.initiator == adminParty)
+    val toExpire = collapses.filter(_.data.initiator == adminParty)
 
     // Expire the ones we can
     toExpire.parTraverse_ { contract =>
@@ -386,9 +404,9 @@ class PingService(
 
       vacuumBatchAggregator.run(
         VacuumCommand(
-          contract.value.id,
+          contract.data.id,
           s"$adminParty expiring Collapse",
-          contract.contractId.exerciseExpireCollapse().command,
+          contract.id.exerciseExpireCollapse().commands.asScala.headOption,
         )
       )
     }
@@ -491,11 +509,12 @@ class PingService(
   )(implicit traceContext: TraceContext): Future[Unit] = {
     if (validators.isEmpty) {
       logger.debug(s"Starting ping $id with responders $responders and level $maxLevel")
-      val ping = M.Ping(id, adminParty, List.empty, responders.map(P.Party(_)).toList, maxLevel)
+      val ping =
+        new M.Ping(id, adminParty, List.empty.asJava, responders.toSeq.asJava, maxLevel)
       submitIgnoringErrors(
         id,
         "ping",
-        ping.create.command,
+        ping.create.commands.asScala.toSeq,
         workflowId,
         pingDeduplicationTime,
         timeoutMillis,
@@ -504,18 +523,18 @@ class PingService(
       logger.debug(
         s"Proposing ping $id with responders $responders, validators $validators and level $maxLevel"
       )
-      val ping = M.PingProposal(
-        id = id,
-        initiator = adminParty,
-        candidates = validators.map(P.Party(_)).toList,
-        validators = List.empty,
-        responders = responders.map(P.Party(_)).toList,
-        maxLevel = maxLevel,
+      val ping = new M.PingProposal(
+        id,
+        adminParty,
+        validators.toSeq.asJava,
+        List.empty.asJava,
+        responders.toSeq.asJava,
+        maxLevel,
       )
       submitIgnoringErrors(
         id,
         "ping-proposal",
-        ping.create.command,
+        ping.create.commands.asScala.toSeq,
         workflowId,
         pingDeduplicationTime,
         timeoutMillis,
@@ -527,7 +546,7 @@ class PingService(
   private def submitIgnoringErrors(
       id: String,
       action: String,
-      cmd: ScalaCommand,
+      cmds: Seq[Command],
       workflowId: Option[WorkflowId],
       deduplicationDuration: NonNegativeFiniteDuration,
       timeoutMillis: Long = DefaultCommandTimeoutMillis,
@@ -542,7 +561,7 @@ class PingService(
 
     timeout(
       connection.submitCommand(
-        Seq(cmd),
+        cmds.map(c => ScalaCommand.fromJavaProto(c.toProtoCommand)),
         Some(commandId),
         workflowId,
         deduplicationTime = Some(deduplicationDuration),
@@ -585,28 +604,29 @@ class PingService(
   private def submitAsync(
       id: String,
       action: String,
-      cmd: ScalaCommand,
+      cmds: Seq[Command],
       workflowId: Option[WorkflowId],
       deduplicationDuration: NonNegativeFiniteDuration,
       timeoutMillis: Long = DefaultCommandTimeoutMillis,
   )(implicit traceContext: TraceContext): Unit =
     FutureUtil.doNotAwait(
-      submitIgnoringErrors(id, action, cmd, workflowId, deduplicationDuration, timeoutMillis),
+      submitIgnoringErrors(id, action, cmds, workflowId, deduplicationDuration, timeoutMillis),
       s"failed to react to $id with $action",
     )
 
   override private[admin] def processTransaction(
-      tx: Transaction
+      scalaTx: Transaction
   )(implicit traceContext: TraceContext): Unit = {
     // Process ping transactions only on the active replica
     if (isActive) {
-      val workflowId = WorkflowId(tx.workflowId)
-      processPings(DecodeUtil.decodeAllCreated(M.Ping)(tx), workflowId)
-      processPongs(DecodeUtil.decodeAllCreated(M.Pong)(tx), workflowId)
-      processExplodes(DecodeUtil.decodeAllCreated(M.Explode)(tx), workflowId)
-      processMerges(DecodeUtil.decodeAllCreated(M.Merge)(tx))
-      processCollapses(DecodeUtil.decodeAllCreated(M.Collapse)(tx), workflowId)
-      processProposals(DecodeUtil.decodeAllCreated(M.PingProposal)(tx), workflowId)
+      val workflowId = WorkflowId(scalaTx.workflowId)
+      val tx = javaapi.data.Transaction.fromProto(Transaction.toJavaProto(scalaTx))
+      processPings(JavaDecodeUtil.decodeAllCreated(M.Ping.COMPANION)(tx), workflowId)
+      processPongs(JavaDecodeUtil.decodeAllCreated(M.Pong.COMPANION)(tx), workflowId)
+      processExplodes(JavaDecodeUtil.decodeAllCreated(M.Explode.COMPANION)(tx), workflowId)
+      processMerges(JavaDecodeUtil.decodeAllCreated(M.Merge.COMPANION)(tx))
+      processCollapses(JavaDecodeUtil.decodeAllCreated(M.Collapse.COMPANION)(tx), workflowId)
+      processProposals(JavaDecodeUtil.decodeAllCreated(M.PingProposal.COMPANION)(tx), workflowId)
     }
   }
 
@@ -623,78 +643,80 @@ class PingService(
   }
 
   protected def processProposalsF(
-      proposals: Seq[Contract[M.PingProposal]],
+      proposals: Seq[M.PingProposal.Contract],
       workflowId: WorkflowId,
       unknownInformeesLogLevel: Level = Level.WARN,
   )(implicit
       traceContext: TraceContext
   ): Future[Unit] = {
     // accept proposals where i'm the next candidate
-    proposals.filter(_.value.candidates.headOption.contains(adminParty)).parTraverse_ { proposal =>
-      logger.debug(s"Accepting ping proposal ${proposal.value.id} from ${proposal.value.initiator}")
-      val command = proposal.contractId.exerciseAccept(adminParty).command
-      val id = proposal.value.id
-      val action = "ping-proposal-accept"
-      submitIgnoringErrors(
-        id,
-        action,
-        command,
-        Some(workflowId),
-        NoCommandDeduplicationNeeded,
-        unknownInformeesLogLevel = unknownInformeesLogLevel,
-      ).thereafter {
-        case Failure(exc) =>
-          logger.error(s"failed to react to $id with $action in $workflowId: $exc")
-        case _ =>
-      }
+    proposals.filter(_.data.candidates.asScala.headOption.contains(adminParty)).parTraverse_ {
+      proposal =>
+        logger
+          .debug(s"Accepting ping proposal ${proposal.data.id} from ${proposal.data.initiator}")
+        val command = proposal.id.exerciseAccept(adminParty).commands.asScala.toSeq
+        val id = proposal.data.id
+        val action = "ping-proposal-accept"
+        submitIgnoringErrors(
+          id,
+          action,
+          command,
+          Some(workflowId),
+          NoCommandDeduplicationNeeded,
+          unknownInformeesLogLevel = unknownInformeesLogLevel,
+        ).thereafter {
+          case Failure(exc) =>
+            logger.error(s"failed to react to $id with $action in $workflowId: $exc")
+          case _ =>
+        }
     }
   }
 
-  protected def processProposals(proposals: Seq[Contract[M.PingProposal]], workflowId: WorkflowId)(
+  protected def processProposals(proposals: Seq[M.PingProposal.Contract], workflowId: WorkflowId)(
       implicit traceContext: TraceContext
   ): Unit =
     // We discard the Future without logging, because the exceptions are already logged within `processProposalsF()`
     processProposalsF(proposals, workflowId).discard
 
-  protected def processExplodes(explodes: Seq[Contract[M.Explode]], workflowId: WorkflowId)(implicit
+  protected def processExplodes(explodes: Seq[M.Explode.Contract], workflowId: WorkflowId)(implicit
       traceContext: TraceContext
   ): Unit =
-    explodes.filter(_.value.responders.contains(adminParty)).foreach { p =>
-      duplicateCheck(p.value.id, "explode" + p.value.path, p)
+    explodes.filter(_.data.responders.contains(adminParty)).foreach { p =>
+      duplicateCheck(p.data.id, "explode" + p.data.path, p)
       logger
-        .debug(s"$adminParty processing explode of id ${p.value.id} with path ${p.value.path}")
+        .debug(s"$adminParty processing explode of id ${p.data.id} with path ${p.data.path}")
       submitAsync(
-        p.value.id,
-        "explode" + p.value.path,
-        p.contractId.exerciseProcessExplode(adminParty).command,
+        p.data.id,
+        "explode" + p.data.path,
+        p.id.exerciseProcessExplode(adminParty).commands.asScala.toSeq,
         Some(workflowId),
         NoCommandDeduplicationNeeded,
       )
     }
 
   protected def processMerges(
-      contracts: Seq[Contract[M.Merge]]
+      contracts: Seq[M.Merge.Contract]
   )(implicit traceContext: TraceContext): Unit = {
     contracts
-      .filter(_.value.responders.contains(adminParty))
+      .filter(_.data.responders.contains(adminParty))
       .foreach { p =>
-        duplicateCheck(p.value.id, "merge" + p.value.path, p)
-        logger.debug(s"$adminParty storing merge of ${p.value.id} with path ${p.value.path}")
-        merges += MergeIdx(p.value.id, p.value.path) -> MergeItem(p, None)
+        duplicateCheck(p.data.id, "merge" + p.data.path, p)
+        logger.debug(s"$adminParty storing merge of ${p.data.id} with path ${p.data.path}")
+        merges += MergeIdx(p.data.id, p.data.path) -> MergeItem(p, None)
       }
   }
 
-  protected def processCollapses(contracts: Seq[Contract[M.Collapse]], workflowId: WorkflowId)(
+  protected def processCollapses(contracts: Seq[M.Collapse.Contract], workflowId: WorkflowId)(
       implicit traceContext: TraceContext
   ): Unit = {
 
     def addOrCompleteCollapse(
         index: MergeIdx,
         item: PingService.this.MergeItem,
-        contract: Contract[M.Collapse],
+        contract: M.Collapse.Contract,
     ): Unit = {
-      val id = contract.value.id
-      val path = contract.value.path
+      val id = contract.data.id
+      val path = contract.data.path
       item.first match {
         case None =>
           logger.debug(s"$adminParty observed first collapsed for id $id and path $path")
@@ -707,11 +729,13 @@ class PingService(
           // We intentionally don't return the future here, as we just submit the command here and do timeout tracking
           // explicitly with the timeout scheduler.
           submitAsync(
-            item.merge.value.id,
-            s"collapse-${item.merge.value.path}",
-            item.merge.contractId
-              .exerciseProcessMerge(adminParty, other.contractId, contract.contractId)
-              .command,
+            item.merge.data.id,
+            s"collapse-${item.merge.data.path}",
+            item.merge.id
+              .exerciseProcessMerge(adminParty, other.id, contract.id)
+              .commands
+              .asScala
+              .toSeq,
             Some(workflowId),
             NoCommandDeduplicationNeeded,
           )
@@ -719,9 +743,9 @@ class PingService(
     }
 
     contracts
-      .filter(_.value.responders.contains(adminParty))
+      .filter(_.data.responders.contains(adminParty))
       .foreach(p => {
-        val index = MergeIdx(p.value.id, p.value.path)
+        val index = MergeIdx(p.data.id, p.data.path)
         merges.get(index) match {
           case None => logger.error(s"Received collapse for processed merge: $p")
           case Some(item) => addOrCompleteCollapse(index, item, p)
@@ -729,21 +753,21 @@ class PingService(
       })
   }
 
-  private def processPings(pings: Seq[Contract[M.Ping]], workflowId: WorkflowId)(implicit
+  private def processPings(pings: Seq[M.Ping.Contract], workflowId: WorkflowId)(implicit
       traceContext: TraceContext
   ): Unit = {
-    def processPing(p: Contract[M.Ping]): Unit = {
-      logger.info(s"$adminParty responding to a ping from ${P.Party.unwrap(p.value.initiator)}")
+    def processPing(p: M.Ping.Contract): Unit = {
+      logger.info(s"$adminParty responding to a ping from ${p.data.initiator}")
       submitAsync(
-        p.value.id,
+        p.data.id,
         "respond",
-        p.contractId.exerciseRespond(adminParty).command,
+        p.id.exerciseRespond(adminParty).commands.asScala.toSeq,
         Some(workflowId),
         NoCommandDeduplicationNeeded,
       )
-      scheduleGarbageCollection(p.value.id)
+      scheduleGarbageCollection(p.data.id)
     }
-    pings.filter(_.value.responders.contains(adminParty)).foreach(processPing)
+    pings.filter(_.data.responders.contains(adminParty)).foreach(processPing)
   }
 
   private def scheduleGarbageCollection(id: String)(implicit traceContext: TraceContext): Unit = {
@@ -771,29 +795,29 @@ class PingService(
 
   @VisibleForTesting
   private[admin] def processPongsF(
-      pongs: Seq[Contract[M.Pong]],
+      pongs: Seq[M.Pong.Contract],
       workflowId: WorkflowId,
       unknownInformeesLogLevel: Level = Level.WARN,
   )(implicit
       traceContext: TraceContext
   ): Future[Unit] =
-    pongs.filter(_.value.initiator == adminParty).parTraverse_ { p =>
+    pongs.filter(_.data.initiator == adminParty).parTraverse_ { p =>
       // purge duplicate checker
       duplicate.clear()
       // first, ack the pong
-      val responder = P.Party.unwrap(p.value.responder)
+      val responder = p.data.responder
       logger.info(s"$adminParty received pong from $responder")
       (for {
         _ <- submitIgnoringErrors(
-          p.value.id,
+          p.data.id,
           "ack",
-          p.contractId.exerciseAck().command,
+          p.id.exerciseAck().commands.asScala.toSeq,
           Some(workflowId),
           NoCommandDeduplicationNeeded,
           unknownInformeesLogLevel = unknownInformeesLogLevel,
         )
       } yield {
-        val id = p.value.id
+        val id = p.data.id
         responses.get(id) match {
           case None =>
             logger.debug(s"Received response for un-expected ping $id from $responder")
@@ -823,12 +847,12 @@ class PingService(
         }
       }).thereafter {
         case Failure(exc) =>
-          logger.error(s"failed to process pong for ${p.value.id} in $workflowId: $exc")
+          logger.error(s"failed to process pong for ${p.data.id} in $workflowId: $exc")
         case _ =>
       }
     }
 
-  private[admin] def processPongs(pongs: Seq[Contract[M.Pong]], workflowId: WorkflowId)(implicit
+  private[admin] def processPongs(pongs: Seq[M.Pong.Contract], workflowId: WorkflowId)(implicit
       traceContext: TraceContext
   ): Unit =
     // We discard the Future without logging, because the exceptions are already logged within `processPongsF()`
