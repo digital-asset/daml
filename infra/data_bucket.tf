@@ -47,18 +47,21 @@ resource "google_storage_bucket_iam_member" "data_read" {
 
 // allow read access for appr team, as requested by Moritz
 locals {
-  appr_team = [
-    "user:chunlok.ling@digitalasset.com",
+  language_team = [
+    "user:bas.vangijzel@digitalasset.com",
+    "user:carl.pulley@digitalasset.com",
+    "user:dylan.thinnes@digitalasset.com",
     "user:gary.verhaegen@digitalasset.com",
+    "user:moises.ackerman@digitalasset.com",
     "user:moritz.kiefer@digitalasset.com",
-    "user:raymond.roestenburg@digitalasset.com",
-    "user:stefano.baghino@digitalasset.com",
-    "user:stephen.compall@digitalasset.com",
+    "user:paul.brauner@digitalasset.com",
+    "user:remy.haemmerle@digitalasset.com",
+    "user:samuel.williams@digitalasset.com"
   ]
 }
 
 resource "google_storage_bucket_iam_member" "appr" {
-  for_each = toset(local.appr_team)
+  for_each = toset(local.language_team)
   bucket   = google_storage_bucket.data.name
   role     = "roles/storage.objectViewer"
   member   = each.key
