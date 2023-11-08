@@ -95,7 +95,7 @@ object OpenTelemetryOwner {
       // timing buckets for gRPC server latency measurements with more precise granularity on latencies up to 5s
       .registerView(
         histogramSelectorWithRegex(
-          s"${ExecutorServiceMetrics.GrpcServerMetricsPrefix}.*${OpenTelemetryTimer.TimerUnitAndSuffix}"
+          s"${DamlGrpcServerMetrics.GrpcServerMetricsPrefix}.*${OpenTelemetryTimer.TimerUnitAndSuffix}"
         ),
         explicitHistogramBucketsView(
           Seq(
