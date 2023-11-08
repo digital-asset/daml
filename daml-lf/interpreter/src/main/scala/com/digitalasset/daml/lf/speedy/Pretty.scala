@@ -142,6 +142,8 @@ private[lf] object Pretty {
           prettyContractId(key.cids.head)
       case ValueNesting(limit) =>
         text(s"Value exceeds maximum nesting value of $limit")
+      case InterpretationTimeExceeded(let, tolerance) =>
+        text(s"Interpretation time exceeds limit of LET ($let) + tolerance ($tolerance)")
       case Dev(_, error) =>
         error match {
           case Dev.Limit(error) =>

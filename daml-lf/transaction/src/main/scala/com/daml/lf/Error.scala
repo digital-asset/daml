@@ -5,11 +5,13 @@ package com.daml.lf
 package interpretation
 
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
-import com.daml.lf.transaction.{NodeId, GlobalKey}
+import com.daml.lf.transaction.{GlobalKey, NodeId}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
+
+import java.time.{Duration, Instant}
 
 /** Daml exceptions that should be reported to the user
   */
@@ -153,6 +155,13 @@ object Error {
     * @param limit nesting limit that was exceeded
     */
   final case class ValueNesting(limit: Int) extends Error
+
+  /** The interpretation time exceeded the limit, given by the Ledger Effective Time plus the tolerance
+    *
+    * @param let the Ledger Effective Time of the transaction
+    * @param tolerance the time tolerance after the LET
+    */
+  final case class InterpretationTimeExceeded(let: Instant, tolerance: Duration) extends Error
 
   // Error that can be thrown by dev or PoC feature only
   final case class Dev(location: String, error: Dev.Error) extends Error
