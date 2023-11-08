@@ -4841,8 +4841,8 @@ Program serialization
 Daml-LF programs are serialized using `Protocol Buffers
 <https://developers.google.com/protocol-buffers/>`_.  The
 machine-readable definition of the serialization for Daml-LF major
-version 1 can be found in the `daml_lf_1.proto
-<../archive/src/main/protobuf/com/daml/daml_lf_dev/daml_lf_1.proto>`_
+version 1 can be found in the `daml_lf1.proto
+<../archive/src/main/protobuf/com/daml/daml_lf_dev/daml_lf1.proto>`_
 file.
 
 For the sake of brevity, we do no exhaustively describe how Daml-LF
@@ -4861,8 +4861,8 @@ As a rule of the thumb, all non `oneof fields
 <https://developers.google.com/protocol-buffers/docs/proto3#oneof>`_
 are required in the serialization. Similarly among fields within the
 same oneof definition at least one must be defined.  Exceptions are
-exhaustively indicated in the `daml_lf_1.proto
-<../archive/src/main/protobuf/com/daml/daml_lf_dev/daml_lf_1.proto>`_
+exhaustively indicated in the `daml_lf1.proto
+<../archive/src/main/protobuf/com/daml/daml_lf_dev/daml_lf1.proto>`_
 file with comment::
 
   // *Optional*
@@ -4941,8 +4941,8 @@ application.
 
 Message fields of compressed structure that should not be empty - such
 as the ``args`` field of the ``App`` message - are annotated in the
-`daml_lf_1.proto
-<../archive/src/main/protobuf/com/daml/daml_lf_dev/daml_lf_1.proto>`_
+`daml_lf1.proto
+<../archive/src/main/protobuf/com/daml/daml_lf_dev/daml_lf1.proto>`_
 file with the comments::
 
   // * must be non empty *
@@ -4980,8 +4980,8 @@ validation phases can be distinguished.
     history_>`_. For example, optional values are only used in version
     1.1 or later.
 
-  The reader may refer to the `daml_lf_1.proto
-  <../archive/src/main/protobuf/com/daml/daml_lf_dev/daml_lf_1.proto>`_
+  The reader may refer to the `daml_lf1.proto
+  <../archive/src/main/protobuf/com/daml/daml_lf_dev/daml_lf1.proto>`_
   file where those requirements are exhaustively described as comments
   between asterisks (``*``).
 

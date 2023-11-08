@@ -79,7 +79,7 @@ genrule(
                      --proto com/daml/daml_lf_dev/daml_lf%s.proto   \
                      --out $(@D)
                  """ % vx
-                for vx in [""] + ["_%s" % v for v in LF_MAJOR_VERSIONS]
+                for vx in [""] + ["%s" % v for v in LF_MAJOR_VERSIONS]
             ],
         ),
     tools = [

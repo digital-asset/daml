@@ -241,7 +241,7 @@ haskell_binary(
 """,
         sha256 = "0a46ab9f3e8ee4b729bc47b04039ea8f8be23167ac9b51d6b17fd77f7b380234",
         strip_prefix = "proto3-suite-7af7d76dcf9cc71ddada3aa4a38abf46f65550ca",
-        # TODO: bump to a more recent version after we rename daml_lf_1.proto to
+        # TODO: bump to a more recent version after we rename daml_lf1.proto to
         #    something that newer versions of proto3-suite support.
         urls = ["https://github.com/awakesecurity/proto3-suite/archive/7af7d76dcf9cc71ddada3aa4a38abf46f65550ca.tar.gz"],
         patches = ["@com_github_digital_asset_daml//bazel_tools:haskell_proto3_suite_deriving_defaults.patch"],
