@@ -3,15 +3,12 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.daml.ledger.api.v1.contract_metadata.ContractMetadata
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{Bytes, Ref}
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.platform.store.backend.common.{
   EventPayloadSourceForFlatTx,
   EventPayloadSourceForTreeTx,
 }
 import com.digitalasset.canton.platform.store.dao.events.Raw.{FlatEvent, TreeEvent}
-import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -30,50 +27,6 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
 
   behavior of "StorageBackend events"
 
-  it should "return the correct create contract metadata" in {
-    val signatory = "party"
-    val driverMetadata = Bytes.assertFromString("00abcd")
-    val someHash = Hash.assertFromString("00" * 31 + "ff")
-
-    testCreateContractMetadata(
-      signatory,
-      dtoCreate(
-        offset = offset(1),
-        eventSequentialId = 1L,
-        contractId = hashCid("#1"),
-        driverMetadata = Some(driverMetadata.toByteArray),
-        signatory = signatory,
-        keyHash = Some(someHash.toHexString),
-      ),
-      ContractMetadata(
-        createdAt = Some(Timestamp(someTime.toInstant)),
-        contractKeyHash = someHash.bytes.toByteString,
-        driverMetadata = driverMetadata.toByteString,
-      ),
-    )
-  }
-
-  it should "allow missing contract key hash and driver metadata" in {
-    val signatory = "party"
-
-    testCreateContractMetadata(
-      signatory,
-      dtoCreate(
-        offset = offset(1),
-        eventSequentialId = 1L,
-        contractId = hashCid("#1"),
-        driverMetadata = None,
-        signatory = signatory,
-        keyHash = None,
-      ),
-      ContractMetadata(
-        createdAt = Some(Timestamp(someTime.toInstant)),
-        contractKeyHash = ByteString.EMPTY,
-        driverMetadata = ByteString.EMPTY,
-      ),
-    )
-  }
-
   it should "return the correct created_at" in {
     testCreatedAt(
       "party",
@@ -85,49 +38,6 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
       ),
       Timestamp(someTime.toInstant),
     )
-  }
-
-  // Allow using deprecated Protobuf fields for backwards compatibility
-  @annotation.nowarn(
-    "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.event\\.CreatedEvent.*"
-  )
-  private def testCreateContractMetadata(
-      signatory: String,
-      create: DbDto.EventCreate,
-      expectedCreateContractMetadata: ContractMetadata,
-  ): Assertion = {
-    val (
-      flatTransactionEvents,
-      transactionTreeEvents,
-      flatTransaction,
-      transactionTree,
-      acs,
-    ) = ingestAndFetch(signatory, create)
-
-    extractContractMetadataFrom[FlatEvent.Created, FlatEvent](
-      in = flatTransactionEvents,
-      contractMetadata = _.partial.metadata,
-    ) shouldBe expectedCreateContractMetadata
-
-    extractContractMetadataFrom[FlatEvent.Created, FlatEvent](
-      in = flatTransaction,
-      contractMetadata = _.partial.metadata,
-    ) shouldBe expectedCreateContractMetadata
-
-    extractContractMetadataFrom[TreeEvent.Created, TreeEvent](
-      in = transactionTreeEvents,
-      contractMetadata = _.partial.metadata,
-    ) shouldBe expectedCreateContractMetadata
-
-    extractContractMetadataFrom[TreeEvent.Created, TreeEvent](
-      in = transactionTree,
-      contractMetadata = _.partial.metadata,
-    ) shouldBe expectedCreateContractMetadata
-
-    extractContractMetadataFrom[FlatEvent.Created, FlatEvent](
-      in = acs,
-      contractMetadata = _.partial.metadata,
-    ) shouldBe expectedCreateContractMetadata
   }
 
   private def ingestAndFetch(signatory: String, create: DbDto.EventCreate) = {
@@ -194,20 +104,6 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
       in = acs,
       createdAt = _.partial.createdAt,
     ) shouldBe expectedCreatedAt
-  }
-
-  private def extractContractMetadataFrom[O: ClassTag, E >: O](
-      in: Seq[EventStorageBackend.Entry[E]],
-      contractMetadata: O => Option[ContractMetadata],
-  ): ContractMetadata = {
-    in.size shouldBe 1
-    in.head.event match {
-      case o: O => contractMetadata(o).value
-      case _ =>
-        fail(
-          s"Expected created event of type ${implicitly[reflect.ClassTag[O]].runtimeClass.getSimpleName}"
-        )
-    }
   }
 
   private def extractCreatedAtFrom[O: ClassTag, E >: O](

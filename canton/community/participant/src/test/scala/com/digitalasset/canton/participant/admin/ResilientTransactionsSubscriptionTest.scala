@@ -8,7 +8,7 @@ import com.daml.error.NoLogging
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
-import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.javaapi.data.Party
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.ParticipantPrunedDataAccessed
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.ledger.api.client.{LedgerConnection, LedgerSubscription}
@@ -124,7 +124,7 @@ class ResilientTransactionsSubscriptionTest
     val serviceName = "TestServiceForResilientTransactionSubscription"
     val subscriptionName = "SubscriptionForTestService"
     val connection = mock[LedgerConnection]
-    val sender = Primitive.Party("alice")
+    val sender = new Party("alice")
     val argCaptor = ArgCaptor[Transaction => Unit]
     val initialOffset: LedgerOffset = LedgerOffset(LedgerOffset.Value.Absolute("00"))
     val reSubscriptionOffset = LedgerOffset(LedgerOffset.Value.Absolute("07"))

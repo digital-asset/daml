@@ -8,7 +8,6 @@ package com.digitalasset.canton.protocol.v1;
 import "com/digitalasset/canton/crypto/v0/crypto.proto";
 import "com/digitalasset/canton/protocol/v0/causality.proto";
 import "com/digitalasset/canton/protocol/v0/participant_transaction.proto";
-import "com/digitalasset/canton/protocol/v0/sequencing.proto";
 import "com/digitalasset/canton/protocol/v0/synchronization.proto";
 import "com/digitalasset/canton/protocol/v0/topology.proto";
 import "com/digitalasset/canton/protocol/v1/participant_transaction.proto";

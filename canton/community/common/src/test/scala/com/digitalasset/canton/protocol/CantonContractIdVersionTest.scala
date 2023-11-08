@@ -54,7 +54,7 @@ class CantonContractIdVersionTest extends AnyWordSpec with BaseTest {
           val unicum = Unicum(hash)
           val lfCid = cantonContractIdVersion.fromDiscriminator(discriminator, unicum)
 
-          val apiCid = lfCid.toPrimUnchecked[Iou]
+          val apiCid = lfCid.toContractIdUnchecked[Iou]
           val lfCid2 = apiCid.toLf
 
           lfCid2 shouldBe lfCid

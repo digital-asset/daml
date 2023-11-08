@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology
 import cats.kernel.Order
 import cats.syntax.either.*
 import com.daml.ledger.client.binding.Primitive.Party as ClientParty
+import com.daml.ledger.javaapi.data.Party
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String3, String300}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -325,6 +326,8 @@ final case class PartyId(uid: UniqueIdentifier) extends Identity {
   def toLf: LfPartyId = LfPartyId.assertFromString(uid.toProtoPrimitive)
 
   def toPrim: ClientParty = ClientParty(toLf)
+
+  def toParty: Party = new Party(toLf)
 }
 
 object PartyId {

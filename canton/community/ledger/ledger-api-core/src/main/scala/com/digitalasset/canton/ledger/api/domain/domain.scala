@@ -40,7 +40,6 @@ object Filters {
 final case class InterfaceFilter(
     interfaceId: Ref.Identifier,
     includeView: Boolean,
-    includeCreateArgumentsBlob: Boolean,
     includeCreatedEventBlob: Boolean,
 )
 
