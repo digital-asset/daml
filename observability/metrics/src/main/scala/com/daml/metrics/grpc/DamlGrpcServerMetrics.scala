@@ -5,7 +5,7 @@ package com.daml.metrics.grpc
 
 import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory}
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
-import com.daml.metrics.grpc.DamlGrpcServerMetrics.grpcServerMetricsPrefix
+import com.daml.metrics.grpc.DamlGrpcServerMetrics.GrpcServerMetricsPrefix
 
 object DamlGrpcServerMetrics {
   val GrpcServerMetricsPrefix = MetricName.Daml :+ "grpc" :+ "server"
