@@ -694,23 +694,6 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
           }
         }
 
-        "causes an uncatchable exception to be thrown for a contract version PRE-dating exceptions" in {
-          // This test makes no sense for V2 as V2 supports exceptions
-          assume(majorLanguageVersion == LanguageMajorVersion.V1)
-
-          val id = "M:AnException"
-          val tyCon =
-            data.Ref.Identifier.assertFromString(s"$defaultPackageId:$id")
-          val anException =
-            IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
-
-          val pkgs = mkPackagesAtVersion(LanguageVersion.v1_11) // version pre-dating exceptions
-          val res = Speedy.Machine
-            .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
-            .run()
-          res shouldBe SResultError(SErrorDamlException(anException))
-        }
-
         def mkPackagesAtVersion(languageVersion: LanguageVersion): PureCompiledPackages = {
 
           val parserParameters: parser.ParserParameters[this.type] =
@@ -887,20 +870,10 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
             )
           }
 
-          val anException = {
-            val id = "NewM:AnException"
-            val tyCon = data.Ref.Identifier.assertFromString(s"$newPid:$id")
-            IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
-          }
-
           def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
           val causeRollback: SExpr =
             applyToParty(pkgs, e"NewM:causeRollback" (parserParameters), party)
-          val causeUncatchable: SExpr =
-            applyToParty(pkgs, e"NewM:causeUncatchable" (parserParameters), party)
-          val causeUncatchable2: SExpr =
-            applyToParty(pkgs, e"NewM:causeUncatchable2" (parserParameters), party)
 
           "create rollback when old contacts are not within try-catch context" in {
             val res =
@@ -909,22 +882,6 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                 .run()
             inside(res) { case SResultFinal(SUnit) =>
             }
-          }
-
-          "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {
-            val res =
-              Speedy.Machine
-                .fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable, Set(party))
-                .run()
-            res shouldBe SResultError(SErrorDamlException(anException))
-          }
-
-          "causes uncatchable exception when an old contract is within a new-exercise which aborts" in {
-            val res =
-              Speedy.Machine
-                .fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable2, Set(party))
-                .run()
-            res shouldBe SResultError(SErrorDamlException(anException))
           }
         }
       }

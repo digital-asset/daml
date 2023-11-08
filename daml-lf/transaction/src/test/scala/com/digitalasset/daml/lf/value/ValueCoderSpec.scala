@@ -125,7 +125,7 @@ class ValueCoderSpec
     }
 
     "do genMaps" in {
-      forAll(valueGenMapGen, transactionVersionGen(TransactionVersion.minGenMap))(
+      forAll(valueGenMapGen, transactionVersionGen())(
         testRoundTrip
       )
     }
@@ -175,18 +175,18 @@ class ValueCoderSpec
       ValueCoder
         .encodeValue(
           ValueCoder.CidEncoder,
-          TransactionVersion.minTypeErasure,
+          TransactionVersion.maxVersion,
           toNat(1, n), // 101
         ) shouldBe a[Left[_, _]]
 
       val encoded = assertRight(
         ValueCoder
-          .encodeValue(ValueCoder.CidEncoder, TransactionVersion.minTypeErasure, n)
+          .encodeValue(ValueCoder.CidEncoder, TransactionVersion.maxVersion, n)
       )
 
       ValueCoder.decodeValue(
         ValueCoder.CidDecoder,
-        TransactionVersion.minTypeErasure,
+        TransactionVersion.maxVersion,
         encoded,
       ) shouldBe Right(n)
     }

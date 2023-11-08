@@ -4,7 +4,7 @@
 Daml-LF Value Specification
 ===========================
 
-**version 14, 22 June 2021**
+**version 15, 22 June 2021**
 
 The Daml-LF language includes ways to define *data types*,
 specifications of structure, and includes rules by which a restricted
@@ -150,18 +150,13 @@ Support for value versions 1 to 5 was dropped on 2020-12-10.
 This breaking change does not impact ledgers created with SDK 1.0.0 or
 later.
 
+Support for transaction 13 or older was dropped on 2023-10-13
+This breaking change does not impact ledgers created with Canton 2.0.0 or
+later.
+
 +--------------------+-----------------+
 | Version identifier | Date introduced |
 +====================+=================+
-+--------------------+-----------------+
-|                 10 |      2019-11-07 |
-+--------------------+-----------------+
-|                 11 |      2021-01-19 |
-+--------------------+-----------------+
-|                 12 |      2021-01-27 |
-+--------------------+-----------------+
-|                 13 |      2021-04-06 |
-+--------------------+-----------------+
 |                 14 |      2021-22-06 |
 +--------------------+-----------------+
 |                 15 |      2022-07-29 |
@@ -173,8 +168,6 @@ message VersionedValue
 ^^^^^^^^^^^^^^^^^^^^^^
 
 The outermost entry point, a `message Value`_ with version annotation.
-
-(*since version 10*)
 
 In this version, these fields are included:
 
@@ -208,9 +201,9 @@ message Value
 
 An actual Daml-LF *serializable value*.
 
-(*since version 10*) 
+(*since version 14*)
 
-As of version 10, may be any one of these:
+As of version 14, may be any one of these:
 
 * `message Record`_ record
 * `message Variant`_ variant
@@ -228,30 +221,24 @@ As of version 10, may be any one of these:
 * `message Map`_ map
 * `message Enum`_ enum
 * `message Numeric`_ numeric
+* `message GenMap`_ gen_map
 
 ``Value`` is recursive by virtue of occurrences in some of the above
 cases, e.g. ``list`` contains any number of ``Value``. The maximum
 depth of a nested ``Value``, including the outermost, is 100; any more
 yields an invalid value.
 
-(*since version 11*)
-
-As of version 11, may be any one of the above, or this:
-
-* `message GenMap`_ gen_map
-
-
 field contract_id
 ~~~~~~~~~~~~~~~~~
 
-(*since version 10*)
+(*since version 14*)
 
 Its text must be a valid contract ID.
 
 field numeric
 ~~~~~~~~~~~~~
 
-(*since version 10*)
+(*since version 14*)
 
 Expresses a signed number that can be represented in base-10 without
 loss of precision with at most 38 digits and with a scale between 0
@@ -276,7 +263,7 @@ these decimals.
 field timestamp
 ~~~~~~~~~~~~~~~
 
-(*since version 10*)
+(*since version 14*)
 
 The number of microseconds since 1970-01-01T00:00:00Z, with that epoch
 being 0.  The allowed range is 0001-01-01T00:00:00Z to
@@ -287,7 +274,7 @@ rejected with error by conforming consumers.
 field party
 ~~~~~~~~~~~
 
-(*since version 10*)
+(*since version 14*)
 
 A party identifier; unlike arbitrary text, this will be interpreted
 with respect to the ledger under consideration by whatever command
@@ -298,7 +285,7 @@ from '\32' to '\127').
 field unit
 ~~~~~~~~~~
 
-(*since version 10*)
+(*since version 14*)
 
 While ``Empty`` contains no information, conforming consumers are
 permitted to expect this member of `message Value`_ to be chosen
@@ -311,7 +298,7 @@ false, empty text) in such cases.
 field date
 ~~~~~~~~~~
 
-(*since version 10*)
+(*since version 14*)
 
 The number of days since 1970-01-01, with that epoch being 0.  The
 allowed range is 0001-01-01 to 9999-12-31, inclusive; while ``int32``
@@ -321,7 +308,7 @@ be rejected with error by conforming consumers.
 message Record
 ^^^^^^^^^^^^^^
 
-(*since version 10*)
+(*since version 14*)
 
 The core primitive for combining `message Value`_ of different type into
 a single value.
@@ -331,68 +318,26 @@ As of version 10, these fields are included:
 * `message Identifier`_ record_id
 * repeated `message RecordField`_ fields
 
-``record_id`` is required.
-
-.. note: *this section is non-normative*
-
-   The fully-qualified `message Identifier`_ of the Daml-LF record
-   type.
-
-   The number and types of values in *fields* must match the Daml-LF
-   record type associated with the `message Record`_, whether that
-   record type is inferred from context or explicitly supplied as a
-   `field record_id`_.
-
-   Additionally, the *order* of fields must match the order in which
-   they are declared in Daml-LF for that record type.  Neither
-   producers nor consumers are permitted to use ``label`` to reorder
-   the fields.
-
-   So, for example, it is unsafe to use a ``Map``, ``HashMap``, or
-   some such as a trivial intermediate representation of fields,
-   because enumerating it will likely output fields in the wrong
-   order; if such a structure is used, you must use the LF record type
-   information to output the fields in the correct order.
-
-(*since version 12*)
-
-As of version 12 the `field record_id`_ is not used anymore
+``record_id`` must be the unused
 
 message RecordField
 ^^^^^^^^^^^^^^^^^^^
 
-(*since version 10*)
+(*since version 14*)
 
 One of `field fields`_.
 
-As of version 10, these fields are included:
+As of version 14, these fields are included:
 
 * ``string`` label
 * `message Value`_ value
 
-``label`` may be an empty string and Value is required.
-
-.. note: *this section is non-normative*
-
-   If ``label`` is non-empty it must match the name of the field in
-   this position in the Daml-LF record type under consideration.  For
-   example, if the second field of an LF record type is named ``bar``,
-   then label of the second element of `field fields`_ may be
-   ``"bar"``, or an empty string in circumstances mentioned above.
-   Any other label produces an invalid LF value.
-
-   The ``value`` field must conform to the type of this field of the
-   containing record, as declared by the LF record type.  It must be
-   supplied in all cases.
-
-(*since version 12*)
-
-As of version 12, the field ``label`` is not used anymore.
+``label`` may be unused and Value is required.
 
 message Identifier
 ^^^^^^^^^^^^^^^^^^
 
-(*since version 10*)
+(*since version 14*)
 
 A reference to a Daml-LF record or variant type.
 
@@ -430,11 +375,13 @@ message Variant
 The core primitive for injecting `message Value`_ of different type into
 a single type at runtime.
 
-As of version 10, these fields are included:
+As of version 14, these fields are included:
 
 * `message Identifier`_ variant_id
 * ``string`` `field constructor`_
 * `message Value`_ value
+
+Both ``Constructor`` and ``value`` are required while ``variant_id`` must be unused
 
 All the fields are required.
 
@@ -443,14 +390,11 @@ All the fields are required.
    ``value`` must conform to the LF type selected by the `field
    constructor`_.
 
-(*since version 12*)
-
-As of version 12, the `field variant_id`_ is not used anymore.
 
 field variant_id
 ~~~~~~~~~~~~~~~~
 
-(*since version 10*)
+(*since version 14*)
 
 The fully-qualified `message Identifier`_ of the Daml-LF variant type.
 It may be omitted.
@@ -471,11 +415,11 @@ or ``"R"``; any other ``constructor`` yields an invalid Value.
 message ContractId
 ^^^^^^^^^^^^^^^^^^
 
-(*since version 10*)
+(*since version 14*)
 
 A reference to a contract, either absolute or relative.
 
-As of version 10, this field is included:
+As of version 14, this field is included:
 
 * ``string`` contract_id
 
@@ -486,7 +430,7 @@ As of version 10, this field is included:
 message List
 ^^^^^^^^^^^^
 
-(*since version 10*)
+(*since version 14*)
 
 A homogenous list of values.
 
@@ -496,12 +440,12 @@ As of version 10, these fields are included:
 
 .. note: *this section is non-normative*
 
-   Every member of ``elements`` must conform to the same type.
+    Every member of ``elements`` must conform to the same type.
 
 message Optional
 ^^^^^^^^^^^^^^^^
 
-(*since version 10*)
+(*since version 14*)
 
 An optional value (equivalent to Scala's ``Option`` or Haskell's
 ``Maybe``).
@@ -516,11 +460,11 @@ The ``value`` field is optional, embodying the semantics of the
 message Map.Entry
 ^^^^^^^^^^^^^^^^^
 
-(*since version 10*)
+(*since version 14*)
 
 A map entry (key-value pair) used to build `message Map`_.
 
-As of version 10, these fields are included:
+As of version 14, these fields are included:
 
 * string key
 
@@ -531,7 +475,7 @@ Both ``key`` and ``value`` are required.
 message Map
 ^^^^^^^^^^^
 
-(*since version 10*)
+(*since version 14*)
 
 A homogeneous map where keys are strings.
 
@@ -549,7 +493,7 @@ In this version, these fields are included:
 message Enum
 ^^^^^^^^^^^^
 
-(*since version 10*)
+(*since version 14*)
 
 An Enum value, a specialized form of variant without argument.
 
@@ -558,11 +502,7 @@ In this version, these fields are included:
 * `message Identifier`_ enum_id
 * ``string`` value
 
-All fields are required.
-
-(*since version 12*)
-
-As of version 12, the `field enum_id`_ is not used anymore.
+Field ``value`` is required while ``variant_id`` must be unused
 
 .. note: *this section is non-normative*
 
@@ -572,7 +512,7 @@ As of version 12, the `field enum_id`_ is not used anymore.
 message GenMap.Entry
 ^^^^^^^^^^^^^^^^^
 
-(*since version 11*)
+(*since version 14*)
 
 A map entry (key-value pair) used to build `message GenMap`_.
 
@@ -587,7 +527,7 @@ Both ``key`` and ``value`` are required.
 message GenMap
 ^^^^^^^^^^^
 
-(*since version 11*)
+(*since version 14*)
 
 A map where keys and values are homogeneous.
 

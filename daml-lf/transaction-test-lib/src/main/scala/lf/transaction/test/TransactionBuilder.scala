@@ -100,7 +100,7 @@ object TransactionBuilder {
                 val newValues = entries.iterator.foldLeft(values) { case (acc, (key, value)) =>
                   key +: value +: acc
                 }
-                go(currentVersion max TransactionVersion.minGenMap, newValues)
+                go(currentVersion, newValues)
             }
         }
       }

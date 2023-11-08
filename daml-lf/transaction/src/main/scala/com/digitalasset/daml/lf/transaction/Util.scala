@@ -5,7 +5,6 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.language.LanguageVersion
-import com.daml.nameof.NameOf
 
 object Util {
 
@@ -27,6 +26,7 @@ object Util {
 
   // unsafe version of `normalize`
   @throws[IllegalArgumentException]
+  @scala.annotation.nowarn("cat=unused")
   def assertNormalizeValue(
       value0: Value,
       version: TransactionVersion,
@@ -34,15 +34,7 @@ object Util {
 
     import Ordering.Implicits.infixOrderingOps
 
-    val allowGenMap = version >= TransactionVersion.minGenMap
-    val eraseType = version >= TransactionVersion.minTypeErasure
-
-    def handleTypeInfo[X](x: Option[X]) =
-      if (eraseType) {
-        None
-      } else {
-        x
-      }
+    def handleTypeInfo[X](x: Option[X]) = None
 
     def go(value: Value): Value =
       value match {
@@ -63,14 +55,7 @@ object Util {
         case ValueTextMap(value) =>
           ValueTextMap(value.mapValue(go))
         case ValueGenMap(entries) =>
-          if (allowGenMap) {
-            ValueGenMap(entries.map { case (k, v) => go(k) -> go(v) })
-          } else {
-            InternalError.illegalArgumentException(
-              NameOf.qualifiedNameOfCurrentFunc,
-              s"GenMap are not allowed in transaction version $version",
-            )
-          }
+          ValueGenMap(entries.map { case (k, v) => go(k) -> go(v) })
       }
 
     go(value0)
