@@ -39,6 +39,11 @@ main = do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     certDir <- locateRunfiles (mainWorkspace </> "test-common" </> "test-certificates")
     tests <- forM [minBound @LF.MajorVersion .. maxBound] $ \major -> do
+        let lfVersion =
+             case major of
+                 LF.V1 -> LF.versionDefault
+                 -- TODO(#17366): test with the latest stable version of LF2 once there is one
+                 LF.V2 -> LF.version2_dev
         let prettyMajor = LF.renderMajorVersion major
         scriptDar <- locateRunfiles $ case major of
             LF.V1 -> mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
@@ -61,7 +66,7 @@ main = do
                             }
                         $ \getSandboxPort ->
                             withTokenFile $ \getTokenFile ->
-                                authTests damlc scriptDar getSandboxPort getTokenFile
+                                authTests lfVersion damlc scriptDar getSandboxPort getTokenFile
                     , withCantonSandbox
                         defaultSandboxConf
                             { enableTls = True
@@ -69,12 +74,12 @@ main = do
                             , devVersionSupport = major == LF.V2
                             }
                         $ \getSandboxPort ->
-                            tlsTests damlc scriptDar getSandboxPort certDir
-                    , staticTimeTests damlc scriptDar getSandboxPort
-                    , inboundMessageSizeTests damlc scriptDar testDar getSandboxPort
-                    , noPackageTests damlc scriptDar
-                    , importTests damlc scriptDar testDar
-                    , multiPackageTests damlc scriptDar multiTestDar
+                            tlsTests lfVersion damlc scriptDar getSandboxPort certDir
+                    , staticTimeTests lfVersion damlc scriptDar getSandboxPort
+                    , inboundMessageSizeTests lfVersion damlc scriptDar testDar getSandboxPort
+                    , noPackageTests lfVersion damlc scriptDar
+                    , importTests lfVersion damlc scriptDar testDar
+                    , multiPackageTests lfVersion damlc scriptDar multiTestDar
                     ]
     defaultMain $ testGroup "repl" tests
 
@@ -102,32 +107,33 @@ jwtToken = T.unpack $ JWT.encodeSigned (JWT.EncodeHMACSecret $ BS.pack testSecre
     }
 
 
-authTests :: FilePath -> FilePath -> IO Int -> IO FilePath -> TestTree
-authTests damlc scriptDar getSandboxPort getTokenFile = testGroup "auth"
+authTests :: LF.Version -> FilePath -> FilePath -> IO Int -> IO FilePath -> TestTree
+authTests lfVersion damlc scriptDar getSandboxPort getTokenFile = testGroup "auth"
     [ testCase "successful connection" $ do
         port <- getSandboxPort
         tokenFile <- getTokenFile
-        testConnection damlc scriptDar port (Just tokenFile) Nothing
+        testConnection lfVersion damlc scriptDar port (Just tokenFile) Nothing
     ]
 
-tlsTests :: FilePath -> FilePath -> IO Int -> FilePath -> TestTree
-tlsTests damlc scriptDar getSandboxPort certDir = testGroup "tls"
+tlsTests :: LF.Version -> FilePath -> FilePath -> IO Int -> FilePath -> TestTree
+tlsTests lfVersion damlc scriptDar getSandboxPort certDir = testGroup "tls"
     [ testCase "successful connection" $ do
         port <- getSandboxPort
-        testConnection damlc scriptDar port Nothing (Just (certDir </> "ca.crt"))
+        testConnection lfVersion damlc scriptDar port Nothing (Just (certDir </> "ca.crt"))
     ]
 
 
 -- | A simple test to ensure that the connection works, functional tests
 -- should go in //compiler/damlc/tests:repl-functests
 testConnection
-    :: FilePath
+    :: LF.Version
+    -> FilePath
     -> FilePath
     -> Int
     -> Maybe FilePath
     -> Maybe FilePath
     -> Assertion
-testConnection damlc scriptDar ledgerPort mbTokenFile mbCaCrt = do
+testConnection lfVersion damlc scriptDar ledgerPort mbTokenFile mbCaCrt = do
     out <- readCreateProcess cp $ unlines
         [ "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"Alice\")"
         , "debug alice"
@@ -138,6 +144,7 @@ testConnection damlc scriptDar ledgerPort mbTokenFile mbCaCrt = do
         assertFailure (show out <> " did not match " <> show regexString <> ".")
     where cp = proc damlc $ concat
                    [ [ "repl"
+                     , "--target=" <> LF.renderVersion lfVersion
                      , "--ledger-host=localhost"
                      , "--ledger-port"
                      , show ledgerPort
@@ -148,15 +155,15 @@ testConnection damlc scriptDar ledgerPort mbTokenFile mbCaCrt = do
                    , [ "--cacrt=" <> cacrt | Just cacrt <- [mbCaCrt] ]
                    ]
 
-staticTimeTests :: FilePath -> FilePath -> IO Int -> TestTree
-staticTimeTests damlc scriptDar getSandboxPort = testGroup "static-time"
+staticTimeTests :: LF.Version -> FilePath -> FilePath -> IO Int -> TestTree
+staticTimeTests lfVersion damlc scriptDar getSandboxPort = testGroup "static-time"
     [ testCase "setTime" $ do
         port <- getSandboxPort
-        testSetTime damlc scriptDar port
+        testSetTime lfVersion damlc scriptDar port
     ]
 
-noPackageTests :: FilePath -> FilePath -> TestTree
-noPackageTests damlc scriptDar = testGroup "no package"
+noPackageTests :: LF.Version -> FilePath -> FilePath -> TestTree
+noPackageTests lfVersion damlc scriptDar = testGroup "no package"
     [ testCase "no package" $ do
         out <- readCreateProcess cp $ unlines
             [ "debug (1 + 1)"
@@ -168,16 +175,18 @@ noPackageTests damlc scriptDar = testGroup "no package"
     ]
     where cp = proc damlc
                    [ "repl"
+                   , "--target=" <> LF.renderVersion lfVersion
                    , "--script-lib"
                    , scriptDar
                    ]
 
 testSetTime
-    :: FilePath
+    :: LF.Version
+    -> FilePath
     -> FilePath
     -> Int
     -> Assertion
-testSetTime damlc scriptDar ledgerPort = do
+testSetTime lfVersion damlc scriptDar ledgerPort = do
     out <- readCreateProcess cp $ unlines
         [ "import DA.Assert"
         , "import DA.Date"
@@ -193,6 +202,7 @@ testSetTime damlc scriptDar ledgerPort = do
         assertFailure (show out <> " did not match " <> show regexString <> ".")
     where cp = proc damlc
                    [ "repl"
+                   , "--target=" <> LF.renderVersion lfVersion
                    , "--static-time"
                    , "--ledger-host=localhost"
                    , "--ledger-port"
@@ -202,24 +212,25 @@ testSetTime damlc scriptDar ledgerPort = do
                    ]
 
 -- | Test the @--import@ flag
-importTests :: FilePath -> FilePath -> FilePath -> TestTree
-importTests damlc scriptDar testDar = testGroup "import"
+importTests :: LF.Version -> FilePath -> FilePath -> FilePath -> TestTree
+importTests lfVersion damlc scriptDar testDar = testGroup "import"
     [ testCase "none" $
-      testImport damlc scriptDar testDar [] False
+      testImport lfVersion damlc scriptDar testDar [] False
     , testCase "unversioned" $
-      testImport damlc scriptDar testDar ["repl-test"] True
+      testImport lfVersion damlc scriptDar testDar ["repl-test"] True
     , testCase "versioned" $
-      testImport damlc scriptDar testDar ["repl-test-0.1.0"] True
+      testImport lfVersion damlc scriptDar testDar ["repl-test-0.1.0"] True
     ]
 
 testImport
-    :: FilePath
+    :: LF.Version
+    -> FilePath
     -> FilePath
     -> FilePath
     -> [String]
     -> Bool
     -> Assertion
-testImport damlc scriptDar testDar imports successful = do
+testImport lfVersion damlc scriptDar testDar imports successful = do
     out <- readCreateProcess cp $ unlines
         [ "let Some alice = partyFromText \"alice\""
         , "debug (T alice alice)"
@@ -233,6 +244,7 @@ testImport damlc scriptDar testDar imports successful = do
         assertFailure (show out <> " did not match " <> show regexString <> ".")
     where cp = proc damlc $ concat
                    [ [ "repl"
+                     , "--target=" <> LF.renderVersion lfVersion
                      , "--script-lib"
                      , scriptDar
                      , testDar
@@ -240,8 +252,8 @@ testImport damlc scriptDar testDar imports successful = do
                    , [ "--import=" <> pkg | pkg <- imports ]
                    ]
 
-multiPackageTests :: FilePath -> FilePath -> FilePath -> TestTree
-multiPackageTests damlc scriptDar multiTestDar = testGroup "multi-package"
+multiPackageTests :: LF.Version -> FilePath -> FilePath -> FilePath -> TestTree
+multiPackageTests lfVersion damlc scriptDar multiTestDar = testGroup "multi-package"
   [ testCase "import both unversioned" $ do
       out <- readCreateProcess (cp ["repl-test", "repl-test-two"]) $ unlines
         [ "let Some alice = partyFromText \"p\""
@@ -267,6 +279,7 @@ multiPackageTests damlc scriptDar multiTestDar = testGroup "multi-package"
   ]
    where cp imports = proc damlc $ concat
                    [ [ "repl"
+                     , "--target=" <> LF.renderVersion lfVersion
                      , "--script-lib"
                      , scriptDar
                      , multiTestDar
@@ -274,8 +287,8 @@ multiPackageTests damlc scriptDar multiTestDar = testGroup "multi-package"
                    , [ "--import=" <> pkg | pkg <- imports ]
                    ]
 
-inboundMessageSizeTests :: FilePath -> FilePath -> FilePath -> IO Int -> TestTree
-inboundMessageSizeTests damlc scriptDar testDar getSandboxPort = testGroup "max-inbound-message-size"
+inboundMessageSizeTests :: LF.Version -> FilePath -> FilePath -> FilePath -> IO Int -> TestTree
+inboundMessageSizeTests lfVersion damlc scriptDar testDar getSandboxPort = testGroup "max-inbound-message-size"
     [ testCase "large transaction succeeds" $ do
           port <- getSandboxPort
           out <- readCreateProcess (cp port) $ unlines
@@ -292,6 +305,7 @@ inboundMessageSizeTests damlc scriptDar testDar getSandboxPort = testGroup "max-
   where
     cp port = proc damlc
         [ "repl"
+        , "--target=" <> LF.renderVersion lfVersion
         , "--ledger-host=localhost"
         , "--ledger-port"
         , show port
