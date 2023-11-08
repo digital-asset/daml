@@ -193,22 +193,6 @@ jobs:
         git fetch
         git checkout origin/main
 
-        tmp=$(mktemp -d)
-        trap "rm -rf ${tmp}" EXIT
-
-        git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton $tmp
-
-        ### code drop ###
-
-        for path in community daml-common-staging README.md; do
-          src=$tmp/$path
-          dst=canton/$path
-          rm -rf $dst
-          mkdir -p $(dirname $dst)
-          cp -rf $src $dst
-          git add $dst
-        done
-
         ### update binaries ###
 
         canton_version=$(curl -u $AUTH \
@@ -266,16 +250,44 @@ jobs:
 
         rm -f arbitrary_canton_sha
 
+        ### code drop ###
+
+        STABLE_REGEX="\d+\.\d+\.\d+"
+        SNAPSHOT_REGEX="^${STABLE_REGEX}-snapshot\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8}$"
+        if (echo "$canton_version" | grep -q -P "${SNAPSHOT_REGEX}"); then
+          commitish=${canton_version: -8}
+        else
+          commitish=v$canton_version
+        fi
+        tmp=$(mktemp -d)
+        trap "rm -rf ${tmp}" EXIT
+
+        git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton $tmp
+        git -C $tmp checkout $commitish
+        for path in community daml-common-staging README.md; do
+          src=$tmp/$path
+          dst=canton/$path
+          rm -rf $dst
+          mkdir -p $(dirname $dst)
+          cp -rf $src $dst
+          git add $dst
+        done
+
         ### create PR ###
 
-        canton_sha=$(git -C $tmp rev-parse HEAD)
-        branch="canton-update-${canton_sha}"
+        commit_date=$(git -C $tmp log -n1 --format=%cd --date=format:%Y%m%d HEAD)
+        number_of_commits=$(git -C $tmp rev-list --count HEAD)
+        commit_sha_8=$(git -C $tmp log -n1 --format=%h --abbrev=8 HEAD)
+        canton_tag=$commit_date.$number_of_commits.0.v$commit_sha_8
+        branch="canton-update-$canton_tag-$canton_version"
 
-        if git diff --exit-code origin/main -- canton >/dev/null; then
-            echo "Already up-to-date with latest Canton source."
+        if git diff --exit-code origin/main -- canton canton_dep.bzl build.sh arbitrary_canton_sha test-common/canton/BUILD.bazel >/dev/null; then
+            echo "Already up-to-date with latest Canton source & snapshot."
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
-                open_pr "$branch" "update canton to ${canton_sha:0:8}"
+                git add canton_dep.bzl build.sh test-common/canton/BUILD.bazel
+                git ls-files | grep arbitrary_canton_sha >&2 && git rm -f arbitrary_canton_sha
+                open_pr "$branch" "update canton to $canton_tag/$canton_version"
                 az extension add --name azure-devops
                 trap "az devops logout" EXIT
                 echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
