@@ -242,9 +242,9 @@ allow_nonrelease () {
   if [[ "$daml_install_exit_code" == 0 ]]; then
     echo_eval init_daml_package $tarball_sdk_version
     echo_eval daml build
-    #echo_eval check_daml_build_from_tarball_nonzero $tarball_path $?
-    #echo_eval check_daml_version_indicates_correct $tarball_sdk_version
-    #echo_eval check_dar_has_correct_metadata_version $tarball_sdk_version
+    echo_eval check_daml_build_from_tarball_nonzero $tarball_path $?
+    echo_eval check_daml_version_indicates_correct $tarball_sdk_version
+    echo_eval check_dar_has_correct_metadata_version $tarball_sdk_version
   fi
 }
 
