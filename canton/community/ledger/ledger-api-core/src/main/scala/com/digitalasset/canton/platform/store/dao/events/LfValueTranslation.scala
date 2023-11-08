@@ -55,7 +55,6 @@ import com.digitalasset.canton.platform.{
   Value as LfValue,
 }
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
-import com.google.protobuf
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp as ApiTimestamp
 import com.google.rpc.Status
@@ -269,9 +268,6 @@ final class LfValueTranslation(
     @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
     lazy val templateId: LfIdentifier = apiIdentifierToDamlLfIdentifier(raw.partial.templateId.get)
 
-    @annotation.nowarn(
-      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.event\\.CreatedEvent.*"
-    )
     def getFatContractInstance(
         createArgument: VersionedValue,
         createKey: Option[VersionedValue],
@@ -290,13 +286,12 @@ final class LfValueTranslation(
         globalKey <- createKey.traverse(key =>
           GlobalKey.build(templateId, key.unversioned).left.map(_.msg)
         )
-        apiCreatedAt <- raw.partial.metadata
-          .flatMap(_.createdAt)
+        apiCreatedAt <- raw.partial.createdAt
           .fold[Either[String, ApiTimestamp]](Left("missing createdAt"))(Right(_))
         instant <- InstantConverter.fromProtoPrimitive(apiCreatedAt).left.map(_.message)
         createdAt <- Timestamp.fromInstant(instant)
-        cantonData <- raw.partial.metadata
-          .map(_.driverMetadata)
+        cantonData <- raw.driverMetadata
+          .map(ByteString.copyFrom)
           .fold[Either[String, ByteString]](Left("missing cantonData"))(Right(_))
       } yield FatContractInstance.fromCreateNode(
         Node.Create(
@@ -331,7 +326,6 @@ final class LfValueTranslation(
       )
     } yield raw.partial.copy(
       createArguments = apiContractData.createArguments,
-      createArgumentsBlob = apiContractData.createArgumentsBlob,
       contractKey = apiContractData.contractKey,
       interfaceViews = apiContractData.interfaceViews,
       createdEventBlob = apiContractData.createdEventBlob.getOrElse(ByteString.EMPTY),
@@ -482,10 +476,6 @@ final class LfValueTranslation(
       ).flatMap(toInterfaceView(eventProjectionProperties.verbose, interfaceId))
     )
 
-    val asyncContractArgumentsBlob = condFuture(renderResult.contractArgumentsBlob)(
-      Future(ValueSerializer.serializeValueAny(value, "Cannot serialize contractArgumentsBlob"))
-    )
-
     val asyncCreateEventPayload = condFuture(renderResult.createdEventBlob) {
       (for {
         fatInstance <- fatContractInstance
@@ -498,13 +488,11 @@ final class LfValueTranslation(
 
     for {
       contractArguments <- asyncContractArguments
-      contractArgumentsBlob <- asyncContractArgumentsBlob
       createdEventBlob <- asyncCreateEventPayload
       contractKey <- asyncContractKey
       interfaceViews <- asyncInterfaceViews
     } yield ApiContractData(
       createArguments = contractArguments,
-      createArgumentsBlob = contractArgumentsBlob,
       createdEventBlob = createdEventBlob,
       contractKey = contractKey,
       interfaceViews = interfaceViews,
@@ -631,7 +619,6 @@ object LfValueTranslation {
 
   final case class ApiContractData(
       createArguments: Option[ApiRecord],
-      createArgumentsBlob: Option[protobuf.any.Any],
       createdEventBlob: Option[ByteString],
       contractKey: Option[ApiValue],
       interfaceViews: Seq[InterfaceView],

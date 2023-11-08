@@ -71,7 +71,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         EventProjectionProperties(
           true,
           Set.empty,
-          Map(party.toString -> Map(template1 -> Projection(Set(iface1), true, false, false))),
+          Map(party.toString -> Map(template1 -> Projection(Set(iface1), false, false))),
         ),
       )
     ) // filter gets complicated, filters template1 for iface1, projects iface1
@@ -95,8 +95,8 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
           Set.empty,
           Map(
             party.toString -> Map(
-              template1 -> Projection(Set(iface1), true, false, false),
-              template2 -> Projection(Set(iface1), true, false, false),
+              template1 -> Projection(Set(iface1), false, false),
+              template2 -> Projection(Set(iface1), false, false),
             )
           ),
         ),
@@ -122,7 +122,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         EventProjectionProperties(
           true,
           Set(party),
-          Map(party.toString -> Map(template1 -> Projection(Set(iface1), true, false, false))),
+          Map(party.toString -> Map(template1 -> Projection(Set(iface1), false, false))),
         ),
       )
     )
@@ -404,14 +404,12 @@ object IndexServiceImplSpec {
     val iface1Filter: InterfaceFilter = InterfaceFilter(
       iface1,
       includeView = true,
-      includeCreateArgumentsBlob = true,
       includeCreatedEventBlob = false,
     )
     val iface2: Identifier = Identifier.assertFromString("PackageName:ModuleName:iface2")
     val iface2Filter: InterfaceFilter = InterfaceFilter(
       iface2,
       includeView = true,
-      includeCreateArgumentsBlob = true,
       includeCreatedEventBlob = false,
     )
     val view: PackageMetadataView = mock[PackageMetadataView]

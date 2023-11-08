@@ -8,6 +8,7 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
 import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, PackageId, QualifiedName}
 import com.daml.lf.transaction.ContractStateMachine.ActiveLedgerState
@@ -38,6 +39,7 @@ import io.grpc.health.v1.HealthCheckResponse.ServingStatus
 import pprint.Tree
 import slick.util.{DumpInfo, Dumpable}
 
+import java.lang.Long as JLong
 import java.net.URI
 import java.time.{Duration as JDuration, Instant}
 import java.util.UUID
@@ -63,6 +65,8 @@ trait PrettyInstances {
   implicit def prettyInt: Pretty[Int] = prettyOfString(_.toString)
 
   implicit def prettyLong: Pretty[Long] = prettyOfString(_.toString)
+
+  implicit def prettyJLong: Pretty[JLong] = prettyOfString(_.toString)
 
   implicit def prettyBoolean: Pretty[Boolean] = prettyOfString(_.toString)
 
@@ -241,6 +245,17 @@ trait PrettyInstances {
 
   implicit def prettyPrimitiveContractId: Pretty[Primitive.ContractId[_]] = prettyOfString { coid =>
     val coidStr = scalaz.Tag.unwrap(coid)
+    val tokens = coidStr.split(':')
+    if (tokens.lengthCompare(2) == 0) {
+      tokens(0).readableHash.toString + ":" + tokens(1).readableHash.toString
+    } else {
+      // Don't abbreviate anything for unusual contract ids
+      coidStr
+    }
+  }
+
+  implicit def prettyContractId: Pretty[ContractId[_]] = prettyOfString { coid =>
+    val coidStr = coid.contractId
     val tokens = coidStr.split(':')
     if (tokens.lengthCompare(2) == 0) {
       tokens(0).readableHash.toString + ":" + tokens(1).readableHash.toString

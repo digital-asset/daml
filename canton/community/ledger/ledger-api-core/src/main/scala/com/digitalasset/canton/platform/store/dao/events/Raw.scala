@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.api.util.TimestampConversion
-import com.daml.ledger.api.v1.contract_metadata.{ContractMetadata as PbContractMetadata}
 import com.daml.ledger.api.v1.event.{
   ArchivedEvent as PbArchivedEvent,
   CreatedEvent as PbCreatedEvent,
@@ -19,7 +18,6 @@ import com.digitalasset.canton.platform.Identifier
 import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
 import com.digitalasset.canton.platform.store.serialization.Compression
-import com.google.protobuf.ByteString
 
 import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}
@@ -63,6 +61,7 @@ object Raw {
       val createKeyValue: Option[Array[Byte]],
       val createKeyMaintainers: Array[String],
       val createKeyValueCompression: Compression.Algorithm,
+      val driverMetadata: Option[Array[Byte]],
   ) extends Raw[E] {
     protected def wrapInEvent(event: PbCreatedEvent): E
 
@@ -98,7 +97,6 @@ object Raw {
         eventWitnesses: ArraySeq[String],
         createKeyHash: Option[Hash],
         ledgerEffectiveTime: Timestamp,
-        driverMetadata: Option[Array[Byte]],
     ): PbCreatedEvent =
       PbCreatedEvent(
         eventId = eventId,
@@ -110,13 +108,6 @@ object Raw {
         signatories = createSignatories,
         observers = createObservers,
         agreementText = createAgreementText.orElse(Some("")),
-        metadata = Some(
-          PbContractMetadata(
-            createdAt = Some(TimestampConversion.fromLf(ledgerEffectiveTime)),
-            contractKeyHash = createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
-            driverMetadata = ByteString.copyFrom(driverMetadata.getOrElse(Array.empty)),
-          )
-        ),
         createdAt = Some(TimestampConversion.fromLf(ledgerEffectiveTime)),
       )
   }
@@ -132,6 +123,7 @@ object Raw {
         createKeyValue: Option[Array[Byte]],
         createKeyMaintainers: Array[String],
         createKeyValueCompression: Compression.Algorithm,
+        driverMetadata: Option[Array[Byte]],
     ) extends Raw.Created[PbFlatEvent](
           raw,
           createArgument,
@@ -139,6 +131,7 @@ object Raw {
           createKeyValue,
           createKeyMaintainers,
           createKeyValueCompression,
+          driverMetadata,
         )
         with FlatEvent {
       override protected def wrapInEvent(event: PbCreatedEvent): PbFlatEvent =
@@ -178,13 +171,13 @@ object Raw {
             eventWitnesses = eventWitnesses,
             createKeyHash = createKeyHash,
             ledgerEffectiveTime = ledgerEffectiveTime,
-            driverMetadata = driverMetadata,
           ),
           createArgument = createArgument,
           createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),
           createKeyValue = createKeyValue,
           createKeyMaintainers = createKeyMaintainers,
           createKeyValueCompression = Compression.Algorithm.assertLookup(createKeyValueCompression),
+          driverMetadata = driverMetadata,
         )
     }
 
@@ -238,6 +231,7 @@ object Raw {
         createKeyValue: Option[Array[Byte]],
         createKeyMaintainers: Array[String],
         createKeyValueCompression: Compression.Algorithm,
+        driverMetadata: Option[Array[Byte]],
     ) extends Raw.Created[PbTreeEvent](
           raw,
           createArgument,
@@ -245,6 +239,7 @@ object Raw {
           createKeyValue,
           createKeyMaintainers,
           createKeyValueCompression,
+          driverMetadata,
         )
         with TreeEvent {
       override protected def wrapInEvent(event: PbCreatedEvent): PbTreeEvent =
@@ -282,13 +277,13 @@ object Raw {
             eventWitnesses = eventWitnesses,
             createKeyHash = createKeyHash,
             ledgerEffectiveTime = ledgerEffectiveTime,
-            driverMetadata = driverMetadata,
           ),
           createArgument = createArgument,
           createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),
           createKeyValue = createKeyValue,
           createKeyMaintainers = createKeyMaintainers,
           createKeyValueCompression = Compression.Algorithm.assertLookup(createKeyValueCompression),
+          driverMetadata = driverMetadata,
         )
     }
 

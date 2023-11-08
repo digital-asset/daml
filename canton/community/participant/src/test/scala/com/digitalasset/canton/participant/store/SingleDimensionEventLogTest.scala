@@ -70,7 +70,7 @@ trait SingleDimensionEventLogTest extends BeforeAndAfterAll with BaseTest {
 
     val committedTransaction = LfCommittedTransaction(
       LfVersionedTransaction(
-        version = LfTransactionVersion.V10,
+        version = LfTransactionVersion.V14,
         nodes = HashMap.empty,
         roots = ImmArray.empty,
       )

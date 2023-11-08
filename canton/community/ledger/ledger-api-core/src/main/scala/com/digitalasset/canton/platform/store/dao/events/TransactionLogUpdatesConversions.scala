@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.dao.events
 import cats.syntax.traverse.*
 import com.daml.api.util.TimestampConversion
 import com.daml.api.util.TimestampConversion.fromInstant
-import com.daml.ledger.api.v1.contract_metadata.ContractMetadata
 import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.event as apiEvent
 import com.daml.ledger.api.v2.reassignment.{
@@ -533,21 +532,12 @@ private[events] object TransactionLogUpdatesConversions {
           templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
           contractKey = apiContractData.contractKey,
           createArguments = apiContractData.createArguments,
-          createArgumentsBlob = apiContractData.createArgumentsBlob,
           createdEventBlob = apiContractData.createdEventBlob.getOrElse(ByteString.EMPTY),
           interfaceViews = apiContractData.interfaceViews,
           witnessParties = requestingParties.view.filter(createdWitnesses(createdEvent)).toSeq,
           signatories = createdEvent.createSignatories.toSeq,
           observers = createdEvent.createObservers.toSeq,
           agreementText = createdEvent.createAgreementText.orElse(Some("")),
-          metadata = Some(
-            ContractMetadata(
-              createdAt = Some(TimestampConversion.fromLf(createdEvent.ledgerEffectiveTime)),
-              contractKeyHash =
-                createdEvent.createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
-              driverMetadata = createdEvent.driverMetadata.fold(ByteString.EMPTY)(_.toByteString),
-            )
-          ),
           createdAt = Some(TimestampConversion.fromLf(createdEvent.ledgerEffectiveTime)),
         )
       )
