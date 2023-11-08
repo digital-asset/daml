@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.dao.events
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import com.daml.api.util.TimestampConversion
-import com.daml.ledger.api.v1.contract_metadata.ContractMetadata
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v2.reassignment.{AssignedEvent, UnassignedEvent}
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
@@ -305,21 +304,12 @@ private[dao] object TransactionsReader {
           ),
           contractKey = apiContractData.contractKey,
           createArguments = apiContractData.createArguments,
-          createArgumentsBlob = apiContractData.createArgumentsBlob,
           createdEventBlob = apiContractData.createdEventBlob.getOrElse(ByteString.EMPTY),
           interfaceViews = apiContractData.interfaceViews,
           witnessParties = rawCreatedEvent.witnessParties.toList,
           signatories = rawCreatedEvent.signatories.toList,
           observers = rawCreatedEvent.observers.toList,
           agreementText = rawCreatedEvent.agreementText.orElse(Some("")),
-          metadata = Some(
-            ContractMetadata(
-              createdAt = Some(TimestampConversion.fromLf(rawCreatedEvent.ledgerEffectiveTime)),
-              contractKeyHash =
-                rawCreatedEvent.createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
-              driverMetadata = ByteString.copyFrom(rawCreatedEvent.driverMetadata),
-            )
-          ),
           createdAt = Some(TimestampConversion.fromLf(rawCreatedEvent.ledgerEffectiveTime)),
         )
       )

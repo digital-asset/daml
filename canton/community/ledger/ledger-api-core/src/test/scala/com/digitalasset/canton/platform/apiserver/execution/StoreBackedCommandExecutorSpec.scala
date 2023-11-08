@@ -3,14 +3,19 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.daml.lf.command.{ApiCommands, DisclosedContract, LfCommands, LfDisclosedContract}
+import com.daml.lf.command.{ApiCommands as LfCommands, DisclosedContract as LfDisclosedContract}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ResultDone, ResultNeedUpgradeVerification}
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, SubmittedTransaction, Transaction, Util, Versioned}
+import com.daml.lf.transaction.{
+  GlobalKeyWithMaintainers,
+  SubmittedTransaction,
+  Transaction,
+  Versioned,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractInstance, ValueTrue}
 import com.daml.logging.LoggingContext
@@ -19,7 +24,11 @@ import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands, LedgerId}
 import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, domain}
 import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerTimeModel}
-import com.digitalasset.canton.ledger.participant.state.index.v2.{ContractState, ContractStore, IndexPackagesService}
+import com.digitalasset.canton.ledger.participant.state.index.v2.{
+  ContractState,
+  ContractStore,
+  IndexPackagesService,
+}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId, LfTransactionVersion}
@@ -136,10 +145,9 @@ class StoreBackedCommandExecutorSpec
   "Upgrade Verification" should {
 
     val stakeholderContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "03")
-    val txVersion: LfTransactionVersion = LfTransactionVersion.maxVersion
     val stakeholderContract = ContractState.Active(
       contractInstance =
-        Versioned(txVersion, ContractInstance(identifier, Value.ValueTrue)),
+        Versioned(LfTransactionVersion.maxVersion, ContractInstance(identifier, Value.ValueTrue)),
       ledgerEffectiveTime = Timestamp.now(),
       stakeholders = Set(Ref.Party.assertFromString("unexpectedSig")),
       signatories = Set(Ref.Party.assertFromString("unexpectedSig")),
@@ -197,7 +205,6 @@ class StoreBackedCommandExecutorSpec
                   identifier,
                   someContractKey(signatory, "some key"),
                   Set(signatory),
-                  shared = Util.sharedKey(txVersion),
                 )
             ),
             resume = verdict => {

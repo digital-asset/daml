@@ -7,6 +7,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.lf.data.Time
+import com.daml.lf.transaction.TransactionCoder
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId}
@@ -55,10 +56,6 @@ object LedgerApiTypeWrappers {
     def arguments: Map[String, Any] =
       event.createArguments.toList.flatMap(_.fields).flatMap(flatten(Seq(), _)).toMap
 
-    // Allow using deprecated Protobuf fields for backwards compatibility
-    @annotation.nowarn(
-      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.event\\.CreatedEvent.*"
-    )
     def toContractData: ContractData = {
       val templateId = TemplateId.fromIdentifier(
         event.templateId.getOrElse(throw new IllegalArgumentException("Template Id not specified"))
@@ -75,9 +72,8 @@ object LedgerApiTypeWrappers {
           )
 
       val contractSaltO = for {
-        metadataP <- event.metadata
-        if !metadataP.driverMetadata.isEmpty
-        parsed = DriverContractMetadata.fromByteString(metadataP.driverMetadata)
+        fatInstance <- TransactionCoder.decodeFatContractInstance(event.createdEventBlob).toOption
+        parsed = DriverContractMetadata.fromByteString(fatInstance.cantonData.toByteString)
       } yield parsed.fold[Salt](
         err =>
           throw new IllegalArgumentException(
@@ -86,10 +82,8 @@ object LedgerApiTypeWrappers {
         _.salt,
       )
 
-      val ledgerCreateTimeO = for {
-        metadata <- event.metadata
-        createdAt <- metadata.createdAt
-      } yield TimestampConversion.toLf(createdAt, TimestampConversion.ConversionMode.Exact)
+      val ledgerCreateTimeO =
+        event.createdAt.map(TimestampConversion.toLf(_, TimestampConversion.ConversionMode.Exact))
 
       ContractData(
         templateId = templateId,

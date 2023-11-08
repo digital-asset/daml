@@ -23,7 +23,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.value.Value
-import com.daml.ledger.api.v1.{CommandsOuterClass, EventQueryServiceOuterClass, ValueOuterClass}
+import com.daml.ledger.api.v1.{EventQueryServiceOuterClass, ValueOuterClass}
 import com.daml.ledger.api.v2.transaction.{
   Transaction as TransactionV2,
   TransactionTree as TransactionTreeV2,
@@ -361,7 +361,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
           |until either `completeAfter` transaction trees have been received or `timeout` has elapsed.
           |The returned transactions can be filtered to be between the given offsets (default: no filtering).
           |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
-          |this command fails with a `NOT_FOUND` error."""
+          |this command fails with a `NOT_FOUND` error. If you need to specify filtering conditions for template IDs and
+          |including create event blobs for explicit disclosure, consider using `ledger_api.transactions.flat_with_tx_filter`."""
       )
       def flat(
           partyIds: Set[PartyId],
@@ -372,8 +373,29 @@ trait BaseLedgerApiAdministration extends NoTracing {
           verbose: Boolean = true,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
       ): Seq[Transaction] = check(FeatureFlag.Testing)({
-        val observer = new RecordingStreamObserver[Transaction](completeAfter)
         val filter = TransactionFilter(partyIds.map(_.toLf -> Filters()).toMap)
+        flat_with_tx_filter(filter, completeAfter, beginOffset, endOffset, verbose, timeout)
+      })
+
+      @Help.Summary("Get flat transactions", FeatureFlag.Testing)
+      @Help.Description(
+        """This function connects to the flat transaction stream for the given transaction filter and collects transactions
+          |until either `completeAfter` transactions have been received or `timeout` has elapsed.
+          |The returned transactions can be filtered to be between the given offsets (default: no filtering).
+          |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
+          |this command fails with a `NOT_FOUND` error. If you only need to filter by a set of parties, consider using
+          |`ledger_api.transactions.flat` instead."""
+      )
+      def flat_with_tx_filter(
+          filter: TransactionFilter,
+          completeAfter: Int,
+          beginOffset: LedgerOffset =
+            new LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN),
+          endOffset: Option[LedgerOffset] = None,
+          verbose: Boolean = true,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+      ): Seq[Transaction] = check(FeatureFlag.Testing)({
+        val observer = new RecordingStreamObserver[Transaction](completeAfter)
         mkResult(
           subscribe_flat(observer, filter, beginOffset, endOffset, verbose),
           "getTransactions",
@@ -647,7 +669,11 @@ trait BaseLedgerApiAdministration extends NoTracing {
            Supported arguments:
            - party: for which party you want to load the acs
            - limit: limit (default set via canton.parameter.console)
-           - filterTemplate: list of templates ids to filter for
+           - verbose: whether the resulting events should contain detailed type information
+           - filterTemplate: list of templates ids to filter for, empty sequence acts as a wildcard
+           - timeout: the maximum wait time for the complete acs to arrive
+           - includeCreatedEventBlob: whether the result should contain the createdEventBlobs, it works only
+             if the filterTemplate is non-empty
         """
       )
       def of_party(
@@ -656,6 +682,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           verbose: Boolean = true,
           filterTemplates: Seq[TemplateId] = Seq.empty,
           timeout: config.NonNegativeDuration = timeouts.unbounded,
+          includeCreatedEventBlob: Boolean = false,
       ): Seq[WrappedCreatedEvent] =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
@@ -666,6 +693,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 filterTemplates,
                 verbose,
                 timeout.asFiniteApproximation,
+                includeCreatedEventBlob,
               )(consoleEnvironment.environment.scheduler)
           )
         })
@@ -675,7 +703,17 @@ trait BaseLedgerApiAdministration extends NoTracing {
         FeatureFlag.Testing,
       )
       @Help.Description(
-        "If the filterTemplates argument is not empty, the acs lookup will filter by the given templates."
+        """This command will return the current set of active contracts for all parties.
+
+           Supported arguments:
+           - limit: limit (default set via canton.parameter.console)
+           - verbose: whether the resulting events should contain detailed type information
+           - filterTemplate: list of templates ids to filter for, empty sequence acts as a wildcard
+           - timeout: the maximum wait time for the complete acs to arrive
+           - identityProviderId: limit the response to parties governed by the given identity provider
+           - includeCreatedEventBlob: whether the result should contain the createdEventBlobs, it works only
+             if the filterTemplate is non-empty
+        """
       )
       def of_all(
           limit: PositiveInt = defaultLimit,
@@ -683,6 +721,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           filterTemplates: Seq[TemplateId] = Seq.empty,
           timeout: config.NonNegativeDuration = timeouts.unbounded,
           identityProviderId: String = "",
+          includeCreatedEventBlob: Boolean = false,
       ): Seq[WrappedCreatedEvent] = check(FeatureFlag.Testing)(
         consoleEnvironment.runE {
           for {
@@ -702,6 +741,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                     filterTemplates,
                     verbose,
                     timeout.asFiniteApproximation,
+                    includeCreatedEventBlob,
                   )(consoleEnvironment.environment.scheduler)
                 ).toEither
               }
@@ -1540,7 +1580,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             submissionId: String = "",
             minLedgerTimeAbs: Option[Instant] = None,
             readAs: Seq[PartyId] = Seq.empty,
-            disclosedContracts: Seq[CommandsOuterClass.DisclosedContract] = Seq.empty,
+            disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
             applicationId: String = applicationId,
         ): javab.data.TransactionTree = check(FeatureFlag.Testing) {
           val tx = consoleEnvironment.run {
@@ -1554,7 +1594,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 deduplicationPeriod,
                 submissionId,
                 minLedgerTimeAbs,
-                disclosedContracts.map(DisclosedContract.fromJavaProto(_)),
+                disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
                 applicationId,
               )
             )
@@ -1589,7 +1629,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             submissionId: String = "",
             minLedgerTimeAbs: Option[Instant] = None,
             readAs: Seq[PartyId] = Seq.empty,
-            disclosedContracts: Seq[DisclosedContract] = Seq.empty,
+            disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
             applicationId: String = applicationId,
         ): javab.data.Transaction = check(FeatureFlag.Testing) {
           val tx = consoleEnvironment.run {
@@ -1603,7 +1643,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 deduplicationPeriod,
                 submissionId,
                 minLedgerTimeAbs,
-                disclosedContracts,
+                disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
                 applicationId,
               )
             )
@@ -1627,7 +1667,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             submissionId: String = "",
             minLedgerTimeAbs: Option[Instant] = None,
             readAs: Seq[PartyId] = Seq.empty,
-            disclosedContracts: Seq[DisclosedContract] = Seq.empty,
+            disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
             applicationId: String = applicationId,
         ): Unit =
           ledger_api.commands.submit_async(
@@ -1639,7 +1679,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             submissionId,
             minLedgerTimeAbs,
             readAs,
-            disclosedContracts,
+            disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
             applicationId,
           )
 
@@ -1683,7 +1723,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
             |until either `completeAfter` transaction trees have been received or `timeout` has elapsed.
             |The returned transactions can be filtered to be between the given offsets (default: no filtering).
             |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
-            |this command fails with a `NOT_FOUND` error."""
+            |this command fails with a `NOT_FOUND` error.If you only need to filter by a set of parties, consider using
+            |`ledger_api.javaapi.transactions.flat` instead."""
         )
         def flat(
             partyIds: Set[PartyId],
@@ -1699,6 +1740,39 @@ trait BaseLedgerApiAdministration extends NoTracing {
             .map(t => javab.data.Transaction.fromProto(Transaction.toJavaProto(t)))
         })
 
+        @Help.Summary(
+          "Get flat transactions in the format expected by the Java bindings",
+          FeatureFlag.Testing,
+        )
+        @Help.Description(
+          """This function connects to the flat transaction stream for the given transaction filter and collects transactions
+            |until either `completeAfter` transactions have been received or `timeout` has elapsed.
+            |The returned transactions can be filtered to be between the given offsets (default: no filtering).
+            |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
+            |this command fails with a `NOT_FOUND` error. If you need to specify filtering conditions for template IDs and
+            |including create event blobs for explicit disclosure, consider using `ledger_api.javaapi.transactions.flat_with_tx_filter`."""
+        )
+        def flat_with_tx_filter(
+            filter: javab.data.TransactionFilter,
+            completeAfter: Int,
+            beginOffset: LedgerOffset =
+              new LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN),
+            endOffset: Option[LedgerOffset] = None,
+            verbose: Boolean = true,
+            timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+        ): Seq[javab.data.Transaction] = check(FeatureFlag.Testing)({
+          ledger_api.transactions
+            .flat_with_tx_filter(
+              javab.data.FilterConversion(filter),
+              completeAfter,
+              beginOffset,
+              endOffset,
+              verbose,
+              timeout,
+            )
+            .map(t => javab.data.Transaction.fromProto(Transaction.toJavaProto(t)))
+        })
+
       }
 
       @Help.Summary("Read active contracts (Java bindings)", FeatureFlag.Testing)
@@ -1706,7 +1780,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       object acs extends Helpful {
 
         @Help.Summary(
-          "Wait until a contract becomes availableand return the Java codegen contract",
+          "Wait until a contract becomes available and return the Java codegen contract",
           FeatureFlag.Testing,
         )
         @Help.Description(

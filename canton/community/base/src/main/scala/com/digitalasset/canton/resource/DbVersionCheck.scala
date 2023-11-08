@@ -30,7 +30,7 @@ object DbVersionCheck extends HasLoggerName {
     val either: Either[DbMigrations.Error, Unit] = profile match {
 
       case Profile.Postgres(jdbc) =>
-        val expectedPostgresVersions = NonEmpty(Seq, 10, 11, 12, 13, 14, 15)
+        val expectedPostgresVersions = NonEmpty(Seq, 11, 12, 13, 14, 15)
         val expectedPostgresVersionsStr =
           s"${(expectedPostgresVersions.dropRight(1)).mkString(", ")}, or ${expectedPostgresVersions
               .takeRight(1)
@@ -108,7 +108,7 @@ object DbVersionCheck extends HasLoggerName {
             expected: Seq[String],
         ): Either[String, Unit] = {
           def prettyExpected: String =
-            if (expected.size == 1) expected(0)
+            if (expected.sizeIs == 1) expected(0)
             else s"one of ${expected.mkString(", ")}"
 
           loggingContext.debug(s"Checking NLS parameter $param")
