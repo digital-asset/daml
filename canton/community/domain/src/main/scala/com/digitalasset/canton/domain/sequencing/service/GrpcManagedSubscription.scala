@@ -107,7 +107,7 @@ private[service] class GrpcManagedSubscription[T](
       // tombstone related information).
       Future {
         // Close asynchronously to avoid deadlocking with the DirectSequencerSubscription's
-        //  "done" akka flow that invokes this handler.
+        //  "done" pekko flow that invokes this handler.
         signalAndClose(ErrorSignal(error.asGrpcError))
       }.discard
       Future.successful(Left(error))

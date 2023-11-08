@@ -7,7 +7,7 @@ import java.nio.file.Files
 import java.security.cert.X509Certificate
 import java.time.Clock
 
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}

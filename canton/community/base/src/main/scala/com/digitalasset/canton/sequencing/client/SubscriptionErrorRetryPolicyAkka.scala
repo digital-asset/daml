@@ -9,7 +9,7 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
   * Each [[transports.SequencerClientTransport]] is expected to supply
   * their own policy which can consider error types they have defined.
   */
-trait SubscriptionErrorRetryPolicyAkka[-E] {
+trait SubscriptionErrorRetryPolicyPekko[-E] {
   def retryOnError(subscriptionError: E, receivedItems: Boolean)(implicit
       loggingContext: ErrorLoggingContext
   ): Boolean
@@ -19,8 +19,8 @@ trait SubscriptionErrorRetryPolicyAkka[-E] {
   ): Boolean
 }
 
-object SubscriptionErrorRetryPolicyAkka {
-  case object never extends SubscriptionErrorRetryPolicyAkka[Any] {
+object SubscriptionErrorRetryPolicyPekko {
+  case object never extends SubscriptionErrorRetryPolicyPekko[Any] {
     override def retryOnError(subscriptionError: Any, receivedItems: Boolean)(implicit
         loggingContext: ErrorLoggingContext
     ): Boolean = false

@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.http
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
-import com.daml.grpc.adapter.AkkaExecutionSequencerPool
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
+import com.daml.grpc.adapter.PekkoExecutionSequencerPool
 import com.digitalasset.canton.http.util.Logging.instanceUUIDLogCtx
 import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
@@ -28,7 +28,7 @@ object HttpApiServer extends NoTracing {
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem("http-json-ledger-api"))
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
       executionSequencerFactory <- ResourceOwner.forCloseable(() =>
-        new AkkaExecutionSequencerPool("httpPool")(actorSystem)
+        new PekkoExecutionSequencerPool("httpPool")(actorSystem)
       )
       serverBinding <- instanceUUIDLogCtx(implicit loggingContextOf =>
         new HttpService(config, channel, loggerFactory)(

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import akka.stream.AbruptStageTerminationException
+import org.apache.pekko.stream.AbruptStageTerminationException
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}

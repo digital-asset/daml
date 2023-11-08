@@ -3,10 +3,10 @@
 
 package com.daml.http
 
-import akka.http.javadsl.model.ws.PeerClosedConnectionException
-import akka.http.scaladsl.model.{StatusCodes, Uri}
-import akka.stream.{KillSwitches, UniqueKillSwitch}
-import akka.stream.scaladsl.{Keep, Sink}
+import org.apache.pekko.http.javadsl.model.ws.PeerClosedConnectionException
+import org.apache.pekko.http.scaladsl.model.{StatusCodes, Uri}
+import org.apache.pekko.stream.{KillSwitches, UniqueKillSwitch}
+import org.apache.pekko.stream.scaladsl.{Keep, Sink}
 import com.daml.dbutils.ConnectionPool
 
 import scala.concurrent.{Future, Promise}

@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger.test
 
-import akka.stream.scaladsl.Flow
+import org.apache.pekko.stream.scaladsl.Flow
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.refinements.ApiTypes.{Party => ApiParty}

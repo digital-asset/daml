@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
@@ -52,7 +52,7 @@ object JdbcLedgerDaoBackend {
 
 }
 
-private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll with BaseTest {
+private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with BaseTest {
   self: Suite =>
 
   // AsyncFlatSpec is with serial execution context

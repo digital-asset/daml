@@ -3,9 +3,9 @@
 
 package com.daml.fetchcontracts
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Broadcast, Concat, Flow, GraphDSL, Source}
-import akka.stream.{FanOutShape2, Graph}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Broadcast, Concat, Flow, GraphDSL, Source}
+import org.apache.pekko.stream.{FanOutShape2, Graph}
 import com.daml.scalautil.Statement.discard
 import domain.ContractTypeId
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
@@ -15,7 +15,7 @@ import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.{v1 => lav1}
 
 private[daml] object AcsTxStreams {
-  import util.AkkaStreamsDoobie.{last, max, project2}
+  import util.PekkoStreamsDoobie.{last, max, project2}
 
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
   private[this] def partitionInsertsDeletes(

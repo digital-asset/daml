@@ -6,7 +6,7 @@ package com.daml.ledger
 import java.time.Clock
 import java.util.UUID
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 
 import scala.concurrent.ExecutionContext
 import com.daml.lf.data.Ref
@@ -27,8 +27,8 @@ package object rxjava {
 
   private[rxjava] def untestedEndpoint: Nothing =
     throw new UnsupportedOperationException("Untested endpoint, implement if needed")
-  private val akkaSystem = ActorSystem("testActorSystem")
-  sys.addShutdownHook(akkaSystem.terminate(): Unit)
+  private val pekkoSystem = ActorSystem("testActorSystem")
+  sys.addShutdownHook(pekkoSystem.terminate(): Unit)
 
   private[rxjava] val authorizer =
     new Authorizer(
@@ -38,7 +38,7 @@ package object rxjava {
       new InMemoryUserManagementStore(),
       ExecutionContext.parasitic,
       userRightsCheckIntervalInSeconds = 1,
-      akkaScheduler = akkaSystem.scheduler,
+      pekkoScheduler = pekkoSystem.scheduler,
     )(LoggingContext.ForTesting)
 
   private[rxjava] val emptyToken = "empty"

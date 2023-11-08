@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http.endpoints
 
-import akka.http.scaladsl.model.*
+import org.apache.pekko.http.scaladsl.model.*
 import com.daml.lf.value.Value as LfValue
 import com.digitalasset.canton.http.EndpointsCompanion.*
 import com.digitalasset.canton.http.Endpoints.ET

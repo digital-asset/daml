@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.http
 
-import akka.http.scaladsl.model.*
-import akka.http.scaladsl.server.RouteResult.Complete
-import akka.http.scaladsl.server.{RequestContext, Route}
-import akka.util.ByteString
+import org.apache.pekko.http.scaladsl.model.*
+import org.apache.pekko.http.scaladsl.server.RouteResult.Complete
+import org.apache.pekko.http.scaladsl.server.{RequestContext, Route}
+import org.apache.pekko.util.ByteString
 import util.GrpcHttpErrorCodes.*
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.canton.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload, CustomDamlJWTPayload, StandardJWTPayload}
@@ -283,7 +283,7 @@ object EndpointsCompanion extends NoTracing {
             details = details.map(domain.ErrorDetail.fromErrorUtils),
           )
         mkErrorResponse(
-          grpcStatus.asAkkaHttpForJsonApi,
+          grpcStatus.asPekkoHttpForJsonApi,
           s"$grpcStatus: $description",
           Some(ledgerApiError),
         )

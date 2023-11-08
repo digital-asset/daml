@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.api.grpc
 
 import com.daml.grpc.GrpcException
 import com.daml.grpc.adapter.server.rs.MockServerCallStreamObserver
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.scalautil.Statement.discard
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.BaseTest
@@ -22,7 +22,7 @@ import scala.concurrent.duration.DurationInt
 final class GrpcHealthServiceSpec
     extends AsyncWordSpec
     with Eventually
-    with AkkaBeforeAndAfterAll
+    with PekkoBeforeAndAfterAll
     with BaseTest {
 
   implicit override val patienceConfig: PatienceConfig =

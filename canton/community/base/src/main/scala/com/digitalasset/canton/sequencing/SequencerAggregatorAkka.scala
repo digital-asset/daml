@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.sequencing
 
-import akka.Done
-import akka.stream.scaladsl.{Flow, Source}
-import akka.stream.{KillSwitch, OverflowStrategy}
+import org.apache.pekko.Done
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
+import org.apache.pekko.stream.{KillSwitch, OverflowStrategy}
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
@@ -23,7 +23,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.client.{
   SequencedEventValidator,
-  SequencerSubscriptionFactoryAkka,
+  SequencerSubscriptionFactoryPekko,
 }
 import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
@@ -48,15 +48,15 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Aggregates sequenced events from a dynamically configurable set of
-  * [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionAkka]]s
+  * [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]]s
   * until a configurable threshold is reached.
   *
   * @param eventValidator The validator used to validate the sequenced events of the
-  *                       [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionAkka]]s
+  *                       [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]]s
   * @param bufferSize How many elements to buffer for each
-  *                   [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionAkka]].
+  *                   [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]].
   */
-class SequencerAggregatorAkka(
+class SequencerAggregatorPekko(
     domainId: DomainId,
     eventValidator: SequencedEventValidator,
     bufferSize: PositiveInt,
@@ -65,7 +65,7 @@ class SequencerAggregatorAkka(
     enableInvariantCheck: Boolean,
 ) extends NamedLogging {
 
-  import SequencerAggregatorAkka.*
+  import SequencerAggregatorPekko.*
 
   /** Convert a stream of sequencer configurations into a stream of aggregated sequenced events.
     *
@@ -77,7 +77,7 @@ class SequencerAggregatorAkka(
   def aggregateFlow[E: Pretty](
       initialCounterOrPriorEvent: Either[SequencerCounter, PossiblyIgnoredSerializedEvent]
   )(implicit traceContext: TraceContext, executionContext: ExecutionContext): Flow[
-    OrderedBucketMergeConfig[SequencerId, HasSequencerSubscriptionFactoryAkka[E]],
+    OrderedBucketMergeConfig[SequencerId, HasSequencerSubscriptionFactoryPekko[E]],
     Either[SubscriptionControl[E], OrdinarySerializedEvent],
     (Future[Done], HealthComponent),
   ] = {
@@ -87,7 +87,7 @@ class SequencerAggregatorAkka(
     val hub = new OrderedBucketMergeHub[
       SequencerId,
       OrdinarySerializedEvent,
-      HasSequencerSubscriptionFactoryAkka[E],
+      HasSequencerSubscriptionFactoryPekko[E],
       SequencerCounter,
       HealthComponent,
     ](ops, loggerFactory, enableInvariantCheck)
@@ -151,12 +151,12 @@ class SequencerAggregatorAkka(
       extends OrderedBucketMergeHubOps[
         SequencerId,
         OrdinarySerializedEvent,
-        HasSequencerSubscriptionFactoryAkka[E],
+        HasSequencerSubscriptionFactoryPekko[E],
         SequencerCounter,
         HealthComponent,
       ] {
 
-    override type Bucket = SequencerAggregatorAkka.Bucket
+    override type Bucket = SequencerAggregatorPekko.Bucket
 
     override def prettyBucket: Pretty[Bucket] = implicitly[Pretty[Bucket]]
 
@@ -202,13 +202,13 @@ class SequencerAggregatorAkka(
 
     override def makeSource(
         sequencerId: SequencerId,
-        config: HasSequencerSubscriptionFactoryAkka[E],
+        config: HasSequencerSubscriptionFactoryPekko[E],
         exclusiveStart: SequencerCounter,
         priorElement: Option[PriorElement],
     ): Source[OrdinarySerializedEvent, (KillSwitch, Future[Done], HealthComponent)] = {
       val prior = priorElement.collect { case event @ OrdinarySequencedEvent(_, _) => event }
       val subscription = eventValidator
-        .validateAkka(config.subscriptionFactory.create(exclusiveStart), prior, sequencerId)
+        .validatePekko(config.subscriptionFactory.create(exclusiveStart), prior, sequencerId)
       val source = subscription.source
         .buffer(bufferSize.value, OverflowStrategy.backpressure)
         .mapConcat(_.unwrap match {
@@ -231,24 +231,24 @@ class SequencerAggregatorAkka(
   }
 }
 
-object SequencerAggregatorAkka {
+object SequencerAggregatorPekko {
   type SubscriptionControl[E] = ControlOutput[
     SequencerId,
-    HasSequencerSubscriptionFactoryAkka[E],
+    HasSequencerSubscriptionFactoryPekko[E],
     SequencerCounter,
   ]
 
   private type SubscriptionControlInternal[E] = ControlOutput[
     SequencerId,
-    (HasSequencerSubscriptionFactoryAkka[E], Option[HealthComponent]),
+    (HasSequencerSubscriptionFactoryPekko[E], Option[HealthComponent]),
     SequencerCounter,
   ]
 
-  trait HasSequencerSubscriptionFactoryAkka[E] {
-    def subscriptionFactory: SequencerSubscriptionFactoryAkka[E]
+  trait HasSequencerSubscriptionFactoryPekko[E] {
+    def subscriptionFactory: SequencerSubscriptionFactoryPekko[E]
   }
 
-  private[SequencerAggregatorAkka] final case class Bucket(
+  private[SequencerAggregatorPekko] final case class Bucket(
       sequencerCounter: SequencerCounter,
       timestampOfSigningKey: Option[CantonTimestamp],
       contentHash: Hash,
@@ -262,7 +262,7 @@ object SequencerAggregatorAkka {
       )
   }
 
-  private[SequencerAggregatorAkka] class SequencerAggregatorHealth(
+  private[SequencerAggregatorPekko] class SequencerAggregatorHealth(
       private val domainId: DomainId,
       override protected val associatedOnShutdownRunner: OnShutdownRunner,
       override protected val logger: TracedLogger,

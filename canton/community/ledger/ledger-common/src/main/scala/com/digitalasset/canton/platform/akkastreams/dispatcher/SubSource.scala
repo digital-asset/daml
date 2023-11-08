@@ -1,10 +1,10 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.platform.akkastreams.dispatcher
+package com.digitalasset.canton.platform.pekkostreams.dispatcher
 
-import akka.NotUsed
-import akka.stream.scaladsl.Source
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 /** Defines how the progress on the ledger should be mapped to look-up operations */
 sealed abstract class SubSource[Index: Ordering, T]

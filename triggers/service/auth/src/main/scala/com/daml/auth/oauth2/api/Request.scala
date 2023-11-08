@@ -5,10 +5,10 @@ package com.daml.auth.oauth2.api
 
 import java.util.Base64
 
-import akka.http.scaladsl.model.{FormData, HttpEntity, RequestEntity, Uri}
-import akka.http.scaladsl.model.Uri.Query
-import akka.http.scaladsl.marshalling._
-import akka.http.scaladsl.unmarshalling._
+import org.apache.pekko.http.scaladsl.model.{FormData, HttpEntity, RequestEntity, Uri}
+import org.apache.pekko.http.scaladsl.model.Uri.Query
+import org.apache.pekko.http.scaladsl.marshalling._
+import org.apache.pekko.http.scaladsl.unmarshalling._
 import spray.json._
 
 import scala.util.Try

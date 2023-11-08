@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.ledger.api.client
 
 import com.daml.error.{ErrorCategory, ErrorClass, ErrorCode}
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitRequest,
@@ -27,7 +27,7 @@ import scala.concurrent.duration.Duration
 class CommandSubmitterWithRetryTest
     extends FixtureAsyncWordSpec
     with BaseTest
-    with AkkaBeforeAndAfterAll {
+    with PekkoBeforeAndAfterAll {
   private val maxRetries = 10
   private val timeout = Duration.fromNanos(1337L)
   private val commands = Commands(

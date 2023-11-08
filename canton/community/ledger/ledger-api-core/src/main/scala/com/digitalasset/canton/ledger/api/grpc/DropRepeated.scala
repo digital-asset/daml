@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.api.grpc
 
-import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
-import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
+import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 
 object DropRepeated {
   def apply[T](): GraphStage[FlowShape[T, T]] = new DropRepeated

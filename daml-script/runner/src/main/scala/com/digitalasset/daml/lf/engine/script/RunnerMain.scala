@@ -3,9 +3,9 @@
 
 package com.daml.lf.engine.script
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.stream._
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.stream._
 
 import java.nio.file.Files
 import scala.jdk.CollectionConverters._
@@ -22,7 +22,7 @@ import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.Ast.Type
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.auth.TokenHolder
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, GrpcLedgerClient}
 import java.io.FileInputStream
@@ -44,7 +44,7 @@ object RunnerMain {
   def main(config: RunnerMainConfig): Unit = {
     implicit val system: ActorSystem = ActorSystem("RunnerMain")
     implicit val sequencer: ExecutionSequencerFactory =
-      new AkkaExecutionSequencerPool("ScriptCliRunnerPool")(system)
+      new PekkoExecutionSequencerPool("ScriptCliRunnerPool")(system)
     implicit val ec: ExecutionContext = system.dispatcher
     implicit val materializer: Materializer = Materializer(system)
 

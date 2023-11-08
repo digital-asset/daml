@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.health
 
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.testkit.ScalatestRouteTest
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.health.HealthServer.route
 import org.scalatest.wordspec.AnyWordSpec

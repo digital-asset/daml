@@ -3,7 +3,7 @@
 
 package com.daml.ledger.client.services.commands.tracker
 
-import akka.stream.{Inlet, Outlet, Shape}
+import org.apache.pekko.stream.{Inlet, Outlet, Shape}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,

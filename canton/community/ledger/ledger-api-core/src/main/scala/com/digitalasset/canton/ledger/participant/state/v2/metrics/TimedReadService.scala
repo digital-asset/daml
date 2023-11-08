@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.participant.state.v2.metrics
 
-import akka.NotUsed
-import akka.stream.scaladsl.Source
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 import com.daml.metrics.Timed
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ledger.api.health.HealthStatus

@@ -3,8 +3,8 @@
 
 package com.daml.ledger.api.testing.utils
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.Await
 import scala.concurrent.duration._

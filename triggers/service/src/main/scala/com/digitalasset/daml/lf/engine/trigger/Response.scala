@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 

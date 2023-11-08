@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import akka.stream.Materializer
+import org.apache.pekko.stream.Materializer
 import cats.data.EitherT
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}

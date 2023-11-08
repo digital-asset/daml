@@ -4,19 +4,19 @@
 package com.daml.http
 package endpoints
 
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.headers.{
   Authorization,
   ModeledCustomHeader,
   ModeledCustomHeaderCompanion,
   OAuth2BearerToken,
   `X-Forwarded-Proto`,
 }
-import akka.stream.Materializer
+import org.apache.pekko.stream.Materializer
 import Endpoints.ET
 import EndpointsCompanion._
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.ByteString
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import com.daml.scalautil.Statement.discard
@@ -198,7 +198,7 @@ private[http] object RouteSetup {
   private def isForwardedForHttps(headers: Seq[HttpHeader]): Boolean =
     headers exists {
       case `X-Forwarded-Proto`(protocol) => protocol equalsIgnoreCase "https"
-      // the whole "custom headers" thing in akka-http is a mishmash of
+      // the whole "custom headers" thing in pekko-http is a mishmash of
       // actually using the ModeledCustomHeaderCompanion stuff (which works)
       // and "just use ClassTag YOLO" (which won't work)
       case Forwarded(value) => Forwarded(value).proto contains "https"

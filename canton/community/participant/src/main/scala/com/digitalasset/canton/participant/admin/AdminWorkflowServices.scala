@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.admin
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*

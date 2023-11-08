@@ -1,11 +1,16 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.util.akkastreams
+package com.daml.util.pekkostreams
 
-import akka.stream.scaladsl.Flow
-import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
-import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, InHandler, OutHandler}
+import org.apache.pekko.stream.scaladsl.Flow
+import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
+import org.apache.pekko.stream.stage.{
+  GraphStageLogic,
+  GraphStageWithMaterializedValue,
+  InHandler,
+  OutHandler,
+}
 
 import scala.concurrent.{Future, Promise}
 

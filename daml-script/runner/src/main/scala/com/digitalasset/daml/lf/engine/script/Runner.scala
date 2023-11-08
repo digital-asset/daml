@@ -5,9 +5,9 @@ package com.daml.lf
 package engine
 package script
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.Uri
-import akka.stream.Materializer
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId

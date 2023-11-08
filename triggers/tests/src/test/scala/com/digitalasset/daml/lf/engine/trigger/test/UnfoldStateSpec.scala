@@ -4,9 +4,9 @@
 package com.daml.lf.engine.trigger
 package test
 
-import akka.stream.ClosedShape
-import akka.stream.scaladsl.{GraphDSL, Keep, RunnableGraph, Sink, Source}
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import org.apache.pekko.stream.ClosedShape
+import org.apache.pekko.stream.scaladsl.{GraphDSL, Keep, RunnableGraph, Sink, Source}
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.scalatest.AsyncForAll
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
@@ -23,7 +23,7 @@ class UnfoldStateSpec
     with Matchers
     with ScalaCheckDrivenPropertyChecks
     with AsyncForAll
-    with AkkaBeforeAndAfterAll {
+    with PekkoBeforeAndAfterAll {
   import UnfoldState._
 
   "runTo" should {

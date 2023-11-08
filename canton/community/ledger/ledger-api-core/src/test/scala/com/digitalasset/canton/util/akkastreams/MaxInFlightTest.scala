@@ -1,13 +1,13 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.util.akkastreams
+package com.digitalasset.canton.util.pekkostreams
 
-import akka.stream.scaladsl.{Flow, Source}
-import akka.stream.stage.*
-import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
+import org.apache.pekko.stream.stage.*
+import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 import com.codahale.metrics as codahale
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.metrics.api.dropwizard.{DropwizardCounter as Counter}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
@@ -19,7 +19,7 @@ import scala.concurrent.duration.*
 class MaxInFlightTest
     extends AnyWordSpec
     with Matchers
-    with AkkaBeforeAndAfterAll
+    with PekkoBeforeAndAfterAll
     with ScalaFutures {
 
   "MaxInFlight" should {

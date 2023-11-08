@@ -3,10 +3,10 @@
 
 package com.daml.http
 
-import akka.NotUsed
-import akka.http.scaladsl.model.StatusCodes
-import akka.stream.scaladsl._
-import akka.stream.Materializer
+import org.apache.pekko.NotUsed
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.stream.scaladsl._
+import org.apache.pekko.stream.Materializer
 import com.daml.lf
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.dbbackend.ContractDao

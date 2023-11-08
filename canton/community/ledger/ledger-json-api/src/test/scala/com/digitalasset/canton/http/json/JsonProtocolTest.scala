@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http.json
 
-import akka.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.StatusCodes
 import com.daml.lf.data.Ref
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.http.Generators.{

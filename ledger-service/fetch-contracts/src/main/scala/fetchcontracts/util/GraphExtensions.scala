@@ -3,9 +3,9 @@
 
 package com.daml.fetchcontracts.util
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Sink}
-import akka.stream.{FanOutShape2, FlowShape, Graph}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, Sink}
+import org.apache.pekko.stream.{FanOutShape2, FlowShape, Graph}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.Liskov.<~<
 
