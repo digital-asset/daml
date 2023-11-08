@@ -14,13 +14,12 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.interpretation.Error.ContractIdInContractKey
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageVersion, LookupError, PackageInterface, Reference}
 import com.daml.lf.language.Ast.PackageMetadata
 import com.daml.lf.language.Ast.TTyCon
-import com.daml.lf.language.{LookupError, PackageInterface, Reference}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
-import com.daml.lf.speedy.{Pretty, SValue, TraceLog, WarningLog, SError}
+import com.daml.lf.speedy.{Pretty, SError, SValue, TraceLog, WarningLog}
 import com.daml.lf.transaction.{
   FatContractInstance,
   GlobalKey,
@@ -812,6 +811,7 @@ class IdeLedgerClient(
       disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
+      languageVersionLookup: PackageId => Either[String, LanguageVersion],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -850,6 +850,7 @@ class IdeLedgerClient(
       readAs: Set[Ref.Party],
       commandss: List[List[command.ApiCommand]],
       optLocation: Option[Location],
+      languageVersionLookup: PackageId => Either[String, LanguageVersion],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -864,7 +865,9 @@ class IdeLedgerClient(
         )
       ) { (f, commands) =>
         f.flatMap { x =>
-          trySubmit(actAs, readAs, List.empty, commands, optLocation).map(x += _)
+          trySubmit(actAs, readAs, List.empty, commands, optLocation, languageVersionLookup).map(
+            x += _
+          )
         }
       }
       .map(_.toList)

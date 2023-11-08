@@ -5,7 +5,6 @@ package com.daml.lf.engine.script.v2.ledgerinteraction
 package grpcLedgerClient
 
 import java.util.UUID
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimestampConversion
@@ -33,7 +32,7 @@ import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.engine.script.v2.Converter
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.speedy.{SValue, svalue}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -268,11 +267,13 @@ class GrpcLedgerClient(
       disclosures: List[Bytes],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
+      languageVersionLookup: PackageId => Either[String, LanguageVersion],
   )(implicit ec: ExecutionContext, mat: Materializer) =
     internalSubmit(actAs, readAs, disclosures, commands)
       .map(Right(_))
       .recoverWith({ case s: StatusRuntimeException =>
-        Future.successful(Left(GrpcErrorParser.convertStatusRuntimeException(s)))
+        Future
+          .successful(Left(GrpcErrorParser.convertStatusRuntimeException(s, languageVersionLookup)))
       })
 
   override def trySubmitConcurrently(
@@ -280,8 +281,11 @@ class GrpcLedgerClient(
       readAs: Set[Ref.Party],
       commandss: List[List[command.ApiCommand]],
       optLocation: Option[Location],
+      languageVersionLookup: PackageId => Either[String, LanguageVersion],
   )(implicit ec: ExecutionContext, mat: Materializer) =
-    Future.traverse(commandss)(trySubmit(actAs, readAs, List.empty, _, optLocation))
+    Future.traverse(commandss)(
+      trySubmit(actAs, readAs, List.empty, _, optLocation, languageVersionLookup)
+    )
 
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
