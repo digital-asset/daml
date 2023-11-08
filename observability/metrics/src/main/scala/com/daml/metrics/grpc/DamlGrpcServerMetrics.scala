@@ -41,7 +41,7 @@ class DamlGrpcServerMetrics(
     "Distribution of payload sizes in gRPC messages received (both unary and streaming).",
   )
   override val callsStarted: MetricHandle.Meter = metricsFactory.meter(
-    grpcServerMeGrpcServerMetricsPrefixtricsPrefix :+ "started",
+    GrpcServerMetricsPrefix :+ "started",
     "Total number of started gRPC requests (on either type of connection).",
   )
   override val callsHandled: MetricHandle.Meter = metricsFactory.meter(
