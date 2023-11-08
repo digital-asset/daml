@@ -129,7 +129,6 @@ getInstalledSdkVersions damlPath = do
       Left SomeException{} -> pure []
       Right sdks -> do
           versionsFound <- catMaybes <$> mapM resolveSdk sdks
-          writeFile "/home/dylan-thinnes/getInstalledSdkVersions" (show versionsFound)
           pure versionsFound
     where
     resolveSdk :: String -> IO (Maybe ReleaseVersion)
@@ -350,7 +349,6 @@ instance Exception CouldNotResolveVersion where
 resolveReleaseVersion :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
 resolveReleaseVersion _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
 resolveReleaseVersion useCache targetVersion = do
-    writeFile "/home/dylan-thinnes/resolveReleaseVersion" (show targetVersion)
     resolved <- resolveReleaseVersionFromDamlPath (damlPath useCache) targetVersion
     case resolved of
       Just resolved -> pure resolved
@@ -372,7 +370,6 @@ resolveReleaseVersion useCache targetVersion = do
 resolveSdkVersionToRelease :: UseCache -> SdkVersion -> IO (Either CouldNotResolveVersion ReleaseVersion)
 resolveSdkVersionToRelease _ targetVersion | isHeadVersion targetVersion = pure (Right headReleaseVersion)
 resolveSdkVersionToRelease useCache targetVersion = do
-    writeFile "/home/dylan-thinnes/resolveSdkVersionToRelease" (show targetVersion)
     resolved <- resolveSdkVersionFromDamlPath (damlPath useCache) targetVersion
     case resolved of
       Just resolved -> pure (Right resolved)
