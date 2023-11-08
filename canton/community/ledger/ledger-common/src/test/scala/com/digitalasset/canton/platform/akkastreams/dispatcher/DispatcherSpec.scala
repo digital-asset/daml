@@ -1,14 +1,14 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.platform.akkastreams.dispatcher
+package com.digitalasset.canton.platform.pekkostreams.dispatcher
 
-import akka.stream.DelayOverflowStrategy
-import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import org.apache.pekko.stream.DelayOverflowStrategy
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.platform.akkastreams.FutureTimeouts
-import com.digitalasset.canton.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.canton.platform.pekkostreams.FutureTimeouts
+import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.Span
@@ -27,7 +27,7 @@ import scala.util.{Failure, Success}
 
 class DispatcherSpec
     extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
+    with PekkoBeforeAndAfterAll
     with BeforeAndAfter
     with Matchers
     with FutureTimeouts

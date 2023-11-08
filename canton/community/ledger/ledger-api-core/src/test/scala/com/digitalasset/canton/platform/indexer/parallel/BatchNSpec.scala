@@ -3,16 +3,16 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import akka.stream.Attributes.InputBuffer
-import akka.stream.scaladsl.{Sink, Source}
-import akka.stream.{Attributes, DelayOverflowStrategy}
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import org.apache.pekko.stream.Attributes.InputBuffer
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.stream.{Attributes, DelayOverflowStrategy}
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.*
 
-class BatchNSpec extends AsyncFlatSpec with Matchers with AkkaBeforeAndAfterAll {
+class BatchNSpec extends AsyncFlatSpec with Matchers with PekkoBeforeAndAfterAll {
   behavior of BatchN.getClass.getSimpleName
 
   private val MaxBatchSize = 10

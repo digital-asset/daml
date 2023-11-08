@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger.test
 
-import akka.stream.scaladsl.Flow
+import org.apache.pekko.stream.scaladsl.Flow
 import com.daml.ledger.api.refinements.ApiTypes.{Party => ApiParty}
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}

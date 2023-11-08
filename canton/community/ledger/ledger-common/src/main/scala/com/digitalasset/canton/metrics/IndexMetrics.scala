@@ -23,7 +23,7 @@ class IndexMetrics(
 
   @MetricDoc.Tag(
     summary = "The buffer size for transaction trees requests.",
-    description = """An Akka stream buffer is added at the end of all streaming queries, allowing
+    description = """An Pekko stream buffer is added at the end of all streaming queries, allowing
                     |to absorb temporary downstream backpressure (e.g. when the client is
                     |slower than upstream delivery throughput). This metric gauges the
                     |size of the buffer for queries requesting transaction trees.""",
@@ -35,7 +35,7 @@ class IndexMetrics(
 
   @MetricDoc.Tag(
     summary = "The buffer size for flat transactions requests.",
-    description = """An Akka stream buffer is added at the end of all streaming queries, allowing
+    description = """An Pekko stream buffer is added at the end of all streaming queries, allowing
                     |to absorb temporary downstream backpressure (e.g. when the client is
                     |slower than upstream delivery throughput). This metric gauges the
                     |size of the buffer for queries requesting flat transactions in a specific
@@ -48,7 +48,7 @@ class IndexMetrics(
 
   @MetricDoc.Tag(
     summary = "The buffer size for active contracts requests.",
-    description = """An Akka stream buffer is added at the end of all streaming queries, allowing
+    description = """An Pekko stream buffer is added at the end of all streaming queries, allowing
                     |to absorb temporary downstream backpressure (e.g. when the client is
                     |slower than upstream delivery throughput). This metric gauges the
                     |size of the buffer for queries requesting active contracts that transactions
@@ -61,7 +61,7 @@ class IndexMetrics(
 
   @MetricDoc.Tag(
     summary = "The buffer size for completions requests.",
-    description = """An Akka stream buffer is added at the end of all streaming queries, allowing
+    description = """An Pekko stream buffer is added at the end of all streaming queries, allowing
                     |to absorb temporary downstream backpressure (e.g. when the client is
                     |slower than upstream delivery throughput). This metric gauges the
                     |size of the buffer for queries requesting the completed commands in a specific

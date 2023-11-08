@@ -7,7 +7,7 @@ package script
 package v2
 package ledgerinteraction
 
-import akka.stream.Materializer
+import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.data.Ref._

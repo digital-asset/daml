@@ -5,12 +5,12 @@ package com.daml.auth.middleware.api
 
 import java.util.UUID
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.marshalling.Marshal
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.model.Uri.Path
-import akka.http.scaladsl.model.{
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.marshalling.Marshal
+import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import org.apache.pekko.http.scaladsl.model.Uri.Path
+import org.apache.pekko.http.scaladsl.model.{
   HttpMethods,
   HttpRequest,
   MediaTypes,
@@ -20,7 +20,7 @@ import akka.http.scaladsl.model.{
   Uri,
   headers,
 }
-import akka.http.scaladsl.server.{
+import org.apache.pekko.http.scaladsl.server.{
   ContentNegotiator,
   Directive,
   Directive0,
@@ -28,8 +28,8 @@ import akka.http.scaladsl.server.{
   Route,
   StandardRoute,
 }
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.unmarshalling.Unmarshal
+import org.apache.pekko.http.scaladsl.server.Directives._
+import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.auth.middleware.api.Client.{AuthException, RedirectToLogin, RefreshException}
 import com.daml.auth.middleware.api.Tagged.RefreshToken
 

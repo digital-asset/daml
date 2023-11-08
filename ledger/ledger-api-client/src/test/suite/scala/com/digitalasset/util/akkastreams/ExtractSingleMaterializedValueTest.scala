@@ -1,10 +1,10 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.util.akkastreams
+package com.daml.util.pekkostreams
 
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -15,7 +15,7 @@ class ExtractSingleMaterializedValueTest
     extends AnyWordSpec
     with Matchers
     with ScalaFutures
-    with AkkaBeforeAndAfterAll {
+    with PekkoBeforeAndAfterAll {
 
   private val discriminator = { i: Int =>
     if (i < 0) Some(i) else None

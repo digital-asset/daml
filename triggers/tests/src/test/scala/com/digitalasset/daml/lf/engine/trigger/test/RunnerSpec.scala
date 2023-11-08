@@ -4,8 +4,8 @@
 package com.daml.lf.engine.trigger
 package test
 
-import akka.stream.scaladsl.{Flow, Sink, Source}
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.logging.LoggingContextOf
 import com.daml.scalatest.AsyncForAll
@@ -19,7 +19,7 @@ import scala.concurrent.duration._
 import Duration.Zero
 import scala.concurrent.Future
 
-class RunnerSpec extends AsyncWordSpec with Matchers with AsyncForAll with AkkaBeforeAndAfterAll {
+class RunnerSpec extends AsyncWordSpec with Matchers with AsyncForAll with PekkoBeforeAndAfterAll {
   import Runner.retrying
 
   val loggingContext: LoggingContextOf[Trigger] =

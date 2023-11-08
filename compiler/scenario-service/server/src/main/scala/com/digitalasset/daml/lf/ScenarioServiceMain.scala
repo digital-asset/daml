@@ -3,9 +3,9 @@
 
 package com.daml.lf.scenario
 
-import akka.actor.ActorSystem
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import akka.stream.Materializer
+import org.apache.pekko.actor.ActorSystem
+import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
+import org.apache.pekko.stream.Materializer
 
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.logging.{Level, Logger}
@@ -82,10 +82,10 @@ object ScenarioServiceMain extends App {
   ScenarioServiceConfig.parse(args) match {
     case None => sys.exit(1)
     case Some(config) =>
-      // Needed for the akka Ledger bindings used by Daml Script.
+      // Needed for the pekko Ledger bindings used by Daml Script.
       val system = ActorSystem("ScriptService")
       implicit val sequencer: ExecutionSequencerFactory =
-        new AkkaExecutionSequencerPool("ScriptServicePool")(system)
+        new PekkoExecutionSequencerPool("ScriptServicePool")(system)
       implicit val materializer: Materializer = Materializer(system)
       implicit val ec: ExecutionContext = system.dispatcher
       LoggingContext.newLoggingContext { implicit lc: LoggingContext =>

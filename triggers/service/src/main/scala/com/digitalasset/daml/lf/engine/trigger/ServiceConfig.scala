@@ -8,7 +8,7 @@ import com.daml.lf.speedy.Compiler
 import java.nio.file.Path
 import java.time.Duration
 import scala.concurrent.duration._
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 import ch.qos.logback.classic.Level
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.auth.middleware.api.{Client => AuthClient}

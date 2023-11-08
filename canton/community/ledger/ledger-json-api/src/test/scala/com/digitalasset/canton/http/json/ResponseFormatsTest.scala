@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.http.json
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.ByteString
 import com.digitalasset.canton.http.json.ResponseFormats
 import org.scalacheck.Gen
 import org.scalatest.compatible.Assertion

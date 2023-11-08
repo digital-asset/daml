@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.http.endpoints
 
-import akka.http.scaladsl.model.*
-import akka.NotUsed
+import org.apache.pekko.http.scaladsl.model.*
+import org.apache.pekko.NotUsed
 import com.digitalasset.canton.http.Endpoints.ET
 import com.digitalasset.canton.http.util.FutureUtil.{eitherT, rightT}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}

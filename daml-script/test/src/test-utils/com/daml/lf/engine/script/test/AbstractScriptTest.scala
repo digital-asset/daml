@@ -8,7 +8,7 @@ package test
 import java.nio.file.{Path, Paths}
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.integrationtest.CantonFixture
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedgerClient}
 import com.daml.lf.language.{Ast, LanguageMajorVersion, StablePackages}
@@ -20,7 +20,7 @@ import org.scalatest.Suite
 import scala.concurrent.{ExecutionContext, Future}
 
 // Fixture for a set of participants used in Daml Script tests
-trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
+trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
   self: Suite =>
 
   val majorLanguageVersion: LanguageMajorVersion;

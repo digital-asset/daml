@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.testkit.StreamSpec
-import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import akka.stream.testkit.scaladsl.TestSink
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.stream.testkit.StreamSpec
+import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import org.apache.pekko.stream.testkit.scaladsl.TestSink
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.Signature
@@ -26,16 +26,16 @@ import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver, SignedConten
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.AkkaUtil.syntax.*
+import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.{BaseTest, SequencerCounter}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.{Deadline, DurationInt, FiniteDuration}
 
-class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
-  import TestSequencerSubscriptionFactoryAkka.*
+class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
+  import TestSequencerSubscriptionFactoryPekko.*
 
-  // Override the implicit from AkkaSpec so that we don't get ambiguous implicits
+  // Override the implicit from PekkoSpec so that we don't get ambiguous implicits
   override val patience: PatienceConfig = defaultPatience
 
   // very short to speedup test
@@ -47,10 +47,10 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
     SubscriptionRetryDelayRule(InitialDelay, maxDelay, maxDelay)
 
   private def createResilientSubscriber[E](
-      subscriptionFactory: SequencerSubscriptionFactoryAkka[E],
+      subscriptionFactory: SequencerSubscriptionFactoryPekko[E],
       retryDelayRule: SubscriptionRetryDelayRule = retryDelay(),
-  ): ResilientSequencerSubscriberAkka[E] = {
-    new ResilientSequencerSubscriberAkka[E](
+  ): ResilientSequencerSubscriberPekko[E] = {
+    new ResilientSequencerSubscriberPekko[E](
       retryDelayRule,
       subscriptionFactory,
       DefaultProcessingTimeouts.testing,
@@ -58,9 +58,9 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
     )
   }
 
-  "ResilientSequencerSubscriberAkka" should {
+  "ResilientSequencerSubscriberPekko" should {
     "not retry on an unrecoverable error" in assertAllStagesStopped {
-      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
       val subscriber = createResilientSubscriber(factory)
       factory.add(Error(UnretryableError))
       val subscription = subscriber.subscribeFrom(SequencerCounter.Genesis)
@@ -77,7 +77,7 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
     }
 
     "retry on recoverable errors" in assertAllStagesStopped {
-      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
       val subscriber = createResilientSubscriber(factory)
       factory.add(Error(RetryableError))
       factory.add(Error(RetryableError))
@@ -99,7 +99,7 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
     }
 
     "retry on exceptions until one is fatal" in {
-      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
       val subscriber = createResilientSubscriber(factory)
       factory.add(Failure(RetryableExn))
       factory.add(Failure(FatalExn))
@@ -121,7 +121,7 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
     }
 
     "restart from last received counter" in {
-      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
       val subscriber = createResilientSubscriber(factory)
       factory.subscribe(start =>
         (start to (start + 10)).map(sc => Event(sc)) :+ Error(RetryableError)
@@ -162,7 +162,7 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
         override val initialDelay: FiniteDuration = 1.milli
         override val warnDelayDuration: FiniteDuration = 100.millis
       }
-      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
       val subscriber = createResilientSubscriber(factory, captureHasEvent)
 
       // provide an event then close with a recoverable error
@@ -186,7 +186,7 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
     "retry until closing if the sequencer is permanently unavailable" in assertAllStagesStopped {
       val maxDelay = 100.milliseconds
 
-      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
       val subscriber = createResilientSubscriber(factory, retryDelay(maxDelay))
       // Always close with RetryableError
       for (_ <- 1 to 100) {
@@ -230,7 +230,7 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
     "return to healthy when messages are received again" in assertAllStagesStopped {
       val maxDelay = 100.milliseconds
 
-      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
       val subscriber = createResilientSubscriber(factory, retryDelay(maxDelay))
       // retryDelay doubles the delay upon each attempt until it hits `maxDelay`,
       // so we set it to one more such that we get the chance to see the unhealthy state
@@ -275,12 +275,12 @@ class ResilientSequencerSubscriberAkkaTest extends StreamSpec with BaseTest {
   }
 }
 
-class TestSequencerSubscriptionFactoryAkka(
+class TestSequencerSubscriptionFactoryPekko(
     health: HealthComponent,
     override protected val loggerFactory: NamedLoggerFactory,
-) extends SequencerSubscriptionFactoryAkka[TestSubscriptionError]
+) extends SequencerSubscriptionFactoryPekko[TestSubscriptionError]
     with NamedLogging {
-  import TestSequencerSubscriptionFactoryAkka.*
+  import TestSequencerSubscriptionFactoryPekko.*
 
   override def sequencerId: SequencerId = DefaultTestIdentities.sequencerId
 
@@ -293,7 +293,7 @@ class TestSequencerSubscriptionFactoryAkka(
 
   override def create(startingCounter: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): SequencerSubscriptionAkka[TestSubscriptionError] = {
+  ): SequencerSubscriptionPekko[TestSubscriptionError] = {
     val srcs = sources.getAndUpdate(_.drop(1))
     val subscribe = srcs.headOption.getOrElse(
       throw new IllegalStateException(
@@ -321,20 +321,20 @@ class TestSequencerSubscriptionFactoryAkka(
       .takeUntilThenDrain(_.isLeft)
       .watchTermination()(Keep.both)
 
-    SequencerSubscriptionAkka[TestSubscriptionError](source, health)
+    SequencerSubscriptionPekko[TestSubscriptionError](source, health)
   }
 
-  override val retryPolicy: SubscriptionErrorRetryPolicyAkka[TestSubscriptionError] =
-    new TestSubscriptionErrorRetryPolicyAkka
+  override val retryPolicy: SubscriptionErrorRetryPolicyPekko[TestSubscriptionError] =
+    new TestSubscriptionErrorRetryPolicyPekko
 }
 
-object TestSequencerSubscriptionFactoryAkka {
-  def apply(loggerFactory: NamedLoggerFactory): TestSequencerSubscriptionFactoryAkka = {
+object TestSequencerSubscriptionFactoryPekko {
+  def apply(loggerFactory: NamedLoggerFactory): TestSequencerSubscriptionFactoryPekko = {
     val alwaysHealthyComponent = new AlwaysHealthyComponent(
       "TestSequencerSubscriptionFactory",
-      loggerFactory.getTracedLogger(classOf[TestSequencerSubscriptionFactoryAkka]),
+      loggerFactory.getTracedLogger(classOf[TestSequencerSubscriptionFactoryPekko]),
     )
-    new TestSequencerSubscriptionFactoryAkka(alwaysHealthyComponent, loggerFactory)
+    new TestSequencerSubscriptionFactoryPekko(alwaysHealthyComponent, loggerFactory)
   }
 
   sealed trait Element extends Product with Serializable
@@ -372,8 +372,8 @@ object TestSequencerSubscriptionFactoryAkka {
     OrdinarySequencedEvent(signedContent, None)(TraceContext.empty)
   }
 
-  private class TestSubscriptionErrorRetryPolicyAkka
-      extends SubscriptionErrorRetryPolicyAkka[TestSubscriptionError] {
+  private class TestSubscriptionErrorRetryPolicyPekko
+      extends SubscriptionErrorRetryPolicyPekko[TestSubscriptionError] {
     override def retryOnError(subscriptionError: TestSubscriptionError, receivedItems: Boolean)(
         implicit loggingContext: ErrorLoggingContext
     ): Boolean = {

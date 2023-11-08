@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.environment
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import better.files.File
 import cats.data.EitherT
 import com.daml.metrics.HealthMetrics

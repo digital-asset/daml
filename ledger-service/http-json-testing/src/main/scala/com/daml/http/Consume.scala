@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import akka.stream.scaladsl.Sink
+import org.apache.pekko.stream.scaladsl.Sink
 import org.scalactic.source
 import scalaz.{~>, Functor}
 

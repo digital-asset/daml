@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import akka.stream.Materializer
+import org.apache.pekko.stream.Materializer
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*

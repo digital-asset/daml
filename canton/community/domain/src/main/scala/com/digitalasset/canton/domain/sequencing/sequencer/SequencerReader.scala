@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import akka.stream.*
-import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Sink, Source, WireTap}
-import akka.{Done, NotUsed}
+import org.apache.pekko.stream.*
+import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, Sink, Source, WireTap}
+import org.apache.pekko.{Done, NotUsed}
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
@@ -32,8 +32,8 @@ import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.AkkaUtil.CombinedKillSwitch
-import com.digitalasset.canton.util.AkkaUtil.syntax.*
+import com.digitalasset.canton.util.PekkoUtil.CombinedKillSwitch
+import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -157,7 +157,7 @@ class SequencerReader(
         )
     }
 
-    /** An Akka flow that passes the [[UnsignedEventData]] untouched from input to output,
+    /** An Pekko flow that passes the [[UnsignedEventData]] untouched from input to output,
       * but asynchronously records every checkpoint interval.
       * The materialized future completes when all checkpoints have been recorded
       * after the kill switch has been pulled.

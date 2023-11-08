@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.domain.block
 
-import akka.stream.scaladsl.Source
-import akka.stream.{KillSwitch, Materializer}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.{KillSwitch, Materializer}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.time.TimeProvider
 import com.digitalasset.canton.tracing.{TraceContext, Traced}

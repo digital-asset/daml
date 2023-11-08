@@ -6,11 +6,11 @@ package grpcLedgerClient
 
 import java.util.UUID
 
-import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.api.util.TimestampConversion
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.client.akka.ClientAdapter
+import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse

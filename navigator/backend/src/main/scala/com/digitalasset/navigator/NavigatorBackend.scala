@@ -6,9 +6,9 @@ package com.daml.navigator
 import java.nio.file.{Files, Paths}
 import java.util.UUID
 
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.server.Directives._
+import org.apache.pekko.http.scaladsl.server.Route
 import com.daml.buildinfo.BuildInfo
 
 object NavigatorBackend extends UIBackend {

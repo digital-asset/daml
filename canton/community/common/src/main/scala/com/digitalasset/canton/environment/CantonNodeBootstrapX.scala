@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.environment
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService

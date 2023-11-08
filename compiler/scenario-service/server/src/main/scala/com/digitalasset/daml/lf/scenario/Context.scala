@@ -5,7 +5,7 @@ package com.daml.lf
 package scenario
 
 import java.util.concurrent.atomic.AtomicLong
-import akka.stream.Materializer
+import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.data.{ImmArray, assertRight}
 import com.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}

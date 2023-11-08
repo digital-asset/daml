@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.daml.api.util.TimeProvider
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.ledger.api.v1.experimental_features.{

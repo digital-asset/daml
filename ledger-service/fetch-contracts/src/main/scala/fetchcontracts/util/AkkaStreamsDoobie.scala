@@ -3,9 +3,9 @@
 
 package com.daml.fetchcontracts.util
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Partition, SinkQueueWithCancel}
-import akka.stream.{FanOutShape2, Graph}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, Partition, SinkQueueWithCancel}
+import org.apache.pekko.stream.{FanOutShape2, Graph}
 import com.daml.scalautil.Statement.discard
 import doobie.free.{connection => fconn}
 import scalaz.Order
@@ -15,8 +15,8 @@ import scalaz.{-\/, \/, \/-}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-// Generic utilities for akka-streams and doobie.
-private[daml] object AkkaStreamsDoobie {
+// Generic utilities for pekko-streams and doobie.
+private[daml] object PekkoStreamsDoobie {
   def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._

@@ -3,22 +3,22 @@
 
 package com.daml.auth.middleware.oauth2
 
-import akka.Done
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{HttpCookie, HttpCookiePair}
-import akka.http.scaladsl.server.{Directive1, Route}
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
+import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.headers.{HttpCookie, HttpCookiePair}
+import org.apache.pekko.http.scaladsl.server.{Directive1, Route}
+import org.apache.pekko.http.scaladsl.server.Directives._
+import org.apache.pekko.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import com.daml.auth.oauth2.api.{JsonProtocol => OAuthJsonProtocol, Response => OAuthResponse}
 import com.daml.ledger.api.{auth => lapiauth}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.metrics.api.reporters.MetricsReporting
-import com.daml.metrics.akkahttp.HttpMetricsInterceptor
+import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
 import com.typesafe.scalalogging.StrictLogging
 
 import java.util.UUID

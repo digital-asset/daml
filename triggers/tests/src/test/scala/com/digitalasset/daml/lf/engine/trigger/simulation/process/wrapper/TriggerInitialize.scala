@@ -4,8 +4,8 @@
 package com.daml.lf.engine.trigger.simulation.process
 package wrapper
 
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.daml.lf.speedy.SValue
 
 object TriggerInitialize {

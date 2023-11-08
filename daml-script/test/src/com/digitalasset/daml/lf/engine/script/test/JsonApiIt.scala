@@ -3,15 +3,15 @@
 
 package com.daml.lf.engine.script.test
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives._
-import akka.stream.Materializer
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.server.Directives._
+import org.apache.pekko.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.cliopts.Logging.LogEncoder
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
@@ -22,7 +22,7 @@ import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
+  PekkoBeforeAndAfterAll,
   OwnedResource,
   SuiteResourceManagementAroundAll,
   SuiteResource,
@@ -60,7 +60,7 @@ import scala.concurrent.{Await, Future}
 trait JsonApiFixture
     extends SuiteResource[(Port, ServerBinding)]
     with SuiteResourceManagementAroundAll
-    with AkkaBeforeAndAfterAll
+    with PekkoBeforeAndAfterAll
     with Inside {
   self: Suite =>
 
@@ -95,7 +95,7 @@ trait JsonApiFixture
   private val jsonApiActorSystem: ActorSystem = ActorSystem("json-api")
   private val jsonApiMaterializer: Materializer = Materializer(system)
   private val jsonApiExecutionSequencerFactory: ExecutionSequencerFactory =
-    new AkkaExecutionSequencerPool(poolName = "json-api", actorCount = 1)
+    new PekkoExecutionSequencerPool(poolName = "json-api", actorCount = 1)
 
   protected def getCustomToken(
       actAs: List[String],

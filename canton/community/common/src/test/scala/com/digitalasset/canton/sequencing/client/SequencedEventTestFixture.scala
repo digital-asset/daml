@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.SequencerCounter

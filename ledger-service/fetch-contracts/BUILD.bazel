@@ -34,7 +34,7 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//language-support/scala/bindings-akka",
+        "//language-support/scala/bindings-pekko",
         "//ledger-service/db-backend",
         "//libs-scala/contextualized-logging",
         "//libs-scala/nonempty",
@@ -50,9 +50,9 @@ da_scala_test(
         kind_projector_plugin,
     ],
     scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:com_typesafe_akka_akka_stream_testkit",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_apache_pekko_pekko_stream_testkit",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",

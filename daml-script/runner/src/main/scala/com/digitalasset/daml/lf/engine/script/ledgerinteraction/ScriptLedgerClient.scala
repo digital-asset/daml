@@ -8,10 +8,10 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.daml.lf.speedy.{TraceLog, WarningLog}
-import akka.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model._
 import com.daml.jwt.domain.Jwt
 import com.daml.lf.typesig.EnvironmentSignature
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 
 // Hopefully remove after json client application id check
 import com.daml.jwt.JwtDecoder

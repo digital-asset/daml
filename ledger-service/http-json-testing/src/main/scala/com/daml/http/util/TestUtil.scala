@@ -5,9 +5,9 @@ package com.daml.http.util
 
 import java.io.{BufferedWriter, File, FileWriter}
 
-import akka.http.scaladsl.model.HttpResponse
-import akka.stream.Materializer
-import akka.util.ByteString
+import org.apache.pekko.http.scaladsl.model.HttpResponse
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.util.ByteString
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.{ExecutionContext, Future}

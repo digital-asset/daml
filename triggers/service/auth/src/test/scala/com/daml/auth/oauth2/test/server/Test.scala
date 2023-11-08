@@ -3,12 +3,12 @@
 
 package com.daml.auth.oauth2.test.server
 
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.model.Uri.Path
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.Location
-import akka.http.scaladsl.unmarshalling.Unmarshal
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import org.apache.pekko.http.scaladsl.model.Uri.Path
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.headers.Location
+import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.{
@@ -63,7 +63,7 @@ abstract class Test
     )
     for {
       resp <- Http().singleRequest(req)
-      // Redirect to /authorize on authorization server (No automatic redirect handling in akka-http)
+      // Redirect to /authorize on authorization server (No automatic redirect handling in pekko-http)
       resp <- {
         resp.status should ===(StatusCodes.Found)
         val req = HttpRequest(uri = resp.header[Location].value.uri)

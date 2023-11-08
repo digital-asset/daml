@@ -22,7 +22,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
   * @param inMemoryFanOutThreadPoolSize            size of the thread-pool backing the Ledger API in-memory fan-out.
   *                                                If not set, defaults to ((number of thread)/4 + 1)
   * @param preparePackageMetadataTimeOutWarning    timeout for package metadata preparation after which a warning will be logged
-  * @param completionsPageSize                     database / akka page size for batching of ledger api server index ledger completion queries
+  * @param completionsPageSize                     database / pekko page size for batching of ledger api server index ledger completion queries
   * @param activeContractsServiceStreams           configurations pertaining to the ledger api server's "active contracts service"
   * @param transactionFlatStreams                  configurations pertaining to the ledger api server's streams of transaction trees
   * @param transactionTreeStreams                  configurations pertaining to the ledger api server's streams of flat transactions

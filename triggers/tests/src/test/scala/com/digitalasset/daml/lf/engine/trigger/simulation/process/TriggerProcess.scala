@@ -4,10 +4,10 @@
 package com.daml.lf.engine.trigger.simulation
 package process
 
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.typed.scaladsl.Behaviors
-import akka.stream.Materializer
-import akka.util.Timeout
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.util.Timeout
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter

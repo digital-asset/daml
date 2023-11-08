@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
@@ -24,7 +24,7 @@ class AuthorizerSpec
     with BaseTest
     with Matchers
     with MockitoSugar
-    with AkkaBeforeAndAfterAll {
+    with PekkoBeforeAndAfterAll {
 
   private implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace.ForTesting
 
@@ -82,7 +82,7 @@ class AuthorizerSpec
     mock[UserManagementStore],
     mock[ExecutionContext],
     userRightsCheckIntervalInSeconds = 1,
-    akkaScheduler = system.scheduler,
+    pekkoScheduler = system.scheduler,
     telemetry = NoOpTelemetry,
     loggerFactory = loggerFactory,
   )

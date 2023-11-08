@@ -5,7 +5,7 @@ package io.gatling.app
 
 import java.nio.file.{FileSystems, Path}
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
 import io.gatling.core.config.GatlingConfiguration

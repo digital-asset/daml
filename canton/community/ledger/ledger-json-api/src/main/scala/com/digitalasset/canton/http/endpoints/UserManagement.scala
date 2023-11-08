@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.http.endpoints
 
-import akka.NotUsed
-import akka.stream.scaladsl.Source
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 import com.digitalasset.canton.http.EndpointsCompanion.*
 import com.digitalasset.canton.http.Endpoints.ET
 import com.digitalasset.canton.http.EndpointsCompanion.CreateFromUserToken.userIdFromToken

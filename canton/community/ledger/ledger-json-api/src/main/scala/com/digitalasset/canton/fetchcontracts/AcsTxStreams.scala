@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.fetchcontracts
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Broadcast, Concat, Flow, GraphDSL, Source}
-import akka.stream.{FanOutShape2, Graph}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Broadcast, Concat, Flow, GraphDSL, Source}
+import org.apache.pekko.stream.{FanOutShape2, Graph}
 import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
 import com.daml.ledger.api.v1 as lav1
@@ -17,7 +17,7 @@ import com.digitalasset.canton.tracing.NoTracing
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
 
 object AcsTxStreams extends NoTracing {
-  import util.AkkaStreamsUtils.{last, max, project2}
+  import util.PekkoStreamsUtils.{last, max, project2}
 
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
   private[this] def partitionInsertsDeletes(
