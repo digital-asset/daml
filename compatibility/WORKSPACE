@@ -178,7 +178,7 @@ dev_env_tool(
 
 nixpkgs_package(
     name = "postgresql_nix",
-    attribute_path = "postgresql_11",
+    attribute_path = "postgresql_12",
     build_file_content = """
 package(default_visibility = ["//visibility:public"])
 filegroup(

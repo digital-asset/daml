@@ -16,7 +16,7 @@ let
       installPhase = ''
         mkdir -p $out
         PREFIX=$out make install
-        wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql_11}/bin:$out/bin
+        wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql_12}/bin:$out/bin
       '';
     });
     scala_2_13 = pkgs.scala_2_13.overrideAttrs (oldAttrs: rec {
