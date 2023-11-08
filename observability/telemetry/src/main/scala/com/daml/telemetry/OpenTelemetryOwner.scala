@@ -9,6 +9,7 @@ import com.daml.metrics.api.MetricHandle.Histogram
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.metrics.api.reporters.MetricsReporter.Prometheus
+import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import com.daml.telemetry.OpenTelemetryOwner.addViewsToProvider
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.exporter.prometheus.PrometheusCollector
@@ -88,6 +89,19 @@ object OpenTelemetryOwner {
           Seq(
             0.0005d, 0.001d, 0.002d, 0.005d, 0.01d, 0.025d, 0.05d, 0.1d, 0.25d, 0.5d, 0.75d, 1d,
             2.5d,
+          )
+        ),
+      )
+      // timing buckets for gRPC server latency measurements with more precise granularity on latencies up to 5s
+      .registerView(
+        histogramSelectorWithRegex(
+          s"${ExecutorServiceMetrics.GrpcServerMetricsPrefix}.*${OpenTelemetryTimer.TimerUnitAndSuffix}"
+        ),
+        explicitHistogramBucketsView(
+          Seq(
+            0.01d, 0.025d, 0.050d, 0.075d, 0.1d, 0.15d, 0.2d, 0.25d, 0.35d, 0.5d, 0.75d, 1d, 1.25d,
+            1.5d, 1.75d, 2d, 2.25d, 2.5d, 2.75d, 3d, 3.25d, 3.5d, 3.75d, 4d, 4.25d, 4.5d, 4.75d, 5d,
+            10d,
           )
         ),
       )
