@@ -11,6 +11,7 @@ import com.daml.ledger.javaapi.data.codegen.{
   InterfaceCompanion,
 }
 import com.daml.ledger.javaapi.data.{
+  ArchivedEvent,
   CreatedEvent as JavaCreatedEvent,
   Event,
   ExercisedEvent,
@@ -57,6 +58,30 @@ object JavaDecodeUtil {
       created <- if (eventP.hasCreated) Seq(eventP.getCreated) else Seq()
       a <- decodeCreated(companion)(JavaCreatedEvent.fromProto(created)).toList
     } yield a
+
+  def decodeAllArchived[T](
+      companion: ContractCompanion[?, ?, T]
+  )(transaction: JavaTransaction): Seq[ContractId[T]] =
+    decodeAllArchivedFromEvents(companion)(transaction.getEvents.asScala.toSeq)
+
+  def decodeAllArchivedFromEvents[T](
+      companion: ContractCompanion[?, ?, T]
+  )(events: Seq[Event]): Seq[ContractId[T]] =
+    for {
+      event <- events
+      eventP = event.toProtoEvent
+      if eventP.hasArchived
+      archive = ArchivedEvent.fromProto(eventP.getArchived)
+      decoded <- decodeArchived(companion)(archive).toList
+    } yield decoded
+
+  def decodeArchived[T](
+      companion: ContractCompanion[?, ?, T]
+  )(event: ArchivedEvent): Option[ContractId[T]] =
+    Option(event)
+      .filter(_.getTemplateId == companion.TEMPLATE_ID)
+      .map(_.getContractId)
+      .map(new ContractId[T](_))
 
   def decodeArchivedExercise[TCid](
       companion: ContractCompanion[?, TCid, ?]

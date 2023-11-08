@@ -12,16 +12,19 @@ utils.retry_until_true {
     participant1.domains.active("lostDomain") && participant2.domains.active("lostDomain")
 }
 
+import com.digitalasset.canton.BigDecimalImplicits._
 import com.digitalasset.canton.console.ParticipantReference
-import com.digitalasset.canton.examples.Iou
+import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.protocol.ContractIdSyntax._
 
+import scala.jdk.CollectionConverters._
+
 def createIou(participant: ParticipantReference, payer: PartyId, owner: PartyId, value: Int) =
-  participant.ledger_api.commands.submit_flat(Seq(payer), Seq(Iou.Iou(payer = payer.toPrim,
-                                                                 owner = owner.toPrim,
-                                                                 amount = Iou.Amount(value = value, currency = "USD"),
-                                                                 viewers = List.empty
-                                                                ).create.command))
+  participant.ledger_api.javaapi.commands.submit_flat(Seq(payer), new iou.Iou(payer.toProtoPrimitive,
+                                                                         owner.toProtoPrimitive,
+                                                                         new iou.Amount(value.toLong.toBigDecimal, "USD"),
+                                                                         List.empty.asJava
+                                                                        ).create.commands.asScala.toSeq)
 
 Seq(100, 120, 140).foreach { value =>
   createIou(participant1, Alice, Bob, value)

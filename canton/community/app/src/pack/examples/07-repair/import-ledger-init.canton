@@ -1,7 +1,10 @@
+import com.digitalasset.canton.BigDecimalImplicits._
 import com.digitalasset.canton.console.ParticipantReference
-import com.digitalasset.canton.examples.{Iou, Paint}
+import com.digitalasset.canton.examples.java.{iou, paint}
 import com.digitalasset.canton.topology.SafeSimpleString
 import com.digitalasset.canton.protocol.ContractIdSyntax._
+
+import scala.jdk.CollectionConverters._
 
 // Use participant4 for the "export ledger", so that the "import ledger" looks more natural using participants 1 through 3
 val exportLedger = participant4
@@ -23,20 +26,25 @@ def mayIPaintYourHouse(painter: PartyId,
                        houseOwner: PartyId,
                        bank: PartyId,
                        participant: ParticipantReference) = {
-  participant.ledger_api.commands.submit_flat(
+  participant.ledger_api.javaapi.commands.submit_flat(
     Seq(painter),
-    Seq(
-      Paint
-        .OfferToPaintHouseByPainter(houseOwner.toPrim, painter.toPrim, bank.toPrim, Iou.Amount(100, "USD"))
+      new paint
+        .OfferToPaintHouseByPainter(houseOwner.toProtoPrimitive, painter.toProtoPrimitive, bank.toProtoPrimitive, new iou.Amount(100.toBigDecimal, "USD"))
         .create
-        .command))
+        .commands.asScala.toSeq)
 }
 
 def createIou(payer: PartyId, owner: PartyId, participant: ParticipantReference) = {
-  participant.ledger_api.commands.submit_flat(Seq(payer), Seq(Iou.Iou(payer = payer.toPrim,
-                                                                      owner = owner.toPrim,
-                                                                      amount = Iou.Amount(value = 100, currency = "USD"),
-                                                                      viewers = List.empty).create.command))
+  participant.ledger_api.javaapi.commands.submit_flat(
+    Seq(payer),
+    new iou.Iou(
+      payer.toProtoPrimitive,
+      owner.toProtoPrimitive,
+      new iou.Amount(100.toBigDecimal, "USD"),
+      List.empty.asJava,
+    ).create.commands.asScala.toSeq,
+  )
+
 }
 
 def toPartyId(name: String) =

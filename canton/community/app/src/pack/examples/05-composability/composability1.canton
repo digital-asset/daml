@@ -43,51 +43,54 @@ participants.all.dars.upload(darPath)
 // architecture-handbook-entry-end: topology
 
 // architecture-handbook-entry-begin: imports
-import com.digitalasset.canton.examples.Iou.{Amount, Iou}
-import com.digitalasset.canton.examples.Paint.{OfferToPaintHouseByOwner, PaintHouse}
-import com.digitalasset.canton.participant.ledger.api.client.DecodeUtil.decodeAllCreated
+import com.digitalasset.canton.BigDecimalImplicits._
+import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
+import com.digitalasset.canton.examples.java.paint.{OfferToPaintHouseByOwner, PaintHouse}
+import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil.decodeAllCreated
 import com.digitalasset.canton.protocol.ContractIdSyntax._
+
+import scala.jdk.CollectionConverters._
 // architecture-handbook-entry-end: imports
 
 // architecture-handbook-entry-begin: iou
 // Bank creates IOU for the house owner
-val createIouCmd = Iou(
-  payer = Bank.toPrim,
-  owner = HouseOwner.toPrim,
-  amount = Amount(value = 100.0, currency = "USD"),
-  viewers = List.empty
-).create.command
-val Seq(iouContractUnshared) = decodeAllCreated(Iou)(
-  participant1.ledger_api.commands.submit_flat(Seq(Bank), Seq(createIouCmd)))
+val createIouCmd = new Iou(
+  Bank.toProtoPrimitive,
+  HouseOwner.toProtoPrimitive,
+  new Amount(100.0.toBigDecimal, "USD"),
+  List.empty.asJava
+).create.commands.asScala.toSeq
+val Seq(iouContractUnshared) = decodeAllCreated(Iou.COMPANION)(
+  participant1.ledger_api.javaapi.commands.submit_flat(Seq(Bank), createIouCmd))
 
 // Wait until the house owner sees the IOU in the active contract store
-participant2.ledger_api.acs.await_active_contract(HouseOwner, iouContractUnshared.contractId.toLf)
+participant2.ledger_api.acs.await_active_contract(HouseOwner, iouContractUnshared.id.toLf)
 
 // The house owner adds the Painter as an observer on the IOU
-val shareIouCmd = iouContractUnshared.contractId.exerciseShare(actor = HouseOwner.toPrim, viewer = Painter.toPrim).command
-val Seq(iouContract) = decodeAllCreated(Iou)(participant2.ledger_api.commands.submit_flat(Seq(HouseOwner), Seq(shareIouCmd)))
+val shareIouCmd = iouContractUnshared.id.exerciseShare(Painter.toProtoPrimitive).commands.asScala.toSeq
+val Seq(iouContract) = decodeAllCreated(Iou.COMPANION)(participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), shareIouCmd))
 // architecture-handbook-entry-end: iou
 
 // architecture-handbook-entry-begin: paint-offer
 // The house owner creates a paint offer using participant 2 and the Paint domain
-val paintOfferCmd = OfferToPaintHouseByOwner(
-  painter = Painter.toPrim,
-  houseOwner = HouseOwner.toPrim,
-  bank = Bank.toPrim,
-  iouId = iouContract.contractId
-).create.command
-val Seq(paintOffer) = decodeAllCreated(OfferToPaintHouseByOwner)(
-  participant2.ledger_api.commands.submit_flat(Seq(HouseOwner), Seq(paintOfferCmd), workflowId = paint.name))
+val paintOfferCmd = new OfferToPaintHouseByOwner(
+  HouseOwner.toProtoPrimitive,
+  Painter.toProtoPrimitive,
+  Bank.toProtoPrimitive,
+  iouContract.id
+).create.commands.asScala.toSeq
+val Seq(paintOffer) = decodeAllCreated(OfferToPaintHouseByOwner.COMPANION)(
+  participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), paintOfferCmd, workflowId = paint.name))
 // architecture-handbook-entry-end: paint-offer
 
 // architecture-handbook-entry-begin: transfer
 // Wait until the painter sees the paint offer in the active contract store
-participant3.ledger_api.acs.await_active_contract(Painter, paintOffer.contractId.toLf)
+participant3.ledger_api.acs.await_active_contract(Painter, paintOffer.id.toLf)
 
 // Painter transfers the paint offer to the IOU domain
 participant3.transfer.execute(
   Painter,                      // Initiator of the transfer
-  paintOffer.contractId.toLf,   // Contract to be transferred
+  paintOffer.id.toLf,   // Contract to be transferred
   paintAlias,                   // Source domain
   iouAlias                      // Target domain
 )
@@ -95,20 +98,20 @@ participant3.transfer.execute(
 
 // architecture-handbook-entry-begin: accept
 // Painter accepts the paint offer on the IOU domain
-val acceptCmd = paintOffer.contractId.exerciseAcceptByPainter(Painter.toPrim).command
-val acceptTx = participant3.ledger_api.commands.submit_flat(Seq(Painter), Seq(acceptCmd))
-val Seq(painterIou) = decodeAllCreated(Iou)(acceptTx)
-val Seq(paintHouse) = decodeAllCreated(PaintHouse)(acceptTx)
+val acceptCmd = paintOffer.id.exerciseAcceptByPainter().commands.asScala.toSeq
+val acceptTx = participant3.ledger_api.javaapi.commands.submit_flat(Seq(Painter), acceptCmd)
+val Seq(painterIou) = decodeAllCreated(Iou.COMPANION)(acceptTx)
+val Seq(paintHouse) = decodeAllCreated(PaintHouse.COMPANION)(acceptTx)
 // architecture-handbook-entry-end: accept
 
 // architecture-handbook-entry-begin: transfer-back
 // Wait until the house owner sees the PaintHouse agreement
-participant2.ledger_api.acs.await_active_contract(HouseOwner, paintHouse.contractId.toLf)
+participant2.ledger_api.acs.await_active_contract(HouseOwner, paintHouse.id.toLf)
 
 // The house owner moves the PaintHouse agreement back to the Paint domain
 participant2.transfer.execute(
   HouseOwner,
-  paintHouse.contractId.toLf,
+  paintHouse.id.toLf,
   iouAlias,
   paintAlias
 )
@@ -116,9 +119,9 @@ participant2.transfer.execute(
 
 // architecture-handbook-entry-begin: call
 // Painter converts the Iou into cash
-participant3.ledger_api.commands.submit_flat(
+participant3.ledger_api.javaapi.commands.submit_flat(
   Seq(Painter),
-  Seq(painterIou.contractId.exerciseCall(Painter.toPrim).command),
+  painterIou.id.exerciseCall().commands.asScala.toSeq,
   iou.name
 )
 // architecture-handbook-entry-end: call

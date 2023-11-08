@@ -265,7 +265,7 @@ class ValidateDisclosedContractsTest
     )
   }
 
-  it should "validate the disclosed contract when provided as the create_event_payload" in {
+  it should "validate the disclosed contract when provided as the created_event_blob" in {
     validateDisclosedContracts(
       api.protoCommands.copy(
         disclosedContracts = scala.Seq(
@@ -274,7 +274,7 @@ class ValidateDisclosedContractsTest
               createdEventBlob =
                 TransactionCoder.encodeFatContractInstance(lf.fatContractInstance).value
             )
-            // arguments and metadata cannot be set at the same time with create_event_payload
+            // arguments and metadata cannot be set at the same time with created_event_blob
             .clearMetadata
             .clearArguments
         )
@@ -282,7 +282,32 @@ class ValidateDisclosedContractsTest
     ) shouldBe Right(lf.expectedUpgradableDisclosedContracts)
   }
 
-  it should "fail validation if decoding the create_event_payload fails" in {
+  it should "fail validation when provided contract_id mismatches the one decoded from the created_event_blob" in {
+    val otherContractId = "otherContractId"
+    requestMustFailWith(
+      request = validateDisclosedContracts(
+        api.protoCommands.copy(
+          disclosedContracts = scala.Seq(
+            api.deprecatedProtoDisclosedContract
+              .copy(
+                createdEventBlob =
+                  TransactionCoder.encodeFatContractInstance(lf.fatContractInstance).value
+              )
+              // arguments and metadata cannot be set at the same time with created_event_blob
+              .clearMetadata
+              .clearArguments
+              .copy(contractId = otherContractId)
+          )
+        )
+      ),
+      code = Status.Code.INVALID_ARGUMENT,
+      description =
+        s"INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Mismatch between DisclosedContract.contract_id ($otherContractId) and contract_id from decoded DisclosedContract.created_event_blob (${lf.lfContractId.coid})",
+      metadata = Map.empty,
+    )
+  }
+
+  it should "fail validation if decoding the created_event_blob fails" in {
     requestMustFailWith(
       request = validateDisclosedContracts(
         api.protoCommands.copy(
@@ -291,7 +316,7 @@ class ValidateDisclosedContractsTest
               .copy(
                 createdEventBlob = Bytes.assertFromString("00abcd").toByteString
               )
-              // arguments and metadata cannot be set at the same time with create_event_payload
+              // arguments and metadata cannot be set at the same time with created_event_blob
               .clearMetadata
               .clearArguments
           )
@@ -321,7 +346,7 @@ class ValidateDisclosedContractsTest
         ),
         code = Status.Code.INVALID_ARGUMENT,
         description =
-          "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: DisclosedContract.arguments or DisclosedContract.metadata cannot be set together with DisclosedContract.create_event_payload",
+          "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: DisclosedContract.arguments or DisclosedContract.metadata cannot be set together with DisclosedContract.created_event_blob",
         metadata = Map.empty,
       )
 

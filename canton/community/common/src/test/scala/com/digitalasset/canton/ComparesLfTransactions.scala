@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton
 
-import com.daml.ledger.api.v1.value.Identifier as ApiIdentifier
-import com.daml.ledger.client.binding
 import com.daml.ledger.javaapi.data.Identifier
 import com.daml.lf.data.{FrontStack, ImmArray}
 import com.daml.lf.transaction.NodeId
@@ -60,16 +58,6 @@ trait ComparesLfTransactions {
     LfValue.ValueList(FrontStack.from(values))
 
   val notUsed: LfValue = LfValue.ValueUnit
-
-  protected def templateIdFromTemplate[T](
-      template: binding.Primitive.TemplateId[T]
-  ): LfInterfaceId = {
-    import scalaz.syntax.tag.*
-    template.unwrap match {
-      case ApiIdentifier(packageId, moduleName, entityName) =>
-        toIdentifier(s"${moduleName}:${entityName}")(toPackageId(packageId))
-    }
-  }
 
   protected def templateIdFromIdentifier(
       identifier: Identifier

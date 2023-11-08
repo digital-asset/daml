@@ -40,7 +40,7 @@ trait PostgresAround {
       logger.info(s"Using PostgreSQL on $hostName:$port.")
     } else {
       // using own temporal resource
-      val container = new PostgreSQLContainer(s"${PostgreSQLContainer.IMAGE}:11")
+      val container = new PostgreSQLContainer(s"${PostgreSQLContainer.IMAGE}:12")
       ownedServerContainer.set(Some(container))
       logger.info(s"Starting PostgreSQL Container...")
       container.start()
