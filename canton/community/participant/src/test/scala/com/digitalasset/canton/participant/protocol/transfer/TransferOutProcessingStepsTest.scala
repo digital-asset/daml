@@ -714,7 +714,7 @@ final class TransferOutProcessingStepsTest
       }
 
     "succeed without errors" in {
-      val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCache)
+      val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCache, None)
       for {
         encryptedOutRequest <- encryptTransferOutTree(outTree, sessionKeyStore)
         envelopes =

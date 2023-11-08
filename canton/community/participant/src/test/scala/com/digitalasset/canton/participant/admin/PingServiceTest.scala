@@ -4,10 +4,9 @@
 package com.digitalasset.canton.participant.admin
 
 import com.daml.ledger.api.refinements.ApiTypes.WorkflowId
-import com.daml.ledger.client.binding.{Contract, Primitive as P}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
-import com.digitalasset.canton.participant.admin.workflows.PingPong as M
+import com.digitalasset.canton.participant.admin.workflows.java.pingpong as M
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
@@ -17,6 +16,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.util.concurrent.ScheduledExecutorService
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, Future}
+import scala.jdk.CollectionConverters.*
 
 @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
 class PingServiceTest
@@ -38,7 +38,7 @@ class PingServiceTest
     val clock = new SimClock(loggerFactory = loggerFactory)
     val alicePartId = ParticipantId("alice")
     val aliceId = alicePartId.adminParty
-    val alice = aliceId.toPrim
+    val alice = aliceId.toParty
     val bobId = "bob::default"
     val charlieId = "Charlie::default"
 
@@ -86,13 +86,18 @@ class PingServiceTest
     def respond(id: String, responder: String, service: PingService, observers: Set[String]) =
       service.processPongs(
         Seq(
-          Contract(
-            P.ContractId("12345"),
-            M.Pong(id, alice, List(), P.Party(responder), observers.map(P.Party(_)).toList),
-            None,
-            observers.toSeq,
-            observers.toSeq,
-            None,
+          new M.Pong.Contract(
+            new M.Pong.ContractId("12345"),
+            new M.Pong(
+              id,
+              aliceId.toProtoPrimitive,
+              List().asJava,
+              responder,
+              observers.toSeq.asJava,
+            ),
+            java.util.Optional.empty,
+            observers.asJava,
+            observers.asJava,
           )
         ),
         WorkflowId("workflowId"),

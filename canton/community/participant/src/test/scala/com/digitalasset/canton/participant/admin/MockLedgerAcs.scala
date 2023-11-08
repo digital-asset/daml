@@ -9,7 +9,7 @@ import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.package_service.{GetPackageStatusResponse, PackageStatus}
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
-import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.javaapi.data.Party
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.lifecycle.AsyncOrSyncCloseable
 import com.digitalasset.canton.logging.TracedLogger
@@ -22,7 +22,7 @@ import scala.concurrent.{Future, Promise}
 
 /** Mock for capturing a single submitted command.
   */
-class MockLedgerAcs(override val logger: TracedLogger, override val sender: Primitive.Party)
+class MockLedgerAcs(override val logger: TracedLogger, override val sender: Party)
     extends LedgerAcs {
   private val lastCommandPromise = Promise[ScalaCommand]()
   val lastCommand: Future[ScalaCommand] = lastCommandPromise.future

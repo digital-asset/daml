@@ -97,7 +97,12 @@ import com.daml.ledger.api.v1.testing.time_service.{
   TimeServiceGrpc,
 }
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
-import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.daml.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  TemplateFilter,
+  TransactionFilter,
+}
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionServiceStub
 import com.daml.ledger.api.v1.transaction_service.*
 import com.digitalasset.canton.LfPartyId
@@ -859,6 +864,7 @@ object LedgerApiCommands {
         templateFilter: Seq[TemplateId] = Seq.empty,
         verbose: Boolean = true,
         timeout: FiniteDuration,
+        includeCreatedEventBlob: Boolean = false,
     )(scheduler: ScheduledExecutorService)
         extends BaseCommand[GetActiveContractsRequest, Seq[WrappedCreatedEvent], Seq[
           WrappedCreatedEvent
@@ -869,7 +875,11 @@ object LedgerApiCommands {
           if (templateFilter.nonEmpty) {
             Filters(
               Some(
-                InclusiveFilters(templateFilter.map(_.toIdentifier))
+                InclusiveFilters(templateFilters =
+                  templateFilter.map(tId =>
+                    TemplateFilter(Some(tId.toIdentifier), includeCreatedEventBlob)
+                  )
+                )
               )
             )
           } else Filters.defaultInstance
