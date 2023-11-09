@@ -407,6 +407,7 @@ da_scala_test_suite(
         ":upgrades-my-templates-v1.dar",
         ":upgrades-my-templates-v2.dar",
         ":upgrades-test.dar",
+        "//compiler/damlc/tests:query-test.dar",
         "//compiler/damlc/tests:try-submit-concurrently-test.dar",
         "//compiler/damlc/tests:try-submit-test.dar",
         "//daml-script/runner:daml-script-binary",

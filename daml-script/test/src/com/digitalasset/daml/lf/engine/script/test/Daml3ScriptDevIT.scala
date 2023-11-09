@@ -27,8 +27,14 @@ class Daml3ScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside
   lazy val trySubmitConcurrentlyTestDar: CompiledDar =
     CompiledDar.read(trySubmitConcurrentlyTestDarPath, Runner.compilerConfig(majorLanguageVersion))
 
+  lazy val queryTestDarPath =
+    BazelRunfiles.rlocation(Paths.get("compiler/damlc/tests/query-test.dar"))
+  lazy val queryTestDar: CompiledDar =
+    CompiledDar.read(queryTestDarPath, Runner.compilerConfig(majorLanguageVersion))
+
   override protected lazy val darFiles = List(
-    trySubmitConcurrentlyTestDarPath
+    trySubmitConcurrentlyTestDarPath,
+    queryTestDarPath,
   )
 
   "trySubmitConcurrently" should {
@@ -64,6 +70,20 @@ class Daml3ScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside
             clients,
             QualifiedName.assertFromString("Daml3ScriptTrySubmitConcurrently:noDoubleSpend"),
             dar = trySubmitConcurrentlyTestDar,
+          )
+      } yield r shouldBe SUnit
+    }
+  }
+
+  "query" should {
+    "return contracts iff they are visible" in {
+      for {
+        clients <- scriptClients()
+        r <-
+          run(
+            clients,
+            QualifiedName.assertFromString("Query:main"),
+            dar = queryTestDar,
           )
       } yield r shouldBe SUnit
     }
