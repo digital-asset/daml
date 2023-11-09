@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.environment
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import cats.data.EitherT
 import cats.instances.option.*
 import cats.syntax.apply.*
@@ -47,7 +47,7 @@ import com.digitalasset.canton.time.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
-import com.digitalasset.canton.util.{AkkaUtil, MonadUtil, SingleUseCell}
+import com.digitalasset.canton.util.{PekkoUtil, MonadUtil, SingleUseCell}
 import com.digitalasset.canton.{DiscardOps, DomainAlias}
 import com.google.common.annotations.VisibleForTesting
 import io.circe.Encoder
@@ -199,10 +199,10 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     Some(mon)
   } else None
 
-  implicit val actorSystem: ActorSystem = AkkaUtil.createActorSystem(loggerFactory.threadName)
+  implicit val actorSystem: ActorSystem = PekkoUtil.createActorSystem(loggerFactory.threadName)
 
   implicit val executionSequencerFactory: ExecutionSequencerFactory =
-    AkkaUtil.createExecutionSequencerFactory(
+    PekkoUtil.createExecutionSequencerFactory(
       loggerFactory.threadName + "-admin-workflow-services",
       // don't log the number of threads twice, as we log it already when creating the first pool
       NamedLogging.noopNoTracingLogger,

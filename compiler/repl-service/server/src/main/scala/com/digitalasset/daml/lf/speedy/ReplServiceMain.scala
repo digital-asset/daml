@@ -4,8 +4,8 @@
 package com.daml.lf
 package speedy.repl
 
-import akka.actor.ActorSystem
-import akka.stream._
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream._
 import com.daml.auth.TokenHolder
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.assertRight
@@ -21,7 +21,7 @@ import com.daml.lf.language.{
 }
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.{Compiler, SDefinition, SError, SValue}
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import com.daml.scalautil.Statement.discard
@@ -154,7 +154,7 @@ object ReplServiceMain extends App {
 
   val system = ActorSystem("Repl")
   implicit val sequencer: ExecutionSequencerFactory =
-    new AkkaExecutionSequencerPool("ReplPool")(system)
+    new PekkoExecutionSequencerPool("ReplPool")(system)
   implicit val materializer: Materializer = Materializer(system)
   implicit val ec: ExecutionContext = system.dispatcher
 
@@ -225,10 +225,9 @@ class ReplService(
   var compiledDefinitions: Map[SDefinitionRef, SDefinition] = Map.empty
   var results: Seq[SValue] = Seq()
   var mainModules: Map[ModuleName, Ast.Module] = Map.empty
-  implicit val ec_ = ec
-  implicit val esf_ = esf
-  implicit val mat_ = mat
-
+  implicit val _ec: ExecutionContext = ec
+  implicit val _esf: ExecutionSequencerFactory = esf
+  implicit val _mat: Materializer = mat
   import ReplService._
 
   override def loadPackages(

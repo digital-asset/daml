@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import akka.stream.scaladsl.Sink
+import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.DarParser
 import com.daml.lf.crypto.Hash

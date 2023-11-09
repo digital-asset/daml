@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import akka.NotUsed
-import akka.stream.OverflowStrategy
-import akka.stream.scaladsl.{Flow, Source}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.OverflowStrategy
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
 
 import java.util.ConcurrentModificationException
 import java.util.concurrent.atomic.AtomicReference
@@ -21,7 +21,7 @@ object FetchLatestEventsFlow {
       lookup: State => Future[(State, Seq[Out])],
       hasReachedHead: (State, Seq[Out]) => Boolean,
   )(implicit executionContext: ExecutionContext): Flow[ReadSignal, Out, NotUsed] = {
-    // i've struggled to work out a akka-stream only way of maintaining this state.
+    // i've struggled to work out a pekko-stream only way of maintaining this state.
     // we really want a `statefulFlatMapConcat` however that doesn't exist and trying to attempt
     // something similar in a custom graph is problematic. the current usage of a separate atomic reference
     // with the flatmapConcat operator appears correct and a ConcurrentModificationException will be thrown

@@ -4,22 +4,22 @@
 package com.digitalasset.canton.sequencing.client.transports
 
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.sequencing.client.SubscriptionErrorRetryPolicyAkka
-import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientTransportAkka.GrpcSequencerSubscriptionError
+import com.digitalasset.canton.sequencing.client.SubscriptionErrorRetryPolicyPekko
+import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientTransportPekko.GrpcSequencerSubscriptionError
 
-class GrpcSubscriptionErrorRetryPolicyAkka
-    extends SubscriptionErrorRetryPolicyAkka[GrpcSequencerSubscriptionError] {
+class GrpcSubscriptionErrorRetryPolicyPekko
+    extends SubscriptionErrorRetryPolicyPekko[GrpcSequencerSubscriptionError] {
   override def retryOnError(
       subscriptionError: GrpcSequencerSubscriptionError,
       receivedItems: Boolean,
   )(implicit loggingContext: ErrorLoggingContext): Boolean = {
     subscriptionError match {
-      case GrpcSequencerClientTransportAkka.ExpectedGrpcFailure(error) =>
+      case GrpcSequencerClientTransportPekko.ExpectedGrpcFailure(error) =>
         GrpcSubscriptionErrorRetryPolicy.logAndDetermineRetry(error, receivedItems)
-      case GrpcSequencerClientTransportAkka.UnexpectedGrpcFailure(ex) =>
+      case GrpcSequencerClientTransportPekko.UnexpectedGrpcFailure(ex) =>
         loggingContext.error(s"Unexpected error type: $ex")
         false
-      case GrpcSequencerClientTransportAkka.ResponseParseError(error) =>
+      case GrpcSequencerClientTransportPekko.ResponseParseError(error) =>
         loggingContext.error(s"Failed to parse sequenced event: $error")
         false
     }

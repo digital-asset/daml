@@ -5,11 +5,11 @@ package com.daml.auth.oauth2.test.server
 
 import java.time.{Instant, ZoneId}
 
-import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.http.scaladsl.model.Uri
 import com.daml.clock.AdjustableClock
 import com.daml.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
+  PekkoBeforeAndAfterAll,
   OwnedResource,
   Resource,
   SuiteResource,
@@ -19,7 +19,7 @@ import com.daml.ports.Port
 import org.scalatest.{BeforeAndAfterEach, Suite}
 
 trait TestFixture
-    extends AkkaBeforeAndAfterAll
+    extends PekkoBeforeAndAfterAll
     with BeforeAndAfterEach
     with SuiteResource[(AdjustableClock, Server, ServerBinding, ServerBinding)] {
   self: Suite =>

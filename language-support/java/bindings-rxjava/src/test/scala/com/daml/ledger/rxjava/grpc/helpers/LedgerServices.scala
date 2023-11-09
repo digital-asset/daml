@@ -6,7 +6,7 @@ package com.daml.ledger.rxjava.grpc.helpers
 import java.net.{InetSocketAddress, SocketAddress}
 import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
 import com.daml.ledger.rxjava.{CommandCompletionClient, LedgerConfigurationClient, PackageClient}
@@ -46,7 +46,7 @@ final class LedgerServices(val ledgerId: String) {
 
   val executionContext: ExecutionContext = global
   private val esf: ExecutionSequencerFactory = new SingleThreadExecutionSequencerPool(ledgerId)
-  private val akkaSystem = ActorSystem("LedgerServicesParticipant")
+  private val pekkoSystem = ActorSystem("LedgerServicesParticipant")
   private val participantId = "LedgerServicesParticipant"
   private val authorizer =
     new Authorizer(
@@ -56,7 +56,7 @@ final class LedgerServices(val ledgerId: String) {
       userManagementStore = new InMemoryUserManagementStore(),
       ec = executionContext,
       userRightsCheckIntervalInSeconds = 1,
-      akkaScheduler = akkaSystem.scheduler,
+      pekkoScheduler = pekkoSystem.scheduler,
     )(LoggingContext.ForTesting)
 
   def newServerBuilder(): NettyServerBuilder = NettyServerBuilder.forAddress(nextAddress())

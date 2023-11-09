@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.stream.{Inlet, Outlet, Shape}
+import org.apache.pekko.stream.{Inlet, Outlet, Shape}
 
 import scala.collection.immutable.Seq
 

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import akka.actor.Scheduler
+import org.apache.pekko.actor.Scheduler
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.v1.transaction_filter.Filters
 import com.daml.tracing.Telemetry
@@ -35,7 +35,7 @@ final class Authorizer(
     userManagementStore: UserManagementStore,
     ec: ExecutionContext,
     userRightsCheckIntervalInSeconds: Int,
-    akkaScheduler: Scheduler,
+    pekkoScheduler: Scheduler,
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
     protected val telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
@@ -330,7 +330,7 @@ final class Authorizer(
     nowF = now,
     userManagementStore = userManagementStore,
     userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
-    akkaScheduler = akkaScheduler,
+    pekkoScheduler = pekkoScheduler,
     jwtTimestampLeeway = jwtTimestampLeeway,
     loggerFactory = loggerFactory,
   )(ec, TraceContext.empty)

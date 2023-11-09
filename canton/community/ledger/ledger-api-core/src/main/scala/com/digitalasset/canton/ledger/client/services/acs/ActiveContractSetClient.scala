@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.client.services.acs
 
-import akka.stream.scaladsl.Source
+import org.apache.pekko.stream.scaladsl.Source
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsServiceStub
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse

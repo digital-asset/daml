@@ -4,10 +4,10 @@
 package com.daml.http.perf
 
 import java.nio.file.{Files, Path}
-import akka.actor.ActorSystem
-import akka.stream.Materializer
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
 import com.daml.gatling.stats.{SimulationLog, SimulationLogSyntax}
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpServiceTestFixture.{withHttpService, withLedger}
 import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
@@ -116,7 +116,7 @@ object Main extends StrictLogging {
     implicit val asys: ActorSystem = ActorSystem(name)
     implicit val mat: Materializer = Materializer(asys)
     implicit val aesf: ExecutionSequencerFactory =
-      new AkkaExecutionSequencerPool(poolName = name, terminationTimeout = terminationTimeout)
+      new PekkoExecutionSequencerPool(poolName = name, terminationTimeout = terminationTimeout)
     implicit val elg: EventLoopGroup = Transports.newEventLoopGroup(true, 0, "gatling")
     implicit val ec: ExecutionContext = asys.dispatcher
 

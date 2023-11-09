@@ -6,9 +6,9 @@ package com.daml.nonrepudiation.api.v1
 import java.io.ByteArrayInputStream
 import java.security.cert.{CertificateFactory, X509Certificate}
 
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import org.apache.pekko.http.scaladsl.server.Directives._
+import org.apache.pekko.http.scaladsl.server.Route
 import com.daml.nonrepudiation.api.Result
 import com.daml.nonrepudiation.{CertificateRepository, FingerprintBytes}
 import com.google.common.io.BaseEncoding

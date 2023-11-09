@@ -3,9 +3,9 @@
 
 package com.daml.ledger.client.services.commands.withoutledgerid
 
-import akka.NotUsed
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.codahale.{metrics => codahale}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.SubmissionIdGenerator
@@ -31,7 +31,7 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
 import com.daml.ledger.client.services.commands.tracker.TrackedCommandKey
 import com.daml.metrics.api.dropwizard.DropwizardCounter
 import com.daml.util.Ctx
-import com.daml.util.akkastreams.MaxInFlight
+import com.daml.util.pekkostreams.MaxInFlight
 import com.google.protobuf.empty.Empty
 import org.slf4j.{Logger, LoggerFactory}
 import scalaz.syntax.tag._

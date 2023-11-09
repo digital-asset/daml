@@ -10,7 +10,7 @@ import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.data.Ref.Identifier
 import com.daml.platform.services.time.TimeProviderType
 
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 import scala.concurrent.duration.FiniteDuration
 
 package trigger {

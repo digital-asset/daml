@@ -49,8 +49,8 @@
   <!-- netty reports ssl errors on DEBUG level ... -->
   <logger name="io.netty.handler.ssl" level="${LOG_LEVEL_CANTON:-DEBUG}"/>
 
-  <!-- Set the logging level for Akka so that if someone configures akka to actually log something, this will end up in the log -->
-  <logger name="akka" level="${LOG_LEVEL_CANTON:-DEBUG}"/>
+  <!-- Set the logging level for Pekko so that if someone configures pekko to actually log something, this will end up in the log -->
+  <logger name="pekko" level="${LOG_LEVEL_CANTON:-DEBUG}"/>
   <!-- janino can be too verbose in tests -->
   <logger name="org.codehaus.janino" level="WARN"/>
 

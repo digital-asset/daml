@@ -4,12 +4,12 @@
 package com.daml.http
 
 import java.security.DigestInputStream
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.Authorization
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Source, StreamConverters}
-import akka.util.ByteString
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.headers.Authorization
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Source, StreamConverters}
+import org.apache.pekko.util.ByteString
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.crypto.MessageDigestPrototype
 import com.daml.lf.data.Ref
@@ -951,8 +951,8 @@ trait AbstractHttpServiceIntegrationTestFuns
       }
     } yield (cid, offsetAfter)
 
-    import akka.stream.{KillSwitches, UniqueKillSwitch}
-    import akka.stream.scaladsl.Keep
+    import org.apache.pekko.stream.{KillSwitches, UniqueKillSwitch}
+    import org.apache.pekko.stream.scaladsl.Keep
 
     def readMidwayOffset(kill: UniqueKillSwitch) = for {
       // wait for the ACS

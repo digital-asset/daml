@@ -49,7 +49,7 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalatestplus_testng_6_7",
+        "@maven//:org_scalatestplus_testng_7_5",
     ],
     visibility = [
         "//visibility:public",

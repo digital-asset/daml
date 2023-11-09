@@ -760,7 +760,7 @@ private[lf] final class Compiler(
         }
     }
 
-  @nowarn("msg=parameter value tokenPos.* is never used")
+  @nowarn("msg=parameter tokenPos.* is never used")
   private[this] def translateFetchTemplateBody(
       env: Env,
       tmplId: Identifier,

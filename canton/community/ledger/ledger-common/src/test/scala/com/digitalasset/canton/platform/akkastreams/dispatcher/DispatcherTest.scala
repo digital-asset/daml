@@ -1,13 +1,13 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.platform.akkastreams.dispatcher
+package com.digitalasset.canton.platform.pekkostreams.dispatcher
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Milliseconds, Seconds, Span}
@@ -19,7 +19,7 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future, blo
 // Consider merging/reviewing the tests we have around the Dispatcher!
 class DispatcherTest
     extends AnyWordSpec
-    with AkkaBeforeAndAfterAll
+    with PekkoBeforeAndAfterAll
     with Matchers
     with ScalaFutures {
 

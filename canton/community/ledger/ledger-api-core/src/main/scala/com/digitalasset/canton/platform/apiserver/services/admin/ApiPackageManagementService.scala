@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.{ContextualizedErrorLogger, DamlError}
@@ -13,6 +13,7 @@ import com.daml.ledger.api.v1.admin.package_management_service.*
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
+import com.daml.logging.LoggingContext
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
@@ -63,7 +64,7 @@ private[apiserver] final class ApiPackageManagementService private (
     with GrpcApiService
     with NamedLogging {
 
-  private implicit val loggingContext = createLoggingContext(loggerFactory)(identity)
+  private implicit val loggingContext: LoggingContext = createLoggingContext(loggerFactory)(identity)
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(

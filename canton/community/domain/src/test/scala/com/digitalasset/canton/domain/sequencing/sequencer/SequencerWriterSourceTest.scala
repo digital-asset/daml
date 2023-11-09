@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.stream.QueueOfferResult
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.QueueOfferResult
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import cats.data.EitherT
 import cats.syntax.functor.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
@@ -25,7 +25,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock}
 import com.digitalasset.canton.topology.{Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.AkkaUtil
+import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutorService}
 import com.google.protobuf.ByteString
@@ -108,7 +108,7 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
 
     // explicitly pass a real execution context so shutdowns don't deadlock while Await'ing completion of the done
     // future while still finishing up running tasks that require an execution context
-    val (writer, doneF) = AkkaUtil.runSupervised(
+    val (writer, doneF) = PekkoUtil.runSupervised(
       logger.error("Writer flow failed", _), {
         SequencerWriterSource(
           testWriterConfig,

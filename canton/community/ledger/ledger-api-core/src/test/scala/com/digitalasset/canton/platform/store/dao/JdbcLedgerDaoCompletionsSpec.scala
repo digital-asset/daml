@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import akka.stream.scaladsl.Sink
+import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp

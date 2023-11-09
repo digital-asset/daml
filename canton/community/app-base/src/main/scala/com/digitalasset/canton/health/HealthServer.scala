@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.health
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.marshalling.{Marshaller, ToResponseMarshaller}
-import akka.http.scaladsl.model.{HttpEntity, HttpResponse, StatusCodes}
-import akka.http.scaladsl.server.Directives.*
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.server.directives.DebuggingDirectives
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.marshalling.{Marshaller, ToResponseMarshaller}
+import org.apache.pekko.http.scaladsl.model.{HttpEntity, HttpResponse, StatusCodes}
+import org.apache.pekko.http.scaladsl.server.Directives.*
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.server.directives.DebuggingDirectives
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{HealthConfig, ProcessingTimeout}
 import com.digitalasset.canton.environment.Environment

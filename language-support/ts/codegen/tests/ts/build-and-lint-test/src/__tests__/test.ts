@@ -140,7 +140,7 @@ beforeAll(async () => {
       "--websocket-config=maxDuration=1,heartBeatPer=1",
       "--log-level=INFO",
     ],
-    ["-Dakka.http.server.request-timeout=60s"],
+    ["-Dpekko.http.server.request-timeout=60s"],
   );
   await waitOn({ resources: [`file:${JSON_API_PORT_FILE}`] });
   const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, {

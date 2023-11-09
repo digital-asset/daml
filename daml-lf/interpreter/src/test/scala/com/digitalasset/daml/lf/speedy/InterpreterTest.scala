@@ -34,7 +34,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
-  private implicit val parserParameters =
+  private implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   private val compilerConfig = Compiler.Config.Default(majorLanguageVersion)

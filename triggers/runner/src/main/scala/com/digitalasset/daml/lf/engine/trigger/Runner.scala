@@ -3,11 +3,11 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.NotUsed
-import akka.actor.Cancellable
-import akka.event.Logging
-import akka.stream._
-import akka.stream.scaladsl._
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.Cancellable
+import org.apache.pekko.event.Logging
+import org.apache.pekko.stream._
+import org.apache.pekko.stream.scaladsl._
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest

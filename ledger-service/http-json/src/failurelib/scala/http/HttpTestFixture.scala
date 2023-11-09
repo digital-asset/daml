@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.dbutils
 import com.daml.dbutils.ConnectionPool

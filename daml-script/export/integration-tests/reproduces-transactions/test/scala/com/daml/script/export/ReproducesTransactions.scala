@@ -5,7 +5,7 @@ package com.daml.script.export
 
 import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
-import akka.stream.scaladsl.Sink
+import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.SdkVersion
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonFixture

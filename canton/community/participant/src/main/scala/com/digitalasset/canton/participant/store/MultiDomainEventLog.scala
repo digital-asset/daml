@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.participant.store
 
-import akka.NotUsed
-import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 import cats.data.{EitherT, OptionT}
 import cats.syntax.option.*
 import cats.syntax.parallel.*
@@ -92,7 +92,7 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
     *
     * The caller must await completion of the returned future before calling the method again.
     * Otherwise, the method may fail with an exception or return a failed future.
-    * (This restriction arises, because some implementations will offer the event to an Akka source queue, and the
+    * (This restriction arises, because some implementations will offer the event to an Pekko source queue, and the
     * number of concurrent offers for such queues is bounded.)
     *
     * The event log will stall, i.e., log an error and refuse to publish further events in the following cases:
@@ -120,7 +120,7 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
   /** Removes all events with offset up to `upToInclusive`. */
   def prune(upToInclusive: GlobalOffset)(implicit traceContext: TraceContext): Future[Unit]
 
-  /** Yields an akka source with all stored events, optionally starting from a given offset.
+  /** Yields an pekko source with all stored events, optionally starting from a given offset.
     * @throws java.lang.IllegalArgumentException if `startInclusive` is lower than [[MultiDomainEventLog.ledgerFirstOffset]].
     */
   def subscribe(startInclusive: Option[GlobalOffset])(implicit

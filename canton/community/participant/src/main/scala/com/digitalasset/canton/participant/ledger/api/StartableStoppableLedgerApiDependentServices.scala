@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.HashOps

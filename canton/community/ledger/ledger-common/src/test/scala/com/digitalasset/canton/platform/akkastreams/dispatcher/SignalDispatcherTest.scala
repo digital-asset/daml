@@ -1,11 +1,11 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.platform.akkastreams.dispatcher
+package com.digitalasset.canton.platform.pekkostreams.dispatcher
 
-import akka.stream.scaladsl.Sink
-import akka.stream.testkit.scaladsl.TestSink
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.stream.testkit.scaladsl.TestSink
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.scalautil.Statement.discard
 import org.awaitility.Awaitility.await
 import org.awaitility.Durations
@@ -22,7 +22,7 @@ import scala.concurrent.Await
 class SignalDispatcherTest
     extends FixtureAsyncWordSpec
     with Matchers
-    with AkkaBeforeAndAfterAll
+    with PekkoBeforeAndAfterAll
     with ScaledTimeSpans
     with AsyncTimeLimitedTests {
 

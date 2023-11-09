@@ -3,11 +3,11 @@
 
 package com.daml.ledger.api.testing.utils
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
 import org.scalatest.Suite
 
-trait AkkaResourceManagement extends SuiteResource[Materializer] {
+trait PekkoResourceManagement extends SuiteResource[Materializer] {
   self: Suite =>
 
   override protected lazy val suiteResource: Resource[Materializer] =

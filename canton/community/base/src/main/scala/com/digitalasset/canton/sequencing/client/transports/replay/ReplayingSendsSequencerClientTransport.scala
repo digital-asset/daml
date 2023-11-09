@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.sequencing.client.transports.replay
 
-import akka.NotUsed
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import cats.data.EitherT
 import cats.syntax.traverse.*
 import com.codahale.metrics.{ConsoleReporter, MetricFilter, MetricRegistry}
@@ -20,7 +20,7 @@ import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransport,
-  SequencerClientTransportAkka,
+  SequencerClientTransportPekko,
   SequencerClientTransportCommon,
 }
 import com.digitalasset.canton.sequencing.handshake.HandshakeRequestError
@@ -35,7 +35,7 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, Traced}
 import com.digitalasset.canton.util.ResourceUtil.withResource
-import com.digitalasset.canton.util.{AkkaUtil, ErrorUtil, OptionUtil}
+import com.digitalasset.canton.util.{PekkoUtil, ErrorUtil, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DiscardOps, SequencerCounter}
 
@@ -231,7 +231,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
         .mapAsyncUnordered(sendParallelism)(replaySubmit)
         .toMat(Sink.fold(SendReplayReport()(sendDuration))(_.update(_)))(Keep.right)
 
-      AkkaUtil.runSupervised(logger.error("Failed to run submission replay", _), submissionReplay)
+      PekkoUtil.runSupervised(logger.error("Failed to run submission replay", _), submissionReplay)
   }
 
   override def waitForIdle(
@@ -489,12 +489,12 @@ class ReplayingSendsSequencerClientTransportImpl(
 
 }
 
-class ReplayingSendsSequencerClientTransportAkka(
+class ReplayingSendsSequencerClientTransportPekko(
     protocolVersion: ProtocolVersion,
     recordedPath: Path,
     replaySendsConfig: ReplayAction.SequencerSends,
     member: Member,
-    val underlyingTransport: SequencerClientTransportAkka & SequencerClientTransport,
+    val underlyingTransport: SequencerClientTransportPekko & SequencerClientTransport,
     requestSigner: RequestSigner,
     metrics: SequencerClientMetrics,
     timeouts: ProcessingTimeout,
@@ -512,7 +512,7 @@ class ReplayingSendsSequencerClientTransportAkka(
       timeouts,
       loggerFactory,
     )
-    with SequencerClientTransportAkka {
+    with SequencerClientTransportPekko {
 
   override type SubscriptionError = underlyingTransport.SubscriptionError
 
@@ -537,18 +537,18 @@ class ReplayingSendsSequencerClientTransportAkka(
 
   override def subscribe(request: SubscriptionRequest)(implicit
       traceContext: TraceContext
-  ): SequencerSubscriptionAkka[SubscriptionError] = underlyingTransport.subscribe(request)
+  ): SequencerSubscriptionPekko[SubscriptionError] = underlyingTransport.subscribe(request)
 
   override def subscribeUnauthenticated(request: SubscriptionRequest)(implicit
       traceContext: TraceContext
-  ): SequencerSubscriptionAkka[SubscriptionError] =
+  ): SequencerSubscriptionPekko[SubscriptionError] =
     underlyingTransport.subscribeUnauthenticated(request)
 
   override def subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =
     SubscriptionErrorRetryPolicy.never
 
   /** The transport can decide which errors will cause the sequencer client to not try to reestablish a subscription */
-  override def subscriptionRetryPolicyAkka
-      : SubscriptionErrorRetryPolicyAkka[underlyingTransport.SubscriptionError] =
-    SubscriptionErrorRetryPolicyAkka.never
+  override def subscriptionRetryPolicyPekko
+      : SubscriptionErrorRetryPolicyPekko[underlyingTransport.SubscriptionError] =
+    SubscriptionErrorRetryPolicyPekko.never
 }
