@@ -19,9 +19,7 @@ da_scala_library(
         kind_projector_plugin,
     ],
     scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:io_spray_spray_json",
     ],
     scalacopts = scalacopts,
@@ -30,14 +28,7 @@ da_scala_library(
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
-    deps = [
-        "//libs-scala/scala-utils",
-        "@maven//:io_gatling_gatling_app",
-        "@maven//:io_gatling_gatling_core",
-        "@maven//:io_netty_netty_common",
-        "@maven//:io_netty_netty_transport",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
+    deps = ["//libs-scala/scala-utils"],
 )
 
 filegroup(
