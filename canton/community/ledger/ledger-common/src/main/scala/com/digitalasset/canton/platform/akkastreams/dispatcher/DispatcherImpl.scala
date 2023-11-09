@@ -1,11 +1,11 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.platform.pekkostreams.dispatcher
+package com.digitalasset.canton.platform.akkastreams.dispatcher
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
+import akka.NotUsed
+import akka.stream.scaladsl.Source
+import com.digitalasset.canton.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.atomic.AtomicReference

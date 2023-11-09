@@ -3,14 +3,14 @@
 
 package com.daml.fetchcontracts
 
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class AcsTxStreamsTest extends AsyncWordSpec with Matchers with PekkoBeforeAndAfterAll {
+class AcsTxStreamsTest extends AsyncWordSpec with Matchers with AkkaBeforeAndAfterAll {
   import AcsTxStreamsTest._
 
   "acsFollowingAndBoundary" when {
@@ -46,9 +46,9 @@ class AcsTxStreamsTest extends AsyncWordSpec with Matchers with PekkoBeforeAndAf
 }
 
 object AcsTxStreamsTest {
-  import org.apache.pekko.NotUsed
-  import org.apache.pekko.actor.ActorSystem
-  import org.apache.pekko.{stream => aks}
+  import akka.NotUsed
+  import akka.actor.ActorSystem
+  import akka.{stream => aks}
   import aks.scaladsl.{GraphDSL, RunnableGraph, Source}
   import aks.{testkit => tk}
   import tk.TestPublisher.{Probe => InProbe}

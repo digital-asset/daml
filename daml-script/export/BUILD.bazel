@@ -26,7 +26,7 @@ da_scala_binary(
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
-        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
@@ -42,7 +42,7 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/language",
         "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
+        "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/cli-opts",
         "//ledger/ledger-api-client",

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.admin
 
-import org.apache.pekko.Done
+import akka.Done
 import com.daml.error.NoLogging
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction

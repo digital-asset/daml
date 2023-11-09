@@ -686,7 +686,7 @@ class DbCommitmentQueue(
   import DbStorage.Implicits.*
   import storage.api.*
 
-  private implicit val acsCommitmentReader: GetResult[AcsCommitment] =
+  private implicit val acsCommitmentReader =
     AcsCommitment.getAcsCommitmentResultReader(domainId.item, protocolVersion)
 
   protected val processingTime: TimedLoadGauge =

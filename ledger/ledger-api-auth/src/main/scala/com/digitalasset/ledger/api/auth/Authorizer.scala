@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.auth
 
-import org.apache.pekko.actor.Scheduler
+import akka.actor.Scheduler
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.jwt.JwtTimestampLeeway
@@ -31,7 +31,7 @@ final class Authorizer(
     userManagementStore: UserManagementStore,
     ec: ExecutionContext,
     userRightsCheckIntervalInSeconds: Int,
-    pekkoScheduler: Scheduler,
+    akkaScheduler: Scheduler,
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
 )(implicit loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -313,7 +313,7 @@ final class Authorizer(
     nowF = now,
     userManagementStore = userManagementStore,
     userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
-    pekkoScheduler = pekkoScheduler,
+    akkaScheduler = akkaScheduler,
     jwtTimestampLeeway = jwtTimestampLeeway,
   )(loggingContext, ec)
 

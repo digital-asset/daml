@@ -30,7 +30,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
 
   import TransactionBuilder.Implicits.{defaultPackageId => _, _}
 
-  implicit val defaultParserParameters: ParserParameters[this.type] =
+  implicit val defaultParserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   implicit val defaultPackageId: Ref.PackageId =

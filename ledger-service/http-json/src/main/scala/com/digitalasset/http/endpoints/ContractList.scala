@@ -4,9 +4,9 @@
 package com.daml.http
 package endpoints
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.http.scaladsl.model._
-import org.apache.pekko.stream.scaladsl.{Flow, Source}
+import akka.NotUsed
+import akka.http.scaladsl.model._
+import akka.stream.scaladsl.{Flow, Source}
 import com.daml.lf.value.{Value => LfValue}
 import ContractsService.SearchResult
 import EndpointsCompanion._

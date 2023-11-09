@@ -6,7 +6,7 @@ package com.daml.auth.middleware.oauth2
 import java.nio.file.Path
 import java.util.UUID
 
-import org.apache.pekko.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.Uri
 import com.daml.auth.middleware.api.Request
 import com.daml.auth.middleware.api.Tagged.RefreshToken
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}

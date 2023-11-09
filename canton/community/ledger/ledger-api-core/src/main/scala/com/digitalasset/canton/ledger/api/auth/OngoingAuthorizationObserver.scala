@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import org.apache.pekko.actor.Scheduler
+import akka.actor.Scheduler
 import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.ledger.error.groups.AuthorizationChecksErrors
 import com.digitalasset.canton.logging.{
@@ -34,14 +34,14 @@ private[auth] final class OngoingAuthorizationObserver[A](
     extends ServerCallStreamObserver[A]
     with NamedLogging {
 
-  private implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace(loggerFactory)
+  private implicit val loggingContext = LoggingContextWithTrace(loggerFactory)
   private val errorLogger = ErrorLoggingContext(logger, loggerFactory.properties, traceContext)
 
   // Guards against propagating calls to delegate observer after either
   // [[onComplete]] or [[onError]] has already been called once.
   // We need this because [[onError]] can be invoked two concurrent sources:
   // 1) scheduled user rights state change task (see [[cancellableO]]),
-  // 2) upstream component that is translating upstream Pekko stream into [[onNext]] and other signals.
+  // 2) upstream component that is translating upstream Akka stream into [[onNext]] and other signals.
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var afterCompletionOrError = false
 
@@ -155,7 +155,7 @@ private[auth] object OngoingAuthorizationObserver {
       nowF: () => Instant,
       userManagementStore: UserManagementStore,
       userRightsCheckIntervalInSeconds: Int,
-      pekkoScheduler: Scheduler,
+      akkaScheduler: Scheduler,
       jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -171,7 +171,7 @@ private[auth] object OngoingAuthorizationObserver {
         nowF: () => Instant,
         userManagementStore: UserManagementStore,
         userRightsCheckIntervalInSeconds: Int,
-        pekkoScheduler: Scheduler,
+        akkaScheduler: Scheduler,
       )
       Some(checker)
     } else {

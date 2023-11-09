@@ -4,12 +4,12 @@
 package com.daml.auth.middleware.oauth2
 
 import java.time.Duration
-import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import org.apache.pekko.http.scaladsl.model._
-import org.apache.pekko.http.scaladsl.model.headers.{Cookie, Location, `Set-Cookie`}
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.{Cookie, Location, `Set-Cookie`}
+import akka.http.scaladsl.testkit.ScalatestRouteTest
+import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.auth.middleware.api.{Client, Request, Response}
 import com.daml.auth.middleware.api.Request.Claims
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
@@ -746,7 +746,7 @@ class TestMiddlewareClientLoginCallbackUri
     "be used in login URI" in {
       val routes = client.routesFromRequestAuthority(Uri.Path./("cb"))
       val claims = Request.Claims(actAs = List(Party("Alice")))
-      import org.apache.pekko.http.scaladsl.server.directives.RouteDirectives._
+      import akka.http.scaladsl.server.directives.RouteDirectives._
       Get("http://client.domain") ~> routes { routes =>
         complete(routes.loginUri(claims).toString)
       } ~> check {
@@ -759,7 +759,7 @@ class TestMiddlewareClientLoginCallbackUri
     "be fixed when absolute" in {
       val routes = client.routesAuto(Uri("http://client.domain/cb"))
       val claims = Request.Claims(actAs = List(Party("Alice")))
-      import org.apache.pekko.http.scaladsl.server.directives.RouteDirectives._
+      import akka.http.scaladsl.server.directives.RouteDirectives._
       Get() ~> routes { routes => complete(routes.loginUri(claims).toString) } ~> check {
         responseAs[String] shouldEqual
           s"http://auth.external/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
@@ -768,7 +768,7 @@ class TestMiddlewareClientLoginCallbackUri
     "be from request when relative" in {
       val routes = client.routesAuto(Uri().withPath(Uri.Path./("cb")))
       val claims = Request.Claims(actAs = List(Party("Alice")))
-      import org.apache.pekko.http.scaladsl.server.directives.RouteDirectives._
+      import akka.http.scaladsl.server.directives.RouteDirectives._
       Get("http://client.domain") ~> routes { routes =>
         complete(routes.loginUri(claims).toString)
       } ~> check {

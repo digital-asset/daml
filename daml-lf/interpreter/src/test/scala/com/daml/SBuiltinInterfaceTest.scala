@@ -35,7 +35,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
   val helpers = new SBuiltinInterfaceTestHelpers(majorLanguageVersion)
   import helpers.{parserParameters => _, _}
 
-  implicit val parserParameters: ParserParameters[this.type] =
+  implicit val parserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
   val defaultPackageId = parserParameters.defaultPackageId
 
@@ -138,7 +138,7 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
   val alice = Ref.Party.assertFromString("Alice")
   val bob = Ref.Party.assertFromString("Bob")
 
-  implicit val parserParameters: ParserParameters[this.type] =
+  implicit val parserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
   val basePkgId = parserParameters.defaultPackageId
   val compilerConfig = Compiler.Config.Default(majorLanguageVersion)

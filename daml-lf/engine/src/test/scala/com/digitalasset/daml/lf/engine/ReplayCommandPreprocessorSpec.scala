@@ -35,7 +35,7 @@ class ReplayCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
   private implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor(majorLanguageVersion)
 
-  private implicit val defaultPackageId: Ref.PackageId = parserParameters.defaultPackageId
+  private implicit val defaultPackageId = parserParameters.defaultPackageId
 
   private[this] val pkg =
     p"""

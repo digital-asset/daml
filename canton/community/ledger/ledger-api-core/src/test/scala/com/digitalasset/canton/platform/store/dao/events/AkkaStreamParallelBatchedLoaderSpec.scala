@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import org.apache.pekko.stream.scaladsl.Source
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import akka.stream.scaladsl.Source
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -14,10 +14,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class PekkoStreamParallelBatchedLoaderSpec
+class AkkaStreamParallelBatchedLoaderSpec
     extends AsyncFlatSpec
     with BaseTest
-    with PekkoBeforeAndAfterAll {
+    with AkkaBeforeAndAfterAll {
 
   // AsyncFlatSpec is with serial execution context
   private implicit val ec: ExecutionContext = system.dispatcher
@@ -25,7 +25,7 @@ class PekkoStreamParallelBatchedLoaderSpec
   private implicit val loggingContext = LoggingContextWithTrace.empty
 
   it should "not batch if no backpressure" in {
-    val testee = new PekkoStreamParallelBatchedLoader[Int, Int](
+    val testee = new AkkaStreamParallelBatchedLoader[Int, Int](
       batchLoad = in => {
         Future(in.size shouldBe 1)
           .map(_ => in.map(_._1).map(x => x -> x).toMap)
@@ -52,7 +52,7 @@ class PekkoStreamParallelBatchedLoaderSpec
 
   it should "batch if backpressure" in {
     val fullBatchCounter = new AtomicInteger(0)
-    val testee = new PekkoStreamParallelBatchedLoader[Int, Int](
+    val testee = new AkkaStreamParallelBatchedLoader[Int, Int](
       batchLoad = in => {
         Future {
           Threading.sleep(10)
@@ -80,7 +80,7 @@ class PekkoStreamParallelBatchedLoaderSpec
   }
 
   it should "throw backpressure error if queue exhausted" in {
-    val testee = new PekkoStreamParallelBatchedLoader[Int, Int](
+    val testee = new AkkaStreamParallelBatchedLoader[Int, Int](
       batchLoad = in => {
         Future {
           Threading.sleep(10)
@@ -108,7 +108,7 @@ class PekkoStreamParallelBatchedLoaderSpec
   }
 
   it should "keep working if batch loading throws error" in {
-    val testee = new PekkoStreamParallelBatchedLoader[Int, Int](
+    val testee = new AkkaStreamParallelBatchedLoader[Int, Int](
       batchLoad = in => {
         Future {
           if (in.head._1 == 50) throw new Exception("boom")
@@ -142,7 +142,7 @@ class PekkoStreamParallelBatchedLoaderSpec
   }
 
   it should "keep working if batch loading throws error before async barrier" in {
-    val testee = new PekkoStreamParallelBatchedLoader[Int, Int](
+    val testee = new AkkaStreamParallelBatchedLoader[Int, Int](
       batchLoad = in => {
         if (in.head._1 == 50) throw new Exception("boom")
         Future(succeed)
@@ -174,7 +174,7 @@ class PekkoStreamParallelBatchedLoaderSpec
   }
 
   it should "reject load requests after closed" in {
-    val testee = new PekkoStreamParallelBatchedLoader[Int, Int](
+    val testee = new AkkaStreamParallelBatchedLoader[Int, Int](
       batchLoad = _ => {
         throw new Exception("boom")
       },
@@ -193,7 +193,7 @@ class PekkoStreamParallelBatchedLoaderSpec
   }
 
   it should "process enqueued items before closed" in {
-    val testee = new PekkoStreamParallelBatchedLoader[Int, Int](
+    val testee = new AkkaStreamParallelBatchedLoader[Int, Int](
       batchLoad = in => {
         Future {
           Threading.sleep(10)

@@ -3,7 +3,7 @@
 
 package com.daml.auth.middleware.oauth2
 
-import org.apache.pekko.actor.ActorSystem
+import akka.actor.ActorSystem
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
 

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
-import org.apache.pekko.stream.{KillSwitches, Materializer}
+import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.{KillSwitches, Materializer}
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.LedgerOffset
 import com.digitalasset.canton.ledger.error.CommonErrors

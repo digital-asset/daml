@@ -3,14 +3,14 @@
 
 package com.daml.http
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.ConnectionContext
-import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.Http.ServerBinding
-import org.apache.pekko.http.scaladsl.HttpsConnectionContext
-import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.settings.ServerSettings
-import org.apache.pekko.stream.Materializer
+import akka.actor.ActorSystem
+import akka.http.scaladsl.ConnectionContext
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.HttpsConnectionContext
+import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.settings.ServerSettings
+import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.dbbackend.ContractDao
 import com.daml.http.json.{
@@ -36,7 +36,7 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
+import com.daml.metrics.akkahttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
@@ -102,7 +102,7 @@ object HttpService {
         maxInboundMessageSize = maxInboundMessageSize,
       )
 
-    import org.apache.pekko.http.scaladsl.server.Directives._
+    import akka.http.scaladsl.server.Directives._
     val bindingEt: EitherT[Future, Error, (ServerBinding, Option[ContractDao])] = for {
 
       client <- eitherT(
@@ -357,7 +357,7 @@ object HttpService {
 
   private def createPortFile(
       file: Path,
-      binding: org.apache.pekko.http.scaladsl.Http.ServerBinding,
+      binding: akka.http.scaladsl.Http.ServerBinding,
   ): Error \/ Unit = {
     import util.ErrorOps._
     PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error.apply)

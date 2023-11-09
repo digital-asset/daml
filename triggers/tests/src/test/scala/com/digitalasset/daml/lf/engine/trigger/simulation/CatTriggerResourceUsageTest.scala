@@ -4,9 +4,9 @@
 package com.daml.lf.engine.trigger
 package simulation
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Sink
+import akka.actor.ActorSystem
+import akka.stream.Materializer
+import akka.stream.scaladsl.Sink
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.lf.speedy.SValue

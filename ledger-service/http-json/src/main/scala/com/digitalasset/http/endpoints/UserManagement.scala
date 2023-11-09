@@ -4,8 +4,8 @@
 package com.daml.http
 package endpoints
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
+import akka.NotUsed
+import akka.stream.scaladsl.Source
 import EndpointsCompanion._
 import Endpoints.ET
 import com.daml.http.EndpointsCompanion.CreateFromUserToken.userIdFromToken

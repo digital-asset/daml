@@ -6,11 +6,11 @@ package util
 
 private[http] object GrpcHttpErrorCodes {
   import com.google.rpc.{Code => G}
-  import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes => A}
+  import akka.http.scaladsl.model.{StatusCode, StatusCodes => A}
 
-  implicit final class `gRPC status as pekko http`(private val self: G) extends AnyVal {
+  implicit final class `gRPC status as akka http`(private val self: G) extends AnyVal {
     // some version of this mapping _should_ already exist somewhere, right? -SC
-    def asPekkoHttp: StatusCode = self match {
+    def asAkkaHttp: StatusCode = self match {
       case G.OK => A.OK
       case G.INVALID_ARGUMENT | G.FAILED_PRECONDITION | G.OUT_OF_RANGE => A.BadRequest
       case G.UNAUTHENTICATED => A.Unauthorized
@@ -25,9 +25,9 @@ private[http] object GrpcHttpErrorCodes {
       case G.DEADLINE_EXCEEDED => A.GatewayTimeout
     }
 
-    def asPekkoHttpForJsonApi: StatusCode = self match {
+    def asAkkaHttpForJsonApi: StatusCode = self match {
       case G.UNAUTHENTICATED | G.CANCELLED => A.InternalServerError
-      case _ => self.asPekkoHttp
+      case _ => self.asAkkaHttp
     }
   }
 

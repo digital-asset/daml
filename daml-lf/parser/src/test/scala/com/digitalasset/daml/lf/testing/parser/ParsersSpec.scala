@@ -25,7 +25,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
     with ScalaCheckPropertyChecks
     with Matchers {
 
-  implicit val parserParameters: ParserParameters[this.type] =
+  implicit val parserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
   val defaultPackageId = parserParameters.defaultPackageId
 

@@ -8,8 +8,8 @@
 
     <logger name="io.netty" level="WARN" />
     <logger name="io.grpc.netty" level="WARN" />
-    <logger name="pekko.event.slf4j" level="WARN" />
-    <logger name="pekko.actor.CoordinatedShutdown" level="WARN" />
+    <logger name="akka.event.slf4j" level="WARN" />
+    <logger name="akka.actor.CoordinatedShutdown" level="WARN" />
     <logger name="daml.tracelog" level="DEBUG" />
     <logger name="daml.warnings" level="WARN" />
 

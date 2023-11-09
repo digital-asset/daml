@@ -38,15 +38,15 @@ object FutureOf {
     with Catchable[F]
 
   implicit def `future Instance`[EC: ExecutionContext]: ScalazF[Future[EC, +*]] =
-    Instance.subst[ScalazF, EC](implicitly)
+    Instance subst [ScalazF, EC] implicitly
 
   implicit def `future Semigroup`[A: Semigroup, EC: ExecutionContext]: Semigroup[Future[EC, A]] = {
     type K[T[+_]] = Semigroup[T[A]]
-    Instance.subst[K, EC](implicitly)
+    Instance subst [K, EC] implicitly
   }
 
   implicit def `future is any type`[A]: sc.Future[A] === Future[Any, A] =
-    Instance.subst[Lambda[`t[+_]` => sc.Future[A] === t[A]], Any](Leibniz.refl)
+    Instance subst [Lambda[`t[+_]` => sc.Future[A] === t[A]], Any] Leibniz.refl
 
   /** A [[sc.Future]] converts to our [[Future]] with any choice of EC type. */
   implicit def `future is any`[A](sf: sc.Future[A]): Future[Any, A] =
@@ -54,7 +54,7 @@ object FutureOf {
 
   private[this] def unsubstF[Arr[_, +_], A, B](f: A Arr Future[Nothing, B]): A Arr sc.Future[B] = {
     type K[T[+_]] = (A Arr T[B]) => A Arr sc.Future[B]
-    (Instance.subst[K, Nothing](identity))(f)
+    (Instance subst [K, Nothing] identity)(f)
   }
 
   def swapExecutionContext[L, R]: Future[L, *] <~> Future[R, *] =

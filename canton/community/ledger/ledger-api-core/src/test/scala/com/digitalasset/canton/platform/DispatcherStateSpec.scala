@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.platform
 
-import org.apache.pekko.stream.scaladsl.Source
+import akka.stream.scaladsl.Source
 import com.daml.error.utils.ErrorDetails
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.offset.Offset
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.{Dispatcher, SubSource}
+import com.digitalasset.canton.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
 import io.grpc.StatusRuntimeException
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
@@ -23,7 +23,7 @@ import scala.util.{Failure, Success}
 class DispatcherStateSpec
     extends AsyncFlatSpec
     with MockitoSugar
-    with PekkoBeforeAndAfterAll
+    with AkkaBeforeAndAfterAll
     with BaseTest {
   private val className = classOf[DispatcherState].getSimpleName
 

@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes}
+import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.daml.fetchcontracts.util.IdentifierConverters.apiIdentifier
 import com.daml.ledger.api.domain.User
 import com.daml.ledger.api.refinements.{ApiTypes => lar}

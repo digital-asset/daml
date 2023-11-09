@@ -217,13 +217,13 @@ class SequencerClientTest
             ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] =
               validate(priorEvent, reconnectEvent, sequencerId)
 
-            override def validatePekko[E: Pretty](
-                subscription: SequencerSubscriptionPekko[E],
+            override def validateAkka[E: Pretty](
+                subscription: SequencerSubscriptionAkka[E],
                 priorReconnectEvent: Option[OrdinarySerializedEvent],
                 sequencerId: SequencerId,
             )(implicit
                 traceContext: TraceContext
-            ): SequencerSubscriptionPekko[SequencedEventValidationError[E]] = ???
+            ): SequencerSubscriptionAkka[SequencedEventValidationError[E]] = ???
 
             override def close(): Unit = ()
           },

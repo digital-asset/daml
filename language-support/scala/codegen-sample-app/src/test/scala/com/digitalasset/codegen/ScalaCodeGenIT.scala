@@ -3,7 +3,7 @@
 
 package com.daml.codegen
 
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.codegen.util.TestUtil.{TestContext, requiredResource}
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}

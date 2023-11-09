@@ -3,9 +3,9 @@
 
 package com.daml.http
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
-import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
+import akka.actor.ActorSystem
+import akka.stream.Materializer
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpServiceTestFixture.UseTls
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.util.SandboxTestLedger
@@ -38,7 +38,7 @@ class AuthorizationTest
 
   implicit val asys: ActorSystem = ActorSystem(testId)
   implicit val mat: Materializer = Materializer(asys)
-  implicit val aesf: ExecutionSequencerFactory = new PekkoExecutionSequencerPool(testId)(asys)
+  implicit val aesf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(asys)
   implicit val ec: ExecutionContext = asys.dispatcher
 
   private val emptyJWTToken = config.getToken(Ref.UserId.assertFromString("empty"))

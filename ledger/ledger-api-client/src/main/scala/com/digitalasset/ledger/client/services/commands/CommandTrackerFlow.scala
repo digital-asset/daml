@@ -5,9 +5,9 @@ package com.daml.ledger.client.services.commands
 
 import java.time.Duration
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Concat, Flow, GraphDSL, Merge, Source}
-import org.apache.pekko.stream.{DelayOverflowStrategy, FlowShape, OverflowStrategy}
+import akka.NotUsed
+import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Merge, Source}
+import akka.stream.{DelayOverflowStrategy, FlowShape, OverflowStrategy}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,

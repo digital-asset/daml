@@ -15,7 +15,7 @@ da_scala_library(
         "@maven//:com_github_pureconfig_pureconfig_generic",
         "@maven//:com_github_scopt_scopt",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",
     ],
     visibility = ["//ledger-service:__subpackages__"],

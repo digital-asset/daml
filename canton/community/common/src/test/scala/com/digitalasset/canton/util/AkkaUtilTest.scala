@@ -3,19 +3,19 @@
 
 package com.digitalasset.canton.util
 
-import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
-import org.apache.pekko.stream.testkit.StreamSpec
-import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import org.apache.pekko.stream.testkit.scaladsl.{TestSink, TestSource}
-import org.apache.pekko.stream.{KillSwitch, KillSwitches, OverflowStrategy}
-import org.apache.pekko.{Done, NotUsed}
+import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.stream.testkit.StreamSpec
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import akka.stream.testkit.scaladsl.{TestSink, TestSource}
+import akka.stream.{KillSwitch, KillSwitches, OverflowStrategy}
+import akka.{Done, NotUsed}
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
-import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
-import com.digitalasset.canton.util.PekkoUtil.syntax.*
+import com.digitalasset.canton.util.AkkaUtil.WithKillSwitch
+import com.digitalasset.canton.util.AkkaUtil.syntax.*
 import com.digitalasset.canton.{BaseTest, DiscardOps}
 
 import java.util.concurrent.Semaphore
@@ -25,10 +25,10 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
 
-class PekkoUtilTest extends StreamSpec with BaseTest {
-  import org.apache.pekkoUtilTest.*
+class AkkaUtilTest extends StreamSpec with BaseTest {
+  import AkkaUtilTest.*
 
-  // Override the implicit from PekkoSpec so that we don't get ambiguous implicits
+  // Override the implicit from AkkaSpec so that we don't get ambiguous implicits
   override val patience: PatienceConfig = defaultPatience
 
   implicit val executionContext: ExecutionContext = system.dispatcher
@@ -199,7 +199,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
       def mkSource(s: Int): Source[Int, (KillSwitch, Future[Done])] =
         withoutKillSwitch(Source(s until s + 3))
       val lastStates = new AtomicReference[Seq[Int]](Seq.empty[Int])
-      val policy = new PekkoUtil.RetrySourcePolicy[Int, Int] {
+      val policy = new AkkaUtil.RetrySourcePolicy[Int, Int] {
         override def shouldRetry(
             lastState: Int,
             lastEmittedElement: Option[Int],
@@ -210,7 +210,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
         }
       }
 
-      val ((_killSwitch, doneF), retrievedElemsF) = PekkoUtil
+      val ((_killSwitch, doneF), retrievedElemsF) = AkkaUtil
         .restartSource("restart-upon-completion", 1, mkSource, policy)
         .toMat(Sink.seq)(Keep.both)
         .run()
@@ -224,7 +224,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
       def mkSource(s: Int): Source[Int, (KillSwitch, Future[Done])] =
         withoutKillSwitch(Source(s until s + 3))
       val delay = 200.milliseconds
-      val policy = new PekkoUtil.RetrySourcePolicy[Int, Int] {
+      val policy = new AkkaUtil.RetrySourcePolicy[Int, Int] {
         override def shouldRetry(
             lastState: Int,
             lastEmittedElement: Option[Int],
@@ -234,7 +234,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
         }
       }
 
-      val stream = PekkoUtil
+      val stream = AkkaUtil
         .restartSource("restart-with-delay", 1, mkSource, policy)
         .toMat(Sink.seq)(Keep.both)
 
@@ -251,7 +251,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
 
       def mkSource(s: Int): Source[Int, (KillSwitch, Future[Done])] =
         withoutKillSwitch(if (s > 3) Source(1 until 3) else Source.empty[Int])
-      val policy = new PekkoUtil.RetrySourcePolicy[Int, Int] {
+      val policy = new AkkaUtil.RetrySourcePolicy[Int, Int] {
         override def shouldRetry(
             lastState: Int,
             lastEmittedElement: Option[Int],
@@ -263,7 +263,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
           Option.when(lastState < 5)((0.seconds, lastState + 1))
         }
       }
-      val ((_killSwitch, doneF), retrievedElemsF) = PekkoUtil
+      val ((_killSwitch, doneF), retrievedElemsF) = AkkaUtil
         .restartSource("restart-with-delay", 1, mkSource, policy)
         .toMat(Sink.seq)(Keep.both)
         .run()
@@ -284,7 +284,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
         withoutKillSwitch(
           if (s % 2 == 0) Source.failed[Int](StreamFailure(s)) else Source.single(10 + s)
         )
-      val policy = new PekkoUtil.RetrySourcePolicy[Int, Int] {
+      val policy = new AkkaUtil.RetrySourcePolicy[Int, Int] {
         override def shouldRetry(
             lastState: Int,
             lastEmittedElement: Option[Int],
@@ -296,7 +296,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
           Option.when(lastState < 5)((0.seconds, lastState + 1))
         }
       }
-      val ((_killSwitch, doneF), retrievedElemsF) = PekkoUtil
+      val ((_killSwitch, doneF), retrievedElemsF) = AkkaUtil
         .restartSource("restart-propagate-error", 1, mkSource, policy)
         .toMat(Sink.seq)(Keep.both)
         .run()
@@ -316,7 +316,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
 
       def mkSource(s: Int): Source[Int, (KillSwitch, Future[Done])] =
         withoutKillSwitch(Source.single(s))
-      val policy = new PekkoUtil.RetrySourcePolicy[Int, Int] {
+      val policy = new AkkaUtil.RetrySourcePolicy[Int, Int] {
         override def shouldRetry(
             lastState: Int,
             lastEmittedElement: Option[Int],
@@ -331,7 +331,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
           Some((1.millisecond, lastState + 1))
         }
       }
-      val ((killSwitch, doneF), retrievedElemsF) = PekkoUtil
+      val ((killSwitch, doneF), retrievedElemsF) = AkkaUtil
         .restartSource("restart-stop-on-kill", 1, mkSource, policy)
         .toMat(Sink.seq)(Keep.both)
         .run()
@@ -350,8 +350,8 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
           .viaMat(KillSwitches.single)(Keep.right)
           .watchTermination()(Keep.both)
 
-      val policy = PekkoUtil.RetrySourcePolicy.never[Int, Int]
-      val ((_killSwitch, doneF), sink) = PekkoUtil
+      val policy = AkkaUtil.RetrySourcePolicy.never[Int, Int]
+      val ((_killSwitch, doneF), sink) = AkkaUtil
         .restartSource("close-inner-source", 1, mkSource, policy)
         .map { case elemWithKillSwitch @ WithKillSwitch(elem) =>
           if (elem == 4) elemWithKillSwitch.killSwitch.shutdown()
@@ -373,7 +373,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
       val pullKillSwitch = new SingleUseCell[KillSwitch]
       val longBackoff = 10.seconds
 
-      val policy = new PekkoUtil.RetrySourcePolicy[Int, Int] {
+      val policy = new AkkaUtil.RetrySourcePolicy[Int, Int] {
         override def shouldRetry(
             lastState: Int,
             lastEmittedElement: Option[Int],
@@ -387,7 +387,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
           Some((backoff, lastState + 1))
         }
       }
-      val graph = PekkoUtil
+      val graph = AkkaUtil
         .restartSource("restart-stop-immediately-on-kill-switch", 1, mkSource, policy)
         .toMat(Sink.seq)(Keep.both)
       val start = System.nanoTime()
@@ -406,7 +406,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
       val pullKillSwitch = new SingleUseCell[KillSwitch]
       val policyDelayPromise = Promise[Unit]()
 
-      val policy = new PekkoUtil.RetrySourcePolicy[Int, Int] {
+      val policy = new AkkaUtil.RetrySourcePolicy[Int, Int] {
         override def shouldRetry(
             lastState: Int,
             lastEmittedElement: Option[Int],
@@ -421,7 +421,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
           Some((1.millisecond, lastState + 1))
         }
       }
-      val ((killSwitch, doneF), retrievedElemsF) = PekkoUtil
+      val ((killSwitch, doneF), retrievedElemsF) = AkkaUtil
         .restartSource("restart-synchronize-retry", 1, mkSource, policy)
         .toMat(Sink.seq)(Keep.both)
         .run()
@@ -443,8 +443,8 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
           .viaMat(KillSwitches.single)(Keep.right)
           .watchTermination()(Keep.both)
 
-      val policy = PekkoUtil.RetrySourcePolicy.never[Int, Int]
-      val ((killSwitch, doneF), sink) = PekkoUtil
+      val policy = AkkaUtil.RetrySourcePolicy.never[Int, Int]
+      val ((killSwitch, doneF), sink) = AkkaUtil
         .restartSource("close-inner-source", 1, mkSource, policy)
         .map(_.unwrap)
         .toMat(TestSink.probe)(Keep.both)
@@ -469,7 +469,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
           killSwitch -> promise.future
         }
 
-      val policy = new PekkoUtil.RetrySourcePolicy[Int, Int] {
+      val policy = new AkkaUtil.RetrySourcePolicy[Int, Int] {
         override def shouldRetry(
             lastState: Int,
             lastEmittedElement: Option[Int],
@@ -478,7 +478,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
           Some((1.millisecond, lastState + 1))
       }
 
-      val ((killSwitch, doneF), sink) = PekkoUtil
+      val ((killSwitch, doneF), sink) = AkkaUtil
         .restartSource("await completion of inner sources", 1, mkSource, policy)
         .map(_.unwrap)
         .toMat(TestSink.probe)(Keep.both)
@@ -517,7 +517,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
       def mkSource(s: Int): Source[Int, (KillSwitch, Future[Done])] =
         withoutKillSwitch(Source.single(s))
       val exception = new Exception("Retry policy failure")
-      val policy = new PekkoUtil.RetrySourcePolicy[Int, Int] {
+      val policy = new AkkaUtil.RetrySourcePolicy[Int, Int] {
         override def shouldRetry(
             lastState: Int,
             lastEmittedElement: Option[Int],
@@ -528,7 +528,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
         }
       }
       val name = "restart-log-error"
-      val graph = PekkoUtil
+      val graph = AkkaUtil
         .restartSource(name, 1, mkSource, policy)
         .toMat(Sink.seq)(Keep.both)
       val retrievedElems = loggerFactory.assertLogs(
@@ -552,14 +552,14 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
     "can pull the kill switch after retries have stopped" in assertAllStagesStopped {
       def mkSource(s: Int): Source[Int, (KillSwitch, Future[Done])] =
         withoutKillSwitch(Source.empty[Int])
-      val policy = new PekkoUtil.RetrySourcePolicy[Int, Int] {
+      val policy = new AkkaUtil.RetrySourcePolicy[Int, Int] {
         override def shouldRetry(
             lastState: Int,
             lastEmittedElement: Option[Int],
             lastFailure: Option[Throwable],
         ): Option[(FiniteDuration, Int)] = None
       }
-      val ((killSwitch, doneF), retrievedElemsF) = PekkoUtil
+      val ((killSwitch, doneF), retrievedElemsF) = AkkaUtil
         .restartSource("restart-kill-switch-after-complete", 1, mkSource, policy)
         .toMat(Sink.seq)(Keep.both)
         .run()
@@ -586,7 +586,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
     }
 
     "create a new value upon each materialization" in assertAllStagesStopped {
-      val stream = PekkoUtil
+      val stream = AkkaUtil
         .withMaterializedValueMat(new AtomicInteger(0))(Source(1 to 5))(Keep.right)
         .map { case (i, m) => m.addAndGet(i) }
         .toMat(Sink.seq)(Keep.both)
@@ -705,7 +705,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
       // Since the kill switch is pulled from within the stream's handler,
       // the OnNext message will arrive at the sink before the kill switches
       // OnError message goes through the flow that pulled the kill switch.
-      // So given Pekko's in-order deliver guarantees between actor pairs,
+      // So given Akka's in-order deliver guarantees between actor pairs,
       // the OnError will arrive after the OnNext.
       sink.expectNext(1)
       sink.expectError(ex)
@@ -745,7 +745,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
     }
   }
 
-  // Sanity check that the construction in GrpcSequencerClientTransportPekko works
+  // Sanity check that the construction in GrpcSequencerClientTransportAkka works
   "concatLazy + Source.lazySingle" should {
     "not produce the lazy single element upon an error" in {
       val evaluated = new AtomicBoolean()
@@ -832,7 +832,7 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
   }
 }
 
-object PekkoUtilTest {
+object AkkaUtilTest {
   val noOpKillSwitch = new KillSwitch {
     override def shutdown(): Unit = ()
     override def abort(ex: Throwable): Unit = ()

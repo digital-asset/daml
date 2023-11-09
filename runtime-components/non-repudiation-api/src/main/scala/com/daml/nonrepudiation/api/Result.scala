@@ -3,10 +3,10 @@
 
 package com.daml.nonrepudiation.api
 
-import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import org.apache.pekko.http.scaladsl.model.StatusCodes
-import org.apache.pekko.http.scaladsl.server.Directives.complete
-import org.apache.pekko.http.scaladsl.server.{ExceptionHandler, StandardRoute}
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.server.Directives.complete
+import akka.http.scaladsl.server.{ExceptionHandler, StandardRoute}
 import org.slf4j.Logger
 import spray.json.{DefaultJsonProtocol, JsonFormat, RootJsonFormat}
 

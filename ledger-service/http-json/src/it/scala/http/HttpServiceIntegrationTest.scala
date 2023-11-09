@@ -6,8 +6,8 @@ package com.daml.http
 import java.io.File
 import java.nio.file.Files
 
-import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
 import AbstractHttpServiceIntegrationTestFuns.HttpServiceTestFixtureData
 import HttpServiceTestFixture.UseHttps
 import dbbackend.JdbcConfig
@@ -77,7 +77,7 @@ abstract class HttpServiceIntegrationTest
   }
 
   private def httpsContextForSelfSignedCert = {
-    import org.apache.pekko.http.scaladsl.ConnectionContext
+    import akka.http.scaladsl.ConnectionContext
     import java.security.SecureRandom
     import java.security.cert.X509Certificate
     import javax.net.ssl.{SSLContext, X509TrustManager}

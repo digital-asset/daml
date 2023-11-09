@@ -18,15 +18,13 @@ object GraphQLLeaf {
 }
 
 trait PrimitiveGraphQLLeaf {
-  implicit val bigDecimalGraphQLLeaf: GraphQLLeaf[BigDecimal] =
-    GraphQLLeaf.instance[BigDecimal](BigDecimalType)
-  implicit val bigIntTypeGraphQLLeaf: GraphQLLeaf[BigInt] = GraphQLLeaf.instance[BigInt](BigIntType)
-  implicit val booleanToGraphQLLeaf: GraphQLLeaf[Boolean] =
-    GraphQLLeaf.instance[Boolean](BooleanType)
-  implicit val doubleToGraphQLLeaf: GraphQLLeaf[Double] = GraphQLLeaf.instance[Double](FloatType)
-  implicit val intToGraphQLLeaf: GraphQLLeaf[Int] = GraphQLLeaf.instance[Int](IntType)
-  implicit val longToGraphQLLeaf: GraphQLLeaf[Long] = GraphQLLeaf.instance[Long](LongType)
-  implicit val stringToGraphQLLeaf: GraphQLLeaf[String] = GraphQLLeaf.instance[String](StringType)
+  implicit val bigDecimalGraphQLLeaf = GraphQLLeaf.instance[BigDecimal](BigDecimalType)
+  implicit val bigIntTypeGraphQLLeaf = GraphQLLeaf.instance[BigInt](BigIntType)
+  implicit val booleanToGraphQLLeaf = GraphQLLeaf.instance[Boolean](BooleanType)
+  implicit val doubleToGraphQLLeaf = GraphQLLeaf.instance[Double](FloatType)
+  implicit val intToGraphQLLeaf = GraphQLLeaf.instance[Int](IntType)
+  implicit val longToGraphQLLeaf = GraphQLLeaf.instance[Long](LongType)
+  implicit val stringToGraphQLLeaf = GraphQLLeaf.instance[String](StringType)
 }
 
 object PrimitiveGraphQLLeaf extends PrimitiveGraphQLLeaf

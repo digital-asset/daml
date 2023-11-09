@@ -3,8 +3,8 @@
 
 package com.daml.script.export
 
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Sink
+import akka.stream.Materializer
+import akka.stream.scaladsl.Sink
 import com.daml.auth.TokenHolder
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}

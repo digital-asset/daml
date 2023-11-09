@@ -28,7 +28,7 @@ class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
 
   import SpeedyTestLib.loggingContext
 
-  private implicit val parserParameters: ParserParameters[this.type] =
+  private implicit val parserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
   private val pkgId = parserParameters.defaultPackageId
 

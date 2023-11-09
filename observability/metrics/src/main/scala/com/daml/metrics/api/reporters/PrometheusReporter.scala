@@ -14,8 +14,6 @@ import io.prometheus.client.dropwizard.DropwizardExports
 import io.prometheus.client.exporter.HTTPServer
 import org.slf4j.LoggerFactory
 
-import scala.annotation.nowarn
-
 object PrometheusReporter {
 
   def forRegistry(registry: MetricRegistry) = PrometheusReporter.Builder(registry)
@@ -55,7 +53,6 @@ final class PrometheusReporter private (
     // pokes DropwizardExports for new metrics
   }
 
-  @nowarn("cat=deprecation")
   override def stop(): Unit = {
     server.stop()
     CollectorRegistry.defaultRegistry.unregister(exports)

@@ -38,7 +38,7 @@ class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
 
   import SpeedyTest._
 
-  implicit val parserParameters: ParserParameters[this.type] =
+  implicit val parserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   val pkgId = parserParameters.defaultPackageId

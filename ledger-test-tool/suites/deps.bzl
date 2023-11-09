@@ -35,7 +35,7 @@ def deps(lf_version):
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
         "//libs-scala/resources",
-        "//libs-scala/resources-pekko",
+        "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "//libs-scala/timer-utils",
         "@maven//:com_google_api_grpc_proto_google_common_protos",

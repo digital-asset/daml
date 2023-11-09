@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.Http.ServerBinding
-import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.settings.ServerSettings
-import org.apache.pekko.stream.Materializer
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.settings.ServerSettings
+import akka.stream.Materializer
 import ch.qos.logback.classic.Level as LogLevel
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.JwtDecoder
@@ -16,7 +16,7 @@ import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
+import com.daml.metrics.akkahttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.http.json.{ApiValueToJsValueConverter, DomainJsonDecoder, DomainJsonEncoder, JsValueToApiValueConverter}
@@ -77,7 +77,7 @@ class HttpService(
     )
 
     val ledgerClient: DamlLedgerClient = DamlLedgerClient(channel, clientConfig, loggerFactory)
-    import org.apache.pekko.http.scaladsl.server.Directives.*
+    import akka.http.scaladsl.server.Directives.*
     val bindingEt: EitherT[Future, HttpService.Error, ServerBinding] = for {
       _ <- eitherT(Future.successful(\/-(ledgerClient)))
       packageCache = LedgerReader.LoadCache.freshCache()
@@ -273,7 +273,7 @@ object HttpService {
 
   private[http] def createPortFile(
       file: Path,
-      binding: org.apache.pekko.http.scaladsl.Http.ServerBinding,
+      binding: akka.http.scaladsl.Http.ServerBinding,
   ): HttpService.Error \/ Unit = {
     import com.digitalasset.canton.http.util.ErrorOps.*
     PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error.apply)

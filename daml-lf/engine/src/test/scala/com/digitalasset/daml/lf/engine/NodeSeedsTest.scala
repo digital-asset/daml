@@ -69,7 +69,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
   )
   val contracts = Map(requestCid -> requestContract, roleCid -> roleContract)
 
-  implicit val loggingContext: LoggingContext = LoggingContext.empty
+  implicit val loggingContext = LoggingContext.empty
 
   val Right((tx, metaData)) =
     engine

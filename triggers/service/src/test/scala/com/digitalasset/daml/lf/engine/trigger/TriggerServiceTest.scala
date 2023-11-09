@@ -5,16 +5,16 @@ package com.daml.lf.engine.trigger
 
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.lf.archive.{Dar, DarReader}
-import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.model._
-import org.apache.pekko.util.ByteString
-import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model._
+import akka.util.ByteString
+import akka.stream.scaladsl.{FileIO, Sink, Source}
 import com.google.protobuf.{ByteString => PByteString}
 
 import java.io.File
 import java.time.{Duration => JDuration}
 import java.util.UUID
-import org.apache.pekko.http.scaladsl.model.Uri.Query
+import akka.http.scaladsl.model.Uri.Query
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
@@ -57,8 +57,6 @@ import org.slf4j.LoggerFactory
 
 import java.nio.file.Files
 import scala.concurrent.duration._
-
-import scala.annotation.nowarn
 
 trait AbstractTriggerServiceTestHelper
     extends AsyncFlatSpec
@@ -275,7 +273,6 @@ trait AbstractTriggerServiceTestHelper
       pred(getTriggerStatus(triggerInstance).map(_._2))
     }
 
-  @nowarn("cat=deprecation")
   def assertTriggerRunnerStatus(
       triggerInstance: UUID,
       pred: Vector[String] => Assertion,

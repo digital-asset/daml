@@ -28,7 +28,7 @@ class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
   val helpers = new SBuiltinBigNumericTestHelpers(majorLanguageVersion)
   import helpers.{parserParameters => _, _}
 
-  implicit val parserParameters: ParserParameters[this.type] =
+  implicit val parserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
@@ -342,7 +342,7 @@ final class SBuiltinBigNumericTestHelpers(majorLanguageVersion: LanguageMajorVer
 
   import SpeedyTestLib.loggingContext
 
-  implicit val parserParameters: ParserParameters[this.type] =
+  implicit val parserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   private val pkg =

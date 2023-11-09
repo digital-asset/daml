@@ -3,8 +3,8 @@
 
 package com.daml.navigator
 
-import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import spray.json.{DefaultJsonProtocol, RootJsonFormat}
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import spray.json.DefaultJsonProtocol
 
 case class ApplicationInfo(
     id: String,
@@ -13,5 +13,5 @@ case class ApplicationInfo(
 )
 
 trait ApplicationInfoJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
-  implicit val applicationInfoFormat: RootJsonFormat[ApplicationInfo] = jsonFormat3(ApplicationInfo)
+  implicit val applicationInfoFormat = jsonFormat3(ApplicationInfo)
 }

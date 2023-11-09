@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
+import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
@@ -19,7 +19,7 @@ import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArg
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.SignalDispatcher
+import com.digitalasset.canton.platform.akkastreams.dispatcher.SignalDispatcher
 import com.digitalasset.canton.platform.apiserver.TimeServiceBackend
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.empty.Empty

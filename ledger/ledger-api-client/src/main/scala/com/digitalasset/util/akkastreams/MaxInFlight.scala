@@ -1,12 +1,12 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.util.pekkostreams
+package com.daml.util.akkastreams
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.BidiFlow
-import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
-import org.apache.pekko.stream.{Attributes, BidiShape, Inlet, Outlet}
+import akka.NotUsed
+import akka.stream.scaladsl.BidiFlow
+import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import akka.stream.{Attributes, BidiShape, Inlet, Outlet}
 import com.daml.metrics.api.MetricHandle.Counter
 import com.daml.metrics.api.MetricsContext
 import org.slf4j.LoggerFactory

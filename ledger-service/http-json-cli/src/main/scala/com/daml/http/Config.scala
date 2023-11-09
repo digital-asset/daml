@@ -7,7 +7,7 @@ import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
-import org.apache.pekko.stream.ThrottleMode
+import akka.stream.ThrottleMode
 import com.daml.dbutils.ConfigCompanion
 import com.daml.ledger.api.tls.TlsConfiguration
 import scalaz.std.either._

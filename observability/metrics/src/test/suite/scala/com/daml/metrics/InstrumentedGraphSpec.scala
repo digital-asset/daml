@@ -3,9 +3,9 @@
 
 package com.daml.metrics
 
-import org.apache.pekko.stream.QueueOfferResult
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import akka.stream.QueueOfferResult
+import akka.stream.scaladsl.{Keep, Sink, Source}
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.metrics.InstrumentedGraph._
 import com.daml.metrics.InstrumentedGraphSpec.{MaxValueCounter, SamplingCounter}
 import com.daml.metrics.api.MetricsContext
@@ -21,7 +21,7 @@ import scala.concurrent.{Future, Promise}
 final class InstrumentedGraphSpec
     extends AsyncFlatSpec
     with Matchers
-    with PekkoBeforeAndAfterAll
+    with AkkaBeforeAndAfterAll
     with MetricValues {
 
   behavior of "InstrumentedSource.queue"
@@ -36,7 +36,7 @@ final class InstrumentedGraphSpec
       InstrumentedGraph
         .queue[Int](bufferSize, capacityCounter, maxBuffered, delayTimer)
         .mapAsync(1) { x =>
-          org.apache.pekko.pattern.after(5.millis, system.scheduler)(Future(x))
+          akka.pattern.after(5.millis, system.scheduler)(Future(x))
         }
         .toMat(Sink.seq)(Keep.both)
         .run()

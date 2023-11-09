@@ -6,7 +6,7 @@ package engine
 package script
 package v2
 
-import org.apache.pekko.stream.Materializer
+import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.engine.free.Free
 import com.daml.lf.engine.script.Runner.IdeLedgerContext

@@ -120,7 +120,7 @@ object project {
       checkValue(_, cursor, expectedValue, ps)
     )
 
-  @nowarn("msg=parameter ps .* is never used") // conforms to `opaque`'s signature
+  @nowarn("msg=parameter value ps .* is never used") // conforms to `opaque`'s signature
   def checkValue(
       rootArgument: ApiValue,
       cursor: PropertyCursor,

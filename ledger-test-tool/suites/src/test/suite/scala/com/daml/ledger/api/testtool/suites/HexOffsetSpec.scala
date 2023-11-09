@@ -59,7 +59,7 @@ class HexOffsetSpec
         HexOffset.previous(offset) shouldBe None
       } else {
         val lowerOffset = HexOffset.previous(offset).value
-        offset should be.>[String](lowerOffset)
+        offset should be > [String] lowerOffset
       }
     }
 

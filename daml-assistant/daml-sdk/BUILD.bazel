@@ -10,13 +10,13 @@ load("@os_info//:os_info.bzl", "is_windows")
 load(":util.bzl", "deps")
 
 scala_deps = [
-    "@maven//:org_apache_pekko_pekko_http_spray_json",
+    "@maven//:com_typesafe_akka_akka_http_spray_json",
     "@maven//:com_typesafe_scala_logging_scala_logging",
     "@maven//:io_spray_spray_json",
 ]
 
 scala_runtime_deps = [
-    "@maven//:org_apache_pekko_pekko_slf4j",
+    "@maven//:com_typesafe_akka_akka_slf4j",
     "@maven//:org_tpolecat_doobie_postgres",
 ]
 

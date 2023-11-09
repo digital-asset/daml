@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import org.apache.pekko.stream.ThrottleMode
+import akka.stream.ThrottleMode
 import com.daml.cliopts
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}

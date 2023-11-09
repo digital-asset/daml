@@ -43,9 +43,9 @@ object Read {
       }
     }
 
-  implicit val readString: Read[String] = Read.fromFunction[String](str => Right(str))
-  implicit val readBoolean: Read[Boolean] = Read.fromUnsafeFunction[Boolean](_.toBoolean)
-  implicit val readInt: Read[Int] = Read.fromUnsafeFunction[Int](_.toInt)
-  implicit val readFloat: Read[Float] = Read.fromUnsafeFunction[Float](_.toFloat)
-  implicit val readDouble: Read[Double] = Read.fromUnsafeFunction[Double](_.toDouble)
+  implicit val readString = Read.fromFunction[String](str => Right(str))
+  implicit val readBoolean = Read.fromUnsafeFunction[Boolean](_.toBoolean)
+  implicit val readInt = Read.fromUnsafeFunction[Int](_.toInt)
+  implicit val readFloat = Read.fromUnsafeFunction[Float](_.toFloat)
+  implicit val readDouble = Read.fromUnsafeFunction[Double](_.toDouble)
 }

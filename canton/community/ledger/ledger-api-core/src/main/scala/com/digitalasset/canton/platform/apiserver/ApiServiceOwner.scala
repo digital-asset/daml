@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
+import akka.actor.ActorSystem
+import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtTimestampLeeway
@@ -110,7 +110,7 @@ object ApiServiceOwner {
       userManagementStore,
       servicesExecutionContext,
       userRightsCheckIntervalInSeconds = userManagement.cacheExpiryAfterWriteInSeconds,
-      pekkoScheduler = actorSystem.scheduler,
+      akkaScheduler = actorSystem.scheduler,
       jwtTimestampLeeway = jwtTimestampLeeway,
       telemetry = telemetry,
       loggerFactory = loggerFactory,

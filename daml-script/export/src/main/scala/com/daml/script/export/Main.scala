@@ -3,9 +3,9 @@
 
 package com.daml.script.export
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
-import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
+import akka.actor.ActorSystem
+import akka.stream.Materializer
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -30,7 +30,7 @@ object Main {
   def main(config: Config): Unit = {
     implicit val sys: ActorSystem = ActorSystem("script-export")
     implicit val ec: ExecutionContext = sys.dispatcher
-    implicit val seq: ExecutionSequencerFactory = new PekkoExecutionSequencerPool("script-export")
+    implicit val seq: ExecutionSequencerFactory = new AkkaExecutionSequencerPool("script-export")
     implicit val mat: Materializer = Materializer(sys)
     run(config)
       .recoverWith { case NonFatal(fail) =>

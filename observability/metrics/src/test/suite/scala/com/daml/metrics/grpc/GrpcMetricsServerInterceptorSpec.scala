@@ -3,8 +3,8 @@
 
 package com.daml.metrics.grpc
 
-import com.daml.grpc.adapter.utils.implementations.HelloServicePekkoImplementation
-import com.daml.ledger.api.testing.utils.{PekkoBeforeAndAfterAll, TestingServerInterceptors}
+import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
+import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingServerInterceptors}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
@@ -19,7 +19,7 @@ import org.scalatest.matchers.should.Matchers
 class GrpcMetricsServerInterceptorSpec
     extends AsyncFlatSpec
     with Matchers
-    with PekkoBeforeAndAfterAll
+    with AkkaBeforeAndAfterAll
     with TestResourceContext
     with MetricValues
     with Eventually {
@@ -132,7 +132,7 @@ class GrpcMetricsServerInterceptorSpec
     TestingServerInterceptors
       .channelOwner(
         new GrpcMetricsServerInterceptor(metrics),
-        new HelloServicePekkoImplementation,
+        new HelloServiceAkkaImplementation,
       )
       .map(HelloServiceGrpc.stub)
   }

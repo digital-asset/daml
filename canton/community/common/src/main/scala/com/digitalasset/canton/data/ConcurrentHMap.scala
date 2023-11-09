@@ -26,7 +26,7 @@ import scala.collection.concurrent.TrieMap
   * See tests for counter-examples.
   */
 @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-@nowarn("msg=parameter ev in method")
+@nowarn("msg=parameter value ev in method")
 final case class ConcurrentHMap[R[_, _]] private (
     underlying: concurrent.Map[Any, Any] = new TrieMap()
 ) {
@@ -59,7 +59,7 @@ object ConcurrentHMap {
 
   private[data] class ConcurrentHMapPartiallyApplied[R[_, _]](private val dummy: Boolean)
       extends AnyVal {
-    @nowarn("msg=parameter ev in method")
+    @nowarn("msg=parameter value ev in method")
     def apply[K, V](values: (K, V)*)(implicit ev: R[K, V]) =
       new ConcurrentHMap[R](TrieMap.from(values))
   }

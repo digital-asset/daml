@@ -4,10 +4,10 @@
 package com.daml.lf.engine.trigger.simulation.process
 package ledger
 
-import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import org.apache.pekko.actor.typed.{ActorRef, Behavior}
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Sink
+import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, Behavior}
+import akka.stream.Materializer
+import akka.stream.scaladsl.Sink
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset

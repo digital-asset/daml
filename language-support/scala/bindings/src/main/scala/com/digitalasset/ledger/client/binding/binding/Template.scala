@@ -58,7 +58,7 @@ object Template {
       *    .exerciseInterfaceChoice(controller, ...)
       * }}}
       */
-    @nowarn("cat=unused&msg=parameter ev in method")
+    @nowarn("cat=unused&msg=parameter value ev in method")
     def toInterface[I](implicit ev: ToInterface[T, I]): CreateForExercise[I] =
       CreateForExercise(value)
   }
@@ -98,7 +98,7 @@ object Template {
     /** Widen a contract ID to the same contract ID for one of `T`'s implemented
       * interfaces.  Do this to get access to the interface choices.
       */
-    @nowarn("cat=unused&msg=parameter ev in method")
+    @nowarn("cat=unused&msg=parameter value ev in method")
     def toInterface[I](implicit ev: ToInterface[T, I]): ContractId[I] = {
       type K[C] = C => ApiTypes.ContractId
       type K2[C] = ContractId[T] => C

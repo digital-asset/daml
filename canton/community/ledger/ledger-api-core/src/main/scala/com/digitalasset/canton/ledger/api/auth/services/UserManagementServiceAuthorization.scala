@@ -32,7 +32,7 @@ final class UserManagementServiceAuthorization(
     with GrpcApiService
     with NamedLogging {
 
-  private implicit val loggingContextWithTrace: LoggingContextWithTrace =
+  private implicit val loggingContextWithTrace =
     LoggingContextWithTrace(loggerFactory)(TraceContext.empty)
   private implicit val errorLogger: ContextualizedErrorLogger =
     ErrorLoggingContext(logger, loggingContextWithTrace)

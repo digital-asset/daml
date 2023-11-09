@@ -6,10 +6,10 @@ package com.daml.ledger.api.testing.utils
 import java.net.SocketAddress
 import java.util.concurrent.TimeUnit
 
-import org.apache.pekko.stream.Materializer
+import akka.stream.Materializer
 import io.grpc.BindableService
 
-class PekkoStreamGrpcServerResource(
+class AkkaStreamGrpcServerResource(
     constructServices: Materializer => Iterable[BindableService],
     actorMaterializerResource: Resource[Materializer],
     address: Option[SocketAddress],
@@ -42,13 +42,13 @@ class PekkoStreamGrpcServerResource(
   }
 }
 
-object PekkoStreamGrpcServerResource {
+object AkkaStreamGrpcServerResource {
   def apply(
       constructServices: Materializer => Iterable[BindableService],
       actorSystemName: String = "",
       address: Option[SocketAddress],
   ) =
-    new PekkoStreamGrpcServerResource(
+    new AkkaStreamGrpcServerResource(
       constructServices,
       new ActorMaterializerResource(actorSystemName),
       address,

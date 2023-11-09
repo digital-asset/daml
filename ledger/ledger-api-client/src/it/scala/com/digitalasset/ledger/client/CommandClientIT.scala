@@ -5,8 +5,8 @@ package com.daml.ledger.client
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import akka.NotUsed
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.domain

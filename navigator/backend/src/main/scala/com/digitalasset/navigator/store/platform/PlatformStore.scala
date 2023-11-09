@@ -6,12 +6,12 @@ package com.daml.navigator.store.platform
 import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, Scheduler, Stash}
-import org.apache.pekko.pattern.{ask, pipe}
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.util.Timeout
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Scheduler, Stash}
+import akka.pattern.{ask, pipe}
+import akka.stream.Materializer
+import akka.util.Timeout
 import com.daml.grpc.GrpcException
-import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.domain.Feature
 import com.daml.ledger.api.refinements.{ApiTypes, IdGenerator}
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -107,7 +107,7 @@ class PlatformStore(
   implicit val ec: ExecutionContext = system.dispatcher
   implicit val materializer: Materializer = Materializer(system)
   implicit val esf: ExecutionSequencerFactory =
-    new PekkoExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
+    new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
 
   private val applicationId =
     Ref.LedgerString.assertFromString(

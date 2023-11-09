@@ -6,15 +6,15 @@ package com.daml.ledger.client.services.commands
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Flow, Keep, Source, SourceQueueWithComplete}
-import org.apache.pekko.stream.testkit.javadsl.TestSink
-import org.apache.pekko.stream.testkit.scaladsl.TestSource
-import org.apache.pekko.stream.testkit.{TestPublisher, TestSubscriber}
-import org.apache.pekko.stream.{OverflowStrategy, QueueOfferResult}
+import akka.NotUsed
+import akka.stream.scaladsl.{Flow, Keep, Source, SourceQueueWithComplete}
+import akka.stream.testkit.javadsl.TestSink
+import akka.stream.testkit.scaladsl.TestSource
+import akka.stream.testkit.{TestPublisher, TestSubscriber}
+import akka.stream.{OverflowStrategy, QueueOfferResult}
 import com.daml.api.util.TimestampConversion._
 import com.daml.concurrent.ExecutionContext
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.completion.Completion
@@ -46,7 +46,7 @@ class CommandTrackerFlowTest
     extends AsyncWordSpec
     with Matchers
     with OptionValues
-    with PekkoBeforeAndAfterAll
+    with AkkaBeforeAndAfterAll
     with ScalaFutures {
 
   type C[Value] = Ctx[(Int, TrackedCommandKey), Value]

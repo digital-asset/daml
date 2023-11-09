@@ -3,8 +3,8 @@
 
 package com.daml.http
 
-import org.apache.pekko.http.scaladsl.model.headers.Authorization
-import org.apache.pekko.http.scaladsl.model.{StatusCodes, Uri}
+import akka.http.scaladsl.model.headers.Authorization
+import akka.http.scaladsl.model.{StatusCodes, Uri}
 import com.daml.http.HttpServiceTestFixture.{UseTls, authorizationHeader, postRequest}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.http.dbbackend.JdbcConfig
@@ -586,7 +586,7 @@ class HttpServiceIntegrationTestUserManagement
       }
 
     // Create users in chunks to avoid overloading the server
-    // https://doc.pekko.io/docs/pekko-http/current/client-side/pool-overflow.html
+    // https://doc.akka.io/docs/akka-http/current/client-side/pool-overflow.html
     def createUsers(
         createUserRequests: Seq[domain.CreateUserRequest],
         chunkSize: Int = 20,

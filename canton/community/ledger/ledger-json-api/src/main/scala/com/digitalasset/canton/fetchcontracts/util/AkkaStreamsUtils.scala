@@ -3,15 +3,15 @@
 
 package com.digitalasset.canton.fetchcontracts.util
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, Partition}
-import org.apache.pekko.stream.{FanOutShape2, Graph}
+import akka.NotUsed
+import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Partition}
+import akka.stream.{FanOutShape2, Graph}
 import com.daml.scalautil.Statement.discard
 import scalaz.syntax.order.*
 import scalaz.{-\/, Order, \/, \/-}
 
-// Generic utilities for pekko-streams and doobie.
- object PekkoStreamsUtils {
+// Generic utilities for akka-streams and doobie.
+ object AkkaStreamsUtils {
   def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._

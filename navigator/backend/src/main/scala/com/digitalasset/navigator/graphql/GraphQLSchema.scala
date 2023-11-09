@@ -7,9 +7,9 @@ import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-import org.apache.pekko.actor.ActorRef
-import org.apache.pekko.pattern.ask
-import org.apache.pekko.util.Timeout
+import akka.actor.ActorRef
+import akka.pattern.ask
+import akka.util.Timeout
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.CustomEndpoint
 import com.daml.navigator.model._

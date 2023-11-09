@@ -90,9 +90,9 @@ package concurrent {
       * `ExecutionContext[MyECTag]` is required implicitly.
       */
     def apply[EC]: apply[EC] =
-      new apply(1)
+      new apply(())
 
-    final class apply[EC](private val ignore: Int) extends AnyVal {
+    final class apply[EC](private val ignore: Unit) extends AnyVal {
       def apply[A](body: => A)(implicit ec: ExecutionContext[EC]): Future[EC, A] =
         sc.Future(body)(ec)
     }

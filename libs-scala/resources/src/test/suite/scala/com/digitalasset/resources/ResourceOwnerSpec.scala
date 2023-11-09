@@ -209,7 +209,7 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       val ownerB = TestResourceOwner(100)
 
       @nowarn(
-        "msg=parameter resourceA .* is never used"
+        "msg=parameter value resourceA .* is never used"
       ) // stray reference inserted by withFilter
       val resource = for {
         resourceA <- ownerA.acquire()

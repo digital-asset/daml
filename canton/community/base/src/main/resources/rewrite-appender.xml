@@ -42,7 +42,7 @@
         </rewrite>
         <!-- Rewrite materializer log-level, as it is a bit dramatic if upstream closes the connection -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>pekko.stream.Materializer</logger>
+            <logger>akka.stream.Materializer</logger>
             <maxLevel>INFO</maxLevel>
             <contains>[completion at client] Upstream failed</contains>
             <exceptionMessage>UNAVAILABLE</exceptionMessage>

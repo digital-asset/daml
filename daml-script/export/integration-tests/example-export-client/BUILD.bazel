@@ -22,7 +22,7 @@ da_scala_binary(
         "//daml-script/export",
         "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
+        "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",

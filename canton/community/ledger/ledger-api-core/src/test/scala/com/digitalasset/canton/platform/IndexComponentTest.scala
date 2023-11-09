@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
-import org.apache.pekko.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import akka.NotUsed
+import akka.stream.scaladsl.Source
+import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 
-trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
+trait IndexComponentTest extends AkkaBeforeAndAfterAll with BaseTest {
   self: Suite =>
 
   // AsyncFlatSpec is with serial execution context
@@ -63,7 +63,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
   protected def ingestUpdates(updates: Traced[Update]*): Offset = {
     val lastOffset = testServices.testReadService.push(updates.toVector)
     Iterator
-      .continually(pekko.pattern.after(20.millis)(testServices.index.currentLedgerEnd()).futureValue)
+      .continually(akka.pattern.after(20.millis)(testServices.index.currentLedgerEnd()).futureValue)
       .dropWhile(absoluteOffset =>
         Offset.fromHexString(Ref.HexString.assertFromString(absoluteOffset.value)) < lastOffset
       )

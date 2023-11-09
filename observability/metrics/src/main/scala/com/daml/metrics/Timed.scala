@@ -5,8 +5,8 @@ package com.daml.metrics
 
 import java.util.concurrent.CompletionStage
 
-import org.apache.pekko.Done
-import org.apache.pekko.stream.scaladsl.{Keep, Source}
+import akka.Done
+import akka.stream.scaladsl.{Keep, Source}
 import com.daml.concurrent
 import com.daml.metrics.api.MetricHandle.{Counter, Timer}
 

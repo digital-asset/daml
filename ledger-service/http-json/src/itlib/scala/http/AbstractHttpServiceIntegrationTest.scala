@@ -4,9 +4,9 @@
 package com.daml.http
 
 import java.time.{Instant, LocalDate}
-import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.model._
-import org.apache.pekko.stream.scaladsl.Sink
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model._
+import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimestampConversion
 import com.daml.fetchcontracts.domain.ContractTypeId
 import com.daml.lf.data.Ref

@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.http.scaladsl.model.StatusCodes
-import org.apache.pekko.stream.scaladsl.*
+import akka.NotUsed
+import akka.http.scaladsl.model.StatusCodes
+import akka.stream.scaladsl.*
 import com.daml.lf
 import com.digitalasset.canton.http.LedgerClientJwt.Terminates
 import com.digitalasset.canton.http.json.JsonProtocol.LfValueCodec

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import org.apache.pekko.stream.{KillSwitch, Materializer}
+import akka.stream.{KillSwitch, Materializer}
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.canton.ledger.participant.state.v2.ReadService

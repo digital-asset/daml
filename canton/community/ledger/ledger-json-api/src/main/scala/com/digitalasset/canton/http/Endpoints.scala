@@ -3,16 +3,16 @@
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.http.scaladsl.model.*
+import akka.NotUsed
+import akka.http.scaladsl.model.*
 import headers.`Content-Type`
-import org.apache.pekko.http.scaladsl.server
-import org.apache.pekko.http.scaladsl.server.Directives.extractClientIP
-import org.apache.pekko.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
-import org.apache.pekko.http.scaladsl.server.RouteResult.*
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.{Flow, Source}
-import org.apache.pekko.util.ByteString
+import akka.http.scaladsl.server
+import akka.http.scaladsl.server.Directives.extractClientIP
+import akka.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
+import akka.http.scaladsl.server.RouteResult.*
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Flow, Source}
+import akka.util.ByteString
 import ContractsService.SearchResult
 import EndpointsCompanion.*
 import json.*
@@ -31,7 +31,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Timed
-import org.apache.pekko.http.scaladsl.server.Directives.*
+import akka.http.scaladsl.server.Directives.*
 import com.digitalasset.canton.http.endpoints.{MeteringReportEndpoint, RouteSetup}
 import com.daml.jwt.domain.Jwt
 import com.digitalasset.canton.ledger.api.domain as LedgerApiDomain
@@ -248,7 +248,7 @@ class Endpoints(
             .run { implicit lc => logger.info(s"$msg, ${lc.makeString}") }
         httpMessage.entity.contentLengthOption match {
           case Some(length) if length < maxBodySizeForLogging =>
-            import org.apache.pekko.stream.scaladsl.*
+            import akka.stream.scaladsl.*
             httpMessage
               .transformEntityDataBytes(
                 Flow.fromFunction { it =>

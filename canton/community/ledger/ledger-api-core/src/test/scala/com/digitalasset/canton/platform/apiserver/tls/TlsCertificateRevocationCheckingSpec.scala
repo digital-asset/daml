@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.tls
 
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.TestResourceContext
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.platform.apiserver.LedgerApiService
@@ -14,7 +14,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 final class TlsCertificateRevocationCheckingSpec
     extends AsyncWordSpec
     with MockitoSugar
-    with PekkoBeforeAndAfterAll
+    with AkkaBeforeAndAfterAll
     with TestResourceContext
     with OcspResponderFixture
     with BaseTest {

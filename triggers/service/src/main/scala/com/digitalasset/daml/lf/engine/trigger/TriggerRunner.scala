@@ -3,10 +3,10 @@
 
 package com.daml.lf.engine.trigger
 
-import org.apache.pekko.actor.typed.SupervisorStrategy.{restartWithBackoff, stop}
-import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import org.apache.pekko.actor.typed.{ActorRef, Behavior, ChildFailed, PostStop}
-import org.apache.pekko.stream.Materializer
+import akka.actor.typed.SupervisorStrategy.{restartWithBackoff, stop}
+import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, Behavior, ChildFailed, PostStop}
+import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.engine.trigger.ToLoggingContext._
 import com.daml.logging.ContextualizedLogger

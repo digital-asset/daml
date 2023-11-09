@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import org.apache.pekko.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.Uri
 import ch.qos.logback.classic.Level
 import com.daml.dbutils.JdbcConfig
 import com.daml.lf.speedy.Compiler

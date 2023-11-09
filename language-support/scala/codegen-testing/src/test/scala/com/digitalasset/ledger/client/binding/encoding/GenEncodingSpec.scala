@@ -12,8 +12,7 @@ import scalaz.Show
 class GenEncodingSpec extends AnyWordSpec with ScalaCheckDrivenPropertyChecks {
   import ShowEncoding.Implicits._
 
-  implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
-    PropertyCheckConfiguration(minSuccessful = 10000)
+  implicit override val generatorDrivenConfig = PropertyCheckConfiguration(minSuccessful = 10000)
 
   "P.Text arbitrary Gen should not generate \\u0000, PostgreSQL does not like it" in forAll(
     GenEncoding.postgresSafe.primitive.valueText

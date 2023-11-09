@@ -3,7 +3,7 @@
 
 package com.daml.auth.middleware.oauth2
 
-import org.apache.pekko.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.Uri
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.bazeltools.BazelRunfiles.requiredResource

@@ -46,8 +46,8 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
-import com.digitalasset.canton.util.PekkoUtil.syntax.*
+import com.digitalasset.canton.util.AkkaUtil.WithKillSwitch
+import com.digitalasset.canton.util.AkkaUtil.syntax.*
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -167,22 +167,22 @@ trait SequencedEventValidator extends AutoCloseable {
       sequencerId: SequencerId,
   ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit]
 
-  /** Add event validation to the given [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]].
+  /** Add event validation to the given [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionAkka]].
     * Stuttering is interpreted as reconnection and validated accordingly.
     *
-    * The returned [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]] completes after the first
+    * The returned [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionAkka]] completes after the first
     * event validation failure or the first subscription error. It does not stutter any more.
     *
     * @param priorReconnectEvent The sequenced event at which the reconnection happens.
     *                            If [[scala.Some$]], the first received event must be the same
     */
-  def validatePekko[E: Pretty](
-      subscription: SequencerSubscriptionPekko[E],
+  def validateAkka[E: Pretty](
+      subscription: SequencerSubscriptionAkka[E],
       priorReconnectEvent: Option[OrdinarySerializedEvent],
       sequencerId: SequencerId,
   )(implicit
       traceContext: TraceContext
-  ): SequencerSubscriptionPekko[SequencedEventValidationError[E]]
+  ): SequencerSubscriptionAkka[SequencedEventValidationError[E]]
 }
 
 object SequencedEventValidator extends HasLoggerName {
@@ -202,14 +202,14 @@ object SequencedEventValidator extends HasLoggerName {
     ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] =
       validate(priorEvent, reconnectEvent, sequencerId)
 
-    override def validatePekko[E: Pretty](
-        subscription: SequencerSubscriptionPekko[E],
+    override def validateAkka[E: Pretty](
+        subscription: SequencerSubscriptionAkka[E],
         priorReconnectEvent: Option[OrdinarySerializedEvent],
         sequencerId: SequencerId,
     )(implicit
         traceContext: TraceContext
-    ): SequencerSubscriptionPekko[SequencedEventValidationError[E]] =
-      SequencerSubscriptionPekko(
+    ): SequencerSubscriptionAkka[SequencedEventValidationError[E]] =
+      SequencerSubscriptionAkka(
         subscription.source.map(_.map(_.leftMap(UpstreamSubscriptionError(_)))),
         subscription.health,
       )
@@ -663,13 +663,13 @@ class SequencedEventValidatorImpl(
     )
   }
 
-  override def validatePekko[E: Pretty](
-      subscription: SequencerSubscriptionPekko[E],
+  override def validateAkka[E: Pretty](
+      subscription: SequencerSubscriptionAkka[E],
       priorReconnectEvent: Option[OrdinarySerializedEvent],
       sequencerId: SequencerId,
   )(implicit
       traceContext: TraceContext
-  ): SequencerSubscriptionPekko[SequencedEventValidationError[E]] = {
+  ): SequencerSubscriptionAkka[SequencedEventValidationError[E]] = {
     def performValidation(
         rememberedAndCurrent: NonEmpty[Seq[WithKillSwitch[Either[E, OrdinarySerializedEvent]]]]
     ): FutureUnlessShutdown[WithKillSwitch[
@@ -727,7 +727,7 @@ class SequencedEventValidatorImpl(
         case UnlessShutdown.Outcome(result) => result.sequence
       }
       .takeUntilThenDrain(_.isLeft)
-    SequencerSubscriptionPekko(validatedSource, subscription.health)
+    SequencerSubscriptionAkka(validatedSource, subscription.health)
   }
 }
 

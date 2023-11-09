@@ -5,8 +5,8 @@ package com.daml.ledger.client.services.commands.tracker
 
 import java.time.{Duration, Instant}
 
-import org.apache.pekko.stream.stage._
-import org.apache.pekko.stream.{Attributes, Inlet, Outlet}
+import akka.stream.stage._
+import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.completion.Completion
@@ -190,7 +190,7 @@ private[commands] class CommandTracker[Context](
         // detection jumps the line when emitting outputs on `resultOut`. If it
         // then processes a regular completion, it tries to push to `resultOut`
         // even though it hasn't been pulled again in the meantime. Using `emit`
-        // instead of `push` when a completion arrives makes pekko take care of
+        // instead of `push` when a completion arrives makes akka take care of
         // handling the signaling properly.
         completionResponse match {
           case Some(response) => emit(resultOut, response)

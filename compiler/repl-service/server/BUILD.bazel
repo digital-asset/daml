@@ -37,7 +37,7 @@ da_scala_binary(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
-        "//language-support/scala/bindings-pekko",
+        "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/cli-opts",
         "//ledger-service/lf-value-json",

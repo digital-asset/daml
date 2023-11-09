@@ -23,7 +23,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
-        "//language-support/scala/bindings-pekko",
+        "//language-support/scala/bindings-akka",
         "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",

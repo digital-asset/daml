@@ -7,11 +7,11 @@ import java.io.File
 import java.nio.file.Files
 import java.time.{Clock, Duration, Instant, ZoneId}
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.Http.ServerBinding
-import org.apache.pekko.http.scaladsl.model.{StatusCodes, Uri}
-import org.apache.pekko.http.scaladsl.server.Directives._
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.model.{StatusCodes, Uri}
+import akka.http.scaladsl.server.Directives._
 import com.daml.auth.middleware.api.Client
 import com.daml.auth.middleware.api.Request.Claims
 import com.daml.clock.AdjustableClock
@@ -72,13 +72,13 @@ object Resources {
                       parameters(Symbol("claims").as[Claims]) { claims =>
                         clientRoutes.authorize(claims) {
                           case Client.Authorized(authorization) =>
-                            import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+                            import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
                             import com.daml.auth.middleware.api.JsonProtocol.responseAuthorizeFormat
                             complete(StatusCodes.OK, authorization)
                           case Client.Unauthorized =>
                             complete(StatusCodes.Unauthorized)
                           case Client.LoginFailed(loginError) =>
-                            import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+                            import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
                             import com.daml.auth.middleware.api.JsonProtocol.ResponseLoginFormat
                             complete(
                               StatusCodes.Forbidden,
@@ -91,7 +91,7 @@ object Resources {
                   path("login") {
                     get {
                       parameters(Symbol("claims").as[Claims]) { claims =>
-                        import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+                        import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
                         import com.daml.auth.middleware.api.JsonProtocol.ResponseLoginFormat
                         clientRoutes.login(claims, login => complete(StatusCodes.OK, login))
                       }

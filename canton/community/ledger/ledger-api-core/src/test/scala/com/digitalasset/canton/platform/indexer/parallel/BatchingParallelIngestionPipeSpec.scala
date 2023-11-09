@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import akka.NotUsed
+import akka.stream.scaladsl.Source
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.canton.concurrent.Threading
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -20,7 +20,7 @@ class BatchingParallelIngestionPipeSpec
     extends AsyncFlatSpec
     with Matchers
     with OptionValues
-    with PekkoBeforeAndAfterAll {
+    with AkkaBeforeAndAfterAll {
 
   // AsyncFlatSpec is with serial execution context
   private implicit val ec: ExecutionContext = system.dispatcher
@@ -214,7 +214,7 @@ class BatchingParallelIngestionPipeSpec
           },
       )
     val p = Promise[(Vector[(Int, String)], Vector[Int], Option[Throwable])]()
-    val timeoutF = pekko.pattern.after(timeout, system.scheduler) {
+    val timeoutF = akka.pattern.after(timeout, system.scheduler) {
       Future.failed(new Exception("timed out"))
     }
     val indexingF = indexingSource(inputSource).run().map { _ =>

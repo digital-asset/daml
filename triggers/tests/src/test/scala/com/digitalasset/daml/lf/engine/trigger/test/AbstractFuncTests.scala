@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger.test
 
-import org.apache.pekko.stream.scaladsl.Flow
+import akka.stream.scaladsl.Flow
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._

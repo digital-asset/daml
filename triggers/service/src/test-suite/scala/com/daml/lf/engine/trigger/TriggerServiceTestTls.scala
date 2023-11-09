@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import org.apache.pekko.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.Uri
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.timer.RetryStrategy
 import org.scalatest.matchers.should.Matchers

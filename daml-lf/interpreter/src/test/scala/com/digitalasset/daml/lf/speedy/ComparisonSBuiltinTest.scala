@@ -29,8 +29,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   private[this] val pkgId1 = Ref.PackageId.assertFromString("-packageId1-")
   private[this] val pkgId2 = Ref.PackageId.assertFromString("-packageId2-")
 
-  val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  val defaultParserParameters = ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   val parserParameters1: ParserParameters[this.type] =
     defaultParserParameters.copy(

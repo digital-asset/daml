@@ -38,7 +38,7 @@ object LoggingContextOf {
   def label[P]: label[P] = new label(())
   final class label[P] private[LoggingContextOf] (private val ignored: Unit) extends AnyVal
 
-  @nowarn("msg=parameter label .* is never used") // Proxy only
+  @nowarn("msg=parameter value label .* is never used") // Proxy only
   def newLoggingContext[P, Z](label: label[P], entries: LoggingEntry*)(
       f: LoggingContextOf[P] => Z
   ): Z =
@@ -46,7 +46,7 @@ object LoggingContextOf {
       f((lc: LoggingContextOf[Any]).extend[P])
     )
 
-  @nowarn("msg=parameter label .* is never used") // Proxy only
+  @nowarn("msg=parameter value label .* is never used") // Proxy only
   def withEnrichedLoggingContext[P, A](
       label: label[P],
       kvs: LoggingEntry*

@@ -18,8 +18,8 @@ da_scala_test(
     resources = ["test/resources/logback-test.xml"],
     scala_deps = [
         "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
