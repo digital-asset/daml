@@ -45,8 +45,8 @@ buildScript mkTestCase = do
     exerciseCmd divulgeCid divulgeChoice
     
   pure ()
-  
--- @LEDGER observerDivulges DivulgeFetchNodeActors.observerDivulges.EXPECTED.ledger
+
+-- @LEDGER observerDivulges DivulgeFetchNodeActors/observerDivulges.EXPECTED.ledger
 observerDivulges : Script ()
 observerDivulges = 
   buildScript \TestData {..} -> TestCase
@@ -55,8 +55,8 @@ observerDivulges =
     , divulgeSubmitter = alice
     , divulgeChoice = ExeDivulgeTo with cid = iou
     }
-  
--- @LEDGER signatoryDivulges DivulgeFetchNodeActors.signatoryDivulges.EXPECTED.ledger
+
+-- @LEDGER signatoryDivulges DivulgeFetchNodeActors/signatoryDivulges.EXPECTED.ledger
 signatoryDivulges : Script ()
 signatoryDivulges = do
   buildScript \TestData {..} -> TestCase
@@ -66,7 +66,7 @@ signatoryDivulges = do
     , divulgeChoice = ExeDivulgeTo with cid = iou
     }
 
--- @LEDGER observerAskedToDivulge DivulgeFetchNodeActors.observerAskedToDivulge.EXPECTED.ledger
+-- @LEDGER observerAskedToDivulge DivulgeFetchNodeActors/observerAskedToDivulge.EXPECTED.ledger
 observerAskedToDivulge : Script ()
 observerAskedToDivulge = do
   buildScript \TestData {..} -> TestCase
@@ -75,8 +75,8 @@ observerAskedToDivulge = do
     , divulgeSubmitter = alice
     , divulgeChoice = ExeDivulgeFrom with cid = iou
     }
-  
--- @LEDGER signatoryAskedToDivulge DivulgeFetchNodeActors.signatoryAskedToDivulge.EXPECTED.ledger
+
+-- @LEDGER signatoryAskedToDivulge DivulgeFetchNodeActors/signatoryAskedToDivulge.EXPECTED.ledger
 signatoryAskedToDivulge : Script ()
 signatoryAskedToDivulge = do
   buildScript \TestData {..} -> TestCase
