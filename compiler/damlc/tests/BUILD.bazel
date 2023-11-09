@@ -1241,3 +1241,13 @@ daml_compile(
     target = "2.dev",
     visibility = ["//visibility:public"],
 )
+
+daml_compile(
+    name = "query-test",
+    srcs = ["daml-test-files/Query.daml"],
+    dependencies = [
+        "//daml-script/daml3:daml3-script-2.dev.dar",
+    ],
+    target = "2.dev",
+    visibility = ["//visibility:public"],
+)

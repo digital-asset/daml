@@ -324,7 +324,7 @@ object ScriptF {
         )
       } yield SEValue(res)
   }
-  final case class Query(
+  final case class QueryACS(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
   ) extends Cmd {
@@ -959,15 +959,15 @@ object ScriptF {
     }
   }
 
-  private def parseQuery(v: SValue): Either[String, Query] =
+  private def parseQueryACS(v: SValue): Either[String, QueryACS] =
     v match {
       case SRecord(_, _, ArrayList(readAs, tplId)) =>
         for {
           readAs <- Converter.toParties(readAs)
           tplId <- Converter
             .typeRepToIdentifier(tplId)
-        } yield Query(readAs, tplId)
-      case _ => Left(s"Expected Query payload but got $v")
+        } yield QueryACS(readAs, tplId)
+      case _ => Left(s"Expected QueryACS payload but got $v")
     }
 
   private def parseQueryContractId(v: SValue): Either[String, QueryContractId] =
@@ -1205,7 +1205,7 @@ object ScriptF {
       case ("SubmitTree", 1) => parseSubmit(v, stackTrace).map(SubmitTree(_))
       case ("TrySubmit", 1) => parseSubmit(v, stackTrace).map(TrySubmit(_))
       case ("TrySubmitConcurrently", 1) => parseSubmitConcurrently(v, stackTrace)
-      case ("Query", 1) => parseQuery(v)
+      case ("QueryACS", 1) => parseQueryACS(v)
       case ("QueryContractId", 1) => parseQueryContractId(v)
       case ("QueryInterface", 1) => parseQueryInterface(v)
       case ("QueryInterfaceContractId", 1) => parseQueryInterfaceContractId(v)
