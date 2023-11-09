@@ -332,3 +332,31 @@ def install_java_deps():
         fetch_sources = True,
         version_conflict_policy = "pinned",
     )
+
+    # Do not use those dependencies in anything new !
+    maven_install(
+        name = "deprecated_maven",
+        maven_install_json = "@//:deprecated_maven_install.json",
+        artifacts = [
+            "com.typesafe.akka:akka-actor-testkit-typed_{}:2.6.21".format(scala_major_version),
+            "com.typesafe.akka:akka-actor-typed_{}:2.6.21".format(scala_major_version),
+            "com.typesafe.akka:akka-actor_{}:2.6.21".format(scala_major_version),
+            "com.typesafe.akka:akka-slf4j_{}:2.6.21".format(scala_major_version),
+            "com.typesafe.akka:akka-stream-testkit_{}:2.6.21".format(scala_major_version),
+            "com.typesafe.akka:akka-stream_{}:2.6.21".format(scala_major_version),
+            "com.typesafe.akka:akka-testkit_{}:2.6.21".format(scala_major_version),
+            "io.gatling.highcharts:gatling-charts-highcharts:3.5.1",
+            "io.gatling:gatling-app:3.5.1",
+            "io.gatling:gatling-charts:3.5.1",
+            "io.gatling:gatling-commons:3.5.1",
+            "io.gatling:gatling-core:3.5.1",
+            "io.gatling:gatling-http-client:3.5.1",
+            "io.gatling:gatling-http:3.5.1",
+            "io.gatling:gatling-recorder:3.5.1",
+        ],
+        repositories = [
+            "https://repo1.maven.org/maven2",
+        ],
+        fetch_sources = True,
+        version_conflict_policy = "pinned",
+    )

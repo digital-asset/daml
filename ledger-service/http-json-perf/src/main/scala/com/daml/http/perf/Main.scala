@@ -59,7 +59,7 @@ object Main extends StrictLogging {
       bobPartyData: (String, String),
       charliePartyData: (String, String),
   )(implicit
-      sys: ActorSystem,
+      sys: akka.actor.ActorSystem,
       ec: ExecutionContext,
       elg: EventLoopGroup,
   ): Future[(ExitCode, Path)] = {
@@ -113,15 +113,17 @@ object Main extends StrictLogging {
     val name = "http-json-perf"
     val terminationTimeout: FiniteDuration = 30.seconds
 
-    implicit val asys: ActorSystem = ActorSystem(name)
-    implicit val mat: Materializer = Materializer(asys)
+    implicit val aasys: akka.actor.ActorSystem = akka.actor.ActorSystem(name)
+    implicit val pasys: ActorSystem = ActorSystem(name)
+    implicit val mat: Materializer = Materializer(ActorSystem(name))
     implicit val aesf: ExecutionSequencerFactory =
       new PekkoExecutionSequencerPool(poolName = name, terminationTimeout = terminationTimeout)
     implicit val elg: EventLoopGroup = Transports.newEventLoopGroup(true, 0, "gatling")
-    implicit val ec: ExecutionContext = asys.dispatcher
+    implicit val ec: ExecutionContext = pasys.dispatcher
 
     def terminate(): Unit = {
-      discard { Await.result(asys.terminate(), terminationTimeout) }
+      discard { Await.result(aasys.terminate(), terminationTimeout) }
+      discard { Await.result(pasys.terminate(), terminationTimeout) }
       val promise = Promise[Unit]()
       val future = elg.shutdownGracefully(0, terminationTimeout.length, terminationTimeout.unit)
       discard {
