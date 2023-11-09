@@ -24,7 +24,7 @@ import com.daml.lf.data.Ref.{
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.engine.script.v2.ledgerinteraction.{ScriptLedgerClient, SubmitError}
-import com.daml.lf.language.{Ast, StablePackagesV2}
+import com.daml.lf.language.{Ast, LanguageVersion, StablePackagesV2}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SBuiltin.SBVariantCon
 import com.daml.lf.speedy.SExpr._
@@ -103,6 +103,13 @@ object ScriptF {
     def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
       valueTranslator.strictTranslateValue(ty, value).left.map(_.toString)
 
+    def lookupLanguageVersion(packageId: PackageId): Either[String, LanguageVersion] = {
+      compiledPackages.pkgInterface.lookupPackageLanguageVersion(packageId) match {
+        case Right(lv) => Right(lv)
+        case Left(err) => Left(err.pretty)
+      }
+    }
+
   }
 
   final case class Throw(exc: SAny) extends Cmd {
@@ -174,6 +181,7 @@ object ScriptF {
             readAs,
             cmdss,
             stackTrace.topFrame,
+            env.lookupLanguageVersion,
           )
         res <- Converter.toFuture(
           Converter
@@ -205,6 +213,7 @@ object ScriptF {
           data.disclosures,
           data.cmds,
           data.stackTrace.topFrame,
+          env.lookupLanguageVersion,
         )
         res <- Converter.toFuture(
           Converter
@@ -831,6 +840,54 @@ object ScriptF {
       } yield SEValue(SUnit)
   }
 
+  final case class TryCommands(act: SValue) extends Cmd {
+    override def executeWithRunner(env: Env, runner: v2.Runner)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      runner.run(SEValue(act)).transformWith {
+        case Success(v) =>
+          Future.successful(SEAppAtomic(right, Array(SEValue(v))))
+        case Failure(
+              Script.FailedCmd(cmdName, _, err)
+            ) =>
+          import com.daml.lf.scenario.{Pretty, Error}
+          val msg = err match {
+            case e: Error => Pretty.prettyError(e).render(10000)
+            case e => e.getMessage
+          }
+
+          val name = err match {
+            case Error.RunnerException(speedy.SError.SErrorDamlException(iErr)) =>
+              iErr.getClass.getSimpleName
+            case e => e.getClass.getSimpleName
+          }
+
+          import com.daml.script.converter.Converter.record
+          Future.successful(
+            SEApp(
+              left,
+              Array(
+                record(
+                  StablePackagesV2.Tuple3,
+                  ("_1", SText(cmdName)),
+                  ("_2", SText(name)),
+                  ("_3", SText(msg)),
+                )
+              ),
+            )
+          )
+        case Failure(e) => Future.failed(e)
+      }
+
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = Future.failed(new NotImplementedError)
+  }
+
   // Shared between Submit, SubmitMustFail and SubmitTree
   final case class SubmitData(
       actAs: OneAnd[Set, Party],
@@ -1130,6 +1187,12 @@ object ScriptF {
       case _ => Left(s"Expected SetProvidePackageId payload but got $v")
     }
 
+  private def parseTryCommands(v: SValue): Either[String, TryCommands] =
+    v match {
+      case SRecord(_, _, ArrayList(act)) => Right(TryCommands(act))
+      case _ => Left(s"Expected TryCommands payload but got $v")
+    }
+
   def parse(
       commandName: String,
       version: Long,
@@ -1169,6 +1232,7 @@ object ScriptF {
       case ("VetDar", 1) => parseDarVettingChange(v, VetDar)
       case ("UnvetDar", 1) => parseDarVettingChange(v, UnvetDar)
       case ("SetProvidePackageId", 1) => parseSetProvidePackageId(v)
+      case ("TryCommands", 1) => parseTryCommands(v)
       case _ => Left(s"Unknown command $commandName - Version $version")
     }
 

@@ -121,7 +121,7 @@ version: ${LIB_VERSION}
 
 extra-source-files:
   protobuf/com/daml/daml_lf_dev/daml_lf.proto
-  protobuf/com/daml/daml_lf_dev/daml_lf_1.proto
+  protobuf/com/daml/daml_lf_dev/daml_lf1.proto
 build-type: Custom
 custom-setup
   setup-depends:

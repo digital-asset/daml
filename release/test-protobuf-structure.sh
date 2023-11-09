@@ -38,8 +38,8 @@ com/daml/daml_lf_1_14/daml_lf_1.proto
 com/daml/daml_lf_1_15/daml_lf.proto
 com/daml/daml_lf_1_15/daml_lf_1.proto
 com/daml/daml_lf_dev/daml_lf.proto
-com/daml/daml_lf_dev/daml_lf_1.proto
-com/daml/daml_lf_dev/daml_lf_2.proto
+com/daml/daml_lf_dev/daml_lf1.proto
+com/daml/daml_lf_dev/daml_lf2.proto
 com/daml/ledger/api/v1/active_contracts_service.proto
 com/daml/ledger/api/v1/admin/config_management_service.proto
 com/daml/ledger/api/v1/admin/identity_provider_config_service.proto

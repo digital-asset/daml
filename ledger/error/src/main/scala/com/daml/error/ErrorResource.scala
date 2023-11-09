@@ -49,9 +49,13 @@ object ErrorResource {
   object ContractKey extends ErrorResource {
     def asString: String = "CONTRACT_KEY"
   }
+
+  // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
+  //  temporary backward compatibility with Canton so can soon be removed
   object SharedKey extends ErrorResource {
     def asString: String = "SHARED_KEY"
   }
+
   object ContractArg extends ErrorResource {
     def asString: String = "CONTRACT_ARG"
   }

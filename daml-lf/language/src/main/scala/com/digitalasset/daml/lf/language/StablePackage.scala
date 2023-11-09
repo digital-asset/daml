@@ -39,6 +39,7 @@ private[daml] trait StablePackages {
   val AnyView: Ref.TypeConName
   val NonEmpty: Ref.TypeConName
   val Tuple2: Ref.TypeConName
+  val Tuple3: Ref.TypeConName
   val Either: Ref.TypeConName
 }
 
@@ -267,6 +268,7 @@ private[daml] object StablePackagesV1 extends StablePackages {
     DA_Internal_Interface_AnyView_Types.assertIdentifier("AnyView")
   override val NonEmpty: Ref.TypeConName = DA_NonEmpty_Types.assertIdentifier("NonEmpty")
   override val Tuple2: Ref.TypeConName = DA_Types.assertIdentifier("Tuple2")
+  override val Tuple3: Ref.TypeConName = DA_Types.assertIdentifier("Tuple3")
   override val Either: Ref.TypeConName = GHC_Tuple.assertIdentifier("Either")
 }
 
@@ -470,5 +472,6 @@ private[daml] object StablePackagesV2 extends StablePackages {
     DA_Internal_Interface_AnyView_Types.assertIdentifier("AnyView")
   override val NonEmpty: Ref.TypeConName = DA_NonEmpty_Types.assertIdentifier("NonEmpty")
   override val Tuple2: Ref.TypeConName = DA_Types.assertIdentifier("Tuple2")
+  override val Tuple3: Ref.TypeConName = DA_Types.assertIdentifier("Tuple3")
   override val Either: Ref.TypeConName = GHC_Tuple.assertIdentifier("Either")
 }

@@ -57,16 +57,16 @@ let shared = rec {
       ignoreCollisions = stdenv.isDarwin;
     };
 
-    postgresql_11 = if pkgs.buildPlatform.libc == "glibc"
-      then pkgs.runCommand "postgresql_11_wrapper" { buildInputs = [ pkgs.makeWrapper ]; } ''
+    postgresql_12 = if pkgs.buildPlatform.libc == "glibc"
+      then pkgs.runCommand "postgresql_12_wrapper" { buildInputs = [ pkgs.makeWrapper ]; } ''
       mkdir -p $out/bin
-      for tool in ${pkgs.postgresql_11}/bin/*; do
+      for tool in ${pkgs.postgresql_12}/bin/*; do
         makeWrapper $tool $out/bin/$(basename $tool) --set LOCALE_ARCHIVE ${pkgs.glibcLocales}/lib/locale/locale-archive
       done
-      ln -s ${pkgs.postgresql_11}/include $out/include
-      ln -s ${pkgs.postgresql_11}/lib $out/lib
-      ln -s ${pkgs.postgresql_11}/share $out/share
-    '' else pkgs.postgresql_11;
+      ln -s ${pkgs.postgresql_12}/include $out/include
+      ln -s ${pkgs.postgresql_12}/lib $out/lib
+      ln -s ${pkgs.postgresql_12}/share $out/share
+    '' else pkgs.postgresql_12;
 
 
     scala_2_13 = (pkgs.scala_2_13.override { }).overrideAttrs (attrs: {
