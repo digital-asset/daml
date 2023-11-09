@@ -4,6 +4,7 @@
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("//bazel_tools:proto.bzl", "proto_gen", "proto_jars")
 load("//bazel_tools:scala.bzl", "kind_projector_plugin")
+load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
@@ -802,15 +803,15 @@ proto_gen(
 )
 
 copy_file(
-    name = "admin-workflows-dar",
+    name = "community_participant_admin-workflows_dar",
     src = "community/participant/src/main/resources/dar/AdminWorkflows.dar",
     out = "AdminWorkflows.dar",
 )
 
 genrule(
-    name = "admin-workflows-with-vacuuming-dar",
+    name = "community_participant_admin-workflows-with-vacuuming_dar",
     srcs = glob(["community/participant/src/main/daml/ping-pong-vacuum/*"]) + [
-        ":admin-workflows-dar",
+        ":community_participant_admin-workflows_dar",
         "//daml-script/daml:daml-script-1.14.dar",
     ],
     outs = ["AdminWorkflowsWithVacuuming.dar"],
@@ -820,7 +821,7 @@ genrule(
       tmpdir=$$(mktemp -d)
       trap "rm -rf $$tmpdir" EXIT
       cp -r $$project_dir/* $$tmpdir
-      cp $(location :admin-workflows-dar) $$tmpdir
+      cp $(location :community_participant_admin-workflows_dar) $$tmpdir
       cp $(location //daml-script/daml:daml-script-1.14.dar) $$tmpdir
       sed -i 's/sdk-version:.*/sdk-version: {sdk_version}/' $$tmpdir/daml.yaml
       sed -i 's/-.*AdminWorkflows.dar/- AdminWorkflows.dar/' $$tmpdir/daml.yaml
@@ -834,11 +835,17 @@ genrule(
 dar_to_scala(
     name = "community_participant_dar_scala",
     srcs = [
-        ":admin-workflows-dar",
-        ":admin-workflows-with-vacuuming-dar",
-    ],
+        ":community_participant_admin-workflows_dar",
+        ":community_participant_admin-workflows-with-vacuuming_dar"
+        ],
     package_prefix = "com.digitalasset.canton.participant.admin.workflows",
-    srcjar_out = "dar.srcjar",
+    srcjar_out = "community_participant_admin-workflow_scala.srcjar",
+)
+
+dar_to_java(
+    name = "community_participant_admin-workflows-with-vacuuming_java",
+    src = ":community_participant_admin-workflows-with-vacuuming_dar",
+    package_prefix = "com.digitalasset.canton.participant.admin.workflows.java",
 )
 
 copy_file(
@@ -851,13 +858,14 @@ scala_library(
     name = "community_participant",
     srcs = glob(["community/participant/src/main/scala/**/*.scala"]) + [
         ":community_participant_dar_scala",
+        ":community_participant_admin-workflows-with-vacuuming_java-srcjar",
         ":community_participant_proto_scala",
     ],
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton",
     resources = [
-        ":admin-workflows-dar",
-        ":admin-workflows-with-vacuuming-dar",
+        ":community_participant_admin-workflows_dar",
+        ":community_participant_admin-workflows-with-vacuuming_dar",
         ":ledger-api-version-file",
     ],
     scalacopts = [
