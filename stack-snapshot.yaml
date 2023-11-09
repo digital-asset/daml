@@ -1,18 +1,16 @@
 # Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-resolver: nightly-2022-01-26
+resolver: lts-19.33
 packages:
-  - aeson-2.0.3.0 #stackage has 1.5.6.0
-  - entropy-0.4.1.10 # stackage has 0.4.1.7
-  - ghc-lib-parser-ex-8.8.5.8 # stackage has 9.0.0.6
-  - github: digital-asset/hlint # forked
+  - ghc-lib-parser-ex-8.8.5.8
+  - github: digital-asset/hlint
     commit: "99999eee1c220396e1545788ef22ca3c204908a9"
     sha256: "52c8a636f29ecca4cdd0fa9ed094bae3c0115cb10a7c6b3e6087361a8b4ecffb"
-  - optparse-applicative-0.17.1.0 # stackage has 0.16.1.0
+  - optparse-applicative-0.17.1.0 # stackage has 0.16.1.0 (older)
   - proto3-wire-1.2.2 # not in stackage
-  - stache-2.3.1 # stackage has 2.3.0
-  - yaml-0.11.7.0 # stackage has 0.11.6.0
+  - stache-2.3.1 # stackage has 2.3.3 (newer!)
+  - yaml-0.11.7.0 # stackage has 0.11.8.0 (newer!)
 
 # We drop the Win32 package from the stack snapshot so that stack considers it a toolchain library.
 # In this case we will use the Win32 provided by the compiler instead of recompiling it.
