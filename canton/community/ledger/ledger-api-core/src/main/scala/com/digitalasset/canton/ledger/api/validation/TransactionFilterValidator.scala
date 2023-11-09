@@ -105,11 +105,9 @@ class TransactionFilterValidator(
         case (Right((deprecatedAcc, currentAcc)), inclusiveFilters) =>
           val templateIdsPresent = inclusiveFilters.templateIds.nonEmpty
           val templateFiltersPresent = inclusiveFilters.templateFilters.nonEmpty
-          val interfaceFiltersBlobFlag =
-            inclusiveFilters.interfaceFilters.exists(_.includeCreateArgumentsBlob)
           val interfaceFiltersPayloadFlag =
             inclusiveFilters.interfaceFilters.exists(_.includeCreatedEventBlob)
-          val deprecated = templateIdsPresent || interfaceFiltersBlobFlag
+          val deprecated = templateIdsPresent
           val current = templateFiltersPresent || interfaceFiltersPayloadFlag
           val deprecatedAggr = deprecated || deprecatedAcc
           val currentAggr = current || currentAcc
@@ -143,8 +141,6 @@ class TransactionFilterValidator(
     } yield validatedIds
   }
 
-  // Allow using deprecated Protobuf fields for backwards compatibility
-  @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.transaction_filter.*")
   private def validateInterfaceFilter(filter: InterfaceFilter)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.InterfaceFilter] = {
@@ -154,7 +150,6 @@ class TransactionFilterValidator(
     } yield domain.InterfaceFilter(
       interfaceId = validatedId,
       includeView = filter.includeInterfaceView,
-      includeCreateArgumentsBlob = filter.includeCreateArgumentsBlob,
       includeCreatedEventBlob = filter.includeCreatedEventBlob,
     )
   }

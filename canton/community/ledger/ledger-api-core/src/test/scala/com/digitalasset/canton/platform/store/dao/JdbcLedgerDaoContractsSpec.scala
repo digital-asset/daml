@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Util}
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value.{ValueText, VersionedContractInstance}
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -145,7 +145,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   it should "present the contract key state at a specific event sequential id" in {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
 
-    val key = GlobalKeyWithMaintainers.assertBuild(someTemplateId, aTextValue, Set(alice, bob), Util.sharedKey(txVersion))
+    val key = GlobalKeyWithMaintainers.assertBuild(someTemplateId, aTextValue, Set(alice, bob))
 
     for {
       (_, tx) <- createAndStoreContract(

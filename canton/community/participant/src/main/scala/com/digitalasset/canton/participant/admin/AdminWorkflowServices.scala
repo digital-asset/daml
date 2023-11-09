@@ -83,7 +83,7 @@ class AdminWorkflowServices(
 
   override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
 
-  private val adminParty = adminPartyId.toPrim
+  private val adminParty = adminPartyId.toParty
 
   if (syncService.isActive() && parameters.adminWorkflow.autoloadDar) {
     withNewTraceContext { implicit traceContext =>

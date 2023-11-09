@@ -81,7 +81,7 @@ class SyncDomainEphemeralState(
     TrieMap.empty[RootHash, PendingTransferSubmission]
 
   val sessionKeyStore: SessionKeyStore =
-    SessionKeyStore(sessionKeyCacheConfig)
+    SessionKeyStore(sessionKeyCacheConfig, Some(metrics.sessionKeyCache))
 
   val requestJournal =
     new RequestJournal(

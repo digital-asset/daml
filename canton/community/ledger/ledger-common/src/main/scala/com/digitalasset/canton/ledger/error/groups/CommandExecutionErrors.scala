@@ -229,7 +229,6 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
               Seq(
                 (ErrorResource.TemplateId, key.templateId.toString),
                 (ErrorResource.ContractKey, encodedKey),
-                (ErrorResource.SharedKey, GlobalKey.isShared(key).toString),
               )
             }
         }
