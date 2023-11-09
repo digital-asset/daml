@@ -38,7 +38,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
-          includeCreatedEventBlob = false,
+          includeCreatedEventBlob = false
         ),
         templateIds = createTemplateIdFilter,
       ),
@@ -57,7 +57,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
-          includeCreatedEventBlob = false,
+          includeCreatedEventBlob = false
         ),
         templateFilters = createTemplateFilter(includeCreatedEventBlob = false),
       ),
@@ -76,7 +76,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
-          includeCreatedEventBlob = false,
+          includeCreatedEventBlob = false
         ),
         templateFilters = createTemplateFilter(includeCreatedEventBlob = true),
       ),
@@ -94,7 +94,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
-          includeCreatedEventBlob = true,
+          includeCreatedEventBlob = true
         ),
         templateIds = createTemplateIdFilter,
       ),
@@ -113,7 +113,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
-          includeCreatedEventBlob = true,
+          includeCreatedEventBlob = true
         ),
         templateFilters = createTemplateFilter(includeCreatedEventBlob = false),
       ),
@@ -132,7 +132,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
-          includeCreatedEventBlob = true,
+          includeCreatedEventBlob = true
         ),
         templateFilters = createTemplateFilter(includeCreatedEventBlob = true),
       ),
@@ -150,7 +150,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
-          includeCreatedEventBlob = false,
+          includeCreatedEventBlob = false
         ),
         templateFilters = createTemplateFilter(includeCreatedEventBlob = true),
         templateIds = createTemplateIdFilter,
@@ -281,7 +281,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
   }
 
   private def createInterfaceFilter(
-      includeCreatedEventBlob: Boolean,
+      includeCreatedEventBlob: Boolean
   ) = {
     Seq(
       new InterfaceFilter(

@@ -410,7 +410,7 @@ object Trigger {
                 interfaceId =
                   Some(toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName)))),
                 includeInterfaceView = true,
-                includeCreateArgumentsBlob = false,
+                includeCreatedEventBlob = false,
               )
           }
         })

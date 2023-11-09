@@ -470,7 +470,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         failure <- testContext
           .exerciseFetchDelegated(
             testContext.disclosedContract.copy(
-              createdEventBlob = ByteString.EMPTY,
+              createdEventBlob = ByteString.EMPTY
             )
           )
           .mustFail("Submitter forwarded a contract with unpopulated create_event_payload")
