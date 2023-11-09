@@ -12,14 +12,12 @@ import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEvents
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.commands.DisclosedContract.Arguments
 import com.daml.ledger.api.v1.commands.{
   Command,
   CreateCommand,
   DisclosedContract,
   ExerciseByKeyCommand,
 }
-import com.daml.ledger.api.v1.contract_metadata.ContractMetadata
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
@@ -43,7 +41,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
   test(
     "EDCorrectEventPayloadDisclosure",
-    "Submission is successful if the correct disclosure as create_event_payload is provided",
+    "Submission is successful if the correct disclosure as created_event_blob is provided",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -448,45 +446,6 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
   })
 
   test(
-    "EDRejectOnPayloadAndBlobSet",
-    "Submission is rejected when both the deprecated blob and create_event_payload are set",
-    allocate(SingleParty, SingleParty),
-    enabled = _.explicitDisclosure,
-  )(implicit ec => {
-    case Participants(
-          Participant(ownerParticipant, owner),
-          Participant(delegateParticipant, delegate),
-        ) =>
-      for {
-        testContext <- initializeTest(
-          ownerParticipant = ownerParticipant,
-          delegateParticipant = delegateParticipant,
-          owner = owner,
-          delegate = delegate,
-          transactionFilter = filterByPartyAndTemplate(owner),
-        )
-
-        // Ensure participants are synchronized
-        _ <- synchronize(ownerParticipant, delegateParticipant)
-
-        failure <- testContext
-          .exerciseFetchDelegated(
-            testContext.disclosedContract.copy(metadata = Some(ContractMetadata()))
-          )
-          .mustFail("Submitter forwarded a contract with invalid driver metadata")
-      } yield {
-        assertGrpcError(
-          failure,
-          LedgerApiErrors.RequestValidation.InvalidArgument,
-          Some(
-            "The submitted command has invalid arguments: DisclosedContract.arguments or DisclosedContract.metadata cannot be set together with DisclosedContract.create_event_payload"
-          ),
-          checkDefiniteAnswerMetadata = true,
-        )
-      }
-  })
-
-  test(
     "EDRejectOnPayloadNotSet",
     "Submission is rejected when the disclosed contract payload is not set",
     allocate(SingleParty, SingleParty),
@@ -511,8 +470,6 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         failure <- testContext
           .exerciseFetchDelegated(
             testContext.disclosedContract.copy(
-              metadata = None,
-              arguments = Arguments.Empty,
               createdEventBlob = ByteString.EMPTY,
             )
           )
@@ -523,7 +480,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           LedgerApiErrors.RequestValidation.MissingField,
           Some(
             // TODO ED: Change assertion to missing create_event_payload once the deprecated fields are removed
-            "The submitted command is missing a mandatory field: DisclosedContract.arguments"
+            "The submitted command is missing a mandatory field: DisclosedContract.createdEventBlob"
           ),
           checkDefiniteAnswerMetadata = true,
         )
