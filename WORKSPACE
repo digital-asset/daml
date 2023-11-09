@@ -629,10 +629,11 @@ load("@triggers_maven//:defs.bzl", pinned_triggers_maven_install = "pinned_maven
 
 pinned_triggers_maven_install()
 
-load("@io_bazel_rules_scala//:scala_config.bzl", "scala_config")
 load("@deprecated_maven//:defs.bzl", pinned_deprecated_maven_install = "pinned_maven_install")
 
 pinned_deprecated_maven_install()
+
+load("@io_bazel_rules_scala//:scala_config.bzl", "scala_config")
 
 scala_config(scala_version)
 

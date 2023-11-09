@@ -4,8 +4,7 @@
 package com.daml.http.perf
 
 import java.nio.file.{Files, Path}
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
+import org.apache.pekko
 import com.daml.gatling.stats.{SimulationLog, SimulationLogSyntax}
 import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpServiceTestFixture.{withHttpService, withLedger}
@@ -113,17 +112,17 @@ object Main extends StrictLogging {
     val name = "http-json-perf"
     val terminationTimeout: FiniteDuration = 30.seconds
 
-    implicit val aasys: akka.actor.ActorSystem = akka.actor.ActorSystem(name)
-    implicit val pasys: ActorSystem = ActorSystem(name)
-    implicit val mat: Materializer = Materializer(ActorSystem(name))
+    val asys: akka.actor.ActorSystem = akka.actor.ActorSystem(name)
+    implicit val psys: pekko.actor.ActorSystem = pekko.actor.ActorSystem(name)
+    implicit val mat: pekko.stream.Materializer = pekko.stream.Materializer(psys)
     implicit val aesf: ExecutionSequencerFactory =
       new PekkoExecutionSequencerPool(poolName = name, terminationTimeout = terminationTimeout)
-    implicit val elg: EventLoopGroup = Transports.newEventLoopGroup(true, 0, "gatling")
-    implicit val ec: ExecutionContext = pasys.dispatcher
+    val elg: EventLoopGroup = Transports.newEventLoopGroup(true, 0, "gatling")
+    implicit val ec: ExecutionContext = psys.dispatcher
 
     def terminate(): Unit = {
-      discard { Await.result(aasys.terminate(), terminationTimeout) }
-      discard { Await.result(pasys.terminate(), terminationTimeout) }
+      discard { Await.result(asys.terminate(), terminationTimeout) }
+      discard { Await.result(psys.terminate(), terminationTimeout) }
       val promise = Promise[Unit]()
       val future = elg.shutdownGracefully(0, terminationTimeout.length, terminationTimeout.unit)
       discard {
@@ -169,7 +168,7 @@ object Main extends StrictLogging {
                   alicePartyData,
                   bobPartyData,
                   charliePartyData,
-                )
+                )(asys, asys.dispatcher, elg)
                   .flatMap { case (exitCode, dir) =>
                     toFuture(generateReport(dir))
                       .map { _ =>
