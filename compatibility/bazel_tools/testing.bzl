@@ -726,7 +726,6 @@ excluded_test_tool_tests = [
                 "end": "2.8.0-snapshot.20231025.0",
                 "exclusions": [
                     "ExplicitDisclosureIT",
-                    "InterfaceSubscriptionsIT:ISTransactionsCreateArgumentsBlob",
                 ],
             },
         ],
