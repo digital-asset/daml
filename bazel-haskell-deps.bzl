@@ -26,11 +26,8 @@ JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
 SHAKE_VERSION = "0.19.6"
 ZIP_VERSION = "1.7.1"
-GRPC_HASKELL_REV = "9adf3b02b0164b64432f2868b6577b4f4c2c6980"
-GRPC_HASKELL_SHA256 = "8e75f41652d35f3162e1a892d89cc67c195b9c3a5477980a82115f5caff0a206"
-GRPC_HASKELL_PATCHES = [
-    "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-ffi.patch",
-]
+GRPC_HASKELL_REV = "2f30434fe3526b306dcdb0da78dadf84efa315fc"
+GRPC_HASKELL_SHA256 = "5c5cb24f76a48b4641b3a9230ca13e32d7f27049e1365eb76ec9fec55f2fd83c"
 XML_CONDUIT_VERSION = "1.9.1.1"
 LSP_TYPES_VERSION = "1.4.0.0"
 LSP_TYPES_SHA256 = "7ae8a3bad0e91d4a2af9b93e3ad207e3f4c3dace40d420e0592f6323ac93fb67"
@@ -155,7 +152,6 @@ c2hs_suite(
 )
 """,
         patch_args = ["-p1"],
-        patches = GRPC_HASKELL_PATCHES,
         sha256 = GRPC_HASKELL_SHA256,
         strip_prefix = "gRPC-haskell-{}/core".format(GRPC_HASKELL_REV),
         urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_REV)],
@@ -188,7 +184,6 @@ cc_library(
 )
 """,
         patch_args = ["-p1"],
-        patches = GRPC_HASKELL_PATCHES,
         sha256 = GRPC_HASKELL_SHA256,
         strip_prefix = "gRPC-haskell-{}/core".format(GRPC_HASKELL_REV),
         urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_REV)],
