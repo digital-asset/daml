@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.fetchcontracts
 
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.logging.TracedLogger
@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class AcsTxStreamsTest extends AsyncWordSpec with BaseTest with PekkoBeforeAndAfterAll {
+class AcsTxStreamsTest extends AsyncWordSpec with BaseTest with AkkaBeforeAndAfterAll {
   import AcsTxStreamsTest.*
 
   "acsFollowingAndBoundary" when {
@@ -48,8 +48,8 @@ class AcsTxStreamsTest extends AsyncWordSpec with BaseTest with PekkoBeforeAndAf
 }
 
 object AcsTxStreamsTest {
-  import org.apache.pekko.actor.ActorSystem
-  import org.apache.pekko.{NotUsed, stream as aks}
+  import akka.actor.ActorSystem
+  import akka.{NotUsed, stream as aks}
   import aks.scaladsl.{GraphDSL, RunnableGraph, Source}
   import aks.testkit as tk
   import com.daml.ledger.api.v1 as lav1

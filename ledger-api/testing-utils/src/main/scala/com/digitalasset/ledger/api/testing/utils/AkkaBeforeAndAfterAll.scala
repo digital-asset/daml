@@ -5,9 +5,9 @@ package com.daml.ledger.api.testing.utils
 
 import java.util.concurrent.Executors
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
-import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
+import akka.actor.ActorSystem
+import akka.stream.Materializer
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.scalatest.{BeforeAndAfterAll, Suite}
 import org.slf4j.LoggerFactory
@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 
-trait PekkoBeforeAndAfterAll extends BeforeAndAfterAll {
+trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
   self: Suite =>
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -41,7 +41,7 @@ trait PekkoBeforeAndAfterAll extends BeforeAndAfterAll {
   protected implicit lazy val materializer: Materializer = Materializer(system)
 
   protected implicit lazy val executionSequencerFactory: ExecutionSequencerFactory =
-    new PekkoExecutionSequencerPool(poolName = actorSystemName, actorCount = 1)
+    new AkkaExecutionSequencerPool(poolName = actorSystemName, actorCount = 1)
 
   override protected def afterAll(): Unit = {
     executionSequencerFactory.close()

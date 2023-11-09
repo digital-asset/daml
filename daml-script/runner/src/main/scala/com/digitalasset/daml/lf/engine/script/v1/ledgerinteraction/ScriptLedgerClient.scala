@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.script.v1.ledgerinteraction
 
-import org.apache.pekko.stream.Materializer
+import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.command

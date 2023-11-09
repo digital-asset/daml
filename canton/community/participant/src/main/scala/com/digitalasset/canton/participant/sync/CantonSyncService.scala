@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.participant.sync
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
+import akka.NotUsed
+import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*

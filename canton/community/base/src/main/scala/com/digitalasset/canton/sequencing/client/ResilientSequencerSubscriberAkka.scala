@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import org.apache.pekko.Done
-import org.apache.pekko.stream.scaladsl.Source
-import org.apache.pekko.stream.{AbruptStageTerminationException, KillSwitch, Materializer}
+import akka.Done
+import akka.stream.scaladsl.Source
+import akka.stream.{AbruptStageTerminationException, KillSwitch, Materializer}
 import cats.syntax.either.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -15,25 +15,25 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription.LostSequencerSubscription
-import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransportPekko
+import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransportAkka
 import com.digitalasset.canton.sequencing.protocol.SubscriptionRequest
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.PekkoUtil.{RetrySourcePolicy, WithKillSwitch}
+import com.digitalasset.canton.util.AkkaUtil.{RetrySourcePolicy, WithKillSwitch}
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{PekkoUtil, LoggerUtil}
+import com.digitalasset.canton.util.{AkkaUtil, LoggerUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Attempts to create a resilient [[SequencerSubscriptionPekko]] for the [[SequencerClient]] by
-  * creating underlying subscriptions using the [[SequencerSubscriptionFactoryPekko]]
+/** Attempts to create a resilient [[SequencerSubscriptionAkka]] for the [[SequencerClient]] by
+  * creating underlying subscriptions using the [[SequencerSubscriptionFactoryAkka]]
   * and then recreating them if they fail with a reason that is deemed retryable.
   * If a subscription is closed or fails with a reason that is not retryable the failure will be passed downstream
   * from this subscription.
   * We determine whether an error is retryable by calling the [[SubscriptionErrorRetryPolicy]]
-  * of the supplied [[SequencerSubscriptionFactoryPekko]].
+  * of the supplied [[SequencerSubscriptionFactoryAkka]].
   * We also will delay recreating subscriptions by an interval determined by the
   * [[com.digitalasset.canton.sequencing.client.SubscriptionRetryDelayRule]].
   * The recreated subscription starts at the last event received,
@@ -41,20 +41,20 @@ import scala.concurrent.{ExecutionContext, Future}
   *
   * The emitted events stutter whenever the subscription is recreated.
   */
-class ResilientSequencerSubscriberPekko[E](
+class ResilientSequencerSubscriberAkka[E](
     retryDelayRule: SubscriptionRetryDelayRule,
-    subscriptionFactory: SequencerSubscriptionFactoryPekko[E],
+    subscriptionFactory: SequencerSubscriptionFactoryAkka[E],
     protected override val timeouts: ProcessingTimeout,
     protected override val loggerFactory: NamedLoggerFactory,
 )(implicit materializer: Materializer)
     extends FlagCloseable
     with NamedLogging {
-  import ResilientSequencerSubscriberPekko.*
+  import ResilientSequencerSubscriberAkka.*
 
   /** Start running the resilient sequencer subscription from the given counter */
   def subscribeFrom(startingCounter: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): SequencerSubscriptionPekko[E] = {
+  ): SequencerSubscriptionAkka[E] = {
 
     logger.debug(s"Starting resilient sequencer subscription from counter $startingCounter")
     val onShutdownRunner = new OnShutdownRunner.PureOnShutdownRunner(logger)
@@ -67,7 +67,7 @@ class ResilientSequencerSubscriberPekko[E](
     )
     val initial =
       RestartSourceConfig(startingCounter, retryDelayRule.initialDelay, health)(traceContext)
-    val source = PekkoUtil
+    val source = AkkaUtil
       .restartSource("resilient-sequencer-subscription", initial, mkSource, policy)
       // Filter out retried errors
       .filter {
@@ -84,7 +84,7 @@ class ResilientSequencerSubscriberPekko[E](
         }
         (killSwitch, closedHealthF)
       }
-    SequencerSubscriptionPekko(source, health)
+    SequencerSubscriptionAkka(source, health)
   }
 
   private val policy: RetrySourcePolicy[
@@ -191,13 +191,13 @@ class ResilientSequencerSubscriberPekko[E](
   }
 }
 
-object ResilientSequencerSubscriberPekko {
+object ResilientSequencerSubscriberAkka {
 
   /** @param startingCounter The counter to start the next subscription from
     * @param delay If the next subscription fails with a retryable error,
     *              how long should we wait before starting a new subscription?
     */
-  private[ResilientSequencerSubscriberPekko] final case class RestartSourceConfig(
+  private[ResilientSequencerSubscriberAkka] final case class RestartSourceConfig(
       startingCounter: SequencerCounter,
       delay: FiniteDuration,
       health: ResilientSequencerSubscriptionHealth,
@@ -224,27 +224,27 @@ object ResilientSequencerSubscriberPekko {
   def factory[E](
       sequencerID: SequencerId,
       retryDelayRule: SubscriptionRetryDelayRule,
-      subscriptionFactory: SequencerSubscriptionFactoryPekko[E],
+      subscriptionFactory: SequencerSubscriptionFactoryAkka[E],
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       materializer: Materializer
-  ): SequencerSubscriptionFactoryPekko[E] = {
-    val subscriber = new ResilientSequencerSubscriberPekko[E](
+  ): SequencerSubscriptionFactoryAkka[E] = {
+    val subscriber = new ResilientSequencerSubscriberAkka[E](
       retryDelayRule,
       subscriptionFactory,
       timeouts,
       loggerFactory,
     )
-    new SequencerSubscriptionFactoryPekko[E] {
+    new SequencerSubscriptionFactoryAkka[E] {
       override def sequencerId: SequencerId = sequencerID
 
       override def create(startingCounter: SequencerCounter)(implicit
           traceContext: TraceContext
-      ): SequencerSubscriptionPekko[E] = subscriber.subscribeFrom(startingCounter)
+      ): SequencerSubscriptionAkka[E] = subscriber.subscribeFrom(startingCounter)
 
-      override val retryPolicy: SubscriptionErrorRetryPolicyPekko[E] =
-        SubscriptionErrorRetryPolicyPekko.never
+      override val retryPolicy: SubscriptionErrorRetryPolicyAkka[E] =
+        SubscriptionErrorRetryPolicyAkka.never
     }
   }
 
@@ -265,44 +265,44 @@ object ResilientSequencerSubscriberPekko {
   }
 }
 
-trait SequencerSubscriptionFactoryPekko[E] {
+trait SequencerSubscriptionFactoryAkka[E] {
 
   /** The ID of the sequencer this factory creates subscriptions to */
   def sequencerId: SequencerId
 
   def create(
       startingCounter: SequencerCounter
-  )(implicit traceContext: TraceContext): SequencerSubscriptionPekko[E]
+  )(implicit traceContext: TraceContext): SequencerSubscriptionAkka[E]
 
-  def retryPolicy: SubscriptionErrorRetryPolicyPekko[E]
+  def retryPolicy: SubscriptionErrorRetryPolicyAkka[E]
 }
 
-object SequencerSubscriptionFactoryPekko {
+object SequencerSubscriptionFactoryAkka {
 
-  /** Creates a [[SequencerSubscriptionFactoryPekko]] for a [[ResilientSequencerSubscriberPekko]]
+  /** Creates a [[SequencerSubscriptionFactoryAkka]] for a [[ResilientSequencerSubscriberAkka]]
     * that uses an underlying gRPC transport.
-    * Changes to the underlying gRPC transport are not supported by the [[ResilientSequencerSubscriberPekko]];
+    * Changes to the underlying gRPC transport are not supported by the [[ResilientSequencerSubscriberAkka]];
     * these can be done via the sequencer aggregator.
     */
   def fromTransport(
       sequencerID: SequencerId,
-      transport: SequencerClientTransportPekko,
+      transport: SequencerClientTransportAkka,
       requiresAuthentication: Boolean,
       member: Member,
       protocolVersion: ProtocolVersion,
-  ): SequencerSubscriptionFactoryPekko[transport.SubscriptionError] =
-    new SequencerSubscriptionFactoryPekko[transport.SubscriptionError] {
+  ): SequencerSubscriptionFactoryAkka[transport.SubscriptionError] =
+    new SequencerSubscriptionFactoryAkka[transport.SubscriptionError] {
       override def sequencerId: SequencerId = sequencerID
 
       override def create(startingCounter: SequencerCounter)(implicit
           traceContext: TraceContext
-      ): SequencerSubscriptionPekko[transport.SubscriptionError] = {
+      ): SequencerSubscriptionAkka[transport.SubscriptionError] = {
         val request = SubscriptionRequest(member, startingCounter, protocolVersion)
         if (requiresAuthentication) transport.subscribe(request)
         else transport.subscribeUnauthenticated(request)
       }
 
-      override val retryPolicy: SubscriptionErrorRetryPolicyPekko[transport.SubscriptionError] =
-        transport.subscriptionRetryPolicyPekko
+      override val retryPolicy: SubscriptionErrorRetryPolicyAkka[transport.SubscriptionError] =
+        transport.subscriptionRetryPolicyAkka
     }
 }

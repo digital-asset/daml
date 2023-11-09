@@ -5,7 +5,7 @@ package com.daml.auth.middleware.oauth2
 
 import java.nio.file.Path
 
-import org.apache.pekko.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.Uri
 import com.daml.auth.middleware.oauth2.Config._
 import com.daml.cliopts
 import com.daml.jwt.JwtVerifierBase

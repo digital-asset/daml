@@ -15,7 +15,7 @@ da_scala_library(
         "//test-common/test-certificates",
     ],
     scala_deps = [
-        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -28,7 +28,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
+        "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-auth",

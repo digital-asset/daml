@@ -3,18 +3,12 @@
 
 package com.daml.http
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.model._
-import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.server.RouteResult.{Complete, Rejected}
-import org.apache.pekko.http.scaladsl.server.directives.ContentTypeResolver.Default
-import org.apache.pekko.http.scaladsl.server.{
-  Directives,
-  Rejection,
-  RequestContext,
-  Route,
-  RouteResult,
-}
+import akka.actor.ActorSystem
+import akka.http.scaladsl.model._
+import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.RouteResult.{Complete, Rejected}
+import akka.http.scaladsl.server.directives.ContentTypeResolver.Default
+import akka.http.scaladsl.server.{Directives, Rejection, RequestContext, Route, RouteResult}
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.syntax.show._
@@ -51,7 +45,7 @@ private class StaticContentRouter(config: StaticContentConfig)(implicit
   logger.warn("DO NOT USE StaticContentRouter IN PRODUCTION, CONSIDER SETTING UP REVERSE PROXY!!!")
 
   private val fn =
-    org.apache.pekko.http.scaladsl.server.Route.toFunction(
+    akka.http.scaladsl.server.Route.toFunction(
       Directives.rawPathPrefix(Slash ~ config.prefix)(
         Directives.getFromDirectory(config.directory.getAbsolutePath)
       )

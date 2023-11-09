@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
+import akka.NotUsed
+import akka.stream.scaladsl.Source
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.concurrent.DirectExecutionContext

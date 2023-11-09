@@ -5,8 +5,8 @@ package com.daml.navigator.util
 
 import java.lang.Math.floor
 
-import org.apache.pekko.actor.Scheduler
-import org.apache.pekko.pattern.after
+import akka.actor.Scheduler
+import akka.pattern.after
 import com.daml.grpc.GrpcException
 import com.typesafe.scalalogging.LazyLogging
 

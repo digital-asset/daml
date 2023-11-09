@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain.initialization
 
-import org.apache.pekko.stream.Materializer
+import akka.stream.Materializer
 import cats.data.EitherT
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty

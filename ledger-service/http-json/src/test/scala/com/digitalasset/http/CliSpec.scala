@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import org.apache.pekko.stream.ThrottleMode
+import akka.stream.ThrottleMode
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers

@@ -4,7 +4,7 @@ This is the API code for the ledger, which contains:
  * gRPC API definitions
  * Generated Scala bindings and client
  * gRPC-RS bridge
- * gRPC-Pekko bridge
+ * gRPC-Akka bridge
  * Server API classes with validation
  * Prototype Server
  * Integration tests for all of the above

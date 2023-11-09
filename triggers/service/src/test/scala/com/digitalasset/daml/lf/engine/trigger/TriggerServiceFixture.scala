@@ -3,11 +3,11 @@
 
 package com.daml.lf.engine.trigger
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.Http.ServerBinding
-import org.apache.pekko.http.scaladsl.model.Uri.Path
-import org.apache.pekko.http.scaladsl.model._
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.model.Uri.Path
+import akka.http.scaladsl.model._
 import com.auth0.jwt.JWT
 import com.auth0.jwt.JWTVerifier.BaseVerification
 import com.auth0.jwt.algorithms.Algorithm
@@ -32,7 +32,7 @@ import com.daml.ledger.api.auth.{
   StandardJWTTokenFormat,
 }
 import com.daml.ledger.api.refinements.ApiTypes
-import com.daml.ledger.api.testing.utils.{PekkoBeforeAndAfterAll, OwnedResource}
+import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
@@ -148,7 +148,7 @@ trait AuthMiddlewareFixture
     extends AbstractAuthFixture
     with BeforeAndAfterAll
     with BeforeAndAfterEach
-    with PekkoBeforeAndAfterAll {
+    with AkkaBeforeAndAfterAll {
   self: Suite =>
 
   protected def authService: Option[auth.AuthService] = Some(
@@ -295,7 +295,7 @@ private class DeferringClock(baseClock: => Clock) extends Clock {
   override def withZone(zone: ZoneId): Clock = new DeferringClock(baseClock.withZone(zone))
 }
 
-trait ToxiproxyFixture extends BeforeAndAfterAll with PekkoBeforeAndAfterAll {
+trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
   self: Suite =>
 
   protected def toxiproxyClient: ToxiproxyClient = resource._1
@@ -377,7 +377,7 @@ trait TriggerDaoInMemFixture extends AbstractTriggerDaoFixture {
 trait TriggerDaoPostgresFixture
     extends AbstractTriggerDaoFixture
     with BeforeAndAfterEach
-    with PekkoBeforeAndAfterAll
+    with AkkaBeforeAndAfterAll
     with PostgresAroundAll {
   self: Suite =>
 
@@ -414,7 +414,7 @@ trait TriggerDaoPostgresFixture
 trait TriggerDaoOracleFixture
     extends AbstractTriggerDaoFixture
     with BeforeAndAfterEach
-    with PekkoBeforeAndAfterAll
+    with AkkaBeforeAndAfterAll
     with OracleAroundAll {
   self: Suite =>
 

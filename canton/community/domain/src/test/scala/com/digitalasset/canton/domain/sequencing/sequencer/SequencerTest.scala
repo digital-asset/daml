@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Sink
+import akka.actor.ActorSystem
+import akka.stream.Materializer
+import akka.stream.scaladsl.Sink
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
@@ -49,14 +49,14 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
   private val carole: Member = ParticipantId("carole")
   private val topologyClientMember = SequencerId(domainId)
 
-  // Config to turn on Pekko logging
-  private lazy val pekkoConfig = {
+  // Config to turn on Akka logging
+  private lazy val akkaConfig = {
     import scala.jdk.CollectionConverters.*
     ConfigFactory.parseMap(
       Map[String, Object](
-        "pekko.loglevel" -> "DEBUG",
-        "pekko.stdout-level" -> "OFF",
-        "pekko.loggers" -> List("org.apache.pekko.event.slf4j.Slf4jLogger").asJava,
+        "akka.loglevel" -> "DEBUG",
+        "akka.stdout-level" -> "OFF",
+        "akka.loggers" -> List("akka.event.slf4j.Slf4jLogger").asJava,
       ).asJava
     )
   }
@@ -66,7 +66,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
     protected val logger = SequencerTest.this.logger
     private implicit val actorSystem = ActorSystem(
       classOf[SequencerTest].getSimpleName,
-      Some(pekkoConfig),
+      Some(akkaConfig),
       None,
       Some(parallelExecutionContext),
     )

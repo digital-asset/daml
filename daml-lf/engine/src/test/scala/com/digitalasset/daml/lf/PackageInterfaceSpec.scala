@@ -29,7 +29,7 @@ class PackageInterfaceSpec(majorLanguageVersion: LanguageMajorVersion)
   // TODO https://github.com/digital-asset/daml/issues/12051
   //  test interfaces
 
-  implicit val parserParameters: ParserParameters[this.type] =
+  implicit val parserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   private[this] implicit val defaultPackageId: Ref.PackageId =

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.domain.grpc
 
-import org.apache.pekko.stream.Materializer
+import akka.stream.Materializer
 import cats.Eval
 import cats.data.EitherT
 import cats.instances.future.*

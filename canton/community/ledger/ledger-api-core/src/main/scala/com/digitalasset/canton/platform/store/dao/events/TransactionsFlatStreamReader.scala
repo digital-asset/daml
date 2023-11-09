@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.Attributes
-import org.apache.pekko.stream.scaladsl.Source
+import akka.NotUsed
+import akka.stream.Attributes
+import akka.stream.scaladsl.Source
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.daml.metrics.{DatabaseMetrics, Timed}
@@ -186,7 +186,7 @@ class TransactionsFlatStreamReader(
         maxParallelPayloadQueries: Int,
         dbMetric: DatabaseMetrics,
     ): Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] = {
-      // Pekko requires for this buffer's size to be a power of two.
+      // Akka requires for this buffer's size to be a power of two.
       val inputBufferSize = Utils.largestSmallerOrEqualPowerOfTwo(maxParallelPayloadQueries)
       ids.async
         .addAttributes(Attributes.inputBuffer(initial = inputBufferSize, max = inputBufferSize))

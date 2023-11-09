@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.util
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.{Flow, FlowOps, FlowOpsMat, Keep, RunnableGraph, Source}
-import org.apache.pekko.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, InHandler, OutHandler}
-import org.apache.pekko.stream.{
+import akka.actor.ActorSystem
+import akka.stream.scaladsl.{Flow, FlowOps, FlowOpsMat, Keep, RunnableGraph, Source}
+import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, InHandler, OutHandler}
+import akka.stream.{
   ActorAttributes,
   Attributes,
   FlowShape,
@@ -20,9 +20,9 @@ import org.apache.pekko.stream.{
   Supervision,
   UniqueKillSwitch,
 }
-import org.apache.pekko.{Done, NotUsed}
+import akka.{Done, NotUsed}
 import cats.{Applicative, Eval, Functor, Traverse}
-import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, Threading}
@@ -44,11 +44,11 @@ import scala.language.implicitConversions
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-object PekkoUtil extends HasLoggerName {
+object AkkaUtil extends HasLoggerName {
 
   /** Utility function to run the graph supervised and stop on an unhandled exception.
     *
-    * By default, an Pekko flow will discard exceptions. Use this method to avoid discarding exceptions.
+    * By default, an Akka flow will discard exceptions. Use this method to avoid discarding exceptions.
     */
   def runSupervised[T](
       reporter: Throwable => Unit,
@@ -82,7 +82,7 @@ object PekkoUtil extends HasLoggerName {
   def createExecutionSequencerFactory(namePrefix: String, logger: Logger)(implicit
       actorSystem: ActorSystem
   ): ExecutionSequencerFactory =
-    new PekkoExecutionSequencerPool(
+    new AkkaExecutionSequencerPool(
       namePrefix + "-execution-sequencer",
       actorCount = Threading.detectNumberOfThreads(logger),
     )
@@ -92,9 +92,9 @@ object PekkoUtil extends HasLoggerName {
     * The current element is the [[com.daml.nonempty.NonEmptyCollInstances.NEPreservingOps.last1]]
     * of the sequence.
     *
-    * [[remember]] differs from [[pekko.stream.scaladsl.FlowOps.sliding]] in
+    * [[remember]] differs from [[akka.stream.scaladsl.FlowOps.sliding]] in
     * that [[remember]] emits elements immediately when the given source emits,
-    * whereas [[pekko.stream.scaladsl.FlowOps.sliding]] only after the source has emitted enough elements to fill the window.
+    * whereas [[akka.stream.scaladsl.FlowOps.sliding]] only after the source has emitted enough elements to fill the window.
     */
   def remember[A, Mat](
       graph: FlowOps[A, Mat],
@@ -117,9 +117,9 @@ object PekkoUtil extends HasLoggerName {
       }
   }
 
-  /** A version of [[pekko.stream.scaladsl.FlowOps.mapAsync]] that additionally allows to pass state of type `S` between
-    * every subsequent element. Unlike [[pekko.stream.scaladsl.FlowOps.statefulMapConcat]], the state is passed explicitly.
-    * Must not be run with supervision strategies [[pekko.stream.Supervision.Restart]] nor [[pekko.stream.Supervision.Resume]]
+  /** A version of [[akka.stream.scaladsl.FlowOps.mapAsync]] that additionally allows to pass state of type `S` between
+    * every subsequent element. Unlike [[akka.stream.scaladsl.FlowOps.statefulMapConcat]], the state is passed explicitly.
+    * Must not be run with supervision strategies [[akka.stream.Supervision.Restart]] nor [[akka.stream.Supervision.Resume]]
     */
   def statefulMapAsync[Out, Mat, S, T](graph: FlowOps[Out, Mat], initial: S)(
       f: (S, Out) => Future[(S, T)]
@@ -138,7 +138,7 @@ object PekkoUtil extends HasLoggerName {
       )
   }
 
-  /** Version of [[pekko.stream.scaladsl.FlowOps.mapAsync]] for a [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]].
+  /** Version of [[akka.stream.scaladsl.FlowOps.mapAsync]] for a [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]].
     * If `f` returns [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]] on one element of
     * `source`, then the returned source returns [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]]
     * for all subsequent elements as well.
@@ -289,9 +289,9 @@ object PekkoUtil extends HasLoggerName {
     * @return The concatenation of all constructed sources.
     *         This source is NOT a blueprint and MUST therefore be materialized at most once.
     *         Its materialized value provides a kill switch to stop retrying.
-    *         Only the [[pekko.stream.KillSwitch.shutdown]] method should be used;
+    *         Only the [[akka.stream.KillSwitch.shutdown]] method should be used;
     *         The switch does not short-circuit the already constructed sources though.
-    *         synchronization may not work correctly with [[pekko.stream.KillSwitch.abort]].
+    *         synchronization may not work correctly with [[akka.stream.KillSwitch.abort]].
     *         Downstream should not cancel; use the kill switch instead.
     *
     *         The materialized [[scala.concurrent.Future]] can be used to synchronize on the computations for restarts:
@@ -503,7 +503,7 @@ object PekkoUtil extends HasLoggerName {
       }
   }
 
-  /** Adds a [[pekko.stream.KillSwitches.single]] into the stream after the given source
+  /** Adds a [[akka.stream.KillSwitches.single]] into the stream after the given source
     * and injects the created kill switch into the stream
     */
   def withUniqueKillSwitch[A, Mat, Mat2](
@@ -535,7 +535,7 @@ object PekkoUtil extends HasLoggerName {
 
   /** Creates a value upon materialization that is added to every element of the stream.
     *
-    * WARNING: This flow breaks the synchronization abstraction of Pekko streams,
+    * WARNING: This flow breaks the synchronization abstraction of Akka streams,
     * as the created value is accessible from within the stream and from the outside through the materialized value.
     * Users of this flow must make sure that accessing the value is thread-safe!
     */
@@ -562,11 +562,11 @@ object PekkoUtil extends HasLoggerName {
     }
   }
 
-  /** Container class for adding a [[pekko.stream.KillSwitch]] to a single value.
+  /** Container class for adding a [[akka.stream.KillSwitch]] to a single value.
     * Two containers are equal if their contained values are equal.
     *
-    * (Equality ignores the [[pekko.stream.KillSwitch]]es because it is usually not very meaningful.
-    * The [[pekko.stream.KillSwitch]] is therefore in the second argument list.)
+    * (Equality ignores the [[akka.stream.KillSwitch]]es because it is usually not very meaningful.
+    * The [[akka.stream.KillSwitch]] is therefore in the second argument list.)
     */
   final case class WithKillSwitch[+A](private val value: A)(val killSwitch: KillSwitch) {
     def unwrap: A = value
@@ -621,102 +621,102 @@ object PekkoUtil extends HasLoggerName {
 
   object syntax {
 
-    /** Defines extension methods for [[pekko.stream.scaladsl.FlowOpsMat]] that map to the methods defined in this class.
+    /** Defines extension methods for [[akka.stream.scaladsl.FlowOpsMat]] that map to the methods defined in this class.
       *
       * The construction with type parameter `U` follows
       * <a href="https://typelevel.org/blog/2017/03/01/four-ways-to-escape-a-cake.html">Stephen's blog post about relatable variables</a>
-      * to ensure that we can uniformly abstract over [[pekko.stream.scaladsl.Source]]s and [[pekko.stream.scaladsl.Flow]]s.
-      * In particular, we cannot use an implicit class here. Unlike in the blog post, the implicit conversion [[pekkoUtilSyntaxForFlowOps]]
-      * does not extract [[pekko.stream.scaladsl.FlowOpsMat]] into a separate type parameter because this would confuse
+      * to ensure that we can uniformly abstract over [[akka.stream.scaladsl.Source]]s and [[akka.stream.scaladsl.Flow]]s.
+      * In particular, we cannot use an implicit class here. Unlike in the blog post, the implicit conversion [[akkaUtilSyntaxForFlowOps]]
+      * does not extract [[akka.stream.scaladsl.FlowOpsMat]] into a separate type parameter because this would confuse
       * type inference.
       */
-    private[util] class PekkoUtilSyntaxForFlowOps[A, Mat, U <: FlowOps[A, Mat]](private val graph: U)
+    private[util] class AkkaUtilSyntaxForFlowOps[A, Mat, U <: FlowOps[A, Mat]](private val graph: U)
         extends AnyVal {
       def remember(window: NonNegativeInt): U#Repr[NonEmpty[Seq[A]]] =
-        PekkoUtil.remember(graph, window)
+        AkkaUtil.remember(graph, window)
 
       def statefulMapAsync[S, T](initial: S)(
           f: (S, A) => Future[(S, T)]
       )(implicit loggingContext: NamedLoggingContext): U#Repr[T] =
-        PekkoUtil.statefulMapAsync(graph, initial)(f)
+        AkkaUtil.statefulMapAsync(graph, initial)(f)
 
       def statefulMapAsyncUS[S, T](initial: S)(
           f: (S, A) => FutureUnlessShutdown[(S, T)]
       )(implicit loggingContext: NamedLoggingContext): U#Repr[UnlessShutdown[T]] =
-        PekkoUtil.statefulMapAsyncUS(graph, initial)(f)
+        AkkaUtil.statefulMapAsyncUS(graph, initial)(f)
 
       def mapAsyncUS[B](parallelism: Int)(f: A => FutureUnlessShutdown[B])(implicit
           loggingContext: NamedLoggingContext
       ): U#Repr[UnlessShutdown[B]] =
-        PekkoUtil.mapAsyncUS(graph, parallelism)(f)
+        AkkaUtil.mapAsyncUS(graph, parallelism)(f)
 
       def mapAsyncAndDrainUS[B](parallelism: Int)(
           f: A => FutureUnlessShutdown[B]
       )(implicit loggingContext: NamedLoggingContext): U#Repr[B] =
-        PekkoUtil.mapAsyncAndDrainUS(graph, parallelism)(f)
+        AkkaUtil.mapAsyncAndDrainUS(graph, parallelism)(f)
     }
     // Use separate implicit conversions for Sources and Flows to help IntelliJ
     // Otherwise IntelliJ gets very resource hungry.
-    implicit def pekkoUtilSyntaxForFlowOpsSource[A, Mat](
+    implicit def akkaUtilSyntaxForFlowOpsSource[A, Mat](
         graph: Source[A, Mat]
-    ): PekkoUtilSyntaxForFlowOps[A, Mat, graph.type] =
-      new PekkoUtilSyntaxForFlowOps(graph)
-    implicit def pekkoUtilSyntaxForFlowOpsFlow[A, B, Mat](
+    ): AkkaUtilSyntaxForFlowOps[A, Mat, graph.type] =
+      new AkkaUtilSyntaxForFlowOps(graph)
+    implicit def akkaUtilSyntaxForFlowOpsFlow[A, B, Mat](
         graph: Flow[A, B, Mat]
-    ): PekkoUtilSyntaxForFlowOps[B, Mat, graph.type] =
-      new PekkoUtilSyntaxForFlowOps(graph)
+    ): AkkaUtilSyntaxForFlowOps[B, Mat, graph.type] =
+      new AkkaUtilSyntaxForFlowOps(graph)
 
-    /** Defines extension methods for [[pekko.stream.scaladsl.FlowOps]] with a [[pekko.stream.KillSwitch]].
-      * @see PekkoUtilSyntaxForFlowOps for an explanation of the type parameter U
+    /** Defines extension methods for [[akka.stream.scaladsl.FlowOps]] with a [[akka.stream.KillSwitch]].
+      * @see AkkaUtilSyntaxForFlowOps for an explanation of the type parameter U
       */
-    private[util] class PekkoUtilSyntaxForFLowOpsWithKillSwitch[
+    private[util] class AkkaUtilSyntaxForFLowOpsWithKillSwitch[
         A,
         Mat,
         U <: FlowOps[WithKillSwitch[A], Mat],
     ](private val graph: U)
         extends AnyVal {
       def takeUntilThenDrain(condition: A => Boolean): U#Repr[WithKillSwitch[A]] =
-        PekkoUtil.takeUntilThenDrain(graph, condition)
+        AkkaUtil.takeUntilThenDrain(graph, condition)
     }
     // Use separate implicit conversions for Sources and Flows to help IntelliJ
     // Otherwise IntelliJ gets very resource hungry.
-    implicit def pekkoUtilSyntaxForFlowOpsWithKillSwitchSource[A, Mat](
+    implicit def akkaUtilSyntaxForFlowOpsWithKillSwitchSource[A, Mat](
         graph: Source[WithKillSwitch[A], Mat]
-    ): PekkoUtilSyntaxForFLowOpsWithKillSwitch[A, Mat, graph.type] =
-      new PekkoUtilSyntaxForFLowOpsWithKillSwitch(graph)
-    implicit def pekkoUtilSyntaxForFlowOpsWithKillSwitchFlow[A, B, Mat](
+    ): AkkaUtilSyntaxForFLowOpsWithKillSwitch[A, Mat, graph.type] =
+      new AkkaUtilSyntaxForFLowOpsWithKillSwitch(graph)
+    implicit def akkaUtilSyntaxForFlowOpsWithKillSwitchFlow[A, B, Mat](
         graph: Flow[A, WithKillSwitch[B], Mat]
-    ): PekkoUtilSyntaxForFLowOpsWithKillSwitch[B, Mat, graph.type] =
-      new PekkoUtilSyntaxForFLowOpsWithKillSwitch(graph)
+    ): AkkaUtilSyntaxForFLowOpsWithKillSwitch[B, Mat, graph.type] =
+      new AkkaUtilSyntaxForFLowOpsWithKillSwitch(graph)
 
-    /** Defines extension methods for [[pekko.stream.scaladsl.FlowOpsMat]] that map to the methods defined in this class.
-      * @see PekkoUtilSyntaxForFlowOps for an explanation of the type parameter U
+    /** Defines extension methods for [[akka.stream.scaladsl.FlowOpsMat]] that map to the methods defined in this class.
+      * @see AkkaUtilSyntaxForFlowOps for an explanation of the type parameter U
       */
-    private[util] class PekkoUtilSyntaxForFlowOpsMat[A, Mat, U <: FlowOpsMat[A, Mat]](
+    private[util] class AkkaUtilSyntaxForFlowOpsMat[A, Mat, U <: FlowOpsMat[A, Mat]](
         private val graph: U
     ) extends AnyVal {
 
       private[util] def withMaterializedValueMat[M, Mat2](create: => M)(
           mat: (Mat, M) => Mat2
       ): U#ReprMat[(A, M), Mat2] =
-        PekkoUtil.withMaterializedValueMat(create)(graph)(mat)
+        AkkaUtil.withMaterializedValueMat(create)(graph)(mat)
 
       def withUniqueKillSwitchMat[Mat2](
       )(mat: (Mat, UniqueKillSwitch) => Mat2): U#ReprMat[WithKillSwitch[A], Mat2] =
-        PekkoUtil.withUniqueKillSwitch(graph)(mat)
+        AkkaUtil.withUniqueKillSwitch(graph)(mat)
 
       def injectKillSwitch(killSwitch: Mat => KillSwitch): U#ReprMat[WithKillSwitch[A], Mat] =
-        PekkoUtil.injectKillSwitch(graph)(killSwitch)
+        AkkaUtil.injectKillSwitch(graph)(killSwitch)
     }
     // Use separate implicit conversions for Sources and Flows to help IntelliJ
     // Otherwise IntelliJ gets very resource hungry.
-    implicit def pekkoUtilSyntaxForFlowOpsMatSource[A, Mat](
+    implicit def akkaUtilSyntaxForFlowOpsMatSource[A, Mat](
         graph: Source[A, Mat]
-    ): PekkoUtilSyntaxForFlowOpsMat[A, Mat, graph.type] =
-      new PekkoUtilSyntaxForFlowOpsMat(graph)
-    implicit def pekkoUtilSyntaxForFlowOpsMat[A, B, Mat](
+    ): AkkaUtilSyntaxForFlowOpsMat[A, Mat, graph.type] =
+      new AkkaUtilSyntaxForFlowOpsMat(graph)
+    implicit def akkaUtilSyntaxForFlowOpsMat[A, B, Mat](
         graph: Flow[A, B, Mat]
-    ): PekkoUtilSyntaxForFlowOpsMat[B, Mat, graph.type] =
-      new PekkoUtilSyntaxForFlowOpsMat(graph)
+    ): AkkaUtilSyntaxForFlowOpsMat[B, Mat, graph.type] =
+      new AkkaUtilSyntaxForFlowOpsMat(graph)
   }
 }

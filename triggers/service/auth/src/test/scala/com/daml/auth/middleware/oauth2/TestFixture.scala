@@ -6,8 +6,8 @@ package com.daml.auth.middleware.oauth2
 import java.io.File
 import java.time.{Instant, ZoneId}
 
-import org.apache.pekko.http.scaladsl.Http.ServerBinding
-import org.apache.pekko.http.scaladsl.model.Uri
+import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.model.Uri
 import com.auth0.jwt.JWTVerifier.BaseVerification
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
@@ -15,7 +15,7 @@ import com.daml.auth.middleware.api.Client
 import com.daml.clock.AdjustableClock
 import com.daml.jwt.JwtVerifier
 import com.daml.ledger.api.testing.utils.{
-  PekkoBeforeAndAfterAll,
+  AkkaBeforeAndAfterAll,
   OwnedResource,
   Resource,
   SuiteResource,
@@ -39,7 +39,7 @@ case class TestResources(
 )
 
 trait TestFixture
-    extends PekkoBeforeAndAfterAll
+    extends AkkaBeforeAndAfterAll
     with BeforeAndAfterEach
     with SuiteResource[TestResources] {
   self: Suite =>

@@ -12,8 +12,8 @@ da_scala_library(
     scala_deps = [
         "@maven//:com_storm_enroute_scalameter",
         "@maven//:com_storm_enroute_scalameter_core",
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
     ],
     visibility = [
         "//visibility:public",

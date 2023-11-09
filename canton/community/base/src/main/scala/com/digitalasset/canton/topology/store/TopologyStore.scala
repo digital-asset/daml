@@ -199,7 +199,7 @@ object TopologyStoreId {
     def isOfType(id: TopologyStoreId): Boolean
   }
 
-  implicit val domainTypeChecker: IdTypeChecker[DomainStore] = new IdTypeChecker[DomainStore] {
+  implicit val domainTypeChecker = new IdTypeChecker[DomainStore] {
     override def isOfType(id: TopologyStoreId): Boolean = id match {
       case DomainStore(_, _) => true
       case AuthorizedStore => false

@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import org.apache.pekko.stream.scaladsl.Source
+import akka.stream.scaladsl.Source
 import com.daml.error.ErrorsAssertions
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.ErrorDetails.RetryInfoDetail
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   PartyDetails as ProtoPartyDetails,
@@ -51,7 +51,7 @@ class ApiPartyManagementServiceSpec
     with Matchers
     with ScalaFutures
     with ArgumentMatchersSugar
-    with PekkoBeforeAndAfterAll
+    with AkkaBeforeAndAfterAll
     with ErrorsAssertions
     with BaseTest
     with BeforeAndAfterEach {

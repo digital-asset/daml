@@ -18,10 +18,10 @@ da_scala_library(
     deps = [
         "//libs-scala/ledger-resources",
         "//libs-scala/resources",
+        "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
-        "//libs-scala/resources-pekko",
+        "//observability/akka-http-metrics",
         "//observability/metrics",
-        "//observability/pekko-http-metrics",
         "//observability/telemetry",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_dropwizard_metrics_metrics_jmx",

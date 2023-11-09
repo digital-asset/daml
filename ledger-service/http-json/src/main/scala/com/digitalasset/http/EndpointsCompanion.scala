@@ -3,10 +3,10 @@
 
 package com.daml.http
 
-import org.apache.pekko.http.scaladsl.model._
-import org.apache.pekko.http.scaladsl.server.RouteResult.Complete
-import org.apache.pekko.http.scaladsl.server.{RequestContext, Route}
-import org.apache.pekko.util.ByteString
+import akka.http.scaladsl.model._
+import akka.http.scaladsl.server.RouteResult.Complete
+import akka.http.scaladsl.server.{RequestContext, Route}
+import akka.util.ByteString
 import com.daml.http.domain.{JwtPayload, JwtPayloadLedgerIdOnly, JwtWritePayload, LedgerApiError}
 import com.daml.http.json.SprayJson
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
@@ -281,7 +281,7 @@ object EndpointsCompanion {
             details = details.map(domain.ErrorDetail.fromErrorUtils),
           )
         mkErrorResponse(
-          grpcStatus.asPekkoHttpForJsonApi,
+          grpcStatus.asAkkaHttpForJsonApi,
           s"$grpcStatus: $description",
           Some(ledgerApiError),
         )

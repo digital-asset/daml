@@ -11,8 +11,8 @@ da_scala_library(
     name = "contextualized-logging",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_spray_spray_json",
     ],
     scalacopts = ["-Xsource:2.13"],
@@ -34,8 +34,8 @@ da_scala_test_suite(
     resources = glob(["src/test/suite/resources/**/*"]),
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_circe_circe_core",
         "@maven//:io_circe_circe_generic",
         "@maven//:io_circe_circe_parser",

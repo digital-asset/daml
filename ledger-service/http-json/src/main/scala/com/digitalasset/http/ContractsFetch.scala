@@ -3,9 +3,9 @@
 
 package com.daml.http
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, RunnableGraph, Sink, Source}
-import org.apache.pekko.stream.{ClosedShape, FanOutShape2, Materializer}
+import akka.NotUsed
+import akka.stream.scaladsl.{Flow, GraphDSL, Keep, RunnableGraph, Sink, Source}
+import akka.stream.{ClosedShape, FanOutShape2, Materializer}
 import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.ContractTypeId
@@ -55,7 +55,7 @@ private class ContractsFetch(
 
   import ContractsFetch._
   import com.daml.fetchcontracts.AcsTxStreams._
-  import com.daml.fetchcontracts.util.PekkoStreamsDoobie.{connectionIOFuture, sinkCioSequence_}
+  import com.daml.fetchcontracts.util.AkkaStreamsDoobie.{connectionIOFuture, sinkCioSequence_}
   import sjd.retrySqlStates
 
   private[this] val logger = ContextualizedLogger.get(getClass)

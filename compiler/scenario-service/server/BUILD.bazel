@@ -37,7 +37,7 @@ da_scala_binary(
         "//daml-lf/validation",
         "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
+        "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",

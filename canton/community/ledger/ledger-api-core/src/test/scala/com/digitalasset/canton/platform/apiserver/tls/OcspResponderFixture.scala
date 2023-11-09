@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.tls
 
-import com.daml.ledger.api.testing.utils.{PekkoBeforeAndAfterAll, OwnedResource}
+import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.util.ConcurrentBufferedLogger
@@ -14,7 +14,7 @@ import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process.Process
 
-trait OcspResponderFixture extends PekkoBeforeAndAfterAll { this: Suite =>
+trait OcspResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
 
   private val ec: ExecutionContext = system.dispatcher
 

@@ -4,7 +4,7 @@
 package com.daml.http
 
 import HttpServiceTestFixture.UseTls
-import org.apache.pekko.http.scaladsl.model.{StatusCodes, Uri}
+import akka.http.scaladsl.model.{StatusCodes, Uri}
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authenticity
 import com.daml.test.evidence.tag.Security.SecurityTest
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._

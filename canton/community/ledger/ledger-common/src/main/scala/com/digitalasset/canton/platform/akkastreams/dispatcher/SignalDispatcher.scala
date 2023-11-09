@@ -1,13 +1,13 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.platform.pekkostreams.dispatcher
+package com.digitalasset.canton.platform.akkastreams.dispatcher
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.*
-import org.apache.pekko.stream.scaladsl.{Source, SourceQueueWithComplete}
+import akka.NotUsed
+import akka.stream.*
+import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.SignalDispatcher.Signal
+import com.digitalasset.canton.platform.akkastreams.dispatcher.SignalDispatcher.Signal
 import org.slf4j.{Logger, LoggerFactory}
 
 import java.util.concurrent.atomic.AtomicReference
@@ -25,7 +25,7 @@ class SignalDispatcher private () {
   private val runningState: AtomicReference[Option[Set[SourceQueueWithComplete[Signal]]]] =
     new AtomicReference(Some(Set.empty))
 
-  private[pekkostreams] def getRunningState: Set[SourceQueueWithComplete[Signal]] =
+  private[akkastreams] def getRunningState: Set[SourceQueueWithComplete[Signal]] =
     runningState.get.getOrElse(throwClosed())
 
   /** Signal to this Dispatcher that there's a new head `Index`.
@@ -122,6 +122,6 @@ object SignalDispatcher {
   /** The signal sent by SignalDispatcher. */
   final case object Signal extends Signal
 
-  /** Construct a new SignalDispatcher. Created Sources will consume Pekko resources until closed. */
+  /** Construct a new SignalDispatcher. Created Sources will consume Akka resources until closed. */
   def apply[T](): SignalDispatcher = new SignalDispatcher()
 }

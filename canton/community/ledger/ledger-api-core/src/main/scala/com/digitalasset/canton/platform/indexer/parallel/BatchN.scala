@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Flow
+import akka.NotUsed
+import akka.stream.scaladsl.Flow
 
 import scala.collection.mutable.ArrayBuffer
 

@@ -1,0 +1,153 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "kind_projector_plugin",
+    "lf_scalacopts",
+)
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
+load("@scala_version//:index.bzl", "scala_major_version")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_version_configuration",
+)
+load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
+
+perf_runtime_deps = {
+    "ce": [],
+    "ee": [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+    ],
+}
+
+[
+    da_scala_library(
+        name = "http-json-perf-{}".format(edition),
+        srcs = glob(["src/main/scala/**/*.scala"]),
+        plugins = [
+            kind_projector_plugin,
+        ],
+        resources = glob(["src/main/resources/**/*"]),
+        scala_deps = [
+            "@maven//:com_github_scopt_scopt",
+            "@maven//:com_typesafe_akka_akka_actor",
+            "@maven//:com_typesafe_akka_akka_http_core",
+            "@maven//:com_typesafe_akka_akka_stream",
+            "@maven//:com_typesafe_scala_logging_scala_logging",
+            "@maven//:io_spray_spray_json",
+            "@maven//:org_scalactic_scalactic",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalaz_scalaz_core",
+        ],
+        scalacopts = hj_scalacopts,
+        tags = ["maven_coordinates=com.daml:http-json-perf-{}:__VERSION__".format(edition)] + (["canton-ee"] if edition == "ee" else []),
+        visibility = ["//visibility:public"],
+        runtime_deps = [
+            "@maven//:ch_qos_logback_logback_classic",
+        ],
+        deps = [
+            "//language-support/scala/bindings-akka",
+            "//ledger-api/rs-grpc-bridge",
+            "//test-common/canton/it-lib",
+            "@maven//:io_gatling_gatling_netty_util",
+            "@maven//:io_netty_netty_common",
+            "@maven//:io_netty_netty_transport",
+            "@maven//:org_scalatest_scalatest_compatible",
+            "//ledger-service/http-json:http-json-{}".format(edition),
+            "//ledger-service/http-json-cli:{}".format(edition),
+            "//ledger-service/http-json-testing:{}".format(edition),
+            "//libs-scala/db-utils",
+            "//libs-scala/gatling-utils",
+            "//libs-scala/jwt",
+            "//libs-scala/oracle-testing",
+            "//libs-scala/ports",
+            "//libs-scala/postgresql-testing",
+            "//libs-scala/scala-utils",
+            "//runtime-components/jdbc-drivers:jdbc-drivers-{}".format(edition),
+            "@maven//:com_fasterxml_jackson_core_jackson_core",
+            "@maven//:com_fasterxml_jackson_core_jackson_databind",
+            "@maven//:io_gatling_gatling_app",
+            "@maven//:io_gatling_gatling_commons",
+            "@maven//:io_gatling_gatling_commons_shared_unstable",
+            "@maven//:io_gatling_gatling_core",
+            "@maven//:io_gatling_gatling_http",
+            "@maven//:io_gatling_gatling_http_client",
+            "@maven//:org_slf4j_slf4j_api",
+        ],
+    )
+    for edition in [
+        "ce",
+        "ee",
+    ]
+]
+
+daml_compile(
+    name = "LargeAcs",
+    srcs = ["daml/LargeAcs.daml"],
+    target = lf_version_configuration.get("latest"),
+)
+
+[
+    da_scala_binary(
+        name = "http-json-perf-binary-{}".format(edition),
+        data = [
+            ":release/json-api-perf-logback.xml",
+        ],
+        jvm_flags = [
+            "-Dlogback.configurationFile=$(location :release/json-api-perf-logback.xml)",
+        ],
+        main_class = "com.daml.http.perf.Main",
+        scala_deps = [
+            "@maven//:com_github_scopt_scopt",
+            "@maven//:com_typesafe_akka_akka_actor",
+            "@maven//:com_typesafe_akka_akka_http_core",
+            "@maven//:com_typesafe_akka_akka_stream",
+            "@maven//:com_typesafe_scala_logging_scala_logging",
+            "@maven//:org_scalactic_scalactic",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_scalatest_scalatest_shouldmatchers",
+            "@maven//:org_scalatest_scalatest_wordspec",
+            "@maven//:org_scalaz_scalaz_core",
+        ],
+        scalacopts = hj_scalacopts,
+        tags = ["canton-ee"] if edition == "ee" else [],
+        visibility = ["//visibility:public"],
+        runtime_deps = [
+            "@maven//:ch_qos_logback_logback_classic",
+            "@maven//:io_gatling_highcharts_gatling_charts_highcharts",
+        ] + perf_runtime_deps.get(edition),
+        deps = [
+            "@maven//:io_gatling_highcharts_gatling_charts_highcharts",
+            "@maven//:org_scalatest_scalatest_compatible",
+            ":http-json-perf-{}".format(edition),
+            "//language-support/scala/bindings-akka",
+            "//ledger-api/rs-grpc-bridge",
+            "//ledger-service/http-json:http-json-{}".format(edition),
+            "//ledger-service/http-json-testing:{}".format(edition),
+            "//libs-scala/gatling-utils",
+            "//libs-scala/jwt",
+            "//libs-scala/scala-utils",
+            "@maven//:com_fasterxml_jackson_core_jackson_core",
+            "@maven//:com_fasterxml_jackson_core_jackson_databind",
+            "@maven//:io_gatling_gatling_app",
+            "@maven//:io_gatling_gatling_commons",
+            "@maven//:io_gatling_gatling_core",
+            "@maven//:io_gatling_gatling_http",
+            "@maven//:io_gatling_gatling_http_client",
+            "@maven//:org_slf4j_slf4j_api",
+        ],
+    )
+    for edition in [
+        "ce",
+        "ee",
+    ]
+]
+
+exports_files(["release/json-api-perf-logback.xml"])

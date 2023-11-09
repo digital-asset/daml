@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.indexer
 
-import org.apache.pekko.stream.*
+import akka.stream.*
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.participant.state.v2 as state

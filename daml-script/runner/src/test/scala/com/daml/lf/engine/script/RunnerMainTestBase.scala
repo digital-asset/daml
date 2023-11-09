@@ -31,7 +31,7 @@ trait RunnerMainTestBase {
   val failingDar: Path =
     BazelRunfiles.rlocation(Paths.get("daml-script/runner/failing-test-script.dar"))
 
-  private implicit val ec: ExecutionContext = ExecutionContext.global
+  implicit val ec = ExecutionContext.global
 
   val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
   val damlScript = BazelRunfiles.rlocation(Paths.get(s"daml-script/runner/daml-script-binary$exe"))

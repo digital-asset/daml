@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.indexer.ha
 
-import org.apache.pekko.stream.KillSwitch
+import akka.stream.KillSwitch
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong

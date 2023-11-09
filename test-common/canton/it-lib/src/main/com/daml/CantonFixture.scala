@@ -7,7 +7,7 @@ package integrationtest
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
-  PekkoBeforeAndAfterAll,
+  AkkaBeforeAndAfterAll,
   OwnedResource,
   SuiteResource,
   SuiteResourceManagementAroundAll,
@@ -48,7 +48,7 @@ object CantonFixture {
 
 trait CantonFixtureWithResource[A]
     extends SuiteResource[(Vector[CantonFixture.LedgerPorts], A)]
-    with PekkoBeforeAndAfterAll
+    with AkkaBeforeAndAfterAll
     with SuiteResourceManagementAroundAll {
   self: Suite =>
 

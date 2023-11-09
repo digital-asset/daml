@@ -22,7 +22,7 @@ class ConcurrentCompiledPackagesTest(majorLanguageVersion: LanguageMajorVersion)
     with Matchers
     with Inside {
 
-  implicit val parserParameters: ParserParameters[this.type] =
+  implicit val parserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   "ConcurrentCompiledPackages" should {

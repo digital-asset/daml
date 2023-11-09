@@ -17,7 +17,7 @@
     <!--<logger name="com.daml.grpc.adapter.client.rs" level="TRACE"/>-->
     <!--<logger name="com.daml" level="TRACE"/>-->
     <!--<logger name="com.daml.ledger.client.services.commands.tracker.CommandTracker" level="WARN"/>-->
-    <!--<logger name="pekko.stream.Materializer" level="DEBUG"/>-->
+    <!--<logger name="akka.stream.Materializer" level="DEBUG"/>-->
 
 
     <root level="WARN">

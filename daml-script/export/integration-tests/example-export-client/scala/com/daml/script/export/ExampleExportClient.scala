@@ -3,13 +3,13 @@
 
 package com.daml.script.export
 
-import org.apache.pekko.actor.ActorSystem
+import akka.actor.ActorSystem
 
 import java.io.File
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import com.daml.SdkVersion
 import com.daml.fs.Utils.deleteRecursively
-import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script.{RunnerMainConfig, RunnerMain, ParticipantMode}
@@ -114,7 +114,7 @@ object ExampleExportClient {
   def main(clientConfig: ExampleExportClientConfig): Unit = {
     implicit val system: ActorSystem = ActorSystem("ScriptRunner")
     implicit val sequencer: ExecutionSequencerFactory =
-      new PekkoExecutionSequencerPool("ScriptRunnerPool")(system)
+      new AkkaExecutionSequencerPool("ScriptRunnerPool")(system)
     implicit val ec: ExecutionContext = system.dispatcher
     val hostIp = "localhost"
     val port = clientConfig.targetPort

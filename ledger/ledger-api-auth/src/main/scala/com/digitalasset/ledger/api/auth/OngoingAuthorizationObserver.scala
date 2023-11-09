@@ -6,7 +6,7 @@ package com.daml.ledger.api.auth
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
-import org.apache.pekko.actor.Scheduler
+import akka.actor.Scheduler
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.jwt.JwtTimestampLeeway
@@ -35,7 +35,7 @@ private[auth] final class OngoingAuthorizationObserver[A](
   // [[onComplete]] or [[onError]] has already been called once.
   // We need this because [[onError]] can be invoked two concurrent sources:
   // 1) scheduled user rights state change task (see [[cancellableO]]),
-  // 2) upstream component that is translating upstream Pekko stream into [[onNext]] and other signals.
+  // 2) upstream component that is translating upstream Akka stream into [[onNext]] and other signals.
   private var afterCompletionOrError = false
 
   private val cancelUserRightsChecksO =
@@ -138,7 +138,7 @@ private[auth] object OngoingAuthorizationObserver {
       nowF: () => Instant,
       userManagementStore: UserManagementStore,
       userRightsCheckIntervalInSeconds: Int,
-      pekkoScheduler: Scheduler,
+      akkaScheduler: Scheduler,
       jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ServerCallStreamObserver[A] = {
 
@@ -150,7 +150,7 @@ private[auth] object OngoingAuthorizationObserver {
         nowF: () => Instant,
         userManagementStore: UserManagementStore,
         userRightsCheckIntervalInSeconds: Int,
-        pekkoScheduler: Scheduler,
+        akkaScheduler: Scheduler,
       )
       Some(checker)
     } else {

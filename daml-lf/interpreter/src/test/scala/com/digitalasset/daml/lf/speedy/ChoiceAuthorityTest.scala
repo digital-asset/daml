@@ -30,7 +30,7 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
 
   val transactionSeed = crypto.Hash.hashPrivateKey("ChoiceAuthorityTest.scala")
 
-  implicit val defaultParserParameters: ParserParameters[this.type] =
+  implicit val defaultParserParameters =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   for (evaluationOrder <- EvaluationOrder.valuesFor(majorLanguageVersion)) {

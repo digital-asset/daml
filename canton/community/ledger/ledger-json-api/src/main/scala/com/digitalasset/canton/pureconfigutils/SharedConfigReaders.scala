@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.pureconfigutils
 
-import org.apache.pekko.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.Uri
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, JwtVerifierBase, RSA256Verifier}
 import com.digitalasset.canton.platform.services.time.TimeProviderType

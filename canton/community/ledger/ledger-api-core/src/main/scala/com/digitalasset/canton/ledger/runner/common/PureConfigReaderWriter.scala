@@ -110,7 +110,7 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val tlsVersionWriter: ConfigWriter[TlsVersion] =
     ConfigWriter.toString(tlsVersion => tlsVersion.version)
 
-  implicit val tlsConfigurationHint: ProductHint[TlsConfiguration] = ProductHint[TlsConfiguration](allowUnknownKeys = false)
+  implicit val tlsConfigurationHint = ProductHint[TlsConfiguration](allowUnknownKeys = false)
 
   implicit val tlsConfigurationConvert: ConfigConvert[TlsConfiguration] =
     deriveConvert[TlsConfiguration]
@@ -139,13 +139,13 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val seedingWriter: ConfigWriter[Seeding] = ConfigWriter.toString(_.name)
 
-  implicit val userManagementServiceConfigHint: ProductHint[UserManagementServiceConfig] =
+  implicit val userManagementServiceConfigHint =
     ProductHint[UserManagementServiceConfig](allowUnknownKeys = false)
 
   implicit val userManagementServiceConfigConvert: ConfigConvert[UserManagementServiceConfig] =
     deriveConvert[UserManagementServiceConfig]
 
-  implicit val identityProviderManagementConfigHint: ProductHint[IdentityProviderManagementConfig] =
+  implicit val identityProviderManagementConfigHint =
     ProductHint[IdentityProviderManagementConfig](allowUnknownKeys = false)
 
   implicit val identityProviderManagementConfigConvert
@@ -158,7 +158,7 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val jwtTimestampLeewayConfigConvert: ConfigConvert[Option[JwtTimestampLeeway]] =
     optConvertEnabled(deriveConvert[JwtTimestampLeeway])
 
-  implicit val commandConfigurationHint: ProductHint[CommandServiceConfig] =
+  implicit val commandConfigurationHint =
     ProductHint[CommandServiceConfig](allowUnknownKeys = false)
 
   implicit val commandConfigurationConvert: ConfigConvert[CommandServiceConfig] =
@@ -170,19 +170,19 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val dbConfigSynchronousCommitValueConvert: ConfigConvert[SynchronousCommitValue] =
     deriveEnumerationConvert[SynchronousCommitValue]
 
-  implicit val dbConfigConnectionPoolConfigHint: ProductHint[ConnectionPoolConfig] =
+  implicit val dbConfigConnectionPoolConfigHint =
     ProductHint[ConnectionPoolConfig](allowUnknownKeys = false)
 
   implicit val dbConfigConnectionPoolConfigConvert: ConfigConvert[ConnectionPoolConfig] =
     deriveConvert[ConnectionPoolConfig]
 
-  implicit val dbConfigPostgresDataSourceConfigHint: ProductHint[PostgresDataSourceConfig] =
+  implicit val dbConfigPostgresDataSourceConfigHint =
     ProductHint[PostgresDataSourceConfig](allowUnknownKeys = false)
 
   implicit val dbConfigPostgresDataSourceConfigConvert: ConfigConvert[PostgresDataSourceConfig] =
     deriveConvert[PostgresDataSourceConfig]
 
-  implicit val dataSourcePropertiesHint: ProductHint[DataSourceProperties] =
+  implicit val dataSourcePropertiesHint =
     ProductHint[DataSourceProperties](allowUnknownKeys = false)
 
   implicit val dataSourcePropertiesConvert: ConfigConvert[DataSourceProperties] =
@@ -204,7 +204,7 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val migrateAndStartConvert: ConfigConvert[IndexerStartupMode.MigrateAndStart.type] =
     deriveConvert[IndexerStartupMode.MigrateAndStart.type]
 
-  implicit val validateAndWaitOnlyHint: ProductHint[IndexerStartupMode.ValidateAndWaitOnly] =
+  implicit val validateAndWaitOnlyHint =
     ProductHint[IndexerStartupMode.ValidateAndWaitOnly](allowUnknownKeys = false)
 
   implicit val validateAndWaitOnlyConvert: ConfigConvert[IndexerStartupMode.ValidateAndWaitOnly] =
@@ -213,7 +213,7 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val indexerStartupModeConvert: ConfigConvert[IndexerStartupMode] =
     deriveConvert[IndexerStartupMode]
 
-  implicit val haConfigHint: ProductHint[HaConfig] =
+  implicit val haConfigHint =
     ProductHint[HaConfig](allowUnknownKeys = false)
 
   implicit val haConfigConvert: ConfigConvert[HaConfig] = deriveConvert[HaConfig]
@@ -230,18 +230,18 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val participantIdWriter: ConfigWriter[Ref.ParticipantId] =
     ConfigWriter.toString[Ref.ParticipantId](_.toString)
 
-  implicit val packageMetadataViewConfigHint: ProductHint[PackageMetadataViewConfig] =
+  implicit val packageMetadataViewConfigHint =
     ProductHint[PackageMetadataViewConfig](allowUnknownKeys = false)
 
   implicit val packageMetadataViewConfigConvert: ConfigConvert[PackageMetadataViewConfig] =
     deriveConvert[PackageMetadataViewConfig]
 
-  implicit val indexerConfigHint: ProductHint[IndexerConfig] =
+  implicit val indexerConfigHint =
     ProductHint[IndexerConfig](allowUnknownKeys = false)
 
   implicit val indexerConfigConvert: ConfigConvert[IndexerConfig] = deriveConvert[IndexerConfig]
 
-  implicit val indexServiceConfigHint: ProductHint[IndexServiceConfig] =
+  implicit val indexServiceConfigHint =
     ProductHint[IndexServiceConfig](allowUnknownKeys = false)
 
   implicit val activecContractsServiceStreamsConfigConvert
@@ -280,5 +280,5 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 }
 
 object PureConfigReaderWriter {
-  implicit val Secure: PureConfigReaderWriter = new PureConfigReaderWriter(secure = true)
+  implicit val Secure = new PureConfigReaderWriter(secure = true)
 }

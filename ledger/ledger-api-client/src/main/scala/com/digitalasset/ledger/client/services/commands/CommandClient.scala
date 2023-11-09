@@ -3,9 +3,9 @@
 
 package com.daml.ledger.client.services.commands
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.{Flow, Source}
+import akka.NotUsed
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Flow, Source}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub

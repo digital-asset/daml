@@ -3,8 +3,8 @@
 
 package com.daml.logging
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Flow
+import akka.NotUsed
+import akka.stream.scaladsl.Flow
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.concurrent.TrieMap

@@ -3,8 +3,8 @@
 
 package com.daml.ledger.client.services.commands
 
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import akka.stream.scaladsl.{Sink, Source}
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.tracing.TelemetryContext
 import com.daml.util.Ctx
@@ -21,7 +21,7 @@ class CommandSubmissionFlowTest
     with MockitoSugar
     with ArgumentMatchersSugar
     with Matchers
-    with PekkoBeforeAndAfterAll {
+    with AkkaBeforeAndAfterAll {
 
   "apply" should {
     "propagate trace context" in {

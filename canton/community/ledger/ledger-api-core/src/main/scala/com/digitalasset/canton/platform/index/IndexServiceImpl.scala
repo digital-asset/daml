@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.index
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
+import akka.NotUsed
+import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.event_query_service.GetEventsByContractKeyResponse
@@ -52,9 +52,9 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.ApiOffset.ApiOffsetConverter
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.Dispatcher
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.canton.platform.akkastreams.dispatcher.Dispatcher
+import com.digitalasset.canton.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
+import com.digitalasset.canton.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.canton.platform.index.IndexServiceImpl.*
 import com.digitalasset.canton.platform.store.dao.{
   EventProjectionProperties,
@@ -88,7 +88,7 @@ private[index] class IndexServiceImpl(
 
   private val directEc = DirectExecutionContext(noTracingLogger)
 
-  // An Pekko stream buffer is added at the end of all streaming queries,
+  // An Akka stream buffer is added at the end of all streaming queries,
   // allowing to absorb temporary downstream backpressure.
   // (e.g. when the client is temporarily slower than upstream delivery throughput)
   private val LedgerApiStreamsBufferSize = 128

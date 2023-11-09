@@ -3,14 +3,14 @@
 
 package com.daml.http
 
-import org.apache.pekko.http.scaladsl.model.Uri
-import org.apache.pekko.http.scaladsl.model.headers.Authorization
+import akka.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.headers.Authorization
 import com.daml.http.HttpServiceTestFixture.{authorizationHeader, postRequest}
 import com.daml.http.util.ClientUtil.uniqueId
 import com.daml.integrationtest.CantonRunner
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.scalautil.ImplicitPreference
 import org.scalatest.OptionValues._
 import org.scalatest.Suite
@@ -19,7 +19,7 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait HttpServiceUserFixture extends PekkoBeforeAndAfterAll { this: Suite =>
+trait HttpServiceUserFixture extends AkkaBeforeAndAfterAll { this: Suite =>
   protected def testId: String
 
   // XXX(SC) see #3936 5b52999da2858 and #13113 4af98e1d27efdd

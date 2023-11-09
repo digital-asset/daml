@@ -3,8 +3,8 @@
 
 package com.daml.lf.engine.trigger
 
-import org.apache.pekko.actor.typed.Behavior
-import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.Behavior
+import akka.actor.typed.scaladsl.Behaviors
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig

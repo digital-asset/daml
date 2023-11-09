@@ -16,7 +16,7 @@ trait HttpServicePostgresInt extends AbstractHttpServiceIntegrationTestFuns with
   this: AsyncTestSuite with Matchers with Inside =>
 
   override final def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
-  protected implicit val metrics: HttpJsonApiMetrics = HttpJsonApiMetrics.ForTesting
+  protected implicit val metrics = HttpJsonApiMetrics.ForTesting
 
   // has to be lazy because jdbcConfig_ is NOT initialized yet
   protected lazy val dao = dbbackend.ContractDao(jdbcConfig_)

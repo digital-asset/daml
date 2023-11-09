@@ -4,11 +4,11 @@
 package com.daml.lf.engine.trigger
 
 import java.util.UUID
-import org.apache.pekko.actor.typed.scaladsl.AskPattern._
-import org.apache.pekko.actor.typed.{ActorRef, ActorSystem, Scheduler}
-import org.apache.pekko.http.scaladsl.Http.ServerBinding
-import org.apache.pekko.http.scaladsl.model.Uri
-import org.apache.pekko.util.Timeout
+import akka.actor.typed.scaladsl.AskPattern._
+import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
+import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.model.Uri
+import akka.util.Timeout
 import ch.qos.logback.classic.Level
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.daml_lf_dev.DamlLf

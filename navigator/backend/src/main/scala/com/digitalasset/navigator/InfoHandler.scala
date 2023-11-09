@@ -6,9 +6,9 @@ package com.daml.navigator
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-import org.apache.pekko.actor.ActorRef
-import org.apache.pekko.pattern.ask
-import org.apache.pekko.util.Timeout
+import akka.actor.ActorRef
+import akka.pattern.ask
+import akka.util.Timeout
 import com.daml.navigator.config.Arguments
 import com.daml.navigator.store.Store._
 import spray.json._

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.participant.state.v2
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
+import akka.NotUsed
+import akka.stream.scaladsl.Source
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.topology.DomainId

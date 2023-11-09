@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.indexer
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.{BroadcastHub, Keep, Source}
-import org.apache.pekko.stream.{BoundedSourceQueue, Materializer, QueueCompletionResult, QueueOfferResult}
+import akka.NotUsed
+import akka.actor.ActorSystem
+import akka.stream.scaladsl.{BroadcastHub, Keep, Source}
+import akka.stream.{BoundedSourceQueue, Materializer, QueueCompletionResult, QueueOfferResult}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{Ref, Time}

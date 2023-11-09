@@ -19,7 +19,7 @@ object GraphQLObject {
 
 trait DerivedGraphQLObject {
 
-  @nowarn("msg=parameter generic .*is never used") // used to calculate Repr0 tparam only
+  @nowarn("msg=parameter value generic .*is never used") // used to calculate Repr0 tparam only
   implicit def caseClassGraphQLObject[C, Repr0 <: HList](implicit
       classTag: ClassTag[C],
       generic: LabelledGeneric.Aux[C, Repr0],

@@ -57,7 +57,7 @@ da_scala_library(
     ],
     scalacopts = [
         "-Wconf:cat=unused-imports&site=com\\.daml\\.sample\\..*:s",
-        "-Wconf:msg=parameter ev.. in method ContractIdNT (Value)|(LfEncodable) is never used:s",
+        "-Wconf:msg=parameter value ev.. in method ContractIdNT (Value)|(LfEncodable) is never used:s",
         "-Wconf:msg=Wrap `enum` in backticks to use it as an identifier:s",
     ],
     visibility = [
@@ -69,7 +69,7 @@ da_scala_library(
     ],
     deps = [
         "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
+        "//language-support/scala/bindings-akka",
     ],
 )
 
@@ -139,7 +139,7 @@ da_scala_test(
         ":daml-lf-codegen-sample-app-testing",
         "//daml-lf/data",
         "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
+        "//language-support/scala/bindings-akka",
         "//language-support/scala/codegen-testing",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",

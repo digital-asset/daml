@@ -3,7 +3,7 @@
 
 package com.daml.http.json
 
-import org.apache.pekko.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.StatusCodes
 import com.daml.http.Generators.{
   OptionalPackageIdGen,
   contractGen,

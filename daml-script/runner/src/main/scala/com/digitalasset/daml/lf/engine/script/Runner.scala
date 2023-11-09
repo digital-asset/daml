@@ -5,9 +5,9 @@ package com.daml.lf
 package engine
 package script
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.model.Uri
-import org.apache.pekko.stream.Materializer
+import akka.actor.ActorSystem
+import akka.http.scaladsl.model.Uri
+import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -175,10 +175,8 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
     }
     def write(id: ApplicationId) = JsString(ApplicationId.unwrap(id))
   }
-  implicit val apiParametersFormat: RootJsonFormat[ApiParameters] = jsonFormat5(ApiParameters)
-  implicit val participantsFormat: RootJsonFormat[Participants[ApiParameters]] = jsonFormat3(
-    Participants[ApiParameters]
-  )
+  implicit val apiParametersFormat = jsonFormat5(ApiParameters)
+  implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])
 }
 
 // Daml script, either an Action that can be executed immediately, or a

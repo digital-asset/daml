@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.indexer
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.*
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import akka.NotUsed
+import akka.stream.*
+import akka.stream.scaladsl.{Sink, Source}
 import cats.Applicative
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Time

@@ -5,8 +5,8 @@ package com.daml.auth.oauth2.test.server
 
 import java.time.{Clock, Duration, Instant, ZoneId}
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http.ServerBinding
 import com.daml.clock.AdjustableClock
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 

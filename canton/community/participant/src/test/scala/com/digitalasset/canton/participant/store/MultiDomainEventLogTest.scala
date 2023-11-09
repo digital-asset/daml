@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.participant.store
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.{Keep, Sink}
+import akka.actor.ActorSystem
+import akka.stream.scaladsl.{Keep, Sink}
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
@@ -51,7 +51,7 @@ import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{PekkoUtil, MonadUtil}
+import com.digitalasset.canton.util.{AkkaUtil, MonadUtil}
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.{Assertion, BeforeAndAfterAll}
 
@@ -277,7 +277,7 @@ trait MultiDomainEventLogTest
   private def getOrCreateActorSystem(): ActorSystem = blocking {
     lockActorSystem.synchronized {
       actorSystemVar.getOrElse {
-        val newActorySystem = PekkoUtil.createActorSystem(loggerFactory.threadName)(executorService)
+        val newActorySystem = AkkaUtil.createActorSystem(loggerFactory.threadName)(executorService)
         actorSystemVar = Some(newActorySystem)
         newActorySystem
       }
@@ -341,7 +341,7 @@ trait MultiDomainEventLogTest
           1.second // generous timeout to avoid flaky test failures
         }
         .toMat(Sink.seq)(Keep.right)
-      PekkoUtil.runSupervised(throw _, flow)
+      AkkaUtil.runSupervised(throw _, flow)
     }
 
     def publishEvents(

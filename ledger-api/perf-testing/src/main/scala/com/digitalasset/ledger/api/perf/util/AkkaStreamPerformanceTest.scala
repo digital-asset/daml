@@ -3,15 +3,15 @@
 
 package com.daml.ledger.api.perf.util
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
+import akka.actor.ActorSystem
+import akka.stream.Materializer
 import com.daml.ledger.api.testing.utils.Resource
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 @SuppressWarnings(Array("org.wartremover.warts.LeakingSealed"))
-abstract class PekkoStreamPerformanceTest extends PerformanceTest {
+abstract class AkkaStreamPerformanceTest extends PerformanceTest {
 
   protected val logger: Logger = LoggerFactory.getLogger(this.getClass)
 

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.service
 
-import org.apache.pekko.stream.Materializer
+import akka.stream.Materializer
 import cats.data.EitherT
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout

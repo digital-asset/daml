@@ -3,12 +3,12 @@
 
 package com.daml.auth.middleware.api
 
-import org.apache.pekko.http.scaladsl.marshalling.Marshaller
-import org.apache.pekko.http.scaladsl.model.headers.HttpChallenge
-import org.apache.pekko.http.scaladsl.model.{HttpHeader, Uri, headers}
-import org.apache.pekko.http.scaladsl.server.Directive1
-import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshaller
+import akka.http.scaladsl.marshalling.Marshaller
+import akka.http.scaladsl.model.headers.HttpChallenge
+import akka.http.scaladsl.model.{HttpHeader, Uri, headers}
+import akka.http.scaladsl.server.Directive1
+import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.unmarshalling.Unmarshaller
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import scalaz.{@@, Tag}
 import spray.json._

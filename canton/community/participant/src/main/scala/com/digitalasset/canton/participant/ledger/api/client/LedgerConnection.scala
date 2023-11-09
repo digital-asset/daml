@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.participant.ledger.api.client
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.KillSwitches
-import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
-import org.apache.pekko.{Done, NotUsed}
+import akka.actor.ActorSystem
+import akka.stream.KillSwitches
+import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.{Done, NotUsed}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
@@ -40,7 +40,7 @@ import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
-import com.digitalasset.canton.util.PekkoUtil
+import com.digitalasset.canton.util.AkkaUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.google.rpc.status.Status
@@ -400,7 +400,7 @@ object LedgerConnection {
         new LedgerSubscription {
           override protected def timeouts: ProcessingTimeout = processingTimeouts
           import TraceContext.Implicits.Empty.*
-          val (killSwitch, completed) = PekkoUtil.runSupervised(
+          val (killSwitch, completed) = AkkaUtil.runSupervised(
             logger.error("Fatally failed to handle transaction", _),
             source
               // we place the kill switch before the map operator, such that

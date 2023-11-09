@@ -11,11 +11,11 @@ da_scala_library(
     name = "non-repudiation-api",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_http",
-        "@maven//:org_apache_pekko_pekko_http_core",
-        "@maven//:org_apache_pekko_pekko_http_spray_json",
-        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http_spray_json",
+        "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_spray_spray_json",
     ],
     visibility = [
@@ -36,11 +36,11 @@ da_scala_test(
         "src/test/resources/logback-test.xml",
     ],
     scala_deps = [
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_http",
-        "@maven//:org_apache_pekko_pekko_http_core",
-        "@maven//:org_apache_pekko_pekko_http_spray_json",
-        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http_spray_json",
+        "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_spray_spray_json",
     ],
     runtime_deps = [

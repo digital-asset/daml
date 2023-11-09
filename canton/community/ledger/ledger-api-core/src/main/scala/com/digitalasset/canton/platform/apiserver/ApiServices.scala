@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import org.apache.pekko.stream.Materializer
+import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.grpc.adapter.ExecutionSequencerFactory

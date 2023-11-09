@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.http.endpoints
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.http.scaladsl.model.*
-import org.apache.pekko.stream.scaladsl.{Flow, Source}
+import akka.NotUsed
+import akka.http.scaladsl.model.*
+import akka.stream.scaladsl.{Flow, Source}
 import com.daml.lf.value.Value as LfValue
 import com.digitalasset.canton.http.ContractsService.SearchResult
 import com.digitalasset.canton.http.EndpointsCompanion.*

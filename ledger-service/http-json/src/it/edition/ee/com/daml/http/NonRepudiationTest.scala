@@ -5,7 +5,7 @@ package com.daml.http
 
 import java.util.UUID
 
-import org.apache.pekko.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.StatusCodes
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.nonrepudiation.CommandIdString
 

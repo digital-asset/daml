@@ -4,9 +4,9 @@
 package com.daml.lf.engine.trigger.simulation.process
 package ledger
 
-import org.apache.pekko.actor.typed.Behavior
-import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import org.apache.pekko.stream.Materializer
+import akka.actor.typed.Behavior
+import akka.actor.typed.scaladsl.Behaviors
+import akka.stream.Materializer
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent}

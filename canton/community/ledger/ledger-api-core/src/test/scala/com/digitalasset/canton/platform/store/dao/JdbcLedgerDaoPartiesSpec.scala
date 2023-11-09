@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import org.apache.pekko.stream.scaladsl.Sink
+import akka.stream.scaladsl.Sink
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.ledger.offset.Offset

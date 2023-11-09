@@ -3,9 +3,9 @@
 
 package com.daml.logging
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import akka.actor.ActorSystem
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.logging.entries.LoggingEntry
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.flatspec.AnyFlatSpec

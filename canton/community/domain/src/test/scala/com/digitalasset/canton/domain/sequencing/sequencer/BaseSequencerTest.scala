@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.Done
-import org.apache.pekko.stream.scaladsl.{Keep, Source}
-import org.apache.pekko.stream.{KillSwitches, Materializer}
+import akka.Done
+import akka.stream.scaladsl.{Keep, Source}
+import akka.stream.{KillSwitches, Materializer}
 import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt

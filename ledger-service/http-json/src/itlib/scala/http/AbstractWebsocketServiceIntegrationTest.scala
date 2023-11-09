@@ -3,17 +3,17 @@
 
 package com.daml.http
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.model.ws.{
+import akka.NotUsed
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.ws.{
   Message,
   PeerClosedConnectionException,
   TextMessage,
   WebSocketRequest,
 }
-import org.apache.pekko.http.scaladsl.model.{HttpHeader, StatusCodes, Uri}
-import org.apache.pekko.stream.{KillSwitches, UniqueKillSwitch}
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import akka.http.scaladsl.model.{HttpHeader, StatusCodes, Uri}
+import akka.stream.{KillSwitches, UniqueKillSwitch}
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.http.HttpServiceTestFixture.{
   UseTls,
   accountCreateCommand,

@@ -3,12 +3,12 @@
 
 package com.daml.navigator
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import org.apache.pekko.http.scaladsl.model.headers.{Cookie, `Set-Cookie`}
-import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
+import akka.actor.ActorSystem
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import akka.http.scaladsl.model.headers.{Cookie, `Set-Cookie`}
+import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.testkit.ScalatestRouteTest
+import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.api.util.TimeProvider.UTC
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.SessionJsonProtocol._

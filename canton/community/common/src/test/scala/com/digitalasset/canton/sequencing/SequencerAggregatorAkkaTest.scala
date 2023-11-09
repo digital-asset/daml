@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.sequencing
 
-import org.apache.pekko.stream.scaladsl.{Keep, Source}
-import org.apache.pekko.stream.testkit.scaladsl.TestSink
-import org.apache.pekko.stream.{KillSwitches, QueueOfferResult}
+import akka.stream.scaladsl.{Keep, Source}
+import akka.stream.testkit.scaladsl.TestSink
+import akka.stream.{KillSwitches, QueueOfferResult}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
@@ -13,9 +13,9 @@ import com.digitalasset.canton.crypto.{Fingerprint, Signature}
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
 import com.digitalasset.canton.lifecycle.OnShutdownRunner
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.sequencing.SequencerAggregatorPekko.HasSequencerSubscriptionFactoryPekko
-import com.digitalasset.canton.sequencing.SequencerAggregatorPekkoTest.Config
-import com.digitalasset.canton.sequencing.client.TestSequencerSubscriptionFactoryPekko.{
+import com.digitalasset.canton.sequencing.SequencerAggregatorAkka.HasSequencerSubscriptionFactoryAkka
+import com.digitalasset.canton.sequencing.SequencerAggregatorAkkaTest.Config
+import com.digitalasset.canton.sequencing.client.TestSequencerSubscriptionFactoryAkka.{
   Error,
   Event,
   Failure,
@@ -26,8 +26,8 @@ import com.digitalasset.canton.sequencing.client.{
   SequencedEventTestFixture,
   SequencedEventValidator,
   SequencedEventValidatorImpl,
-  SequencerSubscriptionFactoryPekko,
-  TestSequencerSubscriptionFactoryPekko,
+  SequencerSubscriptionFactoryAkka,
+  TestSequencerSubscriptionFactoryAkka,
   TestSubscriptionError,
 }
 import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
@@ -46,7 +46,7 @@ import org.scalatest.wordspec.FixtureAnyWordSpec
 
 import scala.concurrent.duration.DurationInt
 
-class SequencerAggregatorPekkoTest
+class SequencerAggregatorAkkaTest
     extends FixtureAnyWordSpec
     with BaseTest
     with HasExecutionContext
@@ -66,11 +66,11 @@ class SequencerAggregatorPekkoTest
 
   private val domainId = DefaultTestIdentities.domainId
 
-  private def mkAggregatorPekko(
+  private def mkAggregatorAkka(
       validator: SequencedEventValidator =
         SequencedEventValidator.noValidation(DefaultTestIdentities.domainId, warn = false)
-  )(implicit fixture: FixtureParam): SequencerAggregatorPekko =
-    new SequencerAggregatorPekko(
+  )(implicit fixture: FixtureParam): SequencerAggregatorAkka =
+    new SequencerAggregatorAkka(
       domainId,
       validator,
       PositiveInt.one,
@@ -101,15 +101,15 @@ class SequencerAggregatorPekkoTest
       ComponentHealthState.NotInitializedState
     override protected def associatedOnShutdownRunner: OnShutdownRunner =
       new OnShutdownRunner.PureOnShutdownRunner(logger)
-    override protected def logger: TracedLogger = SequencerAggregatorPekkoTest.this.logger
+    override protected def logger: TracedLogger = SequencerAggregatorAkkaTest.this.logger
   }
 
   "aggregator" should {
     "pass through events from a single sequencer subscription" in { implicit fixture =>
       import fixture.*
 
-      val aggregator = mkAggregatorPekko()
-      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+      val aggregator = mkAggregatorAkka()
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
       factory.add(mkEvents(SequencerCounter.Genesis, 3) *)
 
       val config = OrderedBucketMergeConfig(
@@ -140,8 +140,8 @@ class SequencerAggregatorPekkoTest
 
     "log the error when a subscription signals an error" in { implicit fixture =>
       import fixture.*
-      val aggregator = mkAggregatorPekko()
-      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+      val aggregator = mkAggregatorAkka()
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
       factory.add(Error(UnretryableError))
       val config = OrderedBucketMergeConfig(
         PositiveInt.one,
@@ -174,8 +174,8 @@ class SequencerAggregatorPekkoTest
 
     "propagate the exception from a subscription" in { implicit fixture =>
       import fixture.*
-      val aggregator = mkAggregatorPekko()
-      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+      val aggregator = mkAggregatorAkka()
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
       val ex = new Exception("Alice subscription failure")
       factory.add(Failure(ex))
       val config = OrderedBucketMergeConfig(
@@ -208,14 +208,14 @@ class SequencerAggregatorPekkoTest
     "support reconfiguration for single sequencers" in { implicit fixture =>
       import fixture.*
 
-      val aggregator = mkAggregatorPekko()
+      val aggregator = mkAggregatorAkka()
       val ((source, (doneF, _health)), sink) = Source
         .queue[OrderedBucketMergeConfig[SequencerId, Config]](1)
         .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
-      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryAkka(loggerFactory)
       factory.add(mkEvents(SequencerCounter.Genesis, 3) *)
       factory.add(mkEvents(SequencerCounter.Genesis + 2, 3) *)
       val config1 = OrderedBucketMergeConfig(
@@ -252,11 +252,11 @@ class SequencerAggregatorPekkoTest
       ProtocolVersion.CNTestNet in { implicit fixture =>
         import fixture.*
 
-        val aggregator = mkAggregatorPekko()
+        val aggregator = mkAggregatorAkka()
 
-        val factoryAlice = TestSequencerSubscriptionFactoryPekko(loggerFactory)
-        val factoryBob = TestSequencerSubscriptionFactoryPekko(loggerFactory)
-        val factoryCarlos = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+        val factoryAlice = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+        val factoryBob = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+        val factoryCarlos = TestSequencerSubscriptionFactoryAkka(loggerFactory)
 
         val signatureAlice = fakeSignatureFor("Alice")
         val signatureBob = fakeSignatureFor("Bob")
@@ -319,7 +319,7 @@ class SequencerAggregatorPekkoTest
           timeouts,
         )
         val initialCounter = SequencerCounter(10)
-        val aggregator = mkAggregatorPekko(validator)
+        val aggregator = mkAggregatorAkka(validator)
         val ((source, (doneF, health_)), sink) = Source
           .queue[OrderedBucketMergeConfig[SequencerId, Config]](1)
           .viaMat(
@@ -328,9 +328,9 @@ class SequencerAggregatorPekkoTest
           .toMat(TestSink.probe)(Keep.both)
           .run()
 
-        val factoryAlice = TestSequencerSubscriptionFactoryPekko(loggerFactory)
-        val factoryBob = TestSequencerSubscriptionFactoryPekko(loggerFactory)
-        val factoryCarlos = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+        val factoryAlice = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+        val factoryBob = TestSequencerSubscriptionFactoryAkka(loggerFactory)
+        val factoryCarlos = TestSequencerSubscriptionFactoryAkka(loggerFactory)
 
         val config1 = OrderedBucketMergeConfig(
           PositiveInt.tryCreate(2),
@@ -400,9 +400,9 @@ class SequencerAggregatorPekkoTest
     "forward health signal for a single sequencer" in { implicit fixture =>
       import fixture.*
 
-      val aggregator = mkAggregatorPekko()
+      val aggregator = mkAggregatorAkka()
       val health = new TestAtomicHealthComponent("forward-health-signal-test")
-      val factory = new TestSequencerSubscriptionFactoryPekko(health, loggerFactory)
+      val factory = new TestSequencerSubscriptionFactoryAkka(health, loggerFactory)
       factory.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
       factory.add(Error(UnretryableError))
       val config = OrderedBucketMergeConfig(
@@ -455,14 +455,14 @@ class SequencerAggregatorPekkoTest
       ProtocolVersion.CNTestNet in { implicit fixture =>
         import fixture.*
 
-        val aggregator = mkAggregatorPekko()
+        val aggregator = mkAggregatorAkka()
         val healthAlice = new TestAtomicHealthComponent("health-signal-alice")
         val healthBob = new TestAtomicHealthComponent("health-signal-bob")
         val healthCarlos = new TestAtomicHealthComponent("health-signal-carlos")
 
-        val factoryAlice = new TestSequencerSubscriptionFactoryPekko(healthAlice, loggerFactory)
-        val factoryBob = new TestSequencerSubscriptionFactoryPekko(healthBob, loggerFactory)
-        val factoryCarlos = new TestSequencerSubscriptionFactoryPekko(healthCarlos, loggerFactory)
+        val factoryAlice = new TestSequencerSubscriptionFactoryAkka(healthAlice, loggerFactory)
+        val factoryBob = new TestSequencerSubscriptionFactoryAkka(healthBob, loggerFactory)
+        val factoryCarlos = new TestSequencerSubscriptionFactoryAkka(healthCarlos, loggerFactory)
 
         factoryAlice.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
         factoryBob.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
@@ -548,8 +548,8 @@ class SequencerAggregatorPekkoTest
   }
 }
 
-object SequencerAggregatorPekkoTest {
+object SequencerAggregatorAkkaTest {
   final case class Config(id: String)(
-      override val subscriptionFactory: SequencerSubscriptionFactoryPekko[TestSubscriptionError]
-  ) extends HasSequencerSubscriptionFactoryPekko[TestSubscriptionError]
+      override val subscriptionFactory: SequencerSubscriptionFactoryAkka[TestSubscriptionError]
+  ) extends HasSequencerSubscriptionFactoryAkka[TestSubscriptionError]
 }

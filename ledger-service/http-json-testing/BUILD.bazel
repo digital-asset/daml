@@ -21,9 +21,9 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             kind_projector_plugin,
         ],
         scala_deps = [
-            "@maven//:org_apache_pekko_pekko_actor",
-            "@maven//:org_apache_pekko_pekko_http_core",
-            "@maven//:org_apache_pekko_pekko_stream",
+            "@maven//:com_typesafe_akka_akka_actor",
+            "@maven//:com_typesafe_akka_akka_http_core",
+            "@maven//:com_typesafe_akka_akka_stream",
             "@maven//:io_spray_spray_json",
             "@maven//:org_scalacheck_scalacheck",
             "@maven//:org_scalactic_scalactic",
@@ -40,7 +40,7 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
         deps = [
             "//bazel_tools/runfiles:scala_runfiles",
             "//daml-lf/transaction",
-            "//language-support/scala/bindings-pekko",
+            "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-api/testing-utils",
             "//ledger-service/fetch-contracts",

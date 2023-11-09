@@ -3,12 +3,12 @@
 
 package com.daml.http.json
 
-import org.apache.pekko.http.scaladsl.marshalling.{Marshaller, ToEntityMarshaller}
-import org.apache.pekko.http.scaladsl.model.MediaTypes.`application/json`
-import org.apache.pekko.http.scaladsl.model.StatusCodes
-import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.server.ExceptionHandler
-import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
+import akka.http.scaladsl.marshalling.{Marshaller, ToEntityMarshaller}
+import akka.http.scaladsl.model.MediaTypes.`application/json`
+import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.ExceptionHandler
+import akka.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import com.daml.scalautil.ExceptionOps._
 import scalaz.std.stream.unfold
 import scalaz.{@@, Tag}
@@ -16,7 +16,7 @@ import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Integrating spray json into pekko http. */
+/** Integrating spray json into akka http. */
 object HttpCodec {
   sealed trait JsonApi
   val JsonApi = Tag.of[JsonApi]

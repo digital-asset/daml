@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.sequencing.client.transports
 
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.{Keep, Source}
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Keep, Source}
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.client.pekko.ClientAdapter
+import com.daml.grpc.adapter.client.akka.ClientAdapter
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.api.v0
@@ -18,14 +18,14 @@ import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.client.{
-  SequencerSubscriptionPekko,
-  SubscriptionErrorRetryPolicyPekko,
+  SequencerSubscriptionAkka,
+  SubscriptionErrorRetryPolicyAkka,
 }
 import com.digitalasset.canton.sequencing.protocol.{SubscriptionRequest, SubscriptionResponse}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.PekkoUtil.syntax.*
+import com.digitalasset.canton.util.AkkaUtil.syntax.*
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Context.CancellableContext
 import io.grpc.stub.StreamObserver
@@ -33,7 +33,7 @@ import io.grpc.{CallOptions, Context, ManagedChannel, Status, StatusRuntimeExcep
 
 import scala.concurrent.ExecutionContext
 
-class GrpcSequencerClientTransportPekko(
+class GrpcSequencerClientTransportAkka(
     channel: ManagedChannel,
     callOptions: CallOptions,
     clientAuth: GrpcSequencerClientAuth,
@@ -46,7 +46,7 @@ class GrpcSequencerClientTransportPekko(
     executionSequencerFactory: ExecutionSequencerFactory,
     materializer: Materializer,
 )
-// TODO(#13789) Extend GrpcSequencerClientTransportCommon and drop support for non-Pekko subscriptions
+// TODO(#13789) Extend GrpcSequencerClientTransportCommon and drop support for non-Akka subscriptions
     extends GrpcSequencerClientTransport(
       channel,
       callOptions,
@@ -56,26 +56,26 @@ class GrpcSequencerClientTransportPekko(
       loggerFactory,
       protocolVersion,
     )
-    with SequencerClientTransportPekko {
+    with SequencerClientTransportAkka {
 
-  import GrpcSequencerClientTransportPekko.*
+  import GrpcSequencerClientTransportAkka.*
 
   override type SubscriptionError = GrpcSequencerSubscriptionError
 
   override def subscribe(request: SubscriptionRequest)(implicit
       traceContext: TraceContext
-  ): SequencerSubscriptionPekko[SubscriptionError] =
+  ): SequencerSubscriptionAkka[SubscriptionError] =
     subscribeInternal(request, requiresAuthentication = true)
 
   override def subscribeUnauthenticated(request: SubscriptionRequest)(implicit
       traceContext: TraceContext
-  ): SequencerSubscriptionPekko[SubscriptionError] =
+  ): SequencerSubscriptionAkka[SubscriptionError] =
     subscribeInternal(request, requiresAuthentication = false)
 
   private def subscribeInternal(
       subscriptionRequest: SubscriptionRequest,
       requiresAuthentication: Boolean,
-  )(implicit traceContext: TraceContext): SequencerSubscriptionPekko[SubscriptionError] = {
+  )(implicit traceContext: TraceContext): SequencerSubscriptionAkka[SubscriptionError] = {
 
     val subscriptionRequestP = subscriptionRequest.toProtoV0
 
@@ -83,7 +83,7 @@ class GrpcSequencerClientTransportPekko(
         subscriber: (v0.SubscriptionRequest, StreamObserver[Resp]) => Unit
     )(
         parseResponse: (Resp, TraceContext) => ParsingResult[SubscriptionResponse]
-    ): SequencerSubscriptionPekko[SubscriptionError] = {
+    ): SequencerSubscriptionAkka[SubscriptionError] = {
       val source = ClientAdapter
         .serverStreaming[v0.SubscriptionRequest, Resp](
           subscriptionRequestP,
@@ -95,7 +95,7 @@ class GrpcSequencerClientTransportPekko(
           // So if we see a termination, then insert an appropriate error.
           // If there is an actual gRPC error, this source will not be evaluated as
           // `recover` below completes the stream before emitting.
-          // See `PekkoUtilTest` for a unit test that this works as expected.
+          // See `AkkaUtilTest` for a unit test that this works as expected.
           Source.lazySingle { () =>
             // Info level, as this occurs from time to time due to the invalidation of the authentication token.
             logger.info("The sequencer subscription has been terminated by the server.")
@@ -126,7 +126,7 @@ class GrpcSequencerClientTransportPekko(
         // Stop emitting after the first parse error
         .takeUntilThenDrain(_.isLeft)
         .watchTermination()(Keep.both)
-      SequencerSubscriptionPekko(
+      SequencerSubscriptionAkka(
         source,
         // Transport does not report its health individually
         new AlwaysHealthyComponent("GrpcSequencerClientTransport", logger),
@@ -204,11 +204,11 @@ class GrpcSequencerClientTransportPekko(
       Left(UnexpectedGrpcFailure(t))
   }
 
-  override def subscriptionRetryPolicyPekko: SubscriptionErrorRetryPolicyPekko[SubscriptionError] =
-    new GrpcSubscriptionErrorRetryPolicyPekko()
+  override def subscriptionRetryPolicyAkka: SubscriptionErrorRetryPolicyAkka[SubscriptionError] =
+    new GrpcSubscriptionErrorRetryPolicyAkka()
 }
 
-object GrpcSequencerClientTransportPekko {
+object GrpcSequencerClientTransportAkka {
   sealed trait GrpcSequencerSubscriptionError extends Product with Serializable
 
   final case class ExpectedGrpcFailure(error: GrpcError) extends GrpcSequencerSubscriptionError

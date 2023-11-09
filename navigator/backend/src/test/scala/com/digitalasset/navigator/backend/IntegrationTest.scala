@@ -3,12 +3,12 @@
 
 package com.daml.navigator
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.model.{HttpRequest, StatusCodes, Uri}
-import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.settings.ServerSettings
-import org.apache.pekko.util.ByteString
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.{HttpRequest, StatusCodes, Uri}
+import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.settings.ServerSettings
+import akka.util.ByteString
 import com.daml.buildinfo.BuildInfo
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.domain

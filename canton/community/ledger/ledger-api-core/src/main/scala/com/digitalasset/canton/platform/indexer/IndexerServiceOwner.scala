@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.indexer
 
-import org.apache.pekko.stream.Materializer
+import akka.stream.Materializer
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.health.{Healthy, ReportsHealth}

@@ -21,7 +21,7 @@ private[logging] case object CanLogTraceContext extends CanLog[TraceContext] {
 }
 
 object TracedLogger {
-  private implicit val canLogTraceContext: CanLog[TraceContext] = CanLogTraceContext
+  private implicit val canLogTraceContext = CanLogTraceContext
 
   def apply(logger: slf4j.Logger): TracedLogger = Logger.takingImplicit[TraceContext](logger)
   def apply(logger: Logger): TracedLogger = apply(logger.underlying)

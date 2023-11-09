@@ -5,9 +5,9 @@ package com.digitalasset.canton.platform.apiserver.ratelimiting
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
-import com.daml.grpc.adapter.utils.implementations.HelloServicePekkoImplementation
+import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.ports.Port
@@ -48,7 +48,7 @@ import scala.concurrent.{Future, Promise}
 
 final class RateLimitingInterceptorSpec
     extends AsyncFlatSpec
-    with PekkoBeforeAndAfterAll
+    with AkkaBeforeAndAfterAll
     with Eventually
     with TestResourceContext
     with MockitoSugar
@@ -73,7 +73,7 @@ final class RateLimitingInterceptorSpec
     val threadPoolHumanReadableName = "For testing"
     withChannel(
       metrics,
-      new HelloServicePekkoImplementation,
+      new HelloServiceAkkaImplementation,
       config,
       additionalChecks = List(
         ThreadpoolCheck(
@@ -192,7 +192,7 @@ final class RateLimitingInterceptorSpec
 
     val pool = List(nonCollectableBean, nonHeapBean, memoryPoolBean)
 
-    withChannel(metrics, new HelloServicePekkoImplementation, config, pool, memoryBean).use {
+    withChannel(metrics, new HelloServiceAkkaImplementation, config, pool, memoryBean).use {
       channel: Channel =>
         val helloService = HelloServiceGrpc.stub(channel)
         for {
@@ -344,7 +344,7 @@ final class RateLimitingInterceptorSpec
 
     val pool = List(memoryPoolBean)
 
-    withChannel(metrics, new HelloServicePekkoImplementation, config, pool, memoryBean).use {
+    withChannel(metrics, new HelloServiceAkkaImplementation, config, pool, memoryBean).use {
       channel: Channel =>
         val helloService = HelloServiceGrpc.stub(channel)
         for {

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import org.apache.pekko.stream.Materializer
+import akka.stream.Materializer
 import cats.data.EitherT
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
@@ -29,7 +29,7 @@ import com.digitalasset.canton.sequencing.client.grpc.GrpcSequencerChannelBuilde
 import com.digitalasset.canton.sequencing.client.transports.*
 import com.digitalasset.canton.sequencing.client.transports.replay.{
   ReplayingEventsSequencerClientTransport,
-  ReplayingSendsSequencerClientTransportPekko,
+  ReplayingSendsSequencerClientTransportAkka,
   ReplayingSendsSequencerClientTransportImpl,
 }
 import com.digitalasset.canton.sequencing.handshake.SequencerHandshake
@@ -201,10 +201,10 @@ object SequencerClientFactory {
             case grpc: GrpcSequencerConnection => grpcTransport(grpc, member)
           }
 
-        // TODO(#13789) Use only `SequencerClientTransportPekko` as the return type
-        def mkRealTransportPekko(): SequencerClientTransportPekko & SequencerClientTransport =
+        // TODO(#13789) Use only `SequencerClientTransportAkka` as the return type
+        def mkRealTransportAkka(): SequencerClientTransportAkka & SequencerClientTransport =
           connection match {
-            case grpc: GrpcSequencerConnection => grpcTransportPekko(grpc, member)
+            case grpc: GrpcSequencerConnection => grpcTransportAkka(grpc, member)
           }
 
         val transport: SequencerClientTransport =
@@ -219,9 +219,9 @@ object SequencerClientFactory {
                 loggerFactory,
               )
             case Some(ReplayConfig(recording, replaySendsConfig: SequencerSends)) =>
-              if (replaySendsConfig.usePekko) {
-                val underlyingTransport = mkRealTransportPekko()
-                new ReplayingSendsSequencerClientTransportPekko(
+              if (replaySendsConfig.useAkka) {
+                val underlyingTransport = mkRealTransportAkka()
+                new ReplayingSendsSequencerClientTransportAkka(
                   domainParameters.protocolVersion,
                   recording.fullFilePath,
                   replaySendsConfig,
@@ -330,15 +330,15 @@ object SequencerClientFactory {
         )
       }
 
-      private def grpcTransportPekko(connection: GrpcSequencerConnection, member: Member)(implicit
+      private def grpcTransportAkka(connection: GrpcSequencerConnection, member: Member)(implicit
           executionContext: ExecutionContextExecutor,
           executionSequencerFactory: ExecutionSequencerFactory,
           materializer: Materializer,
-      ): GrpcSequencerClientTransportPekko = {
+      ): GrpcSequencerClientTransportAkka = {
         val channel = createChannel(connection)
         val auth = grpcSequencerClientAuth(connection, member)
         val callOptions = callOptionsForEndpoints(connection.endpoints)
-        new GrpcSequencerClientTransportPekko(
+        new GrpcSequencerClientTransportAkka(
           channel,
           callOptions,
           auth,

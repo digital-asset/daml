@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.health
 
-import org.apache.pekko.actor.ActorSystem
+import akka.actor.ActorSystem
 import com.digitalasset.canton.config.{CheckConfig, ProcessingTimeout}
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.lifecycle.Lifecycle

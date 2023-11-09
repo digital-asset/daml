@@ -4,8 +4,8 @@
 package com.daml.lf.engine.trigger
 package simulation
 
-import org.apache.pekko.stream.{FlowShape, KillSwitches, Materializer, RestartSettings, SourceShape}
-import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, RestartSource, Sink, Source}
+import akka.stream.{FlowShape, KillSwitches, Materializer, RestartSettings, SourceShape}
+import akka.stream.scaladsl.{Flow, GraphDSL, Keep, RestartSource, Sink, Source}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.event.CreatedEvent

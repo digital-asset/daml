@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Sink
+import akka.actor.ActorSystem
+import akka.stream.Materializer
+import akka.stream.scaladsl.Sink
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
@@ -21,7 +21,7 @@ import com.digitalasset.canton.sequencing.protocol.SendAsyncError.RequestInvalid
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.util.PekkoUtil
+import com.digitalasset.canton.util.AkkaUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
@@ -43,7 +43,7 @@ abstract class SequencerApiTest
   trait Env extends AutoCloseable with NamedLogging {
 
     private[SequencerApiTest] implicit lazy val actorSystem: ActorSystem =
-      PekkoUtil.createActorSystem(loggerFactory.threadName)(parallelExecutionContext)
+      AkkaUtil.createActorSystem(loggerFactory.threadName)(parallelExecutionContext)
 
     private[SequencerApiTest] lazy val sequencer: CantonSequencer =
       SequencerApiTest.this.createSequencer(
