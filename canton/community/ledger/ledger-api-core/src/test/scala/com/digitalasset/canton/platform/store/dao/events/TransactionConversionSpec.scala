@@ -18,18 +18,16 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
       Event.of(
         Event.Event.Created(
           CreatedEvent(
-            "",
-            contractId.coid,
-            None,
-            None,
-            None,
-            None,
-            ByteString.EMPTY,
-            Seq.empty,
-            Seq.empty,
-            Seq.empty,
-            Seq.empty,
-            None,
+            contractId = contractId.coid,
+            templateId = None,
+            contractKey = None,
+            createArguments = None,
+            createdEventBlob = ByteString.EMPTY,
+            interfaceViews = Seq.empty,
+            witnessParties = Seq.empty,
+            signatories = Seq.empty,
+            observers = Seq.empty,
+            agreementText = None,
           )
         )
       )

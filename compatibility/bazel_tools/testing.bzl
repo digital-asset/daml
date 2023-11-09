@@ -726,6 +726,19 @@ excluded_test_tool_tests = [
                 "end": "2.8.0-snapshot.20231025.0",
                 "exclusions": [
                     "ExplicitDisclosureIT",
+                    "InterfaceSubscriptionsIT:ISTransactionsCreateArgumentsBlob",
+                ],
+            },
+        ],
+    },
+    {
+        "end": "2.8.0-snapshot.20231025.0",
+        "platform_ranges": [
+            {
+                "start": "2.8.0-snapshot.20231025.1",
+                "exclusions": [
+                    "ExplicitDisclosureIT",
+                    "InterfaceSubscriptionsIT:ISTransactionsCreateArgumentsBlob",
                 ],
             },
         ],

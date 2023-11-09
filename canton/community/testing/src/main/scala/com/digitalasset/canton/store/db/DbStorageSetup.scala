@@ -229,7 +229,7 @@ class PostgresTestContainerSetup(
 ) extends PostgresDbStorageSetup(loggerFactory)
     with NamedLogging {
 
-  private lazy val postgresContainer = new PostgreSQLContainer(s"${PostgreSQLContainer.IMAGE}:11")
+  private lazy val postgresContainer = new PostgreSQLContainer(s"${PostgreSQLContainer.IMAGE}:12")
 
   override protected def prepareDatabase(): Unit = {
     // up the connection limit to deal with everyone using connection pools in tests that can run concurrently.
