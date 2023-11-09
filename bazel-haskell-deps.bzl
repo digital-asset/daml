@@ -548,7 +548,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "semigroupoids",
             "semver",
             "silently",
-            "simple-smt",
             "sorted-list",
             "split",
             "stache",
