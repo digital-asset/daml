@@ -62,7 +62,7 @@ import Development.IDE.GHC.Util
 import qualified DA.Service.Logger as Logger
 import qualified Development.IDE.Types.Options as Ghcide
 import SdkVersion (damlStdlib)
-import DA.Daml.LF.Ast.Version (isDevVersion, Version (versionMajor))
+import DA.Daml.LF.Ast.Version (version2_dev, Version (versionMajor))
 
 -- | Convert to ghcide’s IdeOptions type.
 toCompileOpts :: Options -> Ghcide.IdeOptions
@@ -552,7 +552,7 @@ expandSdkPackages logger lfVersion dars = do
   where
     isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
     isInvalidDaml3Script = \case
-      "daml3-script" | not (isDevVersion lfVersion) -> True
+      "daml3-script" | lfVersion /= version2_dev -> True
       _ -> False
     sdkSuffix = "-" <> LF.renderVersion lfVersion
     expand mbSdkPath fp
