@@ -46,12 +46,37 @@ import Text.Regex.TDFA
 --    stderr.
 
 main :: IO ()
-main = do
+main =
+    hspec $
+        describe "repl func tests" $
+            [minBound @LF.MajorVersion .. maxBound] `forM_` \major ->
+                context ("LF version " <> LF.renderMajorVersion major) $
+                    aroundAll
+                        (withInteractionTester major)
+                        (sequence_ functionalTests)
+
+type InteractionTester = [Step] -> Expectation
+
+withInteractionTester :: LF.MajorVersion -> ActionWith InteractionTester -> IO ()
+withInteractionTester major action = do
+    let prettyMajor = LF.renderMajorVersion major
+    let lfVersion =
+            case major of
+                LF.V1 -> LF.versionDefault
+                -- TODO(#17366): test with the latest stable version of LF2 once there is one
+                LF.V2 -> LF.version2_dev
+    let options =
+            (defaultOptions Nothing)
+                { optScenarioService = EnableScenarioService False
+                , optDamlLfVersion = lfVersion
+                }
     setNumCapabilities 1
     limitJvmMemory defaultJvmMemoryLimits
-    scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
+    scriptDar <- locateRunfiles $ case major of
+        LF.V1 -> mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
+        LF.V2 -> mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar"
     testDars <- forM ["repl-test", "repl-test-two"] $ \name ->
-        locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> name <.> "dar")
+        locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> name <> "-v" <> prettyMajor <.> "dar")
     replDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")
     forM_ [stdin, stdout, stderr] $ \h -> hSetBuffering h LineBuffering
     let replJar = replDir </> "repl-service.jar"
@@ -65,24 +90,43 @@ main = do
     -- it will spin up sandbox and the repl client.
     withTempDir $ \tmpDir ->
         withBinaryFile nullDevice WriteMode $ \devNull ->
-        bracket (createCantonSandbox tmpDir devNull defaultSandboxConf { dars = testDars }) destroySandbox $ \SandboxResource{sandboxPort} ->
-        ReplClient.withReplClient (ReplClient.Options replJar (Just ("localhost", show sandboxPort)) Nothing Nothing Nothing Nothing ReplClient.ReplWallClock LF.V1 CreatePipe) $ \replHandle ->
-        -- TODO We could share some of this setup with the actual repl code in damlc.
-        withTempDir $ \dir ->
-        withCurrentDirectory dir $ do
-        Just serviceOut <- pure (ReplClient.hStdout replHandle)
-        hSetBuffering serviceOut LineBuffering
-        withAsync (drainHandle serviceOut serviceLineChan) $ \_ -> do
-            initPackageConfig scriptDar testDars
-            logger <- Logger.newStderrLogger Logger.Warning "repl-tests"
-            replLogger <- newReplLogger
-            withDamlIdeState options logger (replEventLogger replLogger) $ \ideState ->
-                (hspec $ functionalTests replHandle replLogger serviceLineChan options ideState) `finally`
-                    -- We need to kill the process to avoid getting stuck in hGetLine on Windows.
-                    ReplClient.hTerminate replHandle
+        bracket
+            ( createCantonSandbox
+                tmpDir
+                devNull
+                defaultSandboxConf{dars = testDars, devVersionSupport = LF.isDevVersion lfVersion}
+            )
+            destroySandbox
+            $ \SandboxResource{sandboxPort} ->
+        ReplClient.withReplClient
+             ReplClient.Options
+                { optServerJar = replJar
+                , optLedgerConfig = Just ("localhost", show sandboxPort)
+                , optMbAuthTokenFile = Nothing
+                , optMbApplicationId = Nothing
+                , optMbSslConfig = Nothing
+                , optMaxInboundMessageSize = Nothing
+                , optTimeMode = ReplClient.ReplWallClock
+                , optMajorLfVersion = major
+                , optStdout = CreatePipe
+                }
+            $ \replHandle ->
+            -- TODO We could share some of this setup with the actual repl code in damlc.
+            withTempDir $ \dir ->
+            withCurrentDirectory dir $ do
+            Just serviceOut <- pure (ReplClient.hStdout replHandle)
+            hSetBuffering serviceOut LineBuffering
+            withAsync (drainHandle serviceOut serviceLineChan) $ \_ -> do
+                initPackageConfig options scriptDar testDars
+                logger <- Logger.newStderrLogger Logger.Warning "repl-tests"
+                replLogger <- newReplLogger
+                withDamlIdeState options logger (replEventLogger replLogger) $ \ideState ->
+                    action (testInteraction replHandle replLogger serviceLineChan options ideState) `finally`
+                        -- We need to kill the process to avoid getting stuck in hGetLine on Windows.
+                        ReplClient.hTerminate replHandle
 
-initPackageConfig :: FilePath -> [FilePath] -> IO ()
-initPackageConfig scriptDar dars = do
+initPackageConfig :: Options -> FilePath -> [FilePath] -> IO ()
+initPackageConfig options scriptDar dars = do
     writeFileUTF8 "daml.yaml" $ unlines $
         [ "sdk-version: " <> sdkVersion
         , "name: repl"
@@ -109,11 +153,8 @@ drainHandle handle chan = forever $ do
     line <- hGetLine handle
     writeChan chan line
 
-options :: Options
-options = (defaultOptions Nothing) { optScenarioService = EnableScenarioService False }
-
-functionalTests :: ReplClient.Handle -> ReplLogger -> Chan String -> Options -> IdeState -> Spec
-functionalTests replClient replLogger serviceOut options ideState = describe "repl func tests" $ sequence_
+functionalTests :: [SpecWith InteractionTester]
+functionalTests =
     [ testInteraction' "create and query"
           [ input "alice <- allocateParty \"Alice\""
           , input "debug =<< query @T alice"
@@ -265,11 +306,11 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           ]
     , testInteraction' "error call"
           [ input "error \"foobar\""
-          , matchOutput "Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@86828b98{ message = \"foobar\" }$"
+          , matchOutput "Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@[a-f0-9]+{ message = \"foobar\" }$"
           ]
     , testInteraction' "abort call"
           [ input "abort \"foobar\""
-          , matchOutput "Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@86828b98{ message = \"foobar\" }$"
+          , matchOutput "Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@[a-f0-9]+{ message = \"foobar\" }$"
           ]
     , testInteraction' "record dot syntax"
           [ input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice\")"
@@ -374,8 +415,7 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
     ]
   where
     testInteraction' testName steps =
-        it testName $
-        testInteraction replClient replLogger serviceOut options ideState steps
+        it testName $ \test -> (test steps :: Expectation)
 
 testInteraction
     :: ReplClient.Handle
@@ -383,8 +423,7 @@ testInteraction
     -> Chan String
     -> Options
     -> IdeState
-    -> [Step]
-    -> Expectation
+    -> InteractionTester
 testInteraction replClient replLogger serviceOut options ideState steps = do
     let (inLines, outAssertions) = processSteps steps
     -- On Windows we cannot dup2 between a file handle and a pipe.
@@ -396,7 +435,7 @@ testInteraction replClient replLogger serviceOut options ideState steps = do
             Right () <- ReplClient.clearResults replClient
             let imports = [(LF.PackageName name, Nothing) | name <- ["repl-test", "repl-test-two"]]
             capture_ $ runRepl imports options replClient replLogger ideState
-    -- Write output to a file so we can conveniently read individual characters.
+        -- Write output to a file so we can conveniently read individual characters.
     withTempFile $ \clientOutFile -> do
         writeFileUTF8 clientOutFile out
         withFile clientOutFile ReadMode $ \clientOut ->
