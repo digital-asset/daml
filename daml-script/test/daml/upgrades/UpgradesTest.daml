@@ -115,6 +115,7 @@ tests = mconcat
     , ("Succeeds if the observer set loses parties that are already signatories", canRemoveObserversThatAreSignatories)
 
     , -- Ensure clause changes
+      -- TODO(#17793): Implement recomputation of ensure clause at upgrade time in engine.
       ("(BROKEN) Fails if the ensure clause changes such that V1 is not longer valid", ensureClauseBecomesInvalid)
     , ("Succeeds when implicitly creating a V1 contract such that the ensure clause only passes in V2", onlyV2EnsureClauseRequiredForImplicitUpgrade)
     , ("(BROKEN) Fails when explicitly calling a V1 choice on a V2 contract that doesn't pass the ensure clause in V1", ensureClauseDowngradeToNoLongerValid)
@@ -505,6 +506,7 @@ canRemoveObserversThatAreSignatories =
 
 -- TODO: This test should fail, as the ensure becomes negative on the V2. With current implementation, a V2 choice can be called on an
 -- upgraded V1 contract payload that doesn't pass the V2 ensure clause
+-- TODO(#17793): Implement recomputation of ensure clause at upgrade time in engine.
 ensureClauseBecomesInvalid : Script ()
 ensureClauseBecomesInvalid =
   genericUpgradeTest @V2.EnsureChanges (V1.EnsureChanges True False) V2.EnsureChangesCall False $ \case
@@ -520,6 +522,7 @@ onlyV2EnsureClauseRequiredForImplicitUpgrade = do
 
 -- TODO: This test should fail, as the ensure becomes negative on the V1. With current implementation, a V1 choice can be called on a 
 -- downgraded V2 contract payload that doesn't pass the V1 ensure clause
+-- TODO(#17793): Implement recomputation of ensure clause at upgrade time in engine.
 ensureClauseDowngradeToNoLongerValid : Script ()
 ensureClauseDowngradeToNoLongerValid =
   genericUpgradeTest @V1.EnsureChanges (V2.EnsureChanges False True) V1.EnsureChangesCall True $ \case
