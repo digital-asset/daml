@@ -446,7 +446,6 @@ trait CantonConfig {
         ),
         uniqueContractKeys = participantConfig.init.parameters.uniqueContractKeys,
         ledgerApiServerParameters = participantParameters.ledgerApiServerParameters,
-        maxDbConnections = participantConfig.storage.maxConnectionsCanton(true, false, false),
         excludeInfrastructureTransactions = participantParameters.excludeInfrastructureTransactions,
         enableEngineStackTrace = participantParameters.enableEngineStackTraces,
         enableContractUpgrading = participantParameters.enableContractUpgrading,
@@ -761,6 +760,8 @@ object CantonConfig {
       deriveReader[RemoteParticipantConfig]
     lazy implicit val batchingReader: ConfigReader[BatchingConfig] =
       deriveReader[BatchingConfig]
+    lazy implicit val connectionAllocationReader: ConfigReader[ConnectionAllocation] =
+      deriveReader[ConnectionAllocation]
     lazy implicit val dbParamsReader: ConfigReader[DbParametersConfig] =
       deriveReader[DbParametersConfig]
     lazy implicit val memoryReader: ConfigReader[CommunityStorageConfig.Memory] =
@@ -1132,6 +1133,8 @@ object CantonConfig {
       deriveWriter[NodeMonitoringConfig]
     lazy implicit val batchingWriter: ConfigWriter[BatchingConfig] =
       deriveWriter[BatchingConfig]
+    lazy implicit val connectionAllocationWriter: ConfigWriter[ConnectionAllocation] =
+      deriveWriter[ConnectionAllocation]
     lazy implicit val dbParametersWriter: ConfigWriter[DbParametersConfig] =
       deriveWriter[DbParametersConfig]
     lazy implicit val memoryWriter: ConfigWriter[CommunityStorageConfig.Memory] =

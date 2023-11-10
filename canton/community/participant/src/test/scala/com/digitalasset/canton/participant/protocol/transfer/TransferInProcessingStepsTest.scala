@@ -445,7 +445,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
       }
 
     "succeed without errors" in {
-      val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCache, None)
+      val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCache)
       for {
         inRequest <- encryptFullTransferInTree(inTree, sessionKeyStore)
         envelopes = NonEmpty(

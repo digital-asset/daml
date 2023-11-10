@@ -54,7 +54,6 @@ import scala.concurrent.{ExecutionContext, Future}
 class DbTopologyStoreX[StoreId <: TopologyStoreId](
     override protected val storage: DbStorage,
     val storeId: StoreId,
-    maxDbConnections: PositiveInt, // used to throttle query batching
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
     override protected val maxItemsInSqlQuery: PositiveInt = PositiveInt.tryCreate(100),
@@ -132,7 +131,9 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   )(implicit traceContext: TraceContext) = if (elements.isEmpty) Future.successful(())
   else
     MonadUtil.batchedSequentialTraverse_(
-      parallelism = if (processInParallel) PositiveInt.two * maxDbConnections else PositiveInt.one,
+      parallelism =
+        if (processInParallel) PositiveInt.two * storage.threadsAvailableForWriting
+        else PositiveInt.one,
       chunkSize = maxItemsInSqlQuery,
     )(elements) { elementsBatch =>
       storage.update_(
@@ -566,7 +567,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       case Some(uids) =>
         MonadUtil
           .batchedSequentialTraverse(
-            parallelism = maxDbConnections,
+            parallelism = storage.threadsAvailableForWriting,
             chunkSize = maxItemsInSqlQuery,
           )(uids) { batchedUidFilters => forwardBatch(Some(batchedUidFilters)).map(_.result) }
           .map(StoredTopologyTransactionsX(_))

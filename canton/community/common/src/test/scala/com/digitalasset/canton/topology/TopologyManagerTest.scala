@@ -22,6 +22,7 @@ import org.slf4j.event.Level
 
 import scala.concurrent.Future
 
+// TODO(#15303) Remove this trait
 trait TopologyManagerTest
     extends AnyWordSpec
     with BeforeAndAfterAll

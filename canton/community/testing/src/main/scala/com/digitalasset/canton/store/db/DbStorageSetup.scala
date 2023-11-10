@@ -19,7 +19,7 @@ import com.digitalasset.canton.resource.{
 }
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.postgresql.util.PSQLException
 import org.scalatest.Assertions.fail
@@ -34,6 +34,7 @@ trait DbStorageSetup extends FlagCloseable with HasCloseContext with NamedLoggin
   type C <: DbConfig
 
   protected implicit def executionContext: ExecutionContext
+  private implicit val traceContext: TraceContext = TraceContext.empty
 
   def basicConfig: DbBasicConfig
 

@@ -204,6 +204,7 @@ message ContractsAdded {
   google.protobuf.Timestamp record_time = 5;
   repeated string hosted_witnesses = 6;
   map<string, bytes> contract_metadata = 7;
+  string workflow_id = 8;
 }
 
 message ContractsPurged {

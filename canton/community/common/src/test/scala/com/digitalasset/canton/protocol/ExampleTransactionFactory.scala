@@ -564,6 +564,7 @@ class ExampleTransactionFactory(
       consumed: Set[LfContractId],
       coreInputs: Seq[SerializableContract],
       created: Seq[SerializableContract],
+      resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution],
       seed: Option[LfHash],
       isRoot: Boolean,
       subviews: TransactionView*
@@ -621,7 +622,7 @@ class ExampleTransactionFactory(
       coreInputContracts,
       createWithSerialization,
       createdInSubviewArchivedInCore,
-      Map.empty,
+      resolvedKeys,
       actionDescription,
       RollbackContext.empty,
       participantDataSalt(viewIndex),
@@ -886,7 +887,7 @@ class ExampleTransactionFactory(
       )
 
     lazy val view0: TransactionView =
-      view(node, 0, consumed, used, created, nodeSeed, isRoot = true)
+      view(node, 0, consumed, used, created, Map.empty, nodeSeed, isRoot = true)
 
     override lazy val rootViews: Seq[TransactionView] = Seq(view0)
 
@@ -1200,7 +1201,16 @@ class ExampleTransactionFactory(
 
     override lazy val rootViews: Seq[TransactionView] = examples.zipWithIndex.map {
       case (ex, index) =>
-        view(ex.node, index, ex.consumed, ex.used, ex.created, ex.nodeSeed, isRoot = true)
+        view(
+          ex.node,
+          index,
+          ex.consumed,
+          ex.used,
+          ex.created,
+          Map.empty,
+          ex.nodeSeed,
+          isRoot = true,
+        )
     }
 
     override def viewWithSubviews: Seq[(TransactionView, Seq[TransactionView])] =
@@ -1554,6 +1564,7 @@ class ExampleTransactionFactory(
         Set.empty,
         Seq.empty,
         Seq(serializableFromCreate(create0, saltConditionally(salt0Id))),
+        Map.empty,
         Some(create0seed),
         isRoot = true,
       )
@@ -1564,6 +1575,7 @@ class ExampleTransactionFactory(
         Set.empty,
         Seq.empty,
         Seq(serializableFromCreate(create130, saltConditionally(salt130Id))),
+        Map.empty,
         Some(create130seed),
         isRoot = false,
       )
@@ -1574,6 +1586,7 @@ class ExampleTransactionFactory(
         Set.empty,
         Seq.empty,
         Seq(serializableFromCreate(create1310, saltConditionally(salt1310Id))),
+        Map.empty,
         Some(create1310seed),
         isRoot = false,
       )
@@ -1593,6 +1606,7 @@ class ExampleTransactionFactory(
           )
         ),
         Seq.empty,
+        Map.empty,
         Some(deriveNodeSeed(1, 3, 1)),
         isRoot = false,
         view110,
@@ -1616,6 +1630,7 @@ class ExampleTransactionFactory(
           serializableFromCreate(create10, saltConditionally(salt10Id)),
           serializableFromCreate(create12, saltConditionally(salt12Id)),
         ),
+        Map.empty,
         Some(deriveNodeSeed(1)),
         isRoot = true,
         view10,
@@ -2136,6 +2151,7 @@ class ExampleTransactionFactory(
         Set.empty,
         Seq.empty,
         Seq(serializableFromCreate(create0, saltConditionally(salt0Id))),
+        Map.empty,
         Some(create0seed),
         isRoot = true,
       )
@@ -2147,6 +2163,7 @@ class ExampleTransactionFactory(
         Set.empty,
         Seq.empty,
         Seq(serializableFromCreate(create100, saltConditionally(salt100Id))),
+        Map.empty,
         Some(create100seed),
         isRoot = false,
       )
@@ -2165,6 +2182,7 @@ class ExampleTransactionFactory(
         )
       ),
       Seq.empty,
+      Map.empty,
       Some(deriveNodeSeed(1, 0)),
       isRoot = false,
       view100,
@@ -2177,6 +2195,7 @@ class ExampleTransactionFactory(
         Set.empty,
         Seq.empty,
         Seq(serializableFromCreate(create120, saltConditionally(salt120Id))),
+        Map.empty,
         Some(create120seed),
         isRoot = false,
       )
@@ -2196,6 +2215,7 @@ class ExampleTransactionFactory(
           )
         ),
         Seq.empty,
+        Map.empty,
         Some(deriveNodeSeed(1, 2)),
         isRoot = false,
         view110,
@@ -2220,6 +2240,7 @@ class ExampleTransactionFactory(
           serializableFromCreate(create11, saltConditionally(salt11Id)),
           serializableFromCreate(create13, saltConditionally(salt13Id)),
         ),
+        Map.empty,
         Some(deriveNodeSeed(1)),
         isRoot = true,
         view10,
@@ -2233,6 +2254,7 @@ class ExampleTransactionFactory(
         Set.empty,
         Seq.empty,
         Seq(serializableFromCreate(create2, saltConditionally(salt2Id))),
+        Map.empty,
         Some(create2seed),
         isRoot = true,
       )
@@ -2646,6 +2668,7 @@ class ExampleTransactionFactory(
         Set.empty,
         Seq.empty,
         Seq(serializableFromCreate(create0, saltConditionally(salt0Id))),
+        Map.empty,
         Some(create0seed),
         isRoot = true,
       )
@@ -2664,6 +2687,7 @@ class ExampleTransactionFactory(
         )
       ),
       Seq(serializableFromCreate(create110, saltConditionally(salt110Id))),
+      Map.empty,
       Some(deriveNodeSeed(1, 1)),
       isRoot = false,
     )
@@ -2682,6 +2706,7 @@ class ExampleTransactionFactory(
         )
       ),
       Seq(serializableFromCreate(create10, saltConditionally(salt10Id))),
+      Map.empty,
       Some(deriveNodeSeed(1)),
       isRoot = true,
       view10,

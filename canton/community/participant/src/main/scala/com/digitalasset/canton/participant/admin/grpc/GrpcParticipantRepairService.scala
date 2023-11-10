@@ -486,6 +486,7 @@ final class GrpcParticipantRepairService(
   ): StreamObserver[ImportAcsRequest] = {
     // TODO(i12481): This buffer will contain the whole ACS snapshot.
     val outputStream = new ByteArrayOutputStream()
+    val workflowIdPrefix = new AtomicReference[String]
 
     new StreamObserver[ImportAcsRequest] {
       override def onNext(value: ImportAcsRequest): Unit = {
@@ -494,6 +495,7 @@ final class GrpcParticipantRepairService(
             outputStream.close()
             responseObserver.onError(exception)
           case Success(_) =>
+            workflowIdPrefix.set(value.workflowIdPrefix)
         }
       }
 
@@ -537,6 +539,7 @@ final class GrpcParticipantRepairService(
                         ),
                         ignoreAlreadyAdded = true,
                         ignoreStakeholderCheck = true,
+                        workflowIdPrefix = Option(workflowIdPrefix.get()),
                       )
                     )
                   } yield ()

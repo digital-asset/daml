@@ -115,6 +115,7 @@ message ExportAcsResponse {
 
 message ImportAcsRequest {
   bytes acs_snapshot = 1;
+  string workflow_id_prefix = 2;
 }
 
 message ImportAcsResponse {}

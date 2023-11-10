@@ -176,6 +176,7 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
         consumed = singleCreate.created.map(_.contractId).toSet,
         coreInputs = singleCreate.used,
         created = singleCreate.created,
+        resolvedKeys = Map.empty,
         seed = singleCreate.nodeSeed,
         isRoot = true,
       )

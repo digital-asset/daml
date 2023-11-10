@@ -311,7 +311,12 @@ class ModelConformanceChecker(
   ): EitherT[Future, Error, Unit] = {
     val referencedContracts =
       (view.inputContracts.fmap(_.contract) ++ view.createdContracts.fmap(_.contract)).values.toSet
-    val packageIds = referencedContracts.map(_.contractInstance.unversioned.template.packageId)
+    val packageIdsOfContracts =
+      referencedContracts.map(_.contractInstance.unversioned.template.packageId)
+
+    val packageIdsOfKeys = view.globalKeyInputs.keySet.flatMap(_.packageId)
+
+    val packageIds = packageIdsOfContracts ++ packageIdsOfKeys
 
     val informees = view.viewCommonData.tryUnwrap.informees.map(_.party)
 

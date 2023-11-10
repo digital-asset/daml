@@ -5,19 +5,17 @@ package com.digitalasset.canton.store
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.caching.{CaffeineCache, ConcurrentCache}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CacheConfigWithTimeout
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.metrics.SessionKeyStoreMetrics
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
-import com.github.benmanes.caffeine.cache as caffeine
+import com.github.blemale.scaffeine.Cache
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.DurationConverters.*
 
+//TODO(#15057) Add stats on cache hits/misses
 sealed trait SessionKeyStore {
 
   protected[canton] def getSessionKeyInfoIfPresent(
@@ -74,10 +72,8 @@ object SessionKeyStoreDisabled extends SessionKeyStore {
 
 }
 
-final class SessionKeyStoreWithInMemoryCache(
-    sessionKeysCacheConfig: CacheConfigWithTimeout,
-    metrics: Option[SessionKeyStoreMetrics],
-) extends SessionKeyStore {
+final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: CacheConfigWithTimeout)
+    extends SessionKeyStore {
 
   /** This cache keeps track of the session key information for each recipient group, which is then used to encrypt the randomness that is
     * part of the encrypted view messages.
@@ -98,14 +94,10 @@ final class SessionKeyStoreWithInMemoryCache(
     *
     * Since key rolls are rare and everything still remains consistent we accept this as an expected behavior.
     */
-  private lazy val sessionKeysCacheSender: ConcurrentCache[RecipientGroup, SessionKeyInfo] =
-    CaffeineCache[RecipientGroup, SessionKeyInfo](
-      caffeine.Caffeine
-        .newBuilder()
-        .expireAfterWrite(sessionKeysCacheConfig.expireAfterTimeout.underlying.toJava)
-        .maximumSize(sessionKeysCacheConfig.maximumSize.value),
-      metrics.map(_.sessionKeyCacheSenderMetrics),
-    )
+  private lazy val sessionKeysCacheSender: Cache[RecipientGroup, SessionKeyInfo] =
+    sessionKeysCacheConfig
+      .buildScaffeine()
+      .build()
 
   protected[canton] def getSessionKeyInfoIfPresent(
       recipients: RecipientGroup
@@ -122,14 +114,10 @@ final class SessionKeyStoreWithInMemoryCache(
     * This way we can save on the amount of asymmetric decryption operations.
     */
   private lazy val sessionKeysCacheRecipient
-      : ConcurrentCache[AsymmetricEncrypted[SecureRandomness], SecureRandomness] =
-    CaffeineCache[AsymmetricEncrypted[SecureRandomness], SecureRandomness](
-      caffeine.Caffeine
-        .newBuilder()
-        .expireAfterWrite(sessionKeysCacheConfig.expireAfterTimeout.underlying.toJava)
-        .maximumSize(sessionKeysCacheConfig.maximumSize.value),
-      metrics.map(_.sessionKeyCacheRecipientMetrics),
-    )
+      : Cache[AsymmetricEncrypted[SecureRandomness], SecureRandomness] =
+    sessionKeysCacheConfig
+      .buildScaffeine()
+      .build()
 
   protected[canton] def getSessionKeyRandomnessIfPresent(
       encryptedRandomness: AsymmetricEncrypted[SecureRandomness]
@@ -165,14 +153,10 @@ final class SessionKeyStoreWithInMemoryCache(
 
 object SessionKeyStore {
 
-  def apply(
-      cacheConfig: CacheConfigWithTimeout,
-      metrics: Option[SessionKeyStoreMetrics],
-  ): SessionKeyStore =
+  def apply(cacheConfig: CacheConfigWithTimeout): SessionKeyStore =
     if (cacheConfig.expireAfterTimeout == config.NonNegativeFiniteDuration.Zero)
       SessionKeyStoreDisabled
-    else
-      new SessionKeyStoreWithInMemoryCache(cacheConfig, metrics)
+    else new SessionKeyStoreWithInMemoryCache(cacheConfig)
 
   // Defines a set of recipients and the crypto scheme used to generate the session key for that group
   final case class RecipientGroup(

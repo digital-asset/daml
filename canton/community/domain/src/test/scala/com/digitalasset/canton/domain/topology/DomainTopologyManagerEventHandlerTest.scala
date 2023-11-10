@@ -32,6 +32,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
+// TODO(#15303) Remove this test
 @SuppressWarnings(Array("org.wartremover.warts.Null"))
 class DomainTopologyManagerEventHandlerTest extends AsyncWordSpec with BaseTest with MockitoSugar {
   private val requestId = String255.tryCreate("requestId")

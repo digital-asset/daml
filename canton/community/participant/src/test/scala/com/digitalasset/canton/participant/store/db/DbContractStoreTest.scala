@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
+import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.config.{
   BatchAggregatorConfig,
   CachingConfigs,
@@ -63,7 +63,6 @@ object DbContractStoreTest {
       ),
       protocolVersion = protocolVersion,
       maxContractIdSqlInListSize = PositiveNumeric.tryCreate(2),
-      maxDbConnections = PositiveInt.tryCreate(10),
       cacheConfig = CachingConfigs.testing.contractStore,
       dbQueryBatcherConfig = BatchAggregatorConfig.defaultsForTesting,
       insertBatchAggregatorConfig = BatchAggregatorConfig.defaultsForTesting,

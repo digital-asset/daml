@@ -172,8 +172,13 @@ class StartableStoppableLedgerApiServer(
   private def buildLedgerApiServerOwner(
       overrideIndexerStartupMode: Option[IndexerStartupMode]
   )(implicit traceContext: TraceContext) = {
+
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory, telemetry)
+
+    val numIndexer = config.indexerConfig.ingestionParallelism.unwrap
+    val numLedgerApi = dbConfig.connectionPool.connectionPoolSize
+    logger.info(s"Creating storage, num-indexer: $numIndexer, num-ledger-api: $numLedgerApi")
 
     val indexServiceConfig = config.serverConfig.indexService
 

@@ -40,6 +40,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.{
   DurationConverter,
   InstantConverter,
   ParsingResult,
+  parseLFWorkflowIdO,
   parseLedgerTransactionId,
   parseLfPartyId,
   protoParser,
@@ -621,6 +622,7 @@ private[store] final case class SerializableContractsAdded(
       recordTime = Option(SerializableLfTimestamp(e.recordTime).toProtoV0),
       hostedWitnesses = e.hostedWitnesses,
       contractMetadata = contractMetadataP,
+      workflowId = e.workflowId.getOrElse(""),
     )
   }
 }
@@ -648,6 +650,7 @@ private[store] object SerializableContractsAdded {
             .parseLfContractId(contractIdP)
             .map(_ -> LfBytes.fromByteString(driverContractMetadataBytes))
       }
+      workflowId <- parseLFWorkflowIdO(e.workflowId)
     } yield LedgerSyncEvent.ContractsAdded(
       transactionId = transactionId,
       contracts = contracts,
@@ -656,6 +659,7 @@ private[store] object SerializableContractsAdded {
       ledgerTime = ledgerTime,
       hostedWitnesses = hostedWitnesses,
       contractMetadata = contractMetadata.toMap,
+      workflowId = workflowId,
     )
 }
 

@@ -41,7 +41,6 @@ trait DbTopologyStoreXHelper {
     new DbTopologyStoreX(
       storage,
       storeId,
-      maxDbConnections = PositiveInt.tryCreate(5),
       timeouts,
       loggerFactory,
       maxItemsInSqlQuery = maxItemsInSqlQuery,

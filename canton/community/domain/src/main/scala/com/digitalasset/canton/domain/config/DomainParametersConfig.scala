@@ -14,6 +14,7 @@ import com.digitalasset.canton.crypto.CryptoFactory.{
   selectAllowedSymmetricKeySchemes,
 }
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.version.{DomainProtocolVersion, ProtocolVersion}
@@ -45,7 +46,7 @@ final case class DomainParametersConfig(
       StaticDomainParameters.defaultReconciliationInterval.toConfig,
     maxRatePerParticipant: NonNegativeInt = StaticDomainParameters.defaultMaxRatePerParticipant,
     maxInboundMessageSize: MaxRequestSize =
-      StaticDomainParameters.defaultMaxRequestSize, // Cannot change the name for now
+      StaticDomainParameters.defaultMaxRequestSize, // TODO(#15221) Rename to maxRequestSize
     uniqueContractKeys: Boolean = true,
     requiredSigningKeySchemes: Option[NonEmpty[Set[SigningKeyScheme]]] = None,
     requiredEncryptionKeySchemes: Option[NonEmpty[Set[EncryptionKeyScheme]]] = None,
@@ -58,7 +59,24 @@ final case class DomainParametersConfig(
     override val devVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
     resetStoredStaticConfig: Boolean = false,
-) extends ProtocolConfig {
+) extends ProtocolConfig
+    with PrettyPrinting {
+
+  override def pretty: Pretty[DomainParametersConfig] = prettyOfClass(
+    param("reconciliationInterval", _.reconciliationInterval),
+    param("maxRatePerParticipant", _.maxRatePerParticipant),
+    param("maxInboundMessageSize", _.maxInboundMessageSize.value),
+    param("uniqueContractKeys", _.uniqueContractKeys),
+    param("requiredSigningKeySchemes", _.requiredSigningKeySchemes),
+    param("requiredEncryptionKeySchemes", _.requiredEncryptionKeySchemes),
+    param("requiredSymmetricKeySchemes", _.requiredSymmetricKeySchemes),
+    param("requiredHashAlgorithms", _.requiredHashAlgorithms),
+    param("requiredCryptoKeyFormats", _.requiredCryptoKeyFormats),
+    param("protocolVersion", _.protocolVersion.version),
+    param("devVersionSupport", _.devVersionSupport),
+    param("dontWarnOnDeprecatedPV", _.dontWarnOnDeprecatedPV),
+    param("resetStoredStaticConfig", _.resetStoredStaticConfig),
+  )
 
   override def initialProtocolVersion: ProtocolVersion = protocolVersion.version
 

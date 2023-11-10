@@ -61,11 +61,9 @@ class ParticipantMetrics(
   @nowarn("cat=deprecation")
   object pruning extends ParticipantPruningMetrics(prefix, metricsFactory)
 
+  @nowarn("cat=deprecation")
   def domainMetrics(alias: DomainAlias): SyncDomainMetrics = {
-    clients.getOrElseUpdate(
-      alias,
-      new SyncDomainMetrics(prefix :+ alias.unwrap, labeledMetricsFactory),
-    )
+    clients.getOrElseUpdate(alias, new SyncDomainMetrics(prefix :+ alias.unwrap, metricsFactory))
   }
 
   @MetricDoc.Tag(
@@ -124,11 +122,10 @@ class ParticipantMetrics(
 
 class SyncDomainMetrics(
     prefix: MetricName,
-    factory: LabeledMetricsFactory,
+    @deprecated("Use LabeledMetricsFactory", since = "2.7.0") factory: MetricsFactory,
 ) {
 
-  object sessionKeyCache extends SessionKeyStoreMetrics(prefix, factory)
-
+  @nowarn("cat=deprecation")
   object sequencerClient extends SequencerClientMetrics(prefix, factory)
 
   object conflictDetection extends TaskSchedulerMetrics {
@@ -143,6 +140,7 @@ class SyncDomainMetrics(
           |un-processed sequencer messages that will trigger a timestamp advancement.""",
       qualification = Debug,
     )
+    @nowarn("cat=deprecation")
     val sequencerCounterQueue: Counter =
       factory.counter(prefix :+ "sequencer-counter-queue")
 
@@ -155,11 +153,13 @@ class SyncDomainMetrics(
       qualification = Debug,
     )
     val taskQueueForDoc: Gauge[Int] = NoOpGauge(prefix :+ "task-queue", 0)
+    @nowarn("cat=deprecation")
     def taskQueue(size: () => Int): CloseableGauge =
       factory.gauge(prefix :+ "task-queue", 0)(MetricsContext.Empty)
 
   }
 
+  @nowarn("cat=deprecation")
   object transactionProcessing extends TransactionProcessingMetrics(prefix, factory)
 
   @MetricDoc.Tag(
@@ -170,6 +170,7 @@ class SyncDomainMetrics(
                     |it could also mean that a huge number of tasks have not yet arrived at their execution time.""",
     qualification = Debug,
   )
+  @nowarn("cat=deprecation")
   val numDirtyRequests: Counter = factory.counter(prefix :+ "dirty-requests")
 
   object recordOrderPublisher extends TaskSchedulerMetrics {
@@ -182,6 +183,7 @@ class SyncDomainMetrics(
           |queues for the publishing to the ledger api server according to record time.""",
       qualification = Debug,
     )
+    @nowarn("cat=deprecation")
     val sequencerCounterQueue: Counter =
       factory.counter(prefix :+ "sequencer-counter-queue")
 
@@ -192,7 +194,7 @@ class SyncDomainMetrics(
       qualification = Debug,
     )
     val taskQueueForDoc: Gauge[Int] = NoOpGauge(prefix :+ "task-queue", 0)
-
+    @nowarn("cat=deprecation")
     def taskQueue(size: () => Int): CloseableGauge =
       factory.gauge(prefix :+ "task-queue", 0)(MetricsContext.Empty)
   }
@@ -207,6 +209,7 @@ class SyncDomainMetrics(
       description = """Gets updated with every event received.""",
       qualification = Traffic,
     )
+    @nowarn("cat=deprecation")
     val extraTrafficAvailable: Gauge[Long] =
       factory.gauge(prefix :+ "extra-traffic-credit-available", 0L)(MetricsContext.Empty)
 
@@ -215,6 +218,7 @@ class SyncDomainMetrics(
       description = """Records top up events and the new extra traffic limit associated.""",
       qualification = Traffic,
     )
+    @nowarn("cat=deprecation")
     val topologyTransaction: Gauge[Long] =
       factory.gauge(prefix :+ "traffic-state-topology-transaction", 0L)(MetricsContext.Empty)
 
@@ -223,6 +227,7 @@ class SyncDomainMetrics(
       description = """An event was not delivered because of insufficient traffic credit.""",
       qualification = Traffic,
     )
+    @nowarn("cat=deprecation")
     val eventAboveTrafficLimit: Meter = factory.meter(prefix :+ "event-above-traffic-limit")
 
     @MetricDoc.Tag(
@@ -230,6 +235,7 @@ class SyncDomainMetrics(
       description = """An event was not delivered.""",
       qualification = Traffic,
     )
+    @nowarn("cat=deprecation")
     val eventDelivered: Meter = factory.meter(prefix :+ "event-delivered")
   }
 

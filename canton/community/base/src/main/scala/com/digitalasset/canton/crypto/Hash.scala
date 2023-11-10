@@ -34,8 +34,11 @@ import slick.jdbc.{GetResult, SetParameter}
   * database. The total amount of bytes produced by `digest` should not exceed 512 bytes (this will lead to a HexString of
   * length 1024). If needed, this limit can be increased by increasing the allowed characters for varchar's in the DBs.
   */
-sealed abstract class HashAlgorithm(val name: String, val index: Long, val length: Long) {
+sealed abstract class HashAlgorithm(val name: String, val index: Long, val length: Long)
+    extends PrettyPrinting {
   def toProtoEnum: v0.HashAlgorithm
+
+  override def pretty: Pretty[HashAlgorithm] = prettyOfString(_.name)
 }
 
 object HashAlgorithm {

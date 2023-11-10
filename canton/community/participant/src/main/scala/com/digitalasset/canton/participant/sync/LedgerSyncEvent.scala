@@ -296,7 +296,6 @@ object LedgerSyncEvent {
     override def domainId: Option[DomainId] = transactionMeta.optDomainId
   }
 
-  // TODO(i12964) once the Ledger API moves away from fake transactions, remove this
   private def mkTx(nodes: Iterable[LfNode]): LfCommittedTransaction = {
     val nodeIds = LazyList.from(0).map(LfNodeId)
     val txNodes = nodeIds.zip(nodes).toMap
@@ -308,7 +307,6 @@ object LedgerSyncEvent {
     )
   }
 
-  // TODO(i12964) once the Ledger API moves away from fake transactions, re-evaluate what data can be removed
   final case class ContractsAdded(
       transactionId: LedgerTransactionId,
       contracts: Seq[LfNodeCreate],
@@ -317,16 +315,16 @@ object LedgerSyncEvent {
       recordTime: LfTimestamp,
       hostedWitnesses: Seq[LfPartyId],
       contractMetadata: Map[LfContractId, Bytes],
+      workflowId: Option[LfWorkflowId],
   ) extends LedgerSyncEvent {
     override def description: String = s"Contracts added $transactionId"
 
-    // TODO(i12964) expose the migration event as its own type of event (not as a transaction)
     override def toDamlUpdate: Option[Update] = Some(
       Update.TransactionAccepted(
         completionInfoO = None,
         transactionMeta = TransactionMeta(
           ledgerEffectiveTime = ledgerTime,
-          workflowId = None,
+          workflowId = workflowId,
           submissionTime = recordTime,
           submissionSeed = LedgerSyncEvent.noOpSeed,
           optUsedPackages = None,
@@ -356,7 +354,6 @@ object LedgerSyncEvent {
       )
   }
 
-  // TODO(i12964) once the Ledger API moves away from fake transactions, re-evaluate what data can be removed
   final case class ContractsPurged(
       transactionId: LedgerTransactionId,
       contracts: Seq[LfNodeExercises],
@@ -366,7 +363,6 @@ object LedgerSyncEvent {
   ) extends LedgerSyncEvent {
     override def description: String = s"Contracts purged $transactionId"
 
-    // TODO(i12964) expose the migration event as its own type of event (not as a transaction)
     override def toDamlUpdate: Option[Update] = Some(
       Update.TransactionAccepted(
         completionInfoO = None,
