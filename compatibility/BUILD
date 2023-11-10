@@ -159,3 +159,61 @@ first_post_7587_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"
     # supported SDK is 1.18.0
     if versions.is_at_least("1.18.0", old_sdk_version)
 ]
+
+command_targets = {
+    "install_from_version": [
+        "2.8.0-snapshot.20231101.0",
+        "0.0.0",
+        "latest",
+        "2.7.1",
+    ],
+    "build_from_version": [
+        "2.8.0-snapshot.20231101.0",
+        "2.7.1",
+        "0.0.0",
+    ],
+    "install_and_build_from_tarball": [
+       "v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz",
+       "v2.7.5/daml-sdk-2.7.5-linux.tar.gz",
+       "v2.7.1/daml-sdk-2.7.1-linux.tar.gz",
+    ],
+}
+
+command_post_failure_behaviours = {
+    "install_from_version": [
+        "do_nothing"
+    ],
+    "build_from_version": [
+        "do_nothing"
+    ],
+    "install_and_build_from_tarball": [
+        "allow_nonrelease",
+        "update_cache",
+        "do_nothing",
+    ],
+}
+
+[
+    sh_test(
+        name = "test-all-installs-{}-{}-{}-{}".format(command, command_target.split('/')[0], version_cache_behaviour, post_failure_behaviour),
+        srcs = ["test-all-installs.sh"],
+        args = [command, command_target, version_cache_behaviour, post_failure_behaviour],
+        data = [
+            "@daml-sdk-2.7.5-tarball//file",
+            "@daml-sdk-2.7.4-tarball//file",
+            "@daml-sdk-2.7.1-tarball//file",
+            "@daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball//file",
+            "@daml-sdk-0.0.0//:daml",
+            "@head_sdk//:sdk-release-tarball-ce.tar.gz",
+            ":releases-github-api.json",
+            ":old_cache",
+            ":new_cache",
+        ],
+        deps = ["@bazel_tools//tools/bash/runfiles"],
+        size = "enormous"
+    )
+    for command in ["install_from_version", "build_from_version", "install_and_build_from_tarball"]
+    for command_target in command_targets[command]
+    for version_cache_behaviour in ["init_new_cache", "init_old_cache", "no_cache_override_github_endpoint"]
+    for post_failure_behaviour in command_post_failure_behaviours[command]
+]
