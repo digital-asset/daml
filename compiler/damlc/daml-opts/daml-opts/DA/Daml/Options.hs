@@ -471,7 +471,7 @@ locateCppPath = do
         -- the resources directory because the target produces a tarball which
         -- has the executable directly under the top directory.
         -- See @bazel_tools/packaging/packaging.bzl@.
-      , runfilesPathPrefix = "stackage" </> "hpp-0.6.4" </> "_install" </> "bin"
+      , runfilesPathPrefix = "stackage" </> "hpp-0.6.5" </> "_install" </> "bin"
         -- @stackage-exe//hpp
         -- when running as a bazel target, the executable has the same name
         -- but comes from the stackage target, so the prefix is different
