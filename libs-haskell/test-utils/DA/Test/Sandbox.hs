@@ -170,7 +170,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
                         [ "type" Aeson..= ("sim-clock" :: T.Text) ]
                   | Static <- [timeMode] ]
                 , [ "dev-version-support" Aeson..= devVersionSupport]
-                , [ "non-standard-config" Aeson..= True]
+                , [ "non-standard-config" Aeson..= devVersionSupport]
                 ] )
             , "participants" Aeson..= Aeson.object
                 [ (AesonKey.fromString $ getParticipantName conf) Aeson..= Aeson.object
