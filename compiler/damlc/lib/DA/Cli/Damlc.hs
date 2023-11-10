@@ -956,7 +956,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
     liftIO $ if getEnableMultiPackage enableMultiPackage then do
       mMultiPackagePath <- getMultiPackagePath multiPackageLocation
       -- At this point, if mMultiPackagePath is Just, we know it points to a multi-package.yaml
-      
+
       case (getMultiPackageBuildAll buildAll, mPkgConfig, mMultiPackagePath) of
         -- We're attempting to multi-package build --all, so we require that we have a multi-package.yaml, but do not care if we have a daml.yaml
         (True, _, Just multiPackagePath) ->
@@ -1080,7 +1080,7 @@ buildEffect relativize pkgConfig@PackageConfigFields{..} opts mbOutFile incremen
 
   Due to shakes caching behaviour, this will automatically discover the build order for free, by doing a depth first search over the tree then
     caching any "nodes" we've already seen entirely within Shake - our rule will not be called twice for any package within the tree for any given multi-build.
-  
+
   We currently rely on shake to find cycles, how its errors includes too much information about internals, so we'll need to implement our own cycle detection.
 -}
 multiPackageBuildEffect
@@ -1119,7 +1119,7 @@ multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opt
           mPkgId
       mRootPkgData = (toNormalizedFilePath' $ maybe cDir unwrapProjectPath $ projectRoot projectOpts,) <$> mRootPkgBuilder
       rule = buildMultiRule assistantRunner buildableDataDeps noCache mRootPkgData
- 
+
   -- Set up a near empty shake environment, with just the buildMulti rule
   bracket
     (IDE.initialise rule (DummyLspEnv diagnosticsLogger) (toIdeLogger loggerH) noopDebouncer (toCompileOpts opts) vfs)
@@ -1171,7 +1171,7 @@ getDamlFilesBuildMulti log packagePath srcDir = do
       <> (packagePath </> projectConfigName)
       <> " to a directory to allow correct caching.\n"
     pure Map.empty
-    
+
 
 -- Extract the name/version string and package ID of a given dalf in a dar.
 entryToDalfData :: ZipArchive.Entry -> Maybe (String, LF.PackageId)
@@ -1228,7 +1228,7 @@ getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
           let archiveDalfPid = getArchiveDalfPid name version
               valid = archiveDalfPid == Just pid
 
-          when (not valid) $ logDebug $ 
+          when (not valid) $ logDebug $
             "Source dependency \"" <> dalfDataKey name version <> "\" is stale. Expected PackageId "
               <> T.unpack (LF.unPackageId pid) <> " but got " <> (show $ LF.unPackageId <$> archiveDalfPid) <> "."
 
@@ -1256,7 +1256,7 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
 
     -- Wrap up a PackageId and changed flag into the expected Shake return structure
     let makeReturn :: LF.PackageId -> Bool -> (Maybe B.ByteString, RunChanged, IdeResult (LF.PackageName, LF.PackageVersion, LF.PackageId))
-        makeReturn pid changed = 
+        makeReturn pid changed =
           ( Just $ encodeUtf8 $ LF.unPackageId pid
           , if changed then ChangedRecomputeDiff else ChangedRecomputeSame
           , ([], Just (bmName, bmVersion, pid))
@@ -1278,7 +1278,7 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
       _ -> do
         -- Check our own staleness, if we're not stale, give the package ID to return to shake.
         -- If caching disabled, we fail this check pre-emtively
-        ownValidPid <- 
+        ownValidPid <-
           if noCache
             then pure Nothing
             else getPackageIdIfFresh logger filePath bmPkgConfig sourceDepsData
@@ -1294,7 +1294,7 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
             -- TODO[SW]: Update this check to compare version to most recent snapshot, once a snapshot is released that won't error with --enable-multi-package.
             runAssistant assistantRunner filePath $
               ["build"] <> (["--enable-multi-package=no" | unPackageSdkVersion bmSdkVersion == "0.0.0"])
-            
+
             darPath <- deriveDarPath filePath bmName bmVersion bmOutput
             -- Extract the new package ID from the dar we just built, by reading the DAR and looking for the dalf that matches our package name/version
             archive <- ZipArchive.toArchive <$> BSL.readFile darPath
@@ -1340,7 +1340,18 @@ execRepl dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInbou
                   -- See @bazel_tools/packaging/packaging.bzl@.
                 , runfilesPathPrefix = mainWorkspace </> "compiler" </> "repl-service" </> "server"
                 }
-            ReplClient.withReplClient (ReplClient.Options jar mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInboundMessageSize timeMode Inherit) $ \replHandle ->
+            let replClientOptions =
+                    ReplClient.Options
+                        jar
+                        mbLedgerConfig
+                        mbAuthToken
+                        mbAppId
+                        mbSslConf
+                        mbMaxInboundMessageSize
+                        timeMode
+                        (LF.versionMajor (optDamlLfVersion opts))
+                        Inherit
+            ReplClient.withReplClient replClientOptions $ \replHandle ->
                 withTempDir $ \dir ->
                 withCurrentDirectory dir $ do
                 sdkVer <- fromMaybe SdkVersion.sdkVersion <$> lookupEnv sdkVersionEnvVar
@@ -1642,7 +1653,7 @@ parserInfo numProcessors =
 -- Note: if we ever fully remove a flag in future, an "ignore" parser will need to be added here so
 -- that old packages with that flag specified don't trigger an error.
 scrapeOutputFlag :: [String] -> Maybe FilePath
-scrapeOutputFlag args = 
+scrapeOutputFlag args =
   case execParserPure (prefs mempty) (info mbOutFileParser mempty) args of
     Success mPath -> mPath
     Failure err -> error $ fst $ renderFailure err "daml build"
@@ -1675,7 +1686,7 @@ deriveDarPath path name version mOutput = case mOutput of
 -- | Derive the dar path from the daml.yaml, using either the --output override, or the default path derived from name and version
 darPathFromDamlYaml :: FilePath -> IO FilePath
 darPathFromDamlYaml path = do
-  (name, version, mOutput) <- 
+  (name, version, mOutput) <-
     onDamlYaml (error "Failed to read daml.yaml") (\project -> fromRight (error "Failed to get project info") $ do
       name <- queryProjectConfigRequired ["name"] project
       version <- queryProjectConfigRequired ["version"] project
@@ -1717,7 +1728,7 @@ onDamlYaml def f mbProjectOpts = do
         pure $ f project
 
 cliArgsFromDamlYaml :: Maybe ProjectOpts -> IO [String]
-cliArgsFromDamlYaml = 
+cliArgsFromDamlYaml =
   onDamlYaml [] $ \project -> case queryProjectConfigRequired ["build-options"] project of
     Left _ -> []
     Right xs -> xs

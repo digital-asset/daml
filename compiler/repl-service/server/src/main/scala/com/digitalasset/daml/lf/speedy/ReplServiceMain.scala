@@ -56,6 +56,7 @@ object ReplServiceMain extends App {
       tlsConfig: TlsConfiguration,
       // optional so we can detect if both --static-time and --wall-clock-time are passed.
       timeMode: Option[ScriptTimeMode],
+      majorLanguageVersion: LanguageMajorVersion,
   )
   object Config {
     private def setTimeMode(
@@ -118,6 +119,19 @@ object ReplServiceMain extends App {
         }
         .text("Use static time.")
 
+      implicit val majorLanguageVersionRead: scopt.Read[LanguageMajorVersion] =
+        scopt.Read.reads(s =>
+          LanguageMajorVersion.fromString(s) match {
+            case Some(v) => v
+            case None => throw new IllegalArgumentException(s"$s is not a valid major LF version")
+          }
+        )
+      opt[LanguageMajorVersion]('v', "major-lf-version")
+        .optional()
+        .valueName("version")
+        .text("the major version of LF to use")
+        .action((v, c) => c.copy(majorLanguageVersion = v))
+
       checkConfig(c =>
         (c.ledgerHost, c.ledgerPort) match {
           case (Some(_), None) =>
@@ -140,6 +154,7 @@ object ReplServiceMain extends App {
           maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
           timeMode = None,
           applicationId = None,
+          majorLanguageVersion = LanguageMajorVersion.V1,
         ),
       )
   }
@@ -176,7 +191,9 @@ object ReplServiceMain extends App {
   val server =
     NettyServerBuilder
       .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0))
-      .addService(new ReplService(clients, timeMode, ec, sequencer, materializer))
+      .addService(
+        new ReplService(clients, timeMode, ec, sequencer, materializer, config.majorLanguageVersion)
+      )
       .maxInboundMessageSize(maxMessageSize)
       .build
       .start
@@ -189,12 +206,6 @@ object ReplServiceMain extends App {
 }
 
 object ReplService {
-  // TODO(#17366): Support LF v2
-  private val compilerConfig = Compiler.Config
-    .Default(LanguageMajorVersion.V1)
-    .copy(
-      stacktracing = Compiler.FullStackTrace
-    )
   private val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
 
   private def moduleRefs(v: SValue): Set[ModuleName] = {
@@ -219,6 +230,7 @@ class ReplService(
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     mat: Materializer,
+    val majorLanguageVersion: LanguageMajorVersion,
 ) extends ReplServiceGrpc.ReplServiceImplBase
     with StrictLogging {
   var signatures: Map[PackageId, PackageSignature] = Map.empty
@@ -231,12 +243,28 @@ class ReplService(
 
   import ReplService._
 
+  private val compilerConfig = Compiler.Config
+    .Default(majorLanguageVersion)
+    .copy(stacktracing = Compiler.FullStackTrace)
+
+  private[this] def validatePackagesLanguageVersion(pkgMap: Map[PackageId, Package]): Unit = {
+    val invalidPackages =
+      pkgMap.view.mapValues(_.languageVersion.major).filter(_._2 != majorLanguageVersion)
+    if (invalidPackages.nonEmpty) {
+      throw new IllegalArgumentException(
+        "the following packages don't have expected major LF version "
+          + s"${majorLanguageVersion}: ${invalidPackages}"
+      )
+    }
+  }
+
   override def loadPackages(
       req: LoadPackagesRequest,
       respObs: StreamObserver[LoadPackagesResponse],
   ): Unit = {
     val pkgMap =
       req.getPackagesList.asScala.view.map(archive.ArchiveDecoder.assertFromByteString).toMap
+    validatePackagesLanguageVersion(pkgMap)
     val newSignatures = signatures ++ AstUtil.toSignatures(pkgMap)
     val newCompiledDefinitions = compiledDefinitions ++
       assertRight(
@@ -252,7 +280,7 @@ class ReplService(
       req: RunScriptRequest,
       respObs: StreamObserver[RunScriptResponse],
   ): Unit = {
-    val lfVer = LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor(req.getMinor))
+    val lfVer = LanguageVersion(majorLanguageVersion, LanguageVersion.Minor(req.getMinor))
     val mod = archive.moduleDecoder(lfVer, homePackageId).assertFromByteString(req.getDamlLf1)
     val pkg = Package(mainModules.updated(mod.name, mod), Set.empty, lfVer, None)
     // TODO[AH] Provide daml-script package id from REPL client.
