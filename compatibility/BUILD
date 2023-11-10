@@ -173,18 +173,18 @@ command_targets = {
         "0.0.0",
     ],
     "install_and_build_from_tarball": [
-       "v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz",
-       "v2.7.5/daml-sdk-2.7.5-linux.tar.gz",
-       "v2.7.1/daml-sdk-2.7.1-linux.tar.gz",
+        "v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz",
+        "v2.7.5/daml-sdk-2.7.5-linux.tar.gz",
+        "v2.7.1/daml-sdk-2.7.1-linux.tar.gz",
     ],
 }
 
 command_post_failure_behaviours = {
     "install_from_version": [
-        "do_nothing"
+        "do_nothing",
     ],
     "build_from_version": [
-        "do_nothing"
+        "do_nothing",
     ],
     "install_and_build_from_tarball": [
         "allow_nonrelease",
@@ -195,25 +195,43 @@ command_post_failure_behaviours = {
 
 [
     sh_test(
-        name = "test-all-installs-{}-{}-{}-{}".format(command, command_target.split('/')[0], version_cache_behaviour, post_failure_behaviour),
+        name = "test-all-installs-{}-{}-{}-{}".format(
+            command,
+            command_target.split("/")[0],
+            version_cache_behaviour,
+            post_failure_behaviour,
+        ),
+        size = "enormous",
         srcs = ["test-all-installs.sh"],
-        args = [command, command_target, version_cache_behaviour, post_failure_behaviour],
+        args = [
+            command,
+            command_target,
+            version_cache_behaviour,
+            post_failure_behaviour,
+        ],
         data = [
-            "@daml-sdk-2.7.5-tarball//file",
-            "@daml-sdk-2.7.4-tarball//file",
-            "@daml-sdk-2.7.1-tarball//file",
-            "@daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball//file",
             "@daml-sdk-0.0.0//:daml",
+            "@daml-sdk-2.7.1-tarball//file",
+            "@daml-sdk-2.7.4-tarball//file",
+            "@daml-sdk-2.7.5-tarball//file",
+            "@daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball//file",
             "@head_sdk//:sdk-release-tarball-ce.tar.gz",
-            ":releases-github-api.json",
-            ":old_cache",
             ":new_cache",
+            ":old_cache",
+            ":releases-github-api.json",
         ],
         deps = ["@bazel_tools//tools/bash/runfiles"],
-        size = "enormous"
     )
-    for command in ["install_from_version", "build_from_version", "install_and_build_from_tarball"]
+    for command in [
+        "install_from_version",
+        "build_from_version",
+        "install_and_build_from_tarball",
+    ]
     for command_target in command_targets[command]
-    for version_cache_behaviour in ["init_new_cache", "init_old_cache", "no_cache_override_github_endpoint"]
+    for version_cache_behaviour in [
+        "init_new_cache",
+        "init_old_cache",
+        "no_cache_override_github_endpoint",
+    ]
     for post_failure_behaviour in command_post_failure_behaviours[command]
 ]

@@ -127,9 +127,7 @@ getInstalledSdkVersions damlPath = do
     sdksOrErr <- try (listDirectory (unwrapSdkPath sdkPath))
     case sdksOrErr of
       Left SomeException{} -> pure []
-      Right sdks -> do
-          versionsFound <- catMaybes <$> mapM resolveSdk sdks
-          pure versionsFound
+      Right sdks -> catMaybes <$> mapM resolveSdk sdks
     where
     resolveSdk :: String -> IO (Maybe ReleaseVersion)
     resolveSdk path = do
