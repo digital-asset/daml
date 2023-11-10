@@ -45,6 +45,7 @@ common_haskell_exts = [
     "TupleSections",
     "TypeApplications",
     "ViewPatterns",
+    "ImportQualifiedPost",
 ]
 
 common_haskell_flags = [
