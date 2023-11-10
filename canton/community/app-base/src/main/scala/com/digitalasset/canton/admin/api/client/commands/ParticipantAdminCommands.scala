@@ -513,7 +513,7 @@ object ParticipantAdminCommands {
 
     }
 
-    final case class ImportAcs(acsChunk: ByteString)
+    final case class ImportAcs(acsChunk: ByteString, workflowIdPrefix: String)
         extends GrpcAdminCommand[ImportAcsRequest, ImportAcsResponse, Unit]
         with StreamingMachinery[ImportAcsRequest, ImportAcsResponse] {
 
@@ -523,7 +523,7 @@ object ParticipantAdminCommands {
         ParticipantRepairServiceGrpc.stub(channel)
 
       override def createRequest(): Either[String, ImportAcsRequest] = {
-        Right(ImportAcsRequest(acsChunk))
+        Right(ImportAcsRequest(acsChunk, workflowIdPrefix))
       }
 
       override def submitRequest(
@@ -532,7 +532,7 @@ object ParticipantAdminCommands {
       ): Future[ImportAcsResponse] = {
         stream(
           service.importAcs,
-          (bytes: Array[Byte]) => ImportAcsRequest(ByteString.copyFrom(bytes)),
+          (bytes: Array[Byte]) => ImportAcsRequest(ByteString.copyFrom(bytes), workflowIdPrefix),
           request.acsSnapshot,
         )
       }

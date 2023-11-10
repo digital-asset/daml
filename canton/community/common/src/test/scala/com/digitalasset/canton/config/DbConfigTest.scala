@@ -56,32 +56,39 @@ class DbConfigTest extends AnyWordSpec with BaseTest {
     """.stripMargin)
 
   "DbConfig.configWithFallback" should {
+    val config = pgConfig()
     "Add default values to postgres config" in {
       DbConfig
-        .configWithFallback(pgConfig())(
-          forParticipant = true,
-          withWriteConnectionPool = false,
-          withMainConnection = false,
+        .configWithFallback(config)(
+          config.numReadConnectionsCanton(
+            forParticipant = true,
+            withWriteConnectionPool = false,
+            withMainConnection = false,
+          ),
           "poolName",
           logger,
         ) shouldBe pgExpectedConfig(numThreads)
     }
 
     "Adjust the number of threads for replicated participants" in {
-      DbConfig.configWithFallback(pgConfig())(
-        forParticipant = true,
-        withWriteConnectionPool = true,
-        withMainConnection = false,
+      DbConfig.configWithFallback(config)(
+        config.numReadConnectionsCanton(
+          forParticipant = true,
+          withWriteConnectionPool = true,
+          withMainConnection = false,
+        ),
         "poolName",
         logger,
       ) shouldBe pgExpectedConfig(Math.max(1, numThreads / 2))
     }
 
     "Adjust the number of threads for replicated participants write connection pool" in {
-      DbConfig.configWithFallback(pgConfig())(
-        forParticipant = true,
-        withWriteConnectionPool = true,
-        withMainConnection = true,
+      DbConfig.configWithFallback(config)(
+        config.numWriteConnectionsCanton(
+          forParticipant = true,
+          withWriteConnectionPool = true,
+          withMainConnection = true,
+        ),
         "poolName",
         logger,
       ) shouldBe pgExpectedConfig(Math.max(1, numThreads / 2 - 1))
@@ -89,9 +96,11 @@ class DbConfigTest extends AnyWordSpec with BaseTest {
 
     "Add default values to H2 config and enforced options" in {
       DbConfig.configWithFallback(h2ConfigWithRequiredOptions)(
-        forParticipant = true,
-        withWriteConnectionPool = false,
-        withMainConnection = false,
+        config.numReadConnectionsCanton(
+          forParticipant = true,
+          withWriteConnectionPool = false,
+          withMainConnection = false,
+        ),
         "poolName",
         logger,
       ) shouldBe
@@ -109,9 +118,11 @@ class DbConfigTest extends AnyWordSpec with BaseTest {
 
       loggerFactory.suppressWarningsAndErrors(
         DbConfig.configWithFallback(h2ConfigWithoutRequiredOptions)(
-          forParticipant = true,
-          withWriteConnectionPool = false,
-          withMainConnection = false,
+          config.numReadConnectionsCanton(
+            forParticipant = true,
+            withWriteConnectionPool = false,
+            withMainConnection = false,
+          ),
           "poolName",
           logger,
         ) shouldBe

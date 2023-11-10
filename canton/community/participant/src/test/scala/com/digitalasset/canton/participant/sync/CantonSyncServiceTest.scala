@@ -46,6 +46,7 @@ import com.digitalasset.canton.participant.{
   DefaultParticipantStateValues,
   ParticipantNodeParameters,
 }
+import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock}
 import com.digitalasset.canton.topology.*
@@ -163,6 +164,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       LocalNodeParameters,
       SyncDomain.DefaultFactory,
       indexedStringStore,
+      new MemoryStorage(loggerFactory, timeouts),
       ParticipantTestMetrics,
       sequencerInfoLoader,
       () => true,

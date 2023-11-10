@@ -15,7 +15,6 @@ import com.digitalasset.canton.concurrent.{
   FutureSupervisor,
 }
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{LocalNodeConfig, ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.GrpcVaultServiceFactory
@@ -149,12 +148,6 @@ abstract class CantonNodeBootstrapCommon[
 
   // This absolutely must be a "def", because it is used during class initialization.
   protected def connectionPoolForParticipant: Boolean = false
-
-  protected val maxDbConnections: PositiveInt = config.storage.maxConnectionsCanton(
-    forParticipant = connectionPoolForParticipant,
-    withWriteConnectionPool = true,
-    withMainConnection = true,
-  )
 
   protected val ips = new IdentityProvidingServiceClient()
 

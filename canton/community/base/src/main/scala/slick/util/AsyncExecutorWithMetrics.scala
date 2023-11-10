@@ -46,7 +46,7 @@ class AsyncExecutorWithMetrics(
     warnOnSlowQueryO: Option[PositiveFiniteDuration],
     warnInterval: PositiveFiniteDuration = PositiveFiniteDuration.tryOfSeconds(5),
     val logger: Logger,
-) extends AsyncExecutor {
+) extends AsyncExecutorWithShutdown {
 
   @volatile private[this] lazy val mbeanName = new ObjectName(
     s"slick:type=AsyncExecutor,name=$name"
@@ -54,6 +54,7 @@ class AsyncExecutorWithMetrics(
 
   // Before init: 0, during init: 1, after init: 2, during/after shutdown: 3
   private[this] val state = new AtomicInteger(0)
+  override def isShuttingDown: Boolean = state.get() == 3
 
   @volatile private[this] var executor: ThreadPoolExecutor = _
 

@@ -42,6 +42,7 @@ import io.grpc.Context.CancellableContext
 import io.grpc.StatusRuntimeException
 
 import java.time.Instant
+import java.util.UUID
 import scala.concurrent.{Await, Promise, TimeoutException}
 
 class ParticipantRepairAdministration(
@@ -273,13 +274,16 @@ class ParticipantRepairAdministration(
         """
   )
   def import_acs(
-      inputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile
+      inputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
+      workflowIdPrefix: String = "",
   ): Unit = {
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
         runner.adminCommand(
           ParticipantAdminCommands.ParticipantRepairManagement.ImportAcs(
-            ByteString.copyFrom(File(inputFile).loadBytes)
+            ByteString.copyFrom(File(inputFile).loadBytes),
+            if (workflowIdPrefix.nonEmpty) workflowIdPrefix
+            else s"import-${UUID.randomUUID}",
           )
         )
       }

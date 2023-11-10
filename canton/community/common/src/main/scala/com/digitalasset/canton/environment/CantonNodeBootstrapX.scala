@@ -204,7 +204,6 @@ abstract class CantonNodeBootstrapX[
       TopologyStoreX(
         TopologyStoreId.AuthorizedStore,
         storage,
-        maxDbConnections,
         timeouts,
         loggerFactory,
       )

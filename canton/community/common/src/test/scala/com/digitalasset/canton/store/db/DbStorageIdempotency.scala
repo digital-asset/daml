@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.store.db
 
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DbConfig, ProcessingTimeout}
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -21,6 +22,7 @@ class DbStorageIdempotency(
 )(override protected implicit val ec: ExecutionContext)
     extends DbStorage
     with NamedLogging {
+  override def threadsAvailableForWriting: PositiveInt = underlying.threadsAvailableForWriting
   override val profile: DbStorage.Profile = underlying.profile
   override def metrics: DbStorageMetrics = underlying.metrics
   override val dbConfig: DbConfig = underlying.dbConfig

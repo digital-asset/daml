@@ -7,7 +7,6 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -257,7 +256,6 @@ object TopologyStoreX {
   def apply[StoreID <: TopologyStoreId](
       storeId: StoreID,
       storage: Storage,
-      maxDbConnections: PositiveInt,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -268,7 +266,7 @@ object TopologyStoreX {
       case _: MemoryStorage =>
         new InMemoryTopologyStoreX(storeId, storeLoggerFactory, timeouts)
       case dbStorage: DbStorage =>
-        new DbTopologyStoreX(dbStorage, storeId, maxDbConnections, timeouts, storeLoggerFactory)
+        new DbTopologyStoreX(dbStorage, storeId, timeouts, storeLoggerFactory)
     }
   }
 

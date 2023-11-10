@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{
   BatchingConfig,
   CachingConfigs,
@@ -85,7 +84,6 @@ object SyncDomainPersistentState {
       parameters: ParticipantStoreConfig,
       caching: CachingConfigs,
       batching: BatchingConfig,
-      maxDbConnections: PositiveInt,
       processingTimeouts: ProcessingTimeout,
       enableAdditionalConsistencyChecks: Boolean,
       indexedStringStore: IndexedStringStore,
@@ -113,7 +111,6 @@ object SyncDomainPersistentState {
           parameters,
           caching,
           batching,
-          maxDbConnections,
           processingTimeouts,
           enableAdditionalConsistencyChecks,
           indexedStringStore,
@@ -133,7 +130,6 @@ object SyncDomainPersistentState {
       topologyXConfig: TopologyXConfig,
       caching: CachingConfigs,
       batching: BatchingConfig,
-      maxDbConnections: PositiveInt,
       processingTimeouts: ProcessingTimeout,
       enableAdditionalConsistencyChecks: Boolean,
       indexedStringStore: IndexedStringStore,
@@ -164,7 +160,6 @@ object SyncDomainPersistentState {
           parameters,
           caching,
           batching,
-          maxDbConnections,
           processingTimeouts,
           enableAdditionalConsistencyChecks,
           topologyXConfig.enableTopologyTransactionValidation,

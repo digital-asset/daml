@@ -9,7 +9,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
-import com.digitalasset.canton.data.{CantonTimestamp, TransactionView, TransactionViewTree}
+import com.digitalasset.canton.data.{CantonTimestamp, FreeKey, TransactionView, TransactionViewTree}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactoryImpl
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.*
@@ -329,10 +329,11 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
        */
     }
 
-    "a package is not vetted by some participant" must {
+    "a package (referenced by create) is not vetted by some participant" must {
       "yield an error" in {
         import ExampleTransactionFactory.*
         testVettingError(
+          NonEmpty.from(factory.SingleCreate(lfHash(0)).rootTransactionViewTrees).value,
           // The package is not vetted for signatoryParticipant
           vettings = Seq(VettedPackages(submitterParticipant, Seq(packageId))),
           packageDependenciesLookup = _ => EitherT.rightT(Set()),
@@ -341,7 +342,36 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       }
     }
 
+    "a package (referenced by key lookup) is not vetted by some participant" must {
+      "yield an error" in {
+        import ExampleTransactionFactory.*
+
+        val key = defaultGlobalKey
+        val maintainers = Set(submitter)
+        val view = factory.view(
+          lookupByKeyNode(key, Set(submitter), None),
+          0,
+          Set.empty,
+          Seq.empty,
+          Seq.empty,
+          Map(key -> FreeKey(maintainers)(LfTransactionVersion.minVersion)),
+          None,
+          isRoot = true,
+        )
+        val viewTree = factory.rootTransactionViewTree(view)
+
+        testVettingError(
+          NonEmpty(Seq, viewTree),
+          // The package is not vetted for submitterParticipant
+          vettings = Seq.empty,
+          packageDependenciesLookup = _ => EitherT.rightT(Set()),
+          expectedError = UnvettedPackages(Map(submitterParticipant -> Set(key.packageId.value))),
+        )
+      }
+    }
+
     def testVettingError(
+        rootViewTrees: NonEmpty[Seq[TransactionViewTree]],
         vettings: Seq[VettedPackages],
         packageDependenciesLookup: PackageId => EitherT[Future, PackageId, Set[PackageId]],
         expectedError: UnvettedPackages,
@@ -357,9 +387,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         enableContractUpgrading = false,
         loggerFactory,
       )
-
-      val rootViewTrees =
-        NonEmpty.from(factory.SingleCreate(lfHash(0)).rootTransactionViewTrees).value
 
       val snapshot = TestingIdentityFactory(
         TestingTopology(
@@ -384,6 +411,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       "yield an error" in {
         import ExampleTransactionFactory.*
         testVettingError(
+          NonEmpty.from(factory.SingleCreate(lfHash(0)).rootTransactionViewTrees).value,
           vettings = Seq(
             VettedPackages(submitterParticipant, Seq(packageId)),
             VettedPackages(signatoryParticipant, Seq(packageId)),

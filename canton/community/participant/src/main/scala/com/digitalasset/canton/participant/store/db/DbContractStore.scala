@@ -44,7 +44,6 @@ class DbContractStore(
     domainIdIndexed: IndexedDomain,
     protocolVersion: ProtocolVersion,
     maxContractIdSqlInListSize: PositiveInt,
-    maxDbConnections: PositiveInt, // used to throttle query batching
     cacheConfig: CacheConfig,
     dbQueryBatcherConfig: BatchAggregatorConfig,
     insertBatchAggregatorConfig: BatchAggregatorConfig,
@@ -471,7 +470,7 @@ class DbContractStore(
     import DbStorage.Implicits.BuilderChain.*
     MonadUtil
       .batchedSequentialTraverse_(
-        parallelism = PositiveInt.two * maxDbConnections,
+        parallelism = PositiveInt.two * storage.threadsAvailableForWriting,
         chunkSize = maxContractIdSqlInListSize,
       )(contractIds.toSeq) { cids =>
         val inClause = sql"contract_id in (" ++

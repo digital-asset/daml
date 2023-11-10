@@ -122,7 +122,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       .fromEither[FutureUnlessShutdown](ledgerApiStorageE)
       .flatMap { ledgerApiStorage =>
         val connectionPoolConfig = DbSupport.ConnectionPoolConfig(
-          connectionPoolSize = config.storageConfig.maxConnectionsLedgerApiServer,
+          connectionPoolSize = config.storageConfig.numConnectionsLedgerApiServer.unwrap,
           connectionTimeout = config.serverConfig.databaseConnectionTimeout.underlying,
         )
 

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.resource
 
 import cats.data.EitherT
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DbConfig, ProcessingTimeout, QueryCostMonitoringConfig}
 import com.digitalasset.canton.health.ComponentHealthState
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, UnlessShutdown}
@@ -30,6 +31,7 @@ class DbStorageSingle private (
     clock: Clock,
     override val metrics: DbStorageMetrics,
     override protected val timeouts: ProcessingTimeout,
+    override val threadsAvailableForWriting: PositiveInt,
     override protected val loggerFactory: NamedLoggerFactory,
 )(override implicit val ec: ExecutionContext)
     extends DbStorage
@@ -110,7 +112,11 @@ object DbStorageSingle {
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       retryConfig: DbStorage.RetryConfig = DbStorage.RetryConfig.failFast,
-  )(implicit ec: ExecutionContext, closeContext: CloseContext): DbStorageSingle =
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+      closeContext: CloseContext,
+  ): DbStorageSingle =
     create(
       config,
       connectionPoolForParticipant,
@@ -137,14 +143,20 @@ object DbStorageSingle {
       retryConfig: DbStorage.RetryConfig = DbStorage.RetryConfig.failFast,
   )(implicit
       ec: ExecutionContext,
+      tc: TraceContext,
       closeContext: CloseContext,
-  ): EitherT[UnlessShutdown, String, DbStorageSingle] =
+  ): EitherT[UnlessShutdown, String, DbStorageSingle] = {
+    val numCombined = config.numCombinedConnectionsCanton(
+      connectionPoolForParticipant,
+      withWriteConnectionPool = false,
+      withMainConnection = false,
+    )
+    val logger = loggerFactory.getTracedLogger(getClass)
+    logger.info(s"Creating storage, num-combined: $numCombined")
     for {
       db <- DbStorage.createDatabase(
         config,
-        connectionPoolForParticipant,
-        withWriteConnectionPool = false,
-        withMainConnection = false,
+        numCombined,
         Some(metrics.queue),
         logQueryCost,
         scheduler,
@@ -158,8 +170,10 @@ object DbStorageSingle {
         clock,
         metrics,
         timeouts,
+        numCombined,
         loggerFactory,
       )
     } yield storage
+  }
 
 }

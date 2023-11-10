@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.store.db
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
 import com.digitalasset.canton.lifecycle.Lifecycle
@@ -42,7 +41,6 @@ abstract class DbSyncDomainPersistentStateCommon(
     parameters: ParticipantStoreConfig,
     val caching: CachingConfigs,
     val batching: BatchingConfig,
-    maxDbConnections: PositiveInt,
     val timeouts: ProcessingTimeout,
     override val enableAdditionalConsistencyChecks: Boolean,
     indexedStringStore: IndexedStringStore,
@@ -68,7 +66,6 @@ abstract class DbSyncDomainPersistentStateCommon(
       domainId,
       protocolVersion,
       batching.maxItemsInSqlClause,
-      maxDbConnections,
       caching.contractStore,
       dbQueryBatcherConfig = parameters.dbBatchAggregationConfig,
       insertBatchAggregatorConfig = parameters.dbBatchAggregationConfig,
@@ -164,7 +161,6 @@ class DbSyncDomainPersistentStateOld(
     parameters: ParticipantStoreConfig,
     caching: CachingConfigs,
     batching: BatchingConfig,
-    maxDbConnections: PositiveInt,
     timeouts: ProcessingTimeout,
     enableAdditionalConsistencyChecks: Boolean,
     indexedStringStore: IndexedStringStore,
@@ -179,7 +175,6 @@ class DbSyncDomainPersistentStateOld(
       parameters,
       caching,
       batching,
-      maxDbConnections,
       timeouts,
       enableAdditionalConsistencyChecks,
       indexedStringStore,
@@ -215,7 +210,6 @@ class DbSyncDomainPersistentStateX(
     parameters: ParticipantStoreConfig,
     cachingConfigs: CachingConfigs,
     batchingConfig: BatchingConfig,
-    maxDbConnections: PositiveInt,
     processingTimeouts: ProcessingTimeout,
     enableAdditionalConsistencyChecks: Boolean,
     enableTopologyTransactionValidation: Boolean,
@@ -231,7 +225,6 @@ class DbSyncDomainPersistentStateX(
       parameters,
       cachingConfigs,
       batchingConfig,
-      maxDbConnections,
       processingTimeouts,
       enableAdditionalConsistencyChecks,
       indexedStringStore,
@@ -244,7 +237,6 @@ class DbSyncDomainPersistentStateX(
     new DbTopologyStoreX(
       storage,
       DomainStore(domainId.item),
-      maxDbConnections,
       processingTimeouts,
       loggerFactory,
     )

@@ -34,9 +34,10 @@ object MetricHandle {
   @nowarn("cat=deprecation")
   trait LabeledMetricsFactory extends MetricsFactory with DamlMetricHandle.LabeledMetricsFactory
 
+  @nowarn("cat=deprecation")
   class CantonDropwizardMetricsFactory(registry: MetricRegistry)
       extends DropwizardMetricsFactory(registry)
-      with LabeledMetricsFactory
+      with MetricsFactory
 
   object NoOpMetricsFactory extends DamlNoOpMetricsFactory with LabeledMetricsFactory
 

@@ -6,6 +6,7 @@ package com.digitalasset.canton.resource
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DbConfig, ProcessingTimeout}
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{CloseContext, UnlessShutdown}
@@ -70,10 +71,7 @@ trait DbMigrations { this: NamedLogging =>
     DbStorage
       .createDatabase(
         dbConfig,
-        forParticipant =
-          false, // no need to adjust the connection pool for participants, as we are not yet running the ledger api server
-        withWriteConnectionPool = false,
-        withMainConnection = false,
+        PositiveInt.one,
         scheduler = None, // no db query deadlock detection here
         forMigration = true,
         retryConfig = retryConfig,

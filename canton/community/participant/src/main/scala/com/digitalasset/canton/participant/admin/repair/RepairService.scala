@@ -98,6 +98,7 @@ final class RepairService(
     syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
     aliasManager: DomainAliasManager,
     parameters: ParticipantNodeParameters,
+    threadsAvailableForWriting: PositiveInt,
     indexedStringStore: IndexedStringStore,
     isConnected: DomainId => Boolean,
     futureSupervisor: FutureSupervisor,
@@ -323,12 +324,16 @@ final class RepairService(
     * @param ignoreAlreadyAdded whether to ignore and skip over contracts already added/present in the domain. Setting
     *                           this to true (at least on retries) enables writing idempotent repair scripts.
     * @param ignoreStakeholderCheck do not check for stakeholder presence for the given parties
+    * @param workflowIdPrefix   If present, each transaction generated for added contracts will have a workflow ID whose
+    *                           prefix is the one set and the suffix is a sequential number and the number of transactions
+    *                           generated as part of the addition (e.g. `import-foo-1-2`, `import-foo-2-2`)
     */
   def addContracts(
       domain: DomainAlias,
       contracts: Seq[RepairContract],
       ignoreAlreadyAdded: Boolean,
       ignoreStakeholderCheck: Boolean,
+      workflowIdPrefix: Option[String] = None,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
       s"Adding ${contracts.length} contracts to domain ${domain} with ignoreAlreadyAdded=${ignoreAlreadyAdded} and ignoreStakeholderCheck=${ignoreStakeholderCheck}"
@@ -357,11 +362,12 @@ final class RepairService(
               .create(contractsByCreation.size)
               .fold(
                 _ => EitherT.rightT[Future, String](logger.info("No contract needs to be added")),
-                requestCountersToAllocate => {
+                groupCount => {
+                  val workflowIds = workflowIdsFromPrefix(workflowIdPrefix, groupCount)
                   for {
                     repair <- initRepairRequestAndVerifyPreconditions(
-                      domain,
-                      requestCountersToAllocate,
+                      domain = domain,
+                      requestCountersToAllocate = groupCount,
                     )
 
                     contractsToAdd = repair.timesOfChange.zip(contractsByCreation)
@@ -427,7 +433,7 @@ final class RepairService(
 
                     // Publish added contracts upstream as created via the ledger api.
                     _ <- EitherT.right(
-                      writeContractsAddedEvents(repair, hostedParties, contractsToAdd)
+                      writeContractsAddedEvents(repair, hostedParties, contractsToAdd, workflowIds)
                     )
 
                     // If all has gone well, bump the clean head, effectively committing the changes to the domain.
@@ -441,6 +447,18 @@ final class RepairService(
       )
     }
   }
+
+  private def workflowIdsFromPrefix(
+      prefix: Option[String],
+      n: PositiveInt,
+  ): Iterator[Option[LfWorkflowId]] =
+    prefix.fold(
+      Iterator.continually(Option.empty[LfWorkflowId])
+    )(prefix =>
+      1.to(n.value)
+        .map(i => Some(LfWorkflowId.assertFromString(s"$prefix-$i-${n.value}")))
+        .iterator
+    )
 
   /** Participant repair utility for manually purging (archiving) contracts in an offline fashion.
     *
@@ -833,7 +851,7 @@ final class RepairService(
       batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
     MonadUtil
-      .batchedSequentialTraverse(parameters.maxDbConnections * PositiveInt.two, batchSize)(
+      .batchedSequentialTraverse(threadsAvailableForWriting * PositiveInt.two, batchSize)(
         contractIds
       )(
         MigrateContracts(
@@ -933,7 +951,6 @@ final class RepairService(
       .toEitherT // not turning warnings to errors on behalf of archived contracts, in contract to created contracts
       .leftMap(e => log(s"Failed to mark contract $cid as archived: $e"))
 
-  // TODO(i12964) once the Ledger API moves away from fake transactions, remove this
   private def toArchive(c: SerializableContract): LfNodeExercises = LfNodeExercises(
     targetCoid = c.contractId,
     templateId = c.rawContractInstance.contractInstance.unversioned.template,
@@ -990,6 +1007,7 @@ final class RepairService(
       requestCounter: RequestCounter,
       ledgerCreateTime: LedgerCreateTime,
       contractsAdded: Seq[ContractToAdd],
+      workflowIdProvider: () => Option[LfWorkflowId],
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val transactionId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId
     val offset = RequestOffset(repair.timestamp, requestCounter)
@@ -1006,6 +1024,7 @@ final class RepairService(
           ledgerTime = ledgerCreateTime.toLf,
           hostedWitnesses = contractsAdded.flatMap(_.witnesses.intersect(hostedParties)),
           contractMetadata = contractMetadata,
+          workflowId = workflowIdProvider(),
         ),
         offset,
         None,
@@ -1033,10 +1052,18 @@ final class RepairService(
       repair: RepairRequest,
       hostedParties: Set[LfPartyId],
       contractsAdded: Seq[(TimeOfChange, (LedgerCreateTime, Seq[ContractToAdd]))],
+      workflowIds: Iterator[Option[LfWorkflowId]],
   )(implicit traceContext: TraceContext): Future[Unit] =
     MonadUtil.sequentialTraverse_(contractsAdded) {
       case (timeOfChange, (timestamp, contractsToAdd)) =>
-        writeContractsAddedEvents(repair, hostedParties, timeOfChange.rc, timestamp, contractsToAdd)
+        writeContractsAddedEvents(
+          repair,
+          hostedParties,
+          timeOfChange.rc,
+          timestamp,
+          contractsToAdd,
+          () => workflowIds.next(),
+        )
     }
 
   private def packageVetted(

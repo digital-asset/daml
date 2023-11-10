@@ -42,6 +42,7 @@ import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Future, blocking}
 
+// TODO(#15303) Remove this test
 class DomainTopologyManagerRequestServiceTest
     extends FixtureAsyncWordSpec
     with BaseTest

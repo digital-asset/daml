@@ -10,7 +10,7 @@ import cats.{Eval, Functor, Monad}
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
+import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.health.{
@@ -290,6 +290,9 @@ trait DbStorage extends Storage { self: NamedLogging =>
   }
 
   def metrics: DbStorageMetrics
+
+  // Size of the pool available for writing, it may be a combined r/w pool or a dedicated write pool
+  def threadsAvailableForWriting: PositiveInt
 
   lazy val api: profile.DbStorageAPI.type = profile.DbStorageAPI
   lazy val converters: DbStorageConverters.type = DbStorageConverters
@@ -628,9 +631,7 @@ object DbStorage {
 
   def createDatabase(
       config: DbConfig,
-      forParticipant: Boolean,
-      withWriteConnectionPool: Boolean,
-      withMainConnection: Boolean,
+      numThreads: PositiveInt,
       metrics: Option[DbQueueMetrics] = None,
       logQueryCost: Option[QueryCostMonitoringConfig] = None,
       scheduler: Option[ScheduledExecutorService],
@@ -646,9 +647,7 @@ object DbStorage {
       // Must be called to set proper defaults in case of H2
       val configWithFallbacks: Config =
         DbConfig.configWithFallback(config)(
-          forParticipant,
-          withWriteConnectionPool,
-          withMainConnection,
+          numThreads,
           s"slick-${loggerFactory.threadName}-${poolNameIndex.incrementAndGet()}",
           logger,
         )
@@ -916,5 +915,14 @@ object DbStorage {
       retryWaitingTime = Duration(1, TimeUnit.SECONDS),
       maxRetries = Int.MaxValue,
     )
+  }
+}
+
+object Storage {
+  def threadsAvailableForWriting(storage: Storage): PositiveInt = {
+    storage match {
+      case _: MemoryStorage => PositiveInt.one
+      case dbStorage: DbStorage => dbStorage.threadsAvailableForWriting
+    }
   }
 }

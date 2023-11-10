@@ -13,6 +13,7 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 
+// TODO(#15303) Remove this test
 class DomainTopologyManagerTest extends TopologyManagerTest {
 
   "domain topology manager" should {
