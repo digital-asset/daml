@@ -657,9 +657,8 @@ message Node {
   message Fetch {
     string contract_id = 1;
     Identifier template_id = 2;
-    repeated Party signatories = 3;
-    repeated Party stakeholders = 4;
-    KeyWithMaintainers fetch_by_key = 13; // optional, if non-empty then fetched by key
+    repeated Party acting_parties = 3;
+    KeyWithMaintainers fetch_by_key = 4; // optional, if non-empty then fetched by key
   }
 
   message Exercise {

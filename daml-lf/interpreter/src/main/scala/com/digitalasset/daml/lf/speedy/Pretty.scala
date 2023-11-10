@@ -277,7 +277,7 @@ private[lf] object Pretty {
         partiesAction(create.signatories, "creates", "create") &
           prettyContractInst(create.coinst)
       case fetch: Node.Fetch =>
-        partiesAction(fetch.signatories, "fetches", "fetch") &
+        partiesAction(fetch.actingParties, "fetches", "fetch") &
           prettyContractId(fetch.coid)
       case ex: Node.Exercise =>
         partiesAction(ex.actingParties, "exercises", "exercise") &
@@ -376,7 +376,7 @@ private[lf] object Pretty {
           case Some(key) => d / text("key") & prettyKeyWithMaintainers(key)
         }
       case ea: Node.Fetch =>
-        partiesAction(ea.signatories, "fetches", "fetch") &
+        partiesAction(ea.actingParties, "fetches", "fetch") &
           prettyContractId(ea.coid)
       case ex: Node.Exercise =>
         val children =

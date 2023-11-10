@@ -640,8 +640,7 @@ final class Conversions(
           proto.Node.Fetch.newBuilder
             .setContractId(coidToEventId(fetch.coid).toLedgerString)
             .setTemplateId(convertIdentifier(fetch.templateId))
-            .addAllSignatories(fetch.signatories.map(convertParty).asJava)
-            .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
+            .addAllActingParties(fetch.actingParties.map(convertParty).asJava)
         if (fetch.byKey) {
           fetch.keyOpt.foreach { key =>
             fetchBuilder.setFetchByKey(convertKeyWithMaintainers(key))
@@ -739,8 +738,7 @@ final class Conversions(
           proto.Node.Fetch.newBuilder
             .setContractId(coidToEventId(fetch.coid).toLedgerString)
             .setTemplateId(convertIdentifier(fetch.templateId))
-            .addAllSignatories(fetch.signatories.map(convertParty).asJava)
-            .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
+            .addAllActingParties(fetch.actingParties.map(convertParty).asJava)
             .build
         )
       case ex: Node.Exercise =>
