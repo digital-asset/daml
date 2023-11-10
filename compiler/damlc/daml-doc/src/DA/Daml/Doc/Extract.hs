@@ -12,48 +12,42 @@ module DA.Daml.Doc.Extract
     , extractDocs
     ) where
 
-import DA.Daml.Doc.Types as DDoc
-import DA.Daml.Doc.Anchor as DDoc
-
-import DA.Daml.Doc.Extract.Types
-import DA.Daml.Doc.Extract.Util
-import DA.Daml.Doc.Extract.Exports
-import DA.Daml.Doc.Extract.Templates
-import DA.Daml.Doc.Extract.TypeExpr
-
-import DA.Daml.Options.Types
-
-import DA.Service.Logger.Impl.Pure qualified as Logger
-
-import Development.IDE.Core.IdeState.Daml
-import Development.IDE.Core.Service qualified as Service
-import Development.IDE.Core.Shake qualified as Service
-import Development.IDE.Core.Rules qualified as Service
-import Development.IDE.Core.Rules.Daml qualified as Service
-import Development.IDE.Core.RuleTypes.Daml qualified as Service
-import Development.IDE.Core.OfInterest qualified as Service
-import Development.IDE.Types.Location
-
 import "ghc-lib" GHC
-import "ghc-lib-parser" TyCon
+import "ghc-lib-parser" Bag (bagToList)
+import "ghc-lib-parser" BasicTypes
+import "ghc-lib-parser" Class
 import "ghc-lib-parser" ConLike
 import "ghc-lib-parser" DataCon
-import "ghc-lib-parser" Class
-import "ghc-lib-parser" BasicTypes
-import "ghc-lib-parser" Bag (bagToList)
 import "ghc-lib-parser" RdrHsSyn (isDamlGenerated)
 import "ghc-lib-parser" RdrName (rdrNameOcc)
-
+import "ghc-lib-parser" TyCon
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe
+import DA.Daml.Doc.Anchor as DDoc
+import DA.Daml.Doc.Extract.Exports
+import DA.Daml.Doc.Extract.Templates
+import DA.Daml.Doc.Extract.TypeExpr
+import DA.Daml.Doc.Extract.Types
+import DA.Daml.Doc.Extract.Util
+import DA.Daml.Doc.Types as DDoc
+import DA.Daml.Options.Types
+import DA.Service.Logger.Impl.Pure qualified as Logger
 import Data.HashSet qualified as HashSet
-import Data.List.Extra
 import Data.List.Extended (spanMaybe)
-import Data.Maybe
+import Data.List.Extra
 import Data.Map.Strict qualified as MS
+import Data.Maybe
 import Data.Set qualified as Set
 import Data.Text qualified as T
+import Development.IDE.Core.IdeState.Daml
+import Development.IDE.Core.OfInterest qualified as Service
+import Development.IDE.Core.RuleTypes.Daml qualified as Service
+import Development.IDE.Core.Rules qualified as Service
+import Development.IDE.Core.Rules.Daml qualified as Service
+import Development.IDE.Core.Service qualified as Service
+import Development.IDE.Core.Shake qualified as Service
+import Development.IDE.Types.Location
 
 -- | Extract documentation in a dependency graph of modules.
 extractDocs ::

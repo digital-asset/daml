@@ -20,7 +20,6 @@ import System.FilePath
 import System.Info.Extra
 import System.PosixCompat.Files (createSymbolicLink, setFileMode)
 
-
 -- | This is intended to be used in combination with `Data.Conduit.Tar.untar`.
 -- It writes the given file to the given directory stripping the first component
 -- thereby emulating tar’s --strip-components=1 option.

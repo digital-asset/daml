@@ -3,24 +3,21 @@
 
 module DA.Daml.Desugar (desugar) where
 
+import "ghc-lib" GHC (pm_parsed_source)
+import "ghc-lib-parser" HscTypes (hsc_dflags)
+import "ghc-lib-parser" Outputable qualified as GHC
 import DA.Daml.Compiler.Output (diagnosticsLogger)
 import DA.Daml.Options.Types (Options, getLogger)
+import Data.HashSet qualified as HashSet
 import Data.Text (Text)
+import Data.Text qualified as T
 import Development.IDE.Core.API (runActionSync, setFilesOfInterest)
 import Development.IDE.Core.IdeState.Daml (withDamlIdeState)
-import Development.IDE.Core.Rules (GetParsedModule (..))
 import Development.IDE.Core.RuleTypes (GhcSession (..))
+import Development.IDE.Core.Rules (GetParsedModule (..))
 import Development.IDE.Core.Shake (use_)
 import Development.IDE.GHC.Util (hscEnv)
 import Development.IDE.Types.Location (toNormalizedFilePath')
-
-import Data.HashSet qualified as HashSet
-import Data.Text qualified as T
-
-import "ghc-lib" GHC (pm_parsed_source)
-import "ghc-lib-parser" HscTypes (hsc_dflags)
-
-import "ghc-lib-parser" Outputable qualified as GHC
 
 desugar :: Options -> FilePath -> IO Text
 desugar opts inputFile = do

@@ -22,19 +22,18 @@ module DA.Test.Util (
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.IO.Unlift (MonadUnliftIO)
+import DA.Daml.LF.Ast.Base (unPackageId)
+import DA.Daml.StablePackages (allStablePackages)
 import Data.List.Extra (isInfixOf)
 import Data.Map.Strict qualified as MS
 import Data.Text qualified as T
 import System.Directory
+import System.Environment.Blank
 import System.IO.Extra
 import System.Info.Extra
-import System.Environment.Blank
 import Test.Tasty
 import Test.Tasty.HUnit
 import UnliftIO.Exception qualified as Unlift
-
-import DA.Daml.StablePackages (allStablePackages)
-import DA.Daml.LF.Ast.Base (unPackageId)
 
 -- | Replaces known stable package IDs by 'XXXXXX' in a string.
 redactStablePackageIds :: T.Text -> T.Text

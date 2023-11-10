@@ -9,17 +9,17 @@ module DA.Ledger.Services.PartyManagementService (
     allocateParty, AllocatePartyRequest(..),
     ) where
 
+import Com.Daml.Ledger.Api.V1.Admin.PartyManagementService qualified as LL
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types
+import Data.Aeson ((.:), (.:?))
+import Data.Aeson qualified as A
 import Data.Functor
 import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
 import Network.GRPC.HighLevel.Generated
-import Data.Aeson qualified as A
-import Data.Aeson ((.:), (.:?))
-import Com.Daml.Ledger.Api.V1.Admin.PartyManagementService qualified as LL
 
 getParticipantId :: LedgerService ParticipantId
 getParticipantId =

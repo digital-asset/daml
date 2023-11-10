@@ -4,24 +4,26 @@ module DA.Test.Packaging (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
+import "ghc-lib-parser" Module (stringToUnitId)
 import "zip-archive" Codec.Archive.Zip qualified as Zip
-import Control.Monad.Extra
 import Control.Exception.Safe
+import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging (BuildLfPackageGraphArgs' (..), BuildLfPackageGraphMetaArgs (..), buildLfPackageGraph')
 import DA.Daml.LF.Ast qualified as LF
-import DA.Daml.LF.Reader (readDalfManifest, readDalfs, packageName, Dalfs(..), DalfManifest(DalfManifest), mainDalfPath, dalfPaths)
 import DA.Daml.LF.Proto3.Archive qualified as LFArchive
+import DA.Daml.LF.Reader (readDalfManifest, readDalfs, packageName, Dalfs(..), DalfManifest(DalfManifest), mainDalfPath, dalfPaths)
 import DA.Test.Process
 import DA.Test.Util
-import Data.Conduit.Tar.Extra (dropDirectory1)
 import Data.ByteString.Lazy qualified as BSL
 import Data.ByteString.Lazy.Char8 qualified as BSL.Char8
+import Data.Conduit.Tar.Extra (dropDirectory1)
 import Data.Graph qualified as Graph (path)
 import Data.List.Extra
 import Data.Maybe
 import Data.Set qualified as Set
 import Data.Text qualified as Text
+import SdkVersion
 import System.Directory.Extra
 import System.Environment.Blank
 import System.Exit
@@ -31,10 +33,6 @@ import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
-
-import "ghc-lib-parser" Module (stringToUnitId)
-
-import SdkVersion
 
 main :: IO ()
 main = do

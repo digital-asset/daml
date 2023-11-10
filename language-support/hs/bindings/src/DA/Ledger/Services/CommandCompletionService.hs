@@ -11,8 +11,8 @@ import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Stream
 import DA.Ledger.Types
-import Network.GRPC.HighLevel.Generated
 import Data.Vector qualified as Vector
+import Network.GRPC.HighLevel.Generated
 
 type Request = (LedgerId,ApplicationId,[Party],Maybe LedgerOffset)
 type Response = (Maybe Checkpoint, [Completion])

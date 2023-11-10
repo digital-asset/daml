@@ -6,8 +6,8 @@ module DA.Ledger.App.Chat.Main (main) where
 
 import DA.Ledger.App.Chat.Domain (Party(..))
 import DA.Ledger.App.Chat.UI (interactiveMain)
-import System.Environment (getArgs)
 import Data.Text.Lazy qualified as Text
+import System.Environment (getArgs)
 
 main :: IO ()
 main = do

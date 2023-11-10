@@ -10,14 +10,13 @@ import DA.Daml.Compiler.Output
 import DA.Daml.Doc.Driver
 import DA.Daml.Doc.Extract
 import DA.Daml.Options.Types
+import Data.List.Extra
+import Data.Set qualified as Set
+import Data.Text qualified as T
 import Development.IDE.Types.Location
 import Module (unitIdString)
-
 import Options.Applicative
 import Options.Applicative.Extended (lastOr)
-import Data.List.Extra
-import Data.Text qualified as T
-import Data.Set qualified as Set
 
 ------------------------------------------------------------
 

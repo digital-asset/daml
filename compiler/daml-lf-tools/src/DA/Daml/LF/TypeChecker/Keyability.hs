@@ -15,16 +15,15 @@ module DA.Daml.LF.TypeChecker.Keyability
 
 import Control.Lens (matching, toListOf)
 import Control.Monad.Extra
-import Data.Foldable (for_)
-import Data.Semigroup.FixedPoint (leastFixedPointBy)
-import Data.HashSet qualified as HS
-import Data.NameMap qualified as NM
-import Data.HashMap.Strict qualified as HMS
-
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics (_PRSelfModule, dataConsType)
 import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
+import Data.Foldable (for_)
+import Data.HashMap.Strict qualified as HMS
+import Data.HashSet qualified as HS
+import Data.NameMap qualified as NM
+import Data.Semigroup.FixedPoint (leastFixedPointBy)
 
 newtype CurrentModule = CurrentModule  ModuleName
 newtype UnkeyableTyConSet = UnkeyableTyConSet (HS.HashSet TypeConName)

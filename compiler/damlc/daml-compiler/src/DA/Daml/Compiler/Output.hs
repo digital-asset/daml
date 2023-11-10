@@ -9,6 +9,7 @@ module DA.Daml.Compiler.Output
   , printDiagnostics
   ) where
 
+import Control.Exception (bracket)
 import Data.ByteString.Char8 qualified as BS
 import Data.ByteString.Lazy qualified as BSL
 import Data.String (IsString)
@@ -18,7 +19,6 @@ import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Language.LSP.Types qualified as LSP
 import System.IO
-import Control.Exception (bracket)
 
 -- | Write some text to the destination specified on the command line.
 --

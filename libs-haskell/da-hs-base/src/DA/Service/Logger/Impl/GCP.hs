@@ -34,38 +34,38 @@ module DA.Service.Logger.Impl.GCP
     , test
     ) where
 
-import GHC.Generics(Generic)
-import Data.Int
-import Text.Read (readMaybe)
-import Data.Aeson as Aeson
-import Data.Aeson.KeyMap qualified as Aeson
-import Data.Char (toUpper)
-import Control.Monad
-import Control.Monad.Loops
-import GHC.Stack
-import System.Directory
-import System.Environment
-import System.FilePath
-import System.Info
-import System.Timeout
-import System.Random
-import System.IO.Extra
-import DA.Service.Logger qualified as Lgr
-import DA.Service.Logger.Impl.Pure qualified as Lgr.Pure
-import DA.Daml.Project.Consts
-import Data.Text.Extended qualified as T
-import Data.ByteString.Lazy qualified as LBS
-import Data.ByteString qualified as BS
-import Data.String
-import Data.Time as Time
-import Data.UUID (UUID)
-import Data.UUID qualified as UUID
 import Control.Concurrent.Async
 import Control.Concurrent.Extra
 import Control.Concurrent.STM
 import Control.Exception.Safe
+import Control.Monad
+import Control.Monad.Loops
+import DA.Daml.Project.Consts
+import DA.Service.Logger qualified as Lgr
+import DA.Service.Logger.Impl.Pure qualified as Lgr.Pure
+import Data.Aeson as Aeson
+import Data.Aeson.KeyMap qualified as Aeson
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as LBS
+import Data.Char (toUpper)
+import Data.Int
+import Data.String
+import Data.Text.Extended qualified as T
+import Data.Time as Time
+import Data.UUID (UUID)
+import Data.UUID qualified as UUID
+import GHC.Generics(Generic)
+import GHC.Stack
 import Network.HTTP.Simple
 import SdkVersion
+import System.Directory
+import System.Environment
+import System.FilePath
+import System.IO.Extra
+import System.Info
+import System.Random
+import System.Timeout
+import Text.Read (readMaybe)
 
 -- Type definitions
 

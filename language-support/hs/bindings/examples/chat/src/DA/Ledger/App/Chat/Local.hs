@@ -10,11 +10,11 @@ module DA.Ledger.App.Chat.Local (
     ) where
 
 import DA.Ledger.App.Chat.Contracts (ChatContract)
+import DA.Ledger.App.Chat.Contracts qualified as C
 import DA.Ledger.App.Chat.Domain (Party,Introduce(..),Message(..),Broadcast(..))
 import Data.List ((\\))
 import Data.Text.Lazy (Text)
 import Data.Text.Lazy as Text (unpack)
-import DA.Ledger.App.Chat.Contracts qualified as C
 
 -- user commands, to be interpreted w.r.t the local state
 

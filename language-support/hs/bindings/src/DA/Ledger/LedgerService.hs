@@ -12,12 +12,12 @@ import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader,local,asks)
 import Control.Monad.Trans.Reader (ReaderT(..))
 import DA.Ledger.Retry (ledgerRetry)
+import Data.ByteString.UTF8 qualified as BSU8
 import Data.List
+import Data.Map qualified as Map
 import Network.GRPC.HighLevel.Client(TimeoutSeconds)
 import Network.GRPC.HighLevel.Generated(ClientConfig,MetadataMap(..))
 import UnliftIO(MonadUnliftIO)
-import Data.ByteString.UTF8 qualified as BSU8
-import Data.Map qualified as Map
 
 data Context = Context
   { ts :: TimeoutSeconds

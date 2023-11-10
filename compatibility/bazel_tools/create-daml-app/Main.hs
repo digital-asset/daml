@@ -12,9 +12,9 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Extra qualified as Aeson
 import Data.Aeson.Key qualified as AK
 import Data.Aeson.KeyMap qualified as KM
-import Data.Conduit ((.|), runConduitRes)
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BSL
+import Data.Conduit ((.|), runConduitRes)
 import Data.Conduit.Combinators qualified as Conduit
 import Data.Conduit.Tar qualified as Tar
 import Data.Conduit.Zlib qualified as Zlib
@@ -25,8 +25,8 @@ import Data.Text qualified as T
 import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath
-import System.Info.Extra
 import System.IO.Extra
+import System.Info.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit

@@ -8,6 +8,7 @@ module DA.Ledger.Services.PackageManagementService (
     uploadDarFile,
     ) where
 
+import Com.Daml.Ledger.Api.V1.Admin.PackageManagementService qualified as LL
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
@@ -17,7 +18,6 @@ import Data.Functor
 import Data.Text.Lazy (Text)
 import Data.Text.Lazy qualified as TL
 import Network.GRPC.HighLevel.Generated
-import Com.Daml.Ledger.Api.V1.Admin.PackageManagementService qualified as LL
 
 data PackageDetails = PackageDetails
     { pid :: PackageId

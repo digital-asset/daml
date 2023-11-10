@@ -14,17 +14,17 @@ module DA.Daml.Assistant.Command
     , getCommand
     ) where
 
+import Control.Exception.Safe
 import DA.Daml.Assistant.Types
+import Data.Either.Extra
+import Data.Foldable
 import Data.List
 import Data.Maybe
-import Data.Foldable
-import Options.Applicative.Types
 import Options.Applicative
 import Options.Applicative.Extended
+import Options.Applicative.Types
 import System.Environment
 import System.FilePath
-import Data.Either.Extra
-import Control.Exception.Safe
 import System.Process
 
 -- | Parse command line arguments without SDK command info. Returns Nothing if

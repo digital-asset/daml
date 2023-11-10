@@ -7,10 +7,9 @@ module DA.Daml.Doc.Render.Output
   ( renderModule
   ) where
 
-import DA.Daml.Doc.Types
-import DA.Daml.Doc.Render.Util (wrapOp)
 import DA.Daml.Doc.Render.Monoid
-
+import DA.Daml.Doc.Render.Util (wrapOp)
+import DA.Daml.Doc.Types
 import Data.List.Extra
 import Data.Maybe
 import Data.Text qualified as T

@@ -3,18 +3,18 @@
 
 module Main(main) where
 
-import Data.Maybe (isJust)
-import System.Environment
+import Control.Concurrent
 import Control.Exception.Safe
-import Control.Monad.Loops (untilJust)
-import System.Process.Typed
-import Data.List.Split (splitOn)
 import Control.Monad (guard, when)
+import Control.Monad.Loops (untilJust)
+import Data.List.Split (splitOn)
+import Data.Maybe (isJust)
 import Network.HTTP.Client (parseUrlThrow)
 import Network.HTTP.Simple qualified as HTTP
-import Control.Concurrent
+import System.Environment
 import System.Info.Extra
 import System.Process (terminateProcess)
+import System.Process.Typed
 
 main :: IO ()
 main = do

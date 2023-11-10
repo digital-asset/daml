@@ -6,12 +6,12 @@
 -- | For compiler level warnings on Daml.Script
 module DA.Daml.LFConversion.ExternalWarnings.Script (topLevelWarnings) where
 
-import Data.Text qualified as T
-import DA.Daml.UtilGHC
-import DA.Daml.LFConversion.ConvertM
-import DA.Daml.LFConversion.Utils
 import "ghc-lib" GhcPlugins as GHC hiding ((<>))
 import "ghc-lib" TyCoRep
+import DA.Daml.LFConversion.ConvertM
+import DA.Daml.LFConversion.Utils
+import DA.Daml.UtilGHC
+import Data.Text qualified as T
 
 pattern Daml2ScriptPackage :: GHC.UnitId
 pattern Daml2ScriptPackage <- (T.stripPrefix "daml-script-" . fsToText . unitIdFS -> Just _)

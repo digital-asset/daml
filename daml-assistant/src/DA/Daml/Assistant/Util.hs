@@ -7,13 +7,13 @@ module DA.Daml.Assistant.Util
     , fromRightM
     ) where
 
+import Control.Applicative
+import Control.Exception.Safe
+import Control.Monad.Extra
 import DA.Daml.Assistant.Types
 import DA.Daml.Project.Util
-import System.Exit
-import Control.Exception.Safe
-import Control.Applicative
-import Control.Monad.Extra
 import Data.Either.Extra
+import System.Exit
 import System.Process.Typed (ExitCodeException(..))
 
 -- | Throw an assistant error.

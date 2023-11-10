@@ -18,8 +18,8 @@ import Control.DeepSeq
 import Data.Data
 import Data.Hashable
 import Data.Maybe
-import Numeric.Natural
 import GHC.Generics (Generic)
+import Numeric.Natural
 
 -- | A type-level natural. For now these are restricted to being between
 -- 0 and 37 (inclusive). We do not expose the constructor of this type

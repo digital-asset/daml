@@ -10,27 +10,25 @@ module DA.Daml.Doc.Extract.Templates
     , TemplateMaps (..)
     ) where
 
-import DA.Daml.Doc.Types as DDoc
-import DA.Daml.Doc.Extract.Types
-import DA.Daml.Doc.Extract.Util
-import DA.Daml.Doc.Extract.TypeExpr
-
-import Control.Applicative ((<|>))
-import Data.Map.Strict qualified as MS
-import Data.Maybe (fromMaybe, mapMaybe)
-import Data.Tuple.Extra (second)
-import Data.Set qualified as Set
-import Data.Text qualified as T
-
 import "ghc-lib" GHC
 import "ghc-lib-parser" Bag (bagToList)
 import "ghc-lib-parser" CoreSyn (isOrphan)
+import "ghc-lib-parser" DynFlags (unsafeGlobalDynFlags)
 import "ghc-lib-parser" Id
 import "ghc-lib-parser" InstEnv
 import "ghc-lib-parser" Name
-import "ghc-lib-parser" DynFlags (unsafeGlobalDynFlags)
 import "ghc-lib-parser" Outputable (ppr, showSDocOneLine)
 import "ghc-lib-parser" Var (varType)
+import Control.Applicative ((<|>))
+import DA.Daml.Doc.Extract.TypeExpr
+import DA.Daml.Doc.Extract.Types
+import DA.Daml.Doc.Extract.Util
+import DA.Daml.Doc.Types as DDoc
+import Data.Map.Strict qualified as MS
+import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Set qualified as Set
+import Data.Text qualified as T
+import Data.Tuple.Extra (second)
 
 -- import Debug.Trace
 

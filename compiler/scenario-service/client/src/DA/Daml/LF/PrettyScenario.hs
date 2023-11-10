@@ -25,22 +25,21 @@ module DA.Daml.LF.PrettyScenario
   , ExerciseContext(..)
   ) where
 
+import Control.Applicative
 import Control.Monad.Extra
 import Control.Monad.Reader
 import Control.Monad.Trans.Except
 import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Ast.Pretty qualified as LF
 import DA.Daml.LF.Mangling
-import Control.Applicative
-import Text.Read hiding (parens)
 import DA.Pretty as Pretty
 import Data.Either.Extra
 import Data.Int
 import Data.List
 import Data.List.Extra (unsnoc)
+import Data.Map.Strict qualified as MS
 import Data.Maybe
 import Data.NameMap qualified as NM
-import Data.Map.Strict qualified as MS
 import Data.Ratio qualified as Ratio
 import Data.Set qualified as S
 import Data.Text qualified as T
@@ -51,9 +50,10 @@ import Data.Time.Format qualified as TF
 import Data.Vector qualified as V
 import Network.URI.Encode qualified
 import ScenarioService
+import Text.Blaze.Html.Renderer.Text qualified as Blaze
 import Text.Blaze.Html5 qualified as H
 import Text.Blaze.Html5.Attributes qualified as A
-import Text.Blaze.Html.Renderer.Text qualified as Blaze
+import Text.Read hiding (parens)
 
 data Error = ErrorMissingNode NodeId
 type M = ExceptT Error (Reader (MS.Map NodeId Node, LF.World))

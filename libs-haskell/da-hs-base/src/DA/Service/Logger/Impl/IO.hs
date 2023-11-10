@@ -7,22 +7,18 @@ module DA.Service.Logger.Impl.IO
     , newIOLogger
     ) where
 
-import DA.Service.Logger
-
 import Control.Concurrent.MVar (MVar, newMVar, withMVar)
-
 import Control.Monad
-
+import DA.Service.Logger
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.ByteString.Lazy.Char8 qualified as BSL8
 import Data.Char (toUpper)
+import Data.Text.Encoding qualified as TE
+import Data.Text.Extended qualified as T
 import Data.Time ()
 import Data.Time.Clock (getCurrentTime)
-import Data.Text.Extended qualified as T
-import Data.Text.Encoding qualified as TE
 import GHC.Stack
-
 import System.IO qualified
 
 ------------------------------------------------------------------------------

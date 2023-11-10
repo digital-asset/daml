@@ -9,6 +9,7 @@ module DA.Test.DamlRenamer (main) where
 
 import Control.Monad (filterM)
 import DA.Bazel.Runfiles (exe, locateRunfiles, mainWorkspace)
+import Data.ByteString.Lazy qualified as BSL
 import Data.List.Extra (nubOrd)
 import System.Directory (doesFileExist, listDirectory, makeAbsolute)
 import System.Environment.Blank (setEnv)
@@ -16,10 +17,8 @@ import System.Exit (ExitCode (..))
 import System.FilePath (dropExtension, replaceExtensions, takeExtensions, (<.>), (</>))
 import System.IO.Extra (withTempDir)
 import System.Process (readProcessWithExitCode)
-import Test.Tasty.Golden (goldenVsStringDiff)
-
-import Data.ByteString.Lazy qualified as BSL
 import Test.Tasty.Extended qualified as Tasty
+import Test.Tasty.Golden (goldenVsStringDiff)
 
 main :: IO ()
 main = do

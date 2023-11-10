@@ -9,3 +9,4 @@ module DA.Daml.LF.Proto3.Archive
 
 import DA.Daml.LF.Proto3.Archive.Decode
 import DA.Daml.LF.Proto3.Archive.Encode
+

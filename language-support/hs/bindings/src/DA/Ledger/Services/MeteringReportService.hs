@@ -12,27 +12,27 @@ module DA.Ledger.Services.MeteringReportService (
     toRawAesonValue
   ) where
 
-import Data.Aeson ( KeyValue((.=)), ToJSON(..), object )
+import Com.Daml.Ledger.Api.V1.Admin.MeteringReportService qualified as LL
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types
-import Data.Text.Lazy qualified as TL
-import Network.GRPC.HighLevel.Generated
-import Com.Daml.Ledger.Api.V1.Admin.MeteringReportService qualified as LL
+import Data.Aeson ( KeyValue((.=)), ToJSON(..), object )
+import Data.Aeson qualified as A
+import Data.Aeson.Key qualified as A
+import Data.Aeson.KeyMap qualified as A
+import Data.Map qualified as Map
 import Data.Maybe (maybeToList)
+import Data.Scientific qualified as Scientific
+import Data.Text.Lazy qualified as TL
+import Data.Time.Calendar (Day(..))
+import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
 import Data.Time.Clock.System qualified as System
 import Data.Time.Format.ISO8601 qualified as ISO8601
 import GHC.Int (Int64)
 import GHC.Word (Word32)
-import Data.Time.Calendar (Day(..))
-import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
-import Data.Aeson qualified as A
-import Data.Aeson.KeyMap qualified as A
-import Data.Aeson.Key qualified as A
 import Google.Protobuf.Struct qualified as S
-import Data.Map qualified as Map
-import Data.Scientific qualified as Scientific
+import Network.GRPC.HighLevel.Generated
 
 data MeteringRequestByDay = MeteringRequestByDay {
   from :: Day

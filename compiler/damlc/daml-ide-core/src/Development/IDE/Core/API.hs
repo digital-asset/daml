@@ -28,7 +28,8 @@ module Development.IDE.Core.API
     , makeLSPVFSHandle
     ) where
 
-import Development.IDE.Core.Service.Daml
-import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.FileStore
+import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.Service.Daml
 import Development.Shake (Action)
+

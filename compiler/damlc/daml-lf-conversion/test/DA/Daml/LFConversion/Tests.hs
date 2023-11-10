@@ -3,26 +3,24 @@
 
 module DA.Daml.LFConversion.Tests (main) where
 
-import Development.IDE.Types.Diagnostics (FileDiagnostic, showDiagnostics)
-import Development.IDE.Types.Location (toNormalizedFilePath')
-import Test.Tasty
-import Test.Tasty.HUnit
-import Data.Either.Combinators (whenLeft, whenRight)
-import Data.Maybe (isNothing)
-import Data.Ratio
-import Data.Set qualified as S
-import Data.Text qualified as T
-
-import DA.Daml.LFConversion
-import DA.Daml.LFConversion.MetadataEncoding
-import DA.Daml.LF.Ast qualified as LF
-import DA.Daml.UtilGHC (fsFromText)
-
 import "ghc-lib-parser" BasicTypes qualified as GHC
 import "ghc-lib-parser" BooleanFormula qualified as BF
 import "ghc-lib-parser" FieldLabel qualified as GHC
 import "ghc-lib-parser" OccName (mkDataOcc, mkTcOcc, mkVarOcc)
 import "ghc-lib-parser" SrcLoc (noLoc)
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LFConversion
+import DA.Daml.LFConversion.MetadataEncoding
+import DA.Daml.UtilGHC (fsFromText)
+import Data.Either.Combinators (whenLeft, whenRight)
+import Data.Maybe (isNothing)
+import Data.Ratio
+import Data.Set qualified as S
+import Data.Text qualified as T
+import Development.IDE.Types.Diagnostics (FileDiagnostic, showDiagnostics)
+import Development.IDE.Types.Location (toNormalizedFilePath')
+import Test.Tasty
+import Test.Tasty.HUnit
 
 main :: IO ()
 main = defaultMain $

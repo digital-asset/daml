@@ -6,37 +6,37 @@ module DA.Daml.Assistant
     ( main
     ) where
 
-import DA.Signals
-import DA.Service.Logger qualified as L
-import DA.Service.Logger.Impl.Pure qualified as L
-import DA.Service.Logger.Impl.GCP qualified as L
+import Control.Exception.Safe
+import Control.Monad.Extra
+import DA.Daml.Assistant.Cache
+import DA.Daml.Assistant.Command
+import DA.Daml.Assistant.Env
+import DA.Daml.Assistant.Install
+import DA.Daml.Assistant.Types
+import DA.Daml.Assistant.Util
+import DA.Daml.Assistant.Version
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts (sdkVersionEnvVar)
-import DA.Daml.Assistant.Types
-import DA.Daml.Assistant.Env
-import DA.Daml.Assistant.Command
-import DA.Daml.Assistant.Version
-import DA.Daml.Assistant.Install
-import DA.Daml.Assistant.Util
-import DA.Daml.Assistant.Cache
-import System.Environment (getArgs, lookupEnv)
-import System.FilePath
-import System.Directory
-import System.Process.Typed
-import System.Exit
-import System.IO
-import Control.Exception.Safe
+import DA.Service.Logger qualified as L
+import DA.Service.Logger.Impl.GCP qualified as L
+import DA.Service.Logger.Impl.Pure qualified as L
+import DA.Signals
 import Data.Aeson qualified as A
 import Data.Aeson.Key qualified as A
 import Data.Aeson.KeyMap qualified as A
 import Data.Char
-import Data.Maybe
-import Data.List.Extra
 import Data.Either.Extra
+import Data.List.Extra
+import Data.Maybe
 import Data.Set qualified as S
 import Data.Text qualified as T
-import Control.Monad.Extra
 import Safe
+import System.Directory
+import System.Environment (getArgs, lookupEnv)
+import System.Exit
+import System.FilePath
+import System.IO
+import System.Process.Typed
 
 -- | Run the assistant and exit.
 main :: IO ()

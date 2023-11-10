@@ -13,10 +13,9 @@ module Options.Applicative.Extended
     , lastOr
     ) where
 
+import Data.List.NonEmpty qualified as NE
 import GHC.Exts (IsString (..))
 import Options.Applicative
-
-import Data.List.NonEmpty qualified as NE
 
 -- | A morally boolean value with a default third option (called Auto) to be determined later.
 data YesNoAuto

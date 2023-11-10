@@ -4,7 +4,6 @@
 module Main (main) where
 
 import BazelCache qualified
-
 import Control.Monad qualified as Control
 import Options.Applicative qualified as Opt
 import System.IO.Extra qualified as IO

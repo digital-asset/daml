@@ -6,13 +6,12 @@ module DA.Daml.LF.InferSerializability
   ) where
 
 import Control.Monad.Error.Class
+import DA.Daml.LF.Ast
+import DA.Daml.LF.TypeChecker.Serializability (CurrentModule(..), serializabilityConditionsDataType)
 import Data.HashMap.Strict qualified as HMS
 import Data.HashSet qualified as HS
 import Data.NameMap qualified as NM
 import Data.Semigroup.FixedPoint (leastFixedPointBy)
-
-import DA.Daml.LF.Ast
-import DA.Daml.LF.TypeChecker.Serializability (CurrentModule(..), serializabilityConditionsDataType)
 
 inferModule :: World -> Version -> Module -> Either String Module
 inferModule world0 version mod0 = do

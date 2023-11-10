@@ -9,18 +9,26 @@ import Control.Concurrent.STM
 import Control.Lens
 import Control.Monad
 import Control.Monad.Loops (untilM_)
+import DA.Bazel.Runfiles
+import DA.Daml.Assistant.IntegrationTestUtils
+import DA.Daml.Helper.Util (waitForHttpServer, tokenFor, decodeCantonSandboxPort)
+import DA.PortFile
+import DA.Test.Daml2jsUtils
+import DA.Test.Process (callCommandSilent, callCommandSilentIn, subprocessEnv)
+import DA.Test.Util
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens
 import Data.ByteString.Lazy qualified as LBS
 import Data.List.Extra
-import Data.String (fromString)
 import Data.Maybe (maybeToList, isJust)
+import Data.String (fromString)
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
 import Data.Vector qualified as Vector
 import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket.Extended
+import SdkVersion
 import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath
@@ -29,15 +37,6 @@ import System.Info.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-
-import DA.Bazel.Runfiles
-import DA.Daml.Assistant.IntegrationTestUtils
-import DA.Daml.Helper.Util (waitForHttpServer, tokenFor, decodeCantonSandboxPort)
-import DA.Test.Daml2jsUtils
-import DA.Test.Process (callCommandSilent, callCommandSilentIn, subprocessEnv)
-import DA.Test.Util
-import DA.PortFile
-import SdkVersion
 
 main :: IO ()
 main = do

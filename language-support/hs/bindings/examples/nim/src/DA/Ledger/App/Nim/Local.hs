@@ -11,17 +11,16 @@ module DA.Ledger.App.Nim.Local(
     ) where
 
 import Control.Monad(when)
-import Data.List ((\\),sortBy,intercalate)
-import Data.Map.Strict (Map)
-import Data.Maybe(mapMaybe)
-import Data.List qualified as List(find,concatMap)
-import Data.Map.Strict qualified as Map(toList,lookup,empty,adjust,insert,elems,keys)
-
-import DA.Ledger.Types(ContractId)
 import DA.Ledger.App.Nim.Domain
-import DA.Ledger.App.Nim.NimTrans
-import DA.Ledger.App.Nim.NimCommand
 import DA.Ledger.App.Nim.Logging
+import DA.Ledger.App.Nim.NimCommand
+import DA.Ledger.App.Nim.NimTrans
+import DA.Ledger.Types(ContractId)
+import Data.List ((\\),sortBy,intercalate)
+import Data.List qualified as List(find,concatMap)
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map(toList,lookup,empty,adjust,insert,elems,keys)
+import Data.Maybe(mapMaybe)
 
 -- local state, accumulates external transitions
 

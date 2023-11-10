@@ -7,16 +7,16 @@ module DA.Test.IncrementalBuilds (main) where
 
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
+import DA.Test.Process
 import Data.Foldable
 import Data.Set qualified as Set
 import Data.Traversable
+import SdkVersion
 import System.Directory.Extra
 import System.FilePath
 import System.IO.Extra
-import DA.Test.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-import SdkVersion
 
 main :: IO ()
 main = do

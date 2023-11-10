@@ -5,16 +5,15 @@ module DA.Ledger.App.Nim.UI(interactiveMain) where
 
 import Control.Concurrent
 import Control.Monad.Trans.Class (lift)
-import System.Console.ANSI(Color(..))
-import Text.Read (readMaybe)
-import System.Console.Haskeline qualified as HL
-
-import DA.Ledger.Stream
 import DA.Ledger.App.Nim.Domain
 import DA.Ledger.App.Nim.Interact
 import DA.Ledger.App.Nim.Local(State,UserCommand(..),MatchNumber(..),prettyState)
 import DA.Ledger.App.Nim.Logging
 import DA.Ledger.App.Nim.NimLedger(Handle,connect)
+import DA.Ledger.Stream
+import System.Console.ANSI(Color(..))
+import System.Console.Haskeline qualified as HL
+import Text.Read (readMaybe)
 
 replyLog :: String -> IO ()
 replyLog = colourLog Cyan plainLog

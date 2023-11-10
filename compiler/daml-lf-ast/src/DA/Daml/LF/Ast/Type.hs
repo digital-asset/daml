@@ -9,15 +9,14 @@ module DA.Daml.LF.Ast.Type
   , substituteAux
   ) where
 
+import DA.Daml.LF.Ast.Base
 import Data.Bifunctor
 import Data.HashSet qualified as HS
+import Data.List
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Text qualified as T
-import Data.List
 import Safe (findJust)
-
-import DA.Daml.LF.Ast.Base
 
 -- | Get the free type variables of a type.
 freeVars :: Type -> Set.Set TypeVarName

@@ -5,15 +5,15 @@ module DA.Daml.LF.Proto3.Encode
   ( encodePayload
   ) where
 
-import Data.Text.Lazy qualified as TL
 import Com.Daml.DamlLfDev.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
 import Com.Daml.DamlLfDev.DamlLf1 qualified as LF1
 import Com.Daml.DamlLfDev.DamlLf2 qualified as LF2
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Proto3.EncodeV1 qualified as EncodeV1
-import Proto3.Suite (toLazyByteString, fromByteString)
 import Data.ByteString.Lazy qualified as BL
 import Data.Either (fromRight)
+import Data.Text.Lazy qualified as TL
+import Proto3.Suite (toLazyByteString, fromByteString)
 
 encodePayload :: Package -> ArchivePayload
 encodePayload package = case packageLfVersion package of

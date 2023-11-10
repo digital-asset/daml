@@ -21,6 +21,7 @@ module DA.Cli.Damlc.Test (
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
+import DA.Cli.Damlc.Test.TestResults qualified as TR
 import DA.Daml.Compiler.Output
 import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.PrettyScenario qualified as SS
@@ -48,7 +49,6 @@ import Development.IDE.Types.Location
 import Development.Shake qualified as Shake
 import Safe
 import ScenarioService qualified as SS
-import DA.Cli.Damlc.Test.TestResults qualified as TR
 import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensity(..))
 import System.Directory (createDirectoryIfMissing)
 import System.Environment.Blank
@@ -56,10 +56,10 @@ import System.Exit (exitFailure)
 import System.FilePath
 import System.IO (hPutStrLn, stderr)
 import System.IO.Error (isPermissionError, isAlreadyExistsError, isDoesNotExistError)
-import Text.XML.Light qualified as XML
 import Text.Blaze.Html.Renderer.Text qualified as Blaze
 import Text.Blaze.Html4.Strict qualified as Blaze
 import Text.Regex.TDFA
+import Text.XML.Light qualified as XML
 
 newtype UseColor = UseColor {getUseColor :: Bool}
 newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}

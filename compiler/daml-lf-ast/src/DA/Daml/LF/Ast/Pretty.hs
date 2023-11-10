@@ -11,22 +11,21 @@ module DA.Daml.LF.Ast.Pretty
     , (<:>)
     ) where
 
-import Data.Ratio qualified as Ratio
 import Control.Lens
 import Control.Lens.Ast (rightSpine)
+import DA.Daml.LF.Ast.Base hiding (dataCons)
+import DA.Daml.LF.Ast.Optics
+import DA.Daml.LF.Ast.TypeLevelNat
+import DA.Daml.LF.Ast.Util
+import DA.Pretty hiding (keyword_, pretty, type_)
+import Data.Foldable (toList)
 import Data.Maybe (maybeToList, isJust)
 import Data.NameMap qualified as NM
+import Data.Ratio qualified as Ratio
 import Data.Set qualified as S
 import Data.Text qualified as T
 import Data.Time.Clock.POSIX qualified as Clock.Posix
 import Data.Time.Format qualified as Time.Format
-import Data.Foldable (toList)
-
-import DA.Daml.LF.Ast.Base hiding (dataCons)
-import DA.Daml.LF.Ast.TypeLevelNat
-import DA.Daml.LF.Ast.Util
-import DA.Daml.LF.Ast.Optics
-import DA.Pretty hiding (keyword_, pretty, type_)
 
 -- NOTE(MH): We define 4 detail levels:
 -- -2: Omit all type information, kind annotations, package ids and location information.

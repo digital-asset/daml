@@ -22,30 +22,28 @@ module DA.Ledger.Convert (
     RaiseFailureReason(..),
     ) where
 
-import Prelude hiding(Enum)
-import Control.Exception (evaluate,try,SomeException)
-import Data.Map(Map)
-import Data.Maybe (fromMaybe)
-import Data.Text.Lazy (Text)
-import Data.Vector as Vector (Vector,empty,fromList,toList)
-import Data.Text.Lazy qualified as Text (pack,unpack)
-
-import Google.Protobuf.Empty qualified as LL
-import Google.Protobuf.Timestamp qualified as LL
 import Com.Daml.Ledger.Api.V1.ActiveContractsService qualified as LL
 import Com.Daml.Ledger.Api.V1.CommandCompletionService qualified as LL
-import Com.Daml.Ledger.Api.V1.LedgerConfigurationService qualified as LL
-import Com.Daml.Ledger.Api.V1.Testing.TimeService qualified as LL
 import Com.Daml.Ledger.Api.V1.Commands qualified as LL
 import Com.Daml.Ledger.Api.V1.Completion qualified as LL
 import Com.Daml.Ledger.Api.V1.Event qualified as LL
+import Com.Daml.Ledger.Api.V1.LedgerConfigurationService qualified as LL
+import Com.Daml.Ledger.Api.V1.LedgerOffset qualified as LL
+import Com.Daml.Ledger.Api.V1.Testing.TimeService qualified as LL
 import Com.Daml.Ledger.Api.V1.Transaction qualified as LL
 import Com.Daml.Ledger.Api.V1.Value qualified as LL
-import Com.Daml.Ledger.Api.V1.LedgerOffset qualified as LL
-import Data.Map qualified as Map
-import Proto3.Suite.Types qualified as LL
-
+import Control.Exception (evaluate,try,SomeException)
 import DA.Ledger.Types
+import Data.Map qualified as Map
+import Data.Map(Map)
+import Data.Maybe (fromMaybe)
+import Data.Text.Lazy (Text)
+import Data.Text.Lazy qualified as Text (pack,unpack)
+import Data.Vector as Vector (Vector,empty,fromList,toList)
+import Google.Protobuf.Empty qualified as LL
+import Google.Protobuf.Timestamp qualified as LL
+import Prelude hiding(Enum)
+import Proto3.Suite.Types qualified as LL
 
 -- lower
 

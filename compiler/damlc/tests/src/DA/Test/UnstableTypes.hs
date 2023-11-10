@@ -6,11 +6,11 @@ module DA.Test.UnstableTypes (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
-import Data.Bifunctor
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Proto3.Archive qualified as LFArchive
+import Data.Bifunctor
 import Data.ByteString qualified as BS
 import Data.List.Extra
 import Data.NameMap qualified as NM

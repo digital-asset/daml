@@ -6,12 +6,18 @@ module DA.Daml.Assistant.CreateDamlAppTests (main) where
 
 import Control.Exception.Extra
 import Control.Monad
+import DA.Bazel.Runfiles
+import DA.Daml.Assistant.IntegrationTestUtils
+import DA.Directory
+import DA.Test.Daml2jsUtils
+import DA.Test.Process (callCommandSilent)
+import DA.Test.Util
 import Data.Aeson
+import Data.Aeson.Extra.Merge
 import Data.Aeson.Key qualified as A
 import Data.Aeson.KeyMap qualified as KM
-import Data.Aeson.Extra.Merge
-import Data.ByteString.Lazy qualified as BSL
 import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
 import Data.List.Extra
 import Data.Proxy (Proxy (..))
 import Data.Tagged (Tagged (..))
@@ -24,13 +30,6 @@ import System.Info.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.Options
-
-import DA.Bazel.Runfiles
-import DA.Daml.Assistant.IntegrationTestUtils
-import DA.Directory
-import DA.Test.Daml2jsUtils
-import DA.Test.Process (callCommandSilent)
-import DA.Test.Util
 
 newtype ProjectName = ProjectName String
 

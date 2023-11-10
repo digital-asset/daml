@@ -5,15 +5,15 @@
 
 module DA.Ledger.Services.TimeService (getTime,setTime) where
 
-import Data.Functor
+import Com.Daml.Ledger.Api.V1.Testing.TimeService qualified as LL
+import DA.Ledger.Convert
+import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Stream
 import DA.Ledger.Types
-import Network.GRPC.HighLevel.Generated
-import DA.Ledger.GrpcWrapUtils
-import DA.Ledger.Convert
-import Com.Daml.Ledger.Api.V1.Testing.TimeService qualified as LL
+import Data.Functor
 import Google.Protobuf.Empty (Empty(..))
+import Network.GRPC.HighLevel.Generated
 
 getTime :: LedgerId -> LedgerService (Stream Timestamp)
 getTime lid =

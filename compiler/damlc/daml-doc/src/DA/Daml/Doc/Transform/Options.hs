@@ -9,13 +9,11 @@ module DA.Daml.Doc.Transform.Options
     ) where
 
 import DA.Daml.Doc.Types
-
 import Data.List.Extra (replace)
-import System.FilePath (pathSeparator) -- because FilePattern uses it
-import System.FilePattern ((?==))
 import Data.Set qualified as Set
 import Data.Text qualified as T
-
+import System.FilePath (pathSeparator) -- because FilePattern uses it
+import System.FilePattern ((?==))
 
 data TransformOptions = TransformOptions
     { to_includeModules :: Maybe [String]

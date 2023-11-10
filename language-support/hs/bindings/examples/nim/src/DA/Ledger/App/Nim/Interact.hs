@@ -6,15 +6,14 @@
 module DA.Ledger.App.Nim.Interact(PlayerState(..), makePlayerState, runSubmit) where
 
 import Control.Concurrent
-import System.Console.ANSI(Color(..))
-
-import DA.Ledger.PastAndFuture
-import DA.Ledger.Stream
 import DA.Ledger.App.Nim.Domain
 import DA.Ledger.App.Nim.Local(State,UserCommand,initState,externalizeCommand,applyManyTrans,applyTrans)
 import DA.Ledger.App.Nim.Logging
 import DA.Ledger.App.Nim.NimLedger(Handle,sendCommand,getTrans)
 import DA.Ledger.App.Nim.NimTrans
+import DA.Ledger.PastAndFuture
+import DA.Ledger.Stream
+import System.Console.ANSI(Color(..))
 
 data PlayerState = PlayerState {
     player :: Player,

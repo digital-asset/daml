@@ -19,11 +19,11 @@ module Sandbox
 import Control.Concurrent (threadDelay)
 import Control.Exception.Safe (IOException, catchJust, mask, onException)
 import Control.Monad
-import Data.Text.IO qualified as T
-import Data.Text (pack)
 import Data.Aeson qualified as Aeson
-import Data.Map qualified as Map
 import Data.ByteString.Lazy.Char8 qualified as BSL8
+import Data.Map qualified as Map
+import Data.Text (pack)
+import Data.Text.IO qualified as T
 import Safe (readMay)
 import System.Environment (getEnvironment)
 import System.Exit (exitFailure)

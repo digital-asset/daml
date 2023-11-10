@@ -7,18 +7,18 @@ module DA.Test.DamlcUpgrades (main) where
 
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
+import DA.Daml.LF.Ast.Version
+import DA.Test.Process
 import Data.Foldable
+import Data.Maybe (fromMaybe)
+import Data.Text qualified as T
+import SdkVersion
 import System.Directory.Extra
 import System.FilePath
 import System.IO.Extra
-import DA.Test.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-import SdkVersion
-import DA.Daml.LF.Ast.Version
 import Text.Regex.TDFA
-import Data.Text qualified as T
-import Data.Maybe (fromMaybe)
 
 main :: IO ()
 main = do

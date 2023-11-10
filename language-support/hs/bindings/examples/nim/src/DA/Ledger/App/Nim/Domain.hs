@@ -12,9 +12,9 @@ module DA.Ledger.App.Nim.Domain(
     deduceMoves,
     ) where
 
-import Data.List.Extra(zipWithFrom)
-import DA.Ledger.Types
 import DA.Ledger.IsLedgerValue(IsLedgerValue(..))
+import DA.Ledger.Types
+import Data.List.Extra(zipWithFrom)
 import Data.Text.Lazy qualified as Text
 
 data Player = Player { unPlayer :: String } deriving (Eq,Ord)

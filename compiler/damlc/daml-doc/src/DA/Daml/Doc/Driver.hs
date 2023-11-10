@@ -12,36 +12,31 @@ module DA.Daml.Doc.Driver
     , loadExternalAnchors
     ) where
 
-import DA.Daml.Doc.Types
-import DA.Daml.Doc.Render
-import DA.Daml.Doc.Extract
-import DA.Daml.Doc.Transform
-
-import DA.Daml.Options.Types
-
-import DA.Bazel.Runfiles
-import Development.IDE.Core.Shake (NotificationHandler)
-import Development.IDE.Types.Location
-
-import Control.Monad.Extra
-import Control.Monad.Trans.Maybe
-import Control.Monad.Trans.Except
 import Control.Exception
-
-import Data.Maybe
-import Data.Bifunctor
-import System.IO
-import System.Exit
-import System.Directory
-import System.FilePath
-
+import Control.Monad.Extra
+import Control.Monad.Trans.Except
+import Control.Monad.Trans.Maybe
+import DA.Bazel.Runfiles
+import DA.Daml.Doc.Extract
+import DA.Daml.Doc.Render
+import DA.Daml.Doc.Transform
+import DA.Daml.Doc.Types
+import DA.Daml.Options.Types
 import Data.Aeson qualified as AE
 import Data.Aeson.Encode.Pretty qualified as AP
+import Data.Bifunctor
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.HashMap.Strict qualified as HMS
+import Data.Maybe
 import Data.Text.Encoding qualified as T
 import Data.Text.Extended qualified as T
+import Development.IDE.Core.Shake (NotificationHandler)
+import Development.IDE.Types.Location
+import System.Directory
+import System.Exit
+import System.FilePath
+import System.IO
 
 data DamldocOptions = DamldocOptions
     { do_inputFormat :: InputFormat

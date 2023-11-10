@@ -5,8 +5,19 @@ module DA.Daml.Helper.Test.Deployment (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
+import "zip-archive" Codec.Archive.Zip qualified as Zip
 import Control.Exception
+import DA.Bazel.Runfiles (mainWorkspace,locateRunfiles,exe)
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.Proto3.Archive qualified as LFArchive
+import DA.Daml.LF.Reader (Dalfs(..),readDalfs)
+import DA.Test.Process (callProcessSilent)
+import DA.Test.Sandbox (mbSharedSecret, withCantonSandbox, defaultSandboxConf, makeSignedJwt)
+import DA.Test.Util
+import Data.ByteString.Lazy qualified as BSL
+import Data.Text qualified as T
 import Data.UUID.V4 qualified as UUID
+import SdkVersion (sdkVersion)
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment.Blank (setEnv, unsetEnv)
 import System.Exit
@@ -15,18 +26,6 @@ import System.IO.Extra (withTempDir,writeFileUTF8)
 import System.Process
 import Test.Tasty (TestTree,defaultMain,testGroup)
 import Test.Tasty.HUnit
-import "zip-archive" Codec.Archive.Zip qualified as Zip
-import Data.ByteString.Lazy qualified as BSL
-import Data.Text qualified as T
-
-import DA.Bazel.Runfiles (mainWorkspace,locateRunfiles,exe)
-import DA.Daml.LF.Reader (Dalfs(..),readDalfs)
-import DA.Test.Process (callProcessSilent)
-import DA.Test.Sandbox (mbSharedSecret, withCantonSandbox, defaultSandboxConf, makeSignedJwt)
-import DA.Test.Util
-import SdkVersion (sdkVersion)
-import DA.Daml.LF.Ast qualified as LF
-import DA.Daml.LF.Proto3.Archive qualified as LFArchive
 
 data Tools = Tools { damlc :: FilePath, damlHelper :: FilePath }
 

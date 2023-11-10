@@ -9,17 +9,17 @@ module Development.IDE.Core.IdeState.Daml
     ) where
 
 import Control.Exception
+import DA.Daml.LF.ScenarioServiceClient qualified as Scenario
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import DA.Service.Logger qualified as Logger
-import DA.Daml.LF.ScenarioServiceClient qualified as Scenario
-import Development.IDE.Core.Debouncer
 import Development.IDE.Core.API
+import Development.IDE.Core.Debouncer
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.Shake
 import Development.IDE.Plugin
-import Development.IDE.Plugin.Completions as Completions
 import Development.IDE.Plugin.CodeAction as CodeAction
+import Development.IDE.Plugin.Completions as Completions
 import Development.IDE.Types.Logger qualified as IdeLogger
 import Language.LSP.Types qualified as LSP
 

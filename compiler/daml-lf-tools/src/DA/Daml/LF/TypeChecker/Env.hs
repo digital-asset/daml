@@ -29,10 +29,9 @@ import Control.Lens hiding (Context)
 import Control.Monad.Error.Class (MonadError (..))
 import Control.Monad.Reader
 import Control.Monad.State
-import Data.HashMap.Strict (HashMap)
-
 import DA.Daml.LF.Ast
 import DA.Daml.LF.TypeChecker.Error
+import Data.HashMap.Strict (HashMap)
 
 -- | The environment for the Daml-LF type checker.
 data Gamma = Gamma

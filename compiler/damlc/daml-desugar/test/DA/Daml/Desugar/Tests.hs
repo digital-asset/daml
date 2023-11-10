@@ -9,15 +9,14 @@ import Control.Monad (filterM)
 import DA.Daml.Desugar (desugar)
 import DA.Daml.LF.Ast.Version (version2_dev)
 import DA.Daml.Options.Types (EnableScenarioService(..), Options(..), defaultOptions)
+import Data.ByteString.Lazy qualified as BSL
 import Data.List.Extra (nubOrd)
 import Data.Text (Text)
+import Data.Text.Encoding qualified as TE
 import System.Directory (doesFileExist, listDirectory, makeAbsolute)
 import System.FilePath (dropExtension, replaceExtensions, takeExtensions, (<.>), (</>))
-import Test.Tasty.Golden (goldenVsStringDiff)
-
-import Data.ByteString.Lazy qualified as BSL
-import Data.Text.Encoding qualified as TE
 import Test.Tasty.Extended qualified as Tasty
+import Test.Tasty.Golden (goldenVsStringDiff)
 
 mkTestTree :: FilePath -> IO Tasty.TestTree
 mkTestTree testDir = do

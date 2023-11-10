@@ -5,15 +5,14 @@ module Main
     ( main
     ) where
 
-import Data.ByteString qualified as BS
-import Data.Map.Strict qualified as MS
-import Options.Applicative
-import Data.Text qualified as T
-import Data.Text.Extended (writeFileUtf8)
-
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Proto3.Archive.Encode
 import DA.Daml.StablePackages
+import Data.ByteString qualified as BS
+import Data.Map.Strict qualified as MS
+import Data.Text qualified as T
+import Data.Text.Extended (writeFileUtf8)
+import Options.Applicative
 
 data Opts
     = PackageListCmd GenPackageListOpts

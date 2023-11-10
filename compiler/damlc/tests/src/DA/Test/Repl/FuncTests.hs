@@ -9,21 +9,21 @@ import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
-import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.DependencyDb
+import DA.Cli.Damlc.Packaging
 import DA.Daml.Compiler.Repl
 import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.ReplClient qualified as ReplClient
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
 import DA.Daml.Project.Types
-import Data.Either
-import DA.Test.Sandbox
-import DA.Test.Util
-import Development.IDE.Core.IdeState.Daml
-import Development.IDE.Types.Location
 import DA.Service.Logger qualified as Logger
 import DA.Service.Logger.Impl.IO qualified as Logger
+import DA.Test.Sandbox
+import DA.Test.Util
+import Data.Either
+import Development.IDE.Core.IdeState.Daml
+import Development.IDE.Types.Location
 import GHC.IO.Handle
 import SdkVersion
 import System.Directory

@@ -12,8 +12,8 @@ module DA.Ledger.App.Chat.Domain (
     Broadcast(..),
     ) where
 
-import DA.Ledger.Types (Party(..),Value(VList))
 import DA.Ledger.IsLedgerValue (IsLedgerValue(..))
+import DA.Ledger.Types (Party(..),Value(VList))
 import Data.Text.Lazy (Text)
 
 data Introduce = Introduce { from :: Party, people :: [Party] }

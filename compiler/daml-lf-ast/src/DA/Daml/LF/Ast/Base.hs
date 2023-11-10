@@ -11,22 +11,21 @@ module DA.Daml.LF.Ast.Base(
     module DA.Daml.LF.Ast.Base
     ) where
 
-import Data.Aeson
-import Data.Hashable
-import Data.Data
-import GHC.Generics(Generic)
-import Data.Int
+import "template-haskell" Language.Haskell.TH qualified as TH
 import Control.DeepSeq
 import Control.Lens
-import Data.NameMap qualified as NM
-import Data.Text qualified as T
-import Data.Set qualified as S
-import "template-haskell" Language.Haskell.TH qualified as TH
 import Control.Lens.TH qualified as Lens.TH
-
-import DA.Daml.LF.Ast.Version
 import DA.Daml.LF.Ast.Numeric
 import DA.Daml.LF.Ast.TypeLevelNat
+import DA.Daml.LF.Ast.Version
+import Data.Aeson
+import Data.Data
+import Data.Hashable
+import Data.Int
+import Data.NameMap qualified as NM
+import Data.Set qualified as S
+import Data.Text qualified as T
+import GHC.Generics(Generic)
 
 infixr 1 `KArrow`
 

@@ -4,20 +4,20 @@
 module Main (main) where
 
 import Control.Monad (when,void)
+import Data.Char qualified as Char (isDigit,digitToInt)
 import Data.List ((\\),sortOn)
 import Data.List.Extra (groupOn,foldl')
 import Data.Map (Map)
+import Data.Map qualified as Map (fromList,toList)
 import Data.Text (Text)
+import Data.Text qualified as T (pack,unpack)
+import Data.Text.IO qualified as T (getContents)
 import Data.Void (Void)
 import System.Exit (exitWith,ExitCode(ExitFailure))
 import System.FilePath (splitPath)
 import System.IO.Extra (hPutStrLn,stderr)
 import Text.Megaparsec (Parsec,runParser,errorBundlePretty,eof,takeWhileP,single,label,satisfy,noneOf,chunk,(<|>),some)
 import Text.Megaparsec.Char qualified (space)
-import Data.Char qualified as Char (isDigit,digitToInt)
-import Data.Map qualified as Map (fromList,toList)
-import Data.Text qualified as T (pack,unpack)
-import Data.Text.IO qualified as T (getContents)
 
 {-
 Generate _security evidence_ by documenting _security_ test cases.

@@ -6,15 +6,15 @@ module DA.Daml.Project.Types
     ( module DA.Daml.Project.Types
     ) where
 
-import Data.Yaml qualified as Y
-import Data.Text qualified as T
-import Data.SemVer qualified as V
-import Control.Lens qualified as L
-import Data.Text (Text)
-import Data.Maybe
-import System.FilePath
-import Control.Monad
 import Control.Exception.Safe
+import Control.Lens qualified as L
+import Control.Monad
+import Data.Maybe
+import Data.SemVer qualified as V
+import Data.Text (Text)
+import Data.Text qualified as T
+import Data.Yaml qualified as Y
+import System.FilePath
 
 data ConfigError
     = ConfigFileInvalid Text Y.ParseException

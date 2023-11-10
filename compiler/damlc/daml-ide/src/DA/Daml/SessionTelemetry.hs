@@ -9,6 +9,7 @@ import Control.Concurrent.Async
 import Control.Concurrent.Extra
 import Control.Monad
 import Control.Monad.IO.Class
+import DA.Service.Logger qualified as Lgr
 import Data.HashMap.Strict qualified as HM
 import Data.Int
 import Data.Text qualified as T
@@ -16,8 +17,6 @@ import Development.IDE.Plugin
 import Language.LSP.Types
 import System.Clock
 import System.Time.Extra
-
-import DA.Service.Logger qualified as Lgr
 
 data SessionState = SessionState
   { lastActive :: !(Var TimeSpec)

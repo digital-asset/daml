@@ -5,17 +5,15 @@ module DA.Daml.LF.Simplifier.Tests
     ( main
     ) where
 
-import Test.Tasty
-import Test.Tasty.HUnit
-import Data.NameMap qualified as NM
-import Data.Text qualified as T
-
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Util
 import DA.Daml.LF.Ast.Version (version1_dev, version2_dev, Version, renderVersion)
 import DA.Daml.LF.Ast.World (initWorld)
 import DA.Daml.LF.Simplifier (simplifyModule)
-
+import Data.NameMap qualified as NM
+import Data.Text qualified as T
+import Test.Tasty
+import Test.Tasty.HUnit
 
 main :: IO ()
 main = defaultMain $ testGroup "DA.Daml.LF.Simplifier"

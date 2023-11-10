@@ -8,14 +8,14 @@ import Control.DeepSeq
 import Control.Monad (unless, forM_, when)
 import DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
+import DA.Daml.LF.Ast.Recursive (TypeF(..))
 import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
-import DA.Daml.LF.Ast.Recursive (TypeF(..))
-import Data.Functor.Foldable (cata)
-import Data.Foldable (fold)
 import Data.Data
-import Data.Hashable
+import Data.Foldable (fold)
+import Data.Functor.Foldable (cata)
 import Data.HashMap.Strict qualified as HMS
+import Data.Hashable
 import Data.NameMap qualified as NM
 import Data.Text qualified as T
 import Development.IDE.Types.Diagnostics

@@ -81,20 +81,17 @@ module DA.Daml.LFConversion
     , ConversionEnv(..) -- exposed for testing
     ) where
 
-import DA.Daml.LFConversion.Primitives
-import DA.Daml.LFConversion.MetadataEncoding
-import DA.Daml.LFConversion.ConvertM
-import DA.Daml.LFConversion.ExternalWarnings (topLevelWarnings)
-import DA.Daml.LFConversion.Utils
-import DA.Daml.Preprocessor (isInternal)
-import DA.Daml.UtilGHC
-import DA.Daml.UtilLF
-import DA.Pretty (renderPretty)
-
-import Development.IDE.Types.Diagnostics
-import Development.IDE.Types.Location
-import Development.IDE.GHC.Util
-
+import "ghc-lib" GHC
+import "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
+import "ghc-lib-parser" Avail qualified as GHC
+import "ghc-lib-parser" BooleanFormula qualified as BF
+import "ghc-lib-parser" Class (classHasFds, classMinimalDef, classOpItems)
+import "ghc-lib-parser" InstEnv (ClsInst(..))
+import "ghc-lib-parser" Name qualified
+import "ghc-lib-parser" Pair hiding (swap)
+import "ghc-lib-parser" PrelNames
+import "ghc-lib-parser" TyCoRep
+import "ghc-lib-parser" TysPrim
 import Control.Lens hiding (MethodName)
 import Control.Monad.Except
 import Control.Monad.Extra
@@ -103,30 +100,31 @@ import DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Numeric
 import DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
 import DA.Daml.LF.TemplateOrInterface qualified as TemplateOrInterface
+import DA.Daml.LFConversion.ConvertM
+import DA.Daml.LFConversion.ExternalWarnings (topLevelWarnings)
+import DA.Daml.LFConversion.MetadataEncoding
+import DA.Daml.LFConversion.Primitives
+import DA.Daml.LFConversion.Utils
 import DA.Daml.Options.Types (EnableScenarios (..), AllowLargeTuples (..))
+import DA.Daml.Preprocessor (isInternal)
+import DA.Daml.UtilGHC
+import DA.Daml.UtilLF
+import DA.Pretty (renderPretty)
 import Data.Decimal qualified as Decimal
 import Data.Foldable (foldlM)
 import Data.Int
 import Data.List.Extra
-import Data.Map.Strict qualified as MS
 import Data.Map.Merge.Strict qualified as MMS
-import Data.Set qualified as S
+import Data.Map.Strict qualified as MS
 import Data.Maybe
 import Data.NameMap qualified as NM
+import Data.Ratio
+import Data.Set qualified as S
 import Data.Text.Extended qualified as T
 import Data.Tuple.Extra
-import Data.Ratio
-import "ghc-lib" GHC
-import "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
-import "ghc-lib-parser" InstEnv (ClsInst(..))
-import "ghc-lib-parser" Pair hiding (swap)
-import "ghc-lib-parser" PrelNames
-import "ghc-lib-parser" TysPrim
-import "ghc-lib-parser" TyCoRep
-import "ghc-lib-parser" Class (classHasFds, classMinimalDef, classOpItems)
-import "ghc-lib-parser" Name qualified
-import "ghc-lib-parser" Avail qualified as GHC
-import "ghc-lib-parser" BooleanFormula qualified as BF
+import Development.IDE.GHC.Util
+import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Location
 import Safe.Exact (zipExact, zipExactMay)
 import SdkVersion
 

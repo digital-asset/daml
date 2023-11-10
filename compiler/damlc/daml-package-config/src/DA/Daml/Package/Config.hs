@@ -16,17 +16,16 @@ module DA.Daml.Package.Config
     , checkPkgConfig
     ) where
 
+import Control.Exception.Safe (throwIO)
+import Control.Monad (when)
+import Control.Monad.Extra (loopM)
 import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
-
-import Control.Exception.Safe (throwIO)
-import Control.Monad (when)
-import Control.Monad.Extra (loopM)
 import Data.Aeson qualified as A
-import Data.Aeson.Key qualified as A
 import Data.Aeson.Encoding qualified as A
+import Data.Aeson.Key qualified as A
 import Data.List (elemIndex)
 import Data.List.Extra (nubOrd)
 import Data.Map.Strict (Map)

@@ -5,10 +5,9 @@ module DA.Daml.LF.Proto3.Error
     ( Error(..)
     ) where
 
-import Data.Text qualified as T
-import Data.Int (Int32)
-
 import DA.Daml.LF.Ast
+import Data.Int (Int32)
+import Data.Text qualified as T
 
 data Error
   = MissingField String

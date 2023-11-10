@@ -65,12 +65,12 @@ import Data.Fixed
 import Data.Int (Int64)
 import Data.Map (Map)
 import Data.Text.Lazy (Text)
-import Prelude hiding(Enum)
 import Data.Text.Lazy qualified as Text(unpack)
+import Data.Time.Clock qualified as Clock
+import Data.Time.Format.ISO8601 qualified as ISO8601
 import Google.Protobuf.Duration qualified as LL
 import Google.Rpc.Status qualified as LL
-import Data.Time.Format.ISO8601 qualified as ISO8601
-import Data.Time.Clock qualified as Clock
+import Prelude hiding(Enum)
 import Text.ParserCombinators.ReadP qualified as ReadP
 
 -- commands.proto

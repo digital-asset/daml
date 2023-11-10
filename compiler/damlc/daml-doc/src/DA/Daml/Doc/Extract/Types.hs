@@ -11,11 +11,10 @@ module DA.Daml.Doc.Extract.Types
     , ExportedItem (..)
     ) where
 
+import "ghc-lib" GHC
 import DA.Daml.Doc.Types
-
 import Data.Map.Strict qualified as MS
 import Data.Set qualified as Set
-import "ghc-lib" GHC
 
 -- | Options that affect doc extraction.
 data ExtractOptions = ExtractOptions

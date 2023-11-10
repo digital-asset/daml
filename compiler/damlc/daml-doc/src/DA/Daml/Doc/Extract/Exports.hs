@@ -13,16 +13,14 @@ module DA.Daml.Doc.Extract.Exports
     , filterTypeByExports
     ) where
 
-import DA.Daml.Doc.Types as DD
-import DA.Daml.Doc.Extract.Types
-
 import "ghc-lib" GHC
-import "ghc-lib-parser" RdrName
-import "ghc-lib-parser" OccName
-import "ghc-lib-parser" FieldLabel
 import "ghc-lib-parser" FastString
-
+import "ghc-lib-parser" FieldLabel
+import "ghc-lib-parser" OccName
+import "ghc-lib-parser" RdrName
 import Control.Monad (guard)
+import DA.Daml.Doc.Extract.Types
+import DA.Daml.Doc.Types as DD
 import Data.Maybe (mapMaybe)
 import Data.Set qualified as Set
 import Data.Text qualified as T

@@ -3,43 +3,41 @@
 {-# LANGUAGE DerivingStrategies #-}
 module TsCodeGenMain (main) where
 
-import DA.Bazel.Runfiles (setRunfilesEnv)
-import DA.Daml.LF.Proto3.Archive qualified as Archive
-import DA.Daml.LF.Reader qualified as DAR
-import DA.Pretty qualified
-import Data.ByteString qualified as B
-import Data.ByteString.Lazy qualified as BSL
-import Data.Map qualified as Map
-import Data.NameMap qualified as NM
-import Data.Set qualified as Set
-import Data.Set.Lens qualified as Set
-import Data.Text.Extended qualified as T
-import Data.Text.IO qualified as T
 import "zip-archive" Codec.Archive.Zip qualified as Zip
-import Data.Aeson hiding (Options)
-import Data.Aeson.Key qualified as Aeson
-import Data.Aeson.Encode.Pretty
-
 import Control.Exception
 import Control.Lens.MonoTraversal (monoTraverse)
 import Control.Lens.Traversal (Traversal')
 import Control.Monad
 import Control.Monad.Extra
+import DA.Bazel.Runfiles (setRunfilesEnv)
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
+import DA.Daml.LF.Proto3.Archive qualified as Archive
+import DA.Daml.LF.Reader qualified as DAR
+import DA.Daml.Project.Consts
+import DA.Daml.Project.Types
+import DA.Daml.Project.Types qualified as DATypes
+import DA.Pretty qualified
+import Data.Aeson hiding (Options)
+import Data.Aeson.Encode.Pretty
+import Data.Aeson.Key qualified as Aeson
+import Data.ByteString qualified as B
+import Data.ByteString.Lazy qualified as BSL
 import Data.Coerce (coerce)
 import Data.Either
-import Data.Tuple.Extra
 import Data.List.Extra
+import Data.Map qualified as Map
 import Data.Maybe
+import Data.NameMap qualified as NM
+import Data.Set qualified as Set
+import Data.Set.Lens qualified as Set
+import Data.Text.Extended qualified as T
+import Data.Text.IO qualified as T
+import Data.Tuple.Extra
 import Options.Applicative
 import System.Directory
 import System.Environment
 import System.FilePath hiding ((<.>))
-
-import DA.Daml.Project.Consts
-import DA.Daml.Project.Types
-import DA.Daml.Project.Types qualified as DATypes
 
 -- Version of the "@mojotech/json-type-validation" library we're using.
 jtvVersion :: T.Text

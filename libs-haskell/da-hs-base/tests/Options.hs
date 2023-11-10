@@ -3,10 +3,10 @@
 
 module Options(main) where
 
+import Options.Applicative
+import Options.Applicative.Extended
 import Test.Tasty
 import Test.Tasty.HUnit
-import Options.Applicative.Extended
-import Options.Applicative
 
 main :: IO ()
 main = defaultMain $ testGroup "Extended CLI options" [singleFlagParse, multiFlagParse, someAndManyParse]

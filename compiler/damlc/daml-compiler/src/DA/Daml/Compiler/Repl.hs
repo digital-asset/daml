@@ -12,11 +12,8 @@ module DA.Daml.Compiler.Repl
     , ReplLogger(..)
     ) where
 
-import FastString
-import TysWiredIn (unitDataCon, unitTyCon)
-import BasicTypes (Boxity(..), PromotionFlag(..), Origin(..))
-import DynFlags
 import Bag (bagToList, unitBag)
+import BasicTypes (Boxity(..), PromotionFlag(..), Origin(..))
 import Control.Applicative
 import Control.Concurrent.Async
 import Control.Concurrent.Extra
@@ -28,9 +25,9 @@ import Control.Monad.Trans.Maybe
 import DA.Daml.Compiler.Output (printDiagnostics)
 import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.InferSerializability qualified as Serializability
+import DA.Daml.LF.ReplClient qualified as ReplClient
 import DA.Daml.LF.Simplifier qualified as LF
 import DA.Daml.LF.TypeChecker qualified as LF
-import DA.Daml.LF.ReplClient qualified as ReplClient
 import DA.Daml.LFConversion (convertModule)
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor.Records qualified as Preprocessor
@@ -38,9 +35,9 @@ import DA.Daml.UtilGHC
 import DA.Daml.UtilLF (buildPackage)
 import Data.Bifunctor (first)
 import Data.Either.Combinators (whenLeft)
+import Data.Foldable
 import Data.Functor.Alt
 import Data.Functor.Bind
-import Data.Foldable
 import Data.Generics.Uniplate.Data (descendBi)
 import Data.IORef
 import Data.List (intercalate)
@@ -62,7 +59,9 @@ import Development.IDE.GHC.Util
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options
+import DynFlags
 import ErrUtils
+import FastString
 import GHC hiding (typecheckModule)
 import GHC.LanguageExtensions.Type
 import HscTypes (HscEnv(..), HscSource(HsSrcFile), HomeModInfo(hm_iface))
@@ -79,6 +78,7 @@ import System.Exit
 import System.IO.Extra
 import TcEvidence (idHsWrapper)
 import Type (splitTyConApp)
+import TysWiredIn (unitDataCon, unitTyCon)
 
 data Error
     = ParseError MsgDoc

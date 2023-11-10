@@ -20,37 +20,35 @@ module DA.Daml.Assistant.Version
     , freshMaximumOfVersions
     ) where
 
+import Control.Exception.Safe
+import Control.Lens (view)
+import Control.Monad.Extra
+import DA.Daml.Assistant.Cache
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
-import DA.Daml.Assistant.Cache
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts hiding (getDamlPath, getProjectPath)
-import System.Directory
-import System.FilePath
-import System.Environment.Blank
-import Control.Exception.Safe
-import Control.Monad.Extra
-import Data.Maybe
-import Data.Either.Extra
 import Data.Aeson (FromJSON(..), eitherDecodeStrict')
 import Data.Aeson.Types (listParser, withObject, (.:), Parser)
+import Data.ByteString (ByteString)
+import Data.ByteString.Char8 qualified as BSC
+import Data.ByteString.UTF8 qualified as BSU
+import Data.Either.Extra
+import Data.Function ((&))
+import Data.List.NonEmpty qualified as NonEmpty
+import Data.Map.Strict qualified as M
+import Data.Maybe
+import Data.SemVer qualified as V
 import Data.Text qualified as T
-import Safe
-import Network.HTTP.Simple
 import Network.HTTP.Client
     ( Request(responseTimeout)
     , responseTimeoutMicro
     )
-
-import Data.ByteString (ByteString)
-import Data.ByteString.Char8 qualified as BSC
-import Data.ByteString.UTF8 qualified as BSU
-import Data.SemVer qualified as V
-import Data.Function ((&))
-import Control.Lens (view)
-
-import Data.Map.Strict qualified as M
-import Data.List.NonEmpty qualified as NonEmpty
+import Network.HTTP.Simple
+import Safe
+import System.Directory
+import System.Environment.Blank
+import System.FilePath
 
 -- | Determine SDK version of running daml assistant. Fails with an
 -- AssistantError exception if the version cannot be determined.

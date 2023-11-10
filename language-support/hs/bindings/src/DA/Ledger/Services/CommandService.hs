@@ -10,13 +10,13 @@ module DA.Ledger.Services.CommandService (
     submitAndWaitForTransactionTree,
     ) where
 
-import Data.Functor
+import Com.Daml.Ledger.Api.V1.CommandService qualified as LL
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types
+import Data.Functor
 import Network.GRPC.HighLevel.Generated
-import Com.Daml.Ledger.Api.V1.CommandService qualified as LL
 
 submitAndWait :: Commands -> LedgerService (Either String ())
 submitAndWait commands =

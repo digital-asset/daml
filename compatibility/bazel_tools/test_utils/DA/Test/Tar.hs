@@ -13,8 +13,8 @@ import Data.List.Extra
 import Data.Maybe
 import Data.Text qualified as T
 import System.Directory
-import System.Info.Extra
 import System.FilePath
+import System.Info.Extra
 import System.PosixCompat.Files (createSymbolicLink, setFileMode)
 
 -- | This is intended to be used in combination with `Data.Conduit.Tar.untar`.

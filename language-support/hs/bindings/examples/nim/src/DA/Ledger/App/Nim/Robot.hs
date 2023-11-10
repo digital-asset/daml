@@ -5,17 +5,15 @@ module DA.Ledger.App.Nim.Robot(robotMain) where
 
 import Control.Concurrent
 import Control.Monad(forever)
-
+import DA.Ledger.App.Nim.Domain
+import DA.Ledger.App.Nim.Interact(PlayerState(..),makePlayerState,runSubmit)
+import DA.Ledger.App.Nim.Local(possibleActions)
+import DA.Ledger.App.Nim.Logging
+import DA.Ledger.App.Nim.NimLedger(Handle,connect)
 import Data.Foldable(forM_)
 import System.Console.ANSI(Color(..))
 import System.Random(randomRIO)
 import System.Time.Extra(sleep)
-
-import DA.Ledger.App.Nim.Domain
-import DA.Ledger.App.Nim.Logging
-import DA.Ledger.App.Nim.NimLedger(Handle,connect)
-import DA.Ledger.App.Nim.Interact(PlayerState(..),makePlayerState,runSubmit)
-import DA.Ledger.App.Nim.Local(possibleActions)
 
 robotMain :: Player -> IO ()
 robotMain player = do

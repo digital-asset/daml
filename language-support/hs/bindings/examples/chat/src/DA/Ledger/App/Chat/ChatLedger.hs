@@ -12,9 +12,9 @@ import DA.Ledger.App.Chat.Contracts (ChatContract,extractTransaction,makeLedgerC
 import DA.Ledger.App.Chat.Logging (Logger)
 import Data.List as List
 import Data.Maybe (maybeToList)
-import System.Random (randomIO)
 import Data.Text.Lazy qualified as Text (pack)
 import Data.UUID qualified as UUID
+import System.Random (randomIO)
 
 data Handle = Handle {
     log :: Logger,

@@ -15,30 +15,28 @@ module DA.Daml.Doc.Render
   , jsonConf
   ) where
 
-import DA.Daml.Doc.Render.Types
-import DA.Daml.Doc.Render.Monoid
-import DA.Daml.Doc.Render.Rst
-import DA.Daml.Doc.Render.Markdown
-import DA.Daml.Doc.Render.Hoogle
-import DA.Daml.Doc.Render.Output
-import DA.Daml.Doc.Types
-
-import Control.Monad.Extra
-import Data.Maybe
-import Data.Foldable
-import System.Directory
-import System.FilePath
-import System.IO
-import System.Exit
-
 import CMarkGFM qualified as GFM
+import Control.Monad.Extra
+import DA.Daml.Doc.Render.Hoogle
+import DA.Daml.Doc.Render.Markdown
+import DA.Daml.Doc.Render.Monoid
+import DA.Daml.Doc.Render.Output
+import DA.Daml.Doc.Render.Rst
+import DA.Daml.Doc.Render.Types
+import DA.Daml.Doc.Types
 import Data.Aeson qualified as A
 import Data.Aeson.Encode.Pretty qualified as AP
-import Data.Text qualified as T
-import Data.Text.Lazy qualified as TL
-import Data.Text.Encoding qualified as T
 import Data.ByteString qualified as BS
+import Data.Foldable
 import Data.Map.Strict qualified as Map
+import Data.Maybe
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as T
+import Data.Text.Lazy qualified as TL
+import System.Directory
+import System.Exit
+import System.FilePath
+import System.IO
 import Text.Mustache qualified as M
 
 -- | centralised JSON configuration for pretty-printing

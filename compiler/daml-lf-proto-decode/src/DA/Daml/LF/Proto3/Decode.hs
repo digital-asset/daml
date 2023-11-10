@@ -7,15 +7,15 @@ module DA.Daml.LF.Proto3.Decode
   ) where
 
 import Com.Daml.DamlLfDev.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
-import DA.Daml.LF.Ast (Package, PackageId, PackageRef, packageLfVersion, Version (..), versionMinor, MajorVersion(V2))
-import DA.Daml.LF.Proto3.Error
-import DA.Daml.LF.Proto3.DecodeV1 qualified as DecodeV1
 import Com.Daml.DamlLfDev.DamlLf1 qualified as LF1
 import Com.Daml.DamlLfDev.DamlLf2 qualified as LF2
-import Proto3.Suite (toLazyByteString, fromByteString)
-import Data.ByteString.Lazy qualified as BL
-import Proto3.Wire.Decode (ParseError)
+import DA.Daml.LF.Ast (Package, PackageId, PackageRef, packageLfVersion, Version (..), versionMinor, MajorVersion(V2))
+import DA.Daml.LF.Proto3.DecodeV1 qualified as DecodeV1
+import DA.Daml.LF.Proto3.Error
 import Data.Bifunctor (first)
+import Data.ByteString.Lazy qualified as BL
+import Proto3.Suite (toLazyByteString, fromByteString)
+import Proto3.Wire.Decode (ParseError)
 
 decodePayload :: PackageId -> PackageRef -> ArchivePayload -> Either Error Package
 decodePayload pkgId selfPackageRef payload = case archivePayloadSum payload of

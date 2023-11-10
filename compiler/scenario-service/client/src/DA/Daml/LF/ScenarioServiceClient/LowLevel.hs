@@ -32,51 +32,49 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , ScenarioServiceException(..)
   ) where
 
-import System.Random (randomIO)
 import Conduit (runConduit, (.|), MonadUnliftIO(..))
-import Data.Either
-import Data.Functor
-import Data.Maybe
-import Data.IORef
-import GHC.Generics
-import Text.Read
+import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Concurrent.MVar
-import Control.Concurrent
 import Control.DeepSeq
 import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
+import DA.Bazel.Runfiles
+import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Mangling
-import DA.Daml.Options.Types (EnableScenarios (..), EvaluationOrder (..))
 import DA.Daml.LF.Proto3.EncodeV1 qualified as EncodeV1
+import DA.Daml.Options.Types (EnableScenarios (..), EvaluationOrder (..))
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BSL
 import Data.Conduit qualified as C
 import Data.Conduit.Process
 import Data.Conduit.Text qualified as C.T
+import Data.Either
+import Data.Functor
+import Data.IORef
 import Data.Int (Int64)
 import Data.List.Split (splitOn)
+import Data.Maybe
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
 import Data.Vector qualified as V
+import Development.IDE.Types.Logger (Logger)
+import Development.IDE.Types.Logger qualified as Logger
+import GHC.Generics
 import Network.GRPC.HighLevel.Client (ClientError(..), ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient, GRPCIOError)
 import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..), Arg(MaxReceiveMessageLength))
 import Network.GRPC.LowLevel.Call (endpoint)
 import Proto3.Suite qualified as Proto
+import ScenarioService qualified as SS
 import System.Directory
 import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO qualified
-
-import DA.Bazel.Runfiles
-import DA.Daml.LF.Ast qualified as LF
-import ScenarioService qualified as SS
-
-import Development.IDE.Types.Logger (Logger)
-import Development.IDE.Types.Logger qualified as Logger
+import System.Random (randomIO)
+import Text.Read
 
 data Options = Options
   { optServerJar :: FilePath

@@ -23,7 +23,6 @@ module DA.Daml.LF.Ast.FreeVars
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Recursive
 import DA.Daml.LF.Ast.Type qualified as Type
-
 import Data.Foldable (fold)
 import Data.Functor.Foldable (cata)
 import Data.Set qualified as Set

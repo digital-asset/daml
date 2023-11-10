@@ -5,13 +5,13 @@
 
 module DA.Ledger.Services.LedgerConfigurationService(getLedgerConfiguration) where
 
+import Com.Daml.Ledger.Api.V1.LedgerConfigurationService qualified as LL
+import DA.Ledger.Convert
+import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Stream
 import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
-import DA.Ledger.GrpcWrapUtils
-import DA.Ledger.Convert
-import Com.Daml.Ledger.Api.V1.LedgerConfigurationService qualified as LL
 
 getLedgerConfiguration :: LedgerId -> LedgerService (Stream LedgerConfiguration)
 getLedgerConfiguration lid =

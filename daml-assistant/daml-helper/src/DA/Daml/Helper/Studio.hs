@@ -7,19 +7,18 @@ module DA.Daml.Helper.Studio
     ) where
 
 import Control.Monad.Extra
+import DA.Daml.Project.Consts
 import Data.ByteString.Lazy.UTF8 qualified as UTF8
 import Data.Maybe
 import System.Directory.Extra
 import System.Environment hiding (setEnv)
 import System.Exit
 import System.FilePath
-import System.Info.Extra
 import System.IO.Extra
+import System.Info.Extra
 import System.Process (showCommandForUser)
 import System.Process.Internals (translate)
 import System.Process.Typed
-
-import DA.Daml.Project.Consts
 
 runDamlStudio :: ReplaceExtension -> [String] -> IO ()
 runDamlStudio replaceExt remainingArguments = do

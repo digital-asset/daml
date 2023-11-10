@@ -15,32 +15,28 @@ module DA.Test.DamlcIntegration
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
-import DA.Bazel.Runfiles
-import DA.Daml.Options
-import DA.Daml.Options.Types
-import DA.Test.Util (redactStablePackageIds, standardizeQuotes)
-
-import DA.Daml.LF.Ast as LF hiding (IsTest)
 import "ghc-lib-parser" UniqSupply
 import "ghc-lib-parser" Unique
-
 import Control.Concurrent.Extra
 import Control.DeepSeq
 import Control.Exception.Extra
 import Control.Monad
 import Control.Monad.IO.Class
+import DA.Bazel.Runfiles
+import DA.Cli.Damlc.DependencyDb (installDependencies)
+import DA.Cli.Damlc.Packaging (createProjectPackageDb)
+import DA.Daml.LF.Ast as LF hiding (IsTest)
 import DA.Daml.LF.PrettyScenario (prettyScenarioError, prettyScenarioResult)
-import DA.Daml.LF.Proto3.EncodeV1
 import DA.Daml.LF.Proto3.Archive.Encode qualified as Archive
-import DA.Pretty hiding (first)
+import DA.Daml.LF.Proto3.EncodeV1
 import DA.Daml.LF.ScenarioServiceClient qualified as SS
+import DA.Daml.Options
+import DA.Daml.Options.Types
+import DA.Daml.Package.Config (PackageSdkVersion (..))
+import DA.Pretty hiding (first)
 import DA.Service.Logger qualified as Logger
 import DA.Service.Logger.Impl.IO qualified as Logger
-import Development.IDE.Core.Compile
-import Development.IDE.Core.Debouncer
-import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..))
-import Development.IDE.Types.Logger qualified as IdeLogger
-import Development.IDE.Types.Location
+import DA.Test.Util (redactStablePackageIds, standardizeQuotes)
 import Data.Aeson.Encode.Pretty qualified as A
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy.Char8 qualified as BSL
@@ -48,52 +44,52 @@ import Data.Char
 import Data.DList qualified as DList
 import Data.Either.Extra (eitherToMaybe)
 import Data.Foldable
-import Data.List.Extra
-import Data.IORef
-import Data.Proxy
-import Development.IDE.Types.Diagnostics
-import Data.Maybe
-import Development.Shake hiding (cmd, withResource, withTempDir, doesFileExist)
-import System.Directory.Extra
-import System.Environment.Blank (setEnv)
-import System.FilePath
-import System.Process (readProcess)
-import System.IO
-import System.IO.Extra
-import System.Info.Extra (isWindows)
-import Text.Read
-import Data.Map.Strict qualified as MS
 import Data.HashMap.Strict qualified as HashMap
 import Data.HashSet qualified as HashSet
+import Data.IORef
+import Data.List.Extra
+import Data.Map.Strict qualified as MS
+import Data.Maybe
+import Data.Proxy
 import Data.Set qualified as S
+import Data.Tagged (Tagged (..))
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Data.Vector qualified as V
-import System.Time.Extra
 import Development.IDE.Core.API
-import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.Compile
+import Development.IDE.Core.Debouncer
 import Development.IDE.Core.RuleTypes.Daml (VirtualResource (..))
-import Development.IDE.Types.Diagnostics qualified as D
+import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..))
 import Development.IDE.GHC.Util
-import Data.Tagged (Tagged (..))
+import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Diagnostics qualified as D
+import Development.IDE.Types.Location
+import Development.IDE.Types.Logger qualified as IdeLogger
+import Development.Shake hiding (cmd, withResource, withTempDir, doesFileExist)
 import GHC qualified
+import Module (stringToUnitId)
 import Options.Applicative (execParser, forwardOptions, info, many, strArgument)
 import Outputable (ppr, showSDoc)
 import Proto3.Suite.JSONPB qualified as JSONPB
-
+import SdkVersion (sdkVersion, sdkPackageVersion)
+import System.Directory.Extra
+import System.Environment.Blank (setEnv)
+import System.FilePath
+import System.IO
+import System.IO.Extra
+import System.Info.Extra (isWindows)
+import System.Process (readProcess)
+import System.Time.Extra
 import Test.Tasty
 import Test.Tasty.Golden (goldenVsStringDiff)
-import Test.Tasty.HUnit qualified as HUnit
 import Test.Tasty.HUnit ((@?=))
+import Test.Tasty.HUnit qualified as HUnit
 import Test.Tasty.Options
 import Test.Tasty.Providers
 import Test.Tasty.Runners (Result(..))
-
-import DA.Daml.Package.Config (PackageSdkVersion (..))
-import DA.Cli.Damlc.DependencyDb (installDependencies)
-import DA.Cli.Damlc.Packaging (createProjectPackageDb)
-import Module (stringToUnitId)
-import SdkVersion (sdkVersion, sdkPackageVersion)
+import Text.Read
 
 -- Newtype to avoid mixing up the loging function and the one for registering TODOs.
 newtype TODO = TODO String

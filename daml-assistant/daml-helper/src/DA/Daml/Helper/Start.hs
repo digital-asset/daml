@@ -21,24 +21,22 @@ import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
-import Data.Maybe
-import DA.PortFile
-import Data.Text qualified as T
-import Network.Socket.Extended (getFreePort)
-import System.Console.ANSI
-import System.FilePath
-import System.Process.Typed
-import System.IO.Extra
-import System.Info.Extra
-import Web.Browser
-
-import Options.Applicative.Extended (YesNoAuto, determineAutoM)
-
 import DA.Daml.Helper.Codegen
 import DA.Daml.Helper.Ledger
 import DA.Daml.Helper.Util
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
+import DA.PortFile
+import Data.Maybe
+import Data.Text qualified as T
+import Network.Socket.Extended (getFreePort)
+import Options.Applicative.Extended (YesNoAuto, determineAutoM)
+import System.Console.ANSI
+import System.FilePath
+import System.IO.Extra
+import System.Info.Extra
+import System.Process.Typed
+import Web.Browser
 
 data SandboxPortSpec = FreePort | SpecifiedPort SandboxPort
 

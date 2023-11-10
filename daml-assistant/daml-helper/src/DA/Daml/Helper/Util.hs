@@ -39,32 +39,31 @@ module DA.Daml.Helper.Util
 
 import Control.Exception.Safe
 import Control.Monad.Extra
+import DA.Daml.Project.Config
+import DA.Daml.Project.Consts
+import DA.Daml.Project.Types
+import DA.Daml.Project.Util hiding (fromMaybeM)
+import Data.Aeson qualified as A
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Key qualified as Aeson.Key
 import Data.Aeson.KeyMap qualified as KM
 import Data.ByteString.Lazy qualified as BSL
 import Data.ByteString.Lazy.Char8 qualified as BSL8
 import Data.Foldable
+import Data.Map qualified as Map
 import Data.Maybe
 import Data.Text qualified as T
 import Network.HTTP.Simple qualified as HTTP
 import Network.HTTP.Types qualified as HTTP
 import System.Directory
+import System.Exit (exitFailure)
 import System.FilePath
 import System.IO
 import System.IO.Extra (withTempDir, withTempFile)
 import System.Info.Extra
-import System.Exit (exitFailure)
 import System.Process (ProcessHandle, getProcessExitCode, showCommandForUser, terminateProcess)
 import System.Process.Typed
 import Web.JWT qualified as JWT
-import Data.Aeson qualified as A
-import Data.Map qualified as Map
-
-import DA.Daml.Project.Config
-import DA.Daml.Project.Consts
-import DA.Daml.Project.Types
-import DA.Daml.Project.Util hiding (fromMaybeM)
 
 findDamlProjectRoot :: FilePath -> IO (Maybe FilePath)
 findDamlProjectRoot = findAscendantWithFile projectConfigName

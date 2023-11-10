@@ -7,16 +7,16 @@ module DA.Test.IncrementalPackageDb (main) where
 
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
+import DA.Daml.Options.Packaging.Metadata (metadataFile)
+import DA.Test.Process
 import Data.Foldable
+import Development.IDE.Types.Location
+import SdkVersion
 import System.Directory.Extra
 import System.FilePath
 import System.IO.Extra
-import DA.Test.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-import DA.Daml.Options.Packaging.Metadata (metadataFile)
-import Development.IDE.Types.Location
-import SdkVersion
 
 newtype ExpectReinitialization = ExpectReinitialization Bool
 

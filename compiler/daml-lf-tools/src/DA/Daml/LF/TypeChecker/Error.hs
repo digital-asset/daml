@@ -16,15 +16,14 @@ module DA.Daml.LF.TypeChecker.Error(
     ) where
 
 import Control.Applicative
+import DA.Daml.LF.Ast
+import DA.Daml.LF.Ast.Pretty
+import DA.Daml.UtilLF (sourceLocToRange)
 import DA.Pretty
 import Data.Text qualified as T
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Numeric.Natural
-
-import DA.Daml.LF.Ast
-import DA.Daml.LF.Ast.Pretty
-import DA.Daml.UtilLF (sourceLocToRange)
 
 -- TODO(MH): Rework the context machinery to avoid code duplication.
 -- | Type checking context for error reporting purposes.

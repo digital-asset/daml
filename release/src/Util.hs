@@ -49,10 +49,9 @@ import Data.Conduit ((.|))
 import Data.Conduit qualified as C
 import Data.Conduit.Process qualified as Proc
 import Data.Conduit.Text qualified as CT
+import Data.Maybe
 import Data.SemVer (Version)
 import Data.SemVer qualified as SemVer
-import System.Process qualified
-import Data.Maybe
 import Data.Text (Text, unpack)
 import Data.Text qualified as T
 import Path
@@ -60,11 +59,11 @@ import Path.IO
 import System.Console.ANSI
                    (Color(..), SGR(SetColor, Reset), ConsoleLayer(Foreground),
                     ColorIntensity(..), setSGRCode)
-import System.Log.FastLogger qualified as FastLogger
 import System.Info.Extra
+import System.Log.FastLogger qualified as FastLogger
+import System.Process qualified
 import Text.XML qualified as XML
 import Text.XML.Cursor qualified as XML
-
 import Types
 
 newtype BazelTarget = BazelTarget { getBazelTarget :: Text }

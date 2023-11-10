@@ -5,19 +5,16 @@
 module DA.Daml.Doc.Render.Tests(mkTestTree)
   where
 
-import DA.Daml.Doc.Types
-import DA.Daml.Doc.Render
-
 import Control.Monad.Except
-import Data.Text qualified as T
-import Data.Text.IO qualified as T
+import DA.Daml.Doc.Render
+import DA.Daml.Doc.Types
+import Data.Map.Merge.Strict qualified as Map.Merge
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
-import Data.Map.Merge.Strict qualified as Map.Merge
-
+import Data.Text qualified as T
+import Data.Text.IO qualified as T
 import Test.Tasty.Extended qualified as Tasty
 import Test.Tasty.HUnit
-
 
 mkTestTree :: AnchorMap -> IO Tasty.TestTree
 mkTestTree externalAnchors = do

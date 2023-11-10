@@ -3,14 +3,11 @@
 
 module DA.Test.DamlDocTest (main) where
 
-import Data.Text.Extended qualified as T
-import Test.Tasty
-import Test.Tasty.HUnit
-
 import DA.Daml.DocTest
 import DA.Daml.Options.Types
 import DA.Service.Logger.Impl.Pure qualified as Logger
 import DA.Test.DamlcIntegration (withDamlScriptDep, ScriptPackageData)
+import Data.Text.Extended qualified as T
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Service
@@ -18,6 +15,8 @@ import Development.IDE.Core.Shake
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import System.Environment.Blank (setEnv)
+import Test.Tasty
+import Test.Tasty.HUnit
 
 main :: IO ()
 main =

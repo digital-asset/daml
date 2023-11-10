@@ -6,19 +6,18 @@ module DamlcLint
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
+import DA.Bazel.Runfiles
 import Data.List.Extra (isSuffixOf)
-import System.Environment.Blank
+import Data.Text.Extended qualified as T
+import SdkVersion
 import System.Directory
+import System.Environment.Blank
 import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-import Data.Text.Extended qualified as T
-
-import DA.Bazel.Runfiles
-import SdkVersion
 
 main :: IO ()
 main = do

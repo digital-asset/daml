@@ -6,6 +6,12 @@ module DA.Daml.Assistant.QuickstartTests (main) where
 
 import Conduit hiding (connect)
 import Control.Concurrent
+import DA.Bazel.Runfiles
+import DA.Daml.Assistant.IntegrationTestUtils
+import DA.Daml.Helper.Util (waitForHttpServer)
+import DA.PortFile
+import DA.Test.Process (callCommandSilent, callCommandSilentIn, callCommandSilentWithEnvIn)
+import DA.Test.Util
 import Data.ByteString.Lazy.Char8 qualified as LBS8
 import Data.Conduit.Tar.Extra qualified as Tar.Conduit.Extra
 import Data.List.Extra
@@ -20,13 +26,6 @@ import System.Info.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-
-import DA.Bazel.Runfiles
-import DA.Daml.Assistant.IntegrationTestUtils
-import DA.Daml.Helper.Util (waitForHttpServer)
-import DA.Test.Process (callCommandSilent, callCommandSilentIn, callCommandSilentWithEnvIn)
-import DA.Test.Util
-import DA.PortFile
 
 main :: IO ()
 main = do

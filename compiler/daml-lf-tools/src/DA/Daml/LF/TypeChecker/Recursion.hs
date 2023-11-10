@@ -8,19 +8,18 @@ module DA.Daml.LF.TypeChecker.Recursion
   ) where
 
 import Control.Lens (matching)
-import Data.Foldable (for_, toList)
-import Data.Functor.Foldable (cata)
-import Data.HashSet qualified as HS
-import Data.Graph qualified as G
-import Data.List.Extra (nubOrd)
-import Data.NameMap qualified as NM
-
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics (_PRSelfModule)
-import DA.Daml.LF.Ast.Type (referencedSyns)
 import DA.Daml.LF.Ast.Recursive
+import DA.Daml.LF.Ast.Type (referencedSyns)
 import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
+import Data.Foldable (for_, toList)
+import Data.Functor.Foldable (cata)
+import Data.Graph qualified as G
+import Data.HashSet qualified as HS
+import Data.List.Extra (nubOrd)
+import Data.NameMap qualified as NM
 
 -- | Collect all references to values defined in a given module in the current
 -- package that are /not/ under a lambda.

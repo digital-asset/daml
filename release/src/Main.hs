@@ -5,36 +5,32 @@
 module Main (main) where
 
 
+import Control.Exception
+import Control.Exception.Safe qualified as E
 import Control.Lens (view)
 import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Logger
-import Control.Exception
-import Control.Exception.Safe qualified as E
+import DA.Test.Util (withEnv)
 import Data.Foldable (toList)
-import Data.SemVer qualified as SemVer
-import Data.Yaml
-import Data.Set qualified as Set
 import Data.List.Extra qualified as List
-import Path
-import Path.IO hiding (removeFile)
-
+import Data.Maybe qualified as Maybe
+import Data.SemVer qualified as SemVer
+import Data.Set qualified as Set
 import Data.Text qualified as T
 import Data.Text.IO qualified as T.IO
-import Data.Maybe qualified as Maybe
+import Data.Yaml
+import Maven
+import Options
+import Path
+import Path.IO hiding (removeFile)
+import SdkVersion qualified
 import System.Directory qualified as Dir
 import System.Exit
 import System.Process
-
-import DA.Test.Util (withEnv)
-
-import Maven
-import Options
 import Types
 import Upload
 import Util
-
-import SdkVersion qualified
 
 -- Hack: the logic that looks for missing transitive dependencies is broken, as it checks all build-time dependencies with `bazel query`
 depsToExclude :: T.Text

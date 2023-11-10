@@ -13,10 +13,10 @@ import Com.Daml.Ledger.Api.V1.PackageService
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types
+import Data.ByteString(ByteString)
+import Data.Vector qualified as Vector
 import Network.GRPC.HighLevel.Generated
 import Proto3.Suite.Types(Enumerated(..))
-import Data.Vector qualified as Vector
-import Data.ByteString(ByteString)
 
 listPackages :: LedgerId -> LedgerService [PackageId]
 listPackages lid =

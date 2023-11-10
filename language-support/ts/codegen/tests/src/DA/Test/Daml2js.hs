@@ -5,21 +5,21 @@ module DA.Test.Daml2js (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
-import System.FilePath
-import System.IO.Extra
-import System.Environment.Blank
-import System.Directory.Extra
-import System.Process
-import System.Exit
 import DA.Bazel.Runfiles
 import DA.Daml.LF.Ast.Version qualified as LF
 import DA.Test.Daml2jsUtils
-import Data.List.Extra
-import Data.Text.Extended qualified as T
-import Test.Tasty
-import Test.Tasty.HUnit
 import DA.Test.Process
 import DA.Test.Util
+import Data.List.Extra
+import Data.Text.Extended qualified as T
+import System.Directory.Extra
+import System.Environment.Blank
+import System.Exit
+import System.FilePath
+import System.IO.Extra
+import System.Process
+import Test.Tasty
+import Test.Tasty.HUnit
 
 main :: IO ()
 main = do

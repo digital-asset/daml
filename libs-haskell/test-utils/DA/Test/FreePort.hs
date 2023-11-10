@@ -7,14 +7,13 @@ import Control.Exception (bracket, throwIO)
 import DA.Test.FreePort.Error
 import DA.Test.FreePort.PortGen
 import DA.Test.FreePort.PortLock
-import System.FileLock (FileLock, unlockFile)
 import Data.Bifunctor (second)
 import Data.Either (isRight)
 import Data.Foldable.Extra (firstJustM)
-import UnliftIO.Exception (tryIO)
-import Test.QuickCheck
-
 import Network.Socket
+import System.FileLock (FileLock, unlockFile)
+import Test.QuickCheck
+import UnliftIO.Exception (tryIO)
 
 maxAttempts :: Int
 maxAttempts = 100

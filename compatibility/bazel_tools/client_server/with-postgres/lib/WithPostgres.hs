@@ -4,10 +4,10 @@
 module WithPostgres (withPostgres) where
 
 import Control.Exception.Safe
-import Data.UUID qualified as UUID
-import Data.UUID.V4
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.UUID qualified as UUID
+import Data.UUID.V4
 import Network.Socket
 import System.Directory.Extra
 import System.Environment.Blank

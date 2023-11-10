@@ -7,15 +7,31 @@ module DA.Ledger.Tests (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
+import "zip-archive" Codec.Archive.Zip qualified as Zip
 import Control.Monad
 import Control.Monad.IO.Class(liftIO)
 import DA.Bazel.Runfiles
+import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Proto3.Archive (decodeArchivePackageId)
 import DA.Daml.LF.Reader(DalfManifest(..), Dalfs(..), readDalfs, readDalfManifest)
 import DA.Ledger as Ledger
 import DA.Test.Sandbox
-import Data.List (isInfixOf,(\\))
+import Data.Aeson qualified as Aeson
+import Data.Aeson(decode)
+import Data.Aeson.Key(fromString)
+import Data.Aeson.KeyMap qualified as KeyMap
+import Data.Aeson.KeyMap(KeyMap)
+import Data.ByteString qualified as BS (readFile)
+import Data.ByteString.Lazy qualified as BSL (readFile,toStrict)
+import Data.ByteString.UTF8 qualified as BS (ByteString,fromString)
+import Data.Either.Extra(maybeToEither)
 import Data.IORef
+import Data.List (isInfixOf,(\\))
+import Data.Map qualified as Map
+import Data.Set qualified as Set
+import Data.Text (unpack)
+import Data.Text.Lazy qualified as TL(Text,pack,unpack,fromStrict,splitOn)
+import Data.UUID qualified as UUID (toString)
 import GHC.Stack
 import Prelude hiding(Enum)
 import System.Environment.Blank (setEnv)
@@ -24,22 +40,6 @@ import System.Random (randomIO)
 import System.Time.Extra (timeout)
 import Test.Tasty as Tasty (TestName,TestTree,testGroup,withResource,defaultMain)
 import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
-import "zip-archive" Codec.Archive.Zip qualified as Zip
-import DA.Daml.LF.Ast qualified as LF
-import Data.ByteString qualified as BS (readFile)
-import Data.ByteString.Lazy qualified as BSL (readFile,toStrict)
-import Data.ByteString.UTF8 qualified as BS (ByteString,fromString)
-import Data.Map qualified as Map
-import Data.Set qualified as Set
-import Data.Text.Lazy qualified as TL(Text,pack,unpack,fromStrict,splitOn)
-import Data.UUID qualified as UUID (toString)
-import Data.Text (unpack)
-import Data.Either.Extra(maybeToEither)
-import Data.Aeson qualified as Aeson
-import Data.Aeson.KeyMap(KeyMap)
-import Data.Aeson.KeyMap qualified as KeyMap
-import Data.Aeson.Key(fromString)
-import Data.Aeson(decode)
 
 main :: IO ()
 main = do

@@ -23,18 +23,18 @@ module DA.Daml.Project.Config
     , queryMultiPackageConfigRequired
     ) where
 
+import Control.Exception.Safe
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import DA.Daml.Project.Util
 import Data.Aeson.Key qualified as A
-import Data.Text qualified as T
-import Data.Text (Text)
-import Data.Yaml qualified as Y
-import Data.Yaml ((.:?))
 import Data.Either.Extra
 import Data.Foldable
+import Data.Text (Text)
+import Data.Text qualified as T
+import Data.Yaml ((.:?))
+import Data.Yaml qualified as Y
 import System.FilePath
-import Control.Exception.Safe
 
 -- | Read daml config file.
 -- Throws a ConfigError if reading or parsing fails.

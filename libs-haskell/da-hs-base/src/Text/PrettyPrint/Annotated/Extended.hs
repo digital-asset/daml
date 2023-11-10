@@ -30,9 +30,8 @@ module Text.PrettyPrint.Annotated.Extended
   ) where
 
 
-import Data.Text qualified as T
 import Data.List
-
+import Data.Text qualified as T
 import Text.PrettyPrint.Annotated.HughesPJ
           hiding ( (<>), (<+>), style, text, ($+$)
                  )

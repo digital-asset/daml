@@ -5,9 +5,9 @@
 module DA.Ledger.App.Nim.NimTrans(NimTrans(..), extractTransaction,) where
 
 import DA.Ledger as Ledger
-import DA.Ledger.IsLedgerValue
 import DA.Ledger.App.Nim.Domain
 import DA.Ledger.App.Nim.Logging
+import DA.Ledger.IsLedgerValue
 
 -- order id & game id
 

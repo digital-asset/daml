@@ -29,6 +29,8 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Data.Aeson (Result(..), fromJSON)
 import Data.Text qualified as T
+import Development.IDE.Core.Rules.Daml (VirtualResourceChangedParams(..))
+import Development.IDE.Test
 import Language.LSP.Test hiding (message)
 import Language.LSP.Test qualified as LspTest
 import Language.LSP.Types
@@ -39,10 +41,6 @@ import System.FilePath
 import System.IO.Extra
 import Test.Tasty.HUnit
 import Text.Regex.TDFA
-
-import Development.IDE.Test
-import Development.IDE.Core.Rules.Daml (VirtualResourceChangedParams(..))
-
 
 damlId :: String
 damlId = "daml"

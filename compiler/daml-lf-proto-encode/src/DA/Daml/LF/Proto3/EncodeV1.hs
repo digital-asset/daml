@@ -9,31 +9,28 @@ module DA.Daml.LF.Proto3.EncodeV1
   , encodePackage
   ) where
 
+import Com.Daml.DamlLfDev.DamlLf1 qualified as P
 import Control.Lens ((^.), matching)
 import Control.Lens.Ast (rightSpine)
 import Control.Monad.State.Strict
-
+import DA.Daml.LF.Ast
+import DA.Daml.LF.Mangling
+import DA.Daml.LF.Proto3.Util qualified as Util
+import DA.Pretty
 import Data.Bifunctor qualified as Bf
 import Data.Coerce
 import Data.Either
 import Data.Functor.Identity
 import Data.HashMap.Strict qualified as HMS
+import Data.Int
 import Data.List qualified as L
-import Data.Set qualified as S
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.NameMap qualified as NM
+import Data.Set qualified as S
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
 import Data.Vector qualified as V
-import Data.Int
-
-import DA.Pretty
-import DA.Daml.LF.Ast
-import DA.Daml.LF.Mangling
-import DA.Daml.LF.Proto3.Util qualified as Util
-import Com.Daml.DamlLfDev.DamlLf1 qualified as P
-
 import Proto3.Suite qualified as P (Enumerated (..))
 
 -- NOTE(MH): Type synonym for a `Maybe` that is always known to be a `Just`.

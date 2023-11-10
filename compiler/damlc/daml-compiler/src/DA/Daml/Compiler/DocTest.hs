@@ -4,8 +4,8 @@
 module DA.Daml.Compiler.DocTest (docTest) where
 
 import Control.Monad
-import DA.Daml.Options.Types
 import DA.Daml.DocTest
+import DA.Daml.Options.Types
 import Data.HashSet qualified as HashSet
 import Data.Text.Extended qualified as T
 import Development.IDE.Core.API

@@ -5,33 +5,32 @@ module DA.Daml.Assistant.Tests
     ( main
     ) where
 
+import Conduit
+import Control.Monad
+import DA.Daml.Assistant.Cache (UseCache (DontUseCache))
 import DA.Daml.Assistant.Env
 import DA.Daml.Assistant.Install
-import DA.Daml.Assistant.Cache (UseCache (DontUseCache))
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
 import DA.Daml.Project.Consts hiding (getDamlPath, getProjectPath)
+import DA.Test.Util
+import Data.Conduit.Tar qualified as Tar
+import Data.Conduit.Zlib qualified as Zlib
+import Data.List.Extra
+import Data.Maybe
+import Data.Text qualified as T
 import System.Directory
 import System.Environment.Blank
 import System.FilePath
-import System.Info.Extra (isWindows)
-import System.IO.Temp
 import System.IO.Extra
-import Data.List.Extra
-import DA.Test.Util
-import Test.Tasty qualified as Tasty
-import Test.Tasty.HUnit qualified as Tasty
-import Test.Tasty.QuickCheck qualified as Tasty
-import Data.Text qualified as T
-import Test.Tasty.QuickCheck ((==>))
-import Data.Maybe
-import Control.Monad
-import Conduit
-import Data.Conduit.Zlib qualified as Zlib
-import Data.Conduit.Tar qualified as Tar
-
+import System.IO.Temp
+import System.Info.Extra (isWindows)
 -- unix specific
 import System.PosixCompat.Files (createSymbolicLink)
+import Test.Tasty qualified as Tasty
+import Test.Tasty.HUnit qualified as Tasty
+import Test.Tasty.QuickCheck ((==>))
+import Test.Tasty.QuickCheck qualified as Tasty
 
 main :: IO ()
 main = do

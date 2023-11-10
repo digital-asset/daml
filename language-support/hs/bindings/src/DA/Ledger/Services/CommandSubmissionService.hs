@@ -5,12 +5,12 @@
 
 module DA.Ledger.Services.CommandSubmissionService (submit) where
 
-import Data.Functor
 import Com.Daml.Ledger.Api.V1.CommandSubmissionService
 import DA.Ledger.Convert (lowerCommands)
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types (Commands)
+import Data.Functor
 import Google.Protobuf.Empty (Empty(..))
 import Network.GRPC.HighLevel.Generated
 

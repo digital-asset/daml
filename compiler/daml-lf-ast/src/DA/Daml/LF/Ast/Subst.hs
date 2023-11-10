@@ -12,11 +12,10 @@ module DA.Daml.LF.Ast.Subst
     , applySubstInType
     ) where
 
+import Control.Arrow (second)
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.FreeVars
 import DA.Daml.LF.Ast.Type qualified as Type
-
-import Control.Arrow (second)
 import Data.Map.Strict qualified as Map
 
 data Subst = Subst

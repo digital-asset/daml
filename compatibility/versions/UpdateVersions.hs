@@ -14,12 +14,12 @@ import Data.Either (fromRight, rights)
 import Data.Either.Extra (eitherToMaybe)
 import Data.List
 import Data.Map (Map)
-import Data.Maybe (mapMaybe)
 import Data.Map.Strict qualified as Map
-import Data.Set (Set)
-import Data.Set qualified as Set
+import Data.Maybe (mapMaybe)
 import Data.SemVer (Version)
 import Data.SemVer qualified as SemVer
+import Data.Set (Set)
+import Data.Set qualified as Set
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
 import Network.HTTP.Client (responseTimeout, responseTimeoutMicro)

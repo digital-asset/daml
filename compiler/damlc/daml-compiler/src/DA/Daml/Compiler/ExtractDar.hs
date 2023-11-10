@@ -9,11 +9,11 @@ module DA.Daml.Compiler.ExtractDar
 
 import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
 import Control.Monad.Extra
+import DA.Daml.LF.Reader
 import Data.ByteString.Lazy qualified as BSL
 import Data.ByteString.UTF8 qualified as BSUTF8
 import Data.List.Extra
 import System.FilePath
-import DA.Daml.LF.Reader
 
 data ExtractedDar = ExtractedDar
     { edSdkVersions :: String

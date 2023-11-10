@@ -17,6 +17,7 @@ module DA.Daml.Compiler.Dar
     ) where
 
 import "zip" Codec.Archive.Zip qualified as Zip
+import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
 import Control.Applicative
 import Control.Exception (assert)
 import Control.Monad.Extra
@@ -24,10 +25,10 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource (ResourceT)
+import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
 import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
 import DA.Daml.LF.Proto3.Archive qualified as Archive
-import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
 import DA.Daml.LF.TypeChecker.Error (Error(EUnsupportedFeature))
 import DA.Daml.LF.TypeChecker.Upgrade as TypeChecker.Upgrade
 import DA.Daml.Options (expandSdkPackages)
@@ -49,25 +50,22 @@ import Data.Set qualified as S
 import Data.Text qualified as T
 import Data.Time
 import Development.IDE.Core.API
-import Development.IDE.Core.Service (getIdeOptions)
 import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.Service (getIdeOptions)
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Compat
 import Development.IDE.GHC.Util
 import Development.IDE.Types.Location
-import Development.IDE.Types.Options
 import Development.IDE.Types.Logger qualified as IdeLogger
-import System.Directory.Extra
-import System.FilePath
-import System.IO
-
+import Development.IDE.Types.Options
+import HscTypes
 import MkIface
 import Module
 import Module qualified as Ghc
-import HscTypes
-
-import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
+import System.Directory.Extra
+import System.FilePath
+import System.IO
 
 -- | Create a DAR file by running a ZipArchive action.
 createDarFile :: Logger.Handle IO -> FilePath -> Zip.ZipArchive () -> IO ()

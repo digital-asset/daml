@@ -10,14 +10,14 @@ module DA.Daml.Assistant.Types
     , Text, pack, unpack -- convenient re-exports
     ) where
 
+import Control.Exception.Safe
 import DA.Daml.Project.Types
-import Data.Text qualified as T
-import Data.Text (Text, pack, unpack)
+import Data.Functor.Identity
 import Data.Maybe
+import Data.Text (Text, pack, unpack)
+import Data.Text qualified as T
 import Network.HTTP.Types.Header
 import Options.Applicative.Extended (YesNoAuto (..))
-import Control.Exception.Safe
-import Data.Functor.Identity
 
 data AssistantError = AssistantError
     { errContext  :: Maybe Text -- ^ Context in which error occurs.

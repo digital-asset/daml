@@ -8,12 +8,12 @@ module DA.Daml.Doc.Types(
     ) where
 
 import Data.Aeson
+import Data.HashMap.Strict qualified as HMS
+import Data.Hashable
+import Data.String
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Hashable
 import GHC.Generics
-import Data.String
-import Data.HashMap.Strict qualified as HMS
 
 -- | Doc text type, presumably Markdown format.
 newtype DocText = DocText { unDocText :: Text }

@@ -22,15 +22,14 @@ module DA.Daml.LF.Ast.Optics(
 import Control.Lens
 import Control.Lens.Ast
 import Control.Lens.MonoTraversal
+import DA.Daml.LF.Ast.Base
+import DA.Daml.LF.Ast.Recursive
+import DA.Daml.LF.Ast.TypeLevelNat
+import DA.Daml.LF.Ast.Version (Version)
 import Data.Functor.Foldable (cata, embed)
 import Data.NameMap qualified as NM
-import Data.Text qualified as T
 import Data.Set qualified as S
-
-import DA.Daml.LF.Ast.Base
-import DA.Daml.LF.Ast.TypeLevelNat
-import DA.Daml.LF.Ast.Recursive
-import DA.Daml.LF.Ast.Version (Version)
+import Data.Text qualified as T
 
 -- | WARNING: The result is not a proper prism.
 -- The intended use case is something along the lines of

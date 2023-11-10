@@ -8,14 +8,13 @@ module DA.Daml.StablePackages
     , stablePackageByModuleName
     ) where
 
+import DA.Daml.LF.Ast
+import DA.Daml.LF.Proto3.Archive.Encode
+import DA.Daml.UtilLF
 import Data.Bifunctor
 import Data.Map.Strict qualified as MS
 import Data.NameMap qualified as NM
 import Data.Text qualified as T
-
-import DA.Daml.LF.Ast
-import DA.Daml.LF.Proto3.Archive.Encode
-import DA.Daml.UtilLF
 
 allV1StablePackages :: MS.Map PackageId Package
 allV1StablePackages =

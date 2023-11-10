@@ -20,15 +20,14 @@ module DA.Daml.LF.TypeChecker.Serializability
 
 import Control.Lens (matching, toListOf)
 import Control.Monad.Extra
-import Data.List
-import Data.Foldable (for_)
-import Data.HashSet qualified as HS
-
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Numeric (numericMaxScale)
 import DA.Daml.LF.Ast.Optics (_PRSelfModule, dataConsType)
 import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
+import Data.Foldable (for_)
+import Data.HashSet qualified as HS
+import Data.List
 
 -- This is only used during serializability inference. During typechecking the world
 -- contains the current module.

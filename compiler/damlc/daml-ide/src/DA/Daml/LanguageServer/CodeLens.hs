@@ -11,18 +11,18 @@ import Control.Monad.IO.Class
 import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.UtilLF (sourceLocToRange)
 import Data.Aeson qualified as Aeson
-import Development.IDE.Core.Service.Daml
 import Data.Foldable
 import Data.Text qualified as T
 import Development.IDE.Core.PositionMapping
-import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.RuleTypes.Daml
+import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.Service.Daml
 import Development.IDE.Core.Shake
 import Development.IDE.Plugin
-import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
-import Language.LSP.Types
+import Development.IDE.Types.Logger
 import Language.LSP.Server qualified as LSP
+import Language.LSP.Types
 
 -- | Gather code lenses like scenario execution for a Daml file.
 handle

@@ -7,11 +7,11 @@
 --   falling over whenever it receives a flag it doesn't recognize.
 module DA.Cli.Args (lax) where
 
-import Options.Applicative qualified as Op
 import Options.Applicative hiding (customExecParser, execParser)
-import Options.Applicative.Internal
+import Options.Applicative qualified as Op
 import Options.Applicative.BashCompletion
 import Options.Applicative.Common
+import Options.Applicative.Internal
 
 -- | Runs the argument parser in a normal way unless the first argument is "lax"
 --   In this case it discards invalid flags and continues

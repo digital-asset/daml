@@ -5,12 +5,11 @@ module DA.Daml.Doc.Transform.Annotations
     ( applyAnnotations
     ) where
 
-import DA.Daml.Doc.Types
-import DA.Daml.Doc.Anchor
-
-import Data.Text qualified as T
-import Data.List.Extra
 import Control.Applicative ((<|>))
+import DA.Daml.Doc.Anchor
+import DA.Daml.Doc.Types
+import Data.List.Extra
+import Data.Text qualified as T
 
 -- | Apply HIDE and MOVE annotations.
 applyAnnotations :: [ModuleDoc] -> [ModuleDoc]

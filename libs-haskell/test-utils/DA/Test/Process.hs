@@ -15,11 +15,11 @@ module DA.Test.Process
   ) where
 
 import Control.Monad (unless,void)
-import System.IO.Extra (hPutStrLn,stderr)
-import System.Exit (ExitCode(ExitSuccess),exitFailure)
-import System.Process (CreateProcess,proc,shell,readCreateProcessWithExitCode,cwd,env)
-import System.Environment.Blank (getEnvironment)
 import Data.Set qualified as S
+import System.Environment.Blank (getEnvironment)
+import System.Exit (ExitCode(ExitSuccess),exitFailure)
+import System.IO.Extra (hPutStrLn,stderr)
+import System.Process (CreateProcess,proc,shell,readCreateProcessWithExitCode,cwd,env)
 
 newtype ShouldSucceed = ShouldSucceed Bool
 

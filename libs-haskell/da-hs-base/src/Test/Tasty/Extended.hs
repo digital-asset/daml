@@ -11,13 +11,12 @@ module Test.Tasty.Extended (
 ) where
 
 
-import Test.Tasty qualified as Tasty
-import Test.Tasty
-import Test.Tasty.Options
-import Test.Tasty.Runners
-import Test.Tasty.QuickCheck
-
 import Control.Concurrent
+import Test.Tasty
+import Test.Tasty qualified as Tasty
+import Test.Tasty.Options
+import Test.Tasty.QuickCheck
+import Test.Tasty.Runners
 
 defaultSeed :: Int
 defaultSeed = 42

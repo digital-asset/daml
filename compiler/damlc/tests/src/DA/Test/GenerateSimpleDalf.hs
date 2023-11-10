@@ -2,16 +2,15 @@
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.GenerateSimpleDalf (main) where
 
-import Data.ByteString.Lazy qualified as BSL
-import Data.NameMap qualified as NM
-import Data.Text.IO qualified as T
-
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Util
 import DA.Daml.LF.Ast.Version
 import DA.Daml.LF.Ast.World
 import DA.Daml.LF.Proto3.Archive
 import DA.Daml.LF.TypeChecker
+import Data.ByteString.Lazy qualified as BSL
+import Data.NameMap qualified as NM
+import Data.Text.IO qualified as T
 import Options.Applicative
 
 data Opts = Opts

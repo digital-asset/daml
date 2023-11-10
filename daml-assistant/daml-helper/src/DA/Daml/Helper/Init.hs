@@ -6,6 +6,8 @@ module DA.Daml.Helper.Init
     ) where
 
 import Control.Monad.Extra
+import DA.Daml.Helper.Util
+import DA.Daml.Project.Consts
 import Data.ByteString qualified as BS
 import Data.List
 import Data.Maybe
@@ -17,9 +19,6 @@ import System.Exit
 import System.FilePath
 import System.IO
 import System.Process (showCommandForUser)
-
-import DA.Daml.Helper.Util
-import DA.Daml.Project.Consts
 
 -- | Initialize a daml project in the current or specified directory.
 -- It will do the following (first that applies):

@@ -16,9 +16,9 @@ import Data.Aeson
 import Data.Aeson.Types (explicitParseField, listParser)
 import Data.Either.Extra
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
+import Data.Text qualified as T
 import Network.HTTP.Simple (getResponseBody, httpJSON, parseRequest, setRequestHeaders)
 import System.Info qualified
-import Data.Text qualified as T
 
 -- | General git tag. We only care about the tags of the form "v<VERSION>"
 -- where <VERSION> is an SDK version. For example, "v0.11.1".

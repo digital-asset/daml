@@ -15,15 +15,15 @@ module DA.Ledger.Services.TransactionService (
     ) where
 
 import Com.Daml.Ledger.Api.V1.TransactionFilter --TODO: HL mirror
+import Com.Daml.Ledger.Api.V1.TransactionService qualified as LL
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Stream
 import DA.Ledger.Types
-import Network.GRPC.HighLevel.Generated
-import Com.Daml.Ledger.Api.V1.TransactionService qualified as LL
 import Data.Map qualified as Map
 import Data.Vector qualified as Vector
+import Network.GRPC.HighLevel.Generated
 
 getTransactions :: GetTransactionsRequest -> LedgerService (Stream [Transaction])
 getTransactions req =

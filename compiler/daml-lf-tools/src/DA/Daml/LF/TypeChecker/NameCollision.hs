@@ -6,16 +6,16 @@ module DA.Daml.LF.TypeChecker.NameCollision
     , runCheckPackage
     ) where
 
+import Control.Monad.Extra
+import Control.Monad.Trans.RWS.CPS
 import DA.Daml.LF.Ast
 import DA.Daml.LF.TypeChecker.Error
 import Data.List
-import Data.Maybe
-import Development.IDE.Types.Diagnostics
-import Control.Monad.Extra
-import Data.NameMap qualified as NM
 import Data.Map.Strict qualified as M
+import Data.Maybe
+import Data.NameMap qualified as NM
 import Data.Text qualified as T
-import Control.Monad.Trans.RWS.CPS
+import Development.IDE.Types.Diagnostics
 
 -- | The various names we wish to track within a package.
 -- This type separates all the different kinds of names

@@ -11,10 +11,7 @@ module DA.Daml.Options.Packaging.Metadata
     metadataFile,
   ) where
 
-import Data.Aeson
-import DA.Daml.Package.Config ()
-import Data.Map.Strict (Map)
-import Data.Text qualified as T
+import "ghc-lib-parser" Module qualified as Ghc
 import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.Options.Types
     ( projectPackageDatabase
@@ -22,11 +19,14 @@ import DA.Daml.Options.Types
     , PackageArg(..)
     , PackageFlag(..)
     )
+import DA.Daml.Package.Config ()
+import Data.Aeson
+import Data.Map.Strict (Map)
+import Data.Text qualified as T
 import Development.IDE.Types.Location
-import GHC.Generics
-import "ghc-lib-parser" Module qualified as Ghc
-import System.FilePath
 import GHC.Fingerprint
+import GHC.Generics
+import System.FilePath
 
 -- | Metadata about an initialized package db. We write this to a JSON
 -- file in the package db after the package db has been initialized.

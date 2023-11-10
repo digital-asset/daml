@@ -7,19 +7,16 @@ module DA.Daml.Doc.Render.Rst
   ( renderRst
   ) where
 
-import DA.Daml.Doc.Types
+import CMarkGFM
 import DA.Daml.Doc.Render.Monoid
 import DA.Daml.Doc.Render.Util (escapeText, (<->))
-
-import Prettyprinter qualified as Pretty
-import Prettyprinter (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
-import Prettyprinter.Render.Text (renderStrict)
-
+import DA.Daml.Doc.Types
 import Data.Char
-import Data.Text qualified as T
 import Data.List.Extra
-
-import CMarkGFM
+import Data.Text qualified as T
+import Prettyprinter (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
+import Prettyprinter qualified as Pretty
+import Prettyprinter.Render.Text (renderStrict)
 
 renderRst :: RenderEnv -> RenderOut -> [T.Text]
 renderRst env = \case

@@ -10,13 +10,13 @@ import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Test.Sandbox
+import DA.Test.Util
 import Data.Aeson
 import Data.Aeson.KeyMap qualified as KM
 import Data.ByteString.Char8 qualified as BS
-import Data.Map.Strict qualified as Map
 import Data.List
+import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
-import DA.Test.Util
 import System.Environment.Blank
 import System.FilePath
 import System.IO.Extra

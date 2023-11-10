@@ -7,11 +7,10 @@ module DA.Daml.Doc.Render.Hoogle
     , renderSimpleHoogle
     ) where
 
-import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Util
-
-import Data.Maybe
+import DA.Daml.Doc.Types
 import Data.HashMap.Strict qualified as HMS
+import Data.Maybe
 import Data.Text qualified as T
 
 newtype HoogleEnv = HoogleEnv

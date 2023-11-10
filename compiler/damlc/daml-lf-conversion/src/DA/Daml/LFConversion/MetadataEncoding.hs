@@ -43,27 +43,25 @@ module DA.Daml.LFConversion.MetadataEncoding
     , decodeTypeSynonym
     ) where
 
-import Safe (readMay)
+import "ghc-lib-parser" BasicTypes qualified as GHC
+import "ghc-lib-parser" BooleanFormula qualified as BF
+import "ghc-lib-parser" Class qualified as GHC
+import "ghc-lib-parser" FastString (FastString)
+import "ghc-lib-parser" FieldLabel (FieldLbl)
+import "ghc-lib-parser" FieldLabel qualified as GHC
+import "ghc-lib-parser" Name qualified as GHC
+import "ghc-lib-parser" SrcLoc qualified as GHC
 import Control.Lens ((^.))
 import Control.Lens.Ast (rightSpine)
 import Control.Monad (guard, liftM2)
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.UtilGHC (fsFromText, fsToText)
 import Data.List (foldl', sortOn)
 import Data.List.Lens qualified as L (stripSuffix)
 import Data.Maybe (isJust)
 import Data.Set qualified as S
 import Data.Text qualified as T
-
-import "ghc-lib-parser" BasicTypes qualified as GHC
-import "ghc-lib-parser" BooleanFormula qualified as BF
-import "ghc-lib-parser" Class qualified as GHC
-import "ghc-lib-parser" FieldLabel qualified as GHC
-import "ghc-lib-parser" Name qualified as GHC
-import "ghc-lib-parser" SrcLoc qualified as GHC
-import "ghc-lib-parser" FastString (FastString)
-import "ghc-lib-parser" FieldLabel (FieldLbl)
-
-import DA.Daml.LF.Ast qualified as LF
-import DA.Daml.UtilGHC (fsFromText, fsToText)
+import Safe (readMay)
 
 -----------------------------
 -- FUNCTIONAL DEPENDENCIES --

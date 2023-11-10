@@ -14,12 +14,30 @@ module DA.Cli.Damlc.Packaging
   , BuildLfPackageGraphMetaArgs (..)
   ) where
 
+import "ghc-lib-parser" DynFlags (DynFlags)
+import "ghc-lib-parser" HscTypes as GHC
+import "ghc-lib-parser" Module (UnitId, unitIdString)
+import "ghc-lib-parser" Packages qualified as GHC
+import "ghc-lib-parser" UniqSet
 import Control.Exception.Safe (tryAny)
 import Control.Lens (none, toListOf)
 import Control.Monad.Extra (forM_, fromMaybeM, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT)
 import Control.Monad.Trans.State.Strict qualified as State
+import DA.Bazel.Runfiles
+import DA.Cli.Damlc.DependencyDb
+import DA.Daml.Compiler.Dar
+import DA.Daml.Compiler.DataDependencies as DataDeps
+import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
+import DA.Daml.Compiler.Output
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.Ast.Optics (packageRefs)
+import DA.Daml.LFConversion.MetadataEncoding qualified as LFC
+import DA.Daml.Options.Packaging.Metadata
+import DA.Daml.Options.Types
+import DA.Pretty qualified
+import DA.Service.Logger qualified as Logger
 import Data.ByteString qualified as BS
 import Data.Either.Combinators (whenLeft)
 import Data.Graph (Graph, Vertex, graphFromEdges, reachable, topSort, transposeG, vertices)
@@ -31,40 +49,21 @@ import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text.Extended qualified as T
 import Data.Tuple.Extra (fst3)
+import Development.IDE.Core.IdeState.Daml
+import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Rules (useE, useNoFileE)
 import Development.IDE.Core.Service (runActionSync)
 import Development.IDE.GHC.Util (hscEnv)
 import Development.IDE.Types.Location (NormalizedFilePath, fromNormalizedFilePath, toNormalizedFilePath')
-import "ghc-lib-parser" DynFlags (DynFlags)
 import GHC.Fingerprint (Fingerprint, fingerprintFingerprints, getFileHash)
-import "ghc-lib-parser" HscTypes as GHC
-import "ghc-lib-parser" Module (UnitId, unitIdString)
 import Module qualified as GHC
-import "ghc-lib-parser" Packages qualified as GHC
+import SdkVersion
 import System.Directory.Extra (copyFile, createDirectoryIfMissing, listFilesRecursive, removePathForcibly)
 import System.Exit
 import System.FilePath
 import System.IO.Extra (hFlush, hPutStrLn, stderr, writeFileUTF8)
 import System.Info.Extra
 import System.Process (callProcess)
-import "ghc-lib-parser" UniqSet
-
-import DA.Bazel.Runfiles
-import DA.Daml.Compiler.Dar
-import DA.Daml.Compiler.DataDependencies as DataDeps
-import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
-import DA.Daml.Compiler.Output
-import DA.Daml.LF.Ast qualified as LF
-import DA.Daml.LF.Ast.Optics (packageRefs)
-import DA.Daml.LFConversion.MetadataEncoding qualified as LFC
-import DA.Daml.Options.Packaging.Metadata
-import DA.Daml.Options.Types
-import DA.Cli.Damlc.DependencyDb
-import DA.Pretty qualified
-import DA.Service.Logger qualified as Logger
-import Development.IDE.Core.IdeState.Daml
-import Development.IDE.Core.RuleTypes.Daml
-import SdkVersion
 
 -- | Create the project package database containing the given dar packages.
 --

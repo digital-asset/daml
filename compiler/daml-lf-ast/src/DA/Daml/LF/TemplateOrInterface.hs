@@ -13,3 +13,4 @@ data TemplateOrInterface a b
 
 -- | For the common case where both type arguments are the same
 type TemplateOrInterface' a = TemplateOrInterface a a
+

@@ -22,10 +22,10 @@ import DA.Daml.LF.Ast.Optics qualified as LF
 import DA.Daml.LF.Proto3.Archive qualified as Archive
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
-import DA.Service.Logger qualified as Logger
 import DA.Pretty qualified
-import Data.Aeson qualified as Aeson
+import DA.Service.Logger qualified as Logger
 import Data.Aeson (eitherDecodeFileStrict', encode)
+import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BSL
 import Data.Char

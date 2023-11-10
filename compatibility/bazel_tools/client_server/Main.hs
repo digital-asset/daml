@@ -9,8 +9,8 @@ import Control.Monad.Loops (untilJust)
 import Data.List.Split (splitOn)
 import Data.Maybe (isJust)
 import Network.HTTP.Client (parseUrlThrow)
-import Network.Socket
 import Network.HTTP.Simple qualified as HTTP
+import Network.Socket
 import System.Environment
 import System.Process
 

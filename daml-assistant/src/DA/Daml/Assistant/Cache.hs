@@ -14,11 +14,11 @@ module DA.Daml.Assistant.Cache
     , deserializeVersions
     ) where
 
+import Control.Exception.Safe
+import Control.Monad.Extra
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
 import DA.Daml.Project.Config
-import Control.Exception.Safe
-import Control.Monad.Extra
 import Data.Either.Extra
 import Data.Maybe
 import Data.String

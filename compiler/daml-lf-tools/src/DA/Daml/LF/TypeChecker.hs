@@ -9,16 +9,15 @@ module DA.Daml.LF.TypeChecker
   , errorLocation
   ) where
 
-import Data.NameMap qualified as NM
-
 import DA.Daml.LF.Ast
 import DA.Daml.LF.TypeChecker.Check qualified as Check
 import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
 import DA.Daml.LF.TypeChecker.Keyability qualified as Keyability
+import DA.Daml.LF.TypeChecker.NameCollision qualified as NameCollision
 import DA.Daml.LF.TypeChecker.Recursion qualified as Recursion
 import DA.Daml.LF.TypeChecker.Serializability qualified as Serializability
-import DA.Daml.LF.TypeChecker.NameCollision qualified as NameCollision
+import Data.NameMap qualified as NM
 import Development.IDE.Types.Diagnostics
 
 checkModule ::

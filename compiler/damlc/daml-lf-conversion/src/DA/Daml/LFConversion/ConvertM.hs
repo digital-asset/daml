@@ -16,22 +16,20 @@ module DA.Daml.LFConversion.ConvertM (
     unhandled
   ) where
 
-import DA.Daml.UtilLF
-
-import Development.IDE.Types.Diagnostics
-import Development.IDE.Types.Location
-import Development.IDE.GHC.Util
-
+import "ghc-lib" GHC
+import "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import DA.Daml.LF.Ast as LF
+import DA.Daml.UtilLF
 import Data.Data hiding (TyCon)
 import Data.List.Extra
 import Data.Map.Strict qualified as MS
 import Data.Text.Extended qualified as T
-import "ghc-lib" GHC
-import "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
+import Development.IDE.GHC.Util
+import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Location
 
 data ConversionError
   = ConversionError

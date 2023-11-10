@@ -6,7 +6,15 @@ module DamlcTest
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
+import "zip-archive" Codec.Archive.Zip qualified as ZA
+import DA.Bazel.Runfiles
+import DA.Test.Process
+import DA.Test.Util
+import Data.ByteString.Lazy qualified as BSL (readFile,writeFile)
+import Data.ByteString.Lazy.Char8 qualified as BSL (pack)
 import Data.List.Extra (isInfixOf, isPrefixOf)
+import Data.Text.Extended qualified as T
+import SdkVersion
 import System.Directory
 import System.Environment.Blank
 import System.Exit
@@ -15,15 +23,6 @@ import System.IO.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-import "zip-archive" Codec.Archive.Zip qualified as ZA
-import Data.ByteString.Lazy qualified as BSL (readFile,writeFile)
-import Data.ByteString.Lazy.Char8 qualified as BSL (pack)
-import Data.Text.Extended qualified as T
-
-import DA.Bazel.Runfiles
-import DA.Test.Process
-import DA.Test.Util
-import SdkVersion
 
 main :: IO ()
 main = do

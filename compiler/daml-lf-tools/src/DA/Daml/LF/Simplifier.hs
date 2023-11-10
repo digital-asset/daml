@@ -8,24 +8,23 @@ module DA.Daml.LF.Simplifier(
 
 import Control.Monad (guard, forM, forM_)
 import Control.Monad.State.Strict (State, evalState, gets, modify)
-import Data.Maybe (mapMaybe)
+import DA.Daml.LF.Ast
+import DA.Daml.LF.Ast.FreeVars
+import DA.Daml.LF.Ast.Optics
+import DA.Daml.LF.Ast.Recursive
+import DA.Daml.LF.Ast.Subst
+import DA.Daml.LF.TypeChecker.Check
+import DA.Daml.LF.TypeChecker.Env
 import Data.Foldable (fold, toList)
 import Data.Functor.Foldable (cata, embed)
 import Data.Graph qualified as G
-import Data.Text qualified as T
-import Data.Set qualified as Set
 import Data.Map.Strict qualified as Map
+import Data.Maybe (mapMaybe)
 import Data.NameMap qualified as NM
+import Data.Set qualified as Set
+import Data.Text qualified as T
 import Safe qualified
 import Safe.Exact qualified as Safe
-
-import DA.Daml.LF.Ast
-import DA.Daml.LF.Ast.Subst
-import DA.Daml.LF.Ast.Recursive
-import DA.Daml.LF.Ast.FreeVars
-import DA.Daml.LF.Ast.Optics
-import DA.Daml.LF.TypeChecker.Check
-import DA.Daml.LF.TypeChecker.Env
 
 -- | Models an approximation of the error safety of an expression. 'Unsafe'
 -- means the expression might throw an error. @'Safe' /n/@ means that the

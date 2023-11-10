@@ -21,16 +21,16 @@ import Control.Monad (replicateM)
 import Control.Monad.Extra (whenMaybe)
 import DA.Bazel.Runfiles
 import DA.Daml.Helper.Util (decodeCantonPort)
-import Data.Foldable
 import DA.PortFile
 import DA.Test.FreePort qualified as FreePort
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Key qualified as AesonKey
 import Data.ByteString.Lazy qualified as BSL
+import Data.Foldable
 import Data.Map qualified as Map
+import Data.Maybe qualified as Maybe
 import Data.Text qualified as T
 import Data.Vector qualified as Vector
-import Data.Maybe qualified as Maybe
 import System.Environment (getEnv)
 import System.FilePath
 import System.IO.Extra

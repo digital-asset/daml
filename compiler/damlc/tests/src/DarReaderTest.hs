@@ -4,9 +4,9 @@ module DarReaderTest
    ( main
    ) where
 
+import DA.Daml.LF.Reader
 import Data.ByteString.Char8 qualified as BS
 import Test.Tasty
-import DA.Daml.LF.Reader
 import Test.Tasty.HUnit
 
 main :: IO ()

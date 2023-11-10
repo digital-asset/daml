@@ -5,22 +5,20 @@ module DA.Daml.Doc.Extract.Util
     ( module DA.Daml.Doc.Extract.Util
     ) where
 
-import DA.Daml.Doc.Types
+import "ghc-lib" GHC
+import "ghc-lib-parser" Id
+import "ghc-lib-parser" Module
+import "ghc-lib-parser" Name
+import "ghc-lib-parser" OccName
+import "ghc-lib-parser" RdrName
+import "ghc-lib-parser" TyCoRep
+import "ghc-lib-parser" TyCon
+import Control.Monad (guard)
 import DA.Daml.Doc.Anchor
 import DA.Daml.Doc.Extract.Types
-
-import Control.Monad (guard)
+import DA.Daml.Doc.Types
 import Data.Char (isSpace)
 import Data.Text qualified as T
-
-import "ghc-lib" GHC
-import "ghc-lib-parser" Module
-import "ghc-lib-parser" OccName
-import "ghc-lib-parser" Id
-import "ghc-lib-parser" Name
-import "ghc-lib-parser" RdrName
-import "ghc-lib-parser" TyCon
-import "ghc-lib-parser" TyCoRep
 
 -- render type variables as text (ignore kind information)
 tyVarText :: HsTyVarBndr GhcPs -> T.Text

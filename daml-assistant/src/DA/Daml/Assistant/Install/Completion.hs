@@ -11,15 +11,14 @@ module DA.Daml.Assistant.Install.Completion
     , installZshCompletions
     ) where
 
-import DA.Daml.Assistant.Types
-
 import Control.Exception.Safe (tryIO, catchIO, displayException)
 import Control.Monad.Extra (unless, andM, whenM)
+import DA.Daml.Assistant.Types
 import Options.Applicative.BashCompletion qualified
 import System.Directory (getHomeDirectory, getAppUserDataDirectory, doesFileExist, removePathForcibly, createDirectoryIfMissing)
 import System.FilePath ((</>), takeDirectory)
-import System.Info.Extra (isWindows)
 import System.IO.Extra (readFileUTF8, writeFileUTF8)
+import System.Info.Extra (isWindows)
 
 -- | Install bash completion script if we should.
 installBashCompletions :: InstallOptions -> DamlPath -> (String -> IO ()) -> IO ()

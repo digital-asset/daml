@@ -5,12 +5,11 @@ module Cli
     ( main
     ) where
 
+import DA.Cli.Args qualified as ParseArgs
 import Options.Applicative
 import System.Environment.Blank
 import Test.Tasty
 import Test.Tasty.HUnit
-
-import DA.Cli.Args qualified as ParseArgs
 
 main :: IO ()
 main = do

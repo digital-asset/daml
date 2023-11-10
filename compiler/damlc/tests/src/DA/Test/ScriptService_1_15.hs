@@ -8,8 +8,8 @@ module DA.Test.ScriptService (main) where
 import Control.Exception
 import Control.Monad
 import DA.Bazel.Runfiles
-import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.DependencyDb
+import DA.Cli.Damlc.Packaging
 import DA.Daml.LF.Ast.Version qualified as LF
 import DA.Daml.LF.PrettyScenario (prettyScenarioError, prettyScenarioResult)
 import DA.Daml.LF.ScenarioServiceClient qualified as SS

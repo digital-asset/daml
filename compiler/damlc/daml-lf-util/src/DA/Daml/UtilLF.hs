@@ -10,7 +10,6 @@ module DA.Daml.UtilLF (
 
 import DA.Daml.LF.Ast
 import DA.Pretty (renderPretty)
-
 import Data.NameMap qualified as NM
 import Data.Text qualified as T
 import GHC.Stack (HasCallStack)

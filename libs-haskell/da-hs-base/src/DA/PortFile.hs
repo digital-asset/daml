@@ -7,8 +7,8 @@ module DA.PortFile (readPortFileWith, readPortFile, maxRetries, retryDelayMillis
 import Control.Concurrent
 import Control.Exception
 import Control.Monad
-import Data.Text.IO qualified as T
 import Data.Text (pack)
+import Data.Text.IO qualified as T
 import Safe (readMay)
 import System.Exit
 import System.IO

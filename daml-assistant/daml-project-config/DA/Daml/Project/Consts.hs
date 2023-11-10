@@ -27,13 +27,12 @@ module DA.Daml.Project.Consts
     ) where
 
 import Control.Monad
+import DA.Daml.Project.Types
 import System.Directory
 import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO
-
-import DA.Daml.Project.Types
 
 -- | The DAML_HOME environment variable determines the path of the daml
 -- assistant data directory. This defaults to:

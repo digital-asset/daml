@@ -4,23 +4,22 @@
 {-# LANGUAGE PatternSynonyms #-}
 module DA.Daml.LF.Ast.Util(module DA.Daml.LF.Ast.Util) where
 
-import Control.Monad
-import Data.List
-import Data.Maybe
-import Data.Text qualified as T
 import Control.Lens
 import Control.Lens.Ast
-import Data.Functor.Foldable
-import Data.Graph qualified as G
-import Data.List.Extra (nubSort, stripInfixEnd)
-import Data.NameMap qualified as NM
-import Module (UnitId, unitIdString, stringToUnitId)
-import System.FilePath
-
+import Control.Monad
 import DA.Daml.LF.Ast.Base
-import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.Ast.Recursive
+import DA.Daml.LF.Ast.TypeLevelNat
+import Data.Functor.Foldable
+import Data.Graph qualified as G
+import Data.List
+import Data.List.Extra (nubSort, stripInfixEnd)
+import Data.Maybe
+import Data.NameMap qualified as NM
+import Data.Text qualified as T
+import Module (UnitId, unitIdString, stringToUnitId)
+import System.FilePath
 
 dvalName :: DefValue -> ExprValName
 dvalName = fst . dvalBinder

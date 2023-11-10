@@ -5,19 +5,11 @@ module DA.Daml.LF.Ast.Tests
     ( main
     ) where
 
-import Data.Foldable
-import Data.List.Extra (trim)
-import Data.Map.Strict qualified as Map
-import Data.NameMap qualified as NM
-import Text.Read
-import Test.Tasty
-import Test.Tasty.HUnit
-
+import DA.Daml.LF.Ast.Alpha
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Numeric
-import DA.Daml.LF.Ast.Type
-import DA.Daml.LF.Ast.Alpha
 import DA.Daml.LF.Ast.Subst
+import DA.Daml.LF.Ast.Type
 import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Util
 import DA.Daml.LF.Ast.Version
@@ -25,6 +17,13 @@ import DA.Daml.LF.Ast.World (initWorld)
 import DA.Daml.LF.TypeChecker (checkModule)
 import DA.Pretty (renderPretty)
 import DA.Test.Util
+import Data.Foldable
+import Data.List.Extra (trim)
+import Data.Map.Strict qualified as Map
+import Data.NameMap qualified as NM
+import Test.Tasty
+import Test.Tasty.HUnit
+import Text.Read
 
 main :: IO ()
 main = defaultMain $ testGroup "DA.Daml.LF.Ast"

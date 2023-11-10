@@ -11,21 +11,20 @@ module DA.Daml.Assistant.IntegrationTestUtils
 
 import Conduit hiding (connect)
 import Control.Monad (forM_)
+import DA.Bazel.Runfiles
+import DA.Test.Process (callCommandSilent,callProcessSilent)
+import DA.Test.Util
 import Data.Conduit.Tar.Extra qualified as Tar.Conduit.Extra
 import Data.Conduit.Zlib qualified as Zlib
 import Data.List.Extra
 import Data.Text qualified as T
 import Network.Socket.Extended (PortNumber, getFreePort)
+import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath
-import System.Directory.Extra
 import System.IO.Extra
 import System.Info.Extra
 import Test.Tasty
-
-import DA.Bazel.Runfiles
-import DA.Test.Process (callCommandSilent,callProcessSilent)
-import DA.Test.Util
 
 -- | Install the SDK in a temporary directory and provide the path to the SDK directory.
 -- This also adds the bin directory to PATH so calling assistant commands works without

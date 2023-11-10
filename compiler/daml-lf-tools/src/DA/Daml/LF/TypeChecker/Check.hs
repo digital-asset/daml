@@ -35,32 +35,30 @@ module DA.Daml.LF.TypeChecker.Check
     , typeOf'
     ) where
 
-import Data.Hashable
 import Control.Lens hiding (Context, MethodName, para)
 import Control.Monad.Extra
-import Data.Either.Combinators (whenLeft)
-import Data.Foldable
-import Data.Functor
-import Data.List.Extended
-import Data.Generics.Uniplate.Data (para)
-import Data.Set qualified as S
-import Data.HashSet qualified as HS
-import Data.Maybe (listToMaybe)
-import Data.Map.Strict qualified as Map
-import Data.NameMap qualified as NM
-import Data.IntSet qualified as IntSet
-import Data.Text qualified as T
-import Safe.Exact (zipExactMay)
-
 import DA.Daml.LF.Ast
-import DA.Daml.LF.Ast.Optics (dataConsType)
-import DA.Daml.LF.Ast.Type
 import DA.Daml.LF.Ast.Alpha
 import DA.Daml.LF.Ast.Numeric
+import DA.Daml.LF.Ast.Optics (dataConsType)
+import DA.Daml.LF.Ast.Type
 import DA.Daml.LF.TemplateOrInterface qualified as TemplateOrInterface
 import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
-
+import Data.Either.Combinators (whenLeft)
+import Data.Foldable
+import Data.Functor
+import Data.Generics.Uniplate.Data (para)
+import Data.HashSet qualified as HS
+import Data.Hashable
+import Data.IntSet qualified as IntSet
+import Data.List.Extended
+import Data.Map.Strict qualified as Map
+import Data.Maybe (listToMaybe)
+import Data.NameMap qualified as NM
+import Data.Set qualified as S
+import Data.Text qualified as T
+import Safe.Exact (zipExactMay)
 
 -- | Check that a list does /not/ contain duplicate elements.
 checkUnique :: (MonadGamma m, Eq a, Hashable a) => (a -> Error) -> [a] -> m ()

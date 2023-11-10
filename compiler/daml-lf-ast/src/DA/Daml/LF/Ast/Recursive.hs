@@ -15,11 +15,10 @@ module DA.Daml.LF.Ast.Recursive(
     retrieveByKeyFKey
     ) where
 
-import Data.Functor.Foldable
-import Data.Text qualified as T
-
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat
+import Data.Functor.Foldable
+import Data.Text qualified as T
 
 data ExprF expr
   = EVarF        !ExprVarName

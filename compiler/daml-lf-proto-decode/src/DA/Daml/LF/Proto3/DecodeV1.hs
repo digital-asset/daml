@@ -10,26 +10,25 @@ module DA.Daml.LF.Proto3.DecodeV1
     , Error(..)
     ) where
 
-import DA.Daml.LF.Ast as LF
-import DA.Daml.LF.Proto3.Error
-import DA.Daml.LF.Proto3.Util qualified as Util
-import Data.Coerce
+import Com.Daml.DamlLfDev.DamlLf1 qualified as LF1
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
-import Data.Int
-import Text.Read
-import Data.List
-import DA.Daml.StablePackagesList
+import DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Mangling
-import Com.Daml.DamlLfDev.DamlLf1 qualified as LF1
+import DA.Daml.LF.Proto3.Error
+import DA.Daml.LF.Proto3.Util qualified as Util
+import DA.Daml.StablePackagesList
+import Data.Coerce
+import Data.Int
+import Data.List
 import Data.NameMap qualified as NM
-import Data.Text qualified as T
 import Data.Set qualified as S
+import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
 import Data.Vector.Extended qualified as V
 import Proto3.Suite qualified as Proto
-
+import Text.Read
 
 data DecodeEnv = DecodeEnv
     -- We cache unmangled identifiers here so that we only do the unmangling once

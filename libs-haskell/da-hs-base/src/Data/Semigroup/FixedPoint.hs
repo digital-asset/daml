@@ -8,9 +8,9 @@ module Data.Semigroup.FixedPoint
 
 import Data.Foldable (foldlM)
 import Data.Graph qualified as G
-import Data.Hashable (Hashable)
 import Data.HashMap.Strict qualified as HMS
 import Data.HashSet qualified as HS
+import Data.Hashable (Hashable)
 import Data.List (foldl')
 
 -- | When 'a' is a join-semilattice (i.e. a commutative idempotent

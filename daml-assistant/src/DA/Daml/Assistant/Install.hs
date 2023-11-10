@@ -14,44 +14,40 @@ module DA.Daml.Assistant.Install
     , pattern RawInstallTarget_Project
     ) where
 
-import DA.Directory
-import DA.Daml.Assistant.Types
-import DA.Daml.Assistant.Util
+import Conduit
+import Control.Exception.Safe
+import Control.Monad.Extra
+import DA.Daml.Assistant.Cache (CacheTimeout (..))
 import DA.Daml.Assistant.Install.Artifactory qualified as Artifactory
+import DA.Daml.Assistant.Install.Completion
 import DA.Daml.Assistant.Install.Github qualified as Github
 import DA.Daml.Assistant.Install.Path
-import DA.Daml.Assistant.Install.Completion
+import DA.Daml.Assistant.Types
+import DA.Daml.Assistant.Util
 import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion, UseCache (..))
-import DA.Daml.Assistant.Cache (CacheTimeout (..))
-import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
-import Safe
-import Data.List
-import Conduit
+import DA.Daml.Project.Consts
+import DA.Directory
+import Data.ByteString qualified as BS
+import Data.ByteString.UTF8 qualified as BS.UTF8
 import Data.Conduit.List qualified as List
 import Data.Conduit.Tar.Extra qualified as Tar
 import Data.Conduit.Zlib qualified as Zlib
 import Data.Either.Extra
+import Data.List
 import Data.SemVer qualified as SemVer
 import Network.HTTP.Simple
-import Data.ByteString qualified as BS
-import Data.ByteString.UTF8 qualified as BS.UTF8
+import Options.Applicative.Extended (determineAuto)
+import Safe
+import System.Directory
 import System.Environment
 import System.Exit
+import System.FileLock (withFileLock, withTryFileLock, SharedExclusive (Exclusive))
+import System.FilePath
 import System.IO
 import System.IO.Extra (writeFileUTF8)
 import System.IO.Temp
-import System.FileLock (withFileLock, withTryFileLock, SharedExclusive (Exclusive))
-import System.FilePath
-import System.Directory
-import Control.Monad.Extra
-import Control.Exception.Safe
-import System.ProgressBar
 import System.Info.Extra (isWindows)
-import Options.Applicative.Extended (determineAuto)
-
--- unix specific
-import System.PosixCompat.Types ( FileMode )
 import System.PosixCompat.Files
     ( removeLink
     , createSymbolicLink
@@ -67,6 +63,9 @@ import System.PosixCompat.Files
     , groupExecuteMode
     , otherReadMode
     , otherExecuteMode)
+-- unix specific
+import System.PosixCompat.Types ( FileMode )
+import System.ProgressBar
 
 data InstallEnv = InstallEnv
     { options :: InstallOptions

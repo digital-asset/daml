@@ -5,12 +5,10 @@ module DA.Daml.Doc.Transform.Instances
     ( distributeInstanceDocs
     ) where
 
-import DA.Daml.Doc.Types
 import DA.Daml.Doc.Transform.Options
-
-import Data.Maybe (listToMaybe)
-
+import DA.Daml.Doc.Types
 import Data.Map qualified as Map
+import Data.Maybe (listToMaybe)
 import Data.Set qualified as Set
 import Data.Text qualified as T
 

@@ -9,14 +9,14 @@ module DA.Daml.LF.Proto3.Archive.Decode
   , DecodingMode(..)
   ) where
 
-import Control.Lens (over, _Left)
 import "cryptonite" Crypto.Hash qualified as Crypto
 import Com.Daml.DamlLfDev.DamlLf qualified as ProtoLF
+import Control.Lens (over, _Left)
 import Control.Monad
-import DA.Pretty
 import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Proto3.Decode qualified as Decode
 import DA.Daml.LF.Proto3.Util (encodeHash)
+import DA.Pretty
 import Data.ByteArray qualified as BA
 import Data.ByteString qualified as BS
 import Data.Int
