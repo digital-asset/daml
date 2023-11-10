@@ -12,12 +12,20 @@ import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.lf.engine.trigger.TriggerMsg
+import com.daml.lf.language.LanguageMajorVersion
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
-class Jwt extends AsyncWordSpec with AbstractTriggerTest with Matchers with TryValues {
+class JwtV1 extends Jwt(LanguageMajorVersion.V1)
+class JwtV2 extends Jwt(LanguageMajorVersion.V2)
+
+class Jwt(override val majorLanguageVersion: LanguageMajorVersion)
+    extends AsyncWordSpec
+    with AbstractTriggerTest
+    with Matchers
+    with TryValues {
 
   import AbstractTriggerTest._
 
