@@ -44,7 +44,7 @@ module Development.IDE.Core.API.Testing
     ) where
 
 -- * internal dependencies
-import Development.IDE.Core.API qualified         as API
+import Development.IDE.Core.API qualified as API
 import Development.IDE.Core.Debouncer
 import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..))
 import Development.IDE.Types.Diagnostics qualified as D
@@ -62,31 +62,31 @@ import Language.LSP.Types hiding (SemanticTokenAbsolute (..), SemanticTokenRelat
 -- * external dependencies
 import Control.Concurrent.STM
 import Control.Exception.Extra
-import Control.Monad.Reader qualified   as Reader
+import Control.Monad.Reader qualified as Reader
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
 import Data.Vector qualified as V
-import Data.Text qualified              as T
-import Data.Text.IO qualified           as T.IO
+import Data.Text qualified as T
+import Data.Text.IO qualified as T.IO
 import Data.HashSet qualified as HashSet
 import Network.URI
-import System.FilePath qualified        as FilePath
-import System.FilePath.Posix qualified  as FPP
-import System.Directory qualified       as Directory
-import Data.Time.Clock qualified        as Clock
-import           System.FilePath        ((</>))
-import           Control.Monad.Except   (ExceptT (..), MonadError(..), runExceptT)
-import           Control.Monad.Reader   (ReaderT (..))
-import           Control.Monad.IO.Class (MonadIO (liftIO))
-import           System.IO.Temp         (withSystemTempDirectory)
-import           System.IO.Extra
-import           Control.Monad
-import           Data.Maybe
-import           Data.List.Extra
-import           Text.Regex.TDFA
-import           Text.Regex.TDFA.Text ()
+import System.FilePath qualified as FilePath
+import System.FilePath.Posix qualified as FPP
+import System.Directory qualified as Directory
+import Data.Time.Clock qualified as Clock
+import System.FilePath ((</>))
+import Control.Monad.Except (ExceptT (..), MonadError(..), runExceptT)
+import Control.Monad.Reader (ReaderT (..))
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import System.IO.Temp (withSystemTempDirectory)
+import System.IO.Extra
+import Control.Monad
+import Data.Maybe
+import Data.List.Extra
+import Text.Regex.TDFA
+import Text.Regex.TDFA.Text ()
 
 -- | Short-circuiting errors that may occur during a test.
 data ShakeTestError

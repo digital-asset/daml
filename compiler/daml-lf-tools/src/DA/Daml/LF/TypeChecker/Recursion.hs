@@ -7,12 +7,12 @@ module DA.Daml.LF.TypeChecker.Recursion
   ( checkModule
   ) where
 
-import           Control.Lens (matching)
-import           Data.Foldable (for_, toList)
-import           Data.Functor.Foldable (cata)
+import Control.Lens (matching)
+import Data.Foldable (for_, toList)
+import Data.Functor.Foldable (cata)
 import Data.HashSet qualified as HS
 import Data.Graph qualified as G
-import           Data.List.Extra (nubOrd)
+import Data.List.Extra (nubOrd)
 import Data.NameMap qualified as NM
 
 import DA.Daml.LF.Ast

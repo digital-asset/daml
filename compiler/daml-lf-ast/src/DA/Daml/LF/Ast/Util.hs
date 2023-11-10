@@ -8,9 +8,9 @@ import Control.Monad
 import Data.List
 import Data.Maybe
 import Data.Text qualified as T
-import           Control.Lens
-import           Control.Lens.Ast
-import           Data.Functor.Foldable
+import Control.Lens
+import Control.Lens.Ast
+import Data.Functor.Foldable
 import Data.Graph qualified as G
 import Data.List.Extra (nubSort, stripInfixEnd)
 import Data.NameMap qualified as NM

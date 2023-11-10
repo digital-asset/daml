@@ -16,7 +16,7 @@ import GHC qualified
 import Module qualified as GHC
 import GhcMonad
 import Data.IORef
-import Proto3.Suite qualified             as Proto
+import Proto3.Suite qualified as Proto
 import DA.Daml.LF.Proto3.DecodeV1
 import DA.Daml.LF.Proto3.EncodeV1
 import HscTypes

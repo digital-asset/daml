@@ -7,8 +7,8 @@ module DA.Daml.LFConversion.Utils (
   convRealSrcSpan,
 ) where
 
-import           "ghc-lib" GHC
-import           DA.Daml.LF.Ast as LF
+import "ghc-lib" GHC
+import DA.Daml.LF.Ast as LF
 
 convNameLoc :: NamedThing a => a -> Maybe LF.SourceLoc
 convNameLoc n = case nameSrcSpan (getName n) of

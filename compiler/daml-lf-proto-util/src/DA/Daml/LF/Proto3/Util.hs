@@ -14,11 +14,11 @@ module DA.Daml.LF.Proto3.Util (
     ) where
 
 import Data.ByteString qualified as BS
-import           Data.Int
-import           Data.List
+import Data.Int
+import Data.List
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
-import           GHC.Generics
+import GHC.Generics
 import Numeric qualified
 
 import Com.Daml.DamlLfDev.DamlLf1 qualified as P

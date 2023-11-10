@@ -9,28 +9,28 @@ module DA.Daml.LF.Proto3.EncodeV1
   , encodePackage
   ) where
 
-import           Control.Lens ((^.), matching)
-import           Control.Lens.Ast (rightSpine)
-import           Control.Monad.State.Strict
+import Control.Lens ((^.), matching)
+import Control.Lens.Ast (rightSpine)
+import Control.Monad.State.Strict
 
 import Data.Bifunctor qualified as Bf
-import           Data.Coerce
-import           Data.Either
-import           Data.Functor.Identity
+import Data.Coerce
+import Data.Either
+import Data.Functor.Identity
 import Data.HashMap.Strict qualified as HMS
 import Data.List qualified as L
 import Data.Set qualified as S
 import Data.Map.Strict qualified as Map
-import           Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe)
 import Data.NameMap qualified as NM
-import Data.Text qualified           as T
-import Data.Text.Lazy qualified      as TL
-import Data.Vector qualified         as V
-import           Data.Int
+import Data.Text qualified as T
+import Data.Text.Lazy qualified as TL
+import Data.Vector qualified as V
+import Data.Int
 
-import           DA.Pretty
-import           DA.Daml.LF.Ast
-import           DA.Daml.LF.Mangling
+import DA.Pretty
+import DA.Daml.LF.Ast
+import DA.Daml.LF.Mangling
 import DA.Daml.LF.Proto3.Util qualified as Util
 import Com.Daml.DamlLfDev.DamlLf1 qualified as P
 

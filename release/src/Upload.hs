@@ -12,30 +12,30 @@ module Upload (
 
 import Control.Concurrent.Async.Lifted.Safe qualified as Async
 import Control.Exception.Safe qualified as E
-import           Control.Monad
-import           Control.Monad.Logger
-import           Control.Monad.IO.Class
-import           "cryptohash" Crypto.Hash (Digest, MD5(..), SHA1(..), digestToHexByteString, hash)
-import           Control.Retry
-import           Data.Aeson
-import           Data.Foldable
+import Control.Monad
+import Control.Monad.Logger
+import Control.Monad.IO.Class
+import "cryptohash" Crypto.Hash (Digest, MD5(..), SHA1(..), digestToHexByteString, hash)
+import Control.Retry
+import Data.Aeson
+import Data.Foldable
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BSL
 import Data.ByteString.Base64 qualified as Base64
 import Data.ByteString.Char8 qualified as C8
 import Data.List qualified as List
 import Data.SemVer qualified as SemVer
-import           Data.Text (Text)
+import Data.Text (Text)
 import Data.Text qualified as T
-import           Data.Text.Encoding (encodeUtf8)
-import           Network.Connection (TLSSettings(..))
-import           Network.HTTP.Client
-import           Network.HTTP.Client.TLS (mkManagerSettings, tlsManagerSettings)
-import           Network.HTTP.Simple (setRequestBasicAuth, setRequestBodyFile, setRequestBodyLBS, setRequestHeader, setRequestMethod, setRequestPath)
-import           Network.HTTP.Types.Status
-import           Path
-import           System.Environment
-import           System.IO.Temp
+import Data.Text.Encoding (encodeUtf8)
+import Network.Connection (TLSSettings(..))
+import Network.HTTP.Client
+import Network.HTTP.Client.TLS (mkManagerSettings, tlsManagerSettings)
+import Network.HTTP.Simple (setRequestBasicAuth, setRequestBodyFile, setRequestBodyLBS, setRequestHeader, setRequestMethod, setRequestPath)
+import Network.HTTP.Types.Status
+import Path
+import System.Environment
+import System.IO.Temp
 
 import Types
 import Util

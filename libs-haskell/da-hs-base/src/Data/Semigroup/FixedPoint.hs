@@ -6,12 +6,12 @@ module Data.Semigroup.FixedPoint
   , leastFixedPointBy
   ) where
 
-import           Data.Foldable (foldlM)
+import Data.Foldable (foldlM)
 import Data.Graph qualified as G
-import           Data.Hashable (Hashable)
+import Data.Hashable (Hashable)
 import Data.HashMap.Strict qualified as HMS
 import Data.HashSet qualified as HS
-import           Data.List (foldl')
+import Data.List (foldl')
 
 -- | When 'a' is a join-semilattice (i.e. a commutative idempotent
 -- semigroup), @leastFixedPoint eqs@ computes the least (wrt. the partial order

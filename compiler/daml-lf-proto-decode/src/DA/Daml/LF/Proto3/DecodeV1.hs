@@ -10,8 +10,8 @@ module DA.Daml.LF.Proto3.DecodeV1
     , Error(..)
     ) where
 
-import           DA.Daml.LF.Ast as LF
-import           DA.Daml.LF.Proto3.Error
+import DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Proto3.Error
 import DA.Daml.LF.Proto3.Util qualified as Util
 import Data.Coerce
 import Control.Monad
@@ -19,9 +19,9 @@ import Control.Monad.Except
 import Control.Monad.Reader
 import Data.Int
 import Text.Read
-import           Data.List
-import    DA.Daml.StablePackagesList
-import           DA.Daml.LF.Mangling
+import Data.List
+import DA.Daml.StablePackagesList
+import DA.Daml.LF.Mangling
 import Com.Daml.DamlLfDev.DamlLf1 qualified as LF1
 import Data.NameMap qualified as NM
 import Data.Text qualified as T

@@ -5,11 +5,11 @@ module DA.Daml.LF.InferSerializability
   ( inferModule
   ) where
 
-import           Control.Monad.Error.Class
+import Control.Monad.Error.Class
 import Data.HashMap.Strict qualified as HMS
 import Data.HashSet qualified as HS
 import Data.NameMap qualified as NM
-import           Data.Semigroup.FixedPoint (leastFixedPointBy)
+import Data.Semigroup.FixedPoint (leastFixedPointBy)
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.TypeChecker.Serializability (CurrentModule(..), serializabilityConditionsDataType)

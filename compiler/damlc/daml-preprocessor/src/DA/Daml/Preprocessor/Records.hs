@@ -11,18 +11,18 @@ module DA.Daml.Preprocessor.Records
     ) where
 
 
-import           Data.Generics.Uniplate.Data
-import           Data.List.Extra
-import           Data.Tuple.Extra
+import Data.Generics.Uniplate.Data
+import Data.List.Extra
+import Data.Tuple.Extra
 
 -- import DA.GHC.Util
 
-import           "ghc-lib-parser" Bag
+import "ghc-lib-parser" Bag
 import "ghc-lib" GHC qualified
 import "ghc-lib" GhcPlugins qualified as GHC
-import           "ghc-lib-parser" HsSyn
-import           "ghc-lib-parser" SrcLoc
-import           "ghc-lib-parser" TcEvidence
+import "ghc-lib-parser" HsSyn
+import "ghc-lib-parser" SrcLoc
+import "ghc-lib-parser" TcEvidence
 
 
 noL :: e -> GenLocated SrcSpan e

@@ -10,14 +10,14 @@ module DA.Daml.LF.Proto3.Archive.Encode
 
 import "cryptonite" Crypto.Hash qualified as Crypto
 import Com.Daml.DamlLfDev.DamlLf qualified as ProtoLF
-import DA.Daml.LF.Ast qualified           as LF
+import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Proto3.Encode qualified as Encode
 import DA.Daml.LF.Proto3.Util (encodeHash)
-import Data.ByteArray qualified           as BA
-import Data.ByteString qualified          as BS
-import Data.ByteString.Lazy qualified     as BSL
-import Data.Text.Lazy qualified           as TL
-import Proto3.Suite qualified             as Proto
+import Data.ByteArray qualified as BA
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
+import Data.Text.Lazy qualified as TL
+import Proto3.Suite qualified as Proto
 
 -- | Encode a LFv1 package payload into a Daml-LF archive using the default
 -- hash function.

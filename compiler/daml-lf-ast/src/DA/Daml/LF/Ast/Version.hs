@@ -6,17 +6,17 @@
 
 module DA.Daml.LF.Ast.Version(module DA.Daml.LF.Ast.Version) where
 
-import           Data.Char (isDigit)
-import           Data.Data
-import           Data.List (intercalate)
-import           Data.Maybe (catMaybes)
-import           GHC.Generics
-import           DA.Pretty
+import Data.Char (isDigit)
+import Data.Data
+import Data.List (intercalate)
+import Data.Maybe (catMaybes)
+import GHC.Generics
+import DA.Pretty
 import DA.Daml.LF.Ast.Range qualified as R
-import           Control.DeepSeq
+import Control.DeepSeq
 import Data.Text qualified as T
-import           Safe (headMay)
-import           Text.ParserCombinators.ReadP (ReadP, pfail, readP_to_S, (+++), munch1)
+import Safe (headMay)
+import Text.ParserCombinators.ReadP (ReadP, pfail, readP_to_S, (+++), munch1)
 import Text.ParserCombinators.ReadP qualified as ReadP
 import Data.Map.Strict qualified as MS
 

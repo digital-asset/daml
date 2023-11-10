@@ -10,15 +10,15 @@ module DA.Daml.Compiler.Output
   ) where
 
 import Data.ByteString.Char8 qualified as BS
-import Data.ByteString.Lazy qualified                           as BSL
-import           Data.String                                    (IsString)
+import Data.ByteString.Lazy qualified as BSL
+import Data.String (IsString)
 import Data.Text.Encoding qualified as T
 import Development.IDE.Core.Shake (NotificationHandler(..))
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Language.LSP.Types qualified as LSP
 import System.IO
-import           Control.Exception (bracket)
+import Control.Exception (bracket)
 
 -- | Write some text to the destination specified on the command line.
 --

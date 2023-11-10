@@ -23,21 +23,21 @@ import DA.Test.DamlcIntegration (ScriptPackageData)
 import Development.IDE.Types.Location
 
 import Control.Monad
-import           Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Maybe
 import Data.Aeson.Encode.Pretty qualified as AP
-import           Data.List.Extra
-import           Data.Map.Strict (Map)
+import Data.List.Extra
+import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
-import Data.Text qualified          as T
+import Data.Text qualified as T
 import Data.Text.Extended qualified as T
 import Data.Text.Lazy qualified as TL
 import Data.Text.Lazy.Encoding qualified as TL
-import           System.Directory
-import           System.FilePath
-import           System.IO.Extra
+import System.Directory
+import System.FilePath
+import System.IO.Extra
 import Test.Tasty.Extended qualified as Tasty
-import           Test.Tasty.Golden
-import           Test.Tasty.HUnit
+import Test.Tasty.Golden
+import Test.Tasty.HUnit
 import Data.Maybe
 import SdkVersion (sdkPackageVersion)
 

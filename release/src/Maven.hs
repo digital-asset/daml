@@ -9,15 +9,15 @@ module Maven (
 ) where
 
 import Control.Exception.Safe qualified as E
-import           Control.Monad
-import           Control.Monad.Logger
-import           Control.Monad.IO.Class
+import Control.Monad
+import Control.Monad.Logger
+import Control.Monad.IO.Class
 import Data.Maybe qualified as Maybe
 import Data.Text qualified as T
-import           Data.Text (Text)
-import           Path
-import           Path.IO
-import           System.Exit
+import Data.Text (Text)
+import Path
+import Path.IO
+import System.Exit
 
 import Types
 import Util

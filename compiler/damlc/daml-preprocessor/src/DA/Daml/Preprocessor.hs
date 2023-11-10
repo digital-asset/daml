@@ -10,10 +10,10 @@ module DA.Daml.Preprocessor
   ) where
 
 import DA.Daml.LF.Ast qualified as LF (PackageName (..), MajorVersion)
-import           DA.Daml.Preprocessor.Records
-import           DA.Daml.Preprocessor.EnumType
-import           DA.Daml.StablePackages (stablePackageByModuleName)
-import           DA.Daml.UtilGHC (convertModuleName)
+import DA.Daml.Preprocessor.Records
+import DA.Daml.Preprocessor.EnumType
+import DA.Daml.StablePackages (stablePackageByModuleName)
+import DA.Daml.UtilGHC (convertModuleName)
 
 import Development.IDE.Types.Options
 import "ghc-lib" GHC qualified
@@ -27,13 +27,13 @@ import "ghc-lib-parser" FastString qualified as GHC
 import "ghc-lib-parser" GHC.LanguageExtensions.Type qualified as GHC
 import Outputable
 
-import           Data.List.NonEmpty (NonEmpty ((:|)))
+import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.List.NonEmpty qualified as NE
-import           Data.List.Extra
-import           Data.Maybe
+import Data.List.Extra
+import Data.Maybe
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
-import           System.FilePath (splitDirectories)
+import System.FilePath (splitDirectories)
 
 import Data.Generics.Uniplate.Data qualified as Uniplate
 

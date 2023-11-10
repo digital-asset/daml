@@ -4,22 +4,22 @@
 {-# LANGUAGE DeriveAnyClass #-}
 module DA.Daml.LF.TypeChecker.Upgrade (checkUpgrade, Upgrading(..)) where
 
-import           Control.DeepSeq
-import           Control.Monad (unless, forM_, when)
-import           DA.Daml.LF.Ast as LF
-import           DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
-import           DA.Daml.LF.TypeChecker.Env
-import           DA.Daml.LF.TypeChecker.Error
-import           DA.Daml.LF.Ast.Recursive (TypeF(..))
-import           Data.Functor.Foldable (cata)
-import           Data.Foldable (fold)
-import           Data.Data
-import           Data.Hashable
+import Control.DeepSeq
+import Control.Monad (unless, forM_, when)
+import DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
+import DA.Daml.LF.TypeChecker.Env
+import DA.Daml.LF.TypeChecker.Error
+import DA.Daml.LF.Ast.Recursive (TypeF(..))
+import Data.Functor.Foldable (cata)
+import Data.Foldable (fold)
+import Data.Data
+import Data.Hashable
 import Data.HashMap.Strict qualified as HMS
 import Data.NameMap qualified as NM
 import Data.Text qualified as T
-import           Development.IDE.Types.Diagnostics
-import           GHC.Generics (Generic)
+import Development.IDE.Types.Diagnostics
+import GHC.Generics (Generic)
 
 data Upgrading a = Upgrading
     { past :: a

@@ -54,19 +54,19 @@ module Data.NameMap
 import Prelude hiding (lookup, map, traverse, null)
 import Prelude qualified
 
-import           Control.DeepSeq
-import           Control.Monad (void)
-import           Data.Aeson
-import           Data.Binary
-import           Data.Data
-import           Data.Foldable hiding (toList, null)
-import           Data.Function (on)
-import           Data.Hashable
+import Control.DeepSeq
+import Control.Monad (void)
+import Data.Aeson
+import Data.Binary
+import Data.Data
+import Data.Foldable hiding (toList, null)
+import Data.Function (on)
+import Data.Hashable
 import Data.HashMap.Strict qualified as HMS
 import Data.HashSet qualified as HS
-import           Data.Kind (Type)
-import           GHC.Generics
-import           GHC.Stack (HasCallStack)
+import Data.Kind (Type)
+import GHC.Generics
+import GHC.Stack (HasCallStack)
 
 -- | Type class for things that have a name.
 class (Eq (Name a), Hashable (Name a), Show (Name a)) => Named a where

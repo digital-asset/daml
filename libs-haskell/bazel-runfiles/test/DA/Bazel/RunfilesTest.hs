@@ -5,11 +5,11 @@ module Main (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
-import           System.Directory
-import           System.FilePath
-import           Test.Tasty
-import           Test.Tasty.HUnit
-import           DA.Bazel.Runfiles
+import System.Directory
+import System.FilePath
+import Test.Tasty
+import Test.Tasty.HUnit
+import DA.Bazel.Runfiles
 
 main :: IO ()
 main = defaultMain tests

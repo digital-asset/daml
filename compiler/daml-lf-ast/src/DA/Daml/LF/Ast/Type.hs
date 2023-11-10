@@ -9,13 +9,13 @@ module DA.Daml.LF.Ast.Type
   , substituteAux
   ) where
 
-import           Data.Bifunctor
+import Data.Bifunctor
 import Data.HashSet qualified as HS
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Text qualified as T
 import Data.List
-import           Safe (findJust)
+import Safe (findJust)
 
 import DA.Daml.LF.Ast.Base
 

@@ -5,13 +5,13 @@ module DA.Cli.Options
   ( module DA.Cli.Options
   ) where
 
-import Data.List.Extra     (lower, splitOn, trim)
+import Data.List.Extra (lower, splitOn, trim)
 import Options.Applicative hiding (option, strOption)
 import Options.Applicative qualified (option, strOption)
 import Options.Applicative.Extended
 import Data.List
 import Data.Maybe
-import DA.Pretty qualified           as Pretty
+import DA.Pretty qualified as Pretty
 import DA.Daml.Options.Types
 import DA.Daml.LF.Ast.Util (splitUnitId)
 import DA.Daml.LF.Ast.Version qualified as LF

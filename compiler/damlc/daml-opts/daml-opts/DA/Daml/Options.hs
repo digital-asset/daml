@@ -42,7 +42,7 @@ import Development.IDE.Core.Shake
 import Development.IDE.Types.Location
 import Platform qualified as P
 import EnumSet qualified
-import GHC                         hiding (convertLit)
+import GHC hiding (convertLit)
 import GHC.Fingerprint (fingerprint0)
 import GHC.LanguageExtensions.Type
 import GhcMonad

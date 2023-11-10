@@ -50,19 +50,19 @@ module DA.Pretty
   ) where
 
 
-import           Data.String
-import Data.Text.Extended qualified          as T
+import Data.String
+import Data.Text.Extended qualified as T
 
-import           Orphans.Lib_pretty ()
+import Orphans.Lib_pretty ()
 
 import Text.Blaze.Html.Renderer.String qualified as BlazeRenderer
-import Text.Blaze.Html5 qualified                as H
-import Text.Blaze.Html5.Attributes qualified     as A
+import Text.Blaze.Html5 qualified as H
+import Text.Blaze.Html5.Attributes qualified as A
 
-import           Text.PrettyPrint.Annotated.HughesPJClass hiding ((<>), style, text)
-import           Text.PrettyPrint.Annotated.Extended
+import Text.PrettyPrint.Annotated.HughesPJClass hiding ((<>), style, text)
+import Text.PrettyPrint.Annotated.Extended
 
-import           System.Console.ANSI
+import System.Console.ANSI
                  ( SGR(..), ConsoleLayer(..), ColorIntensity(..), Color(..)
                  , setSGRCode
                  )

@@ -28,7 +28,7 @@ import DA.Service.Logger.Impl.Pure qualified as Logger
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.Service qualified as Service
 import Development.IDE.Core.Shake qualified as Service
-import Development.IDE.Core.Rules qualified     as Service
+import Development.IDE.Core.Rules qualified as Service
 import Development.IDE.Core.Rules.Daml qualified as Service
 import Development.IDE.Core.RuleTypes.Daml qualified as Service
 import Development.IDE.Core.OfInterest qualified as Service

@@ -8,7 +8,7 @@ module DA.Daml.LanguageServer
     ( runLanguageServer
     ) where
 
-import           Language.LSP.Types
+import Language.LSP.Types
 import Development.IDE.LSP.LanguageServer qualified as LS
 import Control.Monad.IO.Class
 import Data.Aeson qualified as Aeson
@@ -28,7 +28,7 @@ import Development.IDE.Plugin
 
 import DA.Daml.SessionTelemetry qualified as SessionTelemetry
 import DA.Service.Logger qualified as Lgr
-import Network.URI qualified                               as URI
+import Network.URI qualified as URI
 
 import Language.LSP.Server qualified as LSP
 

@@ -12,8 +12,8 @@
 module DA.Test.ShakeIdeClient (main, ideTests ) where
 
 import Test.Tasty.Extended qualified as Tasty
-import Test.Tasty.HUnit qualified    as Tasty
-import Data.Text.Extended qualified  as T
+import Test.Tasty.HUnit qualified as Tasty
+import Data.Text.Extended qualified as T
 
 import Data.Either
 import System.Directory
