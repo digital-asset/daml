@@ -210,15 +210,15 @@ command_post_failure_behaviours = {
             post_failure_behaviour,
         ],
         data = [
+            ":new_cache",
+            ":old_cache",
+            ":releases-github-api.json",
             "@daml-sdk-0.0.0//:daml",
             "@daml-sdk-2.7.1-tarball//file",
             "@daml-sdk-2.7.4-tarball//file",
             "@daml-sdk-2.7.5-tarball//file",
             "@daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball//file",
             "@head_sdk//:sdk-release-tarball-ce.tar.gz",
-            ":new_cache",
-            ":old_cache",
-            ":releases-github-api.json",
         ],
         deps = ["@bazel_tools//tools/bash/runfiles"],
     )
