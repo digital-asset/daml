@@ -54,7 +54,7 @@ main = do
             defaultSandboxConf
                 { dars = [testDar]
                 , timeMode = Static
-                , devVersionSupport = major == LF.V2
+                , devVersionSupport = LF.isDevVersion lfVersion
                 }
             $ \getSandboxPort ->
                 testGroup ("LF v" <> prettyMajor)
@@ -62,7 +62,7 @@ main = do
                         defaultSandboxConf
                             { mbSharedSecret = Just testSecret
                             , mbLedgerId = Just testLedgerId
-                            , devVersionSupport = major == LF.V2
+                            , devVersionSupport = LF.isDevVersion lfVersion
                             }
                         $ \getSandboxPort ->
                             withTokenFile $ \getTokenFile ->
@@ -71,7 +71,7 @@ main = do
                         defaultSandboxConf
                             { enableTls = True
                             , mbClientAuth = Just None
-                            , devVersionSupport = major == LF.V2
+                            , devVersionSupport = LF.isDevVersion lfVersion
                             }
                         $ \getSandboxPort ->
                             tlsTests lfVersion damlc scriptDar getSandboxPort certDir
