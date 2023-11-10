@@ -7,6 +7,7 @@ package trigger
 package test
 
 import com.daml.lf.data.Ref
+import com.daml.lf.language.LanguageMajorVersion
 
 import java.nio.file.Path
 
@@ -18,7 +19,8 @@ final case class CompiledDar(
 object CompiledDar {
   def read(
       path: Path,
-      compilerConfig: speedy.Compiler.Config,
+      // TODO(#17366): support both LF v1 and v2 in triggers
+      compilerConfig: speedy.Compiler.Config = speedy.Compiler.Config.Dev(LanguageMajorVersion.V1),
   ): CompiledDar = {
     val dar = archive.DarDecoder.assertReadArchiveFromFile(path.toFile)
     val pkgs = PureCompiledPackages.assertBuild(dar.all.toMap, compilerConfig)

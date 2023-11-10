@@ -36,18 +36,19 @@ import scalaz.syntax.tag._
 import java.nio.file.Path
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 trait AbstractTriggerTest extends CantonFixture {
   self: Suite =>
 
-  protected val majorLanguageVersion: LanguageMajorVersion
+  protected lazy val darFile: Either[Path, Path] =
+    Try(BazelRunfiles.requiredResource("triggers/tests/acs.dar").toPath) match {
+      case Success(value) => Right(value)
+      case Failure(_) => Left(BazelRunfiles.requiredResource("triggers/tests/acs-1.dev.dar").toPath)
+    }
 
-  protected lazy val darFile: Path =
-    BazelRunfiles.requiredResource(s"triggers/tests/acs-${majorLanguageVersion.pretty}.dar").toPath
-
-  override protected lazy val darFiles: List[Path] = List(darFile)
-  // TODO(#17366): remove once 2.0 is introduced
-  override protected lazy val devMode: Boolean = (majorLanguageVersion == LanguageMajorVersion.V2)
+  override protected lazy val darFiles: List[Path] = List(darFile.merge)
+  override protected lazy val devMode: Boolean = darFile.isLeft
 
   implicit override protected lazy val applicationId: ApplicationId =
     RunnerConfig.DefaultApplicationId
@@ -79,7 +80,8 @@ trait AbstractTriggerTest extends CantonFixture {
   protected def triggerRunnerConfiguration: TriggerRunnerConfig = DefaultTriggerRunnerConfig
 
   protected val CompiledDar(packageId, compiledPackages) = {
-    CompiledDar.read(darFile, speedy.Compiler.Config.Dev(majorLanguageVersion))
+    // TODO(#17366): support both LF v1 and v2 in triggers
+    CompiledDar.read(darFile.merge, speedy.Compiler.Config.Dev(LanguageMajorVersion.V1))
   }
 
   protected def getRunner(

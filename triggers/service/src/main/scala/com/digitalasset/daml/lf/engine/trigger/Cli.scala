@@ -55,8 +55,7 @@ private[trigger] final case class Cli(
     portFile: Option[Path],
     allowExistingSchema: Boolean,
     tlsConfig: TlsConfiguration,
-    compilerConfigBuilder: LanguageMajorVersion => Compiler.Config,
-    majorLanguageVersion: LanguageMajorVersion,
+    compilerConfig: Compiler.Config,
     triggerConfig: TriggerRunnerConfig,
     rootLoggingLevel: Option[Level],
     logEncoder: LogEncoder,
@@ -93,7 +92,7 @@ private[trigger] final case class Cli(
       portFile = portFile,
       allowExistingSchema = allowExistingSchema,
       tlsConfig = tlsConfig,
-      compilerConfig = compilerConfigBuilder(majorLanguageVersion),
+      compilerConfig = compilerConfig,
       triggerConfig = triggerConfig,
       rootLoggingLevel = rootLoggingLevel,
       logEncoder = logEncoder,
@@ -128,9 +127,8 @@ private[trigger] object Cli {
   val DefaultAuthCallbackTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
   val DefaultMaxHttpEntityUploadSize: Long = RunnerConfig.DefaultMaxInboundMessageSize.toLong
   val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
-  val DefaultCompilerConfigBuilder: LanguageMajorVersion => Compiler.Config =
-    Compiler.Config.Default
-  val DefaultMajorLanguageVersion: LanguageMajorVersion = LanguageMajorVersion.V1
+  // TODO(#17366): support both LF v1 and v2 in triggers
+  val DefaultCompilerConfig: Compiler.Config = Compiler.Config.Default(LanguageMajorVersion.V1)
   val DefaultCommandTtl: FiniteDuration = FiniteDuration(30, duration.SECONDS)
   val DefaultTlsConfiguration: TlsConfiguration =
     TlsConfiguration(enabled = false, None, None, None)
@@ -147,14 +145,6 @@ private[trigger] object Cli {
 
   implicit val redirectToLoginRead: scopt.Read[AuthClient.RedirectToLogin] =
     scopt.Read.reads(redirectToLogin)
-
-  implicit val majorLanguageVersionRead: scopt.Read[LanguageMajorVersion] =
-    scopt.Read.reads(s =>
-      LanguageMajorVersion.fromString(s) match {
-        case Some(v) => v
-        case None => throw new IllegalArgumentException(s"$s is not a valid major LF version")
-      }
-    )
 
   private[trigger] val Default = Cli(
     configFile = None,
@@ -182,8 +172,7 @@ private[trigger] object Cli {
     portFile = None,
     allowExistingSchema = false,
     tlsConfig = DefaultTlsConfiguration,
-    compilerConfigBuilder = DefaultCompilerConfigBuilder,
-    majorLanguageVersion = DefaultMajorLanguageVersion,
+    compilerConfig = DefaultCompilerConfig,
     triggerConfig = DefaultTriggerRunnerConfig,
     rootLoggingLevel = None,
     logEncoder = LogEncoder.Plain,
@@ -443,20 +432,12 @@ private[trigger] object Cli {
       )
 
     opt[Unit]("dev-mode-unsafe")
-      .action((_, c) => c.copy(compilerConfigBuilder = Compiler.Config.Dev))
+      // TODO(#17366) support both LF v1 and v2 in triggers
+      .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev(LanguageMajorVersion.V1)))
       .optional()
       .text(
         "Turns on development mode. Development mode allows development versions of Daml-LF language."
       )
-      .hidden()
-
-    opt[LanguageMajorVersion]("lf-major-version")
-      .action((v, c) => c.copy(majorLanguageVersion = v))
-      .optional()
-      .text(
-        "The major version of LF to use."
-      )
-      // TODO(#17366): unhide once LF v2 has a stable version
       .hidden()
 
     implicit val jcd: DBConfig.JdbcConfigDefaults = DBConfig.JdbcConfigDefaults(

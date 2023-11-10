@@ -3,12 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import com.daml.lf.language.LanguageMajorVersion
-
-class TriggerServiceTestAuthV1 extends TriggerServiceTestAuth(LanguageMajorVersion.V1)
-class TriggerServiceTestAuthV2 extends TriggerServiceTestAuth(LanguageMajorVersion.V2)
-
-class TriggerServiceTestAuth(override val majorLanguageVersion: LanguageMajorVersion)
+class TriggerServiceTestAuth
     extends AbstractTriggerServiceTestInMem
     with AbstractTriggerServiceTestAuthMiddleware
     with DisableOauthClaimsTests

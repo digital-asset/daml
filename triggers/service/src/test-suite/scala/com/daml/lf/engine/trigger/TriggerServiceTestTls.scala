@@ -5,16 +5,12 @@ package com.daml.lf.engine.trigger
 
 import akka.http.scaladsl.model.Uri
 import com.daml.ledger.api.v1.value.Identifier
-import com.daml.lf.language.LanguageMajorVersion
 import com.daml.timer.RetryStrategy
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
-class TriggerServiceTestTlsV1 extends TriggerServiceTestTls(LanguageMajorVersion.V1)
-class TriggerServiceTestTlsV2 extends TriggerServiceTestTls(LanguageMajorVersion.V2)
-
-class TriggerServiceTestTls(override val majorLanguageVersion: LanguageMajorVersion)
+class TriggerServiceTestTls
     extends AbstractTriggerServiceTest
     with NoAuthFixture
     with TriggerDaoInMemFixture

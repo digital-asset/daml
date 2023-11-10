@@ -7,15 +7,14 @@ import akka.http.scaladsl.model.Uri
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.dbutils.JdbcConfig
-import com.daml.lf.engine.trigger.TriggerServiceAppConf.CompilerConfigBuilder
 import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.speedy.Compiler
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import pureconfig.error.{CannotReadFile, ConfigReaderFailures}
 import com.daml.pureconfigutils.LedgerApiConfig
-import com.daml.lf.speedy.Compiler
 
 import java.nio.file.Paths
 import scala.concurrent.duration._
@@ -63,8 +62,8 @@ class CliSpec extends AsyncWordSpec with Matchers {
         authorization = expectedAuthCfg,
         triggerStore = Some(expectedJdbcConfig),
         timeProviderType = TimeProviderType.Static,
-        compilerConfig = CompilerConfigBuilder.Dev,
-        lfMajorVersion = LanguageMajorVersion.V2,
+        // TODO(#17366): support both LF v1 and v2 in triggers
+        compilerConfig = Compiler.Config.Dev(LanguageMajorVersion.V1),
         initDb = true,
         ttl = 60.seconds,
         allowExistingSchema = true,
@@ -104,19 +103,10 @@ class CliSpec extends AsyncWordSpec with Matchers {
   "should load config from cli args when no conf file is specified" in {
     Cli
       .parseConfig(
-        Array(
-          "--ledger-host",
-          "localhost",
-          "--ledger-port",
-          "9999",
-          "--lf-major-version",
-          "2",
-          "--dev-mode-unsafe",
-        ),
+        Array("--ledger-host", "localhost", "--ledger-port", "9999"),
         Set(),
       ) shouldBe Some(Cli.Default.copy(ledgerHost = "localhost", ledgerPort = 9999))
       .map(_.loadFromCliArgs)
-      .map(_.copy(compilerConfig = Compiler.Config.Dev(LanguageMajorVersion.V2)))
   }
 
   "should fail to load config from cli args on missing required params" in {
