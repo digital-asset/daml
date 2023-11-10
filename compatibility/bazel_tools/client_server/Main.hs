@@ -10,7 +10,7 @@ import Data.List.Split (splitOn)
 import Data.Maybe (isJust)
 import Network.HTTP.Client (parseUrlThrow)
 import Network.Socket
-import qualified Network.HTTP.Simple as HTTP
+import Network.HTTP.Simple qualified as HTTP
 import System.Environment
 import System.Process
 

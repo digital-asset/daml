@@ -12,7 +12,7 @@ import Data.Char
 import Data.Generics hiding (Generic)
 import Data.List
 import Data.Text (Text)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import GHC hiding (parseModule)
 import GHC.Generics (Generic)
 

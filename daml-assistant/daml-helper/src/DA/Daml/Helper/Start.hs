@@ -23,7 +23,7 @@ import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
 import Data.Maybe
 import DA.PortFile
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Network.Socket.Extended (getFreePort)
 import System.Console.ANSI
 import System.FilePath

@@ -11,7 +11,7 @@
 -- | Main entry-point of the Daml compiler
 module DA.Cli.Damlc (main) where
 
-import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
+import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
 import Control.Exception (bracket, catch, handle, throwIO)
 import Control.Exception.Safe (catchIO)
 import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
@@ -23,7 +23,7 @@ import DA.Bazel.Runfiles (Resource(..),
                           resourcesPath,
                           runfilesPathPrefix,
                           setRunfilesEnv)
-import qualified DA.Cli.Args as ParseArgs
+import DA.Cli.Args qualified as ParseArgs
 import DA.Cli.Options (Debug(..),
                        EnableMultiPackage(..),
                        InitPkgDb(..),
@@ -61,8 +61,8 @@ import DA.Cli.Options (Debug(..),
                        targetFileNameOpt,
                        telemetryOpt)
 import DA.Cli.Damlc.BuildInfo (buildInfo)
-import qualified DA.Daml.Dar.Reader as InspectDar
-import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
+import DA.Daml.Dar.Reader qualified as InspectDar
+import DA.Cli.Damlc.Command.Damldoc qualified as Damldoc
 import DA.Cli.Damlc.Packaging (createProjectPackageDb, mbErr)
 import DA.Cli.Damlc.DependencyDb (installDependencies)
 import DA.Cli.Damlc.Test (CoveragePaths(..),
@@ -84,15 +84,15 @@ import DA.Daml.Compiler.Dar (FromDalf(..),
                              getDamlRootFiles,
                              writeIfacesAndHie)
 import DA.Daml.Compiler.Output (diagnosticsLogger, writeOutput, writeOutputBSL)
-import qualified DA.Daml.Compiler.Repl as Repl
+import DA.Daml.Compiler.Repl qualified as Repl
 import DA.Daml.Compiler.DocTest (docTest)
 import DA.Daml.Desugar (desugar)
 import DA.Daml.LF.ScenarioServiceClient (readScenarioServiceConfig, withScenarioService')
-import qualified DA.Daml.LF.ReplClient as ReplClient
+import DA.Daml.LF.ReplClient qualified as ReplClient
 import DA.Daml.Compiler.Validate (validateDar)
-import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Ast.Util (splitUnitId)
-import qualified DA.Daml.LF.Proto3.Archive as Archive
+import DA.Daml.LF.Proto3.Archive qualified as Archive
 import DA.Daml.LF.Reader (dalfPaths,
                           mainDalf,
                           mainDalfPath,
@@ -147,35 +147,35 @@ import DA.Daml.Project.Consts (ProjectCheck(..),
                                withExpectProjectRoot,
                                withProjectRoot)
 import DA.Daml.Project.Types (ConfigError(..), ProjectPath(..), ProjectConfig)
-import qualified DA.Pretty
-import qualified DA.Service.Logger as Logger
-import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
-import qualified DA.Service.Logger.Impl.IO as Logger.IO
+import DA.Pretty qualified
+import DA.Service.Logger qualified as Logger
+import DA.Service.Logger.Impl.GCP qualified as Logger.GCP
+import DA.Service.Logger.Impl.IO qualified as Logger.IO
 import DA.Signals (installSignalHandlers)
-import qualified Com.Daml.DamlLfDev.DamlLf as PLF
-import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
-import qualified Data.Aeson.Text as Aeson
+import Com.Daml.DamlLfDev.DamlLf qualified as PLF
+import Data.Aeson.Encode.Pretty qualified as Aeson.Pretty
+import Data.Aeson.Text qualified as Aeson
 import Data.Bifunctor (bimap, second)
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as BSC
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.Lazy.Char8 as BSLC
-import qualified Data.ByteString.UTF8 as BSUTF8
+import Data.ByteString qualified as B
+import Data.ByteString.Char8 qualified as BSC
+import Data.ByteString.Lazy qualified as BSL
+import Data.ByteString.Lazy.Char8 qualified as BSLC
+import Data.ByteString.UTF8 qualified as BSUTF8
 import Data.Either (fromRight, partitionEithers)
 import Data.FileEmbed (embedFile)
-import qualified Data.HashSet as HashSet
+import Data.HashSet qualified as HashSet
 import Data.List (isPrefixOf)
 import Data.List.Extra (elemIndices, nubOrd, nubSort, nubSortOn)
-import qualified Data.List.Split as Split
-import qualified Data.Map.Strict as Map
+import Data.List.Split qualified as Split
+import Data.Map.Strict qualified as Map
 import Data.Maybe (catMaybes, fromMaybe, listToMaybe, mapMaybe)
-import qualified Data.Text.Extended as T
+import Data.Text.Extended qualified as T
 import Data.Text.Encoding (encodeUtf8)
-import qualified Data.Text.Lazy.IO as TL
-import qualified Data.Text.IO as T
+import Data.Text.Lazy.IO qualified as TL
+import Data.Text.IO qualified as T
 import Data.Traversable (for)
 import Data.Typeable (Typeable)
-import qualified Data.Yaml as Y
+import Data.Yaml qualified as Y
 import Development.IDE.Core.API (getDalf, makeVFSHandle, runActionSync, setFilesOfInterest)
 import Development.IDE.Core.Debouncer (newAsyncDebouncer, noopDebouncer)
 import Development.IDE.Core.IdeState.Daml (getDamlIdeState,
@@ -203,7 +203,7 @@ import "ghc-lib-parser" DynFlags (DumpFlag(..),
                                   PackageFlag(..))
 import GHC.Conc (getNumProcessors)
 import "ghc-lib-parser" Module (unitIdString, stringToUnitId)
-import qualified Network.Socket as NS
+import Network.Socket qualified as NS
 import Options.Applicative.Extended (flagYesNoAuto, optionOnce, strOptionOnce)
 import Options.Applicative ((<|>),
                             CommandFields,
@@ -238,10 +238,10 @@ import Options.Applicative ((<|>),
                             subparser,
                             switch,
                             value)
-import qualified Options.Applicative (option, strOption)
-import qualified Options.Applicative.Types as Options.Applicative (readerAsk)
-import qualified Proto3.Suite as PS
-import qualified Proto3.Suite.JSONPB as Proto.JSONPB
+import Options.Applicative qualified (option, strOption)
+import Options.Applicative.Types qualified as Options.Applicative (readerAsk)
+import Proto3.Suite qualified as PS
+import Proto3.Suite.JSONPB qualified as Proto.JSONPB
 import System.Directory.Extra
 import System.Environment
 import System.Exit
@@ -253,7 +253,7 @@ import System.Process (StdStream(..),
                       withCreateProcess,
                       waitForProcess,
                       )
-import qualified Text.PrettyPrint.ANSI.Leijen as PP
+import Text.PrettyPrint.ANSI.Leijen qualified as PP
 import Development.IDE.Core.RuleTypes
 import "ghc-lib-parser" ErrUtils
 -- For dumps
@@ -261,19 +261,19 @@ import "ghc-lib" GHC
 import "ghc-lib-parser" HsDumpAst
 import "ghc-lib" HscStats
 import "ghc-lib-parser" HscTypes
-import qualified "ghc-lib-parser" Outputable as GHC
-import qualified SdkVersion
+import "ghc-lib-parser" Outputable qualified as GHC
+import SdkVersion qualified
 import "ghc-lib-parser" Util (looksLikePackageName)
 import Text.Regex.TDFA
 
-import qualified Development.IDE.Core.Service as IDE
+import Development.IDE.Core.Service qualified as IDE
 import Control.DeepSeq
 import Data.Binary
 import Data.Hashable
 import GHC.Generics (Generic)
 import Development.Shake (Rules, RuleResult)
 import Development.Shake.Rule (RunChanged (ChangedRecomputeDiff, ChangedRecomputeSame))
-import qualified Development.IDE.Types.Logger as IDELogger
+import Development.IDE.Types.Logger qualified as IDELogger
 
 --------------------------------------------------------------------------------
 -- Commands

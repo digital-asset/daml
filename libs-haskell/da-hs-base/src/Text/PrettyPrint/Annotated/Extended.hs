@@ -30,13 +30,13 @@ module Text.PrettyPrint.Annotated.Extended
   ) where
 
 
-import qualified Data.Text             as T
+import Data.Text qualified             as T
 import Data.List
 
 import           Text.PrettyPrint.Annotated.HughesPJ
           hiding ( (<>), (<+>), style, text, ($+$)
                  )
-import qualified Text.PrettyPrint.Annotated.HughesPJ  as PP
+import Text.PrettyPrint.Annotated.HughesPJ qualified  as PP
 
 ------------------------------------------------------------------------------
 -- Additional or renamed combinators

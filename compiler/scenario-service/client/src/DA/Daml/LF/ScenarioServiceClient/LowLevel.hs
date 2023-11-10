@@ -49,34 +49,34 @@ import Control.Monad
 import Control.Monad.IO.Class
 import DA.Daml.LF.Mangling
 import DA.Daml.Options.Types (EnableScenarios (..), EvaluationOrder (..))
-import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Conduit as C
+import DA.Daml.LF.Proto3.EncodeV1 qualified as EncodeV1
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
+import Data.Conduit qualified as C
 import Data.Conduit.Process
-import qualified Data.Conduit.Text as C.T
+import Data.Conduit.Text qualified as C.T
 import Data.Int (Int64)
 import Data.List.Split (splitOn)
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
-import qualified Data.Vector as V
+import Data.Text qualified as T
+import Data.Text.Lazy qualified as TL
+import Data.Vector qualified as V
 import Network.GRPC.HighLevel.Client (ClientError(..), ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient, GRPCIOError)
 import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..), Arg(MaxReceiveMessageLength))
 import Network.GRPC.LowLevel.Call (endpoint)
-import qualified Proto3.Suite as Proto
+import Proto3.Suite qualified as Proto
 import System.Directory
 import System.Environment
 import System.Exit
 import System.FilePath
-import qualified System.IO
+import System.IO qualified
 
 import DA.Bazel.Runfiles
-import qualified DA.Daml.LF.Ast as LF
-import qualified ScenarioService as SS
+import DA.Daml.LF.Ast qualified as LF
+import ScenarioService qualified as SS
 
 import Development.IDE.Types.Logger (Logger)
-import qualified Development.IDE.Types.Logger as Logger
+import Development.IDE.Types.Logger qualified as Logger
 
 data Options = Options
   { optServerJar :: FilePath

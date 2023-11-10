@@ -14,8 +14,8 @@ module DA.Daml.Options.Packaging.Metadata
 import Data.Aeson
 import DA.Daml.Package.Config ()
 import Data.Map.Strict (Map)
-import qualified Data.Text as T
-import qualified DA.Daml.LF.Ast as LF
+import Data.Text qualified as T
+import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.Options.Types
     ( projectPackageDatabase
     , ModRenaming(..)
@@ -24,7 +24,7 @@ import DA.Daml.Options.Types
     )
 import Development.IDE.Types.Location
 import GHC.Generics
-import qualified "ghc-lib-parser" Module as Ghc
+import "ghc-lib-parser" Module qualified as Ghc
 import System.FilePath
 import GHC.Fingerprint
 

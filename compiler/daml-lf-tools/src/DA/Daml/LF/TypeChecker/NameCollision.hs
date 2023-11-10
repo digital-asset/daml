@@ -12,9 +12,9 @@ import Data.List
 import Data.Maybe
 import Development.IDE.Types.Diagnostics
 import Control.Monad.Extra
-import qualified Data.NameMap as NM
-import qualified Data.Map.Strict as M
-import qualified Data.Text as T
+import Data.NameMap qualified as NM
+import Data.Map.Strict qualified as M
+import Data.Text qualified as T
 import Control.Monad.Trans.RWS.CPS
 
 -- | The various names we wish to track within a package.

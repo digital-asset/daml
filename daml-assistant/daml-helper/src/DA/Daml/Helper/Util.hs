@@ -39,16 +39,16 @@ module DA.Daml.Helper.Util
 
 import Control.Exception.Safe
 import Control.Monad.Extra
-import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.Key as Aeson.Key
-import qualified Data.Aeson.KeyMap as KM
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.Lazy.Char8 as BSL8
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Key qualified as Aeson.Key
+import Data.Aeson.KeyMap qualified as KM
+import Data.ByteString.Lazy qualified as BSL
+import Data.ByteString.Lazy.Char8 qualified as BSL8
 import Data.Foldable
 import Data.Maybe
-import qualified Data.Text as T
-import qualified Network.HTTP.Simple as HTTP
-import qualified Network.HTTP.Types as HTTP
+import Data.Text qualified as T
+import Network.HTTP.Simple qualified as HTTP
+import Network.HTTP.Types qualified as HTTP
 import System.Directory
 import System.FilePath
 import System.IO
@@ -57,9 +57,9 @@ import System.Info.Extra
 import System.Exit (exitFailure)
 import System.Process (ProcessHandle, getProcessExitCode, showCommandForUser, terminateProcess)
 import System.Process.Typed
-import qualified Web.JWT as JWT
-import qualified Data.Aeson as A
-import qualified Data.Map as Map
+import Web.JWT qualified as JWT
+import Data.Aeson qualified as A
+import Data.Map qualified as Map
 
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts

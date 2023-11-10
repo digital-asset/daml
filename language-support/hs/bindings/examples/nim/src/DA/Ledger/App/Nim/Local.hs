@@ -14,8 +14,8 @@ import Control.Monad(when)
 import Data.List ((\\),sortBy,intercalate)
 import Data.Map.Strict (Map)
 import Data.Maybe(mapMaybe)
-import qualified Data.List as List(find,concatMap)
-import qualified Data.Map.Strict as Map(toList,lookup,empty,adjust,insert,elems,keys)
+import Data.List qualified as List(find,concatMap)
+import Data.Map.Strict qualified as Map(toList,lookup,empty,adjust,insert,elems,keys)
 
 import DA.Ledger.Types(ContractId)
 import DA.Ledger.App.Nim.Domain

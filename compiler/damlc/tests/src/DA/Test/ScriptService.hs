@@ -10,20 +10,20 @@ import Control.Monad
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.DependencyDb
-import qualified DA.Daml.LF.Ast.Version as LF
+import DA.Daml.LF.Ast.Version qualified as LF
 import DA.Daml.LF.PrettyScenario (prettyScenarioError, prettyScenarioResult)
-import qualified DA.Daml.LF.ScenarioServiceClient as SS
+import DA.Daml.LF.ScenarioServiceClient qualified as SS
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
 import DA.Daml.Project.Types
 import DA.Pretty
-import qualified DA.Service.Logger as Logger
-import qualified DA.Service.Logger.Impl.IO as Logger
-import qualified Data.HashSet as HashSet
+import DA.Service.Logger qualified as Logger
+import DA.Service.Logger.Impl.IO qualified as Logger
+import Data.HashSet qualified as HashSet
 import Data.List
-import qualified Data.Set as S
-import qualified Data.Text as T
-import qualified Data.Vector as V
+import Data.Set qualified as S
+import Data.Text qualified as T
+import Data.Vector qualified as V
 import Development.IDE.Core.Debouncer (noopDebouncer)
 import Development.IDE.Core.FileStore (makeVFSHandle, setBufferModified)
 import Development.IDE.Core.IdeState.Daml (getDamlIdeState)

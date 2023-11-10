@@ -15,9 +15,9 @@ import System.Directory (doesFileExist, listDirectory, makeAbsolute)
 import System.FilePath (dropExtension, replaceExtensions, takeExtensions, (<.>), (</>))
 import Test.Tasty.Golden (goldenVsStringDiff)
 
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Text.Encoding as TE
-import qualified Test.Tasty.Extended as Tasty
+import Data.ByteString.Lazy qualified as BSL
+import Data.Text.Encoding qualified as TE
+import Test.Tasty.Extended qualified as Tasty
 
 mkTestTree :: FilePath -> IO Tasty.TestTree
 mkTestTree testDir = do

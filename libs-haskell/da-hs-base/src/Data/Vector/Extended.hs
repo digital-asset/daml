@@ -7,7 +7,7 @@ module Data.Vector.Extended (
 
 import Control.Monad.ST
 import Data.Vector
-import qualified Data.Vector.Mutable as M
+import Data.Vector.Mutable qualified as M
 
 -- | /O(n)/ Construct a vector with @n@ elements by repeatedly applying the
 -- generator function to the already constructed part of the vector and the

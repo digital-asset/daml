@@ -11,21 +11,21 @@
 -- Otherwise this test suite will complain that the test is not failing.
 module DA.Test.ShakeIdeClient (main, ideTests ) where
 
-import qualified Test.Tasty.Extended as Tasty
-import qualified Test.Tasty.HUnit    as Tasty
-import qualified Data.Text.Extended  as T
+import Test.Tasty.Extended qualified as Tasty
+import Test.Tasty.HUnit qualified    as Tasty
+import Data.Text.Extended qualified  as T
 
 import Data.Either
 import System.Directory
 import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
 
-import qualified DA.Daml.LF.Ast.Version as LF
-import qualified DA.Daml.Options.Types as Daml (Options (..))
+import DA.Daml.LF.Ast.Version qualified as LF
+import DA.Daml.Options.Types qualified as Daml (Options (..))
 import DA.Daml.LF.ScenarioServiceClient as SS
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
-import qualified DA.Service.Logger.Impl.Pure as Logger
+import DA.Service.Logger.Impl.Pure qualified as Logger
 import Development.IDE.Core.API.Testing
 import Development.IDE.Core.Service.Daml(VirtualResource(..))
 

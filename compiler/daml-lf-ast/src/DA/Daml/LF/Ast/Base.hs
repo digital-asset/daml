@@ -18,11 +18,11 @@ import GHC.Generics(Generic)
 import Data.Int
 import Control.DeepSeq
 import Control.Lens
-import qualified Data.NameMap as NM
-import qualified Data.Text as T
-import qualified Data.Set as S
-import qualified "template-haskell" Language.Haskell.TH as TH
-import qualified Control.Lens.TH as Lens.TH
+import Data.NameMap qualified as NM
+import Data.Text qualified as T
+import Data.Set qualified as S
+import "template-haskell" Language.Haskell.TH qualified as TH
+import Control.Lens.TH qualified as Lens.TH
 
 import DA.Daml.LF.Ast.Version
 import DA.Daml.LF.Ast.Numeric

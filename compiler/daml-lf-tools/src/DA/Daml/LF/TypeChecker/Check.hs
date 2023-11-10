@@ -43,13 +43,13 @@ import           Data.Foldable
 import           Data.Functor
 import           Data.List.Extended
 import Data.Generics.Uniplate.Data (para)
-import qualified Data.Set as S
-import qualified Data.HashSet as HS
+import Data.Set qualified as S
+import Data.HashSet qualified as HS
 import           Data.Maybe (listToMaybe)
-import qualified Data.Map.Strict as Map
-import qualified Data.NameMap as NM
-import qualified Data.IntSet as IntSet
-import qualified Data.Text as T
+import Data.Map.Strict qualified as Map
+import Data.NameMap qualified as NM
+import Data.IntSet qualified as IntSet
+import Data.Text qualified as T
 import           Safe.Exact (zipExactMay)
 
 import           DA.Daml.LF.Ast
@@ -57,7 +57,7 @@ import           DA.Daml.LF.Ast.Optics (dataConsType)
 import           DA.Daml.LF.Ast.Type
 import           DA.Daml.LF.Ast.Alpha
 import           DA.Daml.LF.Ast.Numeric
-import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
+import DA.Daml.LF.TemplateOrInterface qualified as TemplateOrInterface
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
 

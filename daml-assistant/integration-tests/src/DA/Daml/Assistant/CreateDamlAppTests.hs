@@ -7,15 +7,15 @@ module DA.Daml.Assistant.CreateDamlAppTests (main) where
 import Control.Exception.Extra
 import Control.Monad
 import Data.Aeson
-import qualified Data.Aeson.Key as A
-import qualified Data.Aeson.KeyMap as KM
+import Data.Aeson.Key qualified as A
+import Data.Aeson.KeyMap qualified as KM
 import Data.Aeson.Extra.Merge
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString as BS
+import Data.ByteString.Lazy qualified as BSL
+import Data.ByteString qualified as BS
 import Data.List.Extra
 import Data.Proxy (Proxy (..))
 import Data.Tagged (Tagged (..))
-import qualified Data.Text.Extended as T
+import Data.Text.Extended qualified as T
 import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath

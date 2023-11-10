@@ -6,12 +6,12 @@ module DA.Daml.Helper.Init
     ) where
 
 import Control.Monad.Extra
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import Data.List
 import Data.Maybe
-import qualified Data.Text as T
-import qualified Data.Yaml as Y
-import qualified Data.Yaml.Pretty as Y
+import Data.Text qualified as T
+import Data.Yaml qualified as Y
+import Data.Yaml.Pretty qualified as Y
 import System.Directory.Extra
 import System.Exit
 import System.FilePath

@@ -7,7 +7,7 @@ module DA.Daml.Helper.Studio
     ) where
 
 import Control.Monad.Extra
-import qualified Data.ByteString.Lazy.UTF8 as UTF8
+import Data.ByteString.Lazy.UTF8 qualified as UTF8
 import Data.Maybe
 import System.Directory.Extra
 import System.Environment hiding (setEnv)

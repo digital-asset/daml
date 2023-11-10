@@ -3,13 +3,13 @@
 
 module DA.Test.DamlDocTest (main) where
 
-import qualified Data.Text.Extended as T
+import Data.Text.Extended qualified as T
 import Test.Tasty
 import Test.Tasty.HUnit
 
 import DA.Daml.DocTest
 import DA.Daml.Options.Types
-import qualified DA.Service.Logger.Impl.Pure as Logger
+import DA.Service.Logger.Impl.Pure qualified as Logger
 import DA.Test.DamlcIntegration (withDamlScriptDep, ScriptPackageData)
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.Rules

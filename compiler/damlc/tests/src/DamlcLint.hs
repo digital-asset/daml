@@ -15,7 +15,7 @@ import System.IO.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-import qualified Data.Text.Extended as T
+import Data.Text.Extended qualified as T
 
 import DA.Bazel.Runfiles
 import SdkVersion

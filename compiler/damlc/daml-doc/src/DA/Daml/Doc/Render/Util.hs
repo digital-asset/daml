@@ -14,7 +14,7 @@ module DA.Daml.Doc.Render.Util
   , (<->)
   ) where
 
-import qualified Data.Text as T
+import Data.Text qualified as T
 
 -- | Puts text between (round) parentheses
 inParens :: T.Text -> T.Text

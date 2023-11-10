@@ -16,8 +16,8 @@ import Data.List
 import Network.GRPC.HighLevel.Client(TimeoutSeconds)
 import Network.GRPC.HighLevel.Generated(ClientConfig,MetadataMap(..))
 import UnliftIO(MonadUnliftIO)
-import qualified Data.ByteString.UTF8 as BSU8
-import qualified Data.Map as Map
+import Data.ByteString.UTF8 qualified as BSU8
+import Data.Map qualified as Map
 
 data Context = Context
   { ts :: TimeoutSeconds

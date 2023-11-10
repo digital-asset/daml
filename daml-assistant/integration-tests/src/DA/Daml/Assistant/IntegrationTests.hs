@@ -9,15 +9,15 @@ import Control.Concurrent.STM
 import Control.Lens
 import Control.Monad
 import Control.Monad.Loops (untilM_)
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens
-import qualified Data.ByteString.Lazy as LBS
+import Data.ByteString.Lazy qualified as LBS
 import Data.List.Extra
 import Data.String (fromString)
 import Data.Maybe (maybeToList, isJust)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import qualified Data.Vector as Vector
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as T
+import Data.Vector qualified as Vector
 import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket.Extended

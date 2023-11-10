@@ -51,13 +51,13 @@ module DA.Pretty
 
 
 import           Data.String
-import qualified Data.Text.Extended          as T
+import Data.Text.Extended qualified          as T
 
 import           Orphans.Lib_pretty ()
 
-import qualified Text.Blaze.Html.Renderer.String as BlazeRenderer
-import qualified Text.Blaze.Html5                as H
-import qualified Text.Blaze.Html5.Attributes     as A
+import Text.Blaze.Html.Renderer.String qualified as BlazeRenderer
+import Text.Blaze.Html5 qualified                as H
+import Text.Blaze.Html5.Attributes qualified     as A
 
 import           Text.PrettyPrint.Annotated.HughesPJClass hiding ((<>), style, text)
 import           Text.PrettyPrint.Annotated.Extended

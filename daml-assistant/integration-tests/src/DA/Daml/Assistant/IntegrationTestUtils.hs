@@ -11,10 +11,10 @@ module DA.Daml.Assistant.IntegrationTestUtils
 
 import Conduit hiding (connect)
 import Control.Monad (forM_)
-import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
-import qualified Data.Conduit.Zlib as Zlib
+import Data.Conduit.Tar.Extra qualified as Tar.Conduit.Extra
+import Data.Conduit.Zlib qualified as Zlib
 import Data.List.Extra
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Network.Socket.Extended (PortNumber, getFreePort)
 import System.Environment.Blank
 import System.FilePath

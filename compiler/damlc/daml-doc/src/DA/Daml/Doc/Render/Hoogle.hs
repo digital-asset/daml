@@ -11,8 +11,8 @@ import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Util
 
 import Data.Maybe
-import qualified Data.HashMap.Strict as HMS
-import qualified Data.Text as T
+import Data.HashMap.Strict qualified as HMS
+import Data.Text qualified as T
 
 newtype HoogleEnv = HoogleEnv
     { he_anchorTable :: HMS.HashMap Anchor T.Text

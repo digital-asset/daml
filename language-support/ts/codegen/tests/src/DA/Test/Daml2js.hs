@@ -12,10 +12,10 @@ import System.Directory.Extra
 import System.Process
 import System.Exit
 import DA.Bazel.Runfiles
-import qualified DA.Daml.LF.Ast.Version as LF
+import DA.Daml.LF.Ast.Version qualified as LF
 import DA.Test.Daml2jsUtils
 import Data.List.Extra
-import qualified Data.Text.Extended as T
+import Data.Text.Extended qualified as T
 import Test.Tasty
 import Test.Tasty.HUnit
 import DA.Test.Process

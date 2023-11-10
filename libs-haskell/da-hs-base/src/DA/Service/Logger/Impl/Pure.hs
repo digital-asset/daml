@@ -6,7 +6,7 @@ module DA.Service.Logger.Impl.Pure
     ( makeNopHandle
     ) where
 
-import qualified DA.Service.Logger            as Logger
+import DA.Service.Logger qualified            as Logger
 
 -- | Create a pure no-op logger
 makeNopHandle :: Monad m => Logger.Handle m

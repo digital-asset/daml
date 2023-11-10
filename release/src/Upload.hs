@@ -10,8 +10,8 @@ module Upload (
     mavenConfigFromEnv,
 ) where
 
-import qualified Control.Concurrent.Async.Lifted.Safe as Async
-import qualified Control.Exception.Safe as E
+import Control.Concurrent.Async.Lifted.Safe qualified as Async
+import Control.Exception.Safe qualified as E
 import           Control.Monad
 import           Control.Monad.Logger
 import           Control.Monad.IO.Class
@@ -19,14 +19,14 @@ import           "cryptohash" Crypto.Hash (Digest, MD5(..), SHA1(..), digestToHe
 import           Control.Retry
 import           Data.Aeson
 import           Data.Foldable
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.Base64 as Base64
-import qualified Data.ByteString.Char8 as C8
-import qualified Data.List as List
-import qualified Data.SemVer as SemVer
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
+import Data.ByteString.Base64 qualified as Base64
+import Data.ByteString.Char8 qualified as C8
+import Data.List qualified as List
+import Data.SemVer qualified as SemVer
 import           Data.Text (Text)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import           Data.Text.Encoding (encodeUtf8)
 import           Network.Connection (TLSSettings(..))
 import           Network.HTTP.Client

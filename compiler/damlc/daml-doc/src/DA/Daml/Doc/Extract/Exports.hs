@@ -24,8 +24,8 @@ import "ghc-lib-parser" FastString
 
 import Control.Monad (guard)
 import Data.Maybe (mapMaybe)
-import qualified Data.Set as Set
-import qualified Data.Text as T
+import Data.Set qualified as Set
+import Data.Text qualified as T
 
 -- | Get set of exports from parsed module.
 --

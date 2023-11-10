@@ -11,11 +11,11 @@ import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Test.Sandbox
 import Data.Aeson
-import qualified Data.Aeson.KeyMap as KM
-import qualified Data.ByteString.Char8 as BS
-import qualified Data.Map.Strict as Map
+import Data.Aeson.KeyMap qualified as KM
+import Data.ByteString.Char8 qualified as BS
+import Data.Map.Strict qualified as Map
 import Data.List
-import qualified Data.Text as T
+import Data.Text qualified as T
 import DA.Test.Util
 import System.Environment.Blank
 import System.FilePath
@@ -24,7 +24,7 @@ import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
 import Text.Regex.TDFA
-import qualified Web.JWT as JWT
+import Web.JWT qualified as JWT
 
 testSecret :: String
 testSecret = "I_CAN_HAZ_SECRET"

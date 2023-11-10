@@ -6,10 +6,10 @@ module DA.Daml.Project.Types
     ( module DA.Daml.Project.Types
     ) where
 
-import qualified Data.Yaml as Y
-import qualified Data.Text as T
-import qualified Data.SemVer as V
-import qualified Control.Lens as L
+import Data.Yaml qualified as Y
+import Data.Text qualified as T
+import Data.SemVer qualified as V
+import Control.Lens qualified as L
 import Data.Text (Text)
 import Data.Maybe
 import System.FilePath

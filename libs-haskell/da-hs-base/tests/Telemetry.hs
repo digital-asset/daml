@@ -9,7 +9,7 @@ import DA.Service.Logger.Impl.Pure
 import DA.Test.Util
 import Data.Aeson (encode)
 import Data.Maybe
-import qualified Data.Text as T
+import Data.Text qualified as T
 import System.Directory
 import System.Environment.Blank
 import System.IO.Extra

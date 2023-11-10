@@ -4,7 +4,7 @@
 -- Wrapper around the tests so we can change the arguments
 module DA.Daml.Assistant.CreateDamlAppTestsMain (main) where
 
-import qualified DA.Daml.Assistant.CreateDamlAppTests as CreateDamlAppTests
+import DA.Daml.Assistant.CreateDamlAppTests qualified as CreateDamlAppTests
 
 main :: IO ()
 main = CreateDamlAppTests.main

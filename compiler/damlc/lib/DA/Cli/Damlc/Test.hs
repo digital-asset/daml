@@ -22,33 +22,33 @@ import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
 import DA.Daml.Compiler.Output
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.PrettyScenario as SS
-import qualified DA.Daml.LF.ScenarioServiceClient as SSC
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.PrettyScenario qualified as SS
+import DA.Daml.LF.ScenarioServiceClient qualified as SSC
 import DA.Daml.Options.Types
 import DA.Daml.Project.Consts (sdkPathEnvVar)
 import DA.Pretty (PrettyLevel)
-import qualified DA.Pretty
-import qualified DA.Pretty as Pretty
+import DA.Pretty qualified
+import DA.Pretty qualified as Pretty
 import Data.Foldable (fold)
-import qualified Data.HashSet as HashSet
+import Data.HashSet qualified as HashSet
 import Data.List.Extra
 import Data.Maybe
-import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
-import qualified Data.Text.Lazy as TL
+import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
+import Data.Text.Lazy qualified as TL
 import Data.Tuple.Extra
-import qualified Data.Vector as V
+import Data.Vector qualified as V
 import Development.IDE.Core.API
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.Service.Daml
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
-import qualified Development.Shake as Shake
+import Development.Shake qualified as Shake
 import Safe
-import qualified ScenarioService as SS
-import qualified DA.Cli.Damlc.Test.TestResults as TR
+import ScenarioService qualified as SS
+import DA.Cli.Damlc.Test.TestResults qualified as TR
 import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensity(..))
 import System.Directory (createDirectoryIfMissing)
 import System.Environment.Blank
@@ -56,9 +56,9 @@ import System.Exit (exitFailure)
 import System.FilePath
 import System.IO (hPutStrLn, stderr)
 import System.IO.Error (isPermissionError, isAlreadyExistsError, isDoesNotExistError)
-import qualified Text.XML.Light as XML
-import qualified Text.Blaze.Html.Renderer.Text as Blaze
-import qualified Text.Blaze.Html4.Strict as Blaze
+import Text.XML.Light qualified as XML
+import Text.Blaze.Html.Renderer.Text qualified as Blaze
+import Text.Blaze.Html4.Strict qualified as Blaze
 import Text.Regex.TDFA
 
 newtype UseColor = UseColor {getUseColor :: Bool}

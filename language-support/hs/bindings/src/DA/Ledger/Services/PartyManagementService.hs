@@ -17,9 +17,9 @@ import Data.Functor
 import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
 import Network.GRPC.HighLevel.Generated
-import qualified Data.Aeson as A
+import Data.Aeson qualified as A
 import Data.Aeson ((.:), (.:?))
-import qualified Com.Daml.Ledger.Api.V1.Admin.PartyManagementService as LL
+import Com.Daml.Ledger.Api.V1.Admin.PartyManagementService qualified as LL
 
 getParticipantId :: LedgerService ParticipantId
 getParticipantId =

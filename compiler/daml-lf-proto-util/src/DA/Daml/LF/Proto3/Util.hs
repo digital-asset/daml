@@ -13,15 +13,15 @@ module DA.Daml.LF.Proto3.Util (
     encodeHash,
     ) where
 
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import           Data.Int
 import           Data.List
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
+import Data.Text qualified as T
+import Data.Text.Lazy qualified as TL
 import           GHC.Generics
-import qualified Numeric
+import Numeric qualified
 
-import qualified Com.Daml.DamlLfDev.DamlLf1 as P
+import Com.Daml.DamlLfDev.DamlLf1 qualified as P
 
 class EitherLike a b e where
     toEither :: e -> Either a b

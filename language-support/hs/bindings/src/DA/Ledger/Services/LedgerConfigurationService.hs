@@ -11,7 +11,7 @@ import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.Convert
-import qualified Com.Daml.Ledger.Api.V1.LedgerConfigurationService as LL
+import Com.Daml.Ledger.Api.V1.LedgerConfigurationService qualified as LL
 
 getLedgerConfiguration :: LedgerId -> LedgerService (Stream LedgerConfiguration)
 getLedgerConfiguration lid =

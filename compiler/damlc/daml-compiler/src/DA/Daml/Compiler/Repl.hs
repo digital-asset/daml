@@ -23,17 +23,17 @@ import Control.Concurrent.Extra
 import Control.Exception.Safe
 import Control.Monad.Except
 import Control.Monad.Extra
-import qualified Control.Monad.State.Strict as State
+import Control.Monad.State.Strict qualified as State
 import Control.Monad.Trans.Maybe
 import DA.Daml.Compiler.Output (printDiagnostics)
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.InferSerializability as Serializability
-import qualified DA.Daml.LF.Simplifier as LF
-import qualified DA.Daml.LF.TypeChecker as LF
-import qualified DA.Daml.LF.ReplClient as ReplClient
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.InferSerializability qualified as Serializability
+import DA.Daml.LF.Simplifier qualified as LF
+import DA.Daml.LF.TypeChecker qualified as LF
+import DA.Daml.LF.ReplClient qualified as ReplClient
 import DA.Daml.LFConversion (convertModule)
 import DA.Daml.Options.Types
-import qualified DA.Daml.Preprocessor.Records as Preprocessor
+import DA.Daml.Preprocessor.Records qualified as Preprocessor
 import DA.Daml.UtilGHC
 import DA.Daml.UtilLF (buildPackage)
 import Data.Bifunctor (first)
@@ -44,12 +44,12 @@ import Data.Foldable
 import Data.Generics.Uniplate.Data (descendBi)
 import Data.IORef
 import Data.List (intercalate)
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Data.Maybe
-import qualified Data.NameMap as NM
+import Data.NameMap qualified as NM
 import Data.Semigroup (Last(..))
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
+import Data.Text qualified as T
+import Data.Text.IO qualified as T
 import Development.IDE.Core.API
 import Development.IDE.Core.Compile (compileModule, typecheckModule, RunSimplifier(..))
 import Development.IDE.Core.RuleTypes
@@ -67,14 +67,14 @@ import GHC hiding (typecheckModule)
 import GHC.LanguageExtensions.Type
 import HscTypes (HscEnv(..), HscSource(HsSrcFile), HomeModInfo(hm_iface))
 import Language.Haskell.GhclibParserEx.Parse
-import qualified Language.LSP.Types as LSP
+import Language.LSP.Types qualified as LSP
 import Module (mainUnitId, unitIdString)
 import OccName
 import Outputable (ppr, showSDoc)
-import qualified Outputable
+import Outputable qualified
 import RdrName (getRdrName, mkRdrUnqual)
 import SrcLoc
-import qualified System.Console.Repline as Repl
+import System.Console.Repline qualified as Repl
 import System.Exit
 import System.IO.Extra
 import TcEvidence (idHsWrapper)

@@ -12,8 +12,8 @@ import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.DependencyDb
 import DA.Daml.Compiler.Repl
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.ReplClient as ReplClient
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.ReplClient qualified as ReplClient
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
 import DA.Daml.Project.Types
@@ -22,8 +22,8 @@ import DA.Test.Sandbox
 import DA.Test.Util
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Types.Location
-import qualified DA.Service.Logger as Logger
-import qualified DA.Service.Logger.Impl.IO as Logger
+import DA.Service.Logger qualified as Logger
+import DA.Service.Logger.Impl.IO qualified as Logger
 import GHC.IO.Handle
 import SdkVersion
 import System.Directory

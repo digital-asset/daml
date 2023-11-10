@@ -9,14 +9,14 @@ module DA.Daml.Compiler.Output
   , printDiagnostics
   ) where
 
-import qualified Data.ByteString.Char8 as BS
-import qualified Data.ByteString.Lazy                           as BSL
+import Data.ByteString.Char8 qualified as BS
+import Data.ByteString.Lazy qualified                           as BSL
 import           Data.String                                    (IsString)
-import qualified Data.Text.Encoding as T
+import Data.Text.Encoding qualified as T
 import Development.IDE.Core.Shake (NotificationHandler(..))
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
-import qualified Language.LSP.Types as LSP
+import Language.LSP.Types qualified as LSP
 import System.IO
 import           Control.Exception (bracket)
 

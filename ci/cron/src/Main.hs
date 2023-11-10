@@ -3,11 +3,11 @@
 
 module Main (main) where
 
-import qualified BazelCache
+import BazelCache qualified
 
-import qualified Control.Monad as Control
-import qualified Options.Applicative as Opt
-import qualified System.IO.Extra as IO
+import Control.Monad qualified as Control
+import Options.Applicative qualified as Opt
+import System.IO.Extra qualified as IO
 
 data CliArgs = BazelCache BazelCache.Opts
 

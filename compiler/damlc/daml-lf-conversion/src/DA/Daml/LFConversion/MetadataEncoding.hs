@@ -48,21 +48,21 @@ import Control.Lens ((^.))
 import Control.Lens.Ast (rightSpine)
 import Control.Monad (guard, liftM2)
 import Data.List (foldl', sortOn)
-import qualified Data.List.Lens as L (stripSuffix)
+import Data.List.Lens qualified as L (stripSuffix)
 import Data.Maybe (isJust)
-import qualified Data.Set as S
-import qualified Data.Text as T
+import Data.Set qualified as S
+import Data.Text qualified as T
 
-import qualified "ghc-lib-parser" BasicTypes as GHC
-import qualified "ghc-lib-parser" BooleanFormula as BF
-import qualified "ghc-lib-parser" Class as GHC
-import qualified "ghc-lib-parser" FieldLabel as GHC
-import qualified "ghc-lib-parser" Name as GHC
-import qualified "ghc-lib-parser" SrcLoc as GHC
+import "ghc-lib-parser" BasicTypes qualified as GHC
+import "ghc-lib-parser" BooleanFormula qualified as BF
+import "ghc-lib-parser" Class qualified as GHC
+import "ghc-lib-parser" FieldLabel qualified as GHC
+import "ghc-lib-parser" Name qualified as GHC
+import "ghc-lib-parser" SrcLoc qualified as GHC
 import "ghc-lib-parser" FastString (FastString)
 import "ghc-lib-parser" FieldLabel (FieldLbl)
 
-import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.UtilGHC (fsFromText, fsToText)
 
 -----------------------------

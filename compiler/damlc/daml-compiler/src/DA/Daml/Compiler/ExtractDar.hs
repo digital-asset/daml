@@ -7,10 +7,10 @@ module DA.Daml.Compiler.ExtractDar
   , getEntry
   ) where
 
-import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
+import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
 import Control.Monad.Extra
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.UTF8 as BSUTF8
+import Data.ByteString.Lazy qualified as BSL
+import Data.ByteString.UTF8 qualified as BSUTF8
 import Data.List.Extra
 import System.FilePath
 import DA.Daml.LF.Reader

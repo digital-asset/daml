@@ -22,12 +22,12 @@ module DA.Daml.LF.Ast.FreeVars
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Recursive
-import qualified DA.Daml.LF.Ast.Type as Type
+import DA.Daml.LF.Ast.Type qualified as Type
 
 import Data.Foldable (fold)
 import Data.Functor.Foldable (cata)
-import qualified Data.Set as Set
-import qualified Data.Text as T
+import Data.Set qualified as Set
+import Data.Text qualified as T
 import Safe (findJust)
 
 data FreeVars = FreeVars

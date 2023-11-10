@@ -12,7 +12,7 @@ import DA.Daml.Doc.Render.Util (adjust, escapeText, (<->))
 import DA.Daml.Doc.Render.Monoid
 
 import Data.List.Extra
-import qualified Data.Text as T
+import Data.Text qualified as T
 
 renderMd :: RenderEnv -> RenderOut -> [T.Text]
 renderMd env = \case

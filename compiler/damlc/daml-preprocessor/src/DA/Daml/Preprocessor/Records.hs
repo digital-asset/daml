@@ -18,8 +18,8 @@ import           Data.Tuple.Extra
 -- import DA.GHC.Util
 
 import           "ghc-lib-parser" Bag
-import qualified "ghc-lib" GHC
-import qualified "ghc-lib" GhcPlugins as GHC
+import "ghc-lib" GHC qualified
+import "ghc-lib" GhcPlugins qualified as GHC
 import           "ghc-lib-parser" HsSyn
 import           "ghc-lib-parser" SrcLoc
 import           "ghc-lib-parser" TcEvidence

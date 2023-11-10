@@ -23,21 +23,21 @@ import DA.Bazel.Runfiles
 import DA.Daml.Helper.Util (decodeCantonPort)
 import Data.Foldable
 import DA.PortFile
-import qualified DA.Test.FreePort as FreePort
-import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.Key as AesonKey
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Map as Map
-import qualified Data.Text as T
-import qualified Data.Vector as Vector
-import qualified Data.Maybe as Maybe
+import DA.Test.FreePort qualified as FreePort
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Key qualified as AesonKey
+import Data.ByteString.Lazy qualified as BSL
+import Data.Map qualified as Map
+import Data.Text qualified as T
+import Data.Vector qualified as Vector
+import Data.Maybe qualified as Maybe
 import System.Environment (getEnv)
 import System.FilePath
 import System.IO.Extra
 import System.Info.Extra (isWindows)
 import System.Process
 import Test.Tasty
-import qualified Web.JWT as JWT
+import Web.JWT qualified as JWT
 
 data ClientAuth
     = None

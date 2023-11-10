@@ -23,15 +23,15 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Data.List.Extra (isInfixOf)
-import qualified Data.Map.Strict as MS
-import qualified Data.Text as T
+import Data.Map.Strict qualified as MS
+import Data.Text qualified as T
 import System.Directory
 import System.IO.Extra
 import System.Info.Extra
 import System.Environment.Blank
 import Test.Tasty
 import Test.Tasty.HUnit
-import qualified UnliftIO.Exception as Unlift
+import UnliftIO.Exception qualified as Unlift
 
 import DA.Daml.StablePackages (allStablePackages)
 import DA.Daml.LF.Ast.Base (unPackageId)

@@ -14,13 +14,13 @@ import Control.Monad
 import Control.Monad.IO.Class
 import DA.Bazel.Runfiles
 import Data.Aeson (toJSON, (.=))
-import qualified Data.Aeson.Key as Aeson.Key
+import Data.Aeson.Key qualified as Aeson.Key
 import Data.Char (toLower)
 import Data.Either
 import Data.Foldable (toList)
 import Data.List.Extra
-import qualified Data.Text as T
-import qualified Language.LSP.Test as LspTest
+import Data.Text qualified as T
+import Language.LSP.Test qualified as LspTest
 import Language.LSP.Types hiding (SemanticTokenAbsolute (..), SemanticTokenRelative (..))
 import Language.LSP.Types.Capabilities
 import Language.LSP.Types.Lens hiding (id, to)
@@ -34,9 +34,9 @@ import System.IO.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import DA.Daml.Lsp.Test.Util
-import qualified Language.LSP.Test as LSP
+import Language.LSP.Test qualified as LSP
 import Text.Regex.TDFA
 import Development.IDE.Core.Rules.Daml (VirtualResourceChangedParams(..))
 

@@ -16,8 +16,8 @@ import Module (unitIdString)
 import Options.Applicative
 import Options.Applicative.Extended (lastOr)
 import Data.List.Extra
-import qualified Data.Text as T
-import qualified Data.Set as Set
+import Data.Text qualified as T
+import Data.Set qualified as Set
 
 ------------------------------------------------------------
 

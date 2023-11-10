@@ -4,18 +4,18 @@ module DA.Test.DataDependencies (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
-import qualified "zip-archive" Codec.Archive.Zip as Zip
+import "zip-archive" Codec.Archive.Zip qualified as Zip
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
-import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Reader (readDalfs, Dalfs(..))
-import qualified DA.Daml.LF.Proto3.Archive as LFArchive
+import DA.Daml.LF.Proto3.Archive qualified as LFArchive
 import DA.Daml.StablePackages (numStablePackagesForVersion)
 import DA.Test.Process
 import DA.Test.Util
-import qualified Data.ByteString.Lazy as BSL
+import Data.ByteString.Lazy qualified as BSL
 import Data.List (intercalate, sortOn, (\\))
-import qualified Data.NameMap as NM
+import Data.NameMap qualified as NM
 import Module (unitIdString)
 import Safe (fromJustNote)
 import System.Directory.Extra

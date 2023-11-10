@@ -34,7 +34,7 @@ import Data.Maybe
 import Data.Either.Extra
 import Data.Aeson (FromJSON(..), eitherDecodeStrict')
 import Data.Aeson.Types (listParser, withObject, (.:), Parser)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Safe
 import Network.HTTP.Simple
 import Network.HTTP.Client
@@ -43,14 +43,14 @@ import Network.HTTP.Client
     )
 
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Char8 as BSC
-import qualified Data.ByteString.UTF8 as BSU
-import qualified Data.SemVer as V
+import Data.ByteString.Char8 qualified as BSC
+import Data.ByteString.UTF8 qualified as BSU
+import Data.SemVer qualified as V
 import Data.Function ((&))
 import Control.Lens (view)
 
-import qualified Data.Map.Strict as M
-import qualified Data.List.NonEmpty as NonEmpty
+import Data.Map.Strict qualified as M
+import Data.List.NonEmpty qualified as NonEmpty
 
 -- | Determine SDK version of running daml assistant. Fails with an
 -- AssistantError exception if the version cannot be determined.

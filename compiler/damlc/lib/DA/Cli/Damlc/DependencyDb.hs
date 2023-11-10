@@ -10,31 +10,31 @@ module DA.Cli.Damlc.DependencyDb
     , dataDepMarker
     ) where
 
-import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
+import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
 import Control.Exception.Safe (tryAny)
 import Control.Lens (toListOf)
 import Control.Monad.Extra
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.ExtractDar (ExtractedDar(..), extractDar)
 import DA.Daml.Helper.Ledger
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Ast.Optics as LF
-import qualified DA.Daml.LF.Proto3.Archive as Archive
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.Ast.Optics qualified as LF
+import DA.Daml.LF.Proto3.Archive qualified as Archive
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
-import qualified DA.Service.Logger as Logger
-import qualified DA.Pretty
-import qualified Data.Aeson as Aeson
+import DA.Service.Logger qualified as Logger
+import DA.Pretty qualified
+import Data.Aeson qualified as Aeson
 import Data.Aeson (eitherDecodeFileStrict', encode)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
 import Data.Char
 import Data.List.Extra
-import qualified Data.Map.Strict as M
+import Data.Map.Strict qualified as M
 import Data.Maybe
-import qualified Data.Set as Set
-import qualified Data.Text as T
-import qualified Data.Yaml as Yaml
+import Data.Set qualified as Set
+import Data.Text qualified as T
+import Data.Yaml qualified as Yaml
 import Development.IDE.Types.Location
 import GHC.Fingerprint
 import GHC.Generics

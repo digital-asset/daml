@@ -12,13 +12,13 @@ import           Data.List (intercalate)
 import           Data.Maybe (catMaybes)
 import           GHC.Generics
 import           DA.Pretty
-import qualified DA.Daml.LF.Ast.Range as R
+import DA.Daml.LF.Ast.Range qualified as R
 import           Control.DeepSeq
-import qualified Data.Text as T
+import Data.Text qualified as T
 import           Safe (headMay)
 import           Text.ParserCombinators.ReadP (ReadP, pfail, readP_to_S, (+++), munch1)
-import qualified Text.ParserCombinators.ReadP as ReadP
-import qualified Data.Map.Strict as MS
+import Text.ParserCombinators.ReadP qualified as ReadP
+import Data.Map.Strict qualified as MS
 
 -- | Daml-LF version of an archive payload.
 data Version = Version

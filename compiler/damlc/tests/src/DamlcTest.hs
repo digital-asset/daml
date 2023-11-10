@@ -15,10 +15,10 @@ import System.IO.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-import qualified "zip-archive" Codec.Archive.Zip as ZA
-import qualified Data.ByteString.Lazy as BSL (readFile,writeFile)
-import qualified Data.ByteString.Lazy.Char8 as BSL (pack)
-import qualified Data.Text.Extended as T
+import "zip-archive" Codec.Archive.Zip qualified as ZA
+import Data.ByteString.Lazy qualified as BSL (readFile,writeFile)
+import Data.ByteString.Lazy.Char8 qualified as BSL (pack)
+import Data.Text.Extended qualified as T
 
 import DA.Bazel.Runfiles
 import DA.Test.Process

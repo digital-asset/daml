@@ -11,13 +11,13 @@ import Control.Monad.State.Strict (State, evalState, gets, modify)
 import Data.Maybe (mapMaybe)
 import Data.Foldable (fold, toList)
 import Data.Functor.Foldable (cata, embed)
-import qualified Data.Graph as G
-import qualified Data.Text as T
-import qualified Data.Set as Set
-import qualified Data.Map.Strict as Map
-import qualified Data.NameMap as NM
-import qualified Safe
-import qualified Safe.Exact as Safe
+import Data.Graph qualified as G
+import Data.Text qualified as T
+import Data.Set qualified as Set
+import Data.Map.Strict qualified as Map
+import Data.NameMap qualified as NM
+import Safe qualified
+import Safe.Exact qualified as Safe
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Subst

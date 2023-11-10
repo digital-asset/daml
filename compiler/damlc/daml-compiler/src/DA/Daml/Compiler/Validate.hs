@@ -6,19 +6,19 @@ module DA.Daml.Compiler.Validate (validateDar) where
 import Control.Exception.Extra (errorIO)
 import Control.Lens
 import Control.Monad (forM_)
-import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Ast.Optics as LF
-import qualified DA.Daml.LF.Proto3.Archive as Archive
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.List as L
-import qualified Data.Text as T
+import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.Ast.Optics qualified as LF
+import DA.Daml.LF.Proto3.Archive qualified as Archive
+import Data.ByteString.Lazy qualified as BSL
+import Data.List qualified as L
+import Data.Text qualified as T
 import Language.LSP.Types
 import Language.LSP.Types.Lens
 
 import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
 import DA.Daml.LF.Ast.World (initWorldSelf)
-import qualified DA.Daml.LF.TypeChecker as TC (checkPackage)
+import DA.Daml.LF.TypeChecker qualified as TC (checkPackage)
 
 data ValidationError
   = VeArchiveError FilePath Archive.ArchiveError

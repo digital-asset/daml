@@ -2,26 +2,26 @@
 -- SPDX-License-Identifier: Apache-2.0
 module Main (main) where
 
-import qualified Bazel.Runfiles
+import Bazel.Runfiles qualified
 import Control.Exception.Extra
 import Control.Monad
 import DA.Test.Process
 import DA.Test.Tar
 import DA.Test.Util
-import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.Extra as Aeson
-import qualified Data.Aeson.Key as AK
-import qualified Data.Aeson.KeyMap as KM
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Extra qualified as Aeson
+import Data.Aeson.Key qualified as AK
+import Data.Aeson.KeyMap qualified as KM
 import Data.Conduit ((.|), runConduitRes)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Conduit.Combinators as Conduit
-import qualified Data.Conduit.Tar as Tar
-import qualified Data.Conduit.Zlib as Zlib
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
+import Data.Conduit.Combinators qualified as Conduit
+import Data.Conduit.Tar qualified as Tar
+import Data.Conduit.Zlib qualified as Zlib
 import Data.Maybe
 import Data.Proxy
 import Data.Tagged
-import qualified Data.Text as T
+import Data.Text qualified as T
 import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath

@@ -6,7 +6,7 @@ module DA.Daml.Helper.Test.Deployment (main) where
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import Control.Exception
-import qualified Data.UUID.V4 as UUID
+import Data.UUID.V4 qualified as UUID
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment.Blank (setEnv, unsetEnv)
 import System.Exit
@@ -15,9 +15,9 @@ import System.IO.Extra (withTempDir,writeFileUTF8)
 import System.Process
 import Test.Tasty (TestTree,defaultMain,testGroup)
 import Test.Tasty.HUnit
-import qualified "zip-archive" Codec.Archive.Zip as Zip
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Text as T
+import "zip-archive" Codec.Archive.Zip qualified as Zip
+import Data.ByteString.Lazy qualified as BSL
+import Data.Text qualified as T
 
 import DA.Bazel.Runfiles (mainWorkspace,locateRunfiles,exe)
 import DA.Daml.LF.Reader (Dalfs(..),readDalfs)
@@ -25,8 +25,8 @@ import DA.Test.Process (callProcessSilent)
 import DA.Test.Sandbox (mbSharedSecret, withCantonSandbox, defaultSandboxConf, makeSignedJwt)
 import DA.Test.Util
 import SdkVersion (sdkVersion)
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Proto3.Archive as LFArchive
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.Proto3.Archive qualified as LFArchive
 
 data Tools = Tools { damlc :: FilePath, damlHelper :: FilePath }
 

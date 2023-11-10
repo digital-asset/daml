@@ -10,25 +10,25 @@ module DA.Daml.Dar.Reader
     , collectInfo
     ) where
 
-import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Proto3.Archive.Decode as Archive
+import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.Proto3.Archive.Decode qualified as Archive
 import DA.Daml.LF.Reader
 import DA.Pretty (renderPretty)
 import Data.Aeson
 import Data.Aeson.Encode.Pretty
 import Data.Bifunctor
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as BSL
+import Data.ByteString qualified as B
+import Data.ByteString.Lazy qualified as BSL
 import Data.Either.Extra
 import Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict qualified as HashMap
 import Data.List
 import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
-import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.Builder as TL
+import Data.Text qualified as T
+import Data.Text.IO qualified as T
+import Data.Text.Lazy qualified as TL
+import Data.Text.Lazy.Builder qualified as TL
 import System.Exit
 import System.FilePath
 import System.IO

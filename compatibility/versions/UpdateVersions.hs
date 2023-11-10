@@ -9,24 +9,24 @@ import Control.Monad
 import Crypto.Hash (digestFromByteString, hashlazy, Digest, SHA256)
 import Data.ByteArray.Encoding (Base(Base16), convertFromBase, convertToBase)
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Lazy as BSL
+import Data.ByteString.Lazy qualified as BSL
 import Data.Either (fromRight, rights)
 import Data.Either.Extra (eitherToMaybe)
 import Data.List
 import Data.Map (Map)
 import Data.Maybe (mapMaybe)
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Data.Set (Set)
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import Data.SemVer (Version)
-import qualified Data.SemVer as SemVer
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
+import Data.SemVer qualified as SemVer
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as T
 import Network.HTTP.Client (responseTimeout, responseTimeoutMicro)
 import Network.HTTP.Simple
 import Options.Applicative
 import System.IO.Extra
-import qualified System.Process
+import System.Process qualified
 
 newtype Versions = Versions { getVersions :: Set Version }
     deriving Show

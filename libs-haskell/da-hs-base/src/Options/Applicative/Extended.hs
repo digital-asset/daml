@@ -16,7 +16,7 @@ module Options.Applicative.Extended
 import GHC.Exts (IsString (..))
 import Options.Applicative
 
-import qualified Data.List.NonEmpty as NE
+import Data.List.NonEmpty qualified as NE
 
 -- | A morally boolean value with a default third option (called Auto) to be determined later.
 data YesNoAuto

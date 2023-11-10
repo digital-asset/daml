@@ -4,24 +4,24 @@ module DA.Test.Packaging (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
-import qualified "zip-archive" Codec.Archive.Zip as Zip
+import "zip-archive" Codec.Archive.Zip qualified as Zip
 import Control.Monad.Extra
 import Control.Exception.Safe
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging (BuildLfPackageGraphArgs' (..), BuildLfPackageGraphMetaArgs (..), buildLfPackageGraph')
-import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Reader (readDalfManifest, readDalfs, packageName, Dalfs(..), DalfManifest(DalfManifest), mainDalfPath, dalfPaths)
-import qualified DA.Daml.LF.Proto3.Archive as LFArchive
+import DA.Daml.LF.Proto3.Archive qualified as LFArchive
 import DA.Test.Process
 import DA.Test.Util
 import Data.Conduit.Tar.Extra (dropDirectory1)
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.Lazy.Char8 as BSL.Char8
-import qualified Data.Graph as Graph (path)
+import Data.ByteString.Lazy qualified as BSL
+import Data.ByteString.Lazy.Char8 qualified as BSL.Char8
+import Data.Graph qualified as Graph (path)
 import Data.List.Extra
 import Data.Maybe
-import qualified Data.Set as Set
-import qualified Data.Text as Text
+import Data.Set qualified as Set
+import Data.Text qualified as Text
 import System.Directory.Extra
 import System.Environment.Blank
 import System.Exit

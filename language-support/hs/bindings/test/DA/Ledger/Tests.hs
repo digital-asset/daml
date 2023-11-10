@@ -24,20 +24,20 @@ import System.Random (randomIO)
 import System.Time.Extra (timeout)
 import Test.Tasty as Tasty (TestName,TestTree,testGroup,withResource,defaultMain)
 import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
-import qualified "zip-archive" Codec.Archive.Zip as Zip
-import qualified DA.Daml.LF.Ast as LF
-import qualified Data.ByteString as BS (readFile)
-import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
-import qualified Data.ByteString.UTF8 as BS (ByteString,fromString)
-import qualified Data.Map as Map
-import qualified Data.Set as Set
-import qualified Data.Text.Lazy as TL(Text,pack,unpack,fromStrict,splitOn)
-import qualified Data.UUID as UUID (toString)
+import "zip-archive" Codec.Archive.Zip qualified as Zip
+import DA.Daml.LF.Ast qualified as LF
+import Data.ByteString qualified as BS (readFile)
+import Data.ByteString.Lazy qualified as BSL (readFile,toStrict)
+import Data.ByteString.UTF8 qualified as BS (ByteString,fromString)
+import Data.Map qualified as Map
+import Data.Set qualified as Set
+import Data.Text.Lazy qualified as TL(Text,pack,unpack,fromStrict,splitOn)
+import Data.UUID qualified as UUID (toString)
 import Data.Text (unpack)
 import Data.Either.Extra(maybeToEither)
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap(KeyMap)
-import qualified Data.Aeson.KeyMap as KeyMap
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Key(fromString)
 import Data.Aeson(decode)
 

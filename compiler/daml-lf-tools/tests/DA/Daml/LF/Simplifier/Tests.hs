@@ -7,8 +7,8 @@ module DA.Daml.LF.Simplifier.Tests
 
 import Test.Tasty
 import Test.Tasty.HUnit
-import qualified Data.NameMap as NM
-import qualified Data.Text as T
+import Data.NameMap qualified as NM
+import Data.Text qualified as T
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Util

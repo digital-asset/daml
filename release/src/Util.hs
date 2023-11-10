@@ -38,32 +38,32 @@ module Util (
 
 
 import Control.Applicative
-import qualified Control.Concurrent.Async.Lifted.Safe as Async
-import qualified Control.Exception.Safe as E
+import Control.Concurrent.Async.Lifted.Safe qualified as Async
+import Control.Exception.Safe qualified as E
 import Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import Data.Aeson
 import           Data.Char (isSpace)
 import           Data.Conduit ((.|))
-import qualified Data.Conduit as C
-import qualified Data.Conduit.Process as Proc
-import qualified Data.Conduit.Text as CT
+import Data.Conduit qualified as C
+import Data.Conduit.Process qualified as Proc
+import Data.Conduit.Text qualified as CT
 import           Data.SemVer (Version)
-import qualified Data.SemVer as SemVer
-import qualified System.Process
+import Data.SemVer qualified as SemVer
+import System.Process qualified
 import Data.Maybe
 import           Data.Text (Text, unpack)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import           Path
 import           Path.IO
 import           System.Console.ANSI
                    (Color(..), SGR(SetColor, Reset), ConsoleLayer(Foreground),
                     ColorIntensity(..), setSGRCode)
-import qualified System.Log.FastLogger as FastLogger
+import System.Log.FastLogger qualified as FastLogger
 import System.Info.Extra
-import qualified Text.XML as XML
-import qualified Text.XML.Cursor as XML
+import Text.XML qualified as XML
+import Text.XML.Cursor qualified as XML
 
 import Types
 

@@ -11,7 +11,7 @@ module Test.Tasty.Extended (
 ) where
 
 
-import qualified Test.Tasty as Tasty
+import Test.Tasty qualified as Tasty
 import Test.Tasty
 import Test.Tasty.Options
 import Test.Tasty.Runners

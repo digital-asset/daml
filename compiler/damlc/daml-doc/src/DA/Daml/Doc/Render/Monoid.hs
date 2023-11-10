@@ -15,11 +15,11 @@ import Data.Foldable
 import Data.Maybe
 import Data.List.Extra
 import System.FilePath
-import qualified Data.Map.Strict as Map
-import qualified Data.HashMap.Strict as HMS
-import qualified Data.Set as Set
-import qualified Data.Text as T
-import qualified Network.URI as URI
+import Data.Map.Strict qualified as Map
+import Data.HashMap.Strict qualified as HMS
+import Data.Set qualified as Set
+import Data.Text qualified as T
+import Network.URI qualified as URI
 
 data RenderOut
     = RenderSpaced [RenderOut]

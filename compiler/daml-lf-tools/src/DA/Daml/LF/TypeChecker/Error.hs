@@ -17,7 +17,7 @@ module DA.Daml.LF.TypeChecker.Error(
 
 import Control.Applicative
 import DA.Pretty
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Numeric.Natural

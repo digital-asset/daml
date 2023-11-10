@@ -8,7 +8,7 @@ module DA.Daml.Doc.Transform.Annotations
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Anchor
 
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Data.List.Extra
 import Control.Applicative ((<|>))
 

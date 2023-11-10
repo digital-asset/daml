@@ -20,8 +20,8 @@ module DA.Service.Logger
   ) where
 
 
-import qualified Data.Aeson                   as Aeson
-import qualified Data.Text                    as T
+import Data.Aeson qualified                   as Aeson
+import Data.Text qualified                    as T
 import GHC.Stack
 
 

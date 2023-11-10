@@ -6,7 +6,7 @@ module DA.Cli.Damlc.BuildInfo
   ( buildInfo
   ) where
 
-import qualified Text.PrettyPrint.ANSI.Leijen as PP
+import Text.PrettyPrint.ANSI.Leijen qualified as PP
 import SdkVersion
 
 buildInfo :: PP.Doc

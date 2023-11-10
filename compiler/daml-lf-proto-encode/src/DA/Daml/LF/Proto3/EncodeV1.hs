@@ -13,28 +13,28 @@ import           Control.Lens ((^.), matching)
 import           Control.Lens.Ast (rightSpine)
 import           Control.Monad.State.Strict
 
-import qualified Data.Bifunctor as Bf
+import Data.Bifunctor qualified as Bf
 import           Data.Coerce
 import           Data.Either
 import           Data.Functor.Identity
-import qualified Data.HashMap.Strict as HMS
-import qualified Data.List as L
-import qualified Data.Set as S
-import qualified Data.Map.Strict as Map
+import Data.HashMap.Strict qualified as HMS
+import Data.List qualified as L
+import Data.Set qualified as S
+import Data.Map.Strict qualified as Map
 import           Data.Maybe (fromMaybe)
-import qualified Data.NameMap as NM
-import qualified Data.Text           as T
-import qualified Data.Text.Lazy      as TL
-import qualified Data.Vector         as V
+import Data.NameMap qualified as NM
+import Data.Text qualified           as T
+import Data.Text.Lazy qualified      as TL
+import Data.Vector qualified         as V
 import           Data.Int
 
 import           DA.Pretty
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
-import qualified DA.Daml.LF.Proto3.Util as Util
-import qualified Com.Daml.DamlLfDev.DamlLf1 as P
+import DA.Daml.LF.Proto3.Util qualified as Util
+import Com.Daml.DamlLfDev.DamlLf1 qualified as P
 
-import qualified Proto3.Suite as P (Enumerated (..))
+import Proto3.Suite qualified as P (Enumerated (..))
 
 -- NOTE(MH): Type synonym for a `Maybe` that is always known to be a `Just`.
 -- Some functions always return `Just x` instead of `x` since they would

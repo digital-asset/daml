@@ -3,11 +3,11 @@
 
 module DA.Daml.Package.ConfigTest (main) where
 
-import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.Package.Config
 import DA.Test.Util
-import qualified Data.Map.Strict as Map
-import qualified Data.Text as T
+import Data.Map.Strict qualified as Map
+import Data.Text qualified as T
 import Test.Tasty
 import Test.Tasty.HUnit
 

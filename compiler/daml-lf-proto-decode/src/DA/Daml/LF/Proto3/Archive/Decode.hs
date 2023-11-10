@@ -10,19 +10,19 @@ module DA.Daml.LF.Proto3.Archive.Decode
   ) where
 
 import           Control.Lens             (over, _Left)
-import qualified "cryptonite" Crypto.Hash as Crypto
-import qualified Com.Daml.DamlLfDev.DamlLf as ProtoLF
+import "cryptonite" Crypto.Hash qualified as Crypto
+import Com.Daml.DamlLfDev.DamlLf qualified as ProtoLF
 import Control.Monad
 import           DA.Pretty
-import qualified DA.Daml.LF.Ast           as LF
-import qualified DA.Daml.LF.Proto3.Decode as Decode
+import DA.Daml.LF.Ast qualified           as LF
+import DA.Daml.LF.Proto3.Decode qualified as Decode
 import DA.Daml.LF.Proto3.Util (encodeHash)
-import qualified Data.ByteArray           as BA
-import qualified Data.ByteString          as BS
+import Data.ByteArray qualified           as BA
+import Data.ByteString qualified          as BS
 import Data.Int
-import qualified Data.Text                as T
-import qualified Data.Text.Lazy           as TL
-import qualified Proto3.Suite             as Proto
+import Data.Text qualified                as T
+import Data.Text.Lazy qualified           as TL
+import Proto3.Suite qualified             as Proto
 
 data ArchiveError
     = ProtobufError !String

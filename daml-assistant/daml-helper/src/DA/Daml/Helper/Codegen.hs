@@ -11,7 +11,7 @@ import Control.Exception.Safe (catchIO)
 import DA.Daml.Helper.Util
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
-import qualified Data.Text as T
+import Data.Text qualified as T
 import System.FilePath
 import System.IO.Extra
 import System.Process.Typed

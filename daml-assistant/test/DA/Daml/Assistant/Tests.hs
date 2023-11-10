@@ -19,16 +19,16 @@ import System.IO.Temp
 import System.IO.Extra
 import Data.List.Extra
 import DA.Test.Util
-import qualified Test.Tasty as Tasty
-import qualified Test.Tasty.HUnit as Tasty
-import qualified Test.Tasty.QuickCheck as Tasty
-import qualified Data.Text as T
+import Test.Tasty qualified as Tasty
+import Test.Tasty.HUnit qualified as Tasty
+import Test.Tasty.QuickCheck qualified as Tasty
+import Data.Text qualified as T
 import Test.Tasty.QuickCheck ((==>))
 import Data.Maybe
 import Control.Monad
 import Conduit
-import qualified Data.Conduit.Zlib as Zlib
-import qualified Data.Conduit.Tar as Tar
+import Data.Conduit.Zlib qualified as Zlib
+import Data.Conduit.Tar qualified as Tar
 
 -- unix specific
 import System.PosixCompat.Files (createSymbolicLink)

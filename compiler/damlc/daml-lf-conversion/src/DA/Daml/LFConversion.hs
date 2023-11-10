@@ -102,18 +102,18 @@ import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
-import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
+import DA.Daml.LF.TemplateOrInterface qualified as TemplateOrInterface
 import           DA.Daml.Options.Types (EnableScenarios (..), AllowLargeTuples (..))
-import qualified Data.Decimal as Decimal
+import Data.Decimal qualified as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
 import           Data.List.Extra
-import qualified Data.Map.Strict as MS
-import qualified Data.Map.Merge.Strict as MMS
-import qualified Data.Set as S
+import Data.Map.Strict qualified as MS
+import Data.Map.Merge.Strict qualified as MMS
+import Data.Set qualified as S
 import           Data.Maybe
-import qualified Data.NameMap as NM
-import qualified Data.Text.Extended as T
+import Data.NameMap qualified as NM
+import Data.Text.Extended qualified as T
 import           Data.Tuple.Extra
 import           Data.Ratio
 import           "ghc-lib" GHC
@@ -124,9 +124,9 @@ import           "ghc-lib-parser" PrelNames
 import           "ghc-lib-parser" TysPrim
 import           "ghc-lib-parser" TyCoRep
 import           "ghc-lib-parser" Class (classHasFds, classMinimalDef, classOpItems)
-import qualified "ghc-lib-parser" Name
-import qualified "ghc-lib-parser" Avail as GHC
-import qualified "ghc-lib-parser" BooleanFormula as BF
+import "ghc-lib-parser" Name qualified
+import "ghc-lib-parser" Avail qualified as GHC
+import "ghc-lib-parser" BooleanFormula qualified as BF
 import           Safe.Exact (zipExact, zipExactMay)
 import           SdkVersion
 

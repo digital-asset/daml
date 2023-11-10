@@ -7,7 +7,7 @@ import Control.Concurrent
 import Control.Monad.Trans.Class (lift)
 import System.Console.ANSI(Color(..))
 import Text.Read (readMaybe)
-import qualified System.Console.Haskeline as HL
+import System.Console.Haskeline qualified as HL
 
 import DA.Ledger.Stream
 import DA.Ledger.App.Nim.Domain

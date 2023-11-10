@@ -19,7 +19,7 @@ import System.IO.Extra (hPutStrLn,stderr)
 import System.Exit (ExitCode(ExitSuccess),exitFailure)
 import System.Process (CreateProcess,proc,shell,readCreateProcessWithExitCode,cwd,env)
 import System.Environment.Blank (getEnvironment)
-import qualified Data.Set as S
+import Data.Set qualified as S
 
 newtype ShouldSucceed = ShouldSucceed Bool
 

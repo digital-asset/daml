@@ -7,8 +7,8 @@ module DA.Daml.LF.Ast.Tests
 
 import Data.Foldable
 import Data.List.Extra (trim)
-import qualified Data.Map.Strict as Map
-import qualified Data.NameMap as NM
+import Data.Map.Strict qualified as Map
+import Data.NameMap qualified as NM
 import Text.Read
 import Test.Tasty
 import Test.Tasty.HUnit

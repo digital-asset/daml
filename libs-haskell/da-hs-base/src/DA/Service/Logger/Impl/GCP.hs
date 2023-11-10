@@ -38,7 +38,7 @@ import GHC.Generics(Generic)
 import Data.Int
 import Text.Read (readMaybe)
 import Data.Aeson as Aeson
-import qualified Data.Aeson.KeyMap as Aeson
+import Data.Aeson.KeyMap qualified as Aeson
 import Data.Char (toUpper)
 import Control.Monad
 import Control.Monad.Loops
@@ -50,16 +50,16 @@ import System.Info
 import System.Timeout
 import System.Random
 import System.IO.Extra
-import qualified DA.Service.Logger as Lgr
-import qualified DA.Service.Logger.Impl.Pure as Lgr.Pure
+import DA.Service.Logger qualified as Lgr
+import DA.Service.Logger.Impl.Pure qualified as Lgr.Pure
 import DA.Daml.Project.Consts
-import qualified Data.Text.Extended as T
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.ByteString as BS
+import Data.Text.Extended qualified as T
+import Data.ByteString.Lazy qualified as LBS
+import Data.ByteString qualified as BS
 import Data.String
 import Data.Time as Time
 import Data.UUID (UUID)
-import qualified Data.UUID as UUID
+import Data.UUID qualified as UUID
 import Control.Concurrent.Async
 import Control.Concurrent.Extra
 import Control.Concurrent.STM

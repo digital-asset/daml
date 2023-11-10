@@ -15,7 +15,7 @@ module DA.Ledger.App.Nim.Domain(
 import Data.List.Extra(zipWithFrom)
 import DA.Ledger.Types
 import DA.Ledger.IsLedgerValue(IsLedgerValue(..))
-import qualified Data.Text.Lazy as Text
+import Data.Text.Lazy qualified as Text
 
 data Player = Player { unPlayer :: String } deriving (Eq,Ord)
 instance Show Player where show (Player s) = s

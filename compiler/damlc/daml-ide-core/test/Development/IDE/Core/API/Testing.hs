@@ -44,17 +44,17 @@ module Development.IDE.Core.API.Testing
     ) where
 
 -- * internal dependencies
-import qualified Development.IDE.Core.API         as API
+import Development.IDE.Core.API qualified         as API
 import Development.IDE.Core.Debouncer
 import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..))
-import qualified Development.IDE.Types.Diagnostics as D
-import qualified Development.IDE.Types.Location as D
+import Development.IDE.Types.Diagnostics qualified as D
+import Development.IDE.Types.Location qualified as D
 import DA.Daml.LF.ScenarioServiceClient as SS
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Logger
 import DA.Daml.Options
 import DA.Daml.Options.Types
-import qualified DA.Daml.Options.Types as Daml (Options)
+import DA.Daml.Options.Types qualified as Daml (Options)
 import Development.IDE.Core.Service.Daml(VirtualResource(..), mkDamlEnv)
 import DA.Test.Util (standardizeQuotes)
 import Language.LSP.Types hiding (SemanticTokenAbsolute (..), SemanticTokenRelative (..))
@@ -62,20 +62,20 @@ import Language.LSP.Types hiding (SemanticTokenAbsolute (..), SemanticTokenRelat
 -- * external dependencies
 import Control.Concurrent.STM
 import Control.Exception.Extra
-import qualified Control.Monad.Reader   as Reader
+import Control.Monad.Reader qualified   as Reader
 import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.Types as Aeson
-import qualified Data.Vector as V
-import qualified Data.Text              as T
-import qualified Data.Text.IO           as T.IO
-import qualified Data.HashSet as HashSet
+import Data.Map.Strict qualified as Map
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Types qualified as Aeson
+import Data.Vector qualified as V
+import Data.Text qualified              as T
+import Data.Text.IO qualified           as T.IO
+import Data.HashSet qualified as HashSet
 import Network.URI
-import qualified System.FilePath        as FilePath
-import qualified System.FilePath.Posix  as FPP
-import qualified System.Directory       as Directory
-import qualified Data.Time.Clock        as Clock
+import System.FilePath qualified        as FilePath
+import System.FilePath.Posix qualified  as FPP
+import System.Directory qualified       as Directory
+import Data.Time.Clock qualified        as Clock
 import           System.FilePath        ((</>))
 import           Control.Monad.Except   (ExceptT (..), MonadError(..), runExceptT)
 import           Control.Monad.Reader   (ReaderT (..))

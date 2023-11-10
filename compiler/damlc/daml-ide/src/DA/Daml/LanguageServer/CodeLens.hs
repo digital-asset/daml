@@ -8,12 +8,12 @@ module DA.Daml.LanguageServer.CodeLens
     ) where
 
 import Control.Monad.IO.Class
-import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.UtilLF (sourceLocToRange)
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Development.IDE.Core.Service.Daml
 import Data.Foldable
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Development.IDE.Core.PositionMapping
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.RuleTypes.Daml
@@ -22,7 +22,7 @@ import Development.IDE.Plugin
 import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
 import Language.LSP.Types
-import qualified Language.LSP.Server as LSP
+import Language.LSP.Server qualified as LSP
 
 -- | Gather code lenses like scenario execution for a Daml file.
 handle

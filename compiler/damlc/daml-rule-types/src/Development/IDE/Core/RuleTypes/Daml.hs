@@ -15,11 +15,11 @@ module Development.IDE.Core.RuleTypes.Daml(
 
 import Control.DeepSeq
 import Data.Binary
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import Data.Hashable
 import Data.Map.Strict (Map)
 import Data.HashSet (HashSet)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Data.Typeable (Typeable)
 import Development.Shake
 import GHC.Generics (Generic)
@@ -30,8 +30,8 @@ import Development.IDE.Types.Location
 import Development.IDE.Core.RuleTypes
 
 import DA.Daml.DocTest
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.ScenarioServiceClient as SS
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.ScenarioServiceClient qualified as SS
 
 import Language.Haskell.HLint4
 

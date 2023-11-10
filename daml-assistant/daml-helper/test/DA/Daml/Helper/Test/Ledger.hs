@@ -6,17 +6,17 @@ module DA.Daml.Helper.Test.Ledger
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
-import qualified "zip-archive" Codec.Archive.Zip as Zip
+import "zip-archive" Codec.Archive.Zip qualified as Zip
 import DA.Bazel.Runfiles
 import DA.Daml.Dar.Reader
-import qualified DA.Daml.LF.Ast.Base as LF
+import DA.Daml.LF.Ast.Base qualified as LF
 import DA.Ledger.Services.PartyManagementService (PartyDetails(..))
 import DA.Ledger.Types (Party(..))
 import DA.Test.HttpJson
 import DA.Test.Sandbox
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
+import Data.ByteString.Lazy qualified as BSL
+import Data.Text qualified as T
+import Data.Text.Lazy qualified as TL
 import System.Environment.Blank
 import System.Exit
 import System.FilePath

@@ -13,8 +13,8 @@ import DA.Ledger.App.Chat.Logging (Logger)
 import Data.List as List
 import Data.Maybe (maybeToList)
 import System.Random (randomIO)
-import qualified Data.Text.Lazy as Text (pack)
-import qualified Data.UUID as UUID
+import Data.Text.Lazy qualified as Text (pack)
+import Data.UUID qualified as UUID
 
 data Handle = Handle {
     log :: Logger,

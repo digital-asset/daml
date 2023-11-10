@@ -11,7 +11,7 @@ import DA.Daml.Doc.Extract.Types
 
 import Control.Monad (guard)
 import Data.Char (isSpace)
-import qualified Data.Text as T
+import Data.Text qualified as T
 
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module

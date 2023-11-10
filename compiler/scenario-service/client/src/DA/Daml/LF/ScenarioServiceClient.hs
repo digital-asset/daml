@@ -35,13 +35,13 @@ import Control.Concurrent.Extra
 import Control.DeepSeq
 import Control.Exception
 import Control.Monad.Except
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import Data.Hashable
 import Data.IORef
-import qualified Data.Map.Strict as MS
+import Data.Map.Strict qualified as MS
 import Data.Maybe
-import qualified Data.Set as S
-import qualified Data.Text as T
+import Data.Set qualified as S
+import Data.Text qualified as T
 import System.Directory
 
 import DA.Daml.Options.Types (EnableScenarioService(..), EnableScenarios(..), EvaluationOrder (..))
@@ -49,12 +49,12 @@ import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.ScenarioServiceClient.LowLevel as LowLevel
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.ScenarioServiceClient.LowLevel qualified as LowLevel
 
-import qualified DA.Service.Logger as Logger
+import DA.Service.Logger qualified as Logger
 
-import qualified Development.IDE.Types.Logger as IDELogger
+import Development.IDE.Types.Logger qualified as IDELogger
 
 data Options = Options
   { optServerJar :: FilePath

@@ -13,7 +13,7 @@ import DA.Daml.Doc.Render.Monoid
 
 import Data.List.Extra
 import Data.Maybe
-import qualified Data.Text as T
+import Data.Text qualified as T
 
 renderModule :: ModuleDoc -> RenderOut
 renderModule = renderDoc

@@ -25,24 +25,24 @@ module DA.Daml.LF.ReplClient
 import Control.Concurrent.Async
 import Control.Concurrent.Extra
 import Control.Exception
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.Proto3.EncodeV1 qualified as EncodeV1
 import DA.PortFile
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
 import Data.Functor
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
-import qualified Data.Vector as V
+import Data.Text qualified as T
+import Data.Text.Lazy qualified as TL
+import Data.Vector qualified as V
 import Network.GRPC.HighLevel.Client (ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient)
 import Network.GRPC.LowLevel (ClientConfig(..), ClientSSLConfig(..), ClientSSLKeyCertPair(..), Host(..), Port(..), StatusCode(..))
 import Network.GRPC.LowLevel.Call (endpoint)
-import qualified Proto3.Suite as Proto
-import qualified ReplService as Grpc
+import Proto3.Suite qualified as Proto
+import ReplService qualified as Grpc
 import System.Environment
 import System.FilePath
-import qualified System.IO as IO
+import System.IO qualified as IO
 import System.IO.Extra (withTempFile)
 import System.Process
 

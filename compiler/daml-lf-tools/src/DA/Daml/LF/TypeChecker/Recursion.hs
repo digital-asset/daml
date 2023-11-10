@@ -10,10 +10,10 @@ module DA.Daml.LF.TypeChecker.Recursion
 import           Control.Lens (matching)
 import           Data.Foldable (for_, toList)
 import           Data.Functor.Foldable (cata)
-import qualified Data.HashSet as HS
-import qualified Data.Graph as G
+import Data.HashSet qualified as HS
+import Data.Graph qualified as G
 import           Data.List.Extra (nubOrd)
-import qualified Data.NameMap as NM
+import Data.NameMap qualified as NM
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics (_PRSelfModule)

@@ -6,7 +6,7 @@
 -- | For compiler level warnings on Daml.Script
 module DA.Daml.LFConversion.ExternalWarnings.Script (topLevelWarnings) where
 
-import qualified Data.Text as T
+import Data.Text qualified as T
 import DA.Daml.UtilGHC
 import DA.Daml.LFConversion.ConvertM
 import DA.Daml.LFConversion.Utils

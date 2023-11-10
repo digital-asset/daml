@@ -15,7 +15,7 @@ import DA.Daml.Assistant.Types
 
 import Control.Exception.Safe (tryIO, catchIO, displayException)
 import Control.Monad.Extra (unless, andM, whenM)
-import qualified Options.Applicative.BashCompletion
+import Options.Applicative.BashCompletion qualified
 import System.Directory (getHomeDirectory, getAppUserDataDirectory, doesFileExist, removePathForcibly, createDirectoryIfMissing)
 import System.FilePath ((</>), takeDirectory)
 import System.Info.Extra (isWindows)

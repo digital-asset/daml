@@ -14,10 +14,10 @@ module DA.Daml.LF.Ast.Subst
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.FreeVars
-import qualified DA.Daml.LF.Ast.Type as Type
+import DA.Daml.LF.Ast.Type qualified as Type
 
 import Control.Arrow (second)
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 
 data Subst = Subst
     { substTypes :: !(Map.Map TypeVarName Type)

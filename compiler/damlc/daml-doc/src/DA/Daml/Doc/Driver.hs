@@ -35,13 +35,13 @@ import System.Exit
 import System.Directory
 import System.FilePath
 
-import qualified Data.Aeson as AE
-import qualified Data.Aeson.Encode.Pretty as AP
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.HashMap.Strict as HMS
-import qualified Data.Text.Encoding as T
-import qualified Data.Text.Extended as T
+import Data.Aeson qualified as AE
+import Data.Aeson.Encode.Pretty qualified as AP
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as LBS
+import Data.HashMap.Strict qualified as HMS
+import Data.Text.Encoding qualified as T
+import Data.Text.Extended qualified as T
 
 data DamldocOptions = DamldocOptions
     { do_inputFormat :: InputFormat

@@ -10,10 +10,10 @@ module DA.Daml.LF.Ast.Type
   ) where
 
 import           Data.Bifunctor
-import qualified Data.HashSet as HS
-import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
-import qualified Data.Text as T
+import Data.HashSet qualified as HS
+import Data.Map.Strict qualified as Map
+import Data.Set qualified as Set
+import Data.Text qualified as T
 import Data.List
 import           Safe (findJust)
 

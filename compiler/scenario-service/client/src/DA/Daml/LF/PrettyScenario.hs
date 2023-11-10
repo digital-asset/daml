@@ -28,8 +28,8 @@ module DA.Daml.LF.PrettyScenario
 import           Control.Monad.Extra
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Except
-import qualified DA.Daml.LF.Ast             as LF
-import qualified DA.Daml.LF.Ast.Pretty      as LF
+import DA.Daml.LF.Ast qualified             as LF
+import DA.Daml.LF.Ast.Pretty qualified      as LF
 import DA.Daml.LF.Mangling
 import Control.Applicative
 import Text.Read hiding (parens)
@@ -39,21 +39,21 @@ import           Data.Int
 import Data.List
 import Data.List.Extra (unsnoc)
 import Data.Maybe
-import qualified Data.NameMap               as NM
-import qualified Data.Map.Strict            as MS
-import qualified Data.Ratio                 as Ratio
-import qualified Data.Set                   as S
-import qualified Data.Text                  as T
-import qualified Data.Text.Extended         as TE
-import qualified Data.Text.Lazy             as TL
-import qualified Data.Time.Clock.POSIX      as CP
-import qualified Data.Time.Format           as TF
-import qualified Data.Vector                as V
-import qualified Network.URI.Encode
+import Data.NameMap qualified               as NM
+import Data.Map.Strict qualified            as MS
+import Data.Ratio qualified                 as Ratio
+import Data.Set qualified                   as S
+import Data.Text qualified                  as T
+import Data.Text.Extended qualified         as TE
+import Data.Text.Lazy qualified             as TL
+import Data.Time.Clock.POSIX qualified      as CP
+import Data.Time.Format qualified           as TF
+import Data.Vector qualified                as V
+import Network.URI.Encode qualified
 import           ScenarioService
-import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
-import qualified Text.Blaze.Html.Renderer.Text as Blaze
+import Text.Blaze.Html5 qualified as H
+import Text.Blaze.Html5.Attributes qualified as A
+import Text.Blaze.Html.Renderer.Text qualified as Blaze
 
 data Error = ErrorMissingNode NodeId
 type M = ExceptT Error (Reader (MS.Map NodeId Node, LF.World))

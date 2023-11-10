@@ -18,10 +18,10 @@ module Development.IDE.Core.Service.Daml(
 import Control.Concurrent.Extra
 import Control.Monad
 import Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict qualified as HashMap
 import Data.HashSet (HashSet)
-import qualified Data.HashSet as HashSet
-import qualified Data.Text as T
+import Data.HashSet qualified as HashSet
+import Data.Text qualified as T
 import Data.Tuple.Extra
 import Development.Shake
 
@@ -29,7 +29,7 @@ import Development.IDE.Types.Logger
 import Development.IDE.Core.Debouncer
 import Development.IDE.Core.Service hiding (initialise)
 import Development.IDE.Core.FileStore
-import qualified Development.IDE.Core.Service as IDE
+import Development.IDE.Core.Service qualified as IDE
 import Development.IDE.Core.OfInterest
 import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Shake
@@ -37,8 +37,8 @@ import Development.IDE.Types.Location
 import Development.IDE.Types.Options
 
 import DA.Daml.Options.Types
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.ScenarioServiceClient as SS
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.ScenarioServiceClient qualified as SS
 import DA.Pretty (PrettyLevel)
 
 data DamlEnv = DamlEnv

@@ -9,11 +9,11 @@ module DA.Daml.LF.Proto3.Decode
 import Com.Daml.DamlLfDev.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
 import DA.Daml.LF.Ast (Package, PackageId, PackageRef, packageLfVersion, Version (..), versionMinor, MajorVersion(V2))
 import DA.Daml.LF.Proto3.Error
-import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
-import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
-import qualified Com.Daml.DamlLfDev.DamlLf2 as LF2
+import DA.Daml.LF.Proto3.DecodeV1 qualified as DecodeV1
+import Com.Daml.DamlLfDev.DamlLf1 qualified as LF1
+import Com.Daml.DamlLfDev.DamlLf2 qualified as LF2
 import Proto3.Suite (toLazyByteString, fromByteString)
-import qualified Data.ByteString.Lazy as BL
+import Data.ByteString.Lazy qualified as BL
 import Proto3.Wire.Decode (ParseError)
 import Data.Bifunctor (first)
 

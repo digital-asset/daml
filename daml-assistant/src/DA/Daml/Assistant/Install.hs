@@ -17,8 +17,8 @@ module DA.Daml.Assistant.Install
 import DA.Directory
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
-import qualified DA.Daml.Assistant.Install.Artifactory as Artifactory
-import qualified DA.Daml.Assistant.Install.Github as Github
+import DA.Daml.Assistant.Install.Artifactory qualified as Artifactory
+import DA.Daml.Assistant.Install.Github qualified as Github
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
 import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion, UseCache (..))
@@ -28,14 +28,14 @@ import DA.Daml.Project.Config
 import Safe
 import Data.List
 import Conduit
-import qualified Data.Conduit.List as List
-import qualified Data.Conduit.Tar.Extra as Tar
-import qualified Data.Conduit.Zlib as Zlib
+import Data.Conduit.List qualified as List
+import Data.Conduit.Tar.Extra qualified as Tar
+import Data.Conduit.Zlib qualified as Zlib
 import Data.Either.Extra
-import qualified Data.SemVer as SemVer
+import Data.SemVer qualified as SemVer
 import Network.HTTP.Simple
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.UTF8 as BS.UTF8
+import Data.ByteString qualified as BS
+import Data.ByteString.UTF8 qualified as BS.UTF8
 import System.Environment
 import System.Exit
 import System.IO

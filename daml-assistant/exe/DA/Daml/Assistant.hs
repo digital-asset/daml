@@ -7,9 +7,9 @@ module DA.Daml.Assistant
     ) where
 
 import DA.Signals
-import qualified DA.Service.Logger as L
-import qualified DA.Service.Logger.Impl.Pure as L
-import qualified DA.Service.Logger.Impl.GCP as L
+import DA.Service.Logger qualified as L
+import DA.Service.Logger.Impl.Pure qualified as L
+import DA.Service.Logger.Impl.GCP qualified as L
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts (sdkVersionEnvVar)
 import DA.Daml.Assistant.Types
@@ -26,15 +26,15 @@ import System.Process.Typed
 import System.Exit
 import System.IO
 import Control.Exception.Safe
-import qualified Data.Aeson as A
-import qualified Data.Aeson.Key as A
-import qualified Data.Aeson.KeyMap as A
+import Data.Aeson qualified as A
+import Data.Aeson.Key qualified as A
+import Data.Aeson.KeyMap qualified as A
 import Data.Char
 import Data.Maybe
 import Data.List.Extra
 import Data.Either.Extra
-import qualified Data.Set as S
-import qualified Data.Text as T
+import Data.Set qualified as S
+import Data.Text qualified as T
 import Control.Monad.Extra
 import Safe
 

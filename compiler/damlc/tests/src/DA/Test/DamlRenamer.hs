@@ -18,8 +18,8 @@ import System.IO.Extra (withTempDir)
 import System.Process (readProcessWithExitCode)
 import Test.Tasty.Golden (goldenVsStringDiff)
 
-import qualified Data.ByteString.Lazy as BSL
-import qualified Test.Tasty.Extended as Tasty
+import Data.ByteString.Lazy qualified as BSL
+import Test.Tasty.Extended qualified as Tasty
 
 main :: IO ()
 main = do

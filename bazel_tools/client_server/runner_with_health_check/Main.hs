@@ -11,7 +11,7 @@ import System.Process.Typed
 import Data.List.Split (splitOn)
 import Control.Monad (guard, when)
 import Network.HTTP.Client (parseUrlThrow)
-import qualified Network.HTTP.Simple as HTTP
+import Network.HTTP.Simple qualified as HTTP
 import Control.Concurrent
 import System.Info.Extra
 import System.Process (terminateProcess)

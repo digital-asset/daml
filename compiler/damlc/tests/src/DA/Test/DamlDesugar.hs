@@ -10,7 +10,7 @@ import DA.Daml.Desugar.Tests (mkTestTree)
 import System.Environment.Blank (setEnv)
 import System.FilePath ((</>))
 
-import qualified Test.Tasty.Extended as Tasty
+import Test.Tasty.Extended qualified as Tasty
 
 main :: IO ()
 main = do

@@ -4,11 +4,11 @@
 module WithOracle (withOracle) where
 
 import Control.Exception.Safe
-import qualified Data.UUID as UUID
+import Data.UUID qualified as UUID
 import Data.UUID.V4
 import Data.Text (Text)
 import Data.Maybe
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Network.Socket
 import System.Environment.Blank
 import System.IO.Extra

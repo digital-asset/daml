@@ -5,10 +5,10 @@ module Main
     ( main
     ) where
 
-import qualified Data.ByteString as BS
-import qualified Data.Map.Strict as MS
+import Data.ByteString qualified as BS
+import Data.Map.Strict qualified as MS
 import Options.Applicative
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Data.Text.Extended (writeFileUtf8)
 
 import DA.Daml.LF.Ast

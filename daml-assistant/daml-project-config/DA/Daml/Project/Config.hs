@@ -26,10 +26,10 @@ module DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import DA.Daml.Project.Util
-import qualified Data.Aeson.Key as A
-import qualified Data.Text as T
+import Data.Aeson.Key qualified as A
+import Data.Text qualified as T
 import Data.Text (Text)
-import qualified Data.Yaml as Y
+import Data.Yaml qualified as Y
 import Data.Yaml ((.:?))
 import Data.Either.Extra
 import Data.Foldable

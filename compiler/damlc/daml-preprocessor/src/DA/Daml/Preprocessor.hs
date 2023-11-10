@@ -9,33 +9,33 @@ module DA.Daml.Preprocessor
   , isInternal
   ) where
 
-import qualified DA.Daml.LF.Ast as LF (PackageName (..), MajorVersion)
+import DA.Daml.LF.Ast qualified as LF (PackageName (..), MajorVersion)
 import           DA.Daml.Preprocessor.Records
 import           DA.Daml.Preprocessor.EnumType
 import           DA.Daml.StablePackages (stablePackageByModuleName)
 import           DA.Daml.UtilGHC (convertModuleName)
 
 import Development.IDE.Types.Options
-import qualified "ghc-lib" GHC
-import qualified "ghc-lib-parser" Bag as GHC
-import qualified "ghc-lib-parser" EnumSet as ES
-import qualified "ghc-lib-parser" SrcLoc as GHC
-import qualified "ghc-lib-parser" Module as GHC
-import qualified "ghc-lib-parser" RdrName as GHC
-import qualified "ghc-lib-parser" OccName as GHC
-import qualified "ghc-lib-parser" FastString as GHC
-import qualified "ghc-lib-parser" GHC.LanguageExtensions.Type as GHC
+import "ghc-lib" GHC qualified
+import "ghc-lib-parser" Bag qualified as GHC
+import "ghc-lib-parser" EnumSet qualified as ES
+import "ghc-lib-parser" SrcLoc qualified as GHC
+import "ghc-lib-parser" Module qualified as GHC
+import "ghc-lib-parser" RdrName qualified as GHC
+import "ghc-lib-parser" OccName qualified as GHC
+import "ghc-lib-parser" FastString qualified as GHC
+import "ghc-lib-parser" GHC.LanguageExtensions.Type qualified as GHC
 import Outputable
 
 import           Data.List.NonEmpty (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty as NE
+import Data.List.NonEmpty qualified as NE
 import           Data.List.Extra
 import           Data.Maybe
-import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
+import Data.Map.Strict qualified as Map
+import Data.Set qualified as Set
 import           System.FilePath (splitDirectories)
 
-import qualified Data.Generics.Uniplate.Data as Uniplate
+import Data.Generics.Uniplate.Data qualified as Uniplate
 
 
 isInternal :: GHC.ModuleName -> Bool

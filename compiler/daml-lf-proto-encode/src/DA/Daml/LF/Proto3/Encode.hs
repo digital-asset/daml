@@ -5,14 +5,14 @@ module DA.Daml.LF.Proto3.Encode
   ( encodePayload
   ) where
 
-import qualified Data.Text.Lazy as TL
+import Data.Text.Lazy qualified as TL
 import Com.Daml.DamlLfDev.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
-import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
-import qualified Com.Daml.DamlLfDev.DamlLf2 as LF2
+import Com.Daml.DamlLfDev.DamlLf1 qualified as LF1
+import Com.Daml.DamlLfDev.DamlLf2 qualified as LF2
 import DA.Daml.LF.Ast
-import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
+import DA.Daml.LF.Proto3.EncodeV1 qualified as EncodeV1
 import Proto3.Suite (toLazyByteString, fromByteString)
-import qualified Data.ByteString.Lazy as BL
+import Data.ByteString.Lazy qualified as BL
 import Data.Either (fromRight)
 
 encodePayload :: Package -> ArchivePayload

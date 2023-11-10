@@ -6,8 +6,8 @@ module DA.Daml.Assistant.QuickstartTests (main) where
 
 import Conduit hiding (connect)
 import Control.Concurrent
-import qualified Data.ByteString.Lazy.Char8 as LBS8
-import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
+import Data.ByteString.Lazy.Char8 qualified as LBS8
+import Data.Conduit.Tar.Extra qualified as Tar.Conduit.Extra
 import Data.List.Extra
 import Data.Maybe (maybeToList)
 import Network.HTTP.Client

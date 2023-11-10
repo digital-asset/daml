@@ -17,22 +17,22 @@ import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types
-import qualified Data.Text.Lazy as TL
+import Data.Text.Lazy qualified as TL
 import Network.GRPC.HighLevel.Generated
-import qualified Com.Daml.Ledger.Api.V1.Admin.MeteringReportService as LL
+import Com.Daml.Ledger.Api.V1.Admin.MeteringReportService qualified as LL
 import Data.Maybe (maybeToList)
-import qualified Data.Time.Clock.System as System
-import qualified Data.Time.Format.ISO8601 as ISO8601
+import Data.Time.Clock.System qualified as System
+import Data.Time.Format.ISO8601 qualified as ISO8601
 import GHC.Int (Int64)
 import GHC.Word (Word32)
 import Data.Time.Calendar (Day(..))
 import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
-import qualified Data.Aeson as A
-import qualified Data.Aeson.KeyMap as A
-import qualified Data.Aeson.Key as A
-import qualified Google.Protobuf.Struct as S
-import qualified Data.Map as Map
-import qualified Data.Scientific as Scientific
+import Data.Aeson qualified as A
+import Data.Aeson.KeyMap qualified as A
+import Data.Aeson.Key qualified as A
+import Google.Protobuf.Struct qualified as S
+import Data.Map qualified as Map
+import Data.Scientific qualified as Scientific
 
 data MeteringRequestByDay = MeteringRequestByDay {
   from :: Day

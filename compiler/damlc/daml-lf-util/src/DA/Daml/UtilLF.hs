@@ -11,8 +11,8 @@ module DA.Daml.UtilLF (
 import           DA.Daml.LF.Ast
 import           DA.Pretty (renderPretty)
 
-import qualified Data.NameMap               as NM
-import qualified Data.Text                  as T
+import Data.NameMap qualified               as NM
+import Data.Text qualified                  as T
 import           GHC.Stack                  (HasCallStack)
 import Language.LSP.Types
 import           Outputable (Outputable(..), text)

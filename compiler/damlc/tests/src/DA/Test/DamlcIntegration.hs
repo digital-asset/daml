@@ -31,21 +31,21 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           DA.Daml.LF.PrettyScenario (prettyScenarioError, prettyScenarioResult)
 import           DA.Daml.LF.Proto3.EncodeV1
-import qualified DA.Daml.LF.Proto3.Archive.Encode as Archive
+import DA.Daml.LF.Proto3.Archive.Encode qualified as Archive
 import           DA.Pretty hiding (first)
-import qualified DA.Daml.LF.ScenarioServiceClient as SS
-import qualified DA.Service.Logger as Logger
-import qualified DA.Service.Logger.Impl.IO as Logger
+import DA.Daml.LF.ScenarioServiceClient qualified as SS
+import DA.Service.Logger qualified as Logger
+import DA.Service.Logger.Impl.IO qualified as Logger
 import Development.IDE.Core.Compile
 import Development.IDE.Core.Debouncer
 import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..))
-import qualified Development.IDE.Types.Logger as IdeLogger
+import Development.IDE.Types.Logger qualified as IdeLogger
 import Development.IDE.Types.Location
-import qualified Data.Aeson.Encode.Pretty as A
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy.Char8 as BSL
+import Data.Aeson.Encode.Pretty qualified as A
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy.Char8 qualified as BSL
 import           Data.Char
-import qualified Data.DList as DList
+import Data.DList qualified as DList
 import           Data.Either.Extra (eitherToMaybe)
 import Data.Foldable
 import           Data.List.Extra
@@ -62,28 +62,28 @@ import           System.IO
 import           System.IO.Extra
 import           System.Info.Extra (isWindows)
 import           Text.Read
-import qualified Data.Map.Strict as MS
-import qualified Data.HashMap.Strict as HashMap
-import qualified Data.HashSet as HashSet
-import qualified Data.Set as S
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
-import qualified Data.Vector as V
+import Data.Map.Strict qualified as MS
+import Data.HashMap.Strict qualified as HashMap
+import Data.HashSet qualified as HashSet
+import Data.Set qualified as S
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as TE
+import Data.Vector qualified as V
 import           System.Time.Extra
 import Development.IDE.Core.API
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.RuleTypes.Daml (VirtualResource (..))
-import qualified Development.IDE.Types.Diagnostics as D
+import Development.IDE.Types.Diagnostics qualified as D
 import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
-import qualified GHC
+import GHC qualified
 import Options.Applicative (execParser, forwardOptions, info, many, strArgument)
 import Outputable (ppr, showSDoc)
-import qualified Proto3.Suite.JSONPB as JSONPB
+import Proto3.Suite.JSONPB qualified as JSONPB
 
 import Test.Tasty
 import Test.Tasty.Golden (goldenVsStringDiff)
-import qualified Test.Tasty.HUnit as HUnit
+import Test.Tasty.HUnit qualified as HUnit
 import Test.Tasty.HUnit ((@?=))
 import Test.Tasty.Options
 import Test.Tasty.Providers

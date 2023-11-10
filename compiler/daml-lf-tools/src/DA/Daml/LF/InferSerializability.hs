@@ -6,9 +6,9 @@ module DA.Daml.LF.InferSerializability
   ) where
 
 import           Control.Monad.Error.Class
-import qualified Data.HashMap.Strict as HMS
-import qualified Data.HashSet as HS
-import qualified Data.NameMap as NM
+import Data.HashMap.Strict qualified as HMS
+import Data.HashSet qualified as HS
+import Data.NameMap qualified as NM
 import           Data.Semigroup.FixedPoint (leastFixedPointBy)
 
 import DA.Daml.LF.Ast

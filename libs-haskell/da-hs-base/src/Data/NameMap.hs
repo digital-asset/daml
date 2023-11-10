@@ -52,7 +52,7 @@ module Data.NameMap
   ) where
 
 import Prelude hiding (lookup, map, traverse, null)
-import qualified Prelude
+import Prelude qualified
 
 import           Control.DeepSeq
 import           Control.Monad (void)
@@ -62,8 +62,8 @@ import           Data.Data
 import           Data.Foldable hiding (toList, null)
 import           Data.Function (on)
 import           Data.Hashable
-import qualified Data.HashMap.Strict as HMS
-import qualified Data.HashSet as HS
+import Data.HashMap.Strict qualified as HMS
+import Data.HashSet qualified as HS
 import           Data.Kind (Type)
 import           GHC.Generics
 import           GHC.Stack (HasCallStack)

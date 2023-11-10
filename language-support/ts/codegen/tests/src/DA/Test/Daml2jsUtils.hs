@@ -10,13 +10,13 @@ module DA.Test.Daml2jsUtils (
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
-import qualified Data.Text.Extended as T
-import qualified Data.ByteString.Lazy as BSL
+import Data.Text.Extended qualified as T
+import Data.ByteString.Lazy qualified as BSL
 import Control.Monad
 import DA.Bazel.Runfiles
 import DA.Directory
 import Data.Aeson
-import qualified Data.Aeson.Key as Aeson
+import Data.Aeson.Key qualified as Aeson
 import System.FilePath
 
 data TsLibrary

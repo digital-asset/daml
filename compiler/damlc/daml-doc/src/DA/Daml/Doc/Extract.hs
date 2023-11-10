@@ -23,15 +23,15 @@ import DA.Daml.Doc.Extract.TypeExpr
 
 import DA.Daml.Options.Types
 
-import qualified DA.Service.Logger.Impl.Pure as Logger
+import DA.Service.Logger.Impl.Pure qualified as Logger
 
 import Development.IDE.Core.IdeState.Daml
-import qualified Development.IDE.Core.Service as Service
-import qualified Development.IDE.Core.Shake as Service
-import qualified Development.IDE.Core.Rules     as Service
-import qualified Development.IDE.Core.Rules.Daml as Service
-import qualified Development.IDE.Core.RuleTypes.Daml as Service
-import qualified Development.IDE.Core.OfInterest as Service
+import Development.IDE.Core.Service qualified as Service
+import Development.IDE.Core.Shake qualified as Service
+import Development.IDE.Core.Rules qualified     as Service
+import Development.IDE.Core.Rules.Daml qualified as Service
+import Development.IDE.Core.RuleTypes.Daml qualified as Service
+import Development.IDE.Core.OfInterest qualified as Service
 import Development.IDE.Types.Location
 
 import "ghc-lib" GHC
@@ -47,13 +47,13 @@ import "ghc-lib-parser" RdrName (rdrNameOcc)
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe
-import qualified Data.HashSet as HashSet
+import Data.HashSet qualified as HashSet
 import Data.List.Extra
 import Data.List.Extended (spanMaybe)
 import Data.Maybe
-import qualified Data.Map.Strict as MS
-import qualified Data.Set as Set
-import qualified Data.Text as T
+import Data.Map.Strict qualified as MS
+import Data.Set qualified as Set
+import Data.Text qualified as T
 
 -- | Extract documentation in a dependency graph of modules.
 extractDocs ::

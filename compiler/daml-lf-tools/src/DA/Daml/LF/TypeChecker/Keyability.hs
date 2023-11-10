@@ -17,9 +17,9 @@ import Control.Lens (matching, toListOf)
 import Control.Monad.Extra
 import Data.Foldable (for_)
 import Data.Semigroup.FixedPoint (leastFixedPointBy)
-import qualified Data.HashSet as HS
-import qualified Data.NameMap as NM
-import qualified Data.HashMap.Strict as HMS
+import Data.HashSet qualified as HS
+import Data.NameMap qualified as NM
+import Data.HashMap.Strict qualified as HMS
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics (_PRSelfModule, dataConsType)

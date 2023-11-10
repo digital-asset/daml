@@ -17,7 +17,7 @@ import Test.Tasty.HUnit
 import SdkVersion
 import DA.Daml.LF.Ast.Version
 import Text.Regex.TDFA
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Data.Maybe (fromMaybe)
 
 main :: IO ()

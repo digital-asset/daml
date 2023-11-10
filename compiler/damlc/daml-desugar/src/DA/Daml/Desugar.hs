@@ -14,13 +14,13 @@ import Development.IDE.Core.Shake (use_)
 import Development.IDE.GHC.Util (hscEnv)
 import Development.IDE.Types.Location (toNormalizedFilePath')
 
-import qualified Data.HashSet as HashSet
-import qualified Data.Text as T
+import Data.HashSet qualified as HashSet
+import Data.Text qualified as T
 
 import "ghc-lib" GHC (pm_parsed_source)
 import "ghc-lib-parser" HscTypes (hsc_dflags)
 
-import qualified "ghc-lib-parser" Outputable as GHC
+import "ghc-lib-parser" Outputable qualified as GHC
 
 desugar :: Options -> FilePath -> IO Text
 desugar opts inputFile = do

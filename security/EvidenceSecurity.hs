@@ -13,11 +13,11 @@ import System.Exit (exitWith,ExitCode(ExitFailure))
 import System.FilePath (splitPath)
 import System.IO.Extra (hPutStrLn,stderr)
 import Text.Megaparsec (Parsec,runParser,errorBundlePretty,eof,takeWhileP,single,label,satisfy,noneOf,chunk,(<|>),some)
-import qualified Text.Megaparsec.Char (space)
-import qualified Data.Char as Char (isDigit,digitToInt)
-import qualified Data.Map as Map (fromList,toList)
-import qualified Data.Text as T (pack,unpack)
-import qualified Data.Text.IO as T (getContents)
+import Text.Megaparsec.Char qualified (space)
+import Data.Char qualified as Char (isDigit,digitToInt)
+import Data.Map qualified as Map (fromList,toList)
+import Data.Text qualified as T (pack,unpack)
+import Data.Text.IO qualified as T (getContents)
 
 {-
 Generate _security evidence_ by documenting _security_ test cases.

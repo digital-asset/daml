@@ -13,8 +13,8 @@ module DA.Daml.Doc.Extract.Types
 
 import DA.Daml.Doc.Types
 
-import qualified Data.Map.Strict as MS
-import qualified Data.Set as Set
+import Data.Map.Strict qualified as MS
+import Data.Set qualified as Set
 import "ghc-lib" GHC
 
 -- | Options that affect doc extraction.

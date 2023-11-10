@@ -5,7 +5,7 @@
 module Orphans.Lib_pretty() where
 
 import Data.Int
-import qualified Data.Text as T
+import Data.Text qualified as T
 import           Text.PrettyPrint.Annotated.HughesPJClass
 
 instance Pretty T.Text where

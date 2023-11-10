@@ -8,7 +8,7 @@ module DA.Test.IncrementalBuilds (main) where
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import Data.Foldable
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import Data.Traversable
 import System.Directory.Extra
 import System.FilePath

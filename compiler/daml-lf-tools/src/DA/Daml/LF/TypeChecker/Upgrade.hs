@@ -15,9 +15,9 @@ import           Data.Functor.Foldable (cata)
 import           Data.Foldable (fold)
 import           Data.Data
 import           Data.Hashable
-import qualified Data.HashMap.Strict as HMS
-import qualified Data.NameMap as NM
-import qualified Data.Text as T
+import Data.HashMap.Strict qualified as HMS
+import Data.NameMap qualified as NM
+import Data.Text qualified as T
 import           Development.IDE.Types.Diagnostics
 import           GHC.Generics (Generic)
 

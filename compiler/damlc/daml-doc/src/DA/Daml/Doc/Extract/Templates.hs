@@ -16,11 +16,11 @@ import DA.Daml.Doc.Extract.Util
 import DA.Daml.Doc.Extract.TypeExpr
 
 import Control.Applicative ((<|>))
-import qualified Data.Map.Strict as MS
+import Data.Map.Strict qualified as MS
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Tuple.Extra (second)
-import qualified Data.Set as Set
-import qualified Data.Text as T
+import Data.Set qualified as Set
+import Data.Text qualified as T
 
 import "ghc-lib" GHC
 import "ghc-lib-parser" Bag (bagToList)

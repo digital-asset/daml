@@ -16,7 +16,7 @@ import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
-import qualified Com.Daml.Ledger.Api.V1.CommandService as LL
+import Com.Daml.Ledger.Api.V1.CommandService qualified as LL
 
 submitAndWait :: Commands -> LedgerService (Either String ())
 submitAndWait commands =

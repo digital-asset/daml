@@ -12,8 +12,8 @@ import           DA.Daml.LFConversion.ConvertM
 import           DA.Daml.LF.Ast
 import           DA.Daml.UtilLF
 import           DA.Pretty (renderPretty)
-import qualified Data.Text as T
-import qualified Data.List as L
+import Data.Text qualified as T
+import Data.List qualified as L
 
 convertPrim :: Version -> String -> Type -> ConvertM Expr
 -- Update

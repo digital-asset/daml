@@ -22,16 +22,16 @@ import "ghc-lib-parser" Class as GHC
 
 import Data.Generics.Uniplate.Data
 import Data.Maybe
-import qualified Data.ByteString as BS
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
+import Data.ByteString qualified as BS
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as T
 import Control.Exception
 import GHC.Ptr(Ptr(..))
 import System.IO.Unsafe
 import Text.Read (readMaybe)
 import Control.Monad (guard)
-import qualified Data.Map.Strict as MS
-import qualified DA.Daml.LF.Ast as LF
+import Data.Map.Strict qualified as MS
+import DA.Daml.LF.Ast qualified as LF
 
 ----------------------------------------------------------------------
 -- GHC utility functions

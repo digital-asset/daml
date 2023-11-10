@@ -4,12 +4,12 @@
 module DA.Daml.LF.PrettyScenarioSpec (main) where
 
 import DA.Daml.LF.PrettyScenario
-import qualified ScenarioService as S
+import ScenarioService qualified as S
 
 import Control.Monad.State.Strict
 import Data.Bifunctor
-import qualified Data.Text.Lazy as TL
-import qualified Data.Vector as V
+import Data.Text.Lazy qualified as TL
+import Data.Vector qualified as V
 import Test.Tasty
 import Test.Tasty.HUnit
 

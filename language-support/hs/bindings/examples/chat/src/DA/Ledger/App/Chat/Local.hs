@@ -14,7 +14,7 @@ import DA.Ledger.App.Chat.Domain (Party,Introduce(..),Message(..),Broadcast(..))
 import Data.List ((\\))
 import Data.Text.Lazy (Text)
 import Data.Text.Lazy as Text (unpack)
-import qualified DA.Ledger.App.Chat.Contracts as C
+import DA.Ledger.App.Chat.Contracts qualified as C
 
 -- user commands, to be interpreted w.r.t the local state
 

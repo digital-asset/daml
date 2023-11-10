@@ -9,9 +9,9 @@ module DA.Daml.StablePackages
     ) where
 
 import Data.Bifunctor
-import qualified Data.Map.Strict as MS
-import qualified Data.NameMap as NM
-import qualified Data.Text as T
+import Data.Map.Strict qualified as MS
+import Data.NameMap qualified as NM
+import Data.Text qualified as T
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Proto3.Archive.Encode

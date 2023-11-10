@@ -8,19 +8,19 @@ module DA.Daml.Compiler.DecodeDar
   , decodeDalf
   ) where
 
-import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
+import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
 import Data.Either.Combinators
 import Data.Set (Set)
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import "ghc-lib-parser" Module (UnitId)
 
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.ExtractDar (ExtractedDar(..))
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Proto3.Archive as Archive
-import qualified DA.Pretty
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.Proto3.Archive qualified as Archive
+import DA.Pretty qualified
 
 data DecodedDar = DecodedDar
     { mainDalf :: DecodedDalf

@@ -13,8 +13,8 @@ import DA.Daml.Doc.Types
 import Data.List.Extra (replace)
 import System.FilePath (pathSeparator) -- because FilePattern uses it
 import System.FilePattern ((?==))
-import qualified Data.Set as Set
-import qualified Data.Text as T
+import Data.Set qualified as Set
+import Data.Text qualified as T
 
 
 data TransformOptions = TransformOptions

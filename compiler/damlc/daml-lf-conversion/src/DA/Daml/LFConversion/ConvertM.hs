@@ -28,8 +28,8 @@ import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           Data.Data hiding (TyCon)
 import           Data.List.Extra
-import qualified Data.Map.Strict as MS
-import qualified Data.Text.Extended as T
+import Data.Map.Strict qualified as MS
+import Data.Text.Extended qualified as T
 import           "ghc-lib" GHC
 import           "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
 

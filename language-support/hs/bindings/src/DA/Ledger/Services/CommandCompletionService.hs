@@ -12,7 +12,7 @@ import DA.Ledger.LedgerService
 import DA.Ledger.Stream
 import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
-import qualified Data.Vector as Vector
+import Data.Vector qualified as Vector
 
 type Request = (LedgerId,ApplicationId,[Party],Maybe LedgerOffset)
 type Response = (Maybe Checkpoint, [Completion])

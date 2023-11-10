@@ -4,20 +4,20 @@
 module TsCodeGenMain (main) where
 
 import DA.Bazel.Runfiles (setRunfilesEnv)
-import qualified DA.Daml.LF.Proto3.Archive as Archive
-import qualified DA.Daml.LF.Reader as DAR
-import qualified DA.Pretty
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Map as Map
-import qualified Data.NameMap as NM
-import qualified Data.Set as Set
-import qualified Data.Set.Lens as Set
-import qualified Data.Text.Extended as T
-import qualified Data.Text.IO as T
-import qualified "zip-archive" Codec.Archive.Zip as Zip
+import DA.Daml.LF.Proto3.Archive qualified as Archive
+import DA.Daml.LF.Reader qualified as DAR
+import DA.Pretty qualified
+import Data.ByteString qualified as B
+import Data.ByteString.Lazy qualified as BSL
+import Data.Map qualified as Map
+import Data.NameMap qualified as NM
+import Data.Set qualified as Set
+import Data.Set.Lens qualified as Set
+import Data.Text.Extended qualified as T
+import Data.Text.IO qualified as T
+import "zip-archive" Codec.Archive.Zip qualified as Zip
 import Data.Aeson hiding (Options)
-import qualified Data.Aeson.Key as Aeson
+import Data.Aeson.Key qualified as Aeson
 import Data.Aeson.Encode.Pretty
 
 import Control.Exception
@@ -39,7 +39,7 @@ import System.FilePath hiding ((<.>))
 
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
-import qualified DA.Daml.Project.Types as DATypes
+import DA.Daml.Project.Types qualified as DATypes
 
 -- Version of the "@mojotech/json-type-validation" library we're using.
 jtvVersion :: T.Text

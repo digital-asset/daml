@@ -16,7 +16,7 @@ module DA.Daml.Package.Config
     , checkPkgConfig
     ) where
 
-import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
@@ -24,17 +24,17 @@ import DA.Daml.Project.Types
 import Control.Exception.Safe (throwIO)
 import Control.Monad (when)
 import Control.Monad.Extra (loopM)
-import qualified Data.Aeson as A
-import qualified Data.Aeson.Key as A
-import qualified Data.Aeson.Encoding as A
+import Data.Aeson qualified as A
+import Data.Aeson.Key qualified as A
+import Data.Aeson.Encoding qualified as A
 import Data.List (elemIndex)
 import Data.List.Extra (nubOrd)
 import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe)
-import qualified Data.Text as T
-import qualified Data.Yaml as Y
-import qualified Module as Ghc
+import Data.Text qualified as T
+import Data.Yaml qualified as Y
+import Module qualified as Ghc
 import System.Directory (canonicalizePath, doesFileExist, withCurrentDirectory)
 import System.FilePath (takeDirectory, (</>))
 import System.IO (hPutStrLn, stderr)

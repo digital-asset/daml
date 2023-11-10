@@ -12,10 +12,10 @@ import Data.Bits
 import Data.Char
 import Data.Coerce
 import Data.Either.Combinators
-import qualified Data.Text as T
-import qualified Data.Text.Array as TA
-import qualified Data.Text.Internal as T (text)
-import qualified Data.Text.Read as T
+import Data.Text qualified as T
+import Data.Text.Array qualified as TA
+import Data.Text.Internal qualified as T (text)
+import Data.Text.Read qualified as T
 import Data.Word
 
 -- Daml-LF talks about *identifier* to build up different kind of

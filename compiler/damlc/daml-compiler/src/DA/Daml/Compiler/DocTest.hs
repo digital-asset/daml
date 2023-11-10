@@ -6,14 +6,14 @@ module DA.Daml.Compiler.DocTest (docTest) where
 import Control.Monad
 import DA.Daml.Options.Types
 import DA.Daml.DocTest
-import qualified Data.HashSet as HashSet
-import qualified Data.Text.Extended as T
+import Data.HashSet qualified as HashSet
+import Data.Text.Extended qualified as T
 import Development.IDE.Core.API
 import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Shake
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
-import qualified Development.Shake as Shake
+import Development.Shake qualified as Shake
 import System.Directory
 import System.Exit
 import System.FilePath

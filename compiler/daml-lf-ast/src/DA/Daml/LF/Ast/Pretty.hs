@@ -11,15 +11,15 @@ module DA.Daml.LF.Ast.Pretty
     , (<:>)
     ) where
 
-import qualified Data.Ratio                 as Ratio
+import Data.Ratio qualified                 as Ratio
 import           Control.Lens
 import           Control.Lens.Ast   (rightSpine)
 import           Data.Maybe (maybeToList, isJust)
-import qualified Data.NameMap as NM
-import qualified Data.Set as S
-import qualified Data.Text as T
-import qualified Data.Time.Clock.POSIX      as Clock.Posix
-import qualified Data.Time.Format           as Time.Format
+import Data.NameMap qualified as NM
+import Data.Set qualified as S
+import Data.Text qualified as T
+import Data.Time.Clock.POSIX qualified      as Clock.Posix
+import Data.Time.Format qualified           as Time.Format
 import           Data.Foldable (toList)
 
 import           DA.Daml.LF.Ast.Base hiding (dataCons)

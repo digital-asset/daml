@@ -7,7 +7,7 @@
 --   falling over whenever it receives a flag it doesn't recognize.
 module DA.Cli.Args (lax) where
 
-import qualified Options.Applicative as Op
+import Options.Applicative qualified as Op
 import Options.Applicative hiding (customExecParser, execParser)
 import Options.Applicative.Internal
 import Options.Applicative.BashCompletion

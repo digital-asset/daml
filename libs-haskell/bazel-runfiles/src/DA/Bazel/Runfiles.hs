@@ -13,7 +13,7 @@ module DA.Bazel.Runfiles
   , exe
   ) where
 
-import qualified Bazel.Runfiles
+import Bazel.Runfiles qualified
 import Control.Exception.Safe (MonadCatch, SomeException, try)
 import Control.Monad (forM_)
 import GHC.Stack

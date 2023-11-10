@@ -10,7 +10,7 @@ import System.Environment.Blank
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import qualified DA.Cli.Args as ParseArgs
+import DA.Cli.Args qualified as ParseArgs
 
 main :: IO ()
 main = do

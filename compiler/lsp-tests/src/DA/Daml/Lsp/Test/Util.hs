@@ -28,9 +28,9 @@ import Control.Lens hiding (List)
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Aeson (Result(..), fromJSON)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Language.LSP.Test hiding (message)
-import qualified Language.LSP.Test as LspTest
+import Language.LSP.Test qualified as LspTest
 import Language.LSP.Types
 import Language.LSP.Types.Lens as Lsp
 import Network.URI

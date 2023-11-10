@@ -7,9 +7,9 @@ module DA.Test.DamlDoc (main) where
 import Control.Monad ((<=<))
 import DA.Daml.Doc.Driver (ExternalAnchorPath (DefaultExternalAnchorPath), loadExternalAnchors)
 import DA.Daml.Doc.Types
-import qualified DA.Daml.Doc.Tests as Damldoc
-import qualified DA.Daml.Doc.Render.Tests as Render
-import qualified Test.Tasty.Extended as Tasty
+import DA.Daml.Doc.Tests qualified as Damldoc
+import DA.Daml.Doc.Render.Tests qualified as Render
+import Test.Tasty.Extended qualified as Tasty
 import DA.Test.DamlcIntegration (ScriptPackageData, withDamlScriptDep)
 import System.Environment.Blank
 

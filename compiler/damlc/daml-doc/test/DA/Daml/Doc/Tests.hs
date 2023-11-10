@@ -24,18 +24,18 @@ import Development.IDE.Types.Location
 
 import Control.Monad
 import           Control.Monad.Trans.Maybe
-import qualified Data.Aeson.Encode.Pretty as AP
+import Data.Aeson.Encode.Pretty qualified as AP
 import           Data.List.Extra
 import           Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import qualified Data.Text          as T
-import qualified Data.Text.Extended as T
-import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.Encoding as TL
+import Data.Map.Strict qualified as Map
+import Data.Text qualified          as T
+import Data.Text.Extended qualified as T
+import Data.Text.Lazy qualified as TL
+import Data.Text.Lazy.Encoding qualified as TL
 import           System.Directory
 import           System.FilePath
 import           System.IO.Extra
-import qualified Test.Tasty.Extended as Tasty
+import Test.Tasty.Extended qualified as Tasty
 import           Test.Tasty.Golden
 import           Test.Tasty.HUnit
 import Data.Maybe

@@ -23,9 +23,9 @@ import Control.Lens
 import Control.Lens.Ast
 import Control.Lens.MonoTraversal
 import Data.Functor.Foldable (cata, embed)
-import qualified Data.NameMap as NM
-import qualified Data.Text as T
-import qualified Data.Set as S
+import Data.NameMap qualified as NM
+import Data.Text qualified as T
+import Data.Set qualified as S
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat

@@ -10,9 +10,9 @@ import DA.Daml.Doc.Transform.Options
 
 import Data.Maybe (listToMaybe)
 
-import qualified Data.Map as Map
-import qualified Data.Set as Set
-import qualified Data.Text as T
+import Data.Map qualified as Map
+import Data.Set qualified as Set
+import Data.Text qualified as T
 
 type InstanceMap = Map.Map Anchor (Set.Set InstanceDoc)
 

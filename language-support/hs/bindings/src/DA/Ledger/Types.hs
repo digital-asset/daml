@@ -60,18 +60,18 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     IsoTime(..),
     ) where
 
-import qualified Data.Aeson as A
+import Data.Aeson qualified as A
 import Data.Fixed
 import Data.Int (Int64)
 import Data.Map (Map)
 import Data.Text.Lazy (Text)
 import Prelude hiding(Enum)
-import qualified Data.Text.Lazy as Text(unpack)
-import qualified Google.Protobuf.Duration as LL
-import qualified Google.Rpc.Status as LL
-import qualified Data.Time.Format.ISO8601 as ISO8601
-import qualified Data.Time.Clock as Clock
-import qualified Text.ParserCombinators.ReadP as ReadP
+import Data.Text.Lazy qualified as Text(unpack)
+import Google.Protobuf.Duration qualified as LL
+import Google.Rpc.Status qualified as LL
+import Data.Time.Format.ISO8601 qualified as ISO8601
+import Data.Time.Clock qualified as Clock
+import Text.ParserCombinators.ReadP qualified as ReadP
 
 -- commands.proto
 

@@ -16,7 +16,7 @@ module DA.Daml.LF.Ast.Recursive(
     ) where
 
 import Data.Functor.Foldable
-import qualified Data.Text as T
+import Data.Text qualified as T
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat

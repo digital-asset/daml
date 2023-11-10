@@ -9,13 +9,13 @@ import           DA.Daml.Doc.Types
 import           DA.Daml.Doc.Render
 
 import           Control.Monad.Except
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
+import Data.Text qualified as T
+import Data.Text.IO qualified as T
 import           Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import qualified Data.Map.Merge.Strict as Map.Merge
+import Data.Map.Strict qualified as Map
+import Data.Map.Merge.Strict qualified as Map.Merge
 
-import qualified Test.Tasty.Extended as Tasty
+import Test.Tasty.Extended qualified as Tasty
 import           Test.Tasty.HUnit
 
 

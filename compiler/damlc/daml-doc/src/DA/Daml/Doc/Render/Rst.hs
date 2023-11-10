@@ -11,12 +11,12 @@ import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Monoid
 import DA.Daml.Doc.Render.Util (escapeText, (<->))
 
-import qualified Prettyprinter as Pretty
+import Prettyprinter qualified as Pretty
 import Prettyprinter (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
 import Prettyprinter.Render.Text (renderStrict)
 
 import Data.Char
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Data.List.Extra
 
 import CMarkGFM

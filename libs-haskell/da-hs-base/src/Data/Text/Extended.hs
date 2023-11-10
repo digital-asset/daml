@@ -14,12 +14,12 @@ module Data.Text.Extended
   , writeFileUtf8
   ) where
 
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import           Data.List.NonEmpty as NE
 
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import qualified Data.Text.Encoding.Error as T
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as T
+import Data.Text.Encoding.Error qualified as T
 import           Data.Text hiding (splitOn)
 
 

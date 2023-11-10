@@ -21,9 +21,9 @@ import DA.Ledger.LedgerService
 import DA.Ledger.Stream
 import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
-import qualified Com.Daml.Ledger.Api.V1.TransactionService as LL
-import qualified Data.Map as Map
-import qualified Data.Vector as Vector
+import Com.Daml.Ledger.Api.V1.TransactionService qualified as LL
+import Data.Map qualified as Map
+import Data.Vector qualified as Vector
 
 getTransactions :: GetTransactionsRequest -> LedgerService (Stream [Transaction])
 getTransactions req =

@@ -11,7 +11,7 @@ module DA.Daml.Assistant.Types
     ) where
 
 import DA.Daml.Project.Types
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Data.Text (Text, pack, unpack)
 import Data.Maybe
 import Network.HTTP.Types.Header

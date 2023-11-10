@@ -9,11 +9,11 @@ module DA.Test.UnstableTypes (main) where
 import Data.Bifunctor
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Proto3.Archive as LFArchive
-import qualified Data.ByteString as BS
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.Proto3.Archive qualified as LFArchive
+import Data.ByteString qualified as BS
 import Data.List.Extra
-import qualified Data.NameMap as NM
+import Data.NameMap qualified as NM
 import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath
