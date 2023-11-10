@@ -28,8 +28,7 @@ import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, Interfa
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.NoLoggingValueValidator
-import com.daml.lf.language.LanguageVersionRangeOps.LanguageVersionRange
-import com.daml.lf.language.StablePackages
+import com.daml.lf.language.StablePackagesV1
 import com.daml.lf.speedy.Command
 import com.daml.lf.value.Value
 import com.daml.platform.participant.util.LfEngineToApi.{
@@ -68,12 +67,10 @@ final class Converter(
 
   private[this] val triggerIds: TriggerIds = triggerDef.triggerIds
 
-  private[this] val stablePackages = StablePackages(
-    compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
-  )
-  private[this] val templateTypeRepTyCon = stablePackages.TemplateTypeRep
-  private[this] val anyTemplateTyCon = stablePackages.AnyTemplate
-  private[this] val anyViewTyCon = stablePackages.AnyView
+  // TODO(#17366): support both LF v1 and v2 in triggers
+  private[this] val templateTypeRepTyCon = StablePackagesV1.TemplateTypeRep
+  private[this] val anyTemplateTyCon = StablePackagesV1.AnyTemplate
+  private[this] val anyViewTyCon = StablePackagesV1.AnyView
   private[this] val activeContractsTy = triggerIds.damlTriggerLowLevel("ActiveContracts")
   private[this] val triggerConfigTy = triggerIds.damlTriggerLowLevel("TriggerConfig")
   private[this] val triggerSetupArgumentsTy =

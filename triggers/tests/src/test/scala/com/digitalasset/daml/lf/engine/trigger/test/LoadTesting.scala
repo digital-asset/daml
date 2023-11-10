@@ -19,7 +19,6 @@ import com.daml.lf.engine.trigger.{
   TriggerRuleEvaluationTimeout,
   TriggerRunnerConfig,
 }
-import com.daml.lf.language.LanguageMajorVersion
 import com.daml.util.Ctx
 import org.scalatest.{Inside, TryValues}
 import org.scalatest.matchers.should.Matchers
@@ -79,10 +78,7 @@ abstract class LoadTesting
   }
 }
 
-class BaseLoadTestingV1 extends BaseLoadTesting(LanguageMajorVersion.V1)
-class BaseLoadTestingV2 extends BaseLoadTesting(LanguageMajorVersion.V2)
-
-class BaseLoadTesting(override val majorLanguageVersion: LanguageMajorVersion) extends LoadTesting {
+final class BaseLoadTesting extends LoadTesting {
 
   import AbstractTriggerTest._
 
@@ -147,11 +143,7 @@ class BaseLoadTesting(override val majorLanguageVersion: LanguageMajorVersion) e
   }
 }
 
-class InFlightLoadTestingV1 extends InFlightLoadTesting(LanguageMajorVersion.V1)
-class InFlightLoadTestingV2 extends InFlightLoadTesting(LanguageMajorVersion.V2)
-
-class InFlightLoadTesting(override val majorLanguageVersion: LanguageMajorVersion)
-    extends LoadTesting {
+final class InFlightLoadTesting extends LoadTesting {
 
   import AbstractTriggerTest._
 
@@ -199,10 +191,7 @@ class InFlightLoadTesting(override val majorLanguageVersion: LanguageMajorVersio
   }
 }
 
-class ACSLoadTestingV1 extends ACSLoadTesting(LanguageMajorVersion.V1)
-class ACSLoadTestingV2 extends ACSLoadTesting(LanguageMajorVersion.V2)
-
-class ACSLoadTesting(override val majorLanguageVersion: LanguageMajorVersion) extends LoadTesting {
+final class ACSLoadTesting extends LoadTesting {
 
   import AbstractTriggerTest._
 
@@ -264,13 +253,7 @@ class ACSLoadTesting(override val majorLanguageVersion: LanguageMajorVersion) ex
   }
 }
 
-class TriggerRuleEvaluationTimeoutTestingV1
-    extends TriggerRuleEvaluationTimeoutTesting(LanguageMajorVersion.V1)
-class TriggerRuleEvaluationTimeoutTestingV2
-    extends TriggerRuleEvaluationTimeoutTesting(LanguageMajorVersion.V2)
-
-class TriggerRuleEvaluationTimeoutTesting(override val majorLanguageVersion: LanguageMajorVersion)
-    extends LoadTesting {
+final class TriggerRuleEvaluationTimeoutTesting extends LoadTesting {
 
   import AbstractTriggerTest._
 

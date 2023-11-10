@@ -12,6 +12,7 @@ import com.daml.lf.engine.trigger.simulation.process.TriggerProcessFactory
 import com.daml.lf.engine.trigger.simulation.process.ledger.LedgerProcess
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest.allocateParty
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.{SValue, Speedy}
 import com.daml.lf.testing.parser
 import com.daml.lf.testing.parser.parseExpr
@@ -137,8 +138,9 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
   }
 
   protected def safeSValueFromLf(lfValue: String): Either[String, SValue] = {
+    // TODO(#17366): support both LF v1 and v2 in triggers
     val parserParameters: parser.ParserParameters[this.type] =
-      parser.ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = packageId)
+      parser.ParserParameters.defaultFor(LanguageMajorVersion.V1).copy(defaultPackageId = packageId)
 
     parseExpr(lfValue)(parserParameters).flatMap(expr =>
       Speedy.Machine

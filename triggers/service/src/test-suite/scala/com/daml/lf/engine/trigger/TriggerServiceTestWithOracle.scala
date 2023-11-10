@@ -3,12 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import com.daml.lf.language.LanguageMajorVersion
-
-class TriggerServiceTestWithOracleV1 extends TriggerServiceTestWithOracle(LanguageMajorVersion.V1)
-class TriggerServiceTestWithOracleV2 extends TriggerServiceTestWithOracle(LanguageMajorVersion.V2)
-
-class TriggerServiceTestWithOracle(override val majorLanguageVersion: LanguageMajorVersion)
+class TriggerServiceTestWithOracle
     extends AbstractTriggerServiceTest
     with AbstractTriggerServiceTestWithDatabase
     with TriggerDaoOracleFixture

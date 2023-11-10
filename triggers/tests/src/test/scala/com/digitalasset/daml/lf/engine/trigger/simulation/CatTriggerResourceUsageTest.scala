@@ -9,7 +9,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
-import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue
 import org.scalatest.{Inside, TryValues}
 import org.scalatest.matchers.should.Matchers
@@ -18,10 +17,7 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.ExecutionContext
 
-class CatTriggerResourceUsageTestV1 extends CatTriggerResourceUsageTest(LanguageMajorVersion.V1)
-class CatTriggerResourceUsageTestV2 extends CatTriggerResourceUsageTest(LanguageMajorVersion.V2)
-
-class CatTriggerResourceUsageTest(override val majorLanguageVersion: LanguageMajorVersion)
+class CatTriggerResourceUsageTest
     extends AsyncWordSpec
     with AbstractTriggerTest
     with Matchers
