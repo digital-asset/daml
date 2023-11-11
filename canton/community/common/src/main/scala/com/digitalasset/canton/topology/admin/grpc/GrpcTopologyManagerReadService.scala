@@ -472,7 +472,8 @@ class GrpcTopologyManagerReadService(
           val parameters =
             if (protoVersion == 0)
               Some(Result.Parameters.V0(domainParametersChange.domainParameters.toProtoV0))
-            // TODO(#12373) Adapt when releasing BFT
+            // TODO(#15152) Adapt when support for pv < 6 is dropped
+            // TODO(#15153) Adapt when support for pv=6 is dropped
             else if (protoVersion == 1 || protoVersion == 2)
               Some(Result.Parameters.V1(domainParametersChange.domainParameters.toProtoV1))
             else {

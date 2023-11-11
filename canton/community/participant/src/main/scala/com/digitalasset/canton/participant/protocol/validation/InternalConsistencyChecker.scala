@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.validation
 
 import com.daml.lf.value.Value
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.data.TransactionViewTree
+import com.digitalasset.canton.data.FullTransactionViewTree
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -37,8 +37,11 @@ class InternalConsistencyChecker(
     override val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
-  def check(rootViewTrees: NonEmpty[Seq[TransactionViewTree]], hostedParty: LfPartyId => Boolean)(
-      implicit traceContext: TraceContext
+  def check(
+      rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]],
+      hostedParty: LfPartyId => Boolean,
+  )(implicit
+      traceContext: TraceContext
   ): Either[ErrorWithInternalConsistencyCheck, Unit] = {
     for {
       _ <- checkRollbackScopes(rootViewTrees)
@@ -48,7 +51,7 @@ class InternalConsistencyChecker(
   }
 
   private def checkRollbackScopes(
-      rootViewTrees: NonEmpty[Seq[TransactionViewTree]]
+      rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]]
   ): Result[Unit] = {
     // TransactionViewDecompositionFactory prior to ProtocolVersion.v5 did not enforce this
     if (protocolVersion >= ProtocolVersion.v5) {
@@ -63,31 +66,32 @@ class InternalConsistencyChecker(
   }
 
   private def checkContractState(
-      rootViewTrees: NonEmpty[Seq[TransactionViewTree]]
+      rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]]
   )(implicit traceContext: TraceContext): Result[Unit] = {
 
     MonadUtil
-      .foldLeftM[Result, ContractState, TransactionViewTree](ContractState.empty, rootViewTrees)(
-        (previous, rootViewTree) => {
+      .foldLeftM[Result, ContractState, FullTransactionViewTree](
+        ContractState.empty,
+        rootViewTrees,
+      )((previous, rootViewTree) => {
 
-          val state = adjustRollbackScope[ContractState, Set[LfContractId]](
-            previous,
-            rootViewTree.viewParticipantData.tryUnwrap.rollbackContext.rollbackScope,
-          )
+        val state = adjustRollbackScope[ContractState, Set[LfContractId]](
+          previous,
+          rootViewTree.viewParticipantData.tryUnwrap.rollbackContext.rollbackScope,
+        )
 
-          val created = rootViewTree.view.createdContracts.keySet
-          val input = rootViewTree.view.inputContracts.keySet
-          val consumed = rootViewTree.view.consumed.keySet
+        val created = rootViewTree.view.createdContracts.keySet
+        val input = rootViewTree.view.inputContracts.keySet
+        val consumed = rootViewTree.view.consumed.keySet
 
-          val referenced = created ++ input
+        val referenced = created ++ input
 
-          for {
-            _ <- checkNotUsedBeforeCreation(state.referenced, created)
-            _ <- checkNotUsedAfterArchive(state.activeState, referenced)
-          } yield state.update(referenced = referenced, consumed = consumed)
+        for {
+          _ <- checkNotUsedBeforeCreation(state.referenced, created)
+          _ <- checkNotUsedAfterArchive(state.activeState, referenced)
+        } yield state.update(referenced = referenced, consumed = consumed)
 
-        }
-      )
+      })
       .map(_.discard)
   }
 
@@ -112,7 +116,7 @@ class InternalConsistencyChecker(
   }
 
   private def checkKeyState(
-      rootViewTrees: NonEmpty[Seq[TransactionViewTree]],
+      rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]],
       hostedParty: LfPartyId => Boolean,
   )(implicit traceContext: TraceContext): Result[Unit] = {
 
@@ -125,13 +129,13 @@ class InternalConsistencyChecker(
           }
         }
 
-      def hostedUpdatedKeys(rootViewTree: TransactionViewTree): KeyMapping =
+      def hostedUpdatedKeys(rootViewTree: FullTransactionViewTree): KeyMapping =
         rootViewTree.view.updatedKeyValues.view
           .filterKeys(hostedKeys)
           .toMap
 
       MonadUtil
-        .foldLeftM[Result, KeyState, TransactionViewTree](KeyState.empty, rootViewTrees)(
+        .foldLeftM[Result, KeyState, FullTransactionViewTree](KeyState.empty, rootViewTrees)(
           (previous, rootViewTree) => {
 
             val state = adjustRollbackScope[KeyState, KeyMapping](
@@ -355,7 +359,7 @@ object InternalConsistencyChecker {
   }
 
   def hostedGlobalKeyParties(
-      rootViewTrees: NonEmpty[Seq[TransactionViewTree]],
+      rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]],
       participantId: ParticipantId,
       topologySnapshot: TopologySnapshot,
   )(implicit

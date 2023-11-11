@@ -14,8 +14,8 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.ViewParticipantData.RootAction
 import com.digitalasset.canton.data.{
   CantonTimestamp,
+  FullTransactionViewTree,
   TransactionView,
-  TransactionViewTree,
   ViewPosition,
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -99,7 +99,7 @@ class ModelConformanceChecker(
     * @return the resulting LfTransaction with [[com.digitalasset.canton.protocol.LfContractId]]s only
     */
   def check(
-      rootViewTrees: NonEmpty[Seq[TransactionViewTree]],
+      rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]],
       keyResolverFor: TransactionView => LfKeyResolver,
       requestCounter: RequestCounter,
       topologySnapshot: TopologySnapshot,

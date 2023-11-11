@@ -115,6 +115,7 @@ object ApiServices {
       val loggerFactory: NamedLoggerFactory,
       multiDomainEnabled: Boolean,
       upgradingEnabled: Boolean,
+      dynParamGetter: DynamicDomainParameterGetter,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -395,6 +396,8 @@ object ApiServices {
               authenticateContract,
               metrics,
               loggerFactory,
+              dynParamGetter,
+              timeProvider,
             ),
             new ResolveMaximumLedgerTime(maximumLedgerTimeService, loggerFactory),
             maxRetries = 3,

@@ -352,6 +352,9 @@ class CantonSyncService(
       loggerFactory,
     )
 
+  val dynamicDomainParameterGetter =
+    new CantonDynamicDomainParameterGetter(syncCrypto, aliasManager, loggerFactory)
+
   // Submit a transaction (write service implementation)
   override def submitTransaction(
       submitterInfo: SubmitterInfo,

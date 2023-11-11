@@ -127,7 +127,7 @@ object TransferOutViewTree
       )
     )(transferOutViewTreeP)
 }
-// TODO(#12373) replace "protocol version dev" in the documentation for transferCounter
+
 /** Aggregates the data of a transfer-out request that is sent to the mediator and the involved participants.
   *
   * @param salt Salt for blinding the Merkle hash
@@ -379,6 +379,7 @@ sealed abstract class TransferOutView(hashOps: HashOps)
 
   def targetProtocolVersion: TargetProtocolVersion
 
+  // TODO(#15159) Remove the note that it is defined iff...
   /** The [[com.digitalasset.canton.TransferCounter]] of the contract.
     * The value is defined iff the protocol versions is at least
     * [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]].

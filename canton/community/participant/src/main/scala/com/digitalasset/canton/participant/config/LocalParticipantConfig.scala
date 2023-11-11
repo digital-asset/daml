@@ -477,6 +477,7 @@ object TestingTimeServiceConfig {
   * @param excludeInfrastructureTransactions If set, infrastructure transactions (i.e. ping, bong and dar distribution) will be excluded from participant metering.
   * @param enableEngineStackTraces If true, DAMLe stack traces will be enabled
   * @param enableContractUpgrading If true contracts may be automatically upgraded or downgraded as needed.
+  * @param iterationsBetweenInterruptions Number of engine iterations between forced interruptions (outside needs of information).
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -503,6 +504,8 @@ final case class ParticipantNodeParameterConfig(
     excludeInfrastructureTransactions: Boolean = true,
     enableEngineStackTraces: Boolean = false,
     enableContractUpgrading: Boolean = false,
+    iterationsBetweenInterruptions: Long =
+      10000, // 10000 is the default value in the engine configuration
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

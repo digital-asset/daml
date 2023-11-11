@@ -5,11 +5,11 @@ package com.digitalasset.canton.platform.apiserver.execution
 
 import cats.data.*
 import cats.syntax.all.*
+import com.daml.api.util.TimeProvider
 import com.daml.lf.crypto
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{
   Engine,
-  Error as DamlLfError,
   Result,
   ResultDone,
   ResultError,
@@ -51,6 +51,7 @@ import com.digitalasset.canton.protocol.{
   DriverContractMetadata,
   SerializableContract,
 }
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.util.Checked
 import scalaz.syntax.tag.*
 
@@ -70,6 +71,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
     authenticateContract: AuthenticateContract,
     metrics: Metrics,
     val loggerFactory: NamedLoggerFactory,
+    dynParamGetter: DynamicDomainParameterGetter,
+    timeProvider: TimeProvider,
 )(implicit
     ec: ExecutionContext
 ) extends CommandExecutor
@@ -93,6 +96,17 @@ private[apiserver] final class StoreBackedCommandExecutor(
       case (acc, _) => acc
     }
     for {
+      ledgerTimeRecordTimeToleranceO <- dynParamGetter
+        // TODO(i15313):
+        // We should really pass the domainId here, but it is not available within the ledger API for 2.x.
+        .getLedgerTimeRecordTimeTolerance(None)
+        .leftMap { error =>
+          logger.info(
+            s"Cannot retrieve ledgerTimeRecordTimeTolerance: $error. Command interpretation time will not be limited."
+          )
+        }
+        .value
+        .map(_.toOption)
       _ <- Future.sequence(coids.map(contractStore.lookupContractStateWithoutDivulgence))
       submissionResult <- submitToEngine(commands, submissionSeed, interpretationTimeNanos)
       submission <- consume(
@@ -101,6 +115,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
         submissionResult,
         commands.disclosedContracts.toList.map(c => c.contractId -> c).toMap,
         interpretationTimeNanos,
+        commands.commands.ledgerEffectiveTime,
+        ledgerTimeRecordTimeToleranceO,
       )
     } yield {
       submission
@@ -115,8 +131,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
             interpretationTimeNanos,
           )
         }
-        .left
-        .map(ErrorCause.DamlLf)
     }
   }
 
@@ -203,9 +217,11 @@ private[apiserver] final class StoreBackedCommandExecutor(
       result: Result[A],
       disclosedContracts: Map[ContractId, DisclosedContract],
       interpretationTimeNanos: AtomicLong,
+      ledgerEffectiveTime: Time.Timestamp,
+      ledgerTimeRecordTimeToleranceO: Option[NonNegativeFiniteDuration],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Either[DamlLfError, A]] = {
+  ): Future[Either[ErrorCause, A]] = {
     val readers = actAs ++ readAs
 
     val lookupActiveContractTime = new AtomicLong(0L)
@@ -214,11 +230,11 @@ private[apiserver] final class StoreBackedCommandExecutor(
     val lookupContractKeyTime = new AtomicLong(0L)
     val lookupContractKeyCount = new AtomicLong(0L)
 
-    def resolveStep(result: Result[A]): Future[Either[DamlLfError, A]] =
+    def resolveStep(result: Result[A]): Future[Either[ErrorCause, A]] =
       result match {
         case ResultDone(r) => Future.successful(Right(r))
 
-        case ResultError(err) => Future.successful(Left(err))
+        case ResultError(err) => Future.successful(Left(ErrorCause.DamlLf(err)))
 
         case ResultNeedContract(acoid, resume) =>
           val start = System.nanoTime
@@ -273,12 +289,45 @@ private[apiserver] final class StoreBackedCommandExecutor(
             }
 
         case ResultInterruption(continue) =>
-          resolveStep(
-            Tracked.value(
-              metrics.daml.execution.engineRunning,
-              trackSyncExecution(interpretationTimeNanos)(continue()),
+          // We want to prevent the interpretation to run indefinitely and use all the resources.
+          // For this purpose, we check the following condition:
+          //
+          //    Ledger Effective Time + skew > wall clock
+          //
+          // The skew is given by the dynamic domain parameter `ledgerTimeRecordTimeTolerance`.
+          //
+          // As defined in the "Time on Daml Ledgers" chapter of the documentation, if this condition
+          // is true, then the Record Time (assigned later on when the transaction is sequenced) is already
+          // out of bounds, and the sequencer will reject the transaction. We can therefore abort the
+          // interpretation and return an error to the application.
+          def resume(): Future[Either[ErrorCause, A]] =
+            resolveStep(
+              Tracked.value(
+                metrics.daml.execution.engineRunning,
+                trackSyncExecution(interpretationTimeNanos)(continue()),
+              )
             )
-          )
+
+          ledgerTimeRecordTimeToleranceO match {
+            // Fall back to not checking if the tolerance could not be retrieved
+            case None => resume()
+
+            case Some(ledgerTimeRecordTimeTolerance) =>
+              val let = ledgerEffectiveTime.toInstant
+              val currentTime = timeProvider.getCurrentTime
+
+              val limitExceeded =
+                currentTime.isAfter(let.plus(ledgerTimeRecordTimeTolerance.duration))
+
+              if (limitExceeded) {
+                val error: ErrorCause = ErrorCause
+                  .InterpretationTimeExceeded(
+                    ledgerEffectiveTime,
+                    ledgerTimeRecordTimeTolerance,
+                  )
+                Future.successful(Left(error))
+              } else resume()
+          }
 
         case ResultNeedAuthority(holding @ _, requesting @ _, resume) =>
           authorityResolver

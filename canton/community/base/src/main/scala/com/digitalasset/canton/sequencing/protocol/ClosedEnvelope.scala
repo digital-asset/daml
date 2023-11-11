@@ -293,7 +293,7 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
     }
   }
 
-  // TODO(#12373) Adapt comment when releasing BFT
+  // TODO(#15153) Remove comment
   /** Use only in protocol version [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]] or later */
   def verifySignatures(
       snapshot: SyncCryptoApi,
@@ -305,7 +305,7 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
     snapshot.verifySignatures(hash, sender, signatures)
   }
 
-  // TODO(#12373) Adapt comment when releasing BFT
+  // TODO(#15153) Remove comment
   /** Use only in protocol version [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]] or later */
   def verifySignatures(
       snapshot: SyncCryptoApi,

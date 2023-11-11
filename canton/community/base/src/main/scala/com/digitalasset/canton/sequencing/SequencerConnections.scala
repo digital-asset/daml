@@ -3,22 +3,14 @@
 
 package com.digitalasset.canton.sequencing
 
+import cats.syntax.either.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.domain.api.{v0, v1}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseRequiredNonEmpty}
-import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
-  HasProtocolVersionedWrapper,
-  HasRepresentativeProtocolVersion,
-  ProtoVersion,
-  ProtocolVersion,
-  ProtocolVersionedCompanionDbHelpers,
-  ReleaseProtocolVersion,
-  RepresentativeProtocolVersion,
-}
+import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{ProtoDeserializationError, SequencerAlias}
 import com.google.protobuf.ByteString
 
@@ -27,17 +19,11 @@ import java.net.URI
 final case class SequencerConnections private (
     aliasToConnection: NonEmpty[Map[SequencerAlias, SequencerConnection]],
     sequencerTrustThreshold: PositiveInt,
-)(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      SequencerConnections.type
-    ]
-) extends PrettyPrinting
-    with HasRepresentativeProtocolVersion
-    with HasProtocolVersionedWrapper[SequencerConnections] {
-
+) extends HasVersionedWrapper[SequencerConnections]
+    with PrettyPrinting {
   require(
-    sequencerTrustThreshold.unwrap <= aliasToConnection.size,
-    "sequencerTrustThreshold cannot be greater than number of sequencer connections",
+    aliasToConnection.sizeIs >= sequencerTrustThreshold.unwrap,
+    s"sequencerTrustThreshold cannot be greater than number of sequencer connections. Found threshold of $sequencerTrustThreshold and ${aliasToConnection.size} sequencer connections",
   )
 
   aliasToConnection.foreach { case (alias, connection) =>
@@ -47,24 +33,13 @@ final case class SequencerConnections private (
     )
   }
 
-  if (nonBftSetup) {
-    require(
-      aliasToConnection.sizeIs == 1,
-      "Only a single connection is supported in case of non-BFT support",
-    )
-  }
+  def default: SequencerConnection = aliasToConnection.head1._2
 
-  def default: SequencerConnection =
-    aliasToConnection.head1._2
-
-  // In case of BFT domain - multiple sequencers are required for proper functioning.
-  // Some functionalities are only available in non-bft domain.
-  def nonBftSetup: Boolean = {
-    import scala.math.Ordered.orderingToOrdered
-    representativeProtocolVersion < SequencerConnections.protocolVersionRepresentativeFor(
-      ProtocolVersion.CNTestNet
-    )
-  }
+  /** In case of BFT domain - multiple sequencers are required for proper functioning.
+    * Some functionalities are only available in non-bft domain.
+    * When nonBftSetup is false, it means that more than one sequencer connection is provided which doesn't imply a bft domain.
+    */
+  def nonBftSetup: Boolean = aliasToConnection.sizeIs == 1
 
   def connections: NonEmpty[Seq[SequencerConnection]] = aliasToConnection.map(_._2).toSeq
 
@@ -81,7 +56,7 @@ final case class SequencerConnections private (
             m(connection),
           ),
           sequencerTrustThreshold,
-        )(representativeProtocolVersion)
+        )
       }
       .getOrElse(this)
 
@@ -114,48 +89,51 @@ final case class SequencerConnections private (
 
   def toProtoV0: Seq[v0.SequencerConnection] = connections.map(_.toProtoV0)
 
-  @transient override protected lazy val companionObj: SequencerConnections.type =
-    SequencerConnections
-
   def toProtoV1: v1.SequencerConnections =
     new v1.SequencerConnections(connections.map(_.toProtoV0), sequencerTrustThreshold.unwrap)
+
+  override protected def companionObj: HasVersionedMessageCompanionCommon[SequencerConnections] =
+    SequencerConnections
 }
 
 object SequencerConnections
-    extends HasProtocolVersionedCompanion[SequencerConnections]
-    with ProtocolVersionedCompanionDbHelpers[SequencerConnections] {
+    extends HasVersionedMessageCompanion[SequencerConnections]
+    with HasVersionedMessageCompanionDbHelpers[SequencerConnections] {
+
   def single(connection: SequencerConnection): SequencerConnections =
     new SequencerConnections(
       NonEmpty.mk(Seq, (connection.sequencerAlias, connection)).toMap,
       PositiveInt.tryCreate(1),
-    )(
-      protocolVersionRepresentativeFor(ProtocolVersion.v3)
     )
 
   def many(
       connections: NonEmpty[Seq[SequencerConnection]],
       sequencerTrustThreshold: PositiveInt,
-  ): SequencerConnections = {
-    if (connections.size == 1) {
-      SequencerConnections.single(connections.head1)
+  ): Either[String, SequencerConnections] =
+    if (connections.sizeIs == 1) {
+      Right(SequencerConnections.single(connections.head1))
+    } else if (connections.map(_.sequencerAlias).toSet.sizeCompare(connections) < 0) {
+      val duplicatesAliases = connections.map(_.sequencerAlias).groupBy(identity).collect {
+        case (alias, aliases) if aliases.lengthCompare(1) > 0 => alias
+      }
+      Left(s"Non-unique sequencer aliases detected: $duplicatesAliases")
     } else
-      new SequencerConnections(
-        connections.map(conn => (conn.sequencerAlias, conn)).toMap,
-        sequencerTrustThreshold,
-      )(
-        protocolVersionRepresentativeFor(ProtocolVersion.CNTestNet)
-      )
-  }
+      Either
+        .catchOnly[IllegalArgumentException](
+          new SequencerConnections(
+            connections.map(conn => (conn.sequencerAlias, conn)).toMap,
+            sequencerTrustThreshold,
+          )
+        )
+        .leftMap(_.getMessage)
 
   def tryMany(
       connections: Seq[SequencerConnection],
       sequencerTrustThreshold: PositiveInt,
   ): SequencerConnections = {
-    require(
-      connections.map(_.sequencerAlias).toSet.size == connections.size,
-      "Non-unique sequencer aliases detected",
+    many(NonEmptyUtil.fromUnsafe(connections), sequencerTrustThreshold).valueOr(err =>
+      throw new IllegalArgumentException(err)
     )
-    many(NonEmptyUtil.fromUnsafe(connections), sequencerTrustThreshold)
   }
 
   private def fromProtoV0V1(
@@ -176,7 +154,10 @@ object SequencerConnections
         "Every sequencer connection must have a unique sequencer alias",
       ),
     )
-  } yield many(sequencerConnectionsNes, sequencerTrustThreshold)
+    sequencerConnections <- many(sequencerConnectionsNes, sequencerTrustThreshold).leftMap(
+      ProtoDeserializationError.InvariantViolation(_)
+    )
+  } yield sequencerConnections
 
   def fromProtoV0(
       sequencerConnection: v0.SequencerConnection
@@ -212,19 +193,16 @@ object SequencerConnections
 
   override def name: String = "sequencer connections"
 
-  override def supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter
-      .storage[v0.SequencerConnection](
-        ReleaseProtocolVersion(ProtocolVersion.v3),
-        v0.SequencerConnection,
-      )(
-        supportedProtoVersion(_)(fromProtoV0),
-        element => element.default.toProtoV0.toByteString,
-      ),
-    ProtoVersion(1) -> VersionedProtoConverter
-      .storage(ReleaseProtocolVersion(ProtocolVersion.CNTestNet), v1.SequencerConnections)(
-        supportedProtoVersion(_)(fromProtoV1),
-        _.toProtoV1.toByteString,
-      ),
+  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+    ProtoVersion(0) -> ProtoCodec(
+      ProtocolVersion.v3,
+      supportedProtoVersion(v0.SequencerConnection)(fromProtoV0),
+      _.default.toProtoV0.toByteString,
+    ),
+    ProtoVersion(1) -> ProtoCodec(
+      ProtocolVersion.CNTestNet,
+      supportedProtoVersion(v1.SequencerConnections)(fromProtoV1),
+      _.toProtoV1.toByteString,
+    ),
   )
 }

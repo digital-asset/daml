@@ -334,6 +334,7 @@ class StartableStoppableLedgerApiServer(
         multiDomainEnabled = multiDomainEnabled,
         upgradingEnabled = config.cantonParameterConfig.enableContractUpgrading,
         authenticateContract = authenticateContract,
+        dynParamGetter = config.syncService.dynamicDomainParameterGetter,
       )
       _ <- startHttpApiIfEnabled
       _ <- {

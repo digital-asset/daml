@@ -9,7 +9,12 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
-import com.digitalasset.canton.data.{CantonTimestamp, FreeKey, TransactionView, TransactionViewTree}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  FreeKey,
+  FullTransactionViewTree,
+  TransactionView,
+}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactoryImpl
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.*
@@ -88,8 +93,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     fail("Reinterpret should not be called by this test case.")
 
   def viewsWithNoInputKeys(
-      rootViews: Seq[TransactionViewTree]
-  ): NonEmpty[Seq[(TransactionViewTree, Seq[(TransactionView, LfKeyResolver)])]] =
+      rootViews: Seq[FullTransactionViewTree]
+  ): NonEmpty[Seq[(FullTransactionViewTree, Seq[(TransactionView, LfKeyResolver)])]] =
     NonEmptyUtil.fromUnsafe(rootViews.map { viewTree =>
       // Include resolvers for all the subviews
       val resolvers =
@@ -120,7 +125,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
 
   def check(
       mcc: ModelConformanceChecker,
-      views: NonEmpty[Seq[(TransactionViewTree, Seq[(TransactionView, LfKeyResolver)])]],
+      views: NonEmpty[Seq[(FullTransactionViewTree, Seq[(TransactionView, LfKeyResolver)])]],
       ips: TopologySnapshot = factory.topologySnapshot,
   ): EitherT[Future, ErrorWithSubTransaction, Result] = {
     val rootViewTrees = views.map(_._1)
@@ -371,7 +376,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     }
 
     def testVettingError(
-        rootViewTrees: NonEmpty[Seq[TransactionViewTree]],
+        rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]],
         vettings: Seq[VettedPackages],
         packageDependenciesLookup: PackageId => EitherT[Future, PackageId, Set[PackageId]],
         expectedError: UnvettedPackages,

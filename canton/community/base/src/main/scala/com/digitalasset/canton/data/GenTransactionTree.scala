@@ -154,20 +154,20 @@ final case class GenTransactionTree private (
     *
     * @throws java.lang.IllegalArgumentException if there is no transaction view in this tree with `viewHash`
     */
-  def transactionViewTree(viewHash: RootHash): TransactionViewTree =
+  def transactionViewTree(viewHash: RootHash): FullTransactionViewTree =
     viewPosition(viewHash)
       .map(viewPos =>
-        TransactionViewTree.tryCreate(tryBlindForTransactionViewTree(viewPos.reverse))
+        FullTransactionViewTree.tryCreate(tryBlindForTransactionViewTree(viewPos.reverse))
       )
       .getOrElse(
         throw new IllegalArgumentException(s"No transaction view found with hash $viewHash")
       )
 
-  lazy val allTransactionViewTrees: Seq[TransactionViewTree] = for {
+  lazy val allTransactionViewTrees: Seq[FullTransactionViewTree] = for {
     (rootView, index) <- rootViews.unblindedElementsWithIndex
     (_view, viewPos) <- rootView.allSubviewsWithPosition(index +: ViewPosition.root)
     genTransactionTree = tryBlindForTransactionViewTree(viewPos.reverse)
-  } yield TransactionViewTree.tryCreate(genTransactionTree)
+  } yield FullTransactionViewTree.tryCreate(genTransactionTree)
 
   def allLightTransactionViewTrees(
       protocolVersion: ProtocolVersion

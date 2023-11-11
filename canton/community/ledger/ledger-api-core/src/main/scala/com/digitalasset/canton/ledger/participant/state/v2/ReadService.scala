@@ -60,7 +60,7 @@ trait ReadService extends ReportsHealth {
     * meta-data.
     * Note that the ledger time of unrelated updates is not necessarily monotonically
     * increasing.
-    * The creating transaction need not have a [[Update.TransactionAccepted]] even on this participant
+    * The creating transaction need not have a [[Update.TransactionAccepted]] event on this participant
     * if the participant does not host a stakeholder of the contract, e.g., in the case of divulgence.
     *
     * - *time skew*: given a [[Update.TransactionAccepted]] with an associated

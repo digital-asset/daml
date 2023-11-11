@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.validation
 
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.data.TransactionViewTree
+import com.digitalasset.canton.data.FullTransactionViewTree
 import com.digitalasset.canton.participant.protocol.validation.InternalConsistencyChecker.{
   ErrorWithInternalConsistencyCheck,
   checkRollbackScopeOrder,
@@ -25,7 +25,7 @@ class InternalConsistencyCheckerTest extends AnyWordSpec with BaseTest {
 
   private def check(
       icc: InternalConsistencyChecker,
-      views: Seq[TransactionViewTree],
+      views: Seq[FullTransactionViewTree],
   ): Either[ErrorWithInternalConsistencyCheck, Unit] = {
     icc.check(NonEmptyUtil.fromUnsafe(views), _ => false)
   }

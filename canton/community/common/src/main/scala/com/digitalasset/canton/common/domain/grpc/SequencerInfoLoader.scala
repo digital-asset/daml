@@ -115,15 +115,20 @@ class SequencerInfoLoader(
           )
           .asLeft
       } else
-        SequencerAggregatedInfo(
-          domainId = domainIds.head1,
-          staticDomainParameters = staticDomainParameters.head1,
-          expectedSequencers = expectedSequencers,
-          sequencerConnections = SequencerConnections.many(
+        SequencerConnections
+          .many(
             nonEmptyResult.map(_.connection),
             sequencerConnections.sequencerTrustThreshold,
-          ),
-        ).asRight
+          )
+          .leftMap(SequencerInfoLoaderError.FailedToConnectToSequencers)
+          .map(connections =>
+            SequencerAggregatedInfo(
+              domainId = domainIds.head1,
+              staticDomainParameters = staticDomainParameters.head1,
+              expectedSequencers = expectedSequencers,
+              sequencerConnections = connections,
+            )
+          )
     } else {
       val invalidSequencerConnections = result.collect {
         case nonValid: LoadSequencerEndpointInformationResult.NotValid => nonValid

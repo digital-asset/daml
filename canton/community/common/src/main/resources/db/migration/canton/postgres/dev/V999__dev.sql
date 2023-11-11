@@ -5,7 +5,7 @@
 -- works properly. DO NOT MOVE THIS TO STABLE
 ALTER TABLE node_id ADD COLUMN test_column INT NOT NULL DEFAULT 0;
 
--- TODO(#12373) Move this to stable when releasing BFT: BEGIN
+-- TODO(#15155) Move this to stable when releasing BFT: BEGIN
 CREATE TABLE in_flight_aggregation(
     aggregation_id varchar(300) collate "C" not null primary key,
     -- UTC timestamp in microseconds relative to EPOCH
@@ -83,7 +83,7 @@ CREATE INDEX topology_transactions_x_idx ON topology_transactions_x (store_id, t
 -- TODO(#14061): Come up with columns/indexing for efficient ParticipantId => Seq[PartyId] lookup
 
 
--- TODO(#12373) Move this to stable when releasing BFT: END
+-- TODO(#15155) Move this to stable when releasing BFT: END
 
 -- TODO(#13104) Move traffic control to stable release: BEGIN
 -- update the sequencer_state_manager_events to store traffic information per event

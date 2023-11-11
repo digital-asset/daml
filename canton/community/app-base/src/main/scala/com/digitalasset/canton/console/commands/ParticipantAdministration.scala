@@ -131,7 +131,7 @@ private[console] object ParticipantCommands {
       ) // TODO(#14048): Come up with a good way of giving it a good alias
       DomainConnectionConfig(
         domainAlias,
-        SequencerConnections.many(
+        SequencerConnections.tryMany(
           domain.toSeq.map { case (alias, domain) =>
             domain.sequencerConnection.withAlias(alias)
           },

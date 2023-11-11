@@ -106,7 +106,7 @@ private[routing] class DomainSelector(
   /** Choose the appropriate domain for a transaction.
     * The domain is chosen as follows:
     * 1. Domain whose alias equals the workflow id
-    * 1. Domain of all input contracts (fail if there is more than one)
+    * 2. Domain of all input contracts (fail if there is more than one)
     * 3. An arbitrary domain to which the submitter can submit and on which all informees have active participants
     */
   def forSingleDomain(implicit
