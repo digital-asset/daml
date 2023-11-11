@@ -52,6 +52,7 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 import java.io.File
+import java.net.URI
 import java.nio.file.Files
 import java.time.Instant
 
@@ -64,6 +65,22 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   import json.JsonProtocol._
 
   private val doNotReloadPackages = FiniteDuration(100, DAYS)
+
+  def withHttpService[A](
+      testName: String,
+      ledgerPort: Port,
+      jdbcConfig: Option[JdbcConfig],
+  )(testFn: (URI, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient) => Future[A])(implicit
+      asys: ActorSystem,
+      mat: Materializer,
+      aesf: ExecutionSequencerFactory,
+      ec: ExecutionContext,
+  ): Future[A] = withHttpService(
+    testName,
+    ledgerPort,
+    jdbcConfig,
+    None,
+  )((uri, enc, dec, client) => testFn(URI.create(uri.toString), enc, dec, client))
 
   def withHttpService[A](
       testName: String,
