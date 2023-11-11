@@ -73,7 +73,7 @@ abstract class HttpServiceIntegrationTest
 
   override protected def beforeAll() = {
     super.beforeAll()
-    val _ = System.setProperty("javax.net.debug", "ssl:handshake")
+    val _ = System.setProperty("javax.net.debug", "all")
   }
 
   private def httpsContextForSelfSignedCert = {
@@ -102,6 +102,7 @@ abstract class HttpServiceIntegrationTest
   }
 
   "should serve HTTPS requests" ifLinux withHttpService(useHttps = UseHttps.Https) { fixture =>
+    val _ = logger.info("starting the actual fixture")
     Http()
       .singleRequest(
         HttpRequest(
