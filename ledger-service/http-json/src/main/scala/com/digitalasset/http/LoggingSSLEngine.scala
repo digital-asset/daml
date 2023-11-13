@@ -1,3 +1,6 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.http
 
 import java.nio.ByteBuffer
@@ -10,14 +13,24 @@ class LoggingSSLEngine(delegate: SSLEngine) extends SSLEngine {
   private val logger = ContextualizedLogger.get(getClass)
   private implicit val emptyContext = LoggingContext.empty
 
-  override def wrap(byteBuffers: Array[ByteBuffer], i: Int, i1: Int, byteBuffer: ByteBuffer): SSLEngineResult = {
+  override def wrap(
+      byteBuffers: Array[ByteBuffer],
+      i: Int,
+      i1: Int,
+      byteBuffer: ByteBuffer,
+  ): SSLEngineResult = {
     logger.info("wrap start")
     val res = delegate.wrap(byteBuffers, i, i1, byteBuffer)
     logger.info(s"wrap end $res")
     res
   }
 
-  override def unwrap(byteBuffer: ByteBuffer, byteBuffers: Array[ByteBuffer], i: Int, i1: Int): SSLEngineResult = {
+  override def unwrap(
+      byteBuffer: ByteBuffer,
+      byteBuffers: Array[ByteBuffer],
+      i: Int,
+      i1: Int,
+  ): SSLEngineResult = {
     logger.info("unwrap start")
     val res = delegate.unwrap(byteBuffer, byteBuffers, i, i1)
     logger.info(s"unwrap end $res")
