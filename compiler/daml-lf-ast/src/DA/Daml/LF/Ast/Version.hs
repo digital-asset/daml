@@ -253,6 +253,18 @@ featureNatTypeErasure = Feature
     , featureCppFlag = Just "DAML_NAT_TYPE_ERASURE"
     }
 
+-- This feature does not impact the compiler, but does control the evaluation
+-- order integration tests via @SUPPORTS-LF-FEATURE.
+featureRightToLeftEvaluation :: Feature
+featureRightToLeftEvaluation = Feature
+    { featureName = "Right-to-left evaluation order"
+    , featureVersionReq = VersionReq \case
+          V1 -> noMinorVersion
+          V2 -> allV2MinorVersions
+    , featureCppFlag = Just "DAML_RIGHT_TO_LEFT_EVALUATION"
+    }
+
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -281,6 +293,7 @@ allFeatures =
     , featureDynamicExercise
     , featurePackageUpgrades
     , featureNatTypeErasure
+    , featureRightToLeftEvaluation
     ]
 
 -- | A map from feature CPP flags to features.

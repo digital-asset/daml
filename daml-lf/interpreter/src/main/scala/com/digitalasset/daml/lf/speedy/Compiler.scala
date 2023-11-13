@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
+import com.daml.lf.language.LanguageVersionRangeOps.LanguageVersionRange
 import com.daml.lf.language.{
   LanguageMajorVersion,
   LanguageVersion,
@@ -77,7 +77,6 @@ private[lf] object Compiler {
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
       enableContractUpgrading: Boolean = false,
-      evaluationOrder: EvaluationOrder = LeftToRight,
   )
 
   object Config {
@@ -365,7 +364,7 @@ private[lf] final class Compiler(
   private[this] def pipeline(sexpr: s.SExpr): t.SExpr =
     flattenToAnf(
       closureConvert(sexpr),
-      evaluationOrder = config.evaluationOrder,
+      evaluationOrder = config.allowedLanguageVersions.majorVersion.evaluationOrder,
     )
 
   private[this] def compileModule(
@@ -470,16 +469,12 @@ private[lf] final class Compiler(
     val t0 = Time.Timestamp.now()
 
     pkgInterface.lookupPackage(pkgId) match {
-      case Right(pkg) => {
+      case Right(pkg) =>
         if (
           !stablePackageIds.contains(pkgId) && !config.allowedLanguageVersions
             .contains(pkg.languageVersion)
         )
           throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
-
-        if (config.evaluationOrder == RightToLeft && !pkg.languageVersion.isDevVersion)
-          throw CompilationError("Right-to-left evaluation is only available in dev")
-      }
       case _ =>
     }
 

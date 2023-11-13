@@ -12,9 +12,9 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
-module SemanticsEvalOrder where
+-- @DOES-NOT-SUPPORT-LF-FEATURE DAML_RIGHT_TO_LEFT_EVALUATION
 
--- @EVALUATION-ORDER LeftToRight
+module SemanticsEvalOrder where
 
 import Daml.Script
 import ScriptAssertHelpers

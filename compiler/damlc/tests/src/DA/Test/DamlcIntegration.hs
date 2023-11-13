@@ -131,14 +131,6 @@ instance IsOption IsScriptV2Opt where
   optionName = Tagged "daml-script-v2"
   optionHelp = Tagged "Use daml script v2 (true|false)"
 
-newtype EvaluationOrderOpt = EvaluationOrderOpt EvaluationOrder
-
-instance IsOption EvaluationOrderOpt where
-  defaultValue = EvaluationOrderOpt LeftToRight
-  parseValue = fmap EvaluationOrderOpt . readMaybe
-  optionName = Tagged "evaluation-order"
-  optionHelp = Tagged "Use the specified evaluation order for Daml expressions"
-
 type ScriptPackageData = (FilePath, [PackageFlag])
 
 -- | Creates a temp directory with daml script v1 installed, gives the database db path and package flag
@@ -202,10 +194,9 @@ main = do
   -- This is a bit hacky, we want the LF version before we hand over to
   -- tasty. To achieve that we first pass with optparse-applicative ignoring
   -- everything apart from the LF version.
-  (LfVersionOpt lfVer, SkipValidationOpt _, IsScriptV2Opt isV2, EvaluationOrderOpt evalOrder) <- do
-      let parser = (,,,)
+  (LfVersionOpt lfVer, SkipValidationOpt _, IsScriptV2Opt isV2) <- do
+      let parser = (,,)
                      <$> optionCLParser
-                     <*> optionCLParser
                      <*> optionCLParser
                      <*> optionCLParser
                      <* many (strArgument @String mempty)
@@ -217,7 +208,7 @@ main = do
   let scenarioConf = SS.defaultScenarioServiceConfig
                        { SS.cnfJvmOptions = ["-Xmx200M"]
                        , SS.cnfEvaluationTimeout = Just 3
-                       , SS.cnfEvaluationOrder = evalOrder }
+                       }
 
   withDep $ \scriptPackageData ->
     SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
@@ -236,7 +227,6 @@ main = do
                 [ Option (Proxy @LfVersionOpt)
                 , Option (Proxy @SkipValidationOpt)
                 , Option (Proxy @IsScriptV2Opt)
-                , Option (Proxy @EvaluationOrderOpt)
                 ] :
               defaultIngredients
 
@@ -334,7 +324,6 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
         tree = askOption $ \(LfVersionOpt version) ->
                askOption @IsScriptV2Opt $ \isScriptV2Opt ->
                askOption $ \(SkipValidationOpt skipValidation) ->
-               askOption $ \(EvaluationOrderOpt evalOrder) ->
           let opts = (defaultOptions (Just version))
                 { optPackageDbs = [packageDbPath]
                 , optThreads = 0
@@ -363,7 +352,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
             shutdown
             $ \service ->
           testGroup ("Tests for Daml-LF " ++ renderPretty version) $
-            map (damlFileTestTree version isScriptV2Opt evalOrder service outdir registerTODO) damlTests
+            map (damlFileTestTree version isScriptV2Opt service outdir registerTODO) damlTests
 
     pure tree
 
@@ -415,8 +404,8 @@ testSetup getService outdir path = do
     , buildLog
     }
 
-damlFileTestTree :: LF.Version -> IsScriptV2Opt -> EvaluationOrder -> IO IdeState -> FilePath -> (TODO -> IO ()) -> DamlTestInput -> TestTree
-damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService outdir registerTODO input
+damlFileTestTree :: LF.Version -> IsScriptV2Opt -> IO IdeState -> FilePath -> (TODO -> IO ()) -> DamlTestInput -> TestTree
+damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) getService outdir registerTODO input
   | any (ignoreVersion version) anns =
     singleTest name $ TestCase \_ ->
       pure (testPassed "") { resultShortDescription = "IGNORE" }
@@ -466,7 +455,6 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) evalOrderOpt getService o
       SupportsFeature featureName -> not (version `satisfies` versionReqForFeaturePartial featureName)
       DoesNotSupportFeature featureName -> version `satisfies` versionReqForFeaturePartial featureName
       ScriptV2 -> not isScriptV2Opt
-      EvaluationOrder evalOrder -> evalOrder /= evalOrderOpt
       _ -> False
     diff ref new = [POSIX_DIFF, "--strip-trailing-cr", ref, new]
 
@@ -570,8 +558,6 @@ data Ann
     | Ledger String FilePath
       -- ^ I expect the output of running the script named <first argument> to match the golden file <second argument>.
       -- The path of the golden file is relative to the `.daml` test file.
-    | EvaluationOrder EvaluationOrder
-      -- ^ Only run this test with the given evaluation order.
 
 readFileAnns :: FilePath -> IO [Ann]
 readFileAnns file = do
@@ -592,7 +578,6 @@ readFileAnns file = do
             ("SCRIPT-V2", _) -> Just ScriptV2
             ("TODO",x) -> Just $ Todo x
             ("LEDGER", words -> [script, path]) -> Just $ Ledger script path
-            ("EVALUATION-ORDER", x) -> EvaluationOrder <$> readMaybe x
             _ -> error $ "Can't understand test annotation in " ++ show file ++ ", got " ++ show x
         f _ = Nothing
 

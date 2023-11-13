@@ -7,7 +7,6 @@ package speedy
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.Ast.Expr
-import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
@@ -49,173 +48,164 @@ class RollbackTest(majorLanguageVersion: LanguageMajorVersion)
       .fold(e => fail(Pretty.prettyError(e).render(80)), identity)
   }
 
-  for (evaluationOrder <- EvaluationOrder.valuesFor(majorLanguageVersion)) {
+  val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
+  module M {
 
-    evaluationOrder.toString - {
+    record @serializable MyException = { message: Text } ;
+    exception MyException = {
+      message \(e: M:MyException) -> M:MyException {message} e
+    };
 
-      val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(
-        p"""
-      module M {
+    record @serializable T1 = { party: Party, info: Int64 } ;
+    template (record : T1) = {
+      precondition True;
+      signatories Cons @Party [M:T1 {party} record] (Nil @Party);
+      observers Nil @Party;
+      agreement "Agreement";
+      choice Ch1 (self) (i : Unit) : Unit,
+        controllers Cons @Party [M:T1 {party} record] (Nil @Party)
+        to
+          ubind
+            x1: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 400 };
+            x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
+          in upure @Unit ();
+      choice Ch2 (self) (i : Unit) : Unit,
+        controllers Cons @Party [M:T1 {party} record] (Nil @Party)
+        to
+          ubind
+            x1: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 400 };
+            u: Unit <- throw @(Update Unit) @M:MyException (M:MyException {message = "oops"});
+            x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
+          in upure @Unit ();
+    };
 
-        record @serializable MyException = { message: Text } ;
-        exception MyException = {
-          message \(e: M:MyException) -> M:MyException {message} e
-        };
+    val create0 : Party -> Update Unit = \(party: Party) ->
+        upure @Unit ();
 
-        record @serializable T1 = { party: Party, info: Int64 } ;
-        template (record : T1) = {
-          precondition True;
-          signatories Cons @Party [M:T1 {party} record] (Nil @Party);
-          observers Nil @Party;
-          agreement "Agreement";
-          choice Ch1 (self) (i : Unit) : Unit,
-            controllers Cons @Party [M:T1 {party} record] (Nil @Party)
-            to
-              ubind
-                x1: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 400 };
-                x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
-              in upure @Unit ();
-          choice Ch2 (self) (i : Unit) : Unit,
-            controllers Cons @Party [M:T1 {party} record] (Nil @Party)
-            to
-              ubind
-                x1: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 400 };
-                u: Unit <- throw @(Update Unit) @M:MyException (M:MyException {message = "oops"});
-                x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
-              in upure @Unit ();
-        };
+    val create1 : Party -> Update Unit = \(party: Party) ->
+        ubind
+          x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 }
+        in upure @Unit ();
 
-        val create0 : Party -> Update Unit = \(party: Party) ->
-            upure @Unit ();
+    val create2 : Party -> Update Unit = \(party: Party) ->
+        ubind
+          x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
+          x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
+        in upure @Unit ();
 
-        val create1 : Party -> Update Unit = \(party: Party) ->
-            ubind
-              x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 }
-            in upure @Unit ();
+    val create3 : Party -> Update Unit = \(party: Party) ->
+        ubind
+          x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
+          x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 };
+          x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
+        in upure @Unit ();
 
-        val create2 : Party -> Update Unit = \(party: Party) ->
+    val create3nested : Party -> Update Unit = \(party: Party) ->
+        ubind
+          u1: Unit <-
             ubind
               x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
               x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
             in upure @Unit ();
+          x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
+        in upure @Unit ();
 
-        val create3 : Party -> Update Unit = \(party: Party) ->
-            ubind
-              x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
-              x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 };
-              x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
-            in upure @Unit ();
+    val create3catchNoThrow : Party -> Update Unit = \(party: Party) ->
+        ubind
+          u1: Unit <-
+            try @Unit
+              ubind
+                x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
+                x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
+              in upure @Unit ()
+            catch e -> Some @(Update Unit) (upure @Unit ())
+          ;
+          x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
+        in upure @Unit ();
 
-        val create3nested : Party -> Update Unit = \(party: Party) ->
-            ubind
-              u1: Unit <-
+    val create3throwAndCatch : Party -> Update Unit = \(party: Party) ->
+        ubind
+          u1: Unit <-
+            try @Unit
+              ubind
+                x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
+                x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
+              in throw @(Update Unit) @M:MyException (M:MyException {message = "oops"})
+            catch e -> Some @(Update Unit) (upure @Unit ())
+          ;
+          x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
+        in upure @Unit ();
+
+    val create3throwAndOuterCatch : Party -> Update Unit = \(party: Party) ->
+        ubind
+          u1: Unit <-
+            try @Unit
+              try @Unit
                 ubind
                   x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
                   x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
-                in upure @Unit ();
-              x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
-            in upure @Unit ();
-
-        val create3catchNoThrow : Party -> Update Unit = \(party: Party) ->
-            ubind
-              u1: Unit <-
-                try @Unit
-                  ubind
-                    x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
-                    x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
-                  in upure @Unit ()
-                catch e -> Some @(Update Unit) (upure @Unit ())
-              ;
-              x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
-            in upure @Unit ();
-
-        val create3throwAndCatch : Party -> Update Unit = \(party: Party) ->
-            ubind
-              u1: Unit <-
-                try @Unit
-                  ubind
-                    x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
-                    x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
-                  in throw @(Update Unit) @M:MyException (M:MyException {message = "oops"})
-                catch e -> Some @(Update Unit) (upure @Unit ())
-              ;
-              x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
-            in upure @Unit ();
-
-        val create3throwAndOuterCatch : Party -> Update Unit = \(party: Party) ->
-            ubind
-              u1: Unit <-
-                try @Unit
-                  try @Unit
-                    ubind
-                      x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
-                      x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
-                    in throw @(Update Unit) @M:MyException (M:MyException {message = "oops"})
-                  catch e -> None @(Update Unit)
-                catch e -> Some @(Update Unit) (upure @Unit ())
-              ;
-              x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
-            in upure @Unit ();
+                in throw @(Update Unit) @M:MyException (M:MyException {message = "oops"})
+              catch e -> None @(Update Unit)
+            catch e -> Some @(Update Unit) (upure @Unit ())
+          ;
+          x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
+        in upure @Unit ();
 
 
-        val exer1 : Party -> Update Unit = \(party: Party) ->
-            ubind
-              x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
+    val exer1 : Party -> Update Unit = \(party: Party) ->
+        ubind
+          x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
 
-              u: Unit <-
-                try @Unit
-                  ubind
-                    u: Unit <- exercise @M:T1 Ch1 x1 ();
-                    x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
-                  in upure @Unit ()
-                catch e -> Some @(Update Unit) (upure @Unit ());
+          u: Unit <-
+            try @Unit
+              ubind
+                u: Unit <- exercise @M:T1 Ch1 x1 ();
+                x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
+              in upure @Unit ()
+            catch e -> Some @(Update Unit) (upure @Unit ());
 
-              x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
-            in upure @Unit ();
+          x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
+        in upure @Unit ();
 
 
-        val exer2 : Party -> Update Unit = \(party: Party) ->
-            ubind
-              x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
+    val exer2 : Party -> Update Unit = \(party: Party) ->
+        ubind
+          x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
 
-              u: Unit <-
-                try @Unit
-                  ubind
-                    u: Unit <- exercise @M:T1 Ch2 x1 ();
-                    x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
-                  in upure @Unit ()
-                catch e -> Some @(Update Unit) (upure @Unit ());
+          u: Unit <-
+            try @Unit
+              ubind
+                u: Unit <- exercise @M:T1 Ch2 x1 ();
+                x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
+              in upure @Unit ()
+            catch e -> Some @(Update Unit) (upure @Unit ());
 
-              x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
-            in upure @Unit ();
+          x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
+        in upure @Unit ();
 
-       }
-      """,
-        evaluationOrder,
-      )
+   }
+  """)
 
-      val testCases = Table[String, List[Tree]](
-        ("expression", "expected-number-of-contracts"),
-        ("create0", Nil),
-        ("create1", List(C(100))),
-        ("create2", List(C(100), C(200))),
-        ("create3", List(C(100), C(200), C(300))),
-        ("create3nested", List(C(100), C(200), C(300))),
-        ("create3catchNoThrow", List(C(100), C(200), C(300))),
-        ("create3throwAndCatch", List[Tree](R(List(C(100), C(200))), C(300))),
-        ("create3throwAndOuterCatch", List[Tree](R(List(C(100), C(200))), C(300))),
-        ("exer1", List[Tree](C(100), X(List(C(400), C(500))), C(200), C(300))),
-        ("exer2", List[Tree](C(100), R(List(X(List(C(400))))), C(300))),
-      )
+  val testCases = Table[String, List[Tree]](
+    ("expression", "expected-number-of-contracts"),
+    ("create0", Nil),
+    ("create1", List(C(100))),
+    ("create2", List(C(100), C(200))),
+    ("create3", List(C(100), C(200), C(300))),
+    ("create3nested", List(C(100), C(200), C(300))),
+    ("create3catchNoThrow", List(C(100), C(200), C(300))),
+    ("create3throwAndCatch", List[Tree](R(List(C(100), C(200))), C(300))),
+    ("create3throwAndOuterCatch", List[Tree](R(List(C(100), C(200))), C(300))),
+    ("exer1", List[Tree](C(100), X(List(C(400), C(500))), C(200), C(300))),
+    ("exer2", List[Tree](C(100), R(List(X(List(C(400))))), C(300))),
+  )
 
-      forEvery(testCases) { (exp: String, expected: List[Tree]) =>
-        s"""$exp, contracts expected: $expected """ in {
-          val party = Party.assertFromString("Alice")
-          val tx: SubmittedTransaction = runUpdateExprGetTx(pkgs)(e"M:$exp", party)
-          val ids: List[Tree] = shapeOfTransaction(tx)
-          ids shouldBe expected
-        }
-      }
+  forEvery(testCases) { (exp: String, expected: List[Tree]) =>
+    s"""$exp, contracts expected: $expected """ in {
+      val party = Party.assertFromString("Alice")
+      val tx: SubmittedTransaction = runUpdateExprGetTx(pkgs)(e"M:$exp", party)
+      val ids: List[Tree] = shapeOfTransaction(tx)
+      ids shouldBe expected
     }
   }
 }

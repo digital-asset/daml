@@ -18,7 +18,6 @@ import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
 import com.daml.lf.engine.script.{Runner, Script}
-import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.logging.LoggingContext
 import org.slf4j.LoggerFactory
 
@@ -37,17 +36,16 @@ object Context {
 
   private val contextCounter = new AtomicLong()
 
-  def newContext(lfVerion: LanguageVersion, timeout: Duration, evaluationOrder: EvaluationOrder)(
-      implicit loggingContext: LoggingContext
+  def newContext(lfVerion: LanguageVersion, timeout: Duration)(implicit
+      loggingContext: LoggingContext
   ): Context =
-    new Context(contextCounter.incrementAndGet(), lfVerion, timeout, evaluationOrder)
+    new Context(contextCounter.incrementAndGet(), lfVerion, timeout)
 }
 
 class Context(
     val contextId: Context.ContextId,
     languageVersion: LanguageVersion,
     timeout: Duration,
-    evaluationOrder: EvaluationOrder,
 )(implicit
     loggingContext: LoggingContext
 ) {
@@ -61,7 +59,6 @@ class Context(
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,
-      evaluationOrder = evaluationOrder,
     )
 
   /** The package identifier to use for modules added to the context.
@@ -81,7 +78,7 @@ class Context(
   def loadedPackages(): Iterable[PackageId] = extSignatures.keys
 
   def cloneContext(): Context = synchronized {
-    val newCtx = Context.newContext(languageVersion, timeout, evaluationOrder)
+    val newCtx = Context.newContext(languageVersion, timeout)
     newCtx.extSignatures = extSignatures
     newCtx.extDefns = extDefns
     newCtx.modules = modules

@@ -16,14 +16,12 @@ import com.daml.lf.archive
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ModuleName
-import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.scenario.api.v1.{Map => _, _}
 import com.daml.logging.LoggingContext
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.netty.NettyServerBuilder
-import scopt.Read
 
 import java.time.Instant
 import scala.util.Random
@@ -35,8 +33,7 @@ import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
 private final case class ScenarioServiceConfig(
-    maxInboundMessageSize: Int,
-    evaluationOrder: EvaluationOrder,
+    maxInboundMessageSize: Int
 )
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -53,26 +50,13 @@ private object ScenarioServiceConfig {
       .text(
         s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}."
       )
-
-    val evaluationOrderRead: Read[EvaluationOrder] = Read.reads {
-      case "LeftToRight" => LeftToRight
-      case "RightToLeft" => RightToLeft
-      case s => throw new IllegalArgumentException(s"$s is not an EvaluationOrder")
-    }
-    opt[EvaluationOrder]("evaluation-order")(evaluationOrderRead)
-      .optional()
-      .action((x, c) => c.copy(evaluationOrder = x))
-      .text(
-        "The evaluation order of expressions: LeftToRight or RightToLeft. Defaults to LeftToRight."
-      )
   }
 
   def parse(args: Array[String]): Option[ScenarioServiceConfig] =
     parser.parse(
       args,
       ScenarioServiceConfig(
-        maxInboundMessageSize = DefaultMaxInboundMessageSize,
-        evaluationOrder = LeftToRight,
+        maxInboundMessageSize = DefaultMaxInboundMessageSize
       ),
     )
 }
@@ -92,7 +76,7 @@ object ScenarioServiceMain extends App {
         val server =
           NettyServerBuilder
             .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
-            .addService(new ScenarioService(config.evaluationOrder))
+            .addService(new ScenarioService())
             .maxInboundMessageSize(config.maxInboundMessageSize)
             .build
         server.start()
@@ -190,9 +174,7 @@ object ScriptStream {
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class ScenarioService(
-    evaluationOrder: EvaluationOrder
-)(implicit
+class ScenarioService(implicit
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     mat: Materializer,
@@ -362,7 +344,7 @@ class ScenarioService(
           majorVersion,
           LanguageVersion.Minor(req.getLfMinor),
         )
-        val ctx = Context.newContext(lfVersion, req.getEvaluationTimeout.seconds, evaluationOrder)
+        val ctx = Context.newContext(lfVersion, req.getEvaluationTimeout.seconds)
         contexts += (ctx.contextId -> ctx)
         val response = NewContextResponse.newBuilder.setContextId(ctx.contextId).build
         respObs.onNext(response)
@@ -480,5 +462,4 @@ class ScenarioService(
         }
     }
   }
-
 }

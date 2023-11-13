@@ -7,7 +7,6 @@ package speedy
 import com.daml.lf.data.Ref.{IdString, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct}
 import com.daml.lf.language.{Ast, LanguageMajorVersion}
-import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.speedy.SExpr.SEMakeClo
 import com.daml.lf.speedy.SValue.SToken
 import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo}
@@ -26,17 +25,13 @@ import org.scalatest.matchers.{MatchResult, Matcher}
 
 /** Shared test data and functions for testing explicit disclosure.
   */
-private[lf] class ExplicitDisclosureLib(
-    majorLanguageVersion: LanguageMajorVersion,
-    evaluationOrder: EvaluationOrder,
-) {
+private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersion) {
 
   implicit val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   val testKeyName: String = "test-key"
-  val pkg: PureCompiledPackages = SpeedyTestLib.typeAndCompile(
-    p"""
+  val pkg: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
        module TestMod {
 
          record @serializable Key = { label: Text, maintainers: List Party };
@@ -89,9 +84,7 @@ private[lf] class ExplicitDisclosureLib(
                  None -> Nil @t
                | Some x -> Cons @t [x] (Nil @t);
        }
-       """,
-    evaluationOrder,
-  )
+       """)
   val useSharedKeys: Boolean = Util.sharedKey(defaultParserParameters.languageVersion)
   val maintainerParty: IdString.Party = Ref.Party.assertFromString("maintainerParty")
   val ledgerParty: IdString.Party = Ref.Party.assertFromString("ledgerParty")

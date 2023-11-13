@@ -7,7 +7,6 @@ package speedy
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.interpretation.Error.FailedAuthorization
-import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder}
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.ledger.FailedAuthorization.{CreateMissingAuthorization, NoAuthorizers}
 import com.daml.lf.speedy.SError.SError
@@ -33,188 +32,180 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
   implicit val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
-  for (evaluationOrder <- EvaluationOrder.valuesFor(majorLanguageVersion)) {
+  val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(
+    p"""
+  module M {
 
-    evaluationOrder.toString - {
+    record @serializable Goal = { goal: Party } ;
+    template (record : Goal) = {
+      precondition True;
+      signatories Cons @Party [M:Goal {goal} record] (Nil @Party);
+      observers Nil @Party;
+      agreement "Agreement";
+    };
 
-      val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(
-        p"""
-      module M {
+    record @serializable T = { theSig: Party, theCon: Party, theAut: List Party, theGoal: Party };
+    template (this: T) = {
+      precondition True;
+      signatories Cons @Party [M:T {theSig} this] Nil @Party;
+      observers Nil @Party;
+      agreement "Agreement";
 
-        record @serializable Goal = { goal: Party } ;
-        template (record : Goal) = {
-          precondition True;
-          signatories Cons @Party [M:Goal {goal} record] (Nil @Party);
-          observers Nil @Party;
-          agreement "Agreement";
-        };
+      choice ChoiceWithExplicitAuthority (self) (u: Unit) : Unit,
+        controllers Cons @Party [M:T {theCon} this] Nil @Party
+        , authorizers M:T {theAut} this
+        to
+          ubind x1: ContractId M:Goal <- create @M:Goal (M:Goal { goal = M:T {theGoal} this })
+          in upure @Unit ();
+    };
 
-        record @serializable T = { theSig: Party, theCon: Party, theAut: List Party, theGoal: Party };
-        template (this: T) = {
-          precondition True;
-          signatories Cons @Party [M:T {theSig} this] Nil @Party;
-          observers Nil @Party;
-          agreement "Agreement";
+    val call : Party -> Party -> List Party -> Party -> Update Unit =
+      \(theSig: Party) ->
+      \(theCon: Party) ->
+      \(theAut: List Party) ->
+      \(theGoal: Party) ->
+      ubind
+      cid : ContractId M:T <- create @M:T (M:T {theSig = theSig, theCon = theCon, theAut = theAut, theGoal = theGoal})
+      in exercise @M:T ChoiceWithExplicitAuthority cid ();
+   }
+  """
+  )
 
-          choice ChoiceWithExplicitAuthority (self) (u: Unit) : Unit,
-            controllers Cons @Party [M:T {theCon} this] Nil @Party
-            , authorizers M:T {theAut} this
-            to
-              ubind x1: ContractId M:Goal <- create @M:Goal (M:Goal { goal = M:T {theGoal} this })
-              in upure @Unit ();
-        };
+  type Success = (SubmittedTransaction, List[AuthRequest])
 
-        val call : Party -> Party -> List Party -> Party -> Update Unit =
-          \(theSig: Party) ->
-          \(theCon: Party) ->
-          \(theAut: List Party) ->
-          \(theGoal: Party) ->
-          ubind
-          cid : ContractId M:T <- create @M:T (M:T {theSig = theSig, theCon = theCon, theAut = theAut, theGoal = theGoal})
-          in exercise @M:T ChoiceWithExplicitAuthority cid ();
-       }
-      """,
-        evaluationOrder,
-      )
+  val alice = Party.assertFromString("Alice")
+  val bob = Party.assertFromString("Bob")
+  val charlie = Party.assertFromString("Charlie")
 
-      type Success = (SubmittedTransaction, List[AuthRequest])
+  // In all these tests; alice is the template signatory; bob is the choice controller
+  val theSig: Party = alice
+  val theCon: Party = bob
 
-      val alice = Party.assertFromString("Alice")
-      val bob = Party.assertFromString("Bob")
-      val charlie = Party.assertFromString("Charlie")
+  def makeSetPartyValue(set: Set[Party]): SValue = {
+    SList(FrontStack(set.toList.map(SParty(_)): _*))
+  }
 
-      // In all these tests; alice is the template signatory; bob is the choice controller
-      val theSig: Party = alice
-      val theCon: Party = bob
+  def runExample(
+      theAut: Set[Party], // The set of parties lists in the explicit choice authority decl.
+      theGoal: Party, // The signatory of the created Goal template.
+  ): Either[SError, Success] = {
+    import SpeedyTestLib.loggingContext
+    val committers = Set(theSig, theCon)
+    val example = SEApp(
+      pkgs.compiler.unsafeCompile(e"M:call"),
+      Array(
+        SParty(theSig),
+        SParty(theCon),
+        makeSetPartyValue(theAut),
+        SParty(theGoal),
+      ),
+    )
+    val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
+    SpeedyTestLib
+      .buildTransactionCollectRequests(machine)
+      .map { case (x, ars, _) => (x, ars) } // ignoring any UpgradeVerificationRequest
+  }
 
-      def makeSetPartyValue(set: Set[Party]): SValue = {
-        SList(FrontStack(set.toList.map(SParty(_)): _*))
+  "Happy" - {
+
+    "restrict authority: {A,B}-->A (need A)" in {
+      val res = runExample(theAut = Set(alice), theGoal = alice)
+      inside(res) { case Right((_, ars)) =>
+        ars shouldBe List()
       }
+    }
 
-      def runExample(
-          theAut: Set[Party], // The set of parties lists in the explicit choice authority decl.
-          theGoal: Party, // The signatory of the created Goal template.
-      ): Either[SError, Success] = {
-        import SpeedyTestLib.loggingContext
-        val committers = Set(theSig, theCon)
-        val example = SEApp(
-          pkgs.compiler.unsafeCompile(e"M:call"),
-          Array(
-            SParty(theSig),
-            SParty(theCon),
-            makeSetPartyValue(theAut),
-            SParty(theGoal),
-          ),
-        )
-        val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
-        SpeedyTestLib
-          .buildTransactionCollectRequests(machine)
-          .map { case (x, ars, _) => (x, ars) } // ignoring any UpgradeVerificationRequest
+    "restrict authority: {A,B}-->B (need B)" in {
+      val res = runExample(theAut = Set(bob), theGoal = bob)
+      inside(res) { case Right((_, ars)) =>
+        ars shouldBe List()
       }
+    }
 
-      "Happy" - {
-
-        "restrict authority: {A,B}-->A (need A)" in {
-          val res = runExample(theAut = Set(alice), theGoal = alice)
-          inside(res) { case Right((_, ars)) =>
-            ars shouldBe List()
-          }
-        }
-
-        "restrict authority: {A,B}-->B (need B)" in {
-          val res = runExample(theAut = Set(bob), theGoal = bob)
-          inside(res) { case Right((_, ars)) =>
-            ars shouldBe List()
-          }
-        }
-
-        "restrict authority: {A,B}-->{A,B} (need A)" in {
-          val res = runExample(theAut = Set(alice, bob), theGoal = alice)
-          inside(res) { case Right((_, ars)) =>
-            ars shouldBe List()
-          }
-        }
-
-        "restrict authority: {A,B}-->{A,B} (need B)" in {
-          val res = runExample(theAut = Set(alice, bob), theGoal = bob)
-          inside(res) { case Right((_, ars)) =>
-            ars shouldBe List()
-          }
-        }
-
-        "change/gain authority {A,B}-->{C} (need C)" in {
-          inside(runExample(theAut = Set(charlie), theGoal = charlie)) { case Right((_, ars)) =>
-            ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
-          }
-        }
-
-        "change/gain authority {A,B}-->{A,C} (need A)" in {
-          inside(runExample(theAut = Set(alice, charlie), theGoal = alice)) {
-            case Right((_, ars)) =>
-              ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
-          }
-        }
-
-        "change/gain authority {A,B}-->{B,C} (need B)" in {
-          inside(runExample(theAut = Set(bob, charlie), theGoal = bob)) { case Right((_, ars)) =>
-            ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
-          }
-        }
-
+    "restrict authority: {A,B}-->{A,B} (need A)" in {
+      val res = runExample(theAut = Set(alice, bob), theGoal = alice)
+      inside(res) { case Right((_, ars)) =>
+        ars shouldBe List()
       }
+    }
 
-      "Sad" - { // examples which cause Authorization failure
+    "restrict authority: {A,B}-->{A,B} (need B)" in {
+      val res = runExample(theAut = Set(alice, bob), theGoal = bob)
+      inside(res) { case Right((_, ars)) =>
+        ars shouldBe List()
+      }
+    }
 
-        "restrict authority {A,B}-->{} (empty!)" in {
-          inside(runExample(theAut = Set(), theGoal = alice)) { case Left(err) =>
-            inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
-              inside(why) { case _: NoAuthorizers =>
-              }
-            }
+    "change/gain authority {A,B}-->{C} (need C)" in {
+      inside(runExample(theAut = Set(charlie), theGoal = charlie)) { case Right((_, ars)) =>
+        ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
+      }
+    }
+
+    "change/gain authority {A,B}-->{A,C} (need A)" in {
+      inside(runExample(theAut = Set(alice, charlie), theGoal = alice)) { case Right((_, ars)) =>
+        ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
+      }
+    }
+
+    "change/gain authority {A,B}-->{B,C} (need B)" in {
+      inside(runExample(theAut = Set(bob, charlie), theGoal = bob)) { case Right((_, ars)) =>
+        ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
+      }
+    }
+
+  }
+
+  "Sad" - { // examples which cause Authorization failure
+
+    "restrict authority {A,B}-->{} (empty!)" in {
+      inside(runExample(theAut = Set(), theGoal = alice)) { case Left(err) =>
+        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+          inside(why) { case _: NoAuthorizers =>
           }
         }
+      }
+    }
 
-        "restrict authority {A,B}-->A (need B)" in {
-          inside(runExample(theAut = Set(alice), theGoal = bob)) { case Left(err) =>
-            inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
-              inside(why) { case cma: CreateMissingAuthorization =>
-                cma.authorizingParties shouldBe Set(alice)
-                cma.requiredParties shouldBe Set(bob)
-              }
-            }
+    "restrict authority {A,B}-->A (need B)" in {
+      inside(runExample(theAut = Set(alice), theGoal = bob)) { case Left(err) =>
+        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+          inside(why) { case cma: CreateMissingAuthorization =>
+            cma.authorizingParties shouldBe Set(alice)
+            cma.requiredParties shouldBe Set(bob)
           }
         }
+      }
+    }
 
-        "restrict authority {A,B}-->B (need A)" in {
-          inside(runExample(theAut = Set(bob), theGoal = alice)) { case Left(err) =>
-            inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
-              inside(why) { case cma: CreateMissingAuthorization =>
-                cma.authorizingParties shouldBe Set(bob)
-                cma.requiredParties shouldBe Set(alice)
-              }
-            }
+    "restrict authority {A,B}-->B (need A)" in {
+      inside(runExample(theAut = Set(bob), theGoal = alice)) { case Left(err) =>
+        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+          inside(why) { case cma: CreateMissingAuthorization =>
+            cma.authorizingParties shouldBe Set(bob)
+            cma.requiredParties shouldBe Set(alice)
           }
         }
+      }
+    }
 
-        "restrict authority: {A,B}-->{A,B} (need C)" in {
-          inside(runExample(theAut = Set(alice, bob), theGoal = charlie)) { case Left(err) =>
-            inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
-              inside(why) { case cma: CreateMissingAuthorization =>
-                cma.authorizingParties shouldBe Set(alice, bob)
-                cma.requiredParties shouldBe Set(charlie)
-              }
-            }
+    "restrict authority: {A,B}-->{A,B} (need C)" in {
+      inside(runExample(theAut = Set(alice, bob), theGoal = charlie)) { case Left(err) =>
+        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+          inside(why) { case cma: CreateMissingAuthorization =>
+            cma.authorizingParties shouldBe Set(alice, bob)
+            cma.requiredParties shouldBe Set(charlie)
           }
         }
+      }
+    }
 
-        "change/gain authority {A,B}-->{C} (need A)" in {
-          inside(runExample(theAut = Set(charlie), theGoal = alice)) { case Left(err) =>
-            inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
-              inside(why) { case cma: CreateMissingAuthorization =>
-                cma.authorizingParties shouldBe Set(charlie)
-                cma.requiredParties shouldBe Set(alice)
-              }
-            }
+    "change/gain authority {A,B}-->{C} (need A)" in {
+      inside(runExample(theAut = Set(charlie), theGoal = alice)) { case Left(err) =>
+        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+          inside(why) { case cma: CreateMissingAuthorization =>
+            cma.authorizingParties shouldBe Set(charlie)
+            cma.requiredParties shouldBe Set(alice)
           }
         }
       }
