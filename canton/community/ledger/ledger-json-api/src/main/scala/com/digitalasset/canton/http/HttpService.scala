@@ -273,7 +273,7 @@ object HttpService {
 
   private[http] def createPortFile(
       file: Path,
-      binding: pekko.http.scaladsl.Http.ServerBinding,
+      binding: org.apache.pekko.http.scaladsl.Http.ServerBinding,
   ): HttpService.Error \/ Unit = {
     import com.digitalasset.canton.http.util.ErrorOps.*
     PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error.apply)

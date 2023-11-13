@@ -1,1 +1,1 @@
-zap pekko.stream.scaladsl.BroadcastHub*
+zap org.apache.pekko.stream.scaladsl.BroadcastHub*

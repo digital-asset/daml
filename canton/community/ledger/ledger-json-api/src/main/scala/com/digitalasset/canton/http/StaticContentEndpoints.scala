@@ -51,7 +51,7 @@ private class StaticContentRouter(
   )
 
   private val fn =
-    pekko.http.scaladsl.server.Route.toFunction(
+    org.apache.pekko.http.scaladsl.server.Route.toFunction(
       Directives.rawPathPrefix(Slash ~ config.prefix)(
         Directives.getFromDirectory(config.directory.getAbsolutePath)
       )

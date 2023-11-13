@@ -357,7 +357,7 @@ object HttpService {
 
   private def createPortFile(
       file: Path,
-      binding: pekko.http.scaladsl.Http.ServerBinding,
+      binding: org.apache.pekko.http.scaladsl.Http.ServerBinding,
   ): Error \/ Unit = {
     import util.ErrorOps._
     PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error.apply)

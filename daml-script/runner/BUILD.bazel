@@ -47,10 +47,10 @@ da_scala_library(
         "@maven//:org_apache_pekko_pekko_http_core",
         "@maven//:org_apache_pekko_pekko_http_spray_json",
         "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:org_apache_pekko_pekko_parsing",
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
+        "@maven//:org_parboiled_parboiled",
     ],
     # no doc as our scaladoc pipeline does not support .scrjar
     scaladoc = False,

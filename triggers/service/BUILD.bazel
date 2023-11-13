@@ -36,7 +36,6 @@ da_scala_library(
         "@maven//:org_apache_pekko_pekko_http",
         "@maven//:org_apache_pekko_pekko_http_core",
         "@maven//:org_apache_pekko_pekko_http_spray_json",
-        "@maven//:org_apache_pekko_pekko_parsing",
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:io_spray_spray_json",
@@ -50,6 +49,7 @@ da_scala_library(
         "@maven//:org_typelevel_cats_kernel",
         "@maven//:com_github_pureconfig_pureconfig_core",
         "@maven//:com_github_pureconfig_pureconfig_generic",
+        "@maven//:org_parboiled_parboiled",
     ],
     scala_runtime_deps = [
         "@maven//:org_apache_pekko_pekko_slf4j",
@@ -182,7 +182,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_apache_pekko_pekko_actor_typed",
         "@maven//:org_apache_pekko_pekko_http_core",
-        "@maven//:org_apache_pekko_pekko_parsing",
+        "@maven//:org_parboiled_parboiled",
     ],
     visibility = ["//test-evidence:__pkg__"],
     deps = [
@@ -238,7 +238,6 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:io_spray_spray_json",
         "@maven//:org_apache_pekko_pekko_http_core",
-        "@maven//:org_apache_pekko_pekko_parsing",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
@@ -247,6 +246,7 @@ da_scala_test_suite(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalactic_scalactic",
         "@maven//:com_github_scopt_scopt",
+        "@maven//:org_parboiled_parboiled",
     ],
     visibility = ["//test-evidence:__pkg__"],
     deps = [

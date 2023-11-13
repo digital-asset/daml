@@ -13,15 +13,15 @@ import scala.jdk.CollectionConverters._
 object ProtobufByteStrings {
 
   def readFrom(
-      source: Source[pekko.util.ByteString, NotUsed]
+      source: Source[org.apache.pekko.util.ByteString, NotUsed]
   )(implicit mat: Materializer): protobuf.ByteString = {
     val inputStream = source.runWith(StreamConverters.asInputStream())
     protobuf.ByteString.readFrom(inputStream)
   }
 
-  def toSource(a: protobuf.ByteString): Source[pekko.util.ByteString, NotUsed] = {
+  def toSource(a: protobuf.ByteString): Source[org.apache.pekko.util.ByteString, NotUsed] = {
     Source.fromIterator(() =>
-      a.asReadOnlyByteBufferList().iterator.asScala.map(x => pekko.util.ByteString(x))
+      a.asReadOnlyByteBufferList().iterator.asScala.map(x => org.apache.pekko.util.ByteString(x))
     )
   }
 }

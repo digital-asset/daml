@@ -554,7 +554,7 @@ object Server {
     // implicitly to the Server constructor.
     implicit val ec: ExecutionContext = ctx.system.executionContext
     // Pekko HTTP doesn't know about Pekko Typed so provide untyped system.
-    implicit val untypedSystem: pekko.actor.ActorSystem = ctx.system.toClassic
+    implicit val untypedSystem: org.apache.pekko.actor.ActorSystem = ctx.system.toClassic
     implicit val materializer: Materializer = Materializer(untypedSystem)
     implicit val esf: ExecutionSequencerFactory =
       new PekkoExecutionSequencerPool("TriggerService")(untypedSystem)
@@ -777,7 +777,7 @@ object Server {
             // TODO SC until this future returns, connections may still be accepted. Consider
             // coordinating this future with the actor in some way, or use addToCoordinatedShutdown
             // (though I have a feeling it will not work out so neatly)
-            discard[Future[pekko.Done]](binding.unbind())
+            discard[Future[org.apache.pekko.Done]](binding.unbind())
             discard[Try[Unit]](Try(dao.close()))
             Behaviors.stopped // Automatically stops all actors.
         } // receiveSignal PostStop does not work, see #7092 20c1f241d5

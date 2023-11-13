@@ -45,7 +45,7 @@ private class StaticContentRouter(config: StaticContentConfig)(implicit
   logger.warn("DO NOT USE StaticContentRouter IN PRODUCTION, CONSIDER SETTING UP REVERSE PROXY!!!")
 
   private val fn =
-    pekko.http.scaladsl.server.Route.toFunction(
+    org.apache.pekko.http.scaladsl.server.Route.toFunction(
       Directives.rawPathPrefix(Slash ~ config.prefix)(
         Directives.getFromDirectory(config.directory.getAbsolutePath)
       )

@@ -6,7 +6,7 @@
 // https://raw.githubusercontent.com/pekko/pekko/v2.6.18/pekko-stream-tests/src/test/scala/pekko/stream/scaladsl/HubSpec.scala
 // Added tests are marked with NEW
 
-package pekko.stream.scaladsl
+package org.apache.pekko.stream.scaladsl
 
 import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._

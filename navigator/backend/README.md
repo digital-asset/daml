@@ -172,7 +172,7 @@ manually via command line as follows:
   > curl -H "Content-Type: application/json" -d'{ "userId":"PARTY" }' localhost:4000/api/session/ -i
   HTTP/1.1 200 OK
   Set-Cookie: session-id=8b4601d4-7113-407b-9b81-7fd5b213a96b; Path=/
-  Server: pekko-http/10.0.4
+  Server: pekko-http/1.0.0
   Date: Tue, 13 Jun 2017 16:47:38 GMT
   Content-Type: application/json
   Content-Length: 92

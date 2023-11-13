@@ -36,7 +36,7 @@ final class InstrumentedGraphSpec
       InstrumentedGraph
         .queue[Int](bufferSize, capacityCounter, maxBuffered, delayTimer)
         .mapAsync(1) { x =>
-          pekko.pattern.after(5.millis, system.scheduler)(Future(x))
+          org.apache.pekko.pattern.after(5.millis, system.scheduler)(Future(x))
         }
         .toMat(Sink.seq)(Keep.both)
         .run()

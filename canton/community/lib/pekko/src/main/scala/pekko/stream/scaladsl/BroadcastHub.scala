@@ -1,4 +1,4 @@
-package pekko.stream.scaladsl
+package org.apache.pekko.stream.scaladsl
 
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.stage.*
