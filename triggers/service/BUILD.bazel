@@ -286,6 +286,7 @@ da_scala_test_suite(
 
 da_scala_test_suite(
     name = "test-oracle",
+    timeout = "long",
     srcs = glob(["src/test-suite/scala/**/*Oracle*.scala"]),
     scala_deps = [
         "@maven//:io_spray_spray_json",
