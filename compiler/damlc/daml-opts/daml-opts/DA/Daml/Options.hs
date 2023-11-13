@@ -224,6 +224,8 @@ fakeDynFlags = defaultDynFlags
                    , sProgramName = "ghc"
                    , sProjectVersion = cProjectVersion
                    , sOpt_P_fingerprint = fingerprint0
+                   , sPgm_P = error "hpp resource or runfile missing but used CPP"
+                      -- If you see this error, check the paths in 'locateCppPath'
                    }
         platform = P.Platform
           { platformWordSize=8
