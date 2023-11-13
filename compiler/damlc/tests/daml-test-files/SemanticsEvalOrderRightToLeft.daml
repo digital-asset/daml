@@ -16,7 +16,7 @@
 
 module SemanticsEvalOrderRightToLeft where
 
-import Daml.Script2
+import Daml.Script
 import ScriptAssertHelpers
 
 -- @ERROR EvTyAbsErasableErr OK
