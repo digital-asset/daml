@@ -73,7 +73,7 @@ abstract class HttpServiceIntegrationTest
 
   override protected def beforeAll() = {
     super.beforeAll()
-    val _ = System.setProperty("javax.net.debug", "ssl:handshake")
+    val _ = System.setProperty("javax.net.debug", "all")
   }
 
   private def httpsContextForSelfSignedCert = {
@@ -102,7 +102,8 @@ abstract class HttpServiceIntegrationTest
   //  }
 
   // TODO(lt-37): This is also broken on linux after the netty_tcnative update.
-  "should serve HTTPS requests" ignore withHttpService(useHttps = UseHttps.Https) { fixture =>
+  "should serve HTTPS requests" in withHttpService(useHttps = UseHttps.Https) { fixture =>
+    val _ = logger.info("starting the actual fixture")
     Http()
       .singleRequest(
         HttpRequest(
