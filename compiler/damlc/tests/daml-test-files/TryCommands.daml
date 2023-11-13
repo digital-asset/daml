@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @ SCRIPT-V2
+-- @ WARN range=12:1-12:46; Import of internal module Daml.Script.Questions.Testing.Internal of package daml3-script is discouraged, as this module will change without warning.
 
 {-# LANGUAGE ApplicativeDo #-}
 
