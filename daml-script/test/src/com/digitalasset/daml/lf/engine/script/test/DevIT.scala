@@ -8,7 +8,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.language.LanguageMajorVersion.{V1, V2}
+import com.daml.lf.language.LanguageMajorVersion.V1
 import com.daml.lf.speedy.SValue._
 
 import java.nio.file.Paths
