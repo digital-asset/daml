@@ -40,7 +40,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
   import ExplicitDisclosureIT._
 
   test(
-    "EDCorrectEventPayloadDisclosure",
+    "EDCorrectCreatedEventBlobDisclosure",
     "Submission is successful if the correct disclosure as created_event_blob is provided",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
@@ -266,8 +266,8 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
   })
 
   test(
-    "EDMalformedDisclosedContractPayload",
-    "The ledger rejects disclosed contracts with a malformed disclosed contract payload",
+    "EDMalformedDisclosedContractCreatedEventBlob",
+    "The ledger rejects disclosed contracts with a malformed created event blob",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -293,7 +293,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
             testContext.disclosedContract
               .update(_.createdEventBlob.set(ByteString.copyFromUtf8("foo")))
           )
-          .mustFail("using a malformed disclosed contract create event payload")
+          .mustFail("using a malformed disclosed contract created event blob")
 
       } yield {
         assertGrpcError(
@@ -309,7 +309,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
   test(
     "EDInconsistentDisclosedContract",
-    "The ledger rejects inconsistent contract payloads",
+    "The ledger rejects inconsistent disclosed contract",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -344,7 +344,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           .map(_.cantonData)
           .getOrElse(fail("contract decode failed"))
 
-        tamperedPayload = TransactionCoder
+        tamperedEventBlob = TransactionCoder
           .encodeFatContractInstance(
             TransactionCoder
               .decodeFatContractInstance(ownerContext.disclosedContract.createdEventBlob)
@@ -357,9 +357,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           // Use of inconsistent disclosed contract
           // i.e. the delegate cannot fetch the owner's contract with attaching a different disclosed contract
           .exerciseFetchDelegated(
-            ownerContext.disclosedContract.copy(createdEventBlob = tamperedPayload)
+            ownerContext.disclosedContract.copy(createdEventBlob = tamperedEventBlob)
           )
-          .mustFail("using an inconsistent disclosed contract create event payload")
+          .mustFail("using an inconsistent disclosed contract created event blob")
       } yield {
         // TODO ED: Assert specific error codes once Canton error codes can be accessible from these suites
         //          Should be DISCLOSED_CONTRACT_AUTHENTICATION_FAILED
@@ -446,8 +446,8 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
   })
 
   test(
-    "EDRejectOnPayloadNotSet",
-    "Submission is rejected when the disclosed contract payload is not set",
+    "EDRejectOnCreatedEventBlobNotSet",
+    "Submission is rejected when the disclosed contract created event blob is not set",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -473,13 +473,12 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
               createdEventBlob = ByteString.EMPTY
             )
           )
-          .mustFail("Submitter forwarded a contract with unpopulated create_event_payload")
+          .mustFail("Submitter forwarded a contract with unpopulated created_event_blob")
       } yield {
         assertGrpcError(
           failure,
           LedgerApiErrors.RequestValidation.MissingField,
           Some(
-            // TODO ED: Change assertion to missing create_event_payload once the deprecated fields are removed
             "The submitted command is missing a mandatory field: DisclosedContract.createdEventBlob"
           ),
           checkDefiniteAnswerMetadata = true,
