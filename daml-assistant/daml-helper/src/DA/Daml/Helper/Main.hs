@@ -6,29 +6,29 @@ module DA.Daml.Helper.Main (main) where
 import Control.Exception.Safe
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
-import Data.Foldable
-import Data.List.Extra
-import Numeric.Natural
-import Options.Applicative.Extended
-import Options.Applicative
-import System.Environment
-import System.Exit
-import System.IO.Extra
-import System.Process (showCommandForUser)
-import System.Process.Typed (unsafeProcessHandle)
-import Text.Read (readMaybe)
-import DA.Signals
+import DA.Daml.Helper.Codegen
 import DA.Daml.Helper.Init
 import DA.Daml.Helper.Ledger
 import DA.Daml.Helper.New
 import DA.Daml.Helper.Start
 import DA.Daml.Helper.Studio
 import DA.Daml.Helper.Util
-import DA.Daml.Helper.Codegen
-import DA.PortFile
 import DA.Ledger.Types (ApplicationId(..))
+import DA.PortFile
+import DA.Signals
+import Data.Foldable
+import Data.List.Extra
 import Data.Text.Lazy (pack)
 import Data.Time.Calendar (Day(..))
+import Numeric.Natural
+import Options.Applicative
+import Options.Applicative.Extended
+import System.Environment
+import System.Exit
+import System.IO.Extra
+import System.Process (showCommandForUser)
+import System.Process.Typed (unsafeProcessHandle)
+import Text.Read (readMaybe)
 
 main :: IO ()
 main = do

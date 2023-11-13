@@ -6,9 +6,8 @@ module Options (
     parseOptions,
   ) where
 
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Options.Applicative
-
 import Types
 
 parseOptions :: IO Options

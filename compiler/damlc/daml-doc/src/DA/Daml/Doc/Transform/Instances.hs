@@ -5,14 +5,12 @@ module DA.Daml.Doc.Transform.Instances
     ( distributeInstanceDocs
     ) where
 
-import DA.Daml.Doc.Types
 import DA.Daml.Doc.Transform.Options
-
+import DA.Daml.Doc.Types
+import Data.Map qualified as Map
 import Data.Maybe (listToMaybe)
-
-import qualified Data.Map as Map
-import qualified Data.Set as Set
-import qualified Data.Text as T
+import Data.Set qualified as Set
+import Data.Text qualified as T
 
 type InstanceMap = Map.Map Anchor (Set.Set InstanceDoc)
 

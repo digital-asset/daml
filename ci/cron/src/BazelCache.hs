@@ -23,14 +23,14 @@ import Control.Concurrent.STM.TBMQueue
 import Control.Exception
 import Control.Monad.Extra
 import Control.Monad.Loops (whileJust_)
-import qualified Data.ByteString.Lazy as BSL
+import Data.ByteString.Lazy qualified as BSL
 import Data.List (isPrefixOf, stripPrefix)
 import Data.Maybe
 import Data.Time
 import Data.Time.Format.ISO8601
 import Network.HTTP.Client
 import Network.HTTP.Client.TLS
-import qualified Proto3.Suite as Proto3
+import Proto3.Suite qualified as Proto3
 import System.IO
 import System.IO.Error
 import System.Process.Typed

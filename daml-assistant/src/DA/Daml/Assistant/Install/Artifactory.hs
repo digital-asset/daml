@@ -14,8 +14,8 @@ import DA.Daml.Assistant.Types
 import DA.Daml.Project.Config
 import Data.Aeson
 import Data.Either.Extra
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as T
 
 newtype ArtifactoryApiKey = ArtifactoryApiKey
     { unwrapArtifactoryApiKey :: Text

@@ -14,21 +14,19 @@ module Development.IDE.Core.Rules.Daml.SpanInfo
     , getSpanInfo
     ) where
 
-import Data.Aeson (FromJSON, ToJSON)
-import Data.Text (Text)
-import Development.IDE.Core.Shake (use_)
-import Development.IDE.Types.Location (NormalizedFilePath)
-import Development.Shake (Action)
-import GHC.Generics (Generic)
-
 import "ghc-lib-parser" DynFlags (DynFlags)
 import "ghc-lib-parser" Outputable (showPpr)
 import "ghc-lib-parser" TyCoRep (Type)
-
-import qualified Data.Text as T
-import qualified Development.IDE.Core.RuleTypes as IDE
-import qualified Development.IDE.Spans.Common as IDE
-import qualified Development.IDE.Spans.Type as IDE
+import Data.Aeson (FromJSON, ToJSON)
+import Data.Text (Text)
+import Data.Text qualified as T
+import Development.IDE.Core.RuleTypes qualified as IDE
+import Development.IDE.Core.Shake (use_)
+import Development.IDE.Spans.Common qualified as IDE
+import Development.IDE.Spans.Type qualified as IDE
+import Development.IDE.Types.Location (NormalizedFilePath)
+import Development.Shake (Action)
+import GHC.Generics (Generic)
 
 getSpanInfo :: DynFlags -> NormalizedFilePath -> Action SpansInfo
 getSpanInfo dflags inputFile =

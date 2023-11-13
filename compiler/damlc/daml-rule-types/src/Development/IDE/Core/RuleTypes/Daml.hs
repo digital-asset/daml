@@ -13,29 +13,26 @@ module Development.IDE.Core.RuleTypes.Daml(
     module Development.IDE.Core.RuleTypes.Daml
     ) where
 
+import "ghc-lib-parser" Module (UnitId)
 import Control.DeepSeq
+import DA.Daml.DocTest
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.ScenarioServiceClient qualified as SS
 import Data.Binary
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
+import Data.HashSet (HashSet)
 import Data.Hashable
 import Data.Map.Strict (Map)
-import Data.HashSet (HashSet)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Data.Typeable (Typeable)
-import Development.Shake
-import GHC.Generics (Generic)
-import "ghc-lib-parser" Module (UnitId)
+import Development.IDE.Core.RuleTypes
 import Development.IDE.GHC.Util
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
-import Development.IDE.Core.RuleTypes
-
-import DA.Daml.DocTest
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.ScenarioServiceClient as SS
-
-import Language.Haskell.HLint4
-
+import Development.Shake
+import GHC.Generics (Generic)
 import HscTypes (ModIface, ModSummary)
+import Language.Haskell.HLint4
 
 type instance RuleResult GenerateDalf = LF.Module
 type instance RuleResult GenerateSerializedDalf = ()

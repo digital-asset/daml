@@ -5,8 +5,8 @@ module DA.Ledger.Retry (ledgerRetry) where
 
 import Control.Monad (when)
 import Control.Monad.Catch(Handler(..))
+import Control.Retry qualified as Retry
 import Network.GRPC.HighLevel.Generated(GRPCIOError(..),StatusCode(..))
-import qualified Control.Retry as Retry
 
 enableDevPrint :: Bool
 enableDevPrint = False

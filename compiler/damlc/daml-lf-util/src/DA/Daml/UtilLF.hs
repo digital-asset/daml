@@ -8,14 +8,13 @@ module DA.Daml.UtilLF (
     module DA.Daml.UtilLF
     ) where
 
-import           DA.Daml.LF.Ast
-import           DA.Pretty (renderPretty)
-
-import qualified Data.NameMap               as NM
-import qualified Data.Text                  as T
-import           GHC.Stack                  (HasCallStack)
+import DA.Daml.LF.Ast
+import DA.Pretty (renderPretty)
+import Data.NameMap qualified as NM
+import Data.Text qualified as T
+import GHC.Stack (HasCallStack)
 import Language.LSP.Types
-import           Outputable (Outputable(..), text)
+import Outputable (Outputable(..), text)
 
 mkVar :: T.Text -> ExprVarName
 mkVar = ExprVarName

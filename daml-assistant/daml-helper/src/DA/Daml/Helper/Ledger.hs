@@ -32,56 +32,55 @@ module DA.Daml.Helper.Ledger (
     downloadAllReachablePackages,
     ) where
 
-import Control.Exception (SomeException(..), catch)
+import Com.Daml.Ledger.Api.V1.TransactionFilter
 import Control.Applicative ((<|>))
+import Control.Exception (SomeException(..), catch)
 import Control.Lens (toListOf)
 import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.IO.Class (liftIO)
+import DA.Daml.Compiler.Dar (createArchive, createDarFile)
+import DA.Daml.Helper.Util
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.Ast.Optics qualified as LF (packageRefs)
+import DA.Daml.LF.Proto3.Archive qualified as LFArchive
+import DA.Daml.Package.Config (PackageSdkVersion(..))
+import DA.Daml.Project.Util (fromMaybeM)
+import DA.Ledger qualified as L
+import DA.Ledger.Services.MeteringReportService(MeteringRequestByDay(..))
+import DA.Ledger.Types (ApplicationId(..))
+import DA.Service.Logger qualified as Logger
+import DA.Service.Logger.Impl.IO qualified as Logger
 import Data.Aeson ((.=), encode)
-import qualified Data.Aeson as A
+import Data.Aeson qualified as A
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.Aeson.Text
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as BSC
-import qualified Data.ByteString.Lazy as BSL
+import Data.ByteString qualified as BS
+import Data.ByteString.Char8 qualified as BSC
+import Data.ByteString.Lazy qualified as BSL
 import Data.List.Extra
 import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
+import Data.Map.Strict qualified as Map
 import Data.Maybe
+import Data.Set qualified as Set
 import Data.String (IsString, fromString)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.IO as TL
-import qualified Data.UUID as UUID
-import qualified Data.UUID.V4 as UUID
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as T
+import Data.Text.Lazy qualified as TL
+import Data.Text.Lazy.IO qualified as TL
+import Data.Time.Calendar (Day(..))
+import Data.UUID qualified as UUID
+import Data.UUID.V4 qualified as UUID
 import GHC.Generics
 import Network.GRPC.Unsafe.ChannelArgs (Arg(..))
 import Network.HTTP.Simple
 import Network.HTTP.Types (statusCode)
 import Numeric.Natural
+import SdkVersion qualified
 import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Process.Typed
-
-import Com.Daml.Ledger.Api.V1.TransactionFilter
-import DA.Daml.Compiler.Dar (createArchive, createDarFile)
-import DA.Daml.Helper.Util
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Ast.Optics as LF (packageRefs)
-import qualified DA.Daml.LF.Proto3.Archive as LFArchive
-import DA.Daml.Package.Config (PackageSdkVersion(..))
-import DA.Daml.Project.Util (fromMaybeM)
-import qualified DA.Ledger as L
-import qualified DA.Service.Logger as Logger
-import qualified DA.Service.Logger.Impl.IO as Logger
-import qualified SdkVersion
-import DA.Ledger.Types (ApplicationId(..))
-import Data.Aeson.Encode.Pretty (encodePretty)
-import Data.Time.Calendar (Day(..))
-import DA.Ledger.Services.MeteringReportService(MeteringRequestByDay(..))
-import qualified Data.Aeson as Aeson
 
 data LedgerApi
   = Grpc

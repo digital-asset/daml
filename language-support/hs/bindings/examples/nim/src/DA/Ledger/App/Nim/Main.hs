@@ -3,10 +3,10 @@
 
 module DA.Ledger.App.Nim.Main(main) where
 
-import System.Environment(getArgs)
 import DA.Ledger.App.Nim.Domain(Player(..))
 import DA.Ledger.App.Nim.Robot(robotMain)
 import DA.Ledger.App.Nim.UI(interactiveMain)
+import System.Environment(getArgs)
 
 main :: IO ()
 main = do

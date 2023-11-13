@@ -13,9 +13,9 @@ module DA.Daml.LF.Reader
 
 import "zip-archive" Codec.Archive.Zip
 import Data.ByteString (ByteString)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.UTF8 as BSUTF8
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
+import Data.ByteString.UTF8 qualified as BSUTF8
 import Data.Char
 import Data.Either.Extra
 import Data.List.Extra

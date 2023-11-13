@@ -7,7 +7,7 @@ module DA.Daml.Doc.Render.Types
     ) where
 
 import DA.Daml.Doc.Types -- for Anchor, AnchorMap
-import qualified Data.Text as T
+import Data.Text qualified as T
 
 data RenderFormat = Rst | Markdown | Html
     deriving (Eq, Show, Read, Enum, Bounded)

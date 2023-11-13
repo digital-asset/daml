@@ -11,7 +11,6 @@ import DA.Ledger (
     PackageId,Command,ModuleName(..),EntityName(..),TemplateId(..),Identifier(..),
     Command(..), Event(..), Transaction(..)
     )
-
 import DA.Ledger.App.Chat.Domain (Introduce,Message,Broadcast)
 import DA.Ledger.App.Chat.Logging (Logger)
 import DA.Ledger.IsLedgerValue (toRecord,fromRecord)

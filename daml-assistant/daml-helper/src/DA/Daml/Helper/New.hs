@@ -8,6 +8,8 @@ module DA.Daml.Helper.New
     ) where
 
 import Control.Monad.Extra
+import DA.Daml.Helper.Util
+import DA.Daml.Project.Consts
 import DA.Directory
 import Data.List.Extra
 import Data.Maybe
@@ -16,9 +18,6 @@ import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Process (showCommandForUser)
-
-import DA.Daml.Project.Consts
-import DA.Daml.Helper.Util
 
 -- | Create a Daml project in a new directory, based on a project template packaged
 -- with the SDK. Special care has been taken to avoid:

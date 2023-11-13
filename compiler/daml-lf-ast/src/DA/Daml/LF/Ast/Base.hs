@@ -1,32 +1,31 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE DataKinds          #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 -- | Types and pretty-printer for the AST of the Daml Ledger Fragment.
 module DA.Daml.LF.Ast.Base(
     module DA.Daml.LF.Ast.Base
     ) where
 
-import Data.Aeson
-import Data.Hashable
-import Data.Data
-import GHC.Generics(Generic)
-import Data.Int
+import "template-haskell" Language.Haskell.TH qualified as TH
 import Control.DeepSeq
 import Control.Lens
-import qualified Data.NameMap as NM
-import qualified Data.Text as T
-import qualified Data.Set as S
-import qualified "template-haskell" Language.Haskell.TH as TH
-import qualified Control.Lens.TH as Lens.TH
-
-import DA.Daml.LF.Ast.Version
+import Control.Lens.TH qualified as Lens.TH
 import DA.Daml.LF.Ast.Numeric
 import DA.Daml.LF.Ast.TypeLevelNat
+import DA.Daml.LF.Ast.Version
+import Data.Aeson
+import Data.Data
+import Data.Hashable
+import Data.Int
+import Data.NameMap qualified as NM
+import Data.Set qualified as S
+import Data.Text qualified as T
+import GHC.Generics(Generic)
 
 infixr 1 `KArrow`
 

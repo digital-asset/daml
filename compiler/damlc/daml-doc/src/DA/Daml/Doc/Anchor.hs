@@ -17,9 +17,9 @@ module DA.Daml.Doc.Anchor
     ) where
 
 import DA.Daml.Doc.Types
+import Data.Char qualified as C
 import Data.Hashable
-import qualified Data.Text as T
-import qualified Data.Char as C
+import Data.Text qualified as T
 
 moduleAnchor :: Modulename -> Anchor
 -- calculating a hash on String instead of Data.Text as hash output of the later is different on Windows than other OSes

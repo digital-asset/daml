@@ -7,8 +7,8 @@ module DA.Ledger.Stream.StreamExtra(
     asyncStreamGen,
     ) where
 
-import Control.Exception (SomeException,catch,mask_)
 import Control.Concurrent.Async(async,cancel)
+import Control.Exception (SomeException,catch,mask_)
 import DA.Ledger.Stream.StreamCore
 
 -- To map one stream into another requires concurrency.

@@ -19,17 +19,17 @@ module DA.Daml.Assistant.Env
     , forceEnv
     ) where
 
+import Control.Exception.Safe
+import Control.Monad.Extra
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
 import DA.Daml.Assistant.Version
 import DA.Daml.Project.Consts hiding (getDamlPath, getProjectPath)
-import System.Directory
-import System.FilePath
-import System.Environment.Blank
-import System.Info.Extra
-import Control.Monad.Extra
-import Control.Exception.Safe
 import Data.Maybe
+import System.Directory
+import System.Environment.Blank
+import System.FilePath
+import System.Info.Extra
 
 -- | Calculate the environment variables in which to run daml commands.
 getDamlEnv :: DamlPath -> LookForProjectPath -> IO Env

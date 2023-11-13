@@ -11,16 +11,15 @@ module DA.Ledger.GrpcWrapUtils (
     sendToStream,
     ) where
 
-import Prelude hiding (fail)
-
 import Control.Exception (throwIO)
 import Control.Monad.Fail (fail)
 import Control.Monad.Fix (fix)
-import DA.Ledger.Stream
 import DA.Ledger.Convert (Perhaps,runRaise)
+import DA.Ledger.Stream
 import Data.Either.Extra (eitherToMaybe)
 import Network.GRPC.HighLevel (clientCallCancel)
 import Network.GRPC.HighLevel.Generated
+import Prelude hiding (fail)
 
 unwrap :: ClientResult 'Normal a -> IO a
 unwrap = \case

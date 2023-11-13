@@ -28,22 +28,20 @@ module DA.Daml.LF.Ast.World(
     lookupInterfaceInstance,
     ) where
 
-import DA.Pretty
-
 import Control.DeepSeq
 import Control.Lens
-import qualified Data.ByteString as BS
-import qualified Data.HashMap.Strict as HMS
-import Data.List
-import qualified Data.NameMap as NM
-import GHC.Generics
-import Data.Either.Extra (maybeToEither)
-
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Pretty ()
 import DA.Daml.LF.Ast.Version
 import DA.Daml.LF.TemplateOrInterface (TemplateOrInterface, TemplateOrInterface')
-import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
+import DA.Daml.LF.TemplateOrInterface qualified as TemplateOrInterface
+import DA.Pretty
+import Data.ByteString qualified as BS
+import Data.Either.Extra (maybeToEither)
+import Data.HashMap.Strict qualified as HMS
+import Data.List
+import Data.NameMap qualified as NM
+import GHC.Generics
 
 -- | The 'World' contains all imported packages together with (a subset of)
 -- the modules of the current package. The latter shall always be closed under

@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE FlexibleInstances #-}
 module DA.Daml.LF.Ast.Pretty
     ( levelHasTypes
     , levelHasKinds
@@ -11,22 +11,21 @@ module DA.Daml.LF.Ast.Pretty
     , (<:>)
     ) where
 
-import qualified Data.Ratio                 as Ratio
-import           Control.Lens
-import           Control.Lens.Ast   (rightSpine)
-import           Data.Maybe (maybeToList, isJust)
-import qualified Data.NameMap as NM
-import qualified Data.Set as S
-import qualified Data.Text as T
-import qualified Data.Time.Clock.POSIX      as Clock.Posix
-import qualified Data.Time.Format           as Time.Format
-import           Data.Foldable (toList)
-
-import           DA.Daml.LF.Ast.Base hiding (dataCons)
-import           DA.Daml.LF.Ast.TypeLevelNat
-import           DA.Daml.LF.Ast.Util
-import           DA.Daml.LF.Ast.Optics
-import           DA.Pretty hiding (keyword_, pretty, type_)
+import Control.Lens
+import Control.Lens.Ast (rightSpine)
+import DA.Daml.LF.Ast.Base hiding (dataCons)
+import DA.Daml.LF.Ast.Optics
+import DA.Daml.LF.Ast.TypeLevelNat
+import DA.Daml.LF.Ast.Util
+import DA.Pretty hiding (keyword_, pretty, type_)
+import Data.Foldable (toList)
+import Data.Maybe (maybeToList, isJust)
+import Data.NameMap qualified as NM
+import Data.Ratio qualified as Ratio
+import Data.Set qualified as S
+import Data.Text qualified as T
+import Data.Time.Clock.POSIX qualified as Clock.Posix
+import Data.Time.Format qualified as Time.Format
 
 -- NOTE(MH): We define 4 detail levels:
 -- -2: Omit all type information, kind annotations, package ids and location information.

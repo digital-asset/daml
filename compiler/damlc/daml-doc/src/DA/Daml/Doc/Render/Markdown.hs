@@ -7,12 +7,11 @@ module DA.Daml.Doc.Render.Markdown
   ) where
 
 import DA.Daml.Doc.Anchor
-import DA.Daml.Doc.Types
-import DA.Daml.Doc.Render.Util (adjust, escapeText, (<->))
 import DA.Daml.Doc.Render.Monoid
-
+import DA.Daml.Doc.Render.Util (adjust, escapeText, (<->))
+import DA.Daml.Doc.Types
 import Data.List.Extra
-import qualified Data.Text as T
+import Data.Text qualified as T
 
 renderMd :: RenderEnv -> RenderOut -> [T.Text]
 renderMd env = \case

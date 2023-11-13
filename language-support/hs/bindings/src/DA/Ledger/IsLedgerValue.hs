@@ -5,8 +5,8 @@ module DA.Ledger.IsLedgerValue (
     IsLedgerValue(..), -- types which can be converted to/from a Ledger API Value
     ) where
 
-import Data.Text.Lazy (Text)
 import DA.Ledger.Types
+import Data.Text.Lazy (Text)
 
 class IsLedgerValue a where
     toValue :: a -> Value

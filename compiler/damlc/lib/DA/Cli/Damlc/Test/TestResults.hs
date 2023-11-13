@@ -8,26 +8,26 @@ module DA.Cli.Damlc.Test.TestResults (
         module DA.Cli.Damlc.Test.TestResults
     ) where
 
-import qualified DA.Daml.LF.Ast as LF
-import qualified Data.NameMap as NM
-import qualified TestResults as TR
-import qualified ScenarioService as SS
-import qualified DA.Daml.LF.ScenarioServiceClient as SSC
-import Development.IDE.Core.RuleTypes.Daml (VirtualResource (..))
-import qualified Data.Vector as V
-import qualified Proto3.Suite as Proto
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString as BS
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
-import qualified Data.Set as S
-import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
-import qualified Data.Map.Strict as M
-import Data.Maybe (mapMaybe)
+import Com.Daml.DamlLfDev.DamlLf1 qualified as LF1
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.ScenarioServiceClient qualified as SSC
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
 import Data.Foldable (fold)
+import Data.Map.Strict qualified as M
+import Data.Maybe (mapMaybe)
+import Data.Monoid (Endo(..))
+import Data.NameMap qualified as NM
+import Data.Set qualified as S
+import Data.Text qualified as T
+import Data.Text.Lazy qualified as TL
+import Data.Vector qualified as V
+import Development.IDE.Core.RuleTypes.Daml (VirtualResource (..))
+import Proto3.Suite qualified as Proto
+import ScenarioService qualified as SS
+import TestResults qualified as TR
 import Text.Printf
 import Text.Regex.TDFA
-import Data.Monoid (Endo(..))
 
 class Protobuf a b | a -> b where
     decode :: a -> Maybe b

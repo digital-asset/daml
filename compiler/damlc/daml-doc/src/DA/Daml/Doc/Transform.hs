@@ -7,12 +7,11 @@ module DA.Daml.Doc.Transform
   , applyTransform
   ) where
 
-import DA.Daml.Doc.Types
-import DA.Daml.Doc.Transform.Options
 import DA.Daml.Doc.Transform.Annotations
-import DA.Daml.Doc.Transform.Instances
 import DA.Daml.Doc.Transform.DropEmpty
-
+import DA.Daml.Doc.Transform.Instances
+import DA.Daml.Doc.Transform.Options
+import DA.Daml.Doc.Types
 import Data.Maybe
 
 applyTransform :: TransformOptions -> [ModuleDoc] -> [ModuleDoc]

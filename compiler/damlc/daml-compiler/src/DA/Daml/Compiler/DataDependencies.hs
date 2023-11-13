@@ -10,38 +10,12 @@ module DA.Daml.Compiler.DataDependencies
     , prefixDependencyModule
     ) where
 
-import DA.Pretty hiding (first)
-import Control.Applicative
-import Control.Monad
-import Control.Monad.State.Strict
-import Data.Bifunctor (first)
-import Data.Char (isDigit)
-import qualified Data.DList as DL
-import Data.Foldable (fold)
-import Data.Hashable (Hashable)
-import qualified Data.HashMap.Strict as HMS
-import Data.List.Extra
-import Data.Ord (Down (Down))
-import Data.Semigroup.FixedPoint
-import Data.Set (Set)
-import qualified Data.Set as Set
-import qualified Data.Map.Strict as MS
-import Data.Maybe
-import qualified Data.NameMap as NM
-import qualified Data.Text as T
-import Data.Tuple.Extra (fst3, snd3, thd3)
-import Development.IDE.Types.Location
-import GHC.Generics (Generic)
-import GHC.Stack
-import Safe
-import System.FilePath
-
+import "ghc-lib" GHC
 import "ghc-lib-parser" Bag
 import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" FastString
 import "ghc-lib-parser" FieldLabel (FieldLbl (..))
-import "ghc-lib" GHC
-import qualified "ghc-lib-parser" GHC.Lexeme
+import "ghc-lib-parser" GHC.Lexeme qualified
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
 import "ghc-lib-parser" Outputable (ppr, showSDocForUser)
@@ -49,19 +23,42 @@ import "ghc-lib-parser" RdrName
 import "ghc-lib-parser" TcEvidence (HsWrapper (WpHole))
 import "ghc-lib-parser" TysPrim
 import "ghc-lib-parser" TysWiredIn
-
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Ast.Type as LF
-import qualified DA.Daml.LF.Ast.Alpha as LF
-import qualified DA.Daml.LF.TypeChecker.Check as LF
-import qualified DA.Daml.LF.TypeChecker.Env as LF
-import qualified DA.Daml.LF.TypeChecker.Error as LF
-import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
+import Control.Applicative
+import Control.Monad
+import Control.Monad.State.Strict
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.Ast.Alpha qualified as LF
+import DA.Daml.LF.Ast.Type qualified as LF
+import DA.Daml.LF.TypeChecker.Check qualified as LF
+import DA.Daml.LF.TypeChecker.Env qualified as LF
+import DA.Daml.LF.TypeChecker.Error qualified as LF
+import DA.Daml.LFConversion.MetadataEncoding qualified as LFC
 import DA.Daml.Options
 import DA.Daml.StablePackages (stablePackageByModuleName)
 import DA.Daml.UtilGHC (fsFromText)
-
+import DA.Pretty hiding (first)
+import Data.Bifunctor (first)
+import Data.Char (isDigit)
+import Data.DList qualified as DL
+import Data.Foldable (fold)
+import Data.HashMap.Strict qualified as HMS
+import Data.Hashable (Hashable)
+import Data.List.Extra
+import Data.Map.Strict qualified as MS
+import Data.Maybe
+import Data.NameMap qualified as NM
+import Data.Ord (Down (Down))
+import Data.Semigroup.FixedPoint
+import Data.Set (Set)
+import Data.Set qualified as Set
+import Data.Text qualified as T
+import Data.Tuple.Extra (fst3, snd3, thd3)
+import Development.IDE.Types.Location
+import GHC.Generics (Generic)
+import GHC.Stack
+import Safe
 import SdkVersion
+import System.FilePath
 
 panicOnError :: HasCallStack => Either LF.Error a -> a
 panicOnError (Left e) =

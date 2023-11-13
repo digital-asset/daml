@@ -5,22 +5,22 @@ module DA.Cli.Options
   ( module DA.Cli.Options
   ) where
 
-import Data.List.Extra     (lower, splitOn, trim)
-import Options.Applicative hiding (option, strOption)
-import qualified Options.Applicative (option, strOption)
-import Options.Applicative.Extended
-import Data.List
-import Data.Maybe
-import qualified DA.Pretty           as Pretty
-import DA.Daml.Options.Types
 import DA.Daml.LF.Ast.Util (splitUnitId)
-import qualified DA.Daml.LF.Ast.Version as LF
+import DA.Daml.LF.Ast.Version qualified as LF
+import DA.Daml.Options.Types
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
-import qualified DA.Service.Logger as Logger
-import qualified Module as GHC
-import qualified Text.ParserCombinators.ReadP as R
-import qualified Data.Text as T
+import DA.Pretty qualified as Pretty
+import DA.Service.Logger qualified as Logger
+import Data.List
+import Data.List.Extra (lower, splitOn, trim)
+import Data.Maybe
+import Data.Text qualified as T
+import Module qualified as GHC
+import Options.Applicative hiding (option, strOption)
+import Options.Applicative qualified (option, strOption)
+import Options.Applicative.Extended
+import Text.ParserCombinators.ReadP qualified as R
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass

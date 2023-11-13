@@ -8,7 +8,7 @@
 module DA.Test.GenerateModuleTree (main) where
 
 import Data.Foldable
-import qualified Data.Text.Extended as T
+import Data.Text.Extended qualified as T
 import System.Environment
 import System.FilePath
 

@@ -7,9 +7,9 @@ import Control.Applicative.Combinators
 import Control.Monad
 import Data.Aeson
 import Data.Foldable
-import qualified Data.Text as T
-import qualified Data.Yaml as Yaml
-import qualified Language.LSP.Test as LSP
+import Data.Text qualified as T
+import Data.Yaml qualified as Yaml
+import Language.LSP.Test qualified as LSP
 import Language.LSP.Types hiding (Command)
 import Language.LSP.Types.Capabilities
 import Options.Applicative

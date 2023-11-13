@@ -28,9 +28,11 @@ import Control.Lens hiding (List)
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Aeson (Result(..), fromJSON)
-import qualified Data.Text as T
+import Data.Text qualified as T
+import Development.IDE.Core.Rules.Daml (VirtualResourceChangedParams(..))
+import Development.IDE.Test
 import Language.LSP.Test hiding (message)
-import qualified Language.LSP.Test as LspTest
+import Language.LSP.Test qualified as LspTest
 import Language.LSP.Types
 import Language.LSP.Types.Lens as Lsp
 import Network.URI
@@ -39,10 +41,6 @@ import System.FilePath
 import System.IO.Extra
 import Test.Tasty.HUnit
 import Text.Regex.TDFA
-
-import Development.IDE.Test
-import Development.IDE.Core.Rules.Daml (VirtualResourceChangedParams(..))
-
 
 damlId :: String
 damlId = "daml"

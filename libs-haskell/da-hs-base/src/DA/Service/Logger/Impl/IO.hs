@@ -7,23 +7,19 @@ module DA.Service.Logger.Impl.IO
     , newIOLogger
     ) where
 
-import DA.Service.Logger
-
-import           Control.Concurrent.MVar      (MVar, newMVar, withMVar)
-
+import Control.Concurrent.MVar (MVar, newMVar, withMVar)
 import Control.Monad
-
-import qualified Data.Aeson                   as Aeson
-import           Data.Aeson.Encode.Pretty     (encodePretty)
-import qualified Data.ByteString.Lazy.Char8   as BSL8
-import           Data.Char                    (toUpper)
-import           Data.Time                    ()
-import           Data.Time.Clock              (getCurrentTime)
-import qualified Data.Text.Extended           as T
-import qualified Data.Text.Encoding           as TE
-import           GHC.Stack
-
-import qualified System.IO
+import DA.Service.Logger
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Encode.Pretty (encodePretty)
+import Data.ByteString.Lazy.Char8 qualified as BSL8
+import Data.Char (toUpper)
+import Data.Text.Encoding qualified as TE
+import Data.Text.Extended qualified as T
+import Data.Time ()
+import Data.Time.Clock (getCurrentTime)
+import GHC.Stack
+import System.IO qualified
 
 ------------------------------------------------------------------------------
 -- IO Logger implementation

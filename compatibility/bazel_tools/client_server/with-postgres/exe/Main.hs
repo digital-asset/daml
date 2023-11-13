@@ -3,10 +3,9 @@
 
 module Main (main) where
 
-import qualified Data.Text as T
+import Data.Text qualified as T
 import System.Environment
 import System.Process
-
 import WithPostgres
 
 main :: IO ()

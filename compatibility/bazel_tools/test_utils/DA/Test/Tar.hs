@@ -7,14 +7,14 @@ module DA.Test.Tar (restoreFile) where
 
 import Conduit
 import Control.Monad
-import qualified Data.ByteString as BS
-import qualified Data.Conduit.Tar as Tar
+import Data.ByteString qualified as BS
+import Data.Conduit.Tar qualified as Tar
 import Data.List.Extra
 import Data.Maybe
-import qualified Data.Text as T
+import Data.Text qualified as T
 import System.Directory
-import System.Info.Extra
 import System.FilePath
+import System.Info.Extra
 import System.PosixCompat.Files (createSymbolicLink, setFileMode)
 
 -- | This is intended to be used in combination with `Data.Conduit.Tar.untar`.

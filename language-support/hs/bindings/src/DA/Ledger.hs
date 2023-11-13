@@ -25,16 +25,15 @@ module DA.Ledger ( -- High level interface to the Ledger API
 
     ) where
 
-import Network.GRPC.HighLevel.Generated(Port(..),Host(..),ClientConfig(..))
-import Network.GRPC.HighLevel.Client (ClientSSLConfig(..), ClientSSLKeyCertPair(..))
-import Network.GRPC.LowLevel.Call (endpoint)
-import Network.GRPC.Unsafe.ChannelArgs (Arg(..))
 import DA.Ledger.LedgerService
 import DA.Ledger.PastAndFuture
 import DA.Ledger.Services
 import DA.Ledger.Stream
 import DA.Ledger.Types
-
+import Network.GRPC.HighLevel.Client (ClientSSLConfig(..), ClientSSLKeyCertPair(..))
+import Network.GRPC.HighLevel.Generated(Port(..),Host(..),ClientConfig(..))
+import Network.GRPC.LowLevel.Call (endpoint)
+import Network.GRPC.Unsafe.ChannelArgs (Arg(..))
 import UnliftIO (liftIO,timeout,bracket)
 
 -- | Note: This does not enable TLS

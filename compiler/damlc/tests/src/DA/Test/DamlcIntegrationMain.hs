@@ -8,7 +8,7 @@ module DA.Test.DamlcIntegrationMain
   ( main
   ) where
 
-import qualified DA.Test.DamlcIntegration as Lib
+import DA.Test.DamlcIntegration qualified as Lib
 
 main :: IO ()
 main = Lib.main

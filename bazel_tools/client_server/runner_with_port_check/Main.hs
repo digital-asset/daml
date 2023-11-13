@@ -3,16 +3,16 @@
 
 module Main(main) where
 
-import System.Environment
-import Control.Exception.Safe
-import Control.Monad.Loops (untilJust)
-import System.Process.Typed
-import Data.List.Split (splitOn)
-import Control.Monad (forM_, when)
-import Network.Socket
 import Control.Concurrent
+import Control.Exception.Safe
+import Control.Monad (forM_, when)
+import Control.Monad.Loops (untilJust)
+import Data.List.Split (splitOn)
+import Network.Socket
+import System.Environment
 import System.Info.Extra
 import System.Process (terminateProcess)
+import System.Process.Typed
 
 main :: IO ()
 main = do

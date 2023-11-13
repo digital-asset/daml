@@ -12,7 +12,7 @@ import DA.Ledger.App.Chat.Local as Local (State,UserCommand(Link,Speak),known,hi
 import DA.Ledger.App.Chat.Logging (colourLog,plainLog,colourWrap)
 import Data.Text.Lazy as Text (pack)
 import System.Console.ANSI (Color(..))
-import qualified System.Console.Haskeline as HL
+import System.Console.Haskeline qualified as HL
 
 replyLog :: String -> IO ()
 replyLog = colourLog Cyan plainLog

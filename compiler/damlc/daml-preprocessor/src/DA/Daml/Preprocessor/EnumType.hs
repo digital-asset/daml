@@ -9,8 +9,8 @@ module DA.Daml.Preprocessor.EnumType
 import "ghc-lib" GHC
 import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" FastString
-import "ghc-lib-parser" RdrName
 import "ghc-lib-parser" OccName
+import "ghc-lib-parser" RdrName
 
 -- | This preprocessor adds the @DamlEnum@ constraint to every data definition
 -- of the form @data A = B@, so it becomes @data DamlEnum => A = B@, which gets

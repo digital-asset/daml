@@ -3,13 +3,13 @@
 
 module Main (main) where
 
+import Bazel.Runfiles qualified
 import Data.List
 import System.Environment.Blank
 import System.FilePath
-import System.Info.Extra
 import System.IO.Extra
+import System.Info.Extra
 import System.Process
-import qualified Bazel.Runfiles
 
 main :: IO ()
 main = withTempDir $ \yarnCache -> do

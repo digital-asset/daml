@@ -6,19 +6,19 @@
 
 module DA.Daml.LF.Ast.Version(module DA.Daml.LF.Ast.Version) where
 
-import           Data.Char (isDigit)
-import           Data.Data
-import           Data.List (intercalate)
-import           Data.Maybe (catMaybes)
-import           GHC.Generics
-import           DA.Pretty
-import qualified DA.Daml.LF.Ast.Range as R
-import           Control.DeepSeq
-import qualified Data.Text as T
-import           Safe (headMay)
-import           Text.ParserCombinators.ReadP (ReadP, pfail, readP_to_S, (+++), munch1)
-import qualified Text.ParserCombinators.ReadP as ReadP
-import qualified Data.Map.Strict as MS
+import Control.DeepSeq
+import DA.Daml.LF.Ast.Range qualified as R
+import DA.Pretty
+import Data.Char (isDigit)
+import Data.Data
+import Data.List (intercalate)
+import Data.Map.Strict qualified as MS
+import Data.Maybe (catMaybes)
+import Data.Text qualified as T
+import GHC.Generics
+import Safe (headMay)
+import Text.ParserCombinators.ReadP (ReadP, pfail, readP_to_S, (+++), munch1)
+import Text.ParserCombinators.ReadP qualified as ReadP
 
 -- | Daml-LF version of an archive payload.
 data Version = Version

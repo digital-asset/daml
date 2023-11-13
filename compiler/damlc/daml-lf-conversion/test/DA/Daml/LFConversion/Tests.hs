@@ -3,26 +3,24 @@
 
 module DA.Daml.LFConversion.Tests (main) where
 
+import "ghc-lib-parser" BasicTypes qualified as GHC
+import "ghc-lib-parser" BooleanFormula qualified as BF
+import "ghc-lib-parser" FieldLabel qualified as GHC
+import "ghc-lib-parser" OccName (mkDataOcc, mkTcOcc, mkVarOcc)
+import "ghc-lib-parser" SrcLoc (noLoc)
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LFConversion
+import DA.Daml.LFConversion.MetadataEncoding
+import DA.Daml.UtilGHC (fsFromText)
+import Data.Either.Combinators (whenLeft, whenRight)
+import Data.Maybe (isNothing)
+import Data.Ratio
+import Data.Set qualified as S
+import Data.Text qualified as T
 import Development.IDE.Types.Diagnostics (FileDiagnostic, showDiagnostics)
 import Development.IDE.Types.Location (toNormalizedFilePath')
 import Test.Tasty
 import Test.Tasty.HUnit
-import Data.Either.Combinators (whenLeft, whenRight)
-import Data.Maybe (isNothing)
-import Data.Ratio
-import qualified Data.Set as S
-import qualified Data.Text as T
-
-import DA.Daml.LFConversion
-import DA.Daml.LFConversion.MetadataEncoding
-import qualified DA.Daml.LF.Ast as LF
-import DA.Daml.UtilGHC (fsFromText)
-
-import qualified "ghc-lib-parser" BasicTypes as GHC
-import qualified "ghc-lib-parser" BooleanFormula as BF
-import qualified "ghc-lib-parser" FieldLabel as GHC
-import "ghc-lib-parser" OccName (mkDataOcc, mkTcOcc, mkVarOcc)
-import "ghc-lib-parser" SrcLoc (noLoc)
 
 main :: IO ()
 main = defaultMain $

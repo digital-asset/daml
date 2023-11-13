@@ -5,8 +5,8 @@
 module DA.Ledger.App.Nim.NimCommand(NimCommand(..), makeLedgerCommands,) where
 
 import DA.Ledger as Ledger
-import DA.Ledger.IsLedgerValue
 import DA.Ledger.App.Nim.Domain
+import DA.Ledger.IsLedgerValue
 
 type Oid = ContractId
 type Gid = ContractId

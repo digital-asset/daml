@@ -6,108 +6,101 @@ module Development.IDE.Core.Rules.Daml
     , module Development.IDE.Core.Rules.Daml.SpanInfo
     ) where
 
-import Outputable (showSDoc)
-import TcIface (typecheckIface)
-import LoadIface (readIface)
-import TidyPgm
-import DynFlags
-import SrcLoc
-import qualified GHC
-import qualified Module as GHC
-import GhcMonad
-import Data.IORef
-import qualified Proto3.Suite             as Proto
-import DA.Daml.LF.Proto3.DecodeV1
-import DA.Daml.LF.Proto3.EncodeV1
-import HscTypes
-import MkIface
-import Maybes (MaybeErr(..))
-import TcRnMonad (initIfaceLoad)
-
+import "ghc-lib" GHC hiding (Succeeded, typecheckModule)
+import "ghc-lib-parser" Module (DefUnitId(..), UnitId(..), stringToUnitId)
 import Control.Concurrent.Extra
 import Control.DeepSeq (NFData())
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
+import DA.Bazel.Runfiles
+import DA.Daml.DocTest
+import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor))
+import DA.Daml.LF.Ast qualified as LF
+import DA.Daml.LF.InferSerializability qualified as Serializability
+import DA.Daml.LF.PrettyScenario qualified as LF
+import DA.Daml.LF.Proto3.Archive qualified as Archive
+import DA.Daml.LF.Proto3.DecodeV1
+import DA.Daml.LF.Proto3.EncodeV1
+import DA.Daml.LF.ScenarioServiceClient qualified as SS
+import DA.Daml.LF.Simplifier qualified as LF
+import DA.Daml.LF.TypeChecker qualified as LF
+import DA.Daml.LFConversion (convertModule)
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
+import DA.Daml.UtilLF
+import DA.Pretty (PrettyLevel)
+import DA.Pretty qualified as Pretty
 import Data.Aeson hiding (Options)
 import Data.Bifunctor (bimap)
 import Data.Binary (Binary())
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.UTF8 as BS
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
+import Data.ByteString.UTF8 qualified as BS
 import Data.Either.Extra
 import Data.Foldable
-import qualified Data.HashMap.Strict as HashMap
-import qualified Data.HashSet as HashSet
+import Data.HashMap.Strict qualified as HashMap
+import Data.HashSet qualified as HashSet
 import Data.Hashable (Hashable())
-import qualified Data.IntMap.Strict as IntMap
+import Data.IORef
+import Data.IntMap.Strict qualified as IntMap
 import Data.List.Extra
-import qualified Data.List.NonEmpty as NonEmpty
-import qualified Data.Map.Strict as Map
+import Data.List.NonEmpty qualified as NonEmpty
+import Data.Map.Strict qualified as Map
 import Data.Maybe
-import qualified Data.NameMap as NM
-import qualified Data.Set as Set
-import qualified Data.Text.Encoding as T
-import qualified Data.Text.Extended as T
-import qualified Data.Text.Lazy as TL
+import Data.NameMap qualified as NM
+import Data.Set qualified as Set
+import Data.Text.Encoding qualified as T
+import Data.Text.Extended qualified as T
+import Data.Text.Lazy qualified as TL
 import Data.Tuple.Extra
 import Data.Typeable (Typeable())
-import qualified Data.Vector as V
+import Data.Vector qualified as V
 import Development.IDE.Core.Compile
 import Development.IDE.Core.OfInterest
+import Development.IDE.Core.RuleTypes.Daml
+import Development.IDE.Core.Rules hiding (mainRule)
+import Development.IDE.Core.Rules qualified as IDE
+import Development.IDE.Core.Rules.Daml.SpanInfo
+import Development.IDE.Core.Service.Daml
+import Development.IDE.Core.Shake
 import Development.IDE.GHC.Error
 import Development.IDE.GHC.Util
 import Development.IDE.GHC.Warnings
+import Development.IDE.Import.DependencyInformation
+import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location as Base
 import Development.IDE.Types.Logger hiding (Priority)
 import Development.Shake hiding (Diagnostic, Env, doesFileExist)
-import "ghc-lib" GHC hiding (Succeeded, typecheckModule)
-import "ghc-lib-parser" Module (DefUnitId(..), UnitId(..), stringToUnitId)
+import DynFlags
+import GHC qualified
+import GHC.Word
+import GhcMonad
+import HscTypes
+import Language.Haskell.HLint4
+import Language.LSP.Types qualified as LSP
+import LoadIface (readIface)
+import Maybes (MaybeErr(..))
+import MkIface
+import Module qualified as GHC
+import Network.HTTP.Types qualified as HTTP.Types
+import Network.URI qualified as URI
+import Outputable (showSDoc)
+import Proto3.Suite qualified as Proto
 import Safe
+import SdkVersion (damlStdlib)
+import SrcLoc
 import System.Directory.Extra as Dir
 import System.FilePath
-import qualified System.FilePath.Posix as FPP
+import System.FilePath.Posix qualified as FPP
 import System.IO
 import System.IO.Error
-import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
-import GHC.Word
-
-import qualified Network.HTTP.Types as HTTP.Types
-import qualified Network.URI as URI
-
-import Development.IDE.Import.DependencyInformation
-import Development.IDE.Core.Rules hiding (mainRule)
-import qualified Development.IDE.Core.Rules as IDE
-import Development.IDE.Core.Service.Daml
-import Development.IDE.Core.Shake
-import Development.IDE.Types.Diagnostics
-import qualified Language.LSP.Types as LSP
-
-import Development.IDE.Core.RuleTypes.Daml
-
-import DA.Bazel.Runfiles
-import DA.Daml.DocTest
-import DA.Daml.LFConversion (convertModule)
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.InferSerializability as Serializability
-import qualified DA.Daml.LF.PrettyScenario as LF
-import qualified DA.Daml.LF.Proto3.Archive as Archive
-import qualified DA.Daml.LF.ScenarioServiceClient as SS
-import qualified DA.Daml.LF.Simplifier as LF
-import qualified DA.Daml.LF.TypeChecker as LF
-import DA.Daml.UtilLF
-import qualified DA.Pretty as Pretty
-import DA.Pretty (PrettyLevel)
-import SdkVersion (damlStdlib)
-
-import Language.Haskell.HLint4
-
-import Development.IDE.Core.Rules.Daml.SpanInfo
-import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor))
+import TcIface (typecheckIface)
+import TcRnMonad (initIfaceLoad)
+import Text.PrettyPrint.Annotated.HughesPJClass qualified as HughesPJPretty
+import TidyPgm
 
 -- | Get thr URI that corresponds to a virtual resource. The VS Code has a
 -- document provider that will handle our special documents.

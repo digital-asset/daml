@@ -7,7 +7,6 @@ module DA.Ledger.App.Chat.Interact (InteractState(..), makeInteractState, runSub
 
 import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
-import Data.List
 import DA.Ledger.App.Chat.ChatLedger (Handle,sendCommand,getTrans)
 import DA.Ledger.App.Chat.Contracts (ChatContract)
 import DA.Ledger.App.Chat.Domain (Party)
@@ -15,6 +14,7 @@ import DA.Ledger.App.Chat.Local (State,initState,UserCommand,externalizeCommand,
 import DA.Ledger.App.Chat.Logging (Logger,colourLog)
 import DA.Ledger.PastAndFuture (PastAndFuture(..))
 import DA.Ledger.Stream (Stream,Closed(EOS,Abnormal,reason),takeStream)
+import Data.List
 import System.Console.ANSI (Color(..))
 
 data InteractState = InteractState {

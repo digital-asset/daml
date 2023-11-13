@@ -6,14 +6,12 @@ module DA.Daml.Doc.Extract.TypeExpr
     , typeToType
     ) where
 
-import DA.Daml.Doc.Types as DDoc
-
-import DA.Daml.Doc.Extract.Types
-import DA.Daml.Doc.Extract.Util
-
 import "ghc-lib-parser" TyCoRep
 import "ghc-lib-parser" TyCon
 import "ghc-lib-parser" Type
+import DA.Daml.Doc.Extract.Types
+import DA.Daml.Doc.Extract.Util
+import DA.Daml.Doc.Types as DDoc
 
 -- | Extract context from GHC type. Returns Nothing if there are no constraints.
 typeToContext :: DocCtx -> TyCoRep.Type -> DDoc.Context

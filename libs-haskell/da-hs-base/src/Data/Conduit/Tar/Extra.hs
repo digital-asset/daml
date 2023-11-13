@@ -9,9 +9,9 @@ module Data.Conduit.Tar.Extra
 
 import Conduit
 import Control.Monad
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import Data.Conduit.Tar hiding (restoreFile)
-import qualified Data.Conduit.Tar as Tar
+import Data.Conduit.Tar qualified as Tar
 import Data.List.Extra
 import Data.Maybe
 import Data.Text (Text, pack)
@@ -19,7 +19,6 @@ import System.Directory
 import System.FilePath
 import System.Info.Extra
 import System.PosixCompat.Files (createSymbolicLink, setFileMode)
-
 
 -- | This is intended to be used in combination with `Data.Conduit.Tar.untar`.
 -- It writes the given file to the given directory stripping the first component

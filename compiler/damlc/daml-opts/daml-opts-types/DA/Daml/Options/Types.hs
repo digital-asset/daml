@@ -39,17 +39,17 @@ module DA.Daml.Options.Types
 
 import Control.Monad.Reader
 import DA.Bazel.Runfiles
-import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast qualified as LF
 import DA.Pretty
-import qualified DA.Service.Logger as Logger
-import qualified DA.Service.Logger.Impl.IO as Logger.IO
+import DA.Service.Logger qualified as Logger
+import DA.Service.Logger.Impl.IO qualified as Logger.IO
 import Data.Maybe
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Development.IDE.GHC.Util (prettyPrint)
 import Development.IDE.Types.Location
 import DynFlags (ModRenaming(..), PackageFlag(..), PackageArg(..))
 import Module (UnitId, stringToUnitId)
-import qualified System.Directory as Dir
+import System.Directory qualified as Dir
 import System.FilePath
 
 -- | Orphan instances for debugging

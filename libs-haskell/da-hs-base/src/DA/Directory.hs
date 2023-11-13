@@ -3,11 +3,11 @@
 
 module DA.Directory (copyDirectory, moveDirectory) where
 
-import Control.Monad
 import Control.Exception.Safe
+import Control.Monad
 import GHC.IO.Exception
-import System.FilePath
 import System.Directory.Extra
+import System.FilePath
 import System.IO.Error
 
 copyDirectory :: FilePath -> FilePath -> IO ()

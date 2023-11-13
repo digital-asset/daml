@@ -23,46 +23,45 @@ module DA.Daml.Options
     , dataDependableExtensions
     ) where
 
+import CmdLineParser qualified as Cmd (warnMsg)
+import Config (cProjectVersion)
 import Control.Applicative ((<|>))
+import Control.Concurrent.Extra
 import Control.Exception
 import Control.Exception.Safe (handleIO)
-import Control.Concurrent.Extra
 import Control.Monad.Extra
-import qualified CmdLineParser as Cmd (warnMsg)
+import DA.Bazel.Runfiles
+import DA.Daml.LF.Ast.Version (version2_dev, Version (versionMajor))
+import DA.Daml.LF.Ast.Version qualified as LF
+import DA.Daml.Options.Types
+import DA.Daml.Preprocessor
+import DA.Daml.Project.Consts
+import DA.Daml.Project.Util
+import DA.Service.Logger qualified as Logger
 import Data.IORef
 import Data.List.Extra
+import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe, mapMaybe)
-import qualified EnumSet as ES
-import qualified Data.Map.Strict as Map
-import qualified Data.Text as T
-import Config (cProjectVersion)
-import Development.Shake (Action)
+import Data.Text qualified as T
 import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Shake
+import Development.IDE.GHC.Util
 import Development.IDE.Types.Location
-import qualified Platform as P
-import qualified EnumSet
-import GHC                         hiding (convertLit)
+import Development.IDE.Types.Options qualified as Ghcide
+import Development.Shake (Action)
+import EnumSet qualified
+import EnumSet qualified as ES
+import GHC hiding (convertLit)
 import GHC.Fingerprint (fingerprint0)
 import GHC.LanguageExtensions.Type
 import GhcMonad
 import GhcPlugins as GHC hiding (fst3, (<>), parseUnitId)
 import HscMain
 import Panic (throwGhcExceptionIO)
+import Platform qualified as P
+import SdkVersion (damlStdlib)
 import System.Directory
 import System.FilePath
-import qualified DA.Daml.LF.Ast.Version as LF
-
-import DA.Bazel.Runfiles
-import DA.Daml.Project.Consts
-import DA.Daml.Project.Util
-import DA.Daml.Options.Types
-import DA.Daml.Preprocessor
-import Development.IDE.GHC.Util
-import qualified DA.Service.Logger as Logger
-import qualified Development.IDE.Types.Options as Ghcide
-import SdkVersion (damlStdlib)
-import DA.Daml.LF.Ast.Version (version2_dev, Version (versionMajor))
 
 -- | Convert to ghcide’s IdeOptions type.
 toCompileOpts :: Options -> Ghcide.IdeOptions

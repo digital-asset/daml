@@ -15,16 +15,16 @@ import Control.Exception
 import DA.Bazel.Runfiles
 import DA.PortFile
 import Data.Aeson
-import qualified Data.Aeson.KeyMap as Aeson
-import qualified Data.ByteString as BS
-import qualified Data.Map as Map
+import Data.Aeson.KeyMap qualified as Aeson
+import Data.ByteString qualified as BS
+import Data.Map qualified as Map
 import Data.Maybe
-import qualified Data.Text as T
+import Data.Text qualified as T
 import System.FilePath
 import System.IO.Extra
 import System.Process
 import Test.Tasty
-import qualified Web.JWT as JWT
+import Web.JWT qualified as JWT
 
 data HttpJsonConfig = HttpJsonConfig
   { mbSharedSecret :: Maybe BS.ByteString

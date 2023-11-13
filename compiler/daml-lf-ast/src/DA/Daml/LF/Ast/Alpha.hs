@@ -7,9 +7,8 @@ module DA.Daml.LF.Ast.Alpha
     , alphaExpr
     ) where
 
-import qualified Data.Map.Strict as Map
-
 import DA.Daml.LF.Ast.Base
+import Data.Map.Strict qualified as Map
 
 -- | Auxiliary data structure to track bound variables.
 data AlphaEnv = AlphaEnv

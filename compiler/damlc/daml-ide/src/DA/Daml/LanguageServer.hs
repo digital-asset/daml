@@ -8,29 +8,24 @@ module DA.Daml.LanguageServer
     ( runLanguageServer
     ) where
 
-import           Language.LSP.Types
-import qualified Development.IDE.LSP.LanguageServer as LS
 import Control.Monad.IO.Class
-import qualified Data.Aeson as Aeson
+import DA.Daml.LanguageServer.CodeLens qualified as VirtualResource
+import DA.Daml.SessionTelemetry qualified as SessionTelemetry
+import DA.Service.Logger qualified as Lgr
+import Data.Aeson qualified as Aeson
 import Data.Default
-
-import qualified DA.Daml.LanguageServer.CodeLens as VirtualResource
-import Development.IDE.Types.Logger
-
-import qualified Data.HashSet as HS
-import qualified Data.Text as T
-
+import Data.HashSet qualified as HS
+import Data.Text qualified as T
 import Development.IDE.Core.FileStore
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.Service.Daml
+import Development.IDE.LSP.LanguageServer qualified as LS
 import Development.IDE.Plugin
-
-import qualified DA.Daml.SessionTelemetry as SessionTelemetry
-import qualified DA.Service.Logger as Lgr
-import qualified Network.URI                               as URI
-
-import qualified Language.LSP.Server as LSP
+import Development.IDE.Types.Logger
+import Language.LSP.Server qualified as LSP
+import Language.LSP.Types
+import Network.URI qualified as URI
 
 textShow :: Show a => a -> T.Text
 textShow = T.pack . show

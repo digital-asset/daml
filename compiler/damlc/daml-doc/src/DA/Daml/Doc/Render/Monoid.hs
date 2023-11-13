@@ -8,18 +8,18 @@ module DA.Daml.Doc.Render.Monoid
     ( module DA.Daml.Doc.Render.Monoid
     ) where
 
-import DA.Daml.Doc.Types
-import DA.Daml.Doc.Render.Types
 import Control.Monad
+import DA.Daml.Doc.Render.Types
+import DA.Daml.Doc.Types
 import Data.Foldable
-import Data.Maybe
+import Data.HashMap.Strict qualified as HMS
 import Data.List.Extra
+import Data.Map.Strict qualified as Map
+import Data.Maybe
+import Data.Set qualified as Set
+import Data.Text qualified as T
+import Network.URI qualified as URI
 import System.FilePath
-import qualified Data.Map.Strict as Map
-import qualified Data.HashMap.Strict as HMS
-import qualified Data.Set as Set
-import qualified Data.Text as T
-import qualified Network.URI as URI
 
 data RenderOut
     = RenderSpaced [RenderOut]

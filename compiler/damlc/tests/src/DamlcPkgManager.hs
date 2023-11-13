@@ -9,13 +9,13 @@ module DamlcPkgManager
 import DA.Bazel.Runfiles
 import DA.Daml.Dar.Reader
 import DA.Daml.Helper.Ledger (downloadAllReachablePackages)
-import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast qualified as LF
 import DA.Test.Sandbox
-import qualified Data.HashMap.Strict as HMS
+import Data.HashMap.Strict qualified as HMS
 import Data.List
-import qualified Data.Map as M
+import Data.Map qualified as M
 import Data.Maybe
-import qualified Data.Text.Extended as T
+import Data.Text.Extended qualified as T
 import SdkVersion
 import System.Directory
 import System.Environment.Blank

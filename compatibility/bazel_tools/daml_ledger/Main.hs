@@ -3,18 +3,23 @@
 
 module Main (main) where
 
+import Bazel.Runfiles qualified
 import Control.Applicative
 import Control.Exception
-import DA.Test.Process
 import DA.Test.FreePort
+import DA.Test.Process
+import Data.Aeson qualified as Aeson
 import Data.Either.Extra
 import Data.Function ((&))
+import Data.List qualified as List
 import Data.List.Extra (replace)
+import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (..))
 import Data.SemVer (Version)
-import qualified Data.SemVer as SemVer
+import Data.SemVer qualified as SemVer
 import Data.Tagged (Tagged (..))
+import Data.Text qualified as T
 import Sandbox (maxRetries, nullDevice, readCantonPortFile)
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment (lookupEnv)
@@ -23,14 +28,9 @@ import System.FilePath ((</>), takeBaseName)
 import System.IO.Extra (IOMode(ReadWriteMode), hClose, newTempDir, openBinaryFile, withTempDir, writeFileUTF8)
 import System.Process
 import Test.Tasty (TestTree,askOption,defaultMainWithIngredients,defaultIngredients,includingOptions,testGroup,withResource)
-import Test.Tasty.Options (IsOption(..), OptionDescription(..), mkOptionCLParser)
 import Test.Tasty.HUnit
-import qualified Bazel.Runfiles
-import qualified Data.Aeson as Aeson
-import qualified Data.List as List
-import qualified Data.Map as Map
-import qualified Data.Text as T
-import qualified Web.JWT as JWT
+import Test.Tasty.Options (IsOption(..), OptionDescription(..), mkOptionCLParser)
+import Web.JWT qualified as JWT
 
 data Tools = Tools
   { daml :: FilePath

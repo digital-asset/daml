@@ -24,3 +24,4 @@ type Commit c p = (Set p, Transaction c p)
 type Ledger c p = [Commit c p]
 -- COMMIT-LEDGER-END
 
+

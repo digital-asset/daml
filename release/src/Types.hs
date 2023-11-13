@@ -1,7 +1,7 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE ConstraintKinds  #-}
+{-# LANGUAGE ConstraintKinds #-}
 module Types (
     ArtifactId,
     ArtifactType,
@@ -26,23 +26,23 @@ module Types (
     tshow,
   ) where
 
-import qualified Control.Concurrent.Async.Lifted.Safe as Async
-import qualified Control.Exception                    as E
-import           Control.Monad.Catch                  (MonadMask)
-import           Control.Monad.IO.Class               (MonadIO, liftIO)
-import           Control.Monad.IO.Unlift              (MonadUnliftIO)
-import           Control.Monad.Logger
-import           Control.Monad.Trans.Control          (MonadBaseControl)
-import           Data.Aeson
-import qualified Data.List                            as List
-import           Data.Maybe
-import           Data.SemVer (Version)
-import           Data.Text                            (Text)
-import qualified Data.Text                            as T
-import           Data.Typeable                        (Typeable)
-import           Path
-import           Path.Internal
-import qualified System.FilePath                      as FP
+import Control.Concurrent.Async.Lifted.Safe qualified as Async
+import Control.Exception qualified as E
+import Control.Monad.Catch (MonadMask)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.IO.Unlift (MonadUnliftIO)
+import Control.Monad.Logger
+import Control.Monad.Trans.Control (MonadBaseControl)
+import Data.Aeson
+import Data.List qualified as List
+import Data.Maybe
+import Data.SemVer (Version)
+import Data.Text (Text)
+import Data.Text qualified as T
+import Data.Typeable (Typeable)
+import Path
+import Path.Internal
+import System.FilePath qualified as FP
 
 type GroupId = [Text]
 type ArtifactId = Text

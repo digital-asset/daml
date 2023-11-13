@@ -8,17 +8,16 @@ module Maven (
     validateMavenArtifacts,
 ) where
 
-import qualified Control.Exception.Safe as E
-import           Control.Monad
-import           Control.Monad.Logger
-import           Control.Monad.IO.Class
-import qualified Data.Maybe as Maybe
-import qualified Data.Text as T
-import           Data.Text (Text)
-import           Path
-import           Path.IO
-import           System.Exit
-
+import Control.Exception.Safe qualified as E
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Logger
+import Data.Maybe qualified as Maybe
+import Data.Text (Text)
+import Data.Text qualified as T
+import Path
+import Path.IO
+import System.Exit
 import Types
 import Util
 

@@ -14,16 +14,16 @@ module DA.Daml.Assistant.Cache
     , deserializeVersions
     ) where
 
+import Control.Exception.Safe
+import Control.Monad.Extra
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
 import DA.Daml.Project.Config
-import Control.Exception.Safe
-import Control.Monad.Extra
 import Data.Either.Extra
 import Data.Maybe
 import Data.String
 import Data.Time.Clock
-import qualified Data.Yaml as Y
+import Data.Yaml qualified as Y
 import System.Directory
 import System.FilePath
 import System.IO.Extra
