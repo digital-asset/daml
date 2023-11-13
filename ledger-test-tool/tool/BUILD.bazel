@@ -184,14 +184,6 @@ conformance_test_excluded_test = [
     "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
     "ActiveContractsServiceIT:AcsBeforePruningOffsetIsDisallowed",  # requires pruning not available in canton community
     "ActiveContractsServiceIT:AcsAtPruningOffsetIsAllowed",  # requires pruning not available in canton community
-    # removed until lapitt updated with ED field removal
-    "ExplicitDisclosureIT:EDRejectOnPayloadAndBlobSet",
-    "ExplicitDisclosureIT:EDRejectOnPayloadNotSet",
-    "InterfaceSubscriptionsIT:ISTransactionsCreateArgumentsBlob",
-    "TransactionServiceFiltersIT:TSFInterfaceWithBlobsTemplateIds",
-    "TransactionServiceFiltersIT:TSFInterfaceWithBlobsTemplatePlainFilters",
-    "TransactionServiceFiltersIT:TSFInterfaceWithBlobsTemplateFiltersWithEventBlobs",
-    "TransactionServiceFiltersIT:TSFInterfaceWithEventBlobsAndBlobs",
 ]
 
 # conformance tests for default and latest

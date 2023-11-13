@@ -82,14 +82,7 @@ message InterfaceFilter {
   // Optional
   bool include_interface_view = 2;
 
-  // Whether to include a ``create_arguments_blob`` in the returned
-  // ``CreatedEvent``.
-  // Use this to access the complete contract create argument data in your API client
-  // for submitting it as a disclosed contract with future commands.
-  // Deprecated in favor of ``include_created_event_blob``. If the latter field
-  // is set, ``include_create_arguments_blob`` is ignored.
-  // Optional
-  bool include_create_arguments_blob = 3 [deprecated = true];
+  reserved 3; // removed include_create_arguments_blob
 
   // Whether to include a ``created_event_blob`` in the returned ``CreatedEvent``.
   // Use this to access the contract create event payload in your API client

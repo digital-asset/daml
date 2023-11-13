@@ -25,7 +25,6 @@ import scalaz.Tag
 import scala.concurrent.{ExecutionContext, Future}
 
 // Allows using deprecated Protobuf fields for testing
-@annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
 class TransactionServiceFiltersIT extends LedgerTestSuite {
 
   test(
@@ -39,8 +38,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
-          includeCreateArgumentsBlob = false,
-          includeCreatedEventBlob = false,
+          includeCreatedEventBlob = false
         ),
         templateIds = createTemplateIdFilter,
       ),
@@ -59,8 +57,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
-          includeCreateArgumentsBlob = false,
-          includeCreatedEventBlob = false,
+          includeCreatedEventBlob = false
         ),
         templateFilters = createTemplateFilter(includeCreatedEventBlob = false),
       ),
@@ -79,65 +76,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
-          includeCreateArgumentsBlob = false,
-          includeCreatedEventBlob = false,
-        ),
-        templateFilters = createTemplateFilter(includeCreatedEventBlob = true),
-      ),
-    )
-  })
-
-  test(
-    "TSFInterfaceWithBlobsTemplateIds",
-    "Combine interface filters with blobs with template ids",
-    allocate(SingleParty),
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    testFilterComposition(
-      ledger,
-      party,
-      createTransactionFilter(
-        party = party,
-        interfaceFilters = createInterfaceFilter(
-          includeCreateArgumentsBlob = true,
-          includeCreatedEventBlob = false,
-        ),
-        templateIds = createTemplateIdFilter,
-      ),
-    )
-  })
-
-  test(
-    "TSFInterfaceWithBlobsTemplatePlainFilters",
-    "Combine interface filters with blobs with plain template filters",
-    allocate(SingleParty),
-    enabled = _.templateFilters,
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    testFilterCompositionFailure(
-      ledger,
-      createTransactionFilter(
-        party = party,
-        interfaceFilters = createInterfaceFilter(
-          includeCreateArgumentsBlob = true,
-          includeCreatedEventBlob = false,
-        ),
-        templateFilters = createTemplateFilter(includeCreatedEventBlob = false),
-      ),
-    )
-  })
-
-  test(
-    "TSFInterfaceWithBlobsTemplateFiltersWithEventBlobs",
-    "Combine interface filters with blobs with template filters with event blobs",
-    allocate(SingleParty),
-    enabled = _.templateFilters,
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    testFilterCompositionFailure(
-      ledger,
-      createTransactionFilter(
-        party = party,
-        interfaceFilters = createInterfaceFilter(
-          includeCreateArgumentsBlob = true,
-          includeCreatedEventBlob = false,
+          includeCreatedEventBlob = false
         ),
         templateFilters = createTemplateFilter(includeCreatedEventBlob = true),
       ),
@@ -155,8 +94,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
-          includeCreateArgumentsBlob = false,
-          includeCreatedEventBlob = true,
+          includeCreatedEventBlob = true
         ),
         templateIds = createTemplateIdFilter,
       ),
@@ -175,8 +113,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
-          includeCreateArgumentsBlob = false,
-          includeCreatedEventBlob = true,
+          includeCreatedEventBlob = true
         ),
         templateFilters = createTemplateFilter(includeCreatedEventBlob = false),
       ),
@@ -195,27 +132,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
-          includeCreateArgumentsBlob = false,
-          includeCreatedEventBlob = true,
-        ),
-        templateFilters = createTemplateFilter(includeCreatedEventBlob = true),
-      ),
-    )
-  })
-
-  test(
-    "TSFInterfaceWithEventBlobsAndBlobs",
-    "Combine interface filters with event blobs and blobs",
-    allocate(SingleParty),
-    enabled = _.templateFilters,
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    testFilterCompositionFailure(
-      ledger,
-      createTransactionFilter(
-        party = party,
-        interfaceFilters = createInterfaceFilter(
-          includeCreateArgumentsBlob = true,
-          includeCreatedEventBlob = true,
+          includeCreatedEventBlob = true
         ),
         templateFilters = createTemplateFilter(includeCreatedEventBlob = true),
       ),
@@ -233,8 +150,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       createTransactionFilter(
         party = party,
         interfaceFilters = createInterfaceFilter(
-          includeCreateArgumentsBlob = false,
-          includeCreatedEventBlob = false,
+          includeCreatedEventBlob = false
         ),
         templateFilters = createTemplateFilter(includeCreatedEventBlob = true),
         templateIds = createTemplateIdFilter,
@@ -261,7 +177,6 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
         c2.toString,
         c3.toString,
         txEvents,
-        blobFlag(filter),
         eventBlobFlagFromInterfaces(filter),
         eventBlobFlagFromTemplates(filter),
       )
@@ -270,7 +185,6 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
         c2.toString,
         c3.toString,
         acsEvents,
-        blobFlag(filter),
         eventBlobFlagFromInterfaces(filter),
         eventBlobFlagFromTemplates(filter),
       )
@@ -297,7 +211,6 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       c2: String,
       c3: String,
       createdEvents: Vector[CreatedEvent],
-      expectBlob: Boolean,
       expectEventBlobFromInterfaces: Boolean,
       expectEventBlobFromTemplates: Boolean,
   ): Unit = {
@@ -319,11 +232,6 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       false,
     )
     assertEquals(
-      s"""Create event 1 createArgumentsBlob must ${if (expectBlob) "NOT" else ""} be empty""",
-      createdEvent1.createArgumentsBlob.isEmpty,
-      !expectBlob,
-    )
-    assertEquals(
       s"""Create event 1 createdEventBlob must ${if (expectEventBlob) "NOT" else ""} be empty""",
       createdEvent1.createdEventBlob.isEmpty,
       !expectEventBlob,
@@ -342,11 +250,6 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       "Create event 2 createArguments must be empty",
       createdEvent2.createArguments.isEmpty,
       true,
-    )
-    assertEquals(
-      s"""Create event 2 createArgumentsBlob must ${if (expectBlob) "NOT" else ""} be empty""",
-      createdEvent2.createArgumentsBlob.isEmpty,
-      !expectBlob,
     )
     assertEquals(
       s"""Create event 2 createdEventBlob must ${if (expectEventBlobFromInterfaces) "NOT"
@@ -370,11 +273,6 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       false,
     )
     assertEquals(
-      s"""Create event 3 createArgumentsBlob must be empty""",
-      createdEvent3.createArgumentsBlob.isEmpty,
-      true,
-    )
-    assertEquals(
       s"""Create event 3 createdEventBlob must ${if (expectEventBlobFromTemplates) "NOT"
         else ""} be empty""",
       createdEvent3.createdEventBlob.isEmpty,
@@ -383,14 +281,12 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
   }
 
   private def createInterfaceFilter(
-      includeCreateArgumentsBlob: Boolean,
-      includeCreatedEventBlob: Boolean,
+      includeCreatedEventBlob: Boolean
   ) = {
     Seq(
       new InterfaceFilter(
         interfaceId = Some(Tag.unwrap(I2.id)),
         includeInterfaceView = true,
-        includeCreateArgumentsBlob = includeCreateArgumentsBlob,
         includeCreatedEventBlob = includeCreatedEventBlob,
       )
     )
@@ -437,9 +333,6 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
       verbose = true,
       activeAtOffset = "",
     )
-
-  private def blobFlag(filter: TransactionFilter): Boolean =
-    extractFlag(filter, _.includeCreateArgumentsBlob)
 
   private def eventBlobFlagFromInterfaces(filter: TransactionFilter): Boolean =
     extractFlag(filter, _.includeCreatedEventBlob)

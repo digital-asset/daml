@@ -17,3 +17,11 @@ breaking:
     #
     # We rely in particular on fields not getting renamed in `UpdateXXX` calls that use a `FieldMask`
     # to select the fields to update, see https://github.com/protocolbuffers/protobuf/blob/main/src/google/protobuf/field_mask.proto
+
+  ignore_only:
+    FIELD_NO_DELETE:
+      - com/daml/ledger/api/v1/commands.proto
+      - com/daml/ledger/api/v1/event.proto
+      - com/daml/ledger/api/v1/transaction_filter.proto
+    ONEOF_NO_DELETE:
+      - com/daml/ledger/api/v1/commands.proto
