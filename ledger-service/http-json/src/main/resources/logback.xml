@@ -16,7 +16,8 @@
             </appender>
         </else>
     </if>
-    <logger name="io.netty" level="WARN" />
+    <logger name="io.netty" level="DEBUG" />
+    <logger name="akka.http.slf4j" level="DEBUG" />
     <logger name="io.grpc.netty" level="WARN" />
     <logger name="ch.qos.logback" level="WARN" />
 
