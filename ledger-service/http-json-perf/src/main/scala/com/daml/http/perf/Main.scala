@@ -156,7 +156,6 @@ object Main extends StrictLogging {
               ledgerId.unwrap,
               ledgerPort,
               jsonApiJdbcConfig,
-              None,
             ) { (uri, _, _, ledger) =>
               for {
                 alicePartyData <- allocateUserAndJwt(ledger, "Alice")
@@ -164,8 +163,8 @@ object Main extends StrictLogging {
                 charliePartyData <- allocateUserAndJwt(ledger, "Charlie")
                 (exitCode, path) <- runGatlingScenario(
                   config,
-                  uri.authority.host.address,
-                  uri.authority.port,
+                  uri.getHost,
+                  uri.getPort,
                   alicePartyData,
                   bobPartyData,
                   charliePartyData,
