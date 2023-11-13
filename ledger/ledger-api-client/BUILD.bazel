@@ -22,8 +22,8 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//language-support/scala/bindings",
-        "//ledger-api/rs-grpc-pekko",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/rs-grpc-pekko",
         "//ledger/error",
         "//ledger/ledger-api-auth-client",
         "//ledger/ledger-api-common",

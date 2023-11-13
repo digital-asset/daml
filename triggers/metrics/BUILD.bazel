@@ -16,8 +16,8 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        "//observability/pekko-http-metrics",
         "//observability/metrics",
+        "//observability/pekko-http-metrics",
         "@maven//:io_opentelemetry_opentelemetry_api",
     ],
 )

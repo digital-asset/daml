@@ -23,7 +23,10 @@ import scala.util.control.NonFatal
 trait PekkoTest extends BeforeAndAfterAll with LazyLogging { self: Suite =>
   // TestEventListener is needed for log testing
   private val loggers =
-    util.Arrays.asList("org.apache.pekko.event.slf4j.Slf4jLogger", "org.apache.pekko.testkit.TestEventListener")
+    util.Arrays.asList(
+      "org.apache.pekko.event.slf4j.Slf4jLogger",
+      "org.apache.pekko.testkit.TestEventListener",
+    )
   protected implicit val sysConfig: Config = ConfigFactory
     .load()
     .withValue("pekko.loggers", ConfigValueFactory.fromIterable(loggers))

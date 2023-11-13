@@ -7,7 +7,12 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model.Uri
-import org.apache.pekko.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage, WebSocketRequest}
+import org.apache.pekko.http.scaladsl.model.ws.{
+  BinaryMessage,
+  Message,
+  TextMessage,
+  WebSocketRequest,
+}
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.daml.http.json.SprayJson

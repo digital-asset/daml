@@ -4,7 +4,13 @@
 package com.daml.lf.engine.trigger
 package simulation
 
-import org.apache.pekko.actor.typed.{ActorRef, ActorSystem, Behavior, ChildFailed, SupervisorStrategy}
+import org.apache.pekko.actor.typed.{
+  ActorRef,
+  ActorSystem,
+  Behavior,
+  ChildFailed,
+  SupervisorStrategy,
+}
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.client.LedgerClient

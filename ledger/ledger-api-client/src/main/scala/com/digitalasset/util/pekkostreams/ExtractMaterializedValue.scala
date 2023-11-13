@@ -5,7 +5,12 @@ package com.daml.util.pekkostreams
 
 import org.apache.pekko.stream.scaladsl.Flow
 import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
-import org.apache.pekko.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, InHandler, OutHandler}
+import org.apache.pekko.stream.stage.{
+  GraphStageLogic,
+  GraphStageWithMaterializedValue,
+  InHandler,
+  OutHandler,
+}
 
 import scala.concurrent.{Future, Promise}
 

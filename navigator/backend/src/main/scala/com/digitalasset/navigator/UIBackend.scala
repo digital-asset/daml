@@ -12,7 +12,11 @@ import org.apache.pekko.actor.{ActorSystem, Cancellable}
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model.HttpHeader
 import org.apache.pekko.http.scaladsl.model.StatusCodes._
-import org.apache.pekko.http.scaladsl.model.headers.CacheDirectives.{`max-age`, `no-cache`, immutableDirective}
+import org.apache.pekko.http.scaladsl.model.headers.CacheDirectives.{
+  `max-age`,
+  `no-cache`,
+  immutableDirective,
+}
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, EntityTag, HttpCookie, `Cache-Control`}
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route

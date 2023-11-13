@@ -4,7 +4,14 @@
 package com.daml.grpc.adapter
 
 import org.apache.pekko.Done
-import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, ActorSystem, ExtendedActorSystem, Props}
+import org.apache.pekko.actor.{
+  Actor,
+  ActorLogging,
+  ActorRef,
+  ActorSystem,
+  ExtendedActorSystem,
+  Props,
+}
 import org.apache.pekko.pattern.{AskTimeoutException, ask}
 import org.apache.pekko.util.Timeout
 import com.daml.grpc.adapter.RunnableSequencingActor.ShutdownRequest
@@ -36,7 +43,9 @@ class PekkoExecutionSequencer private (private val actorRef: ActorRef)(implicit
     }
 
   private def actorIsTerminated(askTimeoutException: AskTimeoutException) = {
-    PekkoExecutionSequencer.actorTerminatedRegex.findFirstIn(askTimeoutException.getMessage).nonEmpty
+    PekkoExecutionSequencer.actorTerminatedRegex
+      .findFirstIn(askTimeoutException.getMessage)
+      .nonEmpty
   }
 }
 

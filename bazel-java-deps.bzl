@@ -51,6 +51,7 @@ grpc_version = "1.59.0"
 protobuf_version = "3.24.0"
 pekko_version = "1.0.1"
 pekko_http_version = "1.0.0"
+
 #gatling_version = "3.5.1"
 guava_version = "31.1-jre"
 

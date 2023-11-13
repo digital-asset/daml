@@ -8,7 +8,13 @@ import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.RouteResult.{Complete, Rejected}
 import org.apache.pekko.http.scaladsl.server.directives.ContentTypeResolver.Default
-import org.apache.pekko.http.scaladsl.server.{Directives, Rejection, RequestContext, Route, RouteResult}
+import org.apache.pekko.http.scaladsl.server.{
+  Directives,
+  Rejection,
+  RequestContext,
+  Route,
+  RouteResult,
+}
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.syntax.show._

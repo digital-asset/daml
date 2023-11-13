@@ -4,7 +4,12 @@
 package com.daml.metrics
 
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
-import org.apache.pekko.stream.{BoundedSourceQueue, Materializer, OverflowStrategy, QueueOfferResult}
+import org.apache.pekko.stream.{
+  BoundedSourceQueue,
+  Materializer,
+  OverflowStrategy,
+  QueueOfferResult,
+}
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{Counter, Timer}
 import com.daml.metrics.api.MetricsContext

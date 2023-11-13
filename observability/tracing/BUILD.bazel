@@ -61,9 +61,9 @@ da_scala_test_suite(
     deps = [
         ":tracing",
         ":tracing-test-lib",
+        "//ledger-api/rs-grpc-bridge",
         "//ledger-api/rs-grpc-pekko",
         "//ledger-api/rs-grpc-pekko:rs-grpc-pekko-tests-lib",
-        "//ledger-api/rs-grpc-bridge",
         "//ledger-api/sample-service",
         "//ledger-api/testing-utils",
         "//libs-scala/ledger-resources",
