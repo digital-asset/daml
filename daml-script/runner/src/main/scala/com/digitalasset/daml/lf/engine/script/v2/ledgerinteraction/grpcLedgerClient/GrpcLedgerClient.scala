@@ -1,7 +1,8 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script.v2.ledgerinteraction
+package com.daml.lf.engine.script
+package v2.ledgerinteraction
 package grpcLedgerClient
 
 import java.util.UUID
@@ -264,7 +265,7 @@ class GrpcLedgerClient(
   override def trySubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
@@ -290,7 +291,7 @@ class GrpcLedgerClient(
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) =
@@ -304,12 +305,17 @@ class GrpcLedgerClient(
   def internalSubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
   )(implicit ec: ExecutionContext) = {
     import scalaz.syntax.traverse._
     val ledgerDisclosures =
-      disclosures.map(b => DisclosedContract(createdEventBlob = b.toByteString))
+      disclosures.map { case Disclosure(cid, blob) =>
+        DisclosedContract(
+          contractId = cid.coid,
+          createdEventBlob = blob.toByteString,
+        )
+      }
     val ledgerCommands = commands.traverse(toCommand(_)) match {
       case Left(err) => throw new ConverterException(err)
       case Right(cmds) => cmds
@@ -348,7 +354,7 @@ class GrpcLedgerClient(
   override def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
@@ -361,7 +367,7 @@ class GrpcLedgerClient(
   override def submitTree(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit

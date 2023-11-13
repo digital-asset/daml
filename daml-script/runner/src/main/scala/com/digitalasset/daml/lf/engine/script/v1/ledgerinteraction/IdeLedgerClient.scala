@@ -11,7 +11,7 @@ import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.daml.lf.language.Ast
@@ -26,6 +26,7 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   Transaction,
+  TransactionCoder,
 }
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -88,6 +89,7 @@ class IdeLedgerClient(
           contract.templateId,
           contract.contractId,
           contract.createArg,
+          TransactionCoder.assertEncodeFatContractInstance(contract),
         )
     }
     Future.successful(filtered)
@@ -125,7 +127,12 @@ class IdeLedgerClient(
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     Future.successful(
       lookupContractInstance(parties, cid).map(contract =>
-        ScriptLedgerClient.ActiveContract(templateId, cid, contract.createArg)
+        ScriptLedgerClient.ActiveContract(
+          templateId = templateId,
+          contractId = cid,
+          argument = contract.createArg,
+          blob = TransactionCoder.assertEncodeFatContractInstance(contract),
+        )
       )
     )
   }
@@ -246,6 +253,7 @@ class IdeLedgerClient(
   private def unsafeSubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext): Future[
@@ -267,9 +275,25 @@ class IdeLedgerClient(
         )
       )
     } else {
+      val disclosedContracts = disclosures.map(d =>
+        TransactionCoder
+          .decodeFatContractInstance(d.blob.toByteString)
+          .fold(
+            err => throw new IllegalArgumentException(err.errorMessage),
+            c =>
+              command.DisclosedContract(
+                templateId = c.templateId,
+                contractId = c.contractId,
+                argument = c.createArg,
+                keyHash = None,
+              ),
+          )
+      )
+      val speedyDisclosures =
+        preprocessor.unsafePreprocessDisclosedContracts(disclosedContracts.to(ImmArray))
 
       val speedyCommands = preprocessor.unsafePreprocessApiCommands(commands.to(ImmArray))
-      val translated = compiledPackages.compiler.unsafeCompile(speedyCommands, ImmArray.empty)
+      val translated = compiledPackages.compiler.unsafeCompile(speedyCommands, speedyDisclosures)
 
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
       val result =
@@ -303,16 +327,35 @@ class IdeLedgerClient(
               result.richTransaction.blindingInfo.disclosure.values
                 .fold(Set.empty[Party])(_ union _)
             val unallocatedParties = referencedParties -- allocatedParties.values.map(_.party)
-            Either.cond(
-              unallocatedParties.isEmpty,
-              commit,
-              ScenarioRunner.SubmissionError(
-                scenario.Error.PartiesNotAllocated(unallocatedParties),
-                commit.tx,
-              ),
-            )
+            for {
+              _ <- Either.cond(
+                unallocatedParties.isEmpty,
+                (),
+                ScenarioRunner.SubmissionError(
+                  scenario.Error.PartiesNotAllocated(unallocatedParties),
+                  commit.tx,
+                ),
+              )
+              // We look for inactive explicit disclosures
+              transaction = commit.result.richTransaction.transaction
+              inputContracts = transaction.nodes.values.collect {
+                case Node.Exercise(cid, tmplId, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+                  cid -> tmplId
+                case Node.Fetch(cid, tmplId, _, _, _, _, _, _) => cid -> tmplId
+                case Node.LookupByKey(tmplId, _, Some(cid), _) => cid -> tmplId
+              }
+              activeContracts = ledger.ledgerData.activeContracts
+              _ <- inputContracts
+                .collectFirst {
+                  case (cid, tmplId) if !activeContracts(cid) =>
+                    ScenarioRunner.SubmissionError(
+                      scenario.Error.ContractNotActive(cid, tmplId, None),
+                      commit.tx,
+                    )
+                }
+                .toLeft(())
+            } yield commit
         }
-
       loop(result)
     }
   }
@@ -320,13 +363,14 @@ class IdeLedgerClient(
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] =
-    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+    unsafeSubmit(actAs, readAs, disclosures, commands, optLocation).map {
       case Right(ScenarioRunner.Commit(result, _, _)) =>
         _currentSubmission = None
         _ledger = result.newLedger
@@ -358,10 +402,11 @@ class IdeLedgerClient(
   override def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]] =
-    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+    unsafeSubmit(actAs, readAs, disclosures, commands, optLocation).map {
       case Right(ScenarioRunner.Commit(_, _, tx)) =>
         _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
         Left(())
@@ -380,7 +425,7 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[ScriptLedgerClient.TransactionTree] =
-    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+    unsafeSubmit(actAs, readAs, List.empty, commands, optLocation).map {
       case Right(ScenarioRunner.Commit(result, _, _)) =>
         _currentSubmission = None
         _ledger = result.newLedger
@@ -388,7 +433,13 @@ class IdeLedgerClient(
         def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
           transaction.nodes(id) match {
             case create: Node.Create =>
-              Some(ScriptLedgerClient.Created(create.templateId, create.coid, create.arg))
+              val constInst = FatContractInstance.fromCreateNode(
+                create,
+                result.richTransaction.effectiveAt,
+                Bytes.Empty,
+              )
+              val blob = TransactionCoder.assertEncodeFatContractInstance(constInst)
+              Some(ScriptLedgerClient.Created(create.templateId, create.coid, create.arg, blob))
             case exercise: Node.Exercise =>
               Some(
                 ScriptLedgerClient.Exercised(

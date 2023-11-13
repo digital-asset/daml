@@ -1,7 +1,8 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script.v2.ledgerinteraction
+package com.daml.lf.engine.script
+package v2.ledgerinteraction
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -143,7 +144,7 @@ trait ScriptLedgerClient {
   def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
@@ -154,7 +155,7 @@ trait ScriptLedgerClient {
   def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]]
@@ -162,7 +163,7 @@ trait ScriptLedgerClient {
   def submitTree(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[ScriptLedgerClient.TransactionTree]
@@ -232,7 +233,7 @@ trait ScriptLedgerClient {
   def trySubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],

@@ -13,6 +13,8 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.util.{Failure, Success}
+
 class MultiParticipantITV1 extends MultiParticipantIT(LanguageMajorVersion.V1)
 
 // TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
@@ -40,6 +42,7 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
         } yield assert(r == SInt64(42))
       }
     }
+
     "partyIdHintTest" should {
       "respect party id hints" in {
         for {
@@ -60,6 +63,7 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
         }
       }
     }
+
     "listKnownPartiesTest" should {
       "list parties on both participants" in {
         for {
@@ -87,6 +91,32 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
           assert(vals.get(1) == second)
         }
 
+      }
+    }
+
+    "explicit disclosure" should {
+      "works across participants" in {
+        for {
+          clients <- scriptClients()
+          r <- run(clients, QualifiedName.assertFromString("MultiTest:disclosuresTest"), dar = dar)
+        } yield assert(r == SText("my secret"))
+      }
+      "does not fail during submission if inactive" in {
+        for {
+          clients <- scriptClients()
+          error <-
+            run(
+              clients,
+              QualifiedName.assertFromString(
+                "MultiTest:inactiveDisclosureDoesNotFailDuringSubmission"
+              ),
+              dar = dar,
+            )
+              .transform {
+                case Success(_) => fail("unexpected success")
+                case Failure(exception) => Success(exception)
+              }
+        } yield error.getMessage should include regex """Unhandled Daml exception\: DA\.Exception\.GeneralError\:GeneralError\@[a-f0-9]{8}\{ message \= \"Here\" \}"""
       }
     }
   }

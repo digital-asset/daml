@@ -10,7 +10,7 @@ import java.time.Clock
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.lf.data.{Bytes, FrontStack}
+import com.daml.lf.data.FrontStack
 import com.daml.lf.{CompiledPackages, command}
 import com.daml.lf.data.Ref.{
   Identifier,
@@ -893,7 +893,7 @@ object ScriptF {
       actAs: OneAnd[Set, Party],
       readAs: Set[Party],
       cmds: List[command.ApiCommand],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       stackTrace: StackTrace,
   )
 

@@ -10,11 +10,16 @@ module Daml.Script
   , submitMustFail
   , submitMulti
   , submitMultiMustFail
+  , submitWithDisclosures
+  , submitWithDisclosuresMustFail
+  , submitMultiWithDisclosures
+  , submitMultiWithDisclosuresMustFail
   , submitTree
   , submitTreeMulti
   , query
   , queryInterface
   , queryContractId
+  , queryDisclosure
   , queryInterfaceContractId
   , queryContractKey
   , queryFilter
@@ -28,6 +33,7 @@ module Daml.Script
   , listKnownParties
   , listKnownPartiesOn
   , Commands
+  , Disclosure
   , createCmd
   , exerciseCmd
   , exerciseByKeyCmd
@@ -124,6 +130,11 @@ data CommandsF a
 newtype Commands a = Commands (Ap CommandsF a)
   deriving (Functor, Applicative)
 
+data Disclosure = Disclosure with 
+   contractId : ContractId ()
+   blob: Text
+ deriving (Eq, Ord)
+  
 data ScriptF a
   = Submit (SubmitCmd a)
   | SubmitMustFail (SubmitMustFailCmd a)
@@ -146,11 +157,11 @@ data ScriptF a
   | GrantUserRights (GrantUserRightsPayload a)
   | RevokeUserRights (RevokeUserRightsPayload a)
   | ListUserRights (ListUserRightsPayload a)
-#ifndef DAML_EXCEPTIONS
-  deriving Functor
-#else
+#ifdef DAML_EXCEPTIONS
   | Catch (CatchPayload LedgerValue a)
   | Throw ThrowPayload
+#endif
+  | QueryDisclosure (QueryDisclosurePayload a)
   deriving Functor
 
 -- `(try x catch f) >>= g` roughly translates to
@@ -285,6 +296,29 @@ queryInterfaceContractId p c = lift $ Free $ QueryInterfaceContractId QueryInter
   cid = coerceContractId c
   continue = pure . fmap (fromLedgerValue @ v)
   locations = getCallStack callStack
+
+data QueryDisclosurePayload a = QueryDisclosurePayload
+  { parties : [Party]
+  , tplId : TemplateTypeRep
+  , cid : ContractId ()
+  , continue : Optional Text -> a
+  , locations : [(Text, SrcLoc)]
+  } deriving Functor
+
+-- | like by queryContractId but return the contract as a explicit disclosure blob
+--
+-- WARNING: Over the gRPC this performs a linear search so only use this if the number of
+-- active contracts is small.
+-- Not supported by JSON API
+queryDisclosure : forall t p. (Template t, HasAgreement t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional Disclosure)
+-- The 'HasAgreement t' constraint prevents this function from being used on interface types.
+queryDisclosure p c = lift $ Free $ QueryDisclosure QueryDisclosurePayload with
+    parties = toParties p
+    tplId = templateTypeRep @t
+    cid = cid
+    continue = pure . fmap \blob -> Disclosure cid blob
+    locations = getCallStack callStack
+  where cid = coerceContractId c
 
 data QueryContractKeyPayload a = QueryContractKeyPayload
   { parties : [Party]
@@ -486,6 +520,7 @@ data SubmitCmd a = SubmitCmd
     commands : Commands a
     handleFailure : ()
     locations : [(Text, SrcLoc)]
+    disclosures: [Disclosure]
   deriving Functor
 
 -- | Details of the @submitMustFail@ command.
@@ -496,6 +531,7 @@ data SubmitMustFailCmd a = SubmitMustFailCmd
     commands : Commands a
     continue : () -> a
     locations : [(Text, SrcLoc)]
+    disclosures: [Disclosure]
   deriving Functor
 
 -- | Submit the commands as a single transaction.
@@ -510,6 +546,7 @@ instance HasSubmit Script Commands where
       commands = cmds
       handleFailure = ()
       locations = getCallStack callStack
+      disclosures = []
 
   submitMustFail p cmds =
     lift $ Free $ fmap pure $ SubmitMustFail $ SubmitMustFailCmd with
@@ -518,6 +555,33 @@ instance HasSubmit Script Commands where
       commands = void cmds
       continue = const ()
       locations = getCallStack callStack
+      disclosures = []
+
+-- | `submitWithDisclosures p disc cmds` submits the commands `cmds` as a single transaction
+-- from party `p` with the explicit disclosures `disc` and returns the value returned by `cmds`.
+-- If the transaction fails, `submit` also fails.
+submitWithDisclosures : HasCallStack => Party -> [Disclosure] -> Commands a -> Script a
+submitWithDisclosures p disc cmds =
+    lift $ Free $ fmap pure $ Submit $ SubmitCmd with
+      actAs = NonEmpty p []
+      readAs = []
+      commands = cmds
+      handleFailure = ()
+      locations = getCallStack callStack
+      disclosures = disc
+
+-- | `submitWithDisclosures p disc cmds` submits the commands `cmds` as a single transaction
+-- from party `p` with the explicit disclosures `disc`
+-- It only succeeds if the submitting the transaction fails.
+submitWithDisclosuresMustFail : HasCallStack => Party -> [Disclosure] -> Commands a -> Script ()
+submitWithDisclosuresMustFail p disc cmds =
+    lift $ Free $ fmap pure $ SubmitMustFail $ SubmitMustFailCmd with
+      actAs = NonEmpty p []
+      readAs = []
+      commands = void cmds
+      continue = const ()
+      locations = getCallStack callStack
+      disclosures = disc
 
 -- There are a few different options for passing the parties here:
 --
@@ -553,6 +617,7 @@ submitMulti actAs readAs cmds =
       commands = cmds
       handleFailure = ()
       locations = getCallStack callStack
+      disclosures = []
 
 -- | `submitMultiMustFail actAs readAs cmds` behaves like `submitMulti actAs readAs cmds`
 -- but fails when `submitMulti` succeeds and the other way around.
@@ -564,6 +629,35 @@ submitMultiMustFail actAs readAs cmds =
       commands = void cmds
       continue = const ()
       locations = getCallStack callStack
+      disclosures = []
+
+-- | `submitMultiWithDisclosures actAs readAs disc cmds` submits `cmds` as a single
+-- transaction authorized by `actAs` with explicit disclosures `disc` . Fetched 
+-- contracts, except explicit disclosed ones, must be visible to at least one party in 
+-- the union of actAs and readAs.
+submitMultiWithDisclosures : HasCallStack => [Party] -> [Party] -> [Disclosure] -> Commands a -> Script a
+submitMultiWithDisclosures actAs readAs disc cmds =
+    lift $ Free $ fmap pure $ Submit $ SubmitCmd with
+      actAs = actAsNonEmpty actAs
+      readAs = toParties readAs
+      commands = cmds
+      handleFailure = ()
+      locations = getCallStack callStack
+      disclosures = disc
+
+-- | `submitMultiWithDisclosuresMustFail actAs readAs disc cmds` behaves like 
+-- `submitMultiWithDisclosures actAs readAs disc cmds` but fails when `submitMulti` 
+-- succeeds and the other way around.
+submitMultiWithDisclosuresMustFail : HasCallStack => [Party] -> [Party] -> [Disclosure] -> Commands a -> Script ()
+submitMultiWithDisclosuresMustFail actAs readAs disc cmds =
+    lift $ Free $ fmap pure $ SubmitMustFail $ SubmitMustFailCmd with
+      actAs = actAsNonEmpty actAs
+      readAs = toParties readAs
+      commands = void cmds
+      continue = const ()
+      locations = getCallStack callStack
+      disclosures = disc
+
 
 -- | This is the type of A Daml script. `Script` is an instance of `Action`,
 -- so you can use `do` notation.
@@ -825,6 +919,7 @@ data SubmitTreePayload a = SubmitTreePayload
     commands : Commands ()
     continue : TransactionTree -> a
     locations : [(Text, SrcLoc)]
+    disclosures : [Disclosure]
   deriving Functor
 
 -- | HIDE Equivalent to `submit` but returns the full transaction tree.
@@ -837,6 +932,7 @@ submitTree p cmds =
     commands = void cmds
     locations = getCallStack callStack
     continue = identity
+    disclosures = []
 
 -- | HIDE Equivalent to `submitMulti` but returns the full transaction tree.
 -- This is an early access feature.
@@ -848,6 +944,7 @@ submitTreeMulti actAs readAs cmds =
     commands = void cmds
     locations = getCallStack callStack
     continue = identity
+    disclosures = []
 
 
 -- | Identifier for a user in the user management service.
