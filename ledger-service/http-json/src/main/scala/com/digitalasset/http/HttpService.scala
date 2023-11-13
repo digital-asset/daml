@@ -261,14 +261,18 @@ object HttpService {
     bindingEt.run: Future[Error \/ (ServerBinding, Option[ContractDao])]
   }
 
-  private[http] def httpsConnectionContext(config: TlsConfiguration): HttpsConnectionContext = {
+  private[http] def httpsConnectionContext(config: TlsConfiguration)(implicit lc: LoggingContextOf[InstanceUUID]): HttpsConnectionContext = {
     import io.netty.buffer.ByteBufAllocator
     val sslContext =
       config.server
         .getOrElse(
           throw new IllegalArgumentException(s"$config could not be built as a server ssl context")
         )
-    ConnectionContext.httpsServer(() => sslContext.newEngine(ByteBufAllocator.DEFAULT))
+    val theEngine = sslContext.newEngine(ByteBufAllocator.DEFAULT)
+    ConnectionContext.httpsServer(() => {
+      logger.info(s"Wrapping an sslEngine of type ${theEngine.getClass.getName}")
+      new LoggingSSLEngine(theEngine)
+    })
   }
 
   private[http] def doLoad(
