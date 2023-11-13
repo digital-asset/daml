@@ -1,0 +1,11 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @WARN range=10:1-10:31; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
+-- @WARN range=11:1-11:49; Import of internal module Daml.Script.Questions.Testing.Internal of package daml3-script is discouraged, as this module will change without warning.
+
+module DamlScriptInternalWarning where
+
+import Daml.Script ()
+import Daml.Script.Internal ()
+import Daml.Script.Questions.Testing.Internal ()

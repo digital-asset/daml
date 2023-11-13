@@ -27,11 +27,15 @@ import qualified "ghc-lib-parser" FastString as GHC
 import qualified "ghc-lib-parser" GHC.LanguageExtensions.Type as GHC
 import Outputable
 
+import           Control.Monad (guard)
+import           Data.Bifunctor (bimap)
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import           Data.List.Extra
+import           Data.List.Split (splitWhen)
 import           Data.Maybe
 import qualified Data.Map.Strict as Map
+import qualified Data.Text as T
 import qualified Data.Set as Set
 import           System.FilePath (splitDirectories)
 
@@ -106,9 +110,10 @@ damlPreprocessor majorVersion dataDependableExtensions mPkgName dflags x
             , checkVariantUnitConstructors x
             , checkLanguageExtensions dataDependableExtensions dflags x
             , checkKinds x
+            , checkCustomInternalImports x mPkgName
             ]
         , preprocErrors = concat
-            [ checkImports majorVersion x
+            [ checkDamlInternalImports majorVersion x
             , checkDataTypes x
             , checkModuleDefinition x
             , checkRecordConstructor x
@@ -171,8 +176,8 @@ checkModuleName (GHC.L _ m)
     = []
 
 -- | We ban people from importing modules such
-checkImports :: LF.MajorVersion -> GHC.ParsedSource -> [(GHC.SrcSpan, String)]
-checkImports majorVersion x =
+checkDamlInternalImports :: LF.MajorVersion -> GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkDamlInternalImports majorVersion x =
     [ (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " is not allowed.")
     | GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x, isUnstableInternal majorVersion m]
 
@@ -412,6 +417,30 @@ checkKinds (GHC.L _ m) = do
         [ "Reference to GHC.Types.Symbol will not be preserved during Daml compilation."
         , "This will cause problems when importing this module via data-dependencies."
         ]
+
+-- | Set of package names and module name spaces to emit internal import warnings for
+-- e.g. ("daml-script", "Daml.Script") means that only the "daml-script" package can import "Daml.Script.*.Internal.*" without warning
+-- Module name spaces should be unique and non-overlapping
+warnInternalPackages :: [(LF.PackageName, GHC.ModuleName)]
+warnInternalPackages = fmap (bimap LF.PackageName GHC.mkModuleName)
+  [ ("daml3-script", "Daml.Script")
+  ]
+
+splitModuleName :: GHC.ModuleName -> [String]
+splitModuleName = splitWhen (=='.') . GHC.moduleNameString
+
+-- | Check imports of internal modules of packages in warnInternalPackages given warnings
+checkCustomInternalImports :: GHC.ParsedSource -> Maybe LF.PackageName -> [(GHC.SrcSpan, String)]
+checkCustomInternalImports ps mOwnPkgName = do
+  GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc ps
+  let splitM = splitModuleName m
+  guard $ "Internal" `elem` splitM
+  (pkgName, pkgModuleSpace) <- warnInternalPackages
+  guard $ splitModuleName pkgModuleSpace `isPrefixOf` splitM
+  guard $ mOwnPkgName /= Just pkgName
+
+  let pkgNameStr = T.unpack $ LF.unPackageName pkgName
+  pure (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " of package " ++ pkgNameStr ++ " is discouraged, as this module will change without warning.")
 
 -- | Issue #6788: Rewrite multi-binding let expressions,
 --
