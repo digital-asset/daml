@@ -261,7 +261,9 @@ object HttpService {
     bindingEt.run: Future[Error \/ (ServerBinding, Option[ContractDao])]
   }
 
-  private[http] def httpsConnectionContext(config: TlsConfiguration)(implicit lc: LoggingContextOf[InstanceUUID]): HttpsConnectionContext = {
+  private[http] def httpsConnectionContext(
+      config: TlsConfiguration
+  )(implicit lc: LoggingContextOf[InstanceUUID]): HttpsConnectionContext = {
     import io.netty.buffer.ByteBufAllocator
     val sslContext =
       config.server
