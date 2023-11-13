@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import akka.NotUsed
-import akka.stream.scaladsl.Source
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.domain.sequencing.sequencer.store.{Sequenced, SequencerMemberId}
 import com.digitalasset.canton.topology.Member

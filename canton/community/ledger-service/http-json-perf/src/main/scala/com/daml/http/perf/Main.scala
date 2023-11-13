@@ -4,9 +4,9 @@
 package com.daml.http.perf
 
 import java.nio.file.{Files, Path}
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.daml.gatling.stats.{SimulationLog, SimulationLogSyntax}
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpServiceTestFixture.{withHttpService, withLedger}
 import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.integrationtest.CantonRunner
@@ -88,7 +88,7 @@ object Main extends StrictLogging {
         // which can be used to generate more reports. That's not currently exposed by the
         // public Gatling API, e.g. Gatling.fromMap, although it's logged to stdout.
         // We can get at it by using internal Gatling APIs to run the tests, or by capturing stdout.
-        // For now we are avoiding using the internal APIs to avoid the direct akka deps,
+        // For now we are avoiding using the internal APIs to avoid the direct pekko deps,
         // and do not have much need for the extra reports so we hardcode the path as None.
         (code, None)
       }
@@ -118,7 +118,7 @@ object Main extends StrictLogging {
 
     implicit val asys: ActorSystem = ActorSystem(name)
     implicit val aesf: ExecutionSequencerFactory =
-      new AkkaExecutionSequencerPool(poolName = name, terminationTimeout = terminationTimeout)
+      new PekkoExecutionSequencerPool(poolName = name, terminationTimeout = terminationTimeout)
     implicit val elg: EventLoopGroup = Transports.newEventLoopGroup(true, 0, "gatling")
     implicit val ec: ExecutionContext = asys.dispatcher
 

@@ -6,9 +6,9 @@ package com.daml.ledger.api.testtool.infrastructure
 import java.util.concurrent.{ExecutionException, TimeoutException}
 import java.util.{Timer, TimerTask}
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestCasesRunner._
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants
 import com.daml.ledger.api.testtool.infrastructure.future.FutureUtil

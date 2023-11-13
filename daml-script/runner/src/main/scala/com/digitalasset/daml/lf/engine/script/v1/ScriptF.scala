@@ -7,7 +7,7 @@ package script
 package v1
 
 import java.time.Clock
-import akka.stream.Materializer
+import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.FrontStack

@@ -3,8 +3,8 @@
 
 package com.daml.lf.engine.trigger.simulation
 
-import akka.NotUsed
-import akka.stream.scaladsl.Source
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Command.{Command => ApiCommand}
 import com.daml.ledger.api.v1.completion.Completion

@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.indexer.ha
 
-import akka.stream.KillSwitch
-import akka.testkit.TestProbe
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import org.apache.pekko.stream.KillSwitch
+import org.apache.pekko.testkit.TestProbe
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
@@ -26,7 +26,7 @@ import scala.util.{Random, Try}
 class HaCoordinatorSpec
     extends AsyncFlatSpec
     with Matchers
-    with AkkaBeforeAndAfterAll
+    with PekkoBeforeAndAfterAll
     with Eventually {
   implicit val ec: ExecutionContext =
     system.dispatcher // we need this to not use the default EC which is coming from AsyncTestSuite, and which is serial

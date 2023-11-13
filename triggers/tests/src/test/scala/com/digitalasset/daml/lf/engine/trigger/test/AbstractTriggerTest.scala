@@ -6,10 +6,10 @@ package engine
 package trigger
 package test
 
-import akka.stream.Materializer
+import org.apache.pekko.stream.Materializer
 
 import java.util.UUID
-import akka.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}

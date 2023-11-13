@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.packages
 
-import akka.actor.{ActorSystem, Scheduler}
+import org.apache.pekko.actor.{ActorSystem, Scheduler}
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.resources.TestResourceContext
@@ -41,7 +41,7 @@ class DeduplicatingPackageLoaderSpec
   private[this] def delayedLoad(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {
     implicit val scheduler: Scheduler = actorSystem.scheduler
     loadCount.incrementAndGet()
-    akka.pattern.after(duration, scheduler) {
+    pekko.pattern.after(duration, scheduler) {
       Future.successful(Some(dar.main))
     }
   }
@@ -49,7 +49,7 @@ class DeduplicatingPackageLoaderSpec
   private[this] def delayedFail(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {
     implicit val scheduler: Scheduler = actorSystem.scheduler
     loadCount.incrementAndGet()
-    akka.pattern.after(duration, scheduler) {
+    pekko.pattern.after(duration, scheduler) {
       Future.failed(new RuntimeException("Simulated package load failure"))
     }
   }
@@ -57,7 +57,7 @@ class DeduplicatingPackageLoaderSpec
   private[this] def delayedNotFound(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {
     implicit val scheduler: Scheduler = actorSystem.scheduler
     loadCount.incrementAndGet()
-    akka.pattern.after(duration, scheduler) {
+    pekko.pattern.after(duration, scheduler) {
       Future.successful(None)
     }
   }

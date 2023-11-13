@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.timer.RetryStrategy

@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.http
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.*
-import akka.http.scaladsl.server.*
-import akka.http.scaladsl.server.Directives.*
-import akka.http.scaladsl.server.RouteResult.{Complete, Rejected}
-import akka.http.scaladsl.server.directives.ContentTypeResolver.Default
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.*
+import org.apache.pekko.http.scaladsl.server.*
+import org.apache.pekko.http.scaladsl.server.Directives.*
+import org.apache.pekko.http.scaladsl.server.RouteResult.{Complete, Rejected}
+import org.apache.pekko.http.scaladsl.server.directives.ContentTypeResolver.Default
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -51,7 +51,7 @@ private class StaticContentRouter(
   )
 
   private val fn =
-    akka.http.scaladsl.server.Route.toFunction(
+    org.apache.pekko.http.scaladsl.server.Route.toFunction(
       Directives.rawPathPrefix(Slash ~ config.prefix)(
         Directives.getFromDirectory(config.directory.getAbsolutePath)
       )

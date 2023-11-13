@@ -7,9 +7,9 @@ import scalaz.{-\/, Bifunctor, \/, \/-}
 import scalaz.syntax.bifunctor._
 import scalaz.std.option.some
 import scalaz.std.tuple._
-import akka.NotUsed
-import akka.stream.{BidiShape, FanOutShape2, Graph, Inlet, Outlet}
-import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Partition, Source}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.{BidiShape, FanOutShape2, Graph, Inlet, Outlet}
+import org.apache.pekko.stream.scaladsl.{Concat, Flow, GraphDSL, Partition, Source}
 
 import scala.annotation.tailrec
 

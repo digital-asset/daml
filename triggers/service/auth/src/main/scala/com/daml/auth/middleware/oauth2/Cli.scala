@@ -3,7 +3,7 @@
 
 package com.daml.auth.middleware.oauth2
 
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 import com.daml.auth.middleware.oauth2.Config.{
   DefaultCookieSecure,
   DefaultHttpPort,

@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 import com.daml.http.HttpServiceTestFixture.UseTls
 import com.daml.http.dbbackend.JdbcConfig
 import java.net.http.{HttpClient, WebSocket}

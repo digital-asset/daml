@@ -3,11 +3,11 @@
 
 package com.daml.http.json
 
-import akka.NotUsed
-import akka.http.scaladsl.model.StatusCode
-import akka.http.scaladsl.model.StatusCodes.{InternalServerError, OK}
-import akka.stream.scaladsl.{Concat, Source}
-import akka.util.ByteString
+import org.apache.pekko.NotUsed
+import org.apache.pekko.http.scaladsl.model.StatusCode
+import org.apache.pekko.http.scaladsl.model.StatusCodes.{InternalServerError, OK}
+import org.apache.pekko.stream.scaladsl.{Concat, Source}
+import org.apache.pekko.util.ByteString
 import scalaz.syntax.show._
 import scalaz.{Show, -\/, \/, \/-}
 import spray.json.DefaultJsonProtocol._

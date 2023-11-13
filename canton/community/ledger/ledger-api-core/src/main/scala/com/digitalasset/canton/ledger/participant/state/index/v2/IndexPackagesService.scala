@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.participant.state.index.v2
 
-import akka.NotUsed
-import akka.stream.scaladsl.Source
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.lf.data.Ref

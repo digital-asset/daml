@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.apiserver.configuration
 
-import akka.actor.{Cancellable, Scheduler}
-import akka.stream.scaladsl.{Keep, RestartSource, Sink}
-import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
-import akka.{Done, NotUsed}
+import org.apache.pekko.actor.{Cancellable, Scheduler}
+import org.apache.pekko.stream.scaladsl.{Keep, RestartSource, Sink}
+import org.apache.pekko.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
+import org.apache.pekko.{Done, NotUsed}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.ledger.api.domain

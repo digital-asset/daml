@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.indexer.ha
 
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.ResourceContext
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.logging.SuppressingLogger
@@ -25,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
 trait IndexerStabilitySpec
     extends AsyncFlatSpec
     with NoTracing
-    with AkkaBeforeAndAfterAll
+    with PekkoBeforeAndAfterAll
     with Eventually {
 
   import IndexerStabilitySpec.*

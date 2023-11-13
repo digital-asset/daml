@@ -4,8 +4,8 @@
 package com.daml.http
 package endpoints
 
-import akka.http.scaladsl.model._
-import akka.NotUsed
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.NotUsed
 import com.daml.http.metrics.HttpJsonApiMetrics
 import Endpoints.ET
 import util.FutureUtil.{eitherT, rightT}

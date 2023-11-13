@@ -3,7 +3,7 @@
 
 package com.daml.http.json
 
-import akka.http.scaladsl.model.StatusCode
+import org.apache.pekko.http.scaladsl.model.StatusCode
 import com.daml.http.domain
 import com.daml.http.domain.{Base64, ContractTypeId, DisclosedContract}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}

@@ -3,7 +3,7 @@
 
 package com.daml.auth.oauth2.test.server
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.duration._

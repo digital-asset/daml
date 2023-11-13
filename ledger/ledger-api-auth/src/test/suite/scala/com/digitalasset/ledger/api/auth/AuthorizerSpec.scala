@@ -10,7 +10,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import java.time.Instant
 
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.api.UserManagementStore
 import org.mockito.MockitoSugar
@@ -22,7 +22,7 @@ class AuthorizerSpec
     extends AsyncFlatSpec
     with Matchers
     with MockitoSugar
-    with AkkaBeforeAndAfterAll {
+    with PekkoBeforeAndAfterAll {
   private val className = classOf[Authorizer].getSimpleName
   private val dummyRequest = 1337L
   private val expectedSuccessfulResponse = "expectedSuccessfulResponse"
@@ -76,6 +76,6 @@ class AuthorizerSpec
     mock[UserManagementStore],
     mock[ExecutionContext],
     userRightsCheckIntervalInSeconds = 1,
-    akkaScheduler = system.scheduler,
+    pekkoScheduler = system.scheduler,
   )(LoggingContext.ForTesting)
 }

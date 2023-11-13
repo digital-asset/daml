@@ -5,7 +5,7 @@ package com.daml.http
 
 import java.util.UUID
 
-import akka.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.StatusCodes
 import com.daml.nonrepudiation.CommandIdString
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))

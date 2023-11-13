@@ -23,7 +23,7 @@ These separate contract stores need to be kept in sync. This is accomplished usi
 Trigger Daml code queries the in-memory contract store without modifying that store. Triggers issue create and exercise commands to the ledger API - these commands are then queued by Canton network participants for asynchronous processing.
 
 .. note::
-  If create or archive events are not processed in a timely manner (e.g. due to high load) or are lost (e.g. due to Akka streaming `delivery failures <https://doc.akka.io/docs/akka/current/stream/stream-refs.html#delivery-guarantees>`_), then the trigger's view of the ledger contact store may lose coherence with the ledger's view of the contract store and so lead to stale or invalid data being used in ledger interactions.
+  If create or archive events are not processed in a timely manner (e.g. due to high load) or are lost (e.g. due to Pekko streaming `delivery failures <https://doc.pekko.io/docs/pekko/current/stream/stream-refs.html#delivery-guarantees>`_), then the trigger's view of the ledger contact store may lose coherence with the ledger's view of the contract store and so lead to stale or invalid data being used in ledger interactions.
 
   If the trigger's ACS becomes too large, then storing and querying the ACS may consume unnecessary system resources.
 
@@ -65,7 +65,7 @@ Trigger simulations are `Scalatests <https://www.scalatest.org>`_ that extend th
 .. code-block:: scala
   protected def triggerMultiProcessSimulation: Behavior[Unit]
 
-This method is used to define all the components that a given simulation is to take into account - and each component is defined as an Akka `Behavior <https://doc.akka.io/api/akka/current/akka/actor/typed/Behavior.html>`_. So, to define a simulation with no trigger components and no external components, one could write:
+This method is used to define all the components that a given simulation is to take into account - and each component is defined as an Pekko `Behavior <https://doc.pekko.io/api/pekko/current/pekko/actor/typed/Behavior.html>`_. So, to define a simulation with no trigger components and no external components, one could write:
 
 .. code-block:: scala
   class ExampleSimulation extends TriggerMultiProcessSimulation {
@@ -91,15 +91,15 @@ So, to have a simulation run for 42 seconds, one would override with:
   override protected implicit lazy val simulationConfig: TriggerSimulationConfig =
     TriggerSimulationConfig(simulationDuration = 42.seconds)
 
-Under the hood, each simulation component is implemented in Scala code as an `Akka typed actor <https://doc.akka.io/docs/akka/current/typed/index.html>`_.
+Under the hood, each simulation component is implemented in Scala code as an `Pekko typed actor <https://doc.pekko.io/docs/pekko/current/typed/index.html>`_.
 
 Ledger Process Component
 ------------------------
 
-A ledger process provides trigger components with a strongly consistent data view of a participant ledger. Under the hood, this is achieved by wrapping a ledger API client with an Akka typed actor. The ledger API client then interacts with a Canton network participant on behalf of the trigger.
+A ledger process provides trigger components with a strongly consistent data view of a participant ledger. Under the hood, this is achieved by wrapping a ledger API client with an Pekko typed actor. The ledger API client then interacts with a Canton network participant on behalf of the trigger.
 
 .. note::
-  The ``LedgerProcess.scala`` file implements the underlying typed Akka actor as an instance of an Akka ``Behavior[LedgerProcess.Message]``.
+  The ``LedgerProcess.scala`` file implements the underlying typed Pekko actor as an instance of an Pekko ``Behavior[LedgerProcess.Message]``.
 
   The ledger process accepts messages with Scala type ``LedgerProcess.Message``. These messages allow:
 
@@ -114,7 +114,7 @@ Each trigger simulation can access the single ledger process using the inherited
 Simulating External Ledger Interactions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-As external components may interact with a ledger (e.g. by creating or archiving contracts that a trigger registers an interest in), it is often necessary to model these within a given trigger simulation. This may be done by defining an Akka typed actor with type ``Behavior[Unit]`` and having this actor send ``LedgerProcess.ExternalAction`` messages to the ledger actor.
+As external components may interact with a ledger (e.g. by creating or archiving contracts that a trigger registers an interest in), it is often necessary to model these within a given trigger simulation. This may be done by defining an Pekko typed actor with type ``Behavior[Unit]`` and having this actor send ``LedgerProcess.ExternalAction`` messages to the ledger actor.
 
 For example, to model an external component that randomly creates instances of a ``Cat`` contract once every second, we could write:
 
@@ -172,7 +172,7 @@ More complex trigger behaviours may then be thought of as additional layers of c
 
 This layered or compositional approach is the basis for understanding how complex trigger processes may be defined from simpler pieces of code.
 
-As many trigger instances can be defined from a single piece of trigger Daml code, primitive trigger processes are implemented using a `factory pattern <https://en.wikipedia.org/wiki/Factory_method_pattern>`_. Typically an instance of a trigger factory is first declared and then trigger instances (as Akka typed actors with type ``Behavior[TriggerProcess.Message]``) may then be created from that factory.
+As many trigger instances can be defined from a single piece of trigger Daml code, primitive trigger processes are implemented using a `factory pattern <https://en.wikipedia.org/wiki/Factory_method_pattern>`_. Typically an instance of a trigger factory is first declared and then trigger instances (as Pekko typed actors with type ``Behavior[TriggerProcess.Message]``) may then be created from that factory.
 
 When creating a trigger instance, we need to declare the starting state for the trigger's internal ACS. For example, we could define a ``Cats:breedingTrigger`` trigger factory using:
 
@@ -225,9 +225,9 @@ Here, the associated Daml trigger code is:
 Wrapping Trigger Processes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Trigger processes have the Scala type ``Behavior[TriggerProcess.Message]`` and, once the Akka typed actor has been spawned, they will have the type ``ActorRef[TriggerProcess.Message]``.
+Trigger processes have the Scala type ``Behavior[TriggerProcess.Message]`` and, once the Pekko typed actor has been spawned, they will have the type ``ActorRef[TriggerProcess.Message]``.
 
-Complex trigger process definitions may be defined by encapsulating instances of the spawned Akka typed actor ``ActorRef[TriggerProcess.Message]``. For example, given a Scala function ``transform: TriggerProcess.Message => TriggerProcess.Message`` we could write the following generic wrapper process:
+Complex trigger process definitions may be defined by encapsulating instances of the spawned Pekko typed actor ``ActorRef[TriggerProcess.Message]``. For example, given a Scala function ``transform: TriggerProcess.Message => TriggerProcess.Message`` we could write the following generic wrapper process:
 
 .. code-block:: scala
   object TransformMessages {
@@ -316,7 +316,7 @@ Initializing trigger processes is a common use case, so an additional helper met
     }
   }  
 
-If a trigger fails at runtime, and we require the simulation to fail, then it is important to `watch <https://doc.akka.io/docs/akka/current/typed/actor-lifecycle.html#watching-actors>`_ the created trigger actor. This may be done using code such as:
+If a trigger fails at runtime, and we require the simulation to fail, then it is important to `watch <https://doc.pekko.io/docs/pekko/current/typed/actor-lifecycle.html#watching-actors>`_ the created trigger actor. This may be done using code such as:
 
 .. code-block:: scala
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
@@ -393,7 +393,7 @@ For example, to have a trigger process ignore transaction messages with an effec
 Preserving Simulation Metrics for Offline Analysis
 --------------------------------------------------
 
-Reporting processes are implemented as Akka actors. They are (automatically) created as child processes of a ledger process and used to collect:
+Reporting processes are implemented as Pekko actors. They are (automatically) created as child processes of a ledger process and used to collect:
 
 - trigger metric data
 - trigger resource usage data
@@ -420,12 +420,12 @@ By default, however, all reporting data is stored within the bazel run directory
 Prior to starting and after running the trigger simulation, INFO logging records where data will be saved to - for example::
 
   Trigger simulation reporting data is located in /data
-  16:48:37.516 [simulation-akka.actor.default-dispatcher-3] INFO  c.d.l.e.t.s.ExampleSimulation - Simulation will run for 42 seconds
-  16:48:37.518 [simulation-akka.actor.default-dispatcher-3] DEBUG a.a.t.i.LogMessagesInterceptor - actor [akka://simulation/user] received message: StartSimulation
+  16:48:37.516 [simulation-pekko.actor.default-dispatcher-3] INFO  c.d.l.e.t.s.ExampleSimulation - Simulation will run for 42 seconds
+  16:48:37.518 [simulation-pekko.actor.default-dispatcher-3] DEBUG a.a.t.i.LogMessagesInterceptor - actor [pekko://simulation/user] received message: StartSimulation
   ...
-  16:49:07.534 [simulation-akka.actor.default-dispatcher-14] DEBUG a.a.t.i.LogMessagesInterceptor - actor [akka://simulation/user] received message: StopSimulation
-  16:49:07.534 [simulation-akka.actor.default-dispatcher-14] INFO  c.d.l.e.t.s.TriggerMultiProcessSimulation - Simulation stopped after 30 seconds
+  16:49:07.534 [simulation-pekko.actor.default-dispatcher-14] DEBUG a.a.t.i.LogMessagesInterceptor - actor [pekko://simulation/user] received message: StopSimulation
+  16:49:07.534 [simulation-pekko.actor.default-dispatcher-14] INFO  c.d.l.e.t.s.TriggerMultiProcessSimulation - Simulation stopped after 30 seconds
   ...
-  16:49:07.608 [simulation-akka.actor.default-dispatcher-6] INFO  c.d.l.e.t.s.ExampleSimulation - The temporary files are located in /data
-  16:49:09.507 [ExampleSimulation-thread-pool-worker-3] INFO  akka.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+  16:49:07.608 [simulation-pekko.actor.default-dispatcher-6] INFO  c.d.l.e.t.s.ExampleSimulation - The temporary files are located in /data
+  16:49:09.507 [ExampleSimulation-thread-pool-worker-3] INFO  pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
 

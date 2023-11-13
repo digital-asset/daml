@@ -3,9 +3,9 @@
 
 package com.daml.navigator
 
-import akka.actor.ActorRef
-import akka.http.scaladsl.model.StatusCode
-import akka.http.scaladsl.model.StatusCodes._
+import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.http.scaladsl.model.StatusCode
+import org.apache.pekko.http.scaladsl.model.StatusCodes._
 import com.daml.navigator.graphql._
 import com.daml.navigator.graphql.SprayMarshallers._
 import com.daml.navigator.model.PartyState

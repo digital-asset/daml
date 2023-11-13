@@ -5,10 +5,10 @@ package com.daml.nonrepudiation.api
 
 import java.net.InetSocketAddress
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.server.Directives.{concat, pathPrefix}
-import akka.http.scaladsl.server.Route
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.server.Directives.{concat, pathPrefix}
+import org.apache.pekko.http.scaladsl.server.Route
 import com.daml.nonrepudiation.{CertificateRepository, CommandIdString, SignedPayloadRepository}
 import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ReleasableResource, Resource}
 

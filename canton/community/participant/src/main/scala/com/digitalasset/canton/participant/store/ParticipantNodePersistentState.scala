@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
-import akka.stream.Materializer
+import org.apache.pekko.stream.Materializer
 import cats.Eval
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*

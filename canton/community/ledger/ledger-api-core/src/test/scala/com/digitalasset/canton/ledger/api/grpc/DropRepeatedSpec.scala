@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.ledger.api.grpc
 
-import akka.actor.ActorSystem
-import akka.pattern.pipe
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Sink, Source}
-import akka.testkit.{TestKit, TestProbe}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.pattern.pipe
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike

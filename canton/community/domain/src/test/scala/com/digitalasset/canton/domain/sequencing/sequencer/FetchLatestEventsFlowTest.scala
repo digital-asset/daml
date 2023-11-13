@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import akka.stream.scaladsl.{Keep, Sink, SinkQueueWithCancel, Source}
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, SinkQueueWithCancel, Source}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
-import com.digitalasset.canton.util.{AkkaUtil, MonadUtil}
+import com.digitalasset.canton.util.{PekkoUtil, MonadUtil}
 import com.digitalasset.canton.{BaseTest, DiscardOps, HasExecutionContext}
 import org.scalatest.FutureOutcome
 import org.scalatest.wordspec.FixtureAsyncWordSpec
@@ -39,7 +39,7 @@ class FetchLatestEventsFlowTest
 
   class Env extends FlagCloseable {
     override val timeouts = FetchLatestEventsFlowTest.this.timeouts
-    implicit val system = AkkaUtil.createActorSystem(loggerFactory.threadName)
+    implicit val system = PekkoUtil.createActorSystem(loggerFactory.threadName)
     val logger = FetchLatestEventsFlowTest.this.logger
     val lookupEventsQueue = new ConcurrentLinkedQueue[LookupCall]()
     val lookupCount = new AtomicInteger()
@@ -70,7 +70,7 @@ class FetchLatestEventsFlowTest
         source: Source[ReadSignal, Mat1],
         sink: Sink[Event, Mat2],
     ): (Mat1, Mat2) =
-      AkkaUtil.runSupervised(
+      PekkoUtil.runSupervised(
         logger.error("LatestEventsFlowTest failed", _), {
           source
             .via(

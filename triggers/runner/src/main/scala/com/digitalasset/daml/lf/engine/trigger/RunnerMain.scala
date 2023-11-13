@@ -4,11 +4,11 @@
 package com.daml.lf.engine.trigger
 
 import java.io.File
-import akka.actor.ActorSystem
-import akka.stream._
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream._
 import ch.qos.logback.classic.Level
 import com.daml.auth.TokenHolder
-import com.daml.grpc.adapter.AkkaExecutionSequencerPool
+import com.daml.grpc.adapter.PekkoExecutionSequencerPool
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
@@ -79,7 +79,7 @@ object RunnerMain {
 
         val system: ActorSystem = ActorSystem("TriggerRunner")
         implicit val materializer: Materializer = Materializer(system)
-        val sequencer = new AkkaExecutionSequencerPool("TriggerRunnerPool")(system)
+        val sequencer = new PekkoExecutionSequencerPool("TriggerRunnerPool")(system)
         implicit val ec: ExecutionContext = system.dispatcher
 
         val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import akka.stream.scaladsl.Source
-import akka.{Done, NotUsed}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.{Done, NotUsed}
 import com.daml.api.util.TimestampConversion
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v2.reassignment.{AssignedEvent, UnassignedEvent}
@@ -251,7 +251,7 @@ private[dao] object TransactionsReader {
     * mergeSubstreams to prevent the substreams to be processed in parallel,
     * potentially causing the outputs to be delivered in a different order.
     *
-    * Docs: https://doc.akka.io/docs/akka/2.6.10/stream/stream-substream.html#groupby
+    * Docs: https://doc.pekko.io/docs/pekko/2.6.10/stream/stream-substream.html#groupby
     */
   def groupContiguous[A, K, Mat](
       source: Source[A, Mat]

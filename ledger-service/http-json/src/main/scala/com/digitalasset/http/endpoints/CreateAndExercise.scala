@@ -4,7 +4,7 @@
 package com.daml.http
 package endpoints
 
-import akka.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model._
 import com.daml.lf.value.{Value => LfValue}
 import EndpointsCompanion._
 import Endpoints.ET

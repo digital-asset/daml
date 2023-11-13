@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.indexer
 
-import akka.actor.Scheduler
-import akka.pattern.after
+import org.apache.pekko.actor.Scheduler
+import org.apache.pekko.pattern.after
 import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, Healthy, ReportsHealth, Unhealthy}
@@ -39,7 +39,7 @@ private[indexer] final class RecoveringIndexer(
   /** Starts an indexer, and restarts it after the given delay whenever an error occurs.
     *
     * @param indexer A ResourceOwner for indexing
-    * @return A future that completes with [[akka.Done]] when the indexer finishes processing all read service updates.
+    * @return A future that completes with [[pekko.Done]] when the indexer finishes processing all read service updates.
     */
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
   def start(indexer: Indexer): Resource[(ReportsHealth, Future[Unit])] = {

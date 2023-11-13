@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimestampConversion
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v2.transaction.Transaction
