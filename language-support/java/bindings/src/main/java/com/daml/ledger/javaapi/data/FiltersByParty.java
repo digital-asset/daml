@@ -24,7 +24,7 @@ public final class FiltersByParty extends TransactionFilter {
   }
 
   @Override
-  TransactionFilterOuterClass.TransactionFilter toProto() {
+  public TransactionFilterOuterClass.TransactionFilter toProto() {
     HashMap<String, TransactionFilterOuterClass.Filters> partyToFilters =
         new HashMap<>(this.partyToFilters.size());
     for (Map.Entry<String, Filter> entry : this.partyToFilters.entrySet()) {
