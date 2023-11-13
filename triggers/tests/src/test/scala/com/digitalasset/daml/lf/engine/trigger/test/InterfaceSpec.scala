@@ -15,12 +15,16 @@ import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.lf.engine.trigger.TriggerMsg
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.util.Ctx
 import scalaz.syntax.tag._
 
 import scala.collection.concurrent.TrieMap
 
-class InterfaceSpec
+class InterfaceSpecV1 extends InterfaceSpec(LanguageMajorVersion.V1)
+class InterfaceSpecV2 extends InterfaceSpec(LanguageMajorVersion.V2)
+
+class InterfaceSpec(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec
     with AbstractTriggerTest
     with Matchers
