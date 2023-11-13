@@ -7,8 +7,8 @@ da_scala_library(
     name = "ledger-resources",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
     ],
     tags = ["maven_coordinates=com.daml:ledger-resources:__VERSION__"],
     visibility = [
@@ -16,7 +16,7 @@ da_scala_library(
     ],
     deps = [
         "//libs-scala/resources",
-        "//libs-scala/resources-akka",
+        "//libs-scala/resources-pekko",
         "//libs-scala/resources-grpc",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_netty_netty_common",

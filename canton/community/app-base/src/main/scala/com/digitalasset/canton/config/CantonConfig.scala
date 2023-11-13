@@ -8,7 +8,7 @@ package com.digitalasset.canton.config
 // SOME OF THE IMPLICIT IMPORTS NECESSARY TO COMPILE
 ////////////////////////////////////////////////////////
 
-import akka.stream.ThrottleMode
+import org.apache.pekko.stream.ThrottleMode
 import cats.Order
 import cats.data.Validated
 import cats.syntax.either.*

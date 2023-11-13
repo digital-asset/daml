@@ -63,7 +63,7 @@ da_scala_binary(
     main_class = "com.daml.lf.engine.script.ScriptMain",
     resources = glob(["src/main/resources/**/*"]),
     scala_runtime_deps = [
-        "@maven//:com_typesafe_akka_akka_slf4j",
+        "@maven//:org_apache_pekko_pekko_slf4j",
     ],
     scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],

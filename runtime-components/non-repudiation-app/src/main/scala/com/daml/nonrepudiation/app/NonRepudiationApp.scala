@@ -5,14 +5,14 @@ package com.daml.nonrepudiation.app
 
 import java.time.Clock
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.nonrepudiation.api.NonRepudiationApi
 import com.daml.nonrepudiation.postgresql.{Tables, createTransactor}
 import com.daml.nonrepudiation.{Metrics, NonRepudiationProxy}
-import com.daml.resources.akka.AkkaResourceOwnerFactories
+import com.daml.resources.pekko.PekkoResourceOwnerFactories
 import com.daml.resources.{
   AbstractResourceOwner,
   HasExecutionContext,
@@ -29,7 +29,7 @@ object NonRepudiationApp {
   private[app] val Name = "non-repudiation-app"
 
   private val resourceFactory = new ResourceOwnerFactories[ExecutionContext]
-    with AkkaResourceOwnerFactories[ExecutionContext] {
+    with PekkoResourceOwnerFactories[ExecutionContext] {
     override protected implicit val hasExecutionContext: HasExecutionContext[ExecutionContext] =
       HasExecutionContext.`ExecutionContext has itself`
   }

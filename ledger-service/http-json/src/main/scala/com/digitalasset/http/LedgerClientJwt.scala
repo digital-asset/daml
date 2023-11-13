@@ -3,8 +3,8 @@
 
 package com.daml.http
 
-import akka.NotUsed
-import akka.stream.scaladsl.Source
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 import util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api

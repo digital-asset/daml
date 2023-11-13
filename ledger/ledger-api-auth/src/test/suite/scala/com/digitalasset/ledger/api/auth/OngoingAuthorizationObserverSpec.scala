@@ -5,7 +5,7 @@ package com.daml.ledger.api.auth
 
 import java.time.{Clock, Duration, Instant, ZoneId}
 
-import akka.actor.{Cancellable, Scheduler}
+import org.apache.pekko.actor.{Cancellable, Scheduler}
 import com.daml.clock.AdjustableClock
 import com.daml.error.ErrorsAssertions
 import com.daml.error.definitions.LedgerApiErrors
@@ -54,7 +54,7 @@ class OngoingAuthorizationObserverSpec
       userManagementStore = mock[UserManagementStore],
       // This is also the user rights state refresh timeout
       userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
-      akkaScheduler = mockScheduler,
+      pekkoScheduler = mockScheduler,
     )(LoggingContext.ForTesting, executionContext)
 
     // After 20 seconds pass we expect onError to be called due to lack of user rights state refresh task inactivity
@@ -114,7 +114,7 @@ class OngoingAuthorizationObserverSpec
       nowF = () => clock.instant,
       userManagementStore = mock[UserManagementStore],
       userRightsCheckIntervalInSeconds = 10,
-      akkaScheduler = mockScheduler,
+      pekkoScheduler = mockScheduler,
       // defined default leeway of 1 second for authorization
       jwtTimestampLeeway = Some(JwtTimestampLeeway(default = Some(1))),
     )(LoggingContext.ForTesting, executionContext)
@@ -157,7 +157,7 @@ class OngoingAuthorizationObserverSpec
       nowF = () => clock.instant,
       userManagementStore = mock[UserManagementStore],
       userRightsCheckIntervalInSeconds = 10,
-      akkaScheduler = mockScheduler,
+      pekkoScheduler = mockScheduler,
       jwtTimestampLeeway = Some(JwtTimestampLeeway(default = Some(1))),
     )(LoggingContext.ForTesting, executionContext)
 

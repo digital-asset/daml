@@ -14,7 +14,7 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
-        "//language-support/scala/bindings-akka",
+        "//language-support/scala/bindings-pekko",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/http-json-cli:base",
         "//ledger-service/utils",

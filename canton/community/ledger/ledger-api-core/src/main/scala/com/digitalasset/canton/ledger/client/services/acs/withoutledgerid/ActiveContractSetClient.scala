@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.ledger.client.services.acs.withoutledgerid
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Keep, Source}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Keep, Source}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.client.akka.ClientAdapter
+import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsServiceStub
 import com.daml.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
@@ -15,7 +15,7 @@ import com.daml.ledger.api.v1.active_contracts_service.{
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.client.LedgerClient
-import com.digitalasset.canton.util.akkastreams.ExtractMaterializedValue
+import com.digitalasset.canton.util.pekkostreams.ExtractMaterializedValue
 import scalaz.syntax.tag.*
 
 import scala.concurrent.Future

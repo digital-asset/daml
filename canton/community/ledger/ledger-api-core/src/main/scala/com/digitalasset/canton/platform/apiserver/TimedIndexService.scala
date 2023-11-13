@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import akka.NotUsed
-import akka.stream.scaladsl.Source
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.event_query_service.GetEventsByContractKeyResponse

@@ -3,10 +3,10 @@
 
 package com.daml.navigator.store.platform
 
-import akka.NotUsed
-import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
-import akka.stream._
-import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
+import org.apache.pekko.stream._
+import org.apache.pekko.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
 import com.daml.ledger.api.v1
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CommandSubmission
@@ -339,7 +339,7 @@ class PlatformSubscriber(
           sender ! Failure(error)
         },
         commands => {
-          import akka.stream.{QueueOfferResult => QOR}
+          import org.apache.pekko.stream.{QueueOfferResult => QOR}
 
           // Store the command
           party.addCommand(command)

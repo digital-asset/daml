@@ -8,18 +8,18 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.stream.Collectors
 
-import akka.actor.{ActorSystem, Cancellable}
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.HttpHeader
-import akka.http.scaladsl.model.StatusCodes._
-import akka.http.scaladsl.model.headers.CacheDirectives.{`max-age`, `no-cache`, immutableDirective}
-import akka.http.scaladsl.model.headers.{Cookie, EntityTag, HttpCookie, `Cache-Control`}
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.settings.RoutingSettings
-import akka.http.scaladsl.settings.ServerSettings
-import akka.pattern.ask
-import akka.util.Timeout
+import org.apache.pekko.actor.{ActorSystem, Cancellable}
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.model.HttpHeader
+import org.apache.pekko.http.scaladsl.model.StatusCodes._
+import org.apache.pekko.http.scaladsl.model.headers.CacheDirectives.{`max-age`, `no-cache`, immutableDirective}
+import org.apache.pekko.http.scaladsl.model.headers.{Cookie, EntityTag, HttpCookie, `Cache-Control`}
+import org.apache.pekko.http.scaladsl.server.Directives._
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.settings.RoutingSettings
+import org.apache.pekko.http.scaladsl.settings.ServerSettings
+import org.apache.pekko.pattern.ask
+import org.apache.pekko.util.Timeout
 import com.daml.grpc.GrpcException
 import com.daml.navigator.SessionJsonProtocol._
 import com.daml.navigator.config._
@@ -307,14 +307,14 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       ()
     }
 
-    val stopAkka = () => Try(Await.result(system.terminate(), 10.seconds))
+    val stopPekko = () => Try(Await.result(system.terminate(), 10.seconds))
 
     discard {
       sys.addShutdownHook {
-        // Stop the web server, then the Akka system consuming the ledger API
+        // Stop the web server, then the Pekko system consuming the ledger API
         stopServer()
         partyRefresh.foreach(_.cancel())
-        stopAkka()
+        stopPekko()
         ()
       }
     }

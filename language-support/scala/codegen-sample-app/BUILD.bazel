@@ -69,7 +69,7 @@ da_scala_library(
     ],
     deps = [
         "//language-support/scala/bindings",
-        "//language-support/scala/bindings-akka",
+        "//language-support/scala/bindings-pekko",
     ],
 )
 
@@ -139,7 +139,7 @@ da_scala_test(
         ":daml-lf-codegen-sample-app-testing",
         "//daml-lf/data",
         "//language-support/scala/bindings",
-        "//language-support/scala/bindings-akka",
+        "//language-support/scala/bindings-pekko",
         "//language-support/scala/codegen-testing",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",

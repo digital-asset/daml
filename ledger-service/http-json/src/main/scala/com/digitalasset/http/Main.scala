@@ -5,12 +5,12 @@ package com.daml.http
 
 import java.nio.file.Path
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http.ServerBinding
-import akka.stream.Materializer
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.stream.Materializer
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.cliopts.{GlobalLogLevel, Logging}
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.dbbackend.ContractDao
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
@@ -95,7 +95,7 @@ object Main {
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
     implicit val mat: Materializer = Materializer(asys)
     implicit val aesf: ExecutionSequencerFactory =
-      new AkkaExecutionSequencerPool("clientPool")(asys)
+      new PekkoExecutionSequencerPool("clientPool")(asys)
     implicit val ec: ExecutionContext = asys.dispatcher
     implicit val rc: ResourceContext = ResourceContext(ec)
     val metricsReporting = new MetricsReporting(

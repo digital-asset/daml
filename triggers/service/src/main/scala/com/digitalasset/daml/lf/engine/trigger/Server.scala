@@ -7,27 +7,27 @@ package engine.trigger
 import java.io.ByteArrayInputStream
 import java.util.UUID
 import java.util.zip.ZipInputStream
-import akka.actor.ActorSystem
-import akka.actor.typed.scaladsl.adapter._
-import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.actor.typed.{ActorRef, Behavior, Scheduler}
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.model.Uri.Path
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.{Directive1, ExceptionHandler, Route}
-import akka.http.scaladsl.settings.ServerSettings
-import akka.http.scaladsl.unmarshalling.Unmarshaller
-import akka.pattern.StatusReply
-import akka.stream.Materializer
-import akka.util.{ByteString, Timeout}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.actor.typed.scaladsl.AskPattern._
+import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Scheduler}
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import org.apache.pekko.http.scaladsl.model.Uri.Path
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.server.Directives._
+import org.apache.pekko.http.scaladsl.server.{Directive1, ExceptionHandler, Route}
+import org.apache.pekko.http.scaladsl.settings.ServerSettings
+import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshaller
+import org.apache.pekko.pattern.StatusReply
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.util.{ByteString, Timeout}
 
 import scala.concurrent.duration._
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.dbutils.JdbcConfig
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.resources.ResourceContext
@@ -48,7 +48,7 @@ import com.daml.auth.middleware.api.{
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.speedy.Compiler
 import com.daml.metrics.HistogramDefinition
-import com.daml.metrics.akkahttp.HttpMetricsInterceptor
+import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
 import com.daml.metrics.api.reporters.{MetricsReporter, MetricsReporting}
 import com.daml.scalautil.Statement.discard
 import com.daml.scalautil.ExceptionOps._
@@ -553,11 +553,11 @@ object Server {
     // These are required to execute methods in the Server class and are passed
     // implicitly to the Server constructor.
     implicit val ec: ExecutionContext = ctx.system.executionContext
-    // Akka HTTP doesn't know about Akka Typed so provide untyped system.
-    implicit val untypedSystem: akka.actor.ActorSystem = ctx.system.toClassic
+    // Pekko HTTP doesn't know about Pekko Typed so provide untyped system.
+    implicit val untypedSystem: pekko.actor.ActorSystem = ctx.system.toClassic
     implicit val materializer: Materializer = Materializer(untypedSystem)
     implicit val esf: ExecutionSequencerFactory =
-      new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
+      new PekkoExecutionSequencerPool("TriggerService")(untypedSystem)
 
     implicit val rc: ResourceContext = ResourceContext(ec)
 
@@ -658,7 +658,7 @@ object Server {
     def restartTrigger(req: RestartTrigger): Unit = {
       // If the trigger is still running we need to shut it down first
       // and wait for it to terminate before we can spawn it again.
-      // Otherwise, akka will raise an error due to a non-unique actor name.
+      // Otherwise, pekko will raise an error due to a non-unique actor name.
       getRunnerRef(req.runningTrigger.triggerInstance) match {
         case Some(runner) =>
           ctx.watchWith(runner, req)
@@ -777,7 +777,7 @@ object Server {
             // TODO SC until this future returns, connections may still be accepted. Consider
             // coordinating this future with the actor in some way, or use addToCoordinatedShutdown
             // (though I have a feeling it will not work out so neatly)
-            discard[Future[akka.Done]](binding.unbind())
+            discard[Future[pekko.Done]](binding.unbind())
             discard[Try[Unit]](Try(dao.close()))
             Behaviors.stopped // Automatically stops all actors.
         } // receiveSignal PostStop does not work, see #7092 20c1f241d5

@@ -6,7 +6,7 @@ package engine
 package script
 package v1
 
-import akka.stream.Materializer
+import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.engine.script.Runner.IdeLedgerContext
 import com.daml.lf.engine.script.ledgerinteraction.{

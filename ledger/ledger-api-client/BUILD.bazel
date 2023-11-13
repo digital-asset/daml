@@ -12,8 +12,8 @@ da_scala_library(
     name = "ledger-api-client",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
     ],
     tags = ["maven_coordinates=com.daml:ledger-api-client:__VERSION__"],
     visibility = [
@@ -22,7 +22,7 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//language-support/scala/bindings",
-        "//ledger-api/rs-grpc-akka",
+        "//ledger-api/rs-grpc-pekko",
         "//ledger-api/rs-grpc-bridge",
         "//ledger/error",
         "//ledger/ledger-api-auth-client",
@@ -47,9 +47,9 @@ da_scala_test_suite(
     name = "ledger-api-client-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
     scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:com_typesafe_akka_akka_stream_testkit",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_apache_pekko_pekko_stream_testkit",
         "@maven//:org_mockito_mockito_scala",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -89,8 +89,8 @@ da_scala_test_suite(
         "src/it/resources/logback-test.xml",
     ],
     scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
     ],
     tags = ["cpu:4"],
     deps = [

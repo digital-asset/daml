@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import akka.NotUsed
-import akka.stream.*
-import akka.stream.scaladsl.{BroadcastHub, Keep, Sink, Source, SourceQueueWithComplete}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.*
+import org.apache.pekko.stream.scaladsl.{BroadcastHub, Keep, Sink, Source, SourceQueueWithComplete}
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerMemberId
@@ -18,7 +18,7 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{AkkaUtil, LoggerUtil}
+import com.digitalasset.canton.util.{PekkoUtil, LoggerUtil}
 import org.slf4j.event.Level
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -42,7 +42,7 @@ class LocalSequencerStateEventSignaller(
     with NamedLogging {
 
   private val (queue, notificationsHubSource) =
-    AkkaUtil.runSupervised(
+    PekkoUtil.runSupervised(
       logger.error("LocalStateEventSignaller flow failed", _)(TraceContext.empty),
       Source
         .queue[WriteNotification](1, OverflowStrategy.backpressure)

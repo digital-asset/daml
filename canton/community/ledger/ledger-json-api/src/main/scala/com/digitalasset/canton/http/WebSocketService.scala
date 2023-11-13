@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.http
 
-import akka.NotUsed
-import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
-import akka.stream.scaladsl.{Flow, Sink, Source}
-import akka.stream.Materializer
+import org.apache.pekko.NotUsed
+import org.apache.pekko.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
+import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
+import org.apache.pekko.stream.Materializer
 import com.digitalasset.canton.fetchcontracts.util.{
   AbsoluteBookmark,
   BeginBookmark,

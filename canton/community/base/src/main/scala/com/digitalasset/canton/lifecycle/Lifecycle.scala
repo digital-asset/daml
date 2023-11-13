@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.lifecycle
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}

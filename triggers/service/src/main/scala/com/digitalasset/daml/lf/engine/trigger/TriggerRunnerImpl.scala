@@ -3,9 +3,9 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, Behavior, PostStop, PreRestart}
-import akka.stream.{KillSwitch, KillSwitches, Materializer}
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, PostStop, PreRestart}
+import org.apache.pekko.stream.{KillSwitch, KillSwitches, Materializer}
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
@@ -126,7 +126,7 @@ object TriggerRunnerImpl {
               // If we are stopped we will end up causing the future
               // to complete which will trigger a message that is
               // sent to a now terminated actor. In
-              // https://doc.akka.io/docs/akka/current/general/message-delivery-reliability.html#dead-letters
+              // https://doc.pekko.io/docs/pekko/current/general/message-delivery-reliability.html#dead-letters
               // it is explained that this is a somewhat ordinary
               // circumstance and not to be worried about.
               ctx.pipeToSelf(trigger) {

@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.dbutils.JdbcConfig

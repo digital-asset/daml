@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.environment
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import cats.data.EitherT
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*

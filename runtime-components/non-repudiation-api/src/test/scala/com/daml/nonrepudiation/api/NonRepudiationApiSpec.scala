@@ -8,11 +8,11 @@ import java.security.cert.X509Certificate
 import java.time.Instant
 import java.util.UUID
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.client.RequestBuilding.{Get, Put}
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
-import akka.http.scaladsl.unmarshalling.Unmarshal
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.client.RequestBuilding.{Get, Put}
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
+import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.nonrepudiation.api.v1.{CertificatesEndpoint, SignedPayloadsEndpoint}
 import com.daml.nonrepudiation.testing._
 import com.daml.nonrepudiation.{

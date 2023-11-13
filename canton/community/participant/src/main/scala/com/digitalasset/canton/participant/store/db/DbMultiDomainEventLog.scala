@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.participant.store.db
 
-import akka.NotUsed
-import akka.stream.*
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.*
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import cats.data.OptionT
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
@@ -35,8 +35,8 @@ import com.digitalasset.canton.participant.store.{EventLogId, MultiDomainEventLo
 import com.digitalasset.canton.participant.sync.TimestampedEvent.TransactionEventId
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset, RequestOffset}
-import com.digitalasset.canton.platform.akkastreams.dispatcher.Dispatcher
-import com.digitalasset.canton.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.canton.platform.pekkostreams.dispatcher.Dispatcher
+import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.resource.DbStorage.Implicits.{
@@ -72,11 +72,11 @@ import scala.util.control.NonFatal
   *                                  If event publication back-pressures for some reason (e.g. db is unavailable),
   *                                  `publish` will throw an exception,
   *                                  if the number of concurrent calls exceeds this number.
-  *                                  A high number comes with higher memory usage, as Akka allocates a buffer of that size internally.
+  *                                  A high number comes with higher memory usage, as Pekko allocates a buffer of that size internally.
   * @param maxBatchSize maximum number of events that will be persisted in a single database transaction.
   * @param batchTimeout after this timeout, the collect events so far will be persisted, even if `maxBatchSize` has
   *                     not been attained.
-  *                     A small number comes with higher CPU usage, as Akka schedules periodic task at that delay.
+  *                     A small number comes with higher CPU usage, as Pekko schedules periodic task at that delay.
   */
 class DbMultiDomainEventLog private[db] (
     initialLastGlobalOffset: Option[GlobalOffset],
@@ -156,7 +156,7 @@ class DbMultiDomainEventLog private[db] (
     .toMat(Sink.ignore)(Keep.both)
 
   private val ((eventsQueue, killSwitch), done) =
-    AkkaUtil.runSupervised(
+    PekkoUtil.runSupervised(
       logger.error("An exception occurred while publishing an event. Stop publishing events.", _)(
         TraceContext.empty
       ),
@@ -761,9 +761,9 @@ class DbMultiDomainEventLog private[db] (
       AsyncCloseable(
         "done",
         done.map(_ => ()).recover {
-          // The Akka stream supervisor has already logged an exception as an error and stopped the stream
+          // The Pekko stream supervisor has already logged an exception as an error and stopped the stream
           case NonFatal(e) =>
-            logger.debug(s"Ignored exception in Akka stream done future during shutdown", e)
+            logger.debug(s"Ignored exception in Pekko stream done future during shutdown", e)
         },
         timeouts.shutdownShort.unwrap,
       ),

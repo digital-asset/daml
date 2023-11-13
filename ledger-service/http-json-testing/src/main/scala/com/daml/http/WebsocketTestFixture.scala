@@ -3,13 +3,13 @@
 
 package com.daml.http
 
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.Uri
-import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage, WebSocketRequest}
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage, WebSocketRequest}
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.daml.http.json.SprayJson
 import com.daml.jwt.domain.Jwt
 import com.daml.lf.data.Ref
@@ -290,7 +290,7 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
         Source single query,
       )
       .map(TextMessage(_))
-      // akka-http will cancel the whole stream once the input ends so we use
+      // pekko-http will cancel the whole stream once the input ends so we use
       // Source.maybe to keep the input open.
       .concatMat(Source.maybe[Message])(Keep.left)
       .via(webSocketFlow)

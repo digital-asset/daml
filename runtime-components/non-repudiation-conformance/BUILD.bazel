@@ -36,7 +36,7 @@ da_scala_test(
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
-        "//libs-scala/resources-akka",
+        "//libs-scala/resources-pekko",
         "//libs-scala/resources-grpc",
         "//runtime-components/non-repudiation",
         "//runtime-components/non-repudiation-client",

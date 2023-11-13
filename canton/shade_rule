@@ -1,1 +1,1 @@
-zap akka.stream.scaladsl.BroadcastHub*
+zap pekko.stream.scaladsl.BroadcastHub*

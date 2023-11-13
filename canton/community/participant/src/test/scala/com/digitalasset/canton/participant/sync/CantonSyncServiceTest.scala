@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.sync
 
-import akka.stream.Materializer
+import org.apache.pekko.stream.Materializer
 import cats.data.EitherT
 import cats.implicits.*
 import cats.{Eval, Id}

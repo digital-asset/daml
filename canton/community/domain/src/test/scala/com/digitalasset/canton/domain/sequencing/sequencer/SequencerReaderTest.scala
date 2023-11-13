@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Sink, SinkQueueWithCancel, Source}
-import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{Sink, SinkQueueWithCancel, Source}
+import org.apache.pekko.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
@@ -130,7 +130,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
 
     def ts(epochSeconds: Int): CantonTimestamp = CantonTimestamp.ofEpochSecond(epochSeconds.toLong)
 
-    /** Can be used at most once per environment because [[akka.stream.scaladsl.FlowOps.take]]
+    /** Can be used at most once per environment because [[pekko.stream.scaladsl.FlowOps.take]]
       * cancels the pre-materialized [[ManualEventSignaller.source]].
       */
     def readAsSeq(

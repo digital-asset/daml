@@ -3,19 +3,19 @@
 
 package com.digitalasset.canton
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.NamedLogging
-import com.digitalasset.canton.util.AkkaUtil
+import com.digitalasset.canton.util.PekkoUtil
 import org.scalatest.{BeforeAndAfterAll, Suite}
 
-/** Mixin to provide an implicit [[akka.actor.ActorSystem]] to a test suite */
+/** Mixin to provide an implicit [[pekko.actor.ActorSystem]] to a test suite */
 trait HasActorSystem extends BeforeAndAfterAll {
   this: Suite with HasExecutionContext with NamedLogging =>
 
   protected implicit lazy val actorSystem: ActorSystem =
-    AkkaUtil.createActorSystem(getClass.getSimpleName)
+    PekkoUtil.createActorSystem(getClass.getSimpleName)
 
   protected def timeouts: ProcessingTimeout
 

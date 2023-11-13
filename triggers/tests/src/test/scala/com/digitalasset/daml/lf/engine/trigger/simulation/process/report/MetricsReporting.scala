@@ -4,8 +4,8 @@
 package com.daml.lf.engine.trigger.simulation.process
 package report
 
-import akka.actor.typed.{Behavior, PostStop}
-import akka.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.{Behavior, PostStop}
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig

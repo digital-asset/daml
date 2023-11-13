@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http
 
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
 import io.grpc.health.v1.health.HealthCheckResponse
 
 import scala.concurrent.{ExecutionContext, Future}

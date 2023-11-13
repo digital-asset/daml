@@ -68,7 +68,7 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:org_apache_pekko_pekko_actor",
     ],
     deps = [
         ":bindings-rxjava",

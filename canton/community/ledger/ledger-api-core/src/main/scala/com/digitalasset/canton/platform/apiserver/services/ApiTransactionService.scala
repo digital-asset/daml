@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_service.*

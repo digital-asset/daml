@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.platform.index
 
-import akka.Done
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.Done
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import cats.syntax.bifunctor.toBifunctorOps
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.lf.crypto
@@ -25,7 +25,7 @@ import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.metrics.Metrics
-import com.digitalasset.canton.platform.akkastreams.dispatcher.Dispatcher
+import com.digitalasset.canton.platform.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.PrepareResult
 import com.digitalasset.canton.platform.index.InMemoryStateUpdaterSpec.*
@@ -62,7 +62,7 @@ import scala.util.chaining.*
 class InMemoryStateUpdaterSpec
     extends AnyFlatSpec
     with Matchers
-    with AkkaBeforeAndAfterAll
+    with PekkoBeforeAndAfterAll
     with MockitoSugar
     with BaseTest {
 

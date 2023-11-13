@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.{ContextualizedErrorLogger, DamlError}

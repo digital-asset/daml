@@ -4,8 +4,8 @@
 package com.daml.lf.engine.trigger.simulation.process
 package ledger
 
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.LedgerClient

@@ -3,12 +3,12 @@
 
 package com.daml.http
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import akka.stream.Materializer
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import org.apache.pekko.stream.Materializer
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory

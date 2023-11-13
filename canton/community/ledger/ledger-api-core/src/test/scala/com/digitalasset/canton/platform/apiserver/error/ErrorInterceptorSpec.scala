@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.platform.apiserver.error
 
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Source}
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import com.daml.error.*
 import com.daml.error.utils.ErrorDetails
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.sampleservice.HelloServiceResponding
-import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingServerInterceptors}
+import com.daml.ledger.api.testing.utils.{PekkoBeforeAndAfterAll, TestingServerInterceptors}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
@@ -29,7 +29,7 @@ import scala.concurrent.Future
 
 final class ErrorInterceptorSpec
     extends AsyncFreeSpec
-    with AkkaBeforeAndAfterAll
+    with PekkoBeforeAndAfterAll
     with OptionValues
     with Eventually
     with IntegrationPatience
@@ -112,7 +112,7 @@ final class ErrorInterceptorSpec
       }
     }
 
-    "for an server streaming Akka endpoint" - {
+    "for an server streaming Pekko endpoint" - {
 
       "signal server shutting down" in {
         val service =
@@ -122,7 +122,7 @@ final class ErrorInterceptorSpec
             loggerFactory = loggerFactory,
           )
         service.close()
-        exerciseStreamingAkkaEndpoint(service)
+        exerciseStreamingPekkoEndpoint(service)
           .map { t: StatusRuntimeException =>
             assertMatchesErrorCode(t, CommonErrors.ServerIsShuttingDown)
           }
@@ -132,7 +132,7 @@ final class ErrorInterceptorSpec
         "inside a Stream" in {
           loggerFactory.assertLogs(
             within = {
-              exerciseStreamingAkkaEndpoint(
+              exerciseStreamingPekkoEndpoint(
                 new HelloServiceFailing(
                   useSelfService = false,
                   errorInsideFutureOrStream = true,
@@ -150,7 +150,7 @@ final class ErrorInterceptorSpec
         }
 
         s"outside a Stream $bypassMsg" in {
-          exerciseStreamingAkkaEndpoint(
+          exerciseStreamingPekkoEndpoint(
             new HelloServiceFailing(
               useSelfService = false,
               errorInsideFutureOrStream = false,
@@ -164,7 +164,7 @@ final class ErrorInterceptorSpec
 
         "outside a Stream by directly calling stream-observer.onError" in {
           loggerFactory.assertLogs(
-            exerciseStreamingAkkaEndpoint(
+            exerciseStreamingPekkoEndpoint(
               new HelloServiceFailingDirectlyObserverOnError
             ).map { t: StatusRuntimeException =>
               assertSecuritySanitizedError(t)
@@ -177,7 +177,7 @@ final class ErrorInterceptorSpec
 
       "when signalling with a self-service error should NOT SANITIZE the server response when arising" - {
         "inside a Stream" in {
-          exerciseStreamingAkkaEndpoint(
+          exerciseStreamingPekkoEndpoint(
             new HelloServiceFailing(
               useSelfService = true,
               errorInsideFutureOrStream = true,
@@ -193,7 +193,7 @@ final class ErrorInterceptorSpec
         }
 
         s"outside a Stream $bypassMsg" in {
-          exerciseStreamingAkkaEndpoint(
+          exerciseStreamingPekkoEndpoint(
             new HelloServiceFailing(
               useSelfService = true,
               errorInsideFutureOrStream = false,
@@ -254,7 +254,7 @@ final class ErrorInterceptorSpec
     }
   }
 
-  private def exerciseStreamingAkkaEndpoint(
+  private def exerciseStreamingPekkoEndpoint(
       helloService: BindableService
   ): Future[StatusRuntimeException] = {
     val response: Future[Vector[HelloResponse]] = server(

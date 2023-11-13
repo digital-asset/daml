@@ -3,10 +3,10 @@
 
 package com.daml.http
 
-import akka.http.scaladsl.model.HttpMethods._
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.ws.{Message, WebSocketUpgrade}
-import akka.stream.scaladsl.Flow
+import org.apache.pekko.http.scaladsl.model.HttpMethods._
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.ws.{Message, WebSocketUpgrade}
+import org.apache.pekko.stream.scaladsl.Flow
 import com.daml.jwt.domain.Jwt
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
@@ -14,8 +14,8 @@ import scalaz.{EitherT, \/}
 
 import scala.concurrent.{ExecutionContext, Future}
 import EndpointsCompanion._
-import akka.http.scaladsl.server.{Rejection, RequestContext, Route, RouteResult}
-import akka.http.scaladsl.server.RouteResult.{Complete, Rejected}
+import org.apache.pekko.http.scaladsl.server.{Rejection, RequestContext, Route, RouteResult}
+import org.apache.pekko.http.scaladsl.server.RouteResult.{Complete, Rejected}
 import com.daml.http.domain.JwtPayload
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
@@ -23,7 +23,7 @@ import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.api.MetricsContext
-import com.daml.metrics.akkahttp.{MetricLabelsExtractor, WebSocketMetricsInterceptor}
+import com.daml.metrics.pekkohttp.{MetricLabelsExtractor, WebSocketMetricsInterceptor}
 
 import scala.collection.immutable.Seq
 import scalaz.std.scalaFuture._

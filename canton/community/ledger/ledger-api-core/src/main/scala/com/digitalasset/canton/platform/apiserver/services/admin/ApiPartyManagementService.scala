@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta as ProtoObjectMeta
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
