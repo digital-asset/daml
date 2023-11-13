@@ -248,6 +248,7 @@ object HttpService {
         https
           .fold(builder) { config =>
             logger.info(s"Enabling HTTPS with $config")
+            val _ = System.setProperty("javax.net.debug", "all")
             builder.enableHttps(httpsConnectionContext(config))
           }
           .bind(allEndpoints)
