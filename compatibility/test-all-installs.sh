@@ -188,7 +188,7 @@ no_cache_override_github_endpoint () {
   export RELEASES_ENDPOINT=releases-endpoint
   echo "releases-endpoint: http://localhost:8080/releases" >> $DAML_HOME/daml-config.yaml
   mkdir -p $RELEASES_ENDPOINT
-  python3 -m http.server --directory "$RELEASES_ENDPOINT" --bind localhost 8080 &
+  python3 -m http.server --directory "$RELEASES_ENDPOINT" --bind localhost 9871 &
   export RELEASES_ENDPOINT_MINISERVE=$!
   sleep 5
   cp $1 "$RELEASES_ENDPOINT/releases"
@@ -208,7 +208,7 @@ cp --no-dereference $(rlocation daml-sdk-2.7.4-tarball)/file/downloaded github_m
 cp --no-dereference $(rlocation daml-sdk-2.7.1-tarball)/file/downloaded github_mirror_directory/v2.7.1/daml-sdk-2.7.1-linux.tar.gz
 cp --no-dereference $(rlocation daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball)/file/downloaded github_mirror_directory/v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz
 absolute_github_mirror_directory=$(realpath github_mirror_directory)
-python3 -m http.server --directory $absolute_github_mirror_directory --bind localhost 9000 &
+python3 -m http.server --directory $absolute_github_mirror_directory --bind localhost 9872 &
 export GITHUB_MIRROR_MINISERVE=$!
 sleep 2
 alternate_download_line="alternate-download: http://localhost:9000"
