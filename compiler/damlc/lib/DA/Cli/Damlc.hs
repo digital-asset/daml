@@ -935,9 +935,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
     relativize <- ContT $ withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False})
 
     let buildSingle :: PackageConfigFields -> IO ()
-        buildSingle pkgConfig = do
-          putStrLn $ "Running single package build of " <> T.unpack (LF.unPackageName $ pName pkgConfig) <> " as no multi-package.yaml was found."
-          void $ buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb
+        buildSingle pkgConfig = void $ buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb
         buildMulti :: Maybe PackageConfigFields -> ProjectPath -> IO ()
         buildMulti mPkgConfig multiPackageConfigPath = do
           putStrLn $ "Running multi-package build of "
@@ -968,7 +966,9 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
         (False, Just pkgConfig, Just multiPackagePath) -> buildMulti (Just pkgConfig) multiPackagePath
 
         -- We know the package we want but we do not have a multi-package. The user has provided no reason they would want a multi-package build.
-        (False, Just pkgConfig, Nothing) -> buildSingle pkgConfig
+        (False, Just pkgConfig, Nothing) -> do
+          putStrLn $ "Running single package build of " <> T.unpack (LF.unPackageName $ pName pkgConfig) <> " as no multi-package.yaml was found."
+          buildSingle pkgConfig
 
         -- We have no package context, but we have found a multi package at the current directory
         (False, Nothing, Just _) -> do
