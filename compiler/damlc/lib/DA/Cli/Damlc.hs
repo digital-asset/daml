@@ -911,23 +911,13 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
 getMultiPackagePath :: MultiPackageLocation -> IO (Maybe ProjectPath)
 getMultiPackagePath multiPackageLocation =
   case multiPackageLocation of
-    MPLSearch -> do
-      mPath <- findMultiPackageConfig defaultProjectPath
-      case mPath of
-        Nothing -> do
-          hPutStrLn stderr $ "Couldn't find multi-package.yaml at or above the current directory.\n"
-            <> "Use --multi-package-path to specify the multi-package.yaml path."
-          exitFailure
-        Just path -> pure $ Just path
+    MPLSearch -> findMultiPackageConfig defaultProjectPath
     MPLPath path -> do
       hasMultiPackage <- doesFileExist $ path </> multiPackageConfigName
       unless hasMultiPackage $ do
         hPutStrLn stderr $ (path </> multiPackageConfigName) <> " does not exist."
         exitFailure
       pure $ Just $ ProjectPath path
-    MPLCurrent -> do
-      hasMultiPackage <- doesFileExist $ unwrapProjectPath defaultProjectPath </> multiPackageConfigName
-      pure $ if hasMultiPackage then Just defaultProjectPath else Nothing
 
 execBuild
   :: ProjectOpts
@@ -947,7 +937,9 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
     let buildSingle :: PackageConfigFields -> IO ()
         buildSingle pkgConfig = void $ buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb
         buildMulti :: Maybe PackageConfigFields -> ProjectPath -> IO ()
-        buildMulti mPkgConfig multiPackageConfigPath =
+        buildMulti mPkgConfig multiPackageConfigPath = do
+          putStrLn $ "Running multi-package build of "
+            <> maybe ("all packages in " <> unwrapProjectPath multiPackageConfigPath) (T.unpack . LF.unPackageName . pName) mPkgConfig <> "."
           withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig ->
             multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opts mbOutFile incrementalBuild initPkgDb noCache
 
@@ -967,14 +959,16 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
         -- We're attempting to multi-package build --all but we don't have a multi-package.yaml
         (True, _, Nothing) -> do
           hPutStrLn stderr
-            "Attempted to build all packages, but could not find a multi-package.yaml. Use --multi-package-search or --multi-package-path to specify its location."
+            "Attempted to build all packages, but could not find a multi-package.yaml at current or parent directory. Use --multi-package-path to specify its location."
           exitFailure
 
         -- We know the package we want and we have a multi-package.yaml
         (False, Just pkgConfig, Just multiPackagePath) -> buildMulti (Just pkgConfig) multiPackagePath
 
         -- We know the package we want but we do not have a multi-package. The user has provided no reason they would want a multi-package build.
-        (False, Just pkgConfig, Nothing) -> buildSingle pkgConfig
+        (False, Just pkgConfig, Nothing) -> do
+          putStrLn $ "Running single package build of " <> T.unpack (LF.unPackageName $ pName pkgConfig) <> " as no multi-package.yaml was found."
+          buildSingle pkgConfig
 
         -- We have no package context, but we have found a multi package at the current directory
         (False, Nothing, Just _) -> do
@@ -995,7 +989,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
           let usedMultiPackageOption =
                 getMultiPackageBuildAll buildAll
                   || getMultiPackageNoCache noCache
-                  || multiPackageLocation /= MPLCurrent
+                  || multiPackageLocation /= MPLSearch
           if usedMultiPackageOption
             then do
               hPutStrLn stderr "Multi-package build option used without enabling multi-package via the --enable-multi-package flag."
@@ -1382,7 +1376,7 @@ execClean projectOpts enableMultiPackage multiPackageLocation cleanAll =
           mMultiPackagePath <- getMultiPackagePath multiPackageLocation
           case mMultiPackagePath of
             Nothing -> do
-              hPutStrLn stderr "Couldn't find a multi-package.yaml. Use --multi-package-search or --multi-package-path to specify its location."
+              hPutStrLn stderr "Couldn't find a multi-package.yaml at current or parent directory. Use --multi-package-path to specify its location."
               exitFailure
             Just path ->
               withMultiPackageConfig path $ \multiPackageConfig ->

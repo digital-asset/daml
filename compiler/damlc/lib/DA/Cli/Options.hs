@@ -171,23 +171,16 @@ data MultiPackageLocation
   = MPLSearch
   -- | Expect the multi-package.yaml at the given path
   | MPLPath FilePath
-  -- | Expect the multi-package.yaml at the current directory
-  | MPLCurrent
   deriving (Show, Eq)
 
 multiPackageLocationOpt :: Parser MultiPackageLocation
 multiPackageLocationOpt =
-  flag' MPLSearch 
-      (  long "multi-package-search"
-      <> help "Allows daml build to search up the directory tree for a multi-package.yaml. Cannot be used with --multi-package-path"
-      <> internal
-      )
-    <|> optionOnce (MPLPath <$> str)
-      (  metavar "FILE"
-      <> help "Path to the multi-package.yaml file. Cannot be used with --multi-package-search"
-      <> long "multi-package-path"
-      <> value MPLCurrent
-      )
+  optionOnce (MPLPath <$> str)
+    (  metavar "FILE"
+    <> help "Path to the multi-package.yaml file"
+    <> long "multi-package-path"
+    <> value MPLSearch
+    )
 
 newtype MultiPackageCleanAll = MultiPackageCleanAll {getMultiPackageCleanAll :: Bool}
 multiPackageCleanAllOpt :: Parser MultiPackageCleanAll
