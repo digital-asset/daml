@@ -20,7 +20,7 @@ public abstract class TransactionFilter {
     return FiltersByParty.fromProto(transactionFilter);
   }
 
-  abstract TransactionFilterOuterClass.TransactionFilter toProto();
+  public abstract TransactionFilterOuterClass.TransactionFilter toProto();
 
   public abstract Set<String> getParties();
 
