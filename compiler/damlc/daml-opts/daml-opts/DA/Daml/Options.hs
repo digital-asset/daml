@@ -224,6 +224,8 @@ fakeDynFlags = defaultDynFlags
                    , sProgramName = "ghc"
                    , sProjectVersion = cProjectVersion
                    , sOpt_P_fingerprint = fingerprint0
+                   , sPgm_P = error "hpp resource or runfile missing but used CPP"
+                      -- If you see this error, check the paths in 'locateCppPath'
                    }
         platform = P.Platform
           { platformWordSize=8
@@ -470,12 +472,14 @@ locateCppPath = do
         -- In a packaged application, the executable is stored directly underneath
         -- the resources directory because the target produces a tarball which
         -- has the executable directly under the top directory.
+        -- We use a tarball to ensure the required dynamic libraries are
+        -- distributed with daml.
         -- See @bazel_tools/packaging/packaging.bzl@.
-      , runfilesPathPrefix = "stackage" </> "hpp-0.6.4" </> "_install" </> "bin"
-        -- @stackage-exe//hpp
-        -- when running as a bazel target, the executable has the same name
-        -- but comes from the stackage target, so the prefix is different
-        -- from that of the dist target.
+      , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc"
+        -- //compiler/damlc:hpp-copy
+        -- When running as a bazel target, the executable has the same name
+        -- but it is a plain copy of the stackage executable, so the prefix
+        -- corresponds to the location of the `copy_file` target.
       }
     exists <- doesFileExist path
     pure (guard exists >> Just path)
