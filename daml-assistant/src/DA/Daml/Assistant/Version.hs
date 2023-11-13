@@ -27,6 +27,7 @@ module DA.Daml.Assistant.Version
     , queryArtifactoryApiKey
     , ArtifactoryApiKey(..)
     , alternateVersionLocation
+    , InstallLocation(..)
     ) where
 
 import DA.Daml.Assistant.Types
@@ -500,3 +501,12 @@ alternateVersionLocation releaseVersion url = InstallLocation
           ]
     , ilHeaders = []
     }
+
+-- | An install locations is a pair of fully qualified HTTP[S] URL to an SDK release tarball and headers
+-- required to access that URL. For example:
+-- "https://github.com/digital-asset/daml/releases/download/v0.11.1/daml-sdk-0.11.1-macos.tar.gz"
+data InstallLocation = InstallLocation
+    { ilUrl :: Text
+    , ilHeaders :: RequestHeaders
+    } deriving (Eq, Show)
+

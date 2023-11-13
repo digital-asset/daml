@@ -15,7 +15,6 @@ import Data.Maybe
 import System.FilePath
 import Control.Monad
 import Control.Exception.Safe
-import Network.HTTP.Types.Header (RequestHeaders)
 import Data.Either.Extra (eitherToMaybe)
 
 data ConfigError
@@ -269,14 +268,6 @@ instance Y.FromJSON (SdkPath -> EnrichedCompletion -> SdkCommandInfo) where
           desc
           (if completion then Forward enriched else NoForward)
           sdkPath
-
--- | An install locations is a pair of fully qualified HTTP[S] URL to an SDK release tarball and headers
--- required to access that URL. For example:
--- "https://github.com/digital-asset/daml/releases/download/v0.11.1/daml-sdk-0.11.1-macos.tar.gz"
-data InstallLocation = InstallLocation
-    { ilUrl :: Text
-    , ilHeaders :: RequestHeaders
-    } deriving (Eq, Show)
 
 data AssistantError = AssistantError
     { errContext  :: Maybe Text -- ^ Context in which error occurs.

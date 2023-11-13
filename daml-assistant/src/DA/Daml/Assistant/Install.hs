@@ -342,7 +342,7 @@ httpInstall env@InstallEnv{targetVersionM = releaseVersion, ..} = do
     requiredAny "Failed to download SDK release." $ do
         downloadLocation =<< getLocation releaseVersion
     where
-        getLocation :: ReleaseVersion -> IO InstallLocation
+        getLocation :: ReleaseVersion -> IO DAVersion.InstallLocation
         getLocation releaseVersion = do
             damlConfigE <- tryConfig (readDamlConfig damlPath)
             let alternateDownload =
@@ -359,8 +359,8 @@ httpInstall env@InstallEnv{targetVersionM = releaseVersion, ..} = do
         !firstEEVersion =
             let verStr = "1.12.0-snapshot.20210312.6498.0.707c86aa"
             in OldReleaseVersion (either error id (SemVer.fromText verStr))
-        downloadLocation :: InstallLocation -> IO ()
-        downloadLocation (InstallLocation url headers) = do
+        downloadLocation :: DAVersion.InstallLocation -> IO ()
+        downloadLocation (DAVersion.InstallLocation url headers) = do
             request <- requiredAny "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)
             withResponse (setRequestHeaders headers request) $ \response -> do
                 when (getResponseStatusCode response /= 200) $
