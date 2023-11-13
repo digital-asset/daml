@@ -113,9 +113,13 @@ final case class TlsConfiguration(
       sslContext: SslContext,
       isServer: Boolean,
   ): Unit = {
-    val who = if (isServer) "Server" else "Client"
+    val (who, provider) =
+      if (isServer)
+        ("Server", SslContext.defaultServerProvider())
+      else
+        ("Client", SslContext.defaultClientProvider())
     val tlsInfo = TlsInfo.fromSslContext(sslContext)
-    logger.info(s"$who TLS - enabled.")
+    logger.info(s"$who TLS - enabled via $provider")
     logger.debug(
       s"$who TLS - supported protocols: ${filterSSLv2Hello(tlsInfo.supportedProtocols).mkString(", ")}."
     )
