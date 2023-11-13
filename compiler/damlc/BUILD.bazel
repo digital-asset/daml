@@ -9,6 +9,26 @@ load("//bazel_tools/packaging:packaging.bzl", "package_app")
 load("//bazel_tools/runfiles:defs.bzl", "add_data")
 load(":util.bzl", "ghc_pkg")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+
+# `hpp` is linked dynamically so we run it through `package_app` to
+# distribute it. However, the result of that is a tarball so it's not going
+# to work if we use it as a runfile with `bazel run`. We thus use a copy of the
+# dynamically linked executable ("//compiler/damlc:hpp-copy") in the runfiles of
+# damlc and the tarball produced by `package_app` ("//compiler/damlc:hpp-dist")
+# in the resources of damlc-dist.
+copy_file(
+    name = "hpp-copy",
+    src = "@stackage-exe//hpp",
+    out = "hpp" + (".exe" if is_windows else ""),
+    allow_symlink = True,
+    is_executable = True,
+)
+
+package_app(
+    name = "hpp-dist",
+    binary = "@stackage-exe//hpp",
+)
 
 damlc_data = [
     "//compiler/damlc/daml-ide-core:dlint.yaml",
@@ -16,7 +36,7 @@ damlc_data = [
     "@static_asset_d3plus//:js/d3plus.min.js",
     ghc_pkg,
     "//compiler/damlc:ghcversion",
-    "@stackage-exe//hpp",
+    "//compiler/damlc:hpp-copy",
     "//compiler/damlc/pkg-db",
     "//compiler/damlc/stable-packages",
     "//compiler/damlc:daml-base-anchors.json",
@@ -29,8 +49,8 @@ add_data(
     data = [
         ghc_pkg,
         "//compiler/damlc:ghcversion",
+        "//compiler/damlc:hpp-copy",
         "//compiler/damlc/pkg-db",
-        "@stackage-exe//hpp",
     ],
     executable = ":damlc-bootstrap",
     visibility = ["//visibility:public"],
@@ -76,8 +96,8 @@ da_haskell_binary(
     ] if is_windows else [],
     data = [
         "//compiler/damlc:ghcversion",
+        "//compiler/damlc:hpp-copy",
         "//compiler/damlc/stable-packages",
-        "@stackage-exe//hpp",
     ],
     hackage_deps = [
         "base",
@@ -138,11 +158,6 @@ package_app(
       $$MKTGZ $$OUT ghc-pkg
     """,
     tools = ["//bazel_tools/sh:mktgz"],
-)
-
-package_app(
-    name = "hpp-dist",
-    binary = "@stackage-exe//hpp",
 )
 
 da_haskell_library(
