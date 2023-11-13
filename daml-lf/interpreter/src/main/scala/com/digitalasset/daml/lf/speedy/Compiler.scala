@@ -855,9 +855,9 @@ private[lf] final class Compiler(
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
     unlabelledTopLevelFunction2(t.ToContractInfoDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
+      // We use a chain of let bindings to make the evaluation order of SBuildContractInfoStruct's arguments is
+      // independent from the evaluation strategy imposed by the ANF transformation.
       checkPreCondition(env, tmplId, env.toSEVar(tmplArgPos)) { env =>
-        // We use a chain of let bindings to make the evaluation order of SBuildContractInfoStruct's arguments is
-        // independent from the evaluation strategy imposed by the ANF transformation.
         let(env, s.SEValue(STypeRep(TTyCon(tmplId)))) { (typePos, env) =>
           let(env, t.AgreementTextDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
             (agreementTextPos, env) =>
