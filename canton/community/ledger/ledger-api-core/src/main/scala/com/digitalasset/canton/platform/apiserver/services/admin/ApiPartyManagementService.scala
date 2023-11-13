@@ -26,6 +26,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
+import com.daml.logging.LoggingContext
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{
@@ -96,7 +97,7 @@ private[apiserver] final class ApiPartyManagementService private (
     with GrpcApiService
     with NamedLogging {
 
-  private implicit val loggingContext = createLoggingContext(loggerFactory)(identity)
+  private implicit val loggingContext: LoggingContext = createLoggingContext(loggerFactory)(identity)
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(

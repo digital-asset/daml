@@ -75,8 +75,7 @@ class JsonLedgerClient(
       case Success(s) => s
     }
 
-  implicit val system = actorSystem
-  implicit val executionContext = system.dispatcher
+  implicit val system: ActorSystem = actorSystem
 
   private def damlLfTypeLookup(id: Identifier) =
     envIface.typeDecls.get(id).map(_.`type`)
@@ -94,6 +93,7 @@ class JsonLedgerClient(
       wa: JsonWriter[A],
       rb: JsonReader[B],
   ): Future[Response[B]] = {
+    implicit val ec: ExecutionContext = actorSystem.dispatcher
     val req = HttpRequest(
       method = HttpMethods.POST,
       uri = uri.withPath(path),
@@ -116,6 +116,7 @@ class JsonLedgerClient(
   }
 
   def request[A](path: Path)(implicit ra: JsonReader[A]): Future[Response[A]] = {
+    implicit val ec: ExecutionContext = actorSystem.dispatcher
     val req = HttpRequest(
       method = HttpMethods.GET,
       uri = uri.withPath(path),
@@ -143,7 +144,8 @@ class JsonLedgerClient(
   def requestSuccess[A, B](path: Path, a: A)(implicit
       wa: JsonWriter[A],
       rb: JsonReader[B],
-  ): Future[B] =
+  ): Future[B] = {
+    implicit val ec: ExecutionContext = actorSystem.dispatcher
     request[A, B](path, a).flatMap {
       case ErrorResponse(errors, status) =>
         Future.failed(FailedJsonApiRequest(path, Some(a.toJson), status, errors))
@@ -151,8 +153,10 @@ class JsonLedgerClient(
         Future.failed(FailedJsonApiRequest(path, Some(a.toJson), status, List(body)))
       case SuccessResponse(result, _) => Future.successful(result)
     }
+  }
 
-  def requestSuccess[A](path: Path)(implicit rb: JsonReader[A]): Future[A] =
+  def requestSuccess[A](path: Path)(implicit rb: JsonReader[A]): Future[A] = {
+    implicit val ec: ExecutionContext = actorSystem.dispatcher
     request[A](path).flatMap {
       case ErrorResponse(errors, status) =>
         Future.failed(FailedJsonApiRequest(path, None, status, errors))
@@ -160,6 +164,7 @@ class JsonLedgerClient(
         Future.failed(FailedJsonApiRequest(path, None, status, List(body)))
       case SuccessResponse(result, _) => Future.successful(result)
     }
+  }
 
   override def query(
       parties: OneAnd[Set, Ref.Party],
@@ -271,6 +276,7 @@ class JsonLedgerClient(
   // TODO https://github.com/digital-asset/daml/issues/14830
   // fetching failed-view contracts by interfaceId/cid cause InternalServerError from Json API
   def recoverInternalServerError[A](e: Future[Option[A]]): Future[Option[A]] = {
+    implicit val ec: ExecutionContext = actorSystem.dispatcher
     e.recover { case FailedJsonApiRequest(_, _, StatusCodes.InternalServerError, _) =>
       None
     }
@@ -427,6 +433,7 @@ class JsonLedgerClient(
       argument: Value,
       partySets: Option[SubmitParties],
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CreateResult]]] = {
+    implicit val ec: ExecutionContext = actorSystem.dispatcher
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[CreateArgs, CreateResponse]("create", CreateArgs(tplId, jsonArgument), partySets)
       .map(_.map { case CreateResponse(cid) =>
@@ -441,6 +448,7 @@ class JsonLedgerClient(
       argument: Value,
       partySets: Option[SubmitParties],
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
+    implicit val ec: ExecutionContext = actorSystem.dispatcher
     val choiceDef = lookupChoice(tplId, choice)
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[ExerciseArgs, ExerciseResponse](
@@ -469,6 +477,7 @@ class JsonLedgerClient(
       argument: Value,
       partySets: Option[SubmitParties],
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
+    implicit val ec: ExecutionContext = actorSystem.dispatcher
     val choiceDef = lookupChoice(tplId, choice)
     val jsonKey = LfValueCodec.apiValueToJsValue(key)
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
@@ -497,6 +506,7 @@ class JsonLedgerClient(
       argument: Value,
       partySets: Option[SubmitParties],
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CommandResult]]] = {
+    implicit val ec: ExecutionContext = actorSystem.dispatcher
     val choiceDef = lookupChoice(tplId, choice)
     val jsonTemplate = LfValueCodec.apiValueToJsValue(template)
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
@@ -540,6 +550,7 @@ class JsonLedgerClient(
       argumentWriter: JsonWriter[In],
       outputReader: RootJsonReader[Out],
   ): Future[Either[StatusRuntimeException, Out]] = {
+    implicit val ec: ExecutionContext = actorSystem.dispatcher
     val argumentWithPartySets = updateJsObject(argument, "meta", partySets)
     request[JsObject, Out](uri.path./("v1")./(endpoint), argumentWithPartySets).flatMap {
       case ErrorResponse(errors, status) if SubmissionFailures(status) =>
@@ -576,11 +587,13 @@ class JsonLedgerClient(
   }
 
   def recoverNotFound[A](e: Future[A]): Future[Option[A]] = {
+    implicit val ec: ExecutionContext = actorSystem.dispatcher
     e.map(Some(_)).recover { case FailedJsonApiRequest(_, _, StatusCodes.NotFound, _) =>
       None
     }
   }
   def recoverAlreadyExists[A](e: Future[A]): Future[Option[A]] = {
+    implicit val ec: ExecutionContext = actorSystem.dispatcher
     e.map(Some(_)).recover { case FailedJsonApiRequest(_, _, StatusCodes.Conflict, _) =>
       None
     }

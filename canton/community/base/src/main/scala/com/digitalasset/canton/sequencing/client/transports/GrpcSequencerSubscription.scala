@@ -48,12 +48,12 @@ trait HasProtoTraceContext[R] {
   def traceContext(value: R): Option[com.digitalasset.canton.v0.TraceContext]
 }
 object HasProtoTraceContext {
-  implicit val subscriptionResponseTraceContext =
+  implicit val subscriptionResponseTraceContext: HasProtoTraceContext[v0.SubscriptionResponse] =
     new HasProtoTraceContext[v0.SubscriptionResponse] {
       override def traceContext(value: v0.SubscriptionResponse) = value.traceContext
     }
 
-  implicit val versionedSubscriptionResponseTraceContext =
+  implicit val versionedSubscriptionResponseTraceContext: HasProtoTraceContext[v0.VersionedSubscriptionResponse] =
     new HasProtoTraceContext[v0.VersionedSubscriptionResponse] {
       override def traceContext(value: v0.VersionedSubscriptionResponse) = value.traceContext
     }

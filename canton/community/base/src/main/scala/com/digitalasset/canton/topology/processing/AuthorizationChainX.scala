@@ -45,7 +45,7 @@ final case class AuthorizationChainX(
 object AuthorizationChainX {
   val empty = AuthorizationChainX(Seq(), Seq(), Seq())
 
-  implicit val monoid = new Monoid[AuthorizationChainX] {
+  implicit val monoid: Monoid[AuthorizationChainX] = new Monoid[AuthorizationChainX] {
     override def empty: AuthorizationChainX = AuthorizationChainX.empty
 
     override def combine(x: AuthorizationChainX, y: AuthorizationChainX): AuthorizationChainX =

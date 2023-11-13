@@ -64,28 +64,28 @@ object TopologyChangeOp {
     def isOfType(op: TopologyChangeOp): Boolean
   }
 
-  implicit val topologyAddChecker = new OpTypeChecker[Add] {
+  implicit val topologyAddChecker: OpTypeChecker[Add] = new OpTypeChecker[Add] {
     override def isOfType(op: TopologyChangeOp): Boolean = op match {
       case _: Add => true
       case _ => false
     }
   }
 
-  implicit val topologyPositiveChecker = new OpTypeChecker[Positive] {
+  implicit val topologyPositiveChecker: OpTypeChecker[Positive] = new OpTypeChecker[Positive] {
     override def isOfType(op: TopologyChangeOp): Boolean = op match {
       case _: Add | _: Replace => true
       case _ => false
     }
   }
 
-  implicit val topologyRemoveChecker = new OpTypeChecker[Remove] {
+  implicit val topologyRemoveChecker: OpTypeChecker[Remove] = new OpTypeChecker[Remove] {
     override def isOfType(op: TopologyChangeOp): Boolean = op match {
       case _: Remove => true
       case _ => false
     }
   }
 
-  implicit val topologyReplaceChecker = new OpTypeChecker[Replace] {
+  implicit val topologyReplaceChecker: OpTypeChecker[Replace] = new OpTypeChecker[Replace] {
     override def isOfType(op: TopologyChangeOp): Boolean = op match {
       case _: Replace => true
       case _ => false

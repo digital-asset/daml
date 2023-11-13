@@ -13,6 +13,8 @@ import com.daml.jwt.domain.Jwt
 import com.daml.lf.typesig.EnvironmentSignature
 import akka.actor.ActorSystem
 
+import scala.concurrent.ExecutionContext
+
 // Hopefully remove after json client application id check
 import com.daml.jwt.JwtDecoder
 import com.daml.ledger.api.auth.{
@@ -51,8 +53,8 @@ final case class JsonLedgerClient(
       case Success(s) => s
     }
 
-  implicit val system = actorSystem
-  implicit val executionContext = system.dispatcher
+  implicit val system: ActorSystem = actorSystem
+  implicit val executionContext: ExecutionContext = system.dispatcher
 
   val applicationId: Option[String] =
     tokenPayload match {

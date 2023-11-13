@@ -175,8 +175,10 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
     }
     def write(id: ApplicationId) = JsString(ApplicationId.unwrap(id))
   }
-  implicit val apiParametersFormat = jsonFormat5(ApiParameters)
-  implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])
+  implicit val apiParametersFormat: RootJsonFormat[ApiParameters] = jsonFormat5(ApiParameters)
+  implicit val participantsFormat: RootJsonFormat[Participants[ApiParameters]] = jsonFormat3(
+    Participants[ApiParameters]
+  )
 }
 
 // Daml script, either an Action that can be executed immediately, or a

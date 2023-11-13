@@ -237,10 +237,9 @@ class ReplService(
   var compiledDefinitions: Map[SDefinitionRef, SDefinition] = Map.empty
   var results: Seq[SValue] = Seq()
   var mainModules: Map[ModuleName, Ast.Module] = Map.empty
-  implicit val ec_ = ec
-  implicit val esf_ = esf
-  implicit val mat_ = mat
-
+  implicit val _ec: ExecutionContext = ec
+  implicit val _esf: ExecutionSequencerFactory = esf
+  implicit val _mat: Materializer = mat
   import ReplService._
 
   private val compilerConfig = Compiler.Config
