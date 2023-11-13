@@ -82,7 +82,9 @@ trait AbstractTriggerServiceTestHelper
   val confidentialitySecurity: SecurityTest =
     SecurityTest(property = Privacy, asset = "Trigger Service")
 
-  lazy protected val darPath: File = requiredResource("triggers/service/test-model.dar")
+  lazy protected val darPath: File = requiredResource(
+    s"triggers/service/test-model-v${majorLanguageVersion.pretty}.dar"
+  )
 
   // Encoded dar used in service initialization
   protected lazy val dar: Dar[(PackageId, DamlLf.ArchivePayload)] =

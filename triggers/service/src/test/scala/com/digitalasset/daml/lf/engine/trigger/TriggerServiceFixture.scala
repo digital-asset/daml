@@ -457,6 +457,11 @@ trait TriggerServiceFixture
     with AbstractAuthFixture {
   self: Suite =>
 
+  protected val majorLanguageVersion: LanguageMajorVersion
+
+  // TODO(#17366): remove once 2.0 is introduced
+  override protected lazy val devMode: Boolean = (majorLanguageVersion == LanguageMajorVersion.V2)
+
   private val triggerLog: ConcurrentMap[UUID, Vector[(LocalDateTime, String)]] =
     new ConcurrentHashMap
 
@@ -508,8 +513,7 @@ trait TriggerServiceFixture
                 jdbcConfig,
                 false,
                 config.tlsClientConfig,
-                // TODO(#17366) support both LF v1 and v2 in triggers
-                Compiler.Config.Dev(LanguageMajorVersion.V1),
+                Compiler.Config.Dev(majorLanguageVersion),
                 triggerRunnerConfig.getOrElse(DefaultTriggerRunnerConfig),
                 logTriggerStatus,
               )

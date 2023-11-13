@@ -3,7 +3,7 @@
 
 load("@oracle//:index.bzl", "oracle_tags")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "lf_version_configuration", "lf_versions_aggregate")
+load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_configuration", "lf_version_default", "lf_versions_aggregate")
 load("@os_info//:os_info.bzl", "is_windows")
 load(
     "//bazel_tools:scala.bzl",
@@ -16,7 +16,10 @@ load(
 
 triggerMain = "src/main/scala/com/digitalasset/daml/lf/engine/trigger/ServiceMain.scala"
 
-target_lf_versions = lf_versions_aggregate(["default"] + LF_DEV_VERSIONS)
+target_lf_versions = lf_versions_aggregate(
+    [lf_version_default.get(major) for major in LF_MAJOR_VERSIONS] +
+    LF_DEV_VERSIONS,
+)
 
 da_scala_library(
     name = "trigger-service",
@@ -157,7 +160,10 @@ da_scala_library(
     data = [
         ":test-model-{}.dar".format(lf_version)
         for lf_version in target_lf_versions
-    ] + [":test-model.dar"] + (
+    ] + [
+        ":test-model-v{}.dar".format(major)
+        for major in LF_MAJOR_VERSIONS
+    ] + (
         [
             "@toxiproxy_dev_env//:bin/toxiproxy-server",
         ] if not is_windows else [
@@ -220,6 +226,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "test",
+    timeout = "long",
     srcs = glob(
         ["src/test-suite/scala/**/*.scala"],
         exclude = ["**/*Oracle*"],
@@ -280,6 +287,7 @@ da_scala_test_suite(
 
 da_scala_test_suite(
     name = "test-oracle",
+    timeout = "long",
     srcs = glob(["src/test-suite/scala/**/*Oracle*.scala"]),
     scala_deps = [
         "@maven//:io_spray_spray_json",
@@ -300,6 +308,7 @@ da_scala_test_suite(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
+        "//daml-lf/language",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
@@ -371,12 +380,15 @@ EOF
     for lf_version in target_lf_versions
 ]
 
-genrule(
-    name = "test-model",
-    srcs = [":test-model-{}".format(lf_version_configuration.get("default"))],
-    outs = ["test-model.dar"],
-    cmd = "cp -L $(location :test-model-{}) $$PWD/$@".format(lf_version_configuration.get("default")),
-    visibility = ["//visibility:public"],
-)
+[
+    genrule(
+        name = "test-model-{}".format(major),
+        srcs = [":test-model-{}".format(lf_version_default.get(major))],
+        outs = ["test-model-v{}.dar".format(major)],
+        cmd = "cp -L $(location :test-model-{}) $$PWD/$@".format(lf_version_default.get(major)),
+        visibility = ["//visibility:public"],
+    )
+    for major in LF_MAJOR_VERSIONS
+]
 
 exports_files(["release/trigger-service-logback.xml"])

@@ -13,6 +13,7 @@ import com.daml.lf.engine.trigger.Runner.{
   numberOfPendingContracts,
 }
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue
 import org.scalacheck.Gen
 import org.scalatest.{Inside, TryValues}
@@ -22,7 +23,10 @@ import scalaz.syntax.tag._
 
 import java.util.UUID
 
-class TriggerRuleSimulationLibTest
+class TriggerRuleSimulationLibTestV1 extends TriggerRuleSimulationLibTest(LanguageMajorVersion.V1)
+class TriggerRuleSimulationLibTestV2 extends TriggerRuleSimulationLibTest(LanguageMajorVersion.V2)
+
+class TriggerRuleSimulationLibTest(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec
     with AbstractTriggerTest
     with Matchers

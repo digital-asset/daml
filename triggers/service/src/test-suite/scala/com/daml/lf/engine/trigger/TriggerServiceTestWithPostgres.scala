@@ -3,7 +3,14 @@
 
 package com.daml.lf.engine.trigger
 
-class TriggerServiceTestWithPostgres
+import com.daml.lf.language.LanguageMajorVersion
+
+class TriggerServiceTestWithPostgresV1
+    extends TriggerServiceTestWithPostgres(LanguageMajorVersion.V1)
+class TriggerServiceTestWithPostgresV2
+    extends TriggerServiceTestWithPostgres(LanguageMajorVersion.V2)
+
+class TriggerServiceTestWithPostgres(override val majorLanguageVersion: LanguageMajorVersion)
     extends AbstractTriggerServiceTest
     with AbstractTriggerServiceTestWithDatabase
     with TriggerDaoPostgresFixture
