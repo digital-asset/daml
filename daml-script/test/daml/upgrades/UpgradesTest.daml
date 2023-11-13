@@ -5,15 +5,16 @@
 -- IMPORTANT: We do not track vetting state in these tests, it is your responsibility as the test writer to re-vet all packages you unvetted as part of your test at the end
 module UpgradesTest where
 
+import DA.Assert
+import DA.Exception
+import DA.Foldable
+import DA.Text
 import Daml.Script
+import Daml.Script.Questions.Upgrading.Internal
 import qualified V1.MyTemplates as V1
 import qualified V2.MyTemplates as V2
 import V1.MyTemplates hiding (ValidUpgrade, SameTypeChoice)
 import V2.MyTemplates hiding (ValidUpgrade, SameTypeChoice)
-import DA.Foldable
-import DA.Text
-import DA.Assert
-import Daml.Script.Questions.Upgrading.Internal
 
 v1DarName : Text
 v1DarName = "upgrades-my-templates-v1"
@@ -115,10 +116,9 @@ tests = mconcat
     , ("Succeeds if the observer set loses parties that are already signatories", canRemoveObserversThatAreSignatories)
 
     , -- Ensure clause changes
-      -- TODO(#17793): Implement recomputation of ensure clause at upgrade time in engine.
-      ("(BROKEN) Fails if the ensure clause changes such that V1 is not longer valid", ensureClauseBecomesInvalid)
+      ("Fails if the ensure clause changes such that V1 is not longer valid", ensureClauseBecomesInvalid)
     , ("Succeeds when implicitly creating a V1 contract such that the ensure clause only passes in V2", onlyV2EnsureClauseRequiredForImplicitUpgrade)
-    , ("(BROKEN) Fails when explicitly calling a V1 choice on a V2 contract that doesn't pass the ensure clause in V1", ensureClauseDowngradeToNoLongerValid)
+    , ("Fails when explicitly calling a V1 choice on a V2 contract that doesn't pass the ensure clause in V1", ensureClauseDowngradeToNoLongerValid)
 
     , -- Invalid data upgrades (compile time checks repeated at runtime)
       ("Fails if the template name changes", templateNameChanges)
@@ -502,14 +502,11 @@ canRemoveObserversThatAreSignatories =
     (\(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob, charlie])) -- signatories
     (\(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])) -- observers
 
--- TODO: This test should fail, as the ensure becomes negative on the V2. With current implementation, a V2 choice can be called on an
--- upgraded V1 contract payload that doesn't pass the V2 ensure clause
--- TODO(#17793): Implement recomputation of ensure clause at upgrade time in engine.
 ensureClauseBecomesInvalid : Script ()
 ensureClauseBecomesInvalid =
   genericUpgradeTest @V2.EnsureChanges (V1.EnsureChanges True False) V2.EnsureChangesCall False $ \case
-    Right "V2" -> pure ()
-    res -> assertFail $ "Expected ??? error, got " <> show res
+    Left (UnhandledException (Some (fromAnyException -> Some (PreconditionFailed _)))) -> pure ()
+    res -> assertFail $ "Expected PreconditionFailed, got " <> show res
 
 onlyV2EnsureClauseRequiredForImplicitUpgrade : Script ()
 onlyV2EnsureClauseRequiredForImplicitUpgrade = do
@@ -518,14 +515,11 @@ onlyV2EnsureClauseRequiredForImplicitUpgrade = do
   a `submit` createCmd (V1.EnsureChanges False True a)
   pure ()
 
--- TODO: This test should fail, as the ensure becomes negative on the V1. With current implementation, a V1 choice can be called on a 
--- downgraded V2 contract payload that doesn't pass the V1 ensure clause
--- TODO(#17793): Implement recomputation of ensure clause at upgrade time in engine.
 ensureClauseDowngradeToNoLongerValid : Script ()
 ensureClauseDowngradeToNoLongerValid =
   genericUpgradeTest @V1.EnsureChanges (V2.EnsureChanges False True) V1.EnsureChangesCall True $ \case
-    Right "V1" -> pure ()
-    res -> assertFail $ "Expected ??? error, got " <> show res
+    Left (UnhandledException (Some (fromAnyException -> Some (PreconditionFailed _)))) -> pure ()
+    res -> assertFail $ "Expected PreconditionFailed, got " <> show res
 
 templateInvalidChange : forall t2 t1 c2. (Template t1, HasAgreement t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Script ()
 templateInvalidChange shouldSucceed makeV1Contract v2Choice =

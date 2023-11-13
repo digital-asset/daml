@@ -855,47 +855,52 @@ private[lf] final class Compiler(
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
     unlabelledTopLevelFunction2(t.ToContractInfoDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
-      // We use a chain of let bindings to make the evaluation order of SBuildContractInfoStruct's arguments is
-      // independent from the evaluation strategy imposed by the ANF transformation.
-      let(env, s.SEValue(STypeRep(TTyCon(tmplId)))) { (typePos, env) =>
-        let(env, t.AgreementTextDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
-          (agreementTextPos, env) =>
-            let(env, t.SignatoriesDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
-              (signatoriesPos, env) =>
-                let(env, t.ObserversDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
-                  (observersPos, env) =>
-                    val body = tmpl.key match {
-                      case None =>
-                        s.SEValue.None
-                      case Some(tmplKey) =>
-                        s.SECase(
-                          env.toSEVar(mbKeyPos),
-                          List(
-                            s.SCaseAlt(
-                              t.SCPNone,
-                              let(
-                                env,
-                                translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmplKey.body),
-                              ) { (keyPos, env) =>
-                                SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
-                              },
+      checkPreCondition(env, tmplId, env.toSEVar(tmplArgPos)) { env =>
+        // We use a chain of let bindings to make the evaluation order of SBuildContractInfoStruct's arguments is
+        // independent from the evaluation strategy imposed by the ANF transformation.
+        let(env, s.SEValue(STypeRep(TTyCon(tmplId)))) { (typePos, env) =>
+          let(env, t.AgreementTextDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
+            (agreementTextPos, env) =>
+              let(env, t.SignatoriesDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
+                (signatoriesPos, env) =>
+                  let(env, t.ObserversDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
+                    (observersPos, env) =>
+                      val body = tmpl.key match {
+                        case None =>
+                          s.SEValue.None
+                        case Some(tmplKey) =>
+                          s.SECase(
+                            env.toSEVar(mbKeyPos),
+                            List(
+                              s.SCaseAlt(
+                                t.SCPNone,
+                                let(
+                                  env,
+                                  translateExp(
+                                    env.bindExprVar(tmpl.param, tmplArgPos),
+                                    tmplKey.body,
+                                  ),
+                                ) { (keyPos, env) =>
+                                  SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
+                                },
+                              ),
+                              s.SCaseAlt(t.SCPDefault, env.toSEVar(mbKeyPos)),
                             ),
-                            s.SCaseAlt(t.SCPDefault, env.toSEVar(mbKeyPos)),
-                          ),
+                          )
+                      }
+                      let(env, body) { (bodyPos, env) =>
+                        SBuildContractInfoStruct(
+                          env.toSEVar(typePos),
+                          env.toSEVar(tmplArgPos),
+                          env.toSEVar(agreementTextPos),
+                          env.toSEVar(signatoriesPos),
+                          env.toSEVar(observersPos),
+                          env.toSEVar(bodyPos),
                         )
-                    }
-                    let(env, body) { (bodyPos, env) =>
-                      SBuildContractInfoStruct(
-                        env.toSEVar(typePos),
-                        env.toSEVar(tmplArgPos),
-                        env.toSEVar(agreementTextPos),
-                        env.toSEVar(signatoriesPos),
-                        env.toSEVar(observersPos),
-                        env.toSEVar(bodyPos),
-                      )
-                    }
-                }
-            }
+                      }
+                  }
+              }
+          }
         }
       }
 
@@ -1163,16 +1168,11 @@ private[lf] final class Compiler(
           // Let bounded variables occur after the contract disclosure bound variable - hence baseIndex+1
           // For each disclosed contract, we add 2 members to our let bounded list - hence 2*offset
 
-          val expr1 = checkPreCondition(
-            env,
-            templateId,
-            s.SEValue(argument),
-          )((_) =>
+          val expr1 =
             s.SEApp(
               s.SEVal(t.ToContractInfoDefRef(templateId)),
               List(s.SEValue(argument), s.SEValue.None),
             )
-          )
           val contractPos = env.nextPosition
           env = env.pushVar
           val expr2 =
