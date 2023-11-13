@@ -21,6 +21,12 @@ module DA.Daml.Assistant.Version
     , freshMaximumOfVersions
     , resolveReleaseVersion
     , resolveSdkVersionToRelease
+    , githubVersionLocation
+    , artifactoryVersionLocation
+    , osName
+    , queryArtifactoryApiKey
+    , ArtifactoryApiKey(..)
+    , alternateVersionLocation
     ) where
 
 import DA.Daml.Assistant.Types
@@ -35,6 +41,7 @@ import Data.Maybe
 import Data.Aeson (FromJSON(..), eitherDecodeStrict')
 import Data.Aeson.Types (listParser, withObject, (.:), Parser, Value(Object), explicitParseField)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import Safe
 import Network.HTTP.Simple
 import Network.HTTP.Client
@@ -51,9 +58,11 @@ import Control.Lens (view)
 import System.Directory (listDirectory, doesFileExist)
 import System.FilePath ((</>))
 import Data.List (find)
+import Data.Either.Extra (eitherToMaybe)
 
 import qualified Data.Map.Strict as M
 import qualified Data.List.NonEmpty as NonEmpty
+import qualified System.Info
 
 import GHC.Stack
 
@@ -438,3 +447,56 @@ resolveReleaseVersionFromGithub unresolvedVersion = do
           Left issue -> Left (Couldn'tParseSdkVersion url issue)
           Right sdkVersion -> Right (mkReleaseVersion unresolvedVersion sdkVersion)
 
+-- | OS-specific part of the asset name.
+osName :: Text
+osName = case System.Info.os of
+    "darwin"  -> "macos"
+    "linux"   -> "linux"
+    "mingw32" -> "windows"
+    p -> error ("daml: Unknown operating system " ++ p)
+
+newtype ArtifactoryApiKey = ArtifactoryApiKey
+    { unwrapArtifactoryApiKey :: Text
+    } deriving (Eq, Show, FromJSON)
+
+queryArtifactoryApiKey :: DamlConfig -> Maybe ArtifactoryApiKey
+queryArtifactoryApiKey damlConfig =
+     eitherToMaybe (queryDamlConfigRequired ["artifactory-api-key"] damlConfig)
+
+-- | Install location for particular version.
+artifactoryVersionLocation :: ReleaseVersion -> ArtifactoryApiKey -> InstallLocation
+artifactoryVersionLocation releaseVersion apiKey = InstallLocation
+    { ilUrl = T.concat
+        [ "https://digitalasset.jfrog.io/artifactory/sdk-ee/"
+        , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
+        , "/daml-sdk-"
+        , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
+        , "-"
+        , osName
+        , "-ee.tar.gz"
+        ]
+    , ilHeaders =
+        [("X-JFrog-Art-Api", T.encodeUtf8 (unwrapArtifactoryApiKey apiKey))]
+    }
+
+-- | Install location from Github for particular version.
+githubVersionLocation :: ReleaseVersion -> InstallLocation
+githubVersionLocation releaseVersion =
+  alternateVersionLocation releaseVersion "https://github.com/digital-asset/daml/releases/download"
+
+-- | Install location for particular version.
+alternateVersionLocation :: ReleaseVersion -> Text -> InstallLocation
+alternateVersionLocation releaseVersion url = InstallLocation
+    { ilUrl =
+        T.concat
+          [ url
+          , "/"
+          , rawVersionToTextWithV (releaseVersionFromReleaseVersion releaseVersion)
+          , "/daml-sdk-"
+          , V.toText (unwrapSdkVersion (sdkVersionFromReleaseVersion releaseVersion))
+          , "-"
+          , osName
+          , ".tar.gz"
+          ]
+    , ilHeaders = []
+    }

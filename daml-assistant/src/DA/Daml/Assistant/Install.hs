@@ -8,19 +8,18 @@ module DA.Daml.Assistant.Install
     , InstallEnvF (..)
     , InstallEnv
     , InstallEnvWithoutVersion
-    , ReleaseResolution.ArtifactoryApiKey(..)
+    , DAVersion.ArtifactoryApiKey(..)
     , versionInstall
     , install
     , uninstallVersion
-    , ReleaseResolution.queryArtifactoryApiKey
+    , DAVersion.queryArtifactoryApiKey
     , pattern RawInstallTarget_Project
     ) where
 
 import DA.Directory
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
-import qualified DA.Daml.Assistant.Version as ReleaseResolution
-import qualified DA.Daml.Project.ReleaseResolution as ReleaseResolution
+import qualified DA.Daml.Assistant.Version as DAVersion
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
 import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion, UseCache (..), resolveSdkVersionToRelease)
@@ -90,7 +89,7 @@ data InstallEnvF a = InstallEnv
         -- (e.g. when running install script).
     , projectPathM :: Maybe ProjectPath
         -- ^ project path (for "daml install project")
-    , artifactoryApiKeyM :: Maybe ReleaseResolution.ArtifactoryApiKey
+    , artifactoryApiKeyM :: Maybe DAVersion.ArtifactoryApiKey
         -- ^ Artifactoyr API key used to fetch SDK EE tarball.
     , output :: String -> IO ()
         -- ^ output an informative message
@@ -349,14 +348,14 @@ httpInstall env@InstallEnv{targetVersionM = releaseVersion, ..} = do
             let alternateDownload =
                     join $ eitherToMaybe $ queryDamlConfig ["alternate-download"] =<< damlConfigE
             pure $ case alternateDownload of
-              Just url -> ReleaseResolution.alternateVersionLocation releaseVersion url
+              Just url -> DAVersion.alternateVersionLocation releaseVersion url
               Nothing ->
                 case artifactoryApiKeyM of
-                    Nothing -> ReleaseResolution.githubVersionLocation releaseVersion
+                    Nothing -> DAVersion.githubVersionLocation releaseVersion
                     Just apiKey
                         -- TODO: Define ordering over release versions
-                      | releaseVersion >= firstEEVersion -> ReleaseResolution.artifactoryVersionLocation releaseVersion apiKey
-                      | otherwise -> ReleaseResolution.githubVersionLocation releaseVersion
+                      | releaseVersion >= firstEEVersion -> DAVersion.artifactoryVersionLocation releaseVersion apiKey
+                      | otherwise -> DAVersion.githubVersionLocation releaseVersion
         !firstEEVersion =
             let verStr = "1.12.0-snapshot.20210312.6498.0.707c86aa"
             in OldReleaseVersion (either error id (SemVer.fromText verStr))
@@ -469,7 +468,7 @@ projectInstall env projectPath = do
     projectConfig <- readProjectConfig projectPath
     unresolvedVersionM <- fromRightM throwIO $ releaseVersionFromProjectConfig projectConfig
     unresolvedVersion <- required "SDK version missing from project config (daml.yaml)." unresolvedVersionM
-    version <- ReleaseResolution.resolveReleaseVersion (useCache env) unresolvedVersion
+    version <- DAVersion.resolveReleaseVersion (useCache env) unresolvedVersion
     versionInstall env { targetVersionM = version }
 
 -- | Determine whether the assistant should be installed.
@@ -502,7 +501,7 @@ install options damlPath useCache projectPathM assistantVersion = do
             isPrefixOf (unwrapDamlPath damlPath </> "") execPath
         targetVersionM = () -- determined later
         output = putStrLn -- Output install messages to stdout.
-        artifactoryApiKeyM = ReleaseResolution.queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
+        artifactoryApiKeyM = DAVersion.queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
         env = InstallEnv {..}
     case iTargetM options of
         Nothing -> do
@@ -526,7 +525,7 @@ install options damlPath useCache projectPathM assistantVersion = do
             latestInstall env
 
         Just (RawInstallTarget arg) | Right version <- parseVersion (pack arg) -> do
-            releaseVersion <- ReleaseResolution.resolveReleaseVersion useCache version
+            releaseVersion <- DAVersion.resolveReleaseVersion useCache version
             versionInstall env { targetVersionM = releaseVersion }
 
         Just (RawInstallTarget arg) -> do
