@@ -39,6 +39,7 @@ perf_runtime_deps = {
             "@maven//:org_scalatest_scalatest_core",
             "@maven//:org_scalaz_scalaz_core",
         ],
+        scalacopts = hj_scalacopts,
         tags = ["maven_coordinates=com.daml:http-json-perf-{}:__VERSION__".format(edition)] + (["canton-ee"] if edition == "ee" else []),
         visibility = ["//visibility:public"],
         deps = [
