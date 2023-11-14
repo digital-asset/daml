@@ -26,7 +26,6 @@ da_scala_library(
         "@maven//:org_slf4j_slf4j_api",
     ],
     deps = [
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/rs-grpc-pekko",
         "//libs-scala/contextualized-logging",
@@ -37,6 +36,7 @@ da_scala_library(
         "//libs-scala/resources-pekko",
         "@maven//:com_google_guava_guava",
         "@maven//:com_typesafe_config",
+        "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_inprocess",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:org_scalatest_scalatest_compatible",

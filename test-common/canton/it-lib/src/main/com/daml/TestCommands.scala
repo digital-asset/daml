@@ -8,7 +8,6 @@ import java.nio.file.Path
 import java.util
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.testing.utils.{MockMessages => M}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Command.Command.{Create, Exercise}
@@ -40,7 +39,7 @@ trait TestCommands {
       applicationId: String,
       party: String,
   ): SubmitRequest =
-    M.submitRequest.update(
+    MockMessages.submitRequest.update(
       _.commands.commandId := commandId,
       _.commands.ledgerId := ledgerId.unwrap,
       _.commands.applicationId := applicationId,
