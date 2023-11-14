@@ -65,12 +65,6 @@ daml_install_from_tarball_should_succeed () {
   fi
 }
 
-check_daml_install_from_tarball_after_cache_reload () {
-  tarball_path=$1
-  error_echo "ERROR: Tried to install version from tarball '$tarball_path' with cache forcibly reloaded, but \`daml install\` failed."
-  return 1
-}
-
 check_recommend_cache_reload () {
   output_file=$1
   if ! grep -q 'Possible fix: `daml version --force-reload yes`' "$output_file"; then
@@ -92,15 +86,14 @@ update_cache () {
         error_echo "ERROR! \`daml build\` on version installed from path $tarball_path failed"
       fi
     else
-      echo_eval check_daml_install_from_tarball_after_cache_reload $tarball_path $version_cache_behaviour
       echo_eval check_recommend_cache_reload daml_install_output
+      error_echo "ERROR: Tried to install version from tarball '$tarball_path' with cache forcibly reloaded, but \`daml install\` failed."
     fi
   fi
 }
 
 allow_nonrelease () {
   if echo_eval daml install --install-assistant yes --allow-install-non-release yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1; then
-    cat daml_install_output
     echo_eval init_daml_package $tarball_sdk_version
     if echo_eval daml build; then
       echo_eval check_daml_version_indicates_correct $tarball_sdk_version
@@ -109,9 +102,8 @@ allow_nonrelease () {
       error_echo "ERROR! \`daml build\` failed for version installed from path $tarball_path"
     fi
   else
-    cat daml_install_output
-    echo_eval check_daml_install_from_tarball_after_cache_reload $tarball_path $version_cache_behaviour
     echo_eval check_recommend_cache_reload daml_install_output
+    error_echo "ERROR: Tried to install version from tarball '$tarball_path' with cache forcibly reloaded, but \`daml install\` failed."
   fi
 }
 
