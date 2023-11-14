@@ -514,20 +514,6 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        # The explicit disclosure feature is in alpha version,
-        # hence disable testing ExplicitDisclosureIT since it was moved into LF 1.15 suite
-        # (and discoverable, implicitly, in the 1.15 stable version of the test tool)
-        # TODO ED: Bound the exclusion range once the feature is deemed stable.
-        "start": "2.6.0-snapshot.20230123.11292.0.b3f84bfc",
-        "platform_ranges": [
-            {
-                "exclusions": [
-                    "ExplicitDisclosureIT",
-                ],
-            },
-        ],
-    },
-    {
         "start": "1.16.0",
         "platform_ranges": [
             {
@@ -718,19 +704,9 @@ excluded_test_tool_tests = [
     # Changes to explicit disclosure Ledger API interface
     # where DisclosedContract.create_arguments(_blob), DisclosedContract.metadata,
     # InclusiveFilters.template_ids are deprecated and replaced by
-    # DisclosedContract.create_event_payload and InclusiveFilters.template_filters respectively
+    # DisclosedContract.created_event_blob and InclusiveFilters.template_filters respectively
     {
-        "start": "2.8.0-snapshot.20231025.1",
-        "platform_ranges": [
-            {
-                "end": "2.8.0-snapshot.20231025.0",
-                "exclusions": [
-                    "ExplicitDisclosureIT",
-                ],
-            },
-        ],
-    },
-    {
+        "start": "2.6.0-snapshot.20230123.11292.0.b3f84bfc",
         "end": "2.8.0-snapshot.20231025.0",
         "platform_ranges": [
             {
