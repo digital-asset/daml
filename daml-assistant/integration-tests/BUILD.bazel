@@ -18,8 +18,8 @@ genrule(
         "//ledger/ledger-api-auth-client:ledger-api-auth-client_pom.xml",
         "//language-support/java/codegen:shaded_binary.jar",
         "//language-support/java/codegen:shaded_binary_pom.xml",
-        "//ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar",
-        "//ledger-api/rs-grpc-bridge:rs-grpc-bridge_pom.xml",
+        "//libs-scala/rs-grpc-bridge:librs-grpc-bridge.jar",
+        "//libs-scala/rs-grpc-bridge:rs-grpc-bridge_pom.xml",
         "//docs:quickstart-java.tar.gz",
     ],
     outs = ["integration-tests-mvn.tar"],
@@ -58,8 +58,8 @@ genrule(
         $(location //language-support/java/codegen:shaded_binary_pom.xml)
       install_mvn \\
         "com.daml" "rs-grpc-bridge" \\
-        $(location //ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar) \\
-        $(location //ledger-api/rs-grpc-bridge:rs-grpc-bridge_pom.xml)
+        $(location //libs-scala/rs-grpc-bridge:librs-grpc-bridge.jar) \\
+        $(location //libs-scala/rs-grpc-bridge:rs-grpc-bridge_pom.xml)
       install_mvn \\
         "com.daml" "ledger-api-auth-client" \\
         $(location //ledger/ledger-api-auth-client:libledger-api-auth-client.jar) \\

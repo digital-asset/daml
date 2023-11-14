@@ -44,7 +44,7 @@ perf_runtime_deps = {
         visibility = ["//visibility:public"],
         deps = [
             "//language-support/scala/bindings-pekko",
-            "//ledger-api/rs-grpc-bridge",
+            "//libs-scala/rs-grpc-bridge",
             "//test-common/canton/it-lib",
             "@maven//:io_gatling_gatling_netty_util",
             "@maven//:io_netty_netty_common",
