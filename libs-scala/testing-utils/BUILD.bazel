@@ -15,8 +15,6 @@ da_scala_library(
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
     ],
     tags = ["maven_coordinates=com.daml:testing-utils:__VERSION__"],
     visibility = [
@@ -27,7 +25,6 @@ da_scala_library(
     ],
     deps = [
         "//libs-scala/contextualized-logging",
-        "//libs-scala/grpc-utils",
         "//libs-scala/ledger-resources",
         "//libs-scala/resources",
         "//libs-scala/resources-grpc",
