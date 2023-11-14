@@ -11,14 +11,15 @@ import com.daml.ledger.api.testtool.suites.v1_8.TransactionServiceCorrectnessIT.
 import com.daml.ledger.api.v1.event.Event.Event
 import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
-import com.daml.ledger.test.model.Test.Dummy._
-import com.daml.ledger.test.model.Test._
+import com.daml.ledger.test.java.model.test._
 import com.daml.ledger.api.testtool.infrastructure.EventOps.{EventOps, TreeEventOps}
 
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
 
 class TransactionServiceCorrectnessIT extends LedgerTestSuite {
+  import CompanionImplicits._
+
   test(
     "TXProcessInTwoChunks",
     "Serve the complete sequence of transactions even if processing is stopped and resumed",
@@ -26,13 +27,17 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val transactionsToSubmit = 5
     for {
-      _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
+      _ <- Future.sequence(
+        Vector.fill(transactionsToSubmit)(ledger.create(party, new Dummy(party)))
+      )
       endAfterFirstSection <- ledger.currentEnd()
       firstSectionRequest = ledger
         .getTransactionsRequest(ledger.transactionFilter(Seq(party)))
         .update(_.end := endAfterFirstSection)
       firstSection <- ledger.flatTransactions(firstSectionRequest)
-      _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
+      _ <- Future.sequence(
+        Vector.fill(transactionsToSubmit)(ledger.create(party, new Dummy(party)))
+      )
       endAfterSecondSection <- ledger.currentEnd()
       secondSectionRequest = ledger
         .getTransactionsRequest(ledger.transactionFilter(Seq(party)))
@@ -59,7 +64,9 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
     val transactionsToSubmit = 5
     val parallelRequests = 10
     for {
-      _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
+      _ <- Future.sequence(
+        Vector.fill(transactionsToSubmit)(ledger.create(party, new Dummy(party)))
+      )
       results <- Future.sequence(Vector.fill(parallelRequests)(ledger.flatTransactions(party)))
     } yield {
       assert(
@@ -76,8 +83,8 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
     for {
-      _ <- ledger.create(alice, Dummy(alice))
-      _ <- ledger.create(bob, Dummy(bob))
+      _ <- ledger.create(alice, new Dummy(alice))
+      _ <- ledger.create(bob, new Dummy(bob))
       aliceView <- ledger.flatTransactions(alice)
       bobView <- ledger.flatTransactions(bob)
       multiSubscriptionView <- ledger.flatTransactions(alice, bob)
@@ -97,8 +104,8 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
     for {
-      _ <- ledger.create(alice, Dummy(alice))
-      _ <- ledger.create(bob, Dummy(bob))
+      _ <- ledger.create(alice, new Dummy(alice))
+      _ <- ledger.create(bob, new Dummy(bob))
       aliceView <- ledger.transactionTrees(alice)
       bobView <- ledger.transactionTrees(bob)
       multiSubscriptionView <- ledger.transactionTrees(alice, bob)
@@ -118,8 +125,8 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     for {
-      _ <- alpha.create(alice, AgreementFactory(bob, alice))
-      _ <- beta.create(bob, AgreementFactory(alice, bob))
+      _ <- alpha.create(alice, new AgreementFactory(bob, alice))
+      _ <- beta.create(bob, new AgreementFactory(alice, bob))
       _ <- synchronize(alpha, beta)
       alphaView <- alpha.flatTransactions(alice, bob)
       betaView <- beta.flatTransactions(alice, bob)
@@ -138,8 +145,8 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     for {
-      _ <- alpha.create(alice, AgreementFactory(bob, alice))
-      _ <- beta.create(bob, AgreementFactory(alice, bob))
+      _ <- alpha.create(alice, new AgreementFactory(bob, alice))
+      _ <- beta.create(bob, new AgreementFactory(alice, bob))
       _ <- synchronize(alpha, beta)
       alphaView <- alpha.transactionTrees(alice, bob)
       betaView <- beta.transactionTrees(alice, bob)
@@ -160,7 +167,7 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
       for {
-        _ <- alpha.create(submitter, AgreementFactory(listener, submitter))
+        _ <- alpha.create(submitter, new AgreementFactory(listener, submitter))
         _ <- synchronize(alpha, beta)
         trees <- alpha.transactionTrees(listener, submitter)
         byId <- Future.sequence(
@@ -183,7 +190,7 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
       for {
-        _ <- alpha.create(submitter, AgreementFactory(listener, submitter))
+        _ <- alpha.create(submitter, new AgreementFactory(listener, submitter))
         _ <- synchronize(alpha, beta)
         transactions <- alpha.flatTransactions(listener, submitter)
         byId <- Future.sequence(
@@ -209,8 +216,10 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
       _ <- Future.sequence(
         Vector.fill(contracts)(
           ledger
-            .create(party, Dummy(party))
-            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1()))
+            .create(party, new Dummy(party))
+            .flatMap((contract: Dummy.ContractId) =>
+              ledger.exercise(party, contract.exerciseDummyChoice1())
+            )
         )
       )
       transactions <- ledger.flatTransactions(party)
@@ -240,8 +249,10 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
       _ <- Future.sequence(
         Vector.fill(contracts)(
           ledger
-            .create(party, Dummy(party))
-            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1()))
+            .create(party, new Dummy(party))
+            .flatMap((contract: Dummy.ContractId) =>
+              ledger.exercise(party, contract.exerciseDummyChoice1())
+            )
         )
       )
       transactions <- ledger.flatTransactions(party)
@@ -284,8 +295,10 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
       _ <- Future.sequence(
         Vector.fill(contracts)(
           ledger
-            .create(party, Dummy(party))
-            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1()))
+            .create(party, new Dummy(party))
+            .flatMap((contract: Dummy.ContractId) =>
+              ledger.exercise(party, contract.exerciseDummyChoice1())
+            )
         )
       )
       transactions <- ledger.flatTransactions(party)
@@ -305,8 +318,10 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
       _ <- Future.sequence(Vector.tabulate(contracts) { n =>
         val party = if (n % 2 == 0) alice else bob
         ledger
-          .create(party, Dummy(party))
-          .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1()))
+          .create(party, new Dummy(party))
+          .flatMap((contract: Dummy.ContractId) =>
+            ledger.exercise(party, contract.exerciseDummyChoice1())
+          )
       })
       transactions <- ledger.flatTransactions(alice, bob)
     } yield {

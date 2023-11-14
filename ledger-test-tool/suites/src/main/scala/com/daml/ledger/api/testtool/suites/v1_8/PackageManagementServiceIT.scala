@@ -10,8 +10,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.test.PackageManagementTestDar
-import com.daml.ledger.test.package_management.PackageManagementTest.PackageManagementTestTemplate
-import com.daml.ledger.test.package_management.PackageManagementTest.PackageManagementTestTemplate._
+import com.daml.ledger.test.java.package_management.packagemanagementtest.PackageManagementTestTemplate
 import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -71,7 +70,9 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
       testPackage <- loadTestPackage()
       _ <- Future.sequence(Vector.fill(8)(ledger.uploadDarFile(testPackage)))
       knownPackages <- ledger.listKnownPackages()
-      contract <- ledger.create(party, new PackageManagementTestTemplate(party))
+      contract <- ledger.create(party, new PackageManagementTestTemplate(party))(
+        PackageManagementTestTemplate.COMPANION
+      )
       acsBefore <- ledger.activeContracts(party)
       _ <- ledger.exercise(party, contract.exerciseTestChoice())
       acsAfter <- ledger.activeContracts(party)

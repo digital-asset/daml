@@ -5,19 +5,19 @@ package com.daml.ledger.api.testtool.suites.v1_8
 
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{
-  assertGrpcError,
   assertErrorCode,
+  assertGrpcError,
   fail,
 }
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
 import com.daml.ledger.api.testtool.suites.v1_8.ContractIdIT._
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
-import com.daml.ledger.client.binding.Primitive.ContractId
-import com.daml.ledger.test.semantic.ContractIdTests._
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
+import com.daml.ledger.test.java.semantic.contractidtests._
 import io.grpc.StatusRuntimeException
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,6 +28,16 @@ import scala.util.{Failure, Success, Try}
 // - Central committer ledger implementations (sandboxes, KV...) may accept non-suffixed CID
 // - Distributed ledger implementations (e.g. Canton) must reject non-suffixed CID
 final class ContractIdIT extends LedgerTestSuite {
+  implicit val contractCompanion
+      : ContractCompanion.WithoutKey[Contract.Contract$, Contract.ContractId, Contract] =
+    Contract.COMPANION
+  implicit val contractRefCompanion: ContractCompanion.WithKey[
+    ContractRef.Contract,
+    ContractRef.ContractId,
+    ContractRef,
+    String,
+  ] = ContractRef.COMPANION
+
   List(
     // Support for v0 contract ids existed only in sandbox-classic in
     // SDK 1.18 and older and has been dropped completely.
@@ -110,19 +120,19 @@ final class ContractIdIT extends LedgerTestSuite {
 
       test("create payload") { implicit ec => (alpha, party) =>
         alpha
-          .create(party, ContractRef(party, ContractId(example)))
+          .create(party, new ContractRef(party, new Contract.ContractId(example)))
           .transformWith(Future.successful)
       }
 
       test("exercise target", parseErrorCode = LedgerApiErrors.RequestValidation.InvalidField) {
         implicit ec => (alpha, party) =>
           for {
-            contractCid <- alpha.create(party, Contract(party))
+            contractCid <- alpha.create(party, new Contract(party))
             result <-
               alpha
                 .exercise(
                   party,
-                  ContractId[ContractRef](example).exerciseChange(contractCid),
+                  new ContractRef.ContractId(example).exerciseChange(contractCid),
                 )
                 .transformWith(Future.successful)
           } yield result match {
@@ -142,21 +152,21 @@ final class ContractIdIT extends LedgerTestSuite {
 
       test("choice argument") { implicit ec => (alpha, party) =>
         for {
-          contractCid <- alpha.create(party, Contract(party))
-          contractRefCid <- alpha.create(party, ContractRef(party = party, ref = contractCid))
+          contractCid <- alpha.create(party, new Contract(party))
+          contractRefCid <- alpha.create(party, new ContractRef(party, contractCid))
           result <- alpha
-            .exercise(party, contractRefCid.exerciseChange(ContractId(example)))
+            .exercise(party, contractRefCid.exerciseChange(new Contract.ContractId(example)))
             .transformWith(Future.successful)
         } yield result
       }
 
       test("create-and-exercise payload") { implicit ec => (alpha, party) =>
         for {
-          contractCid <- alpha.create(party, Contract(party))
+          contractCid <- alpha.create(party, new Contract(party))
           result <- alpha
             .exercise(
               party,
-              ContractRef(party = party, ref = ContractId(example)).createAnd
+              new ContractRef(party, new Contract.ContractId(example)).createAnd
                 .exerciseChange(contractCid),
             )
             .transformWith(Future.successful)
@@ -165,12 +175,12 @@ final class ContractIdIT extends LedgerTestSuite {
 
       test("create-and-exercise choice argument") { implicit ec => (alpha, party) =>
         for {
-          contractCid <- alpha.create(party, Contract(party))
+          contractCid <- alpha.create(party, new Contract(party))
           result <- alpha
             .exercise(
               party,
-              ContractRef(party = party, ref = contractCid).createAnd
-                .exerciseChange(ContractId(example)),
+              new ContractRef(party, contractCid).createAnd
+                .exerciseChange(new Contract.ContractId(example)),
             )
             .transformWith(Future.successful)
         } yield result
@@ -178,13 +188,13 @@ final class ContractIdIT extends LedgerTestSuite {
 
       test("exercise by key") { implicit ec => (alpha, party) =>
         for {
-          contractCid <- alpha.create(party, Contract(party))
-          _ <- alpha.create(party, ContractRef(party = party, ref = contractCid))
+          contractCid <- alpha.create(party, new Contract(party))
+          _ <- alpha.create(party, new ContractRef(party, contractCid))
           result <- alpha
             .exerciseByKey(
               party,
-              ContractRef.id,
-              Value(Value.Sum.Party(Party.unwrap(party))),
+              ContractRef.TEMPLATE_ID,
+              Value(Value.Sum.Party(party)),
               "Change",
               Value(
                 Value.Sum.Record(

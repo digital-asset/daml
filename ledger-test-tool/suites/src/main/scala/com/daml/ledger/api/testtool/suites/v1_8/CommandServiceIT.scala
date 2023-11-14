@@ -4,24 +4,21 @@
 package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.util.regex.Pattern
-
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
+import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitForTransactionResponse
-import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.client.binding.Value.encode
-import com.daml.ledger.test.model.Test.CallablePayout._
-import com.daml.ledger.test.model.Test.Dummy._
-import com.daml.ledger.test.model.Test.DummyFactory._
-import com.daml.ledger.test.model.Test.WithObservers._
-import com.daml.ledger.test.model.Test._
-import scalaz.syntax.tag._
+import com.daml.ledger.test.java.model.test._
+import CompanionImplicits._
+
+import java.math.BigDecimal
+import java.util.{List => JList}
+import scala.jdk.CollectionConverters._
 
 final class CommandServiceIT extends LedgerTestSuite {
   test(
@@ -29,14 +26,14 @@ final class CommandServiceIT extends LedgerTestSuite {
     "SubmitAndWait creates a contract of the expected template",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+    val request = ledger.submitAndWaitRequest(party, new Dummy(party).create.commands)
     for {
       _ <- ledger.submitAndWait(request)
       active <- ledger.activeContracts(party)
     } yield {
       assert(active.size == 1)
       val dummyTemplateId = active.flatMap(_.templateId.toList).head
-      assert(dummyTemplateId == Dummy.id.unwrap)
+      assert(dummyTemplateId == Dummy.TEMPLATE_ID.toV1)
     }
   })
 
@@ -45,7 +42,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     "SubmitAndWaitForTransactionId returns a valid transaction identifier",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+    val request = ledger.submitAndWaitRequest(party, new Dummy(party).create.commands)
     for {
       transactionIdResponse <- ledger.submitAndWaitForTransactionId(request)
       transactionId = transactionIdResponse.transactionId
@@ -95,7 +92,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     "SubmitAndWaitForTransaction returns a transaction",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+    val request = ledger.submitAndWaitRequest(party, new Dummy(party).create.commands)
     for {
       transactionResponse <- ledger.submitAndWaitForTransaction(request)
     } yield {
@@ -111,7 +108,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     disabledReason = "Optional ledger id must be enabled",
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger
-      .submitAndWaitRequest(party, Dummy(party).create.command)
+      .submitAndWaitRequest(party, new Dummy(party).create.commands)
       .update(_.commands.ledgerId := "")
     for {
       transactionResponse <- ledger
@@ -135,8 +132,8 @@ final class CommandServiceIT extends LedgerTestSuite {
       s"The returned transaction should contain a created-event, but was ${event.event}",
     )
     assert(
-      event.getCreated.getTemplateId == Dummy.id.unwrap,
-      s"The template ID of the created-event should by ${Dummy.id.unwrap}, but was ${event.getCreated.getTemplateId}",
+      event.getCreated.getTemplateId == Dummy.TEMPLATE_ID.toV1,
+      s"The template ID of the created-event should by ${Dummy.TEMPLATE_ID.toV1}, but was ${event.getCreated.getTemplateId}",
     )
   }
 
@@ -145,7 +142,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     "SubmitAndWaitForTransactionTree returns a transaction tree",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+    val request = ledger.submitAndWaitRequest(party, new Dummy(party).create.commands)
     for {
       transactionTreeResponse <- ledger.submitAndWaitForTransactionTree(request)
     } yield {
@@ -164,8 +161,8 @@ final class CommandServiceIT extends LedgerTestSuite {
         s"The returned transaction tree should contain a created-event, but was ${event.kind}",
       )
       assert(
-        event.getCreated.getTemplateId == Dummy.id.unwrap,
-        s"The template ID of the created-event should by ${Dummy.id.unwrap}, but was ${event.getCreated.getTemplateId}",
+        event.getCreated.getTemplateId == Dummy.TEMPLATE_ID.toV1,
+        s"The template ID of the created-event should by ${Dummy.TEMPLATE_ID.toV1}, but was ${event.getCreated.getTemplateId}",
       )
     }
   })
@@ -175,7 +172,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     "SubmitAndWait should fail on duplicate requests",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+    val request = ledger.submitAndWaitRequest(party, new Dummy(party).create.commands)
     for {
       _ <- ledger.submitAndWait(request)
       failure <- ledger
@@ -199,7 +196,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     "SubmitAndWaitForTransactionId should fail on duplicate requests",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+    val request = ledger.submitAndWaitRequest(party, new Dummy(party).create.commands)
     for {
       _ <- ledger.submitAndWaitForTransactionId(request)
       failure <- ledger
@@ -223,7 +220,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     "SubmitAndWaitForTransaction should fail on duplicate requests",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+    val request = ledger.submitAndWaitRequest(party, new Dummy(party).create.commands)
     for {
       _ <- ledger.submitAndWaitForTransaction(request)
       failure <- ledger
@@ -247,7 +244,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     "SubmitAndWaitForTransactionTree should fail on duplicate requests",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+    val request = ledger.submitAndWaitRequest(party, new Dummy(party).create.commands)
     for {
       _ <- ledger.submitAndWaitForTransactionTree(request)
       failure <- ledger
@@ -273,7 +270,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val invalidLedgerId = "CSsubmitAndWaitForTransactionIdInvalidLedgerId"
     val request = ledger
-      .submitAndWaitRequest(party, Dummy(party).create.command)
+      .submitAndWaitRequest(party, new Dummy(party).create.commands)
       .update(_.commands.ledgerId := invalidLedgerId)
     for {
       failure <- ledger
@@ -294,7 +291,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val invalidLedgerId = "CSsubmitAndWaitForTransactionInvalidLedgerId"
     val request = ledger
-      .submitAndWaitRequest(party, Dummy(party).create.command)
+      .submitAndWaitRequest(party, new Dummy(party).create.commands)
       .update(_.commands.ledgerId := invalidLedgerId)
     for {
       failure <- ledger
@@ -315,7 +312,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val invalidLedgerId = "CSsubmitAndWaitForTransactionTreeInvalidLedgerId"
     val request = ledger
-      .submitAndWaitRequest(party, Dummy(party).create.command)
+      .submitAndWaitRequest(party, new Dummy(party).create.commands)
       .update(_.commands.ledgerId := invalidLedgerId)
     for {
       failure <- ledger
@@ -334,8 +331,11 @@ final class CommandServiceIT extends LedgerTestSuite {
     "The submission of a creation that contains a bad parameter label should result in an INVALID_ARGUMENT",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val createWithBadArgument = Dummy(party).create.command
-      .update(_.create.createArguments.fields.foreach(_.label := "INVALID_PARAM"))
+    val createWithBadArgument =
+      updateCommands(
+        new Dummy(party).create.commands,
+        _.update(_.create.createArguments.fields.foreach(_.label := "INVALID_PARAM")),
+      )
     val badRequest = ledger.submitAndWaitRequest(party, createWithBadArgument)
     for {
       failure <- ledger
@@ -360,7 +360,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      dummy <- ledger.create(party, Dummy(party))
+      dummy: Dummy.ContractId <- ledger.create(party, new Dummy(party))
       failure <- ledger
         .exercise(party, dummy.exerciseFailingClone())
         .mustFail("submitting a request with an interpretation error")
@@ -384,7 +384,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     allocate(TwoParties, SingleParty),
   )(implicit ec => {
     case Participants(Participant(alpha, giver, observer1), Participant(beta, observer2)) =>
-      val template = WithObservers(giver, Primitive.List(observer1, observer2))
+      val template = new WithObservers(giver, List(observer1, observer2).map(_.getValue).asJava)
       for {
         _ <- alpha.create(giver, template)
         _ <- synchronize(alpha, beta)
@@ -407,7 +407,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         assertEquals(
           "The observers should see the created contract",
           observer1Created.getCreateArguments.fields,
-          encode(template).getRecord.fields,
+          Value.fromJavaProto(template.toValue.toProto).getRecord.fields,
         )
       }
   })
@@ -418,9 +418,9 @@ final class CommandServiceIT extends LedgerTestSuite {
     allocate(TwoParties, SingleParty),
   )(implicit ec => {
     case Participants(Participant(alpha, giver, observer1), Participant(beta, observer2)) =>
-      val template = WithObservers(giver, Primitive.List(observer1, observer2))
+      val template = new WithObservers(giver, List(observer1, observer2).map(_.getValue).asJava)
       for {
-        withObservers <- alpha.create(giver, template)
+        withObservers: WithObservers.ContractId <- alpha.create(giver, template)
         _ <- alpha.exercise(giver, withObservers.exercisePing())
         _ <- synchronize(alpha, beta)
         observer1View <- alpha.transactionTrees(observer1)
@@ -439,7 +439,7 @@ final class CommandServiceIT extends LedgerTestSuite {
           "The two observers should see the same exercise",
         )
         assert(
-          observer1Exercise.contractId == withObservers.unwrap,
+          observer1Exercise.contractId == withObservers.contractId,
           "The observers shouls see the exercised contract",
         )
       }
@@ -451,8 +451,8 @@ final class CommandServiceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val target = 15
-    val commands = Vector.fill(target)(Dummy(party).create.command)
-    val request = ledger.submitAndWaitRequest(party, commands: _*)
+    val commands = List.fill(target)(new Dummy(party).create.commands.asScala).flatten
+    val request = ledger.submitAndWaitRequest(party, commands.asJava)
     for {
       _ <- ledger.submitAndWait(request)
       acs <- ledger.activeContracts(party)
@@ -471,7 +471,10 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(alpha, giver, newReceiver), Participant(beta, receiver)) =>
       for {
-        callablePayout <- alpha.create(giver, CallablePayout(giver, receiver))
+        callablePayout: CallablePayout.ContractId <- alpha.create(
+          giver,
+          new CallablePayout(giver, receiver),
+        )
         _ <- synchronize(alpha, beta)
         tree <- beta.exercise(receiver, callablePayout.exerciseTransfer(newReceiver))
       } yield {
@@ -479,7 +482,10 @@ final class CommandServiceIT extends LedgerTestSuite {
         assertEquals(
           "The created event should be the expected one",
           created.getCreateArguments.fields,
-          encode(CallablePayout(giver, newReceiver)).getRecord.fields,
+          Value
+            .fromJavaProto(new CallablePayout(giver, newReceiver).toValue.toProto)
+            .getRecord
+            .fields,
         )
       }
   })
@@ -490,11 +496,11 @@ final class CommandServiceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      factory <- ledger.create(party, DummyFactory(party))
+      factory: DummyFactory.ContractId <- ledger.create(party, new DummyFactory(party))
       tree <- ledger.exercise(party, factory.exerciseDummyFactoryCall())
     } yield {
       val exercise = assertSingleton("There should only be one exercise", exercisedEvents(tree))
-      assert(exercise.contractId == factory.unwrap, "Contract identifier mismatch")
+      assert(exercise.contractId == factory.contractId, "Contract identifier mismatch")
       assert(exercise.consuming, "The choice should have been consuming")
       val _ = assertLength("Two creations should have occurred", 2, createdEvents(tree))
     }
@@ -503,10 +509,13 @@ final class CommandServiceIT extends LedgerTestSuite {
   test("CSBadNumericValues", "Reject unrepresentable numeric values", allocate(SingleParty))(
     implicit ec => { case Participants(Participant(ledger, party)) =>
       // Code generation catches bad decimals early so we have to do some work to create (possibly) invalid requests
-      def rounding(numeric: String): Command =
-        DecimalRounding(party, BigDecimal("0")).create.command.update(
-          _.create.createArguments
-            .fields(1) := RecordField(value = Some(Value(Value.Sum.Numeric(numeric))))
+      def rounding(numeric: String): JList[Command] =
+        updateCommands(
+          new DecimalRounding(party, BigDecimal.valueOf(0)).create.commands,
+          _.update(
+            _.create.createArguments
+              .fields(1) := RecordField(value = Some(Value(Value.Sum.Numeric(numeric))))
+          ),
         )
       val wouldLosePrecision = "0.00000000005"
       val positiveOutOfBounds = "10000000000000000000000000000.0000000000"
@@ -546,7 +555,7 @@ final class CommandServiceIT extends LedgerTestSuite {
 
   test("CSCreateAndExercise", "Implement create-and-exercise correctly", allocate(SingleParty))(
     implicit ec => { case Participants(Participant(ledger, party)) =>
-      val createAndExercise = Dummy(party).createAnd.exerciseDummyChoice1().command
+      val createAndExercise = new Dummy(party).createAnd.exerciseDummyChoice1().commands
       val request = ledger.submitAndWaitRequest(party, createAndExercise)
       for {
         _ <- ledger.submitAndWait(request)
@@ -560,7 +569,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         assertEquals(
           "Unexpected template identifier in create event",
           trees.flatMap(createdEvents).map(_.getTemplateId),
-          Vector(Dummy.id.unwrap),
+          Vector(Dummy.TEMPLATE_ID.toV1),
         )
         val contractId = trees.flatMap(createdEvents).head.contractId
         assertEquals(
@@ -577,10 +586,13 @@ final class CommandServiceIT extends LedgerTestSuite {
     "Fail create-and-exercise on bad create arguments",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val createAndExercise = Dummy(party).createAnd
-      .exerciseDummyChoice1()
-      .command
-      .update(_.createAndExercise.createArguments := Record())
+    val createAndExercise =
+      updateCommands(
+        new Dummy(party).createAnd
+          .exerciseDummyChoice1()
+          .commands,
+        _.update(_.createAndExercise.createArguments := Record()),
+      )
     val request = ledger.submitAndWaitRequest(party, createAndExercise)
     for {
       failure <- ledger
@@ -601,10 +613,13 @@ final class CommandServiceIT extends LedgerTestSuite {
     "Fail create-and-exercise on bad choice arguments",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val createAndExercise = Dummy(party).createAnd
-      .exerciseDummyChoice1()
-      .command
-      .update(_.createAndExercise.choiceArgument := Value(Value.Sum.Bool(false)))
+    val createAndExercise =
+      updateCommands(
+        new Dummy(party).createAnd
+          .exerciseDummyChoice1()
+          .commands,
+        _.update(_.createAndExercise.choiceArgument := Value(Value.Sum.Bool(false))),
+      )
     val request = ledger.submitAndWaitRequest(party, createAndExercise)
     for {
       failure <- ledger
@@ -626,10 +641,13 @@ final class CommandServiceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val missingChoice = "DoesNotExist"
-    val createAndExercise = Dummy(party).createAnd
-      .exerciseDummyChoice1()
-      .command
-      .update(_.createAndExercise.choice := missingChoice)
+    val createAndExercise =
+      updateCommands(
+        new Dummy(party).createAnd
+          .exerciseDummyChoice1()
+          .commands,
+        _.update(_.createAndExercise.choice := missingChoice),
+      )
     val request = ledger.submitAndWaitRequest(party, createAndExercise)
     for {
       failure <- ledger
@@ -654,7 +672,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     "SubmitAndWait methods return the completion offset in the response",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    def request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+    def request = ledger.submitAndWaitRequest(party, new Dummy(party).create.commands)
     for {
       transactionIdResponse <- ledger.submitAndWaitForTransactionId(request)
       retrievedTransaction <- ledger.transactionTreeById(transactionIdResponse.transactionId, party)

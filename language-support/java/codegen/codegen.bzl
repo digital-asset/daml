@@ -13,6 +13,7 @@ def dar_to_java(**kwargs):
     base_name = kwargs["name"]
 
     dar = kwargs["src"]
+    visibility = kwargs.get("visibility", ["//visibility:private"])
 
     src_out = base_name + "-srcs"
     src_jar = base_name + "-srcjar"
@@ -44,6 +45,7 @@ def dar_to_java(**kwargs):
         deps = [
             "//language-support/java/bindings:bindings-java",
         ],
+        visibility = visibility,
     )
 
 test_exclusions = {

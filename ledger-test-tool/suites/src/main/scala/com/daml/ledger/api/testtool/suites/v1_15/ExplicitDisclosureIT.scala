@@ -4,14 +4,15 @@
 package com.daml.ledger.api.testtool.suites.v1_15
 
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEvents
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.javaapi.data.{Party, Command => CommandJava}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.commands.Command.toJavaProto
 import com.daml.ledger.api.v1.commands.{
   Command,
   CreateCommand,
@@ -26,13 +27,13 @@ import com.daml.ledger.api.v1.transaction_filter.{
   TransactionFilter,
 }
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.daml.ledger.client.binding
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.model.Test._
+import com.daml.ledger.test.java.model.test._
+import com.daml.ledger.javaapi
 import com.daml.lf.transaction.TransactionCoder
 import com.google.protobuf.ByteString
-import scalaz.syntax.tag._
+import CompanionImplicits._
 
+import java.util.{List => JList}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
@@ -100,9 +101,11 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           transactionFilter = filterByPartyAndTemplate(owner),
         )
 
-        dummyCid <- ownerParticipant.create(owner, Dummy(owner))
+        dummyCid: Dummy.ContractId <- ownerParticipant.create(owner, new Dummy(owner))
         dummyTxs <- ownerParticipant.flatTransactions(
-          ownerParticipant.getTransactionsRequest(filterByPartyAndTemplate(owner, Dummy.id.unwrap))
+          ownerParticipant.getTransactionsRequest(
+            filterByPartyAndTemplate(owner, Dummy.TEMPLATE_ID)
+          )
         )
         dummyCreate = createdEvents(dummyTxs(0)).head
         dummyDisclosedContract = createEventToDisclosedContract(dummyCreate)
@@ -146,11 +149,11 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         for {
           // Create contract with `owner` as only stakeholder
           _ <- ownerParticipant.submitAndWait(
-            ownerParticipant.submitAndWaitRequest(owner, WithKey(owner).create.command)
+            ownerParticipant.submitAndWaitRequest(owner, new WithKey(owner).create.commands)
           )
           txs <- ownerParticipant.flatTransactions(
             ownerParticipant.getTransactionsRequest(
-              filterByPartyAndTemplate(owner, WithKey.id.unwrap)
+              filterByPartyAndTemplate(owner, WithKey.TEMPLATE_ID)
             )
           )
           withKeyCreationTx = assertSingleton("Transaction expected non-empty", txs)
@@ -232,9 +235,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         .traverse((1 to attempts).toList) {
           _ =>
             for {
-              contractId <- ledger1.create(party1, Dummy(party1))
+              contractId: Dummy.ContractId <- ledger1.create(party1, new Dummy(party1))
 
-              transactions <- ledger1.flatTransactionsByTemplateId(Dummy.id, party1)
+              transactions <- ledger1.flatTransactionsByTemplateId(Dummy.TEMPLATE_ID, party1)
               create = createdEvents(transactions(0)).head
               disclosedContract = createEventToDisclosedContract(create)
 
@@ -245,7 +248,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
               party2_exerciseWithDisclosureF =
                 ledger2.submitAndWait(
                   ledger2
-                    .submitAndWaitRequest(party2, contractId.exercisePublicChoice(party2).command)
+                    .submitAndWaitRequest(party2, contractId.exercisePublicChoice(party2).commands)
                     .update(_.commands.disclosedContracts := scala.Seq(disclosedContract))
                 )
 
@@ -501,11 +504,11 @@ object ExplicitDisclosureIT {
   case class TestContext(
       ownerParticipant: ParticipantTestContext,
       delegateParticipant: ParticipantTestContext,
-      owner: binding.Primitive.Party,
-      delegate: binding.Primitive.Party,
+      owner: Party,
+      delegate: Party,
       contractKey: String,
-      delegationCid: binding.Primitive.ContractId[Delegation],
-      delegatedCid: binding.Primitive.ContractId[Delegated],
+      delegationCid: Delegation.ContractId,
+      delegatedCid: Delegated.ContractId,
       originalCreateEvent: CreatedEvent,
       disclosedContract: DisclosedContract,
   ) {
@@ -517,7 +520,7 @@ object ExplicitDisclosureIT {
       val request = delegateParticipant
         .submitAndWaitRequest(
           delegate,
-          delegationCid.exerciseFetchDelegated(delegatedCid).command,
+          delegationCid.exerciseFetchDelegated(delegatedCid).commands,
         )
         .update(_.commands.disclosedContracts := disclosedContracts)
       delegateParticipant.submitAndWait(request)
@@ -527,11 +530,17 @@ object ExplicitDisclosureIT {
       val request = delegateParticipant
         .submitAndWaitRequest(
           delegate,
-          Command.of(
-            Command.Command.Create(
-              CreateCommand(
-                Some(Dummy.id.unwrap),
-                Some(Dummy(delegate).arguments),
+          JList.of(
+            CommandJava.fromProtoCommand(
+              toJavaProto(
+                Command.of(
+                  Command.Command.Create(
+                    CreateCommand(
+                      Some(Identifier.fromJavaProto(Dummy.TEMPLATE_ID.toProto)),
+                      Some(Record.fromJavaProto(new Dummy(delegate.getValue).toValue.toProtoRecord)),
+                    )
+                  )
+                )
               )
             )
           ),
@@ -545,8 +554,8 @@ object ExplicitDisclosureIT {
   private def initializeTest(
       ownerParticipant: ParticipantTestContext,
       delegateParticipant: ParticipantTestContext,
-      owner: binding.Primitive.Party,
-      delegate: binding.Primitive.Party,
+      owner: Party,
+      delegate: Party,
       transactionFilter: TransactionFilter,
   )(implicit ec: ExecutionContext): Future[TestContext] = {
     val contractKey = ownerParticipant.nextKeyId()
@@ -554,11 +563,14 @@ object ExplicitDisclosureIT {
     for {
       // Create a Delegation contract
       // Contract is visible both to owner (as signatory) and delegate (as observer)
-      delegationCid <- ownerParticipant.create(owner, Delegation(owner, delegate))
+      delegationCid <- ownerParticipant.create(
+        owner,
+        new Delegation(owner.getValue, delegate.getValue),
+      )
 
       // Create Delegated contract
       // This contract is only visible to the owner
-      delegatedCid <- ownerParticipant.create(owner, Delegated(owner, contractKey))
+      delegatedCid <- ownerParticipant.create(owner, new Delegated(owner.getValue, contractKey))
 
       // Get the contract payload from the transaction stream of the owner
       delegatedTx <- ownerParticipant.flatTransactions(
@@ -582,20 +594,23 @@ object ExplicitDisclosureIT {
   }
 
   private def filterByPartyAndTemplate(
-      owner: binding.Primitive.Party,
-      templateId: Identifier = Delegated.id.unwrap,
-  ): TransactionFilter =
+      owner: Party,
+      templateId: javaapi.data.Identifier = Delegated.TEMPLATE_ID,
+  ): TransactionFilter = {
+    val templateIdScalaPB = Identifier.fromJavaProto(templateId.toProto)
+
     new TransactionFilter(
       Map(
-        owner.unwrap -> new Filters(
+        owner.getValue -> new Filters(
           Some(
             InclusiveFilters(templateFilters =
-              Seq(TemplateFilter(Some(templateId), includeCreatedEventBlob = true))
+              Seq(TemplateFilter(Some(templateIdScalaPB), includeCreatedEventBlob = true))
             )
           )
         )
       )
     )
+  }
 
   private def createEventToDisclosedContract(ev: CreatedEvent): DisclosedContract =
     DisclosedContract(
@@ -606,29 +621,35 @@ object ExplicitDisclosureIT {
 
   private def exerciseWithKey_byKey_request(
       ledger: ParticipantTestContext,
-      owner: Primitive.Party,
-      party: Primitive.Party,
+      owner: Party,
+      party: Party,
       withKeyDisclosedContract: Option[DisclosedContract],
   ): SubmitAndWaitRequest =
     ledger
       .submitAndWaitRequest(
         party,
-        Command.of(
-          Command.Command.ExerciseByKey(
-            ExerciseByKeyCommand(
-              Some(WithKey.id.unwrap),
-              Option(Value(Value.Sum.Party(Party.unwrap(owner)))),
-              "WithKey_NoOp",
-              Option(
-                Value(
-                  Value.Sum.Record(
-                    Record(
-                      None,
-                      List(RecordField("", Some(Value(Value.Sum.Party(Party.unwrap(party)))))),
-                    )
+        JList.of(
+          CommandJava.fromProtoCommand(
+            toJavaProto(
+              Command.of(
+                Command.Command.ExerciseByKey(
+                  ExerciseByKeyCommand(
+                    Some(Identifier.fromJavaProto(WithKey.TEMPLATE_ID.toProto)),
+                    Option(Value(Value.Sum.Party(owner.getValue))),
+                    "WithKey_NoOp",
+                    Option(
+                      Value(
+                        Value.Sum.Record(
+                          Record(
+                            None,
+                            List(RecordField("", Some(Value(Value.Sum.Party(party.getValue))))),
+                          )
+                        )
+                      )
+                    ),
                   )
                 )
-              ),
+              )
             )
           )
         ),

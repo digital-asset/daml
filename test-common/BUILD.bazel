@@ -10,6 +10,10 @@ load(
     "dar_to_scala",
 )
 load(
+    "//language-support/java/codegen:codegen.bzl",
+    "dar_to_java",
+)
+load(
     "//daml-lf/language:daml-lf.bzl",
     "lf_version_configuration",
     "version_in",
@@ -123,6 +127,16 @@ da_scala_dar_resources_library(
                 deps = [
                     "//language-support/scala/bindings",
                 ],
+            ),
+            dar_to_java(
+                name = "%s-tests-%s.java-codegen" % (test_name, target),
+                src = ":%s-tests-%s.dar" % (test_name, target),
+                package_prefix = "com.daml.ledger.test.java.%s" % test_name,
+                visibility = ["//visibility:public"],
+                tags = ["maven_coordinates=com.daml:test-common-%s-tests-java-%s:__VERSION__" % (
+                    test_name.replace("_", "-"),
+                    target,
+                )],
             ),
         ]
         for test_name in test_names.get(target, [])

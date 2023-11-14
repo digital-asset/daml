@@ -8,13 +8,15 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.test.model.Test._
-import scalaz.Tag
+import com.daml.ledger.test.java.model.test._
 
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 class TransactionServiceStreamsIT extends LedgerTestSuite {
+  import CompanionImplicits._
+
   test(
     "TXBeginToBegin",
     "An empty stream should be served when getting transactions from and to the beginning of the ledger",
@@ -55,7 +57,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      _ <- ledger.create(party, Dummy(party))
+      _ <- ledger.create(party, new Dummy(party))
       request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       endToEnd = request.update(_.begin := ledger.end, _.end := ledger.end)
       transactions <- ledger.flatTransactions(endToEnd)
@@ -73,7 +75,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      _ <- ledger.create(party, Dummy(party))
+      _ <- ledger.create(party, new Dummy(party))
       futureOffset <- ledger.offsetBeyondLedgerEnd()
       request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       beyondEnd = request.update(_.begin := futureOffset, _.optionalEnd := None)
@@ -93,7 +95,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      _ <- ledger.create(party, Dummy(party))
+      _ <- ledger.create(party, new Dummy(party))
       futureOffset <- ledger.offsetBeyondLedgerEnd()
       request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       beyondEnd = request.update(_.begin := futureOffset, _.optionalEnd := None)
@@ -116,7 +118,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
     val transactionsToRead = 10
     for {
       dummies <- Future.sequence(
-        Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party)))
+        Vector.fill(transactionsToSubmit)(ledger.create(party, new Dummy(party)))
       )
       transactions <- ledger.flatTransactions(transactionsToRead, party)
     } yield {
@@ -140,7 +142,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
     val treesToRead = 10
     for {
       dummies <- Future.sequence(
-        Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party)))
+        Vector.fill(transactionsToSubmit)(ledger.create(party, new Dummy(party)))
       )
       trees <- ledger.transactionTrees(treesToRead, party)
     } yield {
@@ -163,7 +165,9 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
     val transactionsToSubmit = 14
     val transactionsFuture = ledger.flatTransactions(party)
     for {
-      _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
+      _ <- Future.sequence(
+        Vector.fill(transactionsToSubmit)(ledger.create(party, new Dummy(party)))
+      )
       _ <- transactionsFuture
     } yield {
       // doing nothing: we are just checking that `transactionsFuture` completes successfully
@@ -178,7 +182,9 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
     val transactionsToSubmit = 14
     val transactionsFuture = ledger.transactionTrees(party)
     for {
-      _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
+      _ <- Future.sequence(
+        Vector.fill(transactionsToSubmit)(ledger.create(party, new Dummy(party)))
+      )
       _ <- transactionsFuture
     } yield {
       // doing nothing: we are just checking that `transactionsFuture` completes successfully
@@ -190,18 +196,19 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
     "The transaction service should correctly filter by template identifier",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val filterBy = Dummy.id
+    val filterBy = Dummy.TEMPLATE_ID
     val create = ledger.submitAndWaitRequest(
       party,
-      Dummy(party).create.command,
-      DummyFactory(party).create.command,
+      (new Dummy(party).create.commands.asScala ++ new DummyFactory(
+        party
+      ).create.commands.asScala).asJava,
     )
     for {
       _ <- ledger.submitAndWait(create)
       transactions <- ledger.flatTransactionsByTemplateId(filterBy, party)
     } yield {
       val contract = assertSingleton("FilterByTemplate", transactions.flatMap(createdEvents))
-      assertEquals("FilterByTemplate", contract.getTemplateId, Tag.unwrap(filterBy))
+      assertEquals("FilterByTemplate", contract.getTemplateId, filterBy.toV1)
     }
   })
 }

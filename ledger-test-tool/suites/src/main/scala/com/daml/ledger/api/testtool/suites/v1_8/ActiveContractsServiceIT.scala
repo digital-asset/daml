@@ -13,12 +13,8 @@ import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.value.Identifier
-import com.daml.ledger.client.binding.Primitive.{Party, TemplateId}
-import com.daml.ledger.client.binding.{Primitive, Template}
-import com.daml.ledger.test.model.Test.Divulgence2._
-import com.daml.ledger.test.model.Test.Dummy._
-import com.daml.ledger.test.model.Test.Witnesses._
-import com.daml.ledger.test.model.Test.{
+import com.daml.ledger.javaapi.data.{Party, Template}
+import com.daml.ledger.test.java.model.test.{
   Divulgence1,
   Divulgence2,
   Dummy,
@@ -29,13 +25,15 @@ import com.daml.ledger.test.model.Test.{
   WithObservers,
   Witnesses => TestWitnesses,
 }
-import scalaz.syntax.tag._
+import com.daml.ledger.javaapi.data.codegen.ContractId
 
 import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 import scala.util.Random
 
 class ActiveContractsServiceIT extends LedgerTestSuite {
+  import CompanionImplicits._
 
   test(
     "ACSinvalidLedgerId",
@@ -90,19 +88,19 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       )
 
       assert(
-        activeContracts.exists(_.contractId == dummy),
+        activeContracts.exists(_.contractId == dummy.contractId),
         s"Didn't find Dummy contract with contractId $dummy.",
       )
       assert(
-        activeContracts.exists(_.contractId == dummyWithParam),
+        activeContracts.exists(_.contractId == dummyWithParam.contractId),
         s"Didn't find DummyWithParam contract with contractId $dummy.",
       )
       assert(
-        activeContracts.exists(_.contractId == dummyFactory),
+        activeContracts.exists(_.contractId == dummyFactory.contractId),
         s"Didn't find DummyFactory contract with contractId $dummy.",
       )
 
-      val invalidSignatories = activeContracts.filterNot(_.signatories == Seq(party.unwrap))
+      val invalidSignatories = activeContracts.filterNot(_.signatories == Seq(party.getValue))
       assert(
         invalidSignatories.isEmpty,
         s"Found contracts with signatories other than $party: $invalidSignatories",
@@ -123,7 +121,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       (dummy, _, _) <- createDummyContracts(party, ledger)
-      activeContracts <- ledger.activeContractsByTemplateId(Seq(Dummy.id), party)
+      activeContracts <- ledger.activeContractsByTemplateId(Seq(Dummy.TEMPLATE_ID), party)
     } yield {
       assert(
         activeContracts.size == 1,
@@ -131,11 +129,11 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       )
 
       assert(
-        activeContracts.head.getTemplateId == Dummy.id.unwrap,
+        activeContracts.head.getTemplateId == Identifier.fromJavaProto(Dummy.TEMPLATE_ID.toProto),
         s"Received contract is not of type Dummy, but ${activeContracts.head.templateId}.",
       )
       assert(
-        activeContracts.head.contractId == dummy,
+        activeContracts.head.contractId == dummy.contractId,
         s"Expected contract with contractId $dummy, but received ${activeContracts.head.contractId}.",
       )
     }
@@ -159,7 +157,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       )
 
       assert(
-        contractsBeforeExercise.exists(_.contractId == dummy),
+        contractsBeforeExercise.exists(_.contractId == dummy.contractId),
         s"Expected to receive contract with contractId $dummy, but received ${contractsBeforeExercise
             .map(_.contractId)
             .mkString(", ")} instead.",
@@ -172,7 +170,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       )
 
       assert(
-        !contractsAfterExercise.exists(_.contractId == dummy),
+        !contractsAfterExercise.exists(_.contractId == dummy.contractId),
         s"Expected to not receive contract with contractId $dummy.",
       )
     }
@@ -184,21 +182,21 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      dummy <- ledger.create(party, Dummy(party))
+      dummy <- ledger.create(party, new Dummy(party))
       (Some(offset), onlyDummy) <- ledger.activeContracts(
         ledger.activeContractsRequest(
           Seq(party),
           useTemplateIdBasedLegacyFormat = !ledger.features.templateFilters,
         )
       )
-      dummyWithParam <- ledger.create(party, DummyWithParam(party))
+      dummyWithParam <- ledger.create(party, new DummyWithParam(party))
       request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       fromOffset = request.update(_.begin := offset)
       transactions <- ledger.flatTransactions(fromOffset)
     } yield {
       assert(onlyDummy.size == 1)
       assert(
-        onlyDummy.exists(_.contractId == dummy),
+        onlyDummy.exists(_.contractId == dummy.contractId),
         s"Expected to receive $dummy in active contracts, but didn't receive it.",
       )
 
@@ -217,7 +215,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         createdEvent
       }
       assert(
-        createdEvent.exists(_.contractId == dummyWithParam),
+        createdEvent.exists(_.contractId == dummyWithParam.contractId),
         s"Expected a CreateEvent for $dummyWithParam, but received $createdEvent.",
       )
     }
@@ -229,7 +227,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      _ <- ledger.create(party, Dummy(party))
+      _ <- ledger.create(party, new Dummy(party))
       verboseRequest = ledger
         .activeContractsRequest(
           Seq(party),
@@ -265,9 +263,9 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       allContractsForAlice <- ledger.activeContracts(alice)
       allContractsForBob <- ledger.activeContracts(bob)
       allContractsForAliceAndBob <- ledger.activeContracts(alice, bob)
-      dummyContractsForAlice <- ledger.activeContractsByTemplateId(Seq(Dummy.id), alice)
+      dummyContractsForAlice <- ledger.activeContractsByTemplateId(Seq(Dummy.TEMPLATE_ID), alice)
       dummyContractsForAliceAndBob <- ledger.activeContractsByTemplateId(
-        Seq(Dummy.id),
+        Seq(Dummy.TEMPLATE_ID),
         alice,
         bob,
       )
@@ -276,37 +274,37 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         allContractsForAlice.size == 3,
         s"$alice expected 3 events, but received ${allContractsForAlice.size}.",
       )
-      assertTemplates(Seq(alice), allContractsForAlice, Dummy.id, 1)
-      assertTemplates(Seq(alice), allContractsForAlice, DummyWithParam.id, 1)
-      assertTemplates(Seq(alice), allContractsForAlice, DummyFactory.id, 1)
+      assertTemplates(Seq(alice), allContractsForAlice, Dummy.TEMPLATE_ID, 1)
+      assertTemplates(Seq(alice), allContractsForAlice, DummyWithParam.TEMPLATE_ID, 1)
+      assertTemplates(Seq(alice), allContractsForAlice, DummyFactory.TEMPLATE_ID, 1)
 
       assert(
         allContractsForBob.size == 3,
         s"$bob expected 3 events, but received ${allContractsForBob.size}.",
       )
-      assertTemplates(Seq(bob), allContractsForBob, Dummy.id, 1)
-      assertTemplates(Seq(bob), allContractsForBob, DummyWithParam.id, 1)
-      assertTemplates(Seq(bob), allContractsForBob, DummyFactory.id, 1)
+      assertTemplates(Seq(bob), allContractsForBob, Dummy.TEMPLATE_ID, 1)
+      assertTemplates(Seq(bob), allContractsForBob, DummyWithParam.TEMPLATE_ID, 1)
+      assertTemplates(Seq(bob), allContractsForBob, DummyFactory.TEMPLATE_ID, 1)
 
       assert(
         allContractsForAliceAndBob.size == 6,
         s"$alice and $bob expected 6 events, but received ${allContractsForAliceAndBob.size}.",
       )
-      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, Dummy.id, 2)
-      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, DummyWithParam.id, 2)
-      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, DummyFactory.id, 2)
+      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, Dummy.TEMPLATE_ID, 2)
+      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, DummyWithParam.TEMPLATE_ID, 2)
+      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, DummyFactory.TEMPLATE_ID, 2)
 
       assert(
         dummyContractsForAlice.size == 1,
         s"$alice expected 1 event, but received ${dummyContractsForAlice.size}.",
       )
-      assertTemplates(Seq(alice), dummyContractsForAlice, Dummy.id, 1)
+      assertTemplates(Seq(alice), dummyContractsForAlice, Dummy.TEMPLATE_ID, 1)
 
       assert(
         dummyContractsForAliceAndBob.size == 2,
         s"$alice and $bob expected 2 events, but received ${dummyContractsForAliceAndBob.size}.",
       )
-      assertTemplates(Seq(alice, bob), dummyContractsForAliceAndBob, Dummy.id, 2)
+      assertTemplates(Seq(alice, bob), dummyContractsForAliceAndBob, Dummy.TEMPLATE_ID, 2)
     }
   })
 
@@ -316,16 +314,16 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      dummyCid <- ledger.create(party, Dummy(party))
-      dummyWithParamCid <- ledger.create(party, DummyWithParam(party))
+      dummyCid <- ledger.create(party, new Dummy(party))
+      dummyWithParamCid <- ledger.create(party, new DummyWithParam(party))
       contracts <- ledger.activeContracts(party)
     } yield {
       assert(contracts.size == 2, s"$party expected 2 contracts, but received ${contracts.size}.")
       val dummyAgreementText = contracts.collect {
-        case ev if ev.contractId == dummyCid => ev.agreementText
+        case ev if ev.contractId == dummyCid.contractId => ev.agreementText
       }
       val dummyWithParamAgreementText = contracts.collect {
-        case ev if ev.contractId == dummyWithParamCid => ev.agreementText
+        case ev if ev.contractId == dummyWithParamCid.contractId => ev.agreementText
       }
 
       assert(
@@ -345,7 +343,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      _ <- ledger.create(party, Dummy(party))
+      _ <- ledger.create(party, new Dummy(party))
       Vector(dummyEvent) <- ledger.activeContracts(party)
       flatTransaction <- ledger.flatTransactionByEventId(dummyEvent.eventId, party)
       transactionTree <- ledger.transactionTreeByEventId(dummyEvent.eventId, party)
@@ -363,7 +361,10 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
     for {
-      witnesses <- ledger.create(alice, TestWitnesses(alice, bob, bob))
+      witnesses: TestWitnesses.ContractId <- ledger.create(
+        alice,
+        new TestWitnesses(alice, bob, bob),
+      )
       _ <- ledger.exercise(bob, witnesses.exerciseWitnessesCreateNewWitnesses())
       bobContracts <- ledger.activeContracts(bob)
       aliceContracts <- ledger.activeContracts(alice)
@@ -385,8 +386,8 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
     for {
-      divulgence1 <- ledger.create(alice, Divulgence1(alice))
-      divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
+      divulgence1 <- ledger.create(alice, new Divulgence1(alice))
+      divulgence2 <- ledger.create(bob, new Divulgence2(bob, alice))
       _ <- ledger.exercise(alice, divulgence2.exerciseDivulgence2Fetch(divulgence1))
       bobContracts <- ledger.activeContracts(bob)
       aliceContracts <- ledger.activeContracts(alice)
@@ -408,13 +409,13 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
     for {
-      _ <- ledger.create(alice, WithObservers(alice, Seq(alice, bob)))
+      _ <- ledger.create(alice, new WithObservers(alice, Seq(alice, bob).map(_.getValue).asJava))
       contracts <- ledger.activeContracts(alice)
     } yield {
       assert(contracts.nonEmpty)
       contracts.foreach(ce =>
         assert(
-          ce.observers == Seq(bob),
+          ce.observers == Seq(bob.getValue),
           s"Expected observers to only contain $bob, but received ${ce.observers}",
         )
       )
@@ -427,7 +428,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     allocate(Parties(3)),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob, charlie)) =>
     for {
-      _ <- ledger.create(alice, WithObservers(alice, List(bob, charlie)))
+      _ <- ledger.create(alice, new WithObservers(alice, List(bob, charlie).map(_.getValue).asJava))
       bobContracts <- ledger.activeContracts(bob)
       aliceBobContracts <- ledger.activeContracts(alice, bob)
       bobCharlieContracts <- ledger.activeContracts(bob, charlie)
@@ -438,7 +439,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
           s"Expected to receive 1 active contracts for $requesters, but received ${contracts.size}.",
         )
         assert(
-          contracts.head.witnessParties.toSet == requesters.map(_.toString),
+          contracts.head.witnessParties.toSet == requesters.map(_.getValue),
           s"Expected witness parties to equal to $requesters, but received ${contracts.head.witnessParties}",
         )
       }
@@ -456,7 +457,9 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, p1, p2, p3)) =>
     // Let us have 3 templates
     val templateIds: Vector[Identifier] =
-      Vector(TriAgreement.id.unwrap, TriProposal.id.unwrap, WithObservers.id.unwrap)
+      Vector(TriAgreement.TEMPLATE_ID, TriProposal.TEMPLATE_ID, WithObservers.TEMPLATE_ID).map(t =>
+        Identifier.fromJavaProto(t.toProto)
+      )
     // Let us have 3 parties
     val parties: Vector[Party] = Vector(p1, p2, p3)
     // Let us have all combinations for the 3 parties
@@ -504,8 +507,10 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     ).map(filter => filter -> filterCoordsForFilter(filter))
 
     def createContracts: Future[Map[FilterCoord, Set[String]]] = {
-      def withThreeParties[T](f: (Party, Party, Party) => T)(partySet: Set[Party]): T =
-        partySet.toList match {
+      def withThreeParties[T <: Template](
+          f: (String, String, String) => T
+      )(partySet: Set[Party]): T =
+        partySet.toList.map(_.getValue) match {
           case a :: b :: c :: Nil => f(a, b, c)
           case a :: b :: Nil => f(a, b, b)
           case a :: Nil => f(a, a, a)
@@ -513,18 +518,41 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
             throw new Exception(s"Invalid partySet, length must be 1 or 2 or 3 but it was $invalid")
         }
 
-      val templateFactories: Vector[Set[Party] => Template[Template[Any]]] = Vector(
-        withThreeParties(TriAgreement(_, _, _)),
-        withThreeParties(TriProposal(_, _, _)),
-        parties => WithObservers(parties.head, parties.toList),
-      )
-
-      def createContractFor(template: Int, partyCombination: Int) =
-        ledger.create(
-          partyCombinations(partyCombination).map(parties).toList,
-          partyCombinations(partyCombination).map(parties).toList,
-          templateFactories(template)(partyCombinations(partyCombination).map(parties)),
+      val templateFactories: Vector[Set[Party] => _ <: Template] =
+        Vector(
+          (parties: Set[Party]) => withThreeParties(new TriAgreement(_, _, _))(parties),
+          (parties: Set[Party]) => withThreeParties(new TriProposal(_, _, _))(parties),
+          (parties: Set[Party]) =>
+            new WithObservers(parties.head, parties.toList.map(_.getValue).asJava),
         )
+
+      def createContractFor(
+          template: Int,
+          partyCombination: Int,
+      ): Future[ContractId[_]] = {
+        val partiesSet = partyCombinations(partyCombination).map(parties)
+        templateFactories(template)(partiesSet) match {
+          case agreement: TriAgreement =>
+            ledger.create(
+              partiesSet.toList,
+              partiesSet.toList,
+              agreement,
+            )(TriAgreement.COMPANION)
+          case proposal: TriProposal =>
+            ledger.create(
+              partiesSet.toList,
+              partiesSet.toList,
+              proposal,
+            )(TriProposal.COMPANION)
+          case withObservers: WithObservers =>
+            ledger.create(
+              partiesSet.toList,
+              partiesSet.toList,
+              withObservers,
+            )(WithObservers.COMPANION)
+          case t => throw new RuntimeException(s"the template given has an unexpected type $t")
+        }
+      }
 
       val createFs = for {
         partyCombinationIndex <- partyCombinations.indices
@@ -538,7 +566,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         .map(_.groupBy(_._1).map { case ((partyCombinationIndex, templateIndex), contractId) =>
           (
             FilterCoord(templateIndex, partyCombinations(partyCombinationIndex)),
-            contractId.view.map(_._2.toString).toSet,
+            contractId.view.map(_._2.contractId).toSet,
           )
         })
     }
@@ -558,10 +586,10 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
                 new TransactionFilter(
                   filter.map {
                     case (party, templates) if templates.isEmpty =>
-                      (parties(party).toString, new Filters(None))
+                      (parties(party).getValue, new Filters(None))
                     case (party, templates) =>
                       (
-                        parties(party).toString,
+                        parties(party).getValue,
                         new Filters(
                           Some(
                             new InclusiveFilters(random.shuffle(templates.toSeq.map(templateIds)))
@@ -631,11 +659,12 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     partyAllocation = allocate(SingleParty),
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val transactionFilter = Some(TransactionFilter(filtersByParty = Map(party.unwrap -> Filters())))
+    val transactionFilter =
+      Some(TransactionFilter(filtersByParty = Map(party.getValue -> Filters())))
     for {
-      c1 <- ledger.create(party, Dummy(party))
+      c1 <- ledger.create(party, new Dummy(party))
       offset1 <- ledger.currentEnd()
-      c2 <- ledger.create(party, Dummy(party))
+      c2 <- ledger.create(party, new Dummy(party))
       offset2 <- ledger.currentEnd()
       // acs at offset1
       (acsOffset1, acs1) <- ledger
@@ -679,15 +708,16 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     partyAllocation = allocate(SingleParty),
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val transactionFilter = Some(TransactionFilter(filtersByParty = Map(party.unwrap -> Filters())))
+    val transactionFilter =
+      Some(TransactionFilter(filtersByParty = Map(party.getValue -> Filters())))
     for {
-      c1 <- ledger.create(party, Dummy(party))
+      c1 <- ledger.create(party, new Dummy(party))
       anOffset <- ledger.currentEnd()
-      _ <- ledger.create(party, Dummy(party))
+      _ <- ledger.create(party, new Dummy(party))
       _ <- ledger.pruneCantonSafe(
         pruneUpTo = anOffset,
         party = party,
-        dummyCommand = Dummy(_).create.command,
+        dummyCommand = p => new Dummy(p).create.commands,
       )
       (acsOffset, acs) <- ledger
         .activeContractsIds(
@@ -709,13 +739,18 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     partyAllocation = allocate(SingleParty),
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val transactionFilter = Some(TransactionFilter(filtersByParty = Map(party.unwrap -> Filters())))
+    val transactionFilter =
+      Some(TransactionFilter(filtersByParty = Map(party.getValue -> Filters())))
     for {
       offset1 <- ledger.currentEnd()
-      _ <- ledger.create(party, Dummy(party))
+      _ <- ledger.create(party, new Dummy(party))
       offset2 <- ledger.currentEnd()
-      _ <- ledger.create(party, Dummy(party))
-      _ <- ledger.pruneCantonSafe(pruneUpTo = offset2, party = party, Dummy(_).create.command)
+      _ <- ledger.create(party, new Dummy(party))
+      _ <- ledger.pruneCantonSafe(
+        pruneUpTo = offset2,
+        party = party,
+        p => new Dummy(p).create.commands,
+      )
       _ <- ledger
         .activeContractsIds(
           GetActiveContractsRequest(
@@ -737,7 +772,8 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     disabledReason = "Requires ACS with active_at_offset",
     partyAllocation = allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val transactionFilter = Some(TransactionFilter(filtersByParty = Map(party.unwrap -> Filters())))
+    val transactionFilter =
+      Some(TransactionFilter(filtersByParty = Map(party.getValue -> Filters())))
     for {
       _ <- ledger
         .activeContracts(
@@ -761,7 +797,8 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     partyAllocation = allocate(SingleParty),
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val transactionFilter = Some(TransactionFilter(filtersByParty = Map(party.unwrap -> Filters())))
+    val transactionFilter =
+      Some(TransactionFilter(filtersByParty = Map(party.getValue -> Filters())))
     for {
       offsetBeyondLedgerEnd <- ledger.offsetBeyondLedgerEnd()
       _ <- ledger
@@ -782,25 +819,26 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       ec: ExecutionContext
   ): Future[
     (
-        Primitive.ContractId[Dummy],
-        Primitive.ContractId[DummyWithParam],
-        Primitive.ContractId[DummyFactory],
+        Dummy.ContractId,
+        DummyWithParam.ContractId,
+        DummyFactory.ContractId,
     )
   ] = {
     for {
-      dummy <- ledger.create(party, Dummy(party))
-      dummyWithParam <- ledger.create(party, DummyWithParam(party))
-      dummyFactory <- ledger.create(party, DummyFactory(party))
+      dummy <- ledger.create(party, new Dummy(party))
+      dummyWithParam <- ledger.create(party, new DummyWithParam(party))
+      dummyFactory <- ledger.create(party, new DummyFactory(party))
     } yield (dummy, dummyWithParam, dummyFactory)
   }
 
-  private def assertTemplates[A](
+  private def assertTemplates(
       party: Seq[Party],
       events: Vector[CreatedEvent],
-      templateId: TemplateId[A],
+      templateId: com.daml.ledger.javaapi.data.Identifier,
       count: Int,
   ): Unit = {
-    val templateEvents = events.count(_.getTemplateId == templateId.unwrap)
+    val templateEvents =
+      events.count(_.getTemplateId == Identifier.fromJavaProto(templateId.toProto))
     assert(
       templateEvents == count,
       s"${party.mkString(" and ")} expected $count $templateId events, but received $templateEvents.",

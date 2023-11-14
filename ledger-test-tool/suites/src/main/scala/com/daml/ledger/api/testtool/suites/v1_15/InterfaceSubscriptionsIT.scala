@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool.suites.v1_15
 
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   Participant,
   Participants,
@@ -21,18 +20,15 @@ import com.daml.ledger.api.v1.event.{CreatedEvent, InterfaceView}
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.value.{Identifier, Record}
-import com.daml.ledger.test.semantic.InterfaceViews._
-import com.daml.ledger.test.{
-  Carbonv1TestDar,
-  Carbonv2TestDar,
-  Carbonv3TestDar,
-  carbonv1,
-  carbonv2,
-  carbonv3,
-}
+import com.daml.ledger.test.java.semantic.interfaceviews.{T2, T3, T4, _}
+import com.daml.ledger.javaapi
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
+import com.daml.ledger.test.java.semantic.da.types
+import com.daml.ledger.test.java.{carbonv1, carbonv2, carbonv3}
+import com.daml.ledger.test.{Carbonv1TestDar, Carbonv2TestDar, Carbonv3TestDar}
 import com.daml.logging.LoggingContext
-import scalaz.Tag
 
+import java.lang
 import java.util.regex.Pattern
 import scala.concurrent.duration._
 
@@ -43,6 +39,21 @@ class InterfaceSubscriptionsWithEventBlobsIT extends InterfaceSubscriptionsITBas
 abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLegacyFormat: Boolean)
     extends LedgerTestSuite {
 
+  implicit val t1Companion
+      : ContractCompanion.WithKey[T1.Contract, T1.ContractId, T1, types.Tuple2[String, lang.Long]] =
+    T1.COMPANION
+  implicit val t2Companion
+      : ContractCompanion.WithKey[T2.Contract, T2.ContractId, T2, types.Tuple2[String, lang.Long]] =
+    T2.COMPANION
+  implicit val t3Companion: ContractCompanion.WithoutKey[T3.Contract, T3.ContractId, T3] =
+    T3.COMPANION
+  implicit val t4Companion: ContractCompanion.WithoutKey[T4.Contract, T4.ContractId, T4] =
+    T4.COMPANION
+  implicit val t5Companion: ContractCompanion.WithoutKey[T5.Contract, T5.ContractId, T5] =
+    T5.COMPANION
+  implicit val t6Companion: ContractCompanion.WithoutKey[T6.Contract, T6.ContractId, T6] =
+    T6.COMPANION
+
   test(
     s"${prefix}TransactionsBasic",
     "Basic functionality for interface subscriptions on transaction streams",
@@ -51,22 +62,22 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
-      c1 <- create(party, T1(party, 1))
-      c2 <- create(party, T2(party, 2))
-      c3 <- create(party, T3(party, 3))
-      _ <- create(party, T4(party, 4))
+      c1 <- create(party, new T1(party, 1))
+      c2 <- create(party, new T2(party, 2))
+      c3 <- create(party, new T3(party, 3))
+      _ <- create(party, new T4(party, 4))
       transactions <- flatTransactions(
         getTransactionsRequest(
           transactionFilter(
             Seq(party),
-            Seq(T1.id),
-            Seq((I.id, true)),
+            Seq(T1.TEMPLATE_ID),
+            Seq((I.TEMPLATE_ID, true)),
             useTemplateIdBasedLegacyFormat,
           )
         )
       )
       events = transactions.flatMap(createdEvents)
-    } yield basicAssertions(c1.toString, c2.toString, c3.toString, events)
+    } yield basicAssertions(c1.contractId, c2.contractId, c3.contractId, events)
   })
 
   test(
@@ -77,20 +88,20 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
-      c1 <- create(party, T1(party, 1))
-      c2 <- create(party, T2(party, 2))
-      c3 <- create(party, T3(party, 3))
-      _ <- create(party, T4(party, 4))
+      c1 <- create(party, new T1(party, 1))
+      c2 <- create(party, new T2(party, 2))
+      c3 <- create(party, new T3(party, 3))
+      _ <- create(party, new T4(party, 4))
       (_, createdEvents) <- activeContracts(
         activeContractsRequest(
           Seq(party),
-          Seq(T1.id),
-          Seq((I.id, true)),
+          Seq(T1.TEMPLATE_ID),
+          Seq((I.TEMPLATE_ID, true)),
           "",
           useTemplateIdBasedLegacyFormat,
         )
       )
-    } yield basicAssertions(c1.toString, c2.toString, c3.toString, createdEvents)
+    } yield basicAssertions(c1.contractId, c2.contractId, c3.contractId, createdEvents)
   })
 
   private def basicAssertions(
@@ -107,10 +118,10 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     assertEquals(
       "Create event 1 template ID",
       createdEvent1.templateId.get.toString,
-      Tag.unwrap(T1.id).toString,
+      T1.TEMPLATE_ID.toV1.toString,
     )
     assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1)
-    assertViewEquals(createdEvent1.interfaceViews, Tag.unwrap(I.id)) { value =>
+    assertViewEquals(createdEvent1.interfaceViews, I.TEMPLATE_ID.toV1) { value =>
       assertLength("View1 has 2 fields", 2, value.fields)
       assertEquals("View1.a", value.fields(0).getValue.getInt64, 1)
       assertEquals("View1.b", value.fields(1).getValue.getBool, true)
@@ -140,10 +151,10 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     assertEquals(
       "Create event 2 template ID",
       createdEvent2.templateId.get.toString,
-      Tag.unwrap(T2.id).toString,
+      T2.TEMPLATE_ID.toV1.toString,
     )
     assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2)
-    assertViewEquals(createdEvent2.interfaceViews, Tag.unwrap(I.id)) { value =>
+    assertViewEquals(createdEvent2.interfaceViews, I.TEMPLATE_ID.toV1) { value =>
       assertLength("View2 has 2 fields", 2, value.fields)
       assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
       assertEquals("View2.b", value.fields(1).getValue.getBool, false)
@@ -165,10 +176,10 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     assertEquals(
       "Create event 3 template ID",
       createdEvent3.templateId.get.toString,
-      Tag.unwrap(T3.id).toString,
+      T3.TEMPLATE_ID.toV1.toString,
     )
     assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3)
-    assertViewFailed(createdEvent3.interfaceViews, Tag.unwrap(I.id))
+    assertViewFailed(createdEvent3.interfaceViews, I.TEMPLATE_ID.toV1)
     assertEquals(
       "Create event 3 createArguments must be empty",
       createdEvent3.createArguments.isEmpty,
@@ -184,19 +195,19 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
   )(implicit ec => { case Participants(Participant(ledger, party1, party2)) =>
     import ledger._
     for {
-      c <- create(party1, T6(party1, party2))
+      c <- create(party1, new T6(party1, party2))
       mergedTransactions <- flatTransactions(
         getTransactionsRequest(
           new TransactionFilter(
             Map(
-              party1.toString -> filters(
+              party1.getValue -> filters(
                 Seq.empty,
-                Seq((I.id, true)),
+                Seq((I.TEMPLATE_ID, true)),
                 useTemplateIdBasedLegacyFormat,
               ),
-              party2.toString -> filters(
+              party2.getValue -> filters(
                 Seq.empty,
-                Seq((I2.id, true)),
+                Seq((I2.TEMPLATE_ID, true)),
                 useTemplateIdBasedLegacyFormat,
               ),
             )
@@ -208,9 +219,9 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
         getTransactionsRequest(
           new TransactionFilter(
             Map(
-              party1.toString -> filters(
+              party1.getValue -> filters(
                 Seq.empty,
-                Seq((I.id, true)),
+                Seq((I.TEMPLATE_ID, true)),
                 useTemplateIdBasedLegacyFormat,
               )
             )
@@ -220,22 +231,22 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     } yield {
       assertLength("single transaction found", 1, mergedTransactions)
       val createdEvent1 = createdEvents(mergedTransactions(0)).head
-      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c.toString)
-      assertViewEquals(createdEvent1.interfaceViews, Tag.unwrap(I.id)) { value =>
+      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c.contractId)
+      assertViewEquals(createdEvent1.interfaceViews, I.TEMPLATE_ID.toV1) { value =>
         assertLength("View1 has 2 fields", 2, value.fields)
         assertEquals("View1.a", value.fields(0).getValue.getInt64, 6)
         assertEquals("View1.b", value.fields(1).getValue.getBool, true)
       }
-      assertViewEquals(createdEvent1.interfaceViews, Tag.unwrap(I2.id)) { value =>
+      assertViewEquals(createdEvent1.interfaceViews, I2.TEMPLATE_ID.toV1) { value =>
         assertLength("View2 has 1 field", 1, value.fields)
         assertEquals("View2.c", value.fields(0).getValue.getInt64, 7)
       }
 
       assertLength("single transaction found", 1, party1Transactions)
       val createdEvent2 = createdEvents(party1Transactions(0)).head
-      assertEquals("Create event 1 contract ID", createdEvent2.contractId, c.toString)
+      assertEquals("Create event 1 contract ID", createdEvent2.contractId, c.contractId)
       assertLength("single view found", 1, createdEvent2.interfaceViews)
-      assertViewEquals(createdEvent2.interfaceViews, Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent2.interfaceViews, I.TEMPLATE_ID.toV1) { value =>
         assertLength("View1 has 2 fields", 2, value.fields)
         assertEquals("View1.a", value.fields(0).getValue.getInt64, 6)
         assertEquals("View1.b", value.fields(1).getValue.getBool, true)
@@ -251,13 +262,13 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
-      c <- create(party, T5(party, 31337))
+      c <- create(party, new T5(party, 31337))
       transactions <- flatTransactions(
         getTransactionsRequest(
           transactionFilter(
             Seq(party),
             Seq.empty,
-            Seq((I.id, true), (I2.id, true)),
+            Seq((I.TEMPLATE_ID, true), (I2.TEMPLATE_ID, true)),
             useTemplateIdBasedLegacyFormat,
           )
         )
@@ -265,13 +276,13 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     } yield {
       assertLength("single transaction found", 1, transactions)
       val createdEvent = createdEvents(transactions(0)).head
-      assertEquals("Create event 1 contract ID", createdEvent.contractId, c.toString)
-      assertViewEquals(createdEvent.interfaceViews, Tag.unwrap(I.id)) { value =>
+      assertEquals("Create event 1 contract ID", createdEvent.contractId, c.contractId)
+      assertViewEquals(createdEvent.interfaceViews, I.TEMPLATE_ID.toV1) { value =>
         assertLength("View1 has 2 fields", 2, value.fields)
         assertEquals("View1.a", value.fields(0).getValue.getInt64, 31337)
         assertEquals("View1.b", value.fields(1).getValue.getBool, true)
       }
-      assertViewEquals(createdEvent.interfaceViews, Tag.unwrap(I2.id)) { value =>
+      assertViewEquals(createdEvent.interfaceViews, I2.TEMPLATE_ID.toV1) { value =>
         assertLength("View2 has 1 field", 1, value.fields)
         assertEquals("View2.c", value.fields(0).getValue.getInt64, 1)
       }
@@ -286,13 +297,13 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
-      _ <- create(party, T4(party, 4))
+      _ <- create(party, new T4(party, 4))
       transactions <- flatTransactions(
         getTransactionsRequest(
           transactionFilter(
             Seq(party),
             Seq.empty,
-            Seq((INoTemplate.id, true)),
+            Seq((INoTemplate.TEMPLATE_ID, true)),
             useTemplateIdBasedLegacyFormat,
           )
         )
@@ -311,16 +322,16 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
-      c1 <- create(party, T1(party, 1))
-      c2 <- create(party, T2(party, 2))
-      c3 <- create(party, T3(party, 3))
-      _ <- create(party, T4(party, 4))
+      c1 <- create(party, new T1(party, 1))
+      c2 <- create(party, new T2(party, 2))
+      c3 <- create(party, new T3(party, 3))
+      _ <- create(party, new T4(party, 4))
       transactions <- flatTransactions(
         getTransactionsRequest(
           transactionFilter(
             Seq(party),
-            Seq(T1.id),
-            Seq((I.id, false), (I.id, true)),
+            Seq(T1.TEMPLATE_ID),
+            Seq((I.TEMPLATE_ID, false), (I.TEMPLATE_ID, true)),
             useTemplateIdBasedLegacyFormat,
           )
         )
@@ -328,12 +339,12 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
       )
     } yield {
       val createdEvent1 = createdEvents(transactions(0)).head
-      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
+      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.contractId)
       val createdEvent2 = createdEvents(transactions(1)).head
-      assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
+      assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.contractId)
       // Expect view to be delivered even though there is an ambiguous
       // includeInterfaceView flag set to true and false at the same time (true wins)
-      assertViewEquals(createdEvent2.interfaceViews, Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent2.interfaceViews, I.TEMPLATE_ID.toV1) { value =>
         assertLength("View2 has 2 fields", 2, value.fields)
         assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
         assertEquals("View2.b", value.fields(1).getValue.getBool, false)
@@ -343,7 +354,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
         )
       }
       val createdEvent3 = createdEvents(transactions(2)).head
-      assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.toString)
+      assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.contractId)
     }
   })
 
@@ -355,39 +366,39 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
-      c1 <- create(party, T1(party, 1))
-      c2 <- create(party, T2(party, 2))
-      c3 <- create(party, T3(party, 3))
-      _ <- create(party, T4(party, 4))
+      c1 <- create(party, new T1(party, 1))
+      c2 <- create(party, new T2(party, 2))
+      c3 <- create(party, new T3(party, 3))
+      _ <- create(party, new T4(party, 4))
       transactions <- flatTransactions(
         getTransactionsRequest(
           transactionFilter(
             Seq(party),
-            Seq(T1.id, T1.id),
-            Seq((I.id, true)),
+            Seq(T1.TEMPLATE_ID, T1.TEMPLATE_ID),
+            Seq((I.TEMPLATE_ID, true)),
             useTemplateIdBasedLegacyFormat,
           )
         )
       )
     } yield {
       val createdEvent1 = createdEvents(transactions(0)).head
-      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
+      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.contractId)
       assertEquals(
         "Create event 1 createArguments must NOT be empty",
         createdEvent1.createArguments.isEmpty,
         false,
       )
       val createdEvent2 = createdEvents(transactions(1)).head
-      assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
+      assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.contractId)
       // Expect view to be delivered even though there is an ambiguous
       // includeInterfaceView flag set to true and false at the same time.
-      assertViewEquals(createdEvent2.interfaceViews, Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent2.interfaceViews, I.TEMPLATE_ID.toV1) { value =>
         assertLength("View2 has 2 fields", 2, value.fields)
         assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
         assertEquals("View2.b", value.fields(1).getValue.getBool, false)
       }
       val createdEvent3 = createdEvents(transactions(2)).head
-      assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.toString)
+      assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.contractId)
     }
   })
 
@@ -399,16 +410,16 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
-      c1 <- create(party, T1(party, 1))
-      _ <- create(party, T2(party, 2))
-      _ <- create(party, T3(party, 3))
-      _ <- create(party, T4(party, 4))
+      c1 <- create(party, new T1(party, 1))
+      _ <- create(party, new T2(party, 2))
+      _ <- create(party, new T3(party, 3))
+      _ <- create(party, new T4(party, 4))
       transactions <- flatTransactions(
         getTransactionsRequest(
           transactionFilter(
             Seq(party),
-            Seq(T1.id),
-            Seq((I.id, false)),
+            Seq(T1.TEMPLATE_ID),
+            Seq((I.TEMPLATE_ID, false)),
             useTemplateIdBasedLegacyFormat,
           )
         )
@@ -427,9 +438,9 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
       assertEquals(
         "Create event 1 template ID",
         createdEvent1.templateId.get.toString,
-        Tag.unwrap(T1.id).toString,
+        T1.TEMPLATE_ID.toV1.toString,
       )
-      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
+      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.contractId)
       assertEquals(
         "Create event 1 createArguments must NOT be empty",
         createdEvent1.createArguments.isEmpty,
@@ -445,19 +456,19 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
-    val allImplementations = Seq(T1.id, T2.id, T3.id)
+    val allImplementations = Seq(T1.TEMPLATE_ID, T2.TEMPLATE_ID, T3.TEMPLATE_ID)
     for {
-      _ <- create(party, T1(party, 1))
-      _ <- create(party, T2(party, 2))
-      _ <- create(party, T3(party, 3))
-      _ <- create(party, T4(party, 4))
+      _ <- create(party, new T1(party, 1))
+      _ <- create(party, new T2(party, 2))
+      _ <- create(party, new T3(party, 3))
+      _ <- create(party, new T4(party, 4))
       // 1. Subscribe by the interface
       transactions1 <- flatTransactions(
         getTransactionsRequest(
           transactionFilter(
             Seq(party),
             Seq.empty,
-            Seq((I.id, true)),
+            Seq((I.TEMPLATE_ID, true)),
             useTemplateIdBasedLegacyFormat,
           )
         )
@@ -479,7 +490,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
           transactionFilter(
             Seq(party),
             allImplementations,
-            Seq((I.id, true)),
+            Seq((I.TEMPLATE_ID, true)),
             useTemplateIdBasedLegacyFormat,
           )
         )
@@ -521,11 +532,14 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     allocate(SingleParty),
     enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val unknownTemplate = TemplateId(Tag.unwrap(I.id).copy(entityName = "TemplateDoesNotExist"))
-    val unknownInterface = TemplateId(Tag.unwrap(I.id).copy(entityName = "InterfaceDoesNotExist"))
+    val packageId = I.TEMPLATE_ID.getPackageId
+    val moduleName = I.TEMPLATE_ID.getModuleName
+    val unknownTemplate = new javaapi.data.Identifier(packageId, moduleName, "TemplateDoesNotExist")
+    val unknownInterface =
+      new javaapi.data.Identifier(packageId, moduleName, "InterfaceDoesNotExist")
     import ledger._
     for {
-      _ <- create(party, T1(party, 1))
+      _ <- create(party, new T1(party, 1))
       failure <- flatTransactions(
         getTransactionsRequest(
           transactionFilter(
@@ -570,13 +584,13 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
   )(implicit ec => { case Participants(Participant(ledger, party1, party2)) =>
     import ledger._
     for {
-      _ <- create(party1, T6(party1, party2))
+      _ <- create(party1, new T6(party1, party2))
       party1Iface1transactionsWithView <- flatTransactions(
         getTransactionsRequest(
           transactionFilter(
             Seq(party1),
             Seq.empty,
-            Seq((I.id, true)),
+            Seq((I.TEMPLATE_ID, true)),
             useTemplateIdBasedLegacyFormat,
           )
         )
@@ -586,7 +600,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
           transactionFilter(
             Seq(party1),
             Seq.empty,
-            Seq((I.id, false)),
+            Seq((I.TEMPLATE_ID, false)),
             useTemplateIdBasedLegacyFormat,
           )
         )
@@ -596,7 +610,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
           transactionFilter(
             Seq(party2),
             Seq.empty,
-            Seq((I.id, true)),
+            Seq((I.TEMPLATE_ID, true)),
             useTemplateIdBasedLegacyFormat,
           )
         )
@@ -606,7 +620,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
           transactionFilter(
             Seq(party2),
             Seq.empty,
-            Seq((I.id, false)),
+            Seq((I.TEMPLATE_ID, false)),
             useTemplateIdBasedLegacyFormat,
           )
         )
@@ -660,7 +674,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
           transactionFilter(
             Seq(party),
             Seq.empty,
-            Seq((carbonv1.CarbonV1.I.id, true)),
+            Seq((carbonv1.carbonv1.I.TEMPLATE_ID, true)),
             useTemplateIdBasedLegacyFormat,
           )
         )
@@ -681,16 +695,16 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
         description = "Topology processing around Dar upload can take a bit of time.",
         delayMechanism = ledger.delayMechanism,
       ) {
-        create(party, carbonv2.CarbonV2.T(party, 21))
+        create(party, new carbonv2.carbonv2.T(party, 21))(carbonv2.carbonv2.T.COMPANION)
       }
 
       transactions <- transactionFuture
 
     } yield assertSingleContractWithSimpleView(
       transactions = transactions,
-      contractIdentifier = Tag.unwrap(carbonv2.CarbonV2.T.id),
-      viewIdentifier = Tag.unwrap(carbonv1.CarbonV1.I.id),
-      contractId = contract.toString,
+      contractIdentifier = carbonv2.carbonv2.T.TEMPLATE_ID.toV1,
+      viewIdentifier = carbonv1.carbonv1.I.TEMPLATE_ID.toV1,
+      contractId = contract.contractId,
       viewValue = 21,
     )
   })
@@ -712,7 +726,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
         description = "Topology processing around Dar upload can take a bit of time.",
         delayMechanism = ledger.delayMechanism,
       ) {
-        create(party, carbonv2.CarbonV2.T(party, 77))
+        create(party, new carbonv2.carbonv2.T(party, 77))(carbonv2.carbonv2.T.COMPANION)
       }
       _ <- ledger.uploadDarFile(Dars.read(Carbonv3TestDar.path))
       transactions <- flatTransactions(
@@ -720,16 +734,16 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
           transactionFilter(
             Seq(party),
             Seq.empty,
-            Seq((carbonv3.CarbonV3.RetroI.id, true)),
+            Seq((carbonv3.carbonv3.RetroI.TEMPLATE_ID, true)),
             useTemplateIdBasedLegacyFormat,
           )
         )
       )
     } yield assertSingleContractWithSimpleView(
       transactions = transactions,
-      contractIdentifier = Tag.unwrap(carbonv2.CarbonV2.T.id),
-      viewIdentifier = Tag.unwrap(carbonv3.CarbonV3.RetroI.id),
-      contractId = contract.toString,
+      contractIdentifier = carbonv2.carbonv2.T.TEMPLATE_ID.toV1,
+      viewIdentifier = carbonv3.carbonv3.RetroI.TEMPLATE_ID.toV1,
+      contractId = contract.contractId,
       viewValue = 77,
     )
   })

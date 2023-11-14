@@ -21,7 +21,7 @@ load("//ledger-test-tool:conformance.bzl", "testtool_lf_versions")
         visibility = ["//:__subpackages__"],
         deps = [
             "//daml-lf/data",
-            "//language-support/scala/bindings",
+            "//language-support/java/bindings:bindings-java",
             "//ledger-api/grpc-definitions:ledger_api_proto_scala",
             "//ledger/error",
             "//ledger/ledger-api-errors",

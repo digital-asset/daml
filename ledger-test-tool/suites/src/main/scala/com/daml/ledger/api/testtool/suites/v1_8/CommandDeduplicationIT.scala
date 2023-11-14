@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.time
-
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.GrpcStatus
@@ -30,9 +29,9 @@ import com.daml.ledger.api.v1.completion.Completion.{
 }
 import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationPeriodSupport.OffsetSupport
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.client.binding.Primitive.Party
-import com.daml.ledger.test.model.DA.Types.Tuple2
-import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, TextKeyOperations}
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.test.java.model.da.types.Tuple2
+import com.daml.ledger.test.java.model.test.{Dummy, DummyWithAnnotation, TextKey, TextKeyOperations}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{LedgerString, SubmissionId}
 import com.daml.logging.LoggingContext
@@ -41,12 +40,15 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 final class CommandDeduplicationIT(
     timeoutScaleFactor: Double
 ) extends LedgerTestSuite {
+
+  import CompanionImplicits._
 
   private[this] val logger: Logger = LoggerFactory.getLogger(getClass.getName)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
@@ -59,7 +61,7 @@ final class CommandDeduplicationIT(
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger
-      .submitRequest(party, DummyWithAnnotation(party, "Duplicate command").create.command)
+      .submitRequest(party, new DummyWithAnnotation(party, "Duplicate command").create.commands)
       .update(
         _.commands.deduplicationPeriod :=
           DeduplicationPeriod.DeduplicationDuration(deduplicationDuration.asProtobuf)
@@ -102,7 +104,7 @@ final class CommandDeduplicationIT(
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
     // Do not set the deduplication timeout.
     // The server will default to the maximum possible deduplication timeout.
-    val requestA = ledger.submitRequest(alice, Dummy(bob).create.command)
+    val requestA = ledger.submitRequest(alice, new Dummy(bob).create.commands)
 
     for {
       // Submit an invalid command (should fail with INVALID_ARGUMENT)
@@ -132,17 +134,17 @@ final class CommandDeduplicationIT(
 
     for {
       // Create a helper and a text key
-      ko <- ledger.create(party, TextKeyOperations(party))
-      _ <- ledger.create(party, TextKey(party, key, List()))
+      ko <- ledger.create(party, new TextKeyOperations(party))
+      _ <- ledger.create(party, new TextKey(party, key, List().asJava))
 
       // Create two competing requests
       requestA = ledger.submitAndWaitRequest(
         party,
-        ko.exerciseTKOFetchAndRecreate(Tuple2(party, key)).command,
+        ko.exerciseTKOFetchAndRecreate(new Tuple2(party.getValue, key)).commands,
       )
       requestB = ledger.submitAndWaitRequest(
         party,
-        ko.exerciseTKOFetchAndRecreate(Tuple2(party, key)).command,
+        ko.exerciseTKOFetchAndRecreate(new Tuple2(party.getValue, key)).commands,
       )
 
       // Submit both requests in parallel.
@@ -170,7 +172,7 @@ final class CommandDeduplicationIT(
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger
-      .submitAndWaitRequest(party, Dummy(party).create.command)
+      .submitAndWaitRequest(party, new Dummy(party).create.commands)
       .update(
         _.commands.deduplicationTime := deduplicationDuration.asProtobuf
       )
@@ -251,12 +253,12 @@ final class CommandDeduplicationIT(
       ec: ExecutionContext
   ) = {
     val submitAndWaitRequest = ledger
-      .submitAndWaitRequest(party, Dummy(party).create.command)
+      .submitAndWaitRequest(party, new Dummy(party).create.commands)
       .update(
         _.commands.deduplicationTime := deduplicationDuration.asProtobuf
       )
     val submitRequest = ledger
-      .submitRequest(party, Dummy(party).create.command)
+      .submitRequest(party, new Dummy(party).create.commands)
       .update(
         _.commands.commandId := submitAndWaitRequest.getCommands.commandId,
         _.commands.deduplicationTime := deduplicationDuration.asProtobuf,
@@ -346,9 +348,9 @@ final class CommandDeduplicationIT(
     "Commands with identical submitter and command identifier should be deduplicated by the submission client",
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
-    val aliceRequest = ledger.submitRequest(alice, Dummy(alice).create.command)
+    val aliceRequest = ledger.submitRequest(alice, new Dummy(alice).create.commands)
     val bobRequest = ledger
-      .submitRequest(bob, Dummy(bob).create.command)
+      .submitRequest(bob, new Dummy(bob).create.commands)
       .update(_.commands.commandId := aliceRequest.getCommands.commandId)
 
     val aliceAcceptedSubmissionId = newSubmissionId()
@@ -400,9 +402,9 @@ final class CommandDeduplicationIT(
     "Commands with identical submitter and command identifier should be deduplicated by the command client",
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
-    val aliceRequest = ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+    val aliceRequest = ledger.submitAndWaitRequest(alice, new Dummy(alice).create.commands)
     val bobRequest = ledger
-      .submitAndWaitRequest(bob, Dummy(bob).create.command)
+      .submitAndWaitRequest(bob, new Dummy(bob).create.commands)
       .update(_.commands.commandId := aliceRequest.getCommands.commandId)
 
     val aliceAcceptedSubmissionId = newSubmissionId()
@@ -457,7 +459,7 @@ final class CommandDeduplicationIT(
   )(implicit ec =>
     configuredParticipants => { case Participants(Participant(ledger, party)) =>
       val request = ledger
-        .submitRequest(party, DummyWithAnnotation(party, "Duplicate command").create.command)
+        .submitRequest(party, new DummyWithAnnotation(party, "Duplicate command").create.commands)
         .update(
           _.commands.deduplicationPeriod :=
             DeduplicationPeriod.DeduplicationDuration(deduplicationDuration.asProtobuf)
@@ -532,12 +534,15 @@ final class CommandDeduplicationIT(
   )(implicit ec =>
     configuredParticipants => { case Participants(Participant(ledger, party)) =>
       val request = ledger
-        .submitRequest(party, DummyWithAnnotation(party, "Duplicate command").create.command)
+        .submitRequest(party, new DummyWithAnnotation(party, "Duplicate command").create.commands)
       val acceptedSubmissionId = newSubmissionId()
       runWithTimeModel(configuredParticipants) { _ =>
         val dummyRequest = ledger.submitRequest(
           party,
-          DummyWithAnnotation(party, "Dummy command to generate a completion offset").create.command,
+          new DummyWithAnnotation(
+            party,
+            "Dummy command to generate a completion offset",
+          ).create.commands,
         )
         for {
           // Send a dummy command to the ledger so that we obtain a recent offset
