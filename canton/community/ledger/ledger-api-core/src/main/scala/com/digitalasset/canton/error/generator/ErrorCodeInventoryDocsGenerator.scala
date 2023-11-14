@@ -16,11 +16,11 @@ object ErrorCodeInventoryDocsGenerator {
     val groupDocItems = ErrorCodeDocumentationGenerator.getErrorGroupItems()
 
     val groupSegmentsToExplanationMap: Map[List[Grouping], Option[String]] =
-      groupDocItems.map { groupDocItem: ErrorGroupDocItem =>
+      groupDocItems.map { groupDocItem =>
         groupDocItem.errorClass.groupings -> groupDocItem.explanation.map(_.explanation)
       }.toMap
 
-    val errorCodes: Seq[ErrorCodeValue] = errorDocItems.map { errorCodeDocItem: ErrorCodeDocItem =>
+    val errorCodes: Seq[ErrorCodeValue] = errorDocItems.map { errorCodeDocItem =>
       ErrorCodeValue(
         category = errorCodeDocItem.category,
         errorGroupPath = errorCodeDocItem.hierarchicalGrouping,

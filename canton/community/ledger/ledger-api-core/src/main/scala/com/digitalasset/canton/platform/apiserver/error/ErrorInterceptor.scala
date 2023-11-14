@@ -30,10 +30,10 @@ final class ErrorInterceptor(val loggerFactory: NamedLoggerFactory)
         * NOTE: We are not attempting to detect if a status/trailers pair originates from exceptional conditions within gRPC implementation itself.
         *
         * We are handling unary endpoints that returned failed Futures or other direct invocation of [[io.grpc.stub.StreamObserver#onError]].
-        * We are NOT handling here exceptions thrown outside of Futures or Pekko streams. These are handled separately in
+        * We are NOT handling here exceptions thrown outside of Futures or Akka streams. These are handled separately in
         * [[com.digitalasset.canton.platform.apiserver.error.ErrorListener]].
-        * We are NOT handling here exceptions thrown inside Pekko streaming. These are handled in
-        * [[com.daml.grpc.adapter.server.pekko.ServerAdapter.toSink]]
+        * We are NOT handling here exceptions thrown inside Akka streaming. These are handled in
+        * [[com.daml.grpc.adapter.server.akka.ServerAdapter.toSink]]
         *
         * Details:
         * 1. Handling of Status.INTERNAL:
@@ -103,7 +103,7 @@ class ErrorListener[ReqT, RespT](
 ) extends ForwardingServerCallListener.SimpleForwardingServerCallListener[ReqT](delegate)
     with NamedLogging {
 
-  /** Handles errors arising outside Futures or Pekko streaming.
+  /** Handles errors arising outside Futures or Akka streaming.
     *
     * NOTE: We don't override other listener methods: onCancel, onComplete, onReady and onMessage;
     * as it seems overriding only onHalfClose is sufficient.

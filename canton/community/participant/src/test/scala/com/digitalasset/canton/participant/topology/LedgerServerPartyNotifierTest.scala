@@ -91,7 +91,7 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
       )
 
     when(eventPublisher.publish(any[LedgerSyncEvent])(anyTraceContext)).thenAnswer {
-      event: LedgerSyncEvent =>
+      (event: LedgerSyncEvent) =>
         observedEvents += event
         FutureUnlessShutdown.unit
     }

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import org.apache.pekko.actor.Scheduler
+import akka.actor.Scheduler
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.domain
@@ -22,7 +22,7 @@ private[auth] final class UserRightsChangeAsyncChecker(
     nowF: () => Instant,
     userManagementStore: UserManagementStore,
     userRightsCheckIntervalInSeconds: Int,
-    pekkoScheduler: Scheduler,
+    akkaScheduler: Scheduler,
 )(implicit ec: ExecutionContext) {
 
   /** Schedules an asynchronous and periodic task to check for user rights' state changes
@@ -43,10 +43,10 @@ private[auth] final class UserRightsChangeAsyncChecker(
       originalClaims.resolvedFromUser,
       "The claims were not resolved from a user. Expected claims resolved from a user.",
     )
-    // Note: https://doc.pekko.io/docs/pekko/2.6.13/scheduler.html states that:
+    // Note: https://doc.akka.io/docs/akka/2.6.13/scheduler.html states that:
     // "All scheduled task will be executed when the ActorSystem is terminated, i.e. the task may execute before its timeout."
     val cancellable =
-      pekkoScheduler.scheduleWithFixedDelay(initialDelay = delay, delay = delay)(() => {
+      akkaScheduler.scheduleWithFixedDelay(initialDelay = delay, delay = delay)(() => {
         val userState
             : Future[Either[UserManagementStore.Error, (domain.User, Set[domain.UserRight])]] =
           for {

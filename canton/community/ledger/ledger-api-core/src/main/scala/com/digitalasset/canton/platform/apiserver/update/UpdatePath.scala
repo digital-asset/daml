@@ -11,9 +11,7 @@ object UpdatePath {
 
   def parseAll(rawPaths: Seq[String]): Result[Seq[UpdatePath]] = {
     val parsedPathsResult: Result[Seq[UpdatePath]] = rawPaths
-      .map { rawPath: String =>
-        UpdatePath.parseSingle(rawPath)
-      }
+      .map(UpdatePath.parseSingle)
       .foldLeft[Result[Seq[UpdatePath]]](Right(Seq.empty)) { (ax, next) =>
         for {
           a <- ax

@@ -110,14 +110,15 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val tlsVersionWriter: ConfigWriter[TlsVersion] =
     ConfigWriter.toString(tlsVersion => tlsVersion.version)
 
-  implicit val tlsConfigurationHint: ProductHint[TlsConfiguration] = ProductHint[TlsConfiguration](allowUnknownKeys = false)
+  implicit val tlsConfigurationHint: ProductHint[TlsConfiguration] =
+    ProductHint[TlsConfiguration](allowUnknownKeys = false)
 
   implicit val tlsConfigurationConvert: ConfigConvert[TlsConfiguration] =
     deriveConvert[TlsConfiguration]
 
   implicit val portReader: ConfigReader[Port] = ConfigReader.intConfigReader.map(Port.apply)
   implicit val portWriter: ConfigWriter[Port] = ConfigWriter.intConfigWriter.contramap[Port] {
-    port: Port => port.value
+    _.value
   }
 
   implicit val seedingReader: ConfigReader[Seeding] =

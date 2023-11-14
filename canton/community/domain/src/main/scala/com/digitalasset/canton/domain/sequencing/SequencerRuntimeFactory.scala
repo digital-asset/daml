@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing
 
-import org.apache.pekko.actor.ActorSystem
+import akka.actor.ActorSystem
 import cats.data.EitherT
 import cats.syntax.option.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory

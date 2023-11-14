@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes}
+import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.daml.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v1 as lav1
 import com.daml.lf.typesig

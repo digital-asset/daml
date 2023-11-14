@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature}
-import com.digitalasset.canton.data.{SubmitterMetadata, TransactionViewTree, ViewPosition}
+import com.digitalasset.canton.data.{FullTransactionViewTree, SubmitterMetadata, ViewPosition}
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
@@ -19,12 +19,12 @@ class AuthenticationValidator()(implicit
 
   def verifyViewSignatures(
       requestId: RequestId,
-      rootViews: NonEmpty[Seq[(TransactionViewTree, Option[Signature])]],
+      rootViews: NonEmpty[Seq[(FullTransactionViewTree, Option[Signature])]],
       snapshot: DomainSnapshotSyncCryptoApi,
   ): Future[Map[ViewPosition, String]] = {
 
     def verifySignature(
-        viewWithSignature: (TransactionViewTree, Option[Signature])
+        viewWithSignature: (FullTransactionViewTree, Option[Signature])
     ): Future[Option[(ViewPosition, String)]] = {
 
       val (view, signatureO) = viewWithSignature

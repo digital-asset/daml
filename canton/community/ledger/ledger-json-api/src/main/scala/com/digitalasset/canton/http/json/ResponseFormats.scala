@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.http.json
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.http.scaladsl.model._
-import org.apache.pekko.stream.scaladsl.*
-import org.apache.pekko.stream.{FanOutShape2, SourceShape, UniformFanInShape}
-import org.apache.pekko.util.ByteString
-import com.digitalasset.canton.fetchcontracts.util.PekkoStreamsUtils
+import akka.NotUsed
+import akka.http.scaladsl.model._
+import akka.stream.scaladsl.*
+import akka.stream.{FanOutShape2, SourceShape, UniformFanInShape}
+import akka.util.ByteString
+import com.digitalasset.canton.fetchcontracts.util.AkkaStreamsUtils
 import scalaz.syntax.show._
 import scalaz.{Show, \/}
 import spray.json.DefaultJsonProtocol._
@@ -36,7 +36,7 @@ import spray.json._
     val graph = GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
 
-      val partition: FanOutShape2[E \/ JsValue, E, JsValue] = b add PekkoStreamsUtils.partition
+      val partition: FanOutShape2[E \/ JsValue, E, JsValue] = b add AkkaStreamsUtils.partition
       val concat: UniformFanInShape[ByteString, ByteString] = b add Concat(3)
 
       // first produce optional warnings and result element

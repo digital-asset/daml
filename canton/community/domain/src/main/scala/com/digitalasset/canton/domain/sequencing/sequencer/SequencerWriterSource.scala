@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.*
-import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, Merge, Source}
+import akka.NotUsed
+import akka.stream.*
+import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Merge, Source}
 import cats.data.{EitherT, Validated}
 import cats.syntax.either.*
 import cats.syntax.foldable.*
@@ -76,10 +76,10 @@ object BatchWritten {
     )
 }
 
-/** Base class for exceptions intentionally thrown during Pekko stream to flag errors */
+/** Base class for exceptions intentionally thrown during Akka stream to flag errors */
 sealed abstract class SequencerWriterException(message: String) extends RuntimeException(message)
 
-/** Throw as an error in the pekko stream when we discover that our currently running sequencer writer has been
+/** Throw as an error in the akka stream when we discover that our currently running sequencer writer has been
   * marked as offline.
   */
 class SequencerOfflineException(instanceIndex: Int)
@@ -150,7 +150,7 @@ class SequencerWriterQueues private[sequencer] (
   }
 }
 
-/** Pekko stream for writing as a Sequencer */
+/** Akka stream for writing as a Sequencer */
 object SequencerWriterSource {
   def apply(
       writerConfig: SequencerWriterConfig,
@@ -542,7 +542,7 @@ object UpdateWatermarkFlow {
             .value
             .map {
               case Left(SaveWatermarkError.WatermarkFlaggedOffline) =>
-                // intentionally throwing exception that will bubble up through the pekko stream and handled by the
+                // intentionally throwing exception that will bubble up through the akka stream and handled by the
                 // recovery process in SequencerWriter
                 throw new SequencerOfflineException(store.instanceIndex)
               case _ => ()

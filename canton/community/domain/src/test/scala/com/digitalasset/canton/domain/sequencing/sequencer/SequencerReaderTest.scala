@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.{Sink, SinkQueueWithCancel, Source}
-import org.apache.pekko.stream.{Materializer, OverflowStrategy, QueueOfferResult}
+import akka.NotUsed
+import akka.actor.ActorSystem
+import akka.stream.scaladsl.{Sink, SinkQueueWithCancel, Source}
+import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
@@ -103,7 +103,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
     val autoPushLatestTimestamps =
       new AtomicBoolean(true) // should the latest timestamp be added to the signaller when stored
     val actorSystem = ActorSystem(classOf[SequencerReaderTest].getSimpleName)
-    implicit val materializer = Materializer(actorSystem)
+    implicit val materializer: Materializer = Materializer(actorSystem)
     val store = new InMemorySequencerStore(loggerFactory)
     val instanceIndex: Int = 0
     // create a spy so we can add verifications on how many times methods were called
@@ -126,11 +126,11 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
       loggerFactory,
     )
     val defaultTimeout = 20.seconds
-    implicit val closeContext = CloseContext(reader)
+    implicit val closeContext: CloseContext = CloseContext(reader)
 
     def ts(epochSeconds: Int): CantonTimestamp = CantonTimestamp.ofEpochSecond(epochSeconds.toLong)
 
-    /** Can be used at most once per environment because [[pekko.stream.scaladsl.FlowOps.take]]
+    /** Can be used at most once per environment because [[akka.stream.scaladsl.FlowOps.take]]
       * cancels the pre-materialized [[ManualEventSignaller.source]].
       */
     def readAsSeq(

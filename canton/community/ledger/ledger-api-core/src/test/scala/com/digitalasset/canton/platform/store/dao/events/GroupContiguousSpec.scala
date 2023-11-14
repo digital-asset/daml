@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import akka.stream.scaladsl.{Sink, Source}
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -15,7 +15,7 @@ final class GroupContiguousSpec
     with Matchers
     with ScalaCheckPropertyChecks
     with ScalaFutures
-    with PekkoBeforeAndAfterAll {
+    with AkkaBeforeAndAfterAll {
   import TransactionsReader.groupContiguous
 
   behavior of "groupContiguous"
@@ -23,7 +23,7 @@ final class GroupContiguousSpec
   override def spanScaleFactor: Double = 10 // Give some extra slack on CI
 
   it should "be equivalent to grouping on inputs with an ordered key" in forAll {
-    pairs: List[(Int, String)] =>
+    (pairs: List[(Int, String)]) =>
       val sortedPairs = pairs.sortBy(_._1)
       val grouped = groupContiguous(Source(sortedPairs))(by = _._1)
       whenReady(grouped.runWith(Sink.seq[Vector[(Int, String)]])) {

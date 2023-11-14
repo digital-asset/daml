@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.platform.apiserver.configuration
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.event.NoLogging
-import org.apache.pekko.stream.scaladsl.Source
-import org.apache.pekko.testkit.ExplicitlyTriggeredScheduler
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import akka.NotUsed
+import akka.event.NoLogging
+import akka.stream.scaladsl.Source
+import akka.testkit.ExplicitlyTriggeredScheduler
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref
 import com.daml.timer.Delayed
@@ -30,11 +30,11 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
     extends AsyncWordSpec
     with Eventually
     with Inside
-    with PekkoBeforeAndAfterAll
+    with AkkaBeforeAndAfterAll
     with BaseTest {
 
   private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
-  private implicit val loggingContext =
+  private implicit val loggingContext: LoggingContextWithTrace =
     LoggingContextWithTrace.ForTesting
 
   override implicit def patienceConfig: PatienceConfig =

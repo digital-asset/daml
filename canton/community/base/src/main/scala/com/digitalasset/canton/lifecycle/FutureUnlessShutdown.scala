@@ -197,7 +197,7 @@ object FutureUnlessShutdownImpl {
     def recover[U >: A](
         pf: PartialFunction[Throwable, UnlessShutdown[U]]
     )(implicit executor: ExecutionContext): FutureUnlessShutdown[U] =
-      transform[U] { value: Try[UnlessShutdown[A]] =>
+      transform[U] { (value: Try[UnlessShutdown[A]]) =>
         value recover pf
       }
   }

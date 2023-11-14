@@ -197,7 +197,7 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
             )
           ).map(e => Traced(e)(traceContext))
         ),
-        expectedMessages map { error => logEntry: LogEntry =>
+        expectedMessages map { error => (logEntry: LogEntry) =>
           logEntry.errorMessage should include(error)
         }: _*
       )
@@ -322,7 +322,7 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
   private def responseAggregation(requestId: RequestId): Future[ResponseAggregation[?]] = {
     val mockTopologySnapshot = mock[TopologySnapshot]
     when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])).thenAnswer {
-      parties: Set[LfPartyId] => Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
+      (parties: Set[LfPartyId]) => Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
     }
     ResponseAggregation.fromRequest(
       requestId,

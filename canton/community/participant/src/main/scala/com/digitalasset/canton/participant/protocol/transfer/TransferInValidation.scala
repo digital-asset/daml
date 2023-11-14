@@ -255,7 +255,7 @@ object TransferInValidation {
       sourceProtocolVersion: SourceProtocolVersion,
       targetProtocolVersion: TargetProtocolVersion,
   ): Boolean =
-    // TODO(#12373) Review the question above when releasing BFT
+    // TODO(#15179) Review the question above when releasing BFT
     sourceProtocolVersion.v < ProtocolVersion.CNTestNet && targetProtocolVersion.v >= ProtocolVersion.CNTestNet
 
   final case class TransferInValidationResult(confirmingParties: Set[LfPartyId])

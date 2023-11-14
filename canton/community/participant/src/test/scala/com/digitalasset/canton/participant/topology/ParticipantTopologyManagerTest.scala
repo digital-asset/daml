@@ -14,6 +14,7 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 
+// TODO(#15303) Remove this test
 class ParticipantTopologyManagerTest extends TopologyManagerTest {
 
   "participant topology state manager" should {

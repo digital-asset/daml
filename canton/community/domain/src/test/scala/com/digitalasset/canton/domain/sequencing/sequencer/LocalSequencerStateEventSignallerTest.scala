@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, SinkQueueWithCancel}
+import akka.stream.scaladsl.{Keep, Sink, SinkQueueWithCancel}
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerMemberId
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.topology.{Member, ParticipantId}
-import com.digitalasset.canton.util.PekkoUtil
+import com.digitalasset.canton.util.AkkaUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.FixtureAsyncWordSpec
@@ -35,7 +35,7 @@ class LocalSequencerStateEventSignallerTest
     override val timeouts = LocalSequencerStateEventSignallerTest.this.timeouts
     protected override val loggerFactory = LocalSequencerStateEventSignallerTest.this.loggerFactory
     implicit val actorSystem =
-      PekkoUtil.createActorSystem(loggerFactory.threadName)(parallelExecutionContext)
+      AkkaUtil.createActorSystem(loggerFactory.threadName)(parallelExecutionContext)
 
     val nextTimestampSecond = new AtomicLong(0L)
     def generateTimestamp(): CantonTimestamp =
@@ -80,14 +80,14 @@ class LocalSequencerStateEventSignallerTest
     import env.*
 
     for {
-      // write a number that will certainly exceed any local buffers the pekko stream operators may have
+      // write a number that will certainly exceed any local buffers the akka stream operators may have
       // the test here is just checking it doesn't deadlock
       _ <- (0 until 3001).toList.parTraverse(_ =>
         signaller.notifyOfLocalWrite(WriteNotification.Members(SortedSet(aliceId)))
       )
       // regardless of all of the prior events that were pummeled only a single signal is produced when subscribed
       // what's past is prologue
-      aliceSignals <- PekkoUtil.runSupervised(
+      aliceSignals <- AkkaUtil.runSupervised(
         logger.error("writer updates", _),
         signaller
           .readSignalsForMember(alice, aliceId)

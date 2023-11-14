@@ -28,7 +28,7 @@ import scala.language.implicitConversions
 
 trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSpec =>
 
-  implicit val lc = LoggingContextWithTrace.ForTesting
+  implicit val lc: LoggingContextWithTrace = LoggingContextWithTrace.ForTesting
 
   private implicit def toParty(s: String): Party =
     Party.assertFromString(s)

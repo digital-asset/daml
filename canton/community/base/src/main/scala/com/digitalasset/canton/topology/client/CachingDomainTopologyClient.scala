@@ -69,7 +69,7 @@ sealed abstract class BaseCachingDomainTopologyClient(
 
   private val pointwise = cachingConfigs.topologySnapshot
     .buildScaffeine()
-    .build[CantonTimestamp, CachingTopologySnapshot] { ts: CantonTimestamp =>
+    .build[CantonTimestamp, CachingTopologySnapshot] { (ts: CantonTimestamp) =>
       new CachingTopologySnapshot(
         parent.trySnapshot(ts)(TraceContext.empty),
         cachingConfigs,

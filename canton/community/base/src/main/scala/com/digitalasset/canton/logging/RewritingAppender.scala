@@ -85,7 +85,6 @@ class RewritingAppender()
     override def getThrowableProxy: IThrowableProxy = event.getThrowableProxy
     override def getCallerData: Array[StackTraceElement] = event.getCallerData
     override def hasCallerData: Boolean = event.hasCallerData
-    override def getMarker: Marker = event.getMarker
     override def getMDCPropertyMap: util.Map[String, String] = event.getMDCPropertyMap
     override def getMdc: util.Map[String, String] = throw new NotImplementedError(
       "deprecated method"

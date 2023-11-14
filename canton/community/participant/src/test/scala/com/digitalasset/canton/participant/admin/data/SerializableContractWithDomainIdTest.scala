@@ -12,6 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.util.Base64
 
 // TODO(i14441): Remove deprecated ACS download / upload functionality
+@deprecated("Use ActiveContract", since = "2.8.0")
 final class SerializableContractWithDomainIdTest
     extends AnyWordSpec
     with Matchers

@@ -17,7 +17,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 class LfGenerator extends AnyWordSpec with BaseTest with ScalaCheckDrivenPropertyChecks {
 
-  implicit lazy val txArbitrary = Arbitrary(LfGenerator.transactionGen(4))
+  implicit lazy val txArbitrary: Arbitrary[LfTransaction] = Arbitrary(LfGenerator.transactionGen(4))
 
   "LfGenerator" must {
     "produce well-formed transactions" in {

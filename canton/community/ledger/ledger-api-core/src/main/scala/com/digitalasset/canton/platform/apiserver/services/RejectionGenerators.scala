@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.error.{ContextualizedErrorLogger, DamlError}
+import com.daml.lf.data.Time
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import com.daml.lf.engine.Error as LfError
 import com.daml.lf.interpretation.Error as LfInterpretationError
@@ -13,12 +14,18 @@ import com.digitalasset.canton.ledger.error.groups.{
   ConsistencyErrors,
   RequestValidationErrors,
 }
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 
 sealed abstract class ErrorCause extends Product with Serializable
 
 object ErrorCause {
   final case class DamlLf(error: LfError) extends ErrorCause
   final case class LedgerTime(retries: Int) extends ErrorCause
+
+  final case class InterpretationTimeExceeded(
+      ledgerEffectiveTime: Time.Timestamp, // the Ledger Effective Time of the submitted command
+      tolerance: NonNegativeFiniteDuration,
+  ) extends ErrorCause
 }
 
 object RejectionGenerators {
@@ -164,9 +171,13 @@ object RejectionGenerators {
 
     cause match {
       case ErrorCause.DamlLf(error) => processLfError(error)
-      case x: ErrorCause.LedgerTime =>
+      case ErrorCause.LedgerTime(retries) =>
         CommandExecutionErrors.FailedToDetermineLedgerTime
-          .Reject(s"Could not find a suitable ledger time after ${x.retries} retries")
+          .Reject(s"Could not find a suitable ledger time after $retries retries")
+      case ErrorCause.InterpretationTimeExceeded(let, tolerance) =>
+        CommandExecutionErrors.TimeExceeded.Reject(
+          s"Interpretation time exceeds limit of Ledger Effective Time ($let) + tolerance ($tolerance)"
+        )
     }
   }
 }

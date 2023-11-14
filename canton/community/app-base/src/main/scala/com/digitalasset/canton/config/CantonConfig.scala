@@ -8,7 +8,7 @@ package com.digitalasset.canton.config
 // SOME OF THE IMPLICIT IMPORTS NECESSARY TO COMPILE
 ////////////////////////////////////////////////////////
 
-import org.apache.pekko.stream.ThrottleMode
+import akka.stream.ThrottleMode
 import cats.Order
 import cats.data.Validated
 import cats.syntax.either.*
@@ -449,6 +449,7 @@ trait CantonConfig {
         excludeInfrastructureTransactions = participantParameters.excludeInfrastructureTransactions,
         enableEngineStackTrace = participantParameters.enableEngineStackTraces,
         enableContractUpgrading = participantParameters.enableContractUpgrading,
+        iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
       )
     }
 

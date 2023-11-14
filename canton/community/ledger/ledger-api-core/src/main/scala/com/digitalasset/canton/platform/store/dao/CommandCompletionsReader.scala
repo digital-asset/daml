@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
+import akka.NotUsed
+import akka.stream.scaladsl.Source
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -70,7 +70,7 @@ private[dao] final class CommandCompletionsReader(
           val lastOffset = offsetFor(previousCompletion)
           initialRange.copy(startExclusive = lastOffset)
         },
-      ) { subRange: QueryRange[Offset] =>
+      ) { (subRange: QueryRange[Offset]) =>
         dispatcher.executeSql(metrics.daml.index.db.getCompletions)(pruneSafeQuery(subRange))
       }
     source.map(response => offsetFor(response) -> response)

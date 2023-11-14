@@ -52,7 +52,7 @@ object ReplayAction {
       sendTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.tryOfSeconds(20),
       private val transportP: Promise[ReplayingSendsSequencerClientTransport] =
         Promise[ReplayingSendsSequencerClientTransport](),
-      usePekko: Boolean = false,
+      useAkka: Boolean = false,
   ) extends ReplayAction {
 
     /** Used by the transport to notify a test that the transport is ready */

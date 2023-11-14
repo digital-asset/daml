@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
+import akka.actor.ActorSystem
+import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtTimestampLeeway
@@ -26,8 +26,11 @@ import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
-import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
+import com.digitalasset.canton.platform.apiserver.execution.{
+  AuthorityResolver,
+  DynamicDomainParameterGetter,
+}
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
@@ -96,6 +99,7 @@ object ApiServiceOwner {
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
       authenticateContract: AuthenticateContract,
+      dynParamGetter: DynamicDomainParameterGetter,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -110,7 +114,7 @@ object ApiServiceOwner {
       userManagementStore,
       servicesExecutionContext,
       userRightsCheckIntervalInSeconds = userManagement.cacheExpiryAfterWriteInSeconds,
-      pekkoScheduler = actorSystem.scheduler,
+      akkaScheduler = actorSystem.scheduler,
       jwtTimestampLeeway = jwtTimestampLeeway,
       telemetry = telemetry,
       loggerFactory = loggerFactory,
@@ -163,6 +167,7 @@ object ApiServiceOwner {
         multiDomainEnabled = multiDomainEnabled,
         upgradingEnabled = upgradingEnabled,
         authenticateContract = authenticateContract,
+        dynParamGetter = dynParamGetter,
       )(materializer, executionSequencerFactory, tracer)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(

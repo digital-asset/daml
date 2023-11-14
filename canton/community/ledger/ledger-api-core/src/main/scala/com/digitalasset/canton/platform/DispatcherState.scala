@@ -14,7 +14,7 @@ import com.digitalasset.canton.platform.DispatcherState.{
   DispatcherRunning,
   DispatcherStateShutdown,
 }
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.Dispatcher
+import com.digitalasset.canton.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.StatusRuntimeException
 

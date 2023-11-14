@@ -3,16 +3,16 @@
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.http.scaladsl.model.*
-import org.apache.pekko.http.scaladsl.model.HttpMethods.*
-import org.apache.pekko.http.scaladsl.model.ws.{Message, WebSocketUpgrade}
-import org.apache.pekko.http.scaladsl.server.RouteResult.{Complete, Rejected}
-import org.apache.pekko.http.scaladsl.server.{Rejection, RequestContext, Route, RouteResult}
-import org.apache.pekko.stream.scaladsl.Flow
+import akka.http.scaladsl.model.*
+import akka.http.scaladsl.model.HttpMethods.*
+import akka.http.scaladsl.model.ws.{Message, WebSocketUpgrade}
+import akka.http.scaladsl.server.RouteResult.{Complete, Rejected}
+import akka.http.scaladsl.server.{Rejection, RequestContext, Route, RouteResult}
+import akka.stream.scaladsl.Flow
 import com.digitalasset.canton.http.domain.{ContractKeyStreamRequest, JwtPayload, SearchForeverRequest}
 import com.daml.jwt.domain.Jwt
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.pekkohttp.{MetricLabelsExtractor, WebSocketMetricsInterceptor}
+import com.daml.metrics.akkahttp.{MetricLabelsExtractor, WebSocketMetricsInterceptor}
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.http.EndpointsCompanion.*
 import com.digitalasset.canton.http.metrics.HttpApiMetrics

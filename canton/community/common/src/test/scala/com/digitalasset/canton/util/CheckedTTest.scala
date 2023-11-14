@@ -660,7 +660,7 @@ class CheckedTTest extends AnyWordSpec with BaseTestWordSpec {
 
     "run in constant stack space" in {
       val bound = 1000000
-      val run = Monad[CheckedT[Monad, Int, Int, *]].tailRecM[Int, Int](0) { n: Int =>
+      val run = Monad[CheckedT[Monad, Int, Int, *]].tailRecM[Int, Int](0) { n =>
         if (n < bound) CheckedT.resultT(Left(n + 1)) else CheckedT.resultT(Right(n))
       }
       assert(run == CheckedT.resultT(bound))

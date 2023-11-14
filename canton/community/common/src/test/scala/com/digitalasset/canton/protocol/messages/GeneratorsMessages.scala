@@ -47,13 +47,13 @@ import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContext}
 
 object GeneratorsMessages {
-  import com.digitalasset.canton.topology.GeneratorsTopology.*
-  import com.digitalasset.canton.version.GeneratorsVersion.*
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.GeneratorsLf.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.data.GeneratorsData.*
   import com.digitalasset.canton.protocol.GeneratorsProtocol.*
+  import com.digitalasset.canton.topology.GeneratorsTopology.*
+  import com.digitalasset.canton.version.GeneratorsVersion.*
   import org.scalatest.EitherValues.*
 
   @SuppressWarnings(Array("com.digitalasset.canton.GlobalExecutionContext"))
@@ -61,7 +61,7 @@ object GeneratorsMessages {
    Execution context is needed for crypto operations. Since wiring a proper ec would be
    too complex here, using the global one.
    */
-  private implicit val ec = ExecutionContext.global
+  private implicit val ec: ExecutionContext = ExecutionContext.global
 
   implicit val acsCommitmentArb: Arbitrary[AcsCommitment] = Arbitrary(
     for {
@@ -432,6 +432,20 @@ object GeneratorsMessages {
     domainTopologyTransactionMessageGenFor(pv)
   private def unsignedProtocolMessageV4GenFor(pv: ProtocolVersion): Gen[UnsignedProtocolMessageV4] =
     domainTopologyTransactionMessageGenFor(pv)
+
+  private def UnsignedProtocolMessage(pv: ProtocolVersion): Gen[UnsignedProtocolMessage] =
+    domainTopologyTransactionMessageGenFor(pv)
+
+  // TODO(#14515) Check that the generator is exhaustive
+  // We don't include `protocolMessageV0GenFor` because we don't want
+  // to test EnvelopeContentV0 that uses a legacy converter
+  def protocolMessageGen(pv: ProtocolVersion): Gen[ProtocolMessage] = Gen.oneOf(
+    protocolMessageV1GenFor(pv),
+    protocolMessageV2GenFor(pv),
+    protocolMessageV3GenFor(pv),
+    unsignedProtocolMessageV4GenFor(pv),
+    UnsignedProtocolMessage(pv),
+  )
 
   // TODO(#14515) Check that the generator is exhaustive
   implicit val envelopeContentArb: Arbitrary[EnvelopeContent] = Arbitrary(for {

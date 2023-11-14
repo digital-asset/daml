@@ -175,7 +175,8 @@ final case class RequestId(private val ts: CantonTimestamp) extends PrettyPrinti
 }
 
 object RequestId {
-  implicit val requestIdOrdering: Ordering[RequestId] = Ordering.by[RequestId, CantonTimestamp](_.unwrap)
+  implicit val requestIdOrdering: Ordering[RequestId] =
+    Ordering.by[RequestId, CantonTimestamp](_.unwrap)
   implicit val requestIdOrder: Order[RequestId] = Order.fromOrdering[RequestId]
 
   def fromProtoPrimitive(requestIdP: ProtoTimestamp): ParsingResult[RequestId] =

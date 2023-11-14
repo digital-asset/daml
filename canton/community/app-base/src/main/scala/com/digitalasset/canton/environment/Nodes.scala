@@ -304,7 +304,7 @@ class ManagedNodes[
       storageConfig: StorageConfig,
       params: CantonNodeParameters,
   ): Either[StartupError, Unit] =
-    runIfUsingDatabase[Id](storageConfig) { dbConfig: DbConfig =>
+    runIfUsingDatabase[Id](storageConfig) { dbConfig =>
       val migrations = migrationsFactory.create(dbConfig, name, params.devVersionSupport)
       import TraceContext.Implicits.Empty.*
       logger.info(s"Setting up database schemas for $name")
@@ -340,7 +340,7 @@ class ManagedNodes[
       storageConfig: StorageConfig,
       devVersionSupport: Boolean,
   ): Either[StartupError, Unit] =
-    runIfUsingDatabase[Id](storageConfig) { dbConfig: DbConfig =>
+    runIfUsingDatabase[Id](storageConfig) { dbConfig =>
       migrationsFactory
         .create(dbConfig, name, devVersionSupport)
         .migrateDatabase()
@@ -354,7 +354,7 @@ class ManagedNodes[
       storageConfig: StorageConfig,
       devVersionSupport: Boolean,
   ): Either[StartupError, Unit] =
-    runIfUsingDatabase[Id](storageConfig) { dbConfig: DbConfig =>
+    runIfUsingDatabase[Id](storageConfig) { dbConfig =>
       migrationsFactory
         .create(dbConfig, name, devVersionSupport)
         .repairFlywayMigration()
@@ -391,7 +391,7 @@ class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode, PC <: Local
       config <- configs.get(name).toRight(ConfigurationNotFound(name))
       parameters = parametersFor(name)
       _ = parameters.processingTimeouts.unbounded.await("migrate indexer database") {
-        runIfUsingDatabase[Future](config.storage) { dbConfig: DbConfig =>
+        runIfUsingDatabase[Future](config.storage) { dbConfig =>
           CantonLedgerApiServerWrapper
             .migrateSchema(
               MigrateSchemaConfig(

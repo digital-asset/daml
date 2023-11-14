@@ -320,7 +320,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
 
   private def isForPartyPredicate(forParty: Option[Party]): ComposableQuery.CompositeSql = {
     import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-    forParty.fold(cSQL"IS NULL") { party: Party =>
+    forParty.fold(cSQL"IS NULL") { party =>
       cSQL"= ${party: String}"
     }
   }

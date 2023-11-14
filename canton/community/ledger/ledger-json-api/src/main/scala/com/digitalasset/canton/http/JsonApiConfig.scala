@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.stream.ThrottleMode
+import akka.stream.ThrottleMode
 import com.digitalasset.canton.http.WebsocketConfig as WSC
 import scalaz.Show
 

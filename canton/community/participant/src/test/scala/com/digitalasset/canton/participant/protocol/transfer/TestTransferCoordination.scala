@@ -46,7 +46,7 @@ private[transfer] object TestTransferCoordination {
 
     val transferStores =
       domains.map(domain => domain -> new InMemoryTransferStore(domain, loggerFactory)).toMap
-    val transferInBySubmission = { _: DomainId => None }
+    val transferInBySubmission = { (_: DomainId) => None }
     val protocolVersionGetter = (_: Traced[DomainId]) =>
       Future.successful(Some(BaseTest.testedProtocolVersion))
 

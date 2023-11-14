@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import org.apache.pekko.stream.Materializer
+import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -115,6 +115,7 @@ object ApiServices {
       val loggerFactory: NamedLoggerFactory,
       multiDomainEnabled: Boolean,
       upgradingEnabled: Boolean,
+      dynParamGetter: DynamicDomainParameterGetter,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -395,6 +396,8 @@ object ApiServices {
               authenticateContract,
               metrics,
               loggerFactory,
+              dynParamGetter,
+              timeProvider,
             ),
             new ResolveMaximumLedgerTime(maximumLedgerTimeService, loggerFactory),
             maxRetries = 3,

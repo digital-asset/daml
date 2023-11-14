@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.indexer.ha
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.KillSwitches
-import org.apache.pekko.stream.scaladsl.Source
+import akka.NotUsed
+import akka.stream.KillSwitches
+import akka.stream.scaladsl.Source
 import cats.syntax.bifunctor.toBifunctorOps
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref

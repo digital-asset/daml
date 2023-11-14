@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.util
 
-import org.apache.pekko.Done
-import org.apache.pekko.stream.QueueOfferResult.Enqueued
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
-import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import org.apache.pekko.stream.testkit.scaladsl.{TestSink, TestSource}
-import org.apache.pekko.stream.testkit.{StreamSpec, TestPublisher}
-import org.apache.pekko.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
+import akka.Done
+import akka.stream.QueueOfferResult.Enqueued
+import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import akka.stream.testkit.scaladsl.{TestSink, TestSource}
+import akka.stream.testkit.{StreamSpec, TestPublisher}
+import akka.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances, PrettyPrinting}
@@ -28,14 +28,14 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
-  import PekkoUtilTest.*
+  import AkkaUtilTest.*
 
-  // Override the implicit from PekkoSpec so that we don't get ambiguous implicits
+  // Override the implicit from AkkaSpec so that we don't get ambiguous implicits
   override val patience: PatienceConfig = defaultPatience
 
   private implicit val executionContext: ExecutionContext = system.dispatcher
 
-  private implicit val prettyString = PrettyInstances.prettyString
+  private implicit val prettyString: Pretty[String] = PrettyInstances.prettyString
 
   private type Name = String
   private type Config = Int
@@ -204,7 +204,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
     val secondarySource = secondarySourceRef.get()
     val tertiarySource = tertiarySourceRef.get()
 
-    // Due to Pekko stream's internal batching, there may be more demand than just the requested 1.
+    // Due to Akka stream's internal batching, there may be more demand than just the requested 1.
     primarySource.expectRequest() should be >= (1L)
     secondarySource.expectRequest() should be >= (1L)
     tertiarySource.expectRequest() should be >= (1L)

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.client.services.commands
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Flow
+import akka.NotUsed
+import akka.stream.scaladsl.Flow
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.logging.NamedLoggerFactory

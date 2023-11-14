@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.configuration
 
-import org.apache.pekko.stream.Materializer
+import akka.stream.Materializer
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}

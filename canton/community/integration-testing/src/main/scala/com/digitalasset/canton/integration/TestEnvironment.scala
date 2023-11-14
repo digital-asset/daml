@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.integration
 
-import org.apache.pekko.actor.ActorSystem
+import akka.actor.ActorSystem
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.console.{

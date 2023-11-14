@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.index
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Flow
+import akka.NotUsed
+import akka.stream.scaladsl.Flow
 import cats.implicits.{catsSyntaxSemigroup, toBifunctorOps}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.executors.InstrumentedExecutors
@@ -40,7 +40,7 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Builder of the in-memory state updater Pekko flow.
+/** Builder of the in-memory state updater Akka flow.
   *
   * This flow is attached at the end of the Indexer pipeline,
   * consumes the [[com.digitalasset.canton.ledger.participant.state.v2.Update]]s (that have been ingested by the Indexer
@@ -204,7 +204,7 @@ private[platform] object InMemoryStateUpdater {
       inMemoryState: InMemoryState,
       updates: Vector[Traced[TransactionLogUpdate]],
   ): Unit =
-    updates.foreach { tracedTransaction: Traced[TransactionLogUpdate] =>
+    updates.foreach { tracedTransaction =>
       // TODO(i12283) LLP: Batch update caches
       tracedTransaction.withTraceContext(implicit traceContext =>
         transaction => {

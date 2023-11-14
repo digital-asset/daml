@@ -219,7 +219,7 @@ class DomainTopologyDispatcherTest
           name: String,
           batching: Boolean,
       )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
-        logger.debug(
+        this.logger.debug(
           s"Observed ${transactions.map(_.transaction.element.mapping)}"
         )
         val msg = TopoMsg(transactions, recipients, System.nanoTime())
@@ -227,7 +227,7 @@ class DomainTopologyDispatcherTest
           case (Nil, msgs) => (Nil, msgs :+ msg)
           case (_ :: more, Nil) => (more, Nil)
           case (_, _) =>
-            logger.error("Should not happen observation")
+            this.logger.error("Should not happen observation")
             fail("Should not happen observation")
         } match {
           case (recv :: _, Nil) => recv.trySuccess(msg)

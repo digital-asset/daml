@@ -718,9 +718,9 @@ class TransactionProcessingSteps(
 
     val lens = PLens[
       (WithRecipients[LightTransactionViewTree], Option[Signature]),
-      (WithRecipients[TransactionViewTree], Option[Signature]),
+      (WithRecipients[FullTransactionViewTree], Option[Signature]),
       LightTransactionViewTree,
-      TransactionViewTree,
+      FullTransactionViewTree,
     ](_._1.unwrap)(tvt => { case (WithRecipients(_, rec), sig) =>
       (WithRecipients(tvt, rec), sig)
     })
@@ -1591,7 +1591,7 @@ object TransactionProcessingSteps {
 
   final case class EnrichedTransaction(
       policy: ConfirmationPolicy,
-      rootViewTreesWithSignatures: NonEmpty[Seq[(TransactionViewTree, Option[Signature])]],
+      rootViewTreesWithSignatures: NonEmpty[Seq[(FullTransactionViewTree, Option[Signature])]],
       usedAndCreated: UsedAndCreated,
       workflowIdO: Option[WorkflowId],
       submitterMetadataO: Option[SubmitterMetadata],
@@ -1637,7 +1637,7 @@ object TransactionProcessingSteps {
 
   /** @throws java.lang.IllegalArgumentException if `receivedViewTrees` contains views with different transaction root hashes
     */
-  def tryCommonData(receivedViewTrees: NonEmpty[Seq[TransactionViewTree]]): CommonData = {
+  def tryCommonData(receivedViewTrees: NonEmpty[Seq[FullTransactionViewTree]]): CommonData = {
     val distinctCommonData = receivedViewTrees
       .map(v => CommonData(v.transactionId, v.ledgerTime, v.submissionTime, v.confirmationPolicy))
       .distinct

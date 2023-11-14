@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import akka.NotUsed
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimestampConversion
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v2.transaction.Transaction
@@ -607,7 +607,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           readOffsets should ===(matchingOffsets)
         } catch {
           case ae: org.scalatest.exceptions.TestFailedException =>
-            throw ae modifyMessage (_ map { msg: String =>
+            throw ae modifyMessage (_ map { msg =>
               msg +
                 "\n  Random parameters:" +
                 s"\n    actual frequency: ${boolSeq.count(identity)}/${boolSeq.size}" +

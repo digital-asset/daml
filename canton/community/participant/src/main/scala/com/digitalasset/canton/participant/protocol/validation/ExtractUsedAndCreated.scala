@@ -308,7 +308,7 @@ private[validation] class ExtractUsedAndCreated(
     )
   }
 
-  /** For [[com.digitalasset.canton.data.TransactionViewTree]]s produced by
+  /** For [[com.digitalasset.canton.data.FullTransactionViewTree]]s produced by
     * com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactoryImplV2
     */
   private def extractInputAndUpdatedKeysV2(
@@ -465,7 +465,7 @@ private[validation] class ExtractUsedAndCreated(
     )
   }
 
-  /** For [[com.digitalasset.canton.data.TransactionViewTree]]s produced by
+  /** For [[com.digitalasset.canton.data.FullTransactionViewTree]]s produced by
     * [[com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactoryImplV3]]
     */
   private def extractInputAndUpdatedKeysV3(

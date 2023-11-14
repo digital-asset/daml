@@ -304,7 +304,8 @@ final case class DynamicDomainParametersV1(
       protocolVersion: ProtocolVersion
   ): Either[String, DomainParametersChangeAuthorization.Parameters] = {
     val protoV = protoVersion(protocolVersion)
-    // TODO(#12373) Adapt when releasing BFT
+    // TODO(#15152) Adapt when support for pv < 6 is dropped
+    // TODO(#15153) Adapt when support for pv=6 is dropped
     if (protoV == 1 || protoV == 2)
       Right(
         protocolV1.DynamicDomainParameters(
@@ -342,7 +343,8 @@ object DynamicDomainParameters {
 
     if (protoVersion == 0)
       Right(domain.transformInto[DynamicDomainParametersV0])
-    // TODO(#12373) Adapt when releasing BFT
+    // TODO(#15152) Adapt when support for pv < 6 is dropped
+    // TODO(#15153) Adapt when support for pv=6 is dropped
     else if (protoVersion == 1 || protoVersion == 2)
       Right(domain.transformInto[DynamicDomainParametersV1])
     else

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import org.apache.pekko.actor.{Cancellable, Scheduler}
+import akka.actor.{Cancellable, Scheduler}
 import com.daml.clock.AdjustableClock
 import com.daml.error.ErrorsAssertions
 import com.daml.jwt.JwtTimestampLeeway
@@ -33,7 +33,7 @@ class OngoingAuthorizationObserverSpec
     with ArgumentMatchersSugar
     with ErrorsAssertions {
 
-  private implicit val errorLogger = ErrorLoggingContext(
+  private implicit val errorLogger: ErrorLoggingContext = ErrorLoggingContext(
     loggerFactory.getTracedLogger(getClass),
     loggerFactory.properties,
     traceContext,
@@ -64,7 +64,7 @@ class OngoingAuthorizationObserverSpec
       userManagementStore = mock[UserManagementStore],
       // This is also the user rights state refresh timeout
       userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
-      pekkoScheduler = mockScheduler,
+      akkaScheduler = mockScheduler,
       loggerFactory = loggerFactory,
     )(executionContext, traceContext)
 
@@ -125,7 +125,7 @@ class OngoingAuthorizationObserverSpec
       nowF = () => clock.instant,
       userManagementStore = mock[UserManagementStore],
       userRightsCheckIntervalInSeconds = 10,
-      pekkoScheduler = mockScheduler,
+      akkaScheduler = mockScheduler,
       // defined default leeway of 1 second for authorization
       jwtTimestampLeeway = Some(JwtTimestampLeeway(default = Some(1))),
       loggerFactory = loggerFactory,
@@ -169,7 +169,7 @@ class OngoingAuthorizationObserverSpec
       nowF = () => clock.instant,
       userManagementStore = mock[UserManagementStore],
       userRightsCheckIntervalInSeconds = 10,
-      pekkoScheduler = mockScheduler,
+      akkaScheduler = mockScheduler,
       jwtTimestampLeeway = Some(JwtTimestampLeeway(default = Some(1))),
       loggerFactory = loggerFactory,
     )(executionContext, traceContext)

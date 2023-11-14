@@ -55,7 +55,7 @@ class GrpcTelemetryContextPropagationTest
 
   class Env {
     val telemetry = new TestTelemetrySetup()
-    implicit val tracer = telemetry.tracer
+    implicit val tracer: Tracer = telemetry.tracer
     val grpc = new CantonGrpcUtilTest.Env(new MyHelloService(), logger)(parallelExecutionContext)
 
     def close(): Unit = {

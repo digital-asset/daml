@@ -120,7 +120,6 @@ object TransferInViewTree
     )((commonData, view) => new TransferInViewTree(commonData, view)(hashOps))(transferInViewTreeP)
 }
 
-// TODO(#12373) replace "protocol version dev" in the documentation for transferCounter
 /** Aggregates the data of a transfer-in request that is sent to the mediator and the involved participants.
   *
   * @param salt Salt for blinding the Merkle hash
@@ -324,6 +323,7 @@ object TransferInCommonData
   }
 }
 
+// TODO(#15159) For transfer counter, remove the note that it is defined iff...
 /** Aggregates the data of a transfer-in request that is only sent to the involved participants
   *
   * @param salt The salt to blind the Merkle hash

@@ -69,6 +69,21 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         )
   }
 
+  @Explanation("This error occurs when the interpretation of a command exceeded the time limit.")
+  @Resolution(
+    "Either restructure your code to reduce complexity, or adjust the Daml time parameters (see Ledger Time Model)."
+  )
+  object TimeExceeded //
+      extends ErrorCode(
+        id = "INTERPRETATION_TIME_EXCEEDED",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+
+    final case class Reject(reason: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(cause = reason)
+  }
+
   @Explanation("Command execution errors raised due to invalid packages.")
   object Package extends ErrorGroup() {
     @Explanation(

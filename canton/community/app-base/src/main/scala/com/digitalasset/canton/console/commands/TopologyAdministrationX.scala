@@ -229,7 +229,7 @@ class TopologyAdministrationGroupX(
             .initialXValues(
               consoleEnvironment.environment.clock,
               ProtocolVersion.CNTestNet,
-            ), // TODO(#12373): Review the PV here
+            ), // TODO(#15358): Use `ProtocolVersion.latest`
           signedBy = thisNodeRootKey,
           store = Some(AuthorizedStore.filterName),
         )

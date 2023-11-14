@@ -234,7 +234,7 @@ object Phase37Synchronizer {
       handle.outcome(pendingData)
     }
     def failed(exception: Throwable): Unit = {
-      handle.failure(exception)
+      handle.tryFailure(exception).discard
     }
     def shutdown(): Unit = {
       handle.shutdown()

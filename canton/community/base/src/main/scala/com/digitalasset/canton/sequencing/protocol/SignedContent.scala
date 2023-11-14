@@ -40,7 +40,7 @@ import scala.math.Ordered.orderingToOrdered
   * @param signatures            Signatures of the content provided by the different sequencers. For protocol versions
   *                              before [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]] must not look at signatures except for the last one.
   */
-// TODO(#12373) Adapt comment regarding PV=CNTestNet when releasing BFT
+// TODO(#15153) Remove comment: remove second sentence of comment about signatures
 final case class SignedContent[+A <: HasCryptographicEvidence] private (
     content: A,
     signatures: NonEmpty[Seq[Signature]],

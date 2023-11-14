@@ -4,11 +4,13 @@
 package com.daml.http.perf
 
 import java.nio.file.{Files, Path}
-import org.apache.pekko.actor.ActorSystem
+import akka.actor.ActorSystem
+import akka.stream.Materializer
 import com.daml.gatling.stats.{SimulationLog, SimulationLogSyntax}
-import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpServiceTestFixture.{withHttpService, withLedger}
 import com.daml.http.perf.scenario.SimulationConfig
+import com.daml.http.util.FutureUtil._
 import com.daml.integrationtest.CantonRunner
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.client.withoutledgerid.LedgerClient
@@ -19,6 +21,7 @@ import io.gatling.core.scenario.Simulation
 import io.gatling.netty.util.Transports
 import io.netty.channel.EventLoopGroup
 import org.scalatest.OptionValues._
+import scalaz.std.string._
 import scalaz.syntax.tag._
 import scalaz.\/
 
@@ -56,8 +59,10 @@ object Main extends StrictLogging {
       bobPartyData: (String, String),
       charliePartyData: (String, String),
   )(implicit
+      sys: ActorSystem,
       ec: ExecutionContext,
-  ): Future[(ExitCode, Option[Path])] = {
+      elg: EventLoopGroup,
+  ): Future[(ExitCode, Path)] = {
 
     import io.gatling.app
     import io.gatling.core.config.GatlingPropertiesBuilder
@@ -80,17 +85,10 @@ object Main extends StrictLogging {
 
     Future
       .fromTry {
-        Try { io.gatling.app.Gatling.fromMap(configBuilder.build) }
+        app.CustomRunner.runWith(sys, elg, configBuilder.build, None)
       }
-      .map { case a =>
-        val code = if (a == app.cli.StatusCode.Success.code) ExitCode.Ok else ExitCode.GatlingError
-        // The second return value is the directory of the gatling run data
-        // which can be used to generate more reports. That's not currently exposed by the
-        // public Gatling API, e.g. Gatling.fromMap, although it's logged to stdout.
-        // We can get at it by using internal Gatling APIs to run the tests, or by capturing stdout.
-        // For now we are avoiding using the internal APIs to avoid the direct pekko deps,
-        // and do not have much need for the extra reports so we hardcode the path as None.
-        (code, None)
+      .map { case (a, f) =>
+        if (a == app.cli.StatusCode.Success.code) (ExitCode.Ok, f) else (ExitCode.GatlingError, f)
       }
   }
 
@@ -108,7 +106,6 @@ object Main extends StrictLogging {
       val summary = x.writeSummaryText(dir)
       logger.info(s"Report\n$summary")
     }
-    logger.info(s"Report directory: ${dir.toAbsolutePath}")
     simulationLog.map(_ => ())
   }
 
@@ -117,8 +114,9 @@ object Main extends StrictLogging {
     val terminationTimeout: FiniteDuration = 30.seconds
 
     implicit val asys: ActorSystem = ActorSystem(name)
+    implicit val mat: Materializer = Materializer(asys)
     implicit val aesf: ExecutionSequencerFactory =
-      new PekkoExecutionSequencerPool(poolName = name, terminationTimeout = terminationTimeout)
+      new AkkaExecutionSequencerPool(poolName = name, terminationTimeout = terminationTimeout)
     implicit val elg: EventLoopGroup = Transports.newEventLoopGroup(true, 0, "gatling")
     implicit val ec: ExecutionContext = asys.dispatcher
 
@@ -162,7 +160,7 @@ object Main extends StrictLogging {
                 alicePartyData <- allocateUserAndJwt(ledger, "Alice")
                 bobPartyData <- allocateUserAndJwt(ledger, "Bob")
                 charliePartyData <- allocateUserAndJwt(ledger, "Charlie")
-                (exitCode, path) <- runGatlingScenario(
+                res <- runGatlingScenario(
                   config,
                   uri.authority.host.address,
                   uri.authority.port,
@@ -170,8 +168,14 @@ object Main extends StrictLogging {
                   bobPartyData,
                   charliePartyData,
                 )
-                _ = path.foreach(generateReport(_))
-              } yield exitCode
+                  .flatMap { case (exitCode, dir) =>
+                    toFuture(generateReport(dir))
+                      .map { _ =>
+                        logger.info(s"Report directory: ${dir.toAbsolutePath}")
+                        exitCode
+                      }
+                  }
+              } yield res
             }
           }
         }

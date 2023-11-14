@@ -56,7 +56,7 @@ final case class CommunityEnvironmentDefinition(
       environment,
       new TestConsoleOutput(loggerFactory),
     ) with TestEnvironment[CommunityEnvironment] {
-      override val actualConfig: CantonCommunityConfig = environment.config
+      override val actualConfig: CantonCommunityConfig = this.environment.config
     }
 }
 

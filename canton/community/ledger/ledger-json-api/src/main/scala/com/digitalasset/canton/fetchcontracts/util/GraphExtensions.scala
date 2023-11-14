@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.fetchcontracts.util
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, Sink}
-import org.apache.pekko.stream.{FanOutShape2, FlowShape, Graph}
+import akka.NotUsed
+import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Sink}
+import akka.stream.{FanOutShape2, FlowShape, Graph}
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.NoTracing
