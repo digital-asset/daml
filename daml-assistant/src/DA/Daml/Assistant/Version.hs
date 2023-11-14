@@ -369,8 +369,8 @@ instance Exception CouldNotResolveVersion where
 resolveReleaseVersion :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
 resolveReleaseVersion _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
 resolveReleaseVersion useCache targetVersion = do
-    resolved <- resolveReleaseVersionFromDamlPath (damlPath useCache) targetVersion
-    case resolved of
+    mbResolved <- resolveReleaseVersionFromDamlPath (damlPath useCache) targetVersion
+    case mbResolved of
       Just resolved -> pure resolved
       Nothing -> do
         let isTargetVersion version =
