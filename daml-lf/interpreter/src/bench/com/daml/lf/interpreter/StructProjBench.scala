@@ -14,11 +14,6 @@ class StructProjBench {
 
   import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 
-  // TODO(#17366): port the bench to LF v2
-  private[this] implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(LanguageMajorVersion.V1)
-  private[this] val defaultPackageId = parserParameters.defaultPackageId
-
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   // log2 of the number of iterations
@@ -34,8 +29,18 @@ class StructProjBench {
   var n: Int = _
   private def N = 1 << n
 
-  // Parsing of this program may require a stack larger that the default one.
-  // 100 MB seems to be fine for m = 12.
+  @Param(Array("1", "2"))
+  var majorLfVersion: String = _
+  private def MAJOR_LF_VERSION = LanguageMajorVersion
+    .fromString(majorLfVersion)
+    .getOrElse(
+      throw new IllegalArgumentException(s"cannot parse major LF version: $majorLfVersion")
+    )
+
+  implicit def parserParameters: ParserParameters[this.type] =
+    ParserParameters.defaultFor(MAJOR_LF_VERSION)
+  private[this] def defaultPackageId = parserParameters.defaultPackageId
+
   private[this] def pkg = {
     p"""
        module Mod {
@@ -57,10 +62,9 @@ class StructProjBench {
   @Setup(Level.Trial)
   def init(): Unit = {
     assert(m >= n)
-    println(s"M = $M, N = $N")
-    // TODO(#17366): port the bench to LF v2
+    println(s"LF = $MAJOR_LF_VERSION, M = $M, N = $N")
     val config = Compiler.Config
-      .Dev(LanguageMajorVersion.V1)
+      .Dev(MAJOR_LF_VERSION)
       .copy(packageValidation = Compiler.NoPackageValidation)
     compiledPackages = PureCompiledPackages.assertBuild(Map(defaultPackageId -> pkg), config)
     sexpr = compiledPackages.compiler.unsafeCompile(e"Mod:bench Mod:struct")
@@ -79,5 +83,4 @@ class StructProjBench {
         throw new UnknownError(otherwise.toString)
     }
   }
-
 }
