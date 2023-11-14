@@ -964,14 +964,7 @@ private[lf] final class Compiler(
       env: Env,
   ): s.SExpr = {
     val env2 = env.bindExprVar(template.param, contractPos)
-
-    checkPreCondition(
-      env2,
-      templateId,
-      env2.toSEVar(contractPos),
-    ) { (env: Env) =>
-      SBUCreate(templateId)(env.toSEVar(contractPos))
-    }
+    SBUCreate(templateId)(env2.toSEVar(contractPos))
   }
 
   private[this] def compileCreate(
