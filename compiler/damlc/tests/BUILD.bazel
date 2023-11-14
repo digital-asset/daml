@@ -200,8 +200,6 @@ da_haskell_library(
             ":integration-lib",
         ],
     )
-    # Test stable versions with validation
-    # Test dev and default versions without validation
     for version in COMPILER_LF_VERSIONS
 ]
 
