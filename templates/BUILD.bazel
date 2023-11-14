@@ -63,6 +63,7 @@ genrule(
         "@daml-finance//:quickstart",
         "@daml-finance//:lifecycling",
         "@daml-finance//:settlement",
+        "@daml-finance//:upgrades",
         "@daml-finance//:payoff-modeling",
     ],
     outs = ["templates-tarball.tar.gz"],
@@ -121,6 +122,10 @@ genrule(
         # daml finance settlement
         mkdir -p $$OUT/finance-settlement
         tar xf $(location @daml-finance//:settlement) -C $$OUT/finance-settlement
+
+        # daml finance upgrades
+        mkdir -p $$OUT/finance-upgrades
+        tar xf $(location @daml-finance//:upgrades) -C $$OUT/finance-upgrades
 
         # daml finance payoff-modeling
         mkdir -p $$OUT/finance-payoff-modeling
