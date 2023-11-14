@@ -222,11 +222,7 @@ command_post_failure_behaviours = {
         ],
         deps = ["@bazel_tools//tools/bash/runfiles"],
     )
-    for command in [
-        "install_from_version",
-        "build_from_version",
-        "install_and_build_from_tarball",
-    ]
+    for command in command_targets.keys()
     for command_target in command_targets[command]
     for version_cache_behaviour in [
         "init_new_cache",
