@@ -38,7 +38,10 @@ class LoggingSSLEngine(delegate: SSLEngine) extends SSLEngine {
   }
 
   override def getDelegatedTask: Runnable = {
-    delegate.getDelegatedTask
+    logger.info("getDelegatedTask start")
+    val res = delegate.getDelegatedTask()
+    logger.info(s"getDelegatedTask end $res")
+    res
   }
 
   override def closeInbound(): Unit = {

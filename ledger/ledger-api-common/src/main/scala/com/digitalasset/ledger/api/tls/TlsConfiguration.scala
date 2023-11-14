@@ -74,6 +74,8 @@ final case class TlsConfiguration(
         TlsInfo.fromSslContext(defaultSslContext)
       }
 
+      logger.info(s"and now the tlsInfo is ${tlsInfo}")
+
       scala.util.Using.resources(
         keyCertChainInputStreamOrFail,
         keyInputStreamOrFail,

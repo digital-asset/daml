@@ -1,0 +1,27 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+)
+load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
+
+da_scala_binary(
+    name = "simple",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    data = ["//test-common/test-certificates"],
+    main_class = "simple.Main",
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+    ],
+    scalacopts = hj_scalacopts,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//language-support/scala/bindings-akka",
+        "//ledger/ledger-api-common",
+        "@maven//:io_netty_netty_buffer",
+    ],
+)

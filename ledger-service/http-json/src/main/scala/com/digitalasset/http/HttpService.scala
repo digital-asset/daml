@@ -271,6 +271,8 @@ object HttpService {
           throw new IllegalArgumentException(s"$config could not be built as a server ssl context")
         )
     val theEngine = sslContext.newEngine(ByteBufAllocator.DEFAULT)
+    theEngine.setUseClientMode(false)
+    theEngine.setWantClientAuth(false)
     ConnectionContext.httpsServer(() => {
       logger.info(s"Wrapping an sslEngine of type ${theEngine.getClass.getName}")
       new LoggingSSLEngine(theEngine)
