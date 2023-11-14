@@ -184,9 +184,8 @@ init_old_cache () {
 
 no_cache_override_github_endpoint () {
   rm $DAML_CACHE/versions.txt || true # don't fail if file doesn't exist
-  export RELEASES_ENDPOINT=releases-endpoint
-  mkdir -p $RELEASES_ENDPOINT
-  cp $1 "$RELEASES_ENDPOINT/releases"
+  mkdir -p releases-endpoint
+  cp $1 "releases-endpoint/releases"
   echo "releases-endpoint: $(realpath releases-endpoint/releases)" >> $DAML_HOME/daml-config.yaml
 }
 
