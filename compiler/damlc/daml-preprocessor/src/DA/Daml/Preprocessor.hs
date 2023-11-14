@@ -426,21 +426,22 @@ warnInternalPackages = fmap (bimap LF.PackageName GHC.mkModuleName)
   [ ("daml3-script", "Daml.Script")
   ]
 
-splitModuleName :: GHC.ModuleName -> [String]
-splitModuleName = splitWhen (=='.') . GHC.moduleNameString
-
 -- | Check imports of internal modules of packages in warnInternalPackages given warnings
 checkCustomInternalImports :: GHC.ParsedSource -> Maybe LF.PackageName -> [(GHC.SrcSpan, String)]
 checkCustomInternalImports ps mOwnPkgName = do
-  GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc ps
-  let splitM = splitModuleName m
-  guard $ "Internal" `elem` splitM
-  (pkgName, pkgModuleSpace) <- warnInternalPackages
-  guard $ splitModuleName pkgModuleSpace `isPrefixOf` splitM
-  guard $ mOwnPkgName /= Just pkgName
+    GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc ps
+    let splitM = splitModuleName m
+    guard $ "Internal" `elem` splitM
 
-  let pkgNameStr = T.unpack $ LF.unPackageName pkgName
-  pure (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " of package " ++ pkgNameStr ++ " is discouraged, as this module will change without warning.")
+    (pkgName, pkgModuleSpace) <- warnInternalPackages
+    guard $ splitModuleName pkgModuleSpace `isPrefixOf` splitM
+    guard $ mOwnPkgName /= Just pkgName
+
+    let pkgNameStr = T.unpack $ LF.unPackageName pkgName
+    pure (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " of package " ++ pkgNameStr ++ " is discouraged, as this module will change without warning.")
+  where
+    splitModuleName :: GHC.ModuleName -> [String]
+    splitModuleName = splitWhen (=='.') . GHC.moduleNameString
 
 -- | Issue #6788: Rewrite multi-binding let expressions,
 --
