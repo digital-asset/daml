@@ -14,7 +14,10 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 class MultiParticipantITV1 extends MultiParticipantIT(LanguageMajorVersion.V1)
-class MultiParticipantITV2 extends MultiParticipantIT(LanguageMajorVersion.V2)
+
+// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
+//  at the bazel target level.
+//class MultiParticipantITV2 extends MultiParticipantIT(LanguageMajorVersion.V2)
 
 class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec
