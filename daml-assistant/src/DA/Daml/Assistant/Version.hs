@@ -108,7 +108,6 @@ getSdkVersionFromProjectPath useCache projectPath =
         configE <- tryConfig $ readProjectConfig projectPath
         case releaseVersionFromProjectConfig =<< configE of
             Right (Just v) ->
-                -- TODO: resolve full release version
                 resolveReleaseVersion useCache v
             Left (ConfigFileInvalid _ raw) ->
                 throwIO $ assistantErrorDetails
