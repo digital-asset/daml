@@ -13,7 +13,8 @@ import com.daml.bazeltools.BazelRunfiles.requiredResource
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class SimulationLogSpec extends AnyFlatSpec with Matchers with TypeCheckedTripleEquals {
 
-  private val simulationLog = "libs-scala/gatling-utils/src/test/resources/simulation-log"
+  private val simulationLog =
+    "ledger-service/http-json-perf/gatling-utils/src/test/resources/simulation-log"
 
   behavior of "SimulationLog"
 
