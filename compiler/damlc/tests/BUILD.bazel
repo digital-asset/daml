@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_compile_with_dalf", "daml_test")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_configuration", "lf_version_latest")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_configuration", "lf_version_latest", "mangle_for_damlc")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # Tests for the lax CLI parser
@@ -169,7 +169,7 @@ da_haskell_library(
     da_haskell_test(
         # NOTE(MH): For some reason, ghc-pkg gets very unhappy if we separate
         # the components of the version number by dot, dash or underscore.
-        name = "integration-v{}".format(version.replace(".", "")),
+        name = "integration-{}".format(mangle_for_damlc(version)),
         size = "large",
         srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
         args = [
