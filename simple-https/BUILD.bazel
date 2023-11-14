@@ -18,6 +18,10 @@ da_scala_binary(
     ],
     scalacopts = hj_scalacopts,
     visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:org_bouncycastle_bcpkix_jdk15on",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
+    ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//language-support/scala/bindings-akka",
