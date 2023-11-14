@@ -449,7 +449,7 @@ instance Exception GithubReleaseError where
 resolveReleaseVersionFromGithub :: UnresolvedReleaseVersion -> IO (Either GithubReleaseError ReleaseVersion)
 resolveReleaseVersionFromGithub unresolvedVersion = do
   let tag = T.unpack (rawVersionToTextWithV (unwrapUnresolvedReleaseVersion unresolvedVersion))
-  let url = "https://api.github.com/repos/digital-asset/daml/releases/tags/" <> tag
+      url = "https://api.github.com/repos/digital-asset/daml/releases/tags/" <> tag
   req <- parseRequest url
   res <- httpJSON $ setRequestHeaders [("User-Agent", "request")] req
   pure $
