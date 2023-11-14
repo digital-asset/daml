@@ -51,8 +51,7 @@ grpc_version = "1.59.0"
 protobuf_version = "3.24.0"
 pekko_version = "1.0.1"
 pekko_http_version = "1.0.0"
-
-#gatling_version = "3.5.1"
+gatling_version = "3.5.1"
 guava_version = "31.1-jre"
 
 # observability libs
@@ -143,14 +142,14 @@ def install_java_deps():
             "io.dropwizard.metrics:metrics-core:{}".format(dropwizard_version),
             "io.dropwizard.metrics:metrics-jmx:{}".format(dropwizard_version),
             "io.dropwizard.metrics:metrics-jvm:{}".format(dropwizard_version),
-            #            "io.gatling.highcharts:gatling-charts-highcharts:{}".format(gatling_version),
-            #            "io.gatling:gatling-app:{}".format(gatling_version),
-            #            "io.gatling:gatling-charts:{}".format(gatling_version),
-            #            "io.gatling:gatling-commons:{}".format(gatling_version),
-            #            "io.gatling:gatling-core:{}".format(gatling_version),
-            #            "io.gatling:gatling-http-client:{}".format(gatling_version),
-            #            "io.gatling:gatling-http:{}".format(gatling_version),
-            #            "io.gatling:gatling-recorder:{}".format(gatling_version),
+            "io.gatling.highcharts:gatling-charts-highcharts:{}".format(gatling_version),
+            "io.gatling:gatling-app:{}".format(gatling_version),
+            "io.gatling:gatling-charts:{}".format(gatling_version),
+            "io.gatling:gatling-commons:{}".format(gatling_version),
+            "io.gatling:gatling-core:{}".format(gatling_version),
+            "io.gatling:gatling-http-client:{}".format(gatling_version),
+            "io.gatling:gatling-http:{}".format(gatling_version),
+            "io.gatling:gatling-recorder:{}".format(gatling_version),
             "io.get-coursier:interface:0.0.21",
             "io.github.paoloboni:spray-json-derived-codecs_{}:2.3.10".format(scala_major_version),
             "io.grpc:grpc-api:{}".format(grpc_version),
