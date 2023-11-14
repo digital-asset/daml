@@ -161,8 +161,8 @@ parseSdkVersion src =
 -- This is unsafe because it converts a version straight into an
 -- OldReleaseVersion without checking that release and sdk version are actually
 -- the same for this release.
-unsafeParseReleaseVersion :: Text -> Either InvalidVersion ReleaseVersion
-unsafeParseReleaseVersion src = do
+unsafeParseOldReleaseVersion :: Text -> Either InvalidVersion ReleaseVersion
+unsafeParseOldReleaseVersion src = do
     case V.fromText src of
         Left msg -> Left (InvalidVersion src msg)
         Right v -> Right (OldReleaseVersion v)

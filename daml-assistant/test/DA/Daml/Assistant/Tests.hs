@@ -306,7 +306,7 @@ testGetDispatchEnv :: Tasty.TestTree
 testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
     [ Tasty.testCase "getDispatchEnv should be idempotent" $ do
         withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
-            version <- requiredE "testGetDispatchEnv: expected a valid version" $ unsafeParseReleaseVersion "1.0.1"
+            version <- requiredE "testGetDispatchEnv: expected a valid version" $ unsafeParseOldReleaseVersion "1.0.1"
             let cachePath = CachePath (base </> ".cache")
             createDirectoryIfMissing True (unwrapCachePath cachePath)
             writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") "1.0.1"
@@ -326,7 +326,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
 
     , Tasty.testCase "getDispatchEnv should override getDamlEnv" $ do
         withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
-            version <- requiredE "testGetDispatchEnv: expected a valid version" $ unsafeParseReleaseVersion "1.0.1"
+            version <- requiredE "testGetDispatchEnv: expected a valid version" $ unsafeParseOldReleaseVersion "1.0.1"
             let cachePath = CachePath (base </> ".cache")
             createDirectoryIfMissing True (unwrapCachePath cachePath)
             writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") "1.0.1"
