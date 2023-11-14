@@ -169,17 +169,12 @@ da_haskell_library(
     da_haskell_test(
         # NOTE(MH): For some reason, ghc-pkg gets very unhappy if we separate
         # the components of the version number by dot, dash or underscore.
-        name = "integration{skip}-v{version}".format(
-            skip = "-unvalidated" if skip_validation else "",
-            version = version.replace(".", ""),
-        ),
+        name = "integration-v{}".format(version.replace(".", "")),
         size = "large",
         srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
         args = [
             "--daml-lf-version",
             version,
-            "--skip-validation",
-            "true" if skip_validation else "false",
             "--daml-script-v2",
             "false",
         ],
@@ -207,10 +202,7 @@ da_haskell_library(
     )
     # Test stable versions with validation
     # Test dev and default versions without validation
-    for version, skip_validation in (
-        [(version, False) for version in COMPILER_LF_VERSIONS] +
-        [(version, True) for version in [lf_version_configuration.get("default")] + LF_DEV_VERSIONS]
-    )
+    for version in COMPILER_LF_VERSIONS
 ]
 
 da_haskell_test(
@@ -220,8 +212,6 @@ da_haskell_test(
     args = [
         "--daml-lf-version",
         "2.dev",  # script2 only supports 2.x
-        "--skip-validation",
-        "false",
         "--daml-script-v2",
         "true",
     ],
