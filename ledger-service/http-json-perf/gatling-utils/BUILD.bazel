@@ -24,7 +24,7 @@ da_scala_library(
     ],
     scalacopts = scalacopts,
     tags = ["maven_coordinates=com.daml:gatling-utils:__VERSION__"],
-    visibility = ["//visibility:public"],
+    visibility = ["//ledger-service/http-json-perf:__subpackages__"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
