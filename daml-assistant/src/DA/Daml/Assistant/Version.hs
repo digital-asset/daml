@@ -51,6 +51,7 @@ import Network.HTTP.Client
     )
 
 import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.UTF8 as BSU
 import qualified Data.SemVer as V
@@ -253,7 +254,19 @@ getAvailableSdkSnapshotVersionsUncached damlPath = do
           case queryDamlConfig ["releases-endpoint"] =<< damlConfigE of
             Right (Just url) -> url
             _ -> "https://api.github.com/repos/digital-asset/daml/releases"
-  requestReleasesSnapshotsList releasesEndpoint
+  case parseRequest releasesEndpoint of
+    Just _ -> requestReleasesSnapshotsList releasesEndpoint
+    Nothing -> do
+        endpointContent <-
+            requiredAny ("Cannot read releases from releases-endpoint file specified in daml-config.yaml: " <> pack releasesEndpoint)
+              (BS.readFile releasesEndpoint)
+        pure SnapshotsList
+          { versions =
+            fromRightM
+              (throwIO . assistantErrorBecause ("Snapshot versions list from " <> pack releasesEndpoint <> " does not contain valid JSON") . pack)
+              (extractVersions endpointContent)
+          , next = Nothing
+          }
   where
   requestReleasesSnapshotsList :: String -> IO SnapshotsList
   requestReleasesSnapshotsList url = do
@@ -268,7 +281,7 @@ getAvailableSdkSnapshotVersionsUncached damlPath = do
 
   requestReleasesSinglePage :: String -> IO (ByteString, Maybe String)
   requestReleasesSinglePage url =
-    requiredAny "HTTP connection to github.com failed" $ do
+    requiredAny "HTTP connection failed" $ do
         urlRequest <- parseRequest url
         let request =
                 urlRequest
@@ -466,7 +479,7 @@ queryArtifactoryApiKey damlConfig =
 
 -- | Install location for particular version.
 artifactoryVersionLocation :: ReleaseVersion -> ArtifactoryApiKey -> InstallLocation
-artifactoryVersionLocation releaseVersion apiKey = InstallLocation
+artifactoryVersionLocation releaseVersion apiKey = HttpInstallLocation
     { ilUrl = T.concat
         [ "https://digitalasset.jfrog.io/artifactory/sdk-ee/"
         , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
@@ -483,30 +496,45 @@ artifactoryVersionLocation releaseVersion apiKey = InstallLocation
 -- | Install location from Github for particular version.
 githubVersionLocation :: ReleaseVersion -> InstallLocation
 githubVersionLocation releaseVersion =
-  alternateVersionLocation releaseVersion "https://github.com/digital-asset/daml/releases/download"
+    HttpInstallLocation
+        { ilUrl = renderVersionLocation releaseVersion "https://github.com/digital-asset/daml/releases/download"
+        , ilHeaders = []
+        }
+
+alternateVersionLocation :: ReleaseVersion -> Text -> IO (Either Text InstallLocation)
+alternateVersionLocation releaseVersion prefix = do
+    let location = renderVersionLocation releaseVersion prefix
+    case parseRequest ("GET " <> unpack location) of
+      Nothing -> do
+          exists <- doesFileExist (T.unpack location)
+          pure $ if exists
+                    then Right (FileInstallLocation (T.unpack location))
+                    else Left location
+      Just _ -> pure (Right (HttpInstallLocation location []))
 
 -- | Install location for particular version.
-alternateVersionLocation :: ReleaseVersion -> Text -> InstallLocation
-alternateVersionLocation releaseVersion url = InstallLocation
-    { ilUrl =
-        T.concat
-          [ url
-          , "/"
-          , rawVersionToTextWithV (releaseVersionFromReleaseVersion releaseVersion)
-          , "/daml-sdk-"
-          , V.toText (unwrapSdkVersion (sdkVersionFromReleaseVersion releaseVersion))
-          , "-"
-          , osName
-          , ".tar.gz"
-          ]
-    , ilHeaders = []
-    }
+renderVersionLocation :: ReleaseVersion -> Text -> Text
+renderVersionLocation releaseVersion prefix =
+    T.concat
+      [ prefix
+      , "/"
+      , rawVersionToTextWithV (releaseVersionFromReleaseVersion releaseVersion)
+      , "/daml-sdk-"
+      , V.toText (unwrapSdkVersion (sdkVersionFromReleaseVersion releaseVersion))
+      , "-"
+      , osName
+      , ".tar.gz"
+      ]
 
 -- | An install locations is a pair of fully qualified HTTP[S] URL to an SDK release tarball and headers
 -- required to access that URL. For example:
 -- "https://github.com/digital-asset/daml/releases/download/v0.11.1/daml-sdk-0.11.1-macos.tar.gz"
-data InstallLocation = InstallLocation
-    { ilUrl :: Text
-    , ilHeaders :: RequestHeaders
-    } deriving (Eq, Show)
+data InstallLocation
+    = HttpInstallLocation
+        { ilUrl :: Text
+        , ilHeaders :: RequestHeaders
+        }
+    | FileInstallLocation
+        { ilPath :: FilePath
+        } deriving (Eq, Show)
 

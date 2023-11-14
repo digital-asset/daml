@@ -347,20 +347,25 @@ httpInstall env@InstallEnv{targetVersionM = releaseVersion, ..} = do
             damlConfigE <- tryConfig (readDamlConfig damlPath)
             let alternateDownload =
                     join $ eitherToMaybe $ queryDamlConfig ["alternate-download"] =<< damlConfigE
-            pure $ case alternateDownload of
-              Just url -> DAVersion.alternateVersionLocation releaseVersion url
+            case alternateDownload of
+              Just url -> do
+                  eVersionLocation <- DAVersion.alternateVersionLocation releaseVersion url
+                  case eVersionLocation of
+                    Left triedEndpoint ->
+                        throwIO $ assistantError ("Alternate download location in Daml config '" <> url <> "' combined with target release version to produce '" <> triedEndpoint <> "', which is neither a URL nor a file.")
+                    Right location -> pure location
               Nothing ->
                 case artifactoryApiKeyM of
-                    Nothing -> DAVersion.githubVersionLocation releaseVersion
+                    Nothing -> pure $ DAVersion.githubVersionLocation releaseVersion
                     Just apiKey
                         -- TODO: Define ordering over release versions
-                      | releaseVersion >= firstEEVersion -> DAVersion.artifactoryVersionLocation releaseVersion apiKey
-                      | otherwise -> DAVersion.githubVersionLocation releaseVersion
+                      | releaseVersion >= firstEEVersion -> pure $ DAVersion.artifactoryVersionLocation releaseVersion apiKey
+                      | otherwise -> pure $ DAVersion.githubVersionLocation releaseVersion
         !firstEEVersion =
             let verStr = "1.12.0-snapshot.20210312.6498.0.707c86aa"
             in OldReleaseVersion (either error id (SemVer.fromText verStr))
         downloadLocation :: DAVersion.InstallLocation -> IO ()
-        downloadLocation (DAVersion.InstallLocation url headers) = do
+        downloadLocation (DAVersion.HttpInstallLocation url headers) = do
             request <- requiredAny "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)
             withResponse (setRequestHeaders headers request) $ \response -> do
                 when (getResponseStatusCode response /= 200) $
@@ -370,6 +375,8 @@ httpInstall env@InstallEnv{targetVersionM = releaseVersion, ..} = do
                 extractAndInstall (fmap Just env)
                     . maybe id (\s -> (.| observeProgress s)) totalSizeM
                     $ getResponseBody response
+        downloadLocation (DAVersion.FileInstallLocation file) =
+            extractAndInstall (fmap Just env) (sourceFileBS file)
         observeProgress :: MonadResource m =>
             Int -> ConduitT BS.ByteString BS.ByteString m ()
         observeProgress totalSize = do

@@ -202,6 +202,9 @@ runCommand env@Env{..} = \case
                 }
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
         snapshotVersionsEUnfiltered <- tryAssistant $ fst <$> getAvailableSdkSnapshotVersions useCache
+        case snapshotVersionsEUnfiltered of
+          Left e -> putStrLn $ "WARNING Couldn't update cache:\n" <> displayException e
+          _ -> pure ()
         let snapshotVersionsE = if vSnapshots then snapshotVersionsEUnfiltered else pure []
             availableVersionsE = extractReleasesFromSnapshots <$> snapshotVersionsEUnfiltered
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath

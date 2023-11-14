@@ -82,7 +82,7 @@ check_recommend_cache_reload () {
 update_cache () {
   if [[ $version_cache_behaviour == init_old_cache ]]; then
     no_cache_override_github_endpoint $1
-    daml version --force-reload yes
+    echo_eval daml version --force-reload yes
     if daml install --install-assistant yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1; then
       echo_eval init_daml_package $tarball_release_version
       if echo_eval daml build; then
@@ -182,16 +182,12 @@ init_old_cache () {
   cp $(realpath old_cache) $DAML_CACHE/versions.txt
 }
 
-export RELEASES_ENDPOINT_MINISERVE=""
 no_cache_override_github_endpoint () {
   rm $DAML_CACHE/versions.txt || true # don't fail if file doesn't exist
   export RELEASES_ENDPOINT=releases-endpoint
-  echo "releases-endpoint: http://localhost:8080/releases" >> $DAML_HOME/daml-config.yaml
   mkdir -p $RELEASES_ENDPOINT
-  python3 -m http.server --directory "$RELEASES_ENDPOINT" --bind localhost 9871 &
-  export RELEASES_ENDPOINT_MINISERVE=$!
-  sleep 5
   cp $1 "$RELEASES_ENDPOINT/releases"
+  echo "releases-endpoint: $(realpath releases-endpoint/releases)" >> $DAML_HOME/daml-config.yaml
 }
 
 # serve a mirror of github's API to avoid usage limits
@@ -208,10 +204,7 @@ cp --no-dereference $(rlocation daml-sdk-2.7.4-tarball)/file/downloaded github_m
 cp --no-dereference $(rlocation daml-sdk-2.7.1-tarball)/file/downloaded github_mirror_directory/v2.7.1/daml-sdk-2.7.1-linux.tar.gz
 cp --no-dereference $(rlocation daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball)/file/downloaded github_mirror_directory/v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz
 absolute_github_mirror_directory=$(realpath github_mirror_directory)
-python3 -m http.server --directory $absolute_github_mirror_directory --bind localhost 9872 &
-export GITHUB_MIRROR_MINISERVE=$!
-sleep 2
-alternate_download_line="alternate-download: http://localhost:9000"
+alternate_download_line="alternate-download: $absolute_github_mirror_directory"
 
 # Create sandbox with a daml root and daml cache
 export SANDBOX_ROOT="$PWD"
@@ -221,9 +214,7 @@ export DAML_HOME="$PWD/daml_home"
 mkdir -p "$DAML_HOME"
 "$(rlocation daml-sdk-0.0.0)"/sdk/bin/daml install --install-assistant yes "$(rlocation head_sdk)"/sdk-release-tarball-ce.tar.gz
 export PATH="$DAML_HOME/bin:$PATH"
-
-# Set alternate download location if available
-echo $alternate_download_line >> $DAML_HOME/daml-config.yaml
+echo "$alternate_download_line" >> $DAML_HOME/daml-config.yaml
 
 [[ "$#" -gt 0 ]] || error_echo "No command to run supplied via args"
 case "$1" in
@@ -308,11 +299,3 @@ case "$1" in
     exit 1
     ;;
 esac
-
-kill $GITHUB_MIRROR_MINISERVE
-[[ -z "$RELEASES_ENDPOINT_MINISERVE" ]] || kill $RELEASES_ENDPOINT_MINISERVE
-
-# Remove sandbox
-cd - || cd "$HOME"
-chmod -R +rw "$SANDBOX_ROOT"
-rm -r "$SANDBOX_ROOT"

@@ -111,7 +111,9 @@ cacheWith cachePath key timeout serialize deserialize getFresh neverRefresh = do
                 Just (value, Stale) -> do
                     valueE <- tryAny (getFresh (Just value))
                     case valueE of
-                        Left _ -> pure (value, Stale)
+                        Left e -> do
+                            putStrLn $ "WARNING Couldn't update cache:\n" <> displayException e
+                            pure (value, Stale)
                         Right value' -> do
                             saveToCacheWith cachePath key serialize value'
                             pure (value', Fresh)
