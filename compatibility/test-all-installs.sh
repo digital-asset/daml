@@ -72,7 +72,8 @@ check_recommend_cache_reload () {
   fi
 }
 
-# If failure occurred under old cache, try updating the cache
+# If failure occurred under old cache, try updating the cache then retrying
+# install
 update_cache () {
   if [[ $version_cache_behaviour == init_old_cache ]]; then
     no_cache_override_github_endpoint $1
