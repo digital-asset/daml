@@ -129,17 +129,16 @@ module Main where
 }
 
 do_post_failed_tarball_install_behaviour () {
-  case $1 in
+  behaviour=$1
+  shift
+  case "$behaviour" in
     allow_nonrelease)
-      shift
       allow_nonrelease "$@"
       ;;
     update_cache)
-      shift
       update_cache "$@"
       ;;
     do_nothing)
-      shift
       ;;
     *)
       error_echo "ERROR: Unrecognized caching behaviour '$1'"
@@ -148,17 +147,16 @@ do_post_failed_tarball_install_behaviour () {
 }
 
 do_version_cache_behaviour () {
-  case $1 in
+  behaviour=$1
+  shift
+  case "$behaviour" in
     init_new_cache)
-      shift
       init_new_cache "$@"
       ;;
     init_old_cache)
-      shift
       init_old_cache "$@"
       ;;
     no_cache_override_github_endpoint)
-      shift
       no_cache_override_github_endpoint "$@"
       ;;
     *)
@@ -209,9 +207,10 @@ export PATH="$DAML_HOME/bin:$PATH"
 echo "$alternate_download_line" >> $DAML_HOME/daml-config.yaml
 
 [[ "$#" -gt 0 ]] || error_echo "No command to run supplied via args"
-case "$1" in
+command_to_run=$1
+shift
+case "$command_to_run" in
   install_from_version)
-    shift
     [[ "$#" -gt 0 ]] || error_echo "No install_version supplied via args"
     install_version=$1
     shift
@@ -231,7 +230,6 @@ case "$1" in
     fi
     ;;
   build_from_version)
-    shift
     [[ "$#" -gt 0 ]] || error_echo "No build_version supplied via args"
     build_version=$1
     shift
@@ -248,7 +246,6 @@ case "$1" in
     fi
     ;;
   install_and_build_from_tarball)
-    shift
     [[ "$#" -gt 0 ]] || error_echo "No tarball_path supplied via args"
     tarball_path=$1
     shift
