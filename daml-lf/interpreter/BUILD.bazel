@@ -11,6 +11,11 @@ load(
     "lf_scalacopts_stricter",
 )
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repl")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "LF_MAJOR_VERSIONS",
+    "lf_version_latest",
+)
 
 da_scala_library(
     name = "interpreter",
@@ -133,31 +138,34 @@ scala_repl(
     ],
 )
 
-da_scala_benchmark_jmh(
-    name = "speedy-compilation-benchmark",
-    srcs = glob(["src/bench/**/SpeedyCompilationBench.scala"]),
-    data = [
-        "//test-common:model-tests-default.dar",
-    ],
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
-        "//daml-lf/data",
-        "//daml-lf/engine",
-        "//daml-lf/interpreter",
-        "//daml-lf/language",
-        "//daml-lf/scenario-interpreter",
-        "//daml-lf/transaction",
-        "//daml-lf/validation",
-        "//test-common:dar-files-default-lib",
-        "@maven//:com_google_protobuf_protobuf_java",
-    ],
-)
+[
+    da_scala_benchmark_jmh(
+        name = "speedy-compilation-benchmark-v{}".format(major),
+        srcs = glob(["src/bench/**/SpeedyCompilationBench.scala"]),
+        data = [
+            "//test-common:model-tests-{}.dar".format(lf_version_latest.get(major)),
+        ],
+        scala_deps = [
+            "@maven//:org_scalaz_scalaz_core",
+        ],
+        visibility = ["//visibility:public"],
+        deps = [
+            "//bazel_tools/runfiles:scala_runfiles",
+            "//daml-lf/archive:daml_lf_archive_reader",
+            "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+            "//daml-lf/data",
+            "//daml-lf/engine",
+            "//daml-lf/interpreter",
+            "//daml-lf/language",
+            "//daml-lf/scenario-interpreter",
+            "//daml-lf/transaction",
+            "//daml-lf/validation",
+            "//test-common:dar-files-{}-lib".format(lf_version_latest.get(major)),
+            "@maven//:com_google_protobuf_protobuf_java",
+        ],
+    )
+    for major in LF_MAJOR_VERSIONS
+]
 
 da_scala_benchmark_jmh(
     name = "speedy-struct-proj-bench",
