@@ -701,10 +701,21 @@ excluded_test_tool_tests = [
             },
         ],
     },
-    # Changes to explicit disclosure Ledger API interface
+    # The next two exclusions pertain to changes to explicit disclosure Ledger API interface
     # where DisclosedContract.create_arguments(_blob), DisclosedContract.metadata,
     # InclusiveFilters.template_ids are deprecated and replaced by
     # DisclosedContract.created_event_blob and InclusiveFilters.template_filters respectively
+    {
+        "start": "2.8.0-snapshot.20231025.1",
+        "platform_ranges": [
+            {
+                "end": "2.8.0-snapshot.20231025.0",
+                "exclusions": [
+                    "ExplicitDisclosureIT",
+                ],
+            },
+        ],
+    },
     {
         "start": "2.6.0-snapshot.20230123.11292.0.b3f84bfc",
         "end": "2.8.0-snapshot.20231025.0",
