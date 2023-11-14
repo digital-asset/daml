@@ -7,9 +7,9 @@
 
 package simple
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.server.{Directives, Route}
-import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.server.{Directives, Route}
+import org.apache.pekko.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.tls.TlsConfiguration
 import io.netty.handler.ssl.ClientAuth

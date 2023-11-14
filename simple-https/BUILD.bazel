@@ -13,8 +13,8 @@ da_scala_binary(
     data = ["//test-common/test-certificates"],
     main_class = "simple.Main",
     scala_deps = [
-        "@maven//:com_typesafe_akka_akka_http",
-        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:org_apache_pekko_pekko_http",
+        "@maven//:org_apache_pekko_pekko_http_core",
     ],
     scalacopts = hj_scalacopts,
     visibility = ["//visibility:public"],
@@ -24,7 +24,7 @@ da_scala_binary(
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
-        "//language-support/scala/bindings-akka",
+        "//language-support/scala/bindings-pekko",
         "//ledger/ledger-api-common",
         "@maven//:io_netty_netty_buffer",
     ],
