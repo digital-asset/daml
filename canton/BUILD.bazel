@@ -857,7 +857,6 @@ copy_file(
 scala_library(
     name = "community_participant",
     srcs = glob(["community/participant/src/main/scala/**/*.scala"]) + [
-        ":community_participant_admin-workflows-with-vacuuming_java-srcjar",
         ":community_participant_dar_scala",
         ":community_participant_proto_scala",
     ],
@@ -874,6 +873,7 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
+        ":community_participant_admin-workflows-with-vacuuming_java.jar",
         ":pekko-stream-minus-patched-classes",
         "//canton:community_base",
         "//canton:community_common",
