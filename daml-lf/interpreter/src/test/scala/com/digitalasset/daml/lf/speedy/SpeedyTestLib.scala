@@ -9,7 +9,6 @@ import data.Ref.PackageId
 import data.Time
 import SResult._
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.language.LanguageDevConfig.EvaluationOrder
 import com.daml.lf.language.{Ast, LanguageMajorVersion, PackageInterface}
 import com.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
 import com.daml.lf.testing.parser.ParserParameters
@@ -196,7 +195,6 @@ private[speedy] object SpeedyTestLib {
   def typeAndCompile(
       majorLanguageVersion: LanguageMajorVersion,
       pkgs: Map[PackageId, Ast.Package],
-      evaluationOrder: EvaluationOrder,
   ): PureCompiledPackages = {
     require(
       pkgs.values.forall(pkg => pkg.languageVersion.major == majorLanguageVersion), {
@@ -213,20 +211,18 @@ private[speedy] object SpeedyTestLib {
       Compiler.Config
         .Dev(majorLanguageVersion)
         .copy(
-          evaluationOrder = evaluationOrder,
-          stacktracing = Compiler.FullStackTrace,
+          stacktracing = Compiler.FullStackTrace
         ),
     )
   }
 
   @throws[ValidationError]
-  def typeAndCompile[X](pkg: Ast.Package, evaluationOrder: EvaluationOrder)(implicit
+  def typeAndCompile[X](pkg: Ast.Package)(implicit
       parserParameter: ParserParameters[X]
   ): PureCompiledPackages =
     typeAndCompile(
       pkg.languageVersion.major,
       Map(parserParameter.defaultPackageId -> pkg),
-      evaluationOrder,
     )
 
   private[speedy] object Implicits {

@@ -4,7 +4,10 @@
 package com.daml.lf.language
 
 import com.daml.lf.LfVersions
+import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder, LeftToRight, RightToLeft}
 import scalaz.{IList, NonEmptyList}
+
+import scala.math.Ordering.Implicits.infixOrderingOps
 
 // an ADT version of the Daml-LF version
 sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: List[String])
@@ -16,6 +19,8 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: L
     )
     with Product
     with Serializable {
+
+  import LanguageMajorVersion._
 
   // TODO(#17366): 2.dev is currently the only 2.x version, but as soon as 2.0 is introduced this
   //   code should be simplified.
@@ -47,6 +52,12 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: L
       Left(s"LF $this.$minorVersion unsupported. Supported LF versions are ${supportedVersions
           .mkString(",")}")
     }
+
+  // TODO(#17366): Ideally this would be specified as a feature, but at the major version level.
+  //    We may want to allow expressing this once we rework feature specifications (see the TODO
+  //    on features).
+  final def evaluationOrder: EvaluationOrder =
+    if (this >= V2) RightToLeft else LeftToRight
 }
 
 object LanguageMajorVersion {
@@ -65,7 +76,7 @@ object LanguageMajorVersion {
 
   val All: List[LanguageMajorVersion] = List(V1, V2)
 
-  implicit val Ordering: scala.Ordering[LanguageMajorVersion] =
+  implicit val languageMajorVersionOrdering: scala.Ordering[LanguageMajorVersion] =
     scala.Ordering.by(All.zipWithIndex.toMap)
 
   def fromString(str: String): Option[LanguageMajorVersion] = str match {

@@ -15,19 +15,4 @@ object LanguageDevConfig {
   sealed abstract class EvaluationOrder extends Product with Serializable
   case object LeftToRight extends EvaluationOrder
   case object RightToLeft extends EvaluationOrder
-
-  object EvaluationOrder {
-
-    // We can't test RightToLeft evaluation order with V1 because it only works in dev and V1 tests
-    // will build packages for versions 1.14 and 1.15. It works by accident in V2 at the moment
-    // because there's only one V2 version: 2.dev. Eventually, right-to-left evaluation will not be
-    // dev-only but instead 2.x-only, for all V2 versions. Once we've done this refactoring we can
-    // remove explicit evaluation orders from the tests.
-    // TODO(#17366): make RightToLeft a v2.x feature and remove evaluation order flags everywhere
-    def valuesFor(majorLanguageVersion: LanguageMajorVersion): List[EvaluationOrder] =
-      majorLanguageVersion match {
-        case LanguageMajorVersion.V1 => List(LeftToRight)
-        case LanguageMajorVersion.V2 => List(LeftToRight, RightToLeft)
-      }
-  }
 }

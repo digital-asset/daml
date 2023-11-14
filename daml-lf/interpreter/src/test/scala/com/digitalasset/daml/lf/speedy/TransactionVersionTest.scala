@@ -6,7 +6,6 @@ package speedy
 
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConName}
-import com.daml.lf.language.LanguageDevConfig.{EvaluationOrder}
 import com.daml.lf.language.LanguageMajorVersion.{V1, V2}
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.SBuiltin.{SBCastAnyContract, SBFetchAny}
@@ -33,117 +32,108 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
   val helpers = new TransactionVersionTestHelpers(majorLanguageVersion)
   import helpers._
 
-  for (evaluationOrder <- EvaluationOrder.valuesFor(majorLanguageVersion)) {
+  "interface and transaction versioning" - {
 
-    evaluationOrder.toString - {
+    "version testing assumptions" in {
+      // TODO(#17366): remove this assumption once 2.0 is introduced
+      assume(majorLanguageVersion == V1)
+      oldVersion should be < newVersion
+      Set(
+        templatePkg.languageVersion,
+        interfacesPkg.languageVersion,
+        implementsPkg.languageVersion,
+        coImplementsPkg.languageVersion,
+      ) shouldBe Set(commonVersion)
+    }
 
-      "interface and transaction versioning" - {
+    "template version > interface version" in {
+      val oldPkg1 = templatePkg.copy(languageVersion = oldVersion)
+      val oldPkg2 = interfacesPkg.copy(languageVersion = oldVersion)
+      val newPkg1 = implementsPkg.copy(languageVersion = newVersion)
+      val newPkg2 = coImplementsPkg.copy(languageVersion = newVersion)
+      val pkgs = SpeedyTestLib.typeAndCompile(
+        majorLanguageVersion,
+        Map(
+          templatePkgId -> oldPkg1,
+          interfacesPkgId -> oldPkg2,
+          implementsPkgId -> newPkg1,
+          coImplementsPkgId -> newPkg2,
+        ),
+      )
 
-        "version testing assumptions" in {
-          // TODO(#17366): remove this assumption once 2.0 is introduced
-          assume(majorLanguageVersion == V1)
-          oldVersion should be < newVersion
-          Set(
-            templatePkg.languageVersion,
-            interfacesPkg.languageVersion,
-            implementsPkg.languageVersion,
-            coImplementsPkg.languageVersion,
-          ) shouldBe Set(commonVersion)
+      for ((templateId, interfaceId, contract) <- testData) {
+        val result = evaluateBeginExercise(
+          pkgs,
+          templateId,
+          Some(interfaceId),
+          contractId,
+          committers = Set(contractParty),
+          controllers = Set(contractParty),
+          getContract = Map(contractId -> contract),
+        )
+
+        inside(result) { case Right(transaction) =>
+          transaction.version shouldBe TransactionVersion.assignNodeVersion(newVersion)
         }
+      }
+    }
 
-        "template version > interface version" in {
-          val oldPkg1 = templatePkg.copy(languageVersion = oldVersion)
-          val oldPkg2 = interfacesPkg.copy(languageVersion = oldVersion)
-          val newPkg1 = implementsPkg.copy(languageVersion = newVersion)
-          val newPkg2 = coImplementsPkg.copy(languageVersion = newVersion)
-          val pkgs = SpeedyTestLib.typeAndCompile(
-            majorLanguageVersion,
-            Map(
-              templatePkgId -> oldPkg1,
-              interfacesPkgId -> oldPkg2,
-              implementsPkgId -> newPkg1,
-              coImplementsPkgId -> newPkg2,
-            ),
-            evaluationOrder,
-          )
+    "template version < interface version" in {
+      val oldPkg1 = implementsPkg.copy(languageVersion = oldVersion)
+      val oldPkg2 = coImplementsPkg.copy(languageVersion = oldVersion)
+      val newPkg1 = templatePkg.copy(languageVersion = newVersion)
+      val newPkg2 = interfacesPkg.copy(languageVersion = newVersion)
+      val pkgs = SpeedyTestLib.typeAndCompile(
+        majorLanguageVersion,
+        Map(
+          templatePkgId -> newPkg1,
+          interfacesPkgId -> newPkg2,
+          implementsPkgId -> oldPkg1,
+          coImplementsPkgId -> oldPkg2,
+        ),
+      )
 
-          for ((templateId, interfaceId, contract) <- testData) {
-            val result = evaluateBeginExercise(
-              pkgs,
-              templateId,
-              Some(interfaceId),
-              contractId,
-              committers = Set(contractParty),
-              controllers = Set(contractParty),
-              getContract = Map(contractId -> contract),
-            )
+      for ((templateId, interfaceId, contract) <- testData) {
+        val result = evaluateBeginExercise(
+          pkgs,
+          templateId,
+          Some(interfaceId),
+          contractId,
+          committers = Set(contractParty),
+          controllers = Set(contractParty),
+          getContract = Map(contractId -> contract),
+        )
 
-            inside(result) { case Right(transaction) =>
-              transaction.version shouldBe TransactionVersion.assignNodeVersion(newVersion)
-            }
-          }
+        inside(result) { case Right(transaction) =>
+          transaction.version shouldBe TransactionVersion.assignNodeVersion(newVersion)
         }
+      }
+    }
 
-        "template version < interface version" in {
-          val oldPkg1 = implementsPkg.copy(languageVersion = oldVersion)
-          val oldPkg2 = coImplementsPkg.copy(languageVersion = oldVersion)
-          val newPkg1 = templatePkg.copy(languageVersion = newVersion)
-          val newPkg2 = interfacesPkg.copy(languageVersion = newVersion)
-          val pkgs = SpeedyTestLib.typeAndCompile(
-            majorLanguageVersion,
-            Map(
-              templatePkgId -> newPkg1,
-              interfacesPkgId -> newPkg2,
-              implementsPkgId -> oldPkg1,
-              coImplementsPkgId -> oldPkg2,
-            ),
-            evaluationOrder,
-          )
+    "template version == interface version" in {
+      val pkgs = SpeedyTestLib.typeAndCompile(
+        majorLanguageVersion,
+        Map(
+          templatePkgId -> templatePkg,
+          interfacesPkgId -> interfacesPkg,
+          implementsPkgId -> implementsPkg,
+          coImplementsPkgId -> coImplementsPkg,
+        ),
+      )
 
-          for ((templateId, interfaceId, contract) <- testData) {
-            val result = evaluateBeginExercise(
-              pkgs,
-              templateId,
-              Some(interfaceId),
-              contractId,
-              committers = Set(contractParty),
-              controllers = Set(contractParty),
-              getContract = Map(contractId -> contract),
-            )
+      for ((templateId, interfaceId, contract) <- testData) {
+        val result = evaluateBeginExercise(
+          pkgs,
+          templateId,
+          Some(interfaceId),
+          contractId,
+          committers = Set(contractParty),
+          controllers = Set(contractParty),
+          getContract = Map(contractId -> contract),
+        )
 
-            inside(result) { case Right(transaction) =>
-              transaction.version shouldBe TransactionVersion.assignNodeVersion(newVersion)
-            }
-          }
-        }
-
-        "template version == interface version" in {
-          val pkgs = SpeedyTestLib.typeAndCompile(
-            majorLanguageVersion,
-            Map(
-              templatePkgId -> templatePkg,
-              interfacesPkgId -> interfacesPkg,
-              implementsPkgId -> implementsPkg,
-              coImplementsPkgId -> coImplementsPkg,
-            ),
-            evaluationOrder,
-          )
-
-          for ((templateId, interfaceId, contract) <- testData) {
-            val result = evaluateBeginExercise(
-              pkgs,
-              templateId,
-              Some(interfaceId),
-              contractId,
-              committers = Set(contractParty),
-              controllers = Set(contractParty),
-              getContract = Map(contractId -> contract),
-            )
-
-            inside(result) { case Right(transaction) =>
-              transaction.version shouldBe TransactionVersion.assignNodeVersion(commonVersion)
-            }
-          }
+        inside(result) { case Right(transaction) =>
+          transaction.version shouldBe TransactionVersion.assignNodeVersion(commonVersion)
         }
       }
     }

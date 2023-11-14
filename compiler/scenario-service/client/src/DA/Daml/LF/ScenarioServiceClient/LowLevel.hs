@@ -48,7 +48,7 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 import DA.Daml.LF.Mangling
-import DA.Daml.Options.Types (EnableScenarios (..), EvaluationOrder (..))
+import DA.Daml.Options.Types (EnableScenarios (..))
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -89,7 +89,6 @@ data Options = Options
   , optLogError :: String -> IO ()
   , optDamlLfVersion :: LF.Version
   , optEnableScenarios :: EnableScenarios
-  , optEvaluationOrder :: EvaluationOrder
   }
 
 type TimeoutSeconds = Int64
@@ -229,7 +228,6 @@ withScenarioService opts@Options{..} f = do
     [ optJvmOptions
     , ["-jar" , optServerJar]
     , ["--max-inbound-message-size=" <> show size | Just size <- [optGrpcMaxMessageSize]]
-    , ["--evaluation-order=" <> show optEvaluationOrder]
     ]
 
   exitExpected <- newIORef False
