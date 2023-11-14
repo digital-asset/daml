@@ -65,7 +65,7 @@ da_scala_library(
     ],
     deps = [
         ":sample-service-scalapb",
-        "//ledger-api/testing-utils",
+        "//libs-scala/testing-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",

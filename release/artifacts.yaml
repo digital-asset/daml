@@ -85,13 +85,13 @@
   type: jar-proto
 - target: //ledger-api/grpc-definitions:ledger_api_proto_scala
   type: jar-scala
-- target: //ledger-api/rs-grpc-pekko:rs-grpc-pekko
+- target: //libs-scala/rs-grpc-pekko:rs-grpc-pekko
   type: jar-scala
-- target: //ledger-api/rs-grpc-bridge:rs-grpc-bridge
+- target: //libs-scala/rs-grpc-bridge:rs-grpc-bridge
   type: jar-lib
-- target: //ledger-api/rs-grpc-testing-utils:rs-grpc-testing-utils
+- target: //libs-scala/rs-grpc-testing-utils:rs-grpc-testing-utils
   type: jar-scala
-- target: //ledger-api/testing-utils:testing-utils
+- target: //libs-scala/testing-utils:testing-utils
   type: jar-scala
 - target: //ledger/ledger-api-auth:ledger-api-auth
   type: jar-scala

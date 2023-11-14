@@ -65,11 +65,11 @@ da_scala_test(
     deps = [
         ":fetch-contracts",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger-api/testing-utils",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
+        "//libs-scala/rs-grpc-bridge",
         "//libs-scala/scalatest-utils",
+        "//libs-scala/testing-utils",
         "@maven//:org_reactivestreams_reactive_streams",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

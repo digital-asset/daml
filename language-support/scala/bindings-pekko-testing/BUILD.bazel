@@ -28,7 +28,7 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        "//ledger-api/rs-grpc-bridge",
+        "//libs-scala/rs-grpc-bridge",
         "@maven//:com_typesafe_config",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

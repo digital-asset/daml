@@ -41,7 +41,7 @@ da_scala_test(
     srcs = glob([
         "src/test/suite/scala/**/*.scala",
     ]),
-    resource_strip_prefix = "ledger-api/rs-grpc-bridge/src/test/suite/resources/",
+    resource_strip_prefix = "libs-scala/rs-grpc-bridge/src/test/suite/resources/",
     resources = glob(["src/test/suite/resources/**/*"]),
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
@@ -57,7 +57,7 @@ da_scala_test(
     deps = [
         ":rs-grpc-bridge",
         ":rs-grpc-bridge-test-lib",
-        "//ledger-api/rs-grpc-testing-utils",
+        "//libs-scala/rs-grpc-testing-utils",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_reactivestreams_reactive_streams",
         "@maven//:org_reactivestreams_reactive_streams_examples",

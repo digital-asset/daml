@@ -66,8 +66,8 @@ da_scala_test_suite(
     deps = [
         ":pekko-http-metrics",
         ":pekko-http-metrics-tests-lib",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger-api/testing-utils",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/testing-utils",
         "//observability/metrics",
         "//observability/metrics:metrics-test-lib",
         "@maven//:com_google_guava_guava",
