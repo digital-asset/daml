@@ -116,7 +116,6 @@ da_scala_test_suite(
         "//libs-scala/testing-utils",
         "//observability/metrics",
         "//observability/tracing",
-        "//test-common",
         "//test-common:dar-files-default-lib",
         "//test-common/canton/it-lib",
         "@maven//:ch_qos_logback_logback_classic",
