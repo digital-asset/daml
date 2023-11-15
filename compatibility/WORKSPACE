@@ -396,23 +396,23 @@ register_toolchains("@daml//bazel_tools/scala:toolchain")
 http_file(
     name = "daml-sdk-2.7.5-tarball",
     sha256 = "ea2730b1b50075686c82369a20da5a6b93c899e792d0db756218702427884148",
-    url = "https://github.com/digital-asset/daml/releases/download/v2.7.5/daml-sdk-2.7.5-linux.tar.gz",
+    urls = ["https://github.com/digital-asset/daml/releases/download/v2.7.5/daml-sdk-2.7.5-linux.tar.gz"],
 )
 
 http_file(
     name = "daml-sdk-2.7.4-tarball",
     sha256 = "c8625a752006821998b49b48d4c734b41dcedfda5ae72d6d5d6ce3eab443f625",
-    url = "https://github.com/digital-asset/daml/releases/download/v2.7.4/daml-sdk-2.7.4-linux.tar.gz",
+    urls = ["https://github.com/digital-asset/daml/releases/download/v2.7.4/daml-sdk-2.7.4-linux.tar.gz"],
 )
 
 http_file(
     name = "daml-sdk-2.7.1-tarball",
     sha256 = "72b6151168b8229e040cf4ed033c9838c1f0d986e63f18186091280dc82f4ea9",
-    url = "https://github.com/digital-asset/daml/releases/download/v2.7.1/daml-sdk-2.7.1-linux.tar.gz",
+    urls = ["https://github.com/digital-asset/daml/releases/download/v2.7.1/daml-sdk-2.7.1-linux.tar.gz"],
 )
 
 http_file(
     name = "daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball",
     sha256 = "80fffb3698d99d22a93387e0b3a4b85077159cca52470745d70ed4ffb5a6bdcb",
-    url = "https://github.com/digital-asset/daml/releases/download/v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz",
+    urls = ["https://github.com/digital-asset/daml/releases/download/v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz"],
 )
