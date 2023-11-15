@@ -56,8 +56,8 @@ main = forA_ tests $ \(testName, test) -> do
   test
 
 -- | Used to tag a test as failing by erroring in any way, once all this behaviour works, this function can be removed
-failingScript : Script () -> Script ()
-failingScript act = do
+brokenScript : Script () -> Script ()
+brokenScript act = do
   tryToEither (\() -> liftFailedCommandToException act) >>= \case
     Right _ -> assertFail "Expected failed and got success! Did you fix this logic? Remove the wrapping `failure` to mark this as working."
     Left _ -> do
@@ -67,8 +67,8 @@ failingScript act = do
       vetDarOnParticipant v2DarName participant0
       vetDarOnParticipant v2DarName participant1
 
-failing : (Text, Script ()) -> (Text, Script ())
-failing (name, act) = ("(BROKEN) " <> name, failingScript act)
+broken : (Text, Script ()) -> (Text, Script ())
+broken (name, act) = ("(BROKEN) " <> name, brokenScript act)
 
 tests : [(Text, Script ())]
 tests = mconcat
@@ -85,8 +85,8 @@ tests = mconcat
     , ("Fail to downgrade a contract with Somes when fetching", fetchDowngradedSome)
 
     , -- Fetching tests with unvetted sources (BROKEN)
-      failing ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
-    , failing ("Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
+      broken ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
+    , broken ("Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
 
     , -- Template payload upgrading/downgrading from exercises within choice bodies
       -- The expected behaviour here is that the outer templates have fixed the choice version they wish to call
@@ -102,7 +102,7 @@ tests = mconcat
     , ("Explicitly call a V2 choice on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", explicitV2ChoiceV1Contract)
     , ("Call a V1 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, contract + argument upgraded, daml-script downgrades return type.", inferredV1ChoiceV1Contract)
     , ("Call a V2 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", inferredV2ChoiceV1Contract)
-    , failing ("Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type.", inferredV1ChoiceV1ContractWithoutV2)
+    , broken ("Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type.", inferredV1ChoiceV1ContractWithoutV2)
     , ("Explicitly call a V1 choice on a V2 contract over the ledger-api, expect V1 implementation used, and contract downgraded.", explicitV1ChoiceV2Contract)
     , ("Explicitly call a V2 choice on a V2 contract over the ledger-api, expect V2 implementation used.", explicitV2ChoiceV2Contract)
 
@@ -111,7 +111,7 @@ tests = mconcat
     , ("Explicitly call a V2 choice on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded. (Nested)", explicitV2ChoiceV1ContractNested)
     , ("Call a V1 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, contract + argument upgraded, daml-script downgrades return type. (Nested)", inferredV1ChoiceV1ContractNested)
     , ("Call a V2 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded. (Nested)", inferredV2ChoiceV1ContractNested)
-    , failing ("Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type. (Nested)", inferredV1ChoiceV1ContractWithoutV2Nested)
+    , broken ("Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type. (Nested)", inferredV1ChoiceV1ContractWithoutV2Nested)
     , ("Explicitly call a V1 choice on a V2 contract over the ledger-api, expect V1 implementation used, and contract downgraded. (Nested)", explicitV1ChoiceV2ContractNested)
     , ("Explicitly call a V2 choice on a V2 contract over the ledger-api, expect V2 implementation used. (Nested)", explicitV2ChoiceV2ContractNested)
 
@@ -139,20 +139,20 @@ tests = mconcat
 
     , -- Invalid data upgrades (compile time checks repeated at runtime)
       ("Fails if the template name changes", templateNameChanges)
-    , failing ("Fails if a nested data-type's name changes", templateNameChangesNested)
+    , broken ("Fails if a nested data-type's name changes", templateNameChangesNested)
     , ("Fails if fields are removed", templateFieldsRemoved)
     , ("Fails if non-optional fields are added", templateNonOptionalFieldsAdded)
-    , failing ("Fails if fields are renamed", templateFieldsRenamed)
+    , broken ("Fails if fields are renamed", templateFieldsRenamed)
     , ("Fails if nested fields are removed", templateFieldsRemovedNested)
     , ("Fails if nested non-optional fields are added", templateNonOptionalFieldsAddedNested)
-    , failing ("Fails if nested fields are renamed", templateFieldsRenamedNested)
+    , broken ("Fails if nested fields are renamed", templateFieldsRenamedNested)
     , ("Succeeds if a nested variant is unchanged", templateVariantUnchanged)
     , ("Fails if a nested variant is a removed case", templateVariantUpgradeToRemoved)
     , ("Fails if a nested variant is an additional case when downgrading", templateVariantDowngradeFromNew)
 
     , -- Edge behaviour
       -- https://github.com/DACH-NY/canton/issues/14718
-      failing ("Chooses the v1 contract if v2 is unvetted and package id is omitted.", packageSelectionChoosesUnvettedPackages)
+      broken ("Chooses the v1 contract if v2 is unvetted and package id is omitted.", packageSelectionChoosesUnvettedPackages)
       -- TODO: Weird numeric case from Moritz/Remy - Requires disclosed contracts, daml3-script does not support this.
       -- Cannot be tested.
       -- I believe the case is - old contract with a Decimal, attempt to use it by disclosing and upgrading at the same time, something breaks
