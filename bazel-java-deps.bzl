@@ -228,7 +228,6 @@ def install_java_deps():
             "org.mockito:mockito-inline:3.6.28",
             "org.mockito:mockito-scala_{}:1.16.3".format(scala_major_version),
             "org.pcollections:pcollections:4.0.1",
-            "org.playframework.anorm:anorm-akka_{}:2.7.0".format(scala_major_version),
             "org.playframework.anorm:anorm-tokenizer_{}:2.7.0".format(scala_major_version),
             "org.playframework.anorm:anorm_{}:2.7.0".format(scala_major_version),
             "org.postgresql:postgresql:42.6.0",
