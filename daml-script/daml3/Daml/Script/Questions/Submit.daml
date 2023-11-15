@@ -22,12 +22,12 @@ data Submit = Submit with
   commands : [Command]
 instance IsQuestion Submit [CommandResult] where command = "Submit"
 
-submitInternal : HasCallStack => [Party] -> [Party] -> Commands a -> Script a
-submitInternal actAs readAs cmds =
+submitInternal : HasCallStack => [Party] -> [Party] -> [Disclosure] -> Commands a -> Script a
+submitInternal actAs readAs disc cmds =
   fmap cmds.continue $ lift $ Submit with
     actAs = actAsNonEmpty actAs
     readAs = readAs
-    disclosures = []
+    disclosures = disc
     commands = cmds.commands
 
 -- | Details of the @submitMustFail@ command.
@@ -38,12 +38,12 @@ data SubmitMustFail = SubmitMustFail with
   commands : [Command]
 instance IsQuestion SubmitMustFail () where command = "SubmitMustFail"
 
-submitMustFailInternal : HasCallStack => [Party] -> [Party] -> Commands a -> Script ()
-submitMustFailInternal actAs readAs cmds =
+submitMustFailInternal : HasCallStack => [Party] -> [Party] -> [Disclosure] -> Commands a -> Script ()
+submitMustFailInternal actAs readAs disc cmds =
   lift $ SubmitMustFail with
     actAs = actAsNonEmpty actAs
     readAs = readAs
-    disclosures = []
+    disclosures = disc
     commands = cmds.commands
 
 -- | Submit the commands as a single transaction.
@@ -51,8 +51,20 @@ submitMustFailInternal actAs readAs cmds =
 -- This will error if the submission fails.
 
 instance HasSubmit Script Commands where
-  submit p cmds = submitInternal [p] [] cmds
-  submitMustFail p cmds = submitMustFailInternal [p] [] cmds
+  submit p cmds = submitInternal [p] [] [] cmds
+  submitMustFail p cmds = submitMustFailInternal [p] [] [] cmds
+
+-- | `submitWithDisclosures p disc cmds` submits the commands `cmds` as a single transaction
+-- from party `p` with the explicit disclosures `disc` and returns the value returned by `cmds`.
+-- If the transaction fails, `submit` also fails.
+submitWithDisclosures : HasCallStack => Party -> [Disclosure] -> Commands a -> Script a
+submitWithDisclosures p disc cmds = submitInternal [p] [] disc cmds
+
+-- | `submitWithDisclosures p disc cmds` submits the commands `cmds` as a single transaction
+-- from party `p` with the explicit disclosures `disc`
+-- It only succeeds if the submitting the transaction fails.
+submitWithDisclosuresMustFail : HasCallStack => Party -> [Disclosure] -> Commands a -> Script ()
+submitWithDisclosuresMustFail p disc cmds =submitMustFailInternal [p] [] disc cmds
 
 -- There are a few different options for passing the parties here:
 --
@@ -79,12 +91,25 @@ instance HasSubmit Script Commands where
 --  - should disclosures have its own version of submitMulti
 --  - should other submit function have a version that support disclosure
 submitMulti : HasCallStack => [Party] -> [Party] -> Commands a -> Script a
-submitMulti = submitInternal
+submitMulti actAs readAs cmds = submitInternal actAs readAs [] cmds
 
 -- | `submitMultiMustFail actAs readAs cmds` behaves like `submitMulti actAs readAs cmds`
 -- but fails when `submitMulti` succeeds and the other way around.
 submitMultiMustFail : HasCallStack => [Party] -> [Party] -> Commands a -> Script ()
-submitMultiMustFail = submitMustFailInternal
+submitMultiMustFail actAs readAs cmds = submitMustFailInternal actAs readAs [] cmds
+
+-- | `submitMultiWithDisclosures actAs readAs disc cmds` submits `cmds` as a single
+-- transaction authorized by `actAs` with explicit disclosures `disc` . Fetched 
+-- contracts, except explicit disclosed ones, must be visible to at least one party in 
+-- the union of actAs and readAs.
+submitMultiWithDisclosures : HasCallStack => [Party] -> [Party] -> [Disclosure] -> Commands a -> Script a
+submitMultiWithDisclosures = submitInternal
+
+-- | `submitMultiWithDisclosuresMustFail actAs readAs disc cmds` behaves like 
+-- `submitMultiWithDisclosures actAs readAs disc cmds` but fails when `submitMulti` 
+-- succeeds and the other way around.
+submitMultiWithDisclosuresMustFail : HasCallStack => [Party] -> [Party] -> [Disclosure] -> Commands a -> Script ()
+submitMultiWithDisclosuresMustFail = submitMustFailInternal 
 
 data SubmitTree = SubmitTree with
   actAs : NonEmpty Party
@@ -134,5 +159,6 @@ trySubmit : HasCallStack => Party -> Commands a -> Script (Either SubmitError a)
 trySubmit p cmds = trySubmitInternal [p] [] [] cmds
 
 -- | Alternate version of `trySubmit` that allows specifying the actAs and readAs parties.
-trySubmitMulti : HasCallStack => [Party] -> [Party] -> [Disclosure] -> Commands a -> Script (Either SubmitError a)
-trySubmitMulti = trySubmitInternal
+trySubmitMulti : HasCallStack => [Party] -> [Party] -> Commands a -> Script (Either SubmitError a)
+trySubmitMulti actAs readAs cmds = trySubmitInternal actAs readAs [] cmds
+ 
