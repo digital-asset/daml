@@ -167,3 +167,11 @@ if ! diff .bazelrc compatibility/.bazelrc >/dev/null; then
     echo ".bazelrc and  compatibility/.bazelrc are out of sync:"
     diff -u .bazelrc compatibility/.bazelrc
 fi
+
+# check akka is not used as dependency except in navigator_maven and deprecated_maven
+for f in $(ls *_install*.json | egrep -v "deprecated"); do
+  if grep -q akka $f;  then
+    echo $f contains a dependency to akka
+    exit 1
+  fi
+done

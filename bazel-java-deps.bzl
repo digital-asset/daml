@@ -228,7 +228,6 @@ def install_java_deps():
             "org.mockito:mockito-inline:3.6.28",
             "org.mockito:mockito-scala_{}:1.16.3".format(scala_major_version),
             "org.pcollections:pcollections:4.0.1",
-            "org.playframework.anorm:anorm-akka_{}:2.7.0".format(scala_major_version),
             "org.playframework.anorm:anorm-tokenizer_{}:2.7.0".format(scala_major_version),
             "org.playframework.anorm:anorm_{}:2.7.0".format(scala_major_version),
             "org.postgresql:postgresql:42.6.0",
@@ -322,6 +321,21 @@ def install_java_deps():
         maven_install_json = "@//:triggers_maven_install.json",
         artifacts = [
             "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
+        ],
+        repositories = [
+            "https://repo1.maven.org/maven2",
+        ],
+        fetch_sources = True,
+        version_conflict_policy = "pinned",
+    )
+
+    # Do not use those dependencies in anything new !
+    maven_install(
+        name = "deprecated_maven",
+        maven_install_json = "@//:deprecated_maven_install.json",
+        artifacts = [
+            "io.gatling.highcharts:gatling-charts-highcharts:3.5.1",
+            "io.gatling:gatling-app:3.5.1",
         ],
         repositories = [
             "https://repo1.maven.org/maven2",
