@@ -172,6 +172,6 @@ fi
 for f in $(ls *_install.json | egrep -v "(navigator|deprecated)"); do
   if grep -q akka $f;  then
     echo $f contains a dependency to akka
-    echo exit 1
+    exit 1
   fi
 done
