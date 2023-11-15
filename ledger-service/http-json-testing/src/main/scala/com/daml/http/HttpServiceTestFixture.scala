@@ -40,7 +40,6 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.LoggingContextOf
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
-import com.daml.pureconfigutils.HttpsConfig
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{Assertions, Inside}
 import org.scalatest.OptionValues._
@@ -266,13 +265,13 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
   type UseHttps = UseHttps.T
 
-  private val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) = {
-    List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
+  private val List(serverKeyStore, caCrt, clientCrt, clientPem) = {
+    List("server.p12", "ca.crt", "client.crt", "client.pem").map { src =>
       new File(rlocation("test-common/test-certificates/" + src))
     }
   }
 
-  final val serverHttpsConfig = HttpsConfig(serverCrt, serverPem, Some(caCrt)).tlsConfiguration
+  final val serverHttpsConfig = HttpsConfig(serverKeyStore, "")
   final val clientTlsConfig =
     TlsConfiguration(enabled = true, Some(clientCrt), Some(clientPem), Some(caCrt))
   private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)

@@ -82,7 +82,6 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             "//observability/metrics",
             "@maven//:com_google_guava_guava",
             "@maven//:io_dropwizard_metrics_metrics_core",
-            "@maven//:io_netty_netty_buffer",
             "@maven//:io_opentelemetry_opentelemetry_api",
         ],
     )

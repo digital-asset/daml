@@ -47,7 +47,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{domain => LedgerApiDomain}
-import com.daml.ledger.api.tls.TlsConfiguration
 
 object HttpService {
 
@@ -261,22 +260,31 @@ object HttpService {
     bindingEt.run: Future[Error \/ (ServerBinding, Option[ContractDao])]
   }
 
-  private[http] def httpsConnectionContext(
-      config: TlsConfiguration
-  )(implicit lc: LoggingContextOf[InstanceUUID]): HttpsConnectionContext = {
-    import io.netty.buffer.ByteBufAllocator
-    val sslContext =
-      config.server
-        .getOrElse(
-          throw new IllegalArgumentException(s"$config could not be built as a server ssl context")
-        )
-    val theEngine = sslContext.newEngine(ByteBufAllocator.DEFAULT)
-    theEngine.setUseClientMode(false)
-    theEngine.setWantClientAuth(false)
-    ConnectionContext.httpsServer(() => {
-      logger.info(s"Wrapping an sslEngine of type ${theEngine.getClass.getName}")
-      new LoggingSSLEngine(theEngine)
-    })
+  private[http] def httpsConnectionContext(config: HttpsConfig): HttpsConnectionContext = {
+    import java.io.FileInputStream
+    import java.security.{KeyStore, SecureRandom}
+    import javax.net.ssl.{SSLContext, KeyManagerFactory, TrustManagerFactory}
+
+    val keyStoreFile = config.keyStoreFile
+    val password = config.keyStorePassword.toCharArray
+
+    val keyStore = KeyStore.getInstance("PKCS12")
+    keyStore.load(new FileInputStream(keyStoreFile), password)
+
+    val keyManagerFactory = KeyManagerFactory.getInstance("SunX509")
+    keyManagerFactory.init(keyStore, password)
+
+    val trustManagerFactory = TrustManagerFactory.getInstance("SunX509")
+    trustManagerFactory.init(keyStore)
+
+    val context = SSLContext.getInstance("TLS")
+    context.init(
+      keyManagerFactory.getKeyManagers,
+      trustManagerFactory.getTrustManagers,
+      new SecureRandom,
+    )
+
+    ConnectionContext.httpsServer(context)
   }
 
   private[http] def doLoad(
