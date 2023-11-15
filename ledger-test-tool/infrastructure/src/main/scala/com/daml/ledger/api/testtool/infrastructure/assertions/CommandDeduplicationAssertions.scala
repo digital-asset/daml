@@ -7,6 +7,7 @@ import java.time.Duration
 
 import com.daml.api.util.DurationConversion
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertDefined, fail}
+import com.daml.ledger.api.testtool.infrastructure.WithTimeout
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.CompletionResponse
 import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationPeriodSupport.{
@@ -16,7 +17,6 @@ import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationPeriodSu
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.lf.data.Ref
-import com.daml.platform.testing.WithTimeout
 import com.google.protobuf.duration.{Duration => DurationProto}
 import io.grpc.Status.Code
 

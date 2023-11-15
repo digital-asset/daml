@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.suites.v1_8
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.assertDefined
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.{LedgerTestSuite, WithTimeout}
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.suites.v1_8.CompletionDeduplicationInfoIT._
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -19,7 +19,6 @@ import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.SubmissionId
-import com.daml.platform.testing.WithTimeout
 import io.grpc.Status
 
 import scala.concurrent.duration.DurationInt

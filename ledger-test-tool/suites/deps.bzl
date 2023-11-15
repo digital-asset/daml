@@ -31,7 +31,6 @@ def deps(lf_version):
         "//test-common:model-tests-%s.scala" % lf_version,
         "//test-common:package_management-tests-%s.scala" % lf_version,
         "//test-common:semantic-tests-%s.scala" % lf_version,
-        "//test-common:test-common-%s" % lf_version,
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
         "//libs-scala/resources",
