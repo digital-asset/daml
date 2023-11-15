@@ -33,7 +33,6 @@ import qualified Data.Conduit.List as List
 import qualified Data.Conduit.Tar.Extra as Tar
 import qualified Data.Conduit.Zlib as Zlib
 import Data.Either.Extra
-import qualified Data.SemVer as SemVer
 import Network.HTTP.Simple
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS.UTF8
@@ -52,6 +51,7 @@ import System.Info.Extra (isWindows)
 import Options.Applicative.Extended (determineAuto)
 import qualified Data.SemVer as V
 import qualified Data.Text as T
+import qualified Control.Exception
 
 -- unix specific
 import System.PosixCompat.Types ( FileMode )
@@ -361,9 +361,10 @@ httpInstall env@InstallEnv{targetVersionM = releaseVersion, ..} = do
                         -- TODO: Define ordering over release versions
                       | releaseVersion >= firstEEVersion -> pure $ DAVersion.artifactoryVersionLocation releaseVersion apiKey
                       | otherwise -> pure $ DAVersion.githubVersionLocation releaseVersion
+        firstEEVersion :: ReleaseVersion
         !firstEEVersion =
             let verStr = "1.12.0-snapshot.20210312.6498.0.707c86aa"
-            in OldReleaseVersion (either error id (SemVer.fromText verStr))
+            in either Control.Exception.throw id (unsafeParseOldReleaseVersion verStr)
         downloadLocation :: DAVersion.InstallLocation -> IO ()
         downloadLocation (DAVersion.HttpInstallLocation url headers) = do
             request <- requiredAny "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)

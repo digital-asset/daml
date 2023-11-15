@@ -16,6 +16,7 @@ import System.FilePath
 import Control.Monad
 import Control.Exception.Safe
 import Data.Either.Extra (eitherToMaybe)
+import Data.Function (on)
 
 data ConfigError
     = ConfigFileInvalid Text Y.ParseException
@@ -61,7 +62,10 @@ data ReleaseVersion
   | OldReleaseVersion
       { bothVersion :: V.Version
       }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Show)
+
+instance Ord ReleaseVersion where
+    compare = compare `on` releaseVersionFromReleaseVersion
 
 sdkVersionFromReleaseVersion :: ReleaseVersion -> SdkVersion
 sdkVersionFromReleaseVersion (SplitReleaseVersion _ sdkVersion) = SdkVersion sdkVersion
