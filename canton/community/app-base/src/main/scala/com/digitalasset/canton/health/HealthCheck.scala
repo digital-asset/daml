@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.health
 
-import org.apache.pekko.actor.ActorSystem
 import com.digitalasset.canton.config.{CheckConfig, ProcessingTimeout}
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.lifecycle.Lifecycle
@@ -15,6 +14,7 @@ import com.digitalasset.canton.time.{Clock, WallClock}
 import com.digitalasset.canton.topology.UniqueIdentifier
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherUtil
+import org.apache.pekko.actor.ActorSystem
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}

@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.participant.sync
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
 import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
@@ -107,6 +104,9 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicReference
@@ -263,7 +263,7 @@ class CantonSyncService(
       loggerFactory,
     )(ec)
 
-  val protocolVersionGetter: Traced[DomainId] => Future[Option[ProtocolVersion]] =
+  val protocolVersionGetter: Traced[DomainId] => Option[ProtocolVersion] =
     (tracedDomainId: Traced[DomainId]) =>
       syncDomainPersistentStateManager.protocolVersionFor(tracedDomainId.value)
 
@@ -349,6 +349,14 @@ class CantonSyncService(
       repairService,
       prepareDomainConnectionForMigration,
       parameters.processingTimeouts,
+      loggerFactory,
+    )
+
+  val dynamicDomainParameterGetter =
+    new CantonDynamicDomainParameterGetter(
+      syncCrypto,
+      syncDomainPersistentStateManager.protocolVersionFor,
+      aliasManager,
       loggerFactory,
     )
 
@@ -1483,7 +1491,7 @@ class CantonSyncService(
             ifNone = RequestValidationErrors.InvalidArgument
               .Reject(s"Domain ID not found: $domain"): DamlError,
           )
-          remoteProtocolVersion <- EitherT.fromOptionF(
+          remoteProtocolVersion <- EitherT.fromOption[Future](
             protocolVersionGetter(Traced(remoteDomain)),
             ifNone = RequestValidationErrors.InvalidArgument
               .Reject(s"Domain ID's protocol version not found: $remoteDomain"): DamlError,

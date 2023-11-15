@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.sequencing.client.transports.replay
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import cats.data.EitherT
 import cats.syntax.traverse.*
 import com.codahale.metrics.{ConsoleReporter, MetricFilter, MetricRegistry}
@@ -20,8 +17,8 @@ import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransport,
-  SequencerClientTransportPekko,
   SequencerClientTransportCommon,
+  SequencerClientTransportPekko,
 }
 import com.digitalasset.canton.sequencing.handshake.HandshakeRequestError
 import com.digitalasset.canton.sequencing.protocol.*
@@ -35,9 +32,12 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, Traced}
 import com.digitalasset.canton.util.ResourceUtil.withResource
-import com.digitalasset.canton.util.{PekkoUtil, ErrorUtil, OptionUtil}
+import com.digitalasset.canton.util.{ErrorUtil, OptionUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DiscardOps, SequencerCounter}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.file.Path

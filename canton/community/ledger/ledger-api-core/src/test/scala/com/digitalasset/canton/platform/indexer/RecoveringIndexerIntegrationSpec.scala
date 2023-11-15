@@ -3,10 +3,6 @@
 
 package com.digitalasset.canton.platform.indexer
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.{BroadcastHub, Keep, Source}
-import org.apache.pekko.stream.{BoundedSourceQueue, Materializer, QueueCompletionResult, QueueOfferResult}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{Ref, Time}
@@ -46,6 +42,15 @@ import com.digitalasset.canton.tracing.TraceContext.{withNewTraceContext, wrapWi
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import com.digitalasset.canton.{HasExecutionContext, config}
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{BroadcastHub, Keep, Source}
+import org.apache.pekko.stream.{
+  BoundedSourceQueue,
+  Materializer,
+  QueueCompletionResult,
+  QueueOfferResult,
+}
 import org.mockito.Mockito.*
 import org.mockito.{ArgumentMatchers, MockitoSugar}
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}

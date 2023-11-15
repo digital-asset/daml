@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.util.pekkostreams
 
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Span}
@@ -20,7 +20,7 @@ class ExtractSingleMaterializedValueTest
 
   implicit val config: PatienceConfig = PatienceConfig().copy(timeout = scaled(Span(1500, Millis)))
 
-  private val discriminator = { i: Int =>
+  private val discriminator = { (i: Int) =>
     if (i < 0) Some(i) else None
   }
 

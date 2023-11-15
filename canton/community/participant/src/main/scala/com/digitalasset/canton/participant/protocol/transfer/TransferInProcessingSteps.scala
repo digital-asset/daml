@@ -641,7 +641,7 @@ private[transfer] class TransferInProcessingSteps(
       hostedStakeholders = hostedStakeholders,
       transferCounter = transferCounter.getOrElse(
         // Default value for protocol version earlier than dev
-        // TODO(#12373) Adapt when releasing BFT
+        // TODO(#15179) Adapt when releasing BFT
         TransferCounter.MinValue
       ),
     )

@@ -75,8 +75,7 @@ class ValidateDisclosedContractsTest
     )
   }
 
-  it should "fail validation when provided contract_id mismatches the one decoded from the created_event_blob" in {
-    val otherContractId = "otherContractId"
+  it should "fail validation on absent contract_id" in {
     requestMustFailWith(
       request = validateDisclosedContracts(
         api.protoCommands.copy(
@@ -86,7 +85,93 @@ class ValidateDisclosedContractsTest
                 createdEventBlob =
                   TransactionCoder.encodeFatContractInstance(lf.fatContractInstance).value
               )
-              // arguments and metadata cannot be set at the same time with created_event_blob
+              .copy(contractId = "")
+          )
+        )
+      ),
+      code = Status.Code.INVALID_ARGUMENT,
+      description =
+        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.contract_id",
+      metadata = Map.empty,
+    )
+  }
+
+  it should "fail validation on absent template_id" in {
+    requestMustFailWith(
+      request = validateDisclosedContracts(
+        api.protoCommands.copy(
+          disclosedContracts = scala.Seq(
+            api.protoDisclosedContract
+              .copy(
+                createdEventBlob =
+                  TransactionCoder.encodeFatContractInstance(lf.fatContractInstance).value
+              )
+              .copy(templateId = None)
+          )
+        )
+      ),
+      code = Status.Code.INVALID_ARGUMENT,
+      description =
+        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.template_id",
+      metadata = Map.empty,
+    )
+  }
+
+  it should "fail validation on invalid contract_id" in {
+    val invalidContractId = "invalidContractId"
+    requestMustFailWith(
+      request = validateDisclosedContracts(
+        api.protoCommands.copy(
+          disclosedContracts = scala.Seq(
+            api.protoDisclosedContract
+              .copy(
+                createdEventBlob =
+                  TransactionCoder.encodeFatContractInstance(lf.fatContractInstance).value
+              )
+              .copy(contractId = invalidContractId)
+          )
+        )
+      ),
+      code = Status.Code.INVALID_ARGUMENT,
+      description =
+        s"""INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field DisclosedContract.contract_id: cannot parse ContractId "$invalidContractId"""",
+      metadata = Map.empty,
+    )
+  }
+
+  it should "fail validation on invalid template_id" in {
+    val invalidTemplateId = ProtoIdentifier("pkgId", "", "entity")
+    requestMustFailWith(
+      request = validateDisclosedContracts(
+        api.protoCommands.copy(
+          disclosedContracts = scala.Seq(
+            api.protoDisclosedContract
+              .copy(
+                createdEventBlob =
+                  TransactionCoder.encodeFatContractInstance(lf.fatContractInstance).value
+              )
+              .copy(templateId = Some(invalidTemplateId))
+          )
+        )
+      ),
+      code = Status.Code.INVALID_ARGUMENT,
+      description =
+        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field module_name: Expected a non-empty string",
+      metadata = Map.empty,
+    )
+  }
+
+  it should "fail validation when provided contract_id mismatches the one decoded from the created_event_blob" in {
+    val otherContractId = "00" + "00" * 31 + "ff"
+    requestMustFailWith(
+      request = validateDisclosedContracts(
+        api.protoCommands.copy(
+          disclosedContracts = scala.Seq(
+            api.protoDisclosedContract
+              .copy(
+                createdEventBlob =
+                  TransactionCoder.encodeFatContractInstance(lf.fatContractInstance).value
+              )
               .copy(contractId = otherContractId)
           )
         )
@@ -94,6 +179,28 @@ class ValidateDisclosedContractsTest
       code = Status.Code.INVALID_ARGUMENT,
       description =
         s"INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Mismatch between DisclosedContract.contract_id ($otherContractId) and contract_id from decoded DisclosedContract.created_event_blob (${lf.lfContractId.coid})",
+      metadata = Map.empty,
+    )
+  }
+
+  it should "fail validation when provided template_id mismatches the one decoded from the created_event_blob" in {
+    val otherTemplateId = ProtoIdentifier("otherPkgId", "otherModule", "otherEntity")
+    requestMustFailWith(
+      request = validateDisclosedContracts(
+        api.protoCommands.copy(
+          disclosedContracts = scala.Seq(
+            api.protoDisclosedContract
+              .copy(
+                createdEventBlob =
+                  TransactionCoder.encodeFatContractInstance(lf.fatContractInstance).value
+              )
+              .copy(templateId = Some(otherTemplateId))
+          )
+        )
+      ),
+      code = Status.Code.INVALID_ARGUMENT,
+      description =
+        "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Mismatch between DisclosedContract.template_id (otherPkgId:otherModule:otherEntity) and template_id from decoded DisclosedContract.created_event_blob (package:module:entity)",
       metadata = Map.empty,
     )
   }

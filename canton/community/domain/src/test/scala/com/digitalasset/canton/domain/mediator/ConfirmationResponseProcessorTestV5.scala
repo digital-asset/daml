@@ -257,7 +257,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
             }
           }
 
-          override def rootHash: Option[RootHash] = Some(fullInformeeTree.tree.rootHash)
+          override def rootHash: Option[RootHash] = Some(this.fullInformeeTree.tree.rootHash)
         }
         val requestTimestamp = CantonTimestamp.Epoch.plusSeconds(120)
         for {
@@ -299,7 +299,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
             }
           }
 
-          override def rootHash: Option[RootHash] = Some(fullInformeeTree.tree.rootHash)
+          override def rootHash: Option[RootHash] = Some(this.fullInformeeTree.tree.rootHash)
         }
 
         val requestTimestamp = CantonTimestamp.Epoch.plusSeconds(12345)
@@ -318,7 +318,8 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
         when(mockTopologySnapshot.canConfirm(any[ParticipantId], any[LfPartyId], any[TrustLevel]))
           .thenReturn(Future.successful(true))
         when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])).thenAnswer {
-          parties: Set[LfPartyId] => Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
+          (parties: Set[LfPartyId]) =>
+            Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
         }
         when(mockTopologySnapshot.mediatorGroup(any[NonNegativeInt]))
           .thenReturn(Future.successful(Some(mediatorGroup)))
@@ -678,7 +679,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
 
               val expectedResults = expectedRecipientsAndViewTypes._2.toSet
               val expected = expectedResults.flatMap { case (recipients, viewType) =>
-                recipients.map { member: Member =>
+                recipients.map { member =>
                   RecipientsTree.leaf(NonEmpty(Set, member)) -> Some(viewType)
                 }
               }
@@ -755,7 +756,8 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
         when(mockTopologySnapshot.canConfirm(any[ParticipantId], any[LfPartyId], any[TrustLevel]))
           .thenReturn(Future.successful(true))
         when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])).thenAnswer {
-          parties: Set[LfPartyId] => Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
+          (parties: Set[LfPartyId]) =>
+            Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
         }
 
         for {

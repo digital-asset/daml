@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import org.apache.pekko.stream.scaladsl.Sink
 import com.digitalasset.canton.platform.store.dao.*
 import com.digitalasset.canton.platform.store.entries.ConfigurationEntry
+import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers

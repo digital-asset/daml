@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.domain.grpc
 
-import org.apache.pekko.stream.Materializer
 import cats.Eval
 import cats.data.EitherT
 import cats.instances.future.*
@@ -36,6 +35,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContextExecutor, Future}

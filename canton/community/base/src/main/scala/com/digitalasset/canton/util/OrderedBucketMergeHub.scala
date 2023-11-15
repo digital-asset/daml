@@ -3,16 +3,6 @@
 
 package com.digitalasset.canton.util
 
-import org.apache.pekko.Done
-import org.apache.pekko.stream.scaladsl.Source
-import org.apache.pekko.stream.stage.{
-  AsyncCallback,
-  GraphStageLogic,
-  GraphStageWithMaterializedValue,
-  InHandler,
-  OutHandler,
-}
-import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, KillSwitch, Outlet}
 import cats.syntax.functor.*
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.nonempty.NonEmpty
@@ -24,12 +14,22 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import com.digitalasset.canton.util.OrderedBucketMergeHub.OutputElement
 import com.digitalasset.canton.util.ShowUtil.*
+import org.apache.pekko.Done
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.stage.{
+  AsyncCallback,
+  GraphStageLogic,
+  GraphStageWithMaterializedValue,
+  InHandler,
+  OutHandler,
+}
+import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, KillSwitch, Outlet}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable
 import scala.concurrent.{Future, Promise}
 
-/** A custom Pekko [[pekko.stream.stage.GraphStage]] that merges several ordered source streams into one
+/** A custom Pekko [[org.apache.pekko.stream.stage.GraphStage]] that merges several ordered source streams into one
   * based on those sources reaching a threshold for equivalent elements.
   *
   * The ordered sources produce elements with totally ordered offsets.
@@ -88,7 +88,7 @@ import scala.concurrent.{Future, Promise}
   * When the configuration stream completes or aborts, all ordered sources are stopped
   * and the output stream completes.
   *
-  * An ordered source is stopped by pulling its [[pekko.stream.KillSwitch]]
+  * An ordered source is stopped by pulling its [[org.apache.pekko.stream.KillSwitch]]
   * and dropping all elements until the source completes or aborts.
   * In particular, the ordered source is not just simply cancelled upon a configuration change
   * or when the configuration stream completes.
@@ -101,8 +101,8 @@ import scala.concurrent.{Future, Promise}
   * If downstream cancels, the [[OrderedBucketMergeHub]] cancels all sources and the input port,
   * without draining them. Therefore, the materialized [[scala.concurrent.Future]] may or may not complete,
   * depending on the shape of the ordered sources. For example, if the ordered sources' futures are
-  * created with a plain [[pekko.stream.scaladsl.FlowOpsMat.watchTermination]], it will complete because
-  * [[pekko.stream.scaladsl.FlowOpsMat.watchTermination]] completes immediately when it sees a cancellation.
+  * created with a plain [[org.apache.pekko.stream.scaladsl.FlowOpsMat.watchTermination]], it will complete because
+  * [[org.apache.pekko.stream.scaladsl.FlowOpsMat.watchTermination]] completes immediately when it sees a cancellation.
   * Therefore, it is better to avoid downstream cancellations altogether.
   *
   * Rationale for the merging logic:
@@ -914,7 +914,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
     * It belongs to a different materialized graph than the [[BucketingLogic]],
     * so it must not access its mutable state. To enforce this,
     * this class is lexicographically outside of the [[BucketingLogic]].
-    * Instead, we go through the provided [[pekko.stream.stage.AsyncCallback]]
+    * Instead, we go through the provided [[org.apache.pekko.stream.stage.AsyncCallback]]
     * to signal the arrival and completion thread-safely.
     */
   private[this] class ActiveSourceInHandler(
@@ -1110,7 +1110,7 @@ trait OrderedBucketMergeHubOps[Name, A, Config, Offset, +M] {
 
   /** Creates a new source upon a config change.
     * The returned source is materialized at most once.
-    * To close the source, the materialized [[pekko.stream.KillSwitch]] is pulled
+    * To close the source, the materialized [[org.apache.pekko.stream.KillSwitch]] is pulled
     * and the source is drained until it completes.
     * The materialized [[scala.concurrent.Future]] should complete when all internal computations have stopped.
     * The [[OrderedBucketMergeHub]]'s materialized [[scala.concurrent.Future]] completes only after

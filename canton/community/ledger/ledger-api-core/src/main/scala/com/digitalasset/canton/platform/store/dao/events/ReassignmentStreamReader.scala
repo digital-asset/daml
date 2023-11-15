@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.Attributes
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
@@ -38,6 +35,9 @@ import com.digitalasset.canton.platform.store.utils.{
 import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter}
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Attributes
+import org.apache.pekko.stream.scaladsl.Source
 
 import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}

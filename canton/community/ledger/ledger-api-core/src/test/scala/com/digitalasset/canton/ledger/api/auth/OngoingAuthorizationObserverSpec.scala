@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import org.apache.pekko.actor.{Cancellable, Scheduler}
 import com.daml.clock.AdjustableClock
 import com.daml.error.ErrorsAssertions
 import com.daml.jwt.JwtTimestampLeeway
@@ -14,6 +13,7 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver
+import org.apache.pekko.actor.{Cancellable, Scheduler}
 import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -33,7 +33,7 @@ class OngoingAuthorizationObserverSpec
     with ArgumentMatchersSugar
     with ErrorsAssertions {
 
-  private implicit val errorLogger = ErrorLoggingContext(
+  private implicit val errorLogger: ErrorLoggingContext = ErrorLoggingContext(
     loggerFactory.getTracedLogger(getClass),
     loggerFactory.properties,
     traceContext,

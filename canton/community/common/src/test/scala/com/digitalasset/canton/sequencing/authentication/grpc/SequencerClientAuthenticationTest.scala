@@ -26,7 +26,7 @@ import org.scalatest.FutureOutcome
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class SequencerClientAuthenticationTest extends FixtureAsyncWordSpec with BaseTest {
 
@@ -38,7 +38,7 @@ class SequencerClientAuthenticationTest extends FixtureAsyncWordSpec with BaseTe
 
   require(token1 != token2, "The generated tokens must be different")
 
-  implicit val ec = executionContext
+  implicit val ec: ExecutionContext = executionContext
 
   type FixtureParam = Env
 

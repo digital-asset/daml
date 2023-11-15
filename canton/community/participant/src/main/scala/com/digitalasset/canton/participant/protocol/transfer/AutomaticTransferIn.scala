@@ -63,17 +63,17 @@ private[participant] object AutomaticTransferIn {
           possibleSubmittingParties.headOption,
           AutomaticTransferInError("No possible submitting party for automatic transfer-in"),
         )
-        sourceProtocolVersion <- EitherT(
-          transferCoordination
-            .protocolVersionFor(Traced(id.sourceDomain.unwrap))
-            .map(
-              _.toRight(
+        sourceProtocolVersion <- EitherT
+          .fromEither[Future](
+            transferCoordination
+              .protocolVersionFor(Traced(id.sourceDomain.unwrap))
+              .toRight(
                 AutomaticTransferInError(
                   s"Unable to get protocol version of source domain ${id.sourceDomain}"
                 )
               )
-            )
-        ).map(SourceProtocolVersion(_))
+          )
+          .map(SourceProtocolVersion(_))
         submissionResult <- transferCoordination
           .transferIn(
             targetDomain,

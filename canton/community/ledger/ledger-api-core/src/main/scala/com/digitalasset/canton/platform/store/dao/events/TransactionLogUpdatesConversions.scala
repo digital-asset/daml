@@ -20,8 +20,8 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, Party}
-import com.daml.lf.data.{Bytes, Ref}
 import com.daml.lf.transaction.{FatContractInstance, GlobalKeyWithMaintainers, Node}
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -497,24 +497,29 @@ private[events] object TransactionLogUpdatesConversions {
       executionContext: ExecutionContext,
   ): Future[apiEvent.CreatedEvent] = {
 
-    def getFatContractInstance = Right(
-      FatContractInstance.fromCreateNode(
-        Node.Create(
-          coid = createdEvent.contractId,
-          templateId = createdEvent.templateId,
-          arg = createdEvent.createArgument.unversioned,
-          agreementText = createdEvent.createAgreementText.getOrElse(""),
-          signatories = createdEvent.createSignatories,
-          stakeholders = createdEvent.createSignatories ++ createdEvent.createObservers,
-          keyOpt = createdEvent.createKey.flatMap(k =>
-            createdEvent.createKeyMaintainers.map(GlobalKeyWithMaintainers(k, _))
-          ),
-          version = createdEvent.createArgument.version,
-        ),
-        createTime = createdEvent.ledgerEffectiveTime,
-        cantonData = createdEvent.driverMetadata.getOrElse(Bytes.Empty),
-      )
-    )
+    def getFatContractInstance: Option[Right[Nothing, FatContractInstance]] =
+      createdEvent.driverMetadata
+        .filter(_.nonEmpty)
+        .map(driverMetadataBytes =>
+          Right(
+            FatContractInstance.fromCreateNode(
+              Node.Create(
+                coid = createdEvent.contractId,
+                templateId = createdEvent.templateId,
+                arg = createdEvent.createArgument.unversioned,
+                agreementText = createdEvent.createAgreementText.getOrElse(""),
+                signatories = createdEvent.createSignatories,
+                stakeholders = createdEvent.createSignatories ++ createdEvent.createObservers,
+                keyOpt = createdEvent.createKey.flatMap(k =>
+                  createdEvent.createKeyMaintainers.map(GlobalKeyWithMaintainers(k, _))
+                ),
+                version = createdEvent.createArgument.version,
+              ),
+              createTime = createdEvent.ledgerEffectiveTime,
+              cantonData = driverMetadataBytes,
+            )
+          )
+        )
 
     lfValueTranslation
       .toApiContractData(

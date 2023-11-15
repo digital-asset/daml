@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.platform
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
-import org.apache.pekko.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.lf.data.Ref
@@ -33,6 +30,9 @@ import com.digitalasset.canton.platform.store.DbSupport.{
 }
 import com.digitalasset.canton.platform.store.dao.events.ContractLoader
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import org.scalatest.Suite
 
 import java.nio.ByteBuffer
@@ -63,7 +63,9 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
   protected def ingestUpdates(updates: Traced[Update]*): Offset = {
     val lastOffset = testServices.testReadService.push(updates.toVector)
     Iterator
-      .continually(pekko.pattern.after(20.millis)(testServices.index.currentLedgerEnd()).futureValue)
+      .continually(
+        org.apache.pekko.pattern.after(20.millis)(testServices.index.currentLedgerEnd()).futureValue
+      )
       .dropWhile(absoluteOffset =>
         Offset.fromHexString(Ref.HexString.assertFromString(absoluteOffset.value)) < lastOffset
       )

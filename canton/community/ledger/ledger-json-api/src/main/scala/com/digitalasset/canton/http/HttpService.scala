@@ -19,13 +19,22 @@ import com.daml.logging.LoggingContextOf
 import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.http.json.{ApiValueToJsValueConverter, DomainJsonDecoder, DomainJsonEncoder, JsValueToApiValueConverter}
+import com.digitalasset.canton.http.json.{
+  ApiValueToJsValueConverter,
+  DomainJsonDecoder,
+  DomainJsonEncoder,
+  JsValueToApiValueConverter,
+}
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.ApiValueToLfValueConverter
 import com.digitalasset.canton.http.util.FutureUtil.*
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
 import com.digitalasset.canton.ledger.api.domain as LedgerApiDomain
-import com.digitalasset.canton.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
+import com.digitalasset.canton.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement,
+}
 import com.digitalasset.canton.ledger.client.services.pkg.withoutledgerid.PackageClient
 import com.digitalasset.canton.ledger.client.withoutledgerid.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.service.LedgerReader

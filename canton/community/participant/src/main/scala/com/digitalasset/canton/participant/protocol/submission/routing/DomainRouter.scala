@@ -232,9 +232,8 @@ class DomainRouter(
     val allContractsHaveDomainData: Boolean = inputContractsDomainData.withoutDomainData.isEmpty
     val contractData = inputContractsDomainData.withDomainData
     val contractsDomainNotConnected = contractData.filter { contractData =>
-      snapshotProvider.getTopologySnapshotFor(contractData.domain).left.exists {
-        _: UnableToQueryTopologySnapshot.Failed =>
-          true
+      snapshotProvider.getTopologySnapshotFor(contractData.domain).left.exists { _ =>
+        true
       }
     }
 

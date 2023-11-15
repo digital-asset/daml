@@ -33,7 +33,6 @@ import scala.collection.immutable.SortedSet
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.math.Ordering
-import scala.math.Ordering.Implicits.*
 
 class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory)(implicit
     val ec: ExecutionContext

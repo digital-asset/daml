@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.indexer.ha
 
-import org.apache.pekko.stream.KillSwitch
-import org.apache.pekko.testkit.TestProbe
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
@@ -12,6 +10,8 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.logging.{SuppressingLogger, TracedLogger}
 import com.digitalasset.canton.platform.store.backend.DBLockStorageBackend
 import com.digitalasset.canton.tracing.TraceContext
+import org.apache.pekko.stream.KillSwitch
+import org.apache.pekko.testkit.TestProbe
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers

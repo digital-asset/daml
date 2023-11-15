@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.admin
 
-import org.apache.pekko.Done
 import com.daml.error.NoLogging
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
@@ -14,6 +13,7 @@ import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.ledger.api.client.{LedgerConnection, LedgerSubscription}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import org.apache.pekko.Done
 import org.mockito.captor.ArgCaptor
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec

@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.ledger.client.services.transactions.withoutledgerid
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
@@ -14,6 +12,8 @@ import com.daml.ledger.api.v1.transaction_service.*
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.services.transactions.TransactionSource
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 import scalaz.syntax.tag.*
 
 import scala.concurrent.Future

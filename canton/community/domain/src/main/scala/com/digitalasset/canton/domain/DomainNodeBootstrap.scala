@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain
 
-import org.apache.pekko.actor.ActorSystem
 import better.files.*
 import cats.data.EitherT
 import cats.syntax.either.*
@@ -86,6 +85,7 @@ import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.google.common.annotations.VisibleForTesting
+import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}

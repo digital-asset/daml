@@ -519,7 +519,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         val prefix = splitted(0)
         if (splitted.lengthCompare(1) > 0) {
           val suffix = splitted(1)
-          entry: TopologyStoreEntry[TopologyChangeOp] =>
+          (entry: TopologyStoreEntry[TopologyChangeOp]) =>
             entry.transaction.uniquePath.maybeUid.forall(_.id.unwrap.startsWith(prefix)) &&
               entry.transaction.uniquePath.namespace.fingerprint.unwrap.startsWith(suffix)
         } else { entry =>

@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.ledger.participant.state.index.v2
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.lf.data.Ref
@@ -13,6 +11,8 @@ import com.digitalasset.canton.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import io.grpc.StatusRuntimeException
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.Future
 

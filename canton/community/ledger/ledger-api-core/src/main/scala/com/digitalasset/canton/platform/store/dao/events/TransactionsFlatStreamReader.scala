@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.Attributes
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.daml.metrics.{DatabaseMetrics, Timed}
@@ -40,6 +37,9 @@ import com.digitalasset.canton.platform.store.utils.{
 import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter}
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Attributes
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*
@@ -247,7 +247,7 @@ class TransactionsFlatStreamReader(
           deserializeLfValues(rawEvents, eventProjectionProperties)
         )
       )
-      .mapConcat { groupOfPayloads: Vector[EventStorageBackend.Entry[Event]] =>
+      .mapConcat { (groupOfPayloads: Vector[EventStorageBackend.Entry[Event]]) =>
         val responses = TransactionConversions.toGetTransactionsResponse(groupOfPayloads)
         responses.map { case (offset, response) => ApiOffset.assertFromString(offset) -> response }
       }

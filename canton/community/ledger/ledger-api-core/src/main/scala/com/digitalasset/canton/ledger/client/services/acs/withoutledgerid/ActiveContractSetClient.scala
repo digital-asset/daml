@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.ledger.client.services.acs.withoutledgerid
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Keep, Source}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsServiceStub
@@ -16,6 +14,8 @@ import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.util.pekkostreams.ExtractMaterializedValue
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Keep, Source}
 import scalaz.syntax.tag.*
 
 import scala.concurrent.Future

@@ -33,7 +33,7 @@ class TransferCoordination(
     transferStoreFor: TargetDomainId => Either[TransferProcessorError, TransferStore],
     recentTimeProofFor: RecentTimeProofProvider,
     inSubmissionById: DomainId => Option[TransferSubmissionHandle],
-    val protocolVersionFor: Traced[DomainId] => Future[Option[ProtocolVersion]],
+    val protocolVersionFor: Traced[DomainId] => Option[ProtocolVersion],
     syncCryptoApi: SyncCryptoApiProvider,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -237,7 +237,7 @@ object TransferCoordination {
         .map(_.transferStore)
         .toRight(UnknownDomain(domain.unwrap, "looking for persistent state"))
 
-    val domainProtocolVersionGetter: Traced[DomainId] => Future[Option[ProtocolVersion]] =
+    val domainProtocolVersionGetter: Traced[DomainId] => Option[ProtocolVersion] =
       (tracedDomainId: Traced[DomainId]) =>
         syncDomainPersistentStateManager.protocolVersionFor(tracedDomainId.value)
 

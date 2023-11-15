@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.util.pekkostreams
 
-import org.apache.pekko.stream.scaladsl.{Flow, Source}
-import org.apache.pekko.stream.stage.*
-import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 import com.codahale.metrics as codahale
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.metrics.api.dropwizard.{DropwizardCounter as Counter}
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
+import org.apache.pekko.stream.stage.*
+import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Minute, Span}

@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.stream.*
-import org.apache.pekko.stream.scaladsl.{Keep, Sink}
 import cats.data.EitherT
 import cats.instances.option.*
 import cats.syntax.bifunctor.*
@@ -35,9 +33,11 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
 import com.digitalasset.canton.util.retry.{Pause, Success}
-import com.digitalasset.canton.util.{PekkoUtil, EitherTUtil, FutureUtil, retry}
+import com.digitalasset.canton.util.{EitherTUtil, FutureUtil, PekkoUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
+import org.apache.pekko.stream.*
+import org.apache.pekko.stream.scaladsl.{Keep, Sink}
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.duration.*

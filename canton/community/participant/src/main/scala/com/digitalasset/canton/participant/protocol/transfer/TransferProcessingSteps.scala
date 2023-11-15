@@ -52,7 +52,6 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, WithRecipients}
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.transaction.ParticipantAttributes
 import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
@@ -215,9 +214,7 @@ trait TransferProcessingSteps[
       for {
         relationshipO <- snapshot.hostedOn(stk, participantId)
       } yield {
-        relationshipO.map { _: ParticipantAttributes =>
-          stk
-        }
+        relationshipO.map { _ => stk }
       }
     }
   }

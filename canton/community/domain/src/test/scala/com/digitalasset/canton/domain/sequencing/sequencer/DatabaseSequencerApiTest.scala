@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.stream.Materializer
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
@@ -13,6 +12,7 @@ import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.*
+import org.apache.pekko.stream.Materializer
 
 class DatabaseSequencerApiTest extends NonBftDomainSequencerApiTest {
 

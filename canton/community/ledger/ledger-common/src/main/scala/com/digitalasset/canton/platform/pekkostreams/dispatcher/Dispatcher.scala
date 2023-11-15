@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.pekkostreams.dispatcher
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.timer.Timeout.*
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration

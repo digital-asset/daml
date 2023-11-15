@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.data.{TransactionViewTree, ViewPosition}
+import com.digitalasset.canton.data.{FullTransactionViewTree, ViewPosition}
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -21,7 +21,7 @@ class AuthorizationValidator(participantId: ParticipantId, enableContractUpgradi
 
   def checkAuthorization(
       requestId: RequestId,
-      rootViews: NonEmpty[Seq[TransactionViewTree]],
+      rootViews: NonEmpty[Seq[FullTransactionViewTree]],
       snapshot: TopologySnapshot,
   ): Future[Map[ViewPosition, String]] =
     rootViews.forgetNE

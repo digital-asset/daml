@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
-import org.apache.pekko.stream.{KillSwitches, Materializer}
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.LedgerOffset
 import com.digitalasset.canton.ledger.error.CommonErrors
@@ -16,6 +14,8 @@ import com.digitalasset.canton.platform.apiserver.services.admin.SynchronousResp
   Rejected,
 }
 import io.grpc.StatusRuntimeException
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.stream.{KillSwitches, Materializer}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}

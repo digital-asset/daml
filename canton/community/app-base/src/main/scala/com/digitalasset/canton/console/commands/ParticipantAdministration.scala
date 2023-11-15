@@ -131,7 +131,7 @@ private[console] object ParticipantCommands {
       ) // TODO(#14048): Come up with a good way of giving it a good alias
       DomainConnectionConfig(
         domainAlias,
-        SequencerConnections.many(
+        SequencerConnections.tryMany(
           domain.toSeq.map { case (alias, domain) =>
             domain.sequencerConnection.withAlias(alias)
           },
@@ -762,9 +762,9 @@ class ParticipantReplicationAdministrationGroup(
   */
 trait ParticipantAdministration extends FeatureFlagFilter {
   this: AdminCommandRunner
-    & LedgerApiCommandRunner
-    & LedgerApiAdministration
-    & NamedLogging =>
+    with LedgerApiCommandRunner
+    with LedgerApiAdministration
+    with NamedLogging =>
 
   import ConsoleEnvironment.Implicits.*
   implicit protected val consoleEnvironment: ConsoleEnvironment

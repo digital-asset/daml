@@ -8,7 +8,6 @@ package com.digitalasset.canton.config
 // SOME OF THE IMPLICIT IMPORTS NECESSARY TO COMPILE
 ////////////////////////////////////////////////////////
 
-import org.apache.pekko.stream.ThrottleMode
 import cats.Order
 import cats.data.Validated
 import cats.syntax.either.*
@@ -80,6 +79,7 @@ import com.typesafe.config.{
 }
 import com.typesafe.scalalogging.LazyLogging
 import monocle.macros.syntax.lens.*
+import org.apache.pekko.stream.ThrottleMode
 import pureconfig.*
 import pureconfig.error.CannotConvert
 import pureconfig.generic.{FieldCoproductHint, ProductHint}
@@ -449,6 +449,7 @@ trait CantonConfig {
         excludeInfrastructureTransactions = participantParameters.excludeInfrastructureTransactions,
         enableEngineStackTrace = participantParameters.enableEngineStackTraces,
         enableContractUpgrading = participantParameters.enableContractUpgrading,
+        iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
       )
     }
 

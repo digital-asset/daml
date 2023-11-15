@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.admin
 
-import org.apache.pekko.actor.ActorSystem
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
@@ -47,6 +46,7 @@ import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.actor.ActorSystem
 import org.slf4j.event.Level
 
 import java.io.InputStream

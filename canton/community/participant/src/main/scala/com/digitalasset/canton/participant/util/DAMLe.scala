@@ -37,6 +37,8 @@ object DAMLe {
       enableStackTraces: Boolean,
       profileDir: Option[Path] = None,
       enableContractUpgrading: Boolean = false,
+      iterationsBetweenInterruptions: Long =
+        10000, // 10000 is the default value in the engine configuration
   ): Engine =
     new Engine(
       EngineConfig(
@@ -58,6 +60,7 @@ object DAMLe {
           if (uniqueContractKeys) ContractKeyUniquenessMode.Strict
           else ContractKeyUniquenessMode.Off,
         enableContractUpgrading = enableContractUpgrading,
+        iterationsBetweenInterruptions = iterationsBetweenInterruptions,
       )
     )
 

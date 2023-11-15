@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.store
 
-import org.apache.pekko.stream.Materializer
 import cats.Eval
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
@@ -33,6 +32,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
 import com.digitalasset.canton.util.{ErrorUtil, retry}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*

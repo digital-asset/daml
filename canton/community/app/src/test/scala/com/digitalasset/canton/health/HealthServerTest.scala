@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.health
 
-import org.apache.pekko.http.scaladsl.model.StatusCodes
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.health.HealthServer.route
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.scalatest.wordspec.AnyWordSpec
 
 class HealthServerTest extends AnyWordSpec with BaseTest with ScalatestRouteTest {

@@ -265,7 +265,7 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
         val prefix = split(0)
         if (split.lengthCompare(1) > 0) {
           val suffix = split(1)
-          entry: TopologyStoreEntry =>
+          (entry: TopologyStoreEntry) =>
             entry.transaction.transaction.mapping.maybeUid.exists(_.id.unwrap.startsWith(prefix)) &&
               entry.transaction.transaction.mapping.namespace.fingerprint.unwrap.startsWith(suffix)
         } else { entry =>

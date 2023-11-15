@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.domain.block
 
-import org.apache.pekko.stream.scaladsl.Source
-import org.apache.pekko.stream.{KillSwitch, Materializer}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.time.TimeProvider
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.google.protobuf.ByteString
 import io.grpc.BindableService
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.{KillSwitch, Materializer}
 import pureconfig.{ConfigReader, ConfigWriter}
 
 import scala.concurrent.{ExecutionContext, Future}

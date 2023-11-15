@@ -3,16 +3,17 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, SinkQueueWithCancel}
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerMemberId
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.topology.{Member, ParticipantId}
-import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, SinkQueueWithCancel}
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 import org.scalatest.{Assertion, FutureOutcome}
 
@@ -34,7 +35,7 @@ class LocalSequencerStateEventSignallerTest
   class Env extends FlagCloseable with NamedLogging {
     override val timeouts = LocalSequencerStateEventSignallerTest.this.timeouts
     protected override val loggerFactory = LocalSequencerStateEventSignallerTest.this.loggerFactory
-    implicit val actorSystem =
+    implicit val actorSystem: ActorSystem =
       PekkoUtil.createActorSystem(loggerFactory.threadName)(parallelExecutionContext)
 
     val nextTimestampSecond = new AtomicLong(0L)

@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.logging
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Flow
 import com.daml.grpc.GrpcException
 import com.daml.logging.LoggingContext
 import com.daml.logging.entries.LoggingEntries
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Status
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Flow
 
 import scala.util.control.NonFatal
 import scala.util.{Failure, Try}

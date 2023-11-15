@@ -24,7 +24,9 @@ import scala.concurrent.Future
 class BufferedTransactionByIdReaderSpec extends AsyncFlatSpec with MockitoSugar with BaseTest {
   private val className = classOf[BufferedTransactionByIdReader[_]].getSimpleName
 
-  private implicit val loggingContext = LoggingContextWithTrace(loggerFactory)
+  private implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace(
+    loggerFactory
+  )
 
   private val requestingParties = Set("p1", "p2").map(Ref.Party.assertFromString)
 

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.environment
 
-import org.apache.pekko.actor.ActorSystem
 import better.files.File
 import cats.data.EitherT
 import com.daml.metrics.HealthMetrics
@@ -44,6 +43,7 @@ import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
 import com.digitalasset.canton.util.SimpleExecutionQueue
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.{Executors, ScheduledExecutorService}
 import scala.annotation.nowarn

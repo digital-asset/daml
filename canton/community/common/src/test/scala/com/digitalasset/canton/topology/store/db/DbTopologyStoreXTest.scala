@@ -42,12 +42,12 @@ trait DbTopologyStoreXTest extends TopologyStoreXTest with DbTopologyStoreXHelpe
 
 class TopologyStoreXTestPostgres extends DbTopologyStoreXTest with PostgresTest {
 
-  // TODO(#12373) remove this from unstable/dev when releasing BFT
+  // TODO(#15153) remove this when we have only dev/cn
   override val migrationMode: MigrationMode = MigrationMode.DevVersion
 }
 
 class TopologyStoreXTestH2 extends DbTopologyStoreXTest with H2Test {
 
-  // TODO(#12373) remove this from unstable/dev when releasing BFT
+  // TODO(#15153) remove this when we have only dev/cn
   override val migrationMode: MigrationMode = MigrationMode.DevVersion
 }

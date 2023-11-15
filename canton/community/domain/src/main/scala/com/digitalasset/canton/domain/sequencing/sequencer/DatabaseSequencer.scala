@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.stream.Materializer
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
@@ -49,6 +48,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.stream.Materializer
 import org.slf4j.event.Level
 
 import scala.concurrent.{ExecutionContext, Future}

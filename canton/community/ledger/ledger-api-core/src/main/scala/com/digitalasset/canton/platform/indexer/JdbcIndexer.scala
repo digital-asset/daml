@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.indexer
 
-import org.apache.pekko.stream.*
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.participant.state.v2 as state
@@ -33,6 +32,7 @@ import com.digitalasset.canton.platform.store.dao.events.{CompressionStrategy, L
 import com.digitalasset.canton.platform.store.interning.UpdatingStringInterningView
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.stream.*
 
 import scala.concurrent.{ExecutionContext, Future}
 

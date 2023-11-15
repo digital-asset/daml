@@ -550,7 +550,7 @@ object WebSocketService extends NoTracing {
         resolvedWithKey.groupMap(_._1)(_._2)
 
       request.toList
-        .traverse { x: CKR[LfV] =>
+        .traverse { (x: CKR[LfV]) =>
           resolveContractTypeId(jwt, ledgerId)(x.ekey.templateId)
             .map(_.toOption.flatten.map((_, x.ekey.key)).toLeft(x.ekey.templateId))
         }
@@ -883,7 +883,7 @@ class WebSocketService(
     ) =
       acsPred
         .flatMap(
-          _.flatMap { vp: StreamPredicate[Q.Positive] =>
+          _.flatMap { (vp: StreamPredicate[Q.Positive]) =>
             Some(fetchAndPreFilterAcs(vp, jwt, ledgerId, parties))
           }.cata(
             _.map { acsAndLiveMarker =>
@@ -942,9 +942,7 @@ class WebSocketService(
           processResolved(pred.resolvedQuery, pred.unresolved, pred.fn)
         }
       }
-      .mapMaterializedValue { _: Future[_] =>
-        NotUsed
-      }
+      .mapMaterializedValue { _ => NotUsed }
   }
 
   private def emitOffsetTicksAndFilterOutEmptySteps[Pos](
@@ -1020,7 +1018,7 @@ class WebSocketService(
       fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Pos],
   ): Flow[ContractStreamStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
-      .fromFunction { step: ContractStreamStep.LAV1 =>
+      .fromFunction { (step: ContractStreamStep.LAV1) =>
         val (aerrors, errors, dstep) = step.partitionBimap(
           ae =>
             domain.ArchivedContract
@@ -1034,7 +1032,7 @@ class WebSocketService(
         )(Seq)
         StepAndErrors(
           errors ++ aerrors,
-          dstep mapInserts { inserts: Vector[domain.ActiveContract.ResolvedCtTyId[LfV]] =>
+          dstep mapInserts { (inserts: Vector[domain.ActiveContract.ResolvedCtTyId[LfV]]) =>
             inserts.flatMap { ac =>
               fn(ac, dstep.bookmark.flatMap(_.toOption)).map((ac, _)).toList
             }

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import org.apache.pekko.stream.Materializer
 import cats.data.EitherT
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
@@ -22,6 +21,7 @@ import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
 import io.grpc.ConnectivityState
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.*
 

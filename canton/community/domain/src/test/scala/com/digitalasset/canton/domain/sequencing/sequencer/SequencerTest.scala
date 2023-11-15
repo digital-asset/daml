@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Sink
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
@@ -35,6 +32,9 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.RepresentativeProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import com.typesafe.config.ConfigFactory
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.FutureOutcome
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 
@@ -64,13 +64,13 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
   class Env extends FlagCloseableAsync {
     override val timeouts = SequencerTest.this.timeouts
     protected val logger = SequencerTest.this.logger
-    private implicit val actorSystem = ActorSystem(
+    private implicit val actorSystem: ActorSystem = ActorSystem(
       classOf[SequencerTest].getSimpleName,
       Some(pekkoConfig),
       None,
       Some(parallelExecutionContext),
     )
-    private implicit val materializer = implicitly[Materializer]
+    private val materializer = implicitly[Materializer]
     val store = new InMemorySequencerStore(loggerFactory)
     val clock = new WallClock(timeouts, loggerFactory = loggerFactory)
     val crypto = valueOrFail(

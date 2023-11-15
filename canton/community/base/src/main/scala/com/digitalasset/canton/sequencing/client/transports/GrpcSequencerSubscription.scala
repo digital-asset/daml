@@ -53,7 +53,8 @@ object HasProtoTraceContext {
       override def traceContext(value: v0.SubscriptionResponse) = value.traceContext
     }
 
-  implicit val versionedSubscriptionResponseTraceContext: HasProtoTraceContext[v0.VersionedSubscriptionResponse] =
+  implicit val versionedSubscriptionResponseTraceContext
+      : HasProtoTraceContext[v0.VersionedSubscriptionResponse] =
     new HasProtoTraceContext[v0.VersionedSubscriptionResponse] {
       override def traceContext(value: v0.VersionedSubscriptionResponse) = value.traceContext
     }

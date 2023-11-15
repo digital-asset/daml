@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.ledger.participant.state.index.v2
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,
   GetTransactionTreeResponse,
@@ -14,6 +12,8 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.{LedgerOffset, TransactionFilter, TransactionId}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.Future
 

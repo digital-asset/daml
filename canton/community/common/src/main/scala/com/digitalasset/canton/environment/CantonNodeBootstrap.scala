@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.environment
 
-import org.apache.pekko.actor.ActorSystem
 import cats.data.EitherT
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
@@ -39,6 +38,7 @@ import com.digitalasset.canton.util.retry
 import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 import io.grpc.ServerServiceDefinition
+import org.apache.pekko.actor.ActorSystem
 import org.slf4j.event.Level
 
 import java.util.concurrent.ScheduledExecutorService

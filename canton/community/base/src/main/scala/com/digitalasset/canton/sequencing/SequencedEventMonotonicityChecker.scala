@@ -3,17 +3,17 @@
 
 package com.digitalasset.canton.sequencing
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Flow
 import cats.syntax.functorFilter.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.ClosedEnvelope
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
 import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
 import com.google.common.annotations.VisibleForTesting
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Flow
 
 /** Checks that the sequenced events' sequencer counters are a gap-free increasing sequencing starting at `firstSequencerCounter`
   * and their timestamps increase strictly monotonically. When a violation is detected, an error is logged and

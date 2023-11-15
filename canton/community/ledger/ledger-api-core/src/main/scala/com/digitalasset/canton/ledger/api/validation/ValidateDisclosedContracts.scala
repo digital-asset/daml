@@ -11,6 +11,11 @@ import com.daml.ledger.api.v1.commands.{
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.TransactionCoder
 import com.digitalasset.canton.ledger.api.domain.{DisclosedContract, UpgradableDisclosedContract}
+import com.digitalasset.canton.ledger.api.validation.FieldValidator.{
+  requireContractId,
+  requirePresence,
+  validateIdentifier,
+}
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import io.grpc.StatusRuntimeException
@@ -65,6 +70,15 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       Left(ValidationErrors.missingField("DisclosedContract.createdEventBlob"))
     else
       for {
+        rawTemplateId <- requirePresence(
+          disclosedContract.templateId,
+          "DisclosedContract.template_id",
+        )
+        validatedTemplateId <- validateIdentifier(rawTemplateId)
+        validatedContractId <- requireContractId(
+          disclosedContract.contractId,
+          "DisclosedContract.contract_id",
+        )
         fatContractInstance <- TransactionCoder
           .decodeFatContractInstance(disclosedContract.createdEventBlob)
           .left
@@ -72,16 +86,23 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
             invalidArgument(s"Unable to decode disclosed contract event payload: $decodeError")
           )
         _ <- Either.cond(
-          disclosedContract.contractId == fatContractInstance.contractId.coid,
+          validatedContractId == fatContractInstance.contractId,
           (),
           invalidArgument(
             s"Mismatch between DisclosedContract.contract_id (${disclosedContract.contractId}) and contract_id from decoded DisclosedContract.created_event_blob (${fatContractInstance.contractId.coid})"
           ),
         )
+        _ <- Either.cond(
+          validatedTemplateId == fatContractInstance.templateId,
+          (),
+          invalidArgument(
+            s"Mismatch between DisclosedContract.template_id ($validatedTemplateId) and template_id from decoded DisclosedContract.created_event_blob (${fatContractInstance.templateId})"
+          ),
+        )
       } yield {
         import fatContractInstance.*
         UpgradableDisclosedContract(
-          contractId = contractId,
+          contractId = validatedContractId,
           templateId = templateId,
           argument = createArg,
           createdAt = createdAt,

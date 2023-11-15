@@ -74,7 +74,7 @@ class PackageService(
       def lookupIf(packageStore: PackageStore, pkId: Ref.PackageId) =
         packageStore
           .get(pkId)
-          .map((_, { newSig: typesig.PackageSignature => packageStore.updated(pkId, newSig) }))
+          .map((_, { (newSig: typesig.PackageSignature) => packageStore.updated(pkId, newSig) }))
 
       val (packageStore2, diffElems) =
         typesig.PackageSignature.resolveRetroImplements(packageStore, diff.values.toSeq)(lookupIf)

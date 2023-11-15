@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import org.apache.pekko.Done
-import org.apache.pekko.stream.scaladsl.Source
-import org.apache.pekko.stream.{AbruptStageTerminationException, KillSwitch, Materializer}
 import cats.syntax.either.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -21,8 +18,11 @@ import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.{RetrySourcePolicy, WithKillSwitch}
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{PekkoUtil, LoggerUtil}
+import com.digitalasset.canton.util.{LoggerUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
+import org.apache.pekko.Done
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.{AbruptStageTerminationException, KillSwitch, Materializer}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}

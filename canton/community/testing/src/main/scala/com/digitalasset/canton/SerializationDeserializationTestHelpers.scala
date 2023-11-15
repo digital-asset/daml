@@ -116,7 +116,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
   )(implicit arb: Arbitrary[T]): Assertion = {
     testedClasses.add(companion.getClass.getName.replace("$", ""))
 
-    forAll { instance: T =>
+    forAll { (instance: T) =>
       val proto = clue(s"Serializing instance of ${companion.name}")(instance.toByteString)
 
       val deserializedInstance = clue(s"Deserializing serialized ${companion.name}")(

@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.grpc
 
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.tracing.Telemetry
@@ -16,6 +14,8 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import io.grpc.ServerServiceDefinition
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.grpc.stub.StreamObserver
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}

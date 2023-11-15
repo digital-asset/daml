@@ -282,7 +282,7 @@ object ProtocolVersion {
   lazy val minimum: ProtocolVersion = v3
 
   // Aliases for easier releasing of upcoming not yet defined protocol versions
-  // TODO(#12373) Adapt when releasing BFT
+  // TODO(#15358) Adapt when releasing BFT
   lazy val CNTestNet: ProtocolVersionWithStatus[Unstable] = dev
 }
 

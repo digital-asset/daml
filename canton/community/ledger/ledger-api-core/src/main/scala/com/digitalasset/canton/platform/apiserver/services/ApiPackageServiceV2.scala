@@ -52,7 +52,8 @@ private[apiserver] final class ApiPackageServiceV2(
     extends PackageService
     with GrpcApiService
     with NamedLogging {
-  private implicit val loggingContext: LoggingContext = createLoggingContext(loggerFactory)(identity)
+  private implicit val loggingContext: LoggingContext =
+    createLoggingContext(loggerFactory)(identity)
 
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, executionContext)

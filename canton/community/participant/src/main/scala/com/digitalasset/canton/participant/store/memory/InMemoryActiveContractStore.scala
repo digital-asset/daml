@@ -681,8 +681,7 @@ object InMemoryActiveContractStore {
 
     /** Returns the latest [[ActiveContractStore.ContractState]] if any */
     def latestState: Option[ContractState] = {
-      changes.headOption.map { individualChange: (ActivenessChange, ActivenessChangeDetail) =>
-        val (change, detail) = individualChange
+      changes.headOption.map { case (change, detail) =>
         val status =
           if (change.isActivation) Active(detail.transferCounter)
           else

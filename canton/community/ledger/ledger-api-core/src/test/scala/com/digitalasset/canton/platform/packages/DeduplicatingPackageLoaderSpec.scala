@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.packages
 
-import org.apache.pekko.actor.{ActorSystem, Scheduler}
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.resources.TestResourceContext
@@ -12,6 +11,7 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.metrics.api.dropwizard.DropwizardTimer
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.testing.utils.{TestModels, TestResourceUtils}
+import org.apache.pekko.actor.{ActorSystem, Scheduler}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -41,7 +41,7 @@ class DeduplicatingPackageLoaderSpec
   private[this] def delayedLoad(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {
     implicit val scheduler: Scheduler = actorSystem.scheduler
     loadCount.incrementAndGet()
-    pekko.pattern.after(duration, scheduler) {
+    org.apache.pekko.pattern.after(duration, scheduler) {
       Future.successful(Some(dar.main))
     }
   }
@@ -49,7 +49,7 @@ class DeduplicatingPackageLoaderSpec
   private[this] def delayedFail(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {
     implicit val scheduler: Scheduler = actorSystem.scheduler
     loadCount.incrementAndGet()
-    pekko.pattern.after(duration, scheduler) {
+    org.apache.pekko.pattern.after(duration, scheduler) {
       Future.failed(new RuntimeException("Simulated package load failure"))
     }
   }
@@ -57,7 +57,7 @@ class DeduplicatingPackageLoaderSpec
   private[this] def delayedNotFound(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {
     implicit val scheduler: Scheduler = actorSystem.scheduler
     loadCount.incrementAndGet()
-    pekko.pattern.after(duration, scheduler) {
+    org.apache.pekko.pattern.after(duration, scheduler) {
       Future.successful(None)
     }
   }

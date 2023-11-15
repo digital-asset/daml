@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.util.pekkostreams
 
+import com.daml.metrics.api.MetricHandle.Counter
+import com.daml.metrics.api.MetricsContext
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.BidiFlow
 import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import org.apache.pekko.stream.{Attributes, BidiShape, Inlet, Outlet}
-import com.daml.metrics.api.MetricHandle.Counter
-import com.daml.metrics.api.MetricsContext
 import org.slf4j.LoggerFactory
 
 /** Enforces that at most `maxInFlight` items traverse the flow underneath this one.

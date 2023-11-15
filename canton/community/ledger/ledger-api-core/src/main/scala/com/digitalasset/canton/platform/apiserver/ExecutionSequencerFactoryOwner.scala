@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import org.apache.pekko.actor.ActorSystem
-import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import org.apache.pekko.actor.ActorSystem
 
 import java.util.UUID
 import scala.concurrent.Future
@@ -16,7 +16,7 @@ final class ExecutionSequencerFactoryOwner(implicit actorSystem: ActorSystem)
   // and it's pretty difficult to wait for the name to become available again.
   // The name deregistration is asynchronous and the close method does not wait, and it isn't
   // trivial to implement.
-  // https://doc.pekko.io/docs/pekko/2.5/actors.html#graceful-stop
+  // https://doc.akka.io/docs/akka/2.5/actors.html#graceful-stop
   private val poolName = s"ledger-api-server-rs-grpc-bridge-${UUID.randomUUID}"
 
   private val ActorCount = Runtime.getRuntime.availableProcessors() * 8

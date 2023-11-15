@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.indexer
 
-import org.apache.pekko.stream.Materializer
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.health.{Healthy, ReportsHealth}
@@ -20,6 +19,7 @@ import com.digitalasset.canton.platform.store.DbSupport.{
 import com.digitalasset.canton.platform.store.FlywayMigrations
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.{ExecutionContext, Future}
 

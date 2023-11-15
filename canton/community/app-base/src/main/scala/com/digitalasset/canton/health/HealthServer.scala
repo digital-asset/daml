@@ -3,13 +3,6 @@
 
 package com.digitalasset.canton.health
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.marshalling.{Marshaller, ToResponseMarshaller}
-import org.apache.pekko.http.scaladsl.model.{HttpEntity, HttpResponse, StatusCodes}
-import org.apache.pekko.http.scaladsl.server.Directives.*
-import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.server.directives.DebuggingDirectives
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{HealthConfig, ProcessingTimeout}
 import com.digitalasset.canton.environment.Environment
@@ -18,6 +11,13 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.HealthMetrics
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.marshalling.{Marshaller, ToResponseMarshaller}
+import org.apache.pekko.http.scaladsl.model.{HttpEntity, HttpResponse, StatusCodes}
+import org.apache.pekko.http.scaladsl.server.Directives.*
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.server.directives.DebuggingDirectives
 
 class HealthServer(
     check: HealthCheck,

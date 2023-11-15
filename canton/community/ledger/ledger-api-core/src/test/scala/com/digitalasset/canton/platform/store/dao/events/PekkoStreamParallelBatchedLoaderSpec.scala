@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.logging.LoggingContextWithTrace
+import org.apache.pekko.stream.scaladsl.Source
 import org.scalatest.flatspec.AsyncFlatSpec
 
 import java.util.concurrent.atomic.AtomicInteger
@@ -22,7 +22,7 @@ class PekkoStreamParallelBatchedLoaderSpec
   // AsyncFlatSpec is with serial execution context
   private implicit val ec: ExecutionContext = system.dispatcher
 
-  private implicit val loggingContext = LoggingContextWithTrace.empty
+  private implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace.empty
 
   it should "not batch if no backpressure" in {
     val testee = new PekkoStreamParallelBatchedLoader[Int, Int](

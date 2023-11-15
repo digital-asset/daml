@@ -21,11 +21,11 @@ class SerializationDeserializationTest
   import com.digitalasset.canton.data.GeneratorsData.*
   import com.digitalasset.canton.data.GeneratorsTransferData.*
   import com.digitalasset.canton.protocol.GeneratorsProtocol.*
+  import com.digitalasset.canton.protocol.messages.GeneratorsMessages.*
+  import com.digitalasset.canton.protocol.messages.GeneratorsMessages.GeneratorsLocalVerdict.*
+  import com.digitalasset.canton.protocol.messages.GeneratorsMessages.GeneratorsVerdict.*
   import com.digitalasset.canton.sequencing.protocol.GeneratorsProtocol.*
   import com.digitalasset.canton.topology.transaction.GeneratorsTransaction.*
-  import com.digitalasset.canton.protocol.messages.GeneratorsMessages.*
-  import com.digitalasset.canton.protocol.messages.GeneratorsMessages.GeneratorsVerdict.*
-  import com.digitalasset.canton.protocol.messages.GeneratorsMessages.GeneratorsLocalVerdict.*
 
   "Serialization and deserialization methods" should {
     "compose to the identity" in {
@@ -81,6 +81,8 @@ class SerializationDeserializationTest
         com.digitalasset.canton.data.ViewParticipantData,
         TestHash,
       )
+      testProtocolVersioned(com.digitalasset.canton.sequencing.protocol.Batch)
+
     }
 
     "be exhaustive" in {

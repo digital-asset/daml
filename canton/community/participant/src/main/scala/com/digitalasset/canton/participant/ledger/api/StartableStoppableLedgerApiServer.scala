@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
-import org.apache.pekko.actor.ActorSystem
 import com.daml.api.util.TimeProvider
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.ledger.api.v1.experimental_features.{
@@ -60,6 +59,7 @@ import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import io.grpc.ServerInterceptor
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTracing
+import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.Future
@@ -334,6 +334,7 @@ class StartableStoppableLedgerApiServer(
         multiDomainEnabled = multiDomainEnabled,
         upgradingEnabled = config.cantonParameterConfig.enableContractUpgrading,
         authenticateContract = authenticateContract,
+        dynParamGetter = config.syncService.dynamicDomainParameterGetter,
       )
       _ <- startHttpApiIfEnabled
       _ <- {

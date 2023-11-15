@@ -3,13 +3,6 @@
 
 package com.digitalasset.canton.util
 
-import org.apache.pekko.Done
-import org.apache.pekko.stream.QueueOfferResult.Enqueued
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
-import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import org.apache.pekko.stream.testkit.scaladsl.{TestSink, TestSource}
-import org.apache.pekko.stream.testkit.{StreamSpec, TestPublisher}
-import org.apache.pekko.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances, PrettyPrinting}
@@ -21,6 +14,13 @@ import com.digitalasset.canton.util.OrderedBucketMergeHub.{
   OutputElement,
 }
 import com.digitalasset.canton.{BaseTest, DiscardOps}
+import org.apache.pekko.Done
+import org.apache.pekko.stream.QueueOfferResult.Enqueued
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import org.apache.pekko.stream.testkit.scaladsl.{TestSink, TestSource}
+import org.apache.pekko.stream.testkit.{StreamSpec, TestPublisher}
+import org.apache.pekko.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.collection.concurrent.TrieMap
@@ -35,7 +35,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
 
   private implicit val executionContext: ExecutionContext = system.dispatcher
 
-  private implicit val prettyString = PrettyInstances.prettyString
+  private implicit val prettyString: Pretty[String] = PrettyInstances.prettyString
 
   private type Name = String
   private type Config = Int

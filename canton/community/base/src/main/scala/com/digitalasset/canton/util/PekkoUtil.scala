@@ -3,9 +3,28 @@
 
 package com.digitalasset.canton.util
 
+import cats.{Applicative, Eval, Functor, Traverse}
+import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.concurrent.{DirectExecutionContext, Threading}
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
+import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.typesafe.config.ConfigFactory
+import com.typesafe.scalalogging.Logger
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Flow, FlowOps, FlowOpsMat, Keep, RunnableGraph, Source}
-import org.apache.pekko.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, InHandler, OutHandler}
+import org.apache.pekko.stream.stage.{
+  GraphStageLogic,
+  GraphStageWithMaterializedValue,
+  InHandler,
+  OutHandler,
+}
 import org.apache.pekko.stream.{
   ActorAttributes,
   Attributes,
@@ -21,20 +40,6 @@ import org.apache.pekko.stream.{
   UniqueKillSwitch,
 }
 import org.apache.pekko.{Done, NotUsed}
-import cats.{Applicative, Eval, Functor, Traverse}
-import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.DiscardOps
-import com.digitalasset.canton.concurrent.{DirectExecutionContext, Threading}
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
-import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
-import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.typesafe.config.ConfigFactory
-import com.typesafe.scalalogging.Logger
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.concurrent.TrieMap
@@ -92,9 +97,9 @@ object PekkoUtil extends HasLoggerName {
     * The current element is the [[com.daml.nonempty.NonEmptyCollInstances.NEPreservingOps.last1]]
     * of the sequence.
     *
-    * [[remember]] differs from [[pekko.stream.scaladsl.FlowOps.sliding]] in
+    * [[remember]] differs from [[org.apache.pekko.stream.scaladsl.FlowOps.sliding]] in
     * that [[remember]] emits elements immediately when the given source emits,
-    * whereas [[pekko.stream.scaladsl.FlowOps.sliding]] only after the source has emitted enough elements to fill the window.
+    * whereas [[org.apache.pekko.stream.scaladsl.FlowOps.sliding]] only after the source has emitted enough elements to fill the window.
     */
   def remember[A, Mat](
       graph: FlowOps[A, Mat],
@@ -117,9 +122,9 @@ object PekkoUtil extends HasLoggerName {
       }
   }
 
-  /** A version of [[pekko.stream.scaladsl.FlowOps.mapAsync]] that additionally allows to pass state of type `S` between
-    * every subsequent element. Unlike [[pekko.stream.scaladsl.FlowOps.statefulMapConcat]], the state is passed explicitly.
-    * Must not be run with supervision strategies [[pekko.stream.Supervision.Restart]] nor [[pekko.stream.Supervision.Resume]]
+  /** A version of [[org.apache.pekko.stream.scaladsl.FlowOps.mapAsync]] that additionally allows to pass state of type `S` between
+    * every subsequent element. Unlike [[org.apache.pekko.stream.scaladsl.FlowOps.statefulMapConcat]], the state is passed explicitly.
+    * Must not be run with supervision strategies [[org.apache.pekko.stream.Supervision.Restart]] nor [[org.apache.pekko.stream.Supervision.Resume]]
     */
   def statefulMapAsync[Out, Mat, S, T](graph: FlowOps[Out, Mat], initial: S)(
       f: (S, Out) => Future[(S, T)]
@@ -138,7 +143,7 @@ object PekkoUtil extends HasLoggerName {
       )
   }
 
-  /** Version of [[pekko.stream.scaladsl.FlowOps.mapAsync]] for a [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]].
+  /** Version of [[org.apache.pekko.stream.scaladsl.FlowOps.mapAsync]] for a [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]].
     * If `f` returns [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]] on one element of
     * `source`, then the returned source returns [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]]
     * for all subsequent elements as well.
@@ -289,9 +294,9 @@ object PekkoUtil extends HasLoggerName {
     * @return The concatenation of all constructed sources.
     *         This source is NOT a blueprint and MUST therefore be materialized at most once.
     *         Its materialized value provides a kill switch to stop retrying.
-    *         Only the [[pekko.stream.KillSwitch.shutdown]] method should be used;
+    *         Only the [[org.apache.pekko.stream.KillSwitch.shutdown]] method should be used;
     *         The switch does not short-circuit the already constructed sources though.
-    *         synchronization may not work correctly with [[pekko.stream.KillSwitch.abort]].
+    *         synchronization may not work correctly with [[org.apache.pekko.stream.KillSwitch.abort]].
     *         Downstream should not cancel; use the kill switch instead.
     *
     *         The materialized [[scala.concurrent.Future]] can be used to synchronize on the computations for restarts:
@@ -503,7 +508,7 @@ object PekkoUtil extends HasLoggerName {
       }
   }
 
-  /** Adds a [[pekko.stream.KillSwitches.single]] into the stream after the given source
+  /** Adds a [[org.apache.pekko.stream.KillSwitches.single]] into the stream after the given source
     * and injects the created kill switch into the stream
     */
   def withUniqueKillSwitch[A, Mat, Mat2](
@@ -562,11 +567,11 @@ object PekkoUtil extends HasLoggerName {
     }
   }
 
-  /** Container class for adding a [[pekko.stream.KillSwitch]] to a single value.
+  /** Container class for adding a [[org.apache.pekko.stream.KillSwitch]] to a single value.
     * Two containers are equal if their contained values are equal.
     *
-    * (Equality ignores the [[pekko.stream.KillSwitch]]es because it is usually not very meaningful.
-    * The [[pekko.stream.KillSwitch]] is therefore in the second argument list.)
+    * (Equality ignores the [[org.apache.pekko.stream.KillSwitch]]es because it is usually not very meaningful.
+    * The [[org.apache.pekko.stream.KillSwitch]] is therefore in the second argument list.)
     */
   final case class WithKillSwitch[+A](private val value: A)(val killSwitch: KillSwitch) {
     def unwrap: A = value
@@ -621,17 +626,18 @@ object PekkoUtil extends HasLoggerName {
 
   object syntax {
 
-    /** Defines extension methods for [[pekko.stream.scaladsl.FlowOpsMat]] that map to the methods defined in this class.
+    /** Defines extension methods for [[org.apache.pekko.stream.scaladsl.FlowOpsMat]] that map to the methods defined in this class.
       *
       * The construction with type parameter `U` follows
       * <a href="https://typelevel.org/blog/2017/03/01/four-ways-to-escape-a-cake.html">Stephen's blog post about relatable variables</a>
-      * to ensure that we can uniformly abstract over [[pekko.stream.scaladsl.Source]]s and [[pekko.stream.scaladsl.Flow]]s.
+      * to ensure that we can uniformly abstract over [[org.apache.pekko.stream.scaladsl.Source]]s and [[org.apache.pekko.stream.scaladsl.Flow]]s.
       * In particular, we cannot use an implicit class here. Unlike in the blog post, the implicit conversion [[pekkoUtilSyntaxForFlowOps]]
-      * does not extract [[pekko.stream.scaladsl.FlowOpsMat]] into a separate type parameter because this would confuse
+      * does not extract [[org.apache.pekko.stream.scaladsl.FlowOpsMat]] into a separate type parameter because this would confuse
       * type inference.
       */
-    private[util] class PekkoUtilSyntaxForFlowOps[A, Mat, U <: FlowOps[A, Mat]](private val graph: U)
-        extends AnyVal {
+    private[util] class PekkoUtilSyntaxForFlowOps[A, Mat, U <: FlowOps[A, Mat]](
+        private val graph: U
+    ) extends AnyVal {
       def remember(window: NonNegativeInt): U#Repr[NonEmpty[Seq[A]]] =
         PekkoUtil.remember(graph, window)
 
@@ -666,7 +672,7 @@ object PekkoUtil extends HasLoggerName {
     ): PekkoUtilSyntaxForFlowOps[B, Mat, graph.type] =
       new PekkoUtilSyntaxForFlowOps(graph)
 
-    /** Defines extension methods for [[pekko.stream.scaladsl.FlowOps]] with a [[pekko.stream.KillSwitch]].
+    /** Defines extension methods for [[org.apache.pekko.stream.scaladsl.FlowOps]] with a [[org.apache.pekko.stream.KillSwitch]].
       * @see PekkoUtilSyntaxForFlowOps for an explanation of the type parameter U
       */
     private[util] class PekkoUtilSyntaxForFLowOpsWithKillSwitch[
@@ -689,7 +695,7 @@ object PekkoUtil extends HasLoggerName {
     ): PekkoUtilSyntaxForFLowOpsWithKillSwitch[B, Mat, graph.type] =
       new PekkoUtilSyntaxForFLowOpsWithKillSwitch(graph)
 
-    /** Defines extension methods for [[pekko.stream.scaladsl.FlowOpsMat]] that map to the methods defined in this class.
+    /** Defines extension methods for [[org.apache.pekko.stream.scaladsl.FlowOpsMat]] that map to the methods defined in this class.
       * @see PekkoUtilSyntaxForFlowOps for an explanation of the type parameter U
       */
     private[util] class PekkoUtilSyntaxForFlowOpsMat[A, Mat, U <: FlowOpsMat[A, Mat]](

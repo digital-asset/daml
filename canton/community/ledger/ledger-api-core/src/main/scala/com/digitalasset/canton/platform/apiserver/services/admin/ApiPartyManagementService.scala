@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta as ProtoObjectMeta
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
@@ -71,6 +69,8 @@ import com.digitalasset.canton.platform.localstore.api.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 import scalaz.std.either.*
 import scalaz.std.list.*
 import scalaz.syntax.traverse.*
@@ -97,7 +97,8 @@ private[apiserver] final class ApiPartyManagementService private (
     with GrpcApiService
     with NamedLogging {
 
-  private implicit val loggingContext: LoggingContext = createLoggingContext(loggerFactory)(identity)
+  private implicit val loggingContext: LoggingContext =
+    createLoggingContext(loggerFactory)(identity)
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(

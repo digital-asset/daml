@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.*
@@ -19,6 +18,7 @@ import com.digitalasset.canton.util.PekkoUtilTest.{noOpKillSwitch, withNoOpKillS
 import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import com.google.protobuf.ByteString
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.scalatest.wordspec.FixtureAnyWordSpec
 import org.scalatest.{Assertion, Outcome}
 

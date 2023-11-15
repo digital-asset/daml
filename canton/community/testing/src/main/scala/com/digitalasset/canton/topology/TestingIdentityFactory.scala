@@ -458,7 +458,7 @@ class TestingOwnerWithKeys(
 
   object SigningKeys {
 
-    implicit val ec = initEc
+    implicit val ec: ExecutionContext = initEc
 
     val key1 = genSignKey("key1")
     val key2 = genSignKey("key2")
@@ -473,7 +473,7 @@ class TestingOwnerWithKeys(
   }
 
   object EncryptionKeys {
-    private implicit val ec = initEc
+    private implicit val ec: ExecutionContext = initEc
     val key1 = genEncKey("enc-key1")
   }
 

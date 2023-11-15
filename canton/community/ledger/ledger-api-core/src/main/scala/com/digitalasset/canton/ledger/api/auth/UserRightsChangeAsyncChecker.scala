@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import org.apache.pekko.actor.Scheduler
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.localstore.api.UserManagementStore
+import org.apache.pekko.actor.Scheduler
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
@@ -43,7 +43,7 @@ private[auth] final class UserRightsChangeAsyncChecker(
       originalClaims.resolvedFromUser,
       "The claims were not resolved from a user. Expected claims resolved from a user.",
     )
-    // Note: https://doc.pekko.io/docs/pekko/2.6.13/scheduler.html states that:
+    // Note: https://doc.akka.io/docs/akka/2.6.13/scheduler.html states that:
     // "All scheduled task will be executed when the ActorSystem is terminated, i.e. the task may execute before its timeout."
     val cancellable =
       pekkoScheduler.scheduleWithFixedDelay(initialDelay = delay, delay = delay)(() => {

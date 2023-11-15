@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.DarParser
 import com.daml.lf.crypto.Hash
@@ -23,6 +22,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDaoSuite.*
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.testing.utils.{TestModels, TestResourceUtils}
+import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.{AsyncTestSuite, OptionValues}
 
 import java.time.Duration

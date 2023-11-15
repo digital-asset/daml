@@ -3,10 +3,15 @@
 
 package com.digitalasset.canton.util.pekkostreams
 
-import org.apache.pekko.stream.scaladsl.Flow
-import org.apache.pekko.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, InHandler, OutHandler}
-import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 import com.digitalasset.canton.DiscardOps
+import org.apache.pekko.stream.scaladsl.Flow
+import org.apache.pekko.stream.stage.{
+  GraphStageLogic,
+  GraphStageWithMaterializedValue,
+  InHandler,
+  OutHandler,
+}
+import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 
 import scala.concurrent.{Future, Promise}
 

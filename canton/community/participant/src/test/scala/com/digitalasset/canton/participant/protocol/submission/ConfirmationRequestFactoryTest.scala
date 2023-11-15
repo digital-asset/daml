@@ -199,7 +199,7 @@ class ConfirmationRequestFactoryTest
     )(executorService)
   }
 
-  private val contractInstanceOfId: SerializableContractOfId = { id: LfContractId =>
+  private val contractInstanceOfId: SerializableContractOfId = { (id: LfContractId) =>
     EitherT.leftT(ContractLookupError(id, "Error in test: argument should not be used"))
   }
   // This isn't used because the transaction tree factory is mocked

@@ -3,12 +3,19 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
+import com.daml.api.util.TimeProvider
 import com.daml.lf.command.{ApiCommands as LfCommands, DisclosedContract as LfDisclosedContract}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.daml.lf.engine.{Engine, ResultDone, ResultNeedUpgradeVerification}
+import com.daml.lf.engine.{
+  Engine,
+  Result,
+  ResultDone,
+  ResultInterruption,
+  ResultNeedUpgradeVerification,
+}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
@@ -19,6 +26,7 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractInstance, ValueTrue}
 import com.daml.logging.LoggingContext
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands, LedgerId}
@@ -31,7 +39,9 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.{
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
 import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId, LfTransactionVersion}
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, LfValue}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -73,63 +83,82 @@ class StoreBackedCommandExecutorSpec
       (TransactionBuilder.EmptySubmitted, emptyTransactionMetadata)
     )
 
+  private def mkMockEngine(result: Result[(SubmittedTransaction, Transaction.Metadata)]): Engine = {
+    val mockEngine = mock[Engine]
+    when(
+      mockEngine.submit(
+        submitters = any[Set[Ref.Party]],
+        readAs = any[Set[Ref.Party]],
+        cmds = any[com.daml.lf.command.ApiCommands],
+        participantId = any[ParticipantId],
+        submissionSeed = any[Hash],
+        disclosures = any[ImmArray[LfDisclosedContract]],
+      )(any[LoggingContext])
+    )
+      .thenReturn(result)
+  }
+
+  private def mkCommands(ledgerEffectiveTime: Time.Timestamp) =
+    Commands(
+      ledgerId = Some(LedgerId("ledgerId")),
+      workflowId = None,
+      applicationId = Ref.ApplicationId.assertFromString("applicationId"),
+      commandId = CommandId(Ref.CommandId.assertFromString("commandId")),
+      submissionId = None,
+      actAs = Set.empty,
+      readAs = Set.empty,
+      submittedAt = Time.Timestamp.Epoch,
+      deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
+      commands = LfCommands(
+        commands = ImmArray.Empty,
+        ledgerEffectiveTime = ledgerEffectiveTime,
+        commandsReference = "",
+      ),
+      disclosedContracts = ImmArray.empty,
+    )
+
+  private val submissionSeed = Hash.hashPrivateKey("a key")
+  private val configuration = Configuration(
+    generation = 1,
+    timeModel = LedgerTimeModel(
+      avgTransactionLatency = Duration.ZERO,
+      minSkew = Duration.ZERO,
+      maxSkew = Duration.ZERO,
+    ).get,
+    maxDeduplicationDuration = Duration.ZERO,
+  )
+
+  private def mkSut(tolerance: NonNegativeFiniteDuration, engine: Engine) =
+    new StoreBackedCommandExecutor(
+      engine,
+      Ref.ParticipantId.assertFromString("anId"),
+      mock[IndexPackagesService],
+      mock[ContractStore],
+      AuthorityResolver(),
+      authenticateContract = _ => Right(()),
+      metrics = Metrics.ForTesting,
+      loggerFactory = loggerFactory,
+      dynParamGetter = new TestDynamicDomainParameterGetter(tolerance),
+      TimeProvider.UTC,
+    )
+
+  private def mkInterruptedResult(
+      nbSteps: Int
+  ): Result[(SubmittedTransaction, Transaction.Metadata)] =
+    ResultInterruption { () =>
+      Threading.sleep(100)
+      if (nbSteps == 0) resultDone
+      else mkInterruptedResult(nbSteps - 1)
+    }
+
   "StoreBackedCommandExecutor" should {
     "add interpretation time and used disclosed contracts to result" in {
-      val mockEngine = mock[Engine]
-      when(
-        mockEngine.submit(
-          submitters = any[Set[Ref.Party]],
-          readAs = any[Set[Ref.Party]],
-          cmds = any[com.daml.lf.command.ApiCommands],
-          participantId = any[ParticipantId],
-          submissionSeed = any[Hash],
-          disclosures = any[ImmArray[LfDisclosedContract]],
-        )(any[LoggingContext])
-      )
-        .thenReturn(
-          resultDone
-        )
+      val mockEngine = mkMockEngine(resultDone)
+      val commands = mkCommands(Time.Timestamp.Epoch)
 
-      val commands = Commands(
-        ledgerId = Some(LedgerId("ledgerId")),
-        workflowId = None,
-        applicationId = Ref.ApplicationId.assertFromString("applicationId"),
-        commandId = CommandId(Ref.CommandId.assertFromString("commandId")),
-        submissionId = None,
-        actAs = Set.empty,
-        readAs = Set.empty,
-        submittedAt = Time.Timestamp.Epoch,
-        deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
-        commands = LfCommands(
-          commands = ImmArray.Empty,
-          ledgerEffectiveTime = Time.Timestamp.Epoch,
-          commandsReference = "",
-        ),
-        disclosedContracts = ImmArray.empty,
-      )
-      val submissionSeed = Hash.hashPrivateKey("a key")
-      val configuration = Configuration(
-        generation = 1,
-        timeModel = LedgerTimeModel(
-          avgTransactionLatency = Duration.ZERO,
-          minSkew = Duration.ZERO,
-          maxSkew = Duration.ZERO,
-        ).get,
-        maxDeduplicationDuration = Duration.ZERO,
-      )
+      val sut = mkSut(NonNegativeFiniteDuration.Zero, mockEngine)
 
-      val underTest = new StoreBackedCommandExecutor(
-        mockEngine,
-        Ref.ParticipantId.assertFromString("anId"),
-        mock[IndexPackagesService],
-        mock[ContractStore],
-        AuthorityResolver(),
-        authenticateContract = _ => Right(()),
-        metrics = Metrics.ForTesting,
-        loggerFactory = loggerFactory,
-      )
-
-      underTest
+      sut
         .execute(commands, submissionSeed, configuration)(
           LoggingContextWithTrace(loggerFactory)
         )
@@ -141,7 +170,48 @@ class StoreBackedCommandExecutorSpec
           succeed
         }
     }
+
+    "interpret successfully if time limit is not exceeded" in {
+      val result = mkInterruptedResult(10)
+      val mockEngine = mkMockEngine(result)
+      val tolerance = NonNegativeFiniteDuration.tryOfSeconds(60)
+
+      val sut = mkSut(tolerance, mockEngine)
+
+      val let = Time.Timestamp.now()
+      val commands = mkCommands(let)
+
+      sut
+        .execute(commands, submissionSeed, configuration)(
+          LoggingContextWithTrace(loggerFactory)
+        )
+        .map {
+          case Right(_) => succeed
+          case _ => fail()
+        }
+    }
+
+    "abort interpretation when time limit is exceeded" in {
+      val result = mkInterruptedResult(10)
+      val mockEngine = mkMockEngine(result)
+      val tolerance = NonNegativeFiniteDuration.tryOfMillis(500)
+
+      val sut = mkSut(tolerance, mockEngine)
+
+      val let = Time.Timestamp.now()
+      val commands = mkCommands(let)
+
+      sut
+        .execute(commands, submissionSeed, configuration)(
+          LoggingContextWithTrace(loggerFactory)
+        )
+        .map {
+          case Left(InterpretationTimeExceeded(`let`, `tolerance`)) => succeed
+          case _ => fail()
+        }
+    }
   }
+
   "Upgrade Verification" should {
 
     val stakeholderContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "03")
@@ -272,7 +342,7 @@ class StoreBackedCommandExecutorSpec
         )
       ).thenReturn(Future.successful(ContractState.Archived))
 
-      val underTest = new StoreBackedCommandExecutor(
+      val sut = new StoreBackedCommandExecutor(
         mockEngine,
         Ref.ParticipantId.assertFromString("anId"),
         mock[IndexPackagesService],
@@ -281,6 +351,8 @@ class StoreBackedCommandExecutorSpec
         authenticateContract = _ => authenticationResult,
         metrics = Metrics.ForTesting,
         loggerFactory = loggerFactory,
+        dynParamGetter = new TestDynamicDomainParameterGetter(NonNegativeFiniteDuration.Zero),
+        TimeProvider.UTC,
       )
 
       val commandsWithUpgradableDisclosedContracts = commands
@@ -296,7 +368,7 @@ class StoreBackedCommandExecutorSpec
           )
         )
       )
-      underTest
+      sut
         .execute(
           commands =
             if (upgradableDisclosedContract) commandsWithUpgradableDisclosedContracts

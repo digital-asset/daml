@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.event_query_service.GetEventsByContractKeyResponse
@@ -41,6 +39,8 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import io.grpc.StatusRuntimeException
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.Future
 

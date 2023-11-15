@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration
 
-import org.apache.pekko.actor.ActorSystem
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.console.{
@@ -12,6 +11,7 @@ import com.digitalasset.canton.console.{
   ConsoleMacros,
 }
 import com.digitalasset.canton.environment.Environment
+import org.apache.pekko.actor.ActorSystem
 
 /** Type including all environment macros and utilities to appear as you're using canton console */
 trait TestEnvironment[+E <: Environment]

@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.store
 
-import cats.Order
 import cats.Order.*
 import cats.data.EitherT
+import cats.kernel.Order
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.{Functor, Show}
@@ -60,8 +60,11 @@ final case class SequencerMemberId(private val id: Int) extends PrettyPrinting {
 }
 
 object SequencerMemberId {
-  implicit val sequencerMemberIdOrdering: Ordering[SequencerMemberId] = Ordering.by[SequencerMemberId, Int](_.id)
-  implicit val sequencerMemberIdOrder: Order[SequencerMemberId] = fromOrdering(sequencerMemberIdOrdering)
+  implicit val sequencerMemberIdOrdering: Ordering[SequencerMemberId] =
+    Ordering.by[SequencerMemberId, Int](_.id)
+  implicit val sequencerMemberIdOrder: Order[SequencerMemberId] = fromOrdering(
+    sequencerMemberIdOrdering
+  )
 
   implicit val setSequencerMemberIdParameter: SetParameter[SequencerMemberId] = (v, pp) =>
     pp.setInt(v.id)

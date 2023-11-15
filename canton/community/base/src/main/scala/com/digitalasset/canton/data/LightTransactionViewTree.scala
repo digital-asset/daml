@@ -4,93 +4,71 @@
 package com.digitalasset.canton.data
 
 import cats.syntax.either.*
-import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.data.LightTransactionViewTree.InvalidLightTransactionViewTree
+import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{v0, *}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.*
 import monocle.PLens
 
-import java.util.UUID
+import scala.annotation.tailrec
 import scala.collection.mutable
 
 /** Wraps a `GenTransactionTree` where exactly one view (not including subviews) is unblinded.
   * The `commonMetadata` and `participantMetadata` are also unblinded.
   * The `submitterMetadata` is unblinded if and only if the unblinded view is a root view.
-  * [[view]] points to the unblinded view in [[tree]].
   *
   * @throws LightTransactionViewTree$.InvalidLightTransactionViewTree if [[tree]] is not a light transaction view tree
   *                                    (i.e. the wrong set of nodes is blinded)
   */
 sealed abstract class LightTransactionViewTree private[data] (
-    val tree: GenTransactionTree,
-    val view: TransactionView,
-) extends ViewTree
+    val tree: GenTransactionTree
+) extends TransactionViewTree
     with HasVersionedWrapper[LightTransactionViewTree]
     with PrettyPrinting {
-  val subviewHashes: Seq[ViewHash]
 
-  override def viewPosition: ViewPosition =
-    tree
-      .viewPosition(view.rootHash)
-      .getOrElse(throw new IllegalStateException("View not found in tree."))
+  @tailrec
+  private[data] override def findTheView(
+      viewsWithIndex: Seq[(TransactionView, MerklePathElement)],
+      viewPosition: ViewPosition = ViewPosition.root,
+  ): Either[String, (TransactionView, ViewPosition)] = {
+    viewsWithIndex match {
+      case Seq() =>
+        Left("A light transaction view tree must contain an unblinded view.")
+      case Seq((singleView, index)) if singleView.hasAllLeavesBlinded =>
+        findTheView(singleView.subviews.unblindedElementsWithIndex, index +: viewPosition)
+      case Seq((singleView, index))
+          if singleView.viewCommonData.isFullyUnblinded && singleView.viewParticipantData.isFullyUnblinded && singleView.subviews.areFullyBlinded =>
+        Right((singleView, index +: viewPosition))
+      case Seq((singleView, _index)) =>
+        Left(s"Invalid blinding in a light transaction view tree: $singleView")
+      case multipleViews =>
+        Left(
+          s"A transaction view tree must not contain several (partially) unblinded views: " +
+            s"${multipleViews.map(_._1)}"
+        )
+    }
+  }
+
+  override def validated: Either[String, this.type] = for {
+
+    _ <- super[TransactionViewTree].validated
+
+    // Check that the subview hashes are consistent with the tree
+    _ <- EitherUtil.condUnitE(
+      view.subviewHashesConsistentWith(subviewHashes),
+      s"The provided subview hashes are inconsistent with the provided view (view: ${view.viewHash} " +
+        s"at position: $viewPosition, subview hashes: $subviewHashes)",
+    )
+
+  } yield this
 
   override protected def companionObj = LightTransactionViewTree
-
-  // Private, because it does not check object invariants and is therefore unsafe.
-  private[data] def copy(
-      tree: GenTransactionTree,
-      view: TransactionView,
-      subviewHashes: Seq[ViewHash],
-  ): LightTransactionViewTree =
-    this match {
-      case _: LightTransactionViewTreeV0 => LightTransactionViewTreeV0(tree, view)
-      case _: LightTransactionViewTreeV1 => LightTransactionViewTreeV1(tree, view, subviewHashes)
-    }
-
-  lazy val transactionId: TransactionId = TransactionId.fromRootHash(tree.rootHash)
-
-  lazy val transactionUuid: UUID = checked(tree.commonMetadata.tryUnwrap).uuid
-
-  override val viewHash: ViewHash = ViewHash.fromRootHash(view.rootHash)
-
-  private[this] val commonMetadata: CommonMetadata =
-    tree.commonMetadata.unwrap
-      .getOrElse(
-        throw InvalidLightTransactionViewTree(
-          s"The common metadata of a light transaction view tree must be unblinded."
-        )
-      )
-
-  override def domainId: DomainId = commonMetadata.domainId
-
-  override def mediator: MediatorRef = commonMetadata.mediator
-
-  lazy val confirmationPolicy: ConfirmationPolicy = commonMetadata.confirmationPolicy
-
-  private val unwrapParticipantMetadata: ParticipantMetadata =
-    tree.participantMetadata.unwrap
-      .getOrElse(
-        throw InvalidLightTransactionViewTree(
-          s"The participant metadata of a light transaction view tree must be unblinded."
-        )
-      )
-
-  val ledgerTime: CantonTimestamp = unwrapParticipantMetadata.ledgerTime
-
-  val submissionTime: CantonTimestamp = unwrapParticipantMetadata.submissionTime
-
-  val workflowIdO: Option[WorkflowId] = unwrapParticipantMetadata.workflowIdO
-
-  override lazy val informees: Set[Informee] = view.viewCommonData.tryUnwrap.informees
-
-  lazy val viewParticipantData: ViewParticipantData = view.viewParticipantData.tryUnwrap
 
   def toProtoV0: v0.LightTransactionViewTree =
     v0.LightTransactionViewTree(tree = Some(tree.toProtoV0))
@@ -101,13 +79,6 @@ sealed abstract class LightTransactionViewTree private[data] (
       subviewHashes = subviewHashes.map(_.toProtoPrimitive),
     )
 
-  override lazy val toBeSigned: Option[RootHash] =
-    tree.rootViews.unblindedElements
-      .find(_.rootHash == view.rootHash)
-      .map(_ => transactionId.toRootHash)
-
-  override def rootHash: RootHash = tree.rootHash
-
   override lazy val pretty: Pretty[LightTransactionViewTree] = prettyOfClass(unnamedParam(_.tree))
 }
 
@@ -115,9 +86,8 @@ sealed abstract class LightTransactionViewTree private[data] (
   * The hashes of all the direct subviews are computed directly from the sequence of subviews.
   */
 private final case class LightTransactionViewTreeV0 private[data] (
-    override val tree: GenTransactionTree,
-    override val view: TransactionView,
-) extends LightTransactionViewTree(tree, view) {
+    override val tree: GenTransactionTree
+) extends LightTransactionViewTree(tree) {
   override val subviewHashes: Seq[ViewHash] = view.subviews.trySubviewHashes
 }
 
@@ -129,20 +99,8 @@ private final case class LightTransactionViewTreeV0 private[data] (
   */
 private final case class LightTransactionViewTreeV1 private[data] (
     override val tree: GenTransactionTree,
-    override val view: TransactionView,
     override val subviewHashes: Seq[ViewHash],
-) extends LightTransactionViewTree(tree, view) {
-  def validated: Either[String, this.type] = {
-    // Check that the subview hashes are consistent with the tree
-    val viewPos = tree.viewPosition(view.rootHash).map(_.show).getOrElse("not found in tree")
-
-    Either.cond(
-      view.subviewHashesConsistentWith(subviewHashes),
-      this,
-      s"The provided subview hashes are inconsistent with the provided view (view: ${view.viewHash} at position: $viewPos, subview hashes: $subviewHashes)",
-    )
-  }
-}
+) extends LightTransactionViewTree(tree)
 
 object LightTransactionViewTree
     extends HasVersionedMessageWithContextCompanion[LightTransactionViewTree, HashOps] {
@@ -163,30 +121,6 @@ object LightTransactionViewTree
 
   final case class InvalidLightTransactionViewTree(message: String)
       extends RuntimeException(message)
-  final case class InvalidLightTransactionViewTreeSequence(message: String)
-      extends RuntimeException(message)
-
-  private def findTheView(
-      tree: GenTransactionTree
-  ): Either[String, TransactionView] = {
-    val views = tree.rootViews.unblindedElements.flatMap(_.flatten)
-    val lightUnblindedViews = views.mapFilter { view =>
-      for {
-        v <- view.unwrap.toOption
-        _cmd <- v.viewCommonData.unwrap.toOption
-        _pmd <- v.viewParticipantData.unwrap.toOption
-        _ <- if (v.subviews.areFullyBlinded) Some(()) else None
-      } yield v
-    }
-    lightUnblindedViews match {
-      case Seq(v) => Right(v)
-      case Seq() => Left(s"No light transaction views in tree")
-      case l =>
-        Left(
-          s"Found too many light transaction views: ${l.length}"
-        )
-    }
-  }
 
   /** @throws InvalidLightTransactionViewTree if the tree is not a legal lightweight transaction view tree
     */
@@ -210,13 +144,13 @@ object LightTransactionViewTree
       createV0(tree)
 
   private def createV0(tree: GenTransactionTree): Either[String, LightTransactionViewTree] =
-    findTheView(tree).map(LightTransactionViewTreeV0(tree, _))
+    LightTransactionViewTreeV0(tree).validated
 
   private def createV1(
       tree: GenTransactionTree,
       subviewHashes: Seq[ViewHash],
   ): Either[String, LightTransactionViewTree] =
-    findTheView(tree).flatMap(LightTransactionViewTreeV1(tree, _, subviewHashes).validated)
+    LightTransactionViewTreeV1(tree, subviewHashes).validated
 
   private def fromProtoV0(
       hashOps: HashOps,
@@ -228,7 +162,7 @@ object LightTransactionViewTree
       result <- LightTransactionViewTree
         .createV0(tree)
         .leftMap(e =>
-          ProtoDeserializationError.OtherError(s"Unable to create transaction tree: $e")
+          ProtoDeserializationError.InvariantViolation(s"Unable to create transaction tree: $e")
         )
     } yield result
 
@@ -243,7 +177,7 @@ object LightTransactionViewTree
       result <- LightTransactionViewTree
         .createV1(tree, subviewHashes)
         .leftMap(e =>
-          ProtoDeserializationError.OtherError(s"Unable to create transaction tree: $e")
+          ProtoDeserializationError.InvariantViolation(s"Unable to create transaction tree: $e")
         )
     } yield result
 
@@ -264,7 +198,7 @@ object LightTransactionViewTree
     *         the output (1) contains one occurrence and the output (3) every other occurrence of the view.
     */
   def toFullViewTrees[A, B](
-      lens: PLens[A, B, LightTransactionViewTree, TransactionViewTree],
+      lens: PLens[A, B, LightTransactionViewTree, FullTransactionViewTree],
       protocolVersion: ProtocolVersion,
       hashOps: HashOps,
       topLevelOnly: Boolean,
@@ -296,7 +230,7 @@ object LightTransactionViewTree
         val fullSubviewsSeq = lightViewTree.subviewHashes.map(fullViewByHash)
         val fullSubviews = TransactionSubviews(fullSubviewsSeq)(protocolVersion, hashOps)
         val fullView = lightViewTree.view.copy(subviews = fullSubviews)
-        val fullViewTree = TransactionViewTree.tryCreate(
+        val fullViewTree = FullTransactionViewTree.tryCreate(
           lightViewTree.tree.mapUnblindedRootViews(_.replace(fullView.viewHash, fullView))
         )
         val fullViewTreeBoxed = lens.replace(fullViewTree)(lightViewTreeBoxed)
@@ -334,7 +268,7 @@ object LightTransactionViewTree
 
   /** Turns a full transaction view tree into a lightweight one. Not stack-safe. */
   def fromTransactionViewTree(
-      tvt: TransactionViewTree,
+      tvt: FullTransactionViewTree,
       protocolVersion: ProtocolVersion,
   ): LightTransactionViewTree = {
     val withBlindedSubviews = tvt.view.copy(subviews = tvt.view.subviews.blindFully)

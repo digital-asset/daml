@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.ledger.client.services.commands
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.daml.ledger.api.v1.command_completion_service.{
@@ -13,6 +11,8 @@ import com.daml.ledger.api.v1.command_completion_service.{
 }
 import com.daml.ledger.api.v1.completion.Completion
 import io.grpc.stub.StreamObserver
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.collection.immutable
 

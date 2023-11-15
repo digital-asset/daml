@@ -68,13 +68,14 @@ import org.scalatest.{Assertion, EitherValues}
 
 import java.util.UUID
 import scala.concurrent.duration.*
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.implicitConversions
 
 trait TransferStoreTest {
   this: AsyncWordSpec with BaseTest =>
 
   import TransferStoreTest.*
+  private implicit val _ec: ExecutionContext = ec
 
   private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
 
@@ -1125,9 +1126,10 @@ object TransferStoreTest extends EitherValues with NoTracing {
   val transfer20 = TransferId(sourceDomain2, CantonTimestamp.Epoch)
 
   val loggerFactoryNotUsed = NamedLoggerFactory.unnamedKey("test", "NotUsed-TransferStoreTest")
-  implicit val ec = DirectExecutionContext(
+  val ec: ExecutionContext = DirectExecutionContext(
     loggerFactoryNotUsed.getLogger(TransferStoreTest.getClass)
   )
+  private implicit val _ec: ExecutionContext = ec
   val cryptoFactory =
     TestingIdentityFactory(loggerFactoryNotUsed).forOwnerAndDomain(
       DefaultTestIdentities.sequencerId
