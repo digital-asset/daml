@@ -166,7 +166,7 @@ $(location @openssl_dev_env//:openssl) x509 -noout -text -in $(location ca_alter
 
 
 # Create keystore for server, with password of empty string
-$(location @openssl_dev_env//:openssl) pkcs12 -export -out $(location server.p12) -in $(location server.crt) -inkey $(location server.pem) -name key -CAfile $(location ca.crt) -caname root -password pass:
+$(location @openssl_dev_env//:openssl) pkcs12 -export -out $(location server.p12) -in $(location server.crt) -inkey $(location server.pem) -name key -CAfile $(location ca.crt) -caname root -password pass: -macalg sha1
     """,
     tools = [
         "@openssl_dev_env//:openssl",
