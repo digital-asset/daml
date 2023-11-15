@@ -8,7 +8,7 @@
         </encoder>
     </appender>
 
-    <appender name="ErrorFactoriesLogCollector" class="com.daml.platform.testing.LogCollector">
+    <appender name="ErrorFactoriesLogCollector" class="com.daml.error.LogCollector">
         <test>com.daml.ledger.api.validation.ErrorFactoriesSpec</test>
     </appender>
 

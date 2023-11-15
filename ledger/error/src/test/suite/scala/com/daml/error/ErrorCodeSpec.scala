@@ -7,8 +7,7 @@ import ch.qos.logback.classic.Level
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.testpackage.SeriousError
 import com.daml.logging.LoggingContext
-import com.daml.platform.testing.LogCollector.ThrowableEntry
-import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
+import LogCollector.ThrowableEntry
 import com.google.rpc.Status
 import io.grpc.Status.Code
 import org.scalatest.BeforeAndAfter

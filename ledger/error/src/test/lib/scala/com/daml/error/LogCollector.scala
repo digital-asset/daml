@@ -1,16 +1,16 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.testing
+package com.daml.error
 
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.AppenderBase
-import com.daml.platform.testing.LogCollector.{Entry, ThrowableCause, ThrowableEntry}
+import com.daml.error.LogCollector.{Entry, ThrowableCause, ThrowableEntry}
 import com.daml.scalautil.Statement
 import org.scalatest.Checkpoints.Checkpoint
-import org.scalatest.{AppendedClues, OptionValues}
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{AppendedClues, OptionValues}
 import org.slf4j.Marker
 
 import scala.annotation.nowarn

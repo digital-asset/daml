@@ -62,7 +62,6 @@ da_scala_library(
         "//ledger/error",
         "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
-        "//test-common",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
@@ -70,6 +69,7 @@ da_scala_library(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:org_scalatest_scalatest_compatible",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
