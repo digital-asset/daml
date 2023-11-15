@@ -235,7 +235,7 @@ def install_java_deps():
             "org.reactivestreams:reactive-streams:1.0.4",
             "org.reflections:reflections:0.9.12",
             "org.sangria-graphql:sangria-spray-json_{}:1.0.2".format(scala_major_version),
-            "org.sangria-graphql:sangria_{}:2.0.1".format(scala_major_version),
+            "org.sangria-graphql:sangria_{}:4.0.2".format(scala_major_version),
             "org.scala-lang.modules:scala-collection-contrib_{}:0.2.2".format(scala_major_version),
             "org.scala-lang.modules:scala-parallel-collections_{}:1.0.4".format(scala_major_version),
             "org.scala-lang:scala-library:{}".format(scala_version),
