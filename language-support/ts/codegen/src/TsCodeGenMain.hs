@@ -1027,8 +1027,8 @@ packageJsonDependencies (Scope scope) dependencies = object $
 
 packageJsonPeerDependencies:: ReleaseVersion ->  Value
 packageJsonPeerDependencies releaseVersion = object
-    [ "@daml/types" .= versionToText releaseVersion
-    , "@daml/ledger" .= versionToText releaseVersion
+    [ "@daml/types" .= sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
+    , "@daml/ledger" .= sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
     ]
 
 writePackageJson :: FilePath -> ReleaseVersion -> Scope -> [Dependency] -> IO ()
