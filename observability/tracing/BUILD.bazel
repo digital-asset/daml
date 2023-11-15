@@ -69,7 +69,6 @@ da_scala_test_suite(
         "//libs-scala/rs-grpc-pekko:rs-grpc-pekko-tests-lib",
         "//libs-scala/sample-service",
         "//libs-scala/testing-utils",
-        "//test-common",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_protobuf",

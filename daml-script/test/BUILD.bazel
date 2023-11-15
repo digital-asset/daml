@@ -461,7 +461,6 @@ da_scala_test_suite(
         "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
         "//observability/metrics",
-        "//test-common",
         "//test-common/canton/it-lib",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_dropwizard_metrics_metrics_core",

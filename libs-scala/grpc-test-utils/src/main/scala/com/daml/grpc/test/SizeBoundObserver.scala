@@ -1,12 +1,12 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.testing
+package com.daml.grpc.test
 
 import io.grpc.Context
 import io.grpc.stub.StreamObserver
 
-private[testing] final class SizeBoundObserver[A](sizeCap: Int)(delegate: StreamObserver[A])
+private[test] final class SizeBoundObserver[A](sizeCap: Int)(delegate: StreamObserver[A])
     extends StreamObserver[A] {
 
   if (sizeCap < 0) {

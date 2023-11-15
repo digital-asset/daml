@@ -6,8 +6,7 @@ package com.daml.error
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.ErrorDetails.ErrorInfoDetail
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
-import com.daml.platform.testing.LogCollector.ExpectedLogEntry
+import LogCollector.ExpectedLogEntry
 import com.daml.scalautil.Statement
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException

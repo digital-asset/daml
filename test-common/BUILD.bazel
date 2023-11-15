@@ -44,44 +44,8 @@ alias(
         ("model-tests", ".dar"),
         ("dar-files", ""),
         ("dar-files", "-lib"),
-        ("test-common", ""),
     ]
     for (name, lf_version) in lf_version_configuration.items()
-]
-
-alias(
-    name = "test-common",
-    actual = "test-common-default",
-    visibility = ["//visibility:public"],
-)
-
-[
-    [
-        da_scala_library(
-            name = "test-common-%s" % target,
-            srcs = glob(["src/main/scala/**/*.scala"]),
-            scala_deps = [
-                "@maven//:org_scalatest_scalatest_shouldmatchers",
-                "@maven//:org_scalatest_scalatest_core",
-                "@maven//:org_scalactic_scalactic",
-                "@maven//:org_scalatest_scalatest_matchers_core",
-            ],
-            tags = ["maven_coordinates=com.daml:test-common-%s:__VERSION__" % target],
-            visibility = [
-                "//visibility:public",
-            ],
-            deps = [
-                "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-                "//libs-scala/scala-utils",
-                "//libs-scala/timer-utils",
-                "@maven//:ch_qos_logback_logback_classic",
-                "@maven//:ch_qos_logback_logback_core",
-                "@maven//:org_scalatest_scalatest_compatible",
-                "@maven//:org_slf4j_slf4j_api",
-            ],
-        ),
-    ]
-    for target in testtool_lf_versions
 ]
 
 # Carbon tests helps to test upgrades when packages are dependent on each other

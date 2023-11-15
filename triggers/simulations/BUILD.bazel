@@ -52,7 +52,6 @@ da_scala_test_suite(
         "//libs-scala/scalatest-utils",
         "//libs-scala/testing-utils",
         "//observability/tracing",
-        "//test-common",
         "//test-common/canton/it-lib",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/tests:test-utils",

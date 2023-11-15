@@ -7,9 +7,9 @@ import java.io.{BufferedReader, InputStream, InputStreamReader}
 import java.net.URL
 import java.nio.file.Files
 import java.util.stream.Collectors
+import com.daml.http.test.SimpleHttpServer
 
 import com.daml.ledger.api.tls.SecretsUrlTest._
-import com.daml.testing.SimpleHttpServer
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

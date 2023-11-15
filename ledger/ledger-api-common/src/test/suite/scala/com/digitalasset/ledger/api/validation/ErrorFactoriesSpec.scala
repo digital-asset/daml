@@ -17,10 +17,11 @@ import com.daml.error.{
   DamlError,
   ErrorAssertionsWithLogCollectorAssertions,
   ErrorCode,
+  LogCollector,
+  LogCollectorAssertions,
 }
 import com.daml.lf.data.Ref
-import com.daml.platform.testing.LogCollector.ExpectedLogEntry
-import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
+import com.daml.error.LogCollector.ExpectedLogEntry
 import com.google.rpc._
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException

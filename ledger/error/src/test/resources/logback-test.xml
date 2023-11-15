@@ -8,7 +8,7 @@
         </encoder>
     </appender>
 
-    <appender name="ErrorCodeLogCollector" class="com.daml.platform.testing.LogCollector">
+    <appender name="ErrorCodeLogCollector" class="com.daml.error.LogCollector">
         <test>com.daml.error.ErrorCodeSpec</test>
     </appender>
 
