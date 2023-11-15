@@ -10,6 +10,8 @@ import DA.Exception
 import DA.Foldable
 import DA.Text
 import Daml.Script
+import Daml.Script.Questions.Exceptions (tryToEither)
+import Daml.Script.Questions.Testing.Internal
 import Daml.Script.Questions.Upgrading.Internal
 import qualified V1.MyTemplates as V1
 import qualified V2.MyTemplates as V2
@@ -53,6 +55,21 @@ main = forA_ tests $ \(testName, test) -> do
   debugRaw $ "Testing: " <> testName
   test
 
+-- | Used to tag a test as failing by erroring in any way, once all this behaviour works, this function can be removed
+brokenScript : Script () -> Script ()
+brokenScript act = do
+  tryToEither (\() -> liftFailedCommandToException act) >>= \case
+    Right _ -> assertFail "Expected failed and got success! Did you fix this logic? Remove the wrapping `failure` to mark this as working."
+    Left _ -> do
+      -- Cleanup so next test can run.
+      vetDarOnParticipant v1DarName participant0
+      vetDarOnParticipant v1DarName participant1
+      vetDarOnParticipant v2DarName participant0
+      vetDarOnParticipant v2DarName participant1
+
+broken : (Text, Script ()) -> (Text, Script ())
+broken (name, act) = ("(BROKEN) " <> name, brokenScript act)
+
 tests : [(Text, Script ())]
 tests = mconcat
   [ -- "Single" participant tests
@@ -68,8 +85,8 @@ tests = mconcat
     , ("Fail to downgrade a contract with Somes when fetching", fetchDowngradedSome)
 
     , -- Fetching tests with unvetted sources (BROKEN)
-      ("(BROKEN) Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
-    , ("(BROKEN) Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
+      broken ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
+    , broken ("Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
 
     , -- Template payload upgrading/downgrading from exercises within choice bodies
       -- The expected behaviour here is that the outer templates have fixed the choice version they wish to call
@@ -85,16 +102,16 @@ tests = mconcat
     , ("Explicitly call a V2 choice on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", explicitV2ChoiceV1Contract)
     , ("Call a V1 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, contract + argument upgraded, daml-script downgrades return type.", inferredV1ChoiceV1Contract)
     , ("Call a V2 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", inferredV2ChoiceV1Contract)
-    , ("(BROKEN) Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type.", inferredV1ChoiceV1ContractWithoutV2)
+    , broken ("Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type.", inferredV1ChoiceV1ContractWithoutV2)
     , ("Explicitly call a V1 choice on a V2 contract over the ledger-api, expect V1 implementation used, and contract downgraded.", explicitV1ChoiceV2Contract)
     , ("Explicitly call a V2 choice on a V2 contract over the ledger-api, expect V2 implementation used.", explicitV2ChoiceV2Contract)
 
     , -- Choice upgrading nested (same as above but with various data types nested)
       ("Explicitly call a V1 choice on a V1 contract over the ledger-api, expect V1 implementation used. (Nested)", explicitV1ChoiceV1ContractNested)
     , ("Explicitly call a V2 choice on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded. (Nested)", explicitV2ChoiceV1ContractNested)
-    , ("(BROKEN) Call a V1 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, contract + argument upgraded, daml-script downgrades return type. (Nested)", inferredV1ChoiceV1ContractNested)
+    , ("Call a V1 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, contract + argument upgraded, daml-script downgrades return type. (Nested)", inferredV1ChoiceV1ContractNested)
     , ("Call a V2 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded. (Nested)", inferredV2ChoiceV1ContractNested)
-    , ("(BROKEN) Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type. (Nested)", inferredV1ChoiceV1ContractWithoutV2Nested)
+    , broken ("Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type. (Nested)", inferredV1ChoiceV1ContractWithoutV2Nested)
     , ("Explicitly call a V1 choice on a V2 contract over the ledger-api, expect V1 implementation used, and contract downgraded. (Nested)", explicitV1ChoiceV2ContractNested)
     , ("Explicitly call a V2 choice on a V2 contract over the ledger-api, expect V2 implementation used. (Nested)", explicitV2ChoiceV2ContractNested)
 
@@ -122,20 +139,20 @@ tests = mconcat
 
     , -- Invalid data upgrades (compile time checks repeated at runtime)
       ("Fails if the template name changes", templateNameChanges)
-    , ("(BROKEN) Fails if a nested data-type's name changes", templateNameChangesNested)
+    , broken ("Fails if a nested data-type's name changes", templateNameChangesNested)
     , ("Fails if fields are removed", templateFieldsRemoved)
     , ("Fails if non-optional fields are added", templateNonOptionalFieldsAdded)
-    , ("(BROKEN) Fails if fields are renamed", templateFieldsRenamed)
+    , broken ("Fails if fields are renamed", templateFieldsRenamed)
     , ("Fails if nested fields are removed", templateFieldsRemovedNested)
     , ("Fails if nested non-optional fields are added", templateNonOptionalFieldsAddedNested)
-    , ("(BROKEN) Fails if nested fields are renamed", templateFieldsRenamedNested)
+    , broken ("Fails if nested fields are renamed", templateFieldsRenamedNested)
     , ("Succeeds if a nested variant is unchanged", templateVariantUnchanged)
     , ("Fails if a nested variant is a removed case", templateVariantUpgradeToRemoved)
     , ("Fails if a nested variant is an additional case when downgrading", templateVariantDowngradeFromNew)
 
     , -- Edge behaviour
       -- https://github.com/DACH-NY/canton/issues/14718
-      ("(BROKEN) Chooses the v1 contract if v2 is unvetted and package id is omitted.", packageSelectionChoosesUnvettedPackages)
+      broken ("Chooses the v1 contract if v2 is unvetted and package id is omitted.", packageSelectionChoosesUnvettedPackages)
       -- TODO: Weird numeric case from Moritz/Remy - Requires disclosed contracts, daml3-script does not support this.
       -- Cannot be tested.
       -- I believe the case is - old contract with a Decimal, attempt to use it by disclosing and upgrading at the same time, something breaks
@@ -158,7 +175,6 @@ queryUpgraded = do
   v2Name <- queryContractId a v2Cid
   v2Name === Some V2.ValidUpgrade with party = a, newField = None
 
-
 queryDowngradedNone : Script ()
 queryDowngradedNone = do
   a <- allocatePartyOn "alice" participant0
@@ -170,15 +186,13 @@ queryDowngradedNone = do
 
 queryDowngradedSome : Script ()
 queryDowngradedSome = do
-  -- This should throw an error about being unable to remove "Some" fields. 
-  -- Not tested right now as no time to add the infra in scala to assert this error.
-  -- Ideally we make a nice lil daml-script prim to handle this :)
-  -- Verified manually that this happens
-  -- a <- allocatePartyOn "alice" participant0
-  -- cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = Some("Text")
-  -- let v1Cid = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
-  -- v1Name <- queryContractId a v1Cid
-  pure ()
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = Some("Text")
+  let v1Cid = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
+  res <- tryCommands $ queryContractId a v1Cid
+  case res of
+    Left (FailedCmd (CommandName "QueryContractId") _ _) -> pure ()
+    _ -> assertFail $ "Expected QueryContractId to error, but got " <> show res
 
 exerciseV1Util : Choice V1Utils c r => Party -> c -> Script r
 exerciseV1Util p c = p `submit` createAndExerciseCmd (V1Utils with party = p) c
@@ -233,8 +247,7 @@ fetchUpgradedSourceUnvetted = do
   res <- a `tryExerciseV2Util` V2Fetch with cid = v2Cid
   case res of
     Right v2Name -> v2Name === V2.ValidUpgrade with party = a, newField = None
-    -- TODO: The submit above is throwing an error, when it should not be.
-    Left err -> pure () -- assertFail $ "Expected success but got " <> show err
+    Left err -> assertFail $ "Expected success but got " <> show err
 
   -- Cleanup
   vetDarOnParticipant v1DarName participant0
@@ -251,8 +264,7 @@ fetchDowngradedNoneSourceUnvetted = do
 
   case res of
     Right v1Name -> v1Name === V1.ValidUpgrade with party = a
-    -- TODO: The submit above is throwing an error, when it should not be.
-    Left err -> pure () -- assertFail $ "Expected success but got " <> show err
+    Left err -> assertFail $ "Expected success but got " <> show err
 
   -- Cleanup
   vetDarOnParticipant v2DarName participant0
@@ -344,16 +356,16 @@ inferredV2ChoiceV1Contract =
   choiceTest @V2.ValidUpgrade V1.ValidUpgrade (V2.UpgradedChoice "v2 to v1" $ Some "extra") False (V2.UpgradedChoiceReturn "v2 to v1:V2:Some \"extra\"" $ Some "extra")
 
 -- If v2 isn't vetted, then omitting a package id and giving v1 arguments should use the v1 implementation
--- TODO: This test fails for several reason:
+-- TODO: This test fails for several reasons:
 --   first it tries to use v2 even through its unvetted <- this is not correct behaviour
 --   second it doesn't hit a NO_DOMAIN_FOR_SUBMISSION error before attempting to directly upgrade the data type <- this is also not correct behaviour
 inferredV1ChoiceV1ContractWithoutV2 : Script ()
-inferredV1ChoiceV1ContractWithoutV2 = pure ()
-  -- unvetDarOnParticipant v2DarName participant0
-  -- unvetDarOnParticipant v2DarName participant1
-  -- choiceTest @V1.ValidUpgrade V1.ValidUpgrade (V1.UpgradedChoice "v1 to v1") False (V1.UpgradedChoiceReturn "v1 to v1:V1")
-  -- vetDarOnParticipant v2DarName participant0
-  -- vetDarOnParticipant v2DarName participant1
+inferredV1ChoiceV1ContractWithoutV2 = do
+  unvetDarOnParticipant v2DarName participant0
+  unvetDarOnParticipant v2DarName participant1
+  choiceTest @V1.ValidUpgrade V1.ValidUpgrade (V1.UpgradedChoice "v1 to v1") False (V1.UpgradedChoiceReturn "v1 to v1:V1")
+  vetDarOnParticipant v2DarName participant0
+  vetDarOnParticipant v2DarName participant1
 
 explicitV1ChoiceV2Contract : Script ()
 explicitV1ChoiceV2Contract =
@@ -387,10 +399,9 @@ explicitV2ChoiceV1ContractNested =
 -- When inferring, the V1 contract and choice argument is upgraded, and the return type is downgraded directly by daml script.
 -- As such, we get the v2 implementation called, with the additional field set to None (as shown in the choice return)
 -- and since the extra data in the return will also be none, the downgrade can succeed.
--- TODO: This test fails, choice argument upgrading seems to not be implemented.
 inferredV1ChoiceV1ContractNested : Script ()
-inferredV1ChoiceV1ContractNested = pure ()
-  -- choiceTest @V1.ValidUpgrade V1.ValidUpgrade (v1ChoiceNested "v1 to v1") False (v1ChoiceReturnNested "v1 to v1:V2:None")
+inferredV1ChoiceV1ContractNested =
+  choiceTest @V1.ValidUpgrade V1.ValidUpgrade (v1ChoiceNested "v1 to v1") False (v1ChoiceReturnNested "v1 to v1:V2:None")
 
 inferredV2ChoiceV1ContractNested : Script ()
 inferredV2ChoiceV1ContractNested =
@@ -402,12 +413,12 @@ inferredV2ChoiceV1ContractNested =
 --   second it doesn't hit a NO_DOMAIN_FOR_SUBMISSION error before attempting to directly upgrade the data type <- this is also not correct behaviour
 --   lastly, it hits the same error as inferredV1ChoiceV1Contract, which is that choice argument upgrading isn't supported
 inferredV1ChoiceV1ContractWithoutV2Nested : Script ()
-inferredV1ChoiceV1ContractWithoutV2Nested = pure ()
-  -- unvetDarOnParticipant v2DarName participant0
-  -- unvetDarOnParticipant v2DarName participant1
-  -- choiceTest @V1.ValidUpgrade V1.ValidUpgrade (v1ChoiceNested "v1 to v1") False (v1ChoiceReturnNested "v1 to v1:V1")
-  -- vetDarOnParticipant v2DarName participant0
-  -- vetDarOnParticipant v2DarName participant1
+inferredV1ChoiceV1ContractWithoutV2Nested = do
+  unvetDarOnParticipant v2DarName participant0
+  unvetDarOnParticipant v2DarName participant1
+  choiceTest @V1.ValidUpgrade V1.ValidUpgrade (v1ChoiceNested "v1 to v1") False (v1ChoiceReturnNested "v1 to v1:V1")
+  vetDarOnParticipant v2DarName participant0
+  vetDarOnParticipant v2DarName participant1
 
 explicitV1ChoiceV2ContractNested : Script ()
 explicitV1ChoiceV2ContractNested =
@@ -533,9 +544,8 @@ templateInvalidChange shouldSucceed makeV1Contract v2Choice =
 templateNameChanges : Script ()
 templateNameChanges = templateInvalidChange @V2.NameChangesOops False V1.NameChanges V2.NameChangesCall
 
--- TODO: THIS BEHAVIOUR IS WRONG. We expect to see a failure here, this succeeding is a bug.
 templateNameChangesNested : Script ()
-templateNameChangesNested = templateInvalidChange @V2.NameChangesNested True (`V1.NameChangesNested` NameChangesNestedData 1) V2.NameChangesNestedCall
+templateNameChangesNested = templateInvalidChange @V2.NameChangesNested False (`V1.NameChangesNested` NameChangesNestedData 1) V2.NameChangesNestedCall
 
 templateFieldsRemoved : Script ()
 templateFieldsRemoved = templateInvalidChange @V2.FieldsRemoved False (`V1.FieldsRemoved` 1) V2.FieldsRemovedCall
@@ -543,9 +553,8 @@ templateFieldsRemoved = templateInvalidChange @V2.FieldsRemoved False (`V1.Field
 templateNonOptionalFieldsAdded : Script ()
 templateNonOptionalFieldsAdded = templateInvalidChange @V2.NonOptionalFieldsAdded False V1.NonOptionalFieldsAdded V2.NonOptionalFieldsAddedCall
 
--- TODO: THIS BEHAVIOUR IS WRONG. We expect to see a failure here, this succeeding is a bug.
 templateFieldsRenamed : Script ()
-templateFieldsRenamed = templateInvalidChange @V2.FieldsRenamed True (`V1.FieldsRenamed` 1) V2.FieldsRenamedCall
+templateFieldsRenamed = templateInvalidChange @V2.FieldsRenamed False (`V1.FieldsRenamed` 1) V2.FieldsRenamedCall
 
 templateFieldsRemovedNested : Script ()
 templateFieldsRemovedNested =
@@ -563,12 +572,11 @@ templateNonOptionalFieldsAddedNested =
     (V1.NonOptionalFieldsAddedNested . V1.NonOptionalFieldsAddedNestedData)
     V2.NonOptionalFieldsAddedNestedCall
 
--- TODO: THIS BEHAVIOUR IS WRONG. We expect to see a failure here, this succeeding is a bug.
 templateFieldsRenamedNested : Script ()
 templateFieldsRenamedNested =
   templateInvalidChange
     @V2.FieldsRenamedNested
-    True
+    False
     (\p -> V1.FieldsRenamedNested $ V1.FieldsRenamedNestedData p 1)
     V2.FieldsRenamedNestedCall
 
@@ -615,9 +623,8 @@ packageSelectionChoosesUnvettedPackages = do
   -- What actually happens is the submitting participant chooses the v2 package, finds none of the participants on the domain have this package
   -- and gives a NO_DOMAIN_FOR_SUBMISSION error
   case res of
-    Right cid -> assertFail "Expected failure but got success on a bug test. Did you fix a bug?"
-    Left (UnknownError msg) | "NO_DOMAIN_FOR_SUBMISSION" `isInfixOf` msg -> pure ()
-    Left err -> assertFail $ "Got unexpected error, used to be NO_DOMAIN_FOR_SUBMISSION, now it's " <> show err
+    Right cid -> pure ()
+    _ -> assertFail $ "Expected success but got " <> show res
 
   -- Cleanup
   vetDarOnParticipant v2DarName participant0
