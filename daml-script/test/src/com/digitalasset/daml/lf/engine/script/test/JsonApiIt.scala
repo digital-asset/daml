@@ -140,6 +140,7 @@ trait JsonApiFixture
                 override val tlsConfig = TlsConfiguration(enabled = false, None, None, None)
                 override val wsConfig = None
                 override val allowNonHttps = true
+                override val authConfig = None
                 override val nonRepudiation = nonrepudiation.Configuration.Cli.Empty
                 override val logLevel = None
                 override val logEncoder = LogEncoder.Plain
