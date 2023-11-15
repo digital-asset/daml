@@ -6,6 +6,7 @@ package integrationtest
 
 import java.nio.file.Path
 import java.util
+import com.daml.TestTemplateIdentifiers
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -18,7 +19,6 @@ import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Var
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref
 import com.daml.platform.participant.util.ValueConversions._
-import com.daml.platform.testing.TestTemplateIdentifiers
 import scalaz.syntax.tag._
 
 trait TestCommands {

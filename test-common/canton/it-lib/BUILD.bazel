@@ -41,7 +41,6 @@ da_scala_library(
         "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
         "//libs-scala/timer-utils",
-        "//test-common",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
