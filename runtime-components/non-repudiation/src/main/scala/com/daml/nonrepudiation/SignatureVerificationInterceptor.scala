@@ -10,7 +10,7 @@ import java.time.Clock
 import com.daml.grpc.interceptors.ForwardingServerCallListener
 import com.daml.metrics.api.MetricHandle.{Meter, Timer}
 import io.grpc.Metadata.Key
-import io.grpc._
+import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor, Status}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.util.Try

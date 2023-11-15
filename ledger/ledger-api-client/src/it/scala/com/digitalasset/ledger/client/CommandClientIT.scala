@@ -5,12 +5,13 @@ package com.daml.ledger.client
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
+
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.testing.utils.{IsStatusException, SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
@@ -54,8 +55,9 @@ import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
 import scala.util.control.NonFatal
-
 import java.nio.file.Paths
+
+import com.daml.grpc.{GrpcException, GrpcStatus}
 
 final class CommandClientIT
     extends AsyncWordSpec
@@ -553,5 +555,19 @@ final class CommandClientIT
 
       }
     }
+  }
+}
+
+object IsStatusException extends Matchers {
+
+  def apply(expectedStatusCode: Status.Code)(throwable: Throwable): Assertion = {
+    throwable match {
+      case GrpcException(GrpcStatus(code, _), _) => code shouldEqual expectedStatusCode
+      case NonFatal(other) => fail(s"$other is not a gRPC Status exception.")
+    }
+  }
+
+  def apply(expectedStatus: Status): Throwable => Assertion = {
+    apply(expectedStatus.getCode)
   }
 }

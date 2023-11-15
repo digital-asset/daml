@@ -16,7 +16,6 @@ da_scala_library(
     deps = [
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/grpc-reverse-proxy",
-        "//libs-scala/grpc-utils",
         "//libs-scala/resources",
         "//observability/metrics",
         "//runtime-components/non-repudiation-core",

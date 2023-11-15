@@ -7,9 +7,9 @@ import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.grpc.interceptors.ForwardingServerCallListener
 import com.daml.grpc.test.GrpcServer
+import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor, StatusRuntimeException}
 import io.grpc.health.v1.{HealthCheckRequest, HealthGrpc}
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
-import io.grpc._
 import org.scalatest.Inside
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
