@@ -1,11 +1,11 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.testing
-
-import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
+package com.daml.http.test
 
 import java.net.InetSocketAddress
+
+import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 
 /** Helper to create a HTTP server that serves a constant response on the "/result" URL */
 object SimpleHttpServer {

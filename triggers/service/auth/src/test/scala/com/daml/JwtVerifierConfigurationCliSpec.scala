@@ -13,11 +13,11 @@ import java.util.concurrent.atomic.AtomicReference
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.fs.TemporaryDirectory
+import com.daml.http.test.SimpleHttpServer
 import com.daml.scalautil.Statement.discard
 import com.daml.jwt.JwtVerifierConfigurationCliSpec._
 import com.daml.ledger.api.auth.ClaimSet.Claims
 import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceWildcard, ClaimPublic}
-import com.daml.testing.SimpleHttpServer
 import io.grpc.Metadata
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.cert.jcajce.{JcaX509CertificateConverter, JcaX509v3CertificateBuilder}

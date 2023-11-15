@@ -47,7 +47,7 @@ da_scala_test(
         "//libs-scala/jwt",
         "//libs-scala/resources",
         "//libs-scala/scala-utils",
-        "//test-common",
+        "//libs-scala/http-test-utils",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_grpc_grpc_api",
         "@maven//:org_bouncycastle_bcpkix_jdk15on",

@@ -111,7 +111,7 @@ da_scala_test_suite(
         "//observability/metrics",
         "//observability/tracing",
         "//observability/tracing:tracing-test-lib",
-        "//test-common",
+        "//libs-scala/http-test-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
