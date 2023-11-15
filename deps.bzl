@@ -471,6 +471,24 @@ genrule(
     ''',
 )
 genrule(
+    name = "upgrades",
+    srcs = glob(["docs/code-samples/upgrades/**/*"]
+            , exclude = ["docs/code-samples/upgrades/daml.yaml", "docs/code-samples/upgrades/NO_AUTO_COPYRIGHT"]),
+    outs = ["daml-finance-upgrades.tar.gz"],
+    cmd = '''
+        tar czhf $(OUTS) \\\\
+            --transform 's|^.*docs/code-samples/upgrades/||' \\\\
+            --owner=1000 \\\\
+            --group=1000 \\\\
+            --mtime=2000-01-01\\\\ 00:00Z \\\\
+            --no-acls \\\\
+            --no-xattrs \\\\
+            --no-selinux \\\\
+            --sort=name \\\\
+            $(SRCS)
+    ''',
+)
+genrule(
     name = "payoff-modeling",
     srcs = glob(["docs/code-samples/payoff-modeling/**/*"]
             , exclude = ["docs/code-samples/payoff-modeling/daml.yaml", "docs/code-samples/payoff-modeling/NO_AUTO_COPYRIGHT"]),
