@@ -22,7 +22,7 @@ trait StartSettings {
   val address: String
   val httpPort: Int
   val portFile: Option[Path]
-  val https: Option[TlsConfiguration]
+  val https: Option[HttpsConfig]
   val tlsConfig: TlsConfiguration
   val wsConfig: Option[WebsocketConfig]
   val allowNonHttps: Boolean

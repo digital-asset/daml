@@ -102,7 +102,7 @@ abstract class HttpServiceIntegrationTest
   //  }
 
   // TODO(lt-37): This is also broken on linux after the netty_tcnative update.
-  "should serve HTTPS requests" ignore withHttpService(useHttps = UseHttps.Https) { fixture =>
+  "should serve HTTPS requests" in withHttpService(useHttps = UseHttps.Https) { fixture =>
     Http()
       .singleRequest(
         HttpRequest(
