@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.testing
+package com.daml.grpc.test
 
 import io.grpc.stub.StreamObserver
 
@@ -11,7 +11,7 @@ import scala.concurrent.{Future, Promise}
   *
   * THIS WILL NEVER COMPLETE IF FED AN UNBOUND STREAM!!!
   */
-private[testing] final class FiniteStreamObserver[A] extends StreamObserver[A] {
+private[test] final class FiniteStreamObserver[A] extends StreamObserver[A] {
 
   private[this] val promise = Promise[Vector[A]]()
   private[this] val items = Vector.newBuilder[A]

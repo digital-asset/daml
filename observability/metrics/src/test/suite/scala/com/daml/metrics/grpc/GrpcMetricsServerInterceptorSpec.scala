@@ -4,13 +4,13 @@
 package com.daml.metrics.grpc
 
 import com.daml.grpc.adapter.utils.implementations.HelloServicePekkoImplementation
+import com.daml.grpc.test.StreamConsumer
 import com.daml.ledger.api.testing.utils.{PekkoBeforeAndAfterAll, TestingServerInterceptors}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 import com.daml.metrics.grpc.GrpcMetricsServerInterceptorSpec.TestingGrpcMetrics
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
-import com.daml.platform.testing.StreamConsumer
 import com.google.protobuf.ByteString
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec

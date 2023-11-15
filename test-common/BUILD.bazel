@@ -67,8 +67,6 @@ alias(
                 "//visibility:public",
             ],
             deps = [
-                "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-                "//libs-scala/timer-utils",
             ],
         ),
     ]

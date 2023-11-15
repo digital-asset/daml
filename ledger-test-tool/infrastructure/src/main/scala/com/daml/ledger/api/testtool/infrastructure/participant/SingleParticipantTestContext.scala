@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.error.ErrorCode
 import java.time.{Clock, Instant}
+import com.daml.grpc.test.StreamConsumer
 
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
@@ -111,7 +112,6 @@ import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.client.binding.{Primitive, Template}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.testing.StreamConsumer
 import com.daml.timer.Delayed
 import com.google.protobuf.ByteString
 import io.grpc.StatusRuntimeException
