@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.ledger.client.services.transactions
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
@@ -12,6 +10,8 @@ import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionServiceStub
 import com.daml.ledger.api.v1.transaction_service.*
 import com.digitalasset.canton.ledger.api.domain.LedgerId
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.Future
 

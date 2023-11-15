@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.indexer
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.pattern.after
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.digitalasset.canton.logging.{
@@ -15,6 +13,8 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.platform.indexer.RecoveringIndexerSpec.*
 import com.digitalasset.canton.tracing.TraceContext
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.pattern.after
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -107,7 +107,7 @@ final class RecoveringIndexerSpec
         val resource = recoveringIndexer.start(testIndexer())
 
         for {
-          _ <- pekko.pattern.after(100.millis, actorSystem.scheduler)(Future.unit)
+          _ <- org.apache.pekko.pattern.after(100.millis, actorSystem.scheduler)(Future.unit)
           _ <- resource.release()
           (healthReporter, complete) <- resource.asFuture
           _ <- complete

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.environment
 
-import org.apache.pekko.actor.ActorSystem
 import cats.data.EitherT
 import cats.instances.option.*
 import cats.syntax.apply.*
@@ -47,11 +46,12 @@ import com.digitalasset.canton.time.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
-import com.digitalasset.canton.util.{PekkoUtil, MonadUtil, SingleUseCell}
+import com.digitalasset.canton.util.{MonadUtil, PekkoUtil, SingleUseCell}
 import com.digitalasset.canton.{DiscardOps, DomainAlias}
 import com.google.common.annotations.VisibleForTesting
 import io.circe.Encoder
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.actor.ActorSystem
 import org.slf4j.bridge.SLF4JBridgeHandler
 
 import java.util.concurrent.ScheduledExecutorService

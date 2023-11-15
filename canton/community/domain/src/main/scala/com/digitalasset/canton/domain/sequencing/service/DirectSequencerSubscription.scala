@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.service
 
-import org.apache.pekko.stream.scaladsl.{Keep, Sink}
-import org.apache.pekko.stream.{AbruptStageTerminationException, Materializer}
 import cats.syntax.either.*
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -23,7 +21,9 @@ import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{PekkoUtil, FutureUtil, SingleUseCell}
+import com.digitalasset.canton.util.{FutureUtil, PekkoUtil, SingleUseCell}
+import org.apache.pekko.stream.scaladsl.{Keep, Sink}
+import org.apache.pekko.stream.{AbruptStageTerminationException, Materializer}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}

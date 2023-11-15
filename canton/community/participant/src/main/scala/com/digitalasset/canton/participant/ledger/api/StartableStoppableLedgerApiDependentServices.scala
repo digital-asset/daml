@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
-import org.apache.pekko.actor.ActorSystem
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.HashOps
@@ -21,6 +20,7 @@ import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
 import com.digitalasset.canton.util.ErrorUtil
 import io.grpc.ServerServiceDefinition
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.ScheduledExecutorService
 import scala.concurrent.{ExecutionContextExecutor, blocking}

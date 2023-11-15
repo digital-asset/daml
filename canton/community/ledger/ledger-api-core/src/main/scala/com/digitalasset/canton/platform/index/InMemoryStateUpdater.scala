@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.index
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Flow
 import cats.implicits.{catsSyntaxSemigroup, toBifunctorOps}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.executors.InstrumentedExecutors
@@ -36,6 +34,8 @@ import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.platform.{Contract, InMemoryState, Key, Party}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Flow
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -204,7 +204,7 @@ private[platform] object InMemoryStateUpdater {
       inMemoryState: InMemoryState,
       updates: Vector[Traced[TransactionLogUpdate]],
   ): Unit =
-    updates.foreach { tracedTransaction: Traced[TransactionLogUpdate] =>
+    updates.foreach { tracedTransaction =>
       // TODO(i12283) LLP: Batch update caches
       tracedTransaction.withTraceContext(implicit traceContext =>
         transaction => {

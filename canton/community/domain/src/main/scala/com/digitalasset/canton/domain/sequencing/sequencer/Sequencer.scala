@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.Done
-import org.apache.pekko.stream.KillSwitch
-import org.apache.pekko.stream.scaladsl.Source
 import cats.data.EitherT
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -27,6 +24,9 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
+import org.apache.pekko.Done
+import org.apache.pekko.stream.KillSwitch
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.{ExecutionContext, Future}
 

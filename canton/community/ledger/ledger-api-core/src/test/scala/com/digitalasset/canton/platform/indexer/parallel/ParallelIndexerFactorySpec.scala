@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import org.apache.pekko.stream.KillSwitch
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.platform.indexer.ha.Handle
+import org.apache.pekko.stream.KillSwitch
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 

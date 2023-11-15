@@ -4,62 +4,49 @@
 package com.digitalasset.canton.data
 
 import cats.syntax.either.*
-import com.digitalasset.canton.*
-import com.digitalasset.canton.data.TransactionViewTree.InvalidTransactionViewTree
+import com.digitalasset.canton.WorkflowId
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
-import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.protocol.{ConfirmationPolicy, RootHash, TransactionId, ViewHash}
+import com.digitalasset.canton.topology.{DomainId, MediatorRef}
+import com.digitalasset.canton.util.EitherUtil
 
 import java.util.UUID
-import scala.annotation.tailrec
 
-/** Wraps a `GenTransactionTree` where exactly one view (including subviews) is unblinded.
-  * The `commonMetadata` and `participantMetadata` are also unblinded.
-  * The `submitterMetadata` is unblinded if and only if the unblinded view is a root view.
-  *
-  * @throws TransactionViewTree$.InvalidTransactionViewTree if [[tree]] is not a transaction view tree
-  *                                    (i.e. the wrong set of nodes is blinded)
-  */
-final case class TransactionViewTree private (tree: GenTransactionTree)
-    extends ViewTree
-    with PrettyPrinting {
+trait TransactionViewTree extends ViewTree {
 
-  @tailrec
-  private def findTheView(
+  import TransactionViewTree.*
+
+  def tree: GenTransactionTree
+
+  private[data] def findTheView(
       viewsWithIndex: Seq[(TransactionView, MerklePathElement)],
       viewPosition: ViewPosition = ViewPosition.root,
-  ): (TransactionView, ViewPosition) = {
-    viewsWithIndex match {
-      case Seq() =>
-        throw InvalidTransactionViewTree("A transaction view tree must contain an unblinded view.")
-      case Seq((singleView, index)) if singleView.hasAllLeavesBlinded =>
-        findTheView(singleView.subviews.unblindedElementsWithIndex, index +: viewPosition)
-      case Seq((singleView, index)) if singleView.isFullyUnblinded =>
-        (singleView, index +: viewPosition)
-      case Seq((singleView, _index)) =>
-        throw InvalidTransactionViewTree(
-          s"A transaction view tree must contain a fully unblinded view: $singleView"
-        )
-      case multipleViews =>
-        throw InvalidTransactionViewTree(
-          s"A transaction view tree must not contain several unblinded views: ${multipleViews.map(_._1)}"
-        )
-    }
-  }
+  ): Either[String, (TransactionView, ViewPosition)]
 
-  lazy val transactionId: TransactionId = TransactionId.fromRootHash(tree.rootHash)
+  private[data] lazy val viewAndPositionOrErr: Either[String, (TransactionView, ViewPosition)] =
+    findTheView(tree.rootViews.unblindedElementsWithIndex)
 
-  lazy val transactionUuid: UUID = checked(tree.commonMetadata.tryUnwrap).uuid
-
-  private val viewAndPosition = findTheView(
-    tree.rootViews.unblindedElementsWithIndex
-  )
+  private[data] lazy val viewAndPosition: (TransactionView, ViewPosition) =
+    viewAndPositionOrErr.valueOr(msg => throw InvalidTransactionViewTree(msg))
 
   /** The (top-most) unblinded view. */
-  val view: TransactionView = viewAndPosition._1
+  lazy val view: TransactionView = viewAndPosition._1
 
-  override val viewPosition: ViewPosition = viewAndPosition._2
+  override lazy val viewPosition: ViewPosition = viewAndPosition._2
+
+  /** Determines whether `view` is top-level. */
+  lazy val isTopLevel: Boolean = viewPosition.position.sizeCompare(1) == 0
+
+  def validated: Either[String, this.type] = for {
+    _ <- viewAndPositionOrErr
+    _ <- validateMetadata(tree, isTopLevel)
+  } yield this
+
+  override def rootHash: RootHash = tree.rootHash
+
+  lazy val transactionId: TransactionId = TransactionId.fromRootHash(rootHash)
+
+  override def toBeSigned: Option[RootHash] = if (isTopLevel) Some(rootHash) else None
 
   /** Returns the hashes of the direct subviews of the view represented by this tree.
     * By definition, all subviews are unblinded, therefore this will also work when the subviews
@@ -67,35 +54,17 @@ final case class TransactionViewTree private (tree: GenTransactionTree)
     */
   def subviewHashes: Seq[ViewHash] = view.subviews.trySubviewHashes
 
-  lazy val tryFlattenToParticipantViews: Seq[ParticipantTransactionView] =
-    view.tryFlattenToParticipantViews
+  override lazy val viewHash: ViewHash = ViewHash.fromRootHash(view.rootHash)
 
-  override val viewHash: ViewHash = ViewHash.fromRootHash(view.rootHash)
+  override lazy val informees: Set[Informee] = view.viewCommonData.tryUnwrap.informees
 
-  /** Determines whether `view` is top-level. */
-  val isTopLevel: Boolean = viewPosition.position.sizeCompare(1) == 0
+  lazy val viewParticipantData: ViewParticipantData = view.viewParticipantData.tryUnwrap
 
-  val submitterMetadataO: Option[SubmitterMetadata] = {
-    val result = tree.submitterMetadata.unwrap.toOption
+  val submitterMetadataO: Option[SubmitterMetadata] = tree.submitterMetadata.unwrap.toOption
 
-    if (result.isEmpty == isTopLevel) {
-      throw InvalidTransactionViewTree(
-        "The submitter metadata must be unblinded if and only if the represented view is top-level. " +
-          s"Submitter metadata: ${tree.submitterMetadata.unwrap
-              .fold(_ => "blinded", _ => "unblinded")}, isTopLevel: $isTopLevel"
-      )
-    }
+  private[data] lazy val commonMetadata: CommonMetadata = tree.commonMetadata.tryUnwrap
 
-    result
-  }
-
-  private[this] val commonMetadata: CommonMetadata =
-    tree.commonMetadata.unwrap
-      .getOrElse(
-        throw InvalidTransactionViewTree(
-          s"The common metadata of a transaction view tree must be unblinded."
-        )
-      )
+  lazy val transactionUuid: UUID = commonMetadata.uuid
 
   override def domainId: DomainId = commonMetadata.domainId
 
@@ -103,38 +72,39 @@ final case class TransactionViewTree private (tree: GenTransactionTree)
 
   def confirmationPolicy: ConfirmationPolicy = commonMetadata.confirmationPolicy
 
-  private def unwrapParticipantMetadata: ParticipantMetadata =
-    tree.participantMetadata.unwrap
-      .getOrElse(
-        throw InvalidTransactionViewTree(
-          s"The participant metadata of a transaction view tree must be unblinded."
-        )
-      )
+  private[data] def participantMetadata: ParticipantMetadata = tree.participantMetadata.tryUnwrap
 
-  val ledgerTime: CantonTimestamp = unwrapParticipantMetadata.ledgerTime
+  lazy val ledgerTime: CantonTimestamp = participantMetadata.ledgerTime
 
-  val submissionTime: CantonTimestamp = unwrapParticipantMetadata.submissionTime
+  lazy val submissionTime: CantonTimestamp = participantMetadata.submissionTime
 
-  val workflowIdO: Option[WorkflowId] = unwrapParticipantMetadata.workflowIdO
-
-  override lazy val informees: Set[Informee] = view.viewCommonData.tryUnwrap.informees
-
-  lazy val viewParticipantData: ViewParticipantData = view.viewParticipantData.tryUnwrap
-
-  override def toBeSigned: Option[RootHash] =
-    if (isTopLevel) Some(transactionId.toRootHash) else None
-
-  override def rootHash: RootHash = tree.rootHash
-
-  override def pretty: Pretty[TransactionViewTree] = prettyOfClass(unnamedParam(_.tree))
+  lazy val workflowIdO: Option[WorkflowId] = participantMetadata.workflowIdO
 }
 
 object TransactionViewTree {
-  def tryCreate(tree: GenTransactionTree): TransactionViewTree = TransactionViewTree(tree)
 
-  def create(tree: GenTransactionTree): Either[String, TransactionViewTree] =
-    Either.catchOnly[InvalidTransactionViewTree](TransactionViewTree(tree)).leftMap(_.message)
+  private[data] def validateMetadata(
+      tree: GenTransactionTree,
+      isTopLevel: Boolean,
+  ): Either[String, Unit] = for {
+    _ <- tree.commonMetadata.unwrap.leftMap(_ =>
+      "The common metadata of a transaction view tree must be unblinded."
+    )
+
+    _ <- tree.participantMetadata.unwrap.leftMap(_ =>
+      "The participant metadata of a transaction view tree must be unblinded."
+    )
+
+    _ <- EitherUtil.condUnitE(
+      isTopLevel == tree.submitterMetadata.isFullyUnblinded,
+      "The submitter metadata must be unblinded if and only if the represented view is top-level. " +
+        s"Submitter metadata: ${tree.submitterMetadata.unwrap.fold(_ => "blinded", _ => "unblinded")}, " +
+        s"isTopLevel: $isTopLevel",
+    )
+
+  } yield ()
 
   /** Indicates an attempt to create an invalid [[TransactionViewTree]]. */
   final case class InvalidTransactionViewTree(message: String) extends RuntimeException(message) {}
+
 }

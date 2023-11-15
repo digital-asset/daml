@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.domain
 
-import org.apache.pekko.stream.Materializer
 import cats.data.EitherT
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
@@ -49,6 +48,7 @@ import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, SequencerAlias}
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}

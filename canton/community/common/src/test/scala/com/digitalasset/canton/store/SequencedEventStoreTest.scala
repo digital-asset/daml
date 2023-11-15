@@ -399,8 +399,8 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       val store = mk()
       val min = 50L
       val max = 100L
-      val getSc = { i: Long => i * 2 + 100 }
-      val getTs = { i: Long =>
+      val getSc = { (i: Long) => i * 2 + 100 }
+      val getTs = { (i: Long) =>
         CantonTimestamp.Epoch.plusMillis(i * 2 + 200)
       }
       val events = (min to max).toList.map { i =>

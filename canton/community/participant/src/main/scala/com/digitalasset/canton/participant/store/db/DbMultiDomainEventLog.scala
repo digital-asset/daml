@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.participant.store.db
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.*
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import cats.data.OptionT
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
@@ -54,6 +51,9 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.{DiscardOps, LedgerTransactionId}
 import com.google.common.annotations.VisibleForTesting
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.*
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import slick.jdbc.GetResult
 
 import java.util.concurrent.atomic.AtomicReference

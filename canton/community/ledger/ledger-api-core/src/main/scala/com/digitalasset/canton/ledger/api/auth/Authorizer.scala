@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import org.apache.pekko.actor.Scheduler
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.v1.transaction_filter.Filters
 import com.daml.tracing.Telemetry
@@ -19,6 +18,7 @@ import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import com.digitalasset.canton.tracing.{TelemetryTracing, TraceContext}
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
+import org.apache.pekko.actor.Scheduler
 import scalapb.lenses.Lens
 
 import java.time.Instant

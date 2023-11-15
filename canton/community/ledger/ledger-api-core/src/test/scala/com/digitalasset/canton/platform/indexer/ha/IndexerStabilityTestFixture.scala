@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.indexer.ha
 
-import org.apache.pekko.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
@@ -22,6 +21,7 @@ import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceCon
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext}
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext

@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.Done
-import org.apache.pekko.stream.scaladsl.{Keep, Source}
-import org.apache.pekko.stream.{KillSwitches, Materializer}
 import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -34,6 +31,9 @@ import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId, Unique
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, SequencerCounter}
 import com.google.protobuf.ByteString
+import org.apache.pekko.Done
+import org.apache.pekko.stream.scaladsl.{Keep, Source}
+import org.apache.pekko.stream.{KillSwitches, Materializer}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
@@ -63,7 +63,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       testedProtocolVersion,
     )
 
-  private implicit val materializer = mock[Materializer] // not used
+  private implicit val materializer: Materializer = mock[Materializer] // not used
 
   private val unauthenticatedMemberId =
     UniqueIdentifier.fromProtoPrimitive_("unm1::default").map(new UnauthenticatedMemberId(_)).value

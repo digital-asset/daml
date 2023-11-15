@@ -229,7 +229,7 @@ class TopologyAdministrationGroupX(
             .initialXValues(
               consoleEnvironment.environment.clock,
               ProtocolVersion.CNTestNet,
-            ), // TODO(#12373): Review the PV here
+            ), // TODO(#15358): Use `ProtocolVersion.latest`
           signedBy = thisNodeRootKey,
           store = Some(AuthorizedStore.filterName),
         )
@@ -599,8 +599,7 @@ class TopologyAdministrationGroupX(
   @Help.Summary("Inspect participant domain states")
   @Help.Group("Participant Domain States")
   object participant_domain_permissions extends Helpful {
-    // TODO(#15241): implement write service properly
-    def authorize(
+    def propose(
         domainId: DomainId,
         participant: ParticipantId,
         permission: ParticipantPermissionX,
@@ -609,6 +608,7 @@ class TopologyAdministrationGroupX(
           consoleEnvironment.commandTimeouts.bounded
         ),
         store: Option[String] = None,
+        mustFullyAuthorize: Boolean = false,
     ): ConsoleCommandResult[
       SignedTopologyTransactionX[TopologyChangeOpX, ParticipantDomainPermissionX]
     ] = {
@@ -624,6 +624,7 @@ class TopologyAdministrationGroupX(
         signedBy = Seq(instance.id.uid.namespace.fingerprint),
         serial = None,
         store = store.getOrElse(domainId.filterString),
+        mustFullyAuthorize = mustFullyAuthorize,
       )
 
       synchronisation.run(synchronize)(adminCommand(cmd))

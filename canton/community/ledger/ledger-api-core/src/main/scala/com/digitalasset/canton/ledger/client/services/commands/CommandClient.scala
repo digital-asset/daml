@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.ledger.client.services.commands
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
 import com.daml.ledger.api.v1.command_completion_service.CompletionEndResponse
@@ -16,6 +14,8 @@ import com.digitalasset.canton.ledger.client.configuration.CommandClientConfigur
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.util.Ctx
 import com.google.protobuf.empty.Empty
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
 
 import scala.concurrent.Future
 import scala.util.Try

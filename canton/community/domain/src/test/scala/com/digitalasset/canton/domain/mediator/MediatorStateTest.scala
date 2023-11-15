@@ -85,7 +85,7 @@ class MediatorStateTest
     val informeeMessage = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
     val mockTopologySnapshot = mock[TopologySnapshot]
     when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])).thenAnswer {
-      parties: Set[LfPartyId] => Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
+      (parties: Set[LfPartyId]) => Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
     }
     val currentVersion =
       ResponseAggregation

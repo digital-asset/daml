@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,
@@ -32,6 +30,8 @@ import com.digitalasset.canton.platform.store.dao.{
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
 import com.digitalasset.canton.tracing.Traced
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.{ExecutionContext, Future}
 

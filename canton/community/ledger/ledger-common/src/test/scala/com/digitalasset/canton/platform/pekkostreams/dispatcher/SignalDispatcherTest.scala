@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.pekkostreams.dispatcher
 
-import org.apache.pekko.stream.scaladsl.Sink
-import org.apache.pekko.stream.testkit.scaladsl.TestSink
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.scalautil.Statement.discard
+import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.stream.testkit.scaladsl.TestSink
 import org.awaitility.Awaitility.await
 import org.awaitility.Durations
 import org.scalatest.FutureOutcome

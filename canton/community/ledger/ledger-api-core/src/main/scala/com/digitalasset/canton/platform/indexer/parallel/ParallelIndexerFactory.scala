@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import org.apache.pekko.stream.{KillSwitch, Materializer}
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.canton.ledger.participant.state.v2.ReadService
@@ -27,6 +26,7 @@ import com.digitalasset.canton.platform.store.backend.{
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import org.apache.pekko.stream.{KillSwitch, Materializer}
 
 import java.util.{Timer, concurrent}
 import scala.concurrent.{ExecutionContext, Future, Promise}

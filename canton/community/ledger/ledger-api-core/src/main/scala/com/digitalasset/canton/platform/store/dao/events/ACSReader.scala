@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.Attributes
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v2.state_service.{
   ActiveContract,
@@ -59,6 +56,9 @@ import com.digitalasset.canton.platform.store.utils.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Attributes
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*

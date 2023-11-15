@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.pekkostreams.dispatcher
 
+import com.digitalasset.canton.platform.pekkostreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.atomic.AtomicReference

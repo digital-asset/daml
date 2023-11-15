@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.participant.store
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.{Keep, Sink}
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
@@ -51,7 +49,9 @@ import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{PekkoUtil, MonadUtil}
+import com.digitalasset.canton.util.{MonadUtil, PekkoUtil}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{Keep, Sink}
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.{Assertion, BeforeAndAfterAll}
 

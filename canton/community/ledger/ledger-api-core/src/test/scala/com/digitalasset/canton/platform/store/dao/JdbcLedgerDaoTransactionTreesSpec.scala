@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimestampConversion
 import com.daml.ledger.api.v2.transaction.TransactionTree
 import com.daml.ledger.api.v2.update_service.GetUpdateTreesResponse
@@ -15,6 +13,8 @@ import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.api.v1.event.EventOps.TreeEventOps
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.*
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers

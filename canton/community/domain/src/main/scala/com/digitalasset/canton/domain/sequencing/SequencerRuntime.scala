@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing
 
-import org.apache.pekko.actor.ActorSystem
 import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -51,6 +50,7 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.{DiscardOps, config}
 import io.grpc.{ServerInterceptors, ServerServiceDefinition}
+import org.apache.pekko.actor.ActorSystem
 
 import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future, Promise}

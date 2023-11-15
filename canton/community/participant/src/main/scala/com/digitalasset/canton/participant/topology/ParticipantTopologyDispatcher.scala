@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.topology
 
-import org.apache.pekko.stream.Materializer
 import cats.data.EitherT
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
@@ -54,6 +53,7 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, SequencerAlias}
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.stream.Materializer
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.*

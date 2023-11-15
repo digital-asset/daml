@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.platform.pekkostreams.dispatcher
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Milliseconds, Seconds, Span}

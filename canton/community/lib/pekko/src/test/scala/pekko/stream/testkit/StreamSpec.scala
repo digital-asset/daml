@@ -4,7 +4,7 @@
 
 // This file has been copied from Pekko 2.6.18
 
-package pekko.stream.testkit
+package org.apache.pekko.stream.testkit
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -53,7 +53,7 @@ abstract class StreamSpec(_system: ActorSystem) extends PekkoSpec(_system) {
             .sequence(children.map(MaterializerState.requestFromChild))
             .foreach(snapshots =>
               snapshots.foreach(s =>
-                pekko.stream.testkit.scaladsl.StreamTestKit.snapshotString(s.asInstanceOf[StreamSnapshotImpl])))
+                org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.snapshotString(s.asInstanceOf[StreamSnapshotImpl])))
         }
         failed
       case other => other

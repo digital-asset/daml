@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
@@ -55,6 +53,8 @@ import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}

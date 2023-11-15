@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.indexer.ha
 
-import org.apache.pekko.stream.KillSwitch
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
@@ -11,6 +10,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.platform.store.backend.DBLockStorageBackend
 import com.digitalasset.canton.platform.store.backend.DBLockStorageBackend.{Lock, LockId, LockMode}
 import com.digitalasset.canton.tracing.TraceContext
+import org.apache.pekko.stream.KillSwitch
 
 import java.sql.Connection
 import java.util.Timer

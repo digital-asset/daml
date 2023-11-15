@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.stream.Materializer
 import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
@@ -17,6 +16,7 @@ import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.{ExecutionContext, Future}
 

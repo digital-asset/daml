@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import org.apache.pekko.actor.Scheduler
 import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.ledger.error.groups.AuthorizationChecksErrors
 import com.digitalasset.canton.logging.{
@@ -16,6 +15,7 @@ import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver
+import org.apache.pekko.actor.Scheduler
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
@@ -34,7 +34,9 @@ private[auth] final class OngoingAuthorizationObserver[A](
     extends ServerCallStreamObserver[A]
     with NamedLogging {
 
-  private implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace(loggerFactory)
+  private implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace(
+    loggerFactory
+  )
   private val errorLogger = ErrorLoggingContext(logger, loggerFactory.properties, traceContext)
 
   // Guards against propagating calls to delegate observer after either

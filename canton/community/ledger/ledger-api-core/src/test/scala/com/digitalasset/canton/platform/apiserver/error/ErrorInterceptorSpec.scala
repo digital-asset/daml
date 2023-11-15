@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.error
 
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import com.daml.error.*
 import com.daml.error.utils.ErrorDetails
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -21,6 +19,8 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.*
 import io.grpc.stub.StreamObserver
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import org.scalatest.*
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}
 import org.scalatest.freespec.AsyncFreeSpec
@@ -57,10 +57,7 @@ final class ErrorInterceptorSpec
               errorInsideFutureOrStream = true,
               loggerFactory = loggerFactory,
             )
-          )
-            .map { t: StatusRuntimeException =>
-              assertSecuritySanitizedError(t)
-            }
+          ).map(assertSecuritySanitizedError)
         }
 
         s"outside a Future $bypassMsg" in {
@@ -70,10 +67,7 @@ final class ErrorInterceptorSpec
               errorInsideFutureOrStream = false,
               loggerFactory = loggerFactory,
             )
-          )
-            .map { t: StatusRuntimeException =>
-              assertSecuritySanitizedError(t)
-            }
+          ).map(assertSecuritySanitizedError)
         }
       }
 
@@ -86,7 +80,7 @@ final class ErrorInterceptorSpec
               loggerFactory = loggerFactory,
             )
           )
-            .map { t: StatusRuntimeException =>
+            .map { t =>
               assertFooMissingError(
                 actual = t,
                 expectedMsg = "Non-Status.INTERNAL self-service error inside a Future",
@@ -102,7 +96,7 @@ final class ErrorInterceptorSpec
               loggerFactory = loggerFactory,
             )
           )
-            .map { t: StatusRuntimeException =>
+            .map { t =>
               assertFooMissingError(
                 actual = t,
                 expectedMsg = "Non-Status.INTERNAL self-service error outside a Future",
@@ -123,7 +117,7 @@ final class ErrorInterceptorSpec
           )
         service.close()
         exerciseStreamingPekkoEndpoint(service)
-          .map { t: StatusRuntimeException =>
+          .map { t =>
             assertMatchesErrorCode(t, CommonErrors.ServerIsShuttingDown)
           }
       }
@@ -138,10 +132,7 @@ final class ErrorInterceptorSpec
                   errorInsideFutureOrStream = true,
                   loggerFactory = loggerFactory,
                 )
-              )
-                .map { t: StatusRuntimeException =>
-                  assertSecuritySanitizedError(t)
-                }
+              ).map(assertSecuritySanitizedError)
             },
             assertions = _.errorMessage should include(
               "SERVICE_INTERNAL_ERROR(4,0): Unexpected or unknown exception occurred."
@@ -156,19 +147,14 @@ final class ErrorInterceptorSpec
               errorInsideFutureOrStream = false,
               loggerFactory = loggerFactory,
             )
-          )
-            .map { t: StatusRuntimeException =>
-              assertSecuritySanitizedError(t)
-            }
+          ).map(assertSecuritySanitizedError)
         }
 
         "outside a Stream by directly calling stream-observer.onError" in {
           loggerFactory.assertLogs(
             exerciseStreamingPekkoEndpoint(
               new HelloServiceFailingDirectlyObserverOnError
-            ).map { t: StatusRuntimeException =>
-              assertSecuritySanitizedError(t)
-            }
+            ).map(assertSecuritySanitizedError)
             // the transformed error is expected to not be logged
             // so it is required that no entries will be found
           )
@@ -184,7 +170,7 @@ final class ErrorInterceptorSpec
               loggerFactory = loggerFactory,
             )
           )
-            .map { t: StatusRuntimeException =>
+            .map { t =>
               assertFooMissingError(
                 actual = t,
                 expectedMsg = "Non-Status.INTERNAL self-service error inside a Stream",
@@ -200,7 +186,7 @@ final class ErrorInterceptorSpec
               loggerFactory = loggerFactory,
             )
           )
-            .map { t: StatusRuntimeException =>
+            .map { t =>
               assertFooMissingError(
                 actual = t,
                 expectedMsg = "Non-Status.INTERNAL self-service error outside a Stream",

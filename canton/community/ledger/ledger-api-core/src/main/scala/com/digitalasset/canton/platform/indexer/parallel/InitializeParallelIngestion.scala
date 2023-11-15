@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.offset.Offset
@@ -21,6 +18,9 @@ import com.digitalasset.canton.platform.store.backend.{
 }
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.tracing.Traced
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.{ExecutionContext, Future}
 

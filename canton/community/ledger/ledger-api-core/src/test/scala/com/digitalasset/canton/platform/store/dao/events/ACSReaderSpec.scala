@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.digitalasset.canton.platform.store.dao.events.EventIdsUtils.*
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.{Assertion, BeforeAndAfterAll}
 

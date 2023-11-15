@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.services
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.ledger.api.v1.transaction_service.*
 import com.digitalasset.canton.ledger.api.domain.LedgerOffset
 import com.digitalasset.canton.ledger.api.messages.transaction.{
@@ -14,6 +12,8 @@ import com.digitalasset.canton.ledger.api.messages.transaction.{
   GetTransactionsRequest,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.Future
 

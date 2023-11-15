@@ -57,7 +57,7 @@ object AcsTxStreams extends NoTracing {
       type Off = BeginBookmark[domain.Offset]
       val acs = b add acsAndBoundary
       val dupOff = b add Broadcast[Off](2, eagerCancel = false)
-      val liveStart = Flow fromFunction { off: Off =>
+      val liveStart = Flow fromFunction { (off: Off) =>
         LiveBegin(off)
       }
       val txns = b add transactionsFollowingBoundary(transactionsSince, logger)

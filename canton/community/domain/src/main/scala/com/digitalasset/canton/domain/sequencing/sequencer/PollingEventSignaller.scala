@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerMemberId
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.Future
 

@@ -152,16 +152,14 @@ object ErrorCodeDocumentationGenerator {
   ): DeprecatedItem = {
     val args: Map[String, String] = annotation.tree.children
       .drop(1)
-      .map { x: ru.Tree =>
-        x match {
-          case ru.NamedArg(
-                ru.Ident(ru.TermName(argName)),
-                ru.Literal(ru.Constant(text: String)),
-              ) =>
-            argName -> text.stripMargin
-          case other =>
-            sys.error(s"Unexpected tree: $other")
-        }
+      .map {
+        case ru.NamedArg(
+              ru.Ident(ru.TermName(argName)),
+              ru.Literal(ru.Constant(text: String)),
+            ) =>
+          argName -> text.stripMargin
+        case other =>
+          sys.error(s"Unexpected tree: $other")
       }
       .toMap
     DeprecatedItem(message = args.getOrElse("message", ""), since = args.get("since"))

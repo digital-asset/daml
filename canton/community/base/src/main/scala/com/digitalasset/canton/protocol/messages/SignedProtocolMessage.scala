@@ -48,7 +48,7 @@ import scala.math.Ordered.orderingToOrdered
   * and each signature covers the serialization of the `typedMessage` itself rather than just its
   * [[com.digitalasset.canton.protocol.messages.TypedSignedProtocolMessageContent.content]].
   */
-// TODO(#12373) Adapt comment regarding PV=CNTestNet when releasing BFT
+// TODO(#15358) Adapt comment. Most of it can be deleted.
 // sealed because this class is mocked in tests
 sealed case class SignedProtocolMessage[+M <: SignedProtocolMessageContent] private (
     typedMessage: TypedSignedProtocolMessageContent[M],

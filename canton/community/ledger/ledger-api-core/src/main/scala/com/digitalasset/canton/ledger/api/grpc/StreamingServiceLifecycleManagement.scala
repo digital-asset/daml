@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.grpc
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Keep, Source}
-import org.apache.pekko.stream.{KillSwitch, KillSwitches, Materializer}
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.pekko.ServerAdapter
@@ -15,6 +12,9 @@ import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Keep, Source}
+import org.apache.pekko.stream.{KillSwitch, KillSwitches, Materializer}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.blocking

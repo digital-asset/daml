@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant
 
-import org.apache.pekko.actor.ActorSystem
 import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
@@ -70,6 +69,7 @@ import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.EitherTUtil
 import io.grpc.ServerServiceDefinition
+import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicReference
@@ -439,6 +439,7 @@ object ParticipantNodeBootstrap {
         enableLfDev = arguments.parameterConfig.devVersionSupport,
         enableStackTraces = arguments.parameterConfig.enableEngineStackTrace,
         enableContractUpgrading = arguments.parameterConfig.enableContractUpgrading,
+        iterationsBetweenInterruptions = arguments.parameterConfig.iterationsBetweenInterruptions,
       )
 
     override protected def createResourceService(

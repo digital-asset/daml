@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.sequencing
 
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.SequencedEventMonotonicityChecker.MonotonicityFailureException
@@ -19,6 +18,7 @@ import com.digitalasset.canton.{
   ProtocolVersionChecksFixtureAnyWordSpec,
   SequencerCounter,
 }
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.scalatest.Outcome
 import org.scalatest.wordspec.FixtureAnyWordSpec
 

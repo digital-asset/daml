@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing
 
-import org.apache.pekko.actor.ActorSystem
 import cats.data.EitherT
 import cats.syntax.option.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -34,6 +33,7 @@ import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.store.TopologyStateForInitializationService
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.ScheduledExecutorService
 import scala.concurrent.{ExecutionContextExecutor, Future}

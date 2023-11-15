@@ -4,7 +4,7 @@
 
 // This file has been copied from Pekko 2.6.18
 
-package pekko.stream.testkit
+package org.apache.pekko.stream.testkit
 
 import scala.util.control.NoStackTrace
 
@@ -15,7 +15,7 @@ import org.apache.pekko.actor.ActorRefWithCell
 
 object Utils {
 
-  /** Sets the default-mailbox to the usual [[pekko.dispatch.UnboundedMailbox]] instead of [[StreamTestDefaultMailbox]]. */
+  /** Sets the default-mailbox to the usual [[org.apache.pekko.dispatch.UnboundedMailbox]] instead of [[StreamTestDefaultMailbox]]. */
   val UnboundedMailboxConfig =
     ConfigFactory.parseString(
       """pekko.actor.default-mailbox.mailbox-type = "pekko.dispatch.UnboundedMailbox""""

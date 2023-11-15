@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.tracing
 
-import org.apache.pekko.NotUsed
 import io.grpc.Metadata
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator
 import io.opentelemetry.context.propagation.{TextMapGetter, TextMapSetter}
 import io.opentelemetry.context.Context as OpenTelemetryContext
+import org.apache.pekko.NotUsed
 
 import java.lang
 import scala.collection.mutable

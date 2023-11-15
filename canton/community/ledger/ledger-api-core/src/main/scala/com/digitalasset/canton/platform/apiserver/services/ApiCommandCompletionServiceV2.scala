@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.command_completion_service.{
   CommandCompletionServiceGrpc,
@@ -31,6 +29,8 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.metrics.Metrics
 import io.grpc.stub.StreamObserver
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 
 final class ApiCommandCompletionServiceV2(
     completionsService: IndexCompletionsService,

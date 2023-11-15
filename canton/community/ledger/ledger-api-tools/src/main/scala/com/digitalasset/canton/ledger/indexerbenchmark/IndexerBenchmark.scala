@@ -3,10 +3,6 @@
 
 package com.digitalasset.canton.ledger.indexerbenchmark
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.JvmMetricSet
@@ -29,6 +25,10 @@ import com.digitalasset.canton.platform.store.DbSupport.DataSourceProperties
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 
 import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.duration.Duration

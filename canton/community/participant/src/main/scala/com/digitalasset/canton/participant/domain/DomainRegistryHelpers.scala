@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.domain
 
-import org.apache.pekko.stream.Materializer
 import cats.Eval
 import cats.data.EitherT
 import cats.instances.future.*
@@ -43,6 +42,7 @@ import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionCompatibility}
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}

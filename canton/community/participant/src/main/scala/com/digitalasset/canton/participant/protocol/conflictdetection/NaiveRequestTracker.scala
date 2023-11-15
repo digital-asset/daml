@@ -212,7 +212,7 @@ private[participant] class NaiveRequestTracker(
             requestData.commitSetPromise.futureUS,
             commitTime,
           )
-        val data = FinalizationData(resultTimestamp, commitTime)(task.finalizationResult)
+        val data = FinalizationData(resultTimestamp, commitTime)(task.finalizationResult.futureUS)
         requestData.finalizationDataCell.putIfAbsent(data) match {
           case None =>
             logger.debug(
@@ -245,7 +245,7 @@ private[participant] class NaiveRequestTracker(
 
     def tryAddCommitSet(
         commitSetPromise: PromiseUnlessShutdown[CommitSet],
-        finalizationResult: PromiseUnlessShutdown[
+        finalizationResult: FutureUnlessShutdown[
           Either[NonEmptyChain[RequestTrackerStoreError], Unit]
         ],
     ): Either[CommitSetError, EitherT[FutureUnlessShutdown, NonEmptyChain[
@@ -262,7 +262,7 @@ private[participant] class NaiveRequestTracker(
           Either.right(EitherT.right(FutureUnlessShutdown.abortedDueToShutdown))
         case UnlessShutdown.Outcome(true) =>
           logger.debug(withRC(rc, "New commit set added."))
-          Right(EitherT(finalizationResult.futureUS))
+          Right(EitherT(finalizationResult))
         case UnlessShutdown.Outcome(false) =>
           val oldCommitSet = commitSetPromise.future.value
             .getOrElse(
@@ -272,7 +272,7 @@ private[participant] class NaiveRequestTracker(
             )
           if (oldCommitSet == commitSet.map(UnlessShutdown.Outcome(_))) {
             logger.debug(withRC(rc, s"Commit set added a second time."))
-            Right(EitherT(finalizationResult.futureUS))
+            Right(EitherT(finalizationResult))
           } else if (oldCommitSet.toEither.contains(AbortedDueToShutdown)) {
             logger.debug(
               withRC(
@@ -640,5 +640,5 @@ private[conflictdetection] object NaiveRequestTracker {
   private final case class FinalizationData(
       resultTimestamp: CantonTimestamp,
       commitTime: CantonTimestamp,
-  )(val result: PromiseUnlessShutdown[Either[NonEmptyChain[RequestTrackerStoreError], Unit]])
+  )(val result: FutureUnlessShutdown[Either[NonEmptyChain[RequestTrackerStoreError], Unit]])
 }

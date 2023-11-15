@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.service
 
-import org.apache.pekko.stream.Materializer
 import cats.data.EitherT
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -15,6 +14,7 @@ import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.{ExecutionContext, Future}
 

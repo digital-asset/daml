@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.ledger.participant.state.index.v2
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import com.digitalasset.canton.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.logging.LoggingContextWithTrace
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.Future
 

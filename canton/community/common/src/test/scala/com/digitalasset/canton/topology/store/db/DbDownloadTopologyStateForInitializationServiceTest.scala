@@ -11,7 +11,7 @@ class DownloadTopologyStateForInitializationServiceTestPostgres
     with DbTopologyStoreXHelper
     with PostgresTest {
 
-  // TODO(#12373) remove this from unstable/dev when releasing BFT
+  // TODO(#15153) remove this when we have only dev/cn
   override val migrationMode: MigrationMode = MigrationMode.DevVersion
 }
 
@@ -20,6 +20,6 @@ class DownloadTopologyStateForInitializationServiceTestH2
     with DbTopologyStoreXHelper
     with H2Test {
 
-  // TODO(#12373) remove this from unstable/dev when releasing BFT
+  // TODO(#15153) remove this when we have only dev/cn
   override val migrationMode: MigrationMode = MigrationMode.DevVersion
 }

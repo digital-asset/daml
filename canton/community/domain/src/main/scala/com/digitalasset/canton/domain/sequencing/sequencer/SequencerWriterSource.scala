@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.*
-import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, Merge, Source}
 import cats.data.{EitherT, Validated}
 import cats.syntax.either.*
 import cats.syntax.foldable.*
@@ -32,6 +29,9 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.retry.RetryUtil.DbExceptionRetryable
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.*
+import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, Merge, Source}
 
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean

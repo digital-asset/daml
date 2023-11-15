@@ -23,7 +23,7 @@ object ApiValueToLfValueConverter {
   type ApiValueToLfValue =
     lav1.value.Value => Error \/ lf.value.Value
 
-  def apiValueToLfValue: ApiValueToLfValue = { a: lav1.value.Value =>
+  def apiValueToLfValue: ApiValueToLfValue = { a =>
     \/.fromEither(StricterValueValidator.validateValue(a)(NoLogging)).leftMap(e => Error(e))
   }
 }

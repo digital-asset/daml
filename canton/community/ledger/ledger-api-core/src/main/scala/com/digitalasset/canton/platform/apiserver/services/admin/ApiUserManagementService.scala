@@ -301,7 +301,7 @@ private[apiserver] final class ApiUserManagementService(
       userManagementStore
         .listUsers(fromExcl, pageSize, identityProviderId)
         .flatMap(handleResult("listing users"))
-        .map { page: UserManagementStore.UsersPage =>
+        .map { page =>
           val protoUsers = page.users.map(toProtoUser)
           proto.ListUsersResponse(
             protoUsers,

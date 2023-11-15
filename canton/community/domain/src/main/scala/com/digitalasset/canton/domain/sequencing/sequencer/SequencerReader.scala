@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.stream.*
-import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, Sink, Source, WireTap}
-import org.apache.pekko.{Done, NotUsed}
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
@@ -32,12 +29,15 @@ import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.PekkoUtil.CombinedKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerCounter, config}
+import org.apache.pekko.stream.*
+import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, Sink, Source, WireTap}
+import org.apache.pekko.{Done, NotUsed}
 
 import java.sql.SQLTransientConnectionException
 import scala.concurrent.{ExecutionContext, Future}

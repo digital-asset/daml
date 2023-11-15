@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Keep, Sink}
-import org.apache.pekko.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.lf.data.Ref
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.metrics.Timed
@@ -33,6 +30,9 @@ import com.digitalasset.canton.platform.store.interning.{
 }
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Keep, Sink}
+import org.apache.pekko.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 
 import java.sql.Connection
 import scala.concurrent.Future

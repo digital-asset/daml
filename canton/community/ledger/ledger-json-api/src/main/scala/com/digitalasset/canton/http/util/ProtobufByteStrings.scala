@@ -8,7 +8,7 @@ import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Source, StreamConverters}
 import com.google.protobuf
 
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 object ProtobufByteStrings {
 

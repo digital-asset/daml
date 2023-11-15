@@ -3,20 +3,20 @@
 
 package com.digitalasset.canton.daml.lf.value.json
 
-import com.daml.lf.data.{FrontStack, ImmArray, Ref, SortedLookupList, Time, Numeric => LfNumeric}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref, SortedLookupList, Time, Numeric as LfNumeric}
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.ScalazEqual._
+import com.daml.lf.data.ScalazEqual.*
 import com.daml.lf.typesig
-import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.{Value as V}
 import com.daml.lf.value.Value.ContractId
 import NavigatorModelAliases.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
-import ApiValueImplicits._
+import ApiValueImplicits.*
 import com.digitalasset.canton.daml.lf.value.json.NavigatorModelAliases as Model
-import spray.json._
+import spray.json.*
 import scalaz.{@@, Equal, Order, Tag}
 
-import scalaz.syntax.equal._
-import scalaz.syntax.std.string._
+import scalaz.syntax.equal.*
+import scalaz.syntax.std.string.*
 
 /** A compressed encoding of API values.
   *
@@ -379,7 +379,7 @@ private[json] object JsonContractIdFormat {
       }
     }
 }
-import JsonContractIdFormat._
+import JsonContractIdFormat.*
 
 object ApiCodecCompressed
     extends ApiCodecCompressed(encodeDecimalAsString = true, encodeInt64AsString = true) {
@@ -393,6 +393,7 @@ object ApiCodecCompressed
     implicit object ApiRecordJsonFormat extends RootJsonWriter[Model.ApiRecord] {
       def write(v: Model.ApiRecord): JsValue = apiRecordToJsValue(v)
     }
-    implicit val ContractIdFormat: JsonFormat[ContractId]  = JsonContractIdFormat.ContractIdFormat
+
+    implicit val ContractIdFormat: JsonFormat[ContractId] = JsonContractIdFormat.ContractIdFormat
   }
 }

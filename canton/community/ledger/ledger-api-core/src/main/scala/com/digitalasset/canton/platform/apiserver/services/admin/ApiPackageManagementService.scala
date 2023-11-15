@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.{ContextualizedErrorLogger, DamlError}
@@ -37,6 +35,8 @@ import com.digitalasset.canton.platform.apiserver.services.admin.ApiPackageManag
 import com.digitalasset.canton.platform.apiserver.services.logging
 import com.google.protobuf.ByteString
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 import scalaz.std.either.*
 import scalaz.std.list.*
 import scalaz.syntax.traverse.*
@@ -64,7 +64,8 @@ private[apiserver] final class ApiPackageManagementService private (
     with GrpcApiService
     with NamedLogging {
 
-  private implicit val loggingContext: LoggingContext = createLoggingContext(loggerFactory)(identity)
+  private implicit val loggingContext: LoggingContext =
+    createLoggingContext(loggerFactory)(identity)
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(

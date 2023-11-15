@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.platform.pekkostreams.dispatcher
 
-import org.apache.pekko.stream.DelayOverflowStrategy
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.platform.pekkostreams.FutureTimeouts
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
+import org.apache.pekko.stream.DelayOverflowStrategy
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.Span

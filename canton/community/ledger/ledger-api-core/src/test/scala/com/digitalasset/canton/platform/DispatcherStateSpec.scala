@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform
 
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.lf.data.Ref
@@ -12,6 +11,7 @@ import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.{Dispatcher, SubSource}
 import io.grpc.StatusRuntimeException
+import org.apache.pekko.stream.scaladsl.Source
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec

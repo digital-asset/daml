@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.environment
 
-import org.apache.pekko.actor.ActorSystem
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
@@ -29,6 +28,7 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SimpleExecutionQueue
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
+import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.ScheduledExecutorService
 import scala.concurrent.{ExecutionContext, Future}

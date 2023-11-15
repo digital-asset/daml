@@ -38,6 +38,7 @@ private[canton] final case class SerializableContractWithDomainId(
   }
 }
 
+@deprecated("Use ActiveContract", since = "2.8.0")
 private[canton] object SerializableContractWithDomainId {
   private val Delimiter = ":::"
   private val decoder = java.util.Base64.getDecoder

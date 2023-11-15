@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import org.apache.pekko.stream.Materializer
 import cats.data.EitherT
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
@@ -29,8 +28,8 @@ import com.digitalasset.canton.sequencing.client.grpc.GrpcSequencerChannelBuilde
 import com.digitalasset.canton.sequencing.client.transports.*
 import com.digitalasset.canton.sequencing.client.transports.replay.{
   ReplayingEventsSequencerClientTransport,
-  ReplayingSendsSequencerClientTransportPekko,
   ReplayingSendsSequencerClientTransportImpl,
+  ReplayingSendsSequencerClientTransportPekko,
 }
 import com.digitalasset.canton.sequencing.handshake.SequencerHandshake
 import com.digitalasset.canton.store.*
@@ -42,6 +41,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerAlias, SequencerCounter}
 import io.grpc.{CallOptions, ManagedChannel}
 import io.opentelemetry.api.trace.Tracer
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.*
 

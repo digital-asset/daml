@@ -108,7 +108,7 @@ class CommandSubmitterWithRetry(
       .andThen(retryableOverride => Option.when(retryableOverride)(DefaultRetryableDelay))
       .applyOrElse(
         status,
-        { status: Status =>
+        { (status: Status) =>
           ErrorCodeUtils
             .errorCategoryFromString(status.message)
             .flatMap(_.retryable)

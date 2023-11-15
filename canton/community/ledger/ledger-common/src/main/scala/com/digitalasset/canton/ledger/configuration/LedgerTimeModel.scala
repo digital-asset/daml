@@ -15,7 +15,7 @@ import scala.util.Try
   * @param avgTransactionLatency  The expected average latency of a transaction, i.e., the average
   *                               time from submitting the transaction to a write service and the
   *                               transaction being assigned a record time.
-  * @param minSkew                The minimimum skew between ledger time and record time:
+  * @param minSkew                The minimum skew between ledger time and record time:
   *                               lt_TX >= rt_TX - minSkew
   * @param maxSkew                The maximum skew between ledger time and record time:
   *                               lt_TX <= rt_TX + maxSkew

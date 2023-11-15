@@ -3,10 +3,6 @@
 
 package com.digitalasset.canton.participant.ledger.api.client
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.KillSwitches
-import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
-import org.apache.pekko.{Done, NotUsed}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
@@ -46,6 +42,10 @@ import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
 import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTracing
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.KillSwitches
+import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
+import org.apache.pekko.{Done, NotUsed}
 import org.slf4j.event.Level
 import scalaz.syntax.tag.*
 

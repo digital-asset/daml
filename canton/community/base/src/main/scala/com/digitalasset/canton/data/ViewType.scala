@@ -42,7 +42,7 @@ object ViewType {
   case object TransactionViewType extends ViewType {
     override type View = LightTransactionViewTree
 
-    override type FullView = TransactionViewTree
+    override type FullView = FullTransactionViewTree
 
     override def toProtoEnum: v0.ViewType = v0.ViewType.TransactionViewType
   }

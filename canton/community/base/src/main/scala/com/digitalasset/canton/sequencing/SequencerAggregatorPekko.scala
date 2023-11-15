@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.sequencing
 
-import org.apache.pekko.Done
-import org.apache.pekko.stream.scaladsl.{Flow, Source}
-import org.apache.pekko.stream.{KillSwitch, OverflowStrategy}
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
@@ -43,6 +40,9 @@ import com.digitalasset.canton.util.{
   OrderedBucketMergeHubOps,
 }
 import com.digitalasset.canton.version.RepresentativeProtocolVersion
+import org.apache.pekko.Done
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
+import org.apache.pekko.stream.{KillSwitch, OverflowStrategy}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}

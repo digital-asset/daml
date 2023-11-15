@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant
 
-import org.apache.pekko.actor.ActorSystem
 import cats.Eval
 import cats.data.EitherT
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -60,6 +59,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SingleUseCell
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ServerServiceDefinition
+import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicReference

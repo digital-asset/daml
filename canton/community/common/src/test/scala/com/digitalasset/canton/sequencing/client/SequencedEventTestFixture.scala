@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.Materializer
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.SequencerCounter
@@ -30,6 +28,8 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
 import org.scalatest.Assertions.fail
 import org.scalatest.concurrent.{PatienceConfiguration, ScalaFutures}
 import org.scalatest.time.{Seconds, Span}
@@ -59,8 +59,10 @@ class SequencedEventTestFixture(
   val sequencerCarlos: SequencerId = SequencerId(
     UniqueIdentifier(Identifier.tryCreate("da3"), namespace)
   )
-  implicit val actorSystem = ActorSystem(classOf[SequencedEventTestFixture].getSimpleName)
-  implicit val materializer = Materializer(actorSystem)
+  implicit val actorSystem: ActorSystem = ActorSystem(
+    classOf[SequencedEventTestFixture].getSimpleName
+  )
+  implicit val materializer: Materializer = Materializer(actorSystem)
 
   val alice = ParticipantId(UniqueIdentifier.tryCreate("participant", "alice"))
   val bob = ParticipantId(UniqueIdentifier.tryCreate("participant", "bob"))

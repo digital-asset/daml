@@ -3,12 +3,6 @@
 
 package com.digitalasset.canton.util
 
-import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
-import org.apache.pekko.stream.testkit.StreamSpec
-import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import org.apache.pekko.stream.testkit.scaladsl.{TestSink, TestSource}
-import org.apache.pekko.stream.{KillSwitch, KillSwitches, OverflowStrategy}
-import org.apache.pekko.{Done, NotUsed}
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.Threading
@@ -17,6 +11,12 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.{BaseTest, DiscardOps}
+import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
+import org.apache.pekko.stream.testkit.StreamSpec
+import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import org.apache.pekko.stream.testkit.scaladsl.{TestSink, TestSource}
+import org.apache.pekko.stream.{KillSwitch, KillSwitches, OverflowStrategy}
+import org.apache.pekko.{Done, NotUsed}
 
 import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}

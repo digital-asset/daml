@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.service
 
-import org.apache.pekko.stream.Materializer
 import cats.data.EitherT
 import cats.instances.future.*
 import cats.syntax.either.*
@@ -48,6 +47,7 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.empty.Empty
 import io.grpc.Status
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
+import org.apache.pekko.stream.Materializer
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}

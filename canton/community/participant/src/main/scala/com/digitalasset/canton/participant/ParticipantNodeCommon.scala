@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant
 
-import org.apache.pekko.actor.ActorSystem
 import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
@@ -71,6 +70,7 @@ import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.{ProtocolVersionCompatibility, ReleaseProtocolVersion}
 import io.grpc.ServerServiceDefinition
+import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}

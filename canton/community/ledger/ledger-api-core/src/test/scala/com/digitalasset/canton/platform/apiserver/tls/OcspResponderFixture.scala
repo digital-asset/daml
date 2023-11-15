@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.tls
 
-import com.daml.ledger.api.testing.utils.{PekkoBeforeAndAfterAll, OwnedResource}
+import com.daml.ledger.api.testing.utils.{OwnedResource, PekkoBeforeAndAfterAll}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.util.ConcurrentBufferedLogger

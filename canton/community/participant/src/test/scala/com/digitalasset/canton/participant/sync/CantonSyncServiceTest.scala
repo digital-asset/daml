@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.sync
 
-import org.apache.pekko.stream.Materializer
 import cats.data.EitherT
 import cats.implicits.*
 import cats.{Eval, Id}
@@ -59,6 +58,7 @@ import com.digitalasset.canton.{
   LedgerSubmissionId,
   LfPartyId,
 }
+import org.apache.pekko.stream.Materializer
 import org.mockito.ArgumentMatchers
 import org.scalatest.Outcome
 import org.scalatest.wordspec.FixtureAnyWordSpec

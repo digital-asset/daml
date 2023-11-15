@@ -653,7 +653,7 @@ final class GrpcParticipantRepairService(
       implicit traceContext: TraceContext
   ): EitherT[Future, String, Unit] = {
     for {
-      protocolVersion <- EitherT.fromOptionF(
+      protocolVersion <- EitherT.fromOption[Future](
         sync.protocolVersionGetter(Traced(domainId)),
         ifNone = s"Domain ID's protocol version not found: $domainId",
       )

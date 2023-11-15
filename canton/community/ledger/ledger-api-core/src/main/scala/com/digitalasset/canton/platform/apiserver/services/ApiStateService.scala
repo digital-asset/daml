@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
@@ -31,6 +29,8 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission as Top
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.{ExecutionContext, Future}
 

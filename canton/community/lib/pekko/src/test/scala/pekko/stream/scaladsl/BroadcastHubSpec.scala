@@ -2,8 +2,8 @@
  * Copyright (C) 2015-2021 Lightbend Inc. <https://www.lightbend.com>
  */
 
-// This test has been extracted from Pekko 2.6.18
-// https://raw.githubusercontent.com/pekko/pekko/v2.6.18/pekko-stream-tests/src/test/scala/pekko/stream/scaladsl/HubSpec.scala
+// This test has been extracted from Akka 2.6.18
+// https://raw.githubusercontent.com/akka/akka/v2.6.18/akka-stream-tests/src/test/scala/akka/stream/scaladsl/HubSpec.scala
 // Added tests are marked with NEW
 
 package org.apache.pekko.stream.scaladsl

@@ -3,10 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.QueueOfferResult
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import cats.data.EitherT
 import cats.syntax.functor.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
@@ -29,6 +25,10 @@ import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutorService}
 import com.google.protobuf.ByteString
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.QueueOfferResult
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.scalatest.Assertion
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.wordspec.AsyncWordSpec
@@ -77,7 +77,7 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
       extends FlagCloseableAsync {
     override val timeouts = SequencerWriterSourceTest.this.timeouts
     protected val logger = SequencerWriterSourceTest.this.logger
-    implicit val actorSystem = ActorSystem()
+    implicit val actorSystem: ActorSystem = ActorSystem()
     val instanceIndex: Int = 0
     val testWriterConfig =
       SequencerWriterConfig.LowLatency(eventWriteBatchMaxSize = 1, payloadWriteBatchMaxSize = 1)

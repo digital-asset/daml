@@ -9,7 +9,6 @@ import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.value.ValueCoder
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.*
@@ -602,7 +601,7 @@ object TransactionTreeFactoryImpl {
   ): SerializableRawContractInstance =
     SerializableRawContractInstance
       .create(contractInst, agreementText)
-      .leftMap { err: ValueCoder.EncodeError =>
+      .leftMap { err =>
         throw new IllegalArgumentException(
           s"Unable to serialize contract instance, although it is contained in a well-formed transaction.\n$err\n$contractInst"
         )

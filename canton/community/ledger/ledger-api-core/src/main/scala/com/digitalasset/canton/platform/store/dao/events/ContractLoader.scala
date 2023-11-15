@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
-import org.apache.pekko.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.InstrumentedGraph
@@ -27,6 +25,8 @@ import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
 }
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import io.grpc.{Metadata, StatusRuntimeException}
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}

@@ -24,7 +24,7 @@ class TransferService(
     domainIdOfAlias: DomainAlias => Option[DomainId],
     submissionHandles: DomainId => Option[TransferSubmissionHandle],
     transferLookups: TargetDomainId => Option[TransferLookup],
-    protocolVersionFor: Traced[DomainId] => Future[Option[ProtocolVersion]],
+    protocolVersionFor: Traced[DomainId] => Option[ProtocolVersion],
 )(implicit ec: ExecutionContext) {
 
   private[admin] def transferOut(
@@ -37,7 +37,9 @@ class TransferService(
       submissionHandle <- EitherT.fromEither[Future](submissionHandleFor(sourceDomain))
       targetDomainId <- EitherT.fromEither[Future](domainIdFor(targetDomain)).map(TargetDomainId(_))
 
-      rawTargetProtocolVersion <- protocolVersionFor(targetDomainId.unwrap, "target")
+      rawTargetProtocolVersion <- EitherT.fromEither[Future](
+        protocolVersionFor(targetDomainId.unwrap, "target")
+      )
       targetProtocolVersion = TargetProtocolVersion(rawTargetProtocolVersion)
 
       transferId <- submissionHandle
@@ -68,11 +70,9 @@ class TransferService(
 
   private def protocolVersionFor(domain: DomainId, kind: String)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, ProtocolVersion] = EitherT(
-    protocolVersionFor(Traced(domain)).map(
-      _.toRight(s"Unable to get protocol version of $kind domain")
-    )
-  )
+  ): Either[String, ProtocolVersion] =
+    protocolVersionFor(Traced(domain))
+      .toRight(s"Unable to get protocol version of $kind domain")
 
   def transferIn(
       submitterMetadata: TransferSubmitterMetadata,
@@ -83,7 +83,9 @@ class TransferService(
   ): EitherT[Future, String, Unit] =
     for {
       submisisonHandle <- EitherT.fromEither[Future](submissionHandleFor(targetDomain))
-      rawSourceProtocolVersion <- protocolVersionFor(transferId.sourceDomain.unwrap, "source")
+      rawSourceProtocolVersion <- EitherT.fromEither[Future](
+        protocolVersionFor(transferId.sourceDomain.unwrap, "source")
+      )
       sourceProtocolVersion = SourceProtocolVersion(rawSourceProtocolVersion)
       result <- submisisonHandle
         .submitTransferIn(

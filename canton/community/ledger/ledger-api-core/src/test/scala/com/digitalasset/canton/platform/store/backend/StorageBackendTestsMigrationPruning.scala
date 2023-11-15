@@ -79,7 +79,7 @@ private[backend] trait StorageBackendTestsMigrationPruning
     afterPruning shouldBe empty
   }
 
-  private def updateMigrationHistoryTable(ledgerSequentialIdBefore: Long) = { conn: Connection =>
+  private def updateMigrationHistoryTable(ledgerSequentialIdBefore: Long) = { (conn: Connection) =>
     val statement = conn.prepareStatement(
       "UPDATE participant_migration_history_v100 SET ledger_end_sequential_id_before = ?"
     )

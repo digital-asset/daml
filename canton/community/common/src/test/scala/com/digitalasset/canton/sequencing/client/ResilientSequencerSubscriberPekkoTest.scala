@@ -3,10 +3,6 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
-import org.apache.pekko.stream.testkit.StreamSpec
-import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import org.apache.pekko.stream.testkit.scaladsl.TestSink
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.Signature
@@ -28,6 +24,10 @@ import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.{BaseTest, SequencerCounter}
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.stream.testkit.StreamSpec
+import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import org.apache.pekko.stream.testkit.scaladsl.TestSink
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.{Deadline, DurationInt, FiniteDuration}

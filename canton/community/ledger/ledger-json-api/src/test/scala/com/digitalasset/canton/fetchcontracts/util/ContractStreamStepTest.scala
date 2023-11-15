@@ -22,8 +22,8 @@ class ContractStreamStepTest
     with ScalaCheckDrivenPropertyChecks
     with TableDrivenPropertyChecks {
 
-  import ContractStreamStepTest._, ContractStreamStep._
-  import InsertDeleteStepTest._
+  import ContractStreamStepTest.*, ContractStreamStep.*
+  import InsertDeleteStepTest.*
 
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)
@@ -60,7 +60,7 @@ class ContractStreamStepTest
 }
 
 object ContractStreamStepTest {
-  import InsertDeleteStepTest._, InsertDeleteStep.Inserts, ContractStreamStep._
+  import InsertDeleteStepTest.*, InsertDeleteStep.Inserts, ContractStreamStep.*
   import org.scalacheck.{Arbitrary, Gen}
   import Arbitrary.arbitrary
 

@@ -10,7 +10,7 @@ import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 // This class has been copied from Pekko 2.6.18
-// and instrumented with logging and a bug fix for the race condition reported in https://github.com/pekko/pekko/issues/31530
+// and instrumented with logging and a bug fix for the race condition reported in https://github.com/akka/akka/issues/31530
 // The changes are marked with `INSTRUMENT` and `FIXED` respectively
 
 /** A BroadcastHub is a special streaming hub that is able to broadcast streamed elements to a dynamic set of consumers.

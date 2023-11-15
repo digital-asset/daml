@@ -38,7 +38,7 @@ object GeneratorsTransferData {
    Execution context is needed for crypto operations. Since wiring a proper ec would be
    too complex here, using the global one.
    */
-  private implicit val ec = ExecutionContext.global
+  private implicit val ec: ExecutionContext = ExecutionContext.global
 
   implicit val transferInCommonData: Arbitrary[TransferInCommonData] = Arbitrary(
     for {

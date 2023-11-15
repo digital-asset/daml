@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.participant.store.memory
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import cats.data.OptionT
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
@@ -66,6 +64,8 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, SimpleExecutionQueue}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.immutable.{SortedMap, TreeMap}

@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.ledger.client.services.commands
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Flow
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.canton.util.Ctx
 import com.google.protobuf.duration.Duration
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Flow
 
 import scala.annotation.nowarn
 

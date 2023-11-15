@@ -455,7 +455,7 @@ abstract class ProtocolProcessor[
         .sendAsync(
           batch,
           SendType.ConfirmationRequest,
-          callback = sendResultP.success,
+          callback = res => sendResultP.trySuccess(res).discard,
           maxSequencingTime = maxSequencingTime,
           messageId = messageId,
         )

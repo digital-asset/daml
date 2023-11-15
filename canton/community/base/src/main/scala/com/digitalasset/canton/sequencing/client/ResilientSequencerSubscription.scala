@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import org.apache.pekko.stream.AbruptStageTerminationException
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
@@ -29,6 +28,7 @@ import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.{DelayUtil, FutureUtil, LoggerUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DiscardOps, SequencerCounter}
+import org.apache.pekko.stream.AbruptStageTerminationException
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.*

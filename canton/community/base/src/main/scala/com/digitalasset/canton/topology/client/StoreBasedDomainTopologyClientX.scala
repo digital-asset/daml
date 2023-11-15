@@ -373,7 +373,9 @@ class StoreBasedTopologySnapshotX(
     collectLatestMapping(
       TopologyMappingX.Code.SequencerDomainStateX,
       transactions.collectOfMapping[SequencerDomainStateX].result,
-    ).map { sds: SequencerDomainStateX => SequencerGroup(sds.active, sds.observers, sds.threshold) }
+    ).map { (sds: SequencerDomainStateX) =>
+      SequencerGroup(sds.active, sds.observers, sds.threshold)
+    }
   }
 
   def trafficControlStatus(

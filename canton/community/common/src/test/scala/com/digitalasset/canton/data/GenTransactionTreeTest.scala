@@ -327,7 +327,7 @@ class GenTransactionTreeTest
           case _ => MerkleTree.BlindSubtree
         }.tryUnwrap
 
-        TransactionViewTree.create(fullyBlindedTree) shouldEqual Left(
+        FullTransactionViewTree.create(fullyBlindedTree) shouldEqual Left(
           "A transaction view tree must contain an unblinded view."
         )
       }
@@ -335,7 +335,7 @@ class GenTransactionTreeTest
 
     "fully unblinded" must {
       "reject creation" in {
-        TransactionViewTree.create(example.transactionTree).left.value should startWith(
+        FullTransactionViewTree.create(example.transactionTree).left.value should startWith(
           "A transaction view tree must not contain several unblinded views: "
         )
       }
@@ -350,7 +350,7 @@ class GenTransactionTreeTest
           case _: MerkleTreeLeaf[_] => MerkleTree.RevealSubtree
         }.tryUnwrap
 
-        TransactionViewTree.create(onlyView1Unblinded).left.value should startWith(
+        FullTransactionViewTree.create(onlyView1Unblinded).left.value should startWith(
           "A transaction view tree must contain a fully unblinded view:"
         )
       }
@@ -365,7 +365,7 @@ class GenTransactionTreeTest
           case _: MerkleTreeLeaf[_] => MerkleTree.RevealSubtree
         }.tryUnwrap
 
-        TransactionViewTree
+        FullTransactionViewTree
           .create(submitterMetadataBlinded) shouldEqual Left(
           "The submitter metadata must be unblinded if and only if the represented view is top-level. " +
             "Submitter metadata: blinded, isTopLevel: true"
@@ -380,7 +380,7 @@ class GenTransactionTreeTest
         val submitterMetadataUnblinded =
           nonRootViewTree.tree.copy(submitterMetadata = submitterMetadata)
 
-        TransactionViewTree.create(submitterMetadataUnblinded) shouldEqual Left(
+        FullTransactionViewTree.create(submitterMetadataUnblinded) shouldEqual Left(
           "The submitter metadata must be unblinded if and only if the represented view is top-level. " +
             "Submitter metadata: unblinded, isTopLevel: false"
         )
@@ -395,7 +395,7 @@ class GenTransactionTreeTest
           case _ => MerkleTree.RevealSubtree
         }.tryUnwrap
 
-        TransactionViewTree.create(commonMetadataBlinded) shouldEqual Left(
+        FullTransactionViewTree.create(commonMetadataBlinded) shouldEqual Left(
           "The common metadata of a transaction view tree must be unblinded."
         )
       }
@@ -409,7 +409,7 @@ class GenTransactionTreeTest
           case _ => MerkleTree.RevealSubtree
         }.tryUnwrap
 
-        TransactionViewTree.create(participantMetadataBlinded) shouldEqual Left(
+        FullTransactionViewTree.create(participantMetadataBlinded) shouldEqual Left(
           "The participant metadata of a transaction view tree must be unblinded."
         )
       }

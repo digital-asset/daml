@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.daml.ledger.api.v1.active_contracts_service.*
@@ -29,6 +27,8 @@ import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.ApiOffset
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, ServerServiceDefinition}
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.ExecutionContext
 

@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.sequencing
 
-import org.apache.pekko.stream.scaladsl.{Keep, Source}
-import org.apache.pekko.stream.testkit.scaladsl.TestSink
-import org.apache.pekko.stream.{KillSwitches, QueueOfferResult}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
@@ -41,6 +38,9 @@ import com.digitalasset.canton.{
   SequencerCounter,
 }
 import com.google.protobuf.ByteString
+import org.apache.pekko.stream.scaladsl.{Keep, Source}
+import org.apache.pekko.stream.testkit.scaladsl.TestSink
+import org.apache.pekko.stream.{KillSwitches, QueueOfferResult}
 import org.scalatest.Outcome
 import org.scalatest.wordspec.FixtureAnyWordSpec
 

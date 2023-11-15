@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.error.ErrorsAssertions
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.ErrorDetails.RetryInfoDetail
@@ -34,6 +33,7 @@ import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.sdk.OpenTelemetrySdk
+import org.apache.pekko.stream.scaladsl.Source
 import org.mockito.{ArgumentMatchers, ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
@@ -42,7 +42,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.concurrent.duration.{Duration, DurationInt}
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
 class ApiPartyManagementServiceSpec
@@ -66,7 +66,7 @@ class ApiPartyManagementServiceSpec
     testTelemetrySetup.close()
   }
 
-  private implicit val ec = directExecutionContext
+  private implicit val ec: ExecutionContext = directExecutionContext
 
   "ApiPartyManagementService" should {
     def blind(

@@ -4,7 +4,7 @@
 
 // This file has been copied from Pekko 2.6.18
 
-package pekko.testkit
+package org.apache.pekko.testkit
 
 import scala.concurrent.Future
 import scala.concurrent.duration._

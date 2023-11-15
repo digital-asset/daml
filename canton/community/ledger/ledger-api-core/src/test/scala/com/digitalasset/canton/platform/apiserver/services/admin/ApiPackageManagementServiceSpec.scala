@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.ErrorsAssertions
@@ -40,6 +39,7 @@ import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.sdk.OpenTelemetrySdk
+import org.apache.pekko.stream.scaladsl.Source
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.Eventually

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol
 
-import org.apache.pekko.stream.Materializer
 import cats.Eval
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
@@ -70,6 +69,7 @@ import com.digitalasset.canton.{
   SequencerCounter,
 }
 import com.google.protobuf.ByteString
+import org.apache.pekko.stream.Materializer
 import org.mockito.ArgumentMatchers.eq as isEq
 import org.scalatest.wordspec.AnyWordSpec
 

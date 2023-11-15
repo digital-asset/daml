@@ -115,6 +115,9 @@ trait PromiseUnlessShutdownFactory { self: HasCloseContext =>
 
   /** Use this method to create a PromiseUnlessShutdown that will automatically be cancelled when the close context
     * is closed. This allows proper clean up of stray promises when the node is transitioning to a passive state.
+    *
+    * Note: you should *not* invoke `success` on the returned promise but rather use `trySuccess`. The reason is that
+    * the call to `success` may fail in case of shutdown.
     */
   def mkPromise[A](
       description: String,

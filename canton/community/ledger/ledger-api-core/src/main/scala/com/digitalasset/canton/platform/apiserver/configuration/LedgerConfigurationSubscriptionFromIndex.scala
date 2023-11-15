@@ -3,10 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.configuration
 
-import org.apache.pekko.actor.{Cancellable, Scheduler}
-import org.apache.pekko.stream.scaladsl.{Keep, RestartSource, Sink}
-import org.apache.pekko.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
-import org.apache.pekko.{Done, NotUsed}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.ledger.api.domain
@@ -17,6 +13,10 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.IndexConfigMana
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.configuration.LedgerConfigurationSubscriptionFromIndex.*
+import org.apache.pekko.actor.{Cancellable, Scheduler}
+import org.apache.pekko.stream.scaladsl.{Keep, RestartSource, Sink}
+import org.apache.pekko.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
+import org.apache.pekko.{Done, NotUsed}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.{Duration, DurationInt, DurationLong}

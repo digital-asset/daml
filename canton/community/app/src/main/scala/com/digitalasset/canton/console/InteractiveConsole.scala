@@ -64,7 +64,7 @@ object InteractiveConsole extends NoTracing {
               // the lines here are stolen from Repl.warmup()
               logger.info(s"Running startup script $fname")
               val loadModuleCode = fname.path
-                .map { f: File =>
+                .map { (f: File) =>
                   // Try to move the script to a temp file, otherwise the name of the file can shadow scala variables in the script
                   Try {
                     val tmp = better.files.File.newTemporaryFile()

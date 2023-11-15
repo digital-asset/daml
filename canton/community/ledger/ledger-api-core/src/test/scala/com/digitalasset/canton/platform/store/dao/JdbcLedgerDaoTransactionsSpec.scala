@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimestampConversion
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v2.transaction.Transaction
@@ -19,6 +17,8 @@ import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.platform.store.dao.*
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -607,7 +607,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           readOffsets should ===(matchingOffsets)
         } catch {
           case ae: org.scalatest.exceptions.TestFailedException =>
-            throw ae modifyMessage (_ map { msg: String =>
+            throw ae modifyMessage (_ map { msg =>
               msg +
                 "\n  Random parameters:" +
                 s"\n    actual frequency: ${boolSeq.count(identity)}/${boolSeq.size}" +

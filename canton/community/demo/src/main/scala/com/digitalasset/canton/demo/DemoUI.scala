@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.demo
 
-import org.apache.pekko.actor.ActorSystem
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
@@ -22,10 +21,11 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
 import com.digitalasset.canton.topology.{Identifier, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
-import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.util.LoggerUtil.clue
+import com.digitalasset.canton.util.PekkoUtil
 import io.grpc.stub.StreamObserver
 import io.grpc.{ManagedChannel, Status}
+import org.apache.pekko.actor.ActorSystem
 import scalafx.animation.PauseTransition
 import scalafx.application.{JFXApp3, Platform}
 import scalafx.beans.property.StringProperty

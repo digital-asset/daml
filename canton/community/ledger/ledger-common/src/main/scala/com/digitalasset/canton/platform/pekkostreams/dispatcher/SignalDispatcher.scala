@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.platform.pekkostreams.dispatcher
 
+import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.platform.pekkostreams.dispatcher.SignalDispatcher.Signal
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.{Source, SourceQueueWithComplete}
-import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.SignalDispatcher.Signal
 import org.slf4j.{Logger, LoggerFactory}
 
 import java.util.concurrent.atomic.AtomicReference

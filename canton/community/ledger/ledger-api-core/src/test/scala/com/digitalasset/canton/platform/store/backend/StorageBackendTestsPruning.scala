@@ -12,8 +12,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, Checkpoints, OptionValues}
 
-import java.sql.Connection
-
 private[backend] trait StorageBackendTestsPruning
     extends Matchers
     with OptionValues
@@ -462,8 +460,7 @@ private[backend] trait StorageBackendTestsPruning
       divulgence: Seq[EventDivulgence] = Seq.empty,
       txMeta: Seq[TxMeta] = Seq.empty,
       completion: Seq[Completion] = Seq.empty,
-  ): Assertion = executeSql { c: Connection =>
-    implicit val _c: Connection = c
+  ): Assertion = executeSql { implicit c =>
     val queries = backend.pruningDtoQueries
     val cp = new Checkpoint
     // create

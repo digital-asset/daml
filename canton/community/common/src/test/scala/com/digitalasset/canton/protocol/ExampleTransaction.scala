@@ -64,18 +64,22 @@ trait ExampleTransaction {
 
   /** The sequence of reinterpreted action descriptions for all views in execution order, with their witnesses */
   def reinterpretedSubtransactions: Seq[
-    (TransactionViewTree, (LfVersionedTransaction, TransactionMetadata, LfKeyResolver), Witnesses)
+    (
+        FullTransactionViewTree,
+        (LfVersionedTransaction, TransactionMetadata, LfKeyResolver),
+        Witnesses,
+    )
   ]
 
   /** All transaction view trees, including those corresponding to non-root views, in execution order */
-  def transactionViewTrees: Seq[TransactionViewTree] = reinterpretedSubtransactions.map(_._1)
+  def transactionViewTrees: Seq[FullTransactionViewTree] = reinterpretedSubtransactions.map(_._1)
 
   /** All transaction view trees, including those corresponding to non-root views, in execution order */
-  def transactionViewTreesWithWitnesses: Seq[(TransactionViewTree, Witnesses)] =
+  def transactionViewTreesWithWitnesses: Seq[(FullTransactionViewTree, Witnesses)] =
     reinterpretedSubtransactions.map(r => r._1 -> r._3)
 
   /** Transaction view trees for root views, in execution order */
-  def rootTransactionViewTrees: Seq[TransactionViewTree]
+  def rootTransactionViewTrees: Seq[FullTransactionViewTree]
 
   /** The transaction with suffixed contract ids and the transaction version. */
   def versionedSuffixedTransaction: LfVersionedTransaction
