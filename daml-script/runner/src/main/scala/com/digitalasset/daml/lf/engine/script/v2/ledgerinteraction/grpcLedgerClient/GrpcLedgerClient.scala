@@ -310,8 +310,9 @@ class GrpcLedgerClient(
   )(implicit ec: ExecutionContext) = {
     import scalaz.syntax.traverse._
     val ledgerDisclosures =
-      disclosures.map { case Disclosure(cid, blob) =>
+      disclosures.map { case Disclosure(tmplId, cid,  blob) =>
         DisclosedContract(
+          templateId = Some(toApiIdentifier(tmplId)),
           contractId = cid.coid,
           createdEventBlob = blob.toByteString,
         )

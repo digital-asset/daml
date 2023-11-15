@@ -130,7 +130,8 @@ data CommandsF a
 newtype Commands a = Commands (Ap CommandsF a)
   deriving (Functor, Applicative)
 
-data Disclosure = Disclosure with 
+data Disclosure = Disclosure with
+   templateId: TemplateTypeRep
    contractId : ContractId ()
    blob: Text
  deriving (Eq, Ord)
@@ -316,9 +317,11 @@ queryDisclosure p c = lift $ Free $ QueryDisclosure QueryDisclosurePayload with
     parties = toParties p
     tplId = templateTypeRep @t
     cid = cid
-    continue = pure . fmap \blob -> Disclosure cid blob
+    continue = pure . fmap \blob -> Disclosure tplId cid blob
     locations = getCallStack callStack
-  where cid = coerceContractId c
+  where
+    tplId = templateTypeRep @t
+    cid = coerceContractId c
 
 data QueryContractKeyPayload a = QueryContractKeyPayload
   { parties : [Party]

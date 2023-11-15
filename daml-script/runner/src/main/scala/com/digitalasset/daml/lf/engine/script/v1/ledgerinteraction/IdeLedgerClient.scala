@@ -337,23 +337,13 @@ class IdeLedgerClient(
                 ),
               )
               // We look for inactive explicit disclosures
-              transaction = commit.result.richTransaction.transaction
-              inputContracts = transaction.nodes.values.collect {
-                case Node.Exercise(cid, tmplId, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-                  cid -> tmplId
-                case Node.Fetch(cid, tmplId, _, _, _, _, _, _) => cid -> tmplId
-                case Node.LookupByKey(tmplId, _, Some(cid), _) => cid -> tmplId
-              }
               activeContracts = ledger.ledgerData.activeContracts
-              _ <- inputContracts
-                .collectFirst {
-                  case (cid, tmplId) if !activeContracts(cid) =>
-                    ScenarioRunner.SubmissionError(
-                      scenario.Error.ContractNotActive(cid, tmplId, None),
-                      commit.tx,
-                    )
-                }
-                .toLeft(())
+              _ <- disclosures.collectFirst { case Disclosure(tmplId, coid, _) if !activeContracts(coid) =>
+                ScenarioRunner.SubmissionError(
+                  scenario.Error.ContractNotActive(coid, tmplId, None),
+                  commit.tx,
+                )
+              }.toLeft(())
             } yield commit
         }
       loop(result)

@@ -70,7 +70,7 @@ final case class AnyChoice(name: ChoiceName, arg: SValue)
 final case class AnyContractKey(templateId: Identifier, ty: Type, key: SValue)
 // frames ordered from most-recent to least-recent
 
-final case class Disclosure(contractId: ContractId, blob: Bytes)
+final case class Disclosure(templatedId: TypeConName, contractId: ContractId, blob: Bytes)
 
 object Converter {
   def apply(majorLanguageVersion: LanguageMajorVersion): ConverterMethods = {
@@ -532,8 +532,13 @@ abstract class ConverterMethods(stablePackages: StablePackages) {
 
   def toDisclosure(v: SValue): Either[String, Disclosure] =
     v match {
-      case SRecord(_, _, ArrayList(SContractId(cid), SText(t))) =>
-        Bytes.fromString(t).map(Disclosure(cid, _))
+      case SRecord(_, _, ArrayList(tplId, cid, blob)) =>
+        for {
+          tplId <- typeRepToIdentifier(tplId)
+          cid <- toContractId(cid)
+          blob <- toText(blob)
+          blob <- Bytes.fromString(blob)
+        } yield Disclosure(tplId, cid, blob)
       case _ =>
         Left(s"Expected Disclosure but got $v")
     }

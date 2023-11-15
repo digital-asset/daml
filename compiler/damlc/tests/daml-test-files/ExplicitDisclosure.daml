@@ -51,7 +51,7 @@ disclosuresTest = do
 
   pure content
 
--- @ERROR range=56:1-56:42; Here
+-- @ERROR range=56:1-56:46; Here
 inactiveDisclosureDoesNotFailDuringSubmission: Script ()
 inactiveDisclosureDoesNotFailDuringSubmission = do
     -- init

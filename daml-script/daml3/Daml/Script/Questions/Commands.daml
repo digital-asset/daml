@@ -44,6 +44,7 @@ data Commands a = Commands with
   deriving Functor
   
 data Disclosure = Disclosure with
+   templateId: TemplateTypeRep
    contractId : ContractId ()
    blob: Text
  deriving (Eq, Ord)
