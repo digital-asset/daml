@@ -87,7 +87,6 @@ update_cache () {
         error_echo "ERROR! \`daml build\` on version installed from path $tarball_path failed"
       fi
     else
-      echo_eval check_recommend_cache_reload daml_install_output
       error_echo "ERROR: Tried to install version from tarball '$tarball_path' with cache forcibly reloaded, but \`daml install\` failed."
     fi
   fi
@@ -103,7 +102,6 @@ allow_nonrelease () {
       error_echo "ERROR! \`daml build\` failed for version installed from path $tarball_path"
     fi
   else
-    echo_eval check_recommend_cache_reload daml_install_output
     error_echo "ERROR: Tried to install version from tarball '$tarball_path' with cache forcibly reloaded, but \`daml install\` failed."
   fi
 }
