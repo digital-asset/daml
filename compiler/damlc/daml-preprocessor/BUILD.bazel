@@ -23,6 +23,7 @@ da_haskell_library(
         "mtl",
         "recursion-schemes",
         "safe",
+        "split",
         "text",
         "uniplate",
     ],
