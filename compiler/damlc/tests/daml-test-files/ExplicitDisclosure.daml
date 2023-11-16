@@ -36,8 +36,7 @@ disclosuresTest = do
   bob <- allocateParty "bob"
   did <- alice `submit` do
      createCmd (Box alice "my secret")
-  mbDisclosure <- queryDisclosure alice did
-  let disclosure = fromSome mbDisclosure
+  disclosure <- fromSome <$> queryDisclosure alice did
 
   alice `submit` exerciseCmd did (Open alice)
 
