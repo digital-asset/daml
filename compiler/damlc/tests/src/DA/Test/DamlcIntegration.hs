@@ -109,17 +109,6 @@ instance IsOption LfVersionOpt where
   optionName = Tagged "daml-lf-version"
   optionHelp = Tagged "Daml-LF version to test"
 
-newtype SkipValidationOpt = SkipValidationOpt Bool
-  deriving (Eq)
-
-instance IsOption SkipValidationOpt where
-  defaultValue = SkipValidationOpt False
-  -- Tasty seems to force the value somewhere so we cannot just set this
-  -- to `error`. However, this will always be set.
-  parseValue = fmap SkipValidationOpt . safeReadBool
-  optionName = Tagged "skip-validation"
-  optionHelp = Tagged "Skip package validation in scenario service (true|false)"
-
 newtype IsScriptV2Opt = IsScriptV2Opt Bool
   deriving (Eq)
 
@@ -194,10 +183,9 @@ main = do
   -- This is a bit hacky, we want the LF version before we hand over to
   -- tasty. To achieve that we first pass with optparse-applicative ignoring
   -- everything apart from the LF version.
-  (LfVersionOpt lfVer, SkipValidationOpt _, IsScriptV2Opt isV2) <- do
-      let parser = (,,)
+  (LfVersionOpt lfVer, IsScriptV2Opt isV2) <- do
+      let parser = (,)
                      <$> optionCLParser
-                     <*> optionCLParser
                      <*> optionCLParser
                      <* many (strArgument @String mempty)
       execParser (info parser forwardOptions)
@@ -225,7 +213,6 @@ main = do
       where ingredients =
               includingOptions
                 [ Option (Proxy @LfVersionOpt)
-                , Option (Proxy @SkipValidationOpt)
                 , Option (Proxy @IsScriptV2Opt)
                 ] :
               defaultIngredients
@@ -323,7 +310,6 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
     let tree :: TestTree
         tree = askOption $ \(LfVersionOpt version) ->
                askOption @IsScriptV2Opt $ \isScriptV2Opt ->
-               askOption $ \(SkipValidationOpt skipValidation) ->
           let opts = (defaultOptions (Just version))
                 { optPackageDbs = [packageDbPath]
                 , optThreads = 0
@@ -332,7 +318,6 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
                     { dlintRulesFile = DefaultDlintRulesFile
                     , dlintHintFiles = NoDlintHintFiles
                     }
-                , optSkipScenarioValidation = SkipScenarioValidation skipValidation
                 , optPackageImports = packageFlags
                 }
 
