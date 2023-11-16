@@ -21,6 +21,11 @@ import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError}
 sealed trait Informee extends Product with Serializable with PrettyPrinting {
   def party: LfPartyId
 
+  /** Determines how much "impact" the informee has on approving / rejecting the underlying view.
+    *
+    * Positive value: confirming party
+    * Zero: plain informee, who sees the underlying view, but has no impact on approving / rejecting it
+    */
   def weight: NonNegativeInt
 
   def requiredTrustLevel: TrustLevel

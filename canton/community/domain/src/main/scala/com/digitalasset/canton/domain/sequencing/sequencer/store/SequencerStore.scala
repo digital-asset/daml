@@ -714,7 +714,7 @@ trait SequencerStore extends NamedLogging with AutoCloseable {
         UnsafePruningPoint(requestedTimestamp, safeTimestamp),
       )
       adjustedTimestamp <- EitherT.right(adjustTimestamp())
-      _ = logger.debug(
+      _ = logger.info(
         s"From safe timestamp [$safeTimestamp] and requested timestamp [$requestedTimestamp] we have picked pruning events at [$adjustedTimestamp] to support recorded counter checkpoints"
       )
       _ <- EitherT.right(updateLowerBound(adjustedTimestamp))

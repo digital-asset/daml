@@ -113,6 +113,10 @@ class GrpcTopologyManagerWriteServiceX(
               ParticipantDomainPermissionX.fromProtoV2(mapping)
             case Mapping.TrafficControlState(mapping) =>
               TrafficControlStateX.fromProtoV2(mapping)
+            case Mapping.PartyHostingLimits(mapping) =>
+              PartyHostingLimitsX.fromProtoV2(mapping)
+            case Mapping.PurgeTopologyTxs(mapping) =>
+              PurgeTopologyTransactionX.fromProtoV2(mapping)
             case _ =>
               // TODO(#14048): match missing cases
               ???

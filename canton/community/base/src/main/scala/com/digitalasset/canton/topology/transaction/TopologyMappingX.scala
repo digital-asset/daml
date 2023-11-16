@@ -666,6 +666,7 @@ object OwnerToKeyMappingX {
 final case class DomainTrustCertificateX(
     participantId: ParticipantId,
     domainId: DomainId,
+    // TODO(#15399): respect this restriction when reassigning contracts
     transferOnlyToGivenTargetDomains: Boolean,
     targetDomains: Seq[DomainId],
 ) extends TopologyMappingX {

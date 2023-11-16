@@ -378,6 +378,11 @@ object DomainMember {
 
 }
 
+/** @param index uniquely identifies the group, just like [[MediatorId]] for single mediators.
+  * @param active the active mediators belonging to the group
+  * @param passive the passive mediators belonging to the group
+  * @param threshold the minimum size of a quorum
+  */
 final case class MediatorGroup(
     index: MediatorGroupIndex,
     active: Seq[MediatorId],

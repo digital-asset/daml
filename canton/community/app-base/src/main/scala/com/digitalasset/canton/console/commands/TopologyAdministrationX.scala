@@ -25,6 +25,7 @@ import com.digitalasset.canton.console.{
   InstanceReferenceX,
 }
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.DynamicDomainParameters
@@ -561,8 +562,6 @@ class TopologyAdministrationGroupX(
   @Help.Summary("Manage domain trust certificates")
   @Help.Group("Domain trust certificates")
   object domain_trust_certificates extends Helpful {
-    // TODO(#15240): implement write service
-
     def list(
         filterStore: String = "",
         includeProposals: Boolean = false,
@@ -594,40 +593,92 @@ class TopologyAdministrationGroupX(
         x.item.domainId == domainId && x.item.participantId == participantId
       }
 
+    @Help.Summary("Propose a change to a participant's domain trust certificate.")
+    @Help.Description(
+      """A participant's domain trust certificate serves two functions:
+        |1. It signals to the domain that the participant would like to act on the domain.
+        |2. It controls whether contracts can be reassigned to any domain or only a specific set of domains.
+        |
+        participantId: the identifier of the trust certificate's target participant
+        domainId: the identifier of the domain on which the participant would like to act
+        transferOnlyToGivenTargetDomains: whether or not to restrict reassignments to a set of domains
+        targetDomains: the set of domains to which the participant permits assignments of contracts
+        |"""
+    )
+    def propose(
+        participantId: ParticipantId,
+        domainId: DomainId,
+        transferOnlyToGivenTargetDomains: Boolean,
+        targetDomains: Seq[DomainId],
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        // Using the authorized store by default, because the trust cert upon connecting to a domain is also stored in the authorized store
+        store: Option[String] = Some(AuthorizedStore.filterName),
+        mustFullyAuthorize: Boolean = true,
+        serial: Option[PositiveInt] = None,
+    ): SignedTopologyTransactionX[TopologyChangeOpX, DomainTrustCertificateX] = {
+      val cmd = TopologyAdminCommandsX.Write.Propose(
+        mapping = DomainTrustCertificateX(
+          participantId,
+          domainId,
+          transferOnlyToGivenTargetDomains,
+          targetDomains,
+        ),
+        signedBy = Seq(instance.id.uid.namespace.fingerprint),
+        store = store.getOrElse(domainId.filterString),
+        serial = serial,
+        mustFullyAuthorize = mustFullyAuthorize,
+      )
+      synchronisation.run(synchronize)(consoleEnvironment.run(adminCommand(cmd)))
+    }
+
   }
 
-  @Help.Summary("Inspect participant domain states")
-  @Help.Group("Participant Domain States")
+  @Help.Summary("Inspect participant domain permissions")
+  @Help.Group("Participant Domain Permissions")
   object participant_domain_permissions extends Helpful {
+    @Help.Summary("Propose changes to the domain permissions of participants.")
+    @Help.Description(
+      """Domain operators may use this command to change a participant's permissions on a domain.
+        |
+        domainId: the target domain
+        participantId: the participant whose permissions should be changed
+        permission: the participant's permission
+        trustLevel: the participant's trust level
+        loginAfter: the earliest time a participant may connect to the domain
+        limits: domain limits for this participant"""
+    )
     def propose(
         domainId: DomainId,
-        participant: ParticipantId,
+        participantId: ParticipantId,
         permission: ParticipantPermissionX,
         trustLevel: TrustLevelX = TrustLevelX.Ordinary,
+        loginAfter: Option[CantonTimestamp] = None,
+        limits: Option[ParticipantDomainLimits] = None,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
         store: Option[String] = None,
         mustFullyAuthorize: Boolean = false,
-    ): ConsoleCommandResult[
-      SignedTopologyTransactionX[TopologyChangeOpX, ParticipantDomainPermissionX]
-    ] = {
+        serial: Option[PositiveInt] = None,
+    ): SignedTopologyTransactionX[TopologyChangeOpX, ParticipantDomainPermissionX] = {
       val cmd = TopologyAdminCommandsX.Write.Propose(
         mapping = ParticipantDomainPermissionX(
           domainId = domainId,
-          participantId = participant,
+          participantId = participantId,
           permission = permission,
           trustLevel = trustLevel,
-          limits = None,
-          loginAfter = None,
+          limits = limits,
+          loginAfter = loginAfter,
         ),
         signedBy = Seq(instance.id.uid.namespace.fingerprint),
-        serial = None,
+        serial = serial,
         store = store.getOrElse(domainId.filterString),
         mustFullyAuthorize = mustFullyAuthorize,
       )
 
-      synchronisation.run(synchronize)(adminCommand(cmd))
+      synchronisation.run(synchronize)(consoleEnvironment.run(adminCommand(cmd)))
     }
 
     def list(
