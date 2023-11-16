@@ -213,6 +213,7 @@ import Options.Applicative ((<|>),
                             ParserResult(..),
                             auto,
                             command,
+                            defaultPrefs,
                             eitherReader,
                             execParserPure,
                             flag,
@@ -1632,20 +1633,19 @@ options numProcessors =
 
 parserInfo :: Int -> Bool -> ParserInfo Command
 parserInfo numProcessors addBuildArgsBackupParser =
-  backupParserWithBuildArgs numProcessors addBuildArgsBackupParser $
-    info (helper <*> options numProcessors)
-      (  fullDesc
-      <> progDesc "Invoke the Daml compiler. Use -h for help."
-      <> headerDoc (Just $ PP.vcat
-          [ "damlc - Compiler and IDE backend for the Daml programming language"
-          , buildInfo
-          ])
-      )
+  info (backupParserWithBuildArgs addBuildArgsBackupParser $ helper <*> options numProcessors)
+    (  fullDesc
+    <> progDesc "Invoke the Daml compiler. Use -h for help."
+    <> headerDoc (Just $ PP.vcat
+        [ "damlc - Compiler and IDE backend for the Daml programming language"
+        , buildInfo
+        ])
+    )
 
 -- | Add the build parser as a backup for when we're adding the CLI args from daml.yaml, incase whatever command
 -- we're running doesn't recognise all of the `build-options:` e.g. `daml test` cannot use `--output`
-backupParserWithBuildArgs :: Int -> Bool -> ParserInfo Command -> ParserInfo Command
-backupParserWithBuildArgs numProcessors c i = if c then i { infoParser = infoParser i <* cmdBuildParser numProcessors } else i
+backupParserWithBuildArgs :: Bool -> Parser Command -> Parser Command
+backupParserWithBuildArgs shouldBackup parser = if shouldBackup then parser <* cmdBuildParser 1 else parser
 
 -- | Attempts to find the --output flag in the given build-options for a package
 -- Given the many ways --output can be specified, we invoke the parser directly
@@ -1742,18 +1742,24 @@ main = do
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
     setRunfilesEnv
     numProcessors <- getNumProcessors
-    let parse backupParserWithBuildArgs = ParseArgs.lax (parserInfo numProcessors backupParserWithBuildArgs)
+
+    let parse :: [String] -> Maybe [String] -> ([String], ParserResult Command)
+        parse args mBuildOptions =
+          case mBuildOptions of
+            Nothing -> ParseArgs.lax (parserInfo numProcessors False) args
+            Just damlYamlArgs -> ([], execParserPure defaultPrefs (parserInfo numProcessors True) $ args ++ damlYamlArgs)
+
     cliArgs <- getArgs
-    let (_, tempParseResult) = parse False cliArgs
+    let (_, tempParseResult) = parse cliArgs Nothing
     -- Note: need to parse given args first to decide whether we need to add
     -- args from daml.yaml.
     Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
 
     (errMsgs, parseResult) <- if cmdUseDamlYamlArgs cmd
       then
-        parse True . (cliArgs ++) <$> cliArgsFromDamlYaml mbProjectOpts
+        parse cliArgs . Just <$> cliArgsFromDamlYaml mbProjectOpts
       else
-        pure $ parse False cliArgs
+        pure $ parse cliArgs Nothing
 
     Command _ _ io <- handleParseResult parseResult
     forM_ errMsgs $ \msg -> do
