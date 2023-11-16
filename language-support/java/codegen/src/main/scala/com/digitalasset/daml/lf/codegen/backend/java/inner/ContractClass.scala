@@ -101,15 +101,17 @@ object ContractClass {
       otherSettings(spec).build()
     }
 
-    private[this] val contractIdClassName = ClassName bestGuess "ContractId"
-    private[this] val contractClassName = ClassName bestGuess "Contract"
+    private[this] def contractIdClassName(templateClassName: ClassName) =
+      nestedClassName(templateClassName, "ContractId")
+    private[this] def contractClassName(templateClassName: ClassName) =
+      nestedClassName(templateClassName, "Contract")
 
     private[this] def generateGetCompanion(templateClassName: ClassName): MethodSpec = {
       ClassGenUtils.generateGetCompanion(
         ParameterizedTypeName.get(
           ClassName get classOf[javaapi.data.codegen.ContractCompanion[_, _, _]],
-          contractClassName,
-          contractIdClassName,
+          contractClassName(templateClassName),
+          contractIdClassName(templateClassName),
           templateClassName,
         ),
         companionFieldName,
@@ -120,7 +122,9 @@ object ContractClass {
         packagePrefixes: PackagePrefixes
     ) = {
       val classBuilder =
-        TypeSpec.classBuilder("Contract").addModifiers(Modifier.STATIC, Modifier.PUBLIC)
+        TypeSpec
+          .classBuilder(contractClassName(templateClassName))
+          .addModifiers(Modifier.STATIC, Modifier.PUBLIC)
       val contractKeyClassName = key.map(toJavaTypeName(_))
 
       import scala.language.existentials
@@ -131,14 +135,14 @@ object ContractClass {
       classBuilder.superclass(
         ParameterizedTypeName.get(
           ClassName get contractSuperclass,
-          Seq(contractIdClassName, templateClassName) ++ keyTparams: _*
+          Seq(contractIdClassName(templateClassName), templateClassName) ++ keyTparams: _*
         )
       )
 
       val constructorBuilder = MethodSpec
         .constructorBuilder()
         .addModifiers(Modifier.PUBLIC)
-        .addParameter(contractIdClassName, idFieldName)
+        .addParameter(contractIdClassName(templateClassName), idFieldName)
         .addParameter(templateClassName, dataFieldName)
         .addParameter(optionalString, agreementFieldName)
 
@@ -169,9 +173,9 @@ object ContractClass {
         .addMethod(generateGetCompanion(templateClassName))
       new Builder(
         classBuilder,
-        contractClassName,
+        contractClassName(templateClassName),
         templateClassName,
-        contractIdClassName,
+        contractIdClassName(templateClassName),
         contractKeyClassName,
         key,
       )

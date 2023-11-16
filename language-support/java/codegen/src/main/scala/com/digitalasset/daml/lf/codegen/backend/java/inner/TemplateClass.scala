@@ -80,11 +80,12 @@ private[inner] object TemplateClass extends StrictLogging {
         )
         .addType(
           ContractIdClass.generateExercisesInterface(
+            className,
             templateChoices,
             typeWithContext.auxiliarySignatures,
           )
         )
-        .addMethod(generateCreateAndMethod())
+        .addMethod(generateCreateAndMethod(className))
         .addType(
           generateCreateAndClass(className, \/-(template.implementedInterfaces))
         )
@@ -98,7 +99,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addMethod(companion.generateGetter())
         .addFields(RecordFields(fields).asJava)
         .addMethods(templateMethods.asJava)
-      generateByKeyMethod(template.key) foreach { byKeyMethod =>
+      generateByKeyMethod(className, template.key) foreach { byKeyMethod =>
         templateType
           .addMethod(byKeyMethod)
           .addType(
@@ -117,7 +118,8 @@ private[inner] object TemplateClass extends StrictLogging {
     ParameterizedTypeName.get(raw, arg: _*)
 
   private def generateCreateMethod(name: ClassName): MethodSpec = {
-    val createdType = parameterizedTypeName(createdClassName, name nestedClass "ContractId")
+    val createdType = parameterizedTypeName(createdClassName, nestedClassName(name, "ContractId"))
+    val contractIdClassName = nestedClassName(name, "ContractId")
     MethodSpec
       .methodBuilder("create")
       .addModifiers(Modifier.PUBLIC)
@@ -126,11 +128,12 @@ private[inner] object TemplateClass extends StrictLogging {
         parameterizedTypeName(updateClassName, createdType)
       )
       .addStatement(
-        "return new $T(new $T($T.$N, this.toValue()), x -> x, ContractId::new)",
-        parameterizedTypeName(createUpdateClassName, name nestedClass "ContractId", createdType),
+        "return new $T(new $T($T.$N, this.toValue()), x -> x, $T::new)",
+        parameterizedTypeName(createUpdateClassName, contractIdClassName, createdType),
         classOf[javaapi.data.CreateCommand],
         name,
         templateIdFieldName,
+        contractIdClassName,
       )
       .build()
   }
@@ -144,7 +147,7 @@ private[inner] object TemplateClass extends StrictLogging {
           .returns(
             parameterizedTypeName(
               updateClassName,
-              parameterizedTypeName(createdClassName, name nestedClass "ContractId"),
+              parameterizedTypeName(createdClassName, nestedClassName(name, "ContractId")),
             )
           )
       ) { case (b, FieldInfo(_, _, escapedName, tpe)) =>
@@ -157,15 +160,13 @@ private[inner] object TemplateClass extends StrictLogging {
       )
       .build()
 
-  private val byKeyClassName = "ByKey"
-
-  private[this] def generateByKeyMethod(maybeKey: Option[Type])(implicit
+  private[this] def generateByKeyMethod(className: ClassName, maybeKey: Option[Type])(implicit
       packagePrefixes: PackagePrefixes
   ) =
     maybeKey map { key =>
       MethodSpec
         .methodBuilder("byKey")
-        .returns(ClassName bestGuess byKeyClassName)
+        .returns(nestedClassName(className, "ByKey"))
         .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
         .addParameter(toJavaTypeName(key), "key")
         .addStatement(
@@ -195,13 +196,14 @@ private[inner] object TemplateClass extends StrictLogging {
         (classOf[javaapi.data.codegen.ByKey.ToInterface], "companion, "),
       _ => (classOf[javaapi.data.codegen.ByKey], ""),
     )
+    val byKeyClassName = nestedClassName(markerName, "ByKey").simpleName
     TypeSpec
       .classBuilder(byKeyClassName)
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
       .superclass(superclass)
       .addSuperinterface(
         ParameterizedTypeName.get(
-          ContractIdClass.exercisesInterface,
+          ContractIdClass.exercisesInterface(markerName),
           ClassName get classOf[javaapi.data.ExerciseByKeyCommand],
         )
       )
@@ -339,16 +341,16 @@ private[inner] object TemplateClass extends StrictLogging {
       .build()
   }
 
-  private val createAndClassName = "CreateAnd"
-
-  private[this] def generateCreateAndMethod() =
+  private[this] def generateCreateAndMethod(className: ClassName) = {
+    val createAndClassName = nestedClassName(className, "CreateAnd")
     MethodSpec
       .methodBuilder("createAnd")
-      .returns(ClassName bestGuess createAndClassName)
+      .returns(createAndClassName)
       .addModifiers(Modifier.PUBLIC)
       .addAnnotation(classOf[Override])
-      .addStatement("return new CreateAnd(this)")
+      .addStatement("return new $T(this)", createAndClassName)
       .build()
+  }
 
   private[inner] def generateCreateAndClass(
       markerName: ClassName,
@@ -362,13 +364,14 @@ private[inner] object TemplateClass extends StrictLogging {
         (classOf[javaapi.data.codegen.CreateAnd.ToInterface], "companion, "),
       _ => (classOf[javaapi.data.codegen.CreateAnd], ""),
     )
+    val createAndClassName = nestedClassName(markerName, "CreateAnd")
     TypeSpec
       .classBuilder(createAndClassName)
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
       .superclass(superclass)
       .addSuperinterface(
         ParameterizedTypeName.get(
-          ContractIdClass.exercisesInterface,
+          ContractIdClass.exercisesInterface(markerName),
           ClassName get classOf[javaapi.data.CreateAndExerciseCommand],
         )
       )
@@ -389,7 +392,7 @@ private[inner] object TemplateClass extends StrictLogging {
             implemented =>
               ContractIdClass
                 .generateToInterfaceMethods(
-                  createAndClassName,
+                  createAndClassName.simpleName,
                   s"$companionFieldName, this.createArguments",
                   implemented,
                 ),
@@ -565,8 +568,8 @@ private[inner] object TemplateClass extends StrictLogging {
       (classOf[ContractCompanion.WithoutKey[_, _, _]], Seq.empty, "", Seq.empty),
     )
 
-    private val contractIdName = ClassName bestGuess "ContractId"
-    private val contractName = ClassName bestGuess "Contract"
+    private val contractIdName = nestedClassName(templateClassName, "ContractId")
+    private val contractName = nestedClassName(templateClassName, "Contract")
     private val companionType = ParameterizedTypeName.get(
       ClassName get fieldClass,
       Seq(
