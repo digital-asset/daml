@@ -490,8 +490,9 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
 
    specifying which platform you tested on.
 
-1. If the release is bad, delete the release from the [releases page]. Mention
-   why it is bad as a comment on your PR, and **stop the process here**.
+1. If the release is bad, ask Gary to delete the release from the [releases
+   page]. Mention why it is bad as a comment on your PR, and **stop the process
+   here**.
 
    Note that **the Standard-Change label must remain on the PR**, even if the
    release has failed.
