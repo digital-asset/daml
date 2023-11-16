@@ -24,10 +24,11 @@ import DA.Daml.Project.Types
 import Control.Exception.Safe (throwIO)
 import Control.Monad (when)
 import Control.Monad.Extra (loopM)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.State.Lazy
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Key as A
 import qualified Data.Aeson.Encoding as A
-import Data.List (elemIndex)
 import Data.List.Extra (nubOrd)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -168,28 +169,31 @@ canonicalizeMultiPackageConfigIntermediate projectPath (MultiPackageConfigFields
       <$> (MultiPackageConfigFields <$> traverse canonicalizePath packagePaths)
       <*> traverse canonicalizePath multiPackagePaths
 
--- | Runs an IO action that takes its own fixpoint, but aborts if the IO action would recurse infinitely by passing itself the same argument over and over.
--- Takes a function to display the cycle in an error message
-cyclelessIOFix :: forall a b. Eq a => ([a] -> String) -> ((a -> IO b) -> a -> IO b) -> a -> IO b
-cyclelessIOFix loopShow f = loop []
+-- Given some computation to give a result and dependencies, we explore the entire cyclic graph to give the combined
+-- result from every node without revisiting the same node multiple times
+exploreAndFlatten :: forall a b. Eq a => a -> (a -> IO ([a], b)) -> IO [b]
+exploreAndFlatten start eval = evalStateT (go start) []
   where
-    loop :: [a] -> a -> IO b
-    loop seen cur = do
-      case cur `elemIndex` seen of
-        Nothing -> f (loop (cur : seen)) cur
-        Just i -> error $ "Cycle detected: " <> loopShow (reverse $ cur : take (i + 1) seen)
+    go :: a -> StateT [a] IO [b]
+    go v = do
+      explored <- gets $ elem v
+      if explored
+        then pure []
+        else do
+          modify (v :)
+          (as, b) <- lift $ eval v
+          bs <- concat <$> traverse go as
+          pure $ b : bs
 
 fullParseMultiPackageConfig :: ProjectPath -> IO MultiPackageConfigFields
-fullParseMultiPackageConfig = cyclelessIOFix loopShow $ \loop projectPath -> do
+fullParseMultiPackageConfig startPath = do
+  mpcs <- exploreAndFlatten startPath $ \projectPath -> do
     multiPackage <- readMultiPackageConfig projectPath
     multiPackageConfigI <- either throwIO pure (parseMultiPackageConfig multiPackage)
     canonMultiPackageConfigI <- canonicalizeMultiPackageConfigIntermediate projectPath multiPackageConfigI
-    otherMultiPackageConfigs <- traverse loop (ProjectPath <$> mpiOtherConfigFiles canonMultiPackageConfigI)
+    pure (ProjectPath <$> mpiOtherConfigFiles canonMultiPackageConfigI, mpiConfigFields canonMultiPackageConfigI)
 
-    pure $ MultiPackageConfigFields $ nubOrd $ concatMap mpPackagePaths $ mpiConfigFields canonMultiPackageConfigI : otherMultiPackageConfigs
-  where
-    loopShow :: [ProjectPath] -> String
-    loopShow = ("\n" <>) . unlines . fmap ((" - " <>) . unwrapProjectPath)
+  pure $ MultiPackageConfigFields $ nubOrd $ concatMap mpPackagePaths mpcs
 
 -- Gives the filepath where the multipackage was found if its not the same as project path.
 withMultiPackageConfig :: ProjectPath -> (MultiPackageConfigFields -> IO a) -> IO a

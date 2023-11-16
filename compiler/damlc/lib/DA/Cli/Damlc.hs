@@ -421,6 +421,7 @@ cmdTest numProcessors =
       <*> fmap TransactionsOutputPath transactionsOutputPathOpt
       <*> coveragePathsOpt
       <*> many coverageFilterSkipOpt
+      <* strOptionOnce @String (internal <> short 'o' <> long "output" <> value "") -- We use build-options in daml test, but we need to ignore --output.
     filesOpt = optional (flag' () (long "files" <> help filesDoc) *> many inputFileOpt)
     filesDoc = "Only run test declarations in the specified files."
     junitOutput = optional $ strOptionOnce $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
