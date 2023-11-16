@@ -253,7 +253,7 @@ object ProtocolVersion {
         sys.error("Release needs to support at least one protocol version")
       )
 
-  private val deprecated: Seq[ProtocolVersion] = Seq()
+  private val deprecated: Seq[ProtocolVersion] = Seq(v3, v4)
   private val deleted: Seq[ProtocolVersion] = Seq(ProtocolVersion(2))
 
   val unstable: NonEmpty[List[ProtocolVersionWithStatus[Unstable]]] =

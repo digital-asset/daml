@@ -56,9 +56,6 @@ import com.google.protobuf.ByteString
   * @param resolvedKeys
   * Specifies how to resolve [[com.daml.lf.engine.ResultNeedKey]] requests from DAMLe (resulting from e.g., fetchByKey,
   * lookupByKey) when interpreting the view. The resolved contract IDs must be in the [[coreInputs]].
-  * * Up to protocol version [[com.digitalasset.canton.version.ProtocolVersion.v2]]:
-  * [[com.digitalasset.canton.data.FreeKey]] is used only for lookup-by-key nodes.
-  * * From protocol version [[com.digitalasset.canton.version.ProtocolVersion.v3]] on:
   * Stores only the resolution difference between this view's global key inputs
   * [[com.digitalasset.canton.data.TransactionView.globalKeyInputs]]
   * and the aggregated global key inputs from the subviews

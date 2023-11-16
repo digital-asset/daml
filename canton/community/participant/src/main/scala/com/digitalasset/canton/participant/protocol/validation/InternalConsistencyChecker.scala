@@ -37,6 +37,12 @@ class InternalConsistencyChecker(
     override val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
+  /** Checks if there is no internal consistency issue between views, e.g., it would return an error if
+    * there are two different views (within the same rollback scope) that archive the same contract.
+    *
+    * The method does not check for consistency issues inside of a single view. This is checked by Daml engine as part
+    * of [[ModelConformanceChecker]].
+    */
   def check(
       rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]],
       hostedParty: LfPartyId => Boolean,
@@ -88,7 +94,7 @@ class InternalConsistencyChecker(
 
         for {
           _ <- checkNotUsedBeforeCreation(state.referenced, created)
-          _ <- checkNotUsedAfterArchive(state.activeState, referenced)
+          _ <- checkNotUsedAfterArchive(state.consumed, referenced)
         } yield state.update(referenced = referenced, consumed = consumed)
 
       })
@@ -122,6 +128,9 @@ class InternalConsistencyChecker(
 
     if (uniqueContractKeys) {
 
+      // Validating only hosted keys (i.e. keys where this participant hosts a maintainer),
+      // because for non-hosted keys, we do not necessarily see all updates and may therefore
+      // raise a false alarm.
       val hostedKeys =
         rootViewTrees.map(_.view.globalKeyInputs).foldLeft(Set.empty[LfGlobalKey]) { (keys, gki) =>
           keys ++ (gki -- keys).collect {
@@ -194,7 +203,8 @@ object InternalConsistencyChecker {
 
     def stack: List[WithRollbackScope[T]]
 
-    def activeState: T
+    /** State that will be recorded / restored at the beginning / end of a rollback scope. */
+    def activeRollbackState: T
 
     def copyWith(
         rollbackScope: RollbackScope,
@@ -203,7 +213,11 @@ object InternalConsistencyChecker {
     ): M
 
     private[validation] def pushRollbackScope(newScope: RollbackScope): M =
-      copyWith(newScope, activeState, WithRollbackScope(rollbackScope, activeState) :: stack)
+      copyWith(
+        newScope,
+        activeRollbackState,
+        WithRollbackScope(rollbackScope, activeRollbackState) :: stack,
+      )
 
     private[validation] def popRollbackScope(): M = stack match {
       case WithRollbackScope(stackScope, stackActive) :: other =>
@@ -244,7 +258,7 @@ object InternalConsistencyChecker {
 
     override def self: ContractState = this
 
-    override def activeState: Set[LfContractId] = consumed
+    override def activeRollbackState: Set[LfContractId] = consumed
 
     override def copyWith(
         rollbackScope: RollbackScope,
@@ -279,7 +293,7 @@ object InternalConsistencyChecker {
 
     override def self: KeyState = this
 
-    override def activeState: KeyMapping = activeResolutions
+    override def activeRollbackState: KeyMapping = activeResolutions
 
     override def copyWith(
         rollbackScope: RollbackScope,
@@ -292,7 +306,7 @@ object InternalConsistencyChecker {
         viewKeyMappings: Map[LfGlobalKey, KeyResolution]
     ): Set[LfGlobalKey] = {
       (for {
-        (key, previousResolution) <- preResolutions ++ activeState
+        (key, previousResolution) <- preResolutions ++ activeRollbackState
         currentResolution <- viewKeyMappings.get(key)
         if previousResolution != currentResolution
       } yield key).toSet

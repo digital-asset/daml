@@ -40,6 +40,10 @@ class RecipientsValidator[I](
   /** Checks the recipients of all inputs and discards inputs corresponding to views with invalid recipients.
     * Also reports a security alert on invalid recipients.
     *
+    * Effectively, the method tries to establish consensus on whether the recipients of an input are valid, and
+    * if consensus cannot be established, then the input is discarded.
+    * So an input may even be discarded, if its recipients are valid (but not every recipient knows about this).
+    *
     * A view v will be kept iff there is a path rp through the recipients tree (ordered leaf to root)
     * such that the following conditions hold:
     * 1. Every informee of the view is hosted by an active participant.

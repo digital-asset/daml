@@ -46,7 +46,8 @@ import scala.math.Ordered.orderingToOrdered
   * [[com.digitalasset.canton.protocol.messages.TypedSignedProtocolMessageContent.content]].
   * From [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]] on, there can be any number of signatures
   * and each signature covers the serialization of the `typedMessage` itself rather than just its
-  * [[com.digitalasset.canton.protocol.messages.TypedSignedProtocolMessageContent.content]].
+  * [[com.digitalasset.canton.protocol.messages.TypedSignedProtocolMessageContent.content]], and
+  * every signature needs to be valid.
   */
 // TODO(#15358) Adapt comment. Most of it can be deleted.
 // sealed because this class is mocked in tests

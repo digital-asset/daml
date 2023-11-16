@@ -87,7 +87,7 @@ class SerializationDeserializationTest
 
     "be exhaustive" in {
       val requiredTests =
-        findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton.protocol.messages")
+        findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton.protocol")
 
       val missingTests = requiredTests.diff(testedClasses.toList)
 

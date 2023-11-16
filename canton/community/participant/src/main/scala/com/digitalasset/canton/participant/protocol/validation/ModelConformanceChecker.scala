@@ -423,6 +423,9 @@ object ModelConformanceChecker {
         )
         .leftMap(DAMLeFailure.apply)
       expected: LfNodeCreate = LfNodeCreate(
+        // Do not validate the contract id. The validation would fail due to mismatching seed.
+        // The contract id is already validated by SerializableContractAuthenticator,
+        // as contract is an input contract of the underlying transaction.
         coid = actual.coid,
         templateId = unversioned.template,
         arg = unversioned.arg,

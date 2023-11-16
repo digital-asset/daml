@@ -152,4 +152,21 @@ object RepairServiceError extends RepairServiceErrorGroup {
         with RepairServiceError
   }
 
+  @Explanation(
+    "Import Acs has failed."
+  )
+  @Resolution(
+    "Retry after operator intervention."
+  )
+  object ImportAcsError
+      extends ErrorCode(
+        id = "IMPORT_ACS_ERROR",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Error(reason: String)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(cause = reason)
+        with RepairServiceError
+  }
+
 }
