@@ -285,7 +285,7 @@ class IdeLedgerClient(
                 templateId = c.templateId,
                 contractId = c.contractId,
                 argument = c.createArg,
-                keyHash = None,
+                keyHash = c.contractKeyWithMaintainers.map(_.globalKey.hash),
               ),
           )
       )

@@ -17,7 +17,8 @@ class Daml2ScriptTestRunner extends DamlScriptTestRunner {
     "pick up all scripts and returns somewhat sensible outputs" in
       assertDamlScriptRunnerResult(
         darPath,
-        """MultiTest:disclosuresTest SUCCESS
+        """MultiTest:disclosuresByKeyTest SUCCESS
+          |MultiTest:disclosuresTest SUCCESS
           |MultiTest:inactiveDisclosureDoesNotFailDuringSubmission FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "Here" }. Details: Last location: [GHC.Err:25], partial transaction: ...
           |MultiTest:listKnownPartiesTest SUCCESS
           |MultiTest:multiTest SUCCESS

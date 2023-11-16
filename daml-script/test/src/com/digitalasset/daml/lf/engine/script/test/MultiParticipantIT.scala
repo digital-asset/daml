@@ -101,6 +101,16 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
           r <- run(clients, QualifiedName.assertFromString("MultiTest:disclosuresTest"), dar = dar)
         } yield assert(r == SText("my secret"))
       }
+      "can be called by key" in {
+        for {
+          clients <- scriptClients()
+          r <- run(
+            clients,
+            QualifiedName.assertFromString("MultiTest:disclosuresByKeyTest"),
+            dar = dar,
+          )
+        } yield assert(r == SText("my secret"))
+      }
       "does not fail during submission if inactive" in {
         for {
           clients <- scriptClients()

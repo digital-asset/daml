@@ -13,6 +13,8 @@ template Box with
     content: Text
   where
     signatory s
+    key s: Party
+    maintainer key
     nonconsuming choice Open: Text with
         c: Party
       controller c
@@ -23,7 +25,7 @@ template Helper with
     s: Party
   where
     signatory s
-    nonconsuming choice Fail: () with
+    nonconsuming choice FailWith: () with
         msg: Text
       controller s
       do
@@ -32,10 +34,9 @@ template Helper with
 disclosuresTest : Script Text
 disclosuresTest = do
   -- init
-  alice <- allocateParty "alice"
-  bob <- allocateParty "bob"
-  did <- alice `submit` do
-     createCmd (Box alice "my secret")
+  alice <- allocatePartyOn "alice" (ParticipantName "participant0")
+  bob <- allocatePartyOn "bob" (ParticipantName "participant1")
+  did <- alice `submit` createCmd (Box alice "my secret")
   disclosure <- fromSome <$> queryDisclosure alice did
 
   alice `submit` exerciseCmd did (Open alice)
@@ -50,23 +51,37 @@ disclosuresTest = do
 
   pure content
 
--- @ERROR range=56:1-56:46; Here
+
+disclosuresByKeyTest : Script Text
+disclosuresByKeyTest = do
+  -- init
+  alice <- allocatePartyOn "alice" (ParticipantName "participant0")
+  bob <- allocatePartyOn "bob" (ParticipantName "participant1")
+  did <- alice `submit` do
+     createCmd (Box alice "my secret")
+  disclosure <- fromSome <$> queryDisclosure alice did
+
+  content <- submitWithDisclosures bob [disclosure] (exerciseByKeyCmd @Box alice (Open bob))
+
+  pure content
+
+
+-- @ERROR range=72:1-72:46; Here
 inactiveDisclosureDoesNotFailDuringSubmission: Script ()
 inactiveDisclosureDoesNotFailDuringSubmission = do
     -- init
-    alice <- allocateParty "alice"
+    alice <- allocatePartyOn "alice" (ParticipantName "participant0")
     did <- alice `submit` do createCmd (Box alice "my secret")
     hid <- alice `submit` do createCmd (Helper alice)
-    mbDisclosure <- queryDisclosure alice did
-    let disclosure = fromSome mbDisclosure
+    disclosure <- fromSome <$> queryDisclosure alice did
     alice `submit` archiveCmd did
- 
+
     -- we double check exercising the consumed disclosure fail 
     submitMustFail alice $ exerciseCmd did (Open alice)
 
     submitWithDisclosures alice [disclosure] $ do
       exerciseCmd did (Open alice)
-      exerciseCmd hid (Fail "Here")
+      exerciseCmd hid (FailWith "Here")
       pure ()
 
     pure ()
