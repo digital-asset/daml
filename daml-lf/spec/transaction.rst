@@ -189,9 +189,9 @@ message Transaction
 A list of `message Node`_, implicitly forming a forest starting at
 ``roots``.
 
-(*since version 10*)
+(*since version 14*)
 
-As of version 10, these fields are included:
+As of version 14, these fields are included:
 
 * ``string`` `field version`_
 * repeated ``string`` roots
@@ -246,15 +246,16 @@ An action on the ledger.
 
 (*since version 14*)
 
-As of version 10, these fields are included:
+As of version 14, these fields are included:
 
 * ``string`` `version`
 * ``string`` `node_id`
 
-``version``  is optional. If unset it should be interpreted as version 10.
-otherwise it should be constraint as described in `field version`_
+Field ``version`` is required and must be a valid version as described under `field
+version`_, not newer that the version of the enclosing Transaction
+message.
 
-``node_id`` is required. it is csontraint as described under `field
+``node_id`` is required. it is constraint as described under `field
 node_id`_.
 
 Additionally, one of the following node types *must* be included:
@@ -264,11 +265,6 @@ Additionally, one of the following node types *must* be included:
 * `message NodeExercise`_ exercise
 * `message NodeLookupByKey`_ lookup
 * ``string`` ``version``
-
-
-Field ``version`` must be a valid version as described under `field
-version`_, not newer that the version of the enclosing Transaction
-message.
 
 Fields ``create``, ``fetch``, ``exercise`` and ``lookup`` shall
 be consumed according to version `version`.
@@ -313,9 +309,7 @@ As of version 14, these fields are included:
 * repeated ``string`` maintainers
 * `message Value`_ key_unversioned
 
-``key_versioned`` must not be set.
-
-``key_unversioned`` is required while ``key_versioned``
+``key_unversioned`` is required while ``key_versioned`` must not be set.
 
 ``maintainers`` must be non-empty, whose elements are party
 identifiers.
@@ -338,8 +332,6 @@ As of version 14, these fields are included:
 * `message Identifier`_ template_id
 * `message VersionedValue`_ arg_unversioned
 * ``string`` agreement
-
-
 
 Field ``contract_id_struct`` is required. Its structure is defined by `the value
 specification`_.
@@ -475,9 +467,9 @@ message NodeLookupByKey
 
 The lookup of a contract by contract key.
 
-(*since version 10*)
+(*since version 14*)
 
-As of version 10, these fields are included:
+As of version 14, these fields are included:
 
 * `message ContractId`_ contract_id_struct
 * `message Identifier`_ template_id
