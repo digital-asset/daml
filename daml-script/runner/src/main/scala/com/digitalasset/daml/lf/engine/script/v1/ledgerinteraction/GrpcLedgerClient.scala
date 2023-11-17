@@ -1,10 +1,10 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script.v1.ledgerinteraction
+package com.daml.lf.engine.script
+package v1.ledgerinteraction
 
 import java.util.UUID
-
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.api.util.TimestampConversion
@@ -23,13 +23,14 @@ import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
   InterfaceFilter,
+  TemplateFilter,
   TransactionFilter,
 }
 import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.engine.script.v1.Converter
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.{SValue, svalue}
@@ -67,7 +68,13 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
   ): TransactionFilter = {
-    val filters = Filters(Some(InclusiveFilters(Seq(toApiIdentifier(templateId)))))
+    val filters = Filters(
+      Some(
+        InclusiveFilters(templateFilters =
+          Seq(TemplateFilter(Some(toApiIdentifier(templateId)), includeCreatedEventBlob = true))
+        )
+      )
+    )
     TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
   }
 
@@ -118,7 +125,8 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
                 err => throw new ConverterException(err),
                 identity,
               )
-          (ScriptLedgerClient.ActiveContract(templateId, cid, argument), key)
+          val blob = Bytes.fromByteString(createdEvent.createdEventBlob)
+          (ScriptLedgerClient.ActiveContract(templateId, cid, argument, blob), key)
         })
       )
     )
@@ -243,10 +251,19 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
     import scalaz.syntax.traverse._
+    val ledgerDisclosures =
+      disclosures.map { case Disclosure(tmplId, cid, blob) =>
+        DisclosedContract(
+          templateId = Some(toApiIdentifier(tmplId)),
+          contractId = cid.coid,
+          createdEventBlob = blob.toByteString,
+        )
+      }
     val ledgerCommands = commands.traverse(toCommand(_)) match {
       case Left(err) => throw new ConverterException(err)
       case Right(cmds) => cmds
@@ -255,6 +272,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       party = actAs.head,
       actAs = actAs.toList,
       readAs = readAs.toList,
+      disclosedContracts = ledgerDisclosures,
       commands = ledgerCommands,
       ledgerId = grpcClient.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
@@ -285,10 +303,11 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   override def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
-    submit(actAs, readAs, commands, optLocation).map({
+    submit(actAs, readAs, disclosures, commands, optLocation).map({
       case Right(_) => Left(())
       case Left(_) => Right(())
     })

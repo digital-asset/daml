@@ -102,6 +102,7 @@ object ScriptF {
         submitRes <- client.submit(
           data.actAs,
           data.readAs,
+          data.disclosures,
           data.cmds,
           data.stackTrace.topFrame,
         )
@@ -156,6 +157,7 @@ object ScriptF {
         submitRes <- client.submitMustFail(
           data.actAs,
           data.readAs,
+          data.disclosures,
           data.cmds,
           data.stackTrace.topFrame,
         )
@@ -234,6 +236,7 @@ object ScriptF {
       cid: ContractId,
       stackTrace: StackTrace,
       continue: SValue,
+      asDisclosure: Boolean, // Return a disclosure blob instead an AnyTemplate when on
   ) extends Cmd {
     override def description = "queryContractId"
 
@@ -245,7 +248,12 @@ object ScriptF {
       for {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryContractId(parties, tplId, cid)
-        optR <- Converter.toFuture(optR.traverse(Converter.fromContract(env.valueTranslator, _)))
+        optR <- Converter.toFuture(
+          if (asDisclosure)
+            Right(optR.map(c => SValue.SText(c.blob.toHexString)))
+          else
+            optR.traverse(Converter.fromContract(env.valueTranslator, _))
+        )
       } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
   }
 
@@ -668,6 +676,7 @@ object ScriptF {
   final case class SubmitData(
       actAs: OneAnd[Set, Party],
       readAs: Set[Party],
+      disclosures: List[Disclosure],
       cmds: List[command.ApiCommand],
       freeAp: SValue,
       stackTrace: StackTrace,
@@ -692,20 +701,22 @@ object ScriptF {
         freeAp: SValue,
         continue: SValue,
         stackTrace: Option[SValue],
+        disclosures: List[SValue],
     ) =
       for {
         actAs <- actAs.traverse(Converter.toParty(_)).map(toOneAndSet(_))
         readAs <- readAs.traverse(Converter.toParty(_))
         cmds <- Converter.toCommands(ctx.compiledPackages, freeAp)
         stackTrace <- toStackTrace(ctx, stackTrace)
-      } yield SubmitData(actAs, readAs.toSet, cmds, freeAp, stackTrace, continue)
+        disclosures <- disclosures.traverse(Converter.toDisclosure(_))
+      } yield SubmitData(actAs, readAs.toSet, disclosures, cmds, freeAp, stackTrace, continue)
     v match {
       // no location
       case SRecord(_, _, ArrayList(sParty, SRecord(_, _, ArrayList(freeAp)), continue)) =>
-        convert(OneAnd(sParty, List()), List(), freeAp, continue, None)
+        convert(OneAnd(sParty, List()), List(), freeAp, continue, None, List.empty)
       // location
       case SRecord(_, _, ArrayList(sParty, SRecord(_, _, ArrayList(freeAp)), continue, loc)) =>
-        convert(OneAnd(sParty, List()), List(), freeAp, continue, Some(loc))
+        convert(OneAnd(sParty, List()), List(), freeAp, continue, Some(loc), List.empty)
       // multi-party actAs/readAs + location
       case SRecord(
             _,
@@ -718,7 +729,28 @@ object ScriptF {
               loc,
             ),
           ) =>
-        convert(OneAnd(hdAct, tlAct.toList), read.toList, freeAp, continue, Some(loc))
+        convert(OneAnd(hdAct, tlAct.toList), read.toList, freeAp, continue, Some(loc), List.empty)
+      // multi-party actAs/readAs + location + disclosures
+      case SRecord(
+            _,
+            _,
+            ArrayList(
+              SRecord(_, _, ArrayList(hdAct, SList(tlAct))),
+              SList(read),
+              SRecord(_, _, ArrayList(freeAp)),
+              continue,
+              loc,
+              SList(disclosures),
+            ),
+          ) =>
+        convert(
+          OneAnd(hdAct, tlAct.toList),
+          read.toList,
+          freeAp,
+          continue,
+          Some(loc),
+          disclosures.toList,
+        )
       case _ => Left(s"Expected Submit payload but got $v")
     }
   }
@@ -740,7 +772,11 @@ object ScriptF {
     }
   }
 
-  private def parseQueryContractId(ctx: Ctx, v: SValue): Either[String, QueryContractId] = {
+  private def parseQueryContractId(
+      ctx: Ctx,
+      v: SValue,
+      asDisclosure: Boolean,
+  ): Either[String, QueryContractId] = {
     def convert(
         actAs: SValue,
         tplId: SValue,
@@ -753,7 +789,7 @@ object ScriptF {
         tplId <- Converter.typeRepToIdentifier(tplId)
         cid <- toContractId(cid)
         stackTrace <- toStackTrace(ctx, stackTrace)
-      } yield QueryContractId(actAs, tplId, cid, stackTrace, continue)
+      } yield QueryContractId(actAs, tplId, cid, stackTrace, continue, asDisclosure)
     v match {
       case SRecord(_, _, ArrayList(actAs, tplId, cid, continue)) =>
         convert(actAs, tplId, cid, None, continue)
@@ -1046,7 +1082,8 @@ object ScriptF {
       case "SubmitMustFail" => parseSubmit(ctx, v).map(SubmitMustFail(_))
       case "SubmitTree" => parseSubmit(ctx, v).map(SubmitTree(_))
       case "Query" => parseQuery(ctx, v)
-      case "QueryContractId" => parseQueryContractId(ctx, v)
+      case "QueryContractId" => parseQueryContractId(ctx, v, asDisclosure = false)
+      case "QueryDisclosure" => parseQueryContractId(ctx, v, asDisclosure = true)
       case "QueryInterface" => parseQueryInterface(ctx, v)
       case "QueryInterfaceContractId" => parseQueryInterfaceContractId(ctx, v)
       case "QueryContractKey" => parseQueryContractKey(ctx, v)

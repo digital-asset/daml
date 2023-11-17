@@ -887,6 +887,14 @@ object TransactionCoder {
     }
   }
 
+  private[lf] def assertEncodeFatContractInstance(
+      contractInstance: FatContractInstance
+  ): data.Bytes =
+    encodeFatContractInstance(contractInstance).fold(
+      e => throw new IllegalArgumentException(e.errorMessage),
+      data.Bytes.fromByteString,
+    )
+
   def decodeFatContractInstance(bytes: ByteString): Either[DecodeError, FatContractInstance] =
     for {
       versionedBlob <- decodeVersioned(bytes)

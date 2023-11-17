@@ -44,8 +44,10 @@ data Commands a = Commands with
   deriving Functor
   
 data Disclosure = Disclosure with
-    blob: Text
-  deriving (Eq, Ord)
+   templateId: TemplateTypeRep
+   contractId : ContractId ()
+   blob: Text
+ deriving (Eq, Ord)
 
 -- Expected number of command results for a given command
 expectedCommandResults : Command -> Int

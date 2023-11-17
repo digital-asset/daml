@@ -10,6 +10,10 @@ module Daml.Script
   , submitTreeMulti
   , trySubmit
   , trySubmitMulti
+  , submitWithDisclosures
+  , submitWithDisclosuresMustFail
+  , submitMultiWithDisclosures
+  , submitMultiWithDisclosuresMustFail
   , SubmitError (..)
   , DevErrorType (..)
 
@@ -19,7 +23,7 @@ module Daml.Script
   , queryInterfaceContractId
   , queryContractKey
   , queryFilter
-  , queryDisclosureContractId
+  , queryDisclosure
   , PartyIdHint (..)
   , ParticipantName (..)
   , PartyDetails(..)

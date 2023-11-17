@@ -467,7 +467,7 @@ class IdeLedgerClient(
   private def unsafeSubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext): Future[
@@ -499,14 +499,27 @@ class IdeLedgerClient(
               result.richTransaction.blindingInfo.disclosure.values
                 .fold(Set.empty[Party])(_ union _)
             val unallocatedParties = referencedParties -- allocatedParties.values.map(_.party)
-            Either.cond(
-              unallocatedParties.isEmpty,
-              commit,
-              ScenarioRunner.SubmissionError(
-                scenario.Error.PartiesNotAllocated(unallocatedParties),
-                commit.tx,
-              ),
-            )
+            for {
+              _ <- Either.cond(
+                unallocatedParties.isEmpty,
+                (),
+                ScenarioRunner.SubmissionError(
+                  scenario.Error.PartiesNotAllocated(unallocatedParties),
+                  commit.tx,
+                ),
+              )
+              // We look for inactive explicit disclosures
+              activeContracts = ledger.ledgerData.activeContracts
+              _ <- disclosures
+                .collectFirst {
+                  case Disclosure(tmplId, coid, _) if !activeContracts(coid) =>
+                    ScenarioRunner.SubmissionError(
+                      scenario.Error.ContractNotActive(coid, tmplId, None),
+                      commit.tx,
+                    )
+                }
+                .toLeft(())
+            } yield commit
         }
 
       // We use try + unsafePreprocess here to avoid the addition template lookup logic in `preprocessApiCommands`
@@ -525,7 +538,7 @@ class IdeLedgerClient(
           fatContacts <-
             disclosures
               .to(ImmArray)
-              .traverse(b => TransactionCoder.decodeFatContractInstance(b.toByteString))
+              .traverse(b => TransactionCoder.decodeFatContractInstance(b.blob.toByteString))
               .left
               .map(err =>
                 makeEmptySubmissionError(scenario.Error.DisclosureDecoding(err.errorMessage))
@@ -535,7 +548,7 @@ class IdeLedgerClient(
               templateId = c.templateId,
               contractId = c.contractId,
               argument = c.createArg,
-              keyHash = None,
+              keyHash = c.contractKeyWithMaintainers.map(_.globalKey.hash),
             )
           )
           disclosures <-
@@ -573,7 +586,7 @@ class IdeLedgerClient(
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
@@ -612,7 +625,7 @@ class IdeLedgerClient(
   override def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]] =
@@ -629,7 +642,7 @@ class IdeLedgerClient(
   override def submitTree(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
@@ -808,7 +821,7 @@ class IdeLedgerClient(
   override def trySubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      disclosures: List[Bytes],
+      disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],

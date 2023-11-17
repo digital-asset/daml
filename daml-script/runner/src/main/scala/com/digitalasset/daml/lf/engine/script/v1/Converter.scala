@@ -60,7 +60,7 @@ object Converter extends script.ConverterMethods(StablePackagesV1) {
       tree: ScriptLedgerClient.TransactionTree,
   ): Either[String, SValue] = {
     def translateTreeEvent(ev: ScriptLedgerClient.TreeEvent): Either[String, SValue] = ev match {
-      case ScriptLedgerClient.Created(tplId, contractId, argument) =>
+      case ScriptLedgerClient.Created(tplId, contractId, argument, _) =>
         for {
           anyTemplate <- fromAnyTemplate(translator, tplId, argument)
         } yield SVariant(
@@ -235,10 +235,12 @@ object Converter extends script.ConverterMethods(StablePackagesV1) {
                   .validateRecord(created.getCreateArguments)
                   .left
                   .map(err => s"Failed to validate create argument: $err")
+              blob = data.Bytes.fromByteString(created.createdEventBlob)
             } yield ScriptLedgerClient.Created(
               tplId,
               cid,
               arg,
+              blob,
             )
           case TreeEvent.Kind.Exercised(exercised) =>
             for {
