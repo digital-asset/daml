@@ -129,4 +129,37 @@ object GeneratorsProtocol {
       )
     } yield Batch(envelopes.map(_.closeEnvelope), protocolVersion))
 
+  implicit val submissionRequestArb: Arbitrary[SubmissionRequest] =
+    Arbitrary(
+      for {
+        protocolVersion <- Arbitrary.arbitrary[ProtocolVersion]
+        sender <- Arbitrary.arbitrary[Member]
+        messageId <- Arbitrary.arbitrary[MessageId]
+        isRequest <- Arbitrary.arbitrary[Boolean]
+        envelopes <- Generators.nonEmptyListGen[ClosedEnvelope](
+          Arbitrary(closedEnvelopeGenFor(protocolVersion))
+        )
+        batch = Batch(envelopes.map(_.closeEnvelope), protocolVersion)
+        maxSequencingTime <- Arbitrary.arbitrary[CantonTimestamp]
+        aggregationRule <- GeneratorsVersion.defaultValueGen(
+          protocolVersion,
+          SubmissionRequest.aggregationRuleDefaultValue,
+          Gen.option(Arbitrary.arbitrary[AggregationRule]),
+        )
+        timestampOfSigningKey <-
+          if (aggregationRule.nonEmpty)
+            Arbitrary.arbitrary[CantonTimestamp].map(Some(_))
+          else Gen.const(None)
+      } yield SubmissionRequest.tryCreate(
+        sender,
+        messageId,
+        isRequest,
+        batch,
+        maxSequencingTime,
+        timestampOfSigningKey,
+        aggregationRule,
+        SubmissionRequest.protocolVersionRepresentativeFor(protocolVersion).representative,
+      )
+    )
+
 }

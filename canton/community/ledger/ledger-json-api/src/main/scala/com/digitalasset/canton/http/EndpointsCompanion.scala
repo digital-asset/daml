@@ -14,7 +14,7 @@ import com.digitalasset.canton.ledger.api.domain.UserRight
 import UserRight.{CanActAs, CanReadAs}
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.ErrorDetails.ErrorDetail
-import com.daml.ledger.api.refinements.ApiTypes as lar
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.canton.http.json.SprayJson
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient

@@ -11,8 +11,10 @@ import scala.jdk.CollectionConverters.*
 
 /** Stream observer that records all incoming events.
   */
-class RecordingStreamObserver[RespT](completeAfter: Int = Int.MaxValue)
-    extends StreamObserver[RespT] {
+class RecordingStreamObserver[RespT](
+    completeAfter: Int = Int.MaxValue,
+    filter: RespT => Boolean = (_: RespT) => true,
+) extends StreamObserver[RespT] {
 
   val responseQueue: java.util.concurrent.BlockingQueue[RespT] =
     new java.util.concurrent.LinkedBlockingDeque[RespT](completeAfter)
@@ -26,7 +28,7 @@ class RecordingStreamObserver[RespT](completeAfter: Int = Int.MaxValue)
 
   val responseCount: AtomicInteger = new AtomicInteger()
 
-  override def onNext(value: RespT): Unit = {
+  override def onNext(value: RespT): Unit = if (filter(value)) {
     responseQueue.offer(value)
     if (responseCount.incrementAndGet() >= completeAfter) {
       val _ = completionP.trySuccess(())

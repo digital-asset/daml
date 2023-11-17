@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import com.daml.api.util.TimeProvider
+import com.digitalasset.canton.ledger.api.util.TimeProvider
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference

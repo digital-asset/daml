@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http.util
 
 import com.daml.lf
-import com.daml.ledger.api.refinements.ApiTypes as lar
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v1 as lav1
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters as FC
 import com.digitalasset.canton.http

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.api.util.TimestampConversion.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.daml.ledger.api.v1.testing.time_service.*
@@ -12,6 +11,7 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.domain.{LedgerId, optionalLedgerId}
 import com.digitalasset.canton.ledger.api.grpc.{GrpcApiService, StreamingServiceLifecycleManagement}
+import com.digitalasset.canton.ledger.api.util.TimestampConversion.*
 import com.digitalasset.canton.ledger.api.validation.FieldValidator
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext

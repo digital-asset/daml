@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.api.util.DurationConversion.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.ledger_configuration_service.*
 import com.daml.tracing.Telemetry
@@ -13,6 +12,7 @@ import com.digitalasset.canton.ledger.api.grpc.{
   GrpcLedgerConfigurationService,
   StreamingServiceLifecycleManagement,
 }
+import com.digitalasset.canton.ledger.api.util.DurationConversion.*
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexConfigurationService
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps

@@ -9,7 +9,6 @@ import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.error.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.refinements.ApiTypes as A
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.lf.data.Ref.PackageId
@@ -19,6 +18,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AdminWorkflowServicesErrorGroup
 import com.digitalasset.canton.error.{CantonError, DecodedRpcStatus}
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes as A
 import com.digitalasset.canton.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors

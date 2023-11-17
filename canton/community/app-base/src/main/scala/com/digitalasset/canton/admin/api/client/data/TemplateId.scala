@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.admin.api.client.data
 
-import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.ValueOuterClass
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.javaapi
@@ -39,17 +38,8 @@ object TemplateId {
     )
   }
 
-  def templateIds(apiTemplateIds: ApiTypes.TemplateId*): Seq[TemplateId] = {
-    apiTemplateIds.map(fromPrim)
-  }
-
   def templateIdsFromJava(identifiers: javaapi.data.Identifier*): Seq[TemplateId] = {
     identifiers.map(fromJavaIdentifier)
-  }
-
-  def fromPrim(templateId: ApiTypes.TemplateId): TemplateId = {
-    import scalaz.syntax.tag.*
-    fromIdentifier(templateId.unwrap)
   }
 
   def fromJavaProtoIdentifier(templateId: ValueOuterClass.Identifier): TemplateId = {

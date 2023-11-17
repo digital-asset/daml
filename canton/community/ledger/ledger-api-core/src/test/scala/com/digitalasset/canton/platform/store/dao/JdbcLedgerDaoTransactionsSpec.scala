@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.api.util.TimestampConversion
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
@@ -11,6 +10,7 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node
+import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.platform.api.v1.event.EventOps.EventOps
 import com.digitalasset.canton.platform.participant.util.LfEngineToApi

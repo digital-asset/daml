@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.api.util.TimestampConversion
 import com.daml.ledger.api.v1.event.{
   ArchivedEvent as PbArchivedEvent,
   CreatedEvent as PbCreatedEvent,
@@ -13,6 +12,7 @@ import com.daml.ledger.api.v1.event.{
 import com.daml.ledger.api.v1.transaction.{TreeEvent as PbTreeEvent}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
+import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.Identifier
 import com.digitalasset.canton.platform.participant.util.LfEngineToApi

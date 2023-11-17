@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.fetchcontracts
 
-import com.daml.ledger.api.refinements.ApiTypes as lar
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v1 as lav1
 import com.daml.lf
 import util.ClientUtil.boxedRecord

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.admin
 
-import com.daml.ledger.api.refinements.ApiTypes.WorkflowId
 import com.daml.ledger.api.v1.commands.Command as ScalaCommand
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -11,6 +10,7 @@ import com.daml.ledger.api.v1.package_service.{GetPackageStatusResponse, Package
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.javaapi.data.Party
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.WorkflowId
 import com.digitalasset.canton.lifecycle.AsyncOrSyncCloseable
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.ledger.api.client.{CommandResult, LedgerAcs}

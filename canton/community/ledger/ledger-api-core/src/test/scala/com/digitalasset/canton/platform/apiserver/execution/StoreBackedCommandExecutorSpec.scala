@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.daml.api.util.TimeProvider
 import com.daml.lf.command.{ApiCommands as LfCommands, DisclosedContract as LfDisclosedContract}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
@@ -30,6 +29,7 @@ import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands, LedgerId}
+import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, domain}
 import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.digitalasset.canton.ledger.participant.state.index.v2.{

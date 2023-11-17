@@ -8,6 +8,7 @@ import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.topology.transaction.{LegalIdentityClaim, SignedTopologyTransaction}
 import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelpers}
 import org.scalatest.wordspec.AnyWordSpec
@@ -82,7 +83,10 @@ class SerializationDeserializationTest
         TestHash,
       )
       testProtocolVersioned(com.digitalasset.canton.sequencing.protocol.Batch)
-
+      testMemoizedProtocolVersionedWithCtx(
+        com.digitalasset.canton.sequencing.protocol.SubmissionRequest,
+        MaxRequestSizeToDeserialize.NoLimit,
+      )
     }
 
     "be exhaustive" in {
