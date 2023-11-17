@@ -151,7 +151,7 @@ class TopologyAdministrationGroupX(
     @Help.Summary("List all transaction")
     def list(
         filterStore: String = AuthorizedStore.filterName,
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterAuthorizedKey: Option[Fingerprint] = None,
@@ -163,7 +163,7 @@ class TopologyAdministrationGroupX(
             TopologyAdminCommandsX.Read.ListAll(
               BaseQueryX(
                 filterStore,
-                includeProposals,
+                proposals,
                 timeQuery,
                 operation,
                 filterSigningKey = filterAuthorizedKey.map(_.toProtoPrimitive).getOrElse(""),
@@ -179,7 +179,7 @@ class TopologyAdministrationGroupX(
     object purge extends Helpful {
       def list(
           filterStore: String = "",
-          includeProposals: Boolean = false,
+          proposals: Boolean = false,
           timeQuery: TimeQueryX = TimeQueryX.HeadState,
           operation: Option[TopologyChangeOpX] = None,
           filterDomain: String = "",
@@ -190,7 +190,7 @@ class TopologyAdministrationGroupX(
           TopologyAdminCommandsX.Read.PurgeTopologyTransactionX(
             BaseQueryX(
               filterStore,
-              includeProposals,
+              proposals,
               timeQuery,
               operation,
               filterSigningKey,
@@ -239,6 +239,7 @@ class TopologyAdministrationGroupX(
         instance.topology.mediators.propose(
           domainId,
           threshold = PositiveInt.one,
+          group = NonNegativeInt.zero,
           active = mediators,
           signedBy = thisNodeRootKey,
           store = Some(AuthorizedStore.filterName),
@@ -262,7 +263,7 @@ class TopologyAdministrationGroupX(
   object unionspaces extends Helpful {
     def list(
         filterStore: String = "",
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterNamespace: String = "",
@@ -273,7 +274,7 @@ class TopologyAdministrationGroupX(
         TopologyAdminCommandsX.Read.ListUnionspaceDefinition(
           BaseQueryX(
             filterStore,
-            includeProposals,
+            proposals,
             timeQuery,
             operation,
             filterSigningKey,
@@ -284,10 +285,31 @@ class TopologyAdministrationGroupX(
       )
     }
 
+    @Help.Summary("Propose the creation of a new unionspace")
+    @Help.Description("""
+        owners: the namespaces of the founding members of the unionspace, which are used to compute the name of the unionspace.
+        threshold: this threshold specifies the minimum number of signatures of unionspace members that are required to
+                   satisfy authorization requirements on topology transactions for the namespace of the unionspace.
+
+        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
+                               propagated to connected domains, if applicable.
+               - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
+                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                                automatically.
+        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                            satisfy the mapping's authorization requirements.
+        signedBy: the fingerprint of the key to be used to sign this proposal
+        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
+                This transaction will be rejected if another fully authorized transaction with the same serial already
+                exists, or if there is a gap between this serial and the most recently used serial.
+                If None, the serial will be automatically selected by the node.""")
     def propose(
-        owners: Set[Fingerprint],
+        owners: Set[Namespace],
         threshold: PositiveInt,
         store: String,
+        mustFullyAuthorize: Boolean = false,
         // TODO(#14056) don't use the instance's root namespace key by default.
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
@@ -302,14 +324,14 @@ class TopologyAdministrationGroupX(
                 TopologyAdminCommandsX.Write.Propose(
                   UnionspaceDefinitionX
                     .create(
-                      UnionspaceDefinitionX.computeNamespace(owners.map(Namespace(_))),
+                      UnionspaceDefinitionX.computeNamespace(owners),
                       threshold,
-                      ownersNE.map(Namespace(_)),
+                      ownersNE,
                     ),
                   signedBy = signedBy.toList,
                   serial = serial,
                   change = TopologyChangeOpX.Replace,
-                  mustFullyAuthorize = false,
+                  mustFullyAuthorize = mustFullyAuthorize,
                   store = store,
                 )
               }
@@ -340,7 +362,7 @@ class TopologyAdministrationGroupX(
 
     def list(
         filterStore: String = "",
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterNamespace: String = "",
@@ -352,7 +374,7 @@ class TopologyAdministrationGroupX(
         TopologyAdminCommandsX.Read.ListNamespaceDelegation(
           BaseQueryX(
             filterStore,
-            includeProposals,
+            proposals,
             timeQuery,
             operation,
             filterSigningKey,
@@ -369,9 +391,57 @@ class TopologyAdministrationGroupX(
   @Help.Group("Identifier delegations")
   object identifier_delegations extends Helpful {
 
+    @Help.Summary("Propose new identifier delegations")
+    @Help.Description(
+      """An identifier delegation allows the owner of a unique identifier to delegate signing privileges for
+        |topology transactions on behalf of said identifier to additional/specific signing keys.
+
+        uid: the unique identifier for which the target key can be used to sign topology transactions
+        targetKey: the target key to be used for signing topology transactions on behalf of the unique identifier
+
+        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
+                               propagated to connected domains, if applicable.
+               - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
+                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                                automatically.
+        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                            satisfy the mapping's authorization requirements.
+        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
+                This transaction will be rejected if another fully authorized transaction with the same serial already
+                exists, or if there is a gap between this serial and the most recently used serial.
+                If None, the serial will be automatically selected by the node.
+        """
+    )
+    def propose(
+        uid: UniqueIdentifier,
+        targetKey: SigningPublicKey,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        // Using the authorized store by default
+        store: String = AuthorizedStore.filterName,
+        mustFullyAuthorize: Boolean = true,
+        serial: Option[PositiveInt] = None,
+    ): SignedTopologyTransactionX[TopologyChangeOpX, IdentifierDelegationX] = {
+      val command = TopologyAdminCommandsX.Write.Propose(
+        mapping = IdentifierDelegationX(
+          identifier = uid,
+          target = targetKey,
+        ),
+        signedBy = Seq(instance.id.uid.namespace.fingerprint),
+        serial = serial,
+        mustFullyAuthorize = mustFullyAuthorize,
+        store = store,
+      )
+
+      synchronisation.run(synchronize)(consoleEnvironment.run(adminCommand(command)))
+    }
+
     def list(
         filterStore: String = "",
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterUid: String = "",
@@ -383,7 +453,7 @@ class TopologyAdministrationGroupX(
         TopologyAdminCommandsX.Read.ListIdentifierDelegation(
           BaseQueryX(
             filterStore,
-            includeProposals,
+            proposals,
             timeQuery,
             operation,
             filterSigningKey,
@@ -406,7 +476,7 @@ class TopologyAdministrationGroupX(
     @Help.Summary("List owner to key mapping transactions")
     def list(
         filterStore: String = "",
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterKeyOwnerType: Option[KeyOwnerCode] = None,
@@ -419,7 +489,7 @@ class TopologyAdministrationGroupX(
           TopologyAdminCommandsX.Read.ListOwnerToKeyMapping(
             BaseQueryX(
               filterStore,
-              includeProposals,
+              proposals,
               timeQuery,
               operation,
               filterSigningKey,
@@ -534,7 +604,7 @@ class TopologyAdministrationGroupX(
 
     def list(
         filterStore: String = "",
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterParty: String = "",
@@ -546,7 +616,7 @@ class TopologyAdministrationGroupX(
         TopologyAdminCommandsX.Read.ListPartyToParticipant(
           BaseQueryX(
             filterStore,
-            includeProposals,
+            proposals,
             timeQuery,
             operation,
             filterSigningKey,
@@ -564,7 +634,7 @@ class TopologyAdministrationGroupX(
   object domain_trust_certificates extends Helpful {
     def list(
         filterStore: String = "",
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         // TODO(#14048) should be filterDomain and filterParticipant
@@ -576,7 +646,7 @@ class TopologyAdministrationGroupX(
         TopologyAdminCommandsX.Read.ListDomainTrustCertificate(
           BaseQueryX(
             filterStore,
-            includeProposals,
+            proposals,
             timeQuery,
             operation,
             filterSigningKey,
@@ -598,12 +668,26 @@ class TopologyAdministrationGroupX(
       """A participant's domain trust certificate serves two functions:
         |1. It signals to the domain that the participant would like to act on the domain.
         |2. It controls whether contracts can be reassigned to any domain or only a specific set of domains.
-        |
+
         participantId: the identifier of the trust certificate's target participant
         domainId: the identifier of the domain on which the participant would like to act
         transferOnlyToGivenTargetDomains: whether or not to restrict reassignments to a set of domains
         targetDomains: the set of domains to which the participant permits assignments of contracts
-        |"""
+
+        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
+                               propagated to connected domains, if applicable.
+               - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
+                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                                automatically.
+        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                            satisfy the mapping's authorization requirements.
+        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
+                This transaction will be rejected if another fully authorized transaction with the same serial already
+                exists, or if there is a gap between this serial and the most recently used serial.
+                If None, the serial will be automatically selected by the node.
+        """
     )
     def propose(
         participantId: ParticipantId,
@@ -641,13 +725,27 @@ class TopologyAdministrationGroupX(
     @Help.Summary("Propose changes to the domain permissions of participants.")
     @Help.Description(
       """Domain operators may use this command to change a participant's permissions on a domain.
-        |
+
         domainId: the target domain
         participantId: the participant whose permissions should be changed
         permission: the participant's permission
         trustLevel: the participant's trust level
         loginAfter: the earliest time a participant may connect to the domain
-        limits: domain limits for this participant"""
+        limits: domain limits for this participant
+
+        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
+                               propagated to connected domains, if applicable.
+               - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
+                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                                automatically.
+        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                            satisfy the mapping's authorization requirements.
+        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
+                This transaction will be rejected if another fully authorized transaction with the same serial already
+                exists, or if there is a gap between this serial and the most recently used serial.
+                If None, the serial will be automatically selected by the node."""
     )
     def propose(
         domainId: DomainId,
@@ -683,7 +781,7 @@ class TopologyAdministrationGroupX(
 
     def list(
         filterStore: String = "",
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterUid: String = "",
@@ -694,7 +792,7 @@ class TopologyAdministrationGroupX(
         TopologyAdminCommandsX.Read.ListParticipantDomainPermission(
           BaseQueryX(
             filterStore,
-            includeProposals,
+            proposals,
             timeQuery,
             operation,
             filterSigningKey,
@@ -727,7 +825,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterMember: String = instance.id.filterString,
         filterStore: String = "",
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterSigningKey: String = "",
@@ -737,7 +835,7 @@ class TopologyAdministrationGroupX(
         TopologyAdminCommandsX.Read.ListTrafficControlState(
           BaseQueryX(
             filterStore,
-            includeProposals,
+            proposals,
             timeQuery,
             operation,
             filterSigningKey,
@@ -788,7 +886,7 @@ class TopologyAdministrationGroupX(
 
     def list(
         filterStore: String = "",
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterUid: String = "",
@@ -799,7 +897,7 @@ class TopologyAdministrationGroupX(
         TopologyAdminCommandsX.Read.ListPartyHostingLimits(
           BaseQueryX(
             filterStore,
-            includeProposals,
+            proposals,
             timeQuery,
             operation,
             filterSigningKey,
@@ -818,7 +916,7 @@ class TopologyAdministrationGroupX(
 
     def list(
         filterStore: String = "",
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterParticipant: String = "",
@@ -829,7 +927,7 @@ class TopologyAdministrationGroupX(
         TopologyAdminCommandsX.Read.ListVettedPackages(
           BaseQueryX(
             filterStore,
-            includeProposals,
+            proposals,
             timeQuery,
             operation,
             filterSigningKey,
@@ -844,16 +942,38 @@ class TopologyAdministrationGroupX(
   @Help.Summary("Manage authority-of mappings")
   @Help.Group("Authority-of mappings")
   object authority_of extends Helpful {
+    @Help.Summary("Propose a new AuthorityOf mapping.")
+    @Help.Description("""
+        partyId: the party for which the authority delegation is granted
+        threshold: the minimum number of parties that need to authorize a daml (sub-)transaction for the authority of `partyId` to be granted.
+        parties: the parties that need to provide authorization for the authority of `partyId` to be granted.
+        domainId: the optional target domain on which the authority delegation is valid.
+
+        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
+                               propagated to connected domains, if applicable.
+               - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
+                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                                automatically.
+        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                            satisfy the mapping's authorization requirements.
+        signedBy: the fingerprint of the key to be used to sign this proposal
+        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
+                This transaction will be rejected if another fully authorized transaction with the same serial already
+                exists, or if there is a gap between this serial and the most recently used serial.
+                If None, the serial will be automatically selected by the node.""")
     def propose(
         partyId: PartyId,
         threshold: Int,
         parties: Seq[PartyId],
         domainId: Option[DomainId] = None,
+        store: String = AuthorizedStore.filterName,
+        mustFullyAuthorize: Boolean = false,
         // TODO(#14056) don't use the instance's root namespace key by default.
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
-        store: String = AuthorizedStore.filterName,
     ): SignedTopologyTransactionX[TopologyChangeOpX, AuthorityOfX] =
       consoleEnvironment.run {
         adminCommand(
@@ -867,13 +987,14 @@ class TopologyAdministrationGroupX(
             signedBy = signedBy.toList,
             serial = serial,
             store = store,
+            mustFullyAuthorize = mustFullyAuthorize,
           )
         )
       }
 
     def list(
         filterStore: String = "",
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterParty: String = "",
@@ -884,7 +1005,7 @@ class TopologyAdministrationGroupX(
         TopologyAdminCommandsX.Read.ListAuthorityOf(
           BaseQueryX(
             filterStore,
-            includeProposals,
+            proposals,
             timeQuery,
             operation,
             filterSigningKey,
@@ -901,7 +1022,7 @@ class TopologyAdministrationGroupX(
   object mediators extends Helpful {
     def list(
         filterStore: String = "",
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterDomain: String = "",
@@ -912,7 +1033,7 @@ class TopologyAdministrationGroupX(
         TopologyAdminCommandsX.Read.MediatorDomainState(
           BaseQueryX(
             filterStore,
-            includeProposals,
+            proposals,
             timeQuery,
             operation,
             filterSigningKey,
@@ -923,17 +1044,41 @@ class TopologyAdministrationGroupX(
       )
     }
 
+    @Help.Summary("Propose changes to the mediator topology")
+    @Help.Description("""
+         domainId: the target domain
+         threshold: the minimum number of mediators that need to come to a consensus for a message to be sent to other members.
+         active: the list of mediators that will take part in the mediator consensus in this mediator group
+         passive: the mediators that will receive all messages but will not participate in mediator consensus
+         group: the mediator group identifier
+
+
+         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
+                                propagated to connected domains, if applicable.
+                - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
+                                 storing it locally first. This also means it will _not_ be synchronized to other domains
+                                 automatically.
+         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                             when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                             satisfy the mapping's authorization requirements.
+         signedBy: the fingerprint of the key to be used to sign this proposal
+         serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
+                 This transaction will be rejected if another fully authorized transaction with the same serial already
+                 exists, or if there is a gap between this serial and the most recently used serial.
+                 If None, the serial will be automatically selected by the node.""")
     def propose(
         domainId: DomainId,
         threshold: PositiveInt,
         active: Seq[MediatorId],
         passive: Seq[MediatorId] = Seq.empty,
-        group: NonNegativeInt = NonNegativeInt.zero,
+        group: NonNegativeInt,
+        store: Option[String] = None,
+        mustFullyAuthorize: Boolean = false,
         // TODO(#14056) don't use the instance's root namespace key by default.
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
-        store: Option[String] = None,
     ): SignedTopologyTransactionX[TopologyChangeOpX, MediatorDomainStateX] =
       consoleEnvironment.run {
         adminCommand(
@@ -943,7 +1088,7 @@ class TopologyAdministrationGroupX(
             signedBy = signedBy.toList,
             serial = serial,
             change = TopologyChangeOpX.Replace,
-            mustFullyAuthorize = false,
+            mustFullyAuthorize = mustFullyAuthorize,
             store = store.getOrElse(domainId.filterString),
           )
         )
@@ -955,7 +1100,7 @@ class TopologyAdministrationGroupX(
   object sequencers extends Helpful {
     def list(
         filterStore: String = "",
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterDomain: String = "",
@@ -966,7 +1111,7 @@ class TopologyAdministrationGroupX(
         TopologyAdminCommandsX.Read.SequencerDomainState(
           BaseQueryX(
             filterStore,
-            includeProposals,
+            proposals,
             timeQuery,
             operation,
             filterSigningKey,
@@ -977,16 +1122,39 @@ class TopologyAdministrationGroupX(
       )
     }
 
+    @Help.Summary("Propose changes to the sequencer topology")
+    @Help.Description(
+      """
+         domainId: the target domain
+         active: the list of active sequencers
+         passive: sequencers that receive messages but are not available for members to connect to
+
+         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
+                                propagated to connected domains, if applicable.
+                - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
+                                 storing it locally first. This also means it will _not_ be synchronized to other domains
+                                 automatically.
+         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                             when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                             satisfy the mapping's authorization requirements.
+         signedBy: the fingerprint of the key to be used to sign this proposal
+         serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
+                 This transaction will be rejected if another fully authorized transaction with the same serial already
+                 exists, or if there is a gap between this serial and the most recently used serial.
+                 If None, the serial will be automatically selected by the node."""
+    )
     def propose(
         domainId: DomainId,
         threshold: PositiveInt,
         active: Seq[SequencerId],
         passive: Seq[SequencerId] = Seq.empty,
+        store: Option[String] = None,
+        mustFullyAuthorize: Boolean = false,
         // TODO(#14056) don't use the instance's root namespace key by default.
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
-        store: Option[String] = None,
     ): SignedTopologyTransactionX[TopologyChangeOpX, SequencerDomainStateX] =
       consoleEnvironment.run {
         adminCommand(
@@ -995,7 +1163,7 @@ class TopologyAdministrationGroupX(
             signedBy = signedBy.toList,
             serial = serial,
             change = TopologyChangeOpX.Replace,
-            mustFullyAuthorize = false,
+            mustFullyAuthorize = mustFullyAuthorize,
             store = store.getOrElse(domainId.filterString),
           )
         )
@@ -1007,7 +1175,7 @@ class TopologyAdministrationGroupX(
   object domain_parameters extends Helpful {
     def list(
         filterStore: String = "",
-        includeProposals: Boolean = false,
+        proposals: Boolean = false,
         timeQuery: TimeQueryX = TimeQueryX.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterDomain: String = "",
@@ -1018,7 +1186,7 @@ class TopologyAdministrationGroupX(
         TopologyAdminCommandsX.Read.DomainParametersState(
           BaseQueryX(
             filterStore,
-            includeProposals,
+            proposals,
             timeQuery,
             operation,
             filterSigningKey,
@@ -1029,14 +1197,34 @@ class TopologyAdministrationGroupX(
       )
     }
 
+    @Help.Summary("Propose changes to dynamic domain parameters")
+    @Help.Description("""
+       domain: the target domain
+       parameters: the new dynamic domain parameters to be used on the domain
+
+       store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
+                              propagated to connected domains, if applicable.
+              - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
+                               storing it locally first. This also means it will _not_ be synchronized to other domains
+                               automatically.
+       mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                           sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                           when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                           satisfy the mapping's authorization requirements.
+       signedBy: the fingerprint of the key to be used to sign this proposal
+       serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
+               This transaction will be rejected if another fully authorized transaction with the same serial already
+               exists, or if there is a gap between this serial and the most recently used serial.
+               If None, the serial will be automatically selected by the node.""")
     def propose(
         domain: DomainId,
         parameters: DynamicDomainParameters,
+        store: Option[String] = None,
+        mustFullyAuthorize: Boolean = false,
         // TODO(#14056) don't use the instance's root namespace key by default.
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
-        store: Option[String] = None,
     ): SignedTopologyTransactionX[TopologyChangeOpX, DomainParametersStateX] =
       consoleEnvironment.run {
         adminCommand(
@@ -1048,7 +1236,7 @@ class TopologyAdministrationGroupX(
             ),
             signedBy.toList,
             serial = serial,
-            mustFullyAuthorize = false,
+            mustFullyAuthorize = mustFullyAuthorize,
             store = store.getOrElse(domain.filterString),
           )
         )

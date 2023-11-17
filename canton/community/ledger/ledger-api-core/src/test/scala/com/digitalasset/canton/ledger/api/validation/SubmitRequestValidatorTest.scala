@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod as DeduplicationPeriodProto
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
@@ -20,6 +19,7 @@ import com.digitalasset.canton.ledger.api.DomainMocks.{
   workflowId,
 }
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, LedgerId}
+import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.validation.FieldValidator.ResolveToTemplateId
 import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, DomainMocks, domain}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors

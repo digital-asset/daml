@@ -18,11 +18,8 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.v2.ChangeId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.SuppressingLogger
-import com.digitalasset.canton.participant.admin.{
-  PackageService,
-  ResourceManagementService,
-  workflows,
-}
+import com.digitalasset.canton.participant.admin.workflows.java.PackageID
+import com.digitalasset.canton.participant.admin.{PackageService, ResourceManagementService}
 import com.digitalasset.canton.participant.domain.{DomainAliasManager, DomainRegistry}
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.pruning.NoOpPruningProcessor
@@ -273,11 +270,11 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
     }
 
     "not include ping-pong packages in metering" in { f =>
-      stats(f.sync, workflows.PackageID.PingPong) shouldBe Some(0)
+      stats(f.sync, PackageID.PingPong) shouldBe Some(0)
     }
 
     "not include dar-distribution packages in metering" in { f =>
-      stats(f.sync, workflows.PackageID.DarDistribution) shouldBe Some(0)
+      stats(f.sync, PackageID.DarDistribution) shouldBe Some(0)
     }
 
   }

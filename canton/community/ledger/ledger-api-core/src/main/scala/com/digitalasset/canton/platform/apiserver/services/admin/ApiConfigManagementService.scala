@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import com.daml.api.util.{DurationConversion, TimeProvider, TimestampConversion}
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
 import com.daml.ledger.api.v1.admin.config_management_service.*
@@ -12,6 +11,11 @@ import com.daml.logging.LoggingContext
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
+import com.digitalasset.canton.ledger.api.util.{
+  DurationConversion,
+  TimeProvider,
+  TimestampConversion,
+}
 import com.digitalasset.canton.ledger.api.validation.FieldValidator
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.api.{ValidationLogger, domain}

@@ -188,7 +188,7 @@ class TopologyAdministrationGroup(
         | in order to create the authoritative topology state on a domain (which is stored in the store named using the domain-id),
         | such that every domain member will have the same view on the topology state on a particular domain.
         |
-        |"<domain-id> - The domain store is the authorized topology state on a domain. A participant has one store for each
+        |"<domain-id>" - The domain store is the authorized topology state on a domain. A participant has one store for each
         | domain it is connected to. The domain has exactly one store with its domain-id.
         |
         |"Requested" - A domain can be configured such that when participant tries to register a topology transaction with

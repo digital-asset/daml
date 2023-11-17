@@ -45,7 +45,7 @@
   <logger name="com.daml" level="${LOG_LEVEL_CANTON:-DEBUG}"/>
   <logger name="com.digitalasset" level="${LOG_LEVEL_CANTON:-DEBUG}"/>
   <!-- The TransactionsReader is quite noisy. -->
-  <logger name="com.digitalasset.canton.platform.store.dao.events.TransactionsReaderCanton" level="${LOG_LEVEL_CANTON:-INFO}"/>
+  <logger name="com.daml.platform.store.dao.events.TransactionsReaderCanton" level="${LOG_LEVEL_CANTON:-INFO}"/>
   <!-- netty reports ssl errors on DEBUG level ... -->
   <logger name="io.netty.handler.ssl" level="${LOG_LEVEL_CANTON:-DEBUG}"/>
 
@@ -54,10 +54,7 @@
   <!-- janino can be too verbose in tests -->
   <logger name="org.codehaus.janino" level="WARN"/>
 
-  <logger name="com.digitalasset.canton.resource.DbLockOracle:DbLockTestOracle" level="TRACE" />
-
   <!-- Enable for database-relevant debug logs -->
 <!--  <logger name="slick" level="DEBUG"/>-->
 <!--  <logger name="com.zaxxer.hikari" level="DEBUG"/>-->
-<!--  <logger name="org.testcontainers" level="DEBUG"/>-->
 </configuration>

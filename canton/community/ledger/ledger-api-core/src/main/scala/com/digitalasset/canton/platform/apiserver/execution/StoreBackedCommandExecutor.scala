@@ -5,7 +5,6 @@ package com.digitalasset.canton.platform.apiserver.execution
 
 import cats.data.*
 import cats.syntax.all.*
-import com.daml.api.util.TimeProvider
 import com.daml.lf.crypto
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{
@@ -31,6 +30,7 @@ import com.digitalasset.canton.ledger.api.domain.{
   NonUpgradableDisclosedContract,
   UpgradableDisclosedContract,
 }
+import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
   ContractState,

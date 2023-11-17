@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.command
 
-import com.daml.api.util.TimeProvider
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.ErrorCode.LoggedApiException
 import com.daml.lf.crypto
@@ -15,6 +14,7 @@ import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, Submi
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
+import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors

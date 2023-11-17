@@ -4,12 +4,12 @@
 package com.digitalasset.canton.health
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.api.refinements.ApiTypes.WorkflowId
 import com.daml.metrics.api.MetricName
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.CantonCommunityConfig
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.environment.{Environment, ParticipantNodes}
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.WorkflowId
 import com.digitalasset.canton.metrics.HealthMetrics
 import com.digitalasset.canton.participant.admin.{AdminWorkflowServices, PingService}
 import com.digitalasset.canton.participant.ledger.api.StartableStoppableLedgerApiDependentServices

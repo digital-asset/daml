@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.resources.ResourceOwner
@@ -17,6 +16,7 @@ import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationIntercep
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
+import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.configuration.LedgerId
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexService
 import com.digitalasset.canton.ledger.participant.state.v2.ReadService

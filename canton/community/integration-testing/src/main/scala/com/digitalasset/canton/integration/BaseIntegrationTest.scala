@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.integration
 
-import com.digitalasset.canton.admin.api.client.data.TemplateId.templateIds
+import com.digitalasset.canton.admin.api.client.data.TemplateId.templateIdsFromJava
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.console.{CommandFailure, ParticipantReference}
 import com.digitalasset.canton.environment.Environment
@@ -111,12 +111,12 @@ private[integration] trait BaseIntegrationTest[E <: Environment, TCE <: TestCons
     assertPingSucceeds(sender, receiver, timeoutMillis, workflowId, id)
     // wait for pong to be archived before proceeding to avoid race conditions
     eventually() {
-      import com.digitalasset.canton.participant.admin.{workflows as W}
+      import com.digitalasset.canton.participant.admin.workflows.java as W
       forEvery(Seq(sender, receiver)) { p =>
         p.ledger_api.acs
           .of_party(
             p.id.adminParty,
-            filterTemplates = templateIds(W.PingPong.Pong.id),
+            filterTemplates = templateIdsFromJava(W.pingpong.Pong.TEMPLATE_ID),
           ) shouldBe empty
       }
     }

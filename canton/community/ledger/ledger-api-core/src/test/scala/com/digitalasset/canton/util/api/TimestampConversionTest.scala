@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.util.api
 
-import com.daml.api.util.TimestampConversion
+import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

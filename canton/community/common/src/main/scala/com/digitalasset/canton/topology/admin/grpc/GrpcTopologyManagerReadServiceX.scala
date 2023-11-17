@@ -86,7 +86,7 @@ object BaseQueryX {
   def fromProto(value: Option[adminProto.BaseQuery]): ParsingResult[BaseQueryX] =
     for {
       baseQuery <- ProtoConverter.required("base_query", value)
-      includeProposals = baseQuery.proposals
+      proposals = baseQuery.proposals
       filterStore = baseQuery.filterStore
       filterSignedKey = baseQuery.filterSignedKey
       timeQuery <- TimeQueryX.fromProto(baseQuery.timeQuery, "time_query")
@@ -94,7 +94,7 @@ object BaseQueryX {
       protocolVersion <- baseQuery.protocolVersion.traverse(ProtocolVersion.fromProtoPrimitiveS)
     } yield BaseQueryX(
       filterStore,
-      includeProposals,
+      proposals,
       timeQuery,
       if (baseQuery.filterOperation) Some(opsRaw) else None,
       filterSignedKey,

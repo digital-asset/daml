@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.api.util.TimestampConversion
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.trace_context.TraceContext as DamlTraceContext
@@ -19,6 +18,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
+import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.error.IndexErrors
 import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}

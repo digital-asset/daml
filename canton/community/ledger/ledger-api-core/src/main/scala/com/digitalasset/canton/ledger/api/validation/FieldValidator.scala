@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import com.daml.api.util.TimestampConversion
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.lf.crypto.Hash
@@ -17,6 +16,7 @@ import com.digitalasset.canton.ledger.api.domain.{
   LedgerId,
   TemplateFilter,
 }
+import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.topology.DomainId

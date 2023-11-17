@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.ledger.api.client
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v1.commands.{Command, Commands}
@@ -18,6 +17,7 @@ import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.Party
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ClientConfig, ProcessingTimeout}
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,

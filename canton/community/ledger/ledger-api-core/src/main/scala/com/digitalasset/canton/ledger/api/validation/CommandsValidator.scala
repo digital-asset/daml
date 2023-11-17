@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import cats.syntax.traverse.*
-import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.commands.Command.Command.{
   Create as ProtoCreate,
@@ -20,6 +19,7 @@ import com.daml.lf.command.*
 import com.daml.lf.data.*
 import com.daml.lf.value.Value as Lf
 import com.digitalasset.canton.ledger.api.domain.{LedgerId, optionalLedgerId}
+import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
   Submitters,
   effectiveSubmitters,
