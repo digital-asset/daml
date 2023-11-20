@@ -29,7 +29,7 @@ private[http] final case class Config(
     ledgerPort: Int,
     address: String = com.daml.cliopts.Http.defaultAddress,
     httpPort: Int,
-    https: Option[HttpsConfig] = None,
+    https: Option[TlsConfiguration] = None,
     portFile: Option[Path] = None,
     packageReloadInterval: FiniteDuration = StartSettings.DefaultPackageReloadInterval,
     packageMaxInboundMessageSize: Option[Int] = None,
@@ -52,11 +52,6 @@ private[http] final case class Config(
 private[http] object Config {
   val Empty = Config(ledgerHost = "", ledgerPort = -1, httpPort = -1)
 }
-
-final case class HttpsConfig(
-    keyStoreFile: File,
-    keyStorePassword: String,
-)
 
 // It is public for Daml Hub
 final case class WebsocketConfig(

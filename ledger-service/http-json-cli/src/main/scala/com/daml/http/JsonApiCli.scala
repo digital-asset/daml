@@ -22,7 +22,7 @@ private[http] final case class JsonApiCli(
     ledgerPort: Int,
     address: String = com.daml.cliopts.Http.defaultAddress,
     httpPort: Int,
-    https: Option[HttpsConfig] = None,
+    https: Option[TlsConfiguration] = None,
     portFile: Option[Path] = None,
     packageReloadInterval: FiniteDuration = StartSettings.DefaultPackageReloadInterval,
     packageMaxInboundMessageSize: Option[Int] = None,

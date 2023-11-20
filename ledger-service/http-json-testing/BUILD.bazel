@@ -50,6 +50,7 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/cli-opts",
             "//ledger-service/metrics",
+            "//ledger-service/pureconfig-utils",
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
