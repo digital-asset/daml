@@ -9,7 +9,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 -- | Main entry-point of the Daml compiler
-module DA.Cli.Damlc (main) where
+module DA.Cli.Damlc (main, Command (..), fullParseArgs) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception (bracket, catch, handle, throwIO)
@@ -209,10 +209,11 @@ import Options.Applicative ((<|>),
                             CommandFields,
                             Mod,
                             Parser,
-                            ParserInfo,
+                            ParserInfo(..),
                             ParserResult(..),
                             auto,
                             command,
+                            defaultPrefs,
                             eitherReader,
                             execParserPure,
                             flag,
@@ -495,24 +496,25 @@ cmdInspect =
 cmdBuild :: Int -> Mod CommandFields Command
 cmdBuild numProcessors =
     command "build" $
-    info (helper <*> cmd) $
+    info (helper <*> cmdBuildParser numProcessors) $
     progDesc "Initialize, build and package the Daml project" <> fullDesc
-  where
-    cmd =
-        execBuild
-            <$> projectOpts "daml build"
-            <*> optionsParser
-                  numProcessors
-                  (EnableScenarioService False)
-                  (pure Nothing)
-                  disabledDlintUsageParser
-            <*> optionalOutputFileOpt
-            <*> incrementalBuildOpt
-            <*> initPkgDbOpt
-            <*> enableMultiPackageOpt
-            <*> multiPackageBuildAllOpt
-            <*> multiPackageNoCacheOpt
-            <*> multiPackageLocationOpt
+    
+cmdBuildParser :: Int -> Parser Command
+cmdBuildParser numProcessors =
+    execBuild
+        <$> projectOpts "daml build"
+        <*> optionsParser
+              numProcessors
+              (EnableScenarioService False)
+              (pure Nothing)
+              disabledDlintUsageParser
+        <*> optionalOutputFileOpt
+        <*> incrementalBuildOpt
+        <*> initPkgDbOpt
+        <*> enableMultiPackageOpt
+        <*> multiPackageBuildAllOpt
+        <*> multiPackageNoCacheOpt
+        <*> multiPackageLocationOpt
 
 cmdRepl :: Int -> Mod CommandFields Command
 cmdRepl numProcessors =
@@ -1629,9 +1631,9 @@ options numProcessors =
         <> cmdClean
       )
 
-parserInfo :: Int -> ParserInfo Command
-parserInfo numProcessors =
-  info (helper <*> options numProcessors)
+parserInfo :: Int -> Bool -> ParserInfo Command
+parserInfo numProcessors addBuildArgsBackupParser =
+  info (backupParserWithBuildArgs addBuildArgsBackupParser $ helper <*> options numProcessors)
     (  fullDesc
     <> progDesc "Invoke the Daml compiler. Use -h for help."
     <> headerDoc (Just $ PP.vcat
@@ -1639,6 +1641,11 @@ parserInfo numProcessors =
         , buildInfo
         ])
     )
+
+-- | Add the build parser as a backup for when we're adding the CLI args from daml.yaml, incase whatever command
+-- we're running doesn't recognise all of the `build-options:` e.g. `daml test` cannot use `--output`
+backupParserWithBuildArgs :: Bool -> Parser Command -> Parser Command
+backupParserWithBuildArgs shouldBackup parser = if shouldBackup then parser <* cmdBuildParser 1 else parser
 
 -- | Attempts to find the --output flag in the given build-options for a package
 -- Given the many ways --output can be specified, we invoke the parser directly
@@ -1727,6 +1734,31 @@ cliArgsFromDamlYaml =
     Left _ -> []
     Right xs -> xs
 
+fullParseArgs :: Int -> [String] -> IO Command
+fullParseArgs numProcessors cliArgs = do
+    let parse :: [String] -> Maybe [String] -> ([String], ParserResult Command)
+        parse args mBuildOptions =
+          case mBuildOptions of
+            Nothing -> ParseArgs.lax (parserInfo numProcessors False) args
+            Just damlYamlArgs -> ([], execParserPure defaultPrefs (parserInfo numProcessors True) $ args ++ damlYamlArgs)
+
+    let (_, tempParseResult) = parse cliArgs Nothing
+    -- Note: need to parse given args first to decide whether we need to add
+    -- args from daml.yaml.
+    Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
+
+    (errMsgs, parseResult) <- if cmdUseDamlYamlArgs cmd
+      then
+        parse cliArgs . Just <$> cliArgsFromDamlYaml mbProjectOpts
+      else
+        pure $ parse cliArgs Nothing
+
+    cmd <- handleParseResult parseResult
+    forM_ errMsgs $ \msg -> do
+        hPutStrLn stderr msg
+
+    pure cmd
+
 main :: IO ()
 main = do
     -- We need this to ensure that logs are flushed on SIGTERM.
@@ -1735,20 +1767,10 @@ main = do
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
     setRunfilesEnv
     numProcessors <- getNumProcessors
-    let parse = ParseArgs.lax (parserInfo numProcessors)
     cliArgs <- getArgs
-    let (_, tempParseResult) = parse cliArgs
-    -- Note: need to parse given args first to decide whether we need to add
-    -- args from daml.yaml.
-    Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
-    damlYamlArgs <- if cmdUseDamlYamlArgs cmd
-      then cliArgsFromDamlYaml mbProjectOpts
-      else pure []
-    let args = cliArgs ++ damlYamlArgs
-        (errMsgs, parseResult) = parse args
-    Command _ _ io <- handleParseResult parseResult
-    forM_ errMsgs $ \msg -> do
-        hPutStrLn stderr msg
+
+    Command _ _ io <- fullParseArgs numProcessors cliArgs
+
     withProgName "damlc" io
 
 -- | Commands for which we add the args from daml.yaml build-options.

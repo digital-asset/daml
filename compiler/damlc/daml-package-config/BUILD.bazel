@@ -21,6 +21,7 @@ da_haskell_library(
         "regex-tdfa",
         "safe-exceptions",
         "text",
+        "transformers",
         "yaml",
     ],
     src_strip_prefix = "src",
