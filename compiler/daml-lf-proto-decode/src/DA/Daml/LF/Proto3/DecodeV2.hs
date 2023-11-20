@@ -24,7 +24,6 @@ import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
 coerceLF2toLF1 :: LF2.Package -> Either ParseError LF1.Package
 coerceLF2toLF1 package = fromByteString (BL.toStrict $ toLazyByteString package)
 
--- The package id is optional since we also call this function from decodeScenarioModule
 decodePackage :: LF.Version -> LF.PackageRef -> LF2.Package -> Either Error Package
 decodePackage version selfPackageRef package = do
   lf1Package <- first (ParseError . show) (coerceLF2toLF1 package)

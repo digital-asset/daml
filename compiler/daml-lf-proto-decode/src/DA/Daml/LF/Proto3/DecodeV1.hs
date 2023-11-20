@@ -174,7 +174,6 @@ decodeInternedDottedName (LF1.InternedDottedName ids) = do
     (mangled, unmangledOrErr) <- mapAndUnzipM lookupString (V.toList ids)
     pure (mangled, sequence unmangledOrErr)
 
--- The package id is optional since we also call this function from decodeScenarioModule
 decodePackage :: LF.Version -> LF.PackageRef -> LF1.Package -> Either Error Package
 decodePackage version selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV metadata internedTypesV) = do
   let internedStrings = V.map decodeMangledString internedStringsV
