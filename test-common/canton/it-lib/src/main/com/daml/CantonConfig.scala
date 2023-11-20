@@ -53,6 +53,7 @@ final case class CantonConfig(
     debug: Boolean = false,
     bootstrapScript: Option[String] = None,
     enableUpgrade: Boolean = false,
+    targetScope: Option[String] = None,
 ) {
 
   lazy val tlsConfig =
@@ -78,7 +79,7 @@ final case class CantonConfig(
   lazy val ledgerIds = participantIds.asInstanceOf[Vector[String]]
 
   def getToken(userId: Ref.IdString.UserId): Option[String] =
-    CantonRunner.getToken(userId, authSecret)
+    CantonRunner.getToken(userId, authSecret, targetScope)
 
   lazy val adminToken: Option[String] = getToken(CantonRunner.adminUserId)
 

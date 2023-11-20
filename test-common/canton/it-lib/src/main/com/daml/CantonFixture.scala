@@ -62,6 +62,7 @@ trait CantonFixtureWithResource[A]
   protected lazy val bootstrapScript: Option[String] = Option.empty
   protected lazy val applicationId: ApplicationId = ApplicationId(getClass.getName)
   protected lazy val cantonJar: Path = CantonRunner.cantonPath
+  protected lazy val targetScope: Option[String] = Option.empty
 
   // This flag setup some behavior to ease debugging tests.
   //  If `true`
@@ -107,6 +108,7 @@ trait CantonFixtureWithResource[A]
     debug = cantonFixtureDebugMode,
     bootstrapScript = bootstrapScript,
     enableUpgrade = enableContractUpgrading,
+    targetScope = targetScope,
   )
 
   protected def info(msg: String): Unit =
