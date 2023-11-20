@@ -245,7 +245,7 @@ object AuthServiceJWTCodec {
       )
   }
 
-  def readScopeBasedToken(value: JsValue): AuthServiceJWTPayload = value match {
+  def readScopeBasedToken(value: JsValue): StandardJWTPayload = value match {
     case JsObject(fields) =>
       StandardJWTPayload(
         issuer = readOptionalString(propIss, fields),
@@ -264,7 +264,7 @@ object AuthServiceJWTCodec {
 
   def readScopeBasedTokenFromString(
       targetScope: String
-  )(value: String): Try[AuthServiceJWTPayload] =
+  )(value: String): Try[StandardJWTPayload] =
     for {
       json <- Try(value.parseJson)
       parsed <- Try(readScopeBasedToken(json))
