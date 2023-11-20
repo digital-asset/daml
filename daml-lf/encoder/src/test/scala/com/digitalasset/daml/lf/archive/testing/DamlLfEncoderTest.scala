@@ -6,8 +6,13 @@ package com.daml.lf.testing.archive
 import java.io.File
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.daml_lf_dev.{DamlLf1, DamlLf2}
-import com.daml.lf.archive.{ArchivePayload, Dar, UniversalArchiveDecoder, UniversalArchiveReader}
-import com.daml.lf.archive.DecodeV1
+import com.daml.lf.archive.{
+  ArchivePayload,
+  Dar,
+  DecodeCommon,
+  UniversalArchiveDecoder,
+  UniversalArchiveReader,
+}
 import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.data.Ref.ModuleName
 import com.daml.lf.language.Ast
@@ -156,8 +161,8 @@ class DamlLfEncoderTest
             .values
             .collect { case Ast.DValue(_, Ast.EBuiltin(builtin), _) => builtin }
             .toSet
-          val builtinsInVersion = DecodeV1.builtinFunctionInfos.collect {
-            case DecodeV1.BuiltinFunctionInfo(_, builtin, minVersion, maxVersion, _)
+          val builtinsInVersion = DecodeCommon.builtinFunctionInfos.collect {
+            case DecodeCommon.BuiltinFunctionInfo(_, builtin, minVersion, maxVersion, _)
                 if minVersion <= version && maxVersion.forall(version < _) =>
               builtin
           }.toSet

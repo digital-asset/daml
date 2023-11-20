@@ -20,7 +20,7 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
-class DecodeV1Spec
+class DecodeCommonSpec
     extends AnyWordSpec
     with Matchers
     with Inside
@@ -61,14 +61,15 @@ class DecodeV1Spec
       DamlLf1.PrimType.UNRECOGNIZED,
       DamlLf1.PrimType.DECIMAL,
     ) ++
-      DecodeV1.builtinTypeInfos.map(_.proto)) shouldBe
+      DecodeCommon.builtinTypeInfos.map(_.proto)) shouldBe
       DamlLf1.PrimType.values().toSet
 
   }
 
   "The entries of builtinFunctionInfos correspond to Protobuf DamlLf1.BuiltinFunction" in {
 
-    val s1 = Set(DamlLf1.BuiltinFunction.UNRECOGNIZED) ++ DecodeV1.builtinFunctionInfos.map(_.proto)
+    val s1 =
+      Set(DamlLf1.BuiltinFunction.UNRECOGNIZED) ++ DecodeCommon.builtinFunctionInfos.map(_.proto)
     val s2 = DamlLf1.BuiltinFunction.values().toSet
     (s1 -- s2) shouldBe Set.empty
     (s2 -- s1) shouldBe Set.empty
@@ -95,7 +96,7 @@ class DecodeV1Spec
       dottedNameTable: ImmArraySeq[Ref.DottedName] = ImmArraySeq.empty,
       typeTable: ImmArraySeq[Ast.Type] = ImmArraySeq.empty,
   ) = {
-    new DecodeV1(version.minor).Env(
+    new DecodeCommon(version).Env(
       Ref.PackageId.assertFromString("noPkgId"),
       stringTable,
       dottedNameTable,
@@ -1495,7 +1496,7 @@ class DecodeV1Spec
     }
 
     "decode resolving the interned package ID" in {
-      val decoder = new DecodeV1(version.minor)
+      val decoder = new DecodeCommon(version)
       inside(decoder.decodePackage(pkgId, dalfProto.getDamlLf1, false)) { case Right(pkg) =>
         inside(
           pkg
@@ -1511,7 +1512,7 @@ class DecodeV1Spec
   "decodePackageMetadata" should {
     "accept a valid package name and version" in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
-        new DecodeV1(version.minor).decodePackageMetadata(
+        new DecodeCommon(version).decodePackageMetadata(
           DamlLf1.PackageMetadata
             .newBuilder()
             .setNameInternedStr(0)
@@ -1529,7 +1530,7 @@ class DecodeV1Spec
     "reject a package namewith space" in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
         an[Error.Parsing] shouldBe thrownBy(
-          new DecodeV1(version.minor).decodePackageMetadata(
+          new DecodeCommon(version).decodePackageMetadata(
             DamlLf1.PackageMetadata
               .newBuilder()
               .setNameInternedStr(0)
@@ -1544,7 +1545,7 @@ class DecodeV1Spec
     "reject a package version with leading zero" in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
         an[Error.Parsing] shouldBe thrownBy(
-          new DecodeV1(version.minor).decodePackageMetadata(
+          new DecodeCommon(version).decodePackageMetadata(
             DamlLf1.PackageMetadata
               .newBuilder()
               .setNameInternedStr(0)
@@ -1559,7 +1560,7 @@ class DecodeV1Spec
     "reject a package version with a dash" in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
         an[Error.Parsing] shouldBe thrownBy(
-          new DecodeV1(version.minor).decodePackageMetadata(
+          new DecodeCommon(version).decodePackageMetadata(
             DamlLf1.PackageMetadata
               .newBuilder()
               .setNameInternedStr(0)
@@ -1574,7 +1575,7 @@ class DecodeV1Spec
     s"decode upgradedPackageId iff version >= ${LV.Features.packageUpgrades} " in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
         val result = Try(
-          new DecodeV1(version.minor).decodePackageMetadata(
+          new DecodeCommon(version).decodePackageMetadata(
             DamlLf1.PackageMetadata
               .newBuilder()
               .setNameInternedStr(0)
@@ -1615,7 +1616,7 @@ class DecodeV1Spec
   "decodePackage" should {
     "reject PackageMetadata if lf version < 1.8" in {
       forEveryVersionSuchThat(_ < LV.Features.packageMetadata) { version =>
-        val decoder = new DecodeV1(version.minor)
+        val decoder = new DecodeCommon(version)
         val pkgId = Ref.PackageId.assertFromString(
           "0000000000000000000000000000000000000000000000000000000000000000"
         )
@@ -1638,7 +1639,7 @@ class DecodeV1Spec
 
     "require PackageMetadata to be present if lf version >= 1.8" in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
-        val decoder = new DecodeV1(version.minor)
+        val decoder = new DecodeCommon(version)
         val pkgId = Ref.PackageId.assertFromString(
           "0000000000000000000000000000000000000000000000000000000000000000"
         )
@@ -1650,7 +1651,7 @@ class DecodeV1Spec
 
     "decode PackageMetadata if lf version >= 1.8" in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
-        val decoder = new DecodeV1(version.minor)
+        val decoder = new DecodeCommon(version)
         val pkgId = Ref.PackageId.assertFromString(
           "0000000000000000000000000000000000000000000000000000000000000000"
         )
@@ -1793,7 +1794,7 @@ class DecodeV1Spec
 
     "reject interned types if lf version < 1.11" in {
       forEveryVersionSuchThat(_ < LV.Features.internedTypes) { version =>
-        val decoder = new DecodeV1(version.minor)
+        val decoder = new DecodeCommon(version)
         val env = decoder.Env(
           Ref.PackageId.assertFromString("noPkgId"),
           ImmArraySeq.empty,

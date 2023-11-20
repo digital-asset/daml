@@ -16,7 +16,7 @@ private[daml] class EncodeV2(minor: LV.Minor) {
     // The DamlLf2 proto is currently a copy of DamlLf1 so we can coerce one to the other.
     // TODO (#17366): Stop delegating to EncodeV1 once the two proto definitions diverge or when
     //  certain features become exclusive to 1.x or 2.x.
-    val lf1PackagePb = new EncodeV1(minor).encodePackage(pkgId, pkg)
+    val lf1PackagePb = new EncodeCommon(LV(LV.Major.V2, minor)).encodePackage(pkgId, pkg)
     SafeProto
       .toByteString(lf1PackagePb)
       .left
