@@ -48,7 +48,14 @@ object Encode {
 
   final def encodeArchive(pkg: (PackageId, Package), version: LanguageVersion): PLF.Archive = {
 
-    val payload = data.assertRight(SafeProto.toByteString(encodePayloadOfVersion(pkg, version)))
+    val payload =
+      try {
+        data.assertRight(SafeProto.toByteString(encodePayloadOfVersion(pkg, version)))
+      } catch {
+        case e: Throwable =>
+          e.printStackTrace(System.err)
+          throw e
+      }
     val hash = PackageId.assertFromString(
       MessageDigestPrototype.Sha256.newDigest
         .digest(payload.toByteArray)

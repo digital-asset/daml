@@ -5,7 +5,7 @@ package com.daml.lf
 
 import com.daml.daml_lf_dev.{DamlLf, DamlLf1, DamlLf2}
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf.CodedInputStream
@@ -89,10 +89,22 @@ package object archive {
       .andThen(Reader.readArchivePayload(hash, _))
       .andThen(Decode.decodeArchivePayload(_, onlySerializableDataDefs))
 
-  private[lf] def moduleDecoder(ver: LanguageVersion, pkgId: PackageId): GenReader[Ast.Module] =
-    Base
-      .andThen(cos => attempt(NameOf.qualifiedNameOfCurrentFunc)(DamlLf1.Package.parseFrom(cos)))
-      .andThen(new DecodeV1(ver.minor).decodeScenarioModule(pkgId, _))
+  private[lf] def moduleDecoder(ver: LanguageVersion, pkgId: PackageId): GenReader[Ast.Module] = {
+    ver.major match {
+      case LanguageMajorVersion.V1 =>
+        Base
+          .andThen(cos =>
+            attempt(NameOf.qualifiedNameOfCurrentFunc)(DamlLf1.Package.parseFrom(cos))
+          )
+          .andThen(new DecodeV1(ver.minor).decodeScenarioModule(pkgId, _))
+      case LanguageMajorVersion.V2 =>
+        Base
+          .andThen(cos =>
+            attempt(NameOf.qualifiedNameOfCurrentFunc)(DamlLf2.Package.parseFrom(cos))
+          )
+          .andThen(new DecodeV2(ver.minor).decodeScenarioModule(pkgId, _))
+    }
+  }
 
   val DarParser: GenDarReader[DamlLf.Archive] = GenDarReader(ArchiveParser)
   val DarReader: GenDarReader[ArchivePayload] = GenDarReader(ArchiveReader)

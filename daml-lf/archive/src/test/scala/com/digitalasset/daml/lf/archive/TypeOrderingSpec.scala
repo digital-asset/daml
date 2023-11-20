@@ -17,7 +17,7 @@ class TypeOrderingSpec extends AnyWordSpec with Matchers {
     "follow archive protobuf order" in {
 
       val protoMapping =
-        DecodeV1.builtinTypeInfos.iterator.map(info => info.proto -> info.bTyp).toMap
+        DecodeCommon.builtinTypeInfos.iterator.map(info => info.proto -> info.bTyp).toMap
 
       val primTypesInProtoOrder =
         DamlLf1.PrimType.getDescriptor.getValues.asScala
