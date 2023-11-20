@@ -53,7 +53,6 @@ import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Extended as T
-import qualified Data.Text.Lazy as TL
 import Data.Tuple.Extra
 import Data.Typeable (Typeable())
 import qualified Data.Vector as V
@@ -720,7 +719,7 @@ readDalfFromFile dalfFile = do
             protoPkg <- case Proto.fromByteString bytes of
                 Left err -> fail (show err)
                 Right a -> pure a
-            case decodeScenarioModule (TL.pack $ LF.renderMinorVersion $ LF.versionMinor lfVersion) protoPkg of
+            case decodeScenarioModule lfVersion protoPkg of
                 Left err -> fail (show err)
                 Right mod -> pure mod
 
