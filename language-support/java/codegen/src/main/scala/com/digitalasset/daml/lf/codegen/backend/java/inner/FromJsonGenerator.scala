@@ -232,7 +232,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
 
     damlType match {
       case TypeCon(TypeConName(ident), typeParams) =>
-        CodeBlock.of("$T.jsonDecoder($L)", guessClass(ident), typeReaders(typeParams))
+        CodeBlock.of("$L.jsonDecoder($L)", guessClass(ident).simpleName, typeReaders(typeParams))
       case TypePrim(PrimTypeBool, _) => CodeBlock.of("$T.bool", decodeClass)
       case TypePrim(PrimTypeInt64, _) => CodeBlock.of("$T.int64", decodeClass)
       case TypeNumeric(scale) => CodeBlock.of("$T.numeric($L)", decodeClass, scale)
