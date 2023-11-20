@@ -150,6 +150,21 @@ tests = mconcat
     , ("Fails if a nested variant is a removed case", templateVariantUpgradeToRemoved)
     , ("Fails if a nested variant is an additional case when downgrading", templateVariantDowngradeFromNew)
 
+    , -- Contract key upgrades
+      ("Query an unchanged old key for a new contract", queryKeyUnchanged)
+    , ("Query a changed old key for a new contract (upgrading the key)", queryKeyUpgrade)
+    , ("Query a changed new key for a old contract (downgrading the key)", queryKeyDowngrade)
+    , broken ("ExerciseByKey command an unchanged old key for a new contract", exerciseCmdKeyUnchanged)
+    , broken ("ExerciseByKey command a changed old key for a new contract (upgrading the key)", exerciseCmdKeyUpgrade)
+    , broken ("ExerciseByKey command a changed new key for a old contract (downgrading the key)", exerciseCmdKeyDowngrade)
+    , broken ("ExerciseByKey command a changed old key for an old contract with implicit upgrade", exerciseCmdKeyUpgradeKeyImplicit)
+    , ("Fetching an unchanged old key for a new contract", fetchKeyUnchanged)
+    , ("Fetching a changed old key for a new contract (upgrading the key)", fetchKeyUpgrade)
+    , ("Fetching a changed new key for a old contract (downgrading the key)", fetchKeyDowngrade)
+    , ("ExerciseByKey in Update an unchanged old key for a new contract", exerciseUpdateKeyUnchanged)
+    , ("ExerciseByKey in Update a changed old key for a new contract (upgrading the key)", exerciseUpdateKeyUpgrade)
+    , ("ExerciseByKey in Update a changed new key for a old contract (downgrading the key)", exerciseUpdateKeyDowngrade)
+
     , -- Edge behaviour
       -- https://github.com/DACH-NY/canton/issues/14718
       broken ("Chooses the v1 contract if v2 is unvetted and package id is omitted.", packageSelectionChoosesUnvettedPackages)
@@ -609,6 +624,63 @@ templateVariantDowngradeFromNew = do
   case res of
     Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected specific failure but got " <> show res
+
+queryKeyTest : forall t1 t2 k. (Template t1, HasAgreement t1, TemplateKey t2 k, Eq t2, Show t2) => (Party -> t1) -> (Party -> k) -> (Party -> t2) -> Script ()
+queryKeyTest makeV1Contract makeV2Key makeExpectedV2Contract = do
+  a <- allocateParty "alice"
+  cid <- withExplicitPackageIds $ a `submit` createCmd (makeV1Contract a)
+  keyRes <- queryContractKey a $ makeV2Key a
+  case keyRes of
+    Some (foundCid, foundContract) | show foundCid == show cid && foundContract == makeExpectedV2Contract a -> pure ()
+    _ -> assertFail $ "Didn't find correct contract, expected " <> show (cid, makeExpectedV2Contract a) <> ", got " <> show keyRes
+
+queryKeyUnchanged : Script ()
+queryKeyUnchanged = queryKeyTest (`V1.UnchangedKey` 1) (`V2.UnchangedKeyKey` 1) (\p -> V2.UnchangedKey p 1 None)
+
+queryKeyUpgrade : Script ()
+queryKeyUpgrade = queryKeyTest (`V1.ChangedKey` 1) (\p -> V2.ChangedKeyKey p 1 None) (\p -> V2.ChangedKey p 1 None)
+
+queryKeyDowngrade : Script ()
+queryKeyDowngrade = queryKeyTest (\p -> V2.ChangedKey p 1 None) (`V1.ChangedKeyKey` 1) (`V1.ChangedKey` 1)
+
+exerciseCmdKeyTest : forall t2 t1 k c. (Template t1, HasAgreement t1, TemplateKey t2 k, Choice t2 c Text) => (Party -> t1) -> (Party -> k) -> c -> Bool -> Text -> Script ()
+exerciseCmdKeyTest makeV1Contract makeV2Key v2Choice exerciseExplicit expectedResult = do
+  a <- allocateParty "alice"
+  cid <- withExplicitPackageIds $ a `submit` createCmd (makeV1Contract a)
+  let withExerciseExplicit = if exerciseExplicit then withExplicitPackageIds else identity
+  res <- withExerciseExplicit $ a `submit` exerciseByKeyCmd @t2 (makeV2Key a) v2Choice
+  res === expectedResult
+
+exerciseCmdKeyUnchanged : Script ()
+exerciseCmdKeyUnchanged = exerciseCmdKeyTest @V2.UnchangedKey (`V1.UnchangedKey` 1) (`V2.UnchangedKeyKey` 1) V2.UnchangedKeyCall True "V2"
+
+exerciseCmdKeyUpgrade : Script ()
+exerciseCmdKeyUpgrade = exerciseCmdKeyTest @V2.ChangedKey (`V1.ChangedKey` 1) (\p -> V2.ChangedKeyKey p 1 None) V2.ChangedKeyCall True "V2"
+
+exerciseCmdKeyDowngrade : Script ()
+exerciseCmdKeyDowngrade = exerciseCmdKeyTest @V1.ChangedKey (\p -> V2.ChangedKey p 1 None) (`V1.ChangedKeyKey` 1) V1.ChangedKeyCall True "V1"
+
+exerciseCmdKeyUpgradeKeyImplicit : Script ()
+exerciseCmdKeyUpgradeKeyImplicit = exerciseCmdKeyTest @V1.ChangedKey (`V1.ChangedKey` 1) (`V1.ChangedKeyKey` 1) V1.ChangedKeyCall False "V2"
+
+fetchKeyUnchanged : Script ()
+fetchKeyUnchanged = pure ()
+
+fetchKeyUpgrade : Script ()
+fetchKeyUpgrade = pure ()
+
+fetchKeyDowngrade : Script ()
+fetchKeyDowngrade = pure ()
+
+exerciseUpdateKeyUnchanged : Script ()
+exerciseUpdateKeyUnchanged = pure ()
+
+exerciseUpdateKeyUpgrade : Script ()
+exerciseUpdateKeyUpgrade = pure ()
+
+exerciseUpdateKeyDowngrade : Script ()
+exerciseUpdateKeyDowngrade = pure ()
+
 
 packageSelectionChoosesUnvettedPackages : Script ()
 packageSelectionChoosesUnvettedPackages = do

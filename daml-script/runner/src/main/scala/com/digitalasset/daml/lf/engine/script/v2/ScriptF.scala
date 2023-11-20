@@ -441,11 +441,18 @@ object ScriptF {
       key: AnyContractKey,
   ) extends Cmd {
     private def translateKey(
-        env: Env
+        env: Env,
+        enableContractUpgrading: Boolean,
     )(id: Identifier, v: Value): Either[String, SValue] =
       for {
         keyTy <- env.lookupKeyTy(id)
-        translated <- env.valueTranslator.strictTranslateValue(keyTy, v).left.map(_.message)
+        translatorConfig =
+          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Upgradeable
+          else preprocessing.ValueTranslator.Config.Strict
+        translated <- env.valueTranslator
+          .translateValue(keyTy, v, translatorConfig)
+          .left
+          .map(_.message)
       } yield translated
 
     override def execute(env: Env)(implicit
@@ -455,7 +462,12 @@ object ScriptF {
     ): Future[SExpr] =
       for {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-        optR <- client.queryContractKey(parties, tplId, key.key, translateKey(env))
+        optR <- client.queryContractKey(
+          parties,
+          tplId,
+          key.key,
+          translateKey(env, client.enableContractUpgrading),
+        )
         optR <- Converter.toFuture(
           optR.traverse(
             Converter.fromCreated(env.valueTranslator, _, client.enableContractUpgrading)
