@@ -42,7 +42,8 @@ import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
 import scalaz._
 
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
+import java.security.{Key, KeyStore}
 import scala.concurrent.{ExecutionContext, Future}
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.jwt.domain.Jwt
@@ -261,13 +262,72 @@ object HttpService {
   }
 
   private[http] def httpsConnectionContext(config: TlsConfiguration): HttpsConnectionContext = {
-    import io.netty.buffer.ByteBufAllocator
-    val sslContext =
-      config.server
-        .getOrElse(
-          throw new IllegalArgumentException(s"$config could not be built as a server ssl context")
-        )
-    ConnectionContext.httpsServer(() => sslContext.newEngine(ByteBufAllocator.DEFAULT))
+    import java.security.SecureRandom
+    import javax.net.ssl.{SSLContext, KeyManagerFactory, TrustManagerFactory}
+
+    val keyStore = buildKeyStore(
+      config.certChainFile.get.toPath,
+      config.privateKeyFile.get.toPath,
+      config.trustCollectionFile.get.toPath,
+    )
+
+    val keyManagerFactory = KeyManagerFactory.getInstance("SunX509")
+    keyManagerFactory.init(keyStore, null)
+
+    val trustManagerFactory = TrustManagerFactory.getInstance("SunX509")
+    trustManagerFactory.init(keyStore)
+
+    val context = SSLContext.getInstance("TLS")
+    context.init(
+      keyManagerFactory.getKeyManagers,
+      trustManagerFactory.getTrustManagers,
+      new SecureRandom,
+    )
+
+    ConnectionContext.httpsServer(context)
+  }
+
+  def buildKeyStore(certFile: Path, privateKeyFile: Path, caCertFile: Path): KeyStore = {
+    import java.security.cert.CertificateFactory
+    import scala.util.Using
+
+    val alias = "key" // This can be anything as long as it's consistent.
+
+    val cf = CertificateFactory.getInstance("X.509")
+    val cert = Using.resource(Files.newInputStream(certFile)) { cf.generateCertificate(_) }
+    val caCert = Using.resource(Files.newInputStream(caCertFile)) { cf.generateCertificate(_) }
+    val privateKey = loadPrivateKey(privateKeyFile)
+
+    val keyStore = KeyStore.getInstance("PKCS12")
+    keyStore.load(null)
+    keyStore.setCertificateEntry(alias, cert)
+    keyStore.setCertificateEntry(alias, caCert)
+    keyStore.setKeyEntry(alias, privateKey, null, Array(cert, caCert))
+    keyStore
+  }
+
+  def loadPrivateKey(pkRsaPemFile: Path): Key = {
+    // TODO: Use a library to support other private key formats?
+    assert(
+      pkRsaPemFile.toString.endsWith(".pem"),
+      "Private key file must contain RSA key in pem format",
+    )
+    import java.security.spec.PKCS8EncodedKeySpec
+    import java.security.KeyFactory
+    import java.util.stream.Collectors
+
+    val pkHeader = "-----BEGIN PRIVATE KEY-----"
+    val pkFooter = "-----END PRIVATE KEY-----"
+
+    val pkBase64: String = Files
+      .lines(pkRsaPemFile)
+      .dropWhile(line => line != pkHeader)
+      .skip(1) // Drop the header line itself
+      .takeWhile(line => line != pkFooter)
+      .collect(Collectors.joining())
+    val pkBytes = java.util.Base64.getDecoder().decode(pkBase64)
+
+    KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(pkBytes))
   }
 
   private[http] def doLoad(
