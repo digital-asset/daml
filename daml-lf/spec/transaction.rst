@@ -255,7 +255,7 @@ Field ``version`` is required and must be a valid version as described under `fi
 version`_, not newer that the version of the enclosing Transaction
 message.
 
-``node_id`` is required. it is constraint as described under `field
+``node_id`` is required. it is constrained as described under `field
 node_id`_.
 
 Additionally, one of the following node types *must* be included:
