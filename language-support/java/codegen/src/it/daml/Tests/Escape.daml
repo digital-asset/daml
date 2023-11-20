@@ -16,6 +16,7 @@ data EscapeRecords int void synchronized = EscapeRecords
         int : int
         void : void
         synchronized : synchronized
+  deriving (Eq, Show)
 
 --------------------
 -- Variants
@@ -26,6 +27,10 @@ data EscapeRecords int void synchronized = EscapeRecords
 data EscapeVariants abstract new = New new
                                  | Abstract abstract
                                  | VarRecord with abstract : abstract; new : new
+  deriving (Eq, Show)
+
+data FieldVsPackage = FieldVsPackage with tests: ()
+  deriving (Eq, Show)
 
 --------------------
 -- Templates
@@ -36,6 +41,9 @@ template EscapeTemplates
     with
         int : Int
         owner : Party
+        r : EscapeRecords () () ()
+        v : EscapeVariants () ()
+        p : FieldVsPackage
     where
         signatory owner
 
