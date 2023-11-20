@@ -74,7 +74,7 @@ private[http] final case class FileBasedConfig(
       address = server.address,
       httpPort = server.port,
       portFile = server.portFile,
-      https = server.https.map(_.tlsConfiguration),
+      https = server.https.map(h => HttpsConfig(h.keyStore.file, h.keyStore.password)),
       packageReloadInterval = packageReloadInterval,
       packageMaxInboundMessageSize = packageMaxInboundMessageSize,
       maxInboundMessageSize = maxInboundMessageSize,

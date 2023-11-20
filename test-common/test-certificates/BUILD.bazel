@@ -24,6 +24,7 @@ genrule(
         "server.pem.enc",
         "server.csr",
         "server.crt",
+        "server.p12",
         "ocsp.key.pem",
         "ocsp.csr",
         "ocsp.crt",
@@ -163,6 +164,9 @@ $(location @openssl_dev_env//:openssl) req -config $(location openssl-alternativ
 # Dump out cert details
 $(location @openssl_dev_env//:openssl) x509 -noout -text -in $(location ca_alternative.crt)
 
+
+# Create keystore for server, with password of empty string
+$(location @openssl_dev_env//:openssl) pkcs12 -export -out $(location server.p12) -in $(location server.crt) -inkey $(location server.pem) -name key -CAfile $(location ca.crt) -caname root -password pass:
     """,
     tools = [
         "@openssl_dev_env//:openssl",

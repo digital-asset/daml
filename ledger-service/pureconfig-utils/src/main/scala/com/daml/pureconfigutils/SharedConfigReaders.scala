@@ -9,7 +9,6 @@ import com.daml.dbutils.JdbcConfig
 import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, JwtVerifierBase, RSA256Verifier}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.platform.services.time.TimeProviderType
-import io.netty.handler.ssl.ClientAuth
 import pureconfig.error.{CannotConvert, ConvertFailure, FailureReason}
 import pureconfig.{ConfigObjectCursor, ConfigReader, ConvertHelpers}
 import pureconfig.generic.semiauto.deriveReader
@@ -28,19 +27,12 @@ final case class HttpServerConfig(
     https: Option[HttpsConfig] = None,
 )
 final case class HttpsConfig(
-    certChainFile: File,
-    privateKeyFile: File,
-    trustCollectionFile: Option[File] = None,
-) {
-  def tlsConfiguration: TlsConfiguration =
-    TlsConfiguration(
-      enabled = true,
-      certChainFile = Some(certChainFile),
-      privateKeyFile = Some(privateKeyFile),
-      trustCollectionFile = trustCollectionFile,
-      clientAuth = ClientAuth.NONE,
-    )
-}
+    keyStore: HttpsKeyStoreConfig
+)
+final case class HttpsKeyStoreConfig(
+    file: File,
+    password: String = "",
+)
 final case class LedgerTlsConfig(
     enabled: Boolean = false,
     certChainFile: Option[File] = None,
@@ -137,6 +129,8 @@ object SharedConfigReaders {
   implicit val jdbcCfgReader: ConfigReader[JdbcConfig] = deriveReader[JdbcConfig]
 
   implicit val httpsCfgReader: ConfigReader[HttpsConfig] = deriveReader[HttpsConfig]
+  implicit val httpsKeyStoreCfgReader: ConfigReader[HttpsKeyStoreConfig] =
+    deriveReader[HttpsKeyStoreConfig]
 
   implicit val httpServerCfgReader: ConfigReader[HttpServerConfig] =
     deriveReader[HttpServerConfig]
