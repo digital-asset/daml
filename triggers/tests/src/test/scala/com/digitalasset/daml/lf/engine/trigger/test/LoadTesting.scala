@@ -80,7 +80,10 @@ abstract class LoadTesting
 }
 
 class BaseLoadTestingV1 extends BaseLoadTesting(LanguageMajorVersion.V1)
-class BaseLoadTestingV2 extends BaseLoadTesting(LanguageMajorVersion.V2)
+
+// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
+//  at the bazel target level.
+//class BaseLoadTestingV2 extends BaseLoadTesting(LanguageMajorVersion.V2)
 
 class BaseLoadTesting(override val majorLanguageVersion: LanguageMajorVersion) extends LoadTesting {
 
@@ -148,7 +151,10 @@ class BaseLoadTesting(override val majorLanguageVersion: LanguageMajorVersion) e
 }
 
 class InFlightLoadTestingV1 extends InFlightLoadTesting(LanguageMajorVersion.V1)
-class InFlightLoadTestingV2 extends InFlightLoadTesting(LanguageMajorVersion.V2)
+
+// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
+//  at the bazel target level.
+//class InFlightLoadTestingV2 extends InFlightLoadTesting(LanguageMajorVersion.V2)
 
 class InFlightLoadTesting(override val majorLanguageVersion: LanguageMajorVersion)
     extends LoadTesting {
@@ -200,7 +206,10 @@ class InFlightLoadTesting(override val majorLanguageVersion: LanguageMajorVersio
 }
 
 class ACSLoadTestingV1 extends ACSLoadTesting(LanguageMajorVersion.V1)
-class ACSLoadTestingV2 extends ACSLoadTesting(LanguageMajorVersion.V2)
+
+// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
+//  at the bazel target level.
+//class ACSLoadTestingV2 extends ACSLoadTesting(LanguageMajorVersion.V2)
 
 class ACSLoadTesting(override val majorLanguageVersion: LanguageMajorVersion) extends LoadTesting {
 
@@ -266,8 +275,11 @@ class ACSLoadTesting(override val majorLanguageVersion: LanguageMajorVersion) ex
 
 class TriggerRuleEvaluationTimeoutTestingV1
     extends TriggerRuleEvaluationTimeoutTesting(LanguageMajorVersion.V1)
-class TriggerRuleEvaluationTimeoutTestingV2
-    extends TriggerRuleEvaluationTimeoutTesting(LanguageMajorVersion.V2)
+
+// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
+//  at the bazel target level.
+//class TriggerRuleEvaluationTimeoutTestingV2
+//    extends TriggerRuleEvaluationTimeoutTesting(LanguageMajorVersion.V2)
 
 class TriggerRuleEvaluationTimeoutTesting(override val majorLanguageVersion: LanguageMajorVersion)
     extends LoadTesting {
