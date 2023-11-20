@@ -55,7 +55,7 @@ private[inner] object TemplateMethods {
       .returns(
         ParameterizedTypeName.get(
           ClassName.get(classOf[ContractFilter[_]]),
-          ClassName.bestGuess("Contract"),
+          nestedClassName(className, "Contract"),
         )
       )
       .addStatement("return $T.of(COMPANION)", classOf[ContractFilter[_]])

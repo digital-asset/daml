@@ -41,7 +41,7 @@ object InterfaceClass extends StrictLogging {
             )
             .asJava
         )
-        .addMethod(generateContractFilterMethod(interfaceViewTypeName))
+        .addMethod(generateContractFilterMethod(interfaceName, interfaceViewTypeName))
         .addField(generateInterfaceCompanionField())
         .addType(
           ContractIdClass
@@ -54,6 +54,7 @@ object InterfaceClass extends StrictLogging {
         )
         .addType(
           ContractIdClass.generateExercisesInterface(
+            interfaceName,
             interface.choices,
             typeDeclarations,
           )
@@ -104,7 +105,7 @@ object InterfaceClass extends StrictLogging {
       choiceNames: Set[ChoiceName],
       interfaceViewTypeName: ClassName,
   ): TypeSpec = {
-    val contractIdClassName = ClassName bestGuess "ContractId"
+    val contractIdClassName = nestedClassName(interfaceName, "ContractId")
     TypeSpec
       .classBuilder(companionClassName)
       .superclass(
@@ -151,7 +152,10 @@ object InterfaceClass extends StrictLogging {
       name.name.toString,
     )
 
-  private def generateContractFilterMethod(interfaceViewTypeName: ClassName): MethodSpec =
+  private def generateContractFilterMethod(
+      interfaceName: ClassName,
+      interfaceViewTypeName: ClassName,
+  ): MethodSpec =
     MethodSpec
       .methodBuilder("contractFilter")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
@@ -160,7 +164,7 @@ object InterfaceClass extends StrictLogging {
           ClassName.get(classOf[ContractFilter[_]]),
           ParameterizedTypeName.get(
             ClassName.get(classOf[Contract[_, _]]),
-            ClassName.bestGuess("ContractId"),
+            nestedClassName(interfaceName, "ContractId"),
             interfaceViewTypeName,
           ),
         )

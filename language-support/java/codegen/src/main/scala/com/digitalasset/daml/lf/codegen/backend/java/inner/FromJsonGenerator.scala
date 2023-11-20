@@ -237,7 +237,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       case TypePrim(PrimTypeParty, _) => CodeBlock.of("$T.party", decodeClass)
       case TypePrim(PrimTypeContractId, ImmArraySeq(templateType)) =>
         val contractIdType = toJavaTypeName(templateType) match {
-          case templateClass: ClassName => templateClass.nestedClass("ContractId")
+          case templateClass: ClassName => nestedClassName(templateClass, "ContractId")
           case typeVariableName: TypeVariableName =>
             ParameterizedTypeName.get(ClassName.get(classOf[ContractId[_]]), typeVariableName)
           case unexpected => sys.error(s"Unexpected type [$unexpected] for Daml type [$damlType]")

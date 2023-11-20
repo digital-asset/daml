@@ -47,6 +47,12 @@ package object inner {
       toJavaTypeName(fwt._2),
     )
 
+  // Nested classes may not have the same name as their parent.
+  private[inner] def nestedClassName(parent: ClassName, child: String) = {
+    val safeChild = if (parent.simpleName == child) child + "$" else child
+    parent.nestedClass(safeChild)
+  }
+
   private[inner] def guessClass(ident: Identifier)(implicit packagePrefixes: PackagePrefixes) =
     ClassName.bestGuess(fullyQualifiedName(ident))
 
@@ -69,7 +75,7 @@ package object inner {
       case TypePrim(PrimTypeParty, _) => ClassName.get(classOf[java.lang.String])
       case TypePrim(PrimTypeContractId, ImmArraySeq(templateType)) =>
         toJavaTypeName(templateType) match {
-          case templateClass: ClassName => templateClass.nestedClass("ContractId")
+          case templateClass: ClassName => nestedClassName(templateClass, "ContractId")
           case typeVariableName: TypeVariableName =>
             ParameterizedTypeName.get(ClassName.get(classOf[ContractId[_]]), typeVariableName)
           case unexpected => sys.error(s"Unexpected type [$unexpected] for Daml type [$damlType]")

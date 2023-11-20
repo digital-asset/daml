@@ -55,8 +55,8 @@ object ContractIdClass {
       implementedInterfaces.foreach { interfaceName =>
         val name =
           ClassName.bestGuess(fullyQualifiedName(interfaceName))
-        val interfaceContractIdName = name nestedClass "ContractId"
-        val tplContractIdClassName = templateClassName.nestedClass("ContractId")
+        val interfaceContractIdName = nestedClassName(name, "ContractId")
+        val tplContractIdClassName = nestedClassName(templateClassName, "ContractId")
         idClassBuilder.addMethod(
           MethodSpec
             .methodBuilder(s"unsafeFromInterface")
@@ -89,9 +89,11 @@ object ContractIdClass {
   private def parameterizedUpdateType(returnTypeName: TypeName): TypeName =
     ParameterizedTypeName.get(updateType, ParameterizedTypeName.get(exercisedType, returnTypeName))
   private val exercisesTypeParam = TypeVariableName get "Cmd"
-  private[inner] val exercisesInterface = ClassName bestGuess "Exercises"
+  private[inner] def exercisesInterface(className: ClassName) =
+    nestedClassName(className, "Exercises")
 
   private[inner] def generateExercisesInterface(
+      className: ClassName,
       choices: Map[ChoiceName, TemplateChoice.FWT],
       typeDeclarations: AuxiliarySignatures,
   )(implicit
@@ -102,7 +104,7 @@ object ContractIdClass {
         classOf[javaapi.data.codegen.Exercises.Archive[_]]
       else classOf[javaapi.data.codegen.Exercises[_]]
     val exercisesClass = TypeSpec
-      .interfaceBuilder(exercisesInterface)
+      .interfaceBuilder(exercisesInterface(className))
       .addTypeVariable(exercisesTypeParam)
       .addSuperinterface(
         ParameterizedTypeName
@@ -158,7 +160,7 @@ object ContractIdClass {
   ) =
     implementedInterfaces.map { interfaceName =>
       val name = ClassName.bestGuess(fullyQualifiedName(interfaceName))
-      val interfaceContractIdName = name nestedClass nestedReturn
+      val interfaceContractIdName = nestedClassName(name, nestedReturn)
       MethodSpec
         .methodBuilder("toInterface")
         .addModifiers(Modifier.PUBLIC)
@@ -205,7 +207,8 @@ object ContractIdClass {
       exerciseChoiceBuilder.build()
     }
 
-    def generateGetCompanion(markerName: ClassName, kind: For) =
+    def generateGetCompanion(markerName: ClassName, kind: For) = {
+      val contractIdClassName = nestedClassName(markerName, "ContractId")
       ClassGenUtils.generateGetCompanion(
         ParameterizedTypeName.get(
           ClassName get classOf[javaapi.data.codegen.ContractTypeCompanion[_, _, _, _]],
@@ -223,6 +226,7 @@ object ContractIdClass {
           case For.Template => ClassGenUtils.companionFieldName
         },
       )
+    }
 
     private[inner] def fromContractId(
         className: ClassName,
@@ -255,24 +259,25 @@ object ContractIdClass {
       spec.build()
     }
 
-    private[this] val contractIdClassName = ClassName bestGuess "ContractId"
-
     def create(
         templateClassName: ClassName,
         choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
         kind: For,
     ): Builder = {
-
+      val contractIdClassName = nestedClassName(templateClassName, "ContractId")
       val idClassBuilder =
         TypeSpec
-          .classBuilder("ContractId")
+          .classBuilder(contractIdClassName.simpleName)
           .superclass(
             ParameterizedTypeName
               .get(ClassName.get(classOf[javaapi.data.codegen.ContractId[_]]), templateClassName)
           )
           .addSuperinterface(
             ParameterizedTypeName
-              .get(exercisesInterface, ClassName get classOf[javaapi.data.ExerciseCommand])
+              .get(
+                exercisesInterface(templateClassName),
+                ClassName get classOf[javaapi.data.ExerciseCommand],
+              )
           )
           .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
       val constructor =
