@@ -25,12 +25,11 @@ main = do
     damlScript <- locateRunfiles (mainWorkspace </> "daml-script" </> "runner" </> exe "daml-script-binary")
     v1TestArgs <- do
       scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
-      let lfVersion = LF.versionDefault
+      let lfVersion = LF.defaultOrLatestStable LF.V1
       pure TestArgs{..}
     v2TestArgs <- do
       scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar")
-      -- TODO(#17366): replace with the latest stable version of 2.x once it exists
-      let lfVersion = LF.version2_dev
+      let lfVersion = LF.defaultOrLatestStable LF.V2
       pure TestArgs{..}
     let testTrees = map tests [v1TestArgs, v2TestArgs]
     defaultMain (testGroup "Incremental builds" testTrees)

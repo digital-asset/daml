@@ -46,7 +46,7 @@ object LanguageVersion {
     v1Versions ++ v2Versions
   }
 
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev, v2_dev) =
+  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev, v2_1, v2_dev) =
     All: @nowarn("msg=match may not be exhaustive")
 
   // TODO(#17366): Once LF2 deprecates some features, it will no longer be possible to represent
@@ -110,13 +110,11 @@ object LanguageVersion {
   def AllVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] = {
     majorLanguageVersion match {
       case Major.V1 => EarlyAccessVersions.copy(max = v1_dev)
-      case Major.V2 =>
-        // TODO(#17366): change for 2.0-2.dev once 2.0 is introduced
-        VersionRange(v2_dev, v2_dev)
+      case Major.V2 => VersionRange(v2_1, v2_dev)
     }
   }
 
-// To temporarily preserve compatibility with Canton which creates an engine
+  // To temporarily preserve compatibility with Canton which creates an engine
   // for the range (1.14, DevVersions.max) when running in dev mode and doesn't
   // distinguish between LF1 and LF2. Usage in the daml repository is forbidden.
   // TODO(#17366): delete and get Canton to use AllVersions.

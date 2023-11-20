@@ -85,7 +85,7 @@ lf_version_default = {
 #  and delete this dictionary
 lf_version_latest = {
     "1": lf_version_configuration.get("latest"),
-    "2": "2.dev",
+    "2": "2.1",
 }
 
 lf_version_configuration_versions = depset(lf_version_configuration.values()).to_list()
@@ -120,6 +120,7 @@ LF_VERSIONS = [
     "1.13",
     "1.14",
     "1.15",
+    "2.1",
 ] + LF_DEV_VERSIONS
 
 def lf_version_is_dev(versionStr):
@@ -131,8 +132,7 @@ SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["1.14", "1.15"]
 
 # The subset of LF versions accepted by the compiler's --target option.
 # Must be kept in sync with supportedOutputVersions in Version.hs.
-# TODO(#17366): add 2.0 once created
-COMPILER_LF_VERSIONS = ["1.14", "1.15"] + LF_DEV_VERSIONS
+COMPILER_LF_VERSIONS = ["1.14", "1.15", "2.1"] + LF_DEV_VERSIONS
 
 # The subset of COMPILER_LF_VERSIONS with major version 2.
 COMPILER_LF2_VERSIONS = [

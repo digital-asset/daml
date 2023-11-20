@@ -21,7 +21,8 @@ import test.variantmod.Either;
 import test.variantmod.either.*;
 
 @RunWith(JUnitPlatform.class)
-public class GenMapTestFor1_11AndFor1_12ndFor1_13AndFor1_14AndFor1_15AndFor1_devAndFor2_dev {
+public
+class GenMapTestFor1_11AndFor1_12ndFor1_13AndFor1_14AndFor1_15AndFor1_devAndFor2_1AndFor2_dev {
 
   private BigDecimal bg1() {
     return new BigDecimal("1.0000000000");

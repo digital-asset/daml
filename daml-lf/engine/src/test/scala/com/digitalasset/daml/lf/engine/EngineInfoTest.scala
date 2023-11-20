@@ -16,7 +16,7 @@ class EngineInfoTest extends AnyWordSpec with Matchers {
       engineInfoStable,
       engineEarlyAccess,
       engineInfoV1Dev,
-      engineInfoV2Dev,
+      engineInfoV2,
     ) =
       List(
         LanguageVersion.LegacyVersions,
@@ -40,8 +40,8 @@ class EngineInfoTest extends AnyWordSpec with Matchers {
       engineInfoV1Dev.show shouldBe
         "Daml-LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.12, 1.13, 1.14, 1.15, 1.dev"
 
-      engineInfoV2Dev.show shouldBe
-        "Daml-LF Engine supports LF versions: 2.dev"
+      engineInfoV2.show shouldBe
+        "Daml-LF Engine supports LF versions: 2.1, 2.dev"
     }
 
     "toString returns the same value as show" in {

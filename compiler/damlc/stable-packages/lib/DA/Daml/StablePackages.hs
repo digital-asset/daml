@@ -49,37 +49,36 @@ allV1StablePackages =
     , daStackTypes version1_14
     ]
 
--- TODO(#17366): use version2_0 everywhere once we introduce LF 2.0
 allV2StablePackages :: MS.Map PackageId Package
 allV2StablePackages =
     MS.fromList $
     map (\pkg  -> (encodePackageHash pkg, pkg))
-      [ ghcTypes version2_dev
-      , ghcPrim version2_dev
-      , ghcTuple version2_dev
-      , daTypes version2_dev
-      , daInternalTemplate version2_dev
-      , daInternalAny version2_dev
-      , daTimeTypes version2_dev
-      , daNonEmptyTypes version2_dev
-      , daDateTypes version2_dev
-      , daSemigroupTypes version2_dev
-      , daMonoidTypes version2_dev
-      , daLogicTypes version2_dev
-      , daValidationTypes version2_dev (encodePackageHash (daNonEmptyTypes version2_dev))
-      , daInternalDown version2_dev
-      , daInternalErased version2_dev
-      , daInternalNatSyn version2_dev
-      , daInternalPromotedText version2_dev
-      , daSetTypes version2_dev
-      , daExceptionGeneralError version2_dev
-      , daExceptionArithmeticError version2_dev
-      , daExceptionAssertionFailed version2_dev
-      , daExceptionPreconditionFailed version2_dev
-      , daInternalInterfaceAnyViewTypes version2_dev
-      , daActionStateType version2_dev (encodePackageHash (daTypes version2_dev))
-      , daRandomTypes version2_dev
-      , daStackTypes version2_dev
+      [ ghcTypes version2_1
+      , ghcPrim version2_1
+      , ghcTuple version2_1
+      , daTypes version2_1
+      , daInternalTemplate version2_1
+      , daInternalAny version2_1
+      , daTimeTypes version2_1
+      , daNonEmptyTypes version2_1
+      , daDateTypes version2_1
+      , daSemigroupTypes version2_1
+      , daMonoidTypes version2_1
+      , daLogicTypes version2_1
+      , daValidationTypes version2_1 (encodePackageHash (daNonEmptyTypes version2_1))
+      , daInternalDown version2_1
+      , daInternalErased version2_1
+      , daInternalNatSyn version2_1
+      , daInternalPromotedText version2_1
+      , daSetTypes version2_1
+      , daExceptionGeneralError version2_1
+      , daExceptionArithmeticError version2_1
+      , daExceptionAssertionFailed version2_1
+      , daExceptionPreconditionFailed version2_1
+      , daInternalInterfaceAnyViewTypes version2_1
+      , daActionStateType version2_1 (encodePackageHash (daTypes version2_1))
+      , daRandomTypes version2_1
+      , daStackTypes version2_1
       ]
 
 allStablePackages :: MS.Map PackageId Package
