@@ -9,7 +9,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 -- | Main entry-point of the Daml compiler
-module DA.Cli.Damlc (main) where
+module DA.Cli.Damlc (main, Command (..), fullParseArgs) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception (bracket, catch, handle, throwIO)
@@ -1734,22 +1734,14 @@ cliArgsFromDamlYaml =
     Left _ -> []
     Right xs -> xs
 
-main :: IO ()
-main = do
-    -- We need this to ensure that logs are flushed on SIGTERM.
-    installSignalHandlers
-    -- Save the runfiles environment to work around
-    -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
-    setRunfilesEnv
-    numProcessors <- getNumProcessors
-
+fullParseArgs :: Int -> [String] -> IO Command
+fullParseArgs numProcessors cliArgs = do
     let parse :: [String] -> Maybe [String] -> ([String], ParserResult Command)
         parse args mBuildOptions =
           case mBuildOptions of
             Nothing -> ParseArgs.lax (parserInfo numProcessors False) args
             Just damlYamlArgs -> ([], execParserPure defaultPrefs (parserInfo numProcessors True) $ args ++ damlYamlArgs)
 
-    cliArgs <- getArgs
     let (_, tempParseResult) = parse cliArgs Nothing
     -- Note: need to parse given args first to decide whether we need to add
     -- args from daml.yaml.
@@ -1761,9 +1753,23 @@ main = do
       else
         pure $ parse cliArgs Nothing
 
-    Command _ _ io <- handleParseResult parseResult
+    cmd <- handleParseResult parseResult
     forM_ errMsgs $ \msg -> do
         hPutStrLn stderr msg
+
+    pure cmd
+
+main :: IO ()
+main = do
+    -- We need this to ensure that logs are flushed on SIGTERM.
+    installSignalHandlers
+    -- Save the runfiles environment to work around
+    -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
+    setRunfilesEnv
+    numProcessors <- getNumProcessors
+    cliArgs <- getArgs
+
+    Command _ _ io <- fullParseArgs numProcessors cliArgs
 
     withProgName "damlc" io
 

@@ -9,21 +9,26 @@ load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_configuration", "lf_version_latest")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 
-# Tests for the lax CLI parser
+# Tests for the lax CLI parser + damlc CLI parser
 da_haskell_test(
     name = "damlc-cliparser",
     srcs = ["src/CliParser.hs"],
     hackage_deps = [
-        "tasty",
         "base",
+        "directory",
+        "extra",
         "optparse-applicative",
+        "silently",
         "tasty-hunit",
+        "tasty",
+        "text",
     ],
     main_function = "Cli.main",
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
         "//compiler/damlc:damlc-lib",
+        "//libs-haskell/da-hs-base",
     ],
 )
 
