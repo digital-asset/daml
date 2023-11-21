@@ -206,17 +206,6 @@ jobs:
                          | sort -V \
                          | tail -1)
 
-        os_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-open-source-$canton_version.tar.gz"
-        os_tmp=$(mktemp)
-        curl -u $AUTH --fail --location --silent "$os_url" > $os_tmp
-        os_sha=$(sha256sum $os_tmp | awk '{print $1}')
-        os_url_path=canton-stable/$canton_version/$os_sha/canton-open-source-$canton_version.tar.gz
-        os_upload_url=gs://daml-binaries/$os_url_path
-        os_download_url=https://storage.googleapis.com/daml-binaries/$os_url_path
-        if ! gcs "$GCRED" ls $os_upload_url; then
-            gcs "$GCRED" cp $os_tmp $os_upload_url
-        fi
-
         ee_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-enterprise-$canton_version.tar.gz"
         ee_tmp=$(mktemp)
         curl -u $AUTH --fail --location --silent "$ee_url" > $ee_tmp
@@ -234,16 +223,6 @@ jobs:
         fi
 
         sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
-        sed -e 's/^/# /' COPY > canton_dep.bzl
-        cat <<EOF >> canton_dep.bzl
-
-        canton = {
-            "sha": "$os_sha",
-            "url": "$os_download_url",
-            "local": False,
-        }
-        EOF
-
         sed -i "s|CANTON_ENTERPRISE_VERSION=.*|CANTON_ENTERPRISE_VERSION=$canton_version|" test-common/canton/BUILD.bazel
         sed -i "s|CANTON_ENTERPRISE_SHA=.*|CANTON_ENTERPRISE_SHA=$ee_sha|" test-common/canton/BUILD.bazel
         sed -i "s|CANTON_ENTERPRISE_URL=.*|CANTON_ENTERPRISE_URL=$ee_target_url|" test-common/canton/BUILD.bazel
