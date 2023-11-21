@@ -24,7 +24,7 @@ echo_eval () {
 
 check_daml_version_indicates_correct () {
   target_version=$1
-  daml_version_output=$(daml version | grep -ve "^SDK versions:$" -e 'not installed')
+  daml_version_output=$($daml_exe version | grep -ve "^SDK versions:$" -e 'not installed')
   output_line_count=$(echo "$daml_version_output" | wc -l)
   if echo "$daml_version_output" | grep -qv -e "0.0.0" -e "$target_version"; then
     error_echo -e "ERROR! \`daml version\` output a version that isn't 0.0.0 or the input version $target_version.\n$daml_version_output"
@@ -36,7 +36,7 @@ check_daml_version_indicates_correct () {
 }
 
 check_daml_init_creates_daml_yaml_with () {
-  daml init
+  $daml_exe init
   if ! grep -q "sdk-version: $1" daml.yaml; then
     error_echo "ERROR! \`daml init\` did not create a daml.yaml with 'sdk-version: $1'"
   fi
@@ -77,10 +77,10 @@ check_recommend_cache_reload () {
 update_cache () {
   if [[ $version_cache_behaviour == init_old_cache ]]; then
     no_cache_override_github_endpoint $1
-    echo_eval daml version --force-reload yes
-    if daml install --install-assistant yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1; then
+    echo_eval $daml_exe version --force-reload yes
+    if $daml_exe install --install-assistant yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1; then
       echo_eval init_daml_package $tarball_release_version
-      if echo_eval daml build; then
+      if echo_eval $daml_exe build; then
         echo_eval check_daml_version_indicates_correct $tarball_release_version
         echo_eval check_dar_has_correct_metadata_version $tarball_release_version
       else
@@ -93,9 +93,9 @@ update_cache () {
 }
 
 allow_nonrelease () {
-  if echo_eval daml install --install-assistant yes --allow-install-non-release yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1; then
+  if echo_eval $daml_exe install --install-assistant yes --allow-install-non-release yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1; then
     echo_eval init_daml_package $tarball_sdk_version
-    if echo_eval daml build; then
+    if echo_eval $daml_exe build; then
       echo_eval check_daml_version_indicates_correct $tarball_sdk_version
       echo_eval check_dar_has_correct_metadata_version $tarball_sdk_version
     else
@@ -164,45 +164,51 @@ do_version_cache_behaviour () {
 }
 
 init_new_cache () {
-  cp $(realpath new_cache) $DAML_CACHE/versions.txt
+  cp $(rlocation compatibility/new_cache) $DAML_CACHE/versions.txt
 }
 
 init_old_cache () {
-  cp $(realpath old_cache) $DAML_CACHE/versions.txt
+  cp $(rlocation compatibility/old_cache) $DAML_CACHE/versions.txt
 }
 
 no_cache_override_github_endpoint () {
   rm $DAML_CACHE/versions.txt || true # don't fail if file doesn't exist
-  mkdir -p releases-endpoint
-  cp $1 "releases-endpoint/releases"
-  echo "releases-endpoint: $(realpath releases-endpoint/releases)" >> $DAML_HOME/daml-config.yaml
+  export releases_endpoint="$(mktemp -d -p "$PWD" "releases_endpoint.XXXXXXXX")"
+  mkdir -p "$releases_endpoint"
+  cp "$1" "$releases_endpoint/releases"
+  echo "releases-endpoint: $(realpath "$releases_endpoint/releases")" >> $DAML_HOME/daml-config.yaml
 }
 
 # serve a mirror of github's API to avoid usage limits
-absolute_github_api_file=$(realpath releases-github-api.json)
+absolute_github_api_file=$(rlocation compatibility/releases-github-api.json)
 if [[ ! -e "$absolute_github_api_file" ]]; then
   error_echo "ERROR: You must supply a file to be used to resolve API requests in no_cache_override_github_endpoint"
   exit 1
 fi
 
 # Serve a mirror directory of github for more speed
-mkdir -p github_mirror_directory/{v2.7.1,v2.7.4,v2.7.5,v2.8.0-snapshot.20231101.0}
-cp --no-dereference $(rlocation daml-sdk-2.7.5-tarball)/file/downloaded github_mirror_directory/v2.7.5/daml-sdk-2.7.5-linux.tar.gz
-cp --no-dereference $(rlocation daml-sdk-2.7.4-tarball)/file/downloaded github_mirror_directory/v2.7.4/daml-sdk-2.7.4-linux.tar.gz
-cp --no-dereference $(rlocation daml-sdk-2.7.1-tarball)/file/downloaded github_mirror_directory/v2.7.1/daml-sdk-2.7.1-linux.tar.gz
-cp --no-dereference $(rlocation daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball)/file/downloaded github_mirror_directory/v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz
-absolute_github_mirror_directory=$(realpath github_mirror_directory)
+export github_mirror_directory="$(mktemp -d -p "$PWD" "github-mirror-directory.XXXXXXXX")"
+echo "$github_mirror_directory"
+mkdir -p $github_mirror_directory/{v2.7.1,v2.7.4,v2.7.5,v2.8.0-snapshot.20231101.0}
+cp --no-dereference $(rlocation daml-sdk-2.7.5-tarball/file/downloaded) "$github_mirror_directory/v2.7.5/daml-sdk-2.7.5-linux.tar.gz"
+cp --no-dereference $(rlocation daml-sdk-2.7.4-tarball/file/downloaded) "$github_mirror_directory/v2.7.4/daml-sdk-2.7.4-linux.tar.gz"
+cp --no-dereference $(rlocation daml-sdk-2.7.1-tarball/file/downloaded) "$github_mirror_directory/v2.7.1/daml-sdk-2.7.1-linux.tar.gz"
+cp --no-dereference $(rlocation daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball/file/downloaded) "$github_mirror_directory/v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz"
+absolute_github_mirror_directory=$(realpath "$github_mirror_directory")
 alternate_download_line="alternate-download: $absolute_github_mirror_directory"
 
-# Create sandbox with a daml root and daml cache
-export SANDBOX_ROOT="$PWD"
-export DAML_CACHE="$PWD/cache"
-mkdir "$DAML_CACHE"
-export DAML_HOME="$PWD/daml_home"
-mkdir -p "$DAML_HOME"
-daml_exe=$1; shift
-"$(rlocation head_sdk)/$daml_exe" install --install-assistant yes "$(rlocation head_sdk)"/sdk-release-tarball-ce.tar.gz
-export PATH="$DAML_HOME/bin:$PATH"
+# Create sandbox with a daml root and daml cache, use temp dirs because windows sandboxing is poor
+export DAML_CACHE="$(mktemp -d -p "$PWD" "cache.XXXXXXXX")"
+export DAML_HOME="$(mktemp -d -p "$PWD" "daml_home.XXXXXXXX")"
+export daml_exe=$1; shift
+"$(rlocation "head_sdk/$daml_exe")" install --install-assistant yes "$(rlocation head_sdk/sdk-release-tarball-ce.tar.gz)"
+if [[ "$daml_exe" == "daml.exe" ]]; then
+  # on windows, fully qualify daml command
+  export daml_exe="$DAML_HOME/bin/daml.cmd"
+else
+  export daml_exe="daml"
+  export PATH="$DAML_HOME/bin:$PATH"
+fi
 echo "$alternate_download_line" >> $DAML_HOME/daml-config.yaml
 
 [[ "$#" -gt 0 ]] || error_echo "No command to run supplied via args"
@@ -217,7 +223,7 @@ case "$command_to_run" in
     version_cache_behaviour=$1
     shift
     do_version_cache_behaviour $version_cache_behaviour $absolute_github_api_file
-    if echo_eval daml install --install-assistant yes $install_version; then
+    if echo_eval $daml_exe install --install-assistant yes $install_version; then
       if [[ "$install_version" != "0.0.0" && "$install_version" != "latest" ]]; then
         echo_eval check_daml_version_indicates_correct $install_version
         echo_eval check_daml_init_creates_daml_yaml_with $install_version
@@ -237,7 +243,7 @@ case "$command_to_run" in
     shift
     do_version_cache_behaviour $version_cache_behaviour $absolute_github_api_file
     echo_eval init_daml_package $build_version
-    if echo_eval daml build; then
+    if echo_eval $daml_exe build; then
       echo_eval check_daml_version_indicates_correct $build_version
       echo_eval check_dar_has_correct_metadata_version $build_version
     else
@@ -261,13 +267,13 @@ case "$command_to_run" in
     tarball_sdk_version=${tarball_sdk_version#*/daml-sdk-}
 
     do_version_cache_behaviour $version_cache_behaviour $absolute_github_api_file
-    if echo_eval daml install --install-assistant yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1; then
+    if echo_eval $daml_exe install --install-assistant yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1; then
       cat daml_install_output
       if ! echo_eval daml_install_from_tarball_should_succeed $tarball_path $version_cache_behaviour; then
         error_echo "ERROR: Tried to install version from tarball '$tarball_path' with cache behaviour $version_cache_behaviour, but \`daml install\` succeeded where it should have failed."
       fi
       echo_eval init_daml_package $tarball_release_version
-      if echo_eval daml build; then
+      if echo_eval $daml_exe build; then
         echo_eval check_daml_version_indicates_correct $tarball_release_version
         echo_eval check_dar_has_correct_metadata_version $tarball_release_version
       else

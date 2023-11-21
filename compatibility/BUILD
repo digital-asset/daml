@@ -196,10 +196,10 @@ command_post_failure_behaviours = {
 [
     sh_test(
         name = "test-all-installs-{}-{}-{}-{}".format(
-            command,
-            command_target.split("/")[0],
-            version_cache_behaviour,
-            post_failure_behaviour,
+            command[:10],
+            command_target.split("/")[0][:11],
+            version_cache_behaviour[:8],
+            post_failure_behaviour[:5],
         ),
         size = "enormous",
         srcs = ["test-all-installs.sh"],
