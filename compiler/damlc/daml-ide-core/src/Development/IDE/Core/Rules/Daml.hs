@@ -721,11 +721,6 @@ readDalfFromFile dalfFile = do
             LF.V1 -> decode DecodeV1.decodeScenarioModule lfVersion
             LF.V2 -> decode DecodeV2.decodeScenarioModule lfVersion
   where
-    decode ::
-        (Proto.Message a, Show e) =>
-        (LF.Version -> a -> Either e LF.Module) ->
-        LF.Version ->
-        IO LF.Module
     decode decodeScenarioModule lfVersion = do
         bytes <- BS.readFile $ fromNormalizedFilePath dalfFile
         protoPkg <- case Proto.fromByteString bytes of
