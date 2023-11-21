@@ -38,6 +38,7 @@ private[http] final case class Config(
     tlsConfig: TlsConfiguration = TlsConfiguration(enabled = false, None, None, None),
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
+    authConfig: Option[AuthConfig] = None,
     allowNonHttps: Boolean = false,
     wsConfig: Option[WebsocketConfig] = None,
     nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
@@ -136,4 +137,19 @@ private[http] object StaticContentConfig
 
   private def helpString(prefix: String, directory: String): String =
     s"""\"prefix=$prefix,directory=$directory\""""
+}
+
+private[http] final case class AuthConfig(
+    targetScope: Option[String]
+)
+
+private[http] object AuthConfig extends ConfigCompanion[AuthConfig, DummyImplicit]("AuthConfig") {
+
+  implicit val showInstance: Show[AuthConfig] =
+    Show.shows(a => s"AuthConfig(targetScope=${a.targetScope})")
+
+  protected[this] override def create(implicit readCtx: DummyImplicit) =
+    for {
+      targetScope <- optionalStringField("targetScope")
+    } yield AuthConfig(targetScope)
 }

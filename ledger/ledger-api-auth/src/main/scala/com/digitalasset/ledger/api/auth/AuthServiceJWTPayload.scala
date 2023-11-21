@@ -8,7 +8,7 @@ import java.time.Instant
 import org.slf4j.{Logger, LoggerFactory}
 import spray.json._
 
-import scala.util.Try
+import scala.util.{Success, Try}
 
 /** All the JWT payloads that can be used with the JWT auth service. */
 sealed abstract class AuthServiceJWTPayload extends Product with Serializable
@@ -245,7 +245,7 @@ object AuthServiceJWTCodec {
       )
   }
 
-  def readScopeBasedToken(value: JsValue): AuthServiceJWTPayload = value match {
+  def readScopeBasedToken(value: JsValue): StandardJWTPayload = value match {
     case JsObject(fields) =>
       StandardJWTPayload(
         issuer = readOptionalString(propIss, fields),
@@ -261,6 +261,18 @@ object AuthServiceJWTCodec {
         s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object"
       )
   }
+
+  def readScopeBasedTokenFromString(
+      targetScope: String
+  )(value: String): Try[StandardJWTPayload] =
+    for {
+      json <- Try(value.parseJson)
+      parsed <- Try(readScopeBasedToken(json))
+      validated <- parsed match {
+        case p: StandardJWTPayload if p.scope.contains(targetScope) => Success(p)
+        case _ => deserializationError(msg = "Unexpected scope in the token")
+      }
+    } yield validated
 
   def readFromString(value: String): Try[AuthServiceJWTPayload] =
     for {

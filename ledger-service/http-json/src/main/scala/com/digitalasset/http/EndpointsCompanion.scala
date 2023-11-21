@@ -12,12 +12,7 @@ import com.daml.http.json.SprayJson
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import util.GrpcHttpErrorCodes._
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.daml.ledger.api.auth.{
-  AuthServiceJWTCodec,
-  AuthServiceJWTPayload,
-  CustomDamlJWTPayload,
-  StandardJWTPayload,
-}
+import com.daml.ledger.api.auth.{AuthServiceJWTPayload, CustomDamlJWTPayload, StandardJWTPayload}
 import com.daml.ledger.api.domain.UserRight
 import UserRight.{CanActAs, CanReadAs}
 import com.daml.error.utils.ErrorDetails
@@ -34,12 +29,14 @@ import scalaz.syntax.std.option._
 import scalaz.{-\/, EitherT, Monad, NonEmptyList, Show, \/, \/-}
 import spray.json.JsValue
 import scalaz.syntax.std.either._
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 object EndpointsCompanion {
 
   type ValidateJwt = Jwt => Unauthorized \/ DecodedJwt[String]
+  type ParseJwt = DecodedJwt[String] => Error \/ AuthServiceJWTPayload
 
   sealed abstract class Error extends Product with Serializable
 
@@ -305,19 +302,15 @@ object EndpointsCompanion {
   private[http] def decodeAndParseJwt(
       jwt: Jwt,
       decodeJwt: ValidateJwt,
+      parseJwt: ParseJwt,
   ): Error \/ AuthServiceJWTPayload =
     decodeJwt(jwt)
-      .flatMap(a =>
-        AuthServiceJWTCodec
-          .readFromString(a.payload)
-          .toEither
-          .disjunction
-          .leftMap(Error.fromThrowable)
-      )
+      .flatMap(parseJwt)
 
   private[http] def decodeAndParsePayload[A](
       jwt: Jwt,
       decodeJwt: ValidateJwt,
+      parseJwt: ParseJwt,
       userManagementClient: UserManagementClient,
       ledgerIdentityClient: LedgerIdentityClient,
   )(implicit
@@ -327,7 +320,7 @@ object EndpointsCompanion {
       ec: ExecutionContext,
   ): EitherT[Future, Error, (Jwt, A)] = {
     for {
-      token <- EitherT.either(decodeAndParseJwt(jwt, decodeJwt))
+      token <- EitherT.either(decodeAndParseJwt(jwt, decodeJwt, parseJwt))
       p <- token match {
         case standardToken: StandardJWTPayload =>
           createFromUserToken(

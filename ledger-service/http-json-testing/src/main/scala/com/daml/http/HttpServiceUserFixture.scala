@@ -52,6 +52,8 @@ trait HttpServiceUserFixture extends PekkoBeforeAndAfterAll { this: Suite =>
 
   protected final def getUniqueParty(name: String) = domain.Party(s"${name}_${uniqueId()}")
 
+  def getExpectedTargetScope: Option[String] = None
+
 }
 
 object HttpServiceUserFixture {
@@ -84,7 +86,7 @@ object HttpServiceUserFixture {
   trait UserToken extends HttpServiceUserFixture {
     this: Suite =>
     override lazy val jwtAdminNoParty: Jwt = Jwt(
-      CantonRunner.getToken("participant_admin", Some("secret")).value
+      CantonRunner.getToken("participant_admin", Some("secret"), getExpectedTargetScope).value
     )
 
     protected[this] override final def defaultWithoutNamespace = true
@@ -122,6 +124,6 @@ object HttpServiceUserFixture {
     protected final def getUniqueUserName(name: String): String = getUniqueParty(name).unwrap
 
     protected def jwtForUser(userId: String): Jwt =
-      Jwt(CantonRunner.getToken(userId, Some("secret")).value)
+      Jwt(CantonRunner.getToken(userId, Some("secret"), getExpectedTargetScope).value)
   }
 }

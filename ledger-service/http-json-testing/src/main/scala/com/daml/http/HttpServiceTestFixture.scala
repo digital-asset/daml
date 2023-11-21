@@ -95,6 +95,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
       ledgerIdOverwrite: Option[LedgerId] = None,
       token: Option[Jwt] = None,
+      targetScope: Option[String] = None,
   )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient) => Future[A])(implicit
       asys: ActorSystem,
       mat: Materializer,
@@ -122,6 +123,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         maxInboundMessageSize = maxInboundMessageSize,
         allowNonHttps = leakPasswords,
         staticContentConfig = staticContentConfig,
+        authConfig = targetScope.map(scope => new AuthConfig(Some(scope))),
         packageReloadInterval = doNotReloadPackages,
         nonRepudiation = nonRepudiation,
       )
