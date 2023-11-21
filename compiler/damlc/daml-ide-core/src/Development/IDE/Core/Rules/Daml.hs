@@ -17,7 +17,8 @@ import qualified Module as GHC
 import GhcMonad
 import Data.IORef
 import qualified Proto3.Suite             as Proto
-import DA.Daml.LF.Proto3.DecodeV1
+import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
+import qualified DA.Daml.LF.Proto3.DecodeV2 as DecodeV2
 import DA.Daml.LF.Proto3.EncodeV1
 import HscTypes
 import MkIface
@@ -714,14 +715,24 @@ hiFileName file =
 readDalfFromFile :: NormalizedFilePath -> Action LF.Module
 readDalfFromFile dalfFile = do
     lfVersion <- getDamlLfVersion
-    liftIO $ do
-            bytes <- BS.readFile $ fromNormalizedFilePath dalfFile
-            protoPkg <- case Proto.fromByteString bytes of
-                Left err -> fail (show err)
-                Right a -> pure a
-            case decodeScenarioModule lfVersion protoPkg of
-                Left err -> fail (show err)
-                Right mod -> pure mod
+    liftIO $
+        case LF.versionMajor lfVersion of
+            LF.V1 -> decode DecodeV1.decodeScenarioModule lfVersion
+            LF.V2 -> decode DecodeV2.decodeScenarioModule lfVersion
+  where
+    decode ::
+        (Proto.Message a, Show e) =>
+        (LF.Version -> a -> Either e LF.Module) ->
+        LF.Version ->
+        IO LF.Module
+    decode decodeScenarioModule lfVersion = do
+        bytes <- BS.readFile $ fromNormalizedFilePath dalfFile
+        protoPkg <- case Proto.fromByteString bytes of
+            Left err -> fail (show err)
+            Right a -> pure a
+        case decodeScenarioModule lfVersion protoPkg of
+            Left err -> fail (show err)
+            Right mod -> pure mod
 
 writeDalfFile :: NormalizedFilePath -> LF.Module -> Action ()
 writeDalfFile dalfFile mod = do

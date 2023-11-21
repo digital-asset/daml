@@ -380,6 +380,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
+        "//daml-script/daml3:daml3-script.dar",
         "//daml-script/runner:daml-script-binary",
     ],
     hackage_deps = [
@@ -399,6 +400,7 @@ da_haskell_test(
         "//:sdk-version-hs-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
+        "//compiler/daml-lf-ast",
     ],
 )
 
