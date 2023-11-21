@@ -131,7 +131,7 @@ genrule(
         mkdir -p $$OUT/finance-payoff-modeling
         tar xf $(location @daml-finance//:payoff-modeling) -C $$OUT/finance-payoff-modeling
 
-        find $$OUT -name NO_AUTO_COPYRIGHT -exec rm '{}' \;
+        find $$OUT -name NO_AUTO_COPYRIGHT -exec rm '{}' \\;
 
         DIR=$$(pwd)
         cd $$OUT/..
