@@ -3,6 +3,7 @@
 
 package com.daml.ledger.javaapi.data.codegen.json;
 
+import static com.daml.ledger.javaapi.data.codegen.json.JsonLfWriter.opts;
 import static com.daml.ledger.javaapi.data.codegen.json.TestHelpers.*;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -12,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.daml.ledger.javaapi.data.Unit;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.math.BigDecimal;
 import java.time.Month;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -46,6 +48,13 @@ public class JsonLfEncodersTest {
   }
 
   @Test
+  void testInt64AsString() throws IOException {
+    StringWriter sw = new StringWriter();
+    JsonLfEncoders.int64(42L).encode(new JsonLfWriter(sw, opts().encodeInt64AsString(true)));
+    assertEquals("\"42\"", sw.toString());
+  }
+
+  @Test
   void testNumeric() throws IOException {
     checkWriteAll(
         JsonLfEncoders::numeric,
@@ -60,6 +69,14 @@ public class JsonLfEncodersTest {
         Case.of(
             dec("9999999999999999999999999999.9999999999"),
             "9999999999999999999999999999.9999999999"));
+  }
+
+  @Test
+  void testNumericAsString() throws IOException {
+    StringWriter sw = new StringWriter();
+    JsonLfEncoders.numeric(new BigDecimal(0.5))
+        .encode(new JsonLfWriter(sw, opts().encodeNumericAsString(true)));
+    assertEquals("\"0.5\"", sw.toString());
   }
 
   @Test
@@ -246,7 +263,9 @@ public class JsonLfEncodersTest {
 
   String intoString(JsonLfEncoder encoder) throws IOException {
     StringWriter writer = new StringWriter();
-    encoder.encode(new JsonLfWriter(writer));
+    JsonLfWriter.Options opts =
+        JsonLfWriter.opts().encodeNumericAsString(false).encodeInt64AsString(false);
+    encoder.encode(new JsonLfWriter(writer, opts));
     return writer.toString();
   }
 

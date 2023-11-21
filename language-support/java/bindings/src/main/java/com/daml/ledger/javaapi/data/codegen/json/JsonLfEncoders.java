@@ -37,7 +37,7 @@ public class JsonLfEncoders {
   }
 
   public static JsonLfEncoder int64(Long value) {
-    return w -> w.write(String.valueOf(value));
+    return w -> w.writeInt64(value);
   }
 
   public static JsonLfEncoder text(String value) {
@@ -48,7 +48,7 @@ public class JsonLfEncoders {
   }
 
   public static JsonLfEncoder numeric(BigDecimal value) {
-    return w -> w.write(value.toString());
+    return w -> w.writeNumeric(value);
   }
 
   public static JsonLfEncoder timestamp(Instant t) {
