@@ -5,12 +5,7 @@
 // which describes the semantics of Daml-LF transactions in more detail.
 //
 // [one-line] version summary
-// * 10 -- new field key_with_maintainers in NodeFetch
-// * 11 -- add choice observer
-// * 12 -- drop value version in profit of node version
-// * 13 -- no change w.r.t. 12
-// * 14 -- add rollback nodes
-//         add by_key flag to fetch and exercise node
+// * 14 -- initial version
 // * 15 -- add interfaceId in exercise node to exercise via interface
 // * dev -- special staging area for the next version to be released
 syntax = "proto3";
@@ -49,26 +44,26 @@ message Node {
         NodeFetch fetch = 4;
         NodeExercise exercise = 5;
         NodeLookupByKey lookup_by_key = 6;
-        NodeRollback rollback = 7; // *since version 14*
+        NodeRollback rollback = 7;
     }
 
-    string version = 63; // *since 11*, optional
+    string version = 63;
 }
 
 message KeyWithMaintainers {
     oneof key {
-        com.daml.lf.value.VersionedValue key_versioned = 1; // *until version 11*
-        bytes key_unversioned = 3; // *defined in version >= 1.11*
+        com.daml.lf.value.VersionedValue key_versioned = 1; // *must not be used*
+        bytes key_unversioned = 3;
     }
     repeated string maintainers = 2; // the maintainers induced by the key
 }
 
 message NodeCreate {
     reserved 1; // was contract_id
-    ContractInstance contract_instance = 2;  // *until version 11*
-    com.daml.lf.value.Identifier template_id = 7; // *since version 12*
-    bytes arg_unversioned = 8; // *since version 12*
-    string agreement = 9; // *since version 12*
+    ContractInstance contract_instance = 2; // *must not be used*
+    com.daml.lf.value.Identifier template_id = 7;
+    bytes arg_unversioned = 8;
+    string agreement = 9;
     repeated string stakeholders = 3;
     repeated string signatories = 4;
     KeyWithMaintainers key_with_maintainers = 5;
@@ -84,7 +79,7 @@ message NodeFetch {
     reserved 5; // was value_version
     com.daml.lf.value.ContractId contract_id_struct = 6;
     KeyWithMaintainers key_with_maintainers = 8;
-    bool by_key = 9; // *since version 1.14*
+    bool by_key = 9;
 }
 
 message NodeExercise {
@@ -94,8 +89,8 @@ message NodeExercise {
     repeated string actors = 3;
     string choice = 4;
     oneof arg {
-        com.daml.lf.value.VersionedValue arg_versioned = 5; // *until version 11*
-        bytes arg_unversioned = 16; // *since version 12*
+        com.daml.lf.value.VersionedValue arg_versioned = 5; // *must not be used*
+        bytes arg_unversioned = 16;
     }
     bool consuming = 6;
     repeated string children = 7; // node ids
@@ -104,15 +99,15 @@ message NodeExercise {
     reserved 10; // was controllers
     com.daml.lf.value.ContractId contract_id_struct = 11;
     oneof result {
-        com.daml.lf.value.VersionedValue result_versioned = 12; // *until version 11*
-        bytes result_unversioned = 17; // *since version 12*
+        com.daml.lf.value.VersionedValue result_versioned = 12; // *must not be used*
+        bytes result_unversioned = 17;
     }
     reserved 13; // was contract_key
     KeyWithMaintainers key_with_maintainers = 14; // optional
-    repeated string observers = 15;  // *since version 11*
+    repeated string observers = 15;
     // No listed authorizers indicates default authorizers (signatories + actors)
     repeated string authorizers = 20;  // *since version dev*
-    bool by_key = 18; // *since version 14*
+    bool by_key = 18;
 }
 
 message NodeLookupByKey {
@@ -122,7 +117,7 @@ message NodeLookupByKey {
     com.daml.lf.value.ContractId contract_id_struct = 4;
 }
 
-message NodeRollback { // *since version 14*
+message NodeRollback {
     repeated string children = 1; // node ids
 }
 
