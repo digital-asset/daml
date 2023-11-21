@@ -2,13 +2,28 @@
 
 The new multi-package build feature improves the workflow for developers working across multiple packages at the same time.
 
-Using multi-package builds, developers can
+Using multi-package builds, developers can:
 
 - Configure `daml build` to automatically rebuild DARs used in data-dependencies when the source code corresponding to those DARs changes. This is useful in projects with multiple packages.
 - Build all of the packages in a project simultaneously using the new `daml build --all` command.
-- Clean all build artifacts in a project using `daml clean`.
+- Clean all build artifacts in a project using `daml clean --all`.
 
-Because this feature is experimental, the new behaviour for `daml build` and `daml clean` can only be used if the `--enable-multi-package=yes` flag is provided.
+### Quick Usage Overview
+
+The developer begins by configuring which packages are to be built automatically by placing a new configuration file `multi-package.yaml` at the root of their project:
+
+`multi-package.yaml`
+```yaml
+packages:
+- <path to first package>
+- <path to second package>
+```
+
+The developer then runs `daml build --all --enable-multi-package yes` from the root of their project to build all of the packages listed in the `multi-package.yaml` file, or they run `daml build` within a package to build it and its dependencies.
+
+**Note:** *Because this feature is experimental, the new behaviour for `daml build` and `daml clean` can only be used if the `--enable-multi-package=yes` flag is provided.*
+
+The rest of this document expands on use cases and usage of the CLI and the `multi-package.yaml` file.
 
 ## Problem Statement
 
@@ -59,7 +74,6 @@ The directories containing the `daml.yaml` for the various packages that should 
 For our example project, we would register `package-Model` and `package-Logic` as members of our project. We do this by placing a `multi-package.yaml` file at the root of our project, with two (preferably with relative) references to packages Model and Logic.
 
 `multi-package.yaml`
-
 ```yaml
 packages:
 - ./package-Logic
