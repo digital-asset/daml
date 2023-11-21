@@ -17,8 +17,10 @@ import qualified Module as GHC
 import GhcMonad
 import Data.IORef
 import qualified Proto3.Suite             as Proto
-import DA.Daml.LF.Proto3.DecodeV1
-import DA.Daml.LF.Proto3.EncodeV1
+import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
+import qualified DA.Daml.LF.Proto3.DecodeV2 as DecodeV2
+import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
+import qualified DA.Daml.LF.Proto3.EncodeV2 as EncodeV2
 import HscTypes
 import MkIface
 import Maybes (MaybeErr(..))
@@ -30,6 +32,7 @@ import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
+import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor))
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
@@ -53,7 +56,6 @@ import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Extended as T
-import qualified Data.Text.Lazy as TL
 import Data.Tuple.Extra
 import Data.Typeable (Typeable())
 import qualified Data.Vector as V
@@ -107,7 +109,6 @@ import SdkVersion (damlStdlib)
 import Language.Haskell.HLint4
 
 import Development.IDE.Core.Rules.Daml.SpanInfo
-import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor))
 
 -- | Get thr URI that corresponds to a virtual resource. The VS Code has a
 -- document provider that will handle our special documents.
@@ -715,20 +716,37 @@ hiFileName file =
 readDalfFromFile :: NormalizedFilePath -> Action LF.Module
 readDalfFromFile dalfFile = do
     lfVersion <- getDamlLfVersion
-    liftIO $ do
-            bytes <- BS.readFile $ fromNormalizedFilePath dalfFile
-            protoPkg <- case Proto.fromByteString bytes of
-                Left err -> fail (show err)
-                Right a -> pure a
-            case decodeScenarioModule (TL.pack $ LF.renderMinorVersion $ LF.versionMinor lfVersion) protoPkg of
-                Left err -> fail (show err)
-                Right mod -> pure mod
+    liftIO $
+        case LF.versionMajor lfVersion of
+            LF.V1 -> decode DecodeV1.decodeScenarioModule lfVersion
+            LF.V2 -> decode DecodeV2.decodeScenarioModule lfVersion
+  where
+    decode decodeScenarioModule lfVersion = do
+        bytes <- BS.readFile $ fromNormalizedFilePath dalfFile
+        protoPkg <- case Proto.fromByteString bytes of
+            Left err -> fail (show err)
+            Right a -> pure a
+        case decodeScenarioModule lfVersion protoPkg of
+            Left err -> fail (show err)
+            Right mod -> pure mod
 
 writeDalfFile :: NormalizedFilePath -> LF.Module -> Action ()
 writeDalfFile dalfFile mod = do
     lfVersion <- getDamlLfVersion
-    liftIO $ createDirectoryIfMissing True (takeDirectory $ fromNormalizedFilePath dalfFile)
-    liftIO $ BSL.writeFile (fromNormalizedFilePath dalfFile) $ Proto.toLazyByteString $ encodeScenarioModule lfVersion mod
+    liftIO $
+        case LF.versionMajor lfVersion of
+            LF.V1 -> encode EncodeV1.encodeScenarioModule lfVersion
+            LF.V2 -> encode EncodeV2.encodeScenarioModule lfVersion
+  where
+    encode encodeScenarioModule lfVersion = do
+        liftIO $
+            createDirectoryIfMissing
+                True
+                (takeDirectory $ fromNormalizedFilePath dalfFile)
+        liftIO $
+            BSL.writeFile (fromNormalizedFilePath dalfFile) $
+                Proto.toLazyByteString $
+                    encodeScenarioModule lfVersion mod
 
 -- Generates a Daml-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.
