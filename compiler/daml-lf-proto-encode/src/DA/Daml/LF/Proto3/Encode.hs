@@ -7,29 +7,15 @@ module DA.Daml.LF.Proto3.Encode
 
 import qualified Data.Text.Lazy as TL
 import Com.Daml.DamlLfDev.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
-import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
-import qualified Com.Daml.DamlLfDev.DamlLf2 as LF2
 import DA.Daml.LF.Ast
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
-import Proto3.Suite (toLazyByteString, fromByteString)
-import qualified Data.ByteString.Lazy as BL
-import Data.Either (fromRight)
+import qualified DA.Daml.LF.Proto3.EncodeV2 as EncodeV2
 
 encodePayload :: Package -> ArchivePayload
 encodePayload package = case packageLfVersion package of
     (Version V1 minor) ->
         let payload = ArchivePayloadSumDamlLf1 (EncodeV1.encodePackage package)
-        in  ArchivePayload (TL.pack $ renderMinorVersion minor) (Just payload)
+         in ArchivePayload (TL.pack $ renderMinorVersion minor) (Just payload)
     (Version V2 minor) ->
-        -- The DamlLf2 proto is currently a copy of DamlLf1 so we can coerce one to the other.
-        -- TODO(#17366): Introduce a new DamlLf2 encoder once we introduce changes to DamlLf2.
-        let payload = ArchivePayloadSumDamlLf2 (coerceLF1toLF2 (EncodeV1.encodePackage package))
-        in  ArchivePayload (TL.pack $ renderMinorVersion minor) (Just payload)
-
-
--- TODO(#17366): Delete as soon as the DamlLf2 proto diverges from the DamlLF1 one.
-coerceLF1toLF2 :: LF1.Package -> LF2.Package
-coerceLF1toLF2 package =
-  fromRight
-    (error "cannot coerce LF1 proto to LF2 proto")
-    (fromByteString (BL.toStrict $ toLazyByteString package))
+        let payload = ArchivePayloadSumDamlLf2 (EncodeV2.encodePackage package)
+         in ArchivePayload (TL.pack $ renderMinorVersion minor) (Just payload)
