@@ -122,6 +122,9 @@ rawVersionToTextWithV v = "v" <> V.toText v
 sdkVersionToText :: SdkVersion -> Text
 sdkVersionToText = V.toText . unwrapSdkVersion
 
+unresolvedReleaseVersionToString :: UnresolvedReleaseVersion -> String
+unresolvedReleaseVersionToString = V.toString . unwrapUnresolvedReleaseVersion
+
 class IsVersion a where
     isHeadVersion :: a -> Bool
 

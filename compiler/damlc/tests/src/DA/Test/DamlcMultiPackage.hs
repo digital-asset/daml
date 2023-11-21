@@ -77,6 +77,8 @@ main = do
     setEnv "DAML_HOME" damlHome True
     -- Install sdk 0.0.0 into temp DAML_HOME
     void $ readCreateProcess (proc damlAssistant ["install", release]) ""
+    -- Install a copy under the release version 10.0.0
+    void $ readCreateProcess (proc damlAssistant ["install", release, "--install-with-custom-version", "10.0.0"]) ""
     defaultMain $ tests damlAssistant
 
 tests :: FilePath -> TestTree
@@ -85,38 +87,38 @@ tests damlAssistant =
     "Multi-Package build"
     [ testGroup
         "Simple two package project"
-        [ test "Build A with search" ["--multi-package-search"] "./package-a" simpleTwoPackageProject
+        [ test "Build A with search" [] "./package-a" simpleTwoPackageProject
             $ Right [PackageIdentifier "package-a" "0.0.1"]
-        , test "Build B with search" ["--multi-package-search"] "./package-b" simpleTwoPackageProject
+        , test "Build B with search" [] "./package-b" simpleTwoPackageProject
             $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
-        , test "Build all from A with search" ["--multi-package-search", "--all"] "./package-a" simpleTwoPackageProject
+        , test "Build all from A with search" ["--all"] "./package-a" simpleTwoPackageProject
             $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
-        , test "Build all from B with search" ["--multi-package-search", "--all"] "./package-b" simpleTwoPackageProject
+        , test "Build all from B with search" ["--all"] "./package-b" simpleTwoPackageProject
             $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
         , test "Build all from root" ["--all"] "" simpleTwoPackageProject
             $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
         , test "Build all from A with explicit path" ["--all", "--multi-package-path=.."] "./package-a" simpleTwoPackageProject
             $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
-        , test "Build B from nested directory with search" ["--multi-package-search"] "./package-b/daml" simpleTwoPackageProject
+        , test "Build B from nested directory with search" [] "./package-b/daml" simpleTwoPackageProject
             $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
         ]
     , testGroup
         "Diamond project"
-        [ test "Build D with search" ["--multi-package-search"] "./package-d" diamondProject $ Right
+        [ test "Build D with search" [] "./package-d" diamondProject $ Right
             [ PackageIdentifier "package-a" "0.0.1"
             , PackageIdentifier "package-b" "0.0.1"
             , PackageIdentifier "package-c" "0.0.1"
             , PackageIdentifier "package-d" "0.0.1"
             ]
-        , test "Build C with search" ["--multi-package-search"] "./package-c" diamondProject $ Right
+        , test "Build C with search" [] "./package-c" diamondProject $ Right
             [ PackageIdentifier "package-a" "0.0.1"
             , PackageIdentifier "package-c" "0.0.1"
             ]
-        , test "Build B with search" ["--multi-package-search"] "./package-b" diamondProject $ Right
+        , test "Build B with search" [] "./package-b" diamondProject $ Right
             [ PackageIdentifier "package-a" "0.0.1"
             , PackageIdentifier "package-b" "0.0.1"
             ]
-        , test "Build A with search" ["--multi-package-search"] "./package-a" diamondProject $ Right
+        , test "Build A with search" [] "./package-a" diamondProject $ Right
             [ PackageIdentifier "package-a" "0.0.1" ]
         , test "Build all from root" ["--all"] "" diamondProject $ Right
             [ PackageIdentifier "package-a" "0.0.1"
@@ -124,7 +126,7 @@ tests damlAssistant =
             , PackageIdentifier "package-c" "0.0.1"
             , PackageIdentifier "package-d" "0.0.1"
             ]
-        , test "Build all from A" ["--multi-package-search", "--all"] "./package-a" diamondProject $ Right
+        , test "Build all from A" ["--all"] "./package-a" diamondProject $ Right
             [ PackageIdentifier "package-a" "0.0.1"
             , PackageIdentifier "package-b" "0.0.1"
             , PackageIdentifier "package-c" "0.0.1"
@@ -133,22 +135,22 @@ tests damlAssistant =
         ]
     , testGroup
         "Multi project"
-        [ test "Build package B" ["--multi-package-search"] "./packages/package-b" multiProject $ Right
+        [ test "Build package B" [] "./packages/package-b" multiProject $ Right
             [ PackageIdentifier "lib-a" "0.0.1"
             , PackageIdentifier "lib-b" "0.0.1"
             , PackageIdentifier "package-a" "0.0.1"
             , PackageIdentifier "package-b" "0.0.1"
             ]
-        , test "Build package A" ["--multi-package-search"] "./packages/package-a" multiProject $ Right
+        , test "Build package A" [] "./packages/package-a" multiProject $ Right
             [ PackageIdentifier "lib-a" "0.0.1"
             , PackageIdentifier "lib-b" "0.0.1"
             , PackageIdentifier "package-a" "0.0.1"
             ]
-        , test "Build lib B" ["--multi-package-search"] "./libs/lib-b" multiProject $ Right
+        , test "Build lib B" [] "./libs/lib-b" multiProject $ Right
             [ PackageIdentifier "lib-a" "0.0.1"
             , PackageIdentifier "lib-b" "0.0.1"
             ]
-        , test "Build lib A" ["--multi-package-search"] "./libs/lib-a" multiProject $ Right
+        , test "Build lib A" [] "./libs/lib-a" multiProject $ Right
             [ PackageIdentifier "lib-a" "0.0.1" ]
         , test "Build all from packages" ["--all"] "./packages" multiProject $ Right
             [ PackageIdentifier "lib-a" "0.0.1"
@@ -163,23 +165,33 @@ tests damlAssistant =
         ]
     , testGroup
         "Cycle detection"
-        [ test "Multi-package project cycle from lib-a" ["--multi-package-search"] "./libs/lib-a" cyclicMultiPackage $ Left "Cycle detected"
-        , test "Multi-package project cycle from package-a" ["--multi-package-search"] "./packages/package-a" cyclicMultiPackage $ Left "Cycle detected"
-        , test "Multi-package project cycle from libs --all" ["--all"] "./libs" cyclicMultiPackage $ Left "Cycle detected"
-        , test "Multi-package project cycle from packages --all" ["--all"] "./packages" cyclicMultiPackage $ Left "Cycle detected"
-        , test "Package dep cycle from package-a" ["--multi-package-search"] "./package-a" cyclicPackagesProject $ Left "recursion detected"
-        , test "Package dep cycle from package-b" ["--multi-package-search"] "./package-b" cyclicPackagesProject $ Left "recursion detected"
+        [ test "Multi-package project cycle from lib-a" [] "./libs/lib-a" cyclicMultiPackage $ Right 
+            [ PackageIdentifier "lib-a" "0.0.1" ]
+        , test "Multi-package project cycle from package-a" [] "./packages/package-a" cyclicMultiPackage $ Right
+            [ PackageIdentifier "lib-a" "0.0.1"
+            , PackageIdentifier "package-a" "0.0.1"
+            ]
+        , test "Multi-package project cycle from libs --all" ["--all"] "./libs" cyclicMultiPackage $ Right
+            [ PackageIdentifier "lib-a" "0.0.1"
+            , PackageIdentifier "package-a" "0.0.1"
+            ]
+        , test "Multi-package project cycle from packages --all" ["--all"] "./packages" cyclicMultiPackage $ Right
+            [ PackageIdentifier "lib-a" "0.0.1"
+            , PackageIdentifier "package-a" "0.0.1"
+            ]
+        , test "Package dep cycle from package-a" [] "./package-a" cyclicPackagesProject $ Left "recursion detected"
+        , test "Package dep cycle from package-b" [] "./package-b" cyclicPackagesProject $ Left "recursion detected"
         , test "Package dep cycle from root --all" ["--all"] "" cyclicPackagesProject $ Left "recursion detected"
         ]
     , testGroup
         "Special flag behaviour"
-        [ test "Multi-package build rebuilds dar with --output" ["--multi-package-search"] "./package-b" customOutPathProject
+        [ test "Multi-package build rebuilds dar with --output" [] "./package-b" customOutPathProject
             $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
         , test "Build --all doesn't forward options flags like --ghc-options" ["--all", "--ghc-option=-Werror"] "" warningProject
             $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
-        , test "Build package a forwards options flags like --ghc-options only to package a" ["--multi-package-search", "--ghc-option=-Werror"] "./package-a" warningProject
+        , test "Build package a forwards options flags like --ghc-options only to package a" ["--ghc-option=-Werror"] "./package-a" warningProject
             $ Left "Pattern match\\(es\\) are non-exhaustive"
-        , test "Build package b forwards options flags like --ghc-options only to package b" ["--multi-package-search", "--ghc-option=-Werror"] "./package-b" warningProject
+        , test "Build package b forwards options flags like --ghc-options only to package b" ["--ghc-option=-Werror"] "./package-b" warningProject
             $ Left "Created .+(\\/|\\\\)package-a-0\\.0\\.1\\.dar(.|\n)+Pattern match\\(es\\) are non-exhaustive"
             -- ^ Special regex ensures that package-a built fine (so didn't take the flag)
         ]
@@ -245,23 +257,36 @@ tests damlAssistant =
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- So second time rebuilds A and B, as B depends on A
             simpleTwoPackageProject
         , testCache
-            "B rebuilds is A is manually rebuilt after change"
+            "B rebuilds if A is manually rebuilt after change"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
-            -- Modify package-a/daml/PackageAMain.daml, Delete package-a/.daml/dist/package-a-0.0.1.dar
+            -- Modify package-a/daml/PackageAMain.daml, manually rebuild package-a/.daml/dist/package-a-0.0.1.dar
             (\manualBuild -> do
               appendFile "./package-a/daml/PackageAMain.daml" "\nmyDef = 3"
               manualBuild "./package-a"
             )
             (["--all"], "")
-            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- Both have been rebuilt
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- Both have been rebuilt (A manually)
+            simpleTwoPackageProject
+        , testCache
+            "B rebuilds if A is manually rebuilt after change and dar deleted"
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
+            -- Modify package-a/daml/PackageAMain.daml, Delete package-a/.daml/dist/package-a-0.0.1.dar
+            (\manualBuild -> do
+              appendFile "./package-a/daml/PackageAMain.daml" "\nmyDef = 3"
+              removeFile "package-a/.daml/dist/package-a-0.0.1.dar"
+              manualBuild "./package-a"
+            )
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- Both have been rebuilt (A manually)
             simpleTwoPackageProject
         , testCache
             "Top package is always built (A)"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
             (const $ pure ())
-            (["--multi-package-search"], "./package-a")
+            ([], "./package-a")
             [PackageIdentifier "package-a" "0.0.1"]
             simpleTwoPackageProject
         , testCache
@@ -269,8 +294,8 @@ tests damlAssistant =
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
             (const $ pure ())
-            (["--multi-package-search"], "./package-b")
-            [PackageIdentifier "package-b" "0.0.1"] -- B is rebuilt but gives same package-id, so A is not rebuilt
+            ([], "./package-b")
+            [PackageIdentifier "package-b" "0.0.1"]
             simpleTwoPackageProject
         , testCache
             "Only above in the dependency tree is invalidated"
@@ -312,12 +337,7 @@ tests damlAssistant =
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
             simpleTwoPackageProjectSourceDamlUpwards
-        , -- These next 4 tests rely on caching using the daml.yaml, which is currently doesn't. They should all fail.
-          -- The user-facing solution for this now is --no-cache, or building directory on that package.
-          testCache
-            -- This test works by chance, since as part of multi-build, we lookup the expected dalf in the dar,
-            -- where the dalf name is derived from the name + version in the daml.yaml. Changing it will make that dalf
-            -- non existent.
+        , testCache
             "Changing the package name/version with a fixed --output should invalidate the cache"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
@@ -325,7 +345,19 @@ tests damlAssistant =
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
             customOutPathProject
-        , testCacheFails
+        , -- This passes because *something* is setting DAML_SDK_VERSION to 0.0.0, overriding the sdk version listed in the daml.yaml
+          -- So we only detect that it has changed, but the new version isn't being used.
+          testCache
+            "Sdk version should invalidate the cache."
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+            (const $ buildProjectStructure "./package-a" $ (damlYaml "package-a" "0.0.1" []) {dySdkVersion = Just "10.0.0"})
+            (["--all"], "")
+            [PackageIdentifier "package-a" "0.0.1"]
+            simpleTwoPackageProject
+        , -- These next 3 tests rely on caching using the daml.yaml, which is currently doesn't. They should all fail.
+          -- The user-facing solution for this now is --no-cache, or building directory on that package.
+          testCacheFails
             -- This test fails as we do not check deps that aren't in the daml.yaml
             "Removing a required dependency should invalidate the cache"
             "package-b-0.0.1 should have rebuilt, but didn't" -- This is incorrect, B should have tried to rebuild and failed with a "Module not found" error.
@@ -345,7 +377,7 @@ tests damlAssistant =
             [PackageIdentifier "package-b" "0.0.1"]
             simpleTwoPackageProjectModulePrefixes
         , testCacheFails
-            "Changing ghc-options, other other `build-options` should invalidate the cache"
+            "Changing ghc-options, or other `build-options` should invalidate the cache"
             "package-b-0.0.1 should have rebuilt, but didn't"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
@@ -353,9 +385,6 @@ tests damlAssistant =
             (["--all"], "")
             [PackageIdentifier "package-b" "0.0.1"]
             warningProject
-        -- Cannot be tested until Dylans install mocking is merged.
-        -- , testCache
-        --     "Changing the sdk-version should invalidate the cache"
         ]
     ]
 

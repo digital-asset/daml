@@ -494,8 +494,6 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
-        "//compiler/daml-lf-ast",
-        "//compiler/damlc/daml-opts:daml-opts-types",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
     ],
