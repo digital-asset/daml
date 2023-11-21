@@ -27,7 +27,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
    */
   protected def testVersioned[T <: HasVersionedWrapper[_]](
       companion: HasVersionedMessageCompanion[T],
-      defaults: List[DefaultValueUntilExclusive[T, _]] = Nil,
+      defaults: List[DefaultValueUntilExclusive[T]] = Nil,
   )(implicit arb: Arbitrary[T]): Assertion =
     testVersionedCommon(companion, companion.fromByteString, defaults)
 
@@ -80,7 +80,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
   private def testVersionedCommon[T <: HasVersionedWrapper[_]](
       companion: HasVersionedMessageCompanionCommon[T],
       deserializer: ByteString => ParsingResult[_],
-      defaults: List[DefaultValueUntilExclusive[T, _]],
+      defaults: List[DefaultValueUntilExclusive[T]],
   )(implicit arb: Arbitrary[T]): Assertion = {
     implicit val protocolVersionArb = GeneratorsVersion.protocolVersionArb
 
@@ -152,7 +152,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
 }
 
 object SerializationDeserializationTestHelpers {
-  final case class DefaultValueUntilExclusive[ValueClass, T](
+  final case class DefaultValueUntilExclusive[ValueClass](
       transformer: ValueClass => ValueClass,
       untilExclusive: ProtocolVersion,
   )

@@ -70,7 +70,7 @@ trait CryptoTestHelper extends BaseTest {
 }
 
 object CryptoTestHelper {
-  final case class TestMessage(bytes: ByteString) extends HasVersionedToByteString {
+  case class TestMessage(bytes: ByteString) extends HasVersionedToByteString {
     override def toByteString(version: ProtocolVersion): ByteString = bytes
   }
 
