@@ -1,0 +1,86 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v0;
+
+import "com/digitalasset/canton/protocol/v0/common.proto";
+import "com/digitalasset/canton/protocol/v0/mediator_response.proto";
+import "com/digitalasset/canton/protocol/v0/merkle.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "scalapb/scalapb.proto";
+
+// Messages related to the transaction or transfer protocol sent by a mediator
+// sbt protobufContinuityCheck will pass even if fields are added, because the mediator is trusted.
+
+message TransactionResultMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  google.protobuf.Timestamp request_id = 1;
+  Verdict verdict = 2;
+  InformeeTree notification_tree = 5;
+}
+
+message Verdict {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  oneof some_verdict {
+    google.protobuf.Empty approve = 1;
+    RejectionReasons validator_reject = 2;
+    MediatorRejection mediator_reject = 3;
+    google.protobuf.Empty timeout = 4;
+  }
+}
+
+message RejectionReasons {
+  repeated RejectionReason reasons = 1;
+}
+
+message RejectionReason {
+  repeated string parties = 1;
+  LocalReject reject = 2;
+}
+
+message MediatorRejection {
+  enum Code {
+    MissingCode = 0;
+    InformeesNotHostedOnActiveParticipant = 1;
+    NotEnoughConfirmingParties = 2;
+    ViewThresholdBelowMinimumThreshold = 3;
+    InvalidRootHashMessage = 4;
+    Timeout = 5;
+    WrongDeclaredMediator = 6;
+    NonUniqueRequestUuid = 7;
+  }
+  Code code = 1;
+  string reason = 2;
+}
+
+message InformeeTree {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  GenTransactionTree tree = 1;
+}
+
+message MalformedMediatorRequestResult {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  google.protobuf.Timestamp request_id = 1;
+  string domain_id = 2;
+  ViewType view_type = 3;
+  MediatorRejection rejection = 4;
+}
+
+message TransferResult {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  google.protobuf.Timestamp request_id = 1;
+  oneof domain {
+    string origin_domain = 2; // result for transfer-out request
+    string target_domain = 3; // result for transfer-in request
+  }
+  repeated string informees = 4;
+  Verdict verdict = 5;
+}

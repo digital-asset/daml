@@ -1,0 +1,80 @@
+import com.digitalasset.canton.BigDecimalImplicits._
+import com.digitalasset.canton.console.ParticipantReference
+import com.digitalasset.canton.examples.java.{iou, paint}
+import com.digitalasset.canton.topology.SafeSimpleString
+import com.digitalasset.canton.protocol.ContractIdSyntax._
+
+import scala.jdk.CollectionConverters._
+
+// Use participant4 for the "export ledger", so that the "import ledger" looks more natural using participants 1 through 3
+val exportLedger = participant4
+
+// upload the Daml model to export ledger
+val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("dars/CantonExamples.dar")
+exportLedger.dars.upload(darPath)
+exportLedger.domains.connect_local(exportLedgerDomain)
+
+// allocate parties
+val houseOwners = Seq("Alice", "Bob", "Carol", "Dylan")
+val painters    = Seq("Kahlo", "OKeeffe", "Renoir", "vanGogh")
+val banks       = Seq("Citi", "PostFinance")
+
+(houseOwners ++ painters ++ banks).foreach(party => exportLedger.ledger_api.parties.allocate(party, party))
+
+// create a bunch of OfferToPaintHouseByPainter and Iou contracts
+def mayIPaintYourHouse(painter: PartyId,
+                       houseOwner: PartyId,
+                       bank: PartyId,
+                       participant: ParticipantReference) = {
+  participant.ledger_api.javaapi.commands.submit_flat(
+    Seq(painter),
+      new paint
+        .OfferToPaintHouseByPainter(houseOwner.toProtoPrimitive, painter.toProtoPrimitive, bank.toProtoPrimitive, new iou.Amount(100.toBigDecimal, "USD"))
+        .create
+        .commands.asScala.toSeq)
+}
+
+def createIou(payer: PartyId, owner: PartyId, participant: ParticipantReference) = {
+  participant.ledger_api.javaapi.commands.submit_flat(
+    Seq(payer),
+    new iou.Iou(
+      payer.toProtoPrimitive,
+      owner.toProtoPrimitive,
+      new iou.Amount(100.toBigDecimal, "USD"),
+      List.empty.asJava,
+    ).create.commands.asScala.toSeq,
+  )
+
+}
+
+def toPartyId(name: String) =
+  exportLedger.parties.list(filterParty = name + SafeSimpleString.delimiter).map(_.party).head
+
+val houseOwnersOnLedger = houseOwners.map(toPartyId)
+val paintersOnLedger    = painters.map(toPartyId)
+val banksOnLedger       = banks.map(toPartyId)
+
+for {
+  houseOwner <- houseOwnersOnLedger
+  painter    <- paintersOnLedger
+  bank       <- banksOnLedger
+} yield mayIPaintYourHouse(painter, houseOwner, bank, exportLedger)
+
+houseOwnersOnLedger.zip(banksOnLedger ++ banksOnLedger).foreach {
+  case (houseOwner, bank) => createIou(bank, houseOwner, exportLedger)
+}
+
+// imports that make the scripts inlined in the tutorial less cluttered
+import cats.syntax.either._
+import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, LedgerApiCommands}
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedCreatedEvent
+import com.digitalasset.canton.console.ConsoleEnvironment
+import com.digitalasset.canton.participant.ledger.api.client.ValueRemapper
+import com.digitalasset.canton.protocol.SerializableContractWithWitnesses
+import io.grpc.stub.AbstractStub
+
+// define clue for easier reuse of inlined test code in documentation guide
+def clue[A](_string: String)(code: => A) = code

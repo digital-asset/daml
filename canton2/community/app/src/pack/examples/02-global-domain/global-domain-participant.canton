@@ -1,0 +1,13 @@
+nodes.local.start()
+
+val domainUrl = sys.env.get("DOMAIN_URL").getOrElse("https://canton.global")
+
+val myself = participant1
+
+myself.domains.connect("global", domainUrl)
+
+myself.health.ping(myself)
+
+val da = myself.parties.list(filterParty="digitalasset").head.participants.head.participant
+
+myself.health.ping(da)

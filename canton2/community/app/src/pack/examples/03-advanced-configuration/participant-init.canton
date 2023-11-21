@@ -1,0 +1,22 @@
+
+val participant = participants.local.head
+
+// only run once
+if(participant.domains.list_registered().isEmpty) {
+
+    // connect all local participants to the domain passing a user chosen alias and the domain port as the argument
+    participants.local.foreach(_.domains.connect("mydomain", "http://localhost:10018"))
+
+    // above connect operation is asynchronous. it is generally at the discretion of the domain
+    // to decide if a participant can join and when. therefore, we need to asynchronously wait here
+    // until the participant observes its activation on the domain
+    utils.retry_until_true {
+        participant.domains.active("mydomain")
+    }
+    // synchronize vetting to ensure the participant has the package needed for the ping
+    participant.packages.synchronize_vetting()
+
+    // verify that the connection works
+    participant.health.ping(participant)
+
+}

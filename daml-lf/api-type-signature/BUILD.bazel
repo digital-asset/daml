@@ -29,6 +29,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-api-type-signature:__VERSION__"],
     visibility = [
         "//canton:__subpackages__",
+        "//canton2:__subpackages__",
         "//daml-assistant/daml-sdk:__subpackages__",
         "//daml-lf:__subpackages__",
         "//daml-script:__subpackages__",

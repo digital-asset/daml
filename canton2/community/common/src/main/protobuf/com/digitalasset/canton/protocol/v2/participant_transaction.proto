@@ -1,0 +1,83 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v2;
+
+import "com/digitalasset/canton/crypto/v0/crypto.proto";
+import "com/digitalasset/canton/protocol/v0/common.proto";
+import "com/digitalasset/canton/protocol/v0/participant_transaction.proto";
+import "com/digitalasset/canton/protocol/v1/participant_transaction.proto";
+import "scalapb/scalapb.proto";
+
+// Messages sent by a participant as part of the transaction protocol
+
+// SessionKeyLookup
+
+message SessionKeyLookup {
+  // An asymmetrically encrypted randomness to generate the session key. This session key decrypts the
+  // randomness field in `EncryptedViewMessage`
+  bytes session_key_randomness = 1;
+
+  // The fingerprint of the public key that was used to encrypt the session key randomness
+  string fingerprint = 2;
+}
+
+// EncryptedViewMessage
+
+message EncryptedViewMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  bytes view_tree = 1;
+
+  // The symmetric encryption scheme used to encrypt the view tree and the session key
+  com.digitalasset.canton.crypto.v0.SymmetricKeyScheme encryption_scheme = 2;
+
+  com.digitalasset.canton.crypto.v0.Signature submitter_participant_signature = 3; // optional
+  bytes view_hash = 4;
+  // Randomness that is symmetrically encrypted with a session key. Used in the HKDF to derive the encryption keys for the view and its subviews
+  bytes randomness = 5;
+  repeated SessionKeyLookup session_key_randomness = 6;
+  string domain_id = 7;
+  v0.ViewType view_type = 8;
+}
+
+// Compared to v1: action_description changed type from v0.ActionDescription to v1.ActionDescription
+//                 created_core changed type from v0.CreatedContract to v1.CreatedContract
+//                 core_inputs change from v0.ViewParticipantData.InputContract to v1.InputContract
+message ViewParticipantData {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+  com.digitalasset.canton.crypto.v0.Salt salt = 1;
+  repeated v1.InputContract core_inputs = 2;
+  repeated v1.CreatedContract created_core = 3;
+  repeated string created_in_subview_archived_in_core = 4; // ids of contracts created in a subview and archived in the core
+  repeated v0.ViewParticipantData.ResolvedKey resolved_keys = 5;
+  v1.ActionDescription action_description = 6;
+  v0.ViewParticipantData.RollbackContext rollback_context = 7; // optional; defaults to the empty RollbackContext if omitted.
+}
+
+// Compared to v1: templateId added to ExerciseActionDescription
+message ActionDescription {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  oneof description {
+    v0.ActionDescription.CreateActionDescription create = 1;
+    ExerciseActionDescription exercise = 2;
+    v0.ActionDescription.FetchActionDescription fetch = 3;
+    v0.ActionDescription.LookupByKeyActionDescription lookup_by_key = 4;
+  }
+
+  message ExerciseActionDescription {
+    string input_contract_id = 1;
+    string choice = 2;
+    bytes chosen_value = 3;
+    repeated string actors = 4;
+    bool by_key = 5;
+    bytes node_seed = 6;
+    string version = 7;
+    bool failed = 8;
+    optional string interface_id = 9;
+    optional string template_id = 10;
+  }
+}
