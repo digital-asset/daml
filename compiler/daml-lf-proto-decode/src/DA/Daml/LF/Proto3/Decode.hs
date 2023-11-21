@@ -19,31 +19,18 @@ import qualified Data.Text as T
 import Control.Monad.Except (throwError)
 import DA.Daml.StablePackagesList (stablePackages)
 
-decodeLf1Version :: LF.PackageId -> T.Text -> Either Error LF.Version
-decodeLf1Version pkgId minorText = do
+decodeLfVersion :: LF.MajorVersion -> LF.PackageId -> T.Text -> Either Error LF.Version
+decodeLfVersion major pkgId minorText = do
   let unsupported :: Either Error a
       unsupported = throwError (UnsupportedMinorVersion minorText)
-  -- we translate "no version" to minor version 0, since we introduced
-  -- minor versions once Daml-LF v1 was already out, and we want to be
-  -- able to parse packages that were compiled before minor versions
-  -- were a thing. DO NOT replicate this code bejond major version 1!
+  -- For LF v1, We translate "no version" to minor version 0, since we
+  -- introduced minor versions once v1 was already out, and we want to be able
+  -- to parse packages that were compiled before minor versions were a thing.
   minor <- if
-    | T.null minorText -> pure $ LF.PointStable 0
+    | major == LF.V1 && T.null minorText -> pure $ LF.PointStable 0
     | Just minor <- LF.parseMinorVersion (T.unpack minorText) -> pure minor
     | otherwise -> unsupported
-  let version = LF.Version LF.V1 minor
-  if pkgId `elem` stablePackages || version `elem` LF.supportedInputVersions
-      then pure version
-      else unsupported
-
-decodeLf2Version :: LF.PackageId -> T.Text -> Either Error LF.Version
-decodeLf2Version pkgId minorText = do
-  let unsupported :: Either Error a
-      unsupported = unsupported
-  minor <- if
-    | Just minor <- LF.parseMinorVersion (T.unpack minorText) -> pure minor
-    | otherwise -> unsupported
-  let version = LF.Version LF.V2 minor
+  let version = LF.Version major minor
   if pkgId `elem` stablePackages || version `elem` LF.supportedInputVersions
       then pure version
       else unsupported
@@ -52,10 +39,10 @@ decodePayload ::
     PackageId -> PackageRef -> ArchivePayload -> Either Error Package
 decodePayload pkgId selfPackageRef payload = case archivePayloadSum payload of
     Just (ArchivePayloadSumDamlLf1 package) -> do
-        version <- decodeLf1Version pkgId minorText
+        version <- decodeLfVersion LF.V1 pkgId minorText
         DecodeV1.decodePackage version selfPackageRef package
     Just (ArchivePayloadSumDamlLf2 package) -> do
-        version <- decodeLf2Version pkgId minorText
+        version <- decodeLfVersion LF.V2 pkgId minorText
         DecodeV2.decodePackage version selfPackageRef package
     Nothing -> Left $ ParseError "Empty payload"
   where
