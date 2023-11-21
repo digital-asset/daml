@@ -145,7 +145,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
   val (commonVersion, oldVersion, newVersion) = majorLanguageVersion match {
     case V1 => (LanguageVersion.default, LanguageVersion.v1_15, LanguageVersion.v1_dev)
     // TODO(#17366): use 2.0 once it is introduced
-    case V2 => (LanguageVersion.v2_dev, LanguageVersion.v2_dev, LanguageVersion.v2_dev)
+    case V2 => (LanguageVersion.v2_1, LanguageVersion.v2_1, LanguageVersion.v2_dev)
   }
 
   implicit val parserParameters: parser.ParserParameters[this.type] =

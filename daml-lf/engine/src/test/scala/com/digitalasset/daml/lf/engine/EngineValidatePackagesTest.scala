@@ -26,7 +26,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
   //  LanguageVersion
   val langVersion = majorLanguageVersion match {
     case LanguageMajorVersion.V1 => LanguageVersion.default
-    case LanguageMajorVersion.V2 => LanguageVersion.v2_dev
+    case LanguageMajorVersion.V2 => LanguageVersion.v2_1
   }
 
   implicit val parserParameters: parser.ParserParameters[this.type] =

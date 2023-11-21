@@ -21,7 +21,7 @@ private[daml] object ParserParameters {
       //  LanguageVersion and the introduction of v2.0
       majorLanguageVersion match {
         case LanguageMajorVersion.V1 => LanguageVersion.default
-        case LanguageMajorVersion.V2 => LanguageVersion.v2_dev
+        case LanguageMajorVersion.V2 => LanguageVersion.v2_1
       },
     )
 }
