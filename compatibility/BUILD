@@ -162,18 +162,18 @@ first_post_7587_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"
 
 command_targets = {
     "install_from_version": [
-        "2.8.0-snapshot.20231101.0",
+        "2.8.0-snapshot.20231109.2",
         "0.0.0",
         "latest",
         "2.7.1",
     ],
     "build_from_version": [
-        "2.8.0-snapshot.20231101.0",
+        "2.8.0-snapshot.20231109.2",
         "2.7.1",
         "0.0.0",
     ],
     "install_and_build_from_tarball": [
-        "v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz",
+        "v2.8.0-snapshot.20231109.2/daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-linux.tar.gz",
         "v2.7.5/daml-sdk-2.7.5-linux.tar.gz",
         "v2.7.1/daml-sdk-2.7.1-linux.tar.gz",
     ],
@@ -217,7 +217,7 @@ command_post_failure_behaviours = {
             "@daml-sdk-2.7.1-tarball//file",
             "@daml-sdk-2.7.4-tarball//file",
             "@daml-sdk-2.7.5-tarball//file",
-            "@daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball//file",
+            "@daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-tarball//file",
             "@head_sdk//:daml" if not is_windows else "@head_sdk//:daml.exe",
             "@head_sdk//:sdk-release-tarball-ce.tar.gz",
         ],

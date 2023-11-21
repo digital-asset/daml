@@ -189,11 +189,11 @@ fi
 # Serve a mirror directory of github for more speed
 export github_mirror_directory="$(mktemp -d -p "$PWD" "github-mirror-directory.XXXXXXXX")"
 echo "$github_mirror_directory"
-mkdir -p $github_mirror_directory/{v2.7.1,v2.7.4,v2.7.5,v2.8.0-snapshot.20231101.0}
+mkdir -p $github_mirror_directory/{v2.7.1,v2.7.4,v2.7.5,v2.8.0-snapshot.20231109.2}
 cp --no-dereference $(rlocation daml-sdk-2.7.5-tarball/file/downloaded) "$github_mirror_directory/v2.7.5/daml-sdk-2.7.5-linux.tar.gz"
 cp --no-dereference $(rlocation daml-sdk-2.7.4-tarball/file/downloaded) "$github_mirror_directory/v2.7.4/daml-sdk-2.7.4-linux.tar.gz"
 cp --no-dereference $(rlocation daml-sdk-2.7.1-tarball/file/downloaded) "$github_mirror_directory/v2.7.1/daml-sdk-2.7.1-linux.tar.gz"
-cp --no-dereference $(rlocation daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball/file/downloaded) "$github_mirror_directory/v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz"
+cp --no-dereference $(rlocation daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-tarball/file/downloaded) "$github_mirror_directory/v2.8.0-snapshot.20231109.2/daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-linux.tar.gz"
 absolute_github_mirror_directory=$(realpath "$github_mirror_directory")
 alternate_download_line="alternate-download: $absolute_github_mirror_directory"
 

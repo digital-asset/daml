@@ -429,14 +429,26 @@ http_file(
     urls = ["https://github.com/digital-asset/daml/releases/download/v2.7.1/daml-sdk-2.7.1-windows.tar.gz"],
 ) if is_windows else None
 
+#http_file(
+#    name = "daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball",
+#    sha256 = "80fffb3698d99d22a93387e0b3a4b85077159cca52470745d70ed4ffb5a6bdcb",
+#    urls = ["https://github.com/digital-asset/daml/releases/download/v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz"],
+#) if is_linux else None
+#
+#http_file(
+#    name = "daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball",
+#    sha256 = "98af3f68ebe65880610ff95f1b5fcf104a3bcad15779913d3b040f0ac09f42b1",
+#    urls = ["https://github.com/digital-asset/daml/releases/download/v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-windows.tar.gz"],
+#) if is_windows else None
+
 http_file(
-    name = "daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball",
-    sha256 = "80fffb3698d99d22a93387e0b3a4b85077159cca52470745d70ed4ffb5a6bdcb",
-    urls = ["https://github.com/digital-asset/daml/releases/download/v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz"],
+    name = "daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-tarball",
+    sha256 = "cf7b706076fa874b2913547bd6b064890155e656523ad94417300ead72ee19f4",
+    urls = ["https://github.com/digital-asset/daml/releases/download/v2.8.0-snapshot.20231109.2/daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-linux.tar.gz"],
 ) if is_linux else None
 
 http_file(
-    name = "daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball",
-    sha256 = "98af3f68ebe65880610ff95f1b5fcf104a3bcad15779913d3b040f0ac09f42b1",
-    urls = ["https://github.com/digital-asset/daml/releases/download/v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-windows.tar.gz"],
+    name = "daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-tarball",
+    sha256 = "d2260542d3d63178dc879f96dfd72fcbe703366ce02b3520c28b29ac3817b70f",
+    urls = ["https://github.com/digital-asset/daml/releases/download/v2.8.0-snapshot.20231109.2/daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-windows.tar.gz"],
 ) if is_windows else None
