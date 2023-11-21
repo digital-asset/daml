@@ -19,7 +19,7 @@ class MultiParticipantITV1 extends MultiParticipantIT(LanguageMajorVersion.V1)
 
 // TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
 //  at the bazel target level.
-//class MultiParticipantITV2 extends MultiParticipantIT(LanguageMajorVersion.V2)
+class MultiParticipantITV2 extends MultiParticipantIT(LanguageMajorVersion.V2)
 
 class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec
