@@ -204,6 +204,7 @@ command_post_failure_behaviours = {
         size = "enormous",
         srcs = ["test-all-installs.sh"],
         args = [
+            "daml" if not is_windows else "daml.exe",
             command,
             command_target,
             version_cache_behaviour,
@@ -217,7 +218,7 @@ command_post_failure_behaviours = {
             "@daml-sdk-2.7.4-tarball//file",
             "@daml-sdk-2.7.5-tarball//file",
             "@daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball//file",
-            "@head_sdk//:daml",
+            "@head_sdk//:daml" if not is_windows else "@head_sdk//:daml.exe",
             "@head_sdk//:sdk-release-tarball-ce.tar.gz",
         ],
         deps = ["@bazel_tools//tools/bash/runfiles"],

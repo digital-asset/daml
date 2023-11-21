@@ -200,7 +200,8 @@ export DAML_CACHE="$PWD/cache"
 mkdir "$DAML_CACHE"
 export DAML_HOME="$PWD/daml_home"
 mkdir -p "$DAML_HOME"
-"$(rlocation head_sdk)"/daml install --install-assistant yes "$(rlocation head_sdk)"/sdk-release-tarball-ce.tar.gz
+daml_exe=$1; shift
+"$(rlocation head_sdk)/$daml_exe" install --install-assistant yes "$(rlocation head_sdk)"/sdk-release-tarball-ce.tar.gz
 export PATH="$DAML_HOME/bin:$PATH"
 echo "$alternate_download_line" >> $DAML_HOME/daml-config.yaml
 
