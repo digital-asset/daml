@@ -5,23 +5,24 @@
 
 module DA.Daml.Assistant.Install
     ( InstallOptions (..)
-    , InstallEnv (..)
-    , Artifactory.ArtifactoryApiKey(..)
+    , InstallEnvF (..)
+    , InstallEnv
+    , InstallEnvWithoutVersion
+    , DAVersion.ArtifactoryApiKey(..)
     , versionInstall
     , install
     , uninstallVersion
-    , Artifactory.queryArtifactoryApiKey
+    , DAVersion.queryArtifactoryApiKey
     , pattern RawInstallTarget_Project
     ) where
 
 import DA.Directory
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
-import qualified DA.Daml.Assistant.Install.Artifactory as Artifactory
-import qualified DA.Daml.Assistant.Install.Github as Github
+import qualified DA.Daml.Assistant.Version as DAVersion
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
-import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion, UseCache (..))
+import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion, UseCache (..), resolveSdkVersionToRelease)
 import DA.Daml.Assistant.Cache (CacheTimeout (..))
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
@@ -32,7 +33,6 @@ import qualified Data.Conduit.List as List
 import qualified Data.Conduit.Tar.Extra as Tar
 import qualified Data.Conduit.Zlib as Zlib
 import Data.Either.Extra
-import qualified Data.SemVer as SemVer
 import Network.HTTP.Simple
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS.UTF8
@@ -49,6 +49,9 @@ import Control.Exception.Safe
 import System.ProgressBar
 import System.Info.Extra (isWindows)
 import Options.Applicative.Extended (determineAuto)
+import qualified Data.SemVer as V
+import qualified Data.Text as T
+import qualified Control.Exception
 
 -- unix specific
 import System.PosixCompat.Types ( FileMode )
@@ -68,10 +71,10 @@ import System.PosixCompat.Files
     , otherReadMode
     , otherExecuteMode)
 
-data InstallEnv = InstallEnv
+data InstallEnvF a = InstallEnv
     { options :: InstallOptions
         -- ^ command-line options to daml install
-    , targetVersionM :: Maybe SdkVersion
+    , targetVersionM :: a
         -- ^ target install version
     , assistantVersion :: Maybe DamlAssistantSdkVersion
         -- ^ version of running daml assistant
@@ -86,14 +89,21 @@ data InstallEnv = InstallEnv
         -- (e.g. when running install script).
     , projectPathM :: Maybe ProjectPath
         -- ^ project path (for "daml install project")
-    , artifactoryApiKeyM :: Maybe Artifactory.ArtifactoryApiKey
+    , artifactoryApiKeyM :: Maybe DAVersion.ArtifactoryApiKey
         -- ^ Artifactoyr API key used to fetch SDK EE tarball.
     , output :: String -> IO ()
         -- ^ output an informative message
     }
 
+instance Functor InstallEnvF where
+    fmap f InstallEnv{..} = InstallEnv{targetVersionM = f targetVersionM, ..}
+
+type InstallEnv = InstallEnvF (Maybe ReleaseVersion)
+type InstallEnvWithoutVersion = InstallEnvF ()
+type InstallEnvWithVersion = InstallEnvF ReleaseVersion
+
 -- | Perform action unless user has passed --quiet flag.
-unlessQuiet :: InstallEnv -> IO () -> IO ()
+unlessQuiet :: InstallEnvF a -> IO () -> IO ()
 unlessQuiet InstallEnv{..} | QuietInstall b <- iQuiet options =
     unless b
 
@@ -119,15 +129,31 @@ installExtracted :: InstallEnv -> SdkPath -> IO ()
 installExtracted env@InstallEnv{..} sourcePath =
     wrapErr "Installing extracted SDK release." $ do
         sourceConfig <- readSdkConfig sourcePath
-        sourceVersion <- fromRightM throwIO (sdkVersionFromSdkConfig sourceConfig)
+        sourceSdkVersion <- fromRightM throwIO (sdkVersionFromSdkConfig sourceConfig)
 
         -- Check that source version matches expected target version.
-        whenJust targetVersionM $ \targetVersion -> do
-            unless (sourceVersion == targetVersion) $ do
+        -- If there is no target version, that means we're installing directly
+        -- from a tarball, in which case we try to resolve the sdk version to a
+        -- release version using the cache, failing if we don't find anything.
+        sourceVersion <- case targetVersionM of
+          Just targetVersion -> do
+            unless (sourceSdkVersion == sdkVersionFromReleaseVersion targetVersion) $ do
                 throwIO $ assistantErrorBecause
                     "SDK release version mismatch."
-                    ("Expected " <> versionToText targetVersion
-                    <> " but got version " <> versionToText sourceVersion)
+                    ("Expected " <> sdkVersionToText (sdkVersionFromReleaseVersion targetVersion)
+                    <> " but got version " <> sdkVersionToText sourceSdkVersion)
+            pure targetVersion
+          Nothing -> do
+            sourceVersionOrErr <- resolveSdkVersionToRelease useCache sourceSdkVersion
+            let errMsg =
+                    "Failed to retrieve release version for sdk version " <> V.toText (unwrapSdkVersion sourceSdkVersion)
+                        <> " from sdk path " <> T.pack (unwrapSdkPath sourcePath)
+            if unAllowInstallNonRelease (iAllowInstallNonRelease options)
+               then -- NOTE: Using the SDK version as the release version is
+                    -- only enabled by --allow-install-non-release, which is a
+                    -- flag only for devs
+                    pure (OldReleaseVersion (unwrapSdkVersion sourceSdkVersion))
+               else requiredE errMsg sourceVersionOrErr
 
         -- Set file mode of files to install.
         requiredIO "Failed to set file modes for extracted SDK files." $
@@ -177,7 +203,7 @@ installExtracted env@InstallEnv{..} sourcePath =
         requiredIO "Failed to set file mode of installed SDK directory." $
             setSdkFileMode (unwrapSdkPath targetPath)
 
-        when (shouldInstallAssistant env sourceVersion) $
+        when (shouldInstallAssistant env { targetVersionM = sourceVersion }) $
             activateDaml env targetPath
 
 installedAssistantPath :: DamlPath -> FilePath
@@ -185,7 +211,7 @@ installedAssistantPath damlPath =
     let damlName = if isWindows then "daml.cmd" else "daml"
     in unwrapDamlPath damlPath </> "bin" </> damlName
 
-activateDaml :: InstallEnv -> SdkPath -> IO ()
+activateDaml :: InstallEnvF a -> SdkPath -> IO ()
 activateDaml env@InstallEnv{..} targetPath = do
 
     let damlSourceName = if isWindows then "daml.exe" else "daml"
@@ -278,7 +304,7 @@ fileModeMask = foldl1 unionFileModes
     ]
 
 -- | Copy an extracted SDK release directory and install it.
-copyAndInstall :: InstallEnv -> FilePath -> IO ()
+copyAndInstall :: InstallEnvWithoutVersion -> FilePath -> IO ()
 copyAndInstall env sourcePath =
     wrapErr "Copying SDK release directory." $ do
         withSystemTempDirectory "daml-update" $ \tmp -> do
@@ -292,7 +318,7 @@ copyAndInstall env sourcePath =
                 , walkOnDirectoryPost = \_ -> pure ()
                 }
 
-            installExtracted env (SdkPath copyPath)
+            installExtracted (fmap (\() -> Nothing) env) (SdkPath copyPath)
 
 -- | Extract a tarGz bytestring and install it.
 extractAndInstall :: InstallEnv
@@ -310,33 +336,48 @@ extractAndInstall env source =
     where throwError msg e = liftIO $ throwIO $ assistantErrorBecause ("Invalid SDK release: " <> msg) e
 
 -- | Download an sdk tarball and install it.
-httpInstall :: InstallEnv -> SdkVersion -> IO ()
-httpInstall env@InstallEnv{..} releaseVersion = do
+httpInstall :: InstallEnvWithVersion -> IO ()
+httpInstall env@InstallEnv{targetVersionM = releaseVersion, ..} = do
     unlessQuiet env $ output "Downloading SDK release."
     requiredAny "Failed to download SDK release." $ do
-        sdkVersion <- Github.getSdkVersionFromEnterpriseVersion releaseVersion
-        downloadLocation $ getLocation sdkVersion
+        downloadLocation =<< getLocation releaseVersion
     where
-        getLocation :: SdkVersion -> InstallLocation
-        getLocation sdkVersion = case artifactoryApiKeyM of
-            Nothing -> Github.versionLocation releaseVersion sdkVersion
-            Just apiKey
-              | releaseVersion >= firstEEVersion -> Artifactory.versionLocation sdkVersion apiKey
-              | otherwise -> Github.versionLocation releaseVersion sdkVersion
+        getLocation :: ReleaseVersion -> IO DAVersion.InstallLocation
+        getLocation releaseVersion = do
+            damlConfigE <- tryConfig (readDamlConfig damlPath)
+            let alternateDownload =
+                    join $ eitherToMaybe $ queryDamlConfig ["alternate-download"] =<< damlConfigE
+            case alternateDownload of
+              Just url -> do
+                  eVersionLocation <- DAVersion.alternateVersionLocation releaseVersion url
+                  case eVersionLocation of
+                    Left triedEndpoint ->
+                        throwIO $ assistantError ("Alternate download location in Daml config '" <> url <> "' combined with target release version to produce '" <> triedEndpoint <> "', which is neither a URL nor a file.")
+                    Right location -> pure location
+              Nothing ->
+                case artifactoryApiKeyM of
+                    Nothing -> pure $ DAVersion.githubVersionLocation releaseVersion
+                    Just apiKey
+                        -- TODO: Define ordering over release versions
+                      | releaseVersion >= firstEEVersion -> pure $ DAVersion.artifactoryVersionLocation releaseVersion apiKey
+                      | otherwise -> pure $ DAVersion.githubVersionLocation releaseVersion
+        firstEEVersion :: ReleaseVersion
         !firstEEVersion =
             let verStr = "1.12.0-snapshot.20210312.6498.0.707c86aa"
-            in SdkVersion (either error id (SemVer.fromText verStr))
-        downloadLocation :: InstallLocation -> IO ()
-        downloadLocation (InstallLocation url headers) = do
+            in either Control.Exception.throw id (unsafeParseOldReleaseVersion verStr)
+        downloadLocation :: DAVersion.InstallLocation -> IO ()
+        downloadLocation (DAVersion.HttpInstallLocation url headers) = do
             request <- requiredAny "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)
             withResponse (setRequestHeaders headers request) $ \response -> do
                 when (getResponseStatusCode response /= 200) $
-                    throwIO . assistantErrorBecause "Failed to download release."
+                    throwIO . assistantErrorBecause ("Failed to download release from " <> url <> ".")
                             . pack . show $ getResponseStatus response
                 let totalSizeM = readMay . BS.UTF8.toString =<< headMay (getResponseHeader "Content-Length" response)
-                extractAndInstall env
+                extractAndInstall (fmap Just env)
                     . maybe id (\s -> (.| observeProgress s)) totalSizeM
                     $ getResponseBody response
+        downloadLocation (DAVersion.FileInstallLocation file) =
+            extractAndInstall (fmap Just env) (sourceFileBS file)
         observeProgress :: MonadResource m =>
             Int -> ConduitT BS.ByteString BS.ByteString m ()
         observeProgress totalSize = do
@@ -352,7 +393,7 @@ httpInstall env@InstallEnv{..} releaseVersion = do
 --
 -- The lock is released after the action is performed, and is
 -- automatically released if the process ends prematurely.
-withInstallLock :: InstallEnv -> IO a -> IO a
+withInstallLock :: InstallEnvF b -> IO a -> IO a
 withInstallLock InstallEnv{..} action = do
     let damlSdkPath = unwrapDamlPath damlPath </> "sdk"
         lockFilePath = damlSdkPath </> ".lock"
@@ -369,7 +410,7 @@ withInstallLock InstallEnv{..} action = do
 -- This function takes the install file lock, so it can't be performed
 -- concurrently with a versionInstall or another pathInstall, blocking
 -- until the other process is finished.
-pathInstall :: InstallEnv -> FilePath -> IO ()
+pathInstall :: InstallEnvWithoutVersion -> FilePath -> IO ()
 pathInstall env@InstallEnv{..} sourcePath = withInstallLock env $ do
     isDirectory <- doesDirectoryExist sourcePath
     if isDirectory
@@ -378,15 +419,15 @@ pathInstall env@InstallEnv{..} sourcePath = withInstallLock env $ do
             copyAndInstall env sourcePath
         else do
             unlessQuiet env $ output "Installing SDK release from tarball."
-            extractAndInstall env (sourceFileBS sourcePath)
+            extractAndInstall (fmap (\() -> Nothing) env) (sourceFileBS sourcePath)
 
 -- | Install a specific SDK version.
 --
 -- This function takes the install file lock, so it can't be performed
 -- concurrently with a pathInstall or another versionInstall, blocking
 -- until the other process is finished.
-versionInstall :: InstallEnv -> SdkVersion -> IO ()
-versionInstall env@InstallEnv{..} version = withInstallLock env $ do
+versionInstall :: InstallEnvWithVersion -> IO ()
+versionInstall env@InstallEnv{targetVersionM = version, ..} = withInstallLock env $ do
 
     let SdkPath path = defaultSdkPath damlPath version
     alreadyInstalled <- doesDirectoryExist path
@@ -408,17 +449,16 @@ versionInstall env@InstallEnv{..} version = withInstallLock env $ do
             , versionToString version
             ]
 
-    when performInstall $
-        httpInstall env { targetVersionM = Just version } version
+    when performInstall $ httpInstall env
 
     -- Need to activate here if we aren't performing the full install.
-    when (not performInstall && shouldInstallAssistant env version) $ do
+    when (not performInstall && shouldInstallAssistant env) $ do
         unlessQuiet env . output $
             "Activating assistant version " <> versionToString version
         activateDaml env (SdkPath path)
 
 -- | Install the latest version of the SDK.
-latestInstall :: InstallEnv -> IO ()
+latestInstall :: InstallEnvWithoutVersion -> IO ()
 latestInstall env@InstallEnv{..} = do
     version1 <- getLatestReleaseVersion useCache
         -- override the cache if it's older than 1 day, even if daml-config.yaml says otherwise
@@ -428,19 +468,20 @@ latestInstall env@InstallEnv{..} = do
         then tryAssistantM $ getLatestSdkSnapshotVersion useCache
         else pure Nothing
     let version = maybe version1 (max version1) version2M
-    versionInstall env version
+    versionInstall env { targetVersionM = version }
 
 -- | Install the SDK version of the current project.
-projectInstall :: InstallEnv -> ProjectPath -> IO ()
+projectInstall :: InstallEnvWithoutVersion -> ProjectPath -> IO ()
 projectInstall env projectPath = do
     projectConfig <- readProjectConfig projectPath
-    versionM <- fromRightM throwIO $ sdkVersionFromProjectConfig projectConfig
-    version <- required "SDK version missing from project config (daml.yaml)." versionM
-    versionInstall env version
+    unresolvedVersionM <- fromRightM throwIO $ releaseVersionFromProjectConfig projectConfig
+    unresolvedVersion <- required "SDK version missing from project config (daml.yaml)." unresolvedVersionM
+    version <- DAVersion.resolveReleaseVersion (useCache env) unresolvedVersion
+    versionInstall env { targetVersionM = version }
 
 -- | Determine whether the assistant should be installed.
-shouldInstallAssistant :: InstallEnv -> SdkVersion -> Bool
-shouldInstallAssistant InstallEnv{..} versionToInstall =
+shouldInstallAssistant :: InstallEnvWithVersion -> Bool
+shouldInstallAssistant InstallEnv{targetVersionM = versionToInstall, ..} =
     let isNewer = maybe True ((< versionToInstall) . unwrapDamlAssistantSdkVersion) assistantVersion
     in unActivateInstall (iActivate options)
     || determineAuto (isNewer || missingAssistant || installingFromOutside)
@@ -466,9 +507,9 @@ install options damlPath useCache projectPathM assistantVersion = do
     damlConfigE <- tryConfig $ readDamlConfig damlPath
     let installingFromOutside = not $
             isPrefixOf (unwrapDamlPath damlPath </> "") execPath
-        targetVersionM = Nothing -- determined later
+        targetVersionM = () -- determined later
         output = putStrLn -- Output install messages to stdout.
-        artifactoryApiKeyM = Artifactory.queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
+        artifactoryApiKeyM = DAVersion.queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
         env = InstallEnv {..}
     case iTargetM options of
         Nothing -> do
@@ -491,8 +532,9 @@ install options damlPath useCache projectPathM assistantVersion = do
         Just RawInstallTarget_Latest ->
             latestInstall env
 
-        Just (RawInstallTarget arg) | Right version <- parseVersion (pack arg) ->
-            versionInstall env version
+        Just (RawInstallTarget arg) | Right version <- parseVersion (pack arg) -> do
+            releaseVersion <- DAVersion.resolveReleaseVersion useCache version
+            versionInstall env { targetVersionM = releaseVersion }
 
         Just (RawInstallTarget arg) -> do
             testD <- doesDirectoryExist arg
@@ -503,13 +545,13 @@ install options damlPath useCache projectPathM assistantVersion = do
                 throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'project' or 'latest'." ("target = " <> pack arg))
 
 -- | Uninstall a specific SDK version.
-uninstallVersion :: Env -> SdkVersion -> IO ()
-uninstallVersion Env{..} sdkVersion = wrapErr "Uninstalling SDK version." $ do
-    let (SdkPath path) = defaultSdkPath envDamlPath sdkVersion
+uninstallVersion :: Env -> ReleaseVersion -> IO ()
+uninstallVersion Env{..} releaseVersion = wrapErr "Uninstalling SDK version." $ do
+    let (SdkPath path) = defaultSdkPath envDamlPath releaseVersion
 
     exists <- doesDirectoryExist path
     if exists then do
-        when (Just (DamlAssistantSdkVersion sdkVersion) == envDamlAssistantSdkVersion) $ do
+        when (Just (DamlAssistantSdkVersion releaseVersion) == envDamlAssistantSdkVersion) $ do
             hPutStr stderr . unlines $
                 [ "Cannot uninstall SDK version of current daml assistant."
                 , "Please switch to a different version of daml assistant and try again."
@@ -525,7 +567,7 @@ uninstallVersion Env{..} sdkVersion = wrapErr "Uninstalling SDK version." $ do
         requiredIO "Failed to remove SDK files." $ do
             removePathForcibly path
 
-        putStrLn ("SDK version " <> versionToString sdkVersion <> " has been uninstalled.")
+        putStrLn ("SDK version " <> versionToString releaseVersion <> " has been uninstalled.")
 
     else do
-        putStrLn ("SDK version " <> versionToString sdkVersion <> " is not installed.")
+        putStrLn ("SDK version " <> versionToString releaseVersion <> " is not installed.")

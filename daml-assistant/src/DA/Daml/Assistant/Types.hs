@@ -11,44 +11,9 @@ module DA.Daml.Assistant.Types
     ) where
 
 import DA.Daml.Project.Types
-import qualified Data.Text as T
 import Data.Text (Text, pack, unpack)
-import Data.Maybe
-import Network.HTTP.Types.Header
 import Options.Applicative.Extended (YesNoAuto (..))
-import Control.Exception.Safe
 import Data.Functor.Identity
-
-data AssistantError = AssistantError
-    { errContext  :: Maybe Text -- ^ Context in which error occurs.
-    , errMessage  :: Maybe Text -- ^ User-friendly error message.
-    , errInternal :: Maybe Text -- ^ Internal error message, i.e. what actually happened.
-    } deriving (Eq, Show)
-
-instance Exception AssistantError where
-    displayException AssistantError {..} = unpack . T.unlines . catMaybes $
-        [ Just ("daml: " <> fromMaybe "An unknown error has occured" errMessage)
-        , fmap ("  context: " <>) errContext
-        , fmap ("  details: " <>) errInternal
-        ]
-
--- | Standard error message.
-assistantError :: Text -> AssistantError
-assistantError msg = AssistantError
-    { errContext = Nothing
-    , errMessage = Just msg
-    , errInternal = Nothing
-    }
-
--- | Standard error message with additional internal cause.
-assistantErrorBecause ::  Text -> Text -> AssistantError
-assistantErrorBecause msg e = (assistantError msg) { errInternal = Just e }
-
--- | Standard error message with additional details.
-assistantErrorDetails :: String -> [(String, String)] -> AssistantError
-assistantErrorDetails msg details =
-    assistantErrorBecause (pack msg) . pack . concat $
-        ["\n    " <> k <> ": " <> v | (k,v) <- details]
 
 data EnvF f = Env
     { envDamlPath      :: DamlPath
@@ -57,12 +22,12 @@ data EnvF f = Env
     , envDamlAssistantSdkVersion :: Maybe DamlAssistantSdkVersion
     , envProjectPath   :: Maybe ProjectPath
     , envSdkPath       :: Maybe SdkPath
-    , envSdkVersion    :: Maybe SdkVersion
-    , envFreshStableSdkVersionForCheck :: f (Maybe SdkVersion)
+    , envSdkVersion    :: Maybe ReleaseVersion
+    , envFreshStableSdkVersionForCheck :: f (Maybe ReleaseVersion)
     }
 
-deriving instance Eq (f (Maybe SdkVersion)) => Eq (EnvF f)
-deriving instance Show (f (Maybe SdkVersion)) => Show (EnvF f)
+deriving instance Eq (f (Maybe ReleaseVersion)) => Eq (EnvF f)
+deriving instance Show (f (Maybe ReleaseVersion)) => Show (EnvF f)
 
 type Env = EnvF IO
 
@@ -75,7 +40,7 @@ data BuiltinCommand
     = Version VersionOptions
     | Exec String [String]
     | Install InstallOptions
-    | Uninstall SdkVersion
+    | Uninstall UnresolvedReleaseVersion
     deriving (Eq, Show)
 
 newtype LookForProjectPath = LookForProjectPath
@@ -109,16 +74,10 @@ data InstallOptions = InstallOptions
     , iSetPath :: SetPath -- ^ set the user's PATH (on Windows)
     , iBashCompletions :: BashCompletions -- ^ install bash completions for the daml assistant
     , iZshCompletions :: ZshCompletions -- ^ install Zsh completions for the daml assistant
+    , iAllowInstallNonRelease :: AllowInstallNonRelease -- ^ install Zsh completions for the daml assistant
     } deriving (Eq, Show)
 
--- | An install locations is a pair of fully qualified HTTP[S] URL to an SDK release tarball and headers
--- required to access that URL. For example:
--- "https://github.com/digital-asset/daml/releases/download/v0.11.1/daml-sdk-0.11.1-macos.tar.gz"
-data InstallLocation = InstallLocation
-    { ilUrl :: Text
-    , ilHeaders :: RequestHeaders
-    } deriving (Eq, Show)
-
+newtype AllowInstallNonRelease = AllowInstallNonRelease { unAllowInstallNonRelease :: Bool } deriving (Eq, Show)
 newtype RawInstallTarget = RawInstallTarget String deriving (Eq, Show)
 newtype ForceInstall = ForceInstall { unForceInstall :: Bool } deriving (Eq, Show)
 newtype QuietInstall = QuietInstall { unQuietInstall :: Bool } deriving (Eq, Show)

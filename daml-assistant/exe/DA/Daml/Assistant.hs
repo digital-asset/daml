@@ -153,12 +153,13 @@ autoInstall env@Env{..} = do
                 , iSetPath = SetPath Auto
                 , iBashCompletions = BashCompletions Auto
                 , iZshCompletions = ZshCompletions Auto
+                , iAllowInstallNonRelease = AllowInstallNonRelease False
                 }
             installEnv = InstallEnv
                 { options = options
                 , damlPath = envDamlPath
                 , useCache = envUseCache env
-                , targetVersionM = Just sdkVersion
+                , targetVersionM = sdkVersion
                 , missingAssistant = False
                 , installingFromOutside = False
                 , projectPathM = Nothing
@@ -171,7 +172,7 @@ autoInstall env@Env{..} = do
                     -- output / have the install messages be gobbled
                     -- up by a pipe.
                 }
-        versionInstall installEnv sdkVersion
+        versionInstall installEnv
         pure env { envSdkPath = Just (defaultSdkPath envDamlPath sdkVersion) }
 
     else
@@ -201,10 +202,13 @@ runCommand env@Env{..} = \case
                 }
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
         snapshotVersionsEUnfiltered <- tryAssistant $ fst <$> getAvailableSdkSnapshotVersions useCache
+        case snapshotVersionsEUnfiltered of
+          Left e -> putStrLn $ "WARNING Couldn't update cache:\n" <> displayException e
+          _ -> pure ()
         let snapshotVersionsE = if vSnapshots then snapshotVersionsEUnfiltered else pure []
             availableVersionsE = extractReleasesFromSnapshots <$> snapshotVersionsEUnfiltered
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
-        projectVersionM <- mapM getSdkVersionFromProjectPath envProjectPath
+        projectVersionM <- mapM (getSdkVersionFromProjectPath useCache) envProjectPath
         envSelectedVersionM <- lookupEnv sdkVersionEnvVar
 
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
@@ -271,7 +275,8 @@ runCommand env@Env{..} = \case
     Builtin (Install options) -> wrapErr "Installing the SDK." $ do
         install options envDamlPath (envUseCache env) envProjectPath envDamlAssistantSdkVersion
 
-    Builtin (Uninstall version) -> do
+    Builtin (Uninstall unresolvedVersion) -> do
+        version <- resolveReleaseVersion (envUseCache env) unresolvedVersion
         uninstallVersion env version
 
     Builtin (Exec cmd args) -> do
