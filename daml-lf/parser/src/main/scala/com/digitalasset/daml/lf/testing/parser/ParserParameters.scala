@@ -17,8 +17,7 @@ private[daml] object ParserParameters {
   def defaultFor[P](majorLanguageVersion: LanguageMajorVersion): ParserParameters[P] =
     ParserParameters(
       defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
-      // TODO(#17366): use something like LanguageVersion.default(major) after the refactoring of
-      //  LanguageVersion and the introduction of v2.0
+      // TODO(#17366): use something like LanguageVersion.default(major) once available
       majorLanguageVersion match {
         case LanguageMajorVersion.V1 => LanguageVersion.default
         case LanguageMajorVersion.V2 => LanguageVersion.v2_1
