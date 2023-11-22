@@ -15,7 +15,9 @@ object Pruning {
     override def message: String = "Cancelled due to shutdown"
   }
 
-  final case class LedgerPruningNothingPruned(message: String) extends LedgerPruningError
+  case object LedgerPruningNothingToPrune extends LedgerPruningError {
+    val message = "Nothing to prune"
+  }
 
   final case class LedgerPruningInternalError(message: String) extends LedgerPruningError
 

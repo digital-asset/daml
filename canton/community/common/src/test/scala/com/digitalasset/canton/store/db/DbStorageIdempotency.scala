@@ -26,6 +26,7 @@ class DbStorageIdempotency(
   override val profile: DbStorage.Profile = underlying.profile
   override def metrics: DbStorageMetrics = underlying.metrics
   override val dbConfig: DbConfig = underlying.dbConfig
+  override protected val logOperations: Boolean = false
 
   override protected[canton] def runRead[A](
       action: ReadTransactional[A],

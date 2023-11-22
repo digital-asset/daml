@@ -430,9 +430,9 @@ class CantonSyncService(
         }
       _pruned <- pruningProcessor.pruneLedgerEvents(pruneUpToMultiDomainGlobalOffset)
     } yield ()).transform {
-      case Left(LedgerPruningNothingPruned(message)) =>
+      case Left(LedgerPruningNothingToPrune) =>
         logger.info(
-          s"Could not locate pruning point: ${message}. Considering success for idempotency"
+          s"Could not locate pruning point: ${LedgerPruningNothingToPrune.message}. Considering success for idempotency"
         )
         Right(())
       case Left(err @ LedgerPruningOnlySupportedInEnterpriseEdition) =>

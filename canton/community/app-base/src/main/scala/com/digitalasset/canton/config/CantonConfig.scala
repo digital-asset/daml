@@ -170,19 +170,25 @@ final case class DeadlockDetectionConfig(
   * @param logMessagePayloads  Determines whether message payloads (as well as metadata) sent through GRPC are logged.
   * @param logQueryCost Determines whether to log the 15 most expensive db queries
   * @param logSlowFutures Whether we should active log slow futures (where instructed)
+  * @param dumpNumRollingLogFiles How many of the rolling log files shold be included in the remote dump. Default is 0.
   */
 final case class MonitoringConfig(
     deadlockDetection: DeadlockDetectionConfig = DeadlockDetectionConfig(),
     health: Option[HealthConfig] = None,
     metrics: MetricsConfig = MetricsConfig(),
-    delayLoggingThreshold: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
+    // TODO(i9014) move into logging
+    delayLoggingThreshold: NonNegativeFiniteDuration =
+      MonitoringConfig.defaultDelayLoggingThreshold,
     tracing: TracingConfig = TracingConfig(),
     // TODO(#15221) remove (breaking change)
     @Deprecated(since = "2.2.0") // use logging.api.messagePayloads instead
     logMessagePayloads: Option[Boolean] = None,
+    // TODO(i9014) rename to queries
     logQueryCost: Option[QueryCostMonitoringConfig] = None,
+    // TODO(i9014) move into logging
     logSlowFutures: Boolean = false,
     logging: LoggingConfig = LoggingConfig(),
+    dumpNumRollingLogFiles: NonNegativeInt = MonitoringConfig.defaultDumpNumRollingLogFiles,
 ) extends LazyLogging {
 
   // merge in backwards compatible config options
@@ -196,6 +202,11 @@ final case class MonitoringConfig(
     case _ => logging
   }
 
+}
+
+object MonitoringConfig {
+  private val defaultDelayLoggingThreshold = NonNegativeFiniteDuration.ofSeconds(20)
+  private val defaultDumpNumRollingLogFiles = NonNegativeInt.tryCreate(0)
 }
 
 /** Configuration for console command timeouts
@@ -1407,7 +1418,8 @@ object CantonConfig {
   /** Renders a configuration file such that we can write it to the log-file on startup */
   def renderForLoggingOnStartup(config: Config): String = {
     import scala.jdk.CollectionConverters.*
-    val replace = Set("secret", "pw", "password", "ledger-api-jdbc-url")
+    val replace =
+      Set("secret", "pw", "password", "ledger-api-jdbc-url", "jdbc", "token", "admin-token")
     val blinded = ConfigValueFactory.fromAnyRef("****")
     def goVal(key: String, c: ConfigValue): ConfigValue = {
       c match {

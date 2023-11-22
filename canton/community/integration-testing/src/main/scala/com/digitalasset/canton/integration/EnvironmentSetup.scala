@@ -115,6 +115,8 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
       if (!finalConfig.parameters.manualStart)
         handleStartupLogs(testEnvironment.startAll())
 
+      envDef.networkBootstrapFactory(testEnvironment).bootstrap()
+
       envDef.setups.foreach(setup => setup(testEnvironment))
 
       testEnvironment
