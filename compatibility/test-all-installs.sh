@@ -243,11 +243,13 @@ case "$command_to_run" in
     shift
     do_version_cache_behaviour $version_cache_behaviour $absolute_github_api_file
     if echo_eval $daml_exe install --install-assistant yes $install_version >daml_install_output 2>&1 || grep -q "The system cannot find the path specified" daml_install_output; then
+      cat daml_install_output
       if [[ "$install_version" != "0.0.0" && "$install_version" != "latest" ]]; then
         echo_eval check_daml_version_indicates_correct $install_version
         echo_eval check_daml_init_creates_daml_yaml_with $install_version
       fi
     else
+      cat daml_install_output
       if [[ "$1" != "0.0.0" ]]; then
         error_echo "ERROR! Exit code for \`daml install $install_version\` is nonzero."
       fi
@@ -320,3 +322,8 @@ case "$command_to_run" in
     exit 1
     ;;
 esac
+
+# Try to clear artifacts, if possible
+# Windows does not clear up artifacts properly, which means these tests would
+# take up the whole harddrive otherwise
+rm -rf * || true
