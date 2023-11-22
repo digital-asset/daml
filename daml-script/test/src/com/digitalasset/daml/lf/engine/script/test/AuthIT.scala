@@ -20,7 +20,7 @@ class AuthITV1 extends AuthIT(LanguageMajorVersion.V1)
 
 // TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
 //  at the bazel target level.
-class AuthITV2 extends AuthIT(LanguageMajorVersion.V2)
+//class AuthITV2 extends AuthIT(LanguageMajorVersion.V2)
 
 class AuthIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec

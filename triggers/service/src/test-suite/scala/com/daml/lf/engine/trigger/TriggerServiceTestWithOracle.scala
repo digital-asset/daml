@@ -9,7 +9,7 @@ class TriggerServiceTestWithOracleV1 extends TriggerServiceTestWithOracle(Langua
 
 // TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
 //  at the bazel target level.
-class TriggerServiceTestWithOracleV2 extends TriggerServiceTestWithOracle(LanguageMajorVersion.V2)
+//class TriggerServiceTestWithOracleV2 extends TriggerServiceTestWithOracle(LanguageMajorVersion.V2)
 
 class TriggerServiceTestWithOracle(override val majorLanguageVersion: LanguageMajorVersion)
     extends AbstractTriggerServiceTest

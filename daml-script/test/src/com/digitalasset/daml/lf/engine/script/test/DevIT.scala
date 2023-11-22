@@ -21,7 +21,7 @@ class DevITV1 extends DevIT(LanguageMajorVersion.V1)
 
 // TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
 //  at the bazel target level.
-class DevITV2 extends DevIT(LanguageMajorVersion.V2)
+//class DevITV2 extends DevIT(LanguageMajorVersion.V2)
 
 class DevIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec

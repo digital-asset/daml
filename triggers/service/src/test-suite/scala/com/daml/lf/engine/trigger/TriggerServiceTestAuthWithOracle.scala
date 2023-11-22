@@ -10,8 +10,8 @@ class TriggerServiceTestAuthWithOracleV1
 
 // TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
 //  at the bazel target level.
-class TriggerServiceTestAuthWithOracleV2
-    extends TriggerServiceTestAuthWithOracle(LanguageMajorVersion.V2)
+//class TriggerServiceTestAuthWithOracleV2
+//    extends TriggerServiceTestAuthWithOracle(LanguageMajorVersion.V2)
 
 class TriggerServiceTestAuthWithOracle(override val majorLanguageVersion: LanguageMajorVersion)
     extends AbstractTriggerServiceTest
@@ -25,8 +25,8 @@ class TriggerServiceTestAuthWithOracleClaimsV1
 
 // TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
 //  at the bazel target level.
-class TriggerServiceTestAuthWithOracleClaimsV2
-    extends TriggerServiceTestAuthWithOracleClaims(LanguageMajorVersion.V2)
+//class TriggerServiceTestAuthWithOracleClaimsV2
+//    extends TriggerServiceTestAuthWithOracleClaims(LanguageMajorVersion.V2)
 
 class TriggerServiceTestAuthWithOracleClaims(
     override val majorLanguageVersion: LanguageMajorVersion
