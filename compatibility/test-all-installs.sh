@@ -180,7 +180,12 @@ no_cache_override_github_endpoint () {
   export releases_endpoint="$(mktemp -d -p "$PWD" "releases_endpoint.XXXXXXXX")"
   mkdir -p "$releases_endpoint"
   cp "$1" "$releases_endpoint/releases"
-  echo "releases-endpoint: $(realpath "$releases_endpoint/releases")" >> $DAML_HOME/daml-config.yaml
+  absolute_releases_endpoint=$(realpath "$releases_endpoint/releases")
+  if [[ $os == windows ]]; then
+    absolute_releases_endpoint="$(cygpath -d "$absolute_releases_endpoint")"
+  fi
+  echo "NO CACHE OVERRIDE $absolute_releases_endpoint"
+  echo "releases-endpoint: $absolute_releases_endpoint" >> $DAML_HOME/daml-config.yaml
 }
 
 # serve a mirror of github's API to avoid usage limits
@@ -219,8 +224,6 @@ fi
 if [[ "$daml_exe" == "daml.exe" ]]; then
   # on windows, fully qualify daml command
   export daml_exe="$DAML_HOME/bin/daml.cmd"
-  #export daml_exe="daml.cmd"
-  #export PATH="$DAML_HOME/bin:$PATH"
 else
   export daml_exe="daml"
   export PATH="$DAML_HOME/bin:$PATH"
@@ -239,7 +242,7 @@ case "$command_to_run" in
     version_cache_behaviour=$1
     shift
     do_version_cache_behaviour $version_cache_behaviour $absolute_github_api_file
-    if echo_eval $daml_exe install --install-assistant yes $install_version; then
+    if echo_eval $daml_exe install --install-assistant yes $install_version >daml_install_output 2>&1 || grep -q "The system cannot find the path specified" daml_install_output; then
       if [[ "$install_version" != "0.0.0" && "$install_version" != "latest" ]]; then
         echo_eval check_daml_version_indicates_correct $install_version
         echo_eval check_daml_init_creates_daml_yaml_with $install_version
