@@ -765,6 +765,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             limit: PositiveInt = defaultLimit,
             verbose: Boolean = true,
             filterTemplates: Seq[TemplateId] = Seq.empty,
+            activeAtOffset: String = "",
             timeout: config.NonNegativeDuration = timeouts.unbounded,
             includeCreatedEventBlob: Boolean = false,
         ): Seq[GetActiveContractsResponse] =
@@ -775,6 +776,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                   Set(party.toLf),
                   limit,
                   filterTemplates,
+                  activeAtOffset,
                   verbose,
                   timeout.asFiniteApproximation,
                   includeCreatedEventBlob,
@@ -803,6 +805,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             limit: PositiveInt = defaultLimit,
             verbose: Boolean = true,
             filterTemplates: Seq[TemplateId] = Seq.empty,
+            activeAtOffset: String = "",
             timeout: config.NonNegativeDuration = timeouts.unbounded,
             identityProviderId: String = "",
             includeCreatedEventBlob: Boolean = false,
@@ -823,6 +826,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                       localParties.toSet,
                       limit,
                       filterTemplates,
+                      activeAtOffset,
                       verbose,
                       timeout.asFiniteApproximation,
                       includeCreatedEventBlob,
@@ -3010,7 +3014,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         ): Seq[javab.data.Transaction] = check(FeatureFlag.Testing)({
           ledger_api.transactions
             .flat_with_tx_filter(
-              javab.data.FilterConversion(filter),
+              TransactionFilter.fromJavaProto(filter.toProto),
               completeAfter,
               beginOffset,
               endOffset,

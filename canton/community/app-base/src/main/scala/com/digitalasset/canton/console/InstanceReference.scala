@@ -496,6 +496,10 @@ sealed trait ParticipantReferenceCommon
   @Help.Summary("Commands to repair the participant contract state", FeatureFlag.Repair)
   @Help.Group("Repair")
   def repair: ParticipantRepairAdministration
+
+  override def health
+      : HealthAdministrationCommon[ParticipantStatus] & ParticipantHealthAdministrationCommon
+
 }
 
 abstract class ParticipantReference(

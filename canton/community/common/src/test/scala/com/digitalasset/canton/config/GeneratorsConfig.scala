@@ -46,4 +46,9 @@ object GeneratorsConfig {
         .map(i => scala.concurrent.duration.FiniteDuration(i.unwrap, duration.NANOSECONDS))
         .map(d => config.NonNegativeFiniteDuration.fromDuration(d).value)
     )
+
+  implicit val portArb: Arbitrary[Port] = Arbitrary(
+    Gen.choose(Port.minValidPort, Port.maxValidPort).map(Port.tryCreate)
+  )
+
 }
