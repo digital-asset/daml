@@ -380,20 +380,6 @@ genrule(
             """,
         )
 
-    if "canton" not in native.existing_rules():
-        http_archive(
-            name = "canton",
-            build_file_content = """
-package(default_visibility = ["//visibility:public"])
-filegroup(
-  name = "jar",
-  srcs = glob(["*/lib/**/*.jar"]),
-)
-        """,
-            sha256 = canton["sha"],
-            urls = [canton["url"]],
-        )
-
     if "freefont" not in native.existing_rules():
         http_archive(
             name = "freefont",
