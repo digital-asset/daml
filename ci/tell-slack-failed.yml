@@ -25,5 +25,5 @@ steps:
            $(Slack.ci-failures-daml)
     name: tell_slack_failed
     condition: and(failed(),
-                   or(True, eq(variables['Build.SourceBranchName'], 'main'),
+                   or(eq(variables['Build.SourceBranchName'], 'main'),
                       startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
