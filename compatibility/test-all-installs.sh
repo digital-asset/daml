@@ -256,14 +256,14 @@ case "$command_to_run" in
     do_version_cache_behaviour $version_cache_behaviour $absolute_github_api_file
     echo_eval init_daml_package $build_version
     if echo_eval $daml_exe build; then
-      if [[ "$os" == windows ]]; then
+      if [[ "$os" == windows && "$build_version" != "0.0.0" ]]; then
         error_echo "\`daml build\` on $build_version succeeded. This shouldn't succeed because Windows does not support autoinstalling from alternate-download."
       else
         echo_eval check_daml_version_indicates_correct $build_version
         echo_eval check_dar_has_correct_metadata_version $build_version
       fi
     else
-      if [[ "$os" == windows ]]; then
+      if [[ "$os" == windows && "$build_version" != "0.0.0" ]]; then
         echo "Exit code for \`daml build\` on version $build_version is nonzero. This is OK because Windows does not support autoinstall from alternate-download."
       else
         error_echo "ERROR! Exit code for \`daml build\` on version $build_version is nonzero"
