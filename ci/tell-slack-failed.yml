@@ -23,6 +23,7 @@ steps:
            -H 'Content-type: application/json' \
            --data "{\"text\":\"$WARNING\n\"}" \
            $(Slack.ci-failures-daml)
+    name: tell_slack_failed
     condition: and(failed(),
-                   or(eq(variables['Build.SourceBranchName'], 'main'),
+                   or(True, eq(variables['Build.SourceBranchName'], 'main'),
                       startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))

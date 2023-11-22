@@ -17,11 +17,11 @@ jobs:
       name: 'ubuntu_20_04'
       demands: assignment -equals default
     steps:
-    - checkout: self
-    - bash: ci/build-canton-3x.sh
-      env:
-        GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
-    #- template: ci/tell-slack-failed.yml
+      - checkout: self
+      - bash: ci/build-canton-3x.sh
+        env:
+          GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
+      - template: tell-slack-failed.yml
 #- template: build.yml
 #- template: check-for-release-job.yml
 #
