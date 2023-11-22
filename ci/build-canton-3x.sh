@@ -16,6 +16,8 @@ else
 fi
 
 git clone --depth 1 --branch main $repo_url $tmp
+head=$(git -C $tmp rev-parse HEAD)
+echo "cloned at revision $head"
 
 for path in community daml-common-staging; do
   src=$tmp/$path
