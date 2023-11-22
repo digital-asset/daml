@@ -202,7 +202,7 @@ jobs:
                               https://digitalasset.jfrog.io/artifactory/api/storage/assembly/canton \
                          | jq -r '.children[].uri' \
                          | sed -e 's/^\///' \
-                         | grep -P '^\d+\.\d+\.\d+' \
+                         | grep -P '^2\.\d+\.\d+' \
                          | sort -V \
                          | tail -1)
 
