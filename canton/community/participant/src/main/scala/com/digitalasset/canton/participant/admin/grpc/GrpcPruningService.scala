@@ -26,7 +26,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
-import io.grpc.Status
+import io.grpc.{Status, StatusRuntimeException}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -89,10 +89,20 @@ class GrpcPruningService(
 
         safeOffsetO <- sync.stateInspection
           .safeToPrune(beforeOrAt, ledgerEndOffset)
-          .leftMap {
+          .leftFlatMap[Option[GlobalOffset], StatusRuntimeException] {
             case Pruning.LedgerPruningOnlySupportedInEnterpriseEdition =>
-              PruningServiceError.PruningNotSupportedInCommunityEdition.Error().asGrpcError
-            case error => PruningServiceError.InternalServerError.Error(error.message).asGrpcError
+              EitherT.leftT(
+                PruningServiceError.PruningNotSupportedInCommunityEdition.Error().asGrpcError
+              )
+            case e @ (Pruning.LedgerPruningNothingToPrune |
+                Pruning.LedgerPruningOffsetUnsafeDomain(_)) =>
+              // Turn errors indicating that we cannot prune anything to a None.
+              logger.info(e.message)
+              EitherT.rightT(None)
+            case error =>
+              EitherT.leftT(
+                PruningServiceError.InternalServerError.Error(error.message).asGrpcError
+              )
           }
 
       } yield toProtoResponse(safeOffsetO)

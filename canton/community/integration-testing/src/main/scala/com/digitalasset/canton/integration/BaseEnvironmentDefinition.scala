@@ -12,6 +12,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
   * @param setup a function to configure the environment before tests can be run.
   * @param teardown a function to perform cleanup after the environment has been destroyed.
   * @param configTransforms transforms to perform on the base configuration before starting the environment (typically making ports unique or some other specialization for the particular tests you're running)
+  * @param networkBootstrapFactory The NetworkBootstrap is created and run before the setup steps for bootstrapping the domain(s). Manual starts use a noop network bootstrap.
   */
 abstract class BaseEnvironmentDefinition[E <: Environment, TCE <: TestConsoleEnvironment[E]](
     val baseConfig: E#Config,
@@ -19,6 +20,7 @@ abstract class BaseEnvironmentDefinition[E <: Environment, TCE <: TestConsoleEnv
     val setups: List[TCE => Unit] = Nil,
     val teardown: Unit => Unit = _ => (),
     val configTransforms: Seq[E#Config => E#Config],
+    val networkBootstrapFactory: TCE => NetworkBootstrap,
 ) {
 
   /** Create a canton configuration by applying the configTransforms to the base config.
