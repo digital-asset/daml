@@ -267,12 +267,12 @@ scala_library(
     ],
 )
 
-### community/common ###
+### community/base ###
 
 proto_library(
-    name = "community_common_proto",
-    srcs = glob(["community/common/src/main/protobuf/**/*.proto"]),
-    strip_import_prefix = "community/common/src/main/protobuf",
+    name = "community_base_proto",
+    srcs = glob(["community/base/src/main/protobuf/**/*.proto"]),
+    strip_import_prefix = "community/base/src/main/protobuf",
     deps = [
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
@@ -284,8 +284,8 @@ proto_library(
 )
 
 proto_gen(
-    name = "community_common_proto_scala",
-    srcs = [":community_common_proto"],
+    name = "community_base_proto_scala",
+    srcs = [":community_base_proto"],
     plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
     plugin_name = "scalapb",
     plugin_options = [
@@ -295,11 +295,11 @@ proto_gen(
 )
 
 scala_library(
-    name = "community_common",
-    srcs = glob(["community/common/src/main/scala/**/*.scala"]) + [":community_common_proto_scala"],
+    name = "community_base",
+    srcs = glob(["community/base/src/main/scala/**/*.scala"]) + [":community_base_proto_scala"],
     plugins = [kind_projector_plugin],
-    resource_strip_prefix = "canton-3x/community/common/src/main/resources",
-    resources = glob(["community/common/src/main/resources/**"]),
+    resource_strip_prefix = "canton-3x/community/base/src/main/resources",
+    resources = glob(["community/base/src/main/resources/**"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
@@ -313,16 +313,12 @@ scala_library(
         ":pekko-stream-minus-patched-classes",
         "//canton-3x:community_buildinfo",
         "//canton-3x:community_ledger_ledger-common",
-        "//canton-3x:community_lib_Blake2b",
         "//canton-3x:community_lib_slick_slick-fork",
         "//canton-3x:community_lib_wartremover",
         "//canton-3x:community_util-external",
         "//canton-3x:community_util-logging",
         "//canton-3x:daml-common-staging_daml-errors",
-        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/interpreter",
-        "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
@@ -341,7 +337,6 @@ scala_library(
         "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
         "//observability/metrics",
-        "//observability/tracing",
         "@canton_maven//:org_flywaydb_flyway_core",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
@@ -350,8 +345,6 @@ scala_library(
         "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
-        "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
-        "@maven//:com_google_crypto_tink_tink",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_fansi_2_13",
@@ -379,14 +372,91 @@ scala_library(
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_scalaland_chimney_2_13",
         "@maven//:junit_junit",
-        "@maven//:net_logstash_logback_logstash_logback_encoder",
-        "@maven//:org_apache_logging_log4j_log4j_core",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_bouncycastle_bcpkix_jdk15on",
         "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_postgresql_postgresql",
         "@maven//:org_scala_lang_modules_scala_collection_compat_2_13",
         "@maven//:org_scala_lang_modules_scala_collection_contrib_2_13",
+        "@maven//:org_scalaz_scalaz_core_2_13",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_typelevel_cats_core_2_13",
+        "@maven//:org_typelevel_cats_kernel_2_13",
+    ],
+)
+
+### community/common ###
+
+scala_library(
+    name = "community_common",
+    srcs = glob(["community/common/src/main/scala/**/*.scala"]),
+    plugins = [kind_projector_plugin],
+    resource_strip_prefix = "canton-3x/community/common/src/main/resources",
+    resources = glob(["community/common/src/main/resources/**"]),
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ],
+    unused_dependency_checker_mode = "error",
+    runtime_deps = [
+        #  not used at compile time, but required by com.digitalasset.canton.util.PekkoUtil.createActorSystem
+        "@maven//:org_apache_pekko_pekko_slf4j_2_13",
+    ],
+    deps = [
+        ":pekko-stream-minus-patched-classes",
+        "//canton-3x:community_base",
+        "//canton-3x:community_buildinfo",
+        "//canton-3x:community_ledger_ledger-common",
+        "//canton-3x:community_lib_Blake2b",
+        "//canton-3x:community_lib_slick_slick-fork",
+        "//canton-3x:community_lib_wartremover",
+        "//canton-3x:community_util-external",
+        "//canton-3x:community_util-logging",
+        "//canton-3x:daml-common-staging_daml-errors",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction:transaction_proto_java",
+        "//language-support/java/bindings:bindings-java",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-pekko",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//libs-scala/concurrent",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/executors",
+        "//libs-scala/nameof",
+        "//libs-scala/nonempty",
+        "//observability/metrics",
+        "//observability/tracing",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_github_pathikrit_better_files_2_13",
+        "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
+        "@maven//:com_google_crypto_tink_tink",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_lihaoyi_pprint_2_13",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
+        "@maven//:com_typesafe_config",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
+        "@maven//:com_typesafe_slick_slick_2_13",
+        "@maven//:dev_optics_monocle_core_2_13",
+        "@maven//:dev_optics_monocle_macro_2_13",
+        "@maven//:io_circe_circe_core_2_13",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_services",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_netty_netty_handler",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_scalaland_chimney_2_13",
+        "@maven//:junit_junit",
+        "@maven//:net_logstash_logback_logstash_logback_encoder",
+        "@maven//:org_apache_logging_log4j_log4j_core",
+        "@maven//:org_apache_pekko_pekko_actor_2_13",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_scala_lang_scala_reflect",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_slf4j_api",
@@ -438,6 +508,7 @@ scala_library(
     deps = [
         ":pekko-stream-minus-patched-classes",
         ":pekko-stream-patch",
+        "//canton-3x:community_base",
         "//canton-3x:community_common",
         "//canton-3x:community_ledger_ledger-common",
         "//canton-3x:community_ledger_ledger-common_configuration_proto_java",
@@ -539,7 +610,7 @@ scala_library(
     unused_dependency_checker_mode = "error",
     deps = [
         ":pekko-stream-minus-patched-classes",
-        "//canton-3x:community_common",
+        "//canton-3x:community_base",
         "//canton-3x:community_ledger_ledger-api-core",
         "//canton-3x:community_ledger_ledger-common",
         "//canton-3x:community_util-logging",
@@ -602,7 +673,7 @@ proto_library(
     srcs = glob(["community/domain/src/main/protobuf/**/*.proto"]),
     strip_import_prefix = "community/domain/src/main/protobuf",
     deps = [
-        "//canton-3x:community_common_proto",
+        "//canton-3x:community_base_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
         "@com_google_protobuf//:timestamp_proto",
@@ -635,6 +706,7 @@ scala_library(
     deps = [
         ":pekko-stream-minus-patched-classes",
         ":pekko-stream-patch",
+        "//canton-3x:community_base",
         "//canton-3x:community_common",
         "//canton-3x:community_ledger_ledger-common",
         "//canton-3x:community_lib_slick_slick-fork",
@@ -716,7 +788,7 @@ proto_library(
     srcs = glob(["community/participant/src/main/protobuf/**/*.proto"]),
     strip_import_prefix = "community/participant/src/main/protobuf",
     deps = [
-        "//canton-3x:community_common_proto",
+        "//canton-3x:community_base_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
         "@com_google_protobuf//:timestamp_proto",
@@ -810,6 +882,7 @@ scala_library(
     deps = [
         ":community_participant_admin-workflows-with-vacuuming_java.jar",
         ":pekko-stream-minus-patched-classes",
+        "//canton-3x:community_base",
         "//canton-3x:community_common",
         "//canton-3x:community_ledger_ledger-api-core",
         "//canton-3x:community_ledger_ledger-common",
@@ -893,6 +966,7 @@ scala_library(
     unused_dependency_checker_mode = "error",
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton-3x:community_base",
         "//canton-3x:community_buildinfo",
         "//canton-3x:community_common",
         "//canton-3x:community_domain",
@@ -990,6 +1064,7 @@ scala_library(
     deps = [
         ":pekko-stream-minus-patched-classes",
         "//canton-3x:community_app-base",
+        "//canton-3x:community_base",
         "//canton-3x:community_buildinfo",
         "//canton-3x:community_common",
         "//canton-3x:community_domain",
