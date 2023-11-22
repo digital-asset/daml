@@ -5,11 +5,25 @@ package com.daml.ledger.rxjava.grpc.helpers
 
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.command_completion_service.{CompletionEndResponse, CompletionStreamResponse}
-import com.daml.ledger.api.v1.command_service.{SubmitAndWaitForTransactionIdResponse, SubmitAndWaitForTransactionResponse, SubmitAndWaitForTransactionTreeResponse}
-import com.daml.ledger.api.v1.event_query_service.{GetEventsByContractIdResponse, GetEventsByContractKeyResponse}
+import com.daml.ledger.api.v1.command_completion_service.{
+  CompletionEndResponse,
+  CompletionStreamResponse,
+}
+import com.daml.ledger.api.v1.command_service.{
+  SubmitAndWaitForTransactionIdResponse,
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitForTransactionTreeResponse,
+}
+import com.daml.ledger.api.v1.event_query_service.{
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyResponse,
+}
 import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
-import com.daml.ledger.api.v1.package_service.{GetPackageResponse, GetPackageStatusResponse, ListPackagesResponse}
+import com.daml.ledger.api.v1.package_service.{
+  GetPackageResponse,
+  GetPackageStatusResponse,
+  ListPackagesResponse,
+}
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition

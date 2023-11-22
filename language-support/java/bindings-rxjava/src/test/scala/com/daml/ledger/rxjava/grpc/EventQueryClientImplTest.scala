@@ -8,7 +8,10 @@ import com.daml.ledger.api.v1.ValueOuterClass
 import com.daml.ledger.rxjava.grpc.helpers.TestConfiguration
 import org.scalacheck.Arbitrary
 
-import com.daml.ledger.api.v1.event_query_service.{GetEventsByContractIdResponse, GetEventsByContractKeyResponse}
+import com.daml.ledger.api.v1.event_query_service.{
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyResponse,
+}
 import com.daml.ledger.javaapi.data._
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices}
@@ -38,7 +41,12 @@ class EventQueryClientImplTest
     ) _
   }
 
-  private val contractKey = Value.fromProto(Arbitrary.arbBool.arbitrary.map(ValueOuterClass.Value.newBuilder().setBool(_).build()).sample.get)
+  private val contractKey = Value.fromProto(
+    Arbitrary.arbBool.arbitrary
+      .map(ValueOuterClass.Value.newBuilder().setBool(_).build())
+      .sample
+      .get
+  )
   private val identifier = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
   private val contractId = "contract_id"
   private val parties = java.util.Set.of("party_1")
@@ -60,10 +68,17 @@ class EventQueryClientImplTest
       client
         .getEventsByContractKey(contractKey, identifier, parties, "1")
         .blockingGet()
-      service.getLastGetEventsByContractKeyRequest.value.contractKey.flatMap(_.sum.bool) shouldBe contractKey.asBool().asScala.map(_.getValue)
-      service.getLastGetEventsByContractKeyRequest.value.templateId.map(_.packageId) shouldBe Some(identifier.getPackageId)
-      service.getLastGetEventsByContractKeyRequest.value.templateId.map(_.entityName) shouldBe Some(identifier.getEntityName)
-      service.getLastGetEventsByContractKeyRequest.value.templateId.map(_.moduleName) shouldBe Some(identifier.getModuleName)
+      service.getLastGetEventsByContractKeyRequest.value.contractKey
+        .flatMap(_.sum.bool) shouldBe contractKey.asBool().asScala.map(_.getValue)
+      service.getLastGetEventsByContractKeyRequest.value.templateId.map(_.packageId) shouldBe Some(
+        identifier.getPackageId
+      )
+      service.getLastGetEventsByContractKeyRequest.value.templateId.map(_.entityName) shouldBe Some(
+        identifier.getEntityName
+      )
+      service.getLastGetEventsByContractKeyRequest.value.templateId.map(_.moduleName) shouldBe Some(
+        identifier.getModuleName
+      )
       service.getLastGetEventsByContractKeyRequest.value.requestingParties.toSet shouldBe parties.asScala
       service.getLastGetEventsByContractKeyRequest.value.continuationToken shouldBe "1"
       client
@@ -110,7 +125,13 @@ class EventQueryClientImplTest
       withClue("getEventsByContractKey") {
         expectPermissionDenied {
           client
-            .getEventsByContractKey(contractKey, identifier, parties, "", someOtherPartyReadWriteToken)
+            .getEventsByContractKey(
+              contractKey,
+              identifier,
+              parties,
+              "",
+              someOtherPartyReadWriteToken,
+            )
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingGet()
         }

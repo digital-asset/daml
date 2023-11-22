@@ -10,7 +10,8 @@ public final class GetEventsByContractIdResponse {
 
   private final Optional<ArchivedEvent> archiveEvent;
 
-  public GetEventsByContractIdResponse(Optional<CreatedEvent> createEvent, Optional<ArchivedEvent> archiveEvent) {
+  public GetEventsByContractIdResponse(
+      Optional<CreatedEvent> createEvent, Optional<ArchivedEvent> archiveEvent) {
     this.createEvent = createEvent;
     this.archiveEvent = archiveEvent;
   }
@@ -24,21 +25,18 @@ public final class GetEventsByContractIdResponse {
   }
 
   public static GetEventsByContractIdResponse fromProto(
-          com.daml.ledger.api.v1.EventQueryServiceOuterClass.GetEventsByContractIdResponse response) {
+      com.daml.ledger.api.v1.EventQueryServiceOuterClass.GetEventsByContractIdResponse response) {
     if (response.hasCreateEvent()) {
       if (response.hasArchiveEvent()) {
         return new GetEventsByContractIdResponse(
-                Optional.of(CreatedEvent.fromProto(response.getCreateEvent())),
-                Optional.of(ArchivedEvent.fromProto(response.getArchiveEvent()))
-        );
+            Optional.of(CreatedEvent.fromProto(response.getCreateEvent())),
+            Optional.of(ArchivedEvent.fromProto(response.getArchiveEvent())));
       } else {
         return new GetEventsByContractIdResponse(
-                Optional.of(CreatedEvent.fromProto(response.getCreateEvent())),
-                Optional.empty()
-        );
+            Optional.of(CreatedEvent.fromProto(response.getCreateEvent())), Optional.empty());
       }
     } else {
-      return new  GetEventsByContractIdResponse(Optional.empty(), Optional.empty());
+      return new GetEventsByContractIdResponse(Optional.empty(), Optional.empty());
     }
   }
 }

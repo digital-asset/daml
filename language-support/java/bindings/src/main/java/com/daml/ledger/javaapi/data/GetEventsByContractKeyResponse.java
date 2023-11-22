@@ -10,7 +10,10 @@ public final class GetEventsByContractKeyResponse {
   private final Optional<ArchivedEvent> archiveEvent;
   private final Optional<String> continuationToken;
 
-  public GetEventsByContractKeyResponse(Optional<CreatedEvent> createEvent, Optional<ArchivedEvent> archiveEvent, Optional<String> continuationToken) {
+  public GetEventsByContractKeyResponse(
+      Optional<CreatedEvent> createEvent,
+      Optional<ArchivedEvent> archiveEvent,
+      Optional<String> continuationToken) {
     this.createEvent = createEvent;
     this.archiveEvent = archiveEvent;
     this.continuationToken = continuationToken;
@@ -29,24 +32,24 @@ public final class GetEventsByContractKeyResponse {
   }
 
   public static GetEventsByContractKeyResponse fromProto(
-          com.daml.ledger.api.v1.EventQueryServiceOuterClass.GetEventsByContractKeyResponse response) {
-    Optional<String> optContinuationToken = Optional.of(response.getContinuationToken()).filter(c -> !c.equals(""));
+      com.daml.ledger.api.v1.EventQueryServiceOuterClass.GetEventsByContractKeyResponse response) {
+    Optional<String> optContinuationToken =
+        Optional.of(response.getContinuationToken()).filter(c -> !c.equals(""));
     if (response.hasCreateEvent()) {
       if (response.hasArchiveEvent()) {
         return new GetEventsByContractKeyResponse(
-                Optional.of(CreatedEvent.fromProto(response.getCreateEvent())),
-                Optional.of(ArchivedEvent.fromProto(response.getArchiveEvent())),
-                optContinuationToken
-        );
+            Optional.of(CreatedEvent.fromProto(response.getCreateEvent())),
+            Optional.of(ArchivedEvent.fromProto(response.getArchiveEvent())),
+            optContinuationToken);
       } else {
         return new GetEventsByContractKeyResponse(
-                Optional.of(CreatedEvent.fromProto(response.getCreateEvent())),
-                Optional.empty(),
-                optContinuationToken
-        );
+            Optional.of(CreatedEvent.fromProto(response.getCreateEvent())),
+            Optional.empty(),
+            optContinuationToken);
       }
     } else {
-      return new  GetEventsByContractKeyResponse(Optional.empty(), Optional.empty(), optContinuationToken);
+      return new GetEventsByContractKeyResponse(
+          Optional.empty(), Optional.empty(), optContinuationToken);
     }
   }
 }

@@ -20,19 +20,24 @@ final class EventQueryServiceImpl(
   private var lastGetEventsByContractIdRequest: Option[GetEventsByContractIdRequest] = None
   private var lastGetEventsByContractKeyRequest: Option[GetEventsByContractKeyRequest] = None
 
-  override def getEventsByContractId(request: GetEventsByContractIdRequest): Future[GetEventsByContractIdResponse] = {
+  override def getEventsByContractId(
+      request: GetEventsByContractIdRequest
+  ): Future[GetEventsByContractIdResponse] = {
     this.lastGetEventsByContractIdRequest = Some(request)
     getEventsByContractIdResponse
   }
 
-
-  override def getEventsByContractKey(request: GetEventsByContractKeyRequest): Future[GetEventsByContractKeyResponse] = {
+  override def getEventsByContractKey(
+      request: GetEventsByContractKeyRequest
+  ): Future[GetEventsByContractKeyResponse] = {
     this.lastGetEventsByContractKeyRequest = Some(request)
     getEventsByContractKeyResponse
   }
 
-  def getLastGetEventsByContractIdRequest: Option[GetEventsByContractIdRequest] = this.lastGetEventsByContractIdRequest
-  def getLastGetEventsByContractKeyRequest: Option[GetEventsByContractKeyRequest] = this.lastGetEventsByContractKeyRequest
+  def getLastGetEventsByContractIdRequest: Option[GetEventsByContractIdRequest] =
+    this.lastGetEventsByContractIdRequest
+  def getLastGetEventsByContractKeyRequest: Option[GetEventsByContractKeyRequest] =
+    this.lastGetEventsByContractKeyRequest
 }
 
 object EventQueryServiceImpl {
@@ -42,7 +47,7 @@ object EventQueryServiceImpl {
       authorizer: Authorizer,
   )(implicit ec: ExecutionContext): (ServerServiceDefinition, EventQueryServiceImpl) = {
     val impl =
-      new EventQueryServiceImpl(getEventsByContractIdResponse,getEventsByContractKeyResponse)
+      new EventQueryServiceImpl(getEventsByContractIdResponse, getEventsByContractKeyResponse)
     val authImpl = new EventQueryServiceAuthorization(impl, authorizer)
     (EventQueryServiceGrpc.bindService(authImpl, ec), impl)
   }
