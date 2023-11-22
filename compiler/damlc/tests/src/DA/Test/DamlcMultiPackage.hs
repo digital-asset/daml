@@ -164,24 +164,25 @@ tests damlAssistant =
             ]
         ]
     , testGroup
-        "Cycle detection"
-        [ test "Multi-package project cycle from lib-a" [] "./libs/lib-a" cyclicMultiPackage $ Right 
-            [ PackageIdentifier "lib-a" "0.0.1" ]
-        , test "Multi-package project cycle from package-a" [] "./packages/package-a" cyclicMultiPackage $ Right
+        "Cycle handling"
+        [ test "Permitted multi-package project cycle from lib-a" [] "./libs/lib-a" cyclicMultiPackage $ Right
+            [ PackageIdentifier "lib-a" "0.0.1"
+            ]
+        , test "Permitted multi-package project cycle from package-a" [] "./packages/package-a" cyclicMultiPackage $ Right
             [ PackageIdentifier "lib-a" "0.0.1"
             , PackageIdentifier "package-a" "0.0.1"
             ]
-        , test "Multi-package project cycle from libs --all" ["--all"] "./libs" cyclicMultiPackage $ Right
+        , test "Permitted multi-package project cycle from libs --all" ["--all"] "./libs" cyclicMultiPackage $ Right
             [ PackageIdentifier "lib-a" "0.0.1"
             , PackageIdentifier "package-a" "0.0.1"
             ]
-        , test "Multi-package project cycle from packages --all" ["--all"] "./packages" cyclicMultiPackage $ Right
+        , test "Permitted multi-package project cycle from packages --all" ["--all"] "./packages" cyclicMultiPackage $ Right
             [ PackageIdentifier "lib-a" "0.0.1"
             , PackageIdentifier "package-a" "0.0.1"
             ]
-        , test "Package dep cycle from package-a" [] "./package-a" cyclicPackagesProject $ Left "recursion detected"
-        , test "Package dep cycle from package-b" [] "./package-b" cyclicPackagesProject $ Left "recursion detected"
-        , test "Package dep cycle from root --all" ["--all"] "" cyclicPackagesProject $ Left "recursion detected"
+        , test "Illegal package dep cycle from package-a" [] "./package-a" cyclicPackagesProject $ Left "recursion detected"
+        , test "Illegal package dep cycle from package-b" [] "./package-b" cyclicPackagesProject $ Left "recursion detected"
+        , test "Illegal package dep cycle from root --all" ["--all"] "" cyclicPackagesProject $ Left "recursion detected"
         ]
     , testGroup
         "Special flag behaviour"
