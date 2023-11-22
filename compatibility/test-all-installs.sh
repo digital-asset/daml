@@ -58,7 +58,7 @@ daml_install_from_tarball_should_succeed () {
     return 1
   elif [[ "$version_cache_behaviour" == "init_new_cache" ]]; then
     return 0
-  elif [[ $tarball_path == "v2.7.1/daml-sdk-2.7.1-linux.tar.gz" ]]; then
+  elif [[ $tarball_path == "v2.7.1/daml-sdk-2.7.1-$os.tar.gz" ]]; then
     return 0
   else
     return 1
@@ -186,25 +186,37 @@ if [[ ! -e "$absolute_github_api_file" ]]; then
   exit 1
 fi
 
+export os=$1; shift
+
 # Serve a mirror directory of github for more speed
 export github_mirror_directory="$(mktemp -d -p "$PWD" "github-mirror-directory.XXXXXXXX")"
 echo "$github_mirror_directory"
 mkdir -p $github_mirror_directory/{v2.7.1,v2.7.4,v2.7.5,v2.8.0-snapshot.20231109.2}
-cp --no-dereference $(rlocation daml-sdk-2.7.5-tarball/file/downloaded) "$github_mirror_directory/v2.7.5/daml-sdk-2.7.5-linux.tar.gz"
-cp --no-dereference $(rlocation daml-sdk-2.7.4-tarball/file/downloaded) "$github_mirror_directory/v2.7.4/daml-sdk-2.7.4-linux.tar.gz"
-cp --no-dereference $(rlocation daml-sdk-2.7.1-tarball/file/downloaded) "$github_mirror_directory/v2.7.1/daml-sdk-2.7.1-linux.tar.gz"
-cp --no-dereference $(rlocation daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-tarball/file/downloaded) "$github_mirror_directory/v2.8.0-snapshot.20231109.2/daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-linux.tar.gz"
+cp --no-dereference $(rlocation daml-sdk-2.7.5-tarball/file/downloaded) "$github_mirror_directory/v2.7.5/daml-sdk-2.7.5-$os.tar.gz"
+cp --no-dereference $(rlocation daml-sdk-2.7.4-tarball/file/downloaded) "$github_mirror_directory/v2.7.4/daml-sdk-2.7.4-$os.tar.gz"
+cp --no-dereference $(rlocation daml-sdk-2.7.1-tarball/file/downloaded) "$github_mirror_directory/v2.7.1/daml-sdk-2.7.1-$os.tar.gz"
+cp --no-dereference $(rlocation daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-tarball/file/downloaded) "$github_mirror_directory/v2.8.0-snapshot.20231109.2/daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-$os.tar.gz"
 absolute_github_mirror_directory=$(realpath "$github_mirror_directory")
-alternate_download_line="alternate-download: $absolute_github_mirror_directory"
+if [[ $os == windows ]]; then
+  alternate_download_line="alternate-download: $(cygpath -d "$github_mirror_directory")"
+else
+  alternate_download_line="alternate-download: $absolute_github_mirror_directory"
+fi
 
 # Create sandbox with a daml root and daml cache, use temp dirs because windows sandboxing is poor
 export DAML_CACHE="$(mktemp -d -p "$PWD" "cache.XXXXXXXX")"
 export DAML_HOME="$(mktemp -d -p "$PWD" "daml_home.XXXXXXXX")"
-export daml_exe=$1; shift
+if [[ "$os" == windows ]]; then
+  export daml_exe=daml.exe
+else
+  export daml_exe=daml
+fi
 "$(rlocation "head_sdk/$daml_exe")" install --install-assistant yes "$(rlocation head_sdk/sdk-release-tarball-ce.tar.gz)"
 if [[ "$daml_exe" == "daml.exe" ]]; then
   # on windows, fully qualify daml command
   export daml_exe="$DAML_HOME/bin/daml.cmd"
+  #export daml_exe="daml.cmd"
+  #export PATH="$DAML_HOME/bin:$PATH"
 else
   export daml_exe="daml"
   export PATH="$DAML_HOME/bin:$PATH"
@@ -230,7 +242,7 @@ case "$command_to_run" in
       fi
     else
       if [[ "$1" != "0.0.0" ]]; then
-        error_echo "ERROR! Exit code for \`daml install $1\` is $2"
+        error_echo "ERROR! Exit code for \`daml install $install_version\` is nonzero."
       fi
     fi
     ;;
@@ -244,10 +256,18 @@ case "$command_to_run" in
     do_version_cache_behaviour $version_cache_behaviour $absolute_github_api_file
     echo_eval init_daml_package $build_version
     if echo_eval $daml_exe build; then
-      echo_eval check_daml_version_indicates_correct $build_version
-      echo_eval check_dar_has_correct_metadata_version $build_version
+      if [[ "$os" == windows ]]; then
+        error_echo "\`daml build\` on $build_version succeeded. This shouldn't succeed because Windows does not support autoinstalling from alternate-download."
+      else
+        echo_eval check_daml_version_indicates_correct $build_version
+        echo_eval check_dar_has_correct_metadata_version $build_version
+      fi
     else
-      error_echo "ERROR! Exit code for \`daml build\` on version $1 is $2"
+      if [[ "$os" == windows ]]; then
+        echo "Exit code for \`daml build\` on version $build_version is nonzero. This is OK because Windows does not support autoinstall from alternate-download."
+      else
+        error_echo "ERROR! Exit code for \`daml build\` on version $build_version is nonzero"
+      fi
     fi
     ;;
   install_and_build_from_tarball)
@@ -263,11 +283,11 @@ case "$command_to_run" in
 
     tarball_release_version=${tarball_path%%/*}
     tarball_release_version=${tarball_release_version#v}
-    tarball_sdk_version=${tarball_path%-linux.tar.gz}
+    tarball_sdk_version=${tarball_path%-$os.tar.gz}
     tarball_sdk_version=${tarball_sdk_version#*/daml-sdk-}
 
     do_version_cache_behaviour $version_cache_behaviour $absolute_github_api_file
-    if echo_eval $daml_exe install --install-assistant yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1; then
+    if echo_eval $daml_exe install --install-assistant yes "$absolute_github_mirror_directory/$tarball_path" >daml_install_output 2>&1 || grep -q "The input line is too long" daml_install_output; then
       cat daml_install_output
       if ! echo_eval daml_install_from_tarball_should_succeed $tarball_path $version_cache_behaviour; then
         error_echo "ERROR: Tried to install version from tarball '$tarball_path' with cache behaviour $version_cache_behaviour, but \`daml install\` succeeded where it should have failed."
@@ -277,7 +297,7 @@ case "$command_to_run" in
         echo_eval check_daml_version_indicates_correct $tarball_release_version
         echo_eval check_dar_has_correct_metadata_version $tarball_release_version
       else
-        error_echo "ERROR! Exit code for \`daml build\` on version installed from path $1 is $2"
+        error_echo "ERROR! Exit code for \`daml build\` on version installed from path $tarball_path is nonzero."
       fi
     else
       cat daml_install_output

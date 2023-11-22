@@ -160,6 +160,8 @@ first_post_7587_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"
     if versions.is_at_least("1.18.0", old_sdk_version)
 ]
 
+os_name = "linux" if not is_windows else "windows"
+
 command_targets = {
     "install_from_version": [
         "2.8.0-snapshot.20231109.2",
@@ -173,9 +175,9 @@ command_targets = {
         "0.0.0",
     ],
     "install_and_build_from_tarball": [
-        "v2.8.0-snapshot.20231109.2/daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-linux.tar.gz",
-        "v2.7.5/daml-sdk-2.7.5-linux.tar.gz",
-        "v2.7.1/daml-sdk-2.7.1-linux.tar.gz",
+        "v2.8.0-snapshot.20231109.2/daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-{}.tar.gz".format(os_name),
+        "v2.7.5/daml-sdk-2.7.5-{}.tar.gz".format(os_name),
+        "v2.7.1/daml-sdk-2.7.1-{}.tar.gz".format(os_name),
     ],
 }
 
@@ -204,7 +206,7 @@ command_post_failure_behaviours = {
         size = "enormous",
         srcs = ["test-all-installs.sh"],
         args = [
-            "daml" if not is_windows else "daml.exe",
+            os_name,
             command,
             command_target,
             version_cache_behaviour,
