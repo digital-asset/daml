@@ -322,3 +322,8 @@ case "$command_to_run" in
     exit 1
     ;;
 esac
+
+# Try to clear artifacts, if possible
+# Windows does not clear up artifacts properly, which means these tests would
+# take up the whole harddrive otherwise
+rm -rf * || true
