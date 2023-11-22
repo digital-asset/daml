@@ -355,6 +355,7 @@ checkFields origin fields =
         newFieldOptionalType _ = False
 
 -- Check type upgradability
-checkUpgradeType :: MonadGamma m => Upgrading Type -> Error -> m [Qualified TypeConName]
+checkUpgradeType :: MonadGamma m => Upgrading Type -> Error -> m ()
 checkUpgradeType type_ err = do
     unless (foldU alphaType type_) (throwWithContext err)
+    pure ()
