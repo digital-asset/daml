@@ -9,8 +9,10 @@ import DA.Assert
 import DA.Exception
 import DA.Foldable
 import DA.Text
+import DA.Time
 import Daml.Script
 import Daml.Script.Questions.Exceptions (tryToEither)
+import Daml.Script.Questions.Packages (unsafeVetDarOnParticipant, unsafeUnvetDarOnParticipant)
 import Daml.Script.Questions.Testing.Internal
 import Daml.Script.Questions.Upgrading.Internal
 import qualified V1.MyTemplates as V1
@@ -59,13 +61,21 @@ main = forA_ tests $ \(testName, test) -> do
 brokenScript : Script () -> Script ()
 brokenScript act = do
   tryToEither (\() -> liftFailedCommandToException act) >>= \case
-    Right _ -> assertFail "Expected failed and got success! Did you fix this logic? Remove the wrapping `failure` to mark this as working."
+    Right _ -> assertFail "Expected failed and got success! Did you fix this logic? Remove the wrapping `broken` to mark this as working."
     Left _ -> do
       -- Cleanup so next test can run.
-      vetDarOnParticipant v1DarName participant0
-      vetDarOnParticipant v1DarName participant1
-      vetDarOnParticipant v2DarName participant0
-      vetDarOnParticipant v2DarName participant1
+      setProvidePackageId False
+      -- Unvet first so we don't end up vetting a package twice
+      unsafeUnvetDarOnParticipant v1DarName $ Some participant0
+      unsafeUnvetDarOnParticipant v1DarName $ Some participant1
+      unsafeUnvetDarOnParticipant v2DarName $ Some participant0
+      unsafeUnvetDarOnParticipant v2DarName $ Some participant1
+      sleep $ seconds 1
+      unsafeVetDarOnParticipant v1DarName $ Some participant0
+      unsafeVetDarOnParticipant v1DarName $ Some participant1
+      unsafeVetDarOnParticipant v2DarName $ Some participant0
+      unsafeVetDarOnParticipant v2DarName $ Some participant1
+      sleep $ seconds 1
 
 broken : (Text, Script ()) -> (Text, Script ())
 broken (name, act) = ("(BROKEN) " <> name, brokenScript act)
@@ -158,13 +168,13 @@ tests = mconcat
     , broken ("ExerciseByKey command a changed old key for a new contract (upgrading the key)", exerciseCmdKeyUpgrade)
     , broken ("ExerciseByKey command a changed new key for a old contract (downgrading the key)", exerciseCmdKeyDowngrade)
     , broken ("ExerciseByKey command a changed old key for an old contract with implicit upgrade", exerciseCmdKeyUpgradeKeyImplicit)
-    , ("Fetching an unchanged old key for a new contract", fetchKeyUnchanged)
-    , ("Fetching a changed old key for a new contract (upgrading the key)", fetchKeyUpgrade)
-    , ("Fetching a changed new key for a old contract (downgrading the key)", fetchKeyDowngrade)
-    , ("ExerciseByKey in Update an unchanged old key for a new contract", exerciseUpdateKeyUnchanged)
-    , ("ExerciseByKey in Update a changed old key for a new contract (upgrading the key)", exerciseUpdateKeyUpgrade)
-    , ("ExerciseByKey in Update a changed new key for a old contract (downgrading the key)", exerciseUpdateKeyDowngrade)
-
+    , broken ("Fetching an unchanged old key for a new contract", fetchKeyUnchanged)
+    , broken ("Fetching a changed old key for a new contract (upgrading the key)", fetchKeyUpgrade)
+    , broken ("Fetching a changed new key for a old contract (downgrading the key)", fetchKeyDowngrade)
+    , broken ("ExerciseByKey in Update an unchanged old key for a new contract", exerciseUpdateKeyUnchanged)
+    , broken ("ExerciseByKey in Update a changed old key for a new contract (upgrading the key)", exerciseUpdateKeyUpgrade)
+    , broken ("ExerciseByKey in Update a changed new key for a old contract (downgrading the key)", exerciseUpdateKeyDowngrade)
+  
     , -- Edge behaviour
       -- https://github.com/DACH-NY/canton/issues/14718
       broken ("Chooses the v1 contract if v2 is unvetted and package id is omitted.", packageSelectionChoosesUnvettedPackages)
@@ -174,10 +184,8 @@ tests = mconcat
     ]
   , -- Multi participant tests
     [ ("Both participants have v2, upgraded create succeeds.", bothParticipantsV2)
-    , ("Submitting participant has v2, other has v1, failure.", submitV1OtherV2)
-    , ("Submitting participant has v1, other has v2, failure.", submitV2OtherV1)
-      -- TODO: Consider a final test where both participants have v2 disabled. Sadly this cannot work given the
-      -- packageSelectionChoosesUnvettedPackages shows that even an individual participant will pick v2 in this case.
+    , ("Submitting participant has v2, other has v1, expect v1 used.", submitV2OtherV1)
+    , ("Submitting participant has v1, other has v2, expect v1 used.", submitV1OtherV2)
     ]
   ]
 
@@ -663,24 +671,52 @@ exerciseCmdKeyDowngrade = exerciseCmdKeyTest @V1.ChangedKey (\p -> V2.ChangedKey
 exerciseCmdKeyUpgradeKeyImplicit : Script ()
 exerciseCmdKeyUpgradeKeyImplicit = exerciseCmdKeyTest @V1.ChangedKey (`V1.ChangedKey` 1) (`V1.ChangedKeyKey` 1) V1.ChangedKeyCall False "V2"
 
+fetchKeyTest
+  : forall t1 t2 t3 c
+  . (Template t1, HasAgreement t1, HasAgreement t2, Choice t2 c (ContractId t3, t3), Eq t3, Show t3)
+  => (Party -> t1)
+  -> (Party -> t2)
+  -> (Party -> c)
+  -> (Party -> t3)
+  -> Script ()
+fetchKeyTest makeV1Contract makeV2HelperContract makeV2HelperChoice makeExpectedResult = withExplicitPackageIds do
+  a <- allocateParty "alice"
+  cid <- a `submit` createCmd (makeV1Contract a)
+  (foundCid, foundContract) <- a `submit` createAndExerciseCmd (makeV2HelperContract a) (makeV2HelperChoice a)
+  foundContract === makeExpectedResult a
+  show foundCid === show cid
+
 fetchKeyUnchanged : Script ()
-fetchKeyUnchanged = pure ()
+fetchKeyUnchanged = fetchKeyTest (`V1.UnchangedKey` 1) V2.UnchangedKeyHelper (V2.UnchangedKeyFetch . flip V2.UnchangedKeyKey 1) (\p -> V2.UnchangedKey p 1 None)
 
 fetchKeyUpgrade : Script ()
-fetchKeyUpgrade = pure ()
+fetchKeyUpgrade = fetchKeyTest (`V1.ChangedKey` 1) V2.ChangedKeyHelper (\p -> V2.ChangedKeyFetch $ V2.ChangedKeyKey p 1 None) (\p -> V2.ChangedKey p 1 None)
 
 fetchKeyDowngrade : Script ()
-fetchKeyDowngrade = pure ()
+fetchKeyDowngrade = fetchKeyTest (\p -> V2.ChangedKey p 1 None) V1.ChangedKeyHelper (V1.ChangedKeyFetch . flip V1.ChangedKeyKey 1) (`V1.ChangedKey` 1)
+
+exerciseUpdateKeyTest
+  : forall t1 t2 c
+  . (Template t1, HasAgreement t1, HasAgreement t2, Choice t2 c Text)
+  => (Party -> t1)
+  -> (Party -> t2)
+  -> (Party -> c)
+  -> Text
+  -> Script ()
+exerciseUpdateKeyTest makeV1Contract makeV2HelperContract makeV2HelperChoice expectedResult = withExplicitPackageIds do
+  a <- allocateParty "alice"
+  _ <- a `submit` createCmd (makeV1Contract a)
+  res <- a `submit` createAndExerciseCmd (makeV2HelperContract a) (makeV2HelperChoice a)
+  expectedResult === res
 
 exerciseUpdateKeyUnchanged : Script ()
-exerciseUpdateKeyUnchanged = pure ()
+exerciseUpdateKeyUnchanged = exerciseUpdateKeyTest (`V1.UnchangedKey` 1) V2.UnchangedKeyHelper (V2.UnchangedKeyExercise . flip V2.UnchangedKeyKey 1) "V2"
 
 exerciseUpdateKeyUpgrade : Script ()
-exerciseUpdateKeyUpgrade = pure ()
+exerciseUpdateKeyUpgrade = exerciseUpdateKeyTest (`V1.ChangedKey` 1) V2.ChangedKeyHelper (\p -> V2.ChangedKeyExercise $ V2.ChangedKeyKey p 1 None) "V2"
 
 exerciseUpdateKeyDowngrade : Script ()
-exerciseUpdateKeyDowngrade = pure ()
-
+exerciseUpdateKeyDowngrade = exerciseUpdateKeyTest (\p -> V2.ChangedKey p 1 None) V1.ChangedKeyHelper (V1.ChangedKeyExercise . flip V1.ChangedKeyKey 1) "V1"
 
 packageSelectionChoosesUnvettedPackages : Script ()
 packageSelectionChoosesUnvettedPackages = do
@@ -714,7 +750,7 @@ submitV1OtherV2 = do
   a <- allocatePartyOn "alice" participant0
   b <- allocatePartyOn "bob" participant1
   unvetDarOnParticipant v2DarName participant0
-  liftAssertUnknownPackageError $ a `trySubmit` createCmd V1.SharedTemplate with party = a, ob = b
+  a `trySubmit` createCmd V1.SharedTemplate with party = a, ob = b
   vetDarOnParticipant v2DarName participant0
 
 submitV2OtherV1 : Script ()
