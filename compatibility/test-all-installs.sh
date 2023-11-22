@@ -78,7 +78,8 @@ update_cache () {
   if [[ $version_cache_behaviour == init_old_cache ]]; then
     no_cache_override_github_endpoint $1
     echo_eval $daml_exe version --force-reload yes
-    if $daml_exe install --install-assistant yes $absolute_github_mirror_directory/$tarball_path; then
+    if $daml_exe install --install-assistant yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1 || grep -q "The input line is too long" daml_install_output; then
+      cat daml_install_output
       echo_eval init_daml_package $tarball_release_version
       if echo_eval $daml_exe build; then
         echo_eval check_daml_version_indicates_correct $tarball_release_version
@@ -87,13 +88,15 @@ update_cache () {
         error_echo "ERROR! \`daml build\` on version installed from path $tarball_path failed"
       fi
     else
+      cat daml_install_output
       error_echo "ERROR: Tried to install version from tarball '$tarball_path' with cache forcibly reloaded, but \`daml install\` failed."
     fi
   fi
 }
 
 allow_nonrelease () {
-  if echo_eval $daml_exe install --install-assistant yes --allow-install-non-release yes $absolute_github_mirror_directory/$tarball_path; then
+  if echo_eval $daml_exe install --install-assistant yes --allow-install-non-release yes $absolute_github_mirror_directory/$tarball_path >daml_install_output 2>&1 || grep -q "The input line is too long" daml_install_output; then
+    cat daml_install_output
     echo_eval init_daml_package $tarball_sdk_version
     if echo_eval $daml_exe build; then
       echo_eval check_daml_version_indicates_correct $tarball_sdk_version
@@ -102,6 +105,7 @@ allow_nonrelease () {
       error_echo "ERROR! \`daml build\` failed for version installed from path $tarball_path"
     fi
   else
+    cat daml_install_output
     error_echo "ERROR: Tried to install version from tarball '$tarball_path' with --allow-install-non-release, but \`daml install\` failed."
   fi
 }
