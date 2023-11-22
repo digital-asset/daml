@@ -9,26 +9,16 @@ import java.util.concurrent.TimeUnit
 import org.apache.pekko.actor.ActorSystem
 import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
-import com.daml.ledger.rxjava.{CommandCompletionClient, LedgerConfigurationClient, PackageClient}
+import com.daml.ledger.rxjava.{CommandCompletionClient, EventQueryClient, LedgerConfigurationClient, PackageClient}
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer, ClaimSet}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.command_completion_service.{
-  CompletionEndResponse,
-  CompletionStreamResponse,
-}
-import com.daml.ledger.api.v1.command_service.{
-  SubmitAndWaitForTransactionIdResponse,
-  SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse,
-}
+import com.daml.ledger.api.v1.command_completion_service.{CompletionEndResponse, CompletionStreamResponse}
+import com.daml.ledger.api.v1.command_service.{SubmitAndWaitForTransactionIdResponse, SubmitAndWaitForTransactionResponse, SubmitAndWaitForTransactionTreeResponse}
+import com.daml.ledger.api.v1.event_query_service.{GetEventsByContractIdResponse, GetEventsByContractKeyResponse}
 import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
-import com.daml.ledger.api.v1.package_service.{
-  GetPackageResponse,
-  GetPackageStatusResponse,
-  ListPackagesResponse,
-}
+import com.daml.ledger.api.v1.package_service.{GetPackageResponse, GetPackageStatusResponse, ListPackagesResponse}
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.InMemoryUserManagementStore
@@ -164,6 +154,23 @@ final class LedgerServices(val ledgerId: String) {
     }
   }
 
+  def withEventQueryClient(
+      getEventsByContractIdResponse: Future[GetEventsByContractIdResponse],
+      getEventsByContractKeyResponse: Future[GetEventsByContractKeyResponse],
+      authService: AuthService = AuthServiceWildcard,
+      accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
+  )(f: (EventQueryClient, EventQueryServiceImpl) => Any): Any = {
+    val (service, impl) =
+      EventQueryServiceImpl.createWithRef(
+        getEventsByContractIdResponse,
+        getEventsByContractKeyResponse,
+        authorizer,
+      )(executionContext)
+    withServerAndChannel(authService, Seq(service)) { channel =>
+      f(new EventQueryClientImpl(channel, accessToken), impl)
+    }
+  }
+
   def withPackageClient(
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],
@@ -264,6 +271,8 @@ final class LedgerServices(val ledgerId: String) {
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
       getTimeResponses: List[GetTimeResponse],
       getLedgerConfigurationResponses: Seq[GetLedgerConfigurationResponse],
+      getEventsByContractIdResponse: Future[GetEventsByContractIdResponse],
+      getEventsByContractKeyResponse: Future[GetEventsByContractKeyResponse],
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],
       getPackageStatusResponse: Future[GetPackageStatusResponse],
@@ -282,6 +291,8 @@ final class LedgerServices(val ledgerId: String) {
       submitAndWaitForTransactionTreeResponse,
       getTimeResponses,
       getLedgerConfigurationResponses,
+      getEventsByContractIdResponse,
+      getEventsByContractKeyResponse,
       listPackagesResponse,
       getPackageResponse,
       getPackageStatusResponse,
