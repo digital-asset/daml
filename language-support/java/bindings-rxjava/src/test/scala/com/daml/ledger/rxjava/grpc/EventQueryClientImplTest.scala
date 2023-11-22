@@ -78,7 +78,7 @@ class EventQueryClientImplTest
 
   it should "deny access without token" in {
     withEventQueryClient(mockedAuthService) { (client, _) =>
-      withClue("submitAndWait") {
+      withClue("getEventsByContractId") {
         expectUnauthenticated {
           client
             .getEventsByContractId(contractId, parties)
@@ -86,7 +86,7 @@ class EventQueryClientImplTest
             .blockingGet()
         }
       }
-      withClue("submitAndWaitForTransaction") {
+      withClue("getEventsByContractKey") {
         expectUnauthenticated {
           client
             .getEventsByContractKey(contractKey, identifier, parties, "")
@@ -99,7 +99,7 @@ class EventQueryClientImplTest
 
   it should "deny access with the wrong token" in {
     withEventQueryClient(mockedAuthService) { (client, _) =>
-      withClue("submitAndWait") {
+      withClue("getEventsByContractId") {
         expectPermissionDenied {
           client
             .getEventsByContractId(contractId, parties, someOtherPartyReadWriteToken)
@@ -107,7 +107,7 @@ class EventQueryClientImplTest
             .blockingGet()
         }
       }
-      withClue("submitAndWaitForTransaction") {
+      withClue("getEventsByContractKey") {
         expectPermissionDenied {
           client
             .getEventsByContractKey(contractKey, identifier, parties, "", someOtherPartyReadWriteToken)
@@ -120,13 +120,13 @@ class EventQueryClientImplTest
 
   it should "allow access with the right token" in {
     withEventQueryClient() { (client, _) =>
-      withClue("submitAndWait") {
+      withClue("getEventsByContractId") {
         client
           .getEventsByContractId(contractId, parties, somePartyReadWriteToken)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
           .blockingGet()
       }
-      withClue("submitAndWaitForTransaction") {
+      withClue("getEventsByContractKey") {
         client
           .getEventsByContractKey(contractKey, identifier, parties, "", somePartyReadWriteToken)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
