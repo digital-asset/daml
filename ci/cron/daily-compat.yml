@@ -260,11 +260,11 @@ jobs:
         canton_tag=$commit_date.$number_of_commits.0.v$commit_sha_8
         branch="canton-update-$canton_tag-$canton_version"
 
-        if git diff --exit-code origin/main -- canton canton_dep.bzl build.sh arbitrary_canton_sha test-common/canton/BUILD.bazel >/dev/null; then
+        if git diff --exit-code origin/main -- canton build.sh arbitrary_canton_sha test-common/canton/BUILD.bazel >/dev/null; then
             echo "Already up-to-date with latest Canton source & snapshot."
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
-                git add canton_dep.bzl build.sh test-common/canton/BUILD.bazel
+                git add build.sh test-common/canton/BUILD.bazel
                 git ls-files | grep arbitrary_canton_sha >&2 && git rm -f arbitrary_canton_sha
                 open_pr "$branch" "update canton to $canton_tag/$canton_version"
                 az extension add --name azure-devops
