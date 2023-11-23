@@ -156,15 +156,15 @@ initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize pa
 
 newtype EnableMultiPackage = EnableMultiPackage {getEnableMultiPackage :: Bool}
 enableMultiPackageOpt :: Parser EnableMultiPackage
-enableMultiPackageOpt = EnableMultiPackage <$> flagYesNoAuto "enable-multi-package" True "Enable/disable multi-package.yaml support" internal
+enableMultiPackageOpt = EnableMultiPackage <$> flagYesNoAuto "enable-multi-package" True "Enable/disable multi-package.yaml support (enabled by default)" idm
 
 newtype MultiPackageBuildAll = MultiPackageBuildAll {getMultiPackageBuildAll :: Bool}
 multiPackageBuildAllOpt :: Parser MultiPackageBuildAll
-multiPackageBuildAllOpt = MultiPackageBuildAll <$> switch (long "all" <> help "Build all packages in multi-package.daml" <> internal)
+multiPackageBuildAllOpt = MultiPackageBuildAll <$> switch (long "all" <> help "Build all packages in multi-package.daml")
 
 newtype MultiPackageNoCache = MultiPackageNoCache {getMultiPackageNoCache :: Bool}
 multiPackageNoCacheOpt :: Parser MultiPackageNoCache
-multiPackageNoCacheOpt = MultiPackageNoCache <$> switch (long "no-cache" <> help "Disables cache checking, rebuilding all dependencies" <> internal)
+multiPackageNoCacheOpt = MultiPackageNoCache <$> switch (long "no-cache" <> help "Disables cache checking, rebuilding all dependencies")
 
 data MultiPackageLocation
   -- | Search for the multi-package.yaml above the current directory
@@ -184,7 +184,7 @@ multiPackageLocationOpt =
 
 newtype MultiPackageCleanAll = MultiPackageCleanAll {getMultiPackageCleanAll :: Bool}
 multiPackageCleanAllOpt :: Parser MultiPackageCleanAll
-multiPackageCleanAllOpt = MultiPackageCleanAll <$> switch (long "all" <> help "Clean all packages in multi-package.daml" <> internal)
+multiPackageCleanAllOpt = MultiPackageCleanAll <$> switch (long "all" <> help "Clean all packages in multi-package.daml")
 
 data Telemetry
     = TelemetryOptedIn -- ^ User has explicitly opted in
