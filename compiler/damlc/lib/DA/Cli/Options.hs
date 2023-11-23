@@ -156,7 +156,7 @@ initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize pa
 
 newtype EnableMultiPackage = EnableMultiPackage {getEnableMultiPackage :: Bool}
 enableMultiPackageOpt :: Parser EnableMultiPackage
-enableMultiPackageOpt = EnableMultiPackage <$> flagYesNoAuto "enable-multi-package" False "Experimental multi-package.yaml support" internal
+enableMultiPackageOpt = EnableMultiPackage <$> flagYesNoAuto "enable-multi-package" True "Enable/disable multi-package.yaml support" internal
 
 newtype MultiPackageBuildAll = MultiPackageBuildAll {getMultiPackageBuildAll :: Bool}
 multiPackageBuildAllOpt :: Parser MultiPackageBuildAll
