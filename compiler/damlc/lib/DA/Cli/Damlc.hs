@@ -994,7 +994,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
                   || multiPackageLocation /= MPLSearch
           if usedMultiPackageOption
             then do
-              hPutStrLn stderr "Multi-package build option used without enabling multi-package via the --enable-multi-package flag."
+              hPutStrLn stderr "Multi-package build option used with multi-package disabled - re-enable it by setting the --enable-multi-package=yes flag."
               exitFailure
             else buildSingle pkgConfig
 
@@ -1385,7 +1385,7 @@ execClean projectOpts enableMultiPackage multiPackageLocation cleanAll =
                 forM_ (mpPackagePaths multiPackageConfig) $ \p ->
                   singleCleanEffect $ projectOpts {projectRoot = Just $ ProjectPath p}
         (False, True) -> do
-          hPutStrLn stderr "Multi-package clean option used without enabling multi-package via the --enable-multi-package flag."
+          hPutStrLn stderr "Multi-package clean option used with multi-package disabled - re-enable it by setting the --enable-multi-package=yes flag."
           exitFailure
         _ -> singleCleanEffect projectOpts
 
