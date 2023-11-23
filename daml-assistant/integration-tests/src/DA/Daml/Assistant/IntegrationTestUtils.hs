@@ -24,7 +24,7 @@ import System.Info.Extra
 import Test.Tasty
 
 import DA.Bazel.Runfiles
-import DA.Test.Process (callCommandSilent,callProcessSilent)
+import DA.Test.Process (callProcessSilent)
 import DA.Test.Util
 
 -- | Install the SDK in a temporary directory and provide the path to the SDK directory.
@@ -49,8 +49,8 @@ withSdkResource f =
                 if isWindows
                     then callProcessSilent
                         (extractDir </> "daml" </> damlInstallerName)
-                        ["install", "--install-assistant=yes", "--set-path=no", extractDir]
-                    else callCommandSilent $ extractDir </> "install.sh"
+                        ["install", "--install-assistant=yes", "--set-path=no", "--allow-install-non-release=yes", extractDir]
+                    else callProcessSilent (extractDir </> "install.sh") ["--allow-install-non-release=yes"]
                 -- We restrict the permissions of the DAML_HOME directory to make sure everything
                 -- still works when the directory is read-only.
                 allFiles <- listFilesRecursive targetDir
