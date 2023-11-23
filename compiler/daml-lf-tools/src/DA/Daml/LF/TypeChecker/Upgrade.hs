@@ -108,35 +108,21 @@ checkModule module_ = do
             choice <- NM.toList (tplChoices template)
             TCon dtName <- [snd (chcArgBinder choice)] -- Choice inputs should always be type constructors
             pure (qualObject dtName, (template, choice))
-        allChoiceReturnTCons :: LF.Module -> HMS.HashMap LF.TypeConName (LF.Template, LF.TemplateChoice)
-        allChoiceReturnTCons module_ = HMS.fromList $ do
-            template <- NM.toList (moduleTemplates module_)
-            choice <- NM.toList (tplChoices template)
-            dtName <- flip cata (chcReturnType choice) $ \case
-                TConF dtName -> [dtName]
-                rest -> fold rest
-            pure (qualObject dtName, (template, choice))
         dataTypeOrigin
             :: DefDataType -> Module
-            -> (UpgradedRecordOrigin, (Context, Bool))
+            -> (UpgradedRecordOrigin, Context)
         dataTypeOrigin dt module_
             | Just template <- NM.name dt `NM.lookup` moduleTemplates module_ =
                 ( TemplateBody (NM.name dt)
-                , ( ContextTemplate module_ template TPWhole
-                  , True
-                  )
+                , ContextTemplate module_ template TPWhole
                 )
             | Just (template, choice) <- NM.name dt `HMS.lookup` deriveChoiceInfo module_ =
                 ( TemplateChoiceInput (NM.name template) (NM.name choice)
-                , ( ContextTemplate module_ template (TPChoice choice)
-                  , True
-                  )
+                , ContextTemplate module_ template (TPChoice choice)
                 )
             | otherwise =
                 ( TopLevel
-                , (ContextDefDataType module_ dt
-                  , NM.name dt `HMS.member` allChoiceReturnTCons module_
-                  )
+                , ContextDefDataType module_ dt
                 )
 
     forM_ dtExisting $ \dt ->
@@ -148,12 +134,11 @@ checkModule module_ = do
             withContext (ContextDefDataType (present module_) (present dt)) $
                 throwWithContext (EUpgradeError (RecordChangedOrigin (dataTypeCon (present dt)) (fst (past origin)) (fst (present origin))))
         else
-            let (presentOrigin, (context, shouldCheck)) = present origin
+            let (presentOrigin, context) = present origin
             in
-            when shouldCheck $
-                case checkDefDataType presentOrigin dt of
-                  Nothing -> pure ()
-                  Just e -> withContext context $ throwWithContext e
+            case checkDefDataType presentOrigin dt of
+              Nothing -> pure ()
+              Just e -> withContext context $ throwWithContext e
 
 checkTemplate :: forall m. MonadGamma m => Upgrading Module -> Upgrading LF.Template -> m ()
 checkTemplate module_ template = do
