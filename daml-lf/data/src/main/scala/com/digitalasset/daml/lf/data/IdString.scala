@@ -298,7 +298,8 @@ private[data] final class IdStringImpl extends IdString {
     }
   }
 
-  /** Package names are non-empty US-ASCII strings built from letters, digits, minus and underscore.
+  /** Package names are non-empty US-ASCII strings built from letters, digits, minus and underscore
+    * limited to 255 chars
     */
   override type PackageName = String
   override val PackageName: ConcatenableStringModule[PackageName, HexString] =
