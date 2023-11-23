@@ -26,17 +26,12 @@ public final class GetEventsByContractIdResponse {
 
   public static GetEventsByContractIdResponse fromProto(
       com.daml.ledger.api.v1.EventQueryServiceOuterClass.GetEventsByContractIdResponse response) {
-    if (response.hasCreateEvent()) {
-      if (response.hasArchiveEvent()) {
-        return new GetEventsByContractIdResponse(
-            Optional.of(CreatedEvent.fromProto(response.getCreateEvent())),
-            Optional.of(ArchivedEvent.fromProto(response.getArchiveEvent())));
-      } else {
-        return new GetEventsByContractIdResponse(
-            Optional.of(CreatedEvent.fromProto(response.getCreateEvent())), Optional.empty());
-      }
-    } else {
-      return new GetEventsByContractIdResponse(Optional.empty(), Optional.empty());
-    }
+    return new GetEventsByContractIdResponse(
+        response.hasCreateEvent()
+            ? Optional.of(CreatedEvent.fromProto(response.getCreateEvent()))
+            : Optional.empty(),
+        response.hasArchiveEvent()
+            ? Optional.of(ArchivedEvent.fromProto(response.getArchiveEvent()))
+            : Optional.empty());
   }
 }

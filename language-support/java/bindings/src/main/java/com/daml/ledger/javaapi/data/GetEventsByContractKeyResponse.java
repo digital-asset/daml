@@ -33,23 +33,15 @@ public final class GetEventsByContractKeyResponse {
 
   public static GetEventsByContractKeyResponse fromProto(
       com.daml.ledger.api.v1.EventQueryServiceOuterClass.GetEventsByContractKeyResponse response) {
-    Optional<String> optContinuationToken =
-        Optional.of(response.getContinuationToken()).filter(c -> !c.equals(""));
-    if (response.hasCreateEvent()) {
-      if (response.hasArchiveEvent()) {
-        return new GetEventsByContractKeyResponse(
-            Optional.of(CreatedEvent.fromProto(response.getCreateEvent())),
-            Optional.of(ArchivedEvent.fromProto(response.getArchiveEvent())),
-            optContinuationToken);
-      } else {
-        return new GetEventsByContractKeyResponse(
-            Optional.of(CreatedEvent.fromProto(response.getCreateEvent())),
-            Optional.empty(),
-            optContinuationToken);
-      }
-    } else {
-      return new GetEventsByContractKeyResponse(
-          Optional.empty(), Optional.empty(), optContinuationToken);
-    }
+    return new GetEventsByContractKeyResponse(
+        response.hasCreateEvent()
+            ? Optional.of(CreatedEvent.fromProto(response.getCreateEvent()))
+            : Optional.empty(),
+        response.hasArchiveEvent()
+            ? Optional.of(ArchivedEvent.fromProto(response.getArchiveEvent()))
+            : Optional.empty(),
+        response.getContinuationToken().isEmpty()
+            ? Optional.of(response.getContinuationToken())
+            : Optional.empty());
   }
 }

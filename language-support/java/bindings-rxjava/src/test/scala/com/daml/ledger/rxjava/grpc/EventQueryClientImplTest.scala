@@ -4,10 +4,7 @@
 package com.daml.ledger.rxjava.grpc
 
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
-import com.daml.ledger.api.v1.ValueOuterClass
 import com.daml.ledger.rxjava.grpc.helpers.TestConfiguration
-import org.scalacheck.Arbitrary
-
 import com.daml.ledger.api.v1.event_query_service.{
   GetEventsByContractIdResponse,
   GetEventsByContractKeyResponse,
@@ -18,11 +15,10 @@ import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices}
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
-import java.util.Optional
 import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters._
 
 class EventQueryClientImplTest
     extends AnyFlatSpec
@@ -41,19 +37,10 @@ class EventQueryClientImplTest
     ) _
   }
 
-  private val contractKey = Value.fromProto(
-    Arbitrary.arbBool.arbitrary
-      .map(ValueOuterClass.Value.newBuilder().setBool(_).build())
-      .sample
-      .get
-  )
+  private val contractKey = Bool.TRUE
   private val identifier = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
   private val contractId = "contract_id"
   private val parties = java.util.Set.of("party_1")
-
-  implicit class JavaOptionalAsScalaOption[A](opt: Optional[A]) {
-    def asScala: Option[A] = if (opt.isPresent) Some(opt.get()) else None
-  }
 
   behavior of "EventQueryClientImpl"
 
@@ -69,7 +56,7 @@ class EventQueryClientImplTest
         .getEventsByContractKey(contractKey, identifier, parties, "1")
         .blockingGet()
       service.getLastGetEventsByContractKeyRequest.value.contractKey
-        .flatMap(_.sum.bool) shouldBe contractKey.asBool().asScala.map(_.getValue)
+        .flatMap(_.sum.bool) shouldBe contractKey.asBool().toScala.map(_.getValue)
       service.getLastGetEventsByContractKeyRequest.value.templateId.map(_.packageId) shouldBe Some(
         identifier.getPackageId
       )
