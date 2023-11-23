@@ -35,6 +35,9 @@ class DependenciesSpec extends AnyFreeSpec with Matchers {
     "1.dev" in {
       targetFlag(v1_dev) shouldBe "--target=1.dev"
     }
+    "2.1" in {
+      targetFlag(v2_1) shouldBe "--target=2.1"
+    }
     "2.dev" in {
       targetFlag(v2_dev) shouldBe "--target=2.dev"
     }
