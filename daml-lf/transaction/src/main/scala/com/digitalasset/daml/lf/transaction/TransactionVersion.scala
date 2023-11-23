@@ -63,6 +63,8 @@ object TransactionVersion {
       v1_14 -> V14,
       v1_15 -> V15,
       v1_dev -> VDev,
+      // TODO(#17366): Map to TransactionVersion 2.1 once it exists.
+      v2_1 -> VDev,
       // TODO(#17366): Map to TransactionVersion 2.dev once it exists.
       v2_dev -> VDev,
     )

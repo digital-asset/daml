@@ -130,14 +130,15 @@ withDamlScriptDep mLfVer =
     darPath = "daml-script" </> "daml" </> "daml-script" <> lfVerStr <> ".dar"
   in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer []
 
-withDamlScriptV2Dep :: (ScriptPackageData -> IO a) -> IO a
-withDamlScriptV2Dep =
+withDamlScriptV2Dep :: Maybe Version -> (ScriptPackageData -> IO a) -> IO a
+withDamlScriptV2Dep mLfVer =
   let
-    darPath = "daml-script" </> "daml3" </> "daml3-script-2.dev.dar"
+    lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
+    darPath = "daml-script" </> "daml3" </> "daml3-script" <> lfVerStr <> ".dar"
   in withVersionedDamlScriptDep
        ("daml3-script-" <> sdkPackageVersion)
        darPath
-       (Just version2_dev) -- daml-script only supports 2.dev for now
+       mLfVer
        scriptV2ExternalPackages
 
 -- External dars for scriptv2 when testing upgrades.
@@ -192,7 +193,7 @@ main = do
 
   scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
 
-  let withDep = if isV2 then withDamlScriptV2Dep else withDamlScriptDep $ Just lfVer
+  let withDep = (if isV2 then withDamlScriptV2Dep else withDamlScriptDep) (Just lfVer)
   let scenarioConf = SS.defaultScenarioServiceConfig
                        { SS.cnfJvmOptions = ["-Xmx200M"]
                        , SS.cnfEvaluationTimeout = Just 3

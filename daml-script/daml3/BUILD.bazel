@@ -9,7 +9,7 @@ load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF2_VERSIONS", "lf_version_late
 
 [
     genrule(
-        name = "daml-script",
+        name = "daml-script-{}-dar".format(lf_version),
         srcs = glob(["**/*.daml"]),
         outs = ["daml3-script-{}.dar".format(lf_version)],
         cmd = """

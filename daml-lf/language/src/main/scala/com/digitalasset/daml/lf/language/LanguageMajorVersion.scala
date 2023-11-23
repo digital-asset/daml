@@ -22,8 +22,6 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: L
 
   import LanguageMajorVersion._
 
-  // TODO(#17366): 2.dev is currently the only 2.x version, but as soon as 2.0 is introduced this
-  //   code should be simplified.
   val minStableVersion =
     LanguageVersion(this, LanguageMinorVersion(minorAscending.headOption.getOrElse("dev")))
   val maxStableVersion =
@@ -71,7 +69,7 @@ object LanguageMajorVersion {
   case object V2
       extends LanguageMajorVersion(
         pretty = "2",
-        minorAscending = List(),
+        minorAscending = List("1"),
       )
 
   val All: List[LanguageMajorVersion] = List(V1, V2)

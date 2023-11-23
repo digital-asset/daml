@@ -519,7 +519,7 @@ da_haskell_test(
         # Feel free to update this to 0.13.55 once that is frozen.
         ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
         # TODO(#17366) replace with a dar targetting 2.0 once it exists
-        ":dars/old-proj-d2244d1a9a-2.dev.dar",
+        ":dars/old-proj-751423d5a-2.1.dar",
     ],
     hackage_deps = [
         "base",

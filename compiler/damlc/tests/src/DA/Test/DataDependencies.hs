@@ -37,7 +37,7 @@ main = do
     v1TestArgs <- do
         let targetDevVersion = LF.version1_dev
         let exceptionsVersion = minExceptionVersion LF.V1
-        let simpleDalfLfVersion = LF.versionDefault
+        let simpleDalfLfVersion = LF.defaultOrLatestStable LF.V1
         scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar")
         oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
         let lfVersionTestPairs = lfVersionTestPairsV1
@@ -45,11 +45,9 @@ main = do
     v2TestArgs <- do
         let targetDevVersion = LF.version2_dev
         let exceptionsVersion = minExceptionVersion LF.V2
-        -- TODO(#17366): replace with the latest stable version of 2.x once it exists
-        let simpleDalfLfVersion = LF.Version LF.V2 LF.PointDev
+        let simpleDalfLfVersion = LF.defaultOrLatestStable LF.V2
         scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script-2.dev.dar")
-        -- TODO(#17366): replace with a dar targetting 2.0 once it exists
-        oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-d2244d1a9a-2.dev.dar")
+        oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-751423d5a-2.1.dar")
         let lfVersionTestPairs = lfVersionTestPairsV2
         return TestArgs{..}
     let testTrees = map tests [v1TestArgs, v2TestArgs]

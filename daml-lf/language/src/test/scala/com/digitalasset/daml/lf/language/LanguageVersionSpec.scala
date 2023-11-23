@@ -41,7 +41,7 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
     }
 
     "reject invalid versions" in {
-      val testCases = Table("invalid version", "1", "14", "2.1", "version", "1.11.11")
+      val testCases = Table("invalid version", "1", "14", "version", "1.11.11")
 
       forEvery(testCases)(s => LV.fromString(s) shouldBe a[Left[_, _]])
     }
