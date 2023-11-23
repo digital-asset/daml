@@ -19,9 +19,7 @@ packages:
 - <path to second package>
 ```
 
-The developer then runs `daml build --all --enable-multi-package yes` from the root of their project to build all of the packages listed in the `multi-package.yaml` file, or they run `daml build` within a package to build it and its dependencies.
-
-**Note:** *Because this feature is experimental, the new behaviour for `daml build` and `daml clean` can only be used if the `--enable-multi-package=yes` flag is provided.*
+The developer then runs `daml build --all` from the root of their project to build all of the packages listed in the `multi-package.yaml` file, or they run `daml build` within a package to build it and its dependencies.
 
 The rest of this document expands on use cases and usage of the CLI and the `multi-package.yaml` file.
 
@@ -66,9 +64,6 @@ Using multi-package builds, the developer can register multiple packages as inte
 
 The directories containing the `daml.yaml` for the various packages that should be part of our project are listed (preferably with relative paths) under the `packages` header in the `multi-package.yaml`.
 
-> **NOTE**
-> Multi-package builds are still an experimental feature. To use this feature during `daml build` and `daml clean`, you must pass the `--enable-multi-package` flag.
-
 ### Example
 
 For our example project, we would register `package-Model` and `package-Logic` as members of our project. We do this by placing a `multi-package.yaml` file at the root of our project, with two (preferably with relative) references to packages Model and Logic.
@@ -102,7 +97,7 @@ Now that both `package-Logic` and `package-Model` are in the project, any attemp
 ```bash=
 > # ... make some changes to Model ...
 > cd ./package-Logic/ # Navigate to package-Logic
-> daml build --enable-multi-package yes # Build package Logic
+> daml build # Build package Logic
 ...
 Dependency "package-Model" is stale, rebuilding...
 ...
@@ -178,8 +173,8 @@ Finally, we'll want to tie the new package into our project to take advantage of
 
 Assuming we then write our tests, we can build our test package in one of two ways:
 
-- Run `daml build --enable-multi-package yes` from the `package-Testing` directory to build the Tests package and its dependency Logic package.
-- Run `daml build --enable-multi-package=yes --all` from the root of the project to build all three packages in our project, including the Tests package.
+- Run `daml build` from the `package-Testing` directory to build the Tests package and its dependency Logic package.
+- Run `daml build --all` from the root of the project to build all three packages in our project, including the Tests package.
 
 Once we have built the package, we can run `daml test` from the `package-Testing` directory to run the up-to-date tests.
 
@@ -211,7 +206,7 @@ If we do not update `multi-package.yaml`, builds of package Logic will **not** t
 ```bash=
 > # ... make some changes to vendor-library ...
 > cd ./package-Logic/ # Navigate to package-Logic
-> daml build --enable-multi-package yes # Build package Logic
+> daml build # Build package Logic
 ...
 Building "package-Logic"... # We DO NOT rebuild vendor-library
 Done.
@@ -253,13 +248,13 @@ Both repositories have their own `multi-package.yaml` which points to their resp
 
 ```bash=
 > cd library-repository
-> daml build --enable-multi-package yes --all
+> daml build --all
 ...
 Building "library-logic"...
 Building "library-tests"...
 Done.
 > cd application-repository
-> daml build --enable-multi-package yes --all
+> daml build --all
 ...
 Building "application-logic"...
 Building "application-tests"...
@@ -272,7 +267,7 @@ However, occasionally we may want to make changes to both repositories simultane
 > cd library-repository
 > editor library-logic/... # make some changes
 > cd ../application-repository
-> daml build --enable-multi-package yes --all
+> daml build --all
 Nothing to do. # changes from library-logic are NOT picked up and NOT rebuilt
 ```
 
@@ -296,7 +291,7 @@ Once a local `multi-package.yaml` file's `projects` field is populated with a fo
 > cd library-repository
 > editor library-logic/... # make some changes
 > cd ../application-repository
-> daml build --enable-multi-package yes --all
+> daml build --all
 Building "library-logic"... # changes from library-logic ARE picked up and rebuilt
 Building "application-logic" # the application-logic package is rebuilt because its library-logic dependency has changed.
 ```
@@ -358,7 +353,7 @@ As before, we can run `daml build --all` from the root of the project to build a
 
 ```bash=
 > # From the root of the project:
-> daml build --enable-multi-package yes --all
+> daml build --all
 Building "my-lib-helper"...
 Building "my-lib"...
 Building "main"...
@@ -368,7 +363,7 @@ However, if we run `daml build --all` from the `libs` directory, it'll traverse 
 
 ```bash=
 > cd libs/
-> daml build --enable-multi-package yes --all
+> daml build --all
 Building "my-lib-helper"...
 Building "my-lib"...
 # Main is *not* built, because libs/multi-package.yaml was used
@@ -378,7 +373,7 @@ You can explicitly specify the use of the outer `multi-package.yaml` from within
 
 ```bash=
 > cd libs/
-> daml build --enable-multi-package yes --all --multi-package-path ../multi-package.yaml
+> daml build --all --multi-package-path ../multi-package.yaml
 Building "my-lib-helper"...
 Building "my-lib"...
 Building "main"... # Main *is* built, because the root multi-package.yaml was used
