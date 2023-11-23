@@ -199,8 +199,6 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
       entry.from.value < timestamp && entry.until.forall(until => timestamp <= until.value) &&
       // not rejected
       entry.rejected.isEmpty &&
-      // is of type Replace
-      entry.transaction.operation == TopologyChangeOpX.Replace &&
       // matches a party to participant mapping (with appropriate filters)
       (entry.transaction.transaction.mapping match {
         case ptp: PartyToParticipantX =>
