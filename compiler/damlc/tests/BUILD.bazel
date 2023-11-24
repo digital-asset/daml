@@ -986,6 +986,7 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-script/daml:daml-script.dar",
+        "//daml-script/daml3:daml3-script.dar",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -1017,6 +1018,7 @@ da_haskell_test(
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 )
 
