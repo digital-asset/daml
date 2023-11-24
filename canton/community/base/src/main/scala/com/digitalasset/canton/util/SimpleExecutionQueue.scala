@@ -14,6 +14,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.SimpleExecutionQueue.TaskCell
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.TryUtil.*
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
@@ -286,13 +287,12 @@ object SimpleExecutionQueue {
                 s"Not running task ${description.singleQuoted} due to exception after waiting for $waitingDelay"
               )(loggingContext.traceContext)
             }
-            Try(runWhenUnderFailures).failed
-              .foreach(e =>
-                loggingContext.logger.debug(
-                  s"Failed to run 'runWhenUnderFailures' function for ${description.singleQuoted}",
-                  e,
-                )(loggingContext.traceContext)
-              )
+            Try(runWhenUnderFailures).forFailed(e =>
+              loggingContext.logger.debug(
+                s"Failed to run 'runWhenUnderFailures' function for ${description.singleQuoted}",
+                e,
+              )(loggingContext.traceContext)
+            )
             FutureUnlessShutdown.failed(ex)
           }
       }(directExecutionContext)

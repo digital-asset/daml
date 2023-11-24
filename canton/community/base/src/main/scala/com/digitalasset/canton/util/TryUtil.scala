@@ -18,4 +18,10 @@ object TryUtil {
       case e: InterruptedException => Failure(e)
       case NonFatal(e) => Failure(e)
     }
+
+  implicit final class ForFailedOps[A](private val a: Try[A]) extends AnyVal {
+    @inline
+    def forFailed(f: Throwable => Unit): Unit = a.fold(f, _ => ())
+  }
+
 }

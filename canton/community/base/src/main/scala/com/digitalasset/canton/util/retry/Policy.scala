@@ -339,7 +339,7 @@ abstract class RetryWithDelay(
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  private def throwableOfOutcome(outcome: Try[Any]): Throwable = outcome.failed.getOrElse(null)
+  private def throwableOfOutcome(outcome: Try[Any]): Throwable = outcome.fold(identity, null)
 }
 
 object RetryWithDelay {

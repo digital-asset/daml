@@ -45,6 +45,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
+@SuppressWarnings(Array("com.digitalasset.canton.TryFailed"))
 class CommandServiceImplSpec
     extends AsyncWordSpec
     with Matchers

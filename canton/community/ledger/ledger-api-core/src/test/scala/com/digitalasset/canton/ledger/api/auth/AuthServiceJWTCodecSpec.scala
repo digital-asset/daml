@@ -12,6 +12,7 @@ import spray.json.*
 import java.time.Instant
 import scala.util.{Success, Try}
 
+@SuppressWarnings(Array("com.digitalasset.canton.TryFailed"))
 class AuthServiceJWTCodecSpec
     extends AnyWordSpec
     with Matchers

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.util
 
 import cats.data.{EitherT, OptionT}
+import com.digitalasset.canton.util.TryUtil.*
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -73,7 +74,7 @@ object Thereafter {
         case result @ Failure(resultEx) =>
           val bodyT = Try(body(result))
           // If the body throws an exception, add it as a suppressed exception to the result exception
-          bodyT.failed.foreach { bodyEx =>
+          bodyT.forFailed { bodyEx =>
             // Avoid an IllegalArgumentException if it's the same exception,
             if (!(resultEx eq bodyEx)) resultEx.addSuppressed(bodyEx)
           }

@@ -29,7 +29,6 @@ final case class CommunityEnvironmentDefinition(
       setups,
       teardown,
       configTransforms,
-      _ => NetworkBootstrap.Noop,
     ) {
 
   def withManualStart: CommunityEnvironmentDefinition =

@@ -3,9 +3,11 @@
 
 package com.digitalasset.canton.util.retry
 
+import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.resource.DatabaseStorageError.DatabaseStorageDegradation.DatabaseTaskRejected
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.TryUtil.ForFailedOps
 import org.postgresql.util.PSQLException
 
 import java.sql.*
@@ -219,7 +221,7 @@ object RetryUtil {
     override def retryOK(outcome: Try[_], logger: TracedLogger)(implicit
         tc: TraceContext
     ): ErrorKind = {
-      outcome.failed.foreach(t => logThrowable(t, logger))
+      outcome.forFailed(t => logThrowable(t, logger))
       NoErrorKind
     }
 

@@ -42,8 +42,12 @@ abstract class GenTransferViewTree[
   The versioning does not play well with this parametrized class so we define the serialization
   method explicitly.
    */
-  def toProtoVersioned(version: ProtocolVersion): VersionedMessage[TransferViewTree] =
-    VersionedMessage(toProtoV0.toByteString, 0)
+  def toProtoVersioned(version: ProtocolVersion): VersionedMessage[TransferViewTree] = {
+    if (version <= ProtocolVersion.v5)
+      VersionedMessage(toProtoV0.toByteString, 0)
+    else
+      VersionedMessage(toProtoV1.toByteString, 1)
+  }
 
   def toByteString(version: ProtocolVersion): ByteString = toProtoVersioned(version).toByteString
 

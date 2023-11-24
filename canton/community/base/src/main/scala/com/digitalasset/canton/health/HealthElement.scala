@@ -9,6 +9,7 @@ import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.TryUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, LoggerUtil}
 
 import java.util.ConcurrentModificationException
@@ -168,7 +169,7 @@ trait HealthElement {
     listeners.foreachEntry { (listener, _) =>
       logger.debug(s"Notifying listener ${listener.name} of health state change from $name")
       val start = System.nanoTime()
-      Try(listener.poke()).failed.foreach { exception =>
+      Try(listener.poke()).forFailed { exception =>
         logger.error(s"Notification of ${listener.name} failed", exception)
       }
       logIfLongPokeTime(listener, start)

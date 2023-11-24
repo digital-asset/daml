@@ -6,6 +6,7 @@ package com.digitalasset.canton.lifecycle
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.TryUtil.*
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
@@ -70,7 +71,7 @@ trait OnShutdownRunner { this: AutoCloseable =>
           .filterNot(_.done)
           // TODO(#8594) Time limit the shutdown tasks similar to how we time limit the readers in FlagCloseable
           .foreach(_.run())
-      }.failed.foreach(t => logger.warn(s"Task ${task.name} failed on shutdown!", t))
+      }.forFailed(t => logger.warn(s"Task ${task.name} failed on shutdown!", t))
     }
   }
 
