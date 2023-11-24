@@ -865,6 +865,7 @@ class WebSocketService(
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
+      .recover { case e if PrunedOffset.wasCause(e) => -\/(PrunedOffset) }
       .map(
         _.fold(e => extendWithRequestIdLogCtx(implicit lc => wsErrorMessage(e)), identity): Message
       )
