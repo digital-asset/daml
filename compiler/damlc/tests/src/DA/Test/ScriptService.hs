@@ -45,7 +45,8 @@ import Test.Tasty.HUnit
 import Text.Regex.TDFA
 
 main :: IO ()
-main =
+main = do
+    setEnv "TASTY_NUM_THREADS" "1" True
     defaultMain $
         testGroup
             "Script Service"
@@ -57,7 +58,6 @@ withScriptService :: LF.Version -> (SS.Handle -> IO ()) -> IO ()
 withScriptService lfVersion action =
   withTempDir $ \dir -> do
     withCurrentDirectory dir $ do
-      setEnv "TASTY_NUM_THREADS" "1" True
 
       -- Package DB setup, we only need to do this once so we do it at the beginning.
       scriptDar <- locateRunfiles $ case LF.versionMajor lfVersion of
