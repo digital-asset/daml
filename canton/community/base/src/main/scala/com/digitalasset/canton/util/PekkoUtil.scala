@@ -15,6 +15,7 @@ import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.TryUtil.*
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.Logger
 import org.apache.pekko.actor.ActorSystem
@@ -455,7 +456,7 @@ object PekkoUtil extends HasLoggerName {
                   idempotentComplete()
               }
             }(materializer.executionContext)
-            .thereafter(_.failed.foreach { ex =>
+            .thereafter(_.forFailed { ex =>
               loggingContext.error(
                 s"The retry policy for RestartSource $name failed with an error. Stop retrying.",
                 ex,

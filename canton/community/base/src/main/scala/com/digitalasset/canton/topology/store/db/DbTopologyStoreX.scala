@@ -308,7 +308,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
 
     queryForTransactions(
       asOfQuery(timestamp, asOfInclusive = false) ++
-        sql" AND operation = ${TopologyChangeOpX.Replace} AND (transaction_type = ${PartyToParticipantX.code}"
+        sql" AND (transaction_type = ${PartyToParticipantX.code}"
         ++ conditionalAppend(filterParty, sqlPartyIdentifier, sqlPartyNS)
         ++ sql") OR (transaction_type = ${DomainTrustCertificateX.code}"
         // In DomainTrustCertificateX part of the filter, compare not only to participant, but also to party identifier

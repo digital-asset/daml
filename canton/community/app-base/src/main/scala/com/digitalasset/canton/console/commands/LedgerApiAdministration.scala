@@ -3014,7 +3014,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         ): Seq[javab.data.Transaction] = check(FeatureFlag.Testing)({
           ledger_api.transactions
             .flat_with_tx_filter(
-              TransactionFilter.fromJavaProto(filter.toProto),
+              javab.data.FilterConversion(filter),
               completeAfter,
               beginOffset,
               endOffset,

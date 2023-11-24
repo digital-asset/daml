@@ -9,6 +9,7 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.TryUtil.*
 import org.slf4j.event.Level
 
 import scala.concurrent.ExecutionContext
@@ -135,7 +136,7 @@ trait PromiseUnlessShutdownFactory { self: HasCloseContext =>
 
     promise.future
       .onComplete { _ =>
-        Try(closeContext.context.cancelShutdownTask(cancelToken)).failed.foreach(e =>
+        Try(closeContext.context.cancelShutdownTask(cancelToken)).forFailed(e =>
           logger.debug(s"Failed to cancel shutdown task for $description", e)(elc.traceContext)
         )
       }
