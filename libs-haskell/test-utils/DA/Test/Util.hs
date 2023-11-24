@@ -21,6 +21,7 @@ module DA.Test.Util (
 ) where
 
 import Control.Concurrent (putMVar, newEmptyMVar, takeMVar, forkIO)
+import Control.Lens (view, _1)
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.IO.Unlift (MonadUnliftIO)
@@ -77,18 +78,22 @@ withResourceCps withResourceIO f = withResource acquire release action
   where
     acquire = do
         resourceMVar <- newEmptyMVar
-        doneMVar <- newEmptyMVar
+        doneRunningActionMVar <- newEmptyMVar
+        doneCleaningUpMVar <- newEmptyMVar
         _ <-
-            forkIO $
+            forkIO $ do
                 withResourceIO
                     ( \resource -> do
                         putMVar resourceMVar resource
-                        takeMVar doneMVar
+                        takeMVar doneRunningActionMVar
                     )
+                putMVar doneCleaningUpMVar ()
         resource <- takeMVar resourceMVar
-        return (resource, doneMVar)
-    release (_, doneMVar) = putMVar doneMVar ()
-    action = f . fmap fst
+        return (resource, doneRunningActionMVar, doneCleaningUpMVar)
+    release (_, doneMVar, doneCleaningUpMVar) = do
+      putMVar doneMVar ()
+      takeMVar doneCleaningUpMVar
+    action = f . fmap (view _1)
 
 nullDevice :: FilePath
 nullDevice
