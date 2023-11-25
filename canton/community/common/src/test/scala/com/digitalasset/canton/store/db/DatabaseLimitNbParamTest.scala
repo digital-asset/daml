@@ -60,8 +60,7 @@ trait DatabaseLimitNbParamTest
         rawStorage
           .update(query.asUpdate, "parameter limit query", maxRetries = 1)
           .transformWith { outcome =>
-            val errorKind = DbExceptionRetryable.retryOK(outcome, logger)
-
+            val errorKind = DbExceptionRetryable.retryOK(outcome, logger, None)
             errorKind match {
               case FatalErrorKind =>
               case _ => fail("Database error kind should be fatal")

@@ -26,7 +26,7 @@ object RetryUtil {
       *
       * Also logs the embedded exception.
       */
-    def retryOK(outcome: Try[_], logger: TracedLogger)(implicit
+    def retryOK(outcome: Try[_], logger: TracedLogger, lastErrorKind: Option[ErrorKind])(implicit
         tc: TraceContext
     ): ErrorKind
 
@@ -90,124 +90,144 @@ object RetryUtil {
     ): Boolean = {
       // Don't retry forever on "contention" errors, as these may not actually be due to contention and get stuck
       // forever. Eg unique constraint violation exceptions can be caused by contention in H2 leading to data anomalies.
-      DbExceptionRetryable.retryOK(Failure(error), logger).maxRetries == Int.MaxValue
+      DbExceptionRetryable.retryOK(Failure(error), logger, None).maxRetries == Int.MaxValue
     }
 
-    @tailrec override def retryOK(outcome: Try[_], logger: TracedLogger)(implicit
+    override def retryOK(
+        outcome: Try[_],
+        logger: TracedLogger,
+        lastErrorKind: Option[ErrorKind],
+    )(implicit
         tc: TraceContext
     ): ErrorKind = {
       outcome match {
         case util.Success(_) => NoErrorKind
-        case Failure(exception) =>
-          logThrowable(exception, logger)
-
-          exception match {
-            case exn: java.util.concurrent.RejectedExecutionException =>
-              // This occurs when slick's task queue is full
-
-              // Create a CantonError so that the error code gets logged.
-              DatabaseTaskRejected(exn.toString)(
-                ErrorLoggingContext.fromTracedLogger(logger)
-              ).discard
-
-              TransientErrorKind
-
-            case exception: PSQLException =>
-              // Error codes documented here: https://www.postgresql.org/docs/9.6/errcodes-appendix.html
-              val error = exception.getSQLState
-
-              if (error.startsWith("08")) {
-                // Class 08 — Connection Exception
-                TransientErrorKind
-              } else if (error == "40001") {
-                // Class 40 — Transaction Rollback: 40001	serialization_failure
-                // Failure to serialize db accesses, happens due to contention
-                TransientErrorKind
-              } else if (error == "40P01") {
-                // Deadlock
-                // See DatabaseDeadlockTestPostgres
-                // This also covers deadlocks reported as BatchUpdateExceptions,
-                // because they refer to a PSQLException has cause.
-                TransientErrorKind
-              } else if (error == "25006") {
-                // Retry on read only transaction, which can occur on Azure
-                TransientErrorKind
-              } else if (error.startsWith("57P") && error != "57P014" && error != "57P04") {
-                // Retry on operator invention errors, otherwise Canton components crash in an uncontrolled manner when
-                // the exception bubbles up (don't retry on `query_canceled` and `database_dropped`)
-                TransientErrorKind
-              } else {
-                // Don't retry on other exceptions. These other exceptions should be those for which retrying typically won't
-                // help, for example a unique constraint violation.
-                FatalErrorKind
-              }
-
-            case _: SQLIntegrityConstraintViolationException =>
-              // Both H2 and Oracle may fail with spurious constraint violations, due to racy implementation of the MERGE statements.
-              // In H2, this may also occur because it does not properly implement the serializable isolation level.
-              // See UpsertTestOracle
-              // See https://github.com/h2database/h2database/issues/2167
-              SpuriousTransientErrorKind
-
-            case _: SQLRecoverableException | _: SQLTransientException |
-                _: SQLNonTransientConnectionException =>
-              TransientErrorKind
-
-            case ex: SQLException =>
-              val code = ex.getErrorCode
-              if (ex.getErrorCode == 1) {
-                // Retry on ORA-00001: unique constraint violated exception
-                SpuriousTransientErrorKind
-              } else if (ex.getMessage == "Connection is closed") {
-                // May fail with a "Connection is closed" message if the db has gone down
-                TransientErrorKind
-              } else if (ex.getErrorCode == 4021) {
-                // ORA timeout occurred while waiting to lock object
-                TransientErrorKind
-              } else if (ex.getErrorCode == 54) {
-                // ORA timeout occurred while waiting to lock object or because NOWAIT has been set
-                // e.g. as part of truncate table
-                TransientErrorKind
-              } else if (ex.getErrorCode == 60) {
-                // Deadlock
-                // See DatabaseDeadlockTestOracle
-                TransientErrorKind
-              } else if (
-                ex.getErrorCode == 604 &&
-                List("ORA-08176", "ORA-08177").exists(ex.getMessage.contains)
-              ) {
-                // Oracle failure in a batch operation
-                // For Oracle, the `cause` is not always set properly for exceptions. This is a problem for batched queries.
-                // So, look through an exception's `message` to see if it contains a retryable problem.
-                TransientErrorKind
-              } else if (ex.getErrorCode == 8176) {
-                // consistent read failure; rollback data not available
-                // Cause:  Encountered data changed by an operation that does not generate rollback data
-                // Action: In read/write transactions, retry the intended operation.
-                TransientErrorKind
-              } else if (ex.getErrorCode == 8177) {
-                // failure to serialize transaction with serializable isolation level
-                TransientErrorKind
-              } else if (ex.getErrorCode == 17410) {
-                // No more data to read from socket, can be caused by network problems
-                SpuriousTransientErrorKind
-              } else if (code == 17002) {
-                // This has been observed as either IO Error: Connection reset by peer or IO Error: Broken pipe
-                // when straight-up killing an Oracle database server (`kill -9 <oracle-pid>`)
-                TransientErrorKind
-              } else if (code == 1088 || code == 1089 || code == 1090 || code == 1092) {
-                // Often observed for orderly Oracle shutdowns
-                // https://docs.oracle.com/en/database/oracle/oracle-database/19/errmg/ORA-00910.html#GUID-D9EBDFFA-88C6-4185-BD2C-E1B959A97274
-                TransientErrorKind
-              } else if (ex.getCause != null) {
-                logger.info("Unable to retry on exception, checking cause.")
-                retryOK(Failure(ex.getCause), logger)
-              } else {
-                FatalErrorKind
-              }
-
-            case _ => FatalErrorKind
+        case ff @ Failure(exception) =>
+          val errorKind = retryOKInternal(ff, logger)
+          // only log the full exception if the error kind changed such that we avoid spamming the logs
+          if (!lastErrorKind.contains(errorKind)) {
+            logThrowable(exception, logger)
+          } else {
+            logger.debug(
+              s"Retrying on same error kind ${errorKind} for ${exception.getClass.getSimpleName}/${exception.getMessage}"
+            )
           }
+          errorKind
+      }
+    }
+
+    @tailrec private def retryOKInternal(
+        outcome: Failure[_],
+        logger: TracedLogger,
+    )(implicit
+        tc: TraceContext
+    ): ErrorKind = {
+      outcome.exception match {
+        case exn: java.util.concurrent.RejectedExecutionException =>
+          // This occurs when slick's task queue is full
+
+          // Create a CantonError so that the error code gets logged.
+          DatabaseTaskRejected(exn.toString)(
+            ErrorLoggingContext.fromTracedLogger(logger)
+          ).discard
+
+          TransientErrorKind
+
+        case exception: PSQLException =>
+          // Error codes documented here: https://www.postgresql.org/docs/9.6/errcodes-appendix.html
+          val error = exception.getSQLState
+
+          if (error.startsWith("08")) {
+            // Class 08 — Connection Exception
+            TransientErrorKind
+          } else if (error == "40001") {
+            // Class 40 — Transaction Rollback: 40001	serialization_failure
+            // Failure to serialize db accesses, happens due to contention
+            TransientErrorKind
+          } else if (error == "40P01") {
+            // Deadlock
+            // See DatabaseDeadlockTestPostgres
+            // This also covers deadlocks reported as BatchUpdateExceptions,
+            // because they refer to a PSQLException has cause.
+            TransientErrorKind
+          } else if (error == "25006") {
+            // Retry on read only transaction, which can occur on Azure
+            TransientErrorKind
+          } else if (error.startsWith("57P") && error != "57P014" && error != "57P04") {
+            // Retry on operator invention errors, otherwise Canton components crash in an uncontrolled manner when
+            // the exception bubbles up (don't retry on `query_canceled` and `database_dropped`)
+            TransientErrorKind
+          } else {
+            // Don't retry on other exceptions. These other exceptions should be those for which retrying typically won't
+            // help, for example a unique constraint violation.
+            FatalErrorKind
+          }
+
+        case _: SQLIntegrityConstraintViolationException =>
+          // Both H2 and Oracle may fail with spurious constraint violations, due to racy implementation of the MERGE statements.
+          // In H2, this may also occur because it does not properly implement the serializable isolation level.
+          // See UpsertTestOracle
+          // See https://github.com/h2database/h2database/issues/2167
+          SpuriousTransientErrorKind
+
+        case _: SQLRecoverableException | _: SQLTransientException |
+            _: SQLNonTransientConnectionException =>
+          TransientErrorKind
+
+        case ex: SQLException =>
+          val code = ex.getErrorCode
+          if (ex.getErrorCode == 1) {
+            // Retry on ORA-00001: unique constraint violated exception
+            SpuriousTransientErrorKind
+          } else if (ex.getMessage == "Connection is closed") {
+            // May fail with a "Connection is closed" message if the db has gone down
+            TransientErrorKind
+          } else if (ex.getErrorCode == 4021) {
+            // ORA timeout occurred while waiting to lock object
+            TransientErrorKind
+          } else if (ex.getErrorCode == 54) {
+            // ORA timeout occurred while waiting to lock object or because NOWAIT has been set
+            // e.g. as part of truncate table
+            TransientErrorKind
+          } else if (ex.getErrorCode == 60) {
+            // Deadlock
+            // See DatabaseDeadlockTestOracle
+            TransientErrorKind
+          } else if (
+            ex.getErrorCode == 604 &&
+            List("ORA-08176", "ORA-08177").exists(ex.getMessage.contains)
+          ) {
+            // Oracle failure in a batch operation
+            // For Oracle, the `cause` is not always set properly for exceptions. This is a problem for batched queries.
+            // So, look through an exception's `message` to see if it contains a retryable problem.
+            TransientErrorKind
+          } else if (ex.getErrorCode == 8176) {
+            // consistent read failure; rollback data not available
+            // Cause:  Encountered data changed by an operation that does not generate rollback data
+            // Action: In read/write transactions, retry the intended operation.
+            TransientErrorKind
+          } else if (ex.getErrorCode == 8177) {
+            // failure to serialize transaction with serializable isolation level
+            TransientErrorKind
+          } else if (ex.getErrorCode == 17410) {
+            // No more data to read from socket, can be caused by network problems
+            SpuriousTransientErrorKind
+          } else if (code == 17002) {
+            // This has been observed as either IO Error: Connection reset by peer or IO Error: Broken pipe
+            // when straight-up killing an Oracle database server (`kill -9 <oracle-pid>`)
+            TransientErrorKind
+          } else if (code == 1088 || code == 1089 || code == 1090 || code == 1092) {
+            // Often observed for orderly Oracle shutdowns
+            // https://docs.oracle.com/en/database/oracle/oracle-database/19/errmg/ORA-00910.html#GUID-D9EBDFFA-88C6-4185-BD2C-E1B959A97274
+            TransientErrorKind
+          } else if (ex.getCause != null) {
+            logger.info("Unable to retry on exception, checking cause.")
+            retryOKInternal(Failure(ex.getCause), logger)
+          } else {
+            FatalErrorKind
+          }
+
+        case _ => FatalErrorKind
       }
     }
   }
@@ -218,8 +238,8 @@ object RetryUtil {
     */
   case object AllExnRetryable extends ExceptionRetryable {
 
-    override def retryOK(outcome: Try[_], logger: TracedLogger)(implicit
-        tc: TraceContext
+    override def retryOK(outcome: Try[_], logger: TracedLogger, lastErrorKind: Option[ErrorKind])(
+        implicit tc: TraceContext
     ): ErrorKind = {
       outcome.forFailed(t => logThrowable(t, logger))
       NoErrorKind
@@ -231,8 +251,8 @@ object RetryUtil {
     */
   case object NoExnRetryable extends ExceptionRetryable {
 
-    override def retryOK(outcome: Try[_], logger: TracedLogger)(implicit
-        tc: TraceContext
+    override def retryOK(outcome: Try[_], logger: TracedLogger, lastErrorKind: Option[ErrorKind])(
+        implicit tc: TraceContext
     ): ErrorKind = outcome match {
       case Failure(ex) =>
         logThrowable(ex, logger)

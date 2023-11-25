@@ -204,7 +204,7 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
       case Content.InformeeMessage(messageP) =>
         InformeeMessage.fromProtoV1(hashOps)(messageP)
       case Content.DomainTopologyTransactionMessage(messageP) =>
-        DomainTopologyTransactionMessage.fromProtoV1(messageP)
+        DomainTopologyTransactionMessage.fromProtoV1(ProtoVersion(1))(messageP)
       case Content.EncryptedViewMessage(messageP) =>
         EncryptedViewMessageV1.fromProto(messageP)
       case Content.SignedMessage(messageP) =>
@@ -233,7 +233,7 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
       case Content.InformeeMessage(messageP) =>
         InformeeMessage.fromProtoV1(hashOps)(messageP)
       case Content.DomainTopologyTransactionMessage(messageP) =>
-        DomainTopologyTransactionMessage.fromProtoV1(messageP)
+        DomainTopologyTransactionMessage.fromProtoV1(ProtoVersion(2))(messageP)
       case Content.EncryptedViewMessage(messageP) =>
         EncryptedViewMessageV2.fromProto(messageP)
       case Content.SignedMessage(messageP) =>
@@ -263,7 +263,7 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
         case Content.InformeeMessage(messageP) =>
           InformeeMessage.fromProtoV1(hashOps)(messageP)
         case Content.DomainTopologyTransactionMessage(messageP) =>
-          DomainTopologyTransactionMessage.fromProtoV1(messageP)
+          DomainTopologyTransactionMessage.fromProtoV1(ProtoVersion(2))(messageP)
         case Content.EncryptedViewMessage(messageP) =>
           EncryptedViewMessageV2.fromProto(messageP)
         case Content.TransferOutMediatorMessage(messageP) =>

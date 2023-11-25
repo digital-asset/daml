@@ -212,7 +212,7 @@ abstract class RetryWithDelay(
 
             case outcome =>
               // this will also log the exception in outcome
-              val errorKind = retryable.retryOK(outcome, logger)
+              val errorKind = retryable.retryOK(outcome, logger, Some(lastErrorKind))
               val retriesOfErrorKind = if (errorKind == lastErrorKind) retriesOfLastErrorKind else 0
               if (
                 errorKind.maxRetries == Int.MaxValue || retriesOfErrorKind < errorKind.maxRetries
@@ -229,23 +229,20 @@ abstract class RetryWithDelay(
                       directExecutionContext
                     )
                 } else {
-                  if (errorKind == lastErrorKind) {
-                    logger.trace(s"Kind of error has not changed since last attempt: $errorKind")
-                  } else {
-                    logger.info(messageOfOutcome(outcome, s"New kind of error: $errorKind."))
-                    // No need to log the exception in outcome, as this has been logged by retryable.retryOk.
-                  }
-
                   val level = retryLogLevel.getOrElse {
                     if (totalRetries < complainAfterRetries || totalMaxRetries != Int.MaxValue)
                       Level.INFO
                     else Level.WARN
                   }
-
+                  val change = if (errorKind == lastErrorKind) {
+                    ""
+                  } else {
+                    s"New kind of error: $errorKind. "
+                  }
                   LoggerUtil.logAtLevel(
                     level,
-                    messageOfOutcome(outcome, show"Retrying after $delay."),
-                    // No need to log the exception in outcome, as this has been logged by retryable.retryOk.
+                    messageOfOutcome(outcome, show"${change}Retrying after $delay."),
+                    // No need to log the exception in the outcome, as this has been logged by retryable.retryOk.
                   )
 
                   val delayedF =
@@ -512,7 +509,7 @@ final case class When(
         else depends(res)(task, retryable)
       }(directExecutionContext)
       .recoverWith { case NonFatal(e) =>
-        if (depends.isDefinedAt(e) && retryable.retryOK(Failure(e), logger).maxRetries > 0)
+        if (depends.isDefinedAt(e) && retryable.retryOK(Failure(e), logger, None).maxRetries > 0)
           depends(e)(task, retryable)
         else fut
       }(directExecutionContext)
