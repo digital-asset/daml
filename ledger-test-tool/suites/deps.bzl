@@ -20,7 +20,7 @@ def deps(lf_version):
     return [
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//language-support/scala/bindings",  # TODO remove
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//language-support/java/bindings:bindings-java",
         "//ledger/error",
         "//ledger/ledger-api-errors",
