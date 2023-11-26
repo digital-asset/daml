@@ -3,13 +3,11 @@
 
 package com.daml.ledger.api.testtool.suites.v1_8
 
-import java.time.Instant
 import java.util.regex.Pattern
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.client.binding.{Primitive => P}
 import com.daml.ledger.javaapi.data.codegen.ContractCompanion
 import com.daml.ledger.test.java.semantic.timetests._
 
@@ -86,7 +84,7 @@ final class TimeServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       initialTime <- ledger.time()
-      thirtySecLater <- createTimestamp(initialTime.plusSeconds(30))
+      thirtySecLater = initialTime.plusSeconds(30)
       checker <- ledger.create(party, new TimeChecker(party, thirtySecLater))
       failure <- ledger
         .exercise(party, checker.exerciseTimeChecker_CheckTime())
@@ -111,18 +109,11 @@ final class TimeServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       initialTime <- ledger.time()
-      thirtySecLater <- createTimestamp(initialTime.plusSeconds(30))
+      thirtySecLater = initialTime.plusSeconds(30)
       checker <- ledger.create(party, new TimeChecker(party, thirtySecLater))
       _ <- ledger.setTime(initialTime, initialTime.plusSeconds(30))
       _ <- ledger.exercise(party, checker.exerciseTimeChecker_CheckTime())
     } yield ()
   })
-
-  def createTimestamp(seconds: Instant): Future[P.Timestamp] =
-    P.Timestamp
-      .discardNanos(seconds)
-      .fold(Future.failed[P.Timestamp](new IllegalStateException(s"Empty option")))(
-        Future.successful[P.Timestamp]
-      )
 
 }

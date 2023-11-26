@@ -5,11 +5,11 @@ package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.time.Duration
 import java.util.regex.Pattern
-import com.daml.api.util.DurationConversion
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.assertions.CommandDeduplicationAssertions.DurationConversion
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.{FutureAssertions, LedgerTestSuite}
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
