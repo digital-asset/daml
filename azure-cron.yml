@@ -219,7 +219,10 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
-      - bash: ci/build-canton-3x.sh
+      - bash: |
+          set -euo pipefail
+          git pull
+          ci/build-canton-3x.sh
         env:
           GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
       - template: ci/tell-slack-failed.yml
