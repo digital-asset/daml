@@ -286,6 +286,16 @@ featureRightToLeftEvaluation = Feature
     , featureCppFlag = Just "DAML_RIGHT_TO_LEFT_EVALUATION"
     }
 
+-- This is used to remove references to Scenarios in LFv2
+featureScenarios :: Feature
+featureScenarios = Feature
+    { featureName = "Scenarios"
+    , featureVersionReq = VersionReq \case
+          V1 -> allMinorVersions
+          V2 -> noMinorVersion
+    , featureCppFlag = Just "DAML_SCENARIOS"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -307,6 +317,7 @@ allFeatures =
     , featureExtendedInterfaces
     , featureChoiceFuncs
     , featureTemplateTypeRepToText
+    , featureScenarios
     , featureUnstable
     , featureExperimental
     , featureDynamicExercise

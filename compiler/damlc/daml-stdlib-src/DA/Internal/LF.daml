@@ -8,7 +8,11 @@
 -- | MOVE Prelude Daml-LF types and primitives, apart from templates/contracts.
 module DA.Internal.LF
   ( Party
+
+  #ifdef DAML_SCENARIOS
   , getParty
+  #endif
+
   , partyToText
   , partyFromText
 
@@ -25,10 +29,12 @@ module DA.Internal.LF
 
   , Update
 
+  #ifdef DAML_SCENARIOS
   , Scenario
   , scenario
 
   , HasSubmit(..)
+  #endif
 
   , HasTime
   , getTime
@@ -99,10 +105,12 @@ partyToText = primitive @"BEToText"
 partyFromText : Text -> Optional Party
 partyFromText = primitive @"BETextToParty"
 
+#ifdef DAML_SCENARIOS
 -- | Get the party with the given name. Party names must be non-empty and only
 -- contain alphanumeric charaters, space, `-` (dash) or `_` (underscore).
 getParty : Text -> Scenario Party
 getParty = primitive @"SGetParty"
+#endif
 
 -- | The `Date` type represents a date, for example `date 2007 Apr 5`.
 data Date =
@@ -182,8 +190,11 @@ class HasTime m where
 
 instance HasTime Update where
     getTime = primitive @"UGetTime"
+
+#ifdef DAML_SCENARIOS
 instance HasTime Scenario where
     getTime = primitive @"SGetTime"
+#endif
 
 -- | The `CanAbort` class is for `Action` s that can be aborted.
 class (Action m) => CanAbort m where
@@ -192,11 +203,16 @@ class (Action m) => CanAbort m where
 
 instance CanAbort Update where
     abort = fail
+
+#ifdef DAML_SCENARIOS
 instance CanAbort Scenario where
     abort = fail
+#endif
 
 instance CanAbort (Either Text) where
     abort = fail
+
+#ifdef DAML_SCENARIOS
 
 -- | The `Scenario` type is for simulating ledger interactions.
 -- The type `Scenario a` describes a set of actions taken by various parties during
@@ -240,6 +256,8 @@ infixr 0 `submitMustFail`
 -- | Declare you are building a scenario.
 scenario : Scenario a -> Scenario a
 scenario = identity
+
+#endif -- DAML_SCENARIOS
 
 -- | HIDE A dummy type for the Daml-LF structural record type
 -- `<f1: a1, f2: a2>`.
