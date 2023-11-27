@@ -290,7 +290,10 @@ basicTests mbScenarioService scriptPackageData = Tasty.testGroup "Basic tests"
             setBufferModified a "module TEST where"
             expectOneError (a,0,0) "HERE2"
 
-    ,   testCaseFails' "Could not find module \\8216Case\\8217" "Case insensitive files and module names DEL-7175" $ do
+    -- This error is diffeerent between Windows/MacOS and linux. On Linux, since files are case sensitive, it fails to find the module
+    -- On MacOS/Windows, it does find the file, but then complains that CaSe.daml's module name (Case) doesn't match the file name.
+    -- (#17924)
+    ,   testCaseFails' "Case" "Case insensitive files and module names DEL-7175" $ do
             a <- makeFile "Test.daml" "module Test where; import CaSe; import Case"
             _ <- makeFile "CaSe.daml" "module Case where"
             setFilesOfInterest [a]
