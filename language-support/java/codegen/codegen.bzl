@@ -19,16 +19,6 @@ def dar_to_java(**kwargs):
 
     src_out = base_name + "-srcs"
     src_jar = base_name + "-src.jar"
-    lib = base_name
-
-    if "tags" in kwargs:
-        for tag in kwargs["tags"]:
-            if tag.startswith("maven_coordinates="):
-                pom_file(
-                    name = lib + "_pom",
-                    target = ":" + lib,
-                )
-                break
 
     package_prefix = kwargs.get("package_prefix", "")
 
@@ -67,6 +57,15 @@ def dar_to_java(**kwargs):
         name = base_name + "_javadoc",
         out = base_name + "_javadoc.jar",
     )
+
+    if "tags" in kwargs:
+        for tag in kwargs["tags"]:
+            if tag.startswith("maven_coordinates="):
+                pom_file(
+                    name = base_name + "_pom",
+                    target = ":" + base_name,
+                )
+                break
 
 test_exclusions = {
     "1.6": ["src/it/daml/Tests/GenMapTest.daml", "src/it/daml/Tests/NumericTest.daml"],
