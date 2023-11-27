@@ -9,12 +9,9 @@ load(
     "//language-support/scala/codegen:codegen.bzl",
     "dar_to_scala",
 )
-load("@scala_version//:index.bzl", "scala_major_version")
-load("@scala_version//:index.bzl", "scala_major_version")
 load(
     "//daml-lf/language:daml-lf.bzl",
     "lf_version_configuration",
-    "lf_version_configuration_versions",
     "version_in",
 )
 load("//ledger-test-tool:conformance.bzl", "testtool_lf_versions")

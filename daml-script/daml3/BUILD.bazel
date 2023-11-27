@@ -5,7 +5,7 @@
 # daml_compile instead of a genrule.
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF2_VERSIONS", "lf_version_latest")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF2_VERSIONS", "lf_version_default_or_latest")
 
 [
     genrule(
@@ -50,8 +50,7 @@ EOF
 # default stable version of LF2.
 copy_file(
     name = "daml3-script",
-    # TODO(#17366): use lf_version_default or equivalent once available
-    src = ":daml3-script-{}.dar".format(lf_version_latest.get("2")),
+    src = ":daml3-script-{}.dar".format(lf_version_default_or_latest("2")),
     out = "daml3-script.dar",
     allow_symlink = True,
     visibility = ["//visibility:public"],

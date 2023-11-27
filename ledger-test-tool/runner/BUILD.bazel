@@ -3,13 +3,7 @@
 
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_binary",
     "da_scala_library",
-)
-load(
-    "//daml-lf/language:daml-lf.bzl",
-    "lf_version_configuration",
-    "lf_version_configuration_versions",
 )
 load("@os_info//:os_info.bzl", "is_windows")
 load("//ledger-test-tool:conformance.bzl", "testtool_lf_versions")

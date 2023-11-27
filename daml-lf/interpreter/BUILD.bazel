@@ -14,7 +14,7 @@ load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repl")
 load(
     "//daml-lf/language:daml-lf.bzl",
     "LF_MAJOR_VERSIONS",
-    "lf_version_latest",
+    "lf_version_default_or_latest",
 )
 
 da_scala_library(
@@ -144,7 +144,7 @@ scala_repl(
         name = "speedy-compilation-benchmark-v{}".format(major),
         srcs = glob(["src/bench/**/SpeedyCompilationBench.scala"]),
         data = [
-            "//test-common:model-tests-{}.dar".format(lf_version_latest.get(major)),
+            "//test-common:model-tests-{}.dar".format(lf_version_default_or_latest(major)),
         ],
         scala_deps = [
             "@maven//:org_scalaz_scalaz_core",
@@ -161,7 +161,7 @@ scala_repl(
             "//daml-lf/scenario-interpreter",
             "//daml-lf/transaction",
             "//daml-lf/validation",
-            "//test-common:dar-files-{}-lib".format(lf_version_latest.get(major)),
+            "//test-common:dar-files-{}-lib".format(lf_version_default_or_latest(major)),
             "@maven//:com_google_protobuf_protobuf_java",
         ],
     )
