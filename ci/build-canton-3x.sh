@@ -44,7 +44,5 @@ rsync -a \
 
 rsync -a $daml_common_staging_src canton-3x
 
-git add $daml_common_staging_dst $community_dst
-
 sed -i 's/canton-3x\///' .bazelignore
 bazel build //canton-3x/...
