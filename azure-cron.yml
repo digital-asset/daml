@@ -221,7 +221,8 @@ jobs:
       - checkout: self
       - bash: |
           set -euo pipefail
-          git pull
+          git fetch
+          git checkout origin/main
           ci/build-canton-3x.sh
         env:
           GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
