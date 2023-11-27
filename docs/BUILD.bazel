@@ -396,14 +396,14 @@ EOF
 )
 
 dar_to_java(
-    name = "quickstart-model",
+    name = "quickstart-model-java",
     src = "quickstart-model.dar",
     package_prefix = "com.daml.quickstart.model",
 )
 
 java_binary(
     name = "quickstart-java-lib",
-    srcs = glob(["source/app-dev/bindings-java/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-srcjar"],
+    srcs = glob(["source/app-dev/bindings-java/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-java-src.jar"],
     main_class = "com.daml.quickstart.iou.IouMain",
     deps = [
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",

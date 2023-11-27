@@ -12,9 +12,9 @@ def _has_model_tests(lf_version):
 
 def deps(lf_version):
     carbon_tests = [
-        "//test-common:carbonv1-tests-%s.java-codegen.jar" % lf_version,
-        "//test-common:carbonv2-tests-%s.java-codegen.jar" % lf_version,
-        "//test-common:carbonv3-tests-%s.java-codegen.jar" % lf_version,
+        "//test-common:carbonv1-tests-%s.java-codegen" % lf_version,
+        "//test-common:carbonv2-tests-%s.java-codegen" % lf_version,
+        "//test-common:carbonv3-tests-%s.java-codegen" % lf_version,
     ]
     additional_tests = carbon_tests if _has_model_tests(lf_version) else []
     return [
@@ -29,9 +29,9 @@ def deps(lf_version):
         "//libs-scala/ledger-resources",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
         "//test-common:dar-files-%s-lib" % lf_version,
-        "//test-common:model-tests-%s.java-codegen.jar" % lf_version,
-        "//test-common:package_management-tests-%s.java-codegen.jar" % lf_version,
-        "//test-common:semantic-tests-%s.java-codegen.jar" % lf_version,
+        "//test-common:model-tests-%s.java-codegen" % lf_version,
+        "//test-common:package_management-tests-%s.java-codegen" % lf_version,
+        "//test-common:semantic-tests-%s.java-codegen" % lf_version,
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
         "//libs-scala/resources",

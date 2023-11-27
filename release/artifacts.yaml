@@ -131,6 +131,46 @@
   type: jar-scala
 - target: //test-common:dar-files-1.dev-lib
   type: jar-scala
+- target: //test-common:model-tests-1.14.java-codegen
+  type: jar-lib
+- target: //test-common:model-tests-1.15.java-codegen
+  type: jar-lib
+- target: //test-common:model-tests-1.dev.java-codegen
+  type: jar-lib
+- target: //test-common:package_management-tests-1.14.java-codegen
+  type: jar-lib
+- target: //test-common:package_management-tests-1.15.java-codegen
+  type: jar-lib
+- target: //test-common:package_management-tests-1.dev.java-codegen
+  type: jar-lib
+- target: //test-common:performance-tests-1.14.java-codegen
+  type: jar-lib
+- target: //test-common:performance-tests-1.15.java-codegen
+  type: jar-lib
+- target: //test-common:performance-tests-1.dev.java-codegen
+  type: jar-lib
+- target: //test-common:semantic-tests-1.14.java-codegen
+  type: jar-lib
+- target: //test-common:semantic-tests-1.15.java-codegen
+  type: jar-lib
+- target: //test-common:semantic-tests-1.dev.java-codegen
+  type: jar-lib
+- target: //test-common:carbonv1-tests-1.15.java-codegen
+  type: jar-lib
+- target: //test-common:carbonv2-tests-1.15.java-codegen
+  type: jar-lib
+- target: //test-common:carbonv3-tests-1.15.java-codegen
+  type: jar-lib
+- target: //test-common:modelext-tests-1.15.java-codegen
+  type: jar-lib
+- target: //test-common:carbonv1-tests-1.dev.java-codegen
+  type: jar-lib
+- target: //test-common:carbonv2-tests-1.dev.java-codegen
+  type: jar-lib
+- target: //test-common:carbonv3-tests-1.dev.java-codegen
+  type: jar-lib
+- target: //test-common:modelext-tests-1.dev.java-codegen
+  type: jar-lib
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala
 - target: //ledger-service/cli-opts:cli-opts
