@@ -10,6 +10,7 @@
 module DA.Test.DamlcIntegration
   ( main
   , withDamlScriptDep
+  , withDamlScriptV2Dep
   , ScriptPackageData
   ) where
 
@@ -131,7 +132,10 @@ withDamlScriptDep mLfVer =
   in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer []
 
 withDamlScriptV2Dep :: Maybe Version -> (ScriptPackageData -> IO a) -> IO a
-withDamlScriptV2Dep mLfVer =
+withDamlScriptV2Dep mLfVer = withDamlScriptV2Dep' mLfVer []
+
+withDamlScriptV2Dep' :: Maybe Version -> [(String, String)] -> (ScriptPackageData -> IO a) -> IO a
+withDamlScriptV2Dep' mLfVer extraPackages =
   let
     lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
     darPath = "daml-script" </> "daml3" </> "daml3-script" <> lfVerStr <> ".dar"
@@ -139,7 +143,7 @@ withDamlScriptV2Dep mLfVer =
        ("daml3-script-" <> sdkPackageVersion)
        darPath
        mLfVer
-       scriptV2ExternalPackages
+       extraPackages
 
 -- External dars for scriptv2 when testing upgrades.
 -- package name and version
@@ -193,7 +197,11 @@ main = do
 
   scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
 
-  let withDep = (if isV2 then withDamlScriptV2Dep else withDamlScriptDep) (Just lfVer)
+  let withDep =
+       (if isV2
+            then flip withDamlScriptV2Dep' scriptV2ExternalPackages
+            else withDamlScriptDep)
+       (Just lfVer)
   let scenarioConf = SS.defaultScenarioServiceConfig
                        { SS.cnfJvmOptions = ["-Xmx200M"]
                        , SS.cnfEvaluationTimeout = Just 3
