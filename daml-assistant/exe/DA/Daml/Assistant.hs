@@ -153,7 +153,8 @@ autoInstall env@Env{..} = do
                 , iSetPath = SetPath Auto
                 , iBashCompletions = BashCompletions Auto
                 , iZshCompletions = ZshCompletions Auto
-                , iAllowInstallNonRelease = AllowInstallNonRelease False
+                , iInstallWithInternalVersion = InstallWithInternalVersion False
+                , iInstallWithCustomVersion = InstallWithCustomVersion Nothing
                 }
             installEnv = InstallEnv
                 { options = options
