@@ -16,6 +16,7 @@ import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
 import com.daml.lf.speedy.{Compiler, SDefinition, Speedy}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
+import com.daml.script.converter
 import com.google.protobuf.ByteString
 import com.daml.lf.engine.script.{Runner, Script}
 import com.daml.logging.LoggingContext
@@ -254,6 +255,8 @@ class Context(
             logger.debug(e.getStackTrace.mkString("\n"))
             handleFailure(Error.Internal("Script.FailedCmd unexpected cause: " + e.getMessage))
         }
+      case Failure(e: converter.ConverterException) =>
+        handleFailure(Error.Internal("Unexpected conversion exception: " + e.getMessage))
       case Failure(e) =>
         // something bad happened, we log and fail
         logger.error("Unexpected error type from script runner: " + e.getMessage)

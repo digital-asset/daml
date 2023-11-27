@@ -16,6 +16,7 @@ import qualified Test.Tasty.HUnit    as Tasty
 import qualified Data.Text.Extended  as T
 
 import Data.Either
+import Data.List (isInfixOf)
 import System.Directory
 import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
@@ -25,14 +26,18 @@ import qualified DA.Daml.Options.Types as Daml (Options (..))
 import DA.Daml.LF.ScenarioServiceClient as SS
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
-import qualified DA.Service.Logger.Impl.Pure as Logger
+-- import qualified DA.Service.Logger.Impl.Pure as Logger
+import qualified DA.Service.Logger as Logger
+import qualified DA.Service.Logger.Impl.IO as Logger
 import Development.IDE.Core.API.Testing
 import Development.IDE.Core.Service.Daml(VirtualResource(..))
 
 import DA.Test.DamlcIntegration (ScriptPackageData, withDamlScriptDep)
 
 main :: IO ()
-main = SS.withScenarioService LF.versionDefault Logger.makeNopHandle scenarioConfig $ \scenarioService -> do
+main = do
+  scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
+  SS.withScenarioService LF.versionDefault scenarioLogger scenarioConfig $ \scenarioService -> do
   -- The scenario services are shared resources so running tests in parallel doesn’t work properly.
   setEnv "TASTY_NUM_THREADS" "1" True
   -- The startup of each scenario service is fairly expensive so instead of launching a separate
@@ -67,13 +72,18 @@ testCase mbScenarioService mScriptPackageData testName test =
         res <- runShakeTestOpts (addScriptOpts mScriptPackageData) mbScenarioService test
         Tasty.assertBool ("Shake test resulted in an error: " ++ show res) $ isRight res
 
--- | Test case that is expected to fail, because it's an open issue.
+-- | Test case that is expected to fail, because it's an open issue. Includes an infix string to assert, so we can detect error changes
 -- Annotate these with a JIRA ticket number.
-testCaseFails :: Maybe SS.Handle -> Maybe ScriptPackageData -> Tasty.TestName -> ShakeTest () -> Tasty.TestTree
-testCaseFails mbScenarioService mScriptPackageData testName test =
+testCaseFails :: String -> Maybe SS.Handle -> Maybe ScriptPackageData -> Tasty.TestName -> ShakeTest () -> Tasty.TestTree
+testCaseFails expectedErrorInfix mbScenarioService mScriptPackageData testName test =
     Tasty.testCase ("FAILING " ++ testName) $ do
         res <- runShakeTestOpts (addScriptOpts mScriptPackageData) mbScenarioService test
-        Tasty.assertBool "This ShakeTest no longer fails! Modify DA.Test.ShakeIdeClient to reflect this." $ isLeft res
+        case res of
+          Right _ -> Tasty.assertFailure "This ShakeTest no longer fails! Modify DA.Test.ShakeIdeClient to reflect this."
+          Left err ->
+            let errStr = show err
+             in Tasty.assertBool ("Exepected ShakeTest error to include \"" <> expectedErrorInfix <> "\", but it didn't. Error:\n" <> errStr)
+                  $ expectedErrorInfix `isInfixOf` errStr
 
 -- | Basic API functionality tests.
 basicTests :: Maybe SS.Handle -> ScriptPackageData -> Tasty.TestTree
@@ -245,8 +255,8 @@ basicTests mbScenarioService scriptPackageData = Tasty.testGroup "Basic tests"
             expectVirtualResource va "Return value: &quot;foo&quot;"
             expectVirtualResource vb "Return value: &quot;bar&quot;"
 
-    -- Todo, the ' in the module name causes error in either Script runner or Scenario Service, unclear which.
-    , testCaseFails' "Script with mangled names (Ticket #16585)" $ do
+    -- Error throw is com.daml.script.converter.ConverterException
+    , testCaseFails' "non expected non first character" "Script with mangled names (Ticket #16585)" $ do
             a <- makeFile "foo/MangledScript'.daml" $ T.unlines
                 [ "module MangledScript' where"
                 , "import Daml.Script"
@@ -269,7 +279,7 @@ basicTests mbScenarioService scriptPackageData = Tasty.testGroup "Basic tests"
             expectVirtualResource va "MangledScript&#39;:NestedT:T1"
 
 
-    ,   testCaseFails' "Modules must match their filename DEL-7175" $ do
+    ,   testCaseFails' "Please change the filename to Bob.daml." "Modules must match their filename DEL-7175" $ do
             a <- makeFile "Foo/Test.daml" "module Test where"
             setFilesOfInterest [a]
             expectNoErrors
@@ -280,7 +290,10 @@ basicTests mbScenarioService scriptPackageData = Tasty.testGroup "Basic tests"
             setBufferModified a "module TEST where"
             expectOneError (a,0,0) "HERE2"
 
-    ,   testCaseFails' "Case insensitive files and module names DEL-7175" $ do
+    -- This error is diffeerent between Windows/MacOS and linux. On Linux, since files are case sensitive, it fails to find the module
+    -- On MacOS/Windows, it does find the file, but then complains that CaSe.daml's module name (Case) doesn't match the file name.
+    -- (#17924)
+    ,   testCaseFails' "Case" "Case insensitive files and module names DEL-7175" $ do
             a <- makeFile "Test.daml" "module Test where; import CaSe; import Case"
             _ <- makeFile "CaSe.daml" "module Case where"
             setFilesOfInterest [a]
@@ -308,7 +321,7 @@ basicTests mbScenarioService scriptPackageData = Tasty.testGroup "Basic tests"
     ]
     where
         testCase' = testCase mbScenarioService (Just scriptPackageData)
-        testCaseFails' = testCaseFails mbScenarioService (Just scriptPackageData)
+        testCaseFails' msg = testCaseFails msg mbScenarioService (Just scriptPackageData)
 
 dlintSmokeTests :: Maybe SS.Handle -> Tasty.TestTree
 dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
@@ -667,7 +680,7 @@ goToDefinitionTests mbScenarioService scriptPackageData = Tasty.testGroup "Go to
             expectGoToDefinition (foo,2,[4..6]) (At (foo,3,0))
             expectGoToDefinition (foo,2,[7]) Missing
 
-    ,   testCaseFails' "Go to definition takes type sig to definition" $ do
+    ,   testCaseFails' "ExpectedDefinition" "Go to definition takes type sig to definition" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "module Foo where"
                 , "foo : Int"
@@ -704,7 +717,7 @@ goToDefinitionTests mbScenarioService scriptPackageData = Tasty.testGroup "Go to
             setFilesOfInterest [foo]
             expectGoToDefinition (foo,1,[-1]) Missing
 
-    ,   testCaseFails' "Take variable in template to its declaration" $ do
+    ,   testCaseFails' "ExpectedDefinition" "Take variable in template to its declaration" $ do
             foo <- makeModule "Foo"
                 [ "template Coin"
                 , "  with"
@@ -794,7 +807,7 @@ goToDefinitionTests mbScenarioService scriptPackageData = Tasty.testGroup "Go to
     ]
     where
         testCase' = testCase mbScenarioService (Just scriptPackageData)
-        testCaseFails' = testCaseFails mbScenarioService (Just scriptPackageData)
+        testCaseFails' msg = testCaseFails msg mbScenarioService (Just scriptPackageData)
 
 onHoverTests :: Maybe SS.Handle -> ScriptPackageData -> Tasty.TestTree
 onHoverTests mbScenarioService scriptPackageData = Tasty.testGroup "On hover tests"
@@ -840,7 +853,7 @@ onHoverTests mbScenarioService scriptPackageData = Tasty.testGroup "On hover tes
         setFilesOfInterest [f]
         expectTextOnHover (f,4,[9..13]) $ HasType "Party" -- use of alice
 
-    , testCaseFails' "Type of signatories" $ do
+    , testCaseFails' "ExpectedHoverText" "Type of signatories" $ do
         f <- makeModule "F"
             [ "template Iou"
             , "  with"
@@ -883,7 +896,7 @@ onHoverTests mbScenarioService scriptPackageData = Tasty.testGroup "On hover tes
         expectTextOnHover (f,2,[0..3]) $ Contains "```daml\n==\n: Text -> Bool\n```\n"
         expectTextOnHover (f,4,[0..3]) $ Contains "```daml\nshow\n: Bool -> Int\n```\n"
 
-    , testCaseFails' "Type of choice" $ do
+    , testCaseFails' "ExpectedHoverText" "Type of choice" $ do
         f <- makeModule "F"
             [ "template Coin"
             , "  with"
@@ -913,7 +926,7 @@ onHoverTests mbScenarioService scriptPackageData = Tasty.testGroup "On hover tes
     ]
     where
         testCase' = testCase mbScenarioService (Just scriptPackageData)
-        testCaseFails' = testCaseFails mbScenarioService (Just scriptPackageData)
+        testCaseFails' msg = testCaseFails msg mbScenarioService (Just scriptPackageData)
 
 scriptTests :: Maybe SS.Handle -> ScriptPackageData -> Tasty.TestTree
 scriptTests mbScenarioService scriptPackageData = Tasty.testGroup "Script tests"
@@ -1149,7 +1162,7 @@ scriptTests mbScenarioService scriptPackageData = Tasty.testGroup "Script tests"
             setOpenVirtualResources [vr]
             expectVirtualResource vr "Return value: {}"
     -- Scenario service doesn't pull out a location from the speedy machine
-    , testCaseFails' "Failing script produces stack trace in correct order (ticket #7276)" $ do
+    , testCaseFails' "ExpectedVirtualResourceRegex" "Failing script produces stack trace in correct order (ticket #7276)" $ do
           let fooContent = T.unlines
                  [ "module Foo where"
                  , "import Daml.Script"
@@ -1330,4 +1343,4 @@ scriptTests mbScenarioService scriptPackageData = Tasty.testGroup "Script tests"
     ]
     where
         testCase' = testCase mbScenarioService (Just scriptPackageData)
-        testCaseFails' = testCaseFails mbScenarioService (Just scriptPackageData)
+        testCaseFails' msg = testCaseFails msg mbScenarioService (Just scriptPackageData)

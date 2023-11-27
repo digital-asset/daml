@@ -35,6 +35,7 @@ da_scala_binary(
         "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
         "//daml-lf/validation",
+        "//daml-script/converter",
         "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
