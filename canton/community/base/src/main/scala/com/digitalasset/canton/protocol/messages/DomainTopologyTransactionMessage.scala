@@ -55,6 +55,7 @@ final case class DomainTopologyTransactionMessage private (
       domainId,
       notSequencedAfter,
       hashOps,
+      representativeProtocolVersion,
     )
 
   private[messages] def toProtoV0: v0.DomainTopologyTransactionMessage =
@@ -127,7 +128,15 @@ object DomainTopologyTransactionMessage
     ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v5)(
       v1.DomainTopologyTransactionMessage
     )(
-      supportedProtoVersion(_)(fromProtoV1),
+      supportedProtoVersion(_)(fromProtoV1(ProtoVersion(1))),
+      _.toProtoV1.toByteString,
+    ),
+    // use separate ProtoVersion starting with v6 to allow different hashing
+    // scheme for protocol version 5 and 6
+    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v6)(
+      v1.DomainTopologyTransactionMessage
+    )(
+      supportedProtoVersion(_)(fromProtoV1(ProtoVersion(2))),
       _.toProtoV1.toByteString,
     ),
   )
@@ -144,17 +153,38 @@ object DomainTopologyTransactionMessage
       domainId: DomainId,
       notSequencedAfter: Option[CantonTimestamp],
       hashOps: HashOps,
+      representativeProtocolVersion: RepresentativeProtocolVersion[
+        DomainTopologyTransactionMessage.type
+      ],
   ): Hash = {
     val builder = hashOps
       .build(HashPurpose.DomainTopologyTransactionMessageSignature)
       .add(domainId.toProtoPrimitive)
-
-    notSequencedAfter.foreach { ts =>
-      builder.add(ts.toEpochMilli)
+    val version = representativeProtocolVersion.representative
+    notSequencedAfter match {
+      case Some(ts) if version == ProtocolVersion.v5 =>
+        builder.add(ts.toEpochMilli).discard
+      case Some(ts) if version >= ProtocolVersion.v6 =>
+        builder
+          .add(version.toProtoPrimitive)
+          .add(ts.toMicros)
+          .add(transactions.length)
+          .discard
+      case Some(_) =>
+        throw new IllegalStateException(
+          "notSequencedAfter not expected for pv < 5"
+        )
+      case None if version >= ProtocolVersion.v5 =>
+        // Won't happen because of the invariant
+        throw new IllegalStateException(
+          "notSequencedAfter must be present for protocol version >= 5"
+        )
+      case None =>
     }
 
     transactions.foreach(elem => builder.add(elem.getCryptographicEvidence))
     builder.finish()
+
   }
 
   def create(
@@ -170,14 +200,16 @@ object DomainTopologyTransactionMessage
     val notSequencedAfterUpdated =
       notSequencedAfterInvariant.orValue(notSequencedAfter, protocolVersion)
 
+    val representativeProtocolVersion = protocolVersionRepresentativeFor(protocolVersion)
     val hashToSign = hash(
       transactions,
       domainId,
       notSequencedAfterUpdated,
       syncCrypto.crypto.pureCrypto,
+      representativeProtocolVersion,
     )
-
     for {
+
       signature <- syncCrypto.sign(hashToSign).leftMap(_.toString)
       domainTopologyTransactionMessageE = Either
         .catchOnly[IllegalArgumentException](
@@ -186,7 +218,7 @@ object DomainTopologyTransactionMessage
             transactions,
             notSequencedAfter = notSequencedAfterUpdated,
             domainId,
-          )(protocolVersionRepresentativeFor(protocolVersion))
+          )(representativeProtocolVersion)
         )
         .leftMap(_.getMessage)
       domainTopologyTransactionMessage <- EitherT.fromEither[Future](
@@ -233,7 +265,7 @@ object DomainTopologyTransactionMessage
     )(protocolVersionRepresentativeFor(ProtoVersion(0)))
   }
 
-  private[messages] def fromProtoV1(
+  private[messages] def fromProtoV1(protoVersion: ProtoVersion)(
       message: v1.DomainTopologyTransactionMessage
   ): ParsingResult[DomainTopologyTransactionMessage] = {
     val v1.DomainTopologyTransactionMessage(signature, domainId, timestamp, transactions) = message
@@ -253,7 +285,7 @@ object DomainTopologyTransactionMessage
       succeededContent,
       notSequencedAfter = Some(notSequencedAfter),
       DomainId(domainUid),
-    )(protocolVersionRepresentativeFor(ProtoVersion(1)))
+    )(protocolVersionRepresentativeFor(protoVersion))
   }
 
   override def name: String = "DomainTopologyTransactionMessage"
