@@ -52,6 +52,15 @@ object EndpointsCompanion {
       details: Seq[ErrorDetail],
   ) extends Error
 
+  final case object PrunedOffset extends Error {
+    def wasCause(t: Throwable) = t match {
+      case e: io.grpc.StatusRuntimeException =>
+        e.getStatus.getCode == io.grpc.Status.Code.FAILED_PRECONDITION &&
+        e.getStatus.getDescription.contains("PARTICIPANT_PRUNED_DATA_ACCESSED")
+      case _ => false
+    }
+  }
+
   object ParticipantServerError {
     def apply(status: Status): ParticipantServerError =
       ParticipantServerError(
@@ -76,6 +85,7 @@ object EndpointsCompanion {
       case ServerError(e) => s"Endpoints.ServerError: ${e.getMessage: String}"
       case Unauthorized(e) => s"Endpoints.Unauthorized: ${e: String}"
       case NotFound(e) => s"Endpoints.NotFound: ${e: String}"
+      case PrunedOffset => s"Endpoints.PrunedOffset"
     }
 
     def fromThrowable: PartialFunction[Throwable, Error] = {
@@ -287,6 +297,7 @@ object EndpointsCompanion {
         mkErrorResponse(StatusCodes.InternalServerError, "HTTP JSON API Server Error")
       case Unauthorized(e) => mkErrorResponse(StatusCodes.Unauthorized, e)
       case NotFound(e) => mkErrorResponse(StatusCodes.NotFound, e)
+      case PrunedOffset => mkErrorResponse(StatusCodes.Gone, "Query offset has been pruned")
     }
   }
 
