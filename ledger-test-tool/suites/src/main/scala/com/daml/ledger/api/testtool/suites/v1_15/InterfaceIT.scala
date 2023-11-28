@@ -13,10 +13,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.api.v1.commands.Command.toJavaProto
-import com.daml.ledger.api.v1.value.{Identifier, Value}
-import com.daml.ledger.api.v1.commands.{Command => CommandV1}
-import com.daml.ledger.javaapi.data.Command
+import com.daml.ledger.javaapi.data.{Command, DamlRecord, ExerciseCommand, Identifier}
 import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, Update}
 import com.daml.ledger.test.java.semantic.interface$._
 import com.daml.ledger.test.java.semantic.{interface1, interface2, interface3}
@@ -28,31 +25,26 @@ class InterfaceIT extends LedgerTestSuite {
   implicit val tCompanion: ContractCompanion.WithKey[T.Contract, T.ContractId, T, String] =
     T.COMPANION
 
-  private[this] val TId = T.TEMPLATE_ID.toV1
+  private[this] val TId = T.TEMPLATE_ID
   private[this] val I1Id = interface1.I.TEMPLATE_ID.toV1
-  private[this] val I2Id = interface2.I.TEMPLATE_ID.toV1
+  private[this] val I2Id = interface2.I.TEMPLATE_ID
   private[this] val I3Id = interface3.I.TEMPLATE_ID.toV1
 
   // replace identifier with the wrong identifier for some of these tests
   private[this] def useWrongId[X](
-      command: Update[X],
+      update: Update[X],
       id: Identifier,
   ): JList[Command] = {
-    val commandV1 = CommandV1.fromJavaProto(command.commands.asScala.head.toProtoCommand)
-    val exe = commandV1.getExercise
-    val arg = exe.getChoiceArgument.getRecord
+    val command = update.commands.asScala.head
+    val exe = command.asExerciseCommand.get
+    val arg = exe.getChoiceArgument.asRecord.get
     JList.of(
-      Command
-        .fromProtoCommand(
-          toJavaProto(
-            commandV1.withExercise(
-              exe.copy(
-                templateId = Some(id),
-                choiceArgument = Some(Value.of(Value.Sum.Record(arg.copy(recordId = None)))),
-              )
-            )
-          )
-        )
+      new ExerciseCommand(
+        id,
+        exe.getContractId,
+        exe.getChoice,
+        new DamlRecord(arg.getFields),
+      )
     )
   }
 
