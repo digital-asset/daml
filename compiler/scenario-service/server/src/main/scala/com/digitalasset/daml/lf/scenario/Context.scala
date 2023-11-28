@@ -257,6 +257,8 @@ class Context(
         }
       case Failure(e: converter.ConverterException) =>
         handleFailure(Error.Internal("Unexpected conversion exception: " + e.getMessage))
+      case Failure(e: com.daml.lf.engine.free.ConversionError) =>
+        handleFailure(Error.Internal("Unexpected conversion exception: " + e.getMessage))
       case Failure(e) =>
         // something bad happened, we log and fail
         logger.error("Unexpected error type from script runner: " + e.getMessage)
