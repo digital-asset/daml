@@ -110,7 +110,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.api.v1.value.Value
-import com.daml.ledger.javaapi.data.{Command, Identifier, Party, Unit => UnitData}
+import com.daml.ledger.javaapi.data.{Command, Identifier, Party, Template, Unit => UnitData}
 import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, ContractId, Exercised, Update}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -393,12 +393,12 @@ final class SingleParticipantTestContext private[participant] (
           templateIds =
             if (useTemplateIdBasedLegacyFormat)
               templateIds
-                .map(id => com.daml.ledger.api.v1.value.Identifier.fromJavaProto(id.toProto))
+                .map(id => v1.Identifier.fromJavaProto(id.toProto))
                 .toSeq
             else scala.Seq.empty,
           interfaceFilters = interfaceFilters.map { case (id, includeInterfaceView) =>
             new InterfaceFilter(
-              Some(com.daml.ledger.api.v1.value.Identifier.fromJavaProto(id.toProto)),
+              Some(v1.Identifier.fromJavaProto(id.toProto)),
               includeInterfaceView = includeInterfaceView,
             )
           }.toSeq,
@@ -407,7 +407,7 @@ final class SingleParticipantTestContext private[participant] (
               templateIds
                 .map(tid =>
                   new TemplateFilter(
-                    Some(com.daml.ledger.api.v1.value.Identifier.fromJavaProto(tid.toProto)),
+                    Some(v1.Identifier.fromJavaProto(tid.toProto)),
                     false,
                   )
                 )
@@ -558,7 +558,7 @@ final class SingleParticipantTestContext private[participant] (
 
   override def create[
       TCid <: ContractId[T],
-      T <: com.daml.ledger.javaapi.data.Template,
+      T <: Template,
   ](
       party: Party,
       template: T,
@@ -568,7 +568,7 @@ final class SingleParticipantTestContext private[participant] (
     )
       .map(response => extractContracts(response.getTransaction).head)
 
-  override def create[TCid <: ContractId[T], T <: com.daml.ledger.javaapi.data.Template](
+  override def create[TCid <: ContractId[T], T <: Template](
       actAs: List[Party],
       readAs: List[Party],
       template: T,
@@ -579,7 +579,7 @@ final class SingleParticipantTestContext private[participant] (
 
   override def createAndGetTransactionId[TCid <: ContractId[
     T
-  ], T <: com.daml.ledger.javaapi.data.Template](
+  ], T <: Template](
       party: Party,
       template: T,
   )(implicit companion: ContractCompanion[?, TCid, T]): Future[(String, TCid)] =

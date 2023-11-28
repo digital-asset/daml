@@ -5,13 +5,14 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{Participants, PartyAllocation}
 import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
-import com.daml.ledger.javaapi.data.Command
+import com.daml.ledger.javaapi.data.{Command, Party}
+import com.daml.ledger.javaapi.data.{Identifier => JavaIdentifier}
 import com.daml.lf.data.Ref
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.ledger.api.v1.commands.Command.toJavaProto
 import com.daml.ledger.api.v1.commands.{Command => CommandV1}
 import com.daml.ledger.api.v1.value.Value.Sum
-import com.daml.ledger.api.v1.value.{Identifier, Optional, Value, GenMap}
+import com.daml.ledger.api.v1.value.{GenMap, Identifier, Optional, Value}
 import com.daml.ledger.api.v1.value.{List => ListV1}
 import com.daml.ledger.api.v1.value.{Map => MapV1}
 
@@ -95,11 +96,11 @@ abstract class LedgerTestSuite {
       .map(c => Command.fromProtoCommand(toJavaProto(c)))
       .asJava
 
-  implicit class IdentifierConverter(id: com.daml.ledger.javaapi.data.Identifier) {
+  implicit class IdentifierConverter(id: JavaIdentifier) {
     def toV1: Identifier = Identifier.fromJavaProto(id.toProto)
   }
 
-  implicit def partyToString(party: com.daml.ledger.javaapi.data.Party): String = party.getValue
+  implicit def partyToString(party: Party): String = party.getValue
 
   // TODO: when merged in canton (get it from ledger-common)
   object TimestampConversion {

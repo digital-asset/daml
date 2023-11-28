@@ -13,6 +13,7 @@ import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.javaapi.data.{Identifier => JavaIdentifier}
 import com.daml.ledger.javaapi.data.{Party, Template}
 import com.daml.ledger.test.java.model.test.{
   Divulgence1,
@@ -834,7 +835,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
   private def assertTemplates(
       party: Seq[Party],
       events: Vector[CreatedEvent],
-      templateId: com.daml.ledger.javaapi.data.Identifier,
+      templateId: JavaIdentifier,
       count: Int,
   ): Unit = {
     val templateEvents =

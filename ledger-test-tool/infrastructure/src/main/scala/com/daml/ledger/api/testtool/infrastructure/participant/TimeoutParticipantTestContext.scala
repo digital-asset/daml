@@ -69,7 +69,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.api.v1.value.Value
-import com.daml.ledger.javaapi.data.{Command, Identifier, Party, Unit => UnitData}
+import com.daml.ledger.javaapi.data.{Command, Identifier, Party, Template, Unit => UnitData}
 import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, ContractId, Exercised, Update}
 import com.daml.lf.data.Ref.HexString
 import com.daml.timer.Delayed
@@ -376,13 +376,13 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
 
   override def create[
       TCid <: ContractId[T],
-      T <: com.daml.ledger.javaapi.data.Template,
+      T <: Template,
   ](
       party: Party,
       template: T,
   )(implicit companion: ContractCompanion[?, TCid, T]): Future[TCid] =
     withTimeout(s"Create template for party $party", delegate.create(party, template))
-  override def create[TCid <: ContractId[T], T <: com.daml.ledger.javaapi.data.Template](
+  override def create[TCid <: ContractId[T], T <: Template](
       actAs: List[Party],
       readAs: List[Party],
       template: T,
@@ -392,7 +392,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   )
   override def createAndGetTransactionId[TCid <: ContractId[
     T
-  ], T <: com.daml.ledger.javaapi.data.Template](
+  ], T <: Template](
       party: Party,
       template: T,
   )(implicit companion: ContractCompanion[?, TCid, T]): Future[(String, TCid)] = withTimeout(
