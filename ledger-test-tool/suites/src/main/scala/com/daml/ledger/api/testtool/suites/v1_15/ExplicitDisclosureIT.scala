@@ -26,7 +26,7 @@ import com.daml.ledger.test.java.model.test._
 import com.daml.ledger.javaapi
 import com.daml.lf.transaction.TransactionCoder
 import com.google.protobuf.ByteString
-import CompanionImplicits._
+import com.daml.ledger.api.testtool.suites.v1_8.CompanionImplicits._
 
 import java.util.{List => JList}
 import scala.concurrent.{ExecutionContext, Future}

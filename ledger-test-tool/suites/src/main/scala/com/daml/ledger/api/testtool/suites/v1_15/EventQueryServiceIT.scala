@@ -21,7 +21,7 @@ import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
 
 class EventQueryServiceIT extends LedgerTestSuite {
-  import CompanionImplicits._
+  import com.daml.ledger.api.testtool.suites.v1_8.CompanionImplicits._
 
   private def toOption(protoString: String): Option[String] = {
     if (protoString.nonEmpty) Some(protoString) else None
