@@ -114,14 +114,6 @@ object LanguageVersion {
     }
   }
 
-  // To temporarily preserve compatibility with Canton which creates an engine
-  // for the range (1.14, DevVersions.max) when running in dev mode and doesn't
-  // distinguish between LF1 and LF2. Usage in the daml repository is forbidden.
-  // TODO(#17366): delete and get Canton to use AllVersions.
-  @deprecated("use LanguageVersion.AllVersions", since = "2.8.0")
-  def DevVersions: VersionRange[LanguageVersion] =
-    VersionRange(v1_dev, v2_dev)
-
   // This refers to the default output LF version in the compiler
   val default: LanguageVersion = v1_14
 }
