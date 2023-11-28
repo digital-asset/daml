@@ -191,6 +191,7 @@ command_post_failure_behaviours = {
     "install_and_build_from_tarball": [
         "allow_nonrelease",
         "update_cache",
+        "install_via_custom_version",
         "do_nothing",
     ],
 }
