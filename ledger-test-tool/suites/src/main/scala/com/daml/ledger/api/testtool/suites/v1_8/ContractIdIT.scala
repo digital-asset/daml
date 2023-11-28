@@ -14,8 +14,7 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions.{
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
 import com.daml.ledger.api.testtool.suites.v1_8.ContractIdIT._
-import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
-import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.javaapi.data.{ContractId, DamlRecord, Party}
 import com.daml.ledger.javaapi.data.codegen.ContractCompanion
 import com.daml.ledger.test.java.semantic.contractidtests._
 import io.grpc.StatusRuntimeException
@@ -194,12 +193,10 @@ final class ContractIdIT extends LedgerTestSuite {
             .exerciseByKey(
               party,
               ContractRef.TEMPLATE_ID,
-              Value(Value.Sum.Party(party)),
+              new Party(party),
               "Change",
-              Value(
-                Value.Sum.Record(
-                  Record(None, List(RecordField("", Some(Value(Value.Sum.ContractId(example))))))
-                )
+              new DamlRecord(
+                new DamlRecord.Field(new ContractId(example))
               ),
             )
             .transformWith(Future.successful)

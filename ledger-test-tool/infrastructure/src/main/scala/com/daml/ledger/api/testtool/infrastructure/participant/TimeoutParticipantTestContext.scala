@@ -68,8 +68,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsRequest,
   GetTransactionsResponse,
 }
-import com.daml.ledger.api.v1.value.Value
-import com.daml.ledger.javaapi.data.{Command, Identifier, Party, Template, Unit => UnitData}
+import com.daml.ledger.javaapi.data.{Command, Identifier, Party, Template, Value, Unit => UnitData}
 import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, ContractId, Exercised, Update}
 import com.daml.lf.data.Ref.HexString
 import com.daml.timer.Delayed

@@ -10,15 +10,10 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEvents
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.javaapi.data.{Party, Command => CommandJava}
+import com.daml.ledger.javaapi.data.{CreateCommand, Party, Command => CommandJava}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Command.toJavaProto
-import com.daml.ledger.api.v1.commands.{
-  Command,
-  CreateCommand,
-  DisclosedContract,
-  ExerciseByKeyCommand,
-}
+import com.daml.ledger.api.v1.commands.{Command, DisclosedContract, ExerciseByKeyCommand}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
@@ -531,17 +526,9 @@ object ExplicitDisclosureIT {
         .submitAndWaitRequest(
           delegate,
           JList.of(
-            CommandJava.fromProtoCommand(
-              toJavaProto(
-                Command.of(
-                  Command.Command.Create(
-                    CreateCommand(
-                      Some(Identifier.fromJavaProto(Dummy.TEMPLATE_ID.toProto)),
-                      Some(Record.fromJavaProto(new Dummy(delegate.getValue).toValue.toProtoRecord)),
-                    )
-                  )
-                )
-              )
+            new CreateCommand(
+              Dummy.TEMPLATE_ID,
+              new Dummy(delegate.getValue).toValue,
             )
           ),
         )

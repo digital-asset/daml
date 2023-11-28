@@ -7,7 +7,6 @@ import com.daml.error.ErrorCode
 
 import java.time.{Clock, Instant}
 import com.daml.grpc.test.StreamConsumer
-
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.{
@@ -74,8 +73,7 @@ import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitRequest,
 }
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.commands.Command.toJavaProto
-import com.daml.ledger.api.v1.commands.{Commands, ExerciseByKeyCommand, Command => ApiCommand}
+import com.daml.ledger.api.v1.commands.{Commands, Command => ApiCommand}
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
@@ -109,8 +107,15 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsRequest,
   GetTransactionsResponse,
 }
-import com.daml.ledger.api.v1.value.Value
-import com.daml.ledger.javaapi.data.{Command, Identifier, Party, Template, Unit => UnitData}
+import com.daml.ledger.javaapi.data.{
+  Command,
+  ExerciseByKeyCommand,
+  Identifier,
+  Party,
+  Template,
+  Value,
+  Unit => UnitData,
+}
 import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, ContractId, Exercised, Update}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -651,19 +656,11 @@ final class SingleParticipantTestContext private[participant] (
       submitAndWaitRequest(
         party,
         JList.of(
-          Command.fromProtoCommand(
-            toJavaProto(
-              ApiCommand.of(
-                ApiCommand.Command.ExerciseByKey(
-                  ExerciseByKeyCommand(
-                    Some(v1.Identifier.fromJavaProto(template.toProto)),
-                    Option(key),
-                    choice,
-                    Option(argument),
-                  )
-                )
-              )
-            )
+          new ExerciseByKeyCommand(
+            template,
+            key,
+            choice,
+            argument,
           )
         ),
       )

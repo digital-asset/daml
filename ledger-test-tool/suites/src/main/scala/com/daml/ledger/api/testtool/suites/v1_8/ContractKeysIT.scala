@@ -11,7 +11,8 @@ import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.api.v1.value.{RecordField, Value}
+import com.daml.ledger.javaapi.data.{DamlRecord, Party, Text}
 import com.daml.ledger.test.java.model.da.types.Tuple2
 import com.daml.ledger.test.java.model
 import com.daml.ledger.test.java.model.test.{CallablePayout, WithKeyDivulgenceHelper}
@@ -338,15 +339,9 @@ final class ContractKeysIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import model.test.TextKey
     val keyString = ledger.nextKeyId()
-    val expectedKey = Value(
-      Value.Sum.Record(
-        Record(
-          fields = Seq(
-            RecordField("_1", Some(Value(Value.Sum.Party(party.getValue)))),
-            RecordField("_2", Some(Value(Value.Sum.Text(keyString)))),
-          )
-        )
-      )
+    val expectedKey = new DamlRecord(
+      new DamlRecord.Field("_1", new Party(party.getValue)),
+      new DamlRecord.Field("_2", new Text(keyString)),
     )
     for {
       failureBeforeCreation <- ledger
@@ -355,7 +350,7 @@ final class ContractKeysIT extends LedgerTestSuite {
           TextKey.TEMPLATE_ID,
           expectedKey,
           "TextKeyChoice",
-          Value(Value.Sum.Record(Record())),
+          new DamlRecord(),
         )
         .mustFail("exercising before creation")
       _ <- ledger.create(party, new TextKey(party, keyString, List.empty.asJava))
@@ -364,7 +359,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         TextKey.TEMPLATE_ID,
         expectedKey,
         "TextKeyChoice",
-        Value(Value.Sum.Record(Record())),
+        new DamlRecord(),
       )
       failureAfterConsuming <- ledger
         .exerciseByKey(
@@ -372,7 +367,7 @@ final class ContractKeysIT extends LedgerTestSuite {
           TextKey.TEMPLATE_ID,
           expectedKey,
           "TextKeyChoice",
-          Value(Value.Sum.Record(Record())),
+          new DamlRecord(),
         )
         .mustFail("exercising after consuming")
     } yield {
