@@ -406,8 +406,8 @@ java_binary(
     srcs = glob(["source/app-dev/bindings-java/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-java-src.jar"],
     main_class = "com.daml.quickstart.iou.IouMain",
     deps = [
+        "//canton:bindings-java",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/java/bindings-rxjava",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_google_code_gson_gson",

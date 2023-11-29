@@ -3,7 +3,11 @@
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("//bazel_tools:proto.bzl", "proto_gen", "proto_jars")
-load("//bazel_tools:scala.bzl", "kind_projector_plugin")
+load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test_suite", "kind_projector_plugin")
+load("//bazel_tools:java.bzl", "da_java_library")
+load("//bazel_tools/java_testing:java_test_suite.bzl", "java_test_suite")
+load("@os_info//:os_info.bzl", "is_windows")
+load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
 load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
 load("//rules_daml:daml.bzl", "daml_compile")
@@ -312,6 +316,7 @@ scala_library(
     ],
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton-3x:bindings-java",
         "//canton-3x:community_buildinfo",
         "//canton-3x:community_ledger_ledger-common",
         "//canton-3x:community_lib_slick_slick-fork",
@@ -323,7 +328,6 @@ scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -405,6 +409,7 @@ scala_library(
     ],
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton-3x:bindings-java",
         "//canton-3x:community_base",
         "//canton-3x:community_buildinfo",
         "//canton-3x:community_ledger_ledger-common",
@@ -420,7 +425,6 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -509,6 +513,7 @@ scala_library(
     deps = [
         ":pekko-stream-minus-patched-classes",
         ":pekko-stream-patch",
+        "//canton-3x:bindings-java",
         "//canton-3x:community_base",
         "//canton-3x:community_common",
         "//canton-3x:community_ledger_ledger-common",
@@ -524,7 +529,6 @@ scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction:value_proto_java",
         "//daml-lf/validation",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -611,6 +615,7 @@ scala_library(
     unused_dependency_checker_mode = "error",
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton-3x:bindings-java",
         "//canton-3x:community_base",
         "//canton-3x:community_ledger_ledger-api-core",
         "//canton-3x:community_ledger_ledger-common",
@@ -622,7 +627,6 @@ scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -707,6 +711,7 @@ scala_library(
     deps = [
         ":pekko-stream-minus-patched-classes",
         ":pekko-stream-patch",
+        "//canton-3x:bindings-java",
         "//canton-3x:community_base",
         "//canton-3x:community_common",
         "//canton-3x:community_ledger_ledger-common",
@@ -717,7 +722,6 @@ scala_library(
         "//canton-3x:daml-common-staging_daml-errors",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -883,6 +887,7 @@ scala_library(
     deps = [
         ":community_participant_admin-workflows-with-vacuuming_java",
         ":pekko-stream-minus-patched-classes",
+        "//canton-3x:bindings-java",
         "//canton-3x:community_base",
         "//canton-3x:community_common",
         "//canton-3x:community_ledger_ledger-api-core",
@@ -900,7 +905,6 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -967,6 +971,7 @@ scala_library(
     unused_dependency_checker_mode = "error",
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton-3x:bindings-java",
         "//canton-3x:community_base",
         "//canton-3x:community_buildinfo",
         "//canton-3x:community_common",
@@ -981,7 +986,6 @@ scala_library(
         "//canton-3x:daml-common-staging_daml-errors",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -1064,6 +1068,7 @@ scala_library(
     ],
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton-3x:bindings-java",
         "//canton-3x:community_app-base",
         "//canton-3x:community_base",
         "//canton-3x:community_buildinfo",
@@ -1076,7 +1081,6 @@ scala_library(
         "//canton-3x:community_util-logging",
         "//canton-3x:daml-common-staging_daml-errors",
         "//daml-lf/data",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//libs-scala/jwt",

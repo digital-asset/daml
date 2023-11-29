@@ -63,7 +63,7 @@
   type: jar-jarjar
 - target: //language-support/scala/codegen:codegen-main
   type: jar-distribute
-- target: //language-support/java/bindings:bindings-java
+- target: //canton:bindings-java
   type: jar-lib
 - target: //language-support/java/bindings-rxjava:bindings-rxjava
   type: jar-lib

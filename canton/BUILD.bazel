@@ -3,7 +3,11 @@
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("//bazel_tools:proto.bzl", "proto_gen", "proto_jars")
-load("//bazel_tools:scala.bzl", "kind_projector_plugin")
+load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test_suite", "kind_projector_plugin")
+load("//bazel_tools:java.bzl", "da_java_library")
+load("//bazel_tools/java_testing:java_test_suite.bzl", "java_test_suite")
+load("@os_info//:os_info.bzl", "is_windows")
+load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
 load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
 load("//rules_daml:daml.bzl", "daml_compile")
@@ -311,6 +315,7 @@ scala_library(
     ],
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton:bindings-java",
         "//canton:community_buildinfo",
         "//canton:community_ledger_ledger-common",
         "//canton:community_lib_slick_slick-fork",
@@ -323,7 +328,6 @@ scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -405,6 +409,7 @@ scala_library(
     ],
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton:bindings-java",
         "//canton:community_base",
         "//canton:community_buildinfo",
         "//canton:community_ledger_ledger-common",
@@ -420,7 +425,6 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -509,6 +513,7 @@ scala_library(
     deps = [
         ":pekko-stream-minus-patched-classes",
         ":pekko-stream-patch",
+        "//canton:bindings-java",
         "//canton:community_base",
         "//canton:community_common",
         "//canton:community_ledger_ledger-common",
@@ -524,7 +529,6 @@ scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction:value_proto_java",
         "//daml-lf/validation",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -611,6 +615,7 @@ scala_library(
     unused_dependency_checker_mode = "error",
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton:bindings-java",
         "//canton:community_base",
         "//canton:community_ledger_ledger-api-core",
         "//canton:community_ledger_ledger-common",
@@ -622,7 +627,6 @@ scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -707,6 +711,7 @@ scala_library(
     deps = [
         ":pekko-stream-minus-patched-classes",
         ":pekko-stream-patch",
+        "//canton:bindings-java",
         "//canton:community_base",
         "//canton:community_common",
         "//canton:community_ledger_ledger-common",
@@ -717,7 +722,6 @@ scala_library(
         "//canton:daml-common-staging_daml-errors",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -883,6 +887,7 @@ scala_library(
     deps = [
         ":community_participant_admin-workflows-with-vacuuming_java",
         ":pekko-stream-minus-patched-classes",
+        "//canton:bindings-java",
         "//canton:community_base",
         "//canton:community_common",
         "//canton:community_ledger_ledger-api-core",
@@ -900,7 +905,6 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -967,6 +971,7 @@ scala_library(
     unused_dependency_checker_mode = "error",
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton:bindings-java",
         "//canton:community_base",
         "//canton:community_buildinfo",
         "//canton:community_common",
@@ -981,7 +986,6 @@ scala_library(
         "//canton:daml-common-staging_daml-errors",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
@@ -1064,6 +1068,7 @@ scala_library(
     ],
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton:bindings-java",
         "//canton:community_app-base",
         "//canton:community_base",
         "//canton:community_buildinfo",
@@ -1076,7 +1081,6 @@ scala_library(
         "//canton:community_util-logging",
         "//canton:daml-common-staging_daml-errors",
         "//daml-lf/data",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-pekko",
         "//libs-scala/jwt",
@@ -1113,4 +1117,150 @@ scala_binary(
     main_class = "com.digitalasset.canton.CantonCommunityApp",
     visibility = ["//visibility:public"],
     deps = [":community_app-lib"],
+)
+
+proto_gen(
+    name = "ledger-api-java",
+    srcs = ["//ledger-api/grpc-definitions:ledger_api_proto"],
+    plugin_name = "java",
+    visibility = [
+        "//visibility:public",
+    ],
+)
+
+# this is only needed for the uber-javadoc in //language-support/java:javadoc
+java_library(
+    name = "ledger-api-java-lib-for-javadocs",
+    srcs = [
+        ":ledger-api-java",
+        ":ledger-api-java-grpc",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:javax_annotation_javax_annotation_api",
+    ],
+)
+
+proto_gen(
+    name = "ledger-api-java-grpc",
+    srcs = ["//ledger-api/grpc-definitions:ledger_api_proto"],
+    plugin_exec = "@io_grpc_grpc_java//compiler:grpc_java_plugin",
+    plugin_name = "java-grpc",
+    visibility = [
+        "//visibility:public",
+    ],
+)
+
+da_java_library(
+    name = "bindings-java",
+    srcs = glob(["community/bindings-java/src/main/java/**/*.java"]) + [
+        ":ledger-api-java",
+        ":ledger-api-java-grpc",
+    ],
+    javacopts = da_java_bindings_javacopts,
+    tags = [
+        "javadoc_root_packages=com.daml.ledger.javaapi.data",
+        "maven_coordinates=com.daml:bindings-java:__VERSION__",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:javax_annotation_javax_annotation_api",
+        "@maven//:org_checkerframework_checker_qual",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+java_test_suite(
+    name = "bindings-java-java-tests",
+    srcs = glob(["community/bindings-java/src/test/java/**/*Test.java"]),
+    strip = "src/test/java/",
+    use_short_names = is_windows,
+    deps = [
+        ":bindings-java",
+        ":bindings-java-test-helpers",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_engine",
+        "@maven//:org_junit_platform_junit_platform_runner",
+    ],
+)
+
+java_library(
+    name = "bindings-java-test-helpers",
+    testonly = True,
+    srcs = glob(["community/bindings-java/src/test/java/**/TestHelpers.java"]),
+    deps = [":bindings-java"],
+)
+
+da_scala_library(
+    name = "bindings-java-tests-lib",
+    srcs = glob(
+        ["community/bindings-java/src/test/**/*.scala"],
+        exclude = [
+            "community/bindings-java/src/test/**/*Spec.scala",
+            "community/bindings-java/src/test/**/*Test.scala",
+        ],
+    ),
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+    ],
+    visibility = [
+        "//ledger-service/http-json:__subpackages__",
+    ],
+    deps = [
+        ":bindings-java",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_test_suite(
+    name = "bindings-java-tests",
+    srcs = glob([
+        "community/bindings-java/src/test/**/*Spec.scala",
+        "community/bindings-java/src/test/**/*Test.scala",
+    ]),
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+    ],
+    deps = [
+        ":bindings-java",
+        ":bindings-java-tests-lib",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+filegroup(
+    name = "bindings-java-sources",
+    srcs = glob(["community/bindings-java/src/main/java/**/*.java"]),
+    visibility = ["//visibility:public"],
 )
