@@ -292,7 +292,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
                     , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
                     , envDamlAssistantSdkVersion = Just $ DamlAssistantSdkVersion version
                     , envSdkVersion = Just version
-                    , envLatestStableSdkVersion = pure (Just version)
+                    , envFreshStableSdkVersionForCheck = pure (Just version)
                     , envSdkPath = Just $ SdkPath (base </> "sdk")
                     , envProjectPath = Just $ ProjectPath (base </> "proj")
                     }
@@ -309,7 +309,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
                     , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
                     , envDamlAssistantSdkVersion = Just $ DamlAssistantSdkVersion version
                     , envSdkVersion = Just version
-                    , envLatestStableSdkVersion = pure (Just version)
+                    , envFreshStableSdkVersionForCheck = pure (Just version)
                     , envSdkPath = Just $ SdkPath (base </> "sdk")
                     , envProjectPath = Just $ ProjectPath (base </> "proj")
                     }
@@ -327,7 +327,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
                     , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
                     , envDamlAssistantSdkVersion = Nothing
                     , envSdkVersion = Nothing
-                    , envLatestStableSdkVersion = pure Nothing
+                    , envFreshStableSdkVersionForCheck = pure Nothing
                     , envSdkPath = Nothing
                     , envProjectPath = Nothing
                     }

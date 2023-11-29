@@ -51,7 +51,7 @@ versionsKey = "versions.txt"
 
 data UseCache
   = UseCache
-      { forceReload :: Bool
+      { overrideTimeout :: Maybe CacheTimeout
       , cachePath :: CachePath
       , damlPath :: DamlPath
       }
@@ -63,21 +63,24 @@ cacheAvailableSdkVersions
     -> IO [SdkVersion]
     -> IO ([SdkVersion], CacheAge)
 cacheAvailableSdkVersions DontUseCache getVersions = (, Fresh) <$> getVersions
-cacheAvailableSdkVersions UseCache { forceReload, cachePath, damlPath } getVersions = do
+cacheAvailableSdkVersions UseCache { overrideTimeout, cachePath, damlPath } getVersions = do
     damlConfigE <- tryConfig $ readDamlConfig damlPath
     let configUpdateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
-        updateCheck | forceReload = UpdateCheckEvery (CacheTimeout 1)
-                    | Just updateCheck <- configUpdateCheckM = updateCheck
-                    | otherwise = UpdateCheckEvery (CacheTimeout 86400) -- One day, in seconds
-    case updateCheck of
-        UpdateCheckNever -> do
-            valueAgeM <- loadFromCacheWith cachePath versionsKey (CacheTimeout 0) deserializeVersions
-            pure $ fromMaybe ([], Stale) valueAgeM
-
-        UpdateCheckEvery timeout ->
-            cacheWith cachePath versionsKey timeout
-                serializeVersions deserializeVersions
-                getVersions
+        (neverRefresh, timeout)
+            -- A few different things can override the timeout behaviour in
+            -- daml-config.yaml, chiefly `daml install latest` and `daml version --force-reload yes`
+          | Just timeout <- overrideTimeout = (False, timeout)
+          | Just updateCheck <- configUpdateCheckM =
+              case updateCheck of
+                -- When UpdateCheckNever, still refresh the cache if it doesn't exist
+                UpdateCheckNever -> (True, CacheTimeout (1000 * 365 * 86400))
+                UpdateCheckEvery timeout -> (False, timeout)
+          | otherwise = (False, CacheTimeout 86400)
+    mVal <- cacheWith cachePath versionsKey timeout
+        serializeVersions deserializeVersions
+        getVersions
+        neverRefresh
+    pure (fromMaybe ([], Stale) mVal)
 
 serializeVersions :: Serialize [SdkVersion]
 serializeVersions =
@@ -97,22 +100,25 @@ cacheWith
     -> Serialize t
     -> Deserialize t
     -> IO t
-    -> IO (t, CacheAge)
-cacheWith cachePath key timeout serialize deserialize getFresh = do
+    -> Bool
+    -> IO (Maybe (t, CacheAge))
+cacheWith cachePath key timeout serialize deserialize getFresh neverRefresh = do
     valueAgeM <- loadFromCacheWith cachePath key timeout deserialize
-    case valueAgeM of
-        Just (value, Fresh) -> pure (value, Fresh)
-        Just (value, Stale) -> do
-            valueE <- tryAny getFresh
-            case valueE of
-                Left _ -> pure (value, Stale)
-                Right value' -> do
-                    saveToCacheWith cachePath key serialize value'
-                    pure (value', Fresh)
-        Nothing -> do
-            value <- getFresh
-            saveToCacheWith cachePath key serialize value
-            pure (value, Fresh)
+    if neverRefresh
+       then pure valueAgeM
+       else Just <$> case valueAgeM of
+                Just (value, Fresh) -> pure (value, Fresh)
+                Just (value, Stale) -> do
+                    valueE <- tryAny getFresh
+                    case valueE of
+                        Left _ -> pure (value, Stale)
+                        Right value' -> do
+                            saveToCacheWith cachePath key serialize value'
+                            pure (value', Fresh)
+                Nothing -> do
+                    value <- getFresh
+                    saveToCacheWith cachePath key serialize value
+                    pure (value, Fresh)
 
 -- | A representation of the age of a cache value. We only care if the value is stale or fresh.
 data CacheAge

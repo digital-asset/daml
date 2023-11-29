@@ -22,6 +22,7 @@ import qualified DA.Daml.Assistant.Install.Github as Github
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
 import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion, UseCache (..))
+import DA.Daml.Assistant.Cache (CacheTimeout (..))
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
 import Safe
@@ -418,8 +419,11 @@ versionInstall env@InstallEnv{..} version = withInstallLock env $ do
 latestInstall :: InstallEnv -> IO ()
 latestInstall env@InstallEnv{..} = do
     version1 <- getLatestReleaseVersion useCache
+        -- override the cache if it's older than 1 day, even if daml-config.yaml says otherwise
+        { overrideTimeout = Just (CacheTimeout 86400)
+        }
     version2M <- if iSnapshots options
-        then getLatestSdkSnapshotVersion useCache
+        then tryAssistantM $ getLatestSdkSnapshotVersion useCache
         else pure Nothing
     let version = maybe version1 (max version1) version2M
     versionInstall env version

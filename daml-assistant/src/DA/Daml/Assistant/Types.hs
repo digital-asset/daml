@@ -58,7 +58,7 @@ data EnvF f = Env
     , envProjectPath   :: Maybe ProjectPath
     , envSdkPath       :: Maybe SdkPath
     , envSdkVersion    :: Maybe SdkVersion
-    , envLatestStableSdkVersion :: f (Maybe SdkVersion)
+    , envFreshStableSdkVersionForCheck :: f (Maybe SdkVersion)
     }
 
 deriving instance Eq (f (Maybe SdkVersion)) => Eq (EnvF f)
@@ -68,7 +68,7 @@ type Env = EnvF IO
 
 forceEnv :: Monad m => EnvF m -> m (EnvF Identity)
 forceEnv Env{..} = do
-  envLatestStableSdkVersion <- fmap Identity envLatestStableSdkVersion
+  envFreshStableSdkVersionForCheck <- fmap Identity envFreshStableSdkVersionForCheck
   pure Env{..}
 
 data BuiltinCommand
