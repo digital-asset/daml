@@ -32,8 +32,10 @@ class Action m => CanAssert m where
 
 instance CanAssert Update where
     assertFail msg = throw (AssertionFailed msg)
+#ifdef DAML_SCENARIOS
 instance CanAssert Scenario where
     assertFail msg = throw (AssertionFailed msg)
+#endif
 instance CanAssert (Either Text) where
     assertFail = fail
 
@@ -41,8 +43,10 @@ instance CanAssert (Either Text) where
 
 instance CanAssert Update where
     assertFail = fail
+#ifdef DAML_SCENARIOS
 instance CanAssert Scenario where
     assertFail = fail
+#endif
 instance CanAssert (Either Text) where
     assertFail = fail
 

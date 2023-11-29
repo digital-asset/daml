@@ -1,5 +1,6 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE CPP #-}
 
 module Daml.Script.Questions.Submit
   ( module Daml.Script.Questions.Submit
@@ -50,9 +51,21 @@ submitMustFailInternal actAs readAs disc cmds =
 
 -- This will error if the submission fails.
 
+#ifdef DAML_SCENARIOS
+
 instance HasSubmit Script Commands where
   submit p cmds = submitInternal [p] [] [] cmds
   submitMustFail p cmds = submitMustFailInternal [p] [] [] cmds
+
+#else
+
+submit : HasCallStack => Party -> Commands a -> Script a
+submit p cmds = submitInternal [p] [] [] cmds
+
+submitMustFail : HasCallStack => Party -> Commands a -> Script ()
+submitMustFail p cmds = submitMustFailInternal [p] [] [] cmds
+
+#endif
 
 -- | `submitWithDisclosures p disc cmds` submits the commands `cmds` as a single transaction
 -- from party `p` with the explicit disclosures `disc` and returns the value returned by `cmds`.
