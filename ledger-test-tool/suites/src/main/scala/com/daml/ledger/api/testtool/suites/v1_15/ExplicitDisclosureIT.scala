@@ -10,10 +10,9 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEvents
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.javaapi.data.{CreateCommand, Party, Command => CommandJava}
+import com.daml.ledger.javaapi.data.{CreateCommand, DamlRecord, ExerciseByKeyCommand, Party}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.commands.Command.toJavaProto
-import com.daml.ledger.api.v1.commands.{Command, DisclosedContract, ExerciseByKeyCommand}
+import com.daml.ledger.api.v1.commands.DisclosedContract
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
@@ -21,7 +20,7 @@ import com.daml.ledger.api.v1.transaction_filter.{
   TemplateFilter,
   TransactionFilter,
 }
-import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.test.java.model.test._
 import com.daml.ledger.javaapi
 import com.daml.lf.transaction.TransactionCoder
@@ -616,28 +615,13 @@ object ExplicitDisclosureIT {
       .submitAndWaitRequest(
         party,
         JList.of(
-          CommandJava.fromProtoCommand(
-            toJavaProto(
-              Command.of(
-                Command.Command.ExerciseByKey(
-                  ExerciseByKeyCommand(
-                    Some(Identifier.fromJavaProto(WithKey.TEMPLATE_ID.toProto)),
-                    Option(Value(Value.Sum.Party(owner.getValue))),
-                    "WithKey_NoOp",
-                    Option(
-                      Value(
-                        Value.Sum.Record(
-                          Record(
-                            None,
-                            List(RecordField("", Some(Value(Value.Sum.Party(party.getValue))))),
-                          )
-                        )
-                      )
-                    ),
-                  )
-                )
-              )
-            )
+          new ExerciseByKeyCommand(
+            WithKey.TEMPLATE_ID,
+            owner,
+            "WithKey_NoOp",
+            new DamlRecord(
+              new DamlRecord.Field(party)
+            ),
           )
         ),
       )

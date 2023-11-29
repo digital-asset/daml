@@ -193,7 +193,7 @@ final class ContractIdIT extends LedgerTestSuite {
             .exerciseByKey(
               party,
               ContractRef.TEMPLATE_ID,
-              new Party(party),
+              party,
               "Change",
               new DamlRecord(
                 new DamlRecord.Field(new ContractId(example))
