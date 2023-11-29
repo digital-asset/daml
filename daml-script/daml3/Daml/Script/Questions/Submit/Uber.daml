@@ -1,0 +1,142 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module Daml.Script.Questions.Submit.Uber
+  ( module Daml.Script.Questions.Submit.Uber
+  ) where
+
+import Prelude hiding (HasSubmit)
+import Daml.Script.Internal
+import Daml.Script.Questions.Commands
+import Daml.Script.Questions.Submit.Error
+import Daml.Script.Questions.Submit.Internal (actAsNonEmpty)
+import Daml.Script.Questions.TransactionTree
+import DA.Bifunctor (second)
+import DA.NonEmpty
+import DA.Stack
+
+data SubmitQ = SubmitQ with
+  actAs : NonEmpty Party
+  readAs : [Party]
+  disclosures : [Disclosure]
+  commands : [Command]
+  errorHandling : ErrorHandling
+
+instance IsQuestion SubmitQ (Either SubmitError (TransactionTree, [CommandResult])) where command = "SubmitQ"
+
+data SubmitOptions e g = SubmitOptions with
+  actAs : [Party]
+  readAs : [Party]
+  disclosures : [Disclosure]
+
+instance Semigroup (SubmitOptions e g) where
+  o1 <> o2 = SubmitOptions with
+    actAs = o1.actAs <> o2.actAs
+    readAs = o1.readAs <> o2.readAs
+    disclosures = o1.disclosures <> o2.disclosures
+
+mustSucceed : SubmitOptions MUST_SUCCEED g
+mustSucceed = SubmitOptions [] [] []
+
+mustFail : SubmitOptions MUST_FAIL g
+mustFail = SubmitOptions [] [] []
+
+mustTry : SubmitOptions MUST_TRY g
+mustTry = SubmitOptions [] [] []
+
+getResult : SubmitOptions e GET_RESULT
+getResult = SubmitOptions [] [] []
+
+getTree : SubmitOptions e GET_TREE
+getTree = SubmitOptions [] [] []
+
+getBoth : SubmitOptions e GET_BOTH
+getBoth = SubmitOptions [] [] []
+
+-- the leading underscores are needed to avoid clashing with the fields from
+-- SubmitQ and SubmitOptions; they won't be necessary when properly modularized.
+actAs_ : IsParties p => p -> SubmitOptions e g
+actAs_ p = SubmitOptions (toParties p) [] []
+
+readAs_ : IsParties p => p -> SubmitOptions e g
+readAs_ p = SubmitOptions [] (toParties p) []
+
+disclosing : [Disclosure] -> SubmitOptions e g
+disclosing ds = SubmitOptions [] [] ds
+
+class IsSubmitOptions t e g | t -> e g where
+  asSubmitOptions : t -> SubmitOptions e g
+
+instance IsSubmitOptions Party MUST_SUCCEED GET_RESULT where
+  asSubmitOptions p = SubmitOptions with
+    actAs = [p]
+    readAs = []
+    disclosures = []
+
+instance IsSubmitOptions (SubmitOptions e g) e g where
+  asSubmitOptions = identity
+
+data ErrorHandling
+  = MustSucceed
+  | MustFail
+  | MustTry
+
+submit : forall e g a r o. (HasCallStack, HasSubmit e g a r, IsSubmitOptions o e g) => o -> Commands a -> Script r
+submit opts cmds =
+  fmap (submitCont @e @g @a . second (second cmds.continue)) $ lift $ SubmitQ with
+    actAs = actAsNonEmpty actAs
+    readAs = readAs
+    disclosures = disclosures
+    commands = cmds.commands
+    errorHandling = fromType @e
+  where
+    SubmitOptions { actAs, readAs, disclosures } = asSubmitOptions @o @e @g opts
+
+data MUST_SUCCEED
+data MUST_FAIL
+data MUST_TRY
+
+data GET_RESULT
+data GET_TREE
+data GET_BOTH
+
+class FromType k t where
+  fromType : t
+
+instance FromType MUST_SUCCEED ErrorHandling where fromType = MustSucceed
+instance FromType MUST_FAIL ErrorHandling where fromType = MustFail
+instance FromType MUST_TRY ErrorHandling where fromType = MustTry
+
+class FromType e ErrorHandling => HasSubmit e g a r | e g a -> r where
+  submitCont : Either SubmitError (TransactionTree, a) -> r
+
+instance HasSubmit MUST_SUCCEED GET_RESULT a a where
+  submitCont = \case
+    Left e -> error $ "submit MustSucceed but got: " <> show e
+    Right (_, r) -> r
+
+instance HasSubmit MUST_SUCCEED GET_TREE a TransactionTree where
+  submitCont = \case
+    Left e -> error $ "submit MustSucceed but got: " <> show e
+    Right (t, _) -> t
+
+instance HasSubmit MUST_SUCCEED GET_BOTH a (TransactionTree, a) where
+  submitCont = \case
+    Left e -> error $ "submit MustSucceed but got: " <> show e
+    Right r -> r
+
+instance HasSubmit MUST_FAIL g a () where
+  submitCont = \case
+    Left e -> ()
+    Right _ -> error $ "submit MustFail but got: Right"
+
+instance HasSubmit MUST_TRY GET_RESULT a (Either SubmitError a) where
+  submitCont = second snd
+
+instance HasSubmit MUST_TRY GET_TREE a (Either SubmitError TransactionTree) where
+  submitCont = second fst
+
+instance HasSubmit MUST_TRY GET_BOTH a (Either SubmitError (TransactionTree, a)) where
+  submitCont = identity
