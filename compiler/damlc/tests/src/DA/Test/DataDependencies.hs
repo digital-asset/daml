@@ -47,7 +47,7 @@ main = do
         let exceptionsVersion = minExceptionVersion LF.V2
         let simpleDalfLfVersion = LF.defaultOrLatestStable LF.V2
         scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script-2.dev.dar")
-        oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-df15bd6c5-2.1.dar")
+        oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "old-proj-2.1.dar")
         let lfVersionTestPairs = lfVersionTestPairsV2
         return TestArgs{..}
     let testTrees = map tests [v1TestArgs, v2TestArgs]
