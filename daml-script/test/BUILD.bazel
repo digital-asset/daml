@@ -12,7 +12,13 @@ load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile")
-load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_latest", "mangle_for_damlc")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "LF_DEV_VERSIONS",
+    "LF_MAJOR_VERSIONS",
+    "lf_version_default_or_latest",
+    "mangle_for_damlc",
+)
 
 [
     genrule(
@@ -66,7 +72,7 @@ EOF
         visibility = ["//visibility:public"],
     )
     for major in LF_MAJOR_VERSIONS
-    for target in [lf_version_latest.get(major)]
+    for target in [lf_version_default_or_latest(major)]
 ]
 
 [

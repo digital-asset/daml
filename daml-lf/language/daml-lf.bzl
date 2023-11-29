@@ -52,43 +52,37 @@ def version_in(
     else:
         return False
 
-# The following dictionary alias LF versions to keywords:
-# - "legacy" is the keyword for last LF version that supports legacy
-#    contract ID scheme,
+# The lastest stable version for each major LF version.
+lf_version_latest = {
+    "1": "1.15",
+    "2": "2.1",
+}
+
+# The following dictionary aliases LF versions to keywords:
 # - "default" is the keyword for the default compiler output,
 # - "latest" is the keyword for the latest stable LF version,
 # - "preview" is the keyword fort he next LF version, *not stable*,
 #    usable for beta testing,
-# The following dictionary is always defined for "legacy", "stable",
-# and "latest". It contains "preview" iff a preview version is
-# available.  If it exists, "preview"'s value is guaranteed to be different
-# from all other values. If we make a new LF release, we bump latest
-# and once we make it the compiler default we bump stable.
-
+# The following dictionary is always defined for "default" and "latest". It
+# contains "preview" iff a preview version is available. If it exists,
+# "preview"'s value is guaranteed to be different from all other values. If we
+# make a new LF release, we bump latest and once we make it the compiler default
+# we bump default.
 lf_version_configuration = {
-    "legacy": "1.8",
     "default": "1.15",
-    "latest": "1.15",
-    #    "preview": "",
-
-    # "dev" is now ambiguous, use either 1.dev or 2.dev explicitly
+    "latest": lf_version_latest.get("1"),
+    # "preview": "",
+    # "dev" is ambiguous, use either 1.dev or 2.dev explicitly
 }
 
-# TODO(#17366): rework lf_version_configuration to be indexed by major version
-#  and delete this dictionary
-lf_version_default = {
-    "1": lf_version_configuration.get("default"),
-    "2": "2.dev",
-}
-
-# TODO(#17366): rework lf_version_configuration to be indexed by major version
-#  and delete this dictionary
-lf_version_latest = {
-    "1": lf_version_configuration.get("latest"),
-    "2": "2.1",
-}
-
-lf_version_configuration_versions = depset(lf_version_configuration.values()).to_list()
+# The Daml-LF version used by default by the compiler if it matches the
+# provided major version, the latest non-dev version with that major version
+# otherwise. Can be used as a future-proof approximation of "default" version
+# across major versions.
+def lf_version_default_or_latest(major):
+    default_version = lf_version_configuration.get("default")
+    (default_major, _) = _to_major_minor_str(default_version)
+    return default_version if default_major == major else lf_version_latest.get(major)
 
 # aggregates a list of version keywords and versions:
 # 1. converts keyword in version

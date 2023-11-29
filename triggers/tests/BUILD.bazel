@@ -3,17 +3,14 @@
 
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
-    "lf_scalacopts_stricter",
 )
 load("@build_environment//:configuration.bzl", "sdk_version")
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "LF_DEV_VERSIONS",
     "LF_MAJOR_VERSIONS",
-    "lf_version_latest",
+    "lf_version_default_or_latest",
 )
 
 da_scala_library(
@@ -59,8 +56,8 @@ da_scala_library(
         name = "acs-%s" % major,
         srcs =
             glob(["**/*.daml"]) + [
-                "//triggers/daml:daml-trigger-%s.dar" % lf_version_latest.get(major),
-                "//daml-script/daml:daml-script-%s.dar" % lf_version_latest.get(major),
+                "//triggers/daml:daml-trigger-%s.dar" % lf_version_default_or_latest(major),
+                "//daml-script/daml:daml-script-%s.dar" % lf_version_default_or_latest(major),
             ] + [
                 "//templates:copy-trigger/src/CopyTrigger.daml",
             ],
@@ -105,7 +102,7 @@ EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location acs-{major}.dar)
       rm -rf $$TMP_DIR
     """.format(
-            lf_version = lf_version_latest.get(major),
+            lf_version = lf_version_default_or_latest(major),
             major = major,
             sdk = sdk_version,
         ),

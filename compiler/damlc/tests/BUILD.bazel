@@ -4,9 +4,9 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(":util.bzl", "damlc_compile_test")
-load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_compile_with_dalf", "daml_test")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_configuration", "lf_version_latest", "mangle_for_damlc")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_default_or_latest", "mangle_for_damlc")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # Tests for the lax CLI parser + damlc CLI parser
@@ -693,7 +693,7 @@ EOF
         ),
     ]
     for major in LF_MAJOR_VERSIONS
-    for lf_version in [lf_version_latest.get(major)]
+    for lf_version in [lf_version_default_or_latest(major)]
 ]
 
 da_haskell_test(

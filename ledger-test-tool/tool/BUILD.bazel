@@ -4,15 +4,11 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
-    "da_scala_library",
-    "da_scala_library_suite",
-    "da_scala_test_suite",
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
     "LF_DEV_VERSIONS",
     "lf_version_configuration",
-    "lf_version_configuration_versions",
 )
 load("//ledger-test-tool:conformance.bzl", "conformance_test", "testtool_lf_versions")
 load("@os_info//:os_info.bzl", "is_windows")

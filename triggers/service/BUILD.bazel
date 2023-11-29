@@ -3,21 +3,26 @@
 
 load("@oracle//:index.bzl", "oracle_tags")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_configuration", "lf_version_default", "lf_versions_aggregate")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "LF_DEV_VERSIONS",
+    "LF_MAJOR_VERSIONS",
+    "lf_version_default_or_latest",
+    "lf_versions_aggregate",
+)
 load("@os_info//:os_info.bzl", "is_windows")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
-    "da_scala_test",
     "da_scala_test_suite",
     "lf_scalacopts_stricter",
 )
 
-triggerMain = "src/main/scala/com/digitalasset/daml/lf/engine/trigger/ServiceMain.scala"
+TRIGGER_MAIN = "src/main/scala/com/digitalasset/daml/lf/engine/trigger/ServiceMain.scala"
 
 target_lf_versions = lf_versions_aggregate(
-    [lf_version_default.get(major) for major in LF_MAJOR_VERSIONS] +
+    [lf_version_default_or_latest(major) for major in LF_MAJOR_VERSIONS] +
     LF_DEV_VERSIONS,
 )
 
@@ -25,7 +30,7 @@ da_scala_library(
     name = "trigger-service",
     srcs = glob(
         ["src/main/scala/**/*.scala"],
-        exclude = [triggerMain],
+        exclude = [TRIGGER_MAIN],
     ),
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
@@ -135,7 +140,7 @@ trigger_service_runtime_deps = {
 [
     da_scala_binary(
         name = "trigger-service-binary-{}".format(edition),
-        srcs = [triggerMain],
+        srcs = [TRIGGER_MAIN],
         main_class = "com.daml.lf.engine.trigger.ServiceMain",
         resource_strip_prefix = "triggers/service/release/trigger-service-",
         resources = ["release/trigger-service-logback.xml"],
@@ -383,9 +388,9 @@ EOF
 [
     genrule(
         name = "test-model-{}".format(major),
-        srcs = [":test-model-{}".format(lf_version_default.get(major))],
+        srcs = [":test-model-{}".format(lf_version_default_or_latest(major))],
         outs = ["test-model-v{}.dar".format(major)],
-        cmd = "cp -L $(location :test-model-{}) $$PWD/$@".format(lf_version_default.get(major)),
+        cmd = "cp -L $(location :test-model-{}) $$PWD/$@".format(lf_version_default_or_latest(major)),
         visibility = ["//visibility:public"],
     )
     for major in LF_MAJOR_VERSIONS
