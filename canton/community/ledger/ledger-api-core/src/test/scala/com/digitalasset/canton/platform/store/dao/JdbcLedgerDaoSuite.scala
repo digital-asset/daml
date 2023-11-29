@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.lf.archive.DarParser
+import com.daml.lf.archive.{Dar, DarParser, Decode}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.Time.Timestamp
@@ -54,16 +54,18 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     def toLong: Long = BigInt(offset.toByteArray).toLong
   }
 
-  private[this] val dar =
+  private[this] val dar: Dar[DamlLf.Archive] =
     TestModels.com_daml_ledger_test_ModelTestDar_1_15_path
       .pipe(TestResourceUtils.resourceFileFromJar)
       .pipe(DarParser.assertReadArchiveFromFile(_))
 
   private val now = Timestamp.now()
 
-  protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] =
+  protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] = {
     dar.all.map(dar => dar -> v2.PackageDetails(dar.getSerializedSize.toLong, now, None))
+  }
   private val testPackageId: Ref.PackageId = Ref.PackageId.assertFromString(dar.main.getHash)
+  protected val testLanguageVersion = Decode.assertDecodeArchive(dar.main)._2.languageVersion
 
   protected final val alice = Party.assertFromString("Alice")
   protected final val bob = Party.assertFromString("Bob")
@@ -344,7 +346,12 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       maintainers: Set[Party]
   ): GlobalKeyWithMaintainers = {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
-    GlobalKeyWithMaintainers.assertBuild(someTemplateId, aTextValue, maintainers)
+    GlobalKeyWithMaintainers.assertBuild(
+      someTemplateId,
+      aTextValue,
+      maintainers,
+      Util.sharedKey(testLanguageVersion),
+    )
   }
 
   protected final def createAndStoreContract(
@@ -735,7 +742,12 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         stakeholders = Set(party),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(someTemplateId, someContractKey(party, key), Set(party))
+            .assertBuild(
+              someTemplateId,
+              someContractKey(party, key),
+              Set(party),
+              Util.sharedKey(testLanguageVersion),
+            )
         ),
         version = txVersion,
       )
@@ -779,7 +791,12 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         exerciseResult = Some(LfValue.ValueUnit),
         keyOpt = maybeKey.map(k =>
           GlobalKeyWithMaintainers
-            .assertBuild(someTemplateId, someContractKey(party, k), Set(party))
+            .assertBuild(
+              someTemplateId,
+              someContractKey(party, k),
+              Set(party),
+              Util.sharedKey(testLanguageVersion),
+            )
         ),
         byKey = false,
         version = txVersion,
@@ -810,7 +827,12 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       Node.LookupByKey(
         someTemplateId,
         GlobalKeyWithMaintainers
-          .assertBuild(someTemplateId, someContractKey(party, key), Set(party)),
+          .assertBuild(
+            someTemplateId,
+            someContractKey(party, key),
+            Set(party),
+            Util.sharedKey(testLanguageVersion),
+          ),
         result,
         version = txVersion,
       )

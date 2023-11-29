@@ -1,0 +1,189 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+import "com/daml/ledger/api/v1/event.proto";
+import "com/daml/ledger/api/v2/participant_offset.proto";
+import "com/daml/ledger/api/v2/reassignment.proto";
+import "com/daml/ledger/api/v2/transaction_filter.proto";
+
+option java_outer_classname = "StateServiceOuterClass";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+
+// Allows clients to get state from the ledger.
+service StateService {
+
+  // Returns a stream of the snapshot of the active contracts and incomplete reassignments at a ledger offset.
+  // If there are no active contracts, the stream returns a single response message with the offset at which the snapshot has been taken.
+  // Clients SHOULD use the offset in the last GetActiveContractsResponse message to continue streaming transactions with the update service.
+  // Clients SHOULD NOT assume that the set of active contracts they receive reflects the state at the ledger end.
+  rpc GetActiveContracts (GetActiveContractsRequest) returns (stream GetActiveContractsResponse);
+
+  // Get the list of connected domains at the time of the query.
+  rpc GetConnectedDomains (GetConnectedDomainsRequest) returns (GetConnectedDomainsResponse);
+
+  // Get the current ledger end.
+  // Subscriptions started with the returned offset will serve events after this RPC was called.
+  rpc GetLedgerEnd (GetLedgerEndRequest) returns (GetLedgerEndResponse);
+
+  // Get the latest successfully pruned ledger offsets
+  rpc GetLatestPrunedOffsets (GetLatestPrunedOffsetsRequest) returns (GetLatestPrunedOffsetsResponse);
+}
+
+message GetActiveContractsRequest {
+
+  // Templates to include in the served snapshot, per party.
+  // Required
+  TransactionFilter filter = 1;
+
+  // If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
+  // In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
+  // Optional
+  bool verbose = 2;
+
+  // The offset at which the snapshot of the active contracts will be computed.
+  // Must be no greater than the current ledger end offset.
+  // Must be greater than or equal to the last pruning offset.
+  // If not set the current ledger end offset will be used.
+  // Optional
+  string active_at_offset = 3;
+}
+
+message GetActiveContractsResponse {
+
+  // Included only in the last message.
+  // The client should start consuming the transactions endpoint with this offset.
+  // The format of this field is described in ``participant_offset.proto``.
+  string offset = 1;
+
+  // The workflow ID used in command submission which corresponds to the contract_entry. Only set if
+  // the ``workflow_id`` for the command was set.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string workflow_id = 2;
+
+  // For a contract there could be multiple contract_entry-s in the entire snapshot. These together define
+  // the state of one contract in the snapshot.
+  // A contract_entry is included in the result, if and only if there is at least one stakeholder party of the contract
+  // that is hosted on the synchronizing domain at the time of the event and the party satisfies the
+  // ``TransactionFilter`` in the query.
+  oneof contract_entry {
+    // The contract is active on the given domain, meaning: there was an activation event on the given domain (
+    // created, assigned), which is not followed by a deactivation event (archived, unassigned) on the same
+    // domain, until the active_at_offset.
+    // Since activeness is defined as a per domain concept, it is possible, that a contract is active on one
+    // domain, but already archived on another.
+    // There will be one such message for each domain the contract is active on.
+    ActiveContract active_contract = 3;
+
+    // Included iff the unassigned event was before or at the active_at_offset, but there was no corresponding
+    // assigned event before or at the active_at_offset.
+    IncompleteUnassigned incomplete_unassigned = 4;
+
+    // Important: this message is not indicating that the contract is active on the target domain!
+    // Included iff the assigned event was before or at the active_at_offset, but there was no corresponding
+    // unassigned event before or at the active_at_offset.
+    IncompleteAssigned incomplete_assigned = 5;
+  }
+}
+
+message ActiveContract {
+
+  // Required
+  com.daml.ledger.api.v1.CreatedEvent created_event = 1;
+
+  // A valid domain ID
+  // Required
+  string domain_id = 2;
+
+  // Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases
+  // with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
+  // equals zero.
+  // This field will be the reassignment_counter of the latest observable activation event on this domain, which is
+  // before the active_at_offset.
+  // Required
+  uint64 reassignment_counter = 3;
+}
+
+message IncompleteUnassigned {
+
+  // Required
+  com.daml.ledger.api.v1.CreatedEvent created_event = 1;
+
+  // Required
+  UnassignedEvent unassigned_event = 2;
+}
+
+message IncompleteAssigned {
+
+  // Required
+  AssignedEvent assigned_event = 1;
+}
+
+
+message GetConnectedDomainsRequest {
+
+  // The party of interest
+  // Must be a valid PartyIdString (as described in ``value.proto``).
+  // Required
+  string party = 1;
+}
+
+message GetConnectedDomainsResponse {
+
+  message ConnectedDomain {
+    // The alias of the domain
+    // Required
+    string domain_alias = 1;
+
+    // The ID of the domain
+    // Required
+    string domain_id = 2;
+
+    // The permission on the domain
+    // Required
+    ParticipantPermission permission = 3;
+  }
+  repeated ConnectedDomain connected_domains = 1;
+}
+
+// Enum indicating the permission level that the participant has for the party
+// whose connected domains are being listed.
+enum ParticipantPermission {
+
+  Submission = 0;
+
+  // participant can only confirm transactions
+  Confirmation = 1;
+
+  // participant can only observe transactions
+  Observation = 2;
+}
+
+message GetLedgerEndRequest {
+}
+
+message GetLedgerEndResponse {
+
+  // The absolute offset of the current ledger end.
+  ParticipantOffset offset = 1;
+}
+
+message GetLatestPrunedOffsetsRequest {
+  // Empty for now, but may contain fields in the future.
+}
+
+message GetLatestPrunedOffsetsResponse {
+  // The offset up to which the ledger has been pruned, disregarding the state of all divulged contracts pruning.
+  ParticipantOffset participant_pruned_up_to_inclusive = 1;
+
+  // The offset up to which all divulged events have been pruned on the ledger. It can be at or before the
+  // ``participant_pruned_up_to_inclusive`` offset.
+  // For more details about all divulged events pruning,
+  // see ``PruneRequest.prune_all_divulged_contracts`` in ``participant_pruning_service.proto``.
+  ParticipantOffset all_divulged_contracts_pruned_up_to_inclusive = 2;
+}

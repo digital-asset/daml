@@ -6,13 +6,11 @@ package com.digitalasset.canton.platform.store.dao.events
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.event_query_service.GetEventsByContractKeyResponse
 import com.daml.ledger.api.v2.event_query_service.{Archived, Created, GetEventsByContractIdResponse}
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.value.Value
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
-import com.digitalasset.canton.platform
 import com.digitalasset.canton.platform.store.backend.{EventStorageBackend, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
@@ -86,13 +84,11 @@ private[dao] sealed class EventsReader(
   private def stakeholders(e: CreatedEvent): Set[String] = e.signatories.toSet ++ e.observers
 
   override def getEventsByContractKey(
-      contractKey: Value,
-      templateId: Ref.Identifier,
+      globalKey: GlobalKey,
       requestingParties: Set[Party],
       endExclusiveSeqId: Option[EventSequentialId],
       maxIterations: Int,
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] = {
-    val keyHash: String = platform.Key.assertBuild(templateId, contractKey).hash.bytes.toHexString
 
     val eventProjectionProperties = EventProjectionProperties(
       // Used by LfEngineToApi
@@ -110,7 +106,7 @@ private[dao] sealed class EventsReader(
       ) <- dbDispatcher
         .executeSql(dbMetrics.getEventsByContractKey) { conn =>
           eventStorageBackend.eventReaderQueries.fetchNextKeyEvents(
-            keyHash,
+            globalKey.hash.toHexString,
             requestingParties,
             endExclusiveSeqId.getOrElse(ledgerEndCache()._2 + 1),
             maxIterations,

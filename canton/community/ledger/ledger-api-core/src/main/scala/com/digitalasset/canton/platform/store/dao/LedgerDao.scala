@@ -16,7 +16,7 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, GlobalKey}
 import com.digitalasset.canton.ledger.api.domain.{LedgerId, ParticipantId}
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.configuration.Configuration
@@ -97,8 +97,7 @@ private[platform] trait LedgerDaoEventsReader {
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractIdResponse]
 
   def getEventsByContractKey(
-      contractKey: com.daml.lf.value.Value,
-      templateId: Ref.Identifier,
+      contractKey: GlobalKey,
       requestingParties: Set[Party],
       endExclusiveSeqId: Option[Long],
       maxIterations: Int,
