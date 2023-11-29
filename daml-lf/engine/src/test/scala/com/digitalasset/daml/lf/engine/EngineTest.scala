@@ -737,7 +737,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
+        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey, basicUseSharedKeys)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -747,7 +747,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
+        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey, basicUseSharedKeys)),
       )
       val fetchByKeyCommand = speedy.Command.FetchByKey(
         templateId = templateId,
@@ -1591,7 +1591,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
+        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey, basicUseSharedKeys)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -1601,7 +1601,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
+        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey, basicUseSharedKeys)),
       )
       val lookupByKeyCommand = speedy.Command.LookupByKey(
         templateId = templateId,

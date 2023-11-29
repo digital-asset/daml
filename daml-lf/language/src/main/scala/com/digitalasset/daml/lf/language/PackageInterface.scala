@@ -8,6 +8,8 @@ import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 
+import scala.math.Ordered.orderingToOrdered
+
 private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, PackageSignature]) {
 
   import PackageInterface._
@@ -367,10 +369,7 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
     signatures andThen (_.languageVersion)
 
   def hasSharedKeys(packageId: PackageId): Boolean = {
-    // TODO https://github.com/digital-asset/daml/issues/17732
-    //   Enable shared keys once there is LAPI support via
-    //   packageLanguageVersion(packageId) >= LanguageVersion.Features.sharedKeys
-    false
+    packageLanguageVersion(packageId) >= LanguageVersion.Features.sharedKeys
   }
 
 }

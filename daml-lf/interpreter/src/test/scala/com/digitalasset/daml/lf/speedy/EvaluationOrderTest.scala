@@ -335,7 +335,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
     ),
   )
 
-  private val testTxVersion: TransactionVersion = TransactionVersion.StableVersions.max
+  private val testTxVersion: TransactionVersion =
+    TransactionVersion.assignNodeVersion(languageVersion)
 
   private[this] def buildContract(observer: Party): Versioned[Value.ContractInstance] =
     Versioned(
@@ -416,7 +417,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
       T,
       keyValue,
       Set(alice),
-      Util.sharedKey(testTxVersion),
+      Util.sharedKey(languageVersion),
     ) -> cId
   )
 

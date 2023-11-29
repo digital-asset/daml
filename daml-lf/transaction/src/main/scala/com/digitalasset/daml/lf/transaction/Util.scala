@@ -6,6 +6,8 @@ package transaction
 
 import com.daml.lf.language.LanguageVersion
 
+import scala.math.Ordered.orderingToOrdered
+
 object Util {
 
   import value.Value
@@ -93,17 +95,11 @@ object Util {
     }
 
   def sharedKey(version: TransactionVersion): Boolean = {
-    // TODO https://github.com/digital-asset/daml/issues/17732
-    //   Enable shared keys once there is LAPI support via
-    //   version >= TransactionVersion.minSharedKeys
-    false
+    version >= TransactionVersion.minSharedKeys
   }
 
   def sharedKey(version: LanguageVersion): Boolean = {
-    // TODO https://github.com/digital-asset/daml/issues/17732
-    //   Enable shared keys once there is LAPI support via
-    //   version >= LanguageVersion.Features.sharedKeys
-    false
+    version >= LanguageVersion.Features.sharedKeys
   }
 
 }
