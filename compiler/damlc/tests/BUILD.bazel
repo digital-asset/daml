@@ -520,7 +520,7 @@ da_haskell_test(
         "//daml-script/daml3:daml3-script-2.dev.dar",
         # Feel free to update this to 0.13.55 once that is frozen.
         ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
-        ":dars/old-proj-751423d5a-2.1.dar",
+        ":dars/old-proj-df15bd6c5-2.1.dar",
     ],
     hackage_deps = [
         "base",
